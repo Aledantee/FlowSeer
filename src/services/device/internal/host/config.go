@@ -171,3 +171,15 @@ func (c *Config) Intervals() Intervals {
 		CaptureSweep:      i.GetCaptureSweep().AsDuration(),
 	}
 }
+
+// PlatformAdmin returns the configured platform administrator identity, or nil
+// if none is set.
+func (c *Config) PlatformAdmin() *storev1.PlatformAdmin {
+	return c.msg.GetPlatformAdmin()
+}
+
+// DevTenant returns the optional development or test tenant ID, or empty string
+// if none was configured.
+func (c *Config) DevTenant() string {
+	return c.msg.GetDevTenant()
+}

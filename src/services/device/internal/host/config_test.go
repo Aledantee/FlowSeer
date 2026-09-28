@@ -230,3 +230,48 @@ func TestAListenerWithoutAPortIsRefused(t *testing.T) {
 		})
 	}
 }
+
+func TestPlatformAdminAndDevTenant(t *testing.T) {
+	withAdmin := validConfig + `
+platform_admin {
+  issuer: "https://auth.example.test"
+  organization: "org_alpha"
+  subject: "admin@example.test"
+}
+dev_tenant: "0192e6a0-0000-7000-8000-000000000001"
+`
+	cfg, err := host.LoadConfig(writeConfig(t, withAdmin))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	admin := cfg.PlatformAdmin()
+	if admin == nil {
+		t.Fatal("PlatformAdmin() returned nil")
+	}
+	if admin.GetIssuer() != "https://auth.example.test" {
+		t.Errorf("issuer = %q, want https://auth.example.test", admin.GetIssuer())
+	}
+	if admin.GetOrganization() != "org_alpha" {
+		t.Errorf("organization = %q, want org_alpha", admin.GetOrganization())
+	}
+	if admin.GetSubject() != "admin@example.test" {
+		t.Errorf("subject = %q, want admin@example.test", admin.GetSubject())
+	}
+
+	if got := cfg.DevTenant(); got != "0192e6a0-0000-7000-8000-000000000001" {
+		t.Errorf("DevTenant = %q, want 0192e6a0-0000-7000-8000-000000000001", got)
+	}
+
+	// Missing issuer in platform_admin fails validation
+	badAdmin := validConfig + `
+platform_admin {
+  organization: "org_alpha"
+  subject: "admin@example.test"
+}
+`
+	_, err = host.LoadConfig(writeConfig(t, badAdmin))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("expected ErrCodeConfigInvalid for platform_admin missing issuer, got %v", err)
+	}
+}

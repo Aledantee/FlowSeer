@@ -16,7 +16,7 @@ calls on its own behalf; an operator never calls it.
 
 ## Boundaries
 
-Imports: model/access, model/capture, model/edge, model/inventory, net/capture, net/key
+Imports: model/access, model/capture, model/edge, model/identity, model/inventory, net/capture, net/key
 
 Imported by: nothing
 
@@ -29,3 +29,4 @@ so no schema in the tree may import one.
 - `capture/v1/`: Operator-facing `CaptureService` to create, control, and read back a capture.
 - `device/v1/`: Operator-facing `DeviceService` for immediate device observation and mutation.
 - `edge/v1/`: Operator-facing `EdgeAdminService` to create, provision, and retire edges.
+- `identity/v1/`: Operator-facing `TenantService` to create, retrieve, and list tenants.

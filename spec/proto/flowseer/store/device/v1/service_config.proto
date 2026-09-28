@@ -62,6 +62,38 @@ message DeviceServiceConfig {
   // argument that an operator can turn it on when they need it, which is
   // only true if there is something to turn.
   LogLevel log_level = 8;
+  // Identity of the platform administrator permitted to manage tenants.
+  PlatformAdmin platform_admin = 9;
+  // Tenant injected into unauthenticated requests during development and testing.
+  // Unset means no ambient tenant is injected.
+  string dev_tenant = 10 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+}
+
+// The platform administrator identity named in deployment configuration.
+// Operators matching this identity are authorized to manage tenants.
+message PlatformAdmin {
+  // The identity provider's issuer URL. Must be present.
+  string issuer = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.uri = true,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // The organization identifier or claim value. Must be present.
+  string organization = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 256
+  ];
+  // The subject identifier for the platform administrator. Must be present.
+  string subject = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 256
+  ];
 }
 
 // The local log level, matching slog's own levels. This governs what the
