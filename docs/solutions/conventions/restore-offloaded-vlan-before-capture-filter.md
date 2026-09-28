@@ -29,8 +29,8 @@ On 2026-09-27, Kali captured ICX7150 SPAN traffic through `eth0`, whose
 frames with an 802.1Q VLAN 1000 tag. FlowSeer's original `AF_PACKET` source
 recorded the same frames as 98 bytes without that tag. Its kernel-attached
 VLAN 1000 filter accepted no frames during a four-ping probe, although
-tcpdump saw them
-(`docs/plans/2026-09-18-1423-feat-remote-packet-capture-phase3d-plan.md:133-156`).
+tcpdump saw them (observed 2026-09-27 during ICX7150 SPAN validation in
+`src/modules/capture/rawsocket`).
 
 The receive path handed the application packet bytes with the VLAN header
 stripped and supplied the VLAN information separately. A filter inspecting
@@ -67,8 +67,8 @@ original length in the emitted frame.
   restored `0x8100` tag and that the VLAN 1000 filter accepts the tagged frame.
 - The 2026-09-27 Kali run captured all 24 ICMP frames through that filter,
   and every matching Ethernet frame was byte-identical to tcpdump, including
-  VLAN 1000
-  (`docs/plans/2026-09-18-1423-feat-remote-packet-capture-phase3d-plan.md:158-169`).
+  VLAN 1000 (validated 2026-09-27: local SPAN capture in
+  `src/modules/capture/rawsocket`).
 
 ## Limits
 
