@@ -131,7 +131,12 @@ async function openOverlay(
   if (!content) {
     throw new Error(`Expected ${selector} in document.body`)
   }
-  return content
+
+  let root: Element = content
+  while (root.parentElement && root.parentElement !== document.body) {
+    root = root.parentElement
+  }
+  return root
 }
 
 function box(): DOMRect {
@@ -311,7 +316,6 @@ describe('accessibility (axe-core)', () => {
           ).not.toBeNull()
           ask?.click()
           await settle()
-
           expect(
             document.querySelector('form textarea'),
             `Expected ${label} to open the Ask panel for its selected target`,
@@ -336,19 +340,11 @@ describe('accessibility (axe-core)', () => {
           }
 
           const overlayAudit = OVERLAY_AUDITS[`${path}:${storyName}`]
-          let overlayElement: Element | null = null
-          if (overlayAudit) {
-            overlayElement = await openOverlay({ container, ...overlayAudit })
-          }
-
-          // Audit the overlay content only; Reka hides trigger and focus guards outside it by design.
-          const auditElement = overlayAudit ? overlayElement : document.body
-          expect(auditElement).not.toBeNull()
-          if (!auditElement) {
-            throw new Error(
-              `Expected ${label} to render [role="${overlayAudit?.role}"] in document.body`,
-            )
-          }
+          // Audit the overlay's portalled root; Reka hides the trigger and
+          // focus guards outside it.
+          const auditElement = overlayAudit
+            ? await openOverlay({ container, ...overlayAudit })
+            : document.body
 
           const results = await runAudit(auditElement)
 
