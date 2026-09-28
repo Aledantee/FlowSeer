@@ -831,3 +831,127 @@ func TestReplayedRunReproducesArrivalTimes(t *testing.T) {
 		t.Errorf("replayed run arrival times differ:\nrun 1: %v\nrun 2: %v", times1, times2)
 	}
 }
+
+func TestScenarioReplayConfigureEquality(t *testing.T) {
+	cfg, macH1, macH2 := makeTwoSwitchConfigs(t)
+	fab, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatalf("New fabric: %v", err)
+	}
+
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+
+	sw2Orig := cfg.Switches["sw2"]
+	sw2New := sw2Orig.Clone()
+	vid20 := vlan.ID(20)
+	sw2New.Bridge = &bridge.Config{
+		VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{
+				20: "VLAN20",
+			},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {
+					PVID:     &vid20,
+					Untagged: []vlan.ID{20},
+				},
+				"1/1/24": {
+					Tagged:           []vlan.ID{20},
+					IngressFiltering: true,
+				},
+			},
+		},
+	}
+
+	sc := fabric.Scenario{
+		Name: "replay-configure",
+		Actions: []fabric.Action{
+			{
+				At:   t0,
+				Kind: fabric.ActionInject,
+				Inject: &fabric.Injection{
+					Origin: fabric.Endpoint{Node: "h1"},
+					Frame: ethernet.Frame{
+						Src:       macH1,
+						Dst:       macH2,
+						EtherType: ethernet.EtherTypeIPv4,
+						Payload:   []byte("before-configure"),
+					},
+				},
+			},
+			{
+				At:   t0.Add(time.Second),
+				Kind: fabric.ActionConfigure,
+				Configure: &fabric.ConfigureAction{
+					Node:   "sw2",
+					Config: sw2New,
+				},
+			},
+			{
+				At:   t0.Add(2 * time.Second),
+				Kind: fabric.ActionInject,
+				Inject: &fabric.Injection{
+					Origin: fabric.Endpoint{Node: "h1"},
+					Frame: ethernet.Frame{
+						Src:       macH1,
+						Dst:       macH2,
+						EtherType: ethernet.EtherTypeIPv4,
+						Payload:   []byte("after-configure"),
+					},
+				},
+			},
+		},
+		Budget: 50,
+	}
+
+	res1, err := fab.RunScenario(sc)
+	if err != nil {
+		t.Fatalf("RunScenario: %v", err)
+	}
+
+	report1 := fab.Report()
+	if len(report1) < 2 {
+		t.Fatalf("len(report1) = %d, want at least 2 journeys", len(report1))
+	}
+	if report1[0].State != fabric.JourneyDelivered {
+		t.Errorf("report1[0].State = %v, want JourneyDelivered", report1[0].State)
+	}
+	if report1[1].State != fabric.JourneyDropped {
+		t.Errorf("report1[1].State = %v, want JourneyDropped", report1[1].State)
+	}
+
+	res2, err := fabric.Replay(res1.Replay)
+	if err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+
+	if res1.Stop != res2.Stop {
+		t.Errorf("res1.Stop=%v != res2.Stop=%v", res1.Stop, res2.Stop)
+	}
+	if res1.Steps != res2.Steps {
+		t.Errorf("res1.Steps=%d != res2.Steps=%d", res1.Steps, res2.Steps)
+	}
+	if !slices.Equal(res1.Fingerprints, res2.Fingerprints) {
+		t.Errorf("res1.Fingerprints != res2.Fingerprints")
+	}
+
+	fab2, err := fabric.NewWithSpec(res1.Replay.Spec)
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+	if _, err := fab2.RunScenario(res1.Replay.Scenario); err != nil {
+		t.Fatalf("fab2.RunScenario: %v", err)
+	}
+	report2 := fab2.Report()
+
+	if len(report1) != len(report2) {
+		t.Fatalf("len(report1)=%d != len(report2)=%d", len(report1), len(report2))
+	}
+	for i := range report1 {
+		if report1[i].State != report2[i].State {
+			t.Errorf("journey %d state mismatch: %v != %v", i, report1[i].State, report2[i].State)
+		}
+		if len(report1[i].Entries) != len(report2[i].Entries) {
+			t.Errorf("journey %d entries len mismatch: %d != %d", i, len(report1[i].Entries), len(report2[i].Entries))
+		}
+	}
+}

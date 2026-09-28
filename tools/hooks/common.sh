@@ -87,35 +87,61 @@ hook_canonical_dir() {
 }
 
 # Prints the repository-relative path for a candidate file.
-# Returns 1 when the path cannot be resolved safely, 2 when the path is
-# absolute and lies outside the repository (repository policy does not apply).
+# Returns 1 when the path cannot be resolved safely, 2 when the path lies
+# outside every checkout of this repository (repository policy does not
+# apply), and 3 after printing the path relative to another checkout of it
+# (policy applies, but files here are not the ones edited).
 hook_relative_path() {
   local candidate_file="$1"
   local candidate_dir
+  local existing_dir
+  local checkout_root
   local relative_file
 
-  if [[ "$candidate_file" == /* ]]; then
-    # A Write may create the file's parent directories, so resolve the
-    # deepest ancestor that exists and reattach the missing tail unchanged.
-    candidate_dir=$(hook_canonical_dir "$(dirname "$candidate_file")") || return 1
-    candidate_file="$candidate_dir/$(basename "$candidate_file")"
+  # A relative path is resolved from the working directory, so one that
+  # climbs out of the repository (a Codex patch to ../../scratch/x.md) is
+  # judged by where it lands rather than denied for its `..` segments.
+  if [[ "$candidate_file" != /* ]]; then
+    candidate_file="$HOOK_ROOT/$HOOK_PREFIX$candidate_file"
   fi
 
-  case "$candidate_file" in
-    "$HOOK_ROOT") relative_file="" ;;
-    "$HOOK_ROOT"/*) relative_file=${candidate_file#"$HOOK_ROOT"/} ;;
-    /*) return 2 ;;
-    *) relative_file="$HOOK_PREFIX$candidate_file" ;;
-  esac
+  # A Write may create the file's parent directories, so resolve the
+  # deepest ancestor that exists and reattach the missing tail unchanged.
+  candidate_dir=$(hook_canonical_dir "$(dirname "$candidate_file")") || return 1
+  candidate_file="$candidate_dir/$(basename "$candidate_file")"
 
-  while [[ "$relative_file" == ./* ]]; do
-    relative_file=${relative_file#./}
-  done
-  case "/$relative_file/" in
+  # A `..` left in the missing tail can walk back into a checkout after the
+  # prefix test below has placed the path outside it.
+  case "$candidate_file/" in
     */../*|*/./*) return 1 ;;
   esac
 
+  # Another worktree or the primary checkout of this repository is held to
+  # the same policy as this one, so a patch aimed across the sibling
+  # directory does not pass as outside.
+  checkout_root=$HOOK_ROOT
+  case "$candidate_file" in
+    "$HOOK_ROOT"|"$HOOK_ROOT"/*) ;;
+    *)
+      existing_dir=$candidate_dir
+      while [[ ! -d "$existing_dir" ]]; do
+        existing_dir=$(dirname "$existing_dir")
+      done
+      checkout_root=$(git -C "$existing_dir" rev-parse --show-toplevel 2>/dev/null) || return 2
+      checkout_root=$(cd "$checkout_root" && pwd -P) || return 2
+      [[ "$(git -C "$checkout_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" == \
+        "$(git -C "$HOOK_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" ]] || return 2
+      ;;
+  esac
+
+  case "$candidate_file" in
+    "$checkout_root") relative_file="" ;;
+    "$checkout_root"/*) relative_file=${candidate_file#"$checkout_root"/} ;;
+    *) return 2 ;;
+  esac
+
   printf '%s\n' "$relative_file"
+  [[ "$checkout_root" == "$HOOK_ROOT" ]] || return 3
 }
 
 hook_absolute_path() {

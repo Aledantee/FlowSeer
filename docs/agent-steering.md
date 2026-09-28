@@ -128,6 +128,20 @@ steps: brainstorming folds into `plan`, doc review into `plan` and
 `review`, refreshing solutions into `compound`. `land` (first named
 `close`) was added on 2026-09-05 for a step every session repeated by hand.
 
+Steer toward the project skills; do not block the external ones. Until
+2026-09-27 Codex could not see `.claude/skills/`, and in about twenty
+worker sessions it ran the globally installed compound-engineering
+plugin's `ce-work` and `ce-code-review` instead of `implement` and
+`review`, writing findings in that plugin's format to `/tmp`. Making the
+skills visible under `.agents/skills/` ended it in the sessions mined on
+2026-09-28. Disabling the plugin per runtime would also have worked, but
+it hides a plugin that is still useful for work no project skill covers,
+and each new runtime would need its own switch. So `AGENTS.md` says a
+project skill wins where it covers the work, and `delegate`'s brief names
+the skill by path. `.claude/settings.json` still disables the plugin for
+Claude, from before either existed, and `tune`'s bench disables it
+because the plugin's own review stretched a timed run to 110 minutes.
+
 Gate the merge on evidence, not on the conversation. `land` is the one
 skill whose action reaches every other worktree, and a session cannot see
 which skills ran before it, so `implement`, `review`, and `compound` each
@@ -188,14 +202,31 @@ always-on index did. The planning skill this repository used before was
 skills aim at about 150 lines each and contain only the procedure, the
 file layout, and the repository rules an agent cannot infer from the tree;
 episodic material goes to `references/` files behind a triggered pointer.
-After the 2026-09-23 pass the workflow skills sit between 105 and 300
-lines, `review` and `implement` the longest because each ends with the
-option table its outcomes leave and `implement`'s Finish step names the
-scripts that read deviations and test changes off the tree, and `delegate`
-at about 380: its runtime lanes and quota rules are each
-conditional on the host rather than on the task, and a coordinator that
-loads the skill needs all of them in the same turn; the Orca procedures
-moved to `references/orca.md` on 2026-09-10.
+The 2026-09-28 pass applied Anthropic's
+[skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
+to all eleven skills: third-person descriptions that say what and when,
+references one level deep behind a pointer that names its trigger, no
+dated history in a body, and every command kept verbatim. The `SKILL.md`
+bodies went from 22,600 to 15,600 words and now sit between 93 and 242
+lines. The ones over 150 keep material every invocation reads: `plan`
+its file template, which scripts parse; `land` its merge gate; `implement`
+its Finish order; `review` the reviewer log it writes on every run; and
+`delegate` the routing steps, the `orca-worker.sh` surface, and the brief
+checklist that `implement`, `drive`, and `land` cite. A preservation
+review compared each rewritten skill rule by rule with its previous
+version; the failures it caught were load triggers the reader could not
+evaluate yet (an "in Orca" test defined only inside the file it gated, a
+pool trigger naming a row that does not exist), so a trigger names a
+condition the reader has already checked.
+
+The incidents behind rules the 2026-09-28 steer pass added, kept here
+rather than in the skills: review workers re-ran the coordinator's race
+tests and needed "conclude now" notes in eight or more sessions until the
+brief named the checks already run; Antigravity fix workers re-diagnosed
+settled findings in four; a review's mutation sub-worker stalled on
+sandboxed `/tmp` writes until the review's quota ran low; and a drive
+coordinator twice ended its turn right after announcing a unit it never
+started.
 
 Use one reviewer per file group, never a persona panel. This
 repository's transcripts showed the earlier persona-panel review dispatching
@@ -687,7 +718,10 @@ runs itself after every other step produces work nobody asked for, and
 the five cases in the scan where the user redirected instead of accepting
 are the reason each question keeps a "stop here" option. A delegated
 worker never asks, because a worker waiting on an answer looks like one
-that is working.
+that is working. Each option states its tradeoff, not only the
+recommended one its reason: on 2026-09-26 a styling choice offered as
+three bare names was rejected twice with "I dont see your tradeoffs"
+before a table of them was written in prose.
 
 Pick the next work from files, and finish before starting. `next` exists
 because the question "what now" was being answered from a session's memory

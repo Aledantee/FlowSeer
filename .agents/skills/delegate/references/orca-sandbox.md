@@ -1,9 +1,9 @@
 # Orca workers and the Bash sandbox
 
 Load this when writing the brief for a worker started through `orca
-orchestration`, when such a worker finished without sending `worker_done`,
-or when setting up a machine so workers can reach Orca sandboxed. A worker
-started by `scripts/orca-worker.sh` never calls `orca` and needs none of it.
+orchestration`, or when setting up a machine so workers can reach Orca
+sandboxed. A worker started by `scripts/orca-worker.sh` never calls `orca`
+and needs none of it.
 
 ## The brief paragraph
 
@@ -21,14 +21,6 @@ The brief itself goes in a file under the worker's worktree and the
 terminal gets a one-line pointer to it: a long paragraph through `orca
 terminal send` arrives as stray characters at the prompt, and the loss is
 silent at both ends.
-
-## Settling a worker that could not report
-
-A worker that did not get the paragraph finishes its work and cannot
-report it. The signs: a clean tree, a final commit, and an agent that says
-Orca is not running. Read its terminal tail for the summary, merge the
-branch, `worker-stop` then `worker-abandon` the dispatch, and mark the
-task completed by hand.
 
 ## The per-machine fix
 

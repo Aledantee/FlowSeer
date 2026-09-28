@@ -62,11 +62,12 @@ no remote. The Claude worktree hook defaults to the sibling
 - At a decision that is the user's (which workflow step runs next, which
   remedy to apply, a design choice the task does not settle), ask through
   the runtime's question tool (`AskUserQuestion` in Claude Code): one
-  specific question, two to four concrete options, the recommended one
-  first with its reason. A report ends with that question, not with a
-  sentence about what the user could ask for next. Where the runtime has no
-  question tool, the report ends with the same question and options as
-  text. A delegated worker never asks; it states the blocker and stops.
+  specific question, two to four concrete options each stating its
+  tradeoff, the recommended one first with its reason. A report ends with
+  that question, not with a sentence about what the user could ask for
+  next. Where the runtime has no question tool, the report ends with the
+  same question and options as text. A delegated worker never asks; it
+  states the blocker and stops.
 - The project skills `next`, `plan`, `implement`, `review`, `compound`,
   `land`, `drive`, and `steer` under `.claude/skills/` carry the
   multi-step workflows; each says when it applies and when to skip it.
@@ -76,7 +77,11 @@ no remote. The Claude worktree hook defaults to the sibling
   checkpoints and leaves the worktree ready for removal; removing it is a
   person's action. `steer` works the queue in `docs/agent-observations.md`
   on request and stops at a staged diff for any policy surface.
-  `docs/agent-steering.md` records why they are shaped this way.
+  `docs/agent-steering.md` records why they are shaped this way. Where a
+  project skill covers the work, it wins over a globally installed plugin
+  or skill of the same kind (compound-engineering's `ce-work` or
+  `ce-code-review`, for example); an external one is for work no project
+  skill covers.
 - Auto-memory is personal and fallible; promote durable team facts per
   `docs/agent-knowledge.md`.
 - FlowSeer is still building its building blocks and nothing external consumes

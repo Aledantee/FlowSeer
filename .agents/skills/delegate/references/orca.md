@@ -1,8 +1,12 @@
 # Orca workers and full handoffs
 
 Load this when a worker's state does not match what its tree says, when
-`scripts/orca-worker.sh` fails a step, or for a full handoff. `SKILL.md`
-names the lane; this file is the procedure.
+`scripts/orca-worker.sh` fails a step, when `wait` prints anything but
+`idle` or the screen shows an unexpected dialog, or for an orchestration run
+or a full handoff. `SKILL.md` names the lane; this file is the procedure.
+
+Contents: What the script does; When a step fails; Orchestration runs;
+Full handoff.
 
 ## What the script does
 
@@ -84,9 +88,18 @@ on codex 0.157.1 on 2026-09-26.
 - `wait` prints `idle` and the screen shows a dialog: a permission prompt
   the brief anticipated is answered with `keys <slug> <text>`; anything
   else is reported to the user with the screen text.
-- `wait` prints `stalled`: read the screen first, since a silent tool call
-  looks the same. A hung stream is graded `blocked`, stopped with
-  `stop <slug> --stalled`, and dispatched again.
+- `wait` prints `stalled`: the screen showed a turn in progress and did not
+  change for 20 minutes (`--stall <seconds>`), usually a hung model stream,
+  which Escape does not reach on opencode. Read the screen first, since an
+  `agy` or `opencode` tool call that prints nothing for that long looks the
+  same. A hung stream is graded `blocked`, stopped with
+  `stop <slug> --stalled`, and dispatched again; a dirty or unmerged
+  checkout still stops `stop`, for a person to read.
+- A Claude worker stops at a prompt to switch models or edit the prompt: a
+  safety classifier flagged its request, and `orca-worker.sh` turns
+  automatic switching off. Never pick switch. Report the flag and dispatch
+  the work again on the next model in its own role's `fit` order, off
+  Claude; an `execute` unit goes to `execute-sensitive`.
 - `keys` says it takes 200 characters at most: write the text to a file and
   send it with `tell <slug> <file>`.
 - `wait` keeps running on a quiet worker: rule out causes in cost order.
@@ -139,8 +152,11 @@ orca orchestration worker-release --dispatch <dispatch_id> --json
 
 `check --wait` is re-armed by heartbeats and returns before a long worker
 finishes; reissue it. A clean tree, a final commit, and an agent that says
-Orca is not running means the worker sent its report from inside the
-sandbox: `orca-sandbox.md` says how to settle it. `worker-release` closes
+Orca is not running means the worker, lacking the brief paragraph
+`SKILL.md` item 8 requires, could not report from inside the sandbox.
+Settle it: read its terminal tail for the summary, merge the branch,
+`worker-stop` then `worker-abandon` the dispatch, and mark the task
+completed by hand. `worker-release` closes
 only the agent terminal, so remove the merged child afterwards:
 
 ```bash

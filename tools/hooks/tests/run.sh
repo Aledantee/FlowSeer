@@ -198,6 +198,21 @@ traversal_patch=$(jq -n --arg cwd "$fixture/src/common" --arg command $'*** Begi
 assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$traversal_patch"
 ok "Edit applies the spec/proto source-only rule to Claude paths and Codex patches"
 
+escape_patch=$(jq -n --arg cwd "$fixture/src/common" --arg command $'*** Begin Patch\n*** Add File: ../../../outside-scratch/notes.md\n*** End Patch' \
+  '{cwd:$cwd,tool_input:{command:$command}}')
+assert_allow "$repo_root/tools/hooks/pre-tool-policy.sh" "$escape_patch"
+bounce_patch=$(jq -n --arg cwd "$fixture/src/common" --arg command $'*** Begin Patch\n*** Add File: ../../../missing/../repository with spaces/generated/x.pb.go\n*** End Patch' \
+  '{cwd:$cwd,tool_input:{command:$command}}')
+assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$bounce_patch"
+sibling_path=$(python3 -c 'import os, sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))' "$fixture/generated/x.pb.go" "$linked_worktree")
+sibling_patch=$(jq -n --arg cwd "$linked_worktree" --arg command "*** Begin Patch"$'\n'"*** Update File: $sibling_path"$'\n'"*** End Patch" \
+  '{cwd:$cwd,tool_input:{command:$command}}')
+assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$sibling_patch"
+sibling_input=$(jq -n --arg cwd "$linked_worktree" --arg path "$fixture/generated/x.pb.go" \
+  '{cwd:$cwd,tool_input:{file_path:$path}}')
+assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$sibling_input"
+ok "Edit leaves a path outside every checkout to the sandbox and holds another checkout to policy"
+
 for policy_path in AGENTS.md buf.yaml .claude/settings.json .codex/hooks.json tools/hooks/new-guard.sh; do
   policy_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/$policy_path" \
     '{cwd:$cwd,tool_input:{file_path:$path}}')
