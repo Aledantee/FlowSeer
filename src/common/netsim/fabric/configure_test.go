@@ -2,6 +2,7 @@ package fabric_test
 
 import (
 	"net/netip"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -20,6 +21,10 @@ import (
 )
 
 func newTwoSwitchFabric(t *testing.T) (*fabric.Fabric, map[string]netaddr.MAC) {
+	return newTwoSwitchFabricWith(t, nil)
+}
+
+func newTwoSwitchFabricWith(t *testing.T, mutate func(*fabric.Config)) (*fabric.Fabric, map[string]netaddr.MAC) {
 	t.Helper()
 
 	newPorts := func() port.Table {
@@ -97,6 +102,10 @@ func newTwoSwitchFabric(t *testing.T) (*fabric.Fabric, map[string]netaddr.MAC) {
 				Setting:                  &phy.Setting{AutoNegotiation: true},
 			},
 		},
+	}
+
+	if mutate != nil {
+		mutate(&cfg)
 	}
 
 	fab, err := fabric.New(cfg)
@@ -382,7 +391,7 @@ func TestConfigureRefusalLeavesFabricUnchanged(t *testing.T) {
 	if !fab.Spec().Equal(spec0) {
 		t.Error("Spec changed after refused Configure")
 	}
-	if len(fab.Links()) != len(links0) {
+	if !reflect.DeepEqual(fab.Links(), links0) {
 		t.Error("Links changed after refused Configure")
 	}
 	if fab.Fingerprint() != fp0 {
@@ -405,6 +414,53 @@ func TestConfigureRefusalLeavesFabricUnchanged(t *testing.T) {
 	}
 	if !fab.Spec().Equal(spec0) || fab.Fingerprint() != fp0 {
 		t.Error("fabric modified after refused node nope")
+	}
+}
+
+func operStatusConflictCount(fab *fabric.Fabric) int {
+	count := 0
+	for _, issue := range fab.Metadata().Issues() {
+		if issue.Code == fabric.IssueOperStatusConflict {
+			count++
+		}
+	}
+	return count
+}
+
+func TestConfigureNoOpKeepsConfiguredOperStatus(t *testing.T) {
+	// sw1's trunk port is configured Down over a healthy cable, so the
+	// configured table disagrees with the state the cable derives.
+	fab, _ := newTwoSwitchFabricWith(t, func(cfg *fabric.Config) {
+		sw := cfg.Switches["sw1"]
+		b := port.NewBuilder()
+		for _, p := range sw.Ports.Ports() {
+			if p.Name == "1/1/24" {
+				p.OperStatus = port.Down
+			}
+			b.Add(p)
+		}
+		tbl, err := b.Build()
+		if err != nil {
+			t.Fatalf("build sw1 ports: %v", err)
+		}
+		sw.Ports = tbl
+		cfg.Switches["sw1"] = sw
+	})
+
+	spec0 := fab.Spec()
+	if got := operStatusConflictCount(fab); got != 1 {
+		t.Fatalf("oper-status conflicts before Configure = %d, want 1", got)
+	}
+
+	if err := fab.Configure("sw1", fab.Config().Switches["sw1"]); err != nil {
+		t.Fatalf("Configure no-op: %v", err)
+	}
+
+	if got := operStatusConflictCount(fab); got != 1 {
+		t.Errorf("oper-status conflicts after no-op Configure = %d, want 1", got)
+	}
+	if !fab.Spec().Equal(spec0) {
+		t.Error("Spec changed after no-op Configure")
 	}
 }
 
@@ -637,11 +693,15 @@ func TestConfigureProtocolTimersRestart(t *testing.T) {
 		}
 	}
 
-	// No-op Configure on sw3 keeps every port role in place.
-	if err := fab.Configure("sw3", fab.Switch("sw3").Config()); err != nil {
+	// A no-op Configure on sw3 keeps every port role in place and adds no
+	// topology change: a fork that reconfigures to its own config and one that
+	// does not stay identical after both run on.
+	baseline := fab.Fork()
+	reconfigured := baseline.Fork()
+	if err := reconfigured.Configure("sw3", reconfigured.Switch("sw3").Config()); err != nil {
 		t.Fatalf("Configure no-op: %v", err)
 	}
-	snapAfterNoOp := fab.Snapshot()
+	snapAfterNoOp := reconfigured.Snapshot()
 	for dev, d := range snap0.Devices {
 		for p, info := range d.Roles {
 			got := snapAfterNoOp.Devices[dev].Roles[p]
@@ -650,6 +710,13 @@ func TestConfigureProtocolTimersRestart(t *testing.T) {
 					dev, p, info.Role, info.State, got.Role, got.State)
 			}
 		}
+	}
+
+	baseline.Run(200)
+	reconfigured.Run(200)
+	if baseline.Fingerprint() != reconfigured.Fingerprint() {
+		t.Errorf("no-op Configure changed the fingerprint:\n got  %s\n want %s",
+			reconfigured.Fingerprint(), baseline.Fingerprint())
 	}
 
 	// Lower sw3 bridge priority to 4096.
@@ -679,6 +746,31 @@ func TestConfigureProtocolTimersRestart(t *testing.T) {
 	}
 }
 
+func setPortAdmin(t *testing.T, cfg *vswitch.Config, name string, admin port.LinkState) {
+	t.Helper()
+	b := port.NewBuilder()
+	for _, p := range cfg.Ports.Ports() {
+		if p.Name == name {
+			p.AdminStatus = admin
+		}
+		b.Add(p)
+	}
+	tbl, err := b.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+	cfg.Ports = tbl
+}
+
+func trunkLinkOper(fab *fabric.Fabric) (port.LinkState, port.LinkState, bool) {
+	for _, l := range fab.Links() {
+		if l.Cable.A.Node == "sw1" && l.Cable.B.Node == "sw2" && l.A.Port == "1/1/24" {
+			return l.A.Oper, l.B.Oper, true
+		}
+	}
+	return port.Unknown, port.Unknown, false
+}
+
 func TestConfigureForksStayIndependent(t *testing.T) {
 	fab, _ := newTwoSwitchFabric(t)
 
@@ -687,27 +779,38 @@ func TestConfigureForksStayIndependent(t *testing.T) {
 	cfg0 := fab.Switch("sw1").Config()
 	links0 := fab.Links()
 
-	// Configure fork.
+	// Configure the fork with a VLAN rename and a link-changing edit: bring
+	// 1/1/24 administratively down.
 	sw1CfgFork := fork.Switch("sw1").Config()
 	sw1CfgFork.Bridge.VLAN.Table[10] = "fork-vlan"
+	setPortAdmin(t, &sw1CfgFork, "1/1/24", port.Down)
 	if err := fork.Configure("sw1", sw1CfgFork); err != nil {
 		t.Fatalf("fork.Configure: %v", err)
 	}
 
-	// Source remains unchanged.
+	if a, b, ok := trunkLinkOper(fork); !ok || a != port.Down || b != port.Down {
+		t.Errorf("fork trunk link oper = (%v, %v), want (Down, Down)", a, b)
+	}
+
+	// Source remains unchanged, links and port table included.
 	if !fab.Spec().Equal(spec0) {
 		t.Error("source Spec changed after fork Configure")
 	}
 	if fab.Switch("sw1").Config().Bridge.VLAN.Table[10] != cfg0.Bridge.VLAN.Table[10] {
 		t.Error("source switch config changed after fork Configure")
 	}
-	if len(fab.Links()) != len(links0) {
+	if !reflect.DeepEqual(fab.Links(), links0) {
 		t.Error("source Links changed after fork Configure")
 	}
+	if p, ok := fab.Switch("sw1").Ports().Port("1/1/24"); !ok || p.OperStatus != port.Up {
+		t.Errorf("source sw1 1/1/24 oper after fork Configure = %v, want Up", p.OperStatus)
+	}
 
-	// Configure source; fork remains unaffected.
+	// Configure the source with its own link-changing edit; fork remains as it
+	// was, links and port table included.
 	sw1CfgSource := fab.Switch("sw1").Config()
 	sw1CfgSource.Bridge.VLAN.Table[10] = "source-vlan"
+	setPortAdmin(t, &sw1CfgSource, "1/1/24", port.Down)
 	if err := fab.Configure("sw1", sw1CfgSource); err != nil {
 		t.Fatalf("fab.Configure: %v", err)
 	}
@@ -715,5 +818,14 @@ func TestConfigureForksStayIndependent(t *testing.T) {
 	if fork.Switch("sw1").Config().Bridge.VLAN.Table[10] != "fork-vlan" {
 		t.Errorf("fork switch config changed after source Configure: got %q, want 'fork-vlan'",
 			fork.Switch("sw1").Config().Bridge.VLAN.Table[10])
+	}
+	if a, b, ok := trunkLinkOper(fork); !ok || a != port.Down || b != port.Down {
+		t.Errorf("fork trunk link oper after source Configure = (%v, %v), want (Down, Down)", a, b)
+	}
+	if p, ok := fork.Switch("sw1").Ports().Port("1/1/24"); !ok || p.OperStatus != port.Down {
+		t.Errorf("fork sw1 1/1/24 oper after source Configure = %v, want Down", p.OperStatus)
+	}
+	if a, b, ok := trunkLinkOper(fab); !ok || a != port.Down || b != port.Down {
+		t.Errorf("source trunk link oper after source Configure = (%v, %v), want (Down, Down)", a, b)
 	}
 }

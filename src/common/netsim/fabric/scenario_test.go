@@ -996,7 +996,7 @@ func TestConfigureActionValidateAndDiff(t *testing.T) {
 		Ports: ports,
 		Bridge: &bridge.Config{
 			VLAN: &bridge.VLAN{
-				Table: map[vlan.ID]string{10: "vlan10"},
+				Table: map[vlan.ID]string{10: "vlan10", 20: "vlan20"},
 			},
 		},
 	}
@@ -1004,7 +1004,7 @@ func TestConfigureActionValidateAndDiff(t *testing.T) {
 		Ports: ports,
 		Bridge: &bridge.Config{
 			VLAN: &bridge.VLAN{
-				Table: map[vlan.ID]string{20: "vlan20"},
+				Table: map[vlan.ID]string{10: "prod", 20: "qa"},
 			},
 		},
 	}
@@ -1041,15 +1041,49 @@ func TestConfigureActionValidateAndDiff(t *testing.T) {
 		t.Fatalf("diff missing configure.node change: %+v", diffNode)
 	}
 
-	// Diff: same node, changed config
-	act3 := Action{Index: 1, At: t0, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw1", Config: cfg2}}
+	// Diff: same node and index, changed config. The two VLAN renames must stay
+	// distinguishable through the nested action/index/inner-kind/inner-key.
+	act3 := Action{Index: 0, At: t0, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw1", Config: cfg2}}
 	diffConfig := act1.Diff(act3)
-	if len(diffConfig) == 0 {
-		t.Fatal("diff of different configs returned no changes")
+	wantKeys := []string{
+		nestedSubjectKey("0", nestedSubjectKey("vlan", "10")),
+		nestedSubjectKey("0", nestedSubjectKey("vlan", "20")),
 	}
-	for _, c := range diffConfig {
-		if c.Subject.Kind != "scenario.action" {
-			t.Errorf("change subject kind = %q, want scenario.action", c.Subject.Kind)
+	for _, wantKey := range wantKeys {
+		var found bool
+		for _, c := range diffConfig {
+			if c.Subject.Kind != "scenario.action" {
+				t.Errorf("change subject kind = %q, want scenario.action", c.Subject.Kind)
+			}
+			if c.Subject.Key == wantKey {
+				found = true
+				if c.Layer != port.LayerVLAN || c.Field != "name" {
+					t.Errorf("change %s layer/field = (%v, %q), want (%v, name)", wantKey, c.Layer, c.Field, port.LayerVLAN)
+				}
+			}
 		}
+		if !found {
+			t.Fatalf("diff missing change for nested key %q: %+v", wantKey, diffConfig)
+		}
+	}
+
+	// DiffScenarios carries the same nested key.
+	scA := Scenario{
+		Name:    "configure-a",
+		Budget:  10,
+		Spec:    ConstructionSpec{Start: t0},
+		Actions: []Action{{At: t0, Index: 1, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw1", Config: cfg1}}},
+	}
+	scB := scA.Clone()
+	scB.Actions[0].Configure = &ConfigureAction{Node: "sw1", Config: cfg2}
+	scChanges, err := DiffScenarios(scA, scB)
+	if err != nil {
+		t.Fatalf("DiffScenarios: %v", err)
+	}
+	wantScenarioKey := nestedSubjectKey("1", nestedSubjectKey("vlan", "10"))
+	if !slices.ContainsFunc(scChanges, func(c trace.Change) bool {
+		return c.Subject.Kind == "scenario.action" && c.Subject.Key == wantScenarioKey && c.Field == "name"
+	}) {
+		t.Fatalf("DiffScenarios missing change for nested key %q: %+v", wantScenarioKey, scChanges)
 	}
 }
