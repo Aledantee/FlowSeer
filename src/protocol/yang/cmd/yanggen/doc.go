@@ -35,6 +35,19 @@
 // instead of regenerating ~1,200 packages; a generator-version bump
 // flags everything.
 //
+// The output directory is a Go module of its own, so the root module's
+// `./...` does not compile every binding package. yanggen writes its
+// go.mod (the root module path plus the output directory, the root's go
+// directive, and a require and replace for the root module found above
+// -out), then runs `go mod tidy` there for the indirect requirements
+// and go.sum. -check also reports drift in the statements yanggen
+// writes; the indirect requirements belong to tidy and are not
+// compared.
+//
+// Output is not yet deterministic. goyang applies augments in map
+// order, so when two modules augment one node with a same-named child,
+// each run can pick a different winner.
+//
 // Flags: -config, -out, -verify (load-only), -check (drift gate),
 // -update. Exit codes: 0 success, 1 load/check/runtime failure, 2
 // flag misuse.

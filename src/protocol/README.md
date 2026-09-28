@@ -41,6 +41,17 @@ Two counterexamples worth knowing about:
 - Anything under `generated/go/mib` and `generated/go/yang` is *output* of the
   generators here, not a peer of them. Never edit it by hand.
 
+`generated/go/yang` is a nested module, `go.aledante.io/FlowSeer/generated/go/yang`,
+which `yanggen` writes and tidies along with the bindings. Its 1,051 packages
+hold about 200 MB of source, and as part of the root module every
+`go build ./...` and `go vet ./...` compiled all of them. The module path keeps
+the root prefix, so import paths are unchanged. The root `go.mod` requires the
+module through a local `replace`, so a root package that imports one binding
+package compiles only that one. Build the whole tree with
+`go -C generated/go/yang build ./...`. `generated/go/mib` and
+`generated/go/proto` stay in the root module: they are about 5% of that size,
+and production code imports them.
+
 ## Layout inside a package
 
 Each package owns its own tests, `test/integration/` suite, and where the

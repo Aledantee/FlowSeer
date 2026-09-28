@@ -19,6 +19,7 @@ func TestNoASDependency(t *testing.T) {
 	for _, path := range []string{
 		filepath.Join(root, "go.mod"),
 		filepath.Join(root, "src", "protocol", "snmp", "bench", "go.mod"),
+		filepath.Join(root, "generated", "go", "yang", "go.mod"),
 	} {
 		data, err := os.ReadFile(path)
 		if err != nil {

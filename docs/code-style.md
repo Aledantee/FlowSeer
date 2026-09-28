@@ -432,8 +432,9 @@ spec/          # protobuf, MIB, and YANG sources of truth
 - Regenerate bindings with their owning generator; a hand edit under `generated/`
   is always a bug. From the repository root, use `buf generate` for
   `generated/go/proto/`, `go generate .` for `generated/go/mib/`, and
-  `go run ./src/protocol/yang/cmd/yanggen -update` for `generated/go/yang/`.
-  The [protobuf workflow](code-style-proto.md),
+  `go run ./src/protocol/yang/cmd/yanggen -update` for `generated/go/yang/`,
+  which is a nested module; `yanggen` also writes its `go.mod` and runs
+  `go mod tidy` there. The [protobuf workflow](code-style-proto.md),
   [MIB generator](../src/protocol/snmp/cmd/mibgen/doc.go), and
   [YANG generator](../src/protocol/yang/cmd/yanggen/doc.go) describe their inputs
   and checks.
