@@ -762,7 +762,8 @@ placeholder; amend this accepted record before adding the entity family.
 
 ### 2026-09-05 — phy owns the transport variants and the pluggable-module values
 
-Landed with `docs/plans/2026-09-05-0004-feat-phy-transport-optics-plan.md`.
+Landed 2026-09-05: physical layer transport variants and pluggable module
+diagnostics in `spec/proto/flowseer/net/phy/v1`.
 
 - **`EthernetFacet` splits by transport.** The flat facet with a medium enum
   accepted PoE on a fiber port without complaint, and every deferred field
