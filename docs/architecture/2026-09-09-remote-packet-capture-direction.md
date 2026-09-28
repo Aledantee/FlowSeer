@@ -330,7 +330,7 @@ before the change still decodes, with no requester. `OperatorRef` lives in the
 Authorization for capture defers to the
 [operator authorization record](2026-09-28-operator-authorization-direction.md),
 and the relation table under "Every capture is bounded and authorized" points
-at it. Until that record's authentication lands, the caller writes
+at it for capture, download, and full-payload permissions. Until that record's authentication lands, the caller writes
 `requested_by` and `CaptureService` checks nothing about the caller; the
 server then writes the requester from the authenticated token instead.
 `ListCaptureSessionsRequest` names no edge, so List is a filter over the read

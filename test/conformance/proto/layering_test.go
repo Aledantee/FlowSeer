@@ -92,8 +92,8 @@ var importOrder = map[string][]string{
 	"model/credential": nil,
 	"model/policy":     nil,
 
-	// The identity leaf: operator identity. Imports nothing FlowSeer-owned,
-	// and every boundary that identifies an operator imports it.
+	// The identity leaf: operator identity. Imports nothing FlowSeer-owned;
+	// model/access imports it for Actor.operator.
 	"model/identity": nil,
 
 	// The error wire payload, a leaf like model/policy: it imports nothing,
