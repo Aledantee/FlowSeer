@@ -281,7 +281,7 @@ lifecycle and ARP/ND (R20, R21) moved to
   the way the lowest-name active-backup tie-break documents itself as netsim's
   stand-in for the Open vSwitch hash-map walk; a real static chain is one or
   two hops, so the bound is a guard against a configuration mistake rather than
-  a limit an operator meets. Value user-confirmed 2026-09-15.
+  a limit an operator meets.
 - **A route that is not installed is recorded with the chain walked.**
   `Layer.WithdrawnRoutes(vrf string) []WithdrawnRoute` returns
   `WithdrawnRoute{Prefix, NextHop, Interface, Reason, Chain []netip.Prefix}`,

@@ -21,20 +21,57 @@ from pathlib import Path
 APOS = "['’]"
 
 # Prose that names an agent run, a transcript, or a conversation as its
-# source. Each pattern needs a cue that only an agent run has, because the
-# product has its own agents, sessions, and users: "the edge agent
-# reported", "reuse the previous SSH session", and "user-approved firmware"
-# are domain prose.
+# source. Each alternative needs a cue that only an agent run has, because
+# the product has its own agents, sessions, and users: "the edge agent
+# reported", "the CLI session history buffer", "the user requested a
+# rollback", and "user-approved firmware" are domain prose.
+# test_check_prose.py holds a flagged case for every top-level alternative
+# and a passing case for each of those domain phrases.
+_TAG = r"user-(directed|approved|decided|confirmed)"
+_DECIDED = r"\b(the )?user (chose|ruled|picked|requested|decided|approved|confirmed)\b"
 PROVENANCE = [
-    (re.compile(r"\bsession history\b|\bsession's history\b|\bsession[- ]settled\b", re.I), "cites a session"),
-    (re.compile(r"\((this|that|an? (earlier|prior|previous)) (session|run|conversation)\)", re.I), "cites a run"),
-    (re.compile(r"\b(earlier|prior|previous) (agent )?(run|conversation)s?\b", re.I), "cites a run"),
-    (re.compile(r"\b(chat|conversation) (history|transcripts?|logs?)\b|\bagent (history|transcripts?)\b", re.I), "cites a transcript"),
-    (re.compile(r"\((session-settled|user-(directed|approved|decided))\b|\buser-(directed|approved|decided)[:.)]|^\s*[-*]?\s*user-(directed|approved|decided)\b", re.I), "attributes to a conversation"),
+    (re.compile(
+        r"\((this |that |an? )?session history\)"
+        r"|\bper the [^.]{0,40}\bsession history\b"
+        rf"|\b(this|that|an?|agent|claude|codex|worker|coordinator) session{APOS}s history\b"
+        r"|\b(agent|claude|codex|worker|coordinator) session history\b"
+        r"|\bsession[- ]settled\b",
+        re.I), "cites a session"),
+    (re.compile(
+        r"\((this|that) (session|run|conversation)\)"
+        r"|\(an? (earlier|prior|previous) (session|run|conversation)\)",
+        re.I), "cites a run"),
+    (re.compile(
+        r"\b(earlier|prior|previous) agent (run|session|conversation)s?\b"
+        r"|\b(in|from|during) an? (earlier|prior|previous) (run|conversation)\b",
+        re.I), "cites a run"),
+    (re.compile(
+        r"\b(chat|conversation) (history|transcripts?|logs?)\b"
+        r"|\b(review|worker|coordinator|claude|codex) agent (history|transcripts?)\b"
+        r"|\bagent transcripts?\b",
+        re.I), "cites a transcript"),
+    (re.compile(
+        rf"\({_TAG}\b"
+        rf"|\b{_TAG}[:.),]"
+        rf"|^\s*[-*]?\s*{_TAG}\b",
+        re.I), "attributes to a conversation"),
     (re.compile(r"\((the )?user,? \d{4}-\d{2}-\d{2}\)", re.I), "attributes to a conversation"),
-    (re.compile(rf"\bas (discussed|agreed) (with|by) the user\b|\b(the )?user{APOS}s (direction|decision|ruling)\b", re.I), "attributes to a conversation"),
-    (re.compile(r"\b(the )?user (chose|ruled|picked|requested|decided|approved)\b(?! (it|this|that)\?)", re.I), "attributes to a conversation"),
-    (re.compile(r"\b(the|a) (worker|coordinator|lane) (reported|measured)\b|\bthe coordinator (found|observed)\b", re.I), "cites an agent run"),
+    (re.compile(
+        r"\bas (discussed|agreed) (with|by) the user\b"
+        rf"|\b(the )?user{APOS}s (direction|decision|ruling)\b",
+        re.I), "attributes to a conversation"),
+    # Decision-record phrasing only: "the user chose X over Y", "the user
+    # chose it on 2026-09-27", "the user ruled that".
+    (re.compile(
+        rf"{_DECIDED}(?=[^.]{{0,60}}\bover\b)"
+        rf"|{_DECIDED}(?=[^.]{{0,20}}\bon \d{{4}}-\d{{2}}-\d{{2}})"
+        r"|\b(the )?user (ruled|decided) that\b",
+        re.I), "attributes to a conversation"),
+    (re.compile(
+        r"\b(the|a) (worker|coordinator|lane) (reported|measured)\b"
+        r"|\bthe coordinator (found|observed|noted)\b"
+        r"|\b(the|a) (review agent|subagent|reviewer) (found|reported|measured|observed|noted)\b",
+        re.I), "cites an agent run"),
 ]
 
 STYLE = [

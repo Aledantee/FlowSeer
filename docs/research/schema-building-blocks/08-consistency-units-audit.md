@@ -79,9 +79,8 @@ Two halves: (A) external conventions for common value types;
   https://google.aip.dev/145 (range types: prefer two fields or a range
   message over a single packed value).
 
-  Correction to the starting assumption: AIP-140 governs *naming* generally (word
-  choice, abbreviations), not unit suffixes specifically; the unit-in-name
-  guidance actually lives at AIP-143 ("if a field represents a quantity with
+  AIP-140 governs *naming* generally (word choice, abbreviations), not unit
+  suffixes. The unit-in-name guidance lives at AIP-143 ("if a field represents a quantity with
   a unit... indicate the unit in the field name, e.g. `duration_seconds`, or
   in a comment when a self-describing type is used"). Citing 140 for this
   would have been a false clause reference.

@@ -1951,7 +1951,7 @@ the closures `machineDeps` builds — the read's fallback route and the
 mutation's submission — and both are driven from `process` or from `pollOnce`,
 each of which holds `ds.draining` for the whole operation. The onboarding and
 epoch probes use SNMP, not the shell. So **nothing can overlap on a device's
-shell today**, the serialization the direction asks for already exists, and
+shell today**, the serialization the one-session target needs already exists, and
 this unit must not add a second lock for it. If a later operation needs the
 shell outside the drain lock, that is where the concurrency question comes
 back.

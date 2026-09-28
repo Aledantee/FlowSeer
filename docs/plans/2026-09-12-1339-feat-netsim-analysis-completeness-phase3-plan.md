@@ -107,8 +107,7 @@ and guards (R14, R15) moved to
   means 2, the robustness variable, RFC 3376 §8.1, §8.9). LMQT is their
   product (§8.10). `MembershipInterval` keeps its 260 s default.
   LMQT always comes from this configuration, never from an observed query's
-  Max Resp Code or QRV. Why: a capture may omit the query. User-confirmed
-  2026-09-14.
+  Max Resp Code or QRV. Why: a capture may omit the query.
 - **Aging stays lazy.** `Switch.Age` runs at each fabric hop
   (`src/common/netsim/fabric/run.go:444`), so forwarding sees current
   timers. `mcast` adds no wake. Expiry produces no frame, so no event is

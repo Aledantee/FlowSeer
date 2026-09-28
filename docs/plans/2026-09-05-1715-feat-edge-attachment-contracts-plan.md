@@ -44,8 +44,7 @@ not contain.
   the edge agent "itself an integration of kind local network", its
   inventory table says the host process is "not an entity of its own", and
   its churn list enrolls an edge by creating a local-network Integration.
-  Why: user-confirmed on 2026-09-05. One process hosts several integrations,
-  a site that only hosts an on-prem controller adapter would otherwise need
+  Why: one process hosts several integrations. A site that only hosts an on-prem controller adapter would otherwise need
   a hollow local-network Integration to exist as the host, and an
   integration's `credential_ref` describes the platform credential, not the
   process identity. Under the amended record an integration names its host
@@ -76,10 +75,10 @@ not contain.
   from the last heartbeat. Why: `DeviceLifecycle` already keeps reachability
   out of the lifecycle word, and an edge that comes back after months must
   renew silently, which it can only do if nothing but an operator retires it.
-- Retirement is by hand only. Why: user-confirmed; consistent with the
-  device offline rule.
+- Retirement is by hand only. Why: consistent with the device
+  offline rule.
 - Setup keys bind to one pre-created Edge and carry an operator-set expiry
-  defaulting to 180 days. Why: user-confirmed; a bound key gives the shipment
+  defaulting to 180 days. Why: a bound key gives the shipment
   view for free and a key nobody remembers to revoke should die on its own.
 - `Enroll` is idempotent for the same setup key and the same public key, and
   refuses the same setup key with a different public key. Why: an edge that

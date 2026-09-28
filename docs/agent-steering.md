@@ -433,8 +433,8 @@ central integrator, and test-based verification at merge improved paper
 reproduction by 25.6 points and library development by 14.7. An Orca
 worker provides that: a child worktree per worker, a named model per
 launch, and a report the coordinator waits on. Herdr held this place from
-2026-09-10 to 2026-09-19 for three measured reasons
-(`docs/research/herdr-trial-2026-09-10.md`), all of them about `orca
+2026-09-10 to 2026-09-19 because it closed three of the Orca failures
+`docs/research/herdr-trial-2026-09-10.md` lists, all of them about `orca
 orchestration`: `worker-start` pins Claude, Codex, and Cursor ids only and
 a dispatch into an `agy` or `opencode` terminal sat unsubmitted; `check
 --wait` is re-armed by every heartbeat; and a dispatch carries a capability

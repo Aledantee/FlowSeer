@@ -65,7 +65,7 @@ rather than the standard's, since the model would then be a vendor emulator.
   (`spec/mib/ietf/BRIDGE-MIB:787`), in 802.1Q terms one filtering database
   id for every frame (`spec/mib/ietf/Q-BRIDGE-MIB:340`), and a repeater is
   the device below it; the lab's unmanaged switches and any media
-  converter sit on the first two rungs. User-confirmed on 2026-09-10.
+  converter sit on the first two rungs.
 - A simulator holds one state. Comparison, diff, and derivation of an
   expected state from a current one are functions over two values:
   `vswitch.Compare(a, b, ...)`, `vswitch.Diff(a, b)`, and the same on

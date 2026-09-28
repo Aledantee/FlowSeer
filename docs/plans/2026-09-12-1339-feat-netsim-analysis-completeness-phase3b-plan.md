@@ -114,7 +114,6 @@ A port state an operator can see beats an issue code they have to look for.
   (<https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol-stp-8021d/218321-configure-stp-with-loop-guard-and-bpdu-s.html>,
   <https://www.juniper.net/documentation/us/en/software/junos/stp-l2/topics/topic-map/spanning-tree-loop-protection.html>,
   <https://www.arista.com/en/um-eos/eos-spanning-tree-protocol>).
-  Decided 2026-09-14 and carried forward unchanged.
   - *Trigger.* The port's role is Root, Alternate, or Backup and its received
     information expires, by silence or by message age. The port enters
     `loop-inconsistent`: Discarding, role Alternate, excluded from root-port

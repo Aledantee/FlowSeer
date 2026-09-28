@@ -111,8 +111,8 @@ primitive must not assume dotted-quad shape once v3 is included. Interface
 instance ID (0-255) allows multiple OSPFv3 instances per link.
 
 **IS-IS:** OpenConfig `openconfig-isis-types.yang` `isis-interface-adj-state`
-is **4-valued**: `UP`, `DOWN`, `INIT`, `FAILED` (not the 3-valued
-down/initializing/up of the starting assumption). `level-type`: `LEVEL_1`,
+is **4-valued**: `UP`, `DOWN`, `INIT`, `FAILED` (not a 3-valued
+down/initializing/up set). `level-type`: `LEVEL_1`,
 `LEVEL_2`, `LEVEL_1_2`. No RFC 1195/ISO 10589 text was fetchable for this dossier for the canonical adjacency-state clause — OpenConfig is the only
 verified source for this fact.
 
@@ -390,7 +390,7 @@ pass-through enums keep MIB/IANA integers, normalized enums get
 
 - **`net/protocol/isis/v1`**:
   - `IsisAdjacencyState` enum — registry pass-through of OpenConfig's
-    4-value set `UP/DOWN/INIT/FAILED` (the 3-value starting assumption was verified wrong).
+    4-value set `UP/DOWN/INIT/FAILED`, not a 3-value down/initializing/up set.
   - `IsisLevel` enum — `LEVEL_1`, `LEVEL_2`, `LEVEL_1_AND_2`.
 
 - **`net/protocol/vrrp/v1`** (also covers HSRP/GLBP/etc. per atlas's "one
@@ -561,11 +561,11 @@ planner to decide.
   nbma(2), pointToPoint(3), pointToMultipoint(5)`), both in `OSPF-MIB` and
   confirmed via two independent fetches — don't "fix" this by renumbering
   when porting to a pass-through enum.
-- **IANA route-protocol value 20 is `ttdp`, not `ttag`** (the starting assumption had
-  this wrong), verified against both the IANA registry and the
+- **IANA route-protocol value 20 is `ttdp`, not `ttag`** (value 20 is easy to
+  misremember as `ttag`), verified against both the IANA registry and the
   vendored `IANA-RTPROTO-MIB:48-79`.
 - **IS-IS adjacency state is 4-valued (`UP/DOWN/INIT/FAILED`), not
-  3-valued** as first assumed — verified against OpenConfig
+  3-valued**, verified against OpenConfig
   `openconfig-isis-types.yang`, no contradicting source found.
 - **BFD state 0 is a real, meaningful value** (`AdminDown`), not a
   synthetic zero — a naive `_UNSPECIFIED=0` normalization would collide
