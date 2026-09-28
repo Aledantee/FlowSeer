@@ -687,9 +687,10 @@ documentation, API references).
 
 ### 2026-08-21 — no `core/v1`; typed address variants; provenance on the envelope
 
-Landed with `docs/plans/2026-08-21-1257-feat-proto-base-types-plan.md`, which
-wrote the first owned package and found that `core/v1`, as this record
-originally specified it, contradicted the record's own primitive/entity line.
+Landed 2026-08-21: base protobuf types and conventions in
+`spec/proto/flowseer`, which wrote the first owned package and found that
+`core/v1`, as this record originally specified it, contradicted the record's
+own primitive/entity line.
 
 - **`core/v1` is gone** from the tree, the import order, and the sequencing.
   It held refs, provenance, and lifecycle enums — all entity concerns — yet
