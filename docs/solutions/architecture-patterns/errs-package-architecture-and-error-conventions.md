@@ -328,9 +328,7 @@ encoding types across the wire. Because both ends of a FlowSeer boundary compile
 the same `NewCode` declarations, `errors.Is` works across processes with no
 registration protocol at all — the whole mechanism is the `Is` method at
 `src/common/errs/errs.go:98` plus a `sync.Map` used only for duplicate detection.
-One thing was adopted from cockroachdb/errors: an unknown cause decodes to an
-opaque leaf preserving message and code rather than failing
-(`TestDecodeUnknownCodeSurfacesAsInternal` in `src/common/errs/wire_test.go`).
+One thing was adopted from cockroachdb/errors: decoding never fails. A foreign cause decodes to an uncoded leaf that keeps its message (`TestEncodeDecodeRoundTrip`), and an unregistered code decodes as `ErrCodeUnknownRemote` with the original in the `wire_code` attribute (`TestDecodeUnknownCodeSurfacesAsInternal`), both in `src/common/errs/wire_test.go`.
 
 **Attribute safety marked at creation, not scrubbed at the edge.** Boundary-time
 sanitization means a heuristic deciding, at the worst possible moment, whether

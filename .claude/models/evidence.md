@@ -13,7 +13,7 @@ One line per claim the registry relies on: model, claim, source, date read.
 - GPT-6 Astra Pro — a separate id from `gpt-6-astra`, whose `openai` row on models.dev is the registry's 10/50; the Pro variant is 10/50 on OpenRouter and Kilo since 2026-09-04 with no `openai` vendor row on models.dev and no API id in OpenAI's launch note, so it stays out of the registry until it has a vendor price — https://openai.com/index/gpt-6-astra/ and OpenRouter `/api/v1/models` — 2026-09-09.
 - OpenCode Go — $10/month buys $60 of usage at list rates, metered $12 per 5 hours and $30 per week; Luna and Grok 4.5 capped at $15/month each — https://www.bitdoze.com/opencode-go-plan/ and https://llmgateway.io/blog/opencode-go-pricing — 2026-09-09.
 
-- Claude pool — a subscription metered by the session, weekly and Fable-weekly windows (host discovery, 2026-09-25), not per token. Per-token list prices on the Claude rows do not describe what a lane costs this host; Policy: `claude-opus-5-5` goes in without one — 2026-09-25.
+- Claude pool — a subscription metered by the session, weekly and Fable-weekly windows (host discovery, 2026-09-25), not per token. Per-token list prices on the Claude rows do not describe what a lane costs this host, so the `claude-opus-5-5` row carries `price: null` (2026-09-25).
 - Claude Opus 4.8 — effort levels low–max in Claude Code — https://code.claude.com/docs/en/model-config.md (Adjust effort level); 1M context at standard rate for Claude 4.6 and later — https://platform.claude.com/docs/en/about-claude/pricing (Long context pricing) — 2026-09-25.
 - Claude Opus 5.5 — released 2026-09-22; context 1M, 128K max output; Claude Code's default effort for it is `medium`, not `high`, and a top-level user `effortLevel` does not apply to it; effort levels low–max — https://techcrunch.com/2026/09/22/anthropic-releases-opus-5-5-with-lower-prices-and-fable-level-performance/ and https://code.claude.com/docs/en/model-config.md (Adjust effort level) — 2026-09-25.
 
@@ -134,7 +134,7 @@ enters a fit set on these numbers.
 
 ## opencode agent dispatch, probed 2026-09-19 20:00-20:40Z
 
-The agent block was reconciled this run: `~/.config/opencode/opencode.json`
+The agent block was reconciled on 2026-09-19: `~/.config/opencode/opencode.json`
 gained one agent per new synthetic model, named after the model id like the
 nine already there, and the registry's `agent:` fields now name those instead
 of the invented `execute-*` set. The probes below are the first time any agent
@@ -149,7 +149,7 @@ the file tool and reply with its text, which only a tool call can produce.
 - `nemotron-3-super` — pass through its named agent in 11 s — 2026-09-19.
 - `deepseek-v4.1-flash` — pass through its named agent in 37 s — 2026-09-19.
 - `gpt-oss-120b` — no reply through its named agent in 90 s and again in 180 s, with an assistant message recorded at zero input, zero output and zero cost in `~/.local/share/opencode/opencode.db`; the same model and prompt through the default agent passed in 7 s. Something about the agent definition (it differs from opencode's default `build` agent only by `mode: "all"` and a description) leaves this model producing nothing. `delegate` pins the synthetic pool by agent name and has no other path, so the model is unreachable for delegation and the registry gives it `pool: null` — 2026-09-19.
-- Weekly Synthetic credit read $119.86 after the morning's ten probes and $114.01 before the afternoon's calibration lanes, a $5.85 drop the hung probes do not account for: opencode recorded zero tokens and zero cost for all of them. Synthetic counts usage from every host on the key, so the difference is not attributable from this machine, and no cause is claimed — 2026-09-19.
+- Weekly Synthetic credit read $119.86 after that day's ten probes and $114.01 before its calibration lanes, a $5.85 drop the hung probes do not account for: opencode recorded zero tokens and zero cost for all of them. Synthetic counts usage from every host on the key, so the difference is not attributable from this machine, and no cause is claimed — 2026-09-19.
 
 ## Calibration attempt 2026-09-19 — blocked on the toolchain
 
@@ -167,7 +167,7 @@ agent.
 ## Fixes researched and applied 2026-09-19
 
 - `OPENCODE_DB` moves opencode's SQLite database and nothing else: `OPENCODE_DB=/tmp/oc-lane1.db opencode db path` prints that path, and `opencode auth list` under the same variable still reads `~/.local/share/opencode/auth.json` and still shows Synthetic signed in. `XDG_DATA_HOME` also moves the database but takes `auth.json` with it, and `OPENCODE_DATA` does nothing. `bench.sh` now exports `OPENCODE_DB="$raw.db"` per lane. This addresses the shared-database failure that voided two lanes; four servers at once has not been re-tested since — 2026-09-19.
-- `bench.sh` now reports what a lane actually did. Replaying this run's raw output through the patched parser turns the three misleading result files into: `glm53flash` `finish: length` with `tool_calls: 0`; `dsv41flash` `error: UnknownError: Unexpected server error`; `kimik3` an `.err` naming the server that never accepted a session, with a non-zero exit instead of 0. `finish` and `tool_calls` matter because a model that reasons to its output cap and never calls a tool spends a normal-looking number of tokens — 2026-09-19.
+- `bench.sh` now reports what a lane actually did. Replaying the 2026-09-19 raw output through the patched parser turns the three misleading result files into: `glm53flash` `finish: length` with `tool_calls: 0`; `dsv41flash` `error: UnknownError: Unexpected server error`; `kimik3` an `.err` naming the server that never accepted a session, with a non-zero exit instead of 0. `finish` and `tool_calls` matter because a model that reasons to its output cap and never calls a tool spends a normal-looking number of tokens — 2026-09-19.
 - `pool-usage.sh` now falls back to the `claude` CLI's own OAuth token (`~/.claude/.credentials.json`, `claudeAiOauth`, valid when either `expiresAt` or `refreshTokenExpiresAt` is in the future) when Orca has no registered Claude account, the way `codex` has always fallen back to `systemDefault.hasAuth`. The row reads `signed_in: true` with `windows: null` and a note saying Orca has no account for it, so `delegate` treats it as signed in with unknown headroom rather than dropping every Claude model — 2026-09-19.
 - `gpt-oss-120b` through its named agent is still unexplained. The agent is registered (`opencode agent list` shows `gpt-oss-120b (all)`), and the same `mode: all`, no-`prompt` shape works for `glm-5.3-flash`, `nemotron-3-super` and `deepseek-v4.1-flash`, so the shape alone is not the cause; the model is the smallest of the five. The untried discriminating test is a second agent for the same model with `mode: primary` and an explicit `prompt`, probed the same way. It was not run: a probe needs its own `opencode serve`, and a calibration lane was in flight on the shared database — 2026-09-19.
 
@@ -184,7 +184,7 @@ model, and one of them is the basis of a fit-set removal.
 
 ## The agent profiles were the regression, 2026-09-19
 
-- Every synthetic model answers on opencode's default agent with the model in the request: all five ids in 8-19 s this morning, Kimi K3 7/7 on 2026-09-09 (no profile the registry named then existed in `opencode.json`), and gpt-oss-120b in 7 s again this afternoon. The failures all came through a custom agent profile: gpt-oss-120b returned nothing twice, and GLM-5.3-Flash reasoned to 32,000 tokens without a tool call. A profile that only pins a model carries no `prompt`, so the model gets tools and none of the instructions that make the default agent act — 2026-09-19.
+- Every synthetic model answers on opencode's default agent with the model in the request: all five ids in 8-19 s on 2026-09-19, Kimi K3 7/7 on 2026-09-09 (no profile the registry named then existed in `opencode.json`), and gpt-oss-120b in 7 s again later that day. The failures all came through a custom agent profile: gpt-oss-120b returned nothing twice, and GLM-5.3-Flash reasoned to 32,000 tokens without a tool call. A profile that only pins a model carries no `prompt`, so the model gets tools and none of the instructions that make the default agent act — 2026-09-19.
 - The profiles were never needed. `opencode` and `opencode run` both take `-m, --model provider/model` on the launch line; `orca-worker.sh` had refused `--model` for opencode on the belief that "the agent fixes the model". It now launches `opencode --model <pool_id>` on the default agent, the registry carries no `agent` fields, and `~/.config/opencode/opencode.json` is back to a bare `$schema`. The seven zen-pinned profiles that went with it named ids the zen pool no longer lists — `opencode --help`, `opencode run --help` 1.18.31 — 2026-09-19.
 - Whether the 32,000-token ceiling is also the profile's doing is being measured: the same brief on GLM-5.3-Flash with no profile is in flight, beside default-agent lanes for Kimi K3, DeepSeek V4.1 Flash and gpt-oss-120b — 2026-09-19.
 
@@ -199,7 +199,7 @@ goroutine hygiene, and does not cover data races. A `race: false` field on
 each `local` result says so. Installing gcc is what a race-checked
 re-grade needs; the worktrees stay until then.
 
-- gpt-oss-120b — 6/7 in 282 s, $0.004 reported, `finish: stop`. Wrote a 99-line `merge.go` and a 175-line `merge_test.go`; its own tests pass. Fails `TestMergeAcceptContextCancelPropagates` only. Same model, same brief, returned nothing through a named agent profile twice this afternoon — 2026-09-19.
+- gpt-oss-120b — 6/7 in 282 s, $0.004 reported, `finish: stop`. Wrote a 99-line `merge.go` and a 175-line `merge_test.go`; its own tests pass. Fails `TestMergeAcceptContextCancelPropagates` only. Same model, same brief, returned nothing through a named agent profile twice the same day — 2026-09-19.
 - `bench.sh`'s `tool_calls` counts the parts of the final assistant message only, so a lane whose last turn is a text summary reports `tool_calls: 0` after having called tools for minutes; the worktree diff is the record of what a lane did, and that field only distinguishes "never acted" from "acted" when the turn ended `finish: length` — 2026-09-19.
 - GLM-5.3-Flash, default agent, no profile — `finish: length` at exactly 32,000 output tokens, no tool call, no file, 775 s, $0.017. Third run at the same wall: through a profile (469 s), through the profile with `provider.synthetic.models.<id>.limit.output: 65536` set (423 s), and now on the default agent. The profile is therefore not what caps GLM; opencode is, and this model reasons past 32,000 on this brief on any agent. The gpt-oss-120b contrast stands: it went from nothing through a profile to 6/7 without one — 2026-09-19.
 - Nemotron 3 Super's lane record is void for a harness reason: bash reads a script incrementally, and `bench.sh` was patched on disk while the pre-patch process was inside its 3,600 s `curl`. When the curl gave up the old process resumed at a byte offset in the new file, wrote "opencode serve never accepted a session" to its `.err`, produced no JSON, and exited 2. The model had worked the whole hour (its two files are staged in the worktree) and the reply never arrived before the ceiling. Never edit `bench.sh` while a lane is running it; the worktree diff is what remains — 2026-09-19.
@@ -224,7 +224,7 @@ No fit set moved on these. Two changes are worth asking for: `deepseek-v4.1-flas
 into `execute` on the only 7/7 of the day at a hundredth of Kimi's cost, and
 `kimi-k3`'s place there reconsidered once a race-checked run exists. The five
 bench worktrees under `~/Projects/worktrees/FlowSeer/` stay for that re-grade.
-- `execute` fit set — `deepseek-v4.1-flash` added by maintainer policy on its 7/7 of 2026-09-20: one run, default agent, base `bd9e0862`, graded without `-race`. A race-checked run on the kept worktree is the follow-up that either confirms or reverses it — 2026-09-22.
+- `execute` fit set — `deepseek-v4.1-flash` added on its 7/7 of 2026-09-20: one run, default agent, base `bd9e0862`, graded without `-race`. A race-checked run on the kept worktree is the follow-up that either confirms or reverses it — 2026-09-22.
 
 ## Race-checked re-grade 2026-09-22
 

@@ -10,7 +10,8 @@ execution: code
 review: accept
 ---
 
-<!-- review: accept (T1 tier change, commit 744c0e67), 2026-09-27.
+<!-- review: accept (T1 tier change, commit 744c0e67), 2026-09-27. No
+independent review was run on this change.
 Change is test-infra only (FRR+netpen Dockerfile, compose build, matrix); no
 attack logic touched, no fabrication, T2 pending cells preserved. Follow-up:
 the ring Dockerfile pins golang:1.26 vs go.mod 1.27 (dormant, not built). -->

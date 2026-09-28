@@ -102,7 +102,7 @@ model and this plan is wrong.
   pane would lose "Open link in new tab" and "Copy". Their verbs remain
   reachable through the summary placement and the panel's suggestions.
   Why: it keeps the native menu for everything that is not a specific
-  item. The user did not rule on this; it is repeated under Open
+  item. This is not decided yet and is repeated under Open
   questions.
 
 - **Shift+F10 and the `ContextMenu` key are handled in the app.** A

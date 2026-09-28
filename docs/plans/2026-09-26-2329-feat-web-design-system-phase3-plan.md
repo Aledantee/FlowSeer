@@ -23,8 +23,8 @@ This plan is wrong if Reka's `Combobox` cannot keep `GlobalSearch`'s recent-sear
 
 ## Decisions
 
-- Toasts appear in the bottom-right corner and stack upwards. Why: the
-  user chose it on 2026-09-27; it keeps notifications away from the topbar
+- Toasts appear in the bottom-right corner and stack upwards. Why: it keeps
+  notifications away from the topbar
   navigation and the dock controls.
 - `GlobalSearch` is built on a dedicated `UiCommand` component under
   `src/ui/command/`, not on `UiDialog` and `UiCombobox` composed inside

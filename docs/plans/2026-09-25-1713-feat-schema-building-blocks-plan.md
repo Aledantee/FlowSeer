@@ -54,8 +54,8 @@ discovery re-cuts the table in the record before any later phase lands.
   `src/modules/localnet/access`) in the same change. Why: the breaking-change
   rule in `AGENTS.md`, and `generated/` must match `spec/proto/` in every
   commit (`docs/code-style-proto.md`, Workflow).
-- The user chose all domains, primitives and entities, and a required
-  network-instance key (2026-09-25).
+- Scope covers all domains, primitives and entities, with a required
+  network-instance key (decided 2026-09-25).
 
 ## Requirements
 

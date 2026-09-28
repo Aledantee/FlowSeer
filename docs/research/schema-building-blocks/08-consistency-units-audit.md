@@ -8,7 +8,7 @@ domain: b08 (cross-cutting consistency)
 
 ## 1. Scope and sources
 
-Two halves per the dossier's scope: (A) external conventions for common value types;
+Two halves: (A) external conventions for common value types;
 (B) an audit of the current FlowSeer schema for carve-outs and drift.
 
 **Repo paths read (full unless noted):**
@@ -57,8 +57,7 @@ Two halves per the dossier's scope: (A) external conventions for common value ty
   value zero"), `gauge32`/`gauge64`, `date-and-time` (RFC 3339 profile).
 - RFC 9181 supersedes RFC 6021 for `ietf-yang-types` timestamp guidance; RFC
   6991 remains the live `ietf-yang-types` module referenced by every YANG tree
-  vendored in this repo (`spec/yang/`) — no RFC 9911 module exists; that
-  brief-suggested number does not correspond to a published `ietf-yang-types`
+  vendored in this repo (`spec/yang/`) — no RFC 9911 module exists; that candidate number does not correspond to a published `ietf-yang-types`
   successor, so it is **unverified/does not exist** and is dropped from the
   citation set.
 - RFC 2578 (SMIv2 SMI) — https://www.rfc-editor.org/rfc/rfc2578 — §7.1.6
@@ -80,7 +79,7 @@ Two halves per the dossier's scope: (A) external conventions for common value ty
   https://google.aip.dev/145 (range types: prefer two fields or a range
   message over a single packed value).
 
-  Correction against the dossier's scope: AIP-140 governs *naming* generally (word
+  Correction to the starting assumption: AIP-140 governs *naming* generally (word
   choice, abbreviations), not unit suffixes specifically; the unit-in-name
   guidance actually lives at AIP-143 ("if a field represents a quantity with
   a unit... indicate the unit in the field name, e.g. `duration_seconds`, or
@@ -246,8 +245,7 @@ agree with it.**
   say `EuiAddress`. Grepping the full generated tree for `MacAddress` returns
   zero hits — the name in the docs has never been the name in the schema.
 - **This is not a latent risk, it is already spreading**: the sibling
-  `01-wifi-technology.md` and `04-platform-system.md` dossiers, written this
-  session from the conventions doc rather than the schema, both write
+  `01-wifi-technology.md` and `04-platform-system.md` dossiers, written from the conventions doc rather than the schema, both write
   `flowseer.net.addr.v1.MacAddress` as if it already exists (`01`:
   "`bssid` — reuse `flowseer.net.addr.v1.MacAddress`"). A planner assembling
   those dossiers' proposed messages verbatim would generate a compile error.
@@ -495,6 +493,5 @@ every one of them will otherwise reference a nonexistent type.
    precedent-setting decision either way.
 5. **String-length predefined-rule family (B6):** one generic
    `identifier`/`label`/`free_text` set of predefined rules, or leave
-   per-field judgment as today? Lower priority than 1–4; flagged for
-   completeness since the dossier's scope asked for it, but the current inconsistency
+   per-field judgment as today? Lower priority than 1–4; flagged for completeness, but the current inconsistency
    has not caused a bug, only reader friction.

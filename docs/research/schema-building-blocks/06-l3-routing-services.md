@@ -86,8 +86,7 @@ IANA-RTPROTO-MIB:48-79`):** `other(1)`, `local(2)`, `netmgmt(3)`, `icmp(4)`,
 `egp(5)`, `ggp(6)`, `hello(7)`, `rip(8)`, `isIs(9)`, `esIs(10)`,
 `ciscoIgrp(11)`, `bbnSpfIgp(12)`, `ospf(13)`, `bgp(14)`, `idpr(15)`,
 `ciscoEigrp(16)`, `dvmrp(17)`, `rpl(18)`, `dhcp(19)`, `ttdp(20)` (Train
-Topology Discovery Protocol — brief's guess of "ttag" is wrong, the
-registered name is `ttdp`). Registry pass-through: keep the real integers.
+Topology Discovery Protocol. The registered name is `ttdp`, not "ttag"). Registry pass-through: keep the real integers.
 Separate `IANAipMRouteProtocol` TC (same file, lines 81-100) has its own
 values including `pimSparseMode(8)`, `pimDenseMode(9)`, `msdp(12)` — do not
 reuse the unicast enum for multicast route source.
@@ -113,9 +112,8 @@ instance ID (0-255) allows multiple OSPFv3 instances per link.
 
 **IS-IS:** OpenConfig `openconfig-isis-types.yang` `isis-interface-adj-state`
 is **4-valued**: `UP`, `DOWN`, `INIT`, `FAILED` (not the 3-valued
-down/initializing/up assumed in the dossier's scope). `level-type`: `LEVEL_1`,
-`LEVEL_2`, `LEVEL_1_2`. No RFC 1195/ISO 10589 text was fetchable this
-session for the canonical adjacency-state clause — OpenConfig is the only
+down/initializing/up of the starting assumption). `level-type`: `LEVEL_1`,
+`LEVEL_2`, `LEVEL_1_2`. No RFC 1195/ISO 10589 text was fetchable for this dossier for the canonical adjacency-state clause — OpenConfig is the only
 verified source for this fact.
 
 **BGP (RFC 4271 §8.2.2, RFC 4273; vendored `BGP4-MIB`, `BGP4V2-TC-MIB`):**
@@ -290,7 +288,7 @@ current bug):**
 | WireGuard | `/interface/wireguard`: `listen-port, mtu, private-key, public-key, running, vrf`; `/interface/wireguard/peers` sub-resource present but not deep-read | not fetched | not present | not applicable (not an IETF/OpenConfig protocol) | Niche outside MikroTik; `wg(8)`/quickstart are the primary normalized source |
 | DNS | not fetched for MikroTik | `/v1/sites/{siteId}/dns/policies` (separate Site-Manager-style endpoint, not a Network schema field) | not present | not covered | Niche/thin per atlas (`04-ip.md`/`dns` section) — low schema value beyond forwarder address list |
 
-Note on Meraki: the dossier's scope lists Cisco Meraki as a provider to survey, but
+Note on Meraki: Cisco Meraki is a provider this dossier set out to survey, but
 `spec/openapi/meraki/` does not exist in this repo (Glob returned no
 files) — Meraki appliance L3/DHCP/NAT/VPN facts are **not verified from a
 vendored source** for this dossier; would need a live web fetch of Meraki
@@ -392,8 +390,7 @@ pass-through enums keep MIB/IANA integers, normalized enums get
 
 - **`net/protocol/isis/v1`**:
   - `IsisAdjacencyState` enum — registry pass-through of OpenConfig's
-    4-value set `UP/DOWN/INIT/FAILED` (not the 3-value set assumed in the
-    brief — verified wrong).
+    4-value set `UP/DOWN/INIT/FAILED` (the 3-value starting assumption was verified wrong).
   - `IsisLevel` enum — `LEVEL_1`, `LEVEL_2`, `LEVEL_1_AND_2`.
 
 - **`net/protocol/vrrp/v1`** (also covers HSRP/GLBP/etc. per atlas's "one
@@ -473,8 +470,7 @@ pass-through enums keep MIB/IANA integers, normalized enums get
     enumerate states explicitly, derive from §1.2-1.4: `ESTABLISHING`,
     `ESTABLISHED`, `REKEYING`, `DELETING`), `IkeProposal{ encryption_
     algorithm, integrity_algorithm, dh_group }` (registry pass-through
-    enums per IANA IKEv2 transform-type registries — not fetched this
-    session, flag as open question), `IkeSa{ local_address, remote_
+    enums per IANA IKEv2 transform-type registries — not fetched for this dossier, flag as open question), `IkeSa{ local_address, remote_
     address, state, proposal }`, `ChildSa{ ike_sa ref-free back-pointer by
     key, spi, protocol (ESP|AH) }`. **Do not add a "negotiated lifetime"
     field on `IkeProposal`** — RFC 7296 §2.4 explicitly excludes it from
@@ -487,7 +483,7 @@ pass-through enums keep MIB/IANA integers, normalized enums get
     `persistent_keepalive_seconds`, `latest_handshake` (timestamp),
     `transfer_rx_bytes`, `transfer_tx_bytes` (uint64 counters).
 
-- **`net/protocol/pim/v1`** (multicast, primitive-level only per brief):
+- **`net/protocol/pim/v1`** (multicast, primitive-level only):
   - `PimMode` enum — registry pass-through reusing `IANAipMRouteProtocol`
     values `pimSparseMode(8)`/`pimDenseMode(9)` rather than inventing a
     new 2-value enum, since the vendored MIB already assigns integers.
@@ -552,8 +548,7 @@ specific instance across time with a device/tenant ref:
   LocalRef/GlobalRef with device as parent; the primitives in §4 would
   populate their State.
 
-None of these are committed shapes — flagged as candidates only, since the
-brief's dossier scope is primitives-first with entities noted for the
+None of these are committed shapes — flagged as candidates only, since this dossier is primitives-first with entities noted for the
 planner to decide.
 
 ## 6. Traps
@@ -570,7 +565,7 @@ planner to decide.
   this wrong), verified against both the IANA registry and the
   vendored `IANA-RTPROTO-MIB:48-79`.
 - **IS-IS adjacency state is 4-valued (`UP/DOWN/INIT/FAILED`), not
-  3-valued** as the dossier's scope assumed — verified against OpenConfig
+  3-valued** as first assumed — verified against OpenConfig
   `openconfig-isis-types.yang`, no contradicting source found.
 - **BFD state 0 is a real, meaningful value** (`AdminDown`), not a
   synthetic zero — a naive `_UNSPECIFIED=0` normalization would collide
@@ -625,8 +620,7 @@ planner to decide.
    `net/ip/` despite the README's "deliberately absent" list, or under its
    own `net/<x>/v1` siblings matching `net/routing`'s reservation style?
    The architecture doc reserves `net/routing` explicitly but says nothing
-   about DHCP/DNS/NAT/tunnels — this is a genuine gap, not something this
-   session's sources resolve.
+   about DHCP/DNS/NAT/tunnels — this is a genuine gap, not something this dossier's sources resolve.
 2. Should FHRP (VRRP/HSRP/GLBP) really share one package with a protocol
    discriminator (as the atlas recommends and this dossier proposes), or
    does the architecture doc's "protocols own their packages" rule

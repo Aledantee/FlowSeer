@@ -168,7 +168,7 @@ Given the "protocols own their packages" rule and MSTP's near-universal vendor s
 
 ## 4.5 IGMP/MLD snooping — no new package recommended yet
 
-No standard model exists to normalize against (RFC 4541 describes router behavior expectations, not a wire/MIB schema; OpenConfig's `igmp-types` has only two scalar typedefs). Recommend the planner treat this as **lower priority than MSTP/802.1X** until a second domain researcher's brief needs it (e.g., if a multicast-specific brief exists) — flagged as an open question in §7 rather than proposed as a package here, to avoid guessing a shape with no cross-vendor convergence beyond "`[vlan, protocol]` config + `[vlan, group, source?]` membership."
+No standard model exists to normalize against (RFC 4541 describes router behavior expectations, not a wire/MIB schema; OpenConfig's `igmp-types` has only two scalar typedefs). Recommend the planner treat this as **lower priority than MSTP/802.1X** until a multicast-focused dossier needs it — flagged as an open question in §7 rather than proposed as a package here, to avoid guessing a shape with no cross-vendor convergence beyond "`[vlan, protocol]` config + `[vlan, group, source?]` membership."
 
 ## 4.6 CDP / discovery-protocol generalization — decision needed, not proposed here
 
@@ -195,6 +195,6 @@ No new UUID-identified entity is warranted by this domain research. Every concep
 1. Should `network_instance_name` be added to `Vlan` as well as `FdbEntry`, or only to FDB rows for this pass? Widening `net/switching/v1`'s scope touches a stable, well-regarded package.
 2. Does MSTP get to import `net/protocol/stp/v1` types (`BridgeId`, `PortRole`, `ForwardingState`), or does the "no protocol imports another protocol" rule hold and MSTP duplicates equivalent messages? (§6 trap)
 3. Is the CDP-vs-LLDP "one generic Neighbor with a discovery_protocol discriminator" refactor worth taking before `lldp.v1` stabilizes further, given it would change a landed, well-developed package? The atlas recommends it; this dossier surfaces the tradeoff without deciding it.
-4. Is 802.1X/MAB in scope for this pass at all, or does it belong with a future AAA-focused domain brief (RADIUS/TACACS+ servers, method ordering) since `dot1x.v1.Session.role_name`/`username` already brushes against AAA territory?
-5. IGMP/MLD snooping has zero standard model to normalize against — does the planner want a FlowSeer-invented shape now (`[vlan, protocol]` + `[vlan, group, source?]`, the closest thing to cross-vendor convergence) or defer until a multicast-specific brief exists?
+4. Is 802.1X/MAB in scope for this pass at all, or does it belong with a future AAA-focused dossier (RADIUS/TACACS+ servers, method ordering) since `dot1x.v1.Session.role_name`/`username` already brushes against AAA territory?
+5. IGMP/MLD snooping has zero standard model to normalize against — does the planner want a FlowSeer-invented shape now (`[vlan, protocol]` + `[vlan, group, source?]`, the closest thing to cross-vendor convergence) or defer until a multicast-specific dossier exists?
 6. VXLAN/EVPN: the direction doc reserves `net/routing` for RIBs/routes and this domain's device classes (enterprise switch/AP/WLC) rarely run VTEPs. Confirm this stays out of scope for this pass; if it comes in later, RFC 7348 and RFC 9136 need dedicated fetches this dossier did not do.

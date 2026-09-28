@@ -77,7 +77,7 @@ users, or a RADIUS backend if configured, authenticate every surface [5].
 There is no scoped, read-only API role comparable to a controller's "viewer" role. A least-
 privilege read-only integration is built by creating a RouterOS user in a group with only `read`
 and `api`/`rest-api`/`ssh` policy bits (not `write`, `policy`, `sensitive`, or `test`); RouterOS
-group policies are documented under user management but were not fetched for this brief.
+group policies are documented under user management but were not fetched for this dossier.
 A write integration needs `write` plus the relevant service policy bit and, for anything touching
 firewall or routing, `sensitive`.
 
@@ -156,7 +156,7 @@ of the box, not gated behind an explicit enable step the way `www-ssl` and SNMP 
 
 - **No NETCONF, RESTCONF, or gNMI.** No YANG models exist for RouterOS; this was already recorded
   in `spec/openapi/mikrotik/SOURCES.md` and confirmed by the absence of any such surface in the
-  docs fetched for this brief.
+  docs fetched for this dossier.
 - **SwOS** has no CLI, no API, and no SSH — the vendor docs state plainly that "console access,
   API, or other management interfaces are not supported," leaving only the HTTP web UI (with its
   undocumented internal `.b` endpoints) and read-only SNMP v1/v2c [8].

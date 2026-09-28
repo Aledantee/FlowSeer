@@ -221,8 +221,7 @@ advance to power it up and to say when it will be available.
 An agent that reaches this runbook and finds the device unreachable **asks
 rather than retries**. An unreachable approved device is not a transient
 error to hammer: the approval is for a device somebody expected to be on, and
-a device that is off is a fact about the world that a retry loop cannot
-change. Stop and ask.
+a device that is off is a fact about the world that a retry loop cannot change. Stop and ask the switch's owner.
 
 ## Step 1: confirm SNMPv3 authPriv before the switch is powered on
 
@@ -249,8 +248,7 @@ show running-config | include snmp-server
 
 **Fixing it is itself a live write, and it is not covered by the approval in
 step 9.** Creating an SNMPv3 user changes the switch's configuration; that
-approval is for one interface description. If the check fails, stop and get
-the second change approved on its own terms before making it. What it takes is
+approval is for one interface description. If the check fails, stop and get the second change approved by the repository owner on its own terms before making it. What it takes is
 a group and a user:
 
 ```cli
@@ -490,14 +488,13 @@ admissible. It says nothing about whether the switch will accept the command.
 
 **Stop here. Do not proceed without confirming the approval still stands.**
 
-This device and this change were approved on 2026-09-06 because the switch
-is a test device.
+The repository owner, who also owns the switch, approved this device and this change on 2026-09-06 because the switch is a test device.
 
 That approval covers this switch and this change. It does not cover another
 device, another interface, another kind of change, a repeat on a different
 day, or the same change on a switch that has since been moved into service.
 It is not a general authorization to write to hardware and must not be read
-as one. If anything about the target has changed since 2026-09-06, ask again.
+as one. If anything about the target has changed since 2026-09-06, ask the repository owner again.
 
 ## Step 10: make the write
 

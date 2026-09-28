@@ -49,7 +49,7 @@ syslog severity/facility.
 - **No `ietf-hardware` (RFC 8348), `ietf-system` (RFC 7317), or
   `ietf-alarms` (RFC 8632) YANG modules are vendored anywhere under
   `spec/yang/`.** Only OpenConfig platform/system/alarm modules are present.
-  This is a real gap against the IETF-first convention list in the dossier's scope —
+  This is a real gap against the IETF-first sources this dossier set out to use —
   flagged as an open question.
 - `spec/openapi/ubiquiti/unifi-network-openapi-v10.4.57.json` (schema:
   "Latest statistics for a device", "Adopted device overview")
@@ -411,7 +411,7 @@ message NtpAssociation {
 Hangs off `DeviceState` as `repeated NtpAssociation ntp_associations = N`
 (device-scoped table, no per-association ref needed — matches the FDB/
 NeighborEntry table pattern). RFC 5905 itself was not fetched for this dossier
-(the dossier's scope cites `NTPv4-MIB` RFC 5907 for the SNMP shape, and this dossier
+(`NTPv4-MIB` RFC 5907 covers the SNMP shape, and this dossier
 fetched RFC 7317's YANG NTP container and the vendored OpenConfig copy
 instead) — **mark the exact reach-register semantics unverified** pending a
 direct RFC 5905/5907 read.
@@ -568,8 +568,7 @@ fields, not a new entity.
    nested `Component`. Flag for guardrail-level convention discussion, not
    a decision this dossier should make unilaterally.
 6. `ietf-hardware`, `ietf-system`, `ietf-alarms` YANG modules are not
-   vendored (§1) despite being named in the research brief as primary
-   sources. Should they be added to `spec/yang/` before schema work lands,
+   vendored (§1) although they are the primary sources for this domain. Should they be added to `spec/yang/` before schema work lands,
    or is the OpenConfig coverage judged sufficient? This affects whether
    the config/state split proposed in §4 (e.g. `admin-state`, trap 8's
    ietf-hardware-only leaf) can be cited against a vendored source or only

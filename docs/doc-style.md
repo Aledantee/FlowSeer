@@ -134,7 +134,10 @@ govern when a comment exists and what a contract states. On top of those:
 ## Write like a person
 
 Readers pattern-match on machine tells and discount the text when they pile
-up. The mechanical ones below are flagged by `check-prose.py`.
+up. `check-prose.py` flags em dashes, semicolons, signposting, wrap-ups,
+negative parallelism, trailing participles, and the puffery words. The rest
+(overexplaining, three-item lists, hedging, formatting, attribution, rhythm)
+need a reread.
 
 - **No em dashes.** Use a period, a comma, a colon, or parentheses. The em
   dash is the most-cited single tell, and every use of it has a plainer

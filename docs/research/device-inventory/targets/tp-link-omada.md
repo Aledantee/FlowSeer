@@ -219,8 +219,7 @@ is a different channel from a controller push API.
     27002/27017 as older controller-information/database ports, both superseded by TCP 27217
     (MongoDB, v3.x and above, and the Software Controller's local MongoDB port in the current
     generation) [3][23].
-  - The dossier's scope also names DNS name resolution of the hostname `omada` as a discovery mechanism; no
-    source fetched in this pass documents this explicitly. unverified: whether Omada devices
+  - DNS name resolution of the hostname `omada` as a discovery mechanism: no source fetched in this pass documents this explicitly. unverified: whether Omada devices
     attempt to resolve `omada` (or `omada.<searchdomain>`) as a controller-discovery fallback,
     analogous to Ubiquiti's `unifi` DNS convention.
   - **Zero-Touch Provisioning**: available from Controller v5.15.24 onward, using per-device "device

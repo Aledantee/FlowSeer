@@ -147,10 +147,10 @@ vendored MIB text itself, repo path
 | Certificate | X.509 subject/issuer/not_before/not_after/fingerprint — no single vendored MIB table found in this pass; `CISCOSB-SSH-MIB` covers SSH host keys, not X.509 certs directly | structured | niche today, "worth carrying forward" per atlas 07-security (cert-expiry as a real fault) |
 | Flow export config | `SFLOW-MIB sFlowFsTable`/`sFlowCpTable` (sampling rate, counter-poll interval) — cross-vendor standard, confirmed present across D-Link/FASTPATH/LANCOM/Foundry per atlas | structured | core for sFlow-capable switches; NetFlow/IPFIX is collector-config only, vendor-specific (Comware flow-template, Huawei NetStream, IOS-XE Flexible NetFlow) — no standard MIB in corpus |
 | WAN uplink status | Meraki `getOrganizationUplinksStatuses`: `status`∈{active,connecting,failed,"not connected",ready}, `interface`∈{wan1,wan2,wan3,cellular}, `ip`,`gateway`,`publicIp`,`primaryDns`/`secondaryDns` (verified via fetch) | enum+string | core for gateway/appliance-class devices |
-| WAN loss/latency | Meraki `getOrganizationDevicesUplinksLossAndLatency`: `timeSeries[].{ts, lossPercent, latencyMs}` (verified via fetch) | percent, ms | core — this is the shared perf primitive the dossier's scope asks for |
+| WAN loss/latency | Meraki `getOrganizationDevicesUplinksLossAndLatency`: `timeSeries[].{ts, lossPercent, latencyMs}` (verified via fetch) | percent, ms | core, the basis of the shared perf primitive below |
 | Cellular signal | Meraki uplink status `signalStat.{rsrp, rsrq}` for cellular (verified via fetch, field-name level only — value range not in that fetch) | dBm/dB | core for cellular-equipped gear |
 | DSL line status | VDSL2-LINE-MIB `xdsl2LineStatusXtur/Xtuc` (BITS), `...AttainableRateDs/Us`, `...ActAtpDs/Us` (verified in vendored MIB) | bitmask / bps / dB | niche (LANCOM only, per atlas) |
-| PON ONU state | ITU-T G.984.3 O1-O7 — not independently fetched for this dossier; carried from the dossier's scope and the atlas's `[ifIndex,onuIndex]` keying note | enum | niche, out of FlowSeer's device classes per atlas 10-wan-access |
+| PON ONU state | ITU-T G.984.3 O1-O7 — not independently fetched for this dossier; carried from the atlas's `[ifIndex,onuIndex]` keying note | enum | niche, out of FlowSeer's device classes per atlas 10-wan-access |
 
 ## 4. Proposed primitives
 
@@ -164,8 +164,7 @@ producer needs the legacy 3-bit field distinct from DSCP CS values — skip
 otherwise, DSCP subsumes it. Do **not** add an IEEE 802.1p PCP enum here:
 PCP is a 3-bit VLAN-tag field, which is `net/switching` territory (it lives
 in the tag stack), not a packet-header registry — flag as an open question
-for the planner rather than deciding it in this dossier, since `net/switching`
-is another agent's domain.
+for the planner rather than deciding it in this dossier, since `net/switching` belongs to `05-l2-and-instances.md`.
 
 **`net/qos/v1` — new package, core.** The direction record explicitly killed
 an earlier unused `net/qos/v1` placeholder (2026-08-30 amendment) for being
@@ -209,8 +208,7 @@ domain's landed package):
   periodic weekday/time windows}` referenced by name from ACLs, QoS policers,
   and PoE schedules — model once, per the atlas's explicit recommendation.
 
-**`net/perf/v1` — new package, core, the shared primitive the dossier's scope asks
-for.** One message covers WAN uplink health, cellular link quality, and any
+**`net/perf/v1` — new package, core, one shared performance primitive.** One message covers WAN uplink health, cellular link quality, and any
 future "how good is this path" question:
 ```
 message PathQuality {
@@ -230,7 +228,7 @@ with only this one user for now, plain `gte/lte` suffices, promote to a
 predefined rule when a second consumer appears.
 
 **`net/wlan/v1` extension (reserved package per direction record) —
-`SignalQuality`, usable by both cellular and Wi-Fi per the dossier's scope.**
+`SignalQuality`, usable by both cellular and Wi-Fi.**
 ```
 message SignalQuality {
   google.protobuf.FloatValue rssi_dbm = 1;   // wrapper rejected per convention 3 — use presence on a plain float instead: float rssi_dbm = 1;
@@ -242,8 +240,7 @@ message SignalQuality {
 (Correction inline: no wrapper messages per convention 3 — plain scalar
 fields with presence.) This message is deliberately *not* WLAN-specific
 despite living near `net/wlan`; RSRP/RSRQ/SINR are the LTE/cellular metrics
-(3GPP TS 36.133, cited above) and RSSI/SNR the Wi-Fi ones (802.11), and the
-brief asks for one shape both can use. Recommend the planner decide the
+(3GPP TS 36.133, cited above) and RSSI/SNR the Wi-Fi ones (802.11), and one shape should serve both. Recommend the planner decide the
 actual home package (`net/wlan` is wireless-Ethernet-adjacent; cellular is
 WAN-adjacent) — flagged as an open question in §7 rather than decided here,
 since `net/wlan` is reserved and this dossier does not own that boundary.
@@ -344,7 +341,7 @@ here (hostname, app-name, timestamp) — those belong wherever the Event
 entity/envelope lands, this package supplies only the two registries.
 
 **Explicitly not modelled as `net/` primitives now (defer to later or to an
-entity layer), per the dossier's scope question "which deserve a package now vs later":**
+entity layer), answering which deserve a package now and which later:**
 - **ACL/firewall session tables, PKI/certificate values, port-security**:
   niche today per the provider matrix; certificates in particular need an
   identity-bearing home (a device's cert is arguably `model/inventory`-
@@ -355,9 +352,8 @@ entity layer), per the dossier's scope question "which deserve a package now vs 
   rate is cheap later, not needed now.
 - **BRAS/PPPoE, Fibre Channel, wan-serial (TDM/ATM)**: out of scope, no
   primitive proposed.
-- **IPsec/WireGuard tunnel status**: brief says "if not covered by routing"
-  — the routing/net-instance domain is reserved (`net/routing`, per direction
-  record) and another agent's atlas section (05-ip.md routing-policy) may
+- **IPsec/WireGuard tunnel status**: in scope only if routing does not cover it, and the routing/net-instance domain is reserved (`net/routing`, per direction
+  record) and the atlas's routing-policy section (05-ip.md) may
   already claim tunnels as a routing-adjacent concept; flagged as an open
   question for the planner to resolve ownership, not decided here.
 
@@ -377,9 +373,7 @@ entity layer), per the dossier's scope question "which deserve a package now vs 
   (subject+serial+fingerprint) an operator might want alerted on expiry
   independent of any single poll. Not proposed now; flagged in §7.
 - **SyslogEvent** — belongs to the `event/` root per the existing tree
-  (`event/access/v1` is the precedent), not `model/`, and not this
-  dossier's package to design — the dossier's scope explicitly carves this out to
-  "another agent covers ietf-alarms for platform."
+  (`event/access/v1` is the precedent), not `model/`, and not this dossier's package to design: `ietf-alarms` belongs to `04-platform-system.md`.
 - Nothing else in this domain crosses the primitive/entity line: QoS
   policy, filter rules, flow-export settings, and WAN/cellular signal
   quality are all device-reported values with no independent identity,
@@ -440,9 +434,7 @@ entity layer), per the dossier's scope question "which deserve a package now vs 
    adjacent) vs a new `net/cellular/v1` vs a shared leaf under `net/phy`.
    Both cellular (LTE RSRP/RSRQ/SINR) and Wi-Fi (RSSI/SNR) need it; this
    dossier proposes the shape, not the package.
-2. **Who owns tunnel/VPN status (IPsec/WireGuard)?** — Brief says "if not
-   covered by routing"; needs coordination with whichever agent covers
-   `05-ip.md` routing-policy and the reserved `net/routing` package.
+2. **Who owns tunnel/VPN status (IPsec/WireGuard)?** In scope here only if routing does not cover it. Decide it together with the atlas's `05-ip.md` routing-policy section and the reserved `net/routing` package.
 3. **Is `SyslogFacility` an enum or a plain ranged `uint32`?** — Facility
    names carry less actionable semantics than DSCP's AF/EF classes; flagged
    rather than decided.

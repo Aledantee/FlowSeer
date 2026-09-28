@@ -23,8 +23,8 @@ This plan is wrong if the navigation frame's shared glow coordinates (`backgroun
 
 ## Decisions
 
-- `design/palette.html` stays beside Storybook's Colors story. Why: the
-  user chose it on 2026-09-27; Storybook is the component catalogue and
+- `design/palette.html` stays beside Storybook's Colors story. Why:
+  Storybook is the component catalogue and
   contrast audit, and `palette.html` exports CSS and JSON tokens without a
   running server. Its stylesheet links move to `tailwind.css` and
   `style.css`.

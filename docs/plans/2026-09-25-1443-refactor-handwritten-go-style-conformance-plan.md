@@ -216,7 +216,7 @@ in golden traces and conformance corpora.
   together or not at all; this plan leaves both. `VALIDATION_MATRIX.md` is in U6
   only because `matrix_test.go:49` cuts on its heading. These three are why the
   planning-label grep still prints two files.
-- Files this plan does not touch:
+- Files held by other work, which this plan does not touch:
   `src/protocol/snmp/cmd/mibgen/**`, `src/protocol/yang/cmd/yanggen/*.go`,
   `src/protocol/internal/goname/**`,
   `src/protocol/snmp/bench/{streaming_memory,tablewalk,tablewalk_parity}_test.go`,

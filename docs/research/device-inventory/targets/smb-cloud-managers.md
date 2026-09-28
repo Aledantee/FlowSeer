@@ -444,7 +444,7 @@ Already covered in
 [`cisco-catalyst-iosxe.md`](cisco-catalyst-iosxe.md), which documents the
 Dashboard API (access-key auth, REST/JSON, DevNet-published reference, no
 rate-limit figure found), the CBS device tiers, and the direct-managed vs.
-embedded-probe device modes. Not repeated here per the dossier's scope.
+embedded-probe device modes. Not repeated here.
 
 ---
 

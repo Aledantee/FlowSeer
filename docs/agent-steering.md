@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-09-23
+last_updated: 2026-09-28
 ---
 
 # Agent steering
@@ -108,7 +108,8 @@ before dispatching an agent. One task skill sits beside them:
 `web-component`, the order in which a web component meets the web
 component contract and its story, accessibility, i18n, token, and
 verifier gates. Its references hold the overlay and motion rules agents
-most often break, each backed by a test or story in `frontend/web/`.
+most often break, each traced to a failure fixed in this repository or to
+a primary source.
 Its `check-tools.sh` reports missing tools rather than installing them.
 It replaced a Storybook MCP server: the server's docs tools returned props
 and story source an agent reads directly from the colocated files, needed
@@ -141,7 +142,7 @@ and each new runtime would need its own switch. So `AGENTS.md` says a
 project skill wins where it covers the work, and `delegate`'s brief names
 the skill by path. `.claude/settings.json` still disables the plugin for
 Claude, from before either existed, and `tune`'s bench disables it
-because the plugin's own review stretched a timed run to 110 minutes.
+because the plugin's own review stretched a timed run past 100 minutes.
 
 Gate the merge on evidence, not on the conversation. `land` is the one
 skill whose action reaches every other worktree, and a session cannot see
@@ -437,12 +438,13 @@ launch, and a report the coordinator waits on. Herdr held this place from
 orchestration`: `worker-start` pins Claude, Codex, and Cursor ids only and
 a dispatch into an `agy` or `opencode` terminal sat unsubmitted; `check
 --wait` is re-armed by every heartbeat; and a dispatch carries a capability
-token a context compaction can lose. One runtime is simpler to keep
-working than two, and `delegate/scripts/orca-worker.sh` meets the same
+token a context compaction can lose. `delegate/scripts/orca-worker.sh`
+meets the same
 three points without orchestration: `orca terminal create --command` takes
 any CLI's launch line with the model on it, the wait is confirmed against
 the worker's screen, and a lane is a terminal and a branch with no token.
-`references/orca.md` says which lanes are still unmeasured. Read-only
+`references/orca.md` says which lanes its described behavior was measured
+on. Read-only
 delegates stay native subagents, which load their definition and nothing
 else, where a runtime worker is a full agent session. The exception is a
 unit reviewer on the executor's vendor: a reviewer from the same vendor

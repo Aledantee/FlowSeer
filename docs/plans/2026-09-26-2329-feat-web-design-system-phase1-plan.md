@@ -78,8 +78,8 @@ separate entry that only the new `src/ui/` code imports.
   every pair in both themes (checked 2026-09-26 with the U2 conversion).
   The alternative, regenerating the light
   scales against the darker canvas, is a manual Radix-tool session that
-  this phase does not take on. The user kept the lighter canvas on
-  2026-09-27 after the before and after screenshots.
+  this phase does not take on. The lighter canvas was kept on 2026-09-27
+  after comparing before and after screenshots.
 - Legacy tokens are renamed in one sweep, following the table below, with
   no aliases. Why: the parent plan's rename decision.
 

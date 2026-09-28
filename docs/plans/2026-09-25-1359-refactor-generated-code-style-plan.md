@@ -97,8 +97,8 @@ generator here to adjust.
   `NativeAaaAccountingCommandsConfig`. A clash created by the dropped
   separator goes through the existing `nameScope.claim`, whose suffix
   becomes `X` plus six hex digits (`FooX1a2b3c`). Why:
-  `docs/code-style.md` Naming says "MixedCaps, never underscores", and the
-  user chose this over documenting an exception or naming by the node
+  `docs/code-style.md` Naming says "MixedCaps, never underscores", and this was
+  chosen over documenting an exception or naming by the node
   alone (the latter would let one added sibling rename existing types).
 - Every Go name yanggen derives from a struct name is claimed in the
   package `nameScope` right after the struct's own claim and before its

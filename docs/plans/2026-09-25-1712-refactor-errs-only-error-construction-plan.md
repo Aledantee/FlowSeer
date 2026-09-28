@@ -74,7 +74,8 @@ around it.
   permits what the gate rejects would send the next reader the wrong way.
 - The gate lands last, after every conversion. A gate that lands first fails the
   build for as long as the migration runs.
-This plan's own decisions:
+
+Further decisions:
 
 - Units are cut per package tree, six of them, with `src/edge/netpen` alone
   because it is a nested module and holds 213 of the 654 sites. Why: the trees

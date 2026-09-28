@@ -22,8 +22,8 @@ parent: docs/plans/2026-09-09-1213-feat-remote-packet-capture-plan.md
 > exposed missing 802.1Q tags and a VLAN-filter failure; the local source was
 > corrected and the physical comparison repeated successfully. EVE-NG's
 > virtual RouterOS streamed TZSP to Kali; all 36 decoded frames matched
-> tcpdump's TZSP payloads byte for byte. The user ruled that this satisfies
-> the TZSP protocol check. Compatibility with a particular physical MikroTik
+> tcpdump's TZSP payloads byte for byte. This satisfies the TZSP protocol
+> check. Compatibility with a particular physical MikroTik
 > and firmware release is a separate question.
 
 ## Goal
@@ -117,7 +117,7 @@ device's management address or sniffer capability.
 
 ## Lab progress (2026-09-27)
 
-A temporary ICX7150 SPAN session was approved for this run. Kali's `eth0` was linked to
+A temporary ICX7150 SPAN session was set up for this lab run. Kali's `eth0` was linked to
 ICX port `1/1/2` by LLDP; its management address and default route stayed on
 `eth1.1000` via port `1/1/12`. The switch mirrored both directions of `1/1/12`
 to `1/1/2`. A Linux build of the FlowSeer capture module ran on Kali with
@@ -174,7 +174,7 @@ been run in this lab, and no physical TZSP stream has been captured. Local
 filters now run after receive in the capture process so they see restored
 headers; the effect on drop rates under a busy SPAN port has not been measured.
 
-The user also approved a short run against EVE-NG's virtual
+A short run followed against EVE-NG's virtual
 RouterOS 7.17 `LABSW34` (`172.16.0.34`). Two attempts with
 `filter-stream=yes` emitted no packets to Kali, even though ICMP probes
 succeeded. With `filter-interface=all`, `filter-ip-protocol=icmp`, and

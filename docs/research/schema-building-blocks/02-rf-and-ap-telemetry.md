@@ -120,7 +120,7 @@ response shape).
   Wi-Fi variants), `radar`, `canopy`, `xbox`, `wmxm`/`wmxf` (WiMAX mobile/
   fixed), `exalt`, `ibeacon`, `aci` (adjacent-channel interference),
   `undef`/`unknown`. This is the standards-adjacent (Cisco-registry, not
-  IEEE) vocabulary for "interferer type" in the domain brief.
+  IEEE) vocabulary for "interferer type".
 - **DFS/radar**: Cisco YANG models it as a list of radar-detection events per
   radio/channel (`st-rrm-radio-radar-info`: `channel`,
   `radar-detected-timestamp`), not as a channel-change-reason enum; no
@@ -129,9 +129,7 @@ response shape).
   general RRM oper model instead exposes `radar-info` lists plus separate
   channel/txpower leaves that a consumer diffs over time to infer a change).
 - **RCPI / RSNI (802.11k)**: not present in the vendored IEEE802dot11-MIB
-  (too old) nor found in the OpenConfig or Cisco YANG leaves read this
-  session. **Unverified** in this corpus; the domain brief's RCPI/RSNI ask is
-  not grounded in a vendored or fetched primary source for this dossier — flag
+  (too old) nor found in the OpenConfig or Cisco YANG leaves read for this dossier. **Unverified** in this corpus; an RCPI/RSNI field is not grounded in a vendored or fetched primary source for this dossier — flag
   as an open question rather than fabricate a shape.
 
 ## 3. Provider data matrix
@@ -186,8 +184,7 @@ a BSS maps to; never imported back by either).
 - **`RadioMode`** (normalized enum): `ACCESS`, `MONITOR`, `SENSOR`, `MESH` —
   **no provider in this corpus modeled this as a field for this dossier**
   (Ruckus/Meraki/Cisco all conflate "radio mode" with the negotiated 802.11
-  PHY generation string, e.g. "b/g/n"). This enum is FlowSeer-normalized
-  from the domain brief, not vendor-sourced; flag to the planner as
+  PHY generation string, e.g. "b/g/n"). This enum is FlowSeer-normalized, not vendor-sourced. Flag to the planner as
   needing corroboration from a live device or a provider page not reached
   for this dossier (Meraki has separate `monitorMode`-style settings on some
   endpoints not fetched).
@@ -344,7 +341,7 @@ research) is *what that entity is*:
   number) were not enumerated in the corpus reached for this dossier.
 - **`RogueType` names an event kind, not a classification**: it is tempting
   to reuse Ruckus's `RogueType` enum name for the rogue/neighbor/friendly
-  *classification* the domain brief asks for — its three values
+  *classification* this dossier needs — its three values
   (DISCOVERY/UPDATE/DISAPPEAR) are actually the sighting's lifecycle
   state, unrelated to threat classification. Do not conflate the two; the
   classification concept needs its own enum, sourced from Meraki's
@@ -397,7 +394,7 @@ research) is *what that entity is*:
 4. **Chains / spatial streams**: no provider in this pass reports a
    standalone chain or spatial-stream count field. Confirm whether any
    fetched-but-not-read page (Cisco `ap-oper.yang`, Aruba Central RF tab)
-   actually has one before adding the field the domain brief asks for.
+   actually has one before adding the field.
 5. **Channel-utilization averaging semantics**: should `ChannelUtilization`
    carry a "sample kind" (instantaneous vs. exponential-average) hint, given
    Ruckus and Meraki measure genuinely different things under the same

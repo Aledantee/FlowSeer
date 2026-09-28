@@ -160,8 +160,8 @@ def synthetic_pool():
         return
     req = urllib.request.Request("https://api.synthetic.new/v2/quotas",
                                  headers={"Authorization": "Bearer " + key})
-    # The documented `subscription.requests` counter stayed at 0 across real
-    # requests as of 2026-09-19. The two limits below are the ones that move. Both
+    # The documented `subscription.requests` counter stays at 0 across real
+    # requests. The two limits below are the ones that move. Both
     # refill continuously, so there is no reset time to report.
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:

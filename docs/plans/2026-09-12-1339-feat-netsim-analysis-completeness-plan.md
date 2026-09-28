@@ -94,7 +94,6 @@ boundary, and golden case for each protocol addition.
   export, UI, and packet collection are out of scope.
 - Prefer coherent breaking changes over compatibility shims. There are no
   external consumers and FlowSeer has not declared a stable release.
-
 - Model standards-based behavior only to the depth needed to answer planning
   and troubleshooting questions. A missing behavior is `Unsupported` or
   `Incomplete`; it never silently becomes a plausible answer.

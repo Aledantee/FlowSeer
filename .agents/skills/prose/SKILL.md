@@ -18,8 +18,9 @@ the mechanical ones.
    a published source, a commit hash as a last resort. Never an agent run,
    a session, a transcript, a worker, or who said what in a conversation.
    A decision states its reason, not its author.
-3. If a flow, state machine, or sequence takes more than three sentences,
-   draw it in a fenced `mermaid` block and cut the sentences.
+3. If a flow or sequence has more than three steps, or the text describes a
+   state machine or ownership graph, draw it in a fenced `mermaid` block and
+   cut the sentences it replaces.
 4. Keep punctuation plain: no em dashes, no semicolons in prose.
 
 ## Check
@@ -34,8 +35,17 @@ python3 .claude/skills/prose/scripts/check-prose.py <files.md>
 | `warning: …` | advisory | Fix every warning in text you wrote or rewrote. Leave untouched text alone unless the task is a cleanup. |
 
 `--strict` turns warnings into failures, for a cleanup pass over a file you
-own end to end. The checker skips code fences, inline code, link targets,
-and frontmatter, so a pattern quoted as an example goes in backticks.
+own end to end. The checker skips YAML frontmatter, fenced blocks (``` or
+~~~), HTML comments, inline code on one line, link targets, and bare URLs.
+A pattern quoted as an example goes in backticks on one line. Indented text
+is checked, since in this repository it is almost always a list
+continuation.
+
+Provenance patterns need a cue only an agent run has (`session history`,
+`session-settled`, a `user-directed` tag, `the user chose`). The product's
+own agents, sessions, and users (`the edge agent reported`, `the previous
+SSH session`) pass. `scripts/test_check_prose.py` holds both sides. Add a
+case there when you change a pattern.
 
 The checker cannot see overexplaining, rule-of-three lists, uniform rhythm,
 or a paragraph that restates its heading. Reread once for those after it

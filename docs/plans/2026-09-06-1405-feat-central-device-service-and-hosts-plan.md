@@ -1936,7 +1936,7 @@ Files: `src/modules/localnet/access/lane.go`, its tests, the access README
 After: the runbook revision. **Not a blocker for the lab run** — see below.
 
 Change: the lane opens an SSH session per operation and closes it with the
-operation. The user's direction is one session per device, held for a period
+operation. The target is one session per device, held for a period
 and reused, with concurrent operations serialized onto it.
 
 **The device is the reason, and it is measured rather than argued.** FastIron

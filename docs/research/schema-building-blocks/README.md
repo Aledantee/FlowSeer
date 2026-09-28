@@ -29,7 +29,6 @@ home of a shared signal-quality message in 07), the record wins and says why.
 | [08](08-consistency-units-audit.md) | Unit conventions from OpenConfig, IETF, SMI, and AIP; audit of today's schema | the foundation phase |
 | [09](09-wifi-registries.md) | AKM and cipher suite selectors, operating classes, country element, WPA3 modes | the `net/wlan` phase |
 
-The dossiers are built from primary sources and keep their 2026-09-25
-text. Mirrors used when a canonical host blocked automated
+The dossiers are built from primary sources. Mirrors used when a canonical host blocked automated
 fetches are named in the dossier that used them (09 uses a GitHub mirror of
 hostap).

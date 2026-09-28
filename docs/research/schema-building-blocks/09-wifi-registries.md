@@ -37,8 +37,7 @@ summarized by a third party):
     opaque (see section 6).
 - `https://raw.githubusercontent.com/1g4-mirror/hostap/master/src/common/ieee802_11_common.c`
   (a GitHub mirror of `hostap.git`; the canonical `w1.fi/cgit/hostap` host
-  returned an Anubis anti-bot challenge page to every fetch attempt this
-  session and could not be read directly — noted so the planner does not
+  returned an Anubis anti-bot challenge page to every fetch attempt for this dossier and could not be read directly — noted so the planner does not
   re-attempt the same URL expecting a different result):
   - `global_op_class[]` table, lines 2545–2591 — the full Annex E global
     operating-class table hostap ships, through class 183, with inline
@@ -64,8 +63,7 @@ summarized by a third party):
 - Explicitly **not** re-verified for this dossier (see section 7): the 2020/2024
   IEEE clause numbering for Table 9-151/9-152 (cipher/AKM suite selectors)
   itself — no fetchable non-paywalled copy of the IEEE standard text was
-  found; the Linux/Wireshark/hostap source tables are used as the
-  machine-readable proxy the dossier's scope explicitly authorizes, not as a
+  found; the Linux/Wireshark/hostap source tables are used as the machine-readable proxy, not as a
   replacement citation for the standard's own table.
 
 ## 2. Standards facts
@@ -490,8 +488,7 @@ dossier only fills in primitive-level enum/field detail, not entity shape.
 3. **`OperatingClass` scope**: this dossier only tabulates Annex E Table E-4
    (global). If FlowSeer ever needs to represent a device reporting via a
    country-specific table (E-1/E-2/E-3/E-6), the numeric domain validated
-   against the field must be widened accordingly — no fetched source this
-   session enumerated the national tables' row counts or ranges.
+   against the field must be widened accordingly — no fetched source enumerated the national tables' row counts or ranges.
 4. **`country_environment`'s proto shape**: registry pass-through enum (10
    named values, closed set per clause 7.3.2.9) vs. a single-byte/rune field
    — this dossier surfaces the exact value set (section 2) but does not

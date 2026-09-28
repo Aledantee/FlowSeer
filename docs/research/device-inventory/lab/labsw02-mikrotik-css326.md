@@ -56,7 +56,7 @@ action was fetching `/backup.swb`, which the device produces read-only.
 
 ## CLI / configuration model
 
-**No CLI exists on this device.** No SSH (22) or Telnet (23) listener was reachable, and the capture plan's known facts confirm this ahead of the probe. There is no `show`/`display` command surface at all — SwOS is HTTP-UI-only, backed by a set of binary/JS-object-literal endpoints under `/`.
+**No CLI exists on this device.** No SSH (22) or Telnet (23) listener was reachable, as expected for SwOS. There is no `show`/`display` command surface at all — SwOS is HTTP-UI-only, backed by a set of binary/JS-object-literal endpoints under `/`.
 
 ## Web / API
 
@@ -124,7 +124,7 @@ Format: a JS object-literal-like text (not JSON — unquoted keys, single-quoted
 - `sysDescr` via a working community string cleanly identifies vendor+model+firmware in one string: `CSS326-24G-2S+ SwOS v2.18`.
 - MAC OUI `18:FD:74` is MikroTik's registered OUI (all 26 ports' `ifPhysAddress` share this prefix, incrementing by port).
 - HTTP: no `Server:` header at all (a scanner gets no banner from the HTTP response headers), but the Digest `realm=` header leaks the exact model string (`CSS326-24G-2S+`) even to an unauthenticated `GET`.
-- No mDNS/SSDP probed (out of scope of the capture plan's explicit endpoint list; the only broadcast-discovery mechanism this device offers is MNDP, MikroTik-proprietary, not standard mDNS/SSDP).
+- No mDNS/SSDP probed (not in this capture's endpoint list. The only broadcast-discovery mechanism this device offers is MNDP, MikroTik-proprietary, not standard mDNS/SSDP).
 
 ## What FlowSeer needs from this device
 

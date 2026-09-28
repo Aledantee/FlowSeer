@@ -125,8 +125,7 @@ version-dependent, say which version the claim holds for.
 - **SmartZone switch management**: switches are inventoried and configured
   through `/switchm/api/{version}/switchconfig` and related paths under a
   separate base (`https://{host}:8443/switchm/api`), with POST-based query
-  endpoints returning paginated, sortable results [5]. This confirms the
-  brief's premise that ICX switches are reachable *through* SmartZone, but
+  endpoints returning paginated, sortable results [5]. This confirms that ICX switches are reachable *through* SmartZone, but
   it is a distinct API tree from the AP/zone API, not a
   `/wsg/api/public/...` extension — the 7.1.1 "Essentials" spec vendored in
   this repo has no `/switches` or `/switchconfig` paths at all (checked:
@@ -227,8 +226,7 @@ version-dependent, say which version the claim holds for.
 
 - **SmartZone AP adoption**: standard Ruckus zero-touch adoption (AP
   discovers controller via DHCP option, DNS, or static config, then joins
-  a zone) — not independently re-verified against a fetched source this
-  session; treat as background knowledge, unverified: exact discovery
+  a zone) — not independently re-verified against a fetched source for this dossier. Treat as background knowledge, unverified: exact discovery
   precedence order.
 - **SmartZone ICX bridging**: ICX switches join a SmartZone cluster
   through what the docs call ICX-SZ management, exposed via the

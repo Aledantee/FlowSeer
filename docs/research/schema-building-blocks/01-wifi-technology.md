@@ -158,7 +158,7 @@ noted here.
   MHz (320 MHz, EHT) do not fit a `uint8`
   (`openconfig-wifi-phy.yang`). This is a direct trap for a schema author
   copying the "obvious" field width from an older reference.
-  Domain-standard widths per the dossier's scope: 20, 40, 80, 80+80, 160, 320 MHz (S1G
+  Domain-standard widths: 20, 40, 80, 80+80, 160, 320 MHz (S1G
   also has 1/2/4/8/16 MHz widths at 900 MHz, not covered by any vendored or
   fetched source for this dossier — mark unverified/niche).
 - **Primary channel / secondary channel / secondary offset.** Not explicitly
@@ -229,8 +229,7 @@ noted here.
   - AKM: `1` = 802.1X (RSNA/dot1x), `2` = PSK, `3` = FT-over-802.1X.
   - Cipher: `1` = WEP-40, `2` = TKIP, `4` = CCMP-128 (the default/mandatory
     cipher), `5` = WEP-104.
-  **Not independently re-verified against the 802.11-2020 clause text this
-  session** (fetch attempts against IEEE/USPTO PDF viewers did not return
+  **Not independently re-verified against the 802.11-2020 clause text for this dossier** (fetch attempts against IEEE/USPTO PDF viewers did not return
   table text): AKM suite type `8` = SAE (WPA3-Personal), `18` = OWE, and the
   higher-numbered Suite-B / GCMP-256 / FT-SAE values that UniFi's and VSZ's
   security enums (`WPA3_PERSONAL`, `WPA3_ENTERPRISE`, `OWE`,
@@ -285,8 +284,7 @@ noted here.
   `connection-mode` = A/B/G/N/AC/AX/BE) are the closest OpenConfig gets, and
   they are **client** state, not `Radio`/`Bss` primitives. Ruckus's
   `APClientWlan` mirrors this: `medianTxMCSRate`/`medianRxMCSRate` (uint32)
-  are per-client observed values, not radio capabilities. This confirms the
-  brief's own framing: MCS/NSS/GI/RU/rates are association-level (client or
+  are per-client observed values, not radio capabilities. So MCS/NSS/GI/RU/rates are association-level (client or
   per-link) facts, not `Radio` facts — `Radio` carries capability
   (supported PHY generations, channel, width, power); actual negotiated
   MCS/NSS/rate is a `WirelessClient`/link-state fact. `DATA_RATE` in
@@ -403,8 +401,7 @@ question, see section 7) would carry what was requested, mirroring
   - `bss_type` — normalized enum from `dot11DesiredBSSType`
     (`IEEE802dot11-MIB:304`): `BSS_TYPE_UNSPECIFIED = 0`,
     `BSS_TYPE_INFRASTRUCTURE`, `BSS_TYPE_INDEPENDENT` (IBSS),
-    `BSS_TYPE_MESH` (802.11s — not in the 2002 MIB source, added because
-    the dossier's scope includes MBSS; flag as unverified against a primary 802.11s
+    `BSS_TYPE_MESH` (802.11s — not in the 2002 MIB source, added to cover MBSS. Flag as unverified against a primary 802.11s
     source, section 6/7).
   - `radio_id` uint32 — bare key into the owning `Radio`, ref-free per
     convention.
@@ -443,8 +440,7 @@ question, see section 7) would carry what was requested, mirroring
     `Bss` rows sharing the same `mld_address` are the same MLD's links —
     document this relationship in the comment since there is no separate
     "links" container in any fetched source (section 2, MLO note).
-- **`WirelessClient` message** — out of full scope for this dossier per the
-  brief ("not clients — other agents cover those"); noted here only because
+- **`WirelessClient` message** — out of scope for this dossier (clients are covered in `03-clients-endpoints.md`). It is noted here only because
   the direction record names it as a `net/wlan/v1` peer of `Radio`/`Bss`.
   The one load-bearing fact from this dossier's research that the client
   dossier will need: negotiated MCS/NSS/rate/guard-interval are
@@ -520,8 +516,7 @@ this dossier's scope — flagged as an open question, not designed here.
 - **60 GHz and 900 MHz S1G are asymmetrically covered.** 60 GHz has two
   independent confirming sources (UniFi, Aruba); 900 MHz S1G has zero
   vendored or fetched confirmation for this dossier. Do not add an S1G band
-  value to `WifiBand` on the strength of the dossier's scope line alone
-  without a source (open question, section 7).
+  value to `WifiBand` without a source (open question, section 7).
 
 ## 7. Open questions for the planner
 
@@ -534,11 +529,10 @@ this dossier's scope — flagged as an open question, not designed here.
 2. **Operating classes (Annex E)**: same gap — is a `Radio`/`Bss` expected
    to carry an operating-class number at all in v1, or is channel number +
    band sufficient until 802.11k/v candidate-list modeling is scoped?
-3. **Country code / regulatory domain field**: no fetched source this
-   session pinned down whether FlowSeer should store the raw 802.11 Country
+3. **Country code / regulatory domain field**: no fetched source pinned down whether FlowSeer should store the raw 802.11 Country
    IE encoding (alpha-2 + environment octet) or a plain ISO 3166-1 alpha-2
    string with DFS/TPC-relevant regulatory facts computed downstream.
-4. **900 MHz S1G**: in scope per the dossier's scope, but zero vendored or
+4. **900 MHz S1G**: in scope, but zero vendored or
    fetched-web evidence surfaced for this dossier (no MIB, no OpenAPI, no
    OpenConfig identity). Confirm whether any FlowSeer-targeted provider
    (Ruckus, UniFi, Meraki, Mist, Aruba) actually ships S1G hardware before
