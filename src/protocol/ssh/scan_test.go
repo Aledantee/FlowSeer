@@ -78,6 +78,43 @@ func TestScanPromptTable(t *testing.T) {
 	}
 }
 
+func TestScanPromptEarliestMatchAndTieOrder(t *testing.T) {
+	user := Prompt{Name: "user", Pattern: regexp.MustCompile(`(?m)>\s*$`)}
+	priv := Prompt{Name: "privileged", Pattern: regexp.MustCompile(`(?m)#\s*$`)}
+
+	// Prompts list has privileged first, but user prompt appears earlier in output.
+	prompts := []Prompt{priv, user}
+	buf := []byte("first section\r\nswitch>\r\nsubsequent section\r\nswitch#")
+
+	res, ok := scanPrompt(buf, prompts, nil)
+	if !ok {
+		t.Fatal("scanPrompt() ok = false, want true")
+	}
+	if res.promptName != "user" {
+		t.Errorf("promptName = %q, want %q (earliest match in stream wins)", res.promptName, "user")
+	}
+
+	// Tie in match start position resolves to slice order.
+	altUser := Prompt{Name: "user-alt", Pattern: regexp.MustCompile(`(?m)>\s*$`)}
+	tieBuf := []byte("output line\r\nswitch>")
+
+	resTie1, ok := scanPrompt(tieBuf, []Prompt{user, altUser}, nil)
+	if !ok {
+		t.Fatal("scanPrompt() ok = false, want true")
+	}
+	if resTie1.promptName != "user" {
+		t.Errorf("promptName = %q, want %q (tie goes to first slice element)", resTie1.promptName, "user")
+	}
+
+	resTie2, ok := scanPrompt(tieBuf, []Prompt{altUser, user}, nil)
+	if !ok {
+		t.Fatal("scanPrompt() ok = false, want true")
+	}
+	if resTie2.promptName != "user-alt" {
+		t.Errorf("promptName = %q, want %q (tie goes to first slice element)", resTie2.promptName, "user-alt")
+	}
+}
+
 // FuzzScanPrompt proves the scanner never panics and never reports a
 // position outside the scanned buffer, for arbitrary input against a
 // fixed set of prompt and pagination patterns.
