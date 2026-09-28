@@ -8,7 +8,7 @@ status: implemented
 review: accept after fixes
 compound: no lesson
 execution: mixed
-amends: docs/plans/2026-08-20-1245-feat-yang-protocol-libraries-plan.md
+amends: docs/architecture/2026-09-28-yang-protocol-libraries-direction.md
 ---
 
 # YANG gNMI Validation Authority - Plan
@@ -111,7 +111,7 @@ authority and the close reverts to a scope deferral.
 ## Units
 
 ### U1. Amend the parent plan's decisions and outcome record
-Files: `docs/plans/2026-08-20-1245-feat-yang-protocol-libraries-plan.md`
+Files: `docs/architecture/2026-09-28-yang-protocol-libraries-direction.md`
 After: none
 Change: KD2 keeps IOS-XE, ICX, and Aruba CX as the library-coverage families
 but records that the gNMI validation authority is Arista vEOS-lab 4.33, because
@@ -125,7 +125,7 @@ placeholders U3 fills. No requirement is weakened; the amendment is additive to
 KD2/KD9 and converts one criterion under R14.
 Tests: none (documentation); `verify-change` runs the doc-style and layout
 gates on the changed plan.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/2026-08-20-1245-feat-yang-protocol-libraries-plan.md docs/plans/2026-09-18-1335-feat-yang-gnmi-validation-authority-plan.md`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/architecture/2026-09-28-yang-protocol-libraries-direction.md docs/plans/2026-09-18-1335-feat-yang-gnmi-validation-authority-plan.md`
 
 ### U2. Reframe the corpus rows and the t4 test labels
 Files: `src/protocol/gnmi/conformance_corpus_test.go`, `src/protocol/gnmi/test/integration/t4_lab_test.go`
@@ -150,7 +150,7 @@ it fails, `conformance.go:85-86`) and `TestConformanceMatrixUpToDate`.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/gnmi/conformance_corpus_test.go src/protocol/gnmi/test/integration/t4_lab_test.go`
 
 ### U3. Run the Arista t4 suite, flip the rows, regenerate the matrix
-Files: `src/protocol/gnmi/conformance_corpus_test.go`, `src/protocol/gnmi/CONFORMANCE.md`, `docs/plans/2026-08-20-1245-feat-yang-protocol-libraries-plan.md`
+Files: `src/protocol/gnmi/conformance_corpus_test.go`, `src/protocol/gnmi/CONFORMANCE.md`, `docs/architecture/2026-09-28-yang-protocol-libraries-direction.md`
 After: U1, U2
 Change: with `YANG_GNMI_T4_TARGETS` set to the live Arista node, the t4 suite
 runs green through the public library; the four `gn-t4-*` rows flip from
@@ -163,7 +163,7 @@ Tests: `go test -tags yang_integration_t4 ./src/protocol/gnmi/test/integration/`
 (live, `YANG_GNMI_T4_TARGETS` set); `go test -tags=gnmi_conformance_complete
 ./src/protocol/gnmi` (the complete gate);
 `TestConformanceMatrixUpToDate` proves `CONFORMANCE.md` regenerated.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/gnmi/conformance_corpus_test.go src/protocol/gnmi/CONFORMANCE.md docs/plans/2026-08-20-1245-feat-yang-protocol-libraries-plan.md`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/gnmi/conformance_corpus_test.go src/protocol/gnmi/CONFORMANCE.md docs/architecture/2026-09-28-yang-protocol-libraries-direction.md`
 
 Waves: U1 U2 | U3
 

@@ -8,7 +8,7 @@ status: implemented
 review: accept after fixes
 compound: docs/solutions/conventions/yanggen-output-depends-on-goyang-augment-order.md, docs/solutions/conventions/go-list-deps-misses-imports-behind-build-tags.md
 execution: mixed
-amends: docs/plans/2026-08-20-1245-feat-yang-protocol-libraries-plan.md
+amends: docs/architecture/2026-09-28-yang-protocol-libraries-direction.md
 ---
 
 # Move generated YANG bindings into a nested module - Plan

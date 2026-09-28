@@ -577,9 +577,10 @@ for protobuf type renames.
   `src/common/errs/doc.go` (wire payload: code, safe attributes, user message,
   hint, retry disposition); `src/protocol/snmp/doc.go` (Collection Primitives
   lifecycle contract); `CONCEPTS.md` §Flagged ambiguities (no backend/driver
-  abstraction); `docs/plans/2026-08-20-1245-feat-yang-protocol-libraries-plan.md`
-  on branch `worktree-brainstorm-netconf-restconf` (KD4, KD7, R10, R11, KTD4,
-  KTD5); `spec/openapi/README.md`, `spec/yang/README.md`.
+  abstraction); [YANG Protocol Libraries](2026-09-28-yang-protocol-libraries-direction.md)
+  (the generated binding layer, the three protocol libraries, and the
+  collection-primitive extension); `spec/openapi/README.md`,
+  `spec/yang/README.md`.
 - Cloud platforms: Cisco Meraki Dashboard API — rate limits, Org→Network→Device
   with serial-keyed devices, webhooks, action batches
   (developer.cisco.com/meraki); Meraki SNMP overview (local polling alongside
