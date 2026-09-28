@@ -312,8 +312,9 @@ different instance that reused the ID.
 
 The on-screen action layer draws a small AI button in the top-right corner of
 the registered element, or just above that corner when a control occupies it,
-without nesting controls inside rows, charts, or buttons; focus within a target reveals Ask, and Alt+A opens it
-from the focused target. The prompt and answer use `UiPopover` with
+without nesting controls inside rows, charts, or buttons. A selection or focus
+within a target reveals Ask, and Alt+A opens it from the focused target; pointer
+hover reveals nothing. The prompt and answer use `UiPopover` with
 `UiButton` and `UiTextarea`; `UiAiSummary` owns the idle, loading, result,
 error, and retry states and makes no request until **Generate summary** is
 activated.

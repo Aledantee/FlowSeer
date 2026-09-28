@@ -178,7 +178,7 @@ function pressTab() {
 }
 
 describe('AiActionLayer selection and Ask', () => {
-  it('reveals Ask for the selected target and hovers it in place', async () => {
+  it('reveals Ask for the selected target in place', async () => {
     const { registry } = setup()
     registry.highlight('a:devices:device:d1')
     await settle()
@@ -481,11 +481,11 @@ describe('AiActionLayer selection and Ask', () => {
     expect(document.activeElement).toBe(origin)
   })
 
-  it('reveals Ask on pointer entry', async () => {
+  it('reveals nothing on pointer entry', async () => {
     const { element } = setup()
     element.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }))
     await settle()
-    expect(askButton()).not.toBeNull()
+    expect(askButton()).toBeUndefined()
   })
 })
 
