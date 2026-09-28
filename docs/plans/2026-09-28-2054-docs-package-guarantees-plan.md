@@ -4,13 +4,13 @@ type: docs
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 ---
 
 # Package Guarantees - Plan
 
-> Implemented. 3 units, 2026-09-28T19:09:14Z to 2026-09-28T19:22:52Z.
+> Implemented. 5 units, 2026-09-28T19:09:14Z to 2026-09-28T21:00:14Z.
 > Pilot outcome: 4 of 7 README contracts were proved by existing tests as-is,
 > 2 needed a new test (session closure on peer disconnection and prompt
 > earliest-match: TestScanPromptEarliestMatchAndTieOrder and
@@ -19,6 +19,12 @@ execution: mixed
 > the Dial-level test because the helper-level one does not call Dial. The stop
 > condition held (did not trigger); the convention and check format are
 > validated.
+> Redesign outcome: the checker enforces a strict line grammar for
+> GUARANTEES.md (failing closed on code fences, setext underlines, indented
+> code blocks, numbered lists, and unallowed headings) and resolves top-level
+> tests via go list and a Go token scanner supporting anonymous parameters,
+> aliased testing imports, and multiline parameter lists while excluding
+> build-ignored and underscore files.
 
 ## Goal
 
@@ -367,17 +373,17 @@ Then rename `TestRunOutputCapTruncates` in
 - [x] The pilot outcome recorded in this plan's outcome note: how many
       README contracts were already proved, how many needed a new test,
       and whether the stop condition held.
-- [ ] Verifier green for every changed path across all units.
-- [ ] The `verify-change.sh` `.agents/*` classification edit passed guardrail
+- [x] Verifier green for every changed path across all units.
+- [x] The `verify-change.sh` `.agents/*` classification edit passed guardrail
       review before U4 commit.
-- [ ] Checker redesign implements strict line grammar and resolves tests via
+- [x] Checker redesign implements strict line grammar and resolves tests via
       `go list` and Go lexer, closing all seven round-3 review findings.
-- [ ] Every branch in the lexer and line grammar has a test in `test_check_guarantees.py`
+- [x] Every branch in the lexer and line grammar has a test in `test_check_guarantees.py`
       that fails without it.
-- [ ] `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
+- [x] `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
       state the strict line grammar and citation resolution rules.
-- [ ] `src/protocol/ssh/GUARANTEES.md` passes under the new checker.
-- [ ] No plan labels in code, scripts, or skill text.
+- [x] `src/protocol/ssh/GUARANTEES.md` passes under the new checker.
+- [x] No plan labels in code, scripts, or skill text.
 
 ## Open questions
 
