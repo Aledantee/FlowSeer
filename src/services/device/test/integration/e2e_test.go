@@ -17,7 +17,11 @@ import (
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
+	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
+	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/tenantstore"
 
 	"google.golang.org/protobuf/proto"
 
@@ -846,4 +850,149 @@ func accessGoroutines() string {
 		}
 	}
 	return strings.Join(kept, "\n\n")
+}
+
+func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
+	dir := t.TempDir()
+	writeCredentials(t, filepath.Join(dir, "credentials"))
+
+	registryPath := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
+	c := newCentral(t, dir, registryPath)
+	c.start()
+	defer c.shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	c.mu.Lock()
+	hub := c.hub
+	c.mu.Unlock()
+	if hub == nil {
+		t.Fatal("central reported nil hub")
+	}
+
+	js := hub.JetStream()
+
+	// Verify partitioned key-value buckets exist
+	for _, bucketName := range []string{edgebus.LaneBucket, edgebus.CapturesBucket, edgebus.EdgeBucket, edgebus.TenantBucket} {
+		if _, err := js.KeyValue(ctx, bucketName); err != nil {
+			t.Fatalf("bucket %s does not exist or failed to open: %v", bucketName, err)
+		}
+	}
+
+	// 1. Verify tenant bucket and tenant creation
+	tenantsKV, err := js.KeyValue(ctx, edgebus.TenantBucket)
+	if err != nil {
+		t.Fatalf("open tenants bucket: %v", err)
+	}
+	tenantStore := tenantstore.New(tenantsKV)
+
+	tenantA := "0192e6a0-0000-7000-8000-000000000001"
+	tenantB := "0192e6a0-0000-7000-8000-000000000002"
+
+	cfgA := identityv1.TenantConfig_builder{
+		Ref: identityv1.TenantGlobalRef_builder{
+			Tenant: identityv1.TenantLocalRef_builder{Id: proto.String(tenantA)}.Build(),
+		}.Build(),
+		Name:                   proto.String("Tenant Alpha"),
+		Issuer:                 proto.String("https://auth.alpha.example.test"),
+		OrganizationClaimValue: proto.String("org_alpha"),
+	}.Build()
+
+	cfgB := identityv1.TenantConfig_builder{
+		Ref: identityv1.TenantGlobalRef_builder{
+			Tenant: identityv1.TenantLocalRef_builder{Id: proto.String(tenantB)}.Build(),
+		}.Build(),
+		Name:                   proto.String("Tenant Beta"),
+		Issuer:                 proto.String("https://auth.beta.example.test"),
+		OrganizationClaimValue: proto.String("org_beta"),
+	}.Build()
+
+	recA, err := tenantStore.Create(ctx, cfgA)
+	if err != nil {
+		t.Fatalf("Create tenant A: %v", err)
+	}
+	recB, err := tenantStore.Create(ctx, cfgB)
+	if err != nil {
+		t.Fatalf("Create tenant B: %v", err)
+	}
+
+	if recA.GetConfig().GetRef().GetTenant().GetId() != tenantA {
+		t.Errorf("tenant A id = %s, want %s", recA.GetConfig().GetRef().GetTenant().GetId(), tenantA)
+	}
+	if recB.GetConfig().GetRef().GetTenant().GetId() != tenantB {
+		t.Errorf("tenant B id = %s, want %s", recB.GetConfig().GetRef().GetTenant().GetId(), tenantB)
+	}
+
+	// 2. Verify edgebus attach and mint per tenant
+	edgeID := "0192e6a0-0000-7000-8000-0000000000ee"
+	if err := hub.AttachEdge(ctx, tenantA, edgeID); err != nil {
+		t.Fatalf("AttachEdge under tenant A: %v", err)
+	}
+	if got := hub.EdgeTenant(edgeID); got != tenantA {
+		t.Errorf("hub.EdgeTenant(%s) = %s, want %s", edgeID, got, tenantA)
+	}
+
+	creds, err := hub.MintEdgeUser(ctx, edgeID)
+	if err != nil {
+		t.Fatalf("MintEdgeUser: %v", err)
+	}
+	if creds.UserJWT.RevealString() == "" {
+		t.Fatal("MintEdgeUser returned empty JWT")
+	}
+
+	// 3. Verify lanes bucket partitioning: tenant A and tenant B can have distinct lane records for the same device ID
+	lanesKV, err := js.KeyValue(ctx, edgebus.LaneBucket)
+	if err != nil {
+		t.Fatalf("open lanes KV: %v", err)
+	}
+
+	sharedDeviceID := "0192e6a0-0000-7000-8000-0000000000dd"
+	laneKeyA := tenantA + "." + sharedDeviceID
+	laneKeyB := tenantB + "." + sharedDeviceID
+
+	laneRecA := storev1.DeviceLaneRecord_builder{
+		Device: inventoryv1.DeviceGlobalRef_builder{
+			Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(sharedDeviceID)}.Build(),
+		}.Build(),
+		HighWatermark: 10,
+	}.Build()
+	dataA, _ := proto.Marshal(laneRecA)
+
+	laneRecB := storev1.DeviceLaneRecord_builder{
+		Device: inventoryv1.DeviceGlobalRef_builder{
+			Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(sharedDeviceID)}.Build(),
+		}.Build(),
+		HighWatermark: 20,
+	}.Build()
+
+	dataB, _ := proto.Marshal(laneRecB)
+
+	if _, err := lanesKV.Create(ctx, laneKeyA, dataA); err != nil {
+		t.Fatalf("create lane record A: %v", err)
+	}
+	if _, err := lanesKV.Create(ctx, laneKeyB, dataB); err != nil {
+		t.Fatalf("create lane record B: %v", err)
+	}
+
+	entryA, err := lanesKV.Get(ctx, laneKeyA)
+	if err != nil {
+		t.Fatalf("get lane record A: %v", err)
+	}
+	entryB, err := lanesKV.Get(ctx, laneKeyB)
+	if err != nil {
+		t.Fatalf("get lane record B: %v", err)
+	}
+
+	var readRecA storev1.DeviceLaneRecord
+	_ = proto.Unmarshal(entryA.Value(), &readRecA)
+	var readRecB storev1.DeviceLaneRecord
+	_ = proto.Unmarshal(entryB.Value(), &readRecB)
+
+	if readRecA.GetHighWatermark() != 10 {
+		t.Errorf("readRecA watermark = %d, want 10", readRecA.GetHighWatermark())
+	}
+	if readRecB.GetHighWatermark() != 20 {
+		t.Errorf("readRecB watermark = %d, want 20", readRecB.GetHighWatermark())
+	}
 }

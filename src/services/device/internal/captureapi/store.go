@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -83,21 +84,35 @@ func NewStore(kv jetstream.KeyValue, capturesDir string, clock func() time.Time)
 	}, nil
 }
 
-// artifactPath maps a session identifier onto its pcapng file. The identifier
-// reaches a filesystem path here, so it is checked against the shape the
-// schema gives it (CaptureSessionLocalRef.id is a uuid) rather than trusted:
+func captureKey(tenantID, sessionID string) string {
+	return tenantID + "." + sessionID
+}
+
+// artifactPath maps a tenant and session identifier onto its pcapng file. The
+// identifier reaches a filesystem path here, so it is checked against the shape
+// the schema gives it (CaptureSessionLocalRef.id is a uuid) rather than trusted:
 // an id carrying a separator would otherwise place the file outside
 // capturesDir, and the streaming RPCs are not covered by the validating
 // interceptor.
-func (s *Store) artifactPath(sessionID string) (string, error) {
+func (s *Store) artifactPath(tenantID, sessionID string) (string, error) {
+	if tenantID == "" {
+		return "", errs.New().Code(ErrCodeBadSession).Msg("empty tenant identifier")
+	}
 	if _, err := uuid.Parse(sessionID); err != nil {
 		return "", errs.From(err).Code(ErrCodeBadSession).Attr("session", sessionID).Msg("capture session identifier is not a uuid")
 	}
-	return filepath.Join(s.capturesDir, sessionID+".pcapng"), nil
+	dir := filepath.Join(s.capturesDir, tenantID)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", errs.From(err).Code(ErrCodeStore).Attr("dir", dir).Msg("create tenant captures directory")
+	}
+	return filepath.Join(dir, sessionID+".pcapng"), nil
 }
 
 // CreateSession persists a new capture session in the PENDING state.
-func (s *Store) CreateSession(ctx context.Context, config *modelcapturev1.CaptureSessionConfig) (*modelcapturev1.CaptureSessionRecord, error) {
+func (s *Store) CreateSession(ctx context.Context, tenantID string, config *modelcapturev1.CaptureSessionConfig) (*modelcapturev1.CaptureSessionRecord, error) {
+	if tenantID == "" {
+		return nil, errs.New().Code(ErrCodeStore).Msg("empty tenant identifier")
+	}
 	sessionID := config.GetRef().GetCaptureSession().GetId()
 	if sessionID == "" {
 		return nil, errs.New().Code(ErrCodeStore).Msg("empty capture session identifier")
@@ -118,11 +133,12 @@ func (s *Store) CreateSession(ctx context.Context, config *modelcapturev1.Captur
 		return nil, errs.From(err).Code(ErrCodeDecode).Attr("session", sessionID).Msg("encode capture session record")
 	}
 
+	key := captureKey(tenantID, sessionID)
 	s.mu.Lock()
-	delete(s.deleted, sessionID)
+	delete(s.deleted, key)
 	s.mu.Unlock()
 
-	if _, err := s.kv.Create(ctx, sessionID, data); err != nil {
+	if _, err := s.kv.Create(ctx, key, data); err != nil {
 		if errors.Is(err, jetstream.ErrKeyExists) {
 			return nil, errs.New().Code(ErrCodeConflict).Attr("session", sessionID).Msg("capture session already exists")
 		}
@@ -134,8 +150,9 @@ func (s *Store) CreateSession(ctx context.Context, config *modelcapturev1.Captur
 
 // Session returns one capture session record and its revision, or (nil, 0,
 // nil) if the session does not exist.
-func (s *Store) Session(ctx context.Context, sessionID string) (*modelcapturev1.CaptureSessionRecord, uint64, error) {
-	entry, err := s.kv.Get(ctx, sessionID)
+func (s *Store) Session(ctx context.Context, tenantID, sessionID string) (*modelcapturev1.CaptureSessionRecord, uint64, error) {
+	key := captureKey(tenantID, sessionID)
+	entry, err := s.kv.Get(ctx, key)
 	if errors.Is(err, jetstream.ErrKeyNotFound) {
 		return nil, 0, nil
 	}
@@ -150,8 +167,8 @@ func (s *Store) Session(ctx context.Context, sessionID string) (*modelcapturev1.
 	return rec, entry.Revision(), nil
 }
 
-// ListSessions returns all capture session records ordered by session identifier.
-func (s *Store) ListSessions(ctx context.Context) ([]*modelcapturev1.CaptureSessionRecord, error) {
+// ListSessions returns all capture session records belonging to tenantID ordered by session identifier.
+func (s *Store) ListSessions(ctx context.Context, tenantID string) ([]*modelcapturev1.CaptureSessionRecord, error) {
 	keys, err := s.kv.Keys(ctx)
 	if errors.Is(err, jetstream.ErrNoKeysFound) {
 		return nil, nil
@@ -160,10 +177,17 @@ func (s *Store) ListSessions(ctx context.Context) ([]*modelcapturev1.CaptureSess
 		return nil, errs.From(err).Code(ErrCodeStore).Msg("list capture session records")
 	}
 
-	sort.Strings(keys)
-	out := make([]*modelcapturev1.CaptureSessionRecord, 0, len(keys))
+	prefix := tenantID + "."
+	var sessionIDs []string
 	for _, key := range keys {
-		rec, _, err := s.Session(ctx, key)
+		if strings.HasPrefix(key, prefix) {
+			sessionIDs = append(sessionIDs, strings.TrimPrefix(key, prefix))
+		}
+	}
+	sort.Strings(sessionIDs)
+	out := make([]*modelcapturev1.CaptureSessionRecord, 0, len(sessionIDs))
+	for _, id := range sessionIDs {
+		rec, _, err := s.Session(ctx, tenantID, id)
 		if err != nil {
 			return nil, err
 		}
@@ -177,9 +201,10 @@ func (s *Store) ListSessions(ctx context.Context) ([]*modelcapturev1.CaptureSess
 // MutateSession applies fn to the latest session record and makes at most
 // eight compare-and-set attempts. It retries a concurrent conflict and returns
 // an error with [ErrCodeConflict] when no update settles within that bound.
-func (s *Store) MutateSession(ctx context.Context, sessionID string, fn func(rec *modelcapturev1.CaptureSessionRecord) error) (*modelcapturev1.CaptureSessionRecord, error) {
+func (s *Store) MutateSession(ctx context.Context, tenantID, sessionID string, fn func(rec *modelcapturev1.CaptureSessionRecord) error) (*modelcapturev1.CaptureSessionRecord, error) {
+	key := captureKey(tenantID, sessionID)
 	for attempt := 0; attempt < casRetries; attempt++ {
-		rec, revision, err := s.Session(ctx, sessionID)
+		rec, revision, err := s.Session(ctx, tenantID, sessionID)
 		if err != nil {
 			return nil, err
 		}
@@ -196,7 +221,7 @@ func (s *Store) MutateSession(ctx context.Context, sessionID string, fn func(rec
 			return nil, errs.From(err).Code(ErrCodeDecode).Attr("session", sessionID).Msg("encode capture session record")
 		}
 
-		_, err = s.kv.Update(ctx, sessionID, data, revision)
+		_, err = s.kv.Update(ctx, key, data, revision)
 		if errors.Is(err, jetstream.ErrKeyRevisionMismatch) {
 			continue
 		}
@@ -213,22 +238,23 @@ func (s *Store) MutateSession(ctx context.Context, sessionID string, fn func(rec
 // an upload stream in flight cannot recreate the file between the unlink and
 // the record's removal: an artifact whose record is gone is one the retention
 // sweep can no longer reach, and its payload would stay on disk forever.
-func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
-	path, err := s.artifactPath(sessionID)
+func (s *Store) DeleteSession(ctx context.Context, tenantID, sessionID string) error {
+	key := captureKey(tenantID, sessionID)
+	path, err := s.artifactPath(tenantID, sessionID)
 	if err != nil {
 		return err
 	}
 
 	s.mu.Lock()
-	if w, ok := s.writers[sessionID]; ok {
+	if w, ok := s.writers[key]; ok {
 		_ = w.file.Close()
-		delete(s.writers, sessionID)
+		delete(s.writers, key)
 	}
 	// An upload stream in flight does not know its session was deleted, and
 	// its next chunk would open the path again. The file it wrote would then
 	// have no record, and the sweep walks records, so its payload could never
 	// expire. The tombstone is what refuses that chunk.
-	s.deleted[sessionID] = s.clock()
+	s.deleted[key] = s.clock()
 	s.pruneDeletedLocked()
 	rmErr := os.Remove(path)
 	s.mu.Unlock()
@@ -237,7 +263,7 @@ func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 		return errs.From(rmErr).Code(ErrCodeStore).Attr("session", sessionID).Msg("remove artifact file")
 	}
 
-	if err := s.kv.Delete(ctx, sessionID); err != nil && !errors.Is(err, jetstream.ErrKeyNotFound) {
+	if err := s.kv.Delete(ctx, key); err != nil && !errors.Is(err, jetstream.ErrKeyNotFound) {
 		return errs.From(err).Code(ErrCodeStore).Attr("session", sessionID).Msg("delete capture session record")
 	}
 	return nil
@@ -248,11 +274,11 @@ func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 // caller that finalized an artifact and then failed to write the descriptor
 // into the record. The bytes are then owned by nobody — no writer, no
 // descriptor — and the sweep walks records, so they would never expire.
-func (s *Store) DiscardArtifact(sessionID string) {
+func (s *Store) DiscardArtifact(tenantID, sessionID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if path, err := s.artifactPath(sessionID); err == nil {
+	if path, err := s.artifactPath(tenantID, sessionID); err == nil {
 		_ = os.Remove(path)
 	}
 }
@@ -260,10 +286,11 @@ func (s *Store) DiscardArtifact(sessionID string) {
 // hasOpenWriter reports whether this Store is still writing the session's
 // artifact. The artifact-file invariant reads it: a file with no descriptor is
 // legitimate only while a writer owns it.
-func (s *Store) hasOpenWriter(sessionID string) bool {
+func (s *Store) hasOpenWriter(tenantID, sessionID string) bool {
+	key := captureKey(tenantID, sessionID)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	_, open := s.writers[sessionID]
+	_, open := s.writers[key]
 	return open
 }
 
@@ -280,18 +307,19 @@ func (s *Store) hasOpenWriter(sessionID string) bool {
 //
 // It unlinks only when it held the writer, which is what keeps it away from a
 // finalized artifact: finalization drops the writer first.
-func (s *Store) AbandonWriter(sessionID string) {
+func (s *Store) AbandonWriter(tenantID, sessionID string) {
+	key := captureKey(tenantID, sessionID)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	w, ok := s.writers[sessionID]
+	w, ok := s.writers[key]
 	if !ok {
 		return
 	}
 	_ = w.file.Close()
-	delete(s.writers, sessionID)
+	delete(s.writers, key)
 
-	if path, err := s.artifactPath(sessionID); err == nil {
+	if path, err := s.artifactPath(tenantID, sessionID); err == nil {
 		_ = os.Remove(path)
 	}
 }
@@ -309,15 +337,16 @@ func (s *Store) AbandonWriter(sessionID string) {
 // A session that is merely holding an open writer is not consulted: that
 // stream already has the permission, and asking again on every batch would
 // put a network read in the packet path.
-func (s *Store) mayWriteArtifact(ctx context.Context, sessionID string) error {
+func (s *Store) mayWriteArtifact(ctx context.Context, tenantID, sessionID string) error {
+	key := captureKey(tenantID, sessionID)
 	s.mu.Lock()
-	_, open := s.writers[sessionID]
+	_, open := s.writers[key]
 	s.mu.Unlock()
 	if open {
 		return nil
 	}
 
-	rec, _, err := s.Session(ctx, sessionID)
+	rec, _, err := s.Session(ctx, tenantID, sessionID)
 	if err != nil {
 		return err
 	}
@@ -344,7 +373,7 @@ func (s *Store) pruneDeletedLocked() {
 // AppendPackets writes packet records to the session's single pcapng artifact.
 // The first non-empty call creates the file; an existing finalized artifact is
 // left unchanged and returns an error with [ErrCodeArtifactExists].
-func (s *Store) AppendPackets(ctx context.Context, sessionID string, linkType netcapturev1.LinkType, snapLen uint32, packets []*netcapturev1.PacketRecord) error {
+func (s *Store) AppendPackets(ctx context.Context, tenantID, sessionID string, linkType netcapturev1.LinkType, snapLen uint32, packets []*netcapturev1.PacketRecord) error {
 	if len(packets) == 0 {
 		return nil
 	}
@@ -353,20 +382,21 @@ func (s *Store) AppendPackets(ctx context.Context, sessionID string, linkType ne
 	// lock because it is a network read. The writers map alone cannot give
 	// it: the map is what this process is holding open, and the record is
 	// what says whether the capture is still being written at all.
-	if err := s.mayWriteArtifact(ctx, sessionID); err != nil {
+	if err := s.mayWriteArtifact(ctx, tenantID, sessionID); err != nil {
 		return err
 	}
 
+	key := captureKey(tenantID, sessionID)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, gone := s.deleted[sessionID]; gone {
+	if _, gone := s.deleted[key]; gone {
 		return errs.New().Code(ErrCodeNotFound).Attr("session", sessionID).Msg("capture session was deleted")
 	}
 
-	w, ok := s.writers[sessionID]
+	w, ok := s.writers[key]
 	if !ok {
-		path, err := s.artifactPath(sessionID)
+		path, err := s.artifactPath(tenantID, sessionID)
 		if err != nil {
 			return err
 		}
@@ -391,7 +421,7 @@ func (s *Store) AppendPackets(ctx context.Context, sessionID string, linkType ne
 			linkType: linkType,
 			snapLen:  snapLen,
 		}
-		s.writers[sessionID] = w
+		s.writers[key] = w
 	}
 
 	for _, pkt := range packets {
@@ -407,16 +437,17 @@ func (s *Store) AppendPackets(ctx context.Context, sessionID string, linkType ne
 // the digest, byte count, and packet total recorded for it. A failure after the
 // writer is claimed unlinks the partial artifact so no unrecorded payload
 // remains on disk.
-func (s *Store) FinalizeArtifact(ctx context.Context, sessionID string, linkType netcapturev1.LinkType, snapLen uint32, counters *netcapturev1.CaptureCounters, expiresAt time.Time) (*modelcapturev1.CaptureArtifact, error) {
-	if err := s.mayWriteArtifact(ctx, sessionID); err != nil {
+func (s *Store) FinalizeArtifact(ctx context.Context, tenantID, sessionID string, linkType netcapturev1.LinkType, snapLen uint32, counters *netcapturev1.CaptureCounters, expiresAt time.Time) (*modelcapturev1.CaptureArtifact, error) {
+	if err := s.mayWriteArtifact(ctx, tenantID, sessionID); err != nil {
 		return nil, err
 	}
 
+	key := captureKey(tenantID, sessionID)
 	s.mu.Lock()
-	_, gone := s.deleted[sessionID]
-	w, ok := s.writers[sessionID]
+	_, gone := s.deleted[key]
+	w, ok := s.writers[key]
 	if ok {
-		delete(s.writers, sessionID)
+		delete(s.writers, key)
 	}
 	s.mu.Unlock()
 
@@ -427,7 +458,7 @@ func (s *Store) FinalizeArtifact(ctx context.Context, sessionID string, linkType
 		return nil, errs.New().Code(ErrCodeNotFound).Attr("session", sessionID).Msg("capture session was deleted")
 	}
 
-	path, err := s.artifactPath(sessionID)
+	path, err := s.artifactPath(tenantID, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -437,7 +468,7 @@ func (s *Store) FinalizeArtifact(ctx context.Context, sessionID string, linkType
 	// artifact descriptor, which is a file the record-walking sweep can never
 	// reach — so each one discards what it wrote rather than returning over it.
 	discard := func(err error) error {
-		if path, pathErr := s.artifactPath(sessionID); pathErr == nil {
+		if path, pathErr := s.artifactPath(tenantID, sessionID); pathErr == nil {
 			_ = os.Remove(path)
 		}
 		return err
@@ -513,8 +544,8 @@ func (s *Store) FinalizeArtifact(ctx context.Context, sessionID string, linkType
 }
 
 // ArtifactExists checks whether the on-disk pcapng artifact is present.
-func (s *Store) ArtifactExists(sessionID string) bool {
-	path, err := s.artifactPath(sessionID)
+func (s *Store) ArtifactExists(tenantID, sessionID string) bool {
+	path, err := s.artifactPath(tenantID, sessionID)
 	if err != nil {
 		return false
 	}
@@ -526,8 +557,8 @@ func (s *Store) ArtifactExists(sessionID string) bool {
 // passing each chunk to fn in order.
 // Each chunk's Data aliases one reusable buffer and is valid only until fn
 // returns.
-func (s *Store) ReadArtifact(ctx context.Context, sessionID string, fn func(chunk *modelcapturev1.CaptureArtifactChunk) error) error {
-	path, err := s.artifactPath(sessionID)
+func (s *Store) ReadArtifact(ctx context.Context, tenantID, sessionID string, fn func(chunk *modelcapturev1.CaptureArtifactChunk) error) error {
+	path, err := s.artifactPath(tenantID, sessionID)
 	if err != nil {
 		return err
 	}
@@ -608,7 +639,13 @@ func (s *Store) SweepExpired(ctx context.Context) (int, error) {
 	var failures []error
 
 	for _, key := range keys {
-		rec, _, err := s.Session(ctx, key)
+		parts := strings.Split(key, ".")
+		if len(parts) != 2 {
+			continue
+		}
+		tenantID, sessionID := parts[0], parts[1]
+
+		rec, _, err := s.Session(ctx, tenantID, sessionID)
 		if err != nil {
 			failures = append(failures, err)
 			continue
@@ -624,7 +661,7 @@ func (s *Store) SweepExpired(ctx context.Context) (int, error) {
 			continue
 		}
 
-		path, err := s.artifactPath(key)
+		path, err := s.artifactPath(tenantID, sessionID)
 		if err != nil {
 			failures = append(failures, err)
 			continue
@@ -639,14 +676,14 @@ func (s *Store) SweepExpired(ctx context.Context) (int, error) {
 		s.mu.Unlock()
 
 		if rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
-			failures = append(failures, errs.From(rmErr).Code(ErrCodeStore).Attr("session", key).Msg("remove expired artifact file"))
+			failures = append(failures, errs.From(rmErr).Code(ErrCodeStore).Attr("session", sessionID).Msg("remove expired artifact file"))
 			continue
 		}
 		if rmErr == nil {
 			removed++
 		}
 
-		if _, err := s.MutateSession(ctx, key, func(r *modelcapturev1.CaptureSessionRecord) error {
+		if _, err := s.MutateSession(ctx, tenantID, sessionID, func(r *modelcapturev1.CaptureSessionRecord) error {
 			if a := r.GetState().GetArtifact(); a != nil {
 				a.SetPurgedAt(timestamppb.New(now))
 			}

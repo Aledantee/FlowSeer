@@ -424,7 +424,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	}
 
 	// Retention purges the payload and keeps the record.
-	artifactPath := filepath.Join(dir, "central-state", "captures", sessionID+".pcapng")
+	artifactPath := filepath.Join(dir, "central-state", "captures", edgebus.DefaultTenant, sessionID+".pcapng")
 	if _, err := os.Stat(artifactPath); err != nil {
 		t.Fatalf("expected artifact file on disk at %s: %v", artifactPath, err)
 	}
@@ -446,7 +446,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	}
 
 	// Mutate session record so expires_at is in the past
-	if _, err := capturesStore.MutateSession(ctx, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+	if _, err := capturesStore.MutateSession(ctx, edgebus.DefaultTenant, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
 		rec.GetState().GetArtifact().SetExpiresAt(timestamppb.New(time.Now().Add(-time.Hour)))
 		return nil
 	}); err != nil {
@@ -560,7 +560,7 @@ func TestRemotePacketCapture_RetentionSweepRunsOnConfiguredInterval(t *testing.T
 			LocalInterface: modelcapturev1.LocalInterfaceSource_builder{InterfaceName: proto.String("eth0")}.Build(),
 		}.Build(),
 	}.Build()
-	if _, err := store.CreateSession(ctx, config); err != nil {
+	if _, err := store.CreateSession(ctx, edgebus.DefaultTenant, config); err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
 	const linkType = netcapturev1.LinkType_LINK_TYPE_ETHERNET
@@ -569,15 +569,15 @@ func TestRemotePacketCapture_RetentionSweepRunsOnConfiguredInterval(t *testing.T
 		OriginalLength: proto.Uint32(uint32(len("sweep"))),
 		Data:           []byte("sweep"),
 	}.Build()
-	if err := store.AppendPackets(ctx, sessionID, linkType, 128, []*netcapturev1.PacketRecord{packet}); err != nil {
+	if err := store.AppendPackets(ctx, edgebus.DefaultTenant, sessionID, linkType, 128, []*netcapturev1.PacketRecord{packet}); err != nil {
 		t.Fatalf("AppendPackets: %v", err)
 	}
 	counters := netcapturev1.CaptureCounters_builder{ReceivedPackets: proto.Uint64(1), AcceptedPackets: proto.Uint64(1)}.Build()
-	artifact, err := store.FinalizeArtifact(ctx, sessionID, linkType, 128, counters, time.Now().Add(-time.Hour))
+	artifact, err := store.FinalizeArtifact(ctx, edgebus.DefaultTenant, sessionID, linkType, 128, counters, time.Now().Add(-time.Hour))
 	if err != nil {
 		t.Fatalf("FinalizeArtifact: %v", err)
 	}
-	if _, err := store.MutateSession(ctx, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+	if _, err := store.MutateSession(ctx, edgebus.DefaultTenant, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
 		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
 		rec.GetState().SetArtifact(artifact)
 		return nil
@@ -585,7 +585,7 @@ func TestRemotePacketCapture_RetentionSweepRunsOnConfiguredInterval(t *testing.T
 		t.Fatalf("MutateSession: %v", err)
 	}
 
-	artifactPath := filepath.Join(capturesDir, sessionID+".pcapng")
+	artifactPath := filepath.Join(capturesDir, edgebus.DefaultTenant, sessionID+".pcapng")
 	if _, err := os.Stat(artifactPath); err != nil {
 		t.Fatalf("expected artifact file on disk at %s: %v", artifactPath, err)
 	}
@@ -1149,5 +1149,108 @@ func TestRemotePacketCapture_TelemetryPrivacy(t *testing.T) {
 	}
 	if !strings.Contains(logs, "flowseer.capture.chunk.first_sequence") {
 		t.Error("agent logs carry no chunk records; the payload screen proved nothing")
+	}
+}
+
+func TestCapture_PerTenantArtifactDirectoryAndCrossTenantIsolation(t *testing.T) {
+	dir := t.TempDir()
+	writeCredentials(t, filepath.Join(dir, "credentials"))
+
+	registryPath := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
+	c := newCentral(t, dir, registryPath)
+	c.start()
+	defer c.shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	c.mu.Lock()
+	hub := c.hub
+	c.mu.Unlock()
+	if hub == nil {
+		t.Fatal("central reported nil hub")
+	}
+
+	kv, err := hub.JetStream().KeyValue(ctx, edgebus.CapturesBucket)
+	if err != nil {
+		t.Fatalf("open captures KV: %v", err)
+	}
+
+	capturesDir := filepath.Join(dir, "central-state", "captures")
+	store, err := captureapi.NewStore(kv, capturesDir, time.Now)
+	if err != nil {
+		t.Fatalf("open captures store: %v", err)
+	}
+
+	tenantA := "0192e6a0-0000-7000-8000-000000000001"
+	tenantB := "0192e6a0-0000-7000-8000-000000000002"
+	sessionID := "0192e6a0-2222-7000-8000-000000000001"
+
+	config := modelcapturev1.CaptureSessionConfig_builder{
+		Ref: modelcapturev1.CaptureSessionGlobalRef_builder{
+			Edge: edgev1.EdgeGlobalRef_builder{
+				Edge: edgev1.EdgeLocalRef_builder{Id: proto.String("0192e6a0-0000-7000-8000-00000000dead")}.Build(),
+			}.Build(),
+			CaptureSession: modelcapturev1.CaptureSessionLocalRef_builder{Id: proto.String(sessionID)}.Build(),
+		}.Build(),
+		Name: proto.String("cross-tenant-e2e"),
+		Source: modelcapturev1.CaptureSource_builder{
+			LocalInterface: modelcapturev1.LocalInterfaceSource_builder{InterfaceName: proto.String("eth0")}.Build(),
+		}.Build(),
+	}.Build()
+
+	if _, err := store.CreateSession(ctx, tenantA, config); err != nil {
+		t.Fatalf("CreateSession tenantA: %v", err)
+	}
+
+	linkType := netcapturev1.LinkType_LINK_TYPE_ETHERNET
+	packet := netcapturev1.PacketRecord_builder{
+		CapturedAt:     timestamppb.Now(),
+		OriginalLength: proto.Uint32(uint32(len("payload-tenant-a"))),
+		Data:           []byte("payload-tenant-a"),
+	}.Build()
+	if err := store.AppendPackets(ctx, tenantA, sessionID, linkType, 128, []*netcapturev1.PacketRecord{packet}); err != nil {
+		t.Fatalf("AppendPackets: %v", err)
+	}
+	counters := netcapturev1.CaptureCounters_builder{ReceivedPackets: proto.Uint64(1), AcceptedPackets: proto.Uint64(1)}.Build()
+	artifact, err := store.FinalizeArtifact(ctx, tenantA, sessionID, linkType, 128, counters, time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("FinalizeArtifact: %v", err)
+	}
+	if _, err := store.MutateSession(ctx, tenantA, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
+		rec.GetState().SetArtifact(artifact)
+		return nil
+	}); err != nil {
+		t.Fatalf("MutateSession: %v", err)
+	}
+
+	// Verify artifact file landed under <capturesDir>/<tenantA>/<sessionID>.pcapng
+	expectedPathA := filepath.Join(capturesDir, tenantA, sessionID+".pcapng")
+	if _, err := os.Stat(expectedPathA); err != nil {
+		t.Fatalf("expected artifact on disk at %s: %v", expectedPathA, err)
+	}
+
+	// Verify tenant B cannot read artifact
+	err = store.ReadArtifact(ctx, tenantB, sessionID, func(_ *modelcapturev1.CaptureArtifactChunk) error {
+		return nil
+	})
+	if err == nil {
+		t.Fatal("tenant B was able to read tenant A artifact")
+	}
+
+	// Verify cross-tenant download isolation over Connect RPC
+	reqB := connect.NewRequest(operatorcapturev1.DownloadCaptureSessionRequest_builder{
+		Session: config.GetRef(),
+	}.Build())
+	reqB.Header().Set("FlowSeer-Tenant-ID", tenantB)
+	streamB, err := c.captures().DownloadCaptureSession(ctx, reqB)
+	if err == nil {
+		if streamB.Receive() {
+			t.Fatal("tenant B received chunk for tenant A capture session")
+		}
+		if connect.CodeOf(streamB.Err()) != connect.CodeNotFound {
+			t.Errorf("tenant B download stream code = %v, want CodeNotFound", connect.CodeOf(streamB.Err()))
+		}
 	}
 }

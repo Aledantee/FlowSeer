@@ -12,16 +12,27 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 
 	operatorcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
+	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
 )
 
 const (
 	defaultPageSize = 50
 	maxPageSize     = 500
+
+	msgOperatorUnauthenticated = "the call is not authenticated"
 )
+
+func unauthenticatedOperator(err error) error {
+	if err == nil {
+		err = errs.Msg(msgOperatorUnauthenticated)
+	}
+	return connecterr.WrapRefused(msgOperatorUnauthenticated, err)
+}
 
 // OperatorServiceConfig configures an [OperatorService]. Nil NotifyChange is a
 // no-op, and nil Clock uses the wall clock.
@@ -68,6 +79,11 @@ func (s *OperatorService) CreateCaptureSession(
 	ctx context.Context,
 	req *connect.Request[operatorcapturev1.CreateCaptureSessionRequest],
 ) (*connect.Response[operatorcapturev1.CreateCaptureSessionResponse], error) {
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return nil, unauthenticatedOperator(err)
+	}
+
 	msg := req.Msg
 
 	if msg.GetEdge() == nil || msg.GetEdge().GetEdge().GetId() == "" {
@@ -115,7 +131,7 @@ func (s *OperatorService) CreateCaptureSession(
 		configBuilder.Filter = msg.GetFilter()
 	}
 
-	rec, err := s.store.CreateSession(ctx, configBuilder.Build())
+	rec, err := s.store.CreateSession(ctx, tenantID, configBuilder.Build())
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -133,12 +149,17 @@ func (s *OperatorService) StopCaptureSession(
 	ctx context.Context,
 	req *connect.Request[operatorcapturev1.StopCaptureSessionRequest],
 ) (*connect.Response[operatorcapturev1.StopCaptureSessionResponse], error) {
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return nil, unauthenticatedOperator(err)
+	}
+
 	sessionID := req.Msg.GetSession().GetCaptureSession().GetId()
 	if sessionID == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("session id is required"))
 	}
 
-	rec, err := s.store.MutateSession(ctx, sessionID, func(r *modelcapturev1.CaptureSessionRecord) error {
+	rec, err := s.store.MutateSession(ctx, tenantID, sessionID, func(r *modelcapturev1.CaptureSessionRecord) error {
 		lifecycle := r.GetState().GetLifecycle()
 		if lifecycle == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED ||
 			lifecycle == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED ||
@@ -172,12 +193,17 @@ func (s *OperatorService) GetCaptureSession(
 	ctx context.Context,
 	req *connect.Request[operatorcapturev1.GetCaptureSessionRequest],
 ) (*connect.Response[operatorcapturev1.GetCaptureSessionResponse], error) {
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return nil, unauthenticatedOperator(err)
+	}
+
 	sessionID := req.Msg.GetSession().GetCaptureSession().GetId()
 	if sessionID == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("session id is required"))
 	}
 
-	rec, _, err := s.store.Session(ctx, sessionID)
+	rec, _, err := s.store.Session(ctx, tenantID, sessionID)
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -196,7 +222,12 @@ func (s *OperatorService) ListCaptureSessions(
 	ctx context.Context,
 	req *connect.Request[operatorcapturev1.ListCaptureSessionsRequest],
 ) (*connect.Response[operatorcapturev1.ListCaptureSessionsResponse], error) {
-	all, err := s.store.ListSessions(ctx)
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return nil, unauthenticatedOperator(err)
+	}
+
+	all, err := s.store.ListSessions(ctx, tenantID)
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -247,12 +278,17 @@ func (s *OperatorService) DeleteCaptureSession(
 	ctx context.Context,
 	req *connect.Request[operatorcapturev1.DeleteCaptureSessionRequest],
 ) (*connect.Response[operatorcapturev1.DeleteCaptureSessionResponse], error) {
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return nil, unauthenticatedOperator(err)
+	}
+
 	sessionID := req.Msg.GetSession().GetCaptureSession().GetId()
 	if sessionID == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("session id is required"))
 	}
 
-	if err := s.store.DeleteSession(ctx, sessionID); err != nil {
+	if err := s.store.DeleteSession(ctx, tenantID, sessionID); err != nil {
 		return nil, connectErr(err)
 	}
 
@@ -268,12 +304,17 @@ func (s *OperatorService) TailCaptureSession(
 	req *connect.Request[operatorcapturev1.TailCaptureSessionRequest],
 	stream *connect.ServerStream[operatorcapturev1.TailCaptureSessionResponse],
 ) error {
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return unauthenticatedOperator(err)
+	}
+
 	sessionID := req.Msg.GetSession().GetCaptureSession().GetId()
 	if sessionID == "" {
 		return connect.NewError(connect.CodeInvalidArgument, errs.Msg("session id is required"))
 	}
 
-	rec, _, err := s.store.Session(ctx, sessionID)
+	rec, _, err := s.store.Session(ctx, tenantID, sessionID)
 	if err != nil {
 		return connectErr(err)
 	}
@@ -289,7 +330,7 @@ func (s *OperatorService) TailCaptureSession(
 	// A tail that opened after that moment would wait on a channel nobody
 	// will ever send to or close; re-reading under the subscription is what
 	// catches the session that finished in between.
-	rec, _, err = s.store.Session(ctx, sessionID)
+	rec, _, err = s.store.Session(ctx, tenantID, sessionID)
 	if err != nil {
 		return connectErr(err)
 	}
@@ -373,12 +414,17 @@ func (s *OperatorService) DownloadCaptureSession(
 	req *connect.Request[operatorcapturev1.DownloadCaptureSessionRequest],
 	stream *connect.ServerStream[operatorcapturev1.DownloadCaptureSessionResponse],
 ) error {
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return unauthenticatedOperator(err)
+	}
+
 	sessionID := req.Msg.GetSession().GetCaptureSession().GetId()
 	if sessionID == "" {
 		return connect.NewError(connect.CodeInvalidArgument, errs.Msg("session id is required"))
 	}
 
-	rec, _, err := s.store.Session(ctx, sessionID)
+	rec, _, err := s.store.Session(ctx, tenantID, sessionID)
 	if err != nil {
 		return connectErr(err)
 	}
@@ -399,7 +445,7 @@ func (s *OperatorService) DownloadCaptureSession(
 		return connect.NewError(connect.CodeNotFound, errs.Msg("this session's capture is no longer retained"))
 	}
 
-	err = s.store.ReadArtifact(ctx, sessionID, func(chunk *modelcapturev1.CaptureArtifactChunk) error {
+	err = s.store.ReadArtifact(ctx, tenantID, sessionID, func(chunk *modelcapturev1.CaptureArtifactChunk) error {
 		resp := operatorcapturev1.DownloadCaptureSessionResponse_builder{
 			Chunk: chunk,
 		}.Build()

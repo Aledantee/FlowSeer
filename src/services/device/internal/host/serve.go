@@ -15,6 +15,8 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	apiidentityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
@@ -31,6 +33,7 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
+	"go.aledante.io/FlowSeer/src/services/device/internal/tenantstore"
 )
 
 // panicRecovery turns a panic in any handler — unary and streaming alike —
@@ -124,7 +127,8 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 		verifier,
 		resources.broadcaster,
 		captureapi.EdgeServiceConfig{
-			Logger: log,
+			Logger:     log,
+			EdgeTenant: resources.hub.EdgeTenant,
 		},
 	)
 	captureOperatorService := captureapi.NewOperatorService(
@@ -134,6 +138,16 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 			NotifyChange: captureEdgeService.NotifyStoreChange,
 		},
 	)
+
+	tenantsKV, err := resources.hub.JetStream().KeyValue(context.Background(), edgebus.TenantBucket)
+	if err != nil {
+		return nil, err
+	}
+	tenantStore := tenantstore.New(tenantsKV)
+	tenantSvc := &tenantService{
+		admin: h.cfg.PlatformAdmin(),
+		store: tenantStore,
+	}
 
 	mux := http.NewServeMux()
 	edgePath, edgeHandler := attachv1connect.NewEdgeServiceHandler(edgeService, interceptors, recoverPanic)
@@ -162,6 +176,9 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 
 	capturePath, captureHandler := capturev1connect.NewCaptureServiceHandler(captureOperatorService, interceptors, recoverPanic)
 	mux.Handle(capturePath, captureHandler)
+
+	tenantPath, tenantHandler := identityv1connect.NewTenantServiceHandler(tenantSvc, interceptors, recoverPanic)
+	mux.Handle(tenantPath, tenantHandler)
 
 	// Every message on the upload stream is bounded, in place of the body
 	// limit the assertion middleware applies to a unary edge call. The
@@ -292,3 +309,111 @@ func portOf(address string) int {
 }
 
 func newStderr() *os.File { return os.Stderr }
+
+// tenantService implements identityv1connect.TenantServiceHandler.
+// Management of tenants is permitted only when a platform administrator is configured.
+type tenantService struct {
+	admin *storev1.PlatformAdmin
+	store *tenantstore.Store
+}
+
+func (s *tenantService) checkAdmin() error {
+	if s.admin == nil {
+		return connect.NewError(connect.CodePermissionDenied, errs.New().Msg("platform admin is not configured"))
+	}
+	return nil
+}
+
+func (s *tenantService) CreateTenant(
+	ctx context.Context,
+	req *connect.Request[apiidentityv1.CreateTenantRequest],
+) (*connect.Response[apiidentityv1.CreateTenantResponse], error) {
+	if err := s.checkAdmin(); err != nil {
+		return nil, err
+	}
+	config := req.Msg.GetConfig()
+	if config == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errs.New().Msg("tenant config is required"))
+	}
+	record, err := s.store.Create(ctx, config)
+	if err != nil {
+		if code, _ := errs.CodeOf(err); code == tenantstore.ErrCodeAlreadyExists {
+			return nil, connect.NewError(connect.CodeAlreadyExists, err)
+		}
+		if code, _ := errs.CodeOf(err); code == tenantstore.ErrCodeInvalidConfig {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	resp := apiidentityv1.CreateTenantResponse_builder{
+		Tenant: record,
+	}.Build()
+	return connect.NewResponse(resp), nil
+}
+
+func (s *tenantService) GetTenant(
+	ctx context.Context,
+	req *connect.Request[apiidentityv1.GetTenantRequest],
+) (*connect.Response[apiidentityv1.GetTenantResponse], error) {
+	if err := s.checkAdmin(); err != nil {
+		return nil, err
+	}
+	ref := req.Msg.GetTenant()
+	if ref == nil || ref.GetTenant() == nil || ref.GetTenant().GetId() == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errs.New().Msg("tenant id is required"))
+	}
+	tenantID := ref.GetTenant().GetId()
+	record, err := s.store.Get(ctx, tenantID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if record == nil {
+		return nil, connect.NewError(connect.CodeNotFound, errs.New().Attr("tenant", tenantID).Msg("tenant not found"))
+	}
+	resp := apiidentityv1.GetTenantResponse_builder{
+		Tenant: record,
+	}.Build()
+	return connect.NewResponse(resp), nil
+}
+
+func (s *tenantService) ListTenants(
+	ctx context.Context,
+	req *connect.Request[apiidentityv1.ListTenantsRequest],
+) (*connect.Response[apiidentityv1.ListTenantsResponse], error) {
+	if err := s.checkAdmin(); err != nil {
+		return nil, err
+	}
+	records, err := s.store.List(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	pageSize := int(req.Msg.GetPageSize())
+	if pageSize <= 0 {
+		pageSize = 100
+	}
+	pageToken := req.Msg.GetPageToken()
+	startIndex := 0
+	if pageToken != "" {
+		startIndex = len(records)
+		for i, r := range records {
+			if r.GetConfig().GetRef().GetTenant().GetId() > pageToken {
+				startIndex = i
+				break
+			}
+		}
+	}
+	endIndex := startIndex + pageSize
+	if endIndex > len(records) {
+		endIndex = len(records)
+	}
+	pageRecords := records[startIndex:endIndex]
+	respBuilder := apiidentityv1.ListTenantsResponse_builder{
+		Tenants: pageRecords,
+	}
+	if endIndex < len(records) && len(pageRecords) > 0 {
+		nextToken := pageRecords[len(pageRecords)-1].GetConfig().GetRef().GetTenant().GetId()
+		respBuilder.NextPageToken = &nextToken
+	}
+	return connect.NewResponse(respBuilder.Build()), nil
+}

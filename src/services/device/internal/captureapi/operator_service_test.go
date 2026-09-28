@@ -23,8 +23,47 @@ import (
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/common/spawn"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
 )
+
+const (
+	testTenantB = "0192e6a0-0000-7000-8000-000000000002"
+)
+
+type testTenantInterceptor struct {
+	defaultTenant string
+}
+
+func (i testTenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+		t := req.Header().Get("FlowSeer-Tenant-ID")
+		if t == "" {
+			t = i.defaultTenant
+		}
+		if t != "none" && t != "" {
+			ctx = tenant.WithTenant(ctx, t)
+		}
+		return next(ctx, req)
+	}
+}
+
+func (i testTenantInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+		t := conn.RequestHeader().Get("FlowSeer-Tenant-ID")
+		if t == "" {
+			t = i.defaultTenant
+		}
+		if t != "none" && t != "" {
+			ctx = tenant.WithTenant(ctx, t)
+		}
+		return next(ctx, conn)
+	}
+}
+
+func (i testTenantInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
+}
 
 type operatorTestHarness struct {
 	store       *captureapi.Store
@@ -67,7 +106,7 @@ func newOperatorTestHarness(t *testing.T) *operatorTestHarness {
 		},
 	})
 
-	path, handler := capturev1connect.NewCaptureServiceHandler(svc)
+	path, handler := capturev1connect.NewCaptureServiceHandler(svc, connect.WithInterceptors(testTenantInterceptor{defaultTenant: testTenantID}))
 	mux := http.NewServeMux()
 	mux.Handle(path, handler)
 	server := httptest.NewServer(mux)
@@ -237,7 +276,7 @@ func TestCreateCaptureSession_BudgetValidationAndCreation(t *testing.T) {
 	}
 
 	// Verify persistence in store
-	stored, _, err := h.store.Session(ctx, sessionID)
+	stored, _, err := h.store.Session(ctx, testTenantID, sessionID)
 	if err != nil {
 		t.Fatalf("get session from store: %v", err)
 	}
@@ -318,11 +357,11 @@ func TestStopCaptureSession_IdempotentAndTerminal(t *testing.T) {
 
 	// Stop a RUNNING session
 	runningConfig := newEdgeSessionConfig(t, testEdge1ID, "0192e6a0-0000-7000-8000-000000000033")
-	if _, err := h.store.CreateSession(ctx, runningConfig); err != nil {
+	if _, err := h.store.CreateSession(ctx, testTenantID, runningConfig); err != nil {
 		t.Fatalf("create running session in store: %v", err)
 	}
 	// Transition to RUNNING
-	if _, err := h.store.MutateSession(ctx, "0192e6a0-0000-7000-8000-000000000033", func(rec *modelcapturev1.CaptureSessionRecord) error {
+	if _, err := h.store.MutateSession(ctx, testTenantID, "0192e6a0-0000-7000-8000-000000000033", func(rec *modelcapturev1.CaptureSessionRecord) error {
 		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING)
 		rec.GetState().SetStartedAt(timestamppb.New(h.now()))
 		return nil
@@ -346,7 +385,7 @@ func TestStopCaptureSession_IdempotentAndTerminal(t *testing.T) {
 	}
 
 	// Stopping COMPLETED session is a no-op
-	if _, err := h.store.MutateSession(ctx, pendingID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+	if _, err := h.store.MutateSession(ctx, testTenantID, pendingID, func(rec *modelcapturev1.CaptureSessionRecord) error {
 		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
 		return nil
 	}); err != nil {
@@ -401,10 +440,10 @@ func TestGetAndDeleteCaptureSession(t *testing.T) {
 	packets := []*netcapturev1.PacketRecord{
 		testPacketRecord(1, []byte("packet-payload")),
 	}
-	if err := h.store.AppendPackets(ctx, sessionID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 65535, packets); err != nil {
+	if err := h.store.AppendPackets(ctx, testTenantID, sessionID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 65535, packets); err != nil {
 		t.Fatalf("append packets: %v", err)
 	}
-	if !h.store.ArtifactExists(sessionID) {
+	if !h.store.ArtifactExists(testTenantID, sessionID) {
 		t.Fatal("expected artifact to exist on disk")
 	}
 
@@ -443,7 +482,7 @@ func TestGetAndDeleteCaptureSession(t *testing.T) {
 	}
 
 	// Artifact file must be unlinked
-	if h.store.ArtifactExists(sessionID) {
+	if h.store.ArtifactExists(testTenantID, sessionID) {
 		t.Fatal("expected artifact file to be unlinked after delete")
 	}
 
@@ -468,7 +507,7 @@ func TestListCaptureSessions_Pagination(t *testing.T) {
 	}
 	for _, id := range sessionIDs {
 		cfg := newEdgeSessionConfig(t, testEdge1ID, id)
-		if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+		if _, err := h.store.CreateSession(ctx, testTenantID, cfg); err != nil {
 			t.Fatalf("create session %s: %v", id, err)
 		}
 	}
@@ -562,7 +601,7 @@ func TestTailCaptureSession_LiveStreaming(t *testing.T) {
 		_ = stream.Close()
 	}
 
-	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+	if _, err := h.store.CreateSession(ctx, testTenantID, cfg); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 
@@ -675,7 +714,7 @@ func TestTailCaptureSession_InBandGapOnSlowConsumer(t *testing.T) {
 	h := newOperatorTestHarness(t)
 	sessID := "0192e6a0-0000-7000-8000-000000000045"
 	cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
-	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+	if _, err := h.store.CreateSession(ctx, testTenantID, cfg); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 
@@ -832,7 +871,7 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 		_ = stream.Close()
 	}
 
-	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+	if _, err := h.store.CreateSession(ctx, testTenantID, cfg); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 
@@ -867,7 +906,7 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 		packets[i] = testPacketRecord(uint64(i+1), largeData)
 	}
 
-	if err := h.store.AppendPackets(ctx, sessID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 65535, packets); err != nil {
+	if err := h.store.AppendPackets(ctx, testTenantID, sessID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 65535, packets); err != nil {
 		t.Fatalf("append large packets: %v", err)
 	}
 
@@ -876,14 +915,14 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 		AcceptedPackets: proto.Uint64(packetCount),
 	}.Build()
 
-	artifact, err := h.store.FinalizeArtifact(ctx, sessID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 65535, counters, h.now().Add(time.Hour))
+	artifact, err := h.store.FinalizeArtifact(ctx, testTenantID, sessID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 65535, counters, h.now().Add(time.Hour))
 	if err != nil {
 		t.Fatalf("finalize artifact: %v", err)
 	}
 	if artifact == nil {
 		t.Fatal("expected non-nil artifact after finalization")
 	}
-	if _, err := h.store.MutateSession(ctx, sessID, func(r *modelcapturev1.CaptureSessionRecord) error {
+	if _, err := h.store.MutateSession(ctx, testTenantID, sessID, func(r *modelcapturev1.CaptureSessionRecord) error {
 		r.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
 		r.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT)
 		r.GetState().SetCounters(counters)
@@ -949,13 +988,13 @@ func TestDownloadCaptureSession_ChunkedAndNotFoundOnExpired(t *testing.T) {
 	if removed != 1 {
 		t.Fatalf("got %d purged artifacts, want 1", removed)
 	}
-	if h.store.ArtifactExists(sessID) {
+	if h.store.ArtifactExists(testTenantID, sessID) {
 		t.Fatal("expected artifact to be swept from disk")
 	}
 
 	// What the retention departure keeps: the record, its counters, and the
 	// descriptor of what was captured, now stamped with when it was purged.
-	afterSweep, _, err := h.store.Session(ctx, sessID)
+	afterSweep, _, err := h.store.Session(ctx, testTenantID, sessID)
 	if err != nil {
 		t.Fatalf("get session after sweep: %v", err)
 	}
@@ -1006,10 +1045,10 @@ func TestTailCaptureSession_ReturnsForASessionThatAlreadyEnded(t *testing.T) {
 
 	sessID := "0192e6a0-0000-7000-8000-000000000066"
 	cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
-	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+	if _, err := h.store.CreateSession(ctx, testTenantID, cfg); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
-	if _, err := h.store.MutateSession(ctx, sessID, func(r *modelcapturev1.CaptureSessionRecord) error {
+	if _, err := h.store.MutateSession(ctx, testTenantID, sessID, func(r *modelcapturev1.CaptureSessionRecord) error {
 		r.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
 		r.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT)
 		return nil
@@ -1041,5 +1080,99 @@ func TestTailCaptureSession_ReturnsForASessionThatAlreadyEnded(t *testing.T) {
 	}
 	if got := h.broadcaster.SubscriberCount(sessID); got != 0 {
 		t.Fatalf("got %d tail subscribers after completion, want 0", got)
+	}
+}
+
+func TestOperatorService_CrossTenantIsolation(t *testing.T) {
+	h := newOperatorTestHarness(t)
+	ctx := context.Background()
+
+	// Tenant A creates a session
+	createResp, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(newTestCreateRequest(10)))
+	if err != nil {
+		t.Fatalf("CreateCaptureSession: %v", err)
+	}
+	sessionRef := createResp.Msg.GetSession().GetConfig().GetRef()
+
+	// Tenant B cannot get Tenant A session
+	getReq := connect.NewRequest(operatorcapturev1.GetCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build())
+	getReq.Header().Set("FlowSeer-Tenant-ID", testTenantB)
+	_, err = h.client.GetCaptureSession(ctx, getReq)
+	if connect.CodeOf(err) != connect.CodeNotFound {
+		t.Errorf("GetCaptureSession tenant B got code %v, want CodeNotFound", connect.CodeOf(err))
+	}
+
+	// Tenant B listing is empty
+	listReq := connect.NewRequest(&operatorcapturev1.ListCaptureSessionsRequest{})
+	listReq.Header().Set("FlowSeer-Tenant-ID", testTenantB)
+	listResp, err := h.client.ListCaptureSessions(ctx, listReq)
+	if err != nil {
+		t.Fatalf("ListCaptureSessions tenant B: %v", err)
+	}
+	if len(listResp.Msg.GetSessions()) != 0 {
+		t.Errorf("ListCaptureSessions tenant B saw %d sessions, want 0", len(listResp.Msg.GetSessions()))
+	}
+
+	// Tenant B cannot stop Tenant A session
+	stopReq := connect.NewRequest(operatorcapturev1.StopCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build())
+	stopReq.Header().Set("FlowSeer-Tenant-ID", testTenantB)
+	_, err = h.client.StopCaptureSession(ctx, stopReq)
+	if connect.CodeOf(err) != connect.CodeNotFound {
+		t.Errorf("StopCaptureSession tenant B got code %v, want CodeNotFound", connect.CodeOf(err))
+	}
+
+	// Tenant B cannot download Tenant A session
+	downloadReq := connect.NewRequest(operatorcapturev1.DownloadCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build())
+	downloadReq.Header().Set("FlowSeer-Tenant-ID", testTenantB)
+	downloadStream, err := h.client.DownloadCaptureSession(ctx, downloadReq)
+	if err == nil {
+		if downloadStream.Receive() {
+			t.Error("DownloadCaptureSession tenant B received chunk, want error")
+		}
+		if connect.CodeOf(downloadStream.Err()) != connect.CodeNotFound {
+			t.Errorf("DownloadCaptureSession tenant B stream err code = %v, want CodeNotFound", connect.CodeOf(downloadStream.Err()))
+		}
+	}
+
+	// Tenant B delete call does not affect Tenant A's session
+	delReq := connect.NewRequest(operatorcapturev1.DeleteCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build())
+	delReq.Header().Set("FlowSeer-Tenant-ID", testTenantB)
+	if _, err := h.client.DeleteCaptureSession(ctx, delReq); err != nil {
+		t.Fatalf("DeleteCaptureSession tenant B: %v", err)
+	}
+
+	// Tenant A's session still exists
+	getA := connect.NewRequest(operatorcapturev1.GetCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build())
+	if _, err := h.client.GetCaptureSession(ctx, getA); err != nil {
+		t.Errorf("GetCaptureSession tenant A failed after tenant B delete: %v", err)
+	}
+}
+
+func TestOperatorService_UnauthenticatedWithoutTenantContext(t *testing.T) {
+	h := newOperatorTestHarness(t)
+	ctx := context.Background()
+
+	createReq := connect.NewRequest(newTestCreateRequest(10))
+	createReq.Header().Set("FlowSeer-Tenant-ID", "none")
+	_, err := h.client.CreateCaptureSession(ctx, createReq)
+	if connect.CodeOf(err) != connect.CodeUnauthenticated {
+		t.Errorf("CreateCaptureSession without tenant got %v, want CodeUnauthenticated", connect.CodeOf(err))
+	}
+
+	listReq := connect.NewRequest(&operatorcapturev1.ListCaptureSessionsRequest{})
+	listReq.Header().Set("FlowSeer-Tenant-ID", "none")
+	_, err = h.client.ListCaptureSessions(ctx, listReq)
+	if connect.CodeOf(err) != connect.CodeUnauthenticated {
+		t.Errorf("ListCaptureSessions without tenant got %v, want CodeUnauthenticated", connect.CodeOf(err))
 	}
 }

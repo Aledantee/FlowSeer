@@ -9,6 +9,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -24,6 +26,7 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
+	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edge"
 )
@@ -335,10 +338,10 @@ func TestSubscribeCaptureAssignments_EdgeIsolation(t *testing.T) {
 	cfg1 := newEdgeSessionConfig(t, testEdge1ID, sess1)
 	cfg2 := newEdgeSessionConfig(t, testEdge2ID, sess2)
 
-	if _, err := h.store.CreateSession(ctx, cfg1); err != nil {
+	if _, err := h.store.CreateSession(ctx, edgebus.DefaultTenant, cfg1); err != nil {
 		t.Fatalf("create session 1: %v", err)
 	}
-	if _, err := h.store.CreateSession(ctx, cfg2); err != nil {
+	if _, err := h.store.CreateSession(ctx, edgebus.DefaultTenant, cfg2); err != nil {
 		t.Fatalf("create session 2: %v", err)
 	}
 
@@ -390,7 +393,7 @@ func TestUploadCapture_WithdrawsOwedStartOnFirstChunk(t *testing.T) {
 	sessID := "0192e6a0-0000-7000-8000-000000000012"
 	cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
 
-	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+	if _, err := h.store.CreateSession(ctx, edgebus.DefaultTenant, cfg); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 
@@ -445,7 +448,7 @@ func TestUploadCapture_WithdrawsOwedStartOnFirstChunk(t *testing.T) {
 	// Wait for session state to transition to RUNNING in store
 	var running bool
 	for range 50 {
-		rec, _, err := h.store.Session(ctx, sessID)
+		rec, _, err := h.store.Session(ctx, edgebus.DefaultTenant, sessID)
 		if err == nil && rec != nil && rec.GetState().GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING {
 			running = true
 			break
@@ -453,13 +456,13 @@ func TestUploadCapture_WithdrawsOwedStartOnFirstChunk(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	if !running {
-		rec, _, _ := h.store.Session(ctx, sessID)
+		rec, _, _ := h.store.Session(ctx, edgebus.DefaultTenant, sessID)
 		t.Fatalf("got lifecycle %v, want RUNNING", rec.GetState().GetLifecycle())
 	}
 
 	sessID2 := "0192e6a0-0000-7000-8000-000000000022"
 	cfg2 := newEdgeSessionConfig(t, testEdge1ID, sessID2)
-	if _, err := h.store.CreateSession(ctx, cfg2); err != nil {
+	if _, err := h.store.CreateSession(ctx, edgebus.DefaultTenant, cfg2); err != nil {
 		t.Fatalf("create session 2: %v", err)
 	}
 
@@ -490,7 +493,7 @@ func TestUploadCapture_RejectsForeignEdge(t *testing.T) {
 	sessID := "0192e6a0-0000-7000-8000-000000000013"
 	cfg1 := newEdgeSessionConfig(t, testEdge1ID, sessID)
 
-	if _, err := h.store.CreateSession(ctx, cfg1); err != nil {
+	if _, err := h.store.CreateSession(ctx, edgebus.DefaultTenant, cfg1); err != nil {
 		t.Fatalf("create session 1: %v", err)
 	}
 
@@ -536,7 +539,7 @@ func TestUploadCapture_RejectsForeignEdge(t *testing.T) {
 	}
 
 	// Verify session for edge-1 is still PENDING
-	rec, _, err := h.store.Session(ctx, sessID)
+	rec, _, err := h.store.Session(ctx, edgebus.DefaultTenant, sessID)
 	if err != nil {
 		t.Fatalf("get session: %v", err)
 	}
@@ -553,7 +556,7 @@ func TestUploadCapture_ReAssertionLapseTerminatesStream(t *testing.T) {
 	sessID := "0192e6a0-0000-7000-8000-000000000014"
 	cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
 
-	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+	if _, err := h.store.CreateSession(ctx, edgebus.DefaultTenant, cfg); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 
@@ -624,7 +627,7 @@ func TestUploadCapture_ReAssertionLapseTerminatesStream(t *testing.T) {
 	}
 
 	// Verify session marked FAILED with STOP_REASON_ERROR
-	rec, _, err := h.store.Session(ctx, sessID)
+	rec, _, err := h.store.Session(ctx, edgebus.DefaultTenant, sessID)
 	if err != nil {
 		t.Fatalf("get session: %v", err)
 	}
@@ -644,7 +647,7 @@ func TestUploadCapture_FinalizationOnStreamCompletion(t *testing.T) {
 	sessID := "0192e6a0-0000-7000-8000-000000000015"
 	cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
 
-	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+	if _, err := h.store.CreateSession(ctx, edgebus.DefaultTenant, cfg); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 
@@ -699,7 +702,7 @@ func TestUploadCapture_FinalizationOnStreamCompletion(t *testing.T) {
 	}
 
 	// Verify session state in store
-	rec, _, err := h.store.Session(ctx, sessID)
+	rec, _, err := h.store.Session(ctx, edgebus.DefaultTenant, sessID)
 	if err != nil {
 		t.Fatalf("get session: %v", err)
 	}
@@ -721,7 +724,7 @@ func TestUploadCapture_FinalizationOnStreamCompletion(t *testing.T) {
 	if len(artifact.GetDigest()) != 32 {
 		t.Fatalf("got SHA-256 digest length %d, want 32", len(artifact.GetDigest()))
 	}
-	if !h.store.ArtifactExists(sessID) {
+	if !h.store.ArtifactExists(edgebus.DefaultTenant, sessID) {
 		t.Fatalf("expected artifact file on disk for session %s", sessID)
 	}
 }
@@ -749,7 +752,7 @@ func TestUploadCapture_SilentStreamLapsesAndFailsTheSession(t *testing.T) {
 	h := newTestHarness(t)
 	sessID := "0192e6a0-0000-7000-8000-000000000016"
 	cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
-	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+	if _, err := h.store.CreateSession(ctx, edgebus.DefaultTenant, cfg); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 
@@ -787,7 +790,7 @@ func TestUploadCapture_SilentStreamLapsesAndFailsTheSession(t *testing.T) {
 	var rec *modelcapturev1.CaptureSessionRecord
 	for time.Now().Before(deadline) {
 		var err error
-		rec, _, err = h.store.Session(context.Background(), sessID)
+		rec, _, err = h.store.Session(context.Background(), edgebus.DefaultTenant, sessID)
 		if err != nil {
 			t.Fatalf("get session: %v", err)
 		}
@@ -815,7 +818,7 @@ func TestUploadCapture_RefusesASessionThatAlreadyStopped(t *testing.T) {
 	h := newTestHarness(t)
 	sessID := "0192e6a0-0000-7000-8000-000000000017"
 	cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
-	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+	if _, err := h.store.CreateSession(ctx, edgebus.DefaultTenant, cfg); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 
@@ -853,7 +856,7 @@ func TestUploadCapture_RefusesASessionThatAlreadyStopped(t *testing.T) {
 	if err := upload("first capture", 5); err != nil {
 		t.Fatalf("first upload: %v", err)
 	}
-	first, _, err := h.store.Session(ctx, sessID)
+	first, _, err := h.store.Session(ctx, edgebus.DefaultTenant, sessID)
 	if err != nil {
 		t.Fatalf("get session: %v", err)
 	}
@@ -863,7 +866,7 @@ func TestUploadCapture_RefusesASessionThatAlreadyStopped(t *testing.T) {
 		t.Fatalf("got stopped-session error %v, want CodeFailedPrecondition", err)
 	}
 
-	second, _, err := h.store.Session(ctx, sessID)
+	second, _, err := h.store.Session(ctx, edgebus.DefaultTenant, sessID)
 	if err != nil {
 		t.Fatalf("get session again: %v", err)
 	}
@@ -874,7 +877,7 @@ func TestUploadCapture_RefusesASessionThatAlreadyStopped(t *testing.T) {
 		t.Fatalf("the completed capture's artifact was rewritten: %d packets became %d",
 			firstArtifact.GetPacketCount(), secondArtifact.GetPacketCount())
 	}
-	if !h.store.ArtifactExists(sessID) {
+	if !h.store.ArtifactExists(edgebus.DefaultTenant, sessID) {
 		t.Fatal("the completed capture's file is gone")
 	}
 }
@@ -927,13 +930,13 @@ func TestSubscribeCaptureAssignments_StopIsOwedOnlyForAStartedSession(t *testing
 	startedID := "0192e6a0-0000-7000-8000-00000000001a"
 
 	for _, id := range []string{startedID, neverRanID} {
-		if _, err := h.store.CreateSession(ctx, newEdgeSessionConfig(t, testEdge1ID, id)); err != nil {
+		if _, err := h.store.CreateSession(ctx, edgebus.DefaultTenant, newEdgeSessionConfig(t, testEdge1ID, id)); err != nil {
 			t.Fatalf("create session %s: %v", id, err)
 		}
 	}
 	cancelSession := func(id string, started bool) {
 		t.Helper()
-		if _, err := h.store.MutateSession(ctx, id, func(rec *modelcapturev1.CaptureSessionRecord) error {
+		if _, err := h.store.MutateSession(ctx, edgebus.DefaultTenant, id, func(rec *modelcapturev1.CaptureSessionRecord) error {
 			if started {
 				rec.GetState().SetStartedAt(timestamppb.Now())
 			}
@@ -983,7 +986,7 @@ func TestUploadCapture_RefusesASecondConcurrentStreamForOneSession(t *testing.T)
 	h := newTestHarness(t)
 	sessID := "0192e6a0-0000-7000-8000-00000000001b"
 	cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
-	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+	if _, err := h.store.CreateSession(ctx, edgebus.DefaultTenant, cfg); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 
@@ -1015,7 +1018,7 @@ func TestUploadCapture_RefusesASecondConcurrentStreamForOneSession(t *testing.T)
 	// chunk; wait for the session to reach RUNNING, which that same block does.
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		rec, _, err := h.store.Session(ctx, sessID)
+		rec, _, err := h.store.Session(ctx, edgebus.DefaultTenant, sessID)
 		if err != nil {
 			t.Fatalf("get session: %v", err)
 		}
@@ -1044,7 +1047,7 @@ func TestUploadCapture_AbandonedStreamLeavesNoPartialArtifact(t *testing.T) {
 	h := newTestHarness(t)
 	sessID := "0192e6a0-0000-7000-8000-00000000001c"
 	cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
-	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+	if _, err := h.store.CreateSession(ctx, edgebus.DefaultTenant, cfg); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 
@@ -1072,10 +1075,10 @@ func TestUploadCapture_AbandonedStreamLeavesNoPartialArtifact(t *testing.T) {
 		t.Fatal("expected an error for a stream that ended before its final chunk")
 	}
 
-	if h.store.ArtifactExists(sessID) {
+	if h.store.ArtifactExists(edgebus.DefaultTenant, sessID) {
 		t.Fatal("an abandoned upload left a partial pcapng the retention sweep cannot reach")
 	}
-	rec, _, err := h.store.Session(ctx, sessID)
+	rec, _, err := h.store.Session(ctx, edgebus.DefaultTenant, sessID)
 	if err != nil {
 		t.Fatalf("get session: %v", err)
 	}
@@ -1094,13 +1097,13 @@ func TestUploadCapture_CancellationBeforeTheFirstChunkStillOwesAStop(t *testing.
 	h := newTestHarness(t)
 	sessID := "0192e6a0-0000-7000-8000-00000000001d"
 	cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
-	if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+	if _, err := h.store.CreateSession(ctx, edgebus.DefaultTenant, cfg); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 
 	// The operator cancels while the session is still PENDING; the edge is
 	// already capturing and has not reported yet.
-	if _, err := h.store.MutateSession(ctx, sessID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+	if _, err := h.store.MutateSession(ctx, edgebus.DefaultTenant, sessID, func(rec *modelcapturev1.CaptureSessionRecord) error {
 		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED)
 		rec.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR)
 		return nil
@@ -1132,7 +1135,7 @@ func TestUploadCapture_CancellationBeforeTheFirstChunkStillOwesAStop(t *testing.
 
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		rec, _, err := h.store.Session(ctx, sessID)
+		rec, _, err := h.store.Session(ctx, edgebus.DefaultTenant, sessID)
 		if err != nil {
 			t.Fatalf("get session: %v", err)
 		}
@@ -1142,7 +1145,7 @@ func TestUploadCapture_CancellationBeforeTheFirstChunkStillOwesAStop(t *testing.
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	rec, _, err := h.store.Session(ctx, sessID)
+	rec, _, err := h.store.Session(ctx, edgebus.DefaultTenant, sessID)
 	if err != nil {
 		t.Fatalf("get session: %v", err)
 	}
@@ -1229,7 +1232,7 @@ func TestUploadCapture_RefusedAssertionExposesNoVerificationDetails(t *testing.T
 	t.Run("MidStreamAssertionBadSignature", func(t *testing.T) {
 		sessID := "0192e6a0-0000-7000-8000-00000000001e"
 		cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
-		if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+		if _, err := h.store.CreateSession(ctx, edgebus.DefaultTenant, cfg); err != nil {
 			t.Fatalf("create session: %v", err)
 		}
 
@@ -1277,4 +1280,82 @@ func TestUploadCapture_RefusedAssertionExposesNoVerificationDetails(t *testing.T
 			t.Errorf("error string discloses verification internals: %q", err.Error())
 		}
 	})
+}
+
+func TestUploadCapture_PerTenantArtifactDirectory(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h := newTestHarness(t)
+	store, capturesDir := newTestStoreDir(t, time.Now)
+	h.store = store
+
+	customTenant := "0192e6a0-0000-7000-8000-0000000000aa"
+	edgeID := testEdge1ID
+	sessID := "0192e6a0-0000-7000-8000-0000000000bb"
+
+	cfg := newEdgeSessionConfig(t, edgeID, sessID)
+	if _, err := h.store.CreateSession(ctx, customTenant, cfg); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	edgeSvc := captureapi.NewEdgeService(h.store, h.newVerifier(), h.broadcaster, captureapi.EdgeServiceConfig{
+		EdgeTenant: func(id string) string {
+			if id == edgeID {
+				return customTenant
+			}
+			return edgebus.DefaultTenant
+		},
+	})
+
+	path, handler := capturev1connect.NewCaptureEdgeServiceHandler(edgeSvc)
+	mux := http.NewServeMux()
+	mux.Handle(path, handler)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := capturev1connect.NewCaptureEdgeServiceClient(srv.Client(), srv.URL)
+	stream := client.UploadCapture(ctx)
+
+	openingSigned := h.signAssertion(t, edgeID, h.privKey1)
+	if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{Assertion: openingSigned}.Build()); err != nil {
+		t.Fatalf("send opening assertion: %v", err)
+	}
+
+	packets := []*netcapturev1.PacketRecord{
+		testPacketRecord(1, []byte("\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x08\x00tenant test frame")),
+	}
+	counters := netcapturev1.CaptureCounters_builder{
+		ReceivedPackets: proto.Uint64(1),
+		AcceptedPackets: proto.Uint64(1),
+	}.Build()
+
+	finalChunk := modelcapturev1.CapturePacketChunk_builder{
+		Session:       cfg.GetRef(),
+		FirstSequence: proto.Uint64(1),
+		Packets:       packets,
+		Counters:      counters,
+		Final:         proto.Bool(true),
+	}.Build()
+
+	if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{Chunk: finalChunk}.Build()); err != nil {
+		t.Fatalf("send final chunk: %v", err)
+	}
+
+	resp, err := stream.CloseAndReceive()
+	if err != nil {
+		t.Fatalf("close and receive: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("nil response")
+	}
+
+	expectedPath := filepath.Join(capturesDir, customTenant, sessID+".pcapng")
+	if _, err := os.Stat(expectedPath); err != nil {
+		t.Fatalf("expected artifact at %s, got error: %v", expectedPath, err)
+	}
+
+	if !h.store.ArtifactExists(customTenant, sessID) {
+		t.Fatalf("store ArtifactExists returned false for %s/%s", customTenant, sessID)
+	}
 }

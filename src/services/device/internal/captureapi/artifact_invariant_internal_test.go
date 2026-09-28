@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,6 +23,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
+
+const invariantTenant = "0192e6a0-0000-7000-8000-000000000001"
 
 // Three rounds of review each found a defect in the previous round's fix for
 // the same thing: which operation may create, truncate, or unlink the pcapng
@@ -68,17 +71,17 @@ func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
 
 	steps := []step{
 		{"create", func(id string) {
-			_, _ = store.CreateSession(ctx, invariantConfig(id))
+			_, _ = store.CreateSession(ctx, invariantTenant, invariantConfig(id))
 		}},
 		{"append", func(id string) {
-			_ = store.AppendPackets(ctx, id, linkType, 128, packets)
+			_ = store.AppendPackets(ctx, invariantTenant, id, linkType, 128, packets)
 		}},
 		{"finalize", func(id string) {
-			artifact, err := store.FinalizeArtifact(ctx, id, linkType, 128, counters, now.Add(time.Hour))
+			artifact, err := store.FinalizeArtifact(ctx, invariantTenant, id, linkType, 128, counters, now.Add(time.Hour))
 			if err != nil {
 				return
 			}
-			_, _ = store.MutateSession(ctx, id, func(rec *modelcapturev1.CaptureSessionRecord) error {
+			_, _ = store.MutateSession(ctx, invariantTenant, id, func(rec *modelcapturev1.CaptureSessionRecord) error {
 				rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
 				rec.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT)
 				rec.GetState().SetCounters(counters)
@@ -87,11 +90,11 @@ func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
 			})
 		}},
 		{"finalize_expired", func(id string) {
-			artifact, err := store.FinalizeArtifact(ctx, id, linkType, 128, counters, now.Add(-time.Hour))
+			artifact, err := store.FinalizeArtifact(ctx, invariantTenant, id, linkType, 128, counters, now.Add(-time.Hour))
 			if err != nil {
 				return
 			}
-			_, _ = store.MutateSession(ctx, id, func(rec *modelcapturev1.CaptureSessionRecord) error {
+			_, _ = store.MutateSession(ctx, invariantTenant, id, func(rec *modelcapturev1.CaptureSessionRecord) error {
 				rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
 				rec.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT)
 				rec.GetState().SetCounters(counters)
@@ -101,7 +104,7 @@ func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
 		}},
 		{"cancel", func(id string) {
 			// The record half moves without the file half: an operator's stop.
-			_, _ = store.MutateSession(ctx, id, func(rec *modelcapturev1.CaptureSessionRecord) error {
+			_, _ = store.MutateSession(ctx, invariantTenant, id, func(rec *modelcapturev1.CaptureSessionRecord) error {
 				rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED)
 				rec.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR)
 				return nil
@@ -112,13 +115,13 @@ func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
 			// record — the shape every FinalizeArtifact failure path and a
 			// failed post-finalize record write leave behind. Whoever wrote
 			// the bytes owns them until a record names them.
-			if _, err := store.FinalizeArtifact(ctx, id, linkType, 128, counters, now.Add(time.Hour)); err != nil {
+			if _, err := store.FinalizeArtifact(ctx, invariantTenant, id, linkType, 128, counters, now.Add(time.Hour)); err != nil {
 				return
 			}
-			store.DiscardArtifact(id)
+			store.DiscardArtifact(invariantTenant, id)
 		}},
-		{"abandon", func(id string) { store.AbandonWriter(id) }},
-		{"delete", func(id string) { _ = store.DeleteSession(ctx, id) }},
+		{"abandon", func(id string) { store.AbandonWriter(invariantTenant, id) }},
+		{"delete", func(id string) { _ = store.DeleteSession(ctx, invariantTenant, id) }},
 		{"sweep", func(string) { _, _ = store.SweepExpired(ctx) }},
 	}
 
@@ -133,16 +136,16 @@ func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
 	for {
 		sessionID := uuid.NewString()
 		taken := []string{"create"}
-		if _, err := store.CreateSession(ctx, invariantConfig(sessionID)); err != nil {
+		if _, err := store.CreateSession(ctx, invariantTenant, invariantConfig(sessionID)); err != nil {
 			t.Fatalf("create: %v", err)
 		}
-		if failure := checkArtifactInvariant(ctx, store, dir); failure != "" {
+		if failure := checkArtifactInvariant(ctx, store, dir, invariantTenant); failure != "" {
 			t.Fatalf("after create: %s", failure)
 		}
 		for _, i := range indices {
 			steps[i].run(sessionID)
 			taken = append(taken, steps[i].name)
-			if failure := checkArtifactInvariant(ctx, store, dir); failure != "" {
+			if failure := checkArtifactInvariant(ctx, store, dir, invariantTenant); failure != "" {
 				t.Fatalf("after %s: %s", strings.Join(taken, " -> "), failure)
 			}
 		}
@@ -153,14 +156,15 @@ func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
 		// the check above stays a scan of one session rather than of every
 		// session walked so far. A session that cannot be cleaned up is
 		// itself a violation, since delete is the operator's only way out.
-		store.AbandonWriter(sessionID)
-		if err := store.DeleteSession(ctx, sessionID); err != nil {
+		store.AbandonWriter(invariantTenant, sessionID)
+		if err := store.DeleteSession(ctx, invariantTenant, sessionID); err != nil {
 			t.Fatalf("after %s: the sequence left a session delete could not clean up: %v", strings.Join(taken, " -> "), err)
 		}
-		if failure := checkArtifactInvariant(ctx, store, dir); failure != "" {
+		if failure := checkArtifactInvariant(ctx, store, dir, invariantTenant); failure != "" {
 			t.Fatalf("after %s and a delete: %s", strings.Join(taken, " -> "), failure)
 		}
-		if entries, err := os.ReadDir(dir); err != nil || len(entries) != 0 {
+		tenantDir := filepath.Join(dir, invariantTenant)
+		if entries, err := os.ReadDir(tenantDir); err == nil && len(entries) != 0 {
 			t.Fatalf("after %s and a delete: %d file(s) remain in the captures directory (err %v)",
 				strings.Join(taken, " -> "), len(entries), err)
 		}
@@ -187,8 +191,8 @@ func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
 }
 
 // checkArtifactInvariant returns the first violation it finds, or "".
-func checkArtifactInvariant(ctx context.Context, store *Store, dir string) string {
-	records, err := store.ListSessions(ctx)
+func checkArtifactInvariant(ctx context.Context, store *Store, dir string, tenantID string) string {
+	records, err := store.ListSessions(ctx, tenantID)
 	if err != nil {
 		return fmt.Sprintf("ListSessions: %v", err)
 	}
@@ -198,9 +202,14 @@ func checkArtifactInvariant(ctx context.Context, store *Store, dir string) strin
 		claimed[rec.GetConfig().GetRef().GetCaptureSession().GetId()] = rec
 	}
 
-	entries, err := os.ReadDir(dir)
+	tenantDir := filepath.Join(dir, tenantID)
+	entries, err := os.ReadDir(tenantDir)
 	if err != nil {
-		return fmt.Sprintf("read captures dir: %v", err)
+		if errors.Is(err, os.ErrNotExist) {
+			entries = nil
+		} else {
+			return fmt.Sprintf("read captures dir: %v", err)
+		}
 	}
 	onDisk := make(map[string]struct{}, len(entries))
 	for _, entry := range entries {
@@ -213,7 +222,7 @@ func checkArtifactInvariant(ctx context.Context, store *Store, dir string) strin
 		}
 		artifact := rec.GetState().GetArtifact()
 		switch {
-		case artifact == nil && !store.hasOpenWriter(id):
+		case artifact == nil && !store.hasOpenWriter(tenantID, id):
 			// A file whose record claims no artifact is legitimate only while
 			// a writer owns it. Exempting the state outright would bless the
 			// orphan class this property exists to catch: bytes with no
@@ -233,7 +242,7 @@ func checkArtifactInvariant(ctx context.Context, store *Store, dir string) strin
 		if _, ok := onDisk[id]; !ok {
 			return fmt.Sprintf("session %s claims a retained artifact of %d bytes that is not on disk", id, artifact.GetByteSize())
 		}
-		if got := fileDigest(filepath.Join(dir, id+".pcapng")); got != "" && got != digestHex(artifact.GetDigest()) {
+		if got := fileDigest(filepath.Join(tenantDir, id+".pcapng")); got != "" && got != digestHex(artifact.GetDigest()) {
 			return fmt.Sprintf("session %s has an artifact on disk that does not match its recorded digest", id)
 		}
 	}
