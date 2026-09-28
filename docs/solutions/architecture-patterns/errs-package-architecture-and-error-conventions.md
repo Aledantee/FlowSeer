@@ -55,8 +55,8 @@ carried but unused. Depending on an outside module for something as pervasive as
 the error type, while exercising a fraction of its surface, meant importing that
 module's design decisions unchanged into roughly two hundred call sites.
 
-Three of those decisions were actively wrong for this codebase, per the plan's
-Problem Frame (Landed 2026-08-19: internal errs package in `src/common/errs`):
+Three of those decisions were actively wrong for this codebase, and the
+internal errs package (landed 2026-08-19 in `src/common/errs`) replaced them:
 
 - `ae.Wrapf` placed the wrapped error *between* the format string and its
   arguments. Every call site read backwards relative to `fmt.Errorf`, and the
