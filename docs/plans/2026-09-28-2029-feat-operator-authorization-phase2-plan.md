@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 parent: docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md
 ---
 
 # Operator Authorization Phase 2, Tenant Entity and Partitioned Stores - Plan
+
+> Implemented. 6 units, 2026-09-28T20:08:45Z to 2026-09-28T21:49:19Z.
 
 This plan is phase 2 of the operator authorization parent plan, following
 phase 1 (`docs/plans/2026-09-28-2029-feat-operator-authorization-phase1-plan.md`,
@@ -544,13 +546,13 @@ is reachable.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] `TenantLocalRef`, `TenantGlobalRef`, `TenantConfig`, `TenantState`, `TenantEvent`, and `TenantRecord` live in `model/identity/v1`.
-- [ ] `spec/proto/flowseer/model/inventory/v1/tenant.proto` is deleted and `generated/` is regenerated.
-- [ ] `docs/conventions/protobuf.md` has lost the `ENTITY_TYPE_TENANT` exception.
-- [ ] Requirements 1, 2, and 3 hold by their acceptance tests.
-- [ ] This plan's `status` set with an outcome note under its title, and parent U2's `Landed:` line filled.
-- [ ] No plan labels in code.
+- [x] Verifier green for every changed path.
+- [x] `TenantLocalRef`, `TenantGlobalRef`, `TenantConfig`, `TenantState`, `TenantEvent`, and `TenantRecord` live in `model/identity/v1`.
+- [x] `spec/proto/flowseer/model/inventory/v1/tenant.proto` is deleted and `generated/` is regenerated.
+- [x] `docs/conventions/protobuf.md` has lost the `ENTITY_TYPE_TENANT` exception.
+- [x] Requirements 1, 2, and 3 hold by their acceptance tests.
+- [x] This plan's `status` set with an outcome note under its title, and parent U2's `Landed:` line filled.
+- [x] No plan labels in code.
 
 ## Open questions
 
