@@ -182,6 +182,19 @@ decision auditable and the restraint that keeps the data from spreading:
 - an artifact is served only to a caller authorized for that session, and a
   download is itself an event.
 
+The [operator authorization direction record](2026-09-28-operator-authorization-direction.md)
+decides authorization for capture operations. Capture uses three relations from
+that record's relation table:
+
+| Object type | Relation | What it grants |
+| --- | --- | --- |
+| `edge` | `capture` | create, stop, delete, get, and list capture sessions |
+| `capture_session` | `download` | tail or download the session's packets |
+| `tenant` | `full_payload` | request `full_payload_requested: true` on a capture |
+
+The session's requester and every download are recorded as that record decides.
+`CaptureService` enforces nothing until that record lands.
+
 ## Consequences
 
 - Two new protobuf packages join the tree in the network model structure record,

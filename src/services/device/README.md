@@ -162,17 +162,20 @@ caller. `CaptureEdgeService.UploadCapture` is mounted in front of the
 middleware too, and carries its own per-message bound instead.
 
 This gap is accepted for now rather than overlooked. Authorization for the
-operator and admin surfaces is a named follow-up (OpenFGA), and until it
-lands the deployment's own network boundary is the only thing in front of
-those two services. Do not expose the API port beyond it — and understand
-that what the boundary is protecting is the device credentials, not just the
-operator API.
+operator and admin surfaces is a named follow-up in the
+[operator authorization record](../../../docs/architecture/2026-09-28-operator-authorization-direction.md),
+which decides how the gap closes, and until it lands the deployment's own
+network boundary is the only thing in front of those two services. Do not expose
+the API port beyond it — and understand that what the boundary is protecting is
+the device credentials, not just the operator API.
 
 There is also no operator action trail: nothing records that someone created
 an edge, minted or revoked a setup key, or retired one. Minting a setup key
 is the most privileged action here, and after an incident there is no way to
 answer who minted which key for which edge. The audit stream is
-device-scoped by design and is not that trail.
+device-scoped by design and is not that trail; the operator authorization
+record's [Actions leave a trail](../../../docs/architecture/2026-09-28-operator-authorization-direction.md#actions-leave-a-trail)
+section decides the trail that closes this gap.
 
 The edge-facing services — `EdgeService`, `DispatchService`, `AuditService`,
 `CaptureEdgeService` — are verified: every call carries a fresh assertion

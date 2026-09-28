@@ -28,11 +28,12 @@ reason in the commit message.
 - A typed change reaches a device through the local-network lane, and an
   observation verifies that it took effect.
   [`verified-device-access-direction`](docs/architecture/2026-09-05-verified-device-access-direction.md)
-- The operator and admin API surfaces are authorized through OpenFGA.
-  [`src/services/device/README.md`](src/services/device/README.md) names it
-  as a follow-up; no record decides its shape yet.
-- OpenFGA grants operator-defined roles at the tenant or a site, and a grant
-  on a Tag covers everything tagged with it or its descendants. Adding or
+- The operator and admin API surfaces are authenticated with OIDC tokens and
+  authorized through a Zanzibar-style relationship engine, for more than one
+  tenant.
+  [`operator-authorization-direction`](docs/architecture/2026-09-28-operator-authorization-direction.md)
+- Operator-defined roles are granted at the tenant or a site, and a grant on
+  a Tag covers everything tagged with it or its descendants. Adding or
   removing a Tag that changes access previews who gains or loses what, and
   applies only after an admin explicitly signs off that impact. No record
   decides its shape yet.
