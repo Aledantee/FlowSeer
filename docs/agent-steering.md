@@ -433,14 +433,14 @@ central integrator, and test-based verification at merge improved paper
 reproduction by 25.6 points and library development by 14.7. An Orca
 worker provides that: a child worktree per worker, a named model per
 launch, and a report the coordinator waits on. Herdr held this place from
-2026-09-10 to 2026-09-19 because it closed three of the Orca failures
-`docs/research/herdr-trial-2026-09-10.md` lists, all of them about `orca
-orchestration`: `worker-start` pins Claude, Codex, and Cursor ids only and
-a dispatch into an `agy` or `opencode` terminal sat unsubmitted; `check
---wait` is re-armed by every heartbeat; and a dispatch carries a capability
-token a context compaction can lose. `delegate/scripts/orca-worker.sh`
-meets the same
-three points without orchestration: `orca terminal create --command` takes
+2026-09-10 to 2026-09-19 because it answered four of the Orca failures
+`docs/research/herdr-trial-2026-09-10.md` lists (items 4 to 7), all of
+them about `orca orchestration`: `worker-start` pins Claude, Codex, and
+Cursor ids only and a dispatch into an `agy` or `opencode` terminal sat
+unsubmitted, `check --wait` is re-armed by every heartbeat, a dispatch
+carries a capability token a context compaction can lose, and a card's
+status lags the dispatch queue. `delegate/scripts/orca-worker.sh` meets
+the first three without orchestration: `orca terminal create --command` takes
 any CLI's launch line with the model on it, the wait is confirmed against
 the worker's screen, and a lane is a terminal and a branch with no token.
 `references/orca.md` says which lanes its described behavior was measured

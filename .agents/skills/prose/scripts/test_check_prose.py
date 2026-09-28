@@ -1,8 +1,8 @@
-"""Fixture tests for check-prose.py's provenance patterns and literal skipping.
+"""Fixture tests for check-prose.py's provenance markers and literal skipping.
 
-Every top-level alternative of every PROVENANCE pattern has a flagged case
-below that fails when that alternative alone is removed. Add one when you add
-an alternative.
+Every PROVENANCE entry has a flagged case below that fails when that entry
+alone is removed, and no case is caught by two entries. Add one when you add
+an entry.
 """
 
 import importlib.util
@@ -24,83 +24,118 @@ def warnings(text):
     return found
 
 
-# One entry per top-level alternative, in PROVENANCE order.
+# (text, label) per PROVENANCE entry.
 FLAGGED = [
-    # cites a session
-    "The panic is known (session history).",
-    "Per the 2026-08-16 session history, allocations fell.",
-    "Its diff is in this session's history.",
-    "The codex session history holds the diff.",
-    "Chosen (session-settled over X).",
-    # cites a run
-    "The cache was cold (this run).",
-    "The cache was cold (an earlier conversation).",
-    # cites a run
-    "A previous agent session left the branch dirty.",
+    ("The panic is known (session history).", "cites a session"),
+    ("Per the 2026-08-16 session history, allocations fell.", "cites a session"),
+    ("Chosen, session-settled, over a tree.", "cites a session"),
+    ("Budget is fixed (user, 2026-09-25).", "attributes to a conversation"),
+]
+_TAG_CASES = {
+    # "(user-X" opening a parenthetical, "user-X:" or "user-X)" closing a tag,
+    # and "User-X." as a sentence of its own after another or opening the
+    # line. Each case matches one form.
+    "paren": "Kept flat (user-{tag}, chosen over a tree).",
+    "colon": "Why: user-{tag}: a flat list keeps keys stable.",
+    "sentence": "The cap stays at four. User-{tag}.",
+    "line": "User-{tag}. The cap stays at four.",
+}
+for _tag in check_prose.TAGS:
+    for _form in ("paren", "colon", "sentence", "line"):
+        FLAGGED.append((_TAG_CASES[_form].format(tag=_tag), "attributes to a conversation"))
+for _name in check_prose.RUN_NAMES:
+    FLAGGED.append((f"Per the {_name} transcript, the retry passed.", "cites a transcript"))
+    FLAGGED.append((f"The {_name} transcript shows the retry.", "cites a transcript"))
+    FLAGGED.append((f"The {_name} session history holds the diff.", "cites a session"))
+
+# The "Instead of" column of docs/doc-style.md's "Cite the tree, never a run".
+# The first two carry markers and fail. The other two are judgment calls the
+# checker can only warn about.
+DOC_STYLE_FAIL = [
+    "…panics on non-comparable causes (session history).",
+    "(session-settled: user-directed, chosen over X: reason.)",
+]
+DOC_STYLE_WARN = [
     "Measured in an earlier run at 56 allocs.",
-    # cites a transcript
-    "The chat transcript shows the fix.",
-    "The worker agent history shows a retry.",
-    "The agent transcript shows the retry.",
-    # attributes to a conversation: tags
-    "Chosen (user-confirmed over X).",
-    "Cap fixed, user-directed, to stay bounded.",
-    "User-directed on 2026-09-17 to keep the scope small",
-    # attributes to a conversation: dated
-    "Budget is fixed (user, 2026-09-25).",
-    # attributes to a conversation: phrasing
-    "As agreed with the user, the cap stays.",
-    "The user's direction is one session per device.",
-    # attributes to a conversation: decision record
+    "The review agent found the lock was held too long.",
+]
+
+# Cues that often mean a run but also occur in product prose: they warn and
+# never fail.
+WARN_ONLY = [
     "The user chose a flat list over a tree.",
     "The user chose it on 2026-09-27.",
     "The user ruled that this satisfies R3.",
-    # cites an agent run
+    "The chat transcript shows the fix.",
+    "The worker agent history shows a retry.",
+    "As agreed with the user, the cap stays.",
+    "The user's direction is one session per device.",
     "The worker reported a pass.",
     "The coordinator observed a stall.",
-    "The review agent found the lock was held too long.",
+    "A previous agent session left the branch dirty.",
+    "The cache was cold (this run).",
+    "Cap fixed, user-directed, to stay bounded.",
+    "User-directed on 2026-09-17 to keep the scope small",
+    "Its diff is in this session's history.",
+    "`tune` reads Claude transcripts and Codex session files.",
 ]
 
-# The "Instead of" column of docs/doc-style.md's "Cite the tree, never a run".
-DOC_STYLE_ROWS = [
-    "…panics on non-comparable causes (session history).",
-    "(session-settled: user-directed, chosen over X: reason.)",
-    "Measured in an earlier run at 56 allocs.",
-    "The review agent found the lock was held too long.",
-]
-
-# Product and instruction prose that must pass.
+# Product and instruction prose that must pass, including every false
+# positive an earlier version of the checker produced.
 KEPT = [
-    "The edge agent history of reconnects is kept for a day.",
-    "The CLI session history buffer holds 20 commands.",
-    "The SSH session history is cleared on logout.",
+    "The user chose SSH over Telnet in the wizard.",
+    "The user requested a config push over SSH.",
     "The user requested a rollback from the UI.",
     "Once the user approved the change, the edge applies it.",
+    "Diff against the state from a previous run.",
+    "The previous run of the sweep removed three files.",
+    "The CLI keeps a session's history in memory.",
+    "As per the vendor manual, the CLI session history is cleared.",
+    "The CLI session history buffer holds 20 commands.",
+    "The SSH session history is cleared on logout.",
+    "The edge agent session history of reconnects is kept for a day.",
+    "The edge agent history of reconnects is kept for a day.",
+    "Counters reset (this session).",
+    "user-approved firmware is installed on every switch.",
+    "The firmware must be user-approved.",
+    "Only user-approved firmware is installed.",
+    "The end user's decision to opt out is stored.",
+    "The worker reported an error.",
     "The worker found no items and returned.",
     "Reuse the previous SSH session when the device allows it.",
     "The edge agent log rotates daily.",
     "The agent reported a heartbeat after reconnect.",
     "`cli-session.txt` is the SSH session transcript of the device.",
     "The device session transcript is redacted.",
-    "Only user-approved firmware is installed.",
     "Ask the user which remedy to apply.",
     "It is the user's call.",
     "An SNMP session record keeps its counters.",
-    "The previous run of the sweep removed three files.",
     "`drive` runs each stage in worker sessions.",
 ]
 
 
 class ProvenanceTest(unittest.TestCase):
-    def test_flags_run_citations(self):
-        for text in FLAGGED:
+    def test_flags_each_marker_with_its_label(self):
+        for text, label in FLAGGED:
             with self.subTest(text=text):
-                self.assertTrue(provenance(text), text)
+                found = provenance(text)
+                self.assertEqual(len(found), 1, found)
+                self.assertIn(f"provenance, {label}:", found[0])
 
-    def test_flags_doc_style_examples(self):
-        for text in DOC_STYLE_ROWS:
+    def test_doc_style_examples(self):
+        for text in DOC_STYLE_FAIL:
             with self.subTest(text=text):
                 self.assertTrue(provenance(text), text)
+        for text in DOC_STYLE_WARN:
+            with self.subTest(text=text):
+                self.assertEqual(provenance(text), [], text)
+                self.assertTrue(any("possible provenance" in w for w in warnings(text)), text)
+
+    def test_soft_cues_warn_and_do_not_fail(self):
+        for text in WARN_ONLY:
+            with self.subTest(text=text):
+                self.assertEqual(provenance(text), [], text)
+                self.assertTrue(any("possible provenance" in w for w in warnings(text)), text)
 
     def test_keeps_product_and_instruction_prose(self):
         for text in KEPT:

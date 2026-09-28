@@ -81,6 +81,10 @@ cites one.
   say what a skill does. It cites published research or a file for why, not
   "our transcripts showed".
 
+`check-prose.py` fails a change only on literal markers of a run, such as
+the first two rows above. Softer cues like the last two also occur in
+product prose, so it warns about them and the writer decides.
+
 ## Rules for docs and README files
 
 1. **Show it working early.** A concrete, realistic example beats a paragraph

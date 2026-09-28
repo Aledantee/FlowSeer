@@ -41,14 +41,14 @@ A pattern quoted as an example goes in backticks on one line. Indented text
 is checked, since in this repository it is almost always a list
 continuation.
 
-Provenance patterns need a cue only an agent run has: a parenthetical
-`(session history)`, `session-settled`, a `user-directed` or
-`user-confirmed` tag, `the user chose X over Y`, `the review agent found`.
-The product's own agents, sessions, and users (`the edge agent reported`,
-`the CLI session history buffer`, `the user requested a rollback`) pass.
-`scripts/test_check_prose.py` holds a flagged case for every alternative
-and the product phrases that must pass. Add a case there when you change a
-pattern.
+Only literal markers of an agent run fail: `(session history)`,
+`session-settled`, a `user-directed:` tag, `(user, <date>)`, or a
+Claude, Codex, or worker transcript cited as a source. Softer cues such as
+`the user chose X over Y` or `the review agent found` also occur in product
+prose, so they print as `possible provenance` warnings and need your
+judgment. `scripts/test_check_prose.py` holds a flagged case for every
+marker and the product phrases that must pass. Add a case there when you
+change a marker.
 
 The checker cannot see overexplaining, rule-of-three lists, uniform rhythm,
 or a paragraph that restates its heading. Reread once for those after it

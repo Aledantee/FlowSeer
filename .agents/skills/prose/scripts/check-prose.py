@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Check Markdown prose against docs/doc-style.md.
 
-A provenance finding (prose citing an agent run instead of the tree) fails
-the check. Style findings are warnings unless --strict is given, because
-most existing files predate the rules and a touched file should not force
-a rewrite of text the change did not write.
+A provenance marker (a literal only an agent run leaves, such as
+"(session history)" or a "user-directed:" tag) fails the check. Softer cues
+that may cite a run warn with the style findings. Style findings are
+warnings unless --strict is given, because most existing files predate the
+rules and a touched file should not force a rewrite of text the change did
+not write.
 
 Skipped as literals: YAML frontmatter, fenced code blocks (``` or ~~~,
 closed per CommonMark), HTML comments (also across lines), inline code
@@ -20,59 +22,56 @@ from pathlib import Path
 
 APOS = "['’]"
 
-# Prose that names an agent run, a transcript, or a conversation as its
-# source. Each alternative needs a cue that only an agent run has, because
-# the product has its own agents, sessions, and users: "the edge agent
-# reported", "the CLI session history buffer", "the user requested a
-# rollback", and "user-approved firmware" are domain prose.
-# test_check_prose.py holds a flagged case for every top-level alternative
-# and a passing case for each of those domain phrases.
-_TAG = r"user-(directed|approved|decided|confirmed)"
-_DECIDED = r"\b(the )?user (chose|ruled|picked|requested|decided|approved|confirmed)\b"
+# Markers that fail the check. Each is a literal only an agent run leaves
+# behind, because the product has its own agents, sessions, and users: "the
+# CLI session history", "user-approved firmware", and "the user chose SSH
+# over Telnet" are domain prose. Softer cues are in POSSIBLE_RUN and only
+# warn. Every entry holds one alternative, so test_check_prose.py pins each
+# entry with a case that fails without it.
+TAGS = ("directed", "approved", "confirmed", "decided")
+RUN_NAMES = ("claude", "codex", "gemini", "opencode", "agy", "orca", "herdr", "worker", "coordinator", "subagent")
+
 PROVENANCE = [
-    (re.compile(
-        r"\((this |that |an? )?session history\)"
-        r"|\bper the [^.]{0,40}\bsession history\b"
-        rf"|\b(this|that|an?|agent|claude|codex|worker|coordinator) session{APOS}s history\b"
-        r"|\b(agent|claude|codex|worker|coordinator) session history\b"
-        r"|\bsession[- ]settled\b",
-        re.I), "cites a session"),
-    (re.compile(
-        r"\((this|that) (session|run|conversation)\)"
-        r"|\(an? (earlier|prior|previous) (session|run|conversation)\)",
-        re.I), "cites a run"),
-    (re.compile(
-        r"\b(earlier|prior|previous) agent (run|session|conversation)s?\b"
-        r"|\b(in|from|during) an? (earlier|prior|previous) (run|conversation)\b",
-        re.I), "cites a run"),
-    (re.compile(
-        r"\b(chat|conversation) (history|transcripts?|logs?)\b"
-        r"|\b(review|worker|coordinator|claude|codex) agent (history|transcripts?)\b"
-        r"|\bagent transcripts?\b",
-        re.I), "cites a transcript"),
-    (re.compile(
-        rf"\({_TAG}\b"
-        rf"|\b{_TAG}[:.),]"
-        rf"|^\s*[-*]?\s*{_TAG}\b",
-        re.I), "attributes to a conversation"),
-    (re.compile(r"\((the )?user,? \d{4}-\d{2}-\d{2}\)", re.I), "attributes to a conversation"),
-    (re.compile(
-        r"\bas (discussed|agreed) (with|by) the user\b"
-        rf"|\b(the )?user{APOS}s (direction|decision|ruling)\b",
-        re.I), "attributes to a conversation"),
-    # Decision-record phrasing only: "the user chose X over Y", "the user
-    # chose it on 2026-09-27", "the user ruled that".
-    (re.compile(
-        rf"{_DECIDED}(?=[^.]{{0,60}}\bover\b)"
-        rf"|{_DECIDED}(?=[^.]{{0,20}}\bon \d{{4}}-\d{{2}}-\d{{2}})"
-        r"|\b(the )?user (ruled|decided) that\b",
-        re.I), "attributes to a conversation"),
-    (re.compile(
-        r"\b(the|a) (worker|coordinator|lane) (reported|measured)\b"
-        r"|\bthe coordinator (found|observed|noted)\b"
-        r"|\b(the|a) (review agent|subagent|reviewer) (found|reported|measured|observed|noted)\b",
-        re.I), "cites an agent run"),
+    (re.compile(r"\(session history\)", re.I), "cites a session"),
+    (re.compile(r"\bper the \d{4}-\d{2}-\d{2} session history\b", re.I), "cites a session"),
+    (re.compile(r"\bsession-settled\b", re.I), "cites a session"),
+    (re.compile(r"\(user,? \d{4}-\d{2}-\d{2}\)", re.I), "attributes to a conversation"),
 ]
+for _tag in TAGS:
+    PROVENANCE += [
+        (re.compile(rf"\(user-{_tag}\b", re.I), "attributes to a conversation"),
+        (re.compile(rf"\buser-{_tag}[:)]", re.I), "attributes to a conversation"),
+        # A sentence of its own, after another ("… for this reason.
+        # User-directed.") or opening the line.
+        (re.compile(rf"[.!?]\s+User-{_tag}\."), "attributes to a conversation"),
+        (re.compile(rf"^\s*User-{_tag}\."), "attributes to a conversation"),
+    ]
+# A transcript is flagged only where it is cited as a source ("per the
+# Claude transcript", "the Codex transcript shows"). The tune tooling parses
+# Claude and Codex transcripts, and its docs name them as data.
+for _name in RUN_NAMES:
+    PROVENANCE += [
+        (re.compile(rf"\bper the {_name} (session )?transcripts?\b", re.I), "cites a transcript"),
+        (re.compile(rf"\b{_name} (session )?transcripts? show", re.I), "cites a transcript"),
+        (re.compile(rf"\b{_name} session history\b", re.I), "cites a session"),
+    ]
+
+# Cues that often mean an agent run but also occur in product prose. They
+# warn, and the writer decides.
+_DECIDED = r"\b(the )?user (chose|ruled|picked|requested|decided|approved|confirmed)\b"
+POSSIBLE_RUN = re.compile(
+    rf"\bsession history\b|\bsession{APOS}s history\b"
+    r"|\((this|that|an? (earlier|prior|previous)) (session|run|conversation)\)"
+    r"|\b(earlier|prior|previous) (agent )?(run|session|conversation)s?\b"
+    r"|\b(chat|conversation|agent) (history|transcripts?|logs?)\b"
+    rf"|\b({'|'.join(RUN_NAMES)}) (session )?transcripts?\b"
+    r"|\buser-(directed|approved|confirmed|decided)\b"
+    r"|\bas (discussed|agreed) (with|by) the user\b"
+    rf"|\b(the )?user{APOS}s (direction|decision|ruling)\b"
+    rf"|{_DECIDED}"
+    r"|\b(the|a) (worker|coordinator|lane|review agent|subagent|reviewer) (found|reported|measured|observed|noted)\b",
+    re.I,
+)
 
 STYLE = [
     (re.compile(r"—|(?<=\s)--(?=\s)"), "em dash: use a period, comma, colon, or parentheses"),
@@ -83,6 +82,7 @@ STYLE = [
     (re.compile(r"\bnot (only|just|merely)\b[^.]*\bbut\b", re.I), "negative parallelism"),
     (re.compile(r",\s(ensuring|highlighting|underscoring|emphasizing|reflecting|showcasing|enabling|allowing for)\b", re.I), "trailing participle: end the sentence"),
     (re.compile(r"\b(plays? a (vital|key|crucial|pivotal) role)\b", re.I), "inflated significance"),
+    (POSSIBLE_RUN, "possible provenance: cite the tree instead"),
 ]
 
 FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")

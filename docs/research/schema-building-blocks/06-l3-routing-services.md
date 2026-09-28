@@ -561,9 +561,8 @@ planner to decide.
   nbma(2), pointToPoint(3), pointToMultipoint(5)`), both in `OSPF-MIB` and
   confirmed via two independent fetches — don't "fix" this by renumbering
   when porting to a pass-through enum.
-- **IANA route-protocol value 20 is `ttdp`, not `ttag`** (value 20 is easy to
-  misremember as `ttag`), verified against both the IANA registry and the
-  vendored `IANA-RTPROTO-MIB:48-79`.
+- **IANA route-protocol value 20 is `ttdp`, not `ttag`**, verified against
+  both the IANA registry and the vendored `IANA-RTPROTO-MIB:48-79`.
 - **IS-IS adjacency state is 4-valued (`UP/DOWN/INIT/FAILED`), not
   3-valued**, verified against OpenConfig
   `openconfig-isis-types.yang`, no contradicting source found.
