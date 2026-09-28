@@ -41,22 +41,31 @@ context.
   reviewed alongside code changes. When behavior changes, both doc comments and
   `GUARANTEES.md` change in the same commit.
 
-## Block format
+## Block format and line grammar
 
-Each guarantee is a markdown section identified by its `##` heading:
+`GUARANTEES.md` is parsed with a strict line grammar that rejects any line not
+matching an allowed shape. Allowed line shapes are:
 
-1. A `##` heading giving the guarantee's name. A rename represents a removal and
-   an addition.
-2. Exactly one normative sentence using MUST or MUST NOT (RFC 2119 as clarified
-   by RFC 8174).
-3. One or more scenario bullets in `- WHEN … THEN …` format.
-4. Exactly one `Proved by:` line listing comma-separated top-level Go test
-   names. The list may continue across following lines until a blank line,
-   heading, code fence, or another `Proved by:` line. A `Proved by:` list
-   ending with a trailing comma is an error.
+- Empty lines.
+- Exactly one top-level `# ` document title before any guarantee section.
+- Unindented preamble paragraph text before the first guarantee section.
+- `## ` guarantee headings giving each guarantee's name. Heading titles retain
+  unspaced `#` characters (such as `## Parses C#`), stripping only trailing `#`
+  characters preceded by whitespace.
+- Exactly one normative sentence per section: a single unindented line
+  containing MUST or MUST NOT in the RFC 2119 / RFC 8174 sense.
+- One or more scenario bullets starting with `- WHEN ` and containing `THEN`. A
+  scenario bullet may continue onto indented continuation lines (indented 1 to 3
+  spaces).
+- Exactly one column-0 `Proved by:` line listing comma-separated top-level Go
+  test names. The list may continue across following indented lines (1 to 3
+  spaces) until an empty line, a new heading, or another `Proved by:` line. A
+  `Proved by:` list ending with a trailing comma is an error.
 
-Fenced code blocks (``` or ~~~) are ignored; headings and test citations inside
-them are not parsed. An unclosed code fence is an error.
+Fenced code blocks (``` or ~~~), setext underlines (`---`), indented code blocks
+(4 spaces or tabs), numbered lists (`1. ...`), and unallowed heading levels
+(`###`) fail closed as unknown line formats. Indented `Proved by:` lines fail as
+unknown line format and never count as citations.
 
 ### Example block
 
@@ -73,17 +82,23 @@ Proved by: TestHostKeyCallbackRequiresExplicitVerification, TestDialOptionsRequi
 
 ## Citation rules and test bounds
 
-- Cited tests resolve only to top-level `func Test…(*testing.T)` functions in
-  `*_test.go` files located in the exact same directory as `GUARANTEES.md`.
-  `TestMain`, functions whose name after `Test` starts with a lowercase letter,
-  and tests with other signatures do not resolve.
+- Cited tests resolve from the package's `TestGoFiles` and `XTestGoFiles` as
+  reported by `go list -json .` (invoked with `GOWORK=off` and read-only `-mod`).
+  `go list` excludes `_foo_test.go` and `//go:build ignore` files by construction.
+- Discovered test files are scanned with a Go token scanner that ignores
+  whitespace, comments (`//` and `/* */`), and strings (interpreted, raw, and rune
+  literals).
+- Function declarations qualify as tests when the name starts with `Test`, is
+  not `TestMain`, and its fifth character (if present) is not Unicode lowercase
+  (`!unicode.IsLower`, rejecting `Testé`).
+- Parameter lists support `*testing.T`, `(*testing.T)`, or aliased imports
+  `*<pkg>.T` / `(*<pkg>.T)`, optional parameter names, and multiline parameter
+  layouts with optional trailing commas before `)`.
 - Citations do not search subdirectories. Subdirectories are separate Go
   packages. Searching subdirectories would allow a subpackage test to mask the
   deletion of a parent package's test.
 - Subtests (`t.Run`) cannot be cited because subtest names are runtime strings
   rather than static symbols.
-- The verifier ignores Go comments (`//` and `/* */`), string literals (`"…"` and
-  raw strings), and rune literals (`'…'`) when resolving test functions.
 - A guarantee MUST claim only what its cited tests assert. The verifier proves
   that cited test symbols exist; it cannot verify test semantics. A guarantee
   statement broader than its tests creates unproven prose.

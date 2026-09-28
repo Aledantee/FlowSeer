@@ -166,9 +166,10 @@ reasons.
 `scripts/check-guarantees.py` verifies each `GUARANTEES.md` in the directory of
 a changed path (or all of them under `--full`) against
 [`docs/conventions/guarantees.md`](../../../docs/conventions/guarantees.md).
-The check fails the run if a heading is duplicated, a code fence is unclosed, a
-section lacks a `- WHEN … THEN …` scenario bullet or exactly one `Proved by:`
-line (which may wrap across continuation lines until a blank line, heading, code
-fence, or another `Proved by:`, and must not end with a trailing comma), or a
-cited test function does not exist as a top-level `Test…` function in a
-same-directory `*_test.go` file.
+The check enforces a strict line grammar, failing closed with an unknown line
+format on code fences, setext underlines, indented code blocks, numbered lists,
+or unallowed heading levels. It fails the run if a heading is duplicated, a
+section lacks a `- WHEN … THEN …` scenario bullet or exactly one column-0
+`Proved by:` line (which may wrap across indented continuation lines and must not
+end with a trailing comma), or a cited test function does not exist among the
+package's `TestGoFiles` and `XTestGoFiles` reported by `go list -json .`.
