@@ -3,9 +3,8 @@ title: Package Guarantees - Plan
 type: docs
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: implemented
-review: rework
+artifact_readiness: implementation-ready
+status: planned
 execution: mixed
 ---
 
@@ -49,6 +48,14 @@ follow-up plan is written.
   `//go:build ignore` files Go never compiles. A grammar that rejects
   every unknown line fails closed by construction. The check needs Go on
   PATH, as the lexer's oracle test already does.
+- `verify-change.sh` classifies `.agents/*` paths as tooling (`hook_tooling=true`),
+  so `--base main` and direct skill script edits run `test_check_guarantees.py`
+  and other skill unit tests. Why: `.claude/skills` symlinks `.agents/skills`,
+  and git tracks files under `.agents/skills/`. Without `.agents/*` in
+  `verify-change.sh`'s classification patterns (lines 255 and 288), diffs
+  touching `.agents/skills/...` skipped the Python unit tests unless `--full` was
+  passed. Because `verify-change.sh` is merge-gate configuration, any unit
+  touching it requires guardrail review.
 
 - Guarantees live in `GUARANTEES.md` beside the package's `README.md`, not
   in the README. Why: the README is written for a person learning the
@@ -119,6 +126,34 @@ follow-up plan is written.
    README contract section links to its guarantees. Example: "Host-key
    verification has no default" in the README links to the guarantee of the
    same name, which cites `TestHostKeyCallbackRequiresExplicitVerification`.
+5. `verify-change.sh` classifies `.agents/*` paths as tooling (`hook_tooling=true`).
+   Changes to agent skill scripts run shellcheck, hook tests, and Python test
+   discovery. Example: `verify-change.sh -- .agents/skills/verify-change/scripts/test_check_guarantees.py`
+   executes `test_check_guarantees.py` rather than reporting zero gates selected.
+6. `check-guarantees.py` rejects every line not matching an allowed grammar
+   shape (blank line, `# ` title, preamble paragraph, `## ` heading, normative
+   MUST/MUST NOT sentence, `- WHEN ... THEN ...` bullet, column-0 `Proved by:` line,
+   or indented citation continuation line). Example: a line containing `---`, a
+   numbered list `1. item`, or an indented code block `    Proved by: TestA` fails
+   with `GUARANTEES.md:12: unknown line format`.
+7. Guarantee heading titles retain unspaced `#` characters, stripping only
+   trailing `#` sequences preceded by whitespace. Example: `## Parses C#` parses
+   as guarantee heading `Parses C#` and does not collide with `## Parses C`.
+8. Cited tests resolve exclusively from the package's `TestGoFiles` and
+   `XTestGoFiles` reported by `go list -json`. Example: a test defined in
+   `_foo_test.go` or in a file carrying `//go:build ignore` fails with
+   `GUARANTEES.md:5: "Capped" cites test "TestIgnored" which does not exist in src/pkg`.
+9. The Go test scanner recognizes top-level `Test` functions across multiline
+   signatures, anonymous parameters, and aliased `testing` imports, while
+   rejecting Unicode lowercase test names. Example: `func TestValid(\n  *tst.T,\n)`
+   resolves `TestValid`, while `func Testé(t *testing.T)` fails resolution.
+10. Every branch in `check-guarantees.py`'s lexer and line grammar has a test in
+    `test_check_guarantees.py` that fails when that branch is inverted. Example:
+    inverting the check for unspaced `#` in headings causes
+    `test_heading_with_unspaced_hash` to fail.
+11. `docs/conventions/guarantees.md` documents the strict line grammar and `go list`
+    test resolution rules, and `src/protocol/ssh/GUARANTEES.md` passes the new
+    checker. Example: `check-guarantees.py src/protocol/ssh/GUARANTEES.md` exits 0.
 
 ## Out of scope
 
@@ -220,12 +255,101 @@ Tests: the check over the new file; the new cases in `scan_test.go` and
 `command_test.go` named above.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/ssh`
 
-Waves: U1 | U2 | U3
+### U4. Tooling classification for skill scripts in verify-change
+
+Files: `.agents/skills/verify-change/scripts/verify-change.sh`
+After: U3
+Change: `verify-change.sh` classifies `.agents/*` paths as tooling
+(`hook_tooling=true`) in the path classification `case` statements (lines 255
+and 288), matching `.claude/*`, `.codex/*`, and `tools/hooks/*`. This ensures
+`--base main` and targeted verifier runs against `.agents/skills/...` run
+shellcheck, hook tests, and the Python test discovery under
+`.claude/skills/*/scripts/` (which symlinks `.agents/skills/`). Because
+`verify-change.sh` is merge-gate configuration, this change requires a
+guardrail review before commit.
+Tests: `verify-change.sh -- .agents/skills/verify-change/scripts/test_check_guarantees.py`
+executes `test_check_guarantees.py` and passes.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills/verify-change/scripts/verify-change.sh`
+
+### U5. Strict line grammar and go list test resolution
+
+Files: `.agents/skills/verify-change/scripts/check-guarantees.py`, `.agents/skills/verify-change/scripts/test_check_guarantees.py`, `.agents/skills/verify-change/SKILL.md`, `docs/conventions/guarantees.md`, `src/protocol/ssh/GUARANTEES.md`
+After: U4
+Change: `check-guarantees.py` is redesigned to enforce a strict line grammar for
+`GUARANTEES.md` and resolve test symbols via `go list` and a Go lexer:
+- Strict line grammar: every line in a `GUARANTEES.md` file must match one of
+  the allowed line shapes, failing closed on any other line with
+  `<path>:<line>: unknown line format`. Allowed shapes are: empty lines,
+  top-level `# ` document title, preamble text prior to the first `## `
+  heading, `## ` guarantee headings, normative sentences (single unindented line
+  containing MUST or MUST NOT), `- WHEN ... THEN ...` scenario bullets and
+  continuation lines, column-0 `Proved by:` lines, and indented `Proved by:`
+  continuation lines (disallowing trailing commas). Fenced code blocks
+  (``` or ~~~), setext underlines (`---`), indented code blocks (4 spaces or tabs),
+  numbered lists (`1. ...`), and unallowed headings (`###`) fail closed as
+  unknown line formats. Indented `Proved by:` lines fail as unknown line format
+  and never count as citations. Heading parsing preserves unspaced `#`
+  characters, retaining titles such as `## Parses C#`.
+- Go test resolution: `check-guarantees.py` invokes `go list -json .` in the
+  package directory (`cwd=pkg_dir`) with an environment inheriting `os.environ`
+  plus `GOWORK=off` and `GOFLAGS=-mod=mod` to obtain `TestGoFiles` and
+  `XTestGoFiles`. Inheriting `os.environ` keeps `GOPATH` and `GOMODCACHE` valid;
+  `go list` excludes `_foo_test.go` and `//go:build ignore` files by construction.
+  Discovered test files are scanned with a Go token scanner that ignores
+  whitespace, comments, and strings. Function declarations qualify as tests
+  when the name starts with `Test`, is not `TestMain`, and its 5th character
+  (if present) is not Unicode lowercase (`!unicode.IsLower`, rejecting `Testé`).
+  Parameter lists support `*testing.T`, `(*testing.T)`, or aliased imports
+  `*<pkg>.T` / `(*<pkg>.T)`, optional parameter names, and multiline parameter
+  layouts with optional trailing commas before `)`.
+- Branch coverage: every branch in the lexer and line grammar has a test in
+  `test_check_guarantees.py` that fails when inverted.
+- Test fixture setup: `test_check_guarantees.py` provides a minimal `go.mod`
+  in temporary test package directories so `go list -json .` resolves without
+  error.
+- Documentation: `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
+  state the strict line grammar rules, the allowed line shapes (dropping code
+  fence allowances), and `go list` test resolution.
+- Pilot validation: `src/protocol/ssh/GUARANTEES.md` conforms to the strict
+  line grammar and passes the redesigned checker.
+Tests: `test_check_guarantees.py` tests:
+- Strict line grammar acceptance (blank, H1, preamble, H2, MUST/MUST NOT,
+  `- WHEN ... THEN ...`, `Proved by:`, continuation lines).
+- Strict line grammar rejection: setext underline `---` fails; numbered list
+  `1. item` followed by `---` fails; code fences fail; indented code block
+  (4 spaces) fails; `Proved by:` inside an indented code block fails and is
+  not counted.
+- Heading preservation: `## Parses C#` resolves as `Parses C#` and does not
+  collide with `## Parses C`.
+- Test resolution: tests in `_foo_test.go` or behind `//go:build ignore` do
+  not resolve; Unicode lowercase test name `Testé` does not resolve; valid
+  signatures with anonymous parameter `(*testing.T)`, multiline parameters,
+  and aliased `testing` imports all resolve.
+- Every lexer and grammar branch fails when inverted.
+- Pilot check: `src/protocol/ssh/GUARANTEES.md` passes.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills/verify-change/scripts/check-guarantees.py .agents/skills/verify-change/scripts/test_check_guarantees.py .agents/skills/verify-change/SKILL.md docs/conventions/guarantees.md src/protocol/ssh/GUARANTEES.md`
+
+Waves: U1 | U2 | U3 | U4 | U5
 
 ## Verification
 
 ```bash
 .claude/skills/verify-change/scripts/verify-change.sh --base main
+```
+
+Focused test runner check for tooling classification and guarantees tests:
+```bash
+.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills/verify-change/scripts/test_check_guarantees.py
+```
+
+Direct Python unit tests execution:
+```bash
+env PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s .claude/skills/verify-change/scripts -p 'test_*.py'
+```
+
+Pilot validation:
+```bash
+python3 .claude/skills/verify-change/scripts/check-guarantees.py src/protocol/ssh/GUARANTEES.md
 ```
 
 Then rename `TestRunOutputCapTruncates` in
@@ -234,16 +358,25 @@ Then rename `TestRunOutputCapTruncates` in
 
 ## Definition of done
 
-- [x] Verifier green for every changed path.
+- [x] Verifier green for every changed path in U1–U3.
 - [x] `docs/README.md` authority paragraph, map, and placement sentence
       updated in U1.
-- [x] The `verify-change.sh` edit passed the guardrail review before its
-      commit.
+- [x] The initial `verify-change.sh` edit passed the guardrail review before its
+      commit in U2.
 - [x] The pilot outcome recorded in this plan's outcome note: how many
       README contracts were already proved, how many needed a new test,
       and whether the stop condition held.
-- [x] This plan's `status` set, with the outcome note under its title.
-- [x] No plan labels in code, scripts, or skill text.
+- [ ] Verifier green for every changed path across all units.
+- [ ] The `verify-change.sh` `.agents/*` classification edit passed guardrail
+      review before U4 commit.
+- [ ] Checker redesign implements strict line grammar and resolves tests via
+      `go list` and Go lexer, closing all seven round-3 review findings.
+- [ ] Every branch in the lexer and line grammar has a test in `test_check_guarantees.py`
+      that fails without it.
+- [ ] `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
+      state the strict line grammar and citation resolution rules.
+- [ ] `src/protocol/ssh/GUARANTEES.md` passes under the new checker.
+- [ ] No plan labels in code, scripts, or skill text.
 
 ## Open questions
 
