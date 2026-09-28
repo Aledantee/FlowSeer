@@ -2111,6 +2111,36 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 		if cmp.Disposition != analysis.Equivalent {
 			t.Errorf("Disposition = %v, want %v", cmp.Disposition, analysis.Equivalent)
 		}
+
+		// The configure action must have taken effect on both sides: the
+		// post-configure frame is dropped at sw2 by the bridge ingress filter.
+		for _, side := range []struct {
+			name     string
+			journeys []fabric.Journey
+		}{
+			{"current", cmp.Current},
+			{"expected", cmp.Expected},
+		} {
+			var after *fabric.Journey
+			for i := range side.journeys {
+				if string(side.journeys[i].Injection.Frame.Payload) == "after-configure" {
+					after = &side.journeys[i]
+				}
+			}
+			if after == nil {
+				t.Fatalf("%s: after-configure journey missing: %+v", side.name, side.journeys)
+			}
+			if after.State != fabric.JourneyDropped {
+				t.Errorf("%s: after-configure journey state = %v, want Dropped", side.name, after.State)
+			}
+			if len(after.Entries) == 0 {
+				t.Fatalf("%s: after-configure journey has no entries", side.name)
+			}
+			last := after.Entries[len(after.Entries)-1]
+			if last.Kind != fabric.EntryDrop || last.Reason != bridge.ReasonIngressFilter || last.Device != "sw2" {
+				t.Errorf("%s: after-configure last entry = %+v, want EntryDrop at sw2 with ingress-filter reason", side.name, last)
+			}
+		}
 	})
 
 	t.Run("missing switch returns inconclusive", func(t *testing.T) {
@@ -2160,6 +2190,9 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 		cmp := fabric.Compare(fabA, fabB, sc, 50)
 		if cmp.Err == nil {
 			t.Fatal("Compare with missing switch expected error, got nil")
+		}
+		if !strings.Contains(cmp.Err.Error(), "sw2") {
+			t.Errorf("Compare err = %v, want it to name sw2", cmp.Err)
 		}
 		if cmp.Disposition != analysis.Inconclusive {
 			t.Errorf("Disposition = %v, want %v", cmp.Disposition, analysis.Inconclusive)
