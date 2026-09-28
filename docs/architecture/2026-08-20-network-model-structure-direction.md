@@ -888,10 +888,11 @@ LLDP and LACP report. None of the four top-level families joins
 
 ### 2026-09-17 — the tree is cut by kind of contract
 
-Landed with `docs/plans/2026-09-17-1141-refactor-proto-layout-phase1-plan.md`,
-the first of three plans that re-cut this tree by what kind of contract each
-package is rather than by which entity or boundary happened to define it
-first.
+Landed 2026-09-17: re-cut protobuf tree by contract kind (roots, sink rule,
+and layering conformance) in `spec/proto/flowseer` and
+`test/conformance/proto`, the first of three refactors that re-cut this tree
+by what kind of contract each package is rather than by which entity or
+boundary happened to define it first.
 
 - **The axis becomes the kind of contract.** The roots become `net`, `errs`,
   `model`, `event`, `api`, `edge`, `integration`, `store`, and `runtime`.
