@@ -22,9 +22,6 @@ func WithTenant(ctx context.Context, tenantID string) context.Context {
 // FromContext extracts the tenantID from ctx. It returns an error with
 // ErrCodeNoTenant if no tenant is set.
 func FromContext(ctx context.Context) (string, error) {
-	if ctx == nil {
-		return "", errs.New().Code(ErrCodeNoTenant).Msg("no tenant in context")
-	}
 	val, ok := ctx.Value(tenantKey).(string)
 	if !ok || val == "" {
 		return "", errs.New().Code(ErrCodeNoTenant).Msg("no tenant in context")

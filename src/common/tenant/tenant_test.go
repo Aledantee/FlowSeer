@@ -45,15 +45,3 @@ func TestFromContextEmptyTenant(t *testing.T) {
 		t.Fatalf("got code %v, want %v", code, tenant.ErrCodeNoTenant)
 	}
 }
-
-func TestFromContextNilContext(t *testing.T) {
-	//nolint:staticcheck // intentionally testing nil context behavior
-	gotTenant, err := tenant.FromContext(nil)
-	if err == nil {
-		t.Fatalf("FromContext(nil) returned nil error and tenant %q, want error", gotTenant)
-	}
-	code, ok := errs.CodeOf(err)
-	if !ok || code != tenant.ErrCodeNoTenant {
-		t.Fatalf("got code %v, want %v", code, tenant.ErrCodeNoTenant)
-	}
-}
