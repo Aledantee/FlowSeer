@@ -1,8 +1,9 @@
-# Calibration: the fixed task and how it is graded
+# Calibration: the fixed tasks and how they are graded
 
 Load this only for `tune` step 4 or when comparing two routing setups.
 
 - The task
+- The review task
 - Lanes and cost
 - Run a lane
 - Acceptance tests
@@ -22,6 +23,20 @@ calibrations compare only on the same base. The task is small (one file,
 well under 150 lines) and hard because every close path has to be ordered
 against in-flight sends, and Go's `select` does not promise which ready
 case runs.
+
+## The review task
+
+The review lanes grade `review-unit`, `review-seam`, and every
+`judgment: true` role (`plan`, `research`, `judge`, `critique`), since
+those roles have no task of their own and the review task is the one that
+measures reasoning over code rather than typing it. Branch the lane from
+30c8da74, a `Merge` that deadlocks, and give it `calibration/review-brief.md`.
+The known bug: a forwarder never watches its source's `Stopped()`, so when
+one source fails and a sibling's producer stops without closing its data
+channel, that forwarder blocks on the channel read and `wg.Wait` never
+returns. A lane finds it when a finding names that path with a call
+sequence that reaches it. Count every other finding that holds up on a
+read of the code as a valid extra.
 
 ## Lanes and cost
 
@@ -43,8 +58,10 @@ corrupt each other's sessions when lanes overlap.
   --brief <brief file> --dir <worktree> --out <json>
 ```
 
-Run each lane at the `effort` of the role it is graded for; `bench.sh`
-exits 2 on an `--effort` its CLI branch cannot apply. It records wall time,
+A sweep runs one lane per level in the model's `effort` list. `agy` takes
+the level in the model id (`gemini-3.8-flash-<effort>`), and an `opencode`
+lane runs once with no level. `bench.sh` exits 2 on an `--effort` its CLI
+branch cannot apply. It records wall time,
 the CLI's reported usage, and the exit code. On `opencode` it also writes
 `finish` and `tool_calls`: a lane that ends `finish: length` with
 `tool_calls: 0` never touched the repository, which is a 0 and not a
@@ -73,14 +90,24 @@ lines over the total.
 
 ## Record the result
 
-Write `local.<role>: {effort, runs, base, pass, wall_s, cost_usd}` on the
-model:
+Write one result per level under the task's role, keyed by the level the
+lane actually ran at (the figures here show the shape only):
 
+```yaml
+local: {execute: {medium: {runs: 1, base: bd9e0862, pass: 7/7, wall_s: 301, cost_usd: 0.61},
+                  xhigh: {runs: 1, base: bd9e0862, pass: 6/7, wall_s: 552, cost_usd: 2.26}},
+        review-unit: {high: {runs: 1, base: 30c8da74, found_known_bug: true, extra_valid: 2, wall_s: 240, cost_usd: 0.80}}}
+```
+
+- The key is the id suffix on `agy`, the literal `none` for a model whose
+  `effort` list is empty, `default` for a lane that ran at the CLI's own
+  default, and `unrecorded` for a result from before levels were recorded.
 - `base`: the commit the lane branched from.
-- `effort`: the level the lane actually ran at; the id suffix on `agy`, and
-  the literal `none` for a model whose `effort` list is empty.
 - When `runs` is above 1, `pass`, `wall_s`, and `cost_usd` are lists, one
   value per run.
+
+The review result stands for the `judgment: true` roles too. Write it once
+under `review-unit` and do not copy it into those roles.
 
 ## Cost figures
 

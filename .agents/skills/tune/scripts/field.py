@@ -103,6 +103,20 @@ def model_for(model, agent, models):
     return model or agent
 
 
+def effort_for(start, models):
+    """Return the level a lane ran at: its launch flag, else an id suffix."""
+    if start.get("effort"):
+        return start["effort"]
+    model = start.get("model") or ""
+    for fields in models.values():
+        pattern = fields.get("id_format", "").strip('"')
+        if pattern and "<effort>" in pattern:
+            match = re.fullmatch(re.escape(pattern).replace(re.escape("<effort>"), r"([a-z]+)"), model)
+            if match:
+                return match.group(1)
+    return None
+
+
 LIMIT_REPLY = re.compile(r"hit your [a-z ]*limit")
 # Worktree tooling names a new branch through a headless Claude call with
 # this prompt; the call is naming, not delegated work.
@@ -270,8 +284,8 @@ def joinable(session, start, end, cwd):
     return session.get("cwd") == cwd and at is not None and at <= end and last >= start
 
 
-def empty_run(source, model, role, cli, outcome=None, verify=None):
-    return {"source": source, "model": model, "role": role, "cli": cli,
+def empty_run(source, model, role, cli, outcome=None, verify=None, effort=None):
+    return {"source": source, "model": model, "effort": effort, "role": role, "cli": cli,
             "outcome": outcome, "verify": verify, "elapsed_s": None, "active_s": None,
             "tokens": None, "cost_usd": None, "est": True, "tool_errors": None,
             "findings": 0, "held": 0}
@@ -306,9 +320,9 @@ def apply_sessions(run, sessions, prices, models):
 def groups_for(runs):
     buckets = defaultdict(list)
     for run in runs:
-        buckets[(run["model"], run["role"], run["source"])].append(run)
+        buckets[(run["model"], run.get("effort") or "", run["role"], run["source"])].append(run)
     groups = []
-    for (model, role, source), rows in sorted(buckets.items()):
+    for (model, effort, role, source), rows in sorted(buckets.items()):
         counts = {name: sum(row["outcome"] == name for row in rows)
                   for name in ("accepted", "amended", "rejected", "blocked")}
         graded = counts["accepted"] + counts["amended"] + counts["rejected"]
@@ -322,7 +336,7 @@ def groups_for(runs):
                               ("cost_usd", [r["cost_usd"] for r in rows])):
             present = [value for value in values if value is not None]
             medians[field] = statistics.median(present) if present else None
-        group = {"model": model, "role": role, "source": source, "runs": len(rows),
+        group = {"model": model, "effort": effort or None, "role": role, "source": source, "runs": len(rows),
                  "counts": counts, "graded": graded, "verify_pass": sum(r["verify"] == "pass" for r in rows),
                  "findings": findings, "held": held,
                  "accepted_rate": counts["accepted"] / graded if graded else None,
@@ -437,7 +451,7 @@ def score(args):
         cli = start.get("cli")
         model = model_for(start.get("model"), start.get("agent"), models)
         run = empty_run("orca", model, start.get("role"), cli,
-                        grade.get("outcome"), grade.get("verify"))
+                        grade.get("outcome"), grade.get("verify"), effort_for(start, models))
         run["run"] = rid
         run["elapsed_s"] = seconds(at, instant(grade.get("at")))
         if roles and run["role"] not in roles:
