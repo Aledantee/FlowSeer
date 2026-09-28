@@ -28,9 +28,11 @@ More than one cluster produces a parent plan and one phase plan per
 cluster, in dependency order:
 
 - The parent keeps the Goal, Decisions, and Requirements for the whole
-  change. Its Units are the phases, each with `Files:` naming the phase
-  plan path, `After:` naming the earlier phases, and a `Landed:` line that
-  stays empty until the phase's plan reads `implemented` and then carries
+  change. Its Units are the phases, headed like any unit (`### U1.
+  <phase name>`, never `### P1.`: `drive` finds phases by the `U`
+  heading and reads a parent without one as no parent at all), each with
+  `Files:` naming the phase plan path, `After:` naming the earlier
+  phases, and a `Landed:` line that stays empty until the phase's plan reads `implemented` and then carries
   the commit range, as `` `601e6e03..7cdc35dd` ``: the ledger check the
   verifier runs reads the last commit of that line to prove a later
   phase's worktree holds it, and a `Landed:` written as prose fails that

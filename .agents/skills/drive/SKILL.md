@@ -143,6 +143,11 @@ After each stage:
    reports success and leaves the field unset parks the plan with that
    as its question; it is not run again.
 
+A turn of this session ends only while it waits on a started lane, at a
+parked question, or when step 1 or step 5 stops the drive. A turn that
+ends right after announcing the next stage leaves no lane running and
+nothing to wake it.
+
 A stage runs once. The caps inside the skills (three verifier rounds on a
 unit, three review rounds on a mechanism) already decide when patching
 stops, so what sends a plan back is a parked question, not another try.
@@ -205,8 +210,8 @@ Park it in the file. Append to the plan's Open questions, commit, and run
 the verifier on the plan path, so the receipt post-dates the commit:
 
 ```markdown
-- Parked by drive: <question>. Options: <a> | <b>. Recommended: <a>,
-  because <reason>.
+- Parked by drive: <question>. Options: <a> (<tradeoff>) | <b>
+  (<tradeoff>). Recommended: <a>, because <reason>.
 ```
 
 Merge what the worker landed before it stopped only when the verifier

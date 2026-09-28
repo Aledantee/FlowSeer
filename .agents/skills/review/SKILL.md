@@ -119,8 +119,9 @@ intent in code doing the opposite. Ask:
   would that test still fail if the check moved to the wrong place? The
   commit bodies in scope carry a mutation and a quoted `--- FAIL` line per
   new test (`implement`, step 2.3). For a new test without one, run the
-  mutation: copy the source file first (`cp <path> "$TMPDIR/<name>.orig"`),
-  mutate it in place, run the focused test, quote the result, and restore
+  mutation yourself, never through a sub-worker (one stalled on sandboxed
+  writes and held the review until its quota ran low): copy the source
+  file first (`cp <path> "$TMPDIR/<name>.orig"`), mutate it in place, run the focused test, quote the result, and restore
   from the copy, never with `git checkout` or `git restore`. A test that
   passes against the defect is a correctness finding.
 - Does any comment narrate process, cite history, or carry a plan label?

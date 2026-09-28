@@ -81,7 +81,10 @@ importing one. The whole module still compiles. In addition:
   YANG bindings runs for over an hour.
 - A `frontend/web/` path selects the web workspace's typecheck, Vite build,
   ESLint, Stylelint, Prettier check, and Vitest suite. Use the local binaries
-  installed from its lockfile.
+  installed from its lockfile. A fresh worktree has none: install them with
+  `pnpm --dir frontend/web install --frozen-lockfile`, outside the sandbox
+  like the verifier (it reaches the npm registry and the global pnpm
+  store), rather than linking another worktree's `node_modules`.
 - `buf breaking` compares only the changed `.proto` files `main` already
   holds, and prints that it skipped when every changed schema file is new
   on the branch: `--path` naming a file the baseline lacks targets nothing,

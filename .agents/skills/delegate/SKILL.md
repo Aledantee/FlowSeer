@@ -380,7 +380,10 @@ in order:
 
 1. The goal in one sentence and the definition of done. A requirement
    carried from the plan is quoted, and the brief says it is not the
-   worker's to restate, narrow, or move to another fixture.
+   worker's to restate, narrow, or move to another fixture. The brief for
+   a worker running a stage names the project skill by path
+   (`.claude/skills/review/SKILL.md`), since a globally installed skill
+   whose name matches the task words is otherwise picked first.
 2. The files or diff to work from, as repository-relative paths; a reviewer
    gets the path of a diff file in the scratchpad directory.
 3. The conventions that apply, as paths, and the matched `docs/solutions/`
@@ -393,6 +396,12 @@ in order:
    branch before it reports, because the coordinator reads the commit, not
    the working tree. Outcome first, no preamble, no closing
    summary, no narration while working, no word budget; the register below.
+   The brief names the checks the coordinator already ran, with their
+   result, and says the worker reports once the named scope is checked:
+   without that line, review workers re-ran the coordinator's race tests
+   and widened their scope until told to conclude, and fix workers
+   re-diagnosed findings the brief had already settled. An editing
+   worker still runs the focused checks its own edits invalidate.
 5. For a unit of a plan with a ledger (`verify-change`'s `SKILL.md`
    documents it), the `note` line of every landed unit, verbatim, and
    nothing else from the ledger.
@@ -409,7 +418,9 @@ in order:
    worker's branch, and a worker that merges into the coordinator's
    checkout lands work there before the tree check. Work is set aside
    with a temporary commit or a copy under the worker's own `$TMPDIR`
-   (it never crosses a sandbox boundary, unlike a brief), never `git stash`:
+   (it never crosses a sandbox boundary, unlike a brief; every scratch
+   file goes there, since a literal `/tmp` path prompts or is denied on
+   each write), never `git stash`:
    the stash stack is shared by every worktree and concurrent session, and
    a worker's checkout does not inherit the session note that says so.
 7. For a worker on any runtime: do not ask questions, and when something

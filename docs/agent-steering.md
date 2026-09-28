@@ -117,6 +117,20 @@ steps: brainstorming folds into `plan`, doc review into `plan` and
 `review`, refreshing solutions into `compound`. `land` (first named
 `close`) was added on 2026-09-05 for a step every session repeated by hand.
 
+Steer toward the project skills; do not block the external ones. Until
+2026-09-27 Codex could not see `.claude/skills/`, and in about twenty
+worker sessions it ran the globally installed compound-engineering
+plugin's `ce-work` and `ce-code-review` instead of `implement` and
+`review`, writing findings in that plugin's format to `/tmp`. Making the
+skills visible under `.agents/skills/` ended it in the sessions mined on
+2026-09-28. Disabling the plugin per runtime would also have worked, but
+it hides a plugin that is still useful for work no project skill covers,
+and each new runtime would need its own switch. So `AGENTS.md` says a
+project skill wins where it covers the work, and `delegate`'s brief names
+the skill by path. `.claude/settings.json` still disables the plugin for
+Claude, from before either existed, and `tune`'s bench disables it
+because the plugin's own review stretched a timed run to 110 minutes.
+
 Gate the merge on evidence, not on the conversation. `land` is the one
 skill whose action reaches every other worktree, and a session cannot see
 which skills ran before it, so `implement`, `review`, and `compound` each
@@ -676,7 +690,10 @@ runs itself after every other step produces work nobody asked for, and
 the five cases in the scan where the user redirected instead of accepting
 are the reason each question keeps a "stop here" option. A delegated
 worker never asks, because a worker waiting on an answer looks like one
-that is working.
+that is working. Each option states its tradeoff, not only the
+recommended one its reason: on 2026-09-26 a styling choice offered as
+three bare names was rejected twice with "I dont see your tradeoffs"
+before a table of them was written in prose.
 
 Pick the next work from files, and finish before starting. `next` exists
 because the question "what now" was being answered from a session's memory
