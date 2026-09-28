@@ -1,6 +1,6 @@
 ---
 name: steer
-description: Works the queue in docs/agent-observations.md: verifies each entry against the current skill, agent, or hook, decides whether the fix is prose, a skill step, or enforcement, applies it to skills and agents, and stages hook or AGENTS.md changes for a person's review. Also audits whether every enforced rule has a registered hook or verifier check. Use when asked to steer, tune skills, work the observations, or audit the hooks. Not for logging an observation; compound's Observe mode does that.
+description: Works the queue in docs/agent-observations.md: verifies each entry against the current skill, agent, or hook, decides whether the fix is prose, a skill step, or enforcement, applies it to skills and agents, and stages hook or AGENTS.md changes for a person's review. Also audits whether every enforced rule has a registered hook or verifier check, and retires landed plans that `land` left on disk. Use when asked to steer, tune skills, work the observations, or audit the hooks. Not for logging an observation; compound's Observe mode does that.
 argument-hint: "[audit | entry title | the skill to tune]"
 ---
 
@@ -83,7 +83,7 @@ read as a complete, followable step, and does it contradict `AGENTS.md`,
 .claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>
 ```
 
-## 5. Audit enforcement
+## 5. Audit enforcement and plan retirement
 
 Run at the end of every pass and on `audit`:
 
@@ -101,9 +101,24 @@ Run at the end of every pass and on `audit`:
    `plan` and the reason in `docs/agent-steering.md` together, or record
    that the data does not yet say.
 
+   `land` deletes a plan when its work lands and copies the note into the
+   retire commit, so read both places:
+
    ```bash
-   grep -h '^> Implemented\. [0-9]* units' docs/plans/*-plan.md
+   { grep -h '^> Implemented\. [0-9]* units' docs/plans/*-plan.md; git log main --format=%b --grep='^docs(plans): retire' | grep '^> Implemented\. [0-9]* units'; }
    ```
+5. Sweep the plans `land` should have retired. Every `retire` line is a
+   plan finished on `main` and still on disk:
+
+   ```bash
+   python3 .claude/skills/next/scripts/plan-queue.py | grep '^retire'
+   ```
+
+   Retire each as `land/references/retire-plan.md` describes, one commit
+   per plan. More than a handful is a delegated read, one plan per brief
+   as `delegate` describes, with the record drafts and amendments reviewed
+   here before any delete is committed. Then log an observation against
+   `land` naming the plans it missed.
 
 Report findings; fix them through "Apply or stage", which stages them.
 

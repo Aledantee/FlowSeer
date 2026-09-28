@@ -85,6 +85,10 @@ def on_main(landed):
 def stage(unit, completed):
     """The next stage a phase needs, in the order the skills run."""
     if not unit["plan"].exists():
+        # land deletes a phase plan once the phase lands; the parent's
+        # Landed range is what remains of it.
+        if COMMIT_RANGE.search(unit.get("landed", "")):
+            return "on main (plan retired)" if on_main(unit["landed"]) else "done (plan retired)"
         return "plan (phase plan missing)"
     fields = frontmatter(unit["plan"])
     status = fields.get("status")
@@ -123,7 +127,7 @@ def report(parent):
         newly_completed = {
             u["id"]
             for u in units
-            if (state := stage(u, completed)) == "done" or state.startswith("on main")
+            if (state := stage(u, completed)).startswith(("done", "on main"))
         }
         if newly_completed == completed:
             break
@@ -138,7 +142,7 @@ def report(parent):
     settled = ("done", "on main", "waits", "landed")
     ready = [u["id"] for u, s in zip(units, stages) if not s.startswith(settled)]
     # Only a phase that finished on this branch leaves something to land.
-    rest = "land" if "done" in stages else "nothing"
+    rest = "land" if any(s.startswith("done") for s in stages) else "nothing"
     print("next: " + (", ".join(ready) if ready else rest))
     return 0
 

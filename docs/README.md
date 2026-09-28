@@ -36,8 +36,8 @@ package or boundary.
 When a plan has shipped, set `status` and add a short `> Implemented.` outcome
 note directly under its title, in the same change as the last unit. Keep
 `artifact_readiness` unchanged because it describes the plan's completeness,
-not its progress. A plan whose paths or package names have since moved keeps
-its text; the outcome note says where the code lives now. The `review` and
+not its progress. `land` deletes the plan once the work lands, after moving
+any decision that outlives it into `docs/architecture/`. The `review` and
 `compound` skills each add a field of their own name beside `status`
 (`review: accept`, `compound: no lesson`), which `land` reads before
 merging.
@@ -65,7 +65,7 @@ removes it after the merge.
 | [`agent-knowledge.md`](agent-knowledge.md) | Where durable facts and temporary agent memory belong. |
 | [`agent-observations.md`](agent-observations.md) | Corrections to skills, agents, or hooks that await a maintainer's review. |
 | [`solutions/`](solutions/README.md) | Verified lessons indexed by the conditions in which they apply. |
-| [`plans/`](plans/) | Implementation decision records for bounded changes. |
+| [`plans/`](plans/) | Implementation decision records for open work; `land` deletes each once its work lands. |
 | [`research/`](research/README.md) | Indexed evidence gathered before a design decision. |
 | [`benchmarks/`](benchmarks/) | Reproducible performance results and their test conditions. |
 | [`attic/`](attic/) | Superseded material kept only for historical reference. |

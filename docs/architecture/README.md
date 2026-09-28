@@ -13,6 +13,15 @@ person reads it and changes the status to `accepted-direction`; a record
 that is replaced gets `status: superseded` and a `superseded_by` path rather
 than an edit.
 
+A record never links a plan. `land` deletes a plan under `docs/plans/` once
+its work lands, so a record names landed work by the date it landed and its
+scope, with the packages or schema paths it touched:
+
+```markdown
+Landed 2026-09-18: exact state comparison in `src/common/netsim/compare`,
+covering port tables and VLAN membership.
+```
+
 | Record | Status | Read when |
 | --- | --- | --- |
 | [Device Service, Integrations, and Inventory](2026-08-20-device-service-and-inventory-direction.md) | Accepted direction | Working on the device service, integrations, inventory, discovery, ingestion, attachment, or the transport fabric. |

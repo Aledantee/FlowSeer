@@ -251,6 +251,24 @@ agent-drafted record captures what was decided and tends to invent why.
 `compound` refuses to carry a decision in a solution for the same reason a
 solution never restates a convention.
 
+Delete a plan once its work lands. By 2026-09-28 `docs/plans/` held 120
+plans, 116 of them implemented, and nothing removed them; agents grepping
+`docs/` kept landing in plans that described intent rather than the tree.
+Spec-driven tools split the same way: OpenSpec folds a finished change
+into its living specs and archives the change folder, and a survey of
+Kiro, spec-kit, and Tessl names "spec-first" workflows whose spec is
+deleted after the change
+(<https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html>).
+`land` retires each plan it lands (`land/references/retire-plan.md`): it
+runs the promotion test again against what was built, drafts or amends a
+direction record where a decision outlives the work, rewrites links to
+the plan, and deletes it, with the outcome note and checkpoints copied
+into the commit body. Deleting beats an archive folder because an archive
+still turns up in every search. A record names landed work by date and
+scope rather than by plan path; records written before this rule still
+link plans, and the retire step rewrites each link as it deletes the plan.
+`steer` sweeps the plans `land` missed, and `next` counts them.
+
 Keep plan labels out of code. Commit `7b0c5cd8` stripped plan identifiers
 that earlier tooling had told the implementer to cite in comments. `plan`
 and `implement` both state the rule; `docs/code-style.md` enforces it in

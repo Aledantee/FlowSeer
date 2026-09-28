@@ -17,6 +17,8 @@ plan with work left, grouped:
   ready        planned, implementation-ready, every prerequisite landed
   waiting      a prerequisite phase has not landed; names it
   stale        a parent still `planned` whose phases have all landed
+  retire       implemented, superseded, or abandoned on main and still on
+               disk; land's retire step never ran for it
 
 Within a group the oldest plan comes first, by the date in its filename. A
 plan another unmerged branch already changes is flagged
@@ -35,13 +37,14 @@ import sys
 from pathlib import Path
 
 OPEN = {"planned", "partially-implemented"}
+FINISHED = {"implemented", "superseded", "abandoned"}
 ACCEPTED = {"accept", "accept after fixes"}
 UNIT = re.compile(r"^### (U\d+[a-z]*)[.:]\s*(.*)$")
 UNIT_ID = re.compile(r"U\d+[a-z]*")
 PLAN_PATH = re.compile(r"docs/plans/[\w.-]+-plan\.md")
 FIELD = re.compile(r"^(?:- )?\*{0,2}([A-Z][A-Za-z ]+):\*{0,2}")
 COMMIT_RANGE = re.compile(r"[0-9a-f]{7,}")
-ORDER = ["in-progress", "unchecked", "replan", "ready", "waiting", "stale"]
+ORDER = ["in-progress", "unchecked", "replan", "ready", "waiting", "stale", "retire"]
 
 
 def git(*args: str) -> str:
@@ -141,6 +144,11 @@ def main() -> int:
                 if named in plans and plans[named]["fm"].get("parent") == plan["path"]:
                     phase_of.setdefault(named, (plan, []))[1].append(unit)
     parents = {parent["path"] for parent, _ in phase_of.values()}
+    # land deletes a phase plan once the phase lands, so a landed unit that
+    # names a plan no longer on disk is a retired phase, not a plain unit.
+    for plan in plans.values():
+        if any(unit["landed"] and unit["plans"] and unit["plans"][0] not in plans for unit in plan["units"]):
+            parents.add(plan["path"])
 
     rows = []
     for rel, plan in plans.items():
@@ -163,10 +171,16 @@ def main() -> int:
             started_parent = any(u["landed"] for u in parent["units"])
             open_phases = len({p for u in parent["units"] if not u["landed"] for p in u["plans"][:1]})
 
-        if rel in parents:
+        if status in FINISHED and rel not in changed_here and not (review and review not in ACCEPTED):
+            # Finished and on main, yet still on disk: land's retire step
+            # never ran for it.
+            group = "retire"
+        elif rel in parents:
             # A parent is worked through its phases; it shows up only when
             # they have all landed and its own status was never set.
-            phase_units = [u for u in plan["units"] if any(p in phase_of for p in u["plans"])]
+            phase_units = [
+                u for u in plan["units"] if u["plans"] and (u["plans"][0] in phase_of or u["plans"][0] not in plans)
+            ]
             if status in OPEN and phase_units and all(u["landed"] for u in phase_units):
                 group = "stale"
             else:
