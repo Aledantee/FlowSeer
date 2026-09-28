@@ -20,6 +20,10 @@ import (
 )
 
 func newTwoSwitchFabric(t *testing.T) (*fabric.Fabric, map[string]netaddr.MAC) {
+	return newTwoSwitchFabricWith(t, nil)
+}
+
+func newTwoSwitchFabricWith(t *testing.T, mutate func(*fabric.Config)) (*fabric.Fabric, map[string]netaddr.MAC) {
 	t.Helper()
 
 	newPorts := func() port.Table {
@@ -97,6 +101,10 @@ func newTwoSwitchFabric(t *testing.T) (*fabric.Fabric, map[string]netaddr.MAC) {
 				Setting:                  &phy.Setting{AutoNegotiation: true},
 			},
 		},
+	}
+
+	if mutate != nil {
+		mutate(&cfg)
 	}
 
 	fab, err := fabric.New(cfg)
@@ -405,6 +413,53 @@ func TestConfigureRefusalLeavesFabricUnchanged(t *testing.T) {
 	}
 	if !fab.Spec().Equal(spec0) || fab.Fingerprint() != fp0 {
 		t.Error("fabric modified after refused node nope")
+	}
+}
+
+func operStatusConflictCount(fab *fabric.Fabric) int {
+	count := 0
+	for _, issue := range fab.Metadata().Issues() {
+		if issue.Code == fabric.IssueOperStatusConflict {
+			count++
+		}
+	}
+	return count
+}
+
+func TestConfigureNoOpKeepsConfiguredOperStatus(t *testing.T) {
+	// sw1's trunk port is configured Down over a healthy cable, so the
+	// configured table disagrees with the state the cable derives.
+	fab, _ := newTwoSwitchFabricWith(t, func(cfg *fabric.Config) {
+		sw := cfg.Switches["sw1"]
+		b := port.NewBuilder()
+		for _, p := range sw.Ports.Ports() {
+			if p.Name == "1/1/24" {
+				p.OperStatus = port.Down
+			}
+			b.Add(p)
+		}
+		tbl, err := b.Build()
+		if err != nil {
+			t.Fatalf("build sw1 ports: %v", err)
+		}
+		sw.Ports = tbl
+		cfg.Switches["sw1"] = sw
+	})
+
+	spec0 := fab.Spec()
+	if got := operStatusConflictCount(fab); got != 1 {
+		t.Fatalf("oper-status conflicts before Configure = %d, want 1", got)
+	}
+
+	if err := fab.Configure("sw1", fab.Config().Switches["sw1"]); err != nil {
+		t.Fatalf("Configure no-op: %v", err)
+	}
+
+	if got := operStatusConflictCount(fab); got != 1 {
+		t.Errorf("oper-status conflicts after no-op Configure = %d, want 1", got)
+	}
+	if !fab.Spec().Equal(spec0) {
+		t.Error("Spec changed after no-op Configure")
 	}
 }
 

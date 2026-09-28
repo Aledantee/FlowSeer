@@ -87,7 +87,7 @@ func (f *Fabric) Configure(node string, cfg vswitch.Config) error {
 
 	f.switches[node] = derived
 	derivedCfg := derived.Config()
-	derivedCfg.Ports = rebuiltPorts
+	derivedCfg.Ports = normSpec.Switches[node].Config.Ports
 	f.cfg.Switches[node] = derivedCfg
 
 	notifyLAGMembers(derived, node, f.cfg, f.clock, f.byEnd)
