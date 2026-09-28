@@ -69,7 +69,7 @@ passes it through, and a protocol library consumes it.
 ## What it does not decide
 
 Storage, rotation, leasing, and the device service's credential provider are
-separate concerns and stay in `docs/plans/2026-09-05-1709-feat-verified-local-device-access-plan.md`.
+separate concerns and stay in the [verified device access record](2026-09-05-verified-device-access-direction.md).
 This record decides only the in-process carrier they all hand around.
 
 Derived key material held in unexported fields — `authKey` in
