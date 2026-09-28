@@ -958,3 +958,13 @@ establishing finite domain enumeration with exact coverage and remainder
 accounting, deterministic replay-checked counterexample minimization,
 first-divergence trace alignment, and asymmetric retention under the search
 resource contract.
+
+### 2026-09-25 — In-run switch configuration
+
+Named in-run switch configuration (`Fabric.Configure` and `ActionConfigure`) as
+the fourth operation on a run's state next to snapshot, fork, and `Derive`. While
+snapshot is a read-only report, fork is an isolated executable copy, and `Derive`
+starts a fresh run from an updated specification, in-run configuration modifies a
+switch in place and continues the existing simulation run. Unaffected switches,
+cables, and in-flight traffic remain in place, while `vswitch.Derive` decides what
+state and learned records the reconfigured switch keeps.
