@@ -4,11 +4,17 @@ type: docs
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 ---
 
 # Package Guarantees - Plan
+
+> Implemented. 3 units, 2026-09-28T19:09:14Z to 2026-09-28T19:22:52Z.
+> Pilot outcome: 5 of 7 README contracts were already proved by existing tests,
+> 2 needed a new test (prompt earliest-match tie ordering in scan_test.go and
+> session closure on peer disconnection in command_test.go). The stop condition
+> held (did not trigger); the convention and check format are validated.
 
 ## Goal
 
@@ -116,7 +122,7 @@ follow-up plan is written.
 
 ### U1. Guarantees convention
 
-Files: docs/conventions/guarantees.md, docs/README.md
+Files: `docs/conventions/guarantees.md`, `docs/README.md`
 After: none
 Change: `docs/conventions/guarantees.md` states the file name and place
 (Go package directories only), what a guarantee is (behavior of the
@@ -135,7 +141,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/conventio
 
 ### U2. Verifier check
 
-Files: .claude/skills/verify-change/scripts/check-guarantees.py, .claude/skills/verify-change/scripts/test_check_guarantees.py, .claude/skills/verify-change/scripts/verify-change.sh, .claude/skills/verify-change/SKILL.md
+Files: `.claude/skills/verify-change/scripts/check-guarantees.py`, `.claude/skills/verify-change/scripts/test_check_guarantees.py`, `.claude/skills/verify-change/scripts/verify-change.sh`, `.claude/skills/verify-change/SKILL.md`
 After: U1
 Change: `check-guarantees.py` takes changed paths (or `--all`), selects the
 `GUARANTEES.md` Requirement 3 names without requiring the changed path to
@@ -161,7 +167,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .claude/skills
 
 ### U3. ssh pilot
 
-Files: src/protocol/ssh/GUARANTEES.md, src/protocol/ssh/README.md, src/protocol/ssh/scan_test.go, src/protocol/ssh/command_test.go
+Files: `src/protocol/ssh/GUARANTEES.md`, `src/protocol/ssh/README.md`, `src/protocol/ssh/scan_test.go`, `src/protocol/ssh/command_test.go`
 After: U2
 Change: `GUARANTEES.md` holds one guarantee per contract the README
 states, each sentence no broader than its tests. Evidence from the plan
@@ -211,16 +217,16 @@ Then rename `TestRunOutputCapTruncates` in
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] `docs/README.md` authority paragraph, map, and placement sentence
+- [x] Verifier green for every changed path.
+- [x] `docs/README.md` authority paragraph, map, and placement sentence
       updated in U1.
-- [ ] The `verify-change.sh` edit passed the guardrail review before its
+- [x] The `verify-change.sh` edit passed the guardrail review before its
       commit.
-- [ ] The pilot outcome recorded in this plan's outcome note: how many
+- [x] The pilot outcome recorded in this plan's outcome note: how many
       README contracts were already proved, how many needed a new test,
       and whether the stop condition held.
-- [ ] This plan's `status` set, with the outcome note under its title.
-- [ ] No plan labels in code, scripts, or skill text.
+- [x] This plan's `status` set, with the outcome note under its title.
+- [x] No plan labels in code, scripts, or skill text.
 
 ## Open questions
 

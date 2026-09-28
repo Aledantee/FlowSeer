@@ -478,6 +478,27 @@ func TestRunConnectionLostAfterCommandSent(t *testing.T) {
 	}
 }
 
+func TestRunConnectionLostClosesSession(t *testing.T) {
+	t.Parallel()
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readCommandLine(ch)
+		_ = ch.Close()
+	})
+	s := dialSession(t, fs, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := s.Run(ctx, ssh.Command{Line: "show version", Prompts: []ssh.Prompt{privPrompt}})
+	if err == nil {
+		t.Fatal("Run() = nil error, want a connection-lost failure")
+	}
+
+	_, err = s.Run(ctx, ssh.Command{Line: "show version", Prompts: []ssh.Prompt{privPrompt}})
+	if !errors.Is(err, ssh.ErrSessionClosed) {
+		t.Fatalf("second Run() error = %v, want ErrSessionClosed (peer closure closes session)", err)
+	}
+}
+
 func TestRunRedactsSecretFromEvidence(t *testing.T) {
 	t.Parallel()
 	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
