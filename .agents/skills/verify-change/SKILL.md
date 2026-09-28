@@ -166,7 +166,8 @@ reasons.
 `scripts/check-guarantees.py` verifies each `GUARANTEES.md` in the directory of
 a changed path (or all of them under `--full`) against
 [`docs/conventions/guarantees.md`](../../../docs/conventions/guarantees.md).
-The check fails the run if a heading is duplicated, a section lacks a `- WHEN …
-THEN …` scenario bullet or exactly one `Proved by:` line, or a cited test
-function does not exist as a top-level `Test…` function in a same-directory
-`*_test.go` file.
+The check fails the run if a heading is duplicated, a code fence is unclosed, a
+section lacks a `- WHEN … THEN …` scenario bullet or exactly one `Proved by:`
+line (which may wrap across continuation lines until a blank line), or a cited
+test function does not exist as a top-level `Test…` function in a
+same-directory `*_test.go` file.
