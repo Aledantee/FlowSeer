@@ -166,10 +166,15 @@ reasons.
 `scripts/check-guarantees.py` verifies each `GUARANTEES.md` in the directory of
 a changed path (or all of them under `--full`) against
 [`docs/conventions/guarantees.md`](../../../docs/conventions/guarantees.md).
-The check enforces a strict line grammar, failing closed with an unknown line
-format on code fences, setext underlines, indented code blocks, numbered lists,
-or unallowed heading levels. It fails the run if a heading is duplicated, a
-section lacks a `- WHEN … THEN …` scenario bullet or exactly one column-0
-`Proved by:` line (which may wrap across indented continuation lines and must not
-end with a trailing comma), or a cited test function does not exist among the
-package's `TestGoFiles` and `XTestGoFiles` reported by `go list -json .`.
+The check enforces a strict line grammar of positive shapes, so any line that
+would open another CommonMark block (a fence, a setext underline, an indented
+code block, a thematic break, a list, a block quote, an HTML block, a heading of
+another level) fails with an unknown line format. It fails the run if a heading
+is duplicated, a section lacks exactly one normative MUST line, lacks a
+`- WHEN … THEN …` scenario bullet, or lacks exactly one column-0 `Proved by:`
+line whose comma-separated items are Go identifiers (optionally backticked; the
+list may wrap across indented continuation lines, and an empty item or trailing
+comma is an error). A cited test resolves when it is a top-level test function
+in the package's `TestGoFiles` and `XTestGoFiles` as `go list -json .` reports
+them, using the signature forms Go accepts; a `go list` failure is reported once
+and its citations are not checked.
