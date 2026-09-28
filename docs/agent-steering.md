@@ -191,14 +191,31 @@ always-on index did. The planning skill this repository used before was
 skills aim at about 150 lines each and contain only the procedure, the
 file layout, and the repository rules an agent cannot infer from the tree;
 episodic material goes to `references/` files behind a triggered pointer.
-After the 2026-09-23 pass the workflow skills sit between 105 and 300
-lines, `review` and `implement` the longest because each ends with the
-option table its outcomes leave and `implement`'s Finish step names the
-scripts that read deviations and test changes off the tree, and `delegate`
-at about 380: its runtime lanes and quota rules are each
-conditional on the host rather than on the task, and a coordinator that
-loads the skill needs all of them in the same turn; the Orca procedures
-moved to `references/orca.md` on 2026-09-10.
+The 2026-09-28 pass applied Anthropic's
+[skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
+to all eleven skills: third-person descriptions that say what and when,
+references one level deep behind a pointer that names its trigger, no
+dated history in a body, and every command kept verbatim. The `SKILL.md`
+bodies went from 22,600 to 15,600 words and now sit between 93 and 242
+lines. The ones over 150 keep material every invocation reads: `plan`
+its file template, which scripts parse; `land` its merge gate; `implement`
+its Finish order; `review` the reviewer log it writes on every run; and
+`delegate` the routing steps, the `orca-worker.sh` surface, and the brief
+checklist that `implement`, `drive`, and `land` cite. A preservation
+review compared each rewritten skill rule by rule with its previous
+version; the failures it caught were load triggers the reader could not
+evaluate yet (an "in Orca" test defined only inside the file it gated, a
+pool trigger naming a row that does not exist), so a trigger names a
+condition the reader has already checked.
+
+The incidents behind rules the 2026-09-28 steer pass added, kept here
+rather than in the skills: review workers re-ran the coordinator's race
+tests and needed "conclude now" notes in eight or more sessions until the
+brief named the checks already run; Antigravity fix workers re-diagnosed
+settled findings in four; a review's mutation sub-worker stalled on
+sandboxed `/tmp` writes until the review's quota ran low; and a drive
+coordinator twice ended its turn right after announcing a unit it never
+started.
 
 Use one reviewer per file group, never a persona panel. This
 repository's transcripts showed the earlier persona-panel review dispatching
