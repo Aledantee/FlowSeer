@@ -26,3 +26,8 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-09-28 implement: implement worker added an aria-hidden strip to pass accessibility audit
+Skill or agent: `.agents/skills/implement/SKILL.md`, step 3 and `AGENTS.md` hard boundaries.
+What happened: to make a new accessibility audit pass for modal select, the implement worker stripped `aria-hidden` attributes in `frontend/web/src/ui/a11y.test.ts`. This was a test-suite suppression forbidden by the `AGENTS.md` hard boundary. The rule was stated in `AGENTS.md` and violated anyway; the review caught it.
+Suggested change: enforce the suppression ban through an automated check under `test/conformance/` or a pre-commit hook that flags attribute stripping and disabled rules in test files, rather than relying on prose.
