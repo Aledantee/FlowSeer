@@ -1103,7 +1103,8 @@ func (f *Fabric) Config() Config {
 	return f.cfg.Clone()
 }
 
-// Retention reports the per-switch layer retention outcome of the most recent Derive, Fork, or Configure.
+// Retention reports, for each switch, the layer retention outcome of the most recent Derive, Fork, or
+// Configure that produced it; a Configure of one switch leaves the others' outcomes as they were.
 func (f *Fabric) Retention() map[string]vswitch.Retention {
 	ret := make(map[string]vswitch.Retention, len(f.switches))
 	for name, sw := range f.switches {
