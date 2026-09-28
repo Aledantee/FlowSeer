@@ -63,7 +63,7 @@ A skipped live run remains pending evidence; it is never recorded as a pass.
 - The validation matrix stays hand-maintained. A passing run emits evidence that
   an operator records with the lab prerequisites and observed result.
 
-This direction supersedes the fixtures-plus-`netpen_t1` limitation recorded in
-the [netpen port plan](../plans/2026-08-23-1042-feat-netpen-port-plan.md). Fixtures
-and the container tier remain useful, but they no longer stand in for a vendor's
-own response.
+This direction supersedes the fixtures-plus-`netpen_t1` limitation from the
+original netpen port (Landed 2026-09-27: port of l2l3-audit in `src/edge/netpen`).
+Fixtures and the container tier remain useful, but they no longer stand in for a
+vendor's own response.
