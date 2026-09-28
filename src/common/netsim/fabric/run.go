@@ -1588,6 +1588,11 @@ func (f *Fabric) applyAction(a Action) error {
 			}
 		}
 		return nil
+	case ActionConfigure:
+		if a.At.After(f.clock) {
+			f.clock = a.At
+		}
+		return f.Configure(a.Configure.Node, a.Configure.Config)
 	default:
 		return errs.Msgf("unknown action kind %q", a.Kind)
 	}

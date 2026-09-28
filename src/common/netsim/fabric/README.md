@@ -907,7 +907,8 @@ of six stop reasons:
 
 `Scenario` bundles initial topology configuration with timed, sequenced
 actions: frame injections (`ActionInject`), link faults (`ActionFault`),
-protocol migration checks (`ActionMcheck`), and recorded frames (`ActionRecord`):
+switch reconfigurations (`ActionConfigure`), protocol migration checks
+(`ActionMcheck`), and recorded frames (`ActionRecord`):
 
 ```go
 sc := fabric.Scenario{
@@ -950,12 +951,189 @@ if err != nil {
 replayRes, err := fabric.Replay(res.Replay)
 ```
 
+### Reconfiguring a switch in a run
+
+`Fabric.Configure(node, cfg)` reconfigures a single virtual switch at the
+current simulation time without resetting the rest of the network. The run
+continues: unaffected switches, cables, and in-flight frames remain in flight,
+while `vswitch.Derive` decides what state and learned records the target switch
+keeps. Capability layers whose inputs did not change retain their state (such as
+valid filtering database entries for surviving VLANs), while changed layers
+reset. Held frames that can no longer be resolved (for example, if a routing layer
+is replaced) are dropped at the current simulation timestamp. Protocol timers
+and port operational states update to match the new configuration.
+
+Like all scenario actions, `ActionConfigure` within `RunScenario` refuses
+attached streams (`Fabric.Configure` can be called directly between `Run` calls
+with streams attached).
+
+The following example models a rolling two-step VLAN migration across two
+switches joined by a trunk cable. `sw1` is migrated to VLAN 20 at `t1`, causing
+frames injected during the transition window to be dropped by `sw2`'s ingress
+filter. When `sw2` is subsequently migrated to VLAN 20 at `t2`, delivery to `h2`
+is restored:
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+)
+
+func main() {
+	makePorts := func() port.Table {
+		b := port.NewBuilder()
+		b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		b.Add(port.Port{Name: "1/1/24", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		tbl, err := b.Build()
+		if err != nil {
+			panic(err)
+		}
+		return tbl
+	}
+
+	vid10 := vlan.ID(10)
+	bridgeVLAN10 := &bridge.Config{
+		VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "vlan10"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1":  {PVID: &vid10, Untagged: []vlan.ID{10}},
+				"1/1/24": {Tagged: []vlan.ID{10}, IngressFiltering: true},
+			},
+		},
+	}
+
+	vid20 := vlan.ID(20)
+	makeBridgeVLAN20 := func() *bridge.Config {
+		return &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{20: "vlan20"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1":  {PVID: &vid20, Untagged: []vlan.ID{20}},
+					"1/1/24": {Tagged: []vlan.ID{20}, IngressFiltering: true},
+				},
+			},
+		}
+	}
+
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+
+	cfg := fabric.Config{
+		Start: t0,
+		Switches: map[string]vswitch.Config{
+			"sw1": {Ports: makePorts(), Bridge: bridgeVLAN10},
+			"sw2": {Ports: makePorts(), Bridge: bridgeVLAN10},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: macH1},
+			"h2": {Address: macH2},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 1.0},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/24"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/24"}, LengthMeters: 300, Medium: fabric.MultimodeFiber},
+			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}, LengthMeters: 1.0},
+		},
+		PhyAssumption: &fabric.PhyAssumption{
+			Medium: fabric.TwistedPair,
+			Ethernet: phy.Ethernet{
+				SupportedSpeedsBPS:       []uint64{1_000_000_000},
+				AutoNegotiationSupported: phy.CapabilitySupported,
+				Setting:                  &phy.Setting{AutoNegotiation: true},
+			},
+		},
+	}
+
+	fab, err := fabric.New(cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	t1 := t0.Add(time.Second)
+	t2 := t1.Add(time.Second)
+
+	sc := fabric.Scenario{
+		Name: "vlan-migration",
+		Spec: fab.Spec(),
+		Actions: []fabric.Action{
+			{
+				At:   t1,
+				Kind: fabric.ActionConfigure,
+				Configure: &fabric.ConfigureAction{
+					Node:   "sw1",
+					Config: vswitch.Config{Ports: makePorts(), Bridge: makeBridgeVLAN20()},
+				},
+			},
+			{
+				At:   t1.Add(100 * time.Millisecond),
+				Kind: fabric.ActionInject,
+				Inject: &fabric.Injection{
+					Origin: fabric.Endpoint{Node: "h1"},
+					Frame: ethernet.Frame{
+						Dst:       macH2,
+						Src:       macH1,
+						EtherType: ethernet.EtherTypeIPv4,
+						Payload:   []byte("transient-drop"),
+					},
+				},
+			},
+			{
+				At:   t2,
+				Kind: fabric.ActionConfigure,
+				Configure: &fabric.ConfigureAction{
+					Node:   "sw2",
+					Config: vswitch.Config{Ports: makePorts(), Bridge: makeBridgeVLAN20()},
+				},
+			},
+			{
+				At:   t2.Add(100 * time.Millisecond),
+				Kind: fabric.ActionInject,
+				Inject: &fabric.Injection{
+					Origin: fabric.Endpoint{Node: "h1"},
+					Frame: ethernet.Frame{
+						Dst:       macH2,
+						Src:       macH1,
+						EtherType: ethernet.EtherTypeIPv4,
+						Payload:   []byte("delivered"),
+					},
+				},
+			},
+		},
+		Budget: 100,
+	}
+
+	res, err := fab.RunScenario(sc)
+	if err != nil {
+		panic(err)
+	}
+
+	report := fab.Report()
+	fmt.Printf("Run finished in %d steps (%v). Journeys: %d\n", res.Steps, res.Stop, len(report))
+	fmt.Printf("Journey 1 (transient): %v\n", report[0].State)
+	fmt.Printf("Journey 2 (migrated): %v\n", report[1].State)
+}
+```
+
 ## Derivation and state retention
 
-`Fabric.Derive(candidate)` derives the simulation fabric against an updated
-candidate configuration. Each virtual switch is derived with `vswitch.Derive`,
-retaining capability layers whose inputs have not changed. `Fabric.Retention()`
-reports the retention outcome for every switch on the fabric.
+`fabric.Derive(cur, spec)` derives a new simulation fabric from an existing
+fabric and an updated configuration specification, starting a fresh run from
+the new spec's start time while retaining capability layers on unchanged switches.
+
+To modify a switch configuration in-flight within an existing run without starting
+fresh, use `Fabric.Configure(node, cfg)` or `ActionConfigure` in a `Scenario`.
+`Fabric.Retention()` reports the retention outcome for every switch on the fabric.
 
 ## Current-against-candidate comparison
 

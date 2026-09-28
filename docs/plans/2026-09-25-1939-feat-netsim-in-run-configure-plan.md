@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-25
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 ---
 
 # Netsim In-Run Switch Reconfiguration - Plan
+
+> Implemented. 3 units, 2026-09-28T15:58Z to 2026-09-28T16:08Z. Targeted verification run over union of changed paths per directive (replacing --full).
 
 ## Goal
 

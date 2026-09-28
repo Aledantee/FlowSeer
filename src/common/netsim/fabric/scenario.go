@@ -10,6 +10,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 )
 
 // ActionKind identifies the mutation or injection performed by a scenario action.
@@ -27,7 +28,24 @@ const (
 
 	// ActionRecord replays a packet captured from an external trace or source.
 	ActionRecord ActionKind = "Record"
+
+	// ActionConfigure modifies the configuration of a virtual switch in the fabric.
+	ActionConfigure ActionKind = "Configure"
 )
+
+// ConfigureAction specifies a target virtual switch node and the new configuration to apply.
+type ConfigureAction struct {
+	Node   string
+	Config vswitch.Config
+}
+
+// Validate verifies that the target node is non-empty.
+func (c ConfigureAction) Validate() error {
+	if c.Node == "" {
+		return errs.Msg("configure node cannot be empty")
+	}
+	return nil
+}
 
 // FaultAction specifies cable endpoints and the fault condition to configure.
 type FaultAction struct {
@@ -60,13 +78,14 @@ func (m McheckAction) Validate() error {
 
 // Action represents a single timed mutation or frame introduction within a scenario.
 type Action struct {
-	At     time.Time
-	Index  int
-	Kind   ActionKind
-	Inject *Injection
-	Fault  *FaultAction
-	Mcheck *McheckAction
-	Record *Record
+	At        time.Time
+	Index     int
+	Kind      ActionKind
+	Inject    *Injection
+	Fault     *FaultAction
+	Mcheck    *McheckAction
+	Record    *Record
+	Configure *ConfigureAction
 }
 
 // Validate ensures exactly one payload is present matching Kind, and inner timestamps agree.
@@ -89,6 +108,9 @@ func (a Action) Validate() error {
 		nonNil++
 	}
 	if a.Record != nil {
+		nonNil++
+	}
+	if a.Configure != nil {
 		nonNil++
 	}
 	if nonNil != 1 {
@@ -128,6 +150,13 @@ func (a Action) Validate() error {
 			return errs.Msgf("record At %s disagrees with action At %s", a.Record.At, a.At)
 		}
 		if err := a.Record.Validate(); err != nil {
+			return err
+		}
+	case ActionConfigure:
+		if a.Configure == nil {
+			return errs.Msg("action kind Configure requires Configure payload")
+		}
+		if err := a.Configure.Validate(); err != nil {
 			return err
 		}
 	default:
@@ -171,6 +200,12 @@ func (a Action) Normalize() (Action, error) {
 			mCopy := *cp.Mcheck
 			cp.Mcheck = &mCopy
 		}
+	case ActionConfigure:
+		if cp.Configure != nil {
+			cCopy := *cp.Configure
+			cCopy.Config = cp.Configure.Config.Clone()
+			cp.Configure = &cCopy
+		}
 	}
 	return cp, nil
 }
@@ -193,6 +228,11 @@ func (a Action) Clone() Action {
 	if a.Record != nil {
 		rCopy := a.Record.Clone()
 		cp.Record = &rCopy
+	}
+	if a.Configure != nil {
+		cCopy := *a.Configure
+		cCopy.Config = a.Configure.Config.Clone()
+		cp.Configure = &cCopy
 	}
 	return cp
 }
@@ -287,8 +327,40 @@ func (a Action) Diff(other Action) []trace.Change {
 	} else if a.Record != nil && other.Record != nil {
 		changes = append(changes, a.Record.Diff(*other.Record)...)
 	}
+	if (a.Configure == nil) != (other.Configure == nil) {
+		changes = append(changes, trace.Change{
+			Layer:   Layer,
+			Subject: subject,
+			Field:   "configure",
+			From:    actionStringFact(configureSummary(a.Configure)),
+			To:      actionStringFact(configureSummary(other.Configure)),
+		})
+	} else if a.Configure != nil && other.Configure != nil {
+		if a.Configure.Node != other.Configure.Node {
+			changes = append(changes, trace.Change{
+				Layer:   Layer,
+				Subject: subject,
+				Field:   "configure.node",
+				From:    actionStringFact(a.Configure.Node),
+				To:      actionStringFact(other.Configure.Node),
+			})
+		} else {
+			diffs := vswitch.Diff(a.Configure.Config, other.Configure.Config)
+			for _, d := range diffs {
+				d.Subject = subject
+				changes = append(changes, d)
+			}
+		}
+	}
 
 	return changes
+}
+
+func configureSummary(c *ConfigureAction) string {
+	if c == nil {
+		return ""
+	}
+	return fmt.Sprintf("node=%s", c.Node)
 }
 
 func sameInjection(a, b Injection) bool {
