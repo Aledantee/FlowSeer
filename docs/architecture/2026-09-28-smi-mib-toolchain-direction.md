@@ -3,7 +3,7 @@ title: SMI Parser and MIB Bindings - Direction
 type: direction
 date: 2026-09-28
 topic: smi-mib-toolchain
-status: proposed-direction
+status: accepted-direction
 ---
 
 # SMI Parser and MIB Bindings - Direction

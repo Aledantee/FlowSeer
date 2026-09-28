@@ -3,7 +3,7 @@ title: YANG Protocol Libraries - Direction
 type: direction
 date: 2026-09-28
 topic: yang-protocol-libraries
-status: proposed-direction
+status: accepted-direction
 ---
 
 # YANG Protocol Libraries - Direction
