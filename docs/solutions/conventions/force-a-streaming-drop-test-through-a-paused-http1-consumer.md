@@ -57,9 +57,9 @@ delivering ~129 before the handler blocked.
   before EOF, which exercises the terminal flush.
 - See `TestTailCaptureSession_InBandGapOnSlowConsumer` in
   `src/services/device/internal/captureapi/operator_service_test.go`.
-- Do not try to make the full-central overflow deterministic; the plan's
-  Decisions record why that test was omitted
-  (`docs/plans/2026-09-18-2122-feat-capture-tail-gap-signal-plan.md`).
+- Do not try to make the full-central overflow deterministic; the test was
+  omitted when the in-band gap signal landed (Landed 2026-09-27: in-band tail
+  gap signal in `src/services/device/internal/captureapi`).
 
 ## What this does not cover
 

@@ -31,7 +31,7 @@ The cost was measured on APFS on an Apple M4 Pro before the change: a durable pu
 
 The settlement journal doubled the damage. `commitSettlement` publishes a record into the metadata stream on every retry, acknowledgement, and discard (`src/common/service/delivery.go:595`, called from the disposition paths at `delivery.go:251`, `302`, and `329`), so a delivered message paid a second fsync on the way out.
 
-An earlier and larger plan proposed per-module storage tiers, with a memory tier and a file tier chosen by each module. It was dropped for two reasons. Once the fsync policy is fixed, the tier axis buys roughly 4 µs per message, and the memory tier gives up process-kill survival that the file tier keeps. More importantly, recording a tier per module means persisting policy into the runtime manifest, and that runs into the manifest compatibility check described below. The plan lives at `docs/plans/2026-09-04-1921-perf-module-bus-fsync-policy-plan.md`.
+An earlier and larger proposal considered per-module storage tiers, with a memory tier and a file tier chosen by each module. It was dropped before the fsync policy landed on 2026-09-04, for two reasons. Once the fsync policy is fixed, the tier axis buys roughly 4 µs per message, and the memory tier gives up process-kill survival that the file tier keeps. More importantly, recording a tier per module means persisting policy into the runtime manifest, and that runs into the manifest compatibility check described below.
 
 ## Guidance
 
@@ -102,7 +102,6 @@ The change landed as three local commits (the repository has no remote, so the S
 
 ## Related
 
-- `docs/plans/2026-09-04-1921-perf-module-bus-fsync-policy-plan.md`: the measurements, the abandoned tier plan, and the reviewer objections about the upgrade path and the interval not being a hard loss bound.
 - `src/common/service/README.md`, "Local message bus": the operator-facing contract and the selection example.
 - `docs/architecture/2026-08-20-device-service-and-inventory-direction.md`, "Local service runtime boundary" and the Jepsen note under the integration fabric: why the hub stays on always-fsync and the edge buffer does not.
 - `docs/solutions/architecture-patterns/errs-package-architecture-and-error-conventions.md`: the append-only error-code convention the `service/bus-config` code follows.

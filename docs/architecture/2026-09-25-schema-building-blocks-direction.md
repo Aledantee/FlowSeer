@@ -96,9 +96,8 @@ Channel, MPLS, EVPN/VXLAN, MACsec, ring protection, tunnels) has no
 package until a plan needs it; the atlas found none of them on the device
 classes FlowSeer targets now. When one arrives it follows the same rules.
 
-The parent plan
-[`2026-09-25-1713-feat-schema-building-blocks-plan.md`](../plans/2026-09-25-1713-feat-schema-building-blocks-plan.md)
-lands the tree in phases.
+Landed 2026-09-25 to 2026-09-26: protobuf building blocks across eight phases in
+`spec/proto/flowseer` and `test/conformance/proto`.
 
 ## The schema-language rules
 
@@ -178,7 +177,7 @@ text with no standard size. Under `net/`, every bounded string today is
 an interface name capped at 64, which the key rules replace. The `model/`,
 `api/`, and `edge/` roots carry bounds of 32 to 4096 (credential material,
 URLs, PEM blocks) whose sources this record has not audited; that audit is
-an open question of the parent plan.
+still open.
 
 ### 4. The network instance is part of the key
 
@@ -305,7 +304,7 @@ check, as with `Location` and `Cable` today (conventions doc, "EntityRef").
 - The structure record's `net/wlan` "imports `addr` and `switching`" widens
   to `addr`, `key`, `measure`, and `switching`.
 - The layering table gains every package in the tree above, with the
-  imports the parent plan's phases list.
+  imports `test/conformance/proto/layering_test.go` enforces.
 - `docs/conventions/protobuf.md` names `MacAddress` where the code named
   `EuiAddress`; the code changes to match the document, because every
   sibling record and dossier already says `MacAddress`.

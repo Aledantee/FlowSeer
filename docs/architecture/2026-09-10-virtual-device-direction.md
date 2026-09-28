@@ -219,6 +219,15 @@ rebuilds a switch or a fabric from a target construction specification,
 carries forward only the runtime state each capability layer's retention key
 says still applies, and starts a fresh run rather than continuing one.
 
+`Fabric.Configure` is a fourth operation, and the only one that changes
+configuration without leaving the run. It replaces one switch's configuration
+at the fabric clock, refuses the change unless the whole fabric would still
+construct, and rebuilds that switch through `vswitch.Derive`, so the retention
+keys decide what it keeps. The other switches, the cables, and every queued or
+in-flight frame stay as they are, and a frame that reaches the switch afterwards
+meets the new configuration. A mutation is applied one device at a time, and
+the state between two devices is what this operation exists to show.
+
 `Fork`'s copy rule follows from what each field is, not from a rule written
 once and trusted. Construction fixes some fields and execution mutates the
 rest, so every field of `Switch`, `Bridge`, and `Fabric` carries one of three
@@ -912,14 +921,21 @@ The following areas remain outside the foundation established here:
   are modeled, and unreported facts stay unknown.
 - **Topology identity and adjacency ambiguity**: resolving links from noisy,
   conflicting, or unmanaged LLDP and CDP neighbor records.
-- **Protocol depth**: rapid spanning tree convergence state machines (RSTP and
-  MSTP), LACP dynamic aggregation negotiations, IGMP/MLD querier election,
-  dynamic IP routing (BGP and OSPF), and transport protocol behavior.
+- **Protocol depth**: IGMP/MLD querier election, dynamic IP routing (BGP and
+  OSPF), and transport protocol behavior. Spanning tree runs in `stp`, whose
+  README lists what it does not model. LACP runs in `lag` as Open vSwitch
+  runs it, without the marker protocol, load-driven rebalancing, or members
+  on two switches.
 - **Neighbor solicitation and unreachability detection**: the switch observes
   ARP and NDP traffic but never sends a solicitation of its own, and a stale
   or incomplete neighbor entry never moves through `Delay` or `Probe` toward
   a fresh answer; the `Reachable` cache is trusted until it ages out or a
   received advertisement changes it.
+- **Firewall and reflector depth**: NAT, connection tracking, ICMP error
+  generation for a `reject` rule, DNS-aware mDNS reflection, and a
+  multicast snooping schema in the network model, all of which the
+  [local network analysis record](2026-09-16-local-network-analysis-direction.md)
+  leaves out.
 - **Packet-generation search spaces**: automated input generation and
   multi-journey exploration budgets for reachability search.
 - **The runtime cable fault lives in `fabric.Config`**: `SetFault` writes
@@ -944,7 +960,7 @@ record](2026-08-20-network-model-structure-direction.md#the-package-tree).
 
 ### 2026-09-18 — Current-against-candidate comparison
 
-Landed with phase 7a exact comparison (`docs/plans/2026-09-18-2129-feat-netsim-exact-comparison-phase7a-plan.md`).
+Landed 2026-09-19: exact comparison across switch and fabric in `src/common/netsim/analysis`, `src/common/netsim/vswitch`, and `src/common/netsim/fabric`.
 Added the [Current-against-candidate comparison](#current-against-candidate-comparison)
 subsection establishing exact switch and fabric comparison over behavioral
 observables with `Equivalent`, `Different`, and `Inconclusive` dispositions,
@@ -952,7 +968,7 @@ internal forking of inputs, and injection-ordinal journey pairing.
 
 ### 2026-09-19 — Bounded differential search
 
-Landed with phase 7b bounded search (`docs/plans/2026-09-18-2129-feat-netsim-bounded-search-phase7b-plan.md`).
+Landed 2026-09-19: bounded differential search and conformance fixtures in `src/common/netsim/search` and `src/common/netsim/fabric`.
 Added the [Bounded differential search](#bounded-differential-search) subsection
 establishing finite domain enumeration with exact coverage and remainder
 accounting, deterministic replay-checked counterexample minimization,
@@ -968,3 +984,15 @@ starts a fresh run from an updated specification, in-run configuration modifies 
 switch in place and continues the existing simulation run. Unaffected switches,
 cables, and in-flight traffic remain in place, while `vswitch.Derive` decides what
 state and learned records the reconfigured switch keeps.
+
+Landed 2026-09-28: `Fabric.Configure` and the scenario action `ActionConfigure`
+in `src/common/netsim/fabric`. The "State ownership, forking, and snapshots"
+section now names the operation beside the other three.
+
+### 2026-09-28 — Spanning tree and LACP leave the capability gaps
+
+Landed 2026-09-11: Rapid Spanning Tree with per-port 802.1D compatibility in
+`src/common/netsim/vswitch/stp`, and LACP with the bond modes in
+`src/common/netsim/vswitch/lag` over the codec in `src/common/net/lacp`. The
+"Protocol depth" gap above no longer lists either, and names what `lag` leaves
+out.

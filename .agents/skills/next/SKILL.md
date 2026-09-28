@@ -29,6 +29,7 @@ them:
 | `ready` | `planned`, implementation-ready, nothing to wait for | `implement` |
 | `waiting` | a prerequisite phase has not landed; the line names it | none yet |
 | `stale` | a parent still `planned` whose phases have all landed | set its `status`, as `implement`'s Finish describes |
+| `retire` | `implemented`, `superseded`, or `abandoned` on `main` and still on disk | `land/references/retire-plan.md`, or a `steer` sweep for several |
 
 A phase line names its parent, which is the path to hand `drive`. Take two
 `in-progress` phases of one parent in the parent's unit order.
@@ -37,7 +38,8 @@ With an argument, keep the lines whose path or title matches it.
 
 ## 2. Check the top candidates against the tree
 
-Take the first three lines that are not `waiting` or `stale`. For each,
+Take the first three lines that are not `waiting`, `stale`, or `retire`;
+report the count of `retire` lines as clean-up owed. For each,
 before recommending it:
 
 - `elsewhere:<branch>` means another unmerged branch already changes that
@@ -77,7 +79,8 @@ research dossier, a schema with no consumer).
 
 Report, outcome first: the one recommendation with its reason in a
 sentence, then every plan the script printed, `waiting` and `stale`
-included, then anything step 2 found stale or blocked. Name each plan, here
+included and `retire` given only as step 2's count, then anything step 2
+found stale or blocked. Name each plan, here
 and in the options, by its full title as the script prints it, followed by
 its group and path, never by a slug, a date prefix, or a shortened title.
 Then ask the user (`AGENTS.md`, Agent behavior) with these options, the

@@ -108,12 +108,11 @@ if !ed25519.Verify(private.Public().(ed25519.PublicKey), signed.GetPayload(), si
   payload-plus-signature shape.
 - `test/conformance/proto/model_edge_rules_test.go:332-347` signs and
   verifies over the carried bytes.
-- The independent review of plan
-  `docs/plans/2026-09-05-1715-feat-edge-attachment-contracts-plan.md`
-  found the "over the serialized fields" wording in the rekey proof, and the
-  review of the implementation found the "parsed only after the signature
-  verifies" order in the package README; both were the same mistake in two
-  places, on 2026-09-05.
+- The independent review of the edge attachment contracts work
+  (2026-09-05) found the "over the serialized fields" wording in the rekey
+  proof, and the review of the implementation found the "parsed only after the
+  signature verifies" order in the package README; both were the same mistake in
+  two places, on 2026-09-05.
 
 ## What it does not cover
 

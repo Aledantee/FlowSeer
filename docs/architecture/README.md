@@ -13,10 +13,21 @@ person reads it and changes the status to `accepted-direction`; a record
 that is replaced gets `status: superseded` and a `superseded_by` path rather
 than an edit.
 
+A record never links a plan. `land` deletes a plan under `docs/plans/` once
+its work lands, so a record names landed work by the date it landed and its
+scope, with the packages or schema paths it touched:
+
+```markdown
+Landed 2026-09-18: exact state comparison in `src/common/netsim/compare`,
+covering port tables and VLAN membership.
+```
+
 | Record | Status | Read when |
 | --- | --- | --- |
 | [Device Service, Integrations, and Inventory](2026-08-20-device-service-and-inventory-direction.md) | Accepted direction | Working on the device service, integrations, inventory, discovery, ingestion, attachment, or the transport fabric. |
 | [Network Model Structure](2026-08-20-network-model-structure-direction.md) | Accepted direction | Adding or moving FlowSeer-owned protobuf packages, network primitives, entities, refs, or device-facing capability models, or a README under `spec/proto`. |
+| [YANG Protocol Libraries](2026-09-28-yang-protocol-libraries-direction.md) | Accepted direction | Working on the YANG runtime, the `yanggen` generator, the generated `generated/go/yang` bindings, or the NETCONF, RESTCONF, and gNMI client libraries. |
+| [SMI Parser and MIB Bindings](2026-09-28-smi-mib-toolchain-direction.md) | Accepted direction | Working on the SMI parser, `mibgen`, the generated `generated/go/mib` bindings, generated table walks, or MIB-derived identity and row keys. |
 | [netpen Lab Vendor Validation](2026-09-23-netpen-lab-vendor-validation-direction.md) | Accepted direction | Producing netpen vendor behavioral truth: injecting an attack from a Linux host and reading the target device's own protocol state over SSH, defining a per-behavior expected finding, or wiring the `netpen_t1`/`netpen_t2` tiers to a live lab. |
 | [Net Core Package Research](2026-08-26-net-core-package-research.md) | Supporting research | Checking the evidence behind the `net/phy`, `net/packet`, `net/switching`, and `net/ip` boundaries. |
 | [Error Wire Design](2026-09-04-error-wire-design-direction.md) | Accepted direction | Putting `src/common/errs` errors on a wire — Connect RPC, a broker, or any other cross-process hop. |
