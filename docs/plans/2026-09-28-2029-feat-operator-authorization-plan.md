@@ -108,7 +108,7 @@ Each phase claims the requirements named in its unit.
 
 Files: `docs/plans/2026-09-28-2029-feat-operator-authorization-phase1-plan.md`
 After: none
-Landed:
+Landed: `e5418c45..c6811f4e`
 
 Requirements 1 (`OperatorRef` part) and 8.
 

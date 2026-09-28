@@ -4,13 +4,15 @@ type: feat
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-09-remote-packet-capture-direction.md
 parent: docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md
 ---
 
 # Operator Authorization Phase 1, Identity Leaf and Records - Plan
+
+> Implemented. 2 units, 2026-09-28T18:58Z to 2026-09-28T19:00Z.
 
 This plan began on 2026-09-18 as the capture operator authorization plan
 and was re-planned twice on 2026-09-28. The first re-plan cut its units to
@@ -188,12 +190,12 @@ it is reachable.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] `OperatorRef` lives only in `model/identity`, and `generated/` is regenerated.
-- [ ] Package READMEs' `Boundaries` lines match the imports.
-- [ ] Requirements 2 and 3 hold by their greps.
-- [ ] This plan's `status` set with an outcome note under its title, and the parent's `Landed:` line filled.
-- [ ] No plan labels in code.
+- [x] Verifier green for every changed path.
+- [x] `OperatorRef` lives only in `model/identity`, and `generated/` is regenerated.
+- [x] Package READMEs' `Boundaries` lines match the imports.
+- [x] Requirements 2 and 3 hold by their greps.
+- [x] This plan's `status` set with an outcome note under its title, and the parent's `Landed:` line filled.
+- [x] No plan labels in code.
 
 ## Open questions
 
