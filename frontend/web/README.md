@@ -109,7 +109,7 @@ is contained in the content area.
 - `src/components/` holds shared presentation elements.
 - `src/ui/` holds design system components and headless primitives; `src/ui/app/UiAppRoot.vue` provides the top-level application wrapper (`ConfigProvider` and `TooltipProvider`).
 - `src/style.css` defines the shell layout, connected chrome frame, and brand glow ribbons.
-- `src/theme/tailwind.css` configures Tailwind v4 Preflight, base element normalizations, and `@theme` overlay keyframes (`--animate-overlay-in/out`, `--animate-dialog-in/out`, `--animate-fade-in/out`).
+- `src/theme/tailwind.css` configures Tailwind v4 Preflight, base element normalizations, and `@theme` overlay keyframes (`--animate-overlay-in/out`, `--animate-dialog-in/out`, `--animate-fade-in/out`, `--animate-dialog-fade-in`).
 - `src/theme/tokens.css` wires semantic tokens, typography scales, shadows, radii, and z-index tokens (`--z-raised`, `--z-sticky`, `--z-overlay`, `--z-toast`, `--z-skip-link`) into Tailwind theme directives.
 
 Vue 3 Composition API, strict TypeScript, Vite, and Vue Router provide the shell.
@@ -223,7 +223,7 @@ const tabs = [
 
 Application switchers (`ScopeSwitcher`, `TenantSwitcher`), menus (`AccountMenu`), command palettes (`GlobalSearch`), dialogs (`HelpButton`, `ReportBugButton`), and scrollers (`UiScrollArea`) run on these Reka primitives, replacing legacy native dialogs, manual positioning math, and custom scrollers.
 
-Overlays and floating surfaces consume standardized z-index tokens from `src/theme/tokens.css` (`--z-overlay: 50` for dialogs, popovers, and menus; `--z-toast: 60` for notifications; `--z-sticky: 10` for pinned navigation and table headers). Entrances and exits are driven by CSS keyframes defined in `src/theme/tailwind.css` (`--animate-overlay-in`, `--animate-overlay-out`, `--animate-dialog-in`, `--animate-dialog-out`, `--animate-fade-in`, `--animate-fade-out`) on `data-[state]` variants, ensuring Reka's `usePresence` delays DOM unmounting until exit animations complete. Global providers are mounted once through `UiAppRoot` (`src/ui/app/UiAppRoot.vue`), supplying `ConfigProvider` and `TooltipProvider` to the view tree.
+Overlays stack on the z-index tokens in `src/theme/tokens.css`: `--z-overlay` (50) for dialogs, popovers, and menus, `--z-toast` (60) for the toast viewport, and `--z-sticky` (10) for the top bar and table headers. Their entrances and exits are CSS keyframes, declared in `src/theme/tailwind.css` as `--animate-overlay-in/out` for popovers, menus, and select lists, `--animate-dialog-in/out` for dialog content, and `--animate-fade-in/out` for scrims and toasts. Each wrapper applies them on `data-[state=open]` and `data-[state=closed]` of its content element. The keyframes matter because Reka's `Presence` keeps a closing node mounted until its `animationend` and ignores CSS transitions, so an exit written as a transition never plays. Under reduced motion every pair switches to a fade of the same duration; dialog entry uses `--animate-dialog-fade-in`, which runs the fade at the dialog's 160 ms. Tooltips and combobox lists do not animate, and the command dialog content has an exit fade only. `UiAppRoot` (`src/ui/app/UiAppRoot.vue`) mounts `ConfigProvider` and `TooltipProvider` once for the whole view tree.
 
 ### Chart color tokens and accessibility
 

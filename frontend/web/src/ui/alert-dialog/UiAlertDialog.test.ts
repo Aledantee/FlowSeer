@@ -126,16 +126,21 @@ describe('UiAlertDialog', () => {
     customButton.id = 'alert-custom-focus'
     document.body.append(customButton)
 
-    mountAlertDialog({
-      title: 'Alert Focus Return',
-      description: 'Description',
-      defaultOpen: true,
-      onCloseAutoFocus: (e: Event) => {
-        emittedEvent = e
-        e.preventDefault()
-        customButton.focus()
+    mountAlertDialog(
+      {
+        title: 'Alert Focus Return',
+        description: 'Description',
+        defaultOpen: true,
+        onCloseAutoFocus: (e: Event) => {
+          emittedEvent = e
+          e.preventDefault()
+          customButton.focus()
+        },
       },
-    })
+      {
+        trigger: () => h('button', { id: 'alert-default-trigger' }, 'Trigger'),
+      },
+    )
 
     await nextTick()
     await new Promise((r) => setTimeout(r, 20))

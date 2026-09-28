@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import {
-  ref,
-  watch,
-  onMounted,
-  onBeforeUnmount,
-  type ComponentPublicInstance,
-} from 'vue'
+import { ref, watch, type ComponentPublicInstance } from 'vue'
 import {
   ToastAction,
   ToastClose,
@@ -75,7 +69,9 @@ function handleUpdateOpen(val: boolean) {
 watch(
   () => props.open,
   (val, oldVal) => {
-    if (oldVal !== false && val === false) {
+    if (val === true) {
+      hasClosed.value = false
+    } else if (oldVal !== false && val === false) {
       checkClosed()
     }
   },
@@ -83,26 +79,12 @@ watch(
 )
 
 function handleAnimationEnd(event: AnimationEvent) {
-  if (hasClosed.value) return
+  if (hasClosed.value || event.target !== event.currentTarget) return
   if (event.animationName === 'fade-out') {
     hasClosed.value = true
     emit('closed')
   }
 }
-
-onMounted(() => {
-  const el = getRootElement()
-  if (el) {
-    el.addEventListener('animationend', handleAnimationEnd as EventListener)
-  }
-})
-
-onBeforeUnmount(() => {
-  const el = getRootElement()
-  if (el) {
-    el.removeEventListener('animationend', handleAnimationEnd as EventListener)
-  }
-})
 
 const toastVariants = tv({
   base: 'pointer-events-auto bg-popover text-foreground border shadow-lg rounded-control p-4 flex items-center justify-between gap-4 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out',

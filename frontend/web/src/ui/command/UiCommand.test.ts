@@ -233,7 +233,10 @@ describe('UiCommand', () => {
     let emittedEvent: Event | null = null
     const customButton = document.createElement('button')
     customButton.id = 'command-custom-focus'
-    document.body.append(customButton)
+    const opener = document.createElement('button')
+    opener.id = 'command-opener'
+    document.body.append(customButton, opener)
+    opener.focus()
 
     const isOpen = ref(true)
     mountApp(() =>
@@ -275,6 +278,7 @@ describe('UiCommand', () => {
     expect(emittedEvent).not.toBeNull()
     expect(document.activeElement).toBe(customButton)
     customButton.remove()
+    opener.remove()
   })
 
   it('forwards highlighted value on roving keyboard navigation', async () => {

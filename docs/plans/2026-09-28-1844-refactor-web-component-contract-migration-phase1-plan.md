@@ -5,6 +5,7 @@ date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: rework
 execution: code
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
 ---
@@ -12,6 +13,18 @@ parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-pla
 # Web Component Contract Migration, Phase 1 - Overlays and Motion - Plan
 
 > Implemented. 2 units, 2026-09-28T17:15:41Z to 2026-09-28T17:33:35Z.
+
+> Review: rework, for one open item. `runAudit` in
+> `frontend/web/src/ui/a11y.test.ts` removes `aria-hidden` from every
+> node Reka's `hideOthers` marked before axe runs. That suppresses
+> `aria-hidden-focus` for every story, and the new `UiSelect` open audit
+> fails without it (Reka's select hides its own focus guards and its
+> trigger). AGENTS.md forbids such an exception unless it is requested
+> explicitly, so the person decides: a scoped, documented exception for
+> that one audit entry and rule, or another way to audit the select's
+> open state. The other findings are fixed in `90424419`. A programmatic
+> `dismiss()` now removes the toast in the render flush that applies the
+> close, and a user close still removes it synchronously.
 
 ## Goal
 

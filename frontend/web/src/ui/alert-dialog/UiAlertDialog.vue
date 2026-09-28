@@ -53,7 +53,7 @@ const emit = defineEmits<{
       />
       <AlertDialogContent
         :disable-outside-pointer-events="true"
-        class="bg-popover text-foreground border border-border shadow-lg rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-(--z-overlay) p-6 w-full max-w-md focus:outline-none data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out motion-reduce:data-[state=open]:animate-fade-in motion-reduce:data-[state=closed]:animate-fade-out"
+        class="bg-popover text-foreground border border-border shadow-lg rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-(--z-overlay) p-6 w-full max-w-md focus:outline-none data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out motion-reduce:data-[state=open]:animate-dialog-fade-in motion-reduce:data-[state=closed]:animate-fade-out"
         @close-auto-focus="emit('closeAutoFocus', $event)"
       >
         <div class="flex flex-col gap-2 mb-6">
