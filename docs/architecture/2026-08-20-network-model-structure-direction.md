@@ -794,8 +794,8 @@ Landed with `docs/plans/2026-09-05-0004-feat-phy-transport-optics-plan.md`.
 
 ### 2026-09-05 — the device-access boundary packages
 
-Landed with `docs/plans/2026-09-05-1709-feat-verified-local-device-access-plan.md`
-under the [verified device access record](2026-09-05-verified-device-access-direction.md).
+Landed 2026-09-05: device-access boundary packages in `spec/proto/flowseer/device/`
+and `spec/proto/flowseer/api/device/` under the [verified device access record](2026-09-05-verified-device-access-direction.md).
 
 - **The boundary names the 2026-09-04 amendment left open are settled.**
   `api/device/v1` is the operator-facing Connect service; `device/policy/v1`
