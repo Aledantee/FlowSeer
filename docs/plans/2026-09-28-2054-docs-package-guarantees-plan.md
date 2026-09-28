@@ -292,8 +292,9 @@ Change: `check-guarantees.py` is redesigned to enforce a strict line grammar for
   characters, retaining titles such as `## Parses C#`.
 - Go test resolution: `check-guarantees.py` invokes `go list -json .` in the
   package directory (`cwd=pkg_dir`) with an environment inheriting `os.environ`
-  plus `GOWORK=off` and `GOFLAGS=-mod=mod` to obtain `TestGoFiles` and
-  `XTestGoFiles`. Inheriting `os.environ` keeps `GOPATH` and `GOMODCACHE` valid;
+  plus `GOWORK=off` to obtain `TestGoFiles` and `XTestGoFiles`, leaving `-mod`
+  at Go's read-only default so a verifier run never rewrites `go.mod` or
+  `go.sum`. Inheriting `os.environ` keeps `GOPATH` and `GOMODCACHE` valid;
   `go list` excludes `_foo_test.go` and `//go:build ignore` files by construction.
   Discovered test files are scanned with a Go token scanner that ignores
   whitespace, comments, and strings. Function declarations qualify as tests
