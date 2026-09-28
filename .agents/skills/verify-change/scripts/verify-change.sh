@@ -505,6 +505,11 @@ fi
 
 need_tool python3
 run python3 "$script_dir/check-plan-status.py"
+if [[ $full == true ]]; then
+  run python3 "$script_dir/check-guarantees.py" --all
+else
+  run python3 "$script_dir/check-guarantees.py" -- "${paths[@]}"
+fi
 
 # Reported, not failed: deleting a test, skipping it, or rewriting a golden
 # file is sometimes right in a repository that breaks APIs on purpose, and
