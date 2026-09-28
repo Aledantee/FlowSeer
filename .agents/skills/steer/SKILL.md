@@ -115,9 +115,10 @@ Run at the end of every pass and on `audit`:
    ```
 
    Retire each as `land/references/retire-plan.md` describes, one commit
-   per plan. More than a handful is a delegated read, one plan per brief
-   as `delegate` describes, with the record drafts and amendments reviewed
-   here before any delete is committed. Then log an observation against
+   per plan. More than a handful is delegated as `delegate` describes, one
+   family per brief (a parent with its phases, or plans whose decisions
+   land in the same record), so two workers do not amend one record; the
+   record drafts and amendments are reviewed here before a branch merges. Then log an observation against
    `land` naming the plans it missed.
 
 Report findings; fix them through "Apply or stage", which stages them.
