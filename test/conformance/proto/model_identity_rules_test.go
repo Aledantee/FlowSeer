@@ -1,0 +1,96 @@
+package conformance
+
+import (
+	"testing"
+	"time"
+
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
+)
+
+const (
+	testTenantID = "0192e6a0-0000-7000-8000-000000000001"
+)
+
+func validTenantRef() *identityv1.TenantGlobalRef {
+	return identityv1.TenantGlobalRef_builder{
+		Tenant: identityv1.TenantLocalRef_builder{
+			Id: proto.String(testTenantID),
+		}.Build(),
+	}.Build()
+}
+
+func validTenantConfig() *identityv1.TenantConfig {
+	return identityv1.TenantConfig_builder{
+		Ref:                    validTenantRef(),
+		Issuer:                 proto.String("https://idp.example.com"),
+		OrganizationClaimName:  proto.String("org_id"),
+		OrganizationClaimValue: proto.String("org-123"),
+		Name:                   proto.String("Acme Corp"),
+		Description:            proto.String("Primary tenant"),
+	}.Build()
+}
+
+func TestModelIdentityRules(t *testing.T) {
+	runValidationCases(t, []validationCase{
+		{
+			name:      "valid tenant config with issuer and organization claim validates",
+			message:   validTenantConfig(),
+			wantValid: true,
+		},
+		{
+			name: "tenant config without issuer fails validation",
+			message: identityv1.TenantConfig_builder{
+				Ref:                    validTenantRef(),
+				OrganizationClaimName:  proto.String("org_id"),
+				OrganizationClaimValue: proto.String("org-123"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "tenant local ref with non-UUID string fails",
+			message: identityv1.TenantLocalRef_builder{
+				Id: proto.String("not-a-valid-uuid"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "tenant state with unspecified lifecycle fails",
+			message: identityv1.TenantState_builder{
+				Ref:       validTenantRef(),
+				Lifecycle: identityv1.TenantLifecycle_TENANT_LIFECYCLE_UNSPECIFIED.Enum(),
+				CreatedAt: timestamppb.New(time.Now()),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "tenant event with from equal to to fails",
+			message: identityv1.TenantEvent_builder{
+				Ref:  validTenantRef(),
+				From: identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
+				To:   identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "valid tenant state validates",
+			message: identityv1.TenantState_builder{
+				Ref:       validTenantRef(),
+				Lifecycle: identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
+				CreatedAt: timestamppb.New(time.Now()),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "valid tenant event with distinct lifecycle validates",
+			message: identityv1.TenantEvent_builder{
+				Ref:  validTenantRef(),
+				From: identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
+				To:   identityv1.TenantLifecycle_TENANT_LIFECYCLE_SUSPENDED.Enum(),
+			}.Build(),
+			wantValid: true,
+		},
+	})
+}

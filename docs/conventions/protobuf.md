@@ -75,12 +75,9 @@ Every UUID-identified Entity has exactly two ref messages, and they compose:
 
 Uniform composition is the point. A field added to a `LocalRef` reaches every
 `GlobalRef` that contains it without a second edit, and the hook can check the
-pair mechanically because the shape never varies.
-
-The deliberately partial, keyless `Tenant` sketch is the only current
-exception. Its empty `TenantRef` is content, not an identity ref and not one
-half of a `LocalRef`/`GlobalRef` pair. The ordinary pair becomes mandatory in
-the same change that gives Tenant a FlowSeer identifier.
+pair mechanically because the shape never varies. Top-level entities such as
+`TenantLocalRef`/`TenantGlobalRef`, `DeviceLocalRef`/`DeviceGlobalRef`, and
+`EdgeLocalRef`/`EdgeGlobalRef` illustrate the wrapping.
 
 **An Entity has at most one owning parent.** An Entity that relates several
 others — a `Binding` joining an integration to a device, a `Placement` joining
@@ -144,14 +141,7 @@ Three boundaries keep it from eroding the typed refs:
   that reference it, and its store can answer the existence check a
   reference-value write needs. Landing a new top-level entity includes joining
   the enum in the same change; the hook does not police `EntityRef`, so this
-  rule is the only guard. `ENTITY_TYPE_TENANT` is the one transitional
-  exception: the wire schema admits it before Tenant has an addressable
-  identity or store. An `EntityRef` carrying it is syntactically valid but
-  cannot yet resolve to an existing entity. Producers must not emit that kind
-  until the Tenant identity and store land, and the inventory service rejects
-  it during semantic existence checks in the meantime. The enum value reserves
-  the future contract; it is not permission to invent a tenant identifier.
-  The Edge in `model/edge/v1` is the opposite exception: a landed, UUID-keyed
+  rule is the only guard. The Edge in `model/edge/v1` is the opposite exception: a landed, UUID-keyed
   entity that has not joined the enum, because the cascade and the existence
   check need the edge store, which lands with the first host. Until it joins,
   nothing may name an edge through an `EntityRef`. `Location`, `PatchPanel`,
