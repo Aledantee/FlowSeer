@@ -233,9 +233,8 @@ the new diff.
   today, so it changes nothing observable; it is left for main's
   local-network work.
 - The `ip.Decode` IPv4-mapped question the decoder solution leaves open.
-- Line citations in main's phase 4 plan
-  (`docs/plans/2026-09-16-1625-feat-netsim-local-network-phase4-plan.md`)
-  that this merge shifts; that plan is re-read when phase 4 is planned
+- Line citations in main's local-network filter phase plan (landed
+  2026-09-19, `src/common/netsim/vswitch/filter`) that this merge shifts; that plan is re-read when phase 4 is planned
   against the merged tree.
 
 ## Units
