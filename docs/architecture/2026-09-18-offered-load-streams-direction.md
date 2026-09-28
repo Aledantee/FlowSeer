@@ -43,12 +43,21 @@ be compared.
   and a list of field variations. The package imports the value and codec
   packages under `src/common/net` and nothing from `fabric` or `vswitch`.
   Why: the same value has to be executable by an edge transmitter that has no
-  simulator in its process.
+  simulator in its process. A bit rate counts wire octets, the figure
+  `ethernet.Frame.WireOctets` gives and the fabric charges for
+  serialization, so a stream at a link's full rate fits it exactly. A
+  consumer reads a stream as a `stream.Source`, whose `Next` yields each
+  frame with its offset from the stream's start, never an absolute time:
+  the fabric and the transmitter each add their own epoch, and `Clone`
+  lets a fork continue from the same position.
 - A stream is a source the run pulls from. The fabric holds attached sources
   and, before each step, injects every source frame whose time is not after
   the earliest queued arrival. Nothing expands a stream ahead of the clock.
   Why: memory stays flat in the stream length, and a source can end when its
-  origin link goes down.
+  origin link goes down. When the queue is empty the run injects the
+  earliest source frame, so a stream alone keeps a run moving. `RunScenario`
+  refuses actions while a stream is attached, because its action loop does
+  not order actions against source frames.
 - Variation is deterministic. A field steps by increment or decrement, or
   draws from a generator the package owns, seeded by the stream spec. The
   generator is SplitMix64, pinned by known-answer vectors. The virtual device
@@ -57,37 +66,57 @@ be compared.
   math/rand/v2.PCG` promises no stable output sequence across Go releases, and
   a run that changes with the toolchain is not reproducible.
 - An egress queue has a buffer when the configuration states one.
-  `traffic.PortQueues` gains a per-PCP buffer size in octets. A frame that
-  would exceed it is tail-dropped with reason `queue-full`. A queue with no
-  stated buffer stays unbounded, reports its peak depth, and raises an
-  `Incomplete` issue on its port scope once the depth passes one maximum-size
-  frame, the same shape as `propagation-unknown`. Why: buffer sizes differ per
-  vendor and are rarely reported, and an invented default would put a loss
-  figure on the record that nothing measured.
+  `traffic.PortQueues.BufferOctets` states a per-PCP buffer in encoded frame
+  octets, the frame a switch holds without preamble or gap, and a buffer
+  stated on a LAG applies to each member's queue. A frame that would exceed
+  it is tail-dropped with reason `queue-full`. A queue with no stated buffer
+  stays unbounded, reports its peak depth, and raises an `Incomplete`
+  `queue-buffer-unstated` issue on its endpoint's scope once the depth
+  passes one maximum-size frame (the port's MTU plus 18 octets, 1518 when
+  the MTU is unset), the same shape as `propagation-unknown`. A host's cable
+  end is always such a queue, since a host has no queue configuration. Why:
+  buffer sizes differ per vendor and are rarely reported, and an invented
+  default would put a loss figure on the record that nothing measured.
 - A frame's journey has a retention. `Injection.Retention` is `RetainJourney`
   (the zero value, today's behavior) or `RetainAggregate`. An aggregated frame
   names a flow; when its last copy settles, the fabric folds its outcome into
   that flow's statistics and frees the journey. Statistics per flow: frames
   offered, deliveries per host, drops per reason, cable losses, unresolved
-  fates, latency from injection to each delivery as minimum, maximum, sum and
-  count, and the merged trust metadata of every folded journey. Why: the
-  planning answer is the aggregate, and the trust metadata has to survive the
-  fold or an `Unknown` uplink would yield a confident throughput.
+  fates, host rejections, frames held for neighbor resolution, latency from
+  injection to each delivery as minimum, maximum, sum and count, and the
+  merged trust metadata of every folded journey. A held frame settles at the
+  hold and the frame the switch later releases carries no flow. Mirror and
+  reflector copies are counted apart, per mirror name or `reflection`, and
+  never as deliveries of the stream. Why: the planning answer is the
+  aggregate, and the trust metadata has to survive the fold or an `Unknown`
+  uplink would yield a confident throughput.
 - Stream identity is metadata, not payload. The fabric knows each frame's flow
   from its injection. The on-wire transmitter needs a payload signature
-  because a NIC does not; that signature belongs to the transmitter.
+  because a NIC does not; that signature belongs to the transmitter. It
+  occupies the first 32 payload octets without changing the frame's length
+  (magic `FSLD`, a version, the flow, a sequence, and the submission time),
+  so a stream the transmitter runs must carry at least 32 payload octets and
+  a size variation must keep them.
 - A capture file is a stream source. `src/common/net/pcap` reads classic pcap
-  and pcapng with `LINKTYPE_ETHERNET` into timestamped byte records, with no
-  generated types, so `netsim` and the edge can both import it. The capture
+  and pcapng into timestamped byte records that carry their link type, with
+  no generated types, so `netsim` and the edge can both import it. The capture
   module's pcapng writer stays where it is; it renders `PacketRecord`
-  protobufs and cannot move under `src/common`.
-- The on-wire transmitter is an edge application, not part of `netsim`. It
-  executes the same `stream` values with wall-clock pacing and counts what a
-  second interface receives. `netsim` keeps its rule: no goroutines, no wall
+  protobufs and cannot move under `src/common`. `stream.NewCaptureSource`
+  takes records the caller has already read, accepts only
+  `LINKTYPE_ETHERNET` frames without a declared FCS, and validates and
+  copies them before attachment, because `Source.Next` has no error return.
+  A read error therefore surfaces before the run, and capture memory scales
+  with the file.
+- The on-wire transmitter is an edge application, `src/edge/netsimload`, not
+  part of `netsim` and not a netpen subcommand. It executes the same `stream`
+  values with wall-clock pacing through a packet socket on one named
+  interface and counts what a second named interface receives; neither
+  interface has a default. `netsim` keeps its rule: no goroutines, no wall
   clock, no I/O.
 - The engine scales by structure, not by approximation. The arrival queue
   becomes a heap with the same total order, and `record` reads a cached fabric
-  metadata that `SetFault` and link changes invalidate. A fluid or aggregate
+  metadata that every change to its inputs invalidates, a queue's first
+  crossing of the unstated-buffer threshold included. A fluid or aggregate
   flow model is not part of this direction.
 
 ## Alternatives
@@ -111,7 +140,8 @@ be compared.
 - The virtual device record's run bullet, its cable bullet's "nothing in a
   run is random", and its "scenario overlays and search" gap change in the
   phase that lands each part.
-- `fabric` imports `stream`. `stream` imports only `src/common/net`.
+- `fabric` imports `stream`. `stream` imports only `src/common/net` and
+  `src/common/errs`.
 - A run of a million aggregated frames holds no per-frame state after it
   drains. A run that retains journeys behaves as it does today.
 - The conformance corpus gains load cases: an oversubscribed trunk with a
@@ -120,4 +150,16 @@ be compared.
   The README says so.
 - Running one stream against the simulator and a lab switch, then comparing
   per-flow statistics, becomes the validation of the queue and policer model.
-  Transmitting on the lab network needs the owner's approval per run.
+  Transmitting on the lab network needs the owner's approval per run. The
+  comparison report keeps the two observation domains apart: a sequence the
+  lab receiver missed is reported as missing, never as `FlowStats.Lost`
+  (cable loss) or as a switch drop reason.
+
+Landed 2026-09-23: the heap arrival queue, journey retention, and per-flow
+statistics in `src/common/netsim/fabric`, and stated egress buffers in
+`src/common/netsim/vswitch/traffic` and `fabric`. Landed 2026-09-24: the
+`src/common/netsim/stream` package with `Fabric.AttachStream` and the load
+corpus cases, the `src/common/net/pcap` reader with the capture source, and
+the `src/edge/netsimload` transmitter with its opt-in ICX7150 comparison
+test. The live comparison run is an owner-run step and had not run when the
+transmitter landed.
