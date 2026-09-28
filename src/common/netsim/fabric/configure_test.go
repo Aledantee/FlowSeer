@@ -693,11 +693,15 @@ func TestConfigureProtocolTimersRestart(t *testing.T) {
 		}
 	}
 
-	// No-op Configure on sw3 keeps every port role in place.
-	if err := fab.Configure("sw3", fab.Switch("sw3").Config()); err != nil {
+	// A no-op Configure on sw3 keeps every port role in place and adds no
+	// topology change: a fork that reconfigures to its own config and one that
+	// does not stay identical after both run on.
+	baseline := fab.Fork()
+	reconfigured := baseline.Fork()
+	if err := reconfigured.Configure("sw3", reconfigured.Switch("sw3").Config()); err != nil {
 		t.Fatalf("Configure no-op: %v", err)
 	}
-	snapAfterNoOp := fab.Snapshot()
+	snapAfterNoOp := reconfigured.Snapshot()
 	for dev, d := range snap0.Devices {
 		for p, info := range d.Roles {
 			got := snapAfterNoOp.Devices[dev].Roles[p]
@@ -706,6 +710,13 @@ func TestConfigureProtocolTimersRestart(t *testing.T) {
 					dev, p, info.Role, info.State, got.Role, got.State)
 			}
 		}
+	}
+
+	baseline.Run(200)
+	reconfigured.Run(200)
+	if baseline.Fingerprint() != reconfigured.Fingerprint() {
+		t.Errorf("no-op Configure changed the fingerprint:\n got  %s\n want %s",
+			reconfigured.Fingerprint(), baseline.Fingerprint())
 	}
 
 	// Lower sw3 bridge priority to 4096.
