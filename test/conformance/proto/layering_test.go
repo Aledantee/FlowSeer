@@ -91,9 +91,9 @@ var importOrder = map[string][]string{
 	"model/edge":       nil,
 	"model/credential": nil,
 	"model/policy":     nil,
-	// The identity leaf: operator identity and the tenants FlowSeer serves.
-	// Imports nothing FlowSeer-owned, and every boundary that identifies an
-	// operator or tenant imports it.
+
+	// The identity leaf: operator identity. Imports nothing FlowSeer-owned,
+	// and every boundary that identifies an operator imports it.
 	"model/identity": nil,
 
 	// The error wire payload, a leaf like model/policy: it imports nothing,
@@ -381,6 +381,8 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "edge attachment imports credential material", importer: "edge/attach", imported: "model/credential", want: true},
 		{name: "credential material imports edge", importer: "model/credential", imported: "api/edge"},
 		{name: "credential material imports policy handles", importer: "model/credential", imported: "model/policy"},
+		{name: "identity imports access values", importer: "model/identity", imported: "model/access"},
+		{name: "identity imports inventory", importer: "model/identity", imported: "model/inventory"},
 		{name: "storage imports access values", importer: "store/device", imported: "model/access", want: true},
 		{name: "storage imports credential material", importer: "store/device", imported: "model/credential", want: true},
 		{name: "storage imports the edge service package", importer: "store/device", imported: "api/edge"},

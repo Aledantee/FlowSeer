@@ -633,4 +633,4 @@ for the tree and import graph as they stand.
 The operator-facing device API is authorized through the Zanzibar-style
 authorization model decided in the [operator authorization direction
 record](2026-09-28-operator-authorization-direction.md). The transport diagram
-is updated accordingly.
+labels the ingress as authorized rather than naming a specific engine.

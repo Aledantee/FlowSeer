@@ -164,10 +164,11 @@ middleware too, and carries its own per-message bound instead.
 This gap is accepted for now rather than overlooked. Authorization for the
 operator and admin surfaces is a named follow-up in the
 [operator authorization record](../../../docs/architecture/2026-09-28-operator-authorization-direction.md),
-which decides how the gap closes, and until it lands the deployment's own
-network boundary is the only thing in front of those two services. Do not expose
-the API port beyond it — and understand that what the boundary is protecting is
-the device credentials, not just the operator API.
+which decides how the gap closes. Until the enforcement that record decides
+lands, the deployment's network boundary is the only thing in front of
+`DeviceService`, `EdgeAdminService`, and `CaptureService`. Do not expose the API
+port beyond it, and understand that what the boundary is protecting is the
+device credentials, not just the operator API.
 
 There is also no operator action trail: nothing records that someone created
 an edge, minted or revoked a setup key, or retired one. Minting a setup key

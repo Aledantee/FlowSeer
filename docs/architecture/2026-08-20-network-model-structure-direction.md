@@ -131,12 +131,13 @@ packages; `net/switching` imports address and packet values, while `net/ip`
 imports address values. `model/edge`, `model/credential`, `model/identity`, and
 `model/policy` are leaves too: every package that needs the Edge ref, a
 credential, operator identity, or an access-policy handle imports the matching
-one of the four, and none of them imports anything FlowSeer-owned back. `edge/attach` imports `model/edge`
-for the entity, `model/credential` and `model/policy` for the handles and
-secret material its services hand out, and `net/addr` for the IP address a
-listed device reports; `api/edge` imports `model/edge` alone. `api/capture`
-imports `model/capture` for the entity and the chunk frames, `model/edge`
-for the owning ref, and `net/capture` for the values a capture observes;
+one of the four, and none of them imports anything FlowSeer-owned back.
+`edge/attach` imports `model/edge` for the entity, `model/credential` and
+`model/policy` for the handles and secret material its services hand out, and
+`net/addr` for the IP address a listed device reports; `api/edge` imports
+`model/edge` alone. `api/capture` imports `model/capture` for the entity and the
+chunk frames, `model/edge` for the owning ref, and `net/capture` for the values
+a capture observes;
 `edge/capture` imports `model/capture` and `model/edge` for the assignment
 stream and the assertion its upload stream re-verifies. `model/inventory`
 imports `model/edge`
@@ -998,10 +999,11 @@ amends this record:
 `OperatorRef` lives in `model/identity/v1`, a leaf that imports nothing
 FlowSeer-owned. It first left `model/access/v1` for a `model/principal/v1`
 leaf so that `model/capture` could name a requester; that leaf is folded into
-`model/identity/v1` so operators and tenants share one package. `model/access` is the
-shared vocabulary for device-access boundaries. Operator identity is the
-subject for every surface across FlowSeer — device access, packet capture, and
-administrative surfaces alike — and the tenant entity joins it as operator
-authorization expands. Housing operator identity in its own leaf avoids
+`model/identity/v1`. `model/access` is the
+shared vocabulary for device-access boundaries. Operator identity names the
+caller across every FlowSeer surface, and the tenant entity the
+[operator authorization record](2026-09-28-operator-authorization-direction.md)
+decides joins it here later. Housing operator identity in its own leaf avoids
 importing device-access operation vocabulary into callers that only need
-identity.
+identity. `Actor.operator` keeps field 1 and the message is unchanged, so
+encoded intents decode unchanged; only the Go import path moves.
