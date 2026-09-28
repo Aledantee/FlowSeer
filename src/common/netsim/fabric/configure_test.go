@@ -718,6 +718,15 @@ func TestConfigureProtocolTimersRestart(t *testing.T) {
 		t.Errorf("no-op Configure changed the fingerprint:\n got  %s\n want %s",
 			reconfigured.Fingerprint(), baseline.Fingerprint())
 	}
+	// The fingerprint carries no topology change count, so compare it on its
+	// own.
+	for _, name := range []string{"sw1", "sw2", "sw3"} {
+		want, _ := baseline.Switch(name).TopologyChanges()
+		got, _ := reconfigured.Switch(name).TopologyChanges()
+		if got != want {
+			t.Errorf("%s topology changes after no-op Configure = %d, want %d", name, got, want)
+		}
+	}
 
 	// Lower sw3 bridge priority to 4096.
 	sw3Cfg := fab.Switch("sw3").Config()
@@ -803,14 +812,17 @@ func TestConfigureForksStayIndependent(t *testing.T) {
 		t.Error("source Links changed after fork Configure")
 	}
 	if p, ok := fab.Switch("sw1").Ports().Port("1/1/24"); !ok || p.OperStatus != port.Up {
-		t.Errorf("source sw1 1/1/24 oper after fork Configure = %v, want Up", p.OperStatus)
+		t.Errorf("source sw1 1/1/24 after fork Configure = (%v, found %v), want Up", p.OperStatus, ok)
 	}
 
-	// Configure the source with its own link-changing edit; fork remains as it
-	// was, links and port table included.
+	// Configure the source with a link-changing edit of its own that differs
+	// from the fork's state: bring 1/1/1 administratively down. The fork's
+	// links and port table stay exactly as they were.
+	forkLinks := fork.Links()
+	forkPorts := fork.Switch("sw1").Ports().Ports()
 	sw1CfgSource := fab.Switch("sw1").Config()
 	sw1CfgSource.Bridge.VLAN.Table[10] = "source-vlan"
-	setPortAdmin(t, &sw1CfgSource, "1/1/24", port.Down)
+	setPortAdmin(t, &sw1CfgSource, "1/1/1", port.Down)
 	if err := fab.Configure("sw1", sw1CfgSource); err != nil {
 		t.Fatalf("fab.Configure: %v", err)
 	}
@@ -819,13 +831,13 @@ func TestConfigureForksStayIndependent(t *testing.T) {
 		t.Errorf("fork switch config changed after source Configure: got %q, want 'fork-vlan'",
 			fork.Switch("sw1").Config().Bridge.VLAN.Table[10])
 	}
-	if a, b, ok := trunkLinkOper(fork); !ok || a != port.Down || b != port.Down {
-		t.Errorf("fork trunk link oper after source Configure = (%v, %v), want (Down, Down)", a, b)
+	if !reflect.DeepEqual(fork.Links(), forkLinks) {
+		t.Error("fork Links changed after source Configure")
 	}
-	if p, ok := fork.Switch("sw1").Ports().Port("1/1/24"); !ok || p.OperStatus != port.Down {
-		t.Errorf("fork sw1 1/1/24 oper after source Configure = %v, want Down", p.OperStatus)
+	if !reflect.DeepEqual(fork.Switch("sw1").Ports().Ports(), forkPorts) {
+		t.Error("fork sw1 port table changed after source Configure")
 	}
-	if a, b, ok := trunkLinkOper(fab); !ok || a != port.Down || b != port.Down {
-		t.Errorf("source trunk link oper after source Configure = (%v, %v), want (Down, Down)", a, b)
+	if p, ok := fab.Switch("sw1").Ports().Port("1/1/1"); !ok || p.OperStatus != port.Down {
+		t.Errorf("source sw1 1/1/1 after source Configure = (%v, found %v), want Down", p.OperStatus, ok)
 	}
 }
