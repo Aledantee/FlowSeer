@@ -45,8 +45,9 @@ context.
 
 `tools/check-guarantees` parses `GUARANTEES.md` with goldmark into an abstract
 syntax tree and evaluates the document's block structure and visible text. The
-checker fails closed where goldmark is known to disagree with CommonMark 0.31.2,
-including lowercase HTML declarations. Any unexpected block kind fails the check.
+checker catches malformed sections, missing citations, citations to tests that
+are not compiled, and duplicate headings. A file crafted to hide or fake a clause
+is outside its scope. Any unexpected block kind fails the check.
 A carriage return without a following line feed fails before parsing as
 `<path>:<line>: lone carriage return`, because CommonMark treats it as a line
 ending and goldmark does not.
@@ -73,12 +74,27 @@ Within each guarantee section, exactly three blocks must appear in order:
    `- WHEN … THEN …` scenario items. Each list item must contain exactly one
    paragraph or text block; nested blocks (nested lists, code blocks, block
    quotes, headings, HTML blocks) fail closed as unknown block kinds at the
-   nested block's line. A list item whose visible text contains `Proved by:`
-   fails closed with `unknown block kind: list item`.
+   nested block's line. A section without a WHEN ... THEN item reports
+   `has no - WHEN ... THEN scenario bullet`. A `Proved by:` continuation on
+   the next line of a list item is checked as a citation and reports the
+   missing blank line.
 3. Exactly one `Proved by:` paragraph: a paragraph beginning with `Proved by:`
    followed by comma-separated Go test identifiers, optionally wrapped in
    backticks. Trailing commas, empty items, duplicate `Proved by:` paragraphs,
    and invalid identifiers fail.
+
+The citation diagnostics name the cause and source line:
+
+- `has no Proved by: line` means the section has no citation paragraph.
+- `Proved by: needs a blank line before it` means the citation joined the
+  preceding list item.
+- `Proved by: line names no tests` means nothing follows the colon.
+- `Proved by: has an empty item` means a comma leaves an empty entry.
+- `Proved by: list ends with a comma` means a comma has no following entry.
+- `Proved by: "<token>" is not a Go test identifier` names a malformed entry.
+- `has duplicate Proved by: line` identifies the second citation paragraph.
+- `cites test "<name>" which does not exist in <package>` means the named test
+  is absent from the package's compiled test files.
 
 All text evaluations (headings, normative MUST/MUST NOT clauses, WHEN/THEN clauses,
 and `Proved by:` test citations) inspect visible text derived directly from
@@ -88,7 +104,7 @@ backslash-escaped punctuation decoded), soft and hard line breaks, code spans
 node kind (raw HTML, images, links, autolinks, and extensions) fails closed with
 an unknown inline kind error. No HTML rendering or tag stripping is performed.
 Every paragraph or list-item content line starting with `<` followed by an ASCII
-letter, `/`, `!`, or `?`, after up to three spaces of indentation, fails as
+letter, `/`, `!`, or `?`, after any leading whitespace, fails as
 `<path>:<line>: unknown block kind: html block`. The checker reads the block's
 source lines, so an inline code span, link, image, or HTML attribute cannot hide
 the start. This also rejects a line starting with `<b>`, though CommonMark's

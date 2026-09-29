@@ -56,6 +56,151 @@ func TestValidFilePasses(t *testing.T) {
 	}
 }
 
+func TestExternalPackageTestCitation(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	testFile := filepath.Join(pkgDir, "external_test.go")
+	if err := os.WriteFile(testFile, []byte("package pkg_test\n\nimport \"testing\"\n\nfunc TestExternal(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	content := "## External behavior\n\nIt MUST succeed.\n\n- WHEN called THEN it succeeds.\n\nProved by: TestExternal\n"
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := checkGuaranteesFile(gFile, root); len(got) != 0 {
+		t.Fatalf("external package test citation rejected: %v", got)
+	}
+}
+
+func TestMissingNormativeStillChecksScenarioAndCitation(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	content := "## Heading\n\nIt must hold.\n\n- WHEN called THEN it succeeds.\n\nProved by: TestGone\n"
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		`src/pkg/GUARANTEES.md:3: unknown block kind: paragraph`,
+		`src/pkg/GUARANTEES.md:1: "Heading" has no normative MUST sentence`,
+		`src/pkg/GUARANTEES.md:7: "Heading" cites test "TestGone" which does not exist in src/pkg`,
+	}
+	if got := checkGuaranteesFile(gFile, root); !slices.Equal(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+func TestInvalidCitationNamesTokenWithoutMissingLine(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	for _, token := range []string{"TestA.", "TestA and TestB", "TestFoo/sub"} {
+		t.Run(token, func(t *testing.T) {
+			content := "## Heading\n\nIt MUST hold.\n\n- WHEN called THEN it succeeds.\n\nProved by: " + token + "\n"
+			if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			want := fmt.Sprintf("src/pkg/GUARANTEES.md:7: %q Proved by: %q is not a Go test identifier", "Heading", token)
+			got := checkGuaranteesFile(gFile, root)
+			if !slices.Contains(got, want) {
+				t.Fatalf("want %q in %v", want, got)
+			}
+			for _, diagnostic := range got {
+				if strings.Contains(diagnostic, "has no Proved by: line") {
+					t.Fatalf("present citation reported missing: %v", diagnostic)
+				}
+			}
+		})
+	}
+}
+
+func TestSectionMistakesDoNotHidePresentBlocks(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	tests := []struct {
+		name            string
+		content         string
+		hasNormative    bool
+		hasScenario     bool
+		hasCitation     bool
+		additionalError string
+	}{
+		{"missing cited test", "## H\n\nIt MUST hold.\n\n- WHEN a THEN b.\n\nProved by: TestGone\n", true, true, true, "cites test"},
+		{"lowercase must", "## H\n\nIt must hold.\n\n- WHEN a THEN b.\n\nProved by: TestGone\n", false, true, true, "unknown block kind: paragraph"},
+		{"star marker", "## H\n\nIt MUST hold.\n\n* WHEN a THEN b.\n\nProved by: TestGone\n", true, true, true, "unknown block kind: list"},
+		{"plus marker", "## H\n\nIt MUST hold.\n\n+ WHEN a THEN b.\n\nProved by: TestGone\n", true, true, true, "unknown block kind: list"},
+		{"lazy citation", "## H\n\nIt MUST hold.\n\n- WHEN a THEN b.\nProved by: TestGone\n", true, true, true, "needs a blank line before it"},
+		{"invalid citation token", "## H\n\nIt MUST hold.\n\n- WHEN a THEN b.\n\nProved by: TestGone, TestBad/sub\n", true, true, true, "is not a Go test identifier"},
+		{"citation period", "## H\n\nIt MUST hold.\n\n- WHEN a THEN b.\n\nProved by: TestGone, TestBad.\n", true, true, true, "is not a Go test identifier"},
+		{"duplicate citation", "## H\n\nIt MUST hold.\n\n- WHEN a THEN b.\n\nProved by: TestGone\n\nProved by: TestA\n", true, true, true, "has duplicate Proved by: line"},
+		{"list before must", "## H\n\n- WHEN a THEN b.\n\nIt MUST hold.\n\nProved by: TestGone\n", true, true, true, "unknown block kind: paragraph"},
+		{"no blank before list", "## H\n\nIt MUST hold.\n- WHEN a THEN b.\n\nProved by: TestGone\n", true, true, true, "cites test"},
+		{"extra paragraph", "## H\n\nIt MUST hold.\n\nExtra explanation.\n\n- WHEN a THEN b.\n\nProved by: TestGone\n", true, true, true, "unknown block kind: paragraph"},
+		{"missing must", "## H\n\n- WHEN a THEN b.\n\nProved by: TestGone\n", false, true, true, "has no normative MUST sentence"},
+		{"missing scenario", "## H\n\nIt MUST hold.\n\nProved by: TestGone\n", true, false, true, "has no - WHEN ... THEN scenario bullet"},
+		{"missing citation", "## H\n\nIt MUST hold.\n\n- WHEN a THEN b.\n", true, true, false, "has no Proved by: line"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := os.WriteFile(gFile, []byte(tc.content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			got := checkGuaranteesFile(gFile, root)
+			if len(got) == 0 || !slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, tc.additionalError) }) {
+				t.Fatalf("expected %q error in %v", tc.additionalError, got)
+			}
+			for _, absence := range []struct {
+				message string
+				present bool
+			}{
+				{"has no normative MUST sentence", tc.hasNormative},
+				{"has no - WHEN ... THEN scenario bullet", tc.hasScenario},
+				{"has no Proved by: line", tc.hasCitation},
+			} {
+				reported := slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, absence.message) })
+				if reported == absence.present {
+					t.Fatalf("presence of %q is %t, diagnostics: %v", absence.message, absence.present, got)
+				}
+			}
+			cited := slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, `cites test "TestGone"`) })
+			if cited != tc.hasCitation {
+				t.Fatalf("citation resolution is %t, diagnostics: %v", cited, got)
+			}
+			if tc.name == "lazy citation" {
+				wantBlank := `src/pkg/GUARANTEES.md:6: "H" Proved by: needs a blank line before it`
+				wantCitation := `src/pkg/GUARANTEES.md:6: "H" cites test "TestGone" which does not exist in src/pkg`
+				if !slices.Contains(got, wantBlank) || !slices.Contains(got, wantCitation) {
+					t.Fatalf("want %q and %q in %v", wantBlank, wantCitation, got)
+				}
+			}
+		})
+	}
+}
+
+func TestEmptyCitationItemReportsItsLine(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	for _, citation := range []string{"TestA,,TestB", ","} {
+		t.Run(citation, func(t *testing.T) {
+			content := "## H\n\nIt MUST hold.\n\n- WHEN a THEN b.\n\nProved by: " + citation + "\n"
+			if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			want := `src/pkg/GUARANTEES.md:7: "H" Proved by: has an empty item`
+			got := checkGuaranteesFile(gFile, root)
+			if !slices.Contains(got, want) {
+				t.Fatalf("want %q in %v", want, got)
+			}
+			if slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, `"" is not a Go test identifier`) }) {
+				t.Fatalf("empty item reported as an identifier: %v", got)
+			}
+		})
+	}
+}
+
 func TestNormativeSentenceMustNot(t *testing.T) {
 	root := t.TempDir()
 	pkgDir := createTestPkg(t, root)
@@ -1386,7 +1531,7 @@ func TestListItemNestedBlocksFail(t *testing.T) {
 		{
 			name:    "lazy_continuation_proved_by",
 			content: "## Heading\n\nIt MUST succeed.\n\n- WHEN a THEN b\nProved by: TestGone\n\nProved by: TestA\n",
-			wantErr: "unknown block kind: list item",
+			wantErr: "Proved by: needs a blank line before it",
 		},
 	}
 
@@ -1600,15 +1745,13 @@ func TestSectionBlockOrderAndSingleList(t *testing.T) {
 			t.Fatal(err)
 		}
 		errs := checkGuaranteesFile(gFile, root)
-		found := false
-		for _, e := range errs {
-			if strings.Contains(e, "unknown block kind: list") {
-				found = true
-				break
-			}
+		if !slices.Contains(errs, "src/pkg/GUARANTEES.md:5: unknown block kind: paragraph") {
+			t.Fatalf("expected order error when normative follows list, got: %v", errs)
 		}
-		if !found {
-			t.Fatalf("expected unknown block kind: list when list appears before normative, got: %v", errs)
+		for _, e := range errs {
+			if strings.Contains(e, "has no - WHEN") || strings.Contains(e, "has no normative") {
+				t.Fatalf("present block reported missing: %v", errs)
+			}
 		}
 	})
 
@@ -1621,7 +1764,7 @@ func TestSectionBlockOrderAndSingleList(t *testing.T) {
 		errs := checkGuaranteesFile(gFile, root)
 		found := false
 		for _, e := range errs {
-			if strings.Contains(e, "unknown block kind: list") || strings.Contains(e, "has no Proved by: line") {
+			if strings.Contains(e, "unknown block kind: list") {
 				found = true
 				break
 			}

@@ -33,13 +33,17 @@ func run(args []string, _ io.Writer, stderr io.Writer) error {
 	if root == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return errs.From(err).ExitCode(1).Msg("cannot determine current working directory")
+			wrapped := errs.From(err).ExitCode(1).Msg("cannot determine current working directory")
+			fmt.Fprintln(stderr, wrapped)
+			return wrapped
 		}
 		root = cwd
 	}
 	rootAbs, err := filepath.Abs(root)
 	if err != nil {
-		return errs.From(err).ExitCode(1).Msg("cannot resolve root path")
+		wrapped := errs.From(err).ExitCode(1).Msg("cannot resolve root path")
+		fmt.Fprintln(stderr, wrapped)
+		return wrapped
 	}
 
 	paths := fs.Args()
