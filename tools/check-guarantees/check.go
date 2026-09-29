@@ -170,6 +170,24 @@ func checkGuaranteesFile(filePath, root string) []string {
 	if rel, err := filepath.Rel(root, filePath); err == nil {
 		displayPath = rel
 	}
+	var lineErrors []string
+	line := 1
+	for i := 0; i < len(content); i++ {
+		switch content[i] {
+		case '\r':
+			if i+1 < len(content) && content[i+1] == '\n' {
+				i++
+			} else {
+				lineErrors = append(lineErrors, fmt.Sprintf("%s:%d: lone carriage return", displayPath, line))
+			}
+			line++
+		case '\n':
+			line++
+		}
+	}
+	if len(lineErrors) > 0 {
+		return lineErrors
+	}
 
 	pkgDir := filepath.Dir(filePath)
 	pkgDisplay := pkgDir
@@ -195,6 +213,7 @@ func checkGuaranteesFile(filePath, root string) []string {
 	}
 
 	doc := goldmark.DefaultParser().Parse(text.NewReader(content))
+	checkErrors = append(checkErrors, rejectHTMLBlockStartLines(doc, content, displayPath)...)
 
 	seenHeadings := make(map[string]int)
 	seenTitle := false
@@ -666,6 +685,34 @@ func rejectHTMLText(n ast.Node, src []byte, displayPath string) []string {
 		}
 	}
 	inspect(n)
+	return errs
+}
+
+func rejectHTMLBlockStartLines(n ast.Node, src []byte, displayPath string) []string {
+	var errs []string
+	if n.Kind() == ast.KindParagraph || n.Kind() == ast.KindTextBlock {
+		for i := 0; i < n.Lines().Len(); i++ {
+			segment := n.Lines().At(i)
+			line := segment.Value(src)
+			spaces := 0
+			for spaces < 3 && spaces < len(line) && line[spaces] == ' ' {
+				spaces++
+			}
+			if len(line) <= spaces+1 || line[spaces] != '<' {
+				continue
+			}
+			next := line[spaces+1]
+			if next >= 'A' && next <= 'Z' || next >= 'a' && next <= 'z' || next == '/' || next == '!' || next == '?' {
+				lineNumber := 1 + bytes.Count(src[:segment.Start], []byte{'\n'})
+				errs = append(errs, fmt.Sprintf("%s:%d: unknown block kind: html block", displayPath, lineNumber))
+			}
+		}
+	}
+	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
+		if c.Type() == ast.TypeBlock {
+			errs = append(errs, rejectHTMLBlockStartLines(c, src, displayPath)...)
+		}
+	}
 	return errs
 }
 
