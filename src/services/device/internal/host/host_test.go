@@ -22,6 +22,8 @@ import (
 
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
@@ -407,5 +409,117 @@ func waitUntilServing(t *testing.T, client *http.Client, base string) {
 			t.Fatalf("the api never came up: %v", err)
 		}
 		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// TenantService is not mounted on the device service mux until caller
+// authentication lands; requests to its procedure paths are refused with
+// HTTP 404 and Connect Unimplemented.
+func TestTenantServiceIsNotMounted(t *testing.T) {
+	base := runningService(t)
+	client := insecureClient()
+	waitUntilServing(t, client, base)
+
+	req, err := http.NewRequest(http.MethodPost, base+identityv1connect.TenantServiceCreateTenantProcedure, bytes.NewReader([]byte("{}")))
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/proto")
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("post to CreateTenant: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("status = %d, want %d (HTTP 404)", resp.StatusCode, http.StatusNotFound)
+	}
+
+	tenantClient := identityv1connect.NewTenantServiceClient(client, base)
+	_, err = tenantClient.CreateTenant(context.Background(), connect.NewRequest(&identityv1.CreateTenantRequest{}))
+	if got := connect.CodeOf(err); got != connect.CodeUnimplemented {
+		t.Errorf("code = %v, want %v (Connect Unimplemented)", got, connect.CodeUnimplemented)
+	}
+}
+
+// Startup does not automatically bind or index an unindexed edge from the
+// device registry into the edges key-value bucket.
+func TestStartupDoesNotIndexUnindexedRegistryEdge(t *testing.T) {
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, "state")
+	credentialRoot := filepath.Join(dir, "credentials")
+	if err := os.MkdirAll(credentialRoot, 0o700); err != nil {
+		t.Fatalf("credential dir: %v", err)
+	}
+
+	busPort := freePort(t)
+	body := fmt.Sprintf(`
+state_dir: %q
+registry_path: %q
+credential_root: %q
+listeners {
+  api: "127.0.0.1:0"
+  bus: "127.0.0.1:%d"
+}
+edges {
+  central_url: "https://127.0.0.1"
+  assertion_audience: "flowseer-device-test"
+  cluster_urls: "ws://127.0.0.1:%d"
+}
+`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, busPort)
+
+	cfg, err := host.LoadConfig(writeConfig(t, body))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	apiBound := make(chan string, 1)
+	hubChan := make(chan *edgebus.Hub, 1)
+	options := host.Options{
+		Bound: func(api string) {
+			select {
+			case apiBound <- api:
+			default:
+			}
+		},
+		Hub: func(hub *edgebus.Hub) {
+			select {
+			case hubChan <- hub:
+			default:
+			}
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- host.Run(ctx, cfg, "test", options) }()
+
+	select {
+	case <-apiBound:
+	case err := <-done:
+		t.Fatalf("the service stopped before it bound its API listener: %v", err)
+	case <-time.After(30 * time.Second):
+		t.Fatal("the service did not report a bound API address within thirty seconds")
+	}
+
+	var h *edgebus.Hub
+	select {
+	case h = <-hubChan:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the service did not report its hub within five seconds")
+	}
+
+	edgesKV, err := h.JetStream().KeyValue(context.Background(), edgebus.EdgeBucket)
+	if err != nil {
+		t.Fatalf("open edge bucket: %v", err)
+	}
+
+	store := edgestore.New(edgesKV)
+	tenantID, err := store.TenantForEdge(context.Background(), testEdgeID)
+	if err != nil {
+		t.Fatalf("TenantForEdge: %v", err)
+	}
+	if tenantID != "" {
+		t.Fatalf("registry edge %q has tenant index %q, want none", testEdgeID, tenantID)
 	}
 }

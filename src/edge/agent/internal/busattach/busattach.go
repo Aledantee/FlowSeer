@@ -95,7 +95,7 @@ func Attach(ctx context.Context, client Attacher, cfg Config) (_ *Attachment, er
 		return nil, errs.From(err).Code(ErrCodeAttach).Msg("attach to the bus")
 	}
 
-	tenantID, err := edgebus.TenantFromSubjects(response.Msg.GetSubjects())
+	tenantID, err := edgebus.TenantFromSubjects(cfg.EdgeID, response.Msg.GetSubjects())
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeAttach).Msg("resolve tenant from bus attach subjects")
 	}

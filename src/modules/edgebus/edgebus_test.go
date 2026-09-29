@@ -84,6 +84,7 @@ func startLeafWith(t *testing.T, dir, url, id string, creds edgebus.EdgeCredenti
 	leaf, err := edgebus.StartLeaf(context.Background(), edgebus.LeafConfig{
 		StateDir:        dir,
 		EdgeID:          id,
+		Tenant:          edgebus.DefaultTenant,
 		HubURLs:         []string{url},
 		CredentialsFile: secret.New(credsFileFor(t, creds)),
 		FsyncPolicy:     service.BusFsyncPeriodic,
@@ -112,7 +113,7 @@ func TestUndeclaredFsyncPolicyRefusesStart(t *testing.T) {
 	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodeConfig {
 		t.Fatalf("hub without a policy: err=%v code=%q", err, code)
 	}
-	_, err = edgebus.StartLeaf(context.Background(), edgebus.LeafConfig{StateDir: t.TempDir(), EdgeID: edgeID, HubURLs: []string{"ws://127.0.0.1:1"}})
+	_, err = edgebus.StartLeaf(context.Background(), edgebus.LeafConfig{StateDir: t.TempDir(), EdgeID: edgeID, Tenant: edgebus.DefaultTenant, HubURLs: []string{"ws://127.0.0.1:1"}})
 	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodeConfig {
 		t.Fatalf("leaf without a policy: err=%v code=%q", err, code)
 	}
@@ -131,6 +132,7 @@ func TestLeafNarrowsAnExistingCredentialsFile(t *testing.T) {
 	_, _ = edgebus.StartLeaf(context.Background(), edgebus.LeafConfig{
 		StateDir:        dir,
 		EdgeID:          edgeID,
+		Tenant:          edgebus.DefaultTenant,
 		HubURLs:         []string{"://"},
 		CredentialsFile: secret.New([]byte("new credentials")),
 		FsyncPolicy:     service.BusFsyncPeriodic,
@@ -875,5 +877,122 @@ func TestLeafPublishesUnderAssignedTenant(t *testing.T) {
 	})
 	if got := c.received("/v1/metrics")[0]; !bytes.Equal(got, body) {
 		t.Fatalf("forwarded body = %x, want %x", got, body)
+	}
+}
+
+func TestTenantFromSubjects(t *testing.T) {
+	const (
+		validEdgeID = "0192e6a0-0000-7000-8000-0000000000ed"
+		validTenant = "0192e6a0-0000-7000-8000-0000000000c1"
+	)
+
+	tests := []struct {
+		name       string
+		edgeID     string
+		subjects   map[string]string
+		wantTenant string
+		wantErr    bool
+	}{
+		{
+			name:     "empty map",
+			edgeID:   validEdgeID,
+			subjects: map[string]string{},
+			wantErr:  true,
+		},
+		{
+			name:   "malformed short subject",
+			edgeID: validEdgeID,
+			subjects: map[string]string{
+				"otel.logs": "flowseer.default.edge",
+			},
+			wantErr: true,
+		},
+		{
+			name:   "malformed wrong prefix",
+			edgeID: validEdgeID,
+			subjects: map[string]string{
+				"otel.logs": "other.default.edge." + validEdgeID + ".otel.logs",
+			},
+			wantErr: true,
+		},
+		{
+			name:   "malformed wrong middle segment",
+			edgeID: validEdgeID,
+			subjects: map[string]string{
+				"otel.logs": "flowseer.default.device." + validEdgeID + ".otel.logs",
+			},
+			wantErr: true,
+		},
+		{
+			name:   "foreign edge id",
+			edgeID: validEdgeID,
+			subjects: map[string]string{
+				"otel.logs": "flowseer." + validTenant + ".edge.0192e6a0-0000-7000-8000-0000000000ee.otel.logs",
+			},
+			wantErr: true,
+		},
+		{
+			name:   "upper case UUID tenant",
+			edgeID: validEdgeID,
+			subjects: map[string]string{
+				"otel.logs": "flowseer.0192E6A0-0000-7000-8000-0000000000C1.edge." + validEdgeID + ".otel.logs",
+			},
+			wantErr: true,
+		},
+		{
+			name:   "mismatched tenants",
+			edgeID: validEdgeID,
+			subjects: map[string]string{
+				"otel.logs":    "flowseer." + validTenant + ".edge." + validEdgeID + ".otel.logs",
+				"otel.metrics": "flowseer.default.edge." + validEdgeID + ".otel.metrics",
+			},
+			wantErr: true,
+		},
+		{
+			name:       "valid default tenant",
+			edgeID:     validEdgeID,
+			subjects:   edgebus.EdgePublishSubjects(edgebus.DefaultTenant, validEdgeID),
+			wantTenant: edgebus.DefaultTenant,
+		},
+		{
+			name:       "valid UUID tenant",
+			edgeID:     validEdgeID,
+			subjects:   edgebus.EdgePublishSubjects(validTenant, validEdgeID),
+			wantTenant: validTenant,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := edgebus.TenantFromSubjects(tc.edgeID, tc.subjects)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("TenantFromSubjects() error = %v, wantErr %v", err, tc.wantErr)
+			}
+			if !tc.wantErr && got != tc.wantTenant {
+				t.Errorf("TenantFromSubjects() = %q, want %q", got, tc.wantTenant)
+			}
+		})
+	}
+}
+
+func TestStartLeafRefusesEmptyAndInvalidTenant(t *testing.T) {
+	cfg := edgebus.LeafConfig{
+		StateDir:        t.TempDir(),
+		EdgeID:          edgeID,
+		HubURLs:         []string{"ws://127.0.0.1:1"},
+		CredentialsFile: secret.New([]byte("creds")),
+		FsyncPolicy:     service.BusFsyncPeriodic,
+	}
+
+	cfg.Tenant = ""
+	_, err := edgebus.StartLeaf(context.Background(), cfg)
+	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodeConfig {
+		t.Fatalf("StartLeaf with empty tenant: err=%v, code=%q, want ErrCodeConfig", err, code)
+	}
+
+	cfg.Tenant = "invalid-tenant"
+	_, err = edgebus.StartLeaf(context.Background(), cfg)
+	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodeConfig {
+		t.Fatalf("StartLeaf with invalid tenant: err=%v, code=%q, want ErrCodeConfig", err, code)
 	}
 }

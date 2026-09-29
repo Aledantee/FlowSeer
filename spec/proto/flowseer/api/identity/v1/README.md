@@ -1,7 +1,8 @@
 # Tenant administration
 
 The `flowseer.api.identity.v1` package holds `TenantService`, the Connect
-service an operator calls to create, retrieve, and list tenants. The Tenant
+service an operator calls to create, retrieve, and list tenants. The service
+is defined here, but no host serves it until caller authentication lands. The Tenant
 entity itself, its ref pair, lifecycle, config, and record live in
 [`model/identity/v1`](../../../model/identity/v1/README.md), which this
 package imports and returns as `TenantRecord` from every call that hands

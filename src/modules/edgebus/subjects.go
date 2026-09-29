@@ -101,10 +101,10 @@ func belongsToEdge(tenant, edgeID, subject string) bool {
 }
 
 // TenantFromSubject parses and validates the tenant identifier from an edge subject
-// shaped flowseer.<tenant>.edge.<edgeID>...
-func TenantFromSubject(subject string) (string, error) {
+// shaped flowseer.<tenant>.edge.<edgeID>... scoped to edgeID.
+func TenantFromSubject(subject, edgeID string) (string, error) {
 	parts := strings.Split(subject, ".")
-	if len(parts) < 4 || parts[0] != "flowseer" || parts[2] != "edge" {
+	if len(parts) < 4 || parts[0] != "flowseer" || parts[2] != "edge" || parts[3] != edgeID {
 		return "", errs.New().Code(ErrCodeConfig).Attr("subject", subject).
 			Msg("malformed edge subject: expected flowseer.<tenant>.edge.<edgeID>...")
 	}
@@ -117,14 +117,14 @@ func TenantFromSubject(subject string) (string, error) {
 
 // TenantFromSubjects parses and validates the tenant identifier from a map of
 // edge publish subjects (e.g. returned by AttachBus), ensuring all subjects agree
-// on the tenant.
-func TenantFromSubjects(subjects map[string]string) (string, error) {
+// on the tenant and are scoped to edgeID.
+func TenantFromSubjects(edgeID string, subjects map[string]string) (string, error) {
 	if len(subjects) == 0 {
 		return "", errs.New().Code(ErrCodeConfig).Msg("empty subjects map")
 	}
 	var resolved string
 	for _, subject := range subjects {
-		t, err := TenantFromSubject(subject)
+		t, err := TenantFromSubject(subject, edgeID)
 		if err != nil {
 			return "", err
 		}

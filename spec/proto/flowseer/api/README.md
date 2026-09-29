@@ -29,4 +29,4 @@ so no schema in the tree may import one.
 - `capture/v1/`: Operator-facing `CaptureService` to create, control, and read back a capture.
 - `device/v1/`: Operator-facing `DeviceService` for immediate device observation and mutation.
 - `edge/v1/`: Operator-facing `EdgeAdminService` to create, provision, and retire edges.
-- `identity/v1/`: Operator-facing `TenantService` to create, retrieve, and list tenants.
+- `identity/v1/`: Operator-facing `TenantService` to create, retrieve, and list tenants; defined, but no host serves it until caller authentication lands.

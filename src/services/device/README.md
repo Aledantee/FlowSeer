@@ -178,6 +178,13 @@ device-scoped by design and is not that trail; the operator authorization
 record's [Actions leave a trail](../../../docs/architecture/2026-09-28-operator-authorization-direction.md#actions-leave-a-trail)
 section decides the trail that closes this gap.
 
+Operator calls run as `dev_tenant` (or `default` when unset, `serve.go:68-76`).
+An edge belongs to the tenant that created it (the `edge_<id>` index). Restarting
+central with a different `dev_tenant` makes existing edges, capture sessions,
+and lanes `NotFound` to operators, while drift and dispatch continue under each
+edge's tenant. `platform_admin` is validated in configuration but not yet
+enforced.
+
 The edge-facing services — `EdgeService`, `DispatchService`, `AuditService`,
 `CaptureEdgeService` — are verified: every call carries a fresh assertion
 signed by the key central registered at enrollment, checked against the request

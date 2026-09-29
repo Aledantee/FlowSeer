@@ -1,10 +1,12 @@
 package busattach_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"math/big"
@@ -122,12 +124,55 @@ func selfSigned(t *testing.T) (der, digest []byte) {
 	return der, edgebus.SPKIDigest(parsed)
 }
 
+func selfSignedServer(t *testing.T) (*tls.Config, []byte) {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "127.0.0.1"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create certificate: %v", err)
+	}
+	parsed, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("parse certificate: %v", err)
+	}
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{{
+			Certificate: [][]byte{der},
+			PrivateKey:  key,
+		}},
+	}
+	return tlsConfig, edgebus.SPKIDigest(parsed)
+}
+
+func waitFor(t *testing.T, what string, timeout time.Duration, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s", what)
+}
+
 func TestAttachConfiguresLeafWithTenantFromAttachBusSubjects(t *testing.T) {
 	ctx := context.Background()
 	hubDir := t.TempDir()
+	serverTLS, anchor := selfSignedServer(t)
 	hub, err := edgebus.StartHub(ctx, edgebus.HubConfig{
 		StateDir:    hubDir,
-		ListenPort:  0,
+		ListenPort:  -1,
+		TLS:         serverTLS,
 		FsyncPolicy: service.BusFsyncPeriodic,
 	})
 	if err != nil {
@@ -163,7 +208,7 @@ func TestAttachConfiguresLeafWithTenantFromAttachBusSubjects(t *testing.T) {
 	attachment, err := busattach.Attach(ctx, client, busattach.Config{
 		StateDir:     t.TempDir(),
 		EdgeID:       edgeID,
-		TrustAnchors: [][]byte{make([]byte, 32)},
+		TrustAnchors: [][]byte{anchor},
 	})
 	if err != nil {
 		t.Fatalf("Attach: %v", err)
@@ -174,5 +219,26 @@ func TestAttachConfiguresLeafWithTenantFromAttachBusSubjects(t *testing.T) {
 	wantSubject := edgebus.OTelSubject(customTenant, edgeID, edgebus.SignalMetrics)
 	if gotSubject != wantSubject {
 		t.Errorf("leaf OTelSubject = %q, want %q", gotSubject, wantSubject)
+	}
+
+	stream, err := hub.EdgeStream(ctx, edgeID)
+	if err != nil {
+		t.Fatalf("hub.EdgeStream: %v", err)
+	}
+	payload := []byte("telemetry-metrics-body")
+	if err := attachment.Leaf.Publish(ctx, gotSubject, payload, ""); err != nil {
+		t.Fatalf("leaf publish: %v", err)
+	}
+
+	waitFor(t, "record reaches hub", 10*time.Second, func() bool {
+		info, err := stream.Info(ctx)
+		return err == nil && info.State.Msgs >= 1
+	})
+	msg, err := stream.GetLastMsgForSubject(ctx, wantSubject)
+	if err != nil {
+		t.Fatalf("GetLastMsgForSubject: %v", err)
+	}
+	if !bytes.Equal(msg.Data, payload) {
+		t.Fatalf("msg.Data = %q, want %q", msg.Data, payload)
 	}
 }

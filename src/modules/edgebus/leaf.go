@@ -31,8 +31,9 @@ type LeafConfig struct {
 	// EdgeID is the edge's own id; it names the JetStream domain and the
 	// subject subtree.
 	EdgeID string
-	// Tenant is the account the credential was minted in. Empty means
-	// DefaultTenant.
+	// Tenant is the subject-tree token the hub scoped the edge's permissions
+	// to. Must be a valid tenant identifier (a canonical lowercase UUID or
+	// DefaultTenant); empty is rejected.
 	Tenant string
 	// HubURLs are the hub listeners to dial, in preference order.
 	HubURLs []string
@@ -106,13 +107,13 @@ func StartLeaf(ctx context.Context, cfg LeafConfig) (_ *Leaf, err error) {
 	if len(cfg.HubURLs) == 0 {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("leaf needs at least one hub url")
 	}
-	tenantID := cfg.Tenant
-	if tenantID == "" {
-		tenantID = DefaultTenant
+	if cfg.Tenant == "" {
+		return nil, errs.New().Code(ErrCodeConfig).Msg("leaf needs the tenant identifier")
 	}
-	if err := tenant.Validate(tenantID); err != nil {
+	if err := tenant.Validate(cfg.Tenant); err != nil {
 		return nil, errs.From(err).Code(ErrCodeConfig).Msg("validate leaf tenant")
 	}
+	tenantID := cfg.Tenant
 	var fsync server.Options
 	if err := applyFsync(&fsync, cfg.FsyncPolicy, cfg.FsyncInterval); err != nil {
 		return nil, err
