@@ -97,49 +97,6 @@ func (s *Store) Create(ctx context.Context, config *identityv1.TenantConfig) (*i
 	}
 	tenantID := config.GetRef().GetTenant().GetId()
 
-	orgKey := OrgIndexKey(config.GetIssuer(), config.GetOrganizationClaimValue())
-	// Create secondary index first to claim the (issuer, org) pair.
-	var claimRev uint64
-	rev, err := s.kv.Create(ctx, orgKey, []byte(tenantID))
-	if err != nil {
-		if errors.Is(err, jetstream.ErrKeyExists) {
-			entry, getErr := s.kv.Get(ctx, orgKey)
-			if getErr != nil {
-				return nil, errs.From(getErr).Code(ErrCodeStore).Msg("read organization index")
-			}
-			existingTenantID := string(entry.Value())
-			existingRec, getRecErr := s.Get(ctx, existingTenantID)
-			if getRecErr != nil {
-				return nil, getRecErr
-			}
-			hasValidRecord := existingRec != nil &&
-				existingRec.GetConfig().GetIssuer() == config.GetIssuer() &&
-				existingRec.GetConfig().GetOrganizationClaimValue() == config.GetOrganizationClaimValue()
-			if hasValidRecord {
-				return nil, errs.New().Code(ErrCodeAlreadyExists).
-					Attr("issuer", config.GetIssuer()).
-					Attr("organization", config.GetOrganizationClaimValue()).
-					Msg("tenant with organization already exists")
-			}
-			if time.Since(entry.Created()) <= 2*s.rollbackTimeout {
-				return nil, errs.New().Code(ErrCodeConflict).
-					Attr("issuer", config.GetIssuer()).
-					Attr("organization", config.GetOrganizationClaimValue()).
-					Msg("concurrent tenant registration in progress")
-			}
-			// Orphaned index: the tenant it names has no matching record and the claim has expired. Take it over with CAS.
-			var updateErr error
-			claimRev, updateErr = s.kv.Update(ctx, orgKey, []byte(tenantID), entry.Revision())
-			if updateErr != nil {
-				return nil, errs.From(updateErr).Code(ErrCodeStore).Msg("take over organization index")
-			}
-		} else {
-			return nil, errs.From(err).Code(ErrCodeStore).Msg("write organization index")
-		}
-	} else {
-		claimRev = rev
-	}
-
 	active := identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE
 	state := identityv1.TenantState_builder{
 		Ref:       config.GetRef(),
@@ -154,25 +111,78 @@ func (s *Store) Create(ctx context.Context, config *identityv1.TenantConfig) (*i
 
 	data, err := proto.Marshal(record)
 	if err != nil {
-		rbErr := s.rollbackDelete(ctx, orgKey, claimRev)
-		retErr := errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("encode tenant record")
-		return nil, errors.Join(retErr, rbErr)
+		return nil, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("encode tenant record")
 	}
 
 	recCtx, recCancel := context.WithTimeout(context.WithoutCancel(ctx), s.rollbackTimeout)
 	defer recCancel()
 
-	if _, err := s.kv.Create(recCtx, tenantID, data); err != nil {
-		rbErr := s.rollbackDelete(ctx, orgKey, claimRev)
+	recRev, err := s.kv.Create(recCtx, tenantID, data)
+	if err != nil {
 		if errors.Is(err, jetstream.ErrKeyExists) {
-			retErr := errs.New().Code(ErrCodeAlreadyExists).Attr("tenant", tenantID).Msg("tenant already exists")
-			return nil, errors.Join(retErr, rbErr)
+			return nil, errs.New().Code(ErrCodeAlreadyExists).Attr("tenant", tenantID).Msg("tenant already exists")
 		}
-		retErr := errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("write tenant record")
-		return nil, errors.Join(retErr, rbErr)
+		return nil, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("write tenant record")
 	}
 
-	return record, nil
+	orgKey := OrgIndexKey(config.GetIssuer(), config.GetOrganizationClaimValue())
+	for {
+		if ctx.Err() != nil {
+			rbErr := s.rollbackDelete(ctx, tenantID, recRev)
+			retErr := errs.From(ctx.Err()).Code(ErrCodeStore).Msg("context deadline exceeded committing index")
+			return nil, errors.Join(retErr, rbErr)
+		}
+
+		_, err := s.kv.Create(ctx, orgKey, []byte(tenantID))
+		if err == nil {
+			return record, nil
+		}
+		if !errors.Is(err, jetstream.ErrKeyExists) {
+			rbErr := s.rollbackDelete(ctx, tenantID, recRev)
+			retErr := errs.From(err).Code(ErrCodeStore).Msg("write organization index")
+			return nil, errors.Join(retErr, rbErr)
+		}
+
+		entry, getErr := s.kv.Get(ctx, orgKey)
+		if getErr != nil {
+			if errors.Is(getErr, jetstream.ErrKeyNotFound) {
+				continue
+			}
+			rbErr := s.rollbackDelete(ctx, tenantID, recRev)
+			retErr := errs.From(getErr).Code(ErrCodeStore).Msg("read organization index")
+			return nil, errors.Join(retErr, rbErr)
+		}
+
+		existingTenantID := string(entry.Value())
+		existingRec, getRecErr := s.Get(ctx, existingTenantID)
+		if getRecErr != nil {
+			rbErr := s.rollbackDelete(ctx, tenantID, recRev)
+			return nil, errors.Join(getRecErr, rbErr)
+		}
+
+		hasValidRecord := existingRec != nil &&
+			existingRec.GetConfig().GetIssuer() == config.GetIssuer() &&
+			existingRec.GetConfig().GetOrganizationClaimValue() == config.GetOrganizationClaimValue()
+		if hasValidRecord {
+			rbErr := s.rollbackDelete(ctx, tenantID, recRev)
+			retErr := errs.New().Code(ErrCodeAlreadyExists).
+				Attr("issuer", config.GetIssuer()).
+				Attr("organization", config.GetOrganizationClaimValue()).
+				Msg("tenant with organization already exists")
+			return nil, errors.Join(retErr, rbErr)
+		}
+
+		_, updateErr := s.kv.Update(ctx, orgKey, []byte(tenantID), entry.Revision())
+		if updateErr == nil {
+			return record, nil
+		}
+		if errors.Is(updateErr, jetstream.ErrKeyNotFound) || errors.Is(updateErr, jetstream.ErrKeyRevisionMismatch) {
+			continue
+		}
+		rbErr := s.rollbackDelete(ctx, tenantID, recRev)
+		retErr := errs.From(updateErr).Code(ErrCodeStore).Msg("take over organization index")
+		return nil, errors.Join(retErr, rbErr)
+	}
 }
 
 // Get returns the stored tenant record for tenantID, or nil if no record exists.

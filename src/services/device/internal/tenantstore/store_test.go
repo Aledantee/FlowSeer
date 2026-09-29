@@ -3,6 +3,8 @@ package tenantstore_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -369,10 +371,7 @@ func TestOrphanedOrgIndexTakeover(t *testing.T) {
 		t.Fatalf("create orphaned index: %v", err)
 	}
 
-	// Wait until index is older than 2*rollbackTimeout
-	time.Sleep(30 * time.Millisecond)
-
-	// Create with newID should detect ghostID has no record, take over org index, and succeed
+	// Create immediately with newID without waiting: should detect ghostID has no record, take over org index clock-free, and succeed
 	rec, err := s.Create(ctx, sampleTenantConfig(newID, org))
 	if err != nil {
 		t.Fatalf("Create with orphaned index: %v", err)
@@ -390,67 +389,103 @@ func TestOrphanedOrgIndexTakeover(t *testing.T) {
 	}
 }
 
-func TestConcurrentClaimWithinBoundRefused(t *testing.T) {
-	s, kv := newStoreWithKV(t)
+func TestRollbackDeletesPrimaryRecordWhenOrgOwned(t *testing.T) {
+	s := newStore(t)
 	ctx := context.Background()
 	const (
-		ghostID = "0192e6a0-0000-7000-8000-000000000052"
-		newID   = "0192e6a0-0000-7000-8000-000000000053"
-		org     = "org-concurrent-bound"
+		id1 = "0192e6a0-0000-7000-8000-000000000055"
+		id2 = "0192e6a0-0000-7000-8000-000000000056"
+		org = "org-rollback-active"
 	)
 
-	orgKey := tenantstore.OrgIndexKey(defaultIssuer, org)
-	if _, err := kv.Create(ctx, orgKey, []byte(ghostID)); err != nil {
-		t.Fatalf("create index: %v", err)
-	}
-
-	// Immediate Create for the same org must be refused as conflict, not taken over
-	_, err := s.Create(ctx, sampleTenantConfig(newID, org))
-	if err == nil {
-		t.Fatal("Create within rollback bound succeeded, want conflict")
-	}
-	if code, _ := errs.CodeOf(err); code != tenantstore.ErrCodeConflict {
-		t.Fatalf("got code %v, want %v", code, tenantstore.ErrCodeConflict)
-	}
-
-	entry, err := kv.Get(ctx, orgKey)
+	// First tenant succeeds and claims the org.
+	_, err := s.Create(ctx, sampleTenantConfig(id1, org))
 	if err != nil {
-		t.Fatalf("get orgKey: %v", err)
+		t.Fatalf("first Create: %v", err)
 	}
-	if string(entry.Value()) != ghostID {
-		t.Fatalf("index value was modified: got %q, want %q", string(entry.Value()), ghostID)
+
+	// Second tenant with same org fails with ErrCodeAlreadyExists.
+	_, err = s.Create(ctx, sampleTenantConfig(id2, org))
+	if err == nil {
+		t.Fatal("second Create with same org succeeded, want error")
+	}
+	if code, _ := errs.CodeOf(err); code != tenantstore.ErrCodeAlreadyExists {
+		t.Fatalf("got code %v, want %v", code, tenantstore.ErrCodeAlreadyExists)
+	}
+
+	// Verify rollback: second tenant's primary record was deleted from the store.
+	rec, err := s.Get(ctx, id2)
+	if err != nil {
+		t.Fatalf("Get id2: %v", err)
+	}
+	if rec != nil {
+		t.Fatalf("expected rolled-back tenant %s to be deleted, got %v", id2, rec)
 	}
 }
 
-func TestRollbackDoesNotDeleteNewerClaim(t *testing.T) {
-	_, kv := newStoreWithKV(t)
+func TestConcurrentCreateOrgConflictSettlement(t *testing.T) {
+	s := newStore(t)
 	ctx := context.Background()
-	const (
-		id2 = "0192e6a0-0000-7000-8000-000000000055"
-		org = "org-rollback-newer"
-	)
+	const org = "org-concurrent-compete"
+	const concurrency = 8
 
-	orgKey := tenantstore.OrgIndexKey(defaultIssuer, org)
-	rev1, err := kv.Create(ctx, orgKey, []byte("claim-c1"))
-	if err != nil {
-		t.Fatalf("create rev1: %v", err)
-	}
-	if _, err := kv.Update(ctx, orgKey, []byte(id2), rev1); err != nil {
-		t.Fatalf("update to rev2: %v", err)
+	ids := make([]string, concurrency)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("0192e6a0-0000-7000-8000-%012d", 70+i)
 	}
 
-	// Attempting rollback with stale rev1 must not delete the newer claim at rev2
-	err = kv.Delete(ctx, orgKey, jetstream.LastRevision(rev1))
-	if err == nil {
-		t.Fatal("Delete with stale LastRevision succeeded, want error")
+	var wg sync.WaitGroup
+	errsCh := make(chan error, concurrency)
+	succCh := make(chan string, concurrency)
+
+	for _, id := range ids {
+		wg.Add(1)
+		go func(tenantID string) {
+			defer wg.Done()
+			_, err := s.Create(ctx, sampleTenantConfig(tenantID, org))
+			if err != nil {
+				errsCh <- err
+			} else {
+				succCh <- tenantID
+			}
+		}(id)
+	}
+	wg.Wait()
+	close(errsCh)
+	close(succCh)
+
+	var winner string
+	winners := 0
+	for id := range succCh {
+		winner = id
+		winners++
+	}
+	if winners != 1 {
+		t.Fatalf("expected exactly 1 winner, got %d", winners)
 	}
 
-	entry, err := kv.Get(ctx, orgKey)
-	if err != nil {
-		t.Fatalf("expected orgKey to still exist: %v", err)
+	for err := range errsCh {
+		if code, _ := errs.CodeOf(err); code != tenantstore.ErrCodeAlreadyExists {
+			t.Errorf("expected ErrCodeAlreadyExists for loser, got %v", err)
+		}
 	}
-	if string(entry.Value()) != id2 {
-		t.Fatalf("orgKey value = %q, want %q", string(entry.Value()), id2)
+
+	// Verify winner's record exists and losers have no orphaned primary records
+	for _, id := range ids {
+		rec, err := s.Get(ctx, id)
+		if err != nil {
+			t.Errorf("Get(%s): %v", id, err)
+			continue
+		}
+		if id == winner {
+			if rec == nil {
+				t.Errorf("winner %s has nil record", id)
+			}
+		} else {
+			if rec != nil {
+				t.Errorf("loser %s has orphaned primary record: %v", id, rec)
+			}
+		}
 	}
 }
 
