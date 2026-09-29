@@ -4,13 +4,13 @@ type: docs
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 ---
 
 # Package Guarantees - Plan
 
-> Implemented. 7 units, 2026-09-28T19:09:14Z to 2026-09-29T16:44:30Z.
+> Implemented. 8 units, 2026-09-28T19:09:14Z to 2026-09-29T19:06:09Z.
 > Pilot outcome: 4 of 7 README contracts were proved by existing tests as-is,
 > 2 needed a new test (session closure on peer disconnection and prompt
 > earliest-match: TestScanPromptEarliestMatchAndTieOrder and
@@ -30,6 +30,14 @@ execution: mixed
 > and a Go token scanner validating test signatures (rejecting packages with
 > invalid Test signatures). Obsolete Python checker scripts were removed and
 > verify-change was updated to invoke the Go checker.
+> Inline allowlist outcome: HTML rendering and tag stripping were removed in favor
+> of an inline allowlist evaluated directly on the goldmark AST (allowing text,
+> line breaks, code spans, and emphasis; rejecting raw HTML, images, links, and
+> autolinks). Visible text is derived by decoding entity references and
+> punctuation escapes in non-raw text and normalizing code span newlines to spaces.
+> Test citation line tracking in parseProvedByParagraph preserves segment search
+> positions across entity citations so subsequent missing tests report their own
+> source lines.
 
 ## Goal
 
@@ -773,22 +781,22 @@ Then rename `TestRunOutputCapTruncates` in
 - [x] `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
       state CommonMark block rules and `tools/check-guarantees` invocation.
 - [x] `src/protocol/ssh/GUARANTEES.md` passes under the new checker.
-- [ ] Inline allowlist implemented in `tools/check-guarantees/check.go`: counted blocks
+- [x] Inline allowlist implemented in `tools/check-guarantees/check.go`: counted blocks
       allow only text, line breaks, code spans, and emphasis; raw HTML, images, links,
       and autolinks fail closed with `<path>:<line>: unknown inline kind: <kind>`.
-- [ ] `extractVisibleText` and `stripHTMLTags` and renderer usage removed from
+- [x] `extractVisibleText` and `stripHTMLTags` and renderer usage removed from
       `tools/check-guarantees/check.go`.
-- [ ] Regression tests added in `tools/check-guarantees/check_test.go` proving rejection
+- [x] Regression tests added in `tools/check-guarantees/check_test.go` proving rejection
       of image alt text with hard break + MUST, hidden THEN in image alt, raw HTML
       comment containing MUST, and link in normative sentence.
-- [ ] Low findings closed: `parseProvedByParagraph` citation line tracking fixed for
+- [x] Low findings closed: `parseProvedByParagraph` citation line tracking fixed for
       entity citations, and `TestVerifyChangeBuildWrappedInRun` removed from
       `tools/check-guarantees/check_test.go`.
-- [ ] `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
+- [x] `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
       state inline allowlist rules and AST visible text derivation.
-- [ ] `src/protocol/ssh/GUARANTEES.md` conforms and passes.
-- [ ] Verifier green for every changed path in U8.
-- [ ] No plan labels in code, scripts, or skill text.
+- [x] `src/protocol/ssh/GUARANTEES.md` conforms and passes.
+- [x] Verifier green for every changed path in U8.
+- [x] No plan labels in code, scripts, or skill text.
 
 ## Open questions
 

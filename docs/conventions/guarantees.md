@@ -77,12 +77,12 @@ Within each guarantee section, exactly three blocks must appear in order:
    and invalid identifiers fail.
 
 All text evaluations (headings, normative MUST/MUST NOT clauses, WHEN/THEN clauses,
-and `Proved by:` test citations) inspect rendered CommonMark text (HTML rendering with
-tags stripped and character entities unescaped). Incomplete entities like `&amp`
-without a semicolon remain literal. Image subtrees are skipped, so image alt
-text cannot satisfy a MUST or THEN clause (`It is ![MUST](https://example.com/x.png)` is
-non-normative). Raw HTML tags and comments are skipped, so hidden markup cannot
-satisfy or hide a clause.
+and `Proved by:` test citations) inspect visible text derived directly from
+allowed CommonMark AST inline nodes: text (with HTML entity references and
+backslash-escaped punctuation decoded), soft and hard line breaks, code spans
+(with newlines normalized to single spaces), and emphasis. Every other inline
+node kind (raw HTML, images, links, autolinks, and extensions) fails closed with
+an unknown inline kind error. No HTML rendering or tag stripping is performed.
 
 Any block kind outside this grammar fails closed with `unknown block kind`:
 fenced code blocks, indented code blocks, thematic breaks, block quotes, HTML
