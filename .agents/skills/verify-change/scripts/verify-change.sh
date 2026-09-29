@@ -483,7 +483,7 @@ if [[ $proto == true ]]; then
   required_tools+=(buf)
 fi
 if [[ $hook_tooling == true ]]; then
-  required_tools+=(jq shellcheck)
+  required_tools+=(jq shellcheck go)
 fi
 if [[ $web == true ]]; then
   required_tools+=(node)
@@ -851,9 +851,8 @@ if [[ $hook_tooling == true ]]; then
   need_tool shellcheck
   run jq empty .claude/settings.json
   run jq empty .codex/hooks.json
-  # Glob every skill's scripts rather than naming the ones that existed
-  # when this line was written: a shell script added to any other skill
-  # would otherwise ship unlinted while still selecting this gate.
+  # Glob every skill's scripts so a shell script added to any skill is
+  # linted without editing this line.
   hook_scripts=(tools/hooks/*.sh tools/hooks/tests/*.sh tools/test/*.sh .claude/skills/*/scripts/*.sh)
   run shellcheck "${hook_scripts[@]}"
   if [[ -x tools/hooks/tests/run.sh ]]; then
@@ -862,10 +861,11 @@ if [[ $hook_tooling == true ]]; then
   # A skill script with no test_*.py beside it (plan-deviations.py,
   # plan-queue.py) is imported by nothing, so a syntax error in one passes
   # the shellcheck and unittest gates below. Compiling every skill script
-  # parses each; the set is tiny. -X pycache_prefix sends the bytecode to
+  # parses each; the set is tiny. -Xpycache_prefix sends the bytecode to
   # the throwaway build dir: PYTHONDONTWRITEBYTECODE does not stop
-  # py_compile from writing a __pycache__ beside the source.
-  run python3 -X "pycache_prefix=$build_dir/pycache" -m py_compile .claude/skills/*/scripts/*.py
+  # py_compile from writing a __pycache__ beside the source. The flag is
+  # attached so the gate label stays `python3 py_compile`.
+  run python3 -X"pycache_prefix=$build_dir/pycache" -m py_compile .claude/skills/*/scripts/*.py
   for test_dir in .claude/skills/*/scripts; do
     test_files=("$test_dir"/test_*.py)
     [[ -f ${test_files[0]} ]] || continue
