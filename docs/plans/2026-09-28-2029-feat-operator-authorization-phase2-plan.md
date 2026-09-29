@@ -3,7 +3,7 @@ title: Operator Authorization Phase 2, Tenant Entity and Partitioned Stores - Pl
 type: feat
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
+artifact_readiness: needs-decisions
 status: implemented
 review: rework
 execution: mixed
@@ -46,6 +46,26 @@ removes the requirement for multi-tenancy or moves tenant identity out of
 
 The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-direction.md`
 (accepted 2026-09-28) apply. These are this phase's own:
+
+- The user decided on 2026-09-30 that the one-tenant-per-organization claim
+  stays in this phase and follows prior art instead of a hand-built
+  two-key protocol. The prior art is the multi-key conditional commit:
+  etcd's `Txn` comparing each key's `CreateRevision` to 0, and DynamoDB's
+  `TransactWriteItems` with a separate uniqueness item. NATS has the same
+  primitive from server 2.12, atomic batch publish (ADR-50): a batch of
+  messages commits to a stream all or none, and each message may carry
+  `Nats-Expected-Last-Subject-Sequence` for its own subject. A KV bucket is
+  a stream (`KV_tenants`, subjects `$KV.tenants.<key>`), and `go.mod` pins
+  nats-server v2.14.6 and nats.go v1.53.1, whose `StreamConfig` has
+  `AllowAtomicPublish`. So `Create` writes the tenant record and its `org_`
+  index key in one atomic batch, each with an expected last subject
+  sequence of 0 (or the delete marker's revision), on a bucket with
+  `AllowAtomicPublish` set. Either both keys exist or neither does, so no
+  rollback, stale-claim takeover, or ownership read remains. A retry that
+  finds the keys present compares the stored config and reports success or
+  `AlreadyExists`. Client side, `github.com/synadia-io/orbit.go/jetstreamext`
+  (`PublishMsgBatch`) implements the ADR-50 headers; the ADR's header
+  protocol over core nats.go is the alternative, which the re-plan weighs.
 
 - The user decided on 2026-09-29 that the rework the review left open is a
   follow-up pass of this phase, not a move to phase 3. Its files widen to
@@ -932,16 +952,4 @@ Open, and the reason for the verdict:
 
 ## Open questions
 
-- Parked by drive: how does the tenant store enforce one tenant per
-  organization, after five review rounds failed the two-key claim?
-  Options: move the organization claim to phase 3, where token lookup is
-  its first reader; phase 2 keeps tenants keyed by id with no uniqueness
-  check (lands now; no production path creates tenants while
-  `TenantService` is unmounted) | collapse the claim to one atomic write:
-  the record lives under its organization key, created with KV create-only,
-  and id lookups go through a watch-fed map (fixes it here; another
-  implement and review cycle) | re-plan the two-key protocol with a state
-  space covering every KV call, fault, retry, and same-id contention (keeps
-  the shape; costliest, and the mechanism that keeps failing).
-  Recommended: move it to phase 3, because nothing reads the claim before
-  then and its design belongs with its reader.
+None.
