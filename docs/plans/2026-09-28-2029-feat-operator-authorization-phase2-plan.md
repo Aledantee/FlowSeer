@@ -3,7 +3,7 @@ title: Operator Authorization Phase 2, Tenant Entity and Partitioned Stores - Pl
 type: feat
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
+artifact_readiness: needs-decisions
 status: implemented
 review: rework
 execution: mixed
@@ -46,6 +46,17 @@ removes the requirement for multi-tenancy or moves tenant identity out of
 
 The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-direction.md`
 (accepted 2026-09-28) apply. These are this phase's own:
+
+- The user decided on 2026-09-29 that the rework the review left open is a
+  follow-up pass of this phase, not a move to phase 3. Its files widen to
+  the edge leaf (`src/edge/agent/internal/busattach`,
+  `src/modules/edgebus/leaf.go`) so that an edge enrolled under a UUID
+  tenant publishes under that tenant. The pass takes every open item in the
+  Review section, then implement and review run again.
+- The user decided on 2026-09-29 that `TenantService` is not mounted until
+  phase 3 authenticates callers. Tests and development create tenants
+  through the tenant store; no unauthenticated caller can create a tenant
+  or claim an organization.
 
 - The tenant entity replaces `model/inventory/v1/tenant.proto`: both its
   `TenantRef` and `Tenant` messages go, and nothing imports either. The file
@@ -615,22 +626,3 @@ Open, and the reason for the verdict:
 
 ## Open questions
 
-- Parked by drive: how does the rework the review left open get done?
-  Options: re-plan the open items as a follow-up pass of this phase,
-  widening its files to the edge leaf (`src/edge/agent/internal/busattach`,
-  `src/modules/edgebus/leaf.go`), then implement and review again (edges
-  under a UUID tenant work before this lands; one more implement and review
-  cycle) | accept this phase's review with the edge leaf tenant and the
-  `TenantService` gate moved to phase 3 (lands sooner; `main` carries edges
-  whose telemetry central refuses until phase 3). Recommended: the
-  follow-up pass, because the edge leaf gap breaks Requirement 3 for every
-  tenant but `default`, and the tenant store's index race is a correctness
-  bug in this phase's own files.
-- Parked by drive: is `TenantService` mounted before phase 3 authenticates
-  callers? Options: do not mount it until phase 3; tests and development
-  create tenants through the store (no unauthenticated way to create a
-  tenant or claim an organization) | mount it and list it among the
-  unauthenticated services in `src/services/device/README.md` (usable now;
-  anyone who reaches the API port can create tenants). Recommended: do not
-  mount it, because an open tenant-creation endpoint undoes the isolation
-  this phase builds.
