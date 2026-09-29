@@ -36,7 +36,7 @@ When Command.MorePattern matches accumulated output starting no later than the e
 
 - WHEN MorePattern matches in the output stream starting no later than the earliest prompt match THEN MoreKeystroke is sent to stdin and the matched marker is omitted from Result.Output.
 
-Proved by: TestRunPagination
+Proved by: TestRunPagination, TestRunPaginationBeatsLaterPrompt, TestScanPromptMoreWinsAtSameStart, TestScanPromptTable
 
 ## Output is capped with the true byte count kept
 

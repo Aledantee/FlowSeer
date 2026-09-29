@@ -321,6 +321,58 @@ func TestRunPagination(t *testing.T) {
 	}
 }
 
+func TestRunPaginationBeatsLaterPrompt(t *testing.T) {
+	t.Parallel()
+	keyResult := make(chan error, 1)
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readCommandLine(ch)
+		// The marker and this command's prompt arrive in one write, so
+		// the scan has both in its buffer and must answer the earlier
+		// marker rather than treat the prompt as the boundary.
+		_, _ = ch.Write([]byte("page one\r\n--More--\r\npage two\r\nswitch#"))
+		key := make([]byte, 1)
+		if _, err := io.ReadFull(ch, key); err != nil {
+			keyResult <- fmt.Errorf("read continuation keystroke: %w", err)
+			return
+		}
+		if key[0] != ' ' {
+			keyResult <- fmt.Errorf("continuation keystroke = %q, want %q", key, " ")
+			return
+		}
+		keyResult <- nil
+	})
+	s := dialSession(t, fs, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	res, err := s.Run(ctx, ssh.Command{
+		Line:          "show run",
+		Prompts:       []ssh.Prompt{privPrompt},
+		MorePattern:   regexp.MustCompile(`--More--`),
+		MoreKeystroke: []byte(" "),
+	})
+	if err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+	// The prompt is already in the buffer, so Run returns whether or not
+	// the marker was answered; wait with a timeout for the keystroke
+	// rather than block forever on a test that is expected to fail.
+	select {
+	case kerr := <-keyResult:
+		if kerr != nil {
+			t.Fatal(kerr)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("no keystroke was sent; the later prompt ended the command before the marker was answered")
+	}
+	if bytes.Contains(res.Output, []byte("--More--")) {
+		t.Errorf("Output = %q, still contains the pagination marker", res.Output)
+	}
+	if !bytes.Contains(res.Output, []byte("page one")) || !bytes.Contains(res.Output, []byte("page two")) {
+		t.Errorf("Output = %q, want both pages", res.Output)
+	}
+}
+
 func TestRunAnchorOnEchoPagination(t *testing.T) {
 	t.Parallel()
 	const line = "show run"

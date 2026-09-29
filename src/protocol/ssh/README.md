@@ -72,7 +72,7 @@ session's one shell channel with a PTY, all under the caller's context and
 `Options.DialTimeout`. Two goroutines drain the shell's stdout and stderr
 continuously into bounded, drop-oldest buffers (`Options.StdoutBufferBytes`,
 `Options.StderrBufferBytes`; 64 KiB and 16 KiB by default) so a remote that
-floods either stream cannot deadlock the session or the other stream; see
+floods stderr cannot deadlock the session or block stdout completion; see
 [Stderr saturation does not block stdout completion](GUARANTEES.md#stderr-saturation-does-not-block-stdout-completion).
 `Session.Run` calls must not overlap — the shell has one input stream, so a
 caller serializes its own commands.
@@ -88,7 +88,8 @@ device's own output.
 `Result.MatchedPrompt` carries the matched prompt's `Name` back to the caller,
 which is how an adapter tells a privilege-level transition happened without this
 package knowing what a privilege level is. A `Command.MorePattern` match writes
-`Command.MoreKeystroke` and keeps reading; see
+`Command.MoreKeystroke` and keeps reading, unless a prompt matches earlier in the
+output; see
 [Pagination markers are answered and excluded from output](GUARANTEES.md#pagination-markers-are-answered-and-excluded-from-output).
 A leading echo of `Command.Line` in the shell's response is stripped automatically.
 
