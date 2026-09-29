@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"buf.build/go/protovalidate"
 	connect "connectrpc.com/connect"
+	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -299,6 +301,65 @@ func TestEnrollIsIdempotentSoAnEdgeCanRetryAfterACrash(t *testing.T) {
 	stored := storedEdge(t, h.store, refOf(record))
 	if got := stored.GetRecord().GetState().GetEnrolledAt().AsTime(); !got.Equal(testClock) {
 		t.Errorf("enrolled_at = %v, want the first enrollment's %v", got, testClock)
+	}
+}
+
+type faultingKV struct {
+	jetstream.KeyValue
+	failEdgeIndex bool
+}
+
+func (f *faultingKV) Put(ctx context.Context, key string, value []byte) (uint64, error) {
+	if f.failEdgeIndex && strings.HasPrefix(key, "edge_") {
+		return 0, errors.New("injected index edge failure")
+	}
+	return f.KeyValue.Put(ctx, key, value)
+}
+
+func TestEnrollRetryReturnsErrorWhenIndexEdgeFails(t *testing.T) {
+	hub := newHub(t)
+	kv, err := hub.JetStream().KeyValue(context.Background(), edgebus.EdgeBucket)
+	if err != nil {
+		t.Fatalf("bucket: %v", err)
+	}
+	fkv := &faultingKV{KeyValue: kv}
+	store := edgestore.New(fkv)
+	now := testClock
+	admin := newAdminOver(t, store, func() time.Time { return now })
+	record, setupKey := createEdge(t, admin)
+	edgeID := refOf(record).GetEdge().GetId()
+
+	anchor := make([]byte, 32)
+	lanes := &fakeLanes{}
+	svc, err := edgeapi.NewService(store, testRegistry(t, edgeID, nil), lanes, &fakeCredentials{material: snmpMaterial()}, hub, edgeapi.ServiceConfig{
+		Audience:      "flowseer-central",
+		TrustAnchors:  [][]byte{anchor},
+		ClusterURLs:   []string{"wss://central.example.test:4223"},
+		PulseInterval: 5 * time.Millisecond,
+	}, func() time.Time { return now }, nil)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+
+	public, private, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+	req := connect.NewRequest(attachv1.EnrollRequest_builder{
+		SetupKey: proto.String(setupKey),
+		Proof:    enrollProof(t, private, public, setupKey),
+	}.Build())
+
+	// First Enroll succeeds.
+	if _, err := svc.Enroll(context.Background(), req); err != nil {
+		t.Fatalf("first Enroll: %v", err)
+	}
+
+	// Retry takes CONSUMED branch; injected failure on IndexEdge must return an error.
+	fkv.failEdgeIndex = true
+	_, err = svc.Enroll(context.Background(), req)
+	if err == nil {
+		t.Fatal("Enroll retry succeeded when IndexEdge failed, want error")
 	}
 }
 

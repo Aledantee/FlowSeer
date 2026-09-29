@@ -145,48 +145,54 @@ func NewBroadcaster() *Broadcaster {
 	}
 }
 
-// Subscribe registers a 128-item live tail for sessionID. The caller must call
+func broadcastKey(tenantID, sessionID string) string {
+	return tenantID + "." + sessionID
+}
+
+// Subscribe registers a 128-item live tail for sessionID under tenantID. The caller must call
 // the returned function to unsubscribe. A slow reader may lose chunks but does
 // not block the upload; the losses surface as gaps on the subscription.
-func (b *Broadcaster) Subscribe(sessionID string) (*Subscription, func()) {
+func (b *Broadcaster) Subscribe(tenantID, sessionID string) (*Subscription, func()) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	key := broadcastKey(tenantID, sessionID)
 	sub := &Subscription{
 		items:   make(chan TailItem, 128),
 		b:       b,
 		session: sessionID,
 	}
-	set, ok := b.subs[sessionID]
+	set, ok := b.subs[key]
 	if !ok {
 		set = make(map[*Subscription]struct{})
-		b.subs[sessionID] = set
+		b.subs[key] = set
 	}
 	set[sub] = struct{}{}
 
 	unsub := sync.OnceFunc(func() {
 		b.mu.Lock()
 		defer b.mu.Unlock()
-		if s, ok := b.subs[sessionID]; ok {
+		if s, ok := b.subs[key]; ok {
 			delete(s, sub)
 			if len(s) == 0 {
-				delete(b.subs, sessionID)
+				delete(b.subs, key)
 			}
 		}
 	})
 	return sub, unsub
 }
 
-// Broadcast distributes a packet chunk to all subscribers of sessionID and
+// Broadcast distributes a packet chunk to all subscribers of sessionID under tenantID and
 // returns how many were too far behind to take it. A tail that cannot keep up
 // loses chunks rather than stalling the upload it is watching, which makes the
 // live stream a subsequence of what the edge sent; each subscriber records the
 // loss as a gap it delivers in-band once its channel drains.
-func (b *Broadcaster) Broadcast(sessionID string, chunk *modelcapturev1.CapturePacketChunk) int {
+func (b *Broadcaster) Broadcast(tenantID, sessionID string, chunk *modelcapturev1.CapturePacketChunk) int {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	set, ok := b.subs[sessionID]
+	key := broadcastKey(tenantID, sessionID)
+	set, ok := b.subs[key]
 	if !ok {
 		return 0
 	}
@@ -199,27 +205,28 @@ func (b *Broadcaster) Broadcast(sessionID string, chunk *modelcapturev1.CaptureP
 	return dropped
 }
 
-// CloseSession closes every subscriber channel for sessionID and releases the
+// CloseSession closes every subscriber channel for sessionID under tenantID and releases the
 // subscriber set. A subscriber's residual gap stays on its Subscription for the
 // reader to flush through TerminalGap after it drains the channel. Repeated
 // calls are safe.
-func (b *Broadcaster) CloseSession(sessionID string) {
+func (b *Broadcaster) CloseSession(tenantID, sessionID string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if set, ok := b.subs[sessionID]; ok {
+	key := broadcastKey(tenantID, sessionID)
+	if set, ok := b.subs[key]; ok {
 		for sub := range set {
 			close(sub.items)
 		}
-		delete(b.subs, sessionID)
+		delete(b.subs, key)
 	}
 }
 
-// SubscriberCount returns the number of active subscribers for sessionID.
-func (b *Broadcaster) SubscriberCount(sessionID string) int {
+// SubscriberCount returns the number of active subscribers for sessionID under tenantID.
+func (b *Broadcaster) SubscriberCount(tenantID, sessionID string) int {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return len(b.subs[sessionID])
+	return len(b.subs[broadcastKey(tenantID, sessionID)])
 }
 
 // AssertionVerifier checks SignedEdgeAssertion envelopes.
@@ -229,7 +236,8 @@ type AssertionVerifier interface {
 
 // EdgeServiceConfig configures an [EdgeService]. Non-positive durations use
 // package defaults. Nil EdgeID reads the verified edge from the context, nil
-// Clock uses the wall clock, and nil Logger discards records.
+// EdgeTenant refuses tenant resolution with [ErrCodeStore], nil Clock uses the
+// wall clock, and nil Logger discards records.
 type EdgeServiceConfig struct {
 	AssertionWindow time.Duration
 	ResendInterval  time.Duration
@@ -336,21 +344,22 @@ func unauthenticated(err error) error {
 // streams uploading the same session would interleave their packets into it
 // and each would discard the other's partial file on its way out. Central
 // authenticates the edge but does not trust it to open a session once.
-func (s *EdgeService) claimUpload(sessionID string) bool {
+func (s *EdgeService) claimUpload(tenantID, sessionID string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, held := s.uploads[sessionID]; held {
+	key := tenantID + "." + sessionID
+	if _, held := s.uploads[key]; held {
 		return false
 	}
-	s.uploads[sessionID] = struct{}{}
+	s.uploads[key] = struct{}{}
 	return true
 }
 
-func (s *EdgeService) releaseUpload(sessionID string) {
+func (s *EdgeService) releaseUpload(tenantID, sessionID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.uploads, sessionID)
+	delete(s.uploads, tenantID+"."+sessionID)
 }
 
 // NotifyStoreChange alerts all active assignment streams of a session state transition.
@@ -529,7 +538,7 @@ func (s *EdgeService) UploadCapture(
 		if !finalized {
 			s.store.AbandonWriter(tenantID, sessionID)
 		}
-		s.releaseUpload(sessionID)
+		s.releaseUpload(tenantID, sessionID)
 	}()
 
 	for stream.Receive() {
@@ -600,7 +609,7 @@ func (s *EdgeService) UploadCapture(
 				return nil, connect.NewError(connect.CodeFailedPrecondition, errs.Msg("capture session has already stopped"))
 			}
 
-			if !s.claimUpload(sessionID) {
+			if !s.claimUpload(tenantID, sessionID) {
 				return nil, connect.NewError(connect.CodeAlreadyExists, errs.Msg("another stream is already uploading this capture session"))
 			}
 			claimed = true
@@ -647,7 +656,7 @@ func (s *EdgeService) UploadCapture(
 			}
 		}
 
-		if dropped := s.broadcaster.Broadcast(sessionID, chunk); dropped > 0 && !droppedReported {
+		if dropped := s.broadcaster.Broadcast(tenantID, sessionID, chunk); dropped > 0 && !droppedReported {
 			// Once per stream: a tail that stalls for a whole capture drops
 			// on every chunk, and one line per chunk would bury the rest.
 			droppedReported = true
@@ -684,7 +693,7 @@ func (s *EdgeService) UploadCapture(
 			}
 
 			finalized = true
-			s.broadcaster.CloseSession(sessionID)
+			s.broadcaster.CloseSession(tenantID, sessionID)
 			s.NotifyStoreChange()
 
 			resp := captureedgev1.UploadCaptureResponse_builder{
@@ -778,7 +787,7 @@ func (s *EdgeService) failStream(ctx context.Context, tenantID, sessionID, reaso
 		slog.String("flowseer.capture.stop.reason", reason))
 	// The tails watching this session end with it; only the final-chunk path
 	// closes them otherwise, and this stream will not reach it.
-	s.broadcaster.CloseSession(sessionID)
+	s.broadcaster.CloseSession(tenantID, sessionID)
 	s.NotifyStoreChange()
 }
 

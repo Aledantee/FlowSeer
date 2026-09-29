@@ -39,6 +39,8 @@ var (
 	ErrCodeUnknownEdge = errs.NewCode("edgestore/unknown-edge")
 )
 
+// Primary keys contain a dot (<tenantID>.<edgeID>). Index keys (edgeIndexPrefix,
+// setupKeyIndexPrefix) never contain a dot, so the key classes cannot collide.
 const (
 	casRetries          = 8
 	setupKeyIndexPrefix = "setupkey_"
@@ -113,6 +115,15 @@ func (s *Store) Lookup(ctx context.Context, edgeID string) (ed25519.PublicKey, e
 
 // EdgeForSetupKey returns the tenant and edge a setup key identifier was issued to,
 // or empty strings when no entry names it.
+//
+// The index is a lookup hint and never an authentication decision. Enrollment
+// carries only the key string, so the identifier is the only way to reach a
+// candidate record; what admits the enrollment is hashing the presented key and
+// comparing it against that edge's stored digest. A stale entry — one left by a
+// replaced key, or by a crash between the record write and the index write —
+// therefore resolves to an edge whose digest does not match, and the enrollment
+// is refused. Nothing may treat a hit here as proof that the caller holds the
+// key.
 func (s *Store) EdgeForSetupKey(ctx context.Context, keyID string) (tenantID string, edgeID string, err error) {
 	entry, err := s.kv.Get(ctx, setupKeyIndexPrefix+keyID)
 	if errors.Is(err, jetstream.ErrKeyNotFound) {
@@ -130,6 +141,9 @@ func (s *Store) EdgeForSetupKey(ctx context.Context, keyID string) (tenantID str
 }
 
 // IndexSetupKey points a setup key identifier at an edge under tenantID.
+// Callers write the edge's record first: an index entry lost to a crash leaves
+// a key that cannot be found and is re-issued, while an entry written before
+// the digest it belongs to would point a live key at a record that does not hold it.
 func (s *Store) IndexSetupKey(ctx context.Context, keyID, tenantID, edgeID string) error {
 	if err := tenant.Validate(tenantID); err != nil {
 		return errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Attr("edge", edgeID).Msg("validate tenant")

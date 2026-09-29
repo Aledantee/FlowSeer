@@ -3,6 +3,7 @@ package edgeapi_test
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"errors"
 	"regexp"
@@ -16,6 +17,7 @@ import (
 
 	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -795,8 +797,8 @@ func TestCrossTenantIsolation(t *testing.T) {
 	store := newStoreOver(t, hub)
 	admin := newAdminOver(t, store, func() time.Time { return testClock })
 
-	tenantA := "01923456-789a-7def-8123-456789abcdef"
-	tenantB := "01923456-789a-7def-8123-456789fedcba"
+	tenantA := "0192e6a0-1111-7000-8000-000000000011"
+	tenantB := "0192e6a0-2222-7000-8000-000000000022"
 	ctxA := tenant.WithTenant(context.Background(), tenantA)
 	ctxB := tenant.WithTenant(context.Background(), tenantB)
 
@@ -806,7 +808,9 @@ func TestCrossTenantIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateEdge(tenantA): %v", err)
 	}
-	edgeID := respA.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId()
+	edgeRefA := respA.Msg.GetEdge().GetConfig().GetRef()
+	edgeID := edgeRefA.GetEdge().GetId()
+	setupKey := respA.Msg.GetProvisioning().GetSetupKey()
 
 	// Assert its key in edges bucket begins with tenant A's id (<tenantA>.<edgeID>)
 	kv, err := hub.JetStream().KeyValue(context.Background(), edgebus.EdgeBucket)
@@ -823,7 +827,7 @@ func TestCrossTenantIsolation(t *testing.T) {
 
 	// Calling GetEdge with tenant B context returns NotFound
 	_, err = admin.GetEdge(ctxB, connect.NewRequest(apiedgev1.GetEdgeRequest_builder{
-		Edge: respA.Msg.GetEdge().GetConfig().GetRef(),
+		Edge: edgeRefA,
 	}.Build()))
 	wantConnectCode(t, err, connect.CodeNotFound)
 
@@ -834,6 +838,69 @@ func TestCrossTenantIsolation(t *testing.T) {
 	}
 	if len(listB.Msg.GetEdges()) != 0 {
 		t.Fatalf("tenant B saw %d edges, want 0", len(listB.Msg.GetEdges()))
+	}
+
+	// Calling IssueSetupKey with tenant B context returns NotFound
+	_, err = admin.IssueSetupKey(ctxB, connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{
+		Edge: edgeRefA,
+	}.Build()))
+	wantConnectCode(t, err, connect.CodeNotFound)
+
+	// Calling RevokeSetupKey with tenant B context returns NotFound
+	_, err = admin.RevokeSetupKey(ctxB, connect.NewRequest(apiedgev1.RevokeSetupKeyRequest_builder{
+		Edge: edgeRefA,
+	}.Build()))
+	wantConnectCode(t, err, connect.CodeNotFound)
+
+	// Calling RetireEdge with tenant B context returns NotFound
+	_, err = admin.RetireEdge(ctxB, connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
+		Edge: edgeRefA,
+	}.Build()))
+	wantConnectCode(t, err, connect.CodeNotFound)
+
+	// Enroll under the issued setup key writes edge_<id> index and attaches under tenant A.
+	edgeSvc, err := edgeapi.NewService(store, testRegistry(t, edgeID, nil), &fakeLanes{}, &fakeCredentials{material: snmpMaterial()}, hub, edgeapi.ServiceConfig{
+		Audience:      "flowseer-central",
+		TrustAnchors:  [][]byte{make([]byte, 32)},
+		ClusterURLs:   []string{"wss://central.example.test:4223"},
+		PulseInterval: 5 * time.Millisecond,
+	}, func() time.Time { return testClock }, nil)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+
+	public, private, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+
+	enrollResp, err := edgeSvc.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
+		SetupKey: proto.String(setupKey),
+		Proof:    enrollProof(t, private, public, setupKey),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("Enroll: %v", err)
+	}
+	if enrollResp.Msg.GetEdge().GetEdge().GetId() != edgeID {
+		t.Fatalf("enrolled edge ID = %q, want %q", enrollResp.Msg.GetEdge().GetEdge().GetId(), edgeID)
+	}
+
+	// Assert edge_<id> index entry exists and contains tenant A's UUID
+	indexEntry, err := kv.Get(context.Background(), "edge_"+edgeID)
+	if err != nil {
+		t.Fatalf("get edge_%s index: %v", edgeID, err)
+	}
+	if string(indexEntry.Value()) != tenantA {
+		t.Fatalf("edge index value = %q, want %q", string(indexEntry.Value()), tenantA)
+	}
+
+	// Assert hub.EdgeTenant returns tenant A
+	gotTenant, ok := hub.EdgeTenant(edgeID)
+	if !ok {
+		t.Fatalf("hub.EdgeTenant(%s) returned not found", edgeID)
+	}
+	if gotTenant != tenantA {
+		t.Fatalf("hub.EdgeTenant(%s) = %q, want %q", edgeID, gotTenant, tenantA)
 	}
 }
 

@@ -220,7 +220,7 @@ func (s *Service) sweepAll(ctx context.Context, bucket KeyLister) {
 		if !errors.Is(err, jetstream.ErrNoKeysFound) {
 			s.log.WarnContext(ctx, "sweeper could not list devices", slog.String("error.type", telemetry.ErrorType(err)))
 		}
-		return // an empty bucket is not an empty error worth logging every tick
+		return // an empty bucket is not an error worth logging every tick
 	}
 	for _, key := range keys {
 		tenantID, deviceID, ok := journal.SplitLaneKey(key)

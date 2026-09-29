@@ -9,6 +9,7 @@ import (
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/tenant"
+	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 )
 
@@ -33,7 +34,13 @@ func (s *Service) ListEdgeOpenMutations(ctx context.Context, req *connect.Reques
 	}
 	edgeID := req.Msg.GetEdgeId()
 	owner, err := s.cfg.EdgeTenant(ctx, edgeID)
-	if err != nil || owner != tenantID {
+	if err != nil {
+		if code, ok := errs.CodeOf(err); ok && code == edgestore.ErrCodeUnknownEdge {
+			return nil, connectErr(errs.New().Code(registry.ErrCodeUnknownEdge).Attr("edge", edgeID).Msg("unknown edge"))
+		}
+		return nil, connectErr(err)
+	}
+	if owner != tenantID {
 		return nil, connectErr(errs.New().Code(registry.ErrCodeUnknownEdge).Attr("edge", edgeID).Msg("unknown edge"))
 	}
 	devices, err := s.cfg.Resolver.Devices(ctx, edgeID)

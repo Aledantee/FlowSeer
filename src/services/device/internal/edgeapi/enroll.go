@@ -116,8 +116,12 @@ func (s *Service) Enroll(ctx context.Context, req *connect.Request[attachv1.Enro
 			return nil, connectErr(errs.New().Code(ErrCodeSetupKeyRefused).Attr("edge", edgeID).
 				Attr("setup_key_id", keyID).Msg("setup key was already used to register another key"))
 		}
-		_ = s.store.IndexEdge(ctx, edgeID, tenantID)
-		_ = s.bus.AttachEdge(ctx, tenantID, edgeID)
+		if err := s.store.IndexEdge(ctx, edgeID, tenantID); err != nil {
+			return nil, connectErr(err)
+		}
+		if err := s.bus.AttachEdge(ctx, tenantID, edgeID); err != nil {
+			return nil, connectErr(err)
+		}
 		return s.enrollResponse(edgeID, now), nil
 	}
 
@@ -222,7 +226,7 @@ func (s *Service) Rekey(ctx context.Context, req *connect.Request[attachv1.Rekey
 		return nil, connectErr(err)
 	}
 	if tenantID == "" {
-		return nil, notFound(edgeID)
+		return nil, connectErr(notFound(edgeID))
 	}
 
 	now := s.clock()

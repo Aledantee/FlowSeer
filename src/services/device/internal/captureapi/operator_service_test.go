@@ -459,7 +459,7 @@ func TestGetAndDeleteCaptureSession(t *testing.T) {
 	}
 
 	// Register a broadcaster tail subscriber to test cleanup on delete
-	sub, unsub := h.broadcaster.Subscribe(sessionID)
+	sub, unsub := h.broadcaster.Subscribe(testTenantID, sessionID)
 	defer unsub()
 
 	// Get existing session
@@ -655,15 +655,15 @@ func TestTailCaptureSession_LiveStreaming(t *testing.T) {
 	// Broadcast asynchronously once the tail handler has subscribed
 	spawn.Go(ctx, "test-tail-broadcast", func() {
 		deadline := time.Now().Add(5 * time.Second)
-		for h.broadcaster.SubscriberCount(sessID) == 0 {
+		for h.broadcaster.SubscriberCount(testTenantID, sessID) == 0 {
 			if time.Now().After(deadline) {
 				return
 			}
 			time.Sleep(5 * time.Millisecond)
 		}
-		h.broadcaster.Broadcast(sessID, chunk1)
+		h.broadcaster.Broadcast(testTenantID, sessID, chunk1)
 		time.Sleep(20 * time.Millisecond)
-		h.broadcaster.Broadcast(sessID, chunk2)
+		h.broadcaster.Broadcast(testTenantID, sessID, chunk2)
 	})
 
 	tailReq := operatorcapturev1.TailCaptureSessionRequest_builder{
@@ -752,7 +752,7 @@ func TestTailCaptureSession_InBandGapOnSlowConsumer(t *testing.T) {
 	// payloads guarantee the transport back-pressures rather than absorbing the
 	// whole flood.
 	deadline := time.Now().Add(5 * time.Second)
-	for h.broadcaster.SubscriberCount(sessID) == 0 {
+	for h.broadcaster.SubscriberCount(testTenantID, sessID) == 0 {
 		if time.Now().After(deadline) {
 			t.Fatal("tail never subscribed")
 		}
@@ -768,9 +768,9 @@ func TestTailCaptureSession_InBandGapOnSlowConsumer(t *testing.T) {
 			Packets:       []*netcapturev1.PacketRecord{testPacketRecord(seq, payload)},
 			Final:         proto.Bool(seq == total),
 		}.Build()
-		h.broadcaster.Broadcast(sessID, chunk)
+		h.broadcaster.Broadcast(testTenantID, sessID, chunk)
 	}
-	h.broadcaster.CloseSession(sessID)
+	h.broadcaster.CloseSession(testTenantID, sessID)
 
 	// However the loss splits between delivered chunks and gaps, the delivered
 	// sequences and the gap-covered spans must tile 1..total with no hole and no
@@ -1089,7 +1089,7 @@ func TestTailCaptureSession_ReturnsForASessionThatAlreadyEnded(t *testing.T) {
 	if tailCtx.Err() != nil {
 		t.Fatal("the tail blocked until its deadline instead of ending with the session")
 	}
-	if got := h.broadcaster.SubscriberCount(sessID); got != 0 {
+	if got := h.broadcaster.SubscriberCount(testTenantID, sessID); got != 0 {
 		t.Fatalf("got %d tail subscribers after completion, want 0", got)
 	}
 }
@@ -1104,6 +1104,7 @@ func TestOperatorService_CrossTenantIsolation(t *testing.T) {
 		t.Fatalf("CreateCaptureSession: %v", err)
 	}
 	sessionRef := createResp.Msg.GetSession().GetConfig().GetRef()
+	sessionID := sessionRef.GetCaptureSession().GetId()
 
 	// Tenant B cannot get Tenant A session
 	getReq := connect.NewRequest(operatorcapturev1.GetCaptureSessionRequest_builder{
@@ -1151,13 +1152,52 @@ func TestOperatorService_CrossTenantIsolation(t *testing.T) {
 		}
 	}
 
-	// Tenant B delete call does not affect Tenant A's session
+	// Tenant B cannot tail Tenant A session
+	tailReq := connect.NewRequest(operatorcapturev1.TailCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build())
+	tailReq.Header().Set("FlowSeer-Tenant-ID", testTenantB)
+	tailStream, err := h.client.TailCaptureSession(ctx, tailReq)
+	if err == nil {
+		if tailStream.Receive() {
+			t.Error("TailCaptureSession tenant B received chunk, want error")
+		}
+		if connect.CodeOf(tailStream.Err()) != connect.CodeNotFound {
+			t.Errorf("TailCaptureSession tenant B stream err code = %v, want CodeNotFound", connect.CodeOf(tailStream.Err()))
+		}
+	} else if connect.CodeOf(err) != connect.CodeNotFound {
+		t.Errorf("TailCaptureSession tenant B got code %v, want CodeNotFound", connect.CodeOf(err))
+	}
+
+	// Tenant A starts a live tail on the session
+	liveSubA, unsubA := h.broadcaster.Subscribe(testTenantID, sessionID)
+	defer unsubA()
+
+	// Tenant B calls DeleteCaptureSession on Tenant A's session -> must return CodeNotFound
 	delReq := connect.NewRequest(operatorcapturev1.DeleteCaptureSessionRequest_builder{
 		Session: sessionRef,
 	}.Build())
 	delReq.Header().Set("FlowSeer-Tenant-ID", testTenantB)
-	if _, err := h.client.DeleteCaptureSession(ctx, delReq); err != nil {
-		t.Fatalf("DeleteCaptureSession tenant B: %v", err)
+	_, err = h.client.DeleteCaptureSession(ctx, delReq)
+	if connect.CodeOf(err) != connect.CodeNotFound {
+		t.Errorf("DeleteCaptureSession tenant B got code %v, want CodeNotFound", connect.CodeOf(err))
+	}
+
+	// Tenant A's live tail survives Tenant B's delete attempt and receives broadcast chunks
+	chunk := modelcapturev1.CapturePacketChunk_builder{
+		Session:       sessionRef,
+		FirstSequence: proto.Uint64(1),
+		Packets:       []*netcapturev1.PacketRecord{testPacketRecord(1, []byte("tail payload"))},
+	}.Build()
+	h.broadcaster.Broadcast(testTenantID, sessionID, chunk)
+
+	select {
+	case item, ok := <-liveSubA.Items():
+		if !ok || item.Chunk == nil || item.Chunk.GetFirstSequence() != 1 {
+			t.Fatalf("Tenant A live tail did not receive expected chunk: %+v", item)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for Tenant A live tail chunk after Tenant B delete")
 	}
 
 	// Tenant A's session still exists

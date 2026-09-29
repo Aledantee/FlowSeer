@@ -18,6 +18,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
+	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 )
 
 const (
@@ -97,7 +98,13 @@ func (s *OperatorService) CreateCaptureSession(
 		return nil, connect.NewError(connect.CodeUnavailable, errs.Msg("edge tenant resolver not configured"))
 	}
 	owner, err := s.edgeTenant(ctx, edgeID)
-	if err != nil || owner != tenantID {
+	if err != nil {
+		if code, ok := errs.CodeOf(err); ok && code == edgestore.ErrCodeUnknownEdge {
+			return nil, connect.NewError(connect.CodeNotFound, errs.Msg("edge not found"))
+		}
+		return nil, connectErr(err)
+	}
+	if owner != tenantID {
 		return nil, connect.NewError(connect.CodeNotFound, errs.Msg("edge not found"))
 	}
 	if msg.GetSource() == nil {
@@ -299,11 +306,19 @@ func (s *OperatorService) DeleteCaptureSession(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("session id is required"))
 	}
 
+	rec, _, err := s.store.Session(ctx, tenantID, sessionID)
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	if rec == nil {
+		return nil, errNoSuchSession()
+	}
+
 	if err := s.store.DeleteSession(ctx, tenantID, sessionID); err != nil {
 		return nil, connectErr(err)
 	}
 
-	s.broadcaster.CloseSession(sessionID)
+	s.broadcaster.CloseSession(tenantID, sessionID)
 	s.notifyChange()
 
 	return connect.NewResponse(operatorcapturev1.DeleteCaptureSessionResponse_builder{}.Build()), nil
@@ -333,7 +348,7 @@ func (s *OperatorService) TailCaptureSession(
 		return errNoSuchSession()
 	}
 
-	sub, unsub := s.broadcaster.Subscribe(sessionID)
+	sub, unsub := s.broadcaster.Subscribe(tenantID, sessionID)
 	defer unsub()
 
 	// Subscribe first, then read the session again. Only the upload relay

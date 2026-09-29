@@ -281,17 +281,8 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 	lane := journal.New(lanes, nil)
 	edgeStore := edgestore.New(edges)
 	audit := centralaudit.New(auditPublisher(hub), nil)
-	intervals := h.cfg.Intervals()
-	edgeTenantResolver := func(ctx context.Context, edgeID string) (string, error) {
-		t, err := edgeStore.TenantForEdge(ctx, edgeID)
-		if err != nil {
-			return "", err
-		}
-		if t == "" {
-			return "", errs.New().Code(edgestore.ErrCodeUnknownEdge).Attr("edge", edgeID).Msg("edge has no indexed tenant")
-		}
-		return t, nil
-	}
+	// Retained for un-enrolled edges in registry smoke tests (e.g. TestAListedDeviceIsAnsweredFromTheJournal)
+	// until host_test.go can be updated to enroll or index the edge.
 	if edgeID := h.registry.EdgeID(); edgeID != "" {
 		if t, err := edgeStore.TenantForEdge(ctx, edgeID); err == nil && t == "" {
 			devTenant := h.cfg.DevTenant()
@@ -301,17 +292,6 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 			_ = edgeStore.IndexEdge(ctx, edgeID, devTenant)
 		}
 	}
-	dispatch := dispatchapi.New(dispatchapi.Config{
-		Journal:       lane,
-		Resolver:      h.registry,
-		Watch:         lanes,
-		EdgeID:        edgeIDFromContext,
-		EdgeTenant:    edgeTenantResolver,
-		Resend:        intervals.DispatchResend,
-		SweepInterval: intervals.ReadSweep,
-		Audit:         audit,
-		Logger:        log,
-	})
 
 	capturesBucket, err := hub.JetStream().KeyValue(ctx, edgebus.CapturesBucket)
 	if err != nil {
@@ -324,15 +304,29 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 	}
 	broadcaster := captureapi.NewBroadcaster()
 
-	return &busResources{
+	res := &busResources{
 		hub:         hub,
 		lanes:       lanes,
 		journal:     lane,
 		edges:       edgeStore,
-		dispatch:    dispatch,
 		captures:    captureStore,
 		broadcaster: broadcaster,
-	}, nil
+	}
+
+	intervals := h.cfg.Intervals()
+	res.dispatch = dispatchapi.New(dispatchapi.Config{
+		Journal:       lane,
+		Resolver:      h.registry,
+		Watch:         lanes,
+		EdgeID:        edgeIDFromContext,
+		EdgeTenant:    res.edgeTenant,
+		Resend:        intervals.DispatchResend,
+		SweepInterval: intervals.ReadSweep,
+		Audit:         audit,
+		Logger:        log,
+	})
+
+	return res, nil
 }
 
 // setupForwarder ships every edge's buffered telemetry on to the collector.

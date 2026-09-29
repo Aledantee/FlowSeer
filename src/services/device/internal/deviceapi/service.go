@@ -23,6 +23,7 @@ import (
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/tenant"
+	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 )
 
@@ -146,7 +147,14 @@ func (s *Service) device(ctx context.Context, ref *inventoryv1.DeviceGlobalRef) 
 	}
 	edgeID := s.cfg.Resolver.EdgeID()
 	owner, err := s.cfg.EdgeTenant(ctx, edgeID)
-	if err != nil || owner != caller {
+	if err != nil {
+		if code, ok := errs.CodeOf(err); ok && code == edgestore.ErrCodeUnknownEdge {
+			return "", "", nil, errs.New().Code(ErrCodeUnknownDevice).Attr("device", id).
+				Msg("registry lists no such device")
+		}
+		return "", "", nil, err
+	}
+	if owner != caller {
 		return "", "", nil, errs.New().Code(ErrCodeUnknownDevice).Attr("device", id).
 			Msg("registry lists no such device")
 	}

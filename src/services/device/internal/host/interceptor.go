@@ -152,10 +152,8 @@ func levelFor(code connect.Code) slog.Level {
 	}
 }
 
-// TenantInterceptor injects the ambient tenant into request contexts.
-// In development and test environments, it uses the configured dev_tenant,
-// falling back to DefaultTenant if none is specified, until Phase 3 OIDC
-// authentication lands.
+// TenantInterceptor injects tenantID into a context that carries none; an empty
+// tenantID injects nothing.
 func TenantInterceptor(tenantID string) connect.Interceptor {
 	return tenantInterceptor{tenantID: tenantID}
 }

@@ -1158,7 +1158,12 @@ func TestCapture_PerTenantArtifactDirectoryAndCrossTenantIsolation(t *testing.T)
 
 	registryPath := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
 	c := newCentral(t, dir, registryPath)
-	c.start()
+
+	tenantA := "0192e6a0-aaaa-7000-8000-0000000000aa"
+	tenantB := "0192e6a0-bbbb-7000-8000-0000000000bb"
+	sessionID := "0192e6a0-2222-7000-8000-000000000001"
+
+	startCentralWithDevTenant(t, c, tenantA)
 	defer c.shutdown()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -1181,10 +1186,6 @@ func TestCapture_PerTenantArtifactDirectoryAndCrossTenantIsolation(t *testing.T)
 	if err != nil {
 		t.Fatalf("open captures store: %v", err)
 	}
-
-	tenantA := "0192e6a0-0000-7000-8000-000000000001"
-	tenantB := "0192e6a0-0000-7000-8000-000000000002"
-	sessionID := "0192e6a0-2222-7000-8000-000000000001"
 
 	config := modelcapturev1.CaptureSessionConfig_builder{
 		Ref: modelcapturev1.CaptureSessionGlobalRef_builder{
@@ -1231,26 +1232,50 @@ func TestCapture_PerTenantArtifactDirectoryAndCrossTenantIsolation(t *testing.T)
 		t.Fatalf("expected artifact on disk at %s: %v", expectedPathA, err)
 	}
 
-	// Verify tenant B cannot read artifact
+	// Verify tenant A can download artifact over Connect RPC
+	streamA, err := c.captures().DownloadCaptureSession(ctx, connect.NewRequest(operatorcapturev1.DownloadCaptureSessionRequest_builder{
+		Session: config.GetRef(),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("DownloadCaptureSession tenant A: %v", err)
+	}
+	if !streamA.Receive() {
+		t.Fatalf("tenant A download stream had no chunks: %v", streamA.Err())
+	}
+
+	// Verify tenant B cannot read artifact directly from store
 	err = store.ReadArtifact(ctx, tenantB, sessionID, func(_ *modelcapturev1.CaptureArtifactChunk) error {
 		return nil
 	})
 	if err == nil {
-		t.Fatal("tenant B was able to read tenant A artifact")
+		t.Fatal("tenant B was able to read tenant A artifact directly from store")
 	}
 
-	// Verify cross-tenant download isolation over Connect RPC
+	// Restart central with dev_tenant = UUID B over the same state dir
+	c.shutdown()
+	startCentralWithDevTenant(t, c, tenantB)
+
+	// Verify cross-tenant download isolation over Connect RPC without header manipulation
 	reqB := connect.NewRequest(operatorcapturev1.DownloadCaptureSessionRequest_builder{
 		Session: config.GetRef(),
 	}.Build())
-	reqB.Header().Set("FlowSeer-Tenant-ID", tenantB)
 	streamB, err := c.captures().DownloadCaptureSession(ctx, reqB)
 	if err == nil {
 		if streamB.Receive() {
 			t.Fatal("tenant B received chunk for tenant A capture session")
 		}
 		if connect.CodeOf(streamB.Err()) != connect.CodeNotFound {
-			t.Errorf("tenant B download stream code = %v, want CodeNotFound", connect.CodeOf(streamB.Err()))
+			t.Fatalf("tenant B download stream code = %v, want CodeNotFound", connect.CodeOf(streamB.Err()))
 		}
+	} else if connect.CodeOf(err) != connect.CodeNotFound {
+		t.Fatalf("tenant B download got code = %v, want CodeNotFound", connect.CodeOf(err))
+	}
+
+	// Verify GetCaptureSession under tenant B returns CodeNotFound
+	_, err = c.captures().GetCaptureSession(ctx, connect.NewRequest(operatorcapturev1.GetCaptureSessionRequest_builder{
+		Session: config.GetRef(),
+	}.Build()))
+	if connect.CodeOf(err) != connect.CodeNotFound {
+		t.Fatalf("GetCaptureSession under tenant B got code = %v, want CodeNotFound", connect.CodeOf(err))
 	}
 }

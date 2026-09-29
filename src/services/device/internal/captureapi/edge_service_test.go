@@ -206,24 +206,24 @@ func TestBroadcaster_LaggingSubscriberRecordsGap(t *testing.T) {
 		t.Fatalf("tail chunk fixture is not a message the wire would accept: %v", err)
 	}
 
-	sub, unsub := b.Subscribe(session)
+	sub, unsub := b.Subscribe(testTenantID, session)
 	defer unsub()
 
 	// Fill the buffer so nothing more fits, then overflow it. The reader never
 	// drains, so every later chunk folds into one pending gap.
 	for seq := uint64(1); seq <= tailBufferSize; seq++ {
-		if dropped := b.Broadcast(session, tailTestChunk(seq, 1)); dropped != 0 {
+		if dropped := b.Broadcast(testTenantID, session, tailTestChunk(seq, 1)); dropped != 0 {
 			t.Fatalf("chunk %d dropped while the buffer had room", seq)
 		}
 	}
-	if dropped := b.Broadcast(session, tailTestChunk(129, 4)); dropped != 1 {
+	if dropped := b.Broadcast(testTenantID, session, tailTestChunk(129, 4)); dropped != 1 {
 		t.Fatalf("overflowing chunk dropped for %d subscribers, want 1", dropped)
 	}
-	if dropped := b.Broadcast(session, tailTestChunk(133, 2)); dropped != 1 {
+	if dropped := b.Broadcast(testTenantID, session, tailTestChunk(133, 2)); dropped != 1 {
 		t.Fatalf("second overflowing chunk dropped for %d subscribers, want 1", dropped)
 	}
 
-	b.CloseSession(session)
+	b.CloseSession(testTenantID, session)
 
 	gap := sub.TerminalGap()
 	if gap == nil {
@@ -244,16 +244,16 @@ func TestBroadcaster_FastSubscriberUnaffectedByLaggard(t *testing.T) {
 	b := captureapi.NewBroadcaster()
 	const session = "sess-mixed"
 
-	fast, unsubFast := b.Subscribe(session)
+	fast, unsubFast := b.Subscribe(testTenantID, session)
 	defer unsubFast()
-	slow, unsubSlow := b.Subscribe(session)
+	slow, unsubSlow := b.Subscribe(testTenantID, session)
 	defer unsubSlow()
 
 	// The fast subscriber is drained after every broadcast, so its buffer never
 	// fills; the slow one is never read and drops everything past the buffer.
 	const total = 200
 	for seq := uint64(1); seq <= total; seq++ {
-		b.Broadcast(session, tailTestChunk(seq, 1))
+		b.Broadcast(testTenantID, session, tailTestChunk(seq, 1))
 		item, ok := <-fast.Items()
 		if !ok {
 			t.Fatalf("fast subscriber channel closed at seq %d", seq)
@@ -266,7 +266,7 @@ func TestBroadcaster_FastSubscriberUnaffectedByLaggard(t *testing.T) {
 		}
 	}
 
-	b.CloseSession(session)
+	b.CloseSession(testTenantID, session)
 
 	if gap := fast.TerminalGap(); gap != nil {
 		t.Errorf("fast subscriber recorded a gap: %+v", gap)
@@ -290,14 +290,14 @@ func TestBroadcaster_GapPrecedesNextChunkAfterDrain(t *testing.T) {
 	b := captureapi.NewBroadcaster()
 	const session = "sess-order"
 
-	sub, unsub := b.Subscribe(session)
+	sub, unsub := b.Subscribe(testTenantID, session)
 	defer unsub()
 
 	for seq := uint64(1); seq <= tailBufferSize; seq++ {
-		b.Broadcast(session, tailTestChunk(seq, 1))
+		b.Broadcast(testTenantID, session, tailTestChunk(seq, 1))
 	}
 	// Overflow once to open a pending gap over sequences 129..130.
-	b.Broadcast(session, tailTestChunk(129, 2))
+	b.Broadcast(testTenantID, session, tailTestChunk(129, 2))
 
 	// Free two slots: one for the gap, one for the chunk that follows it.
 	for seq := uint64(1); seq <= 2; seq++ {
@@ -307,7 +307,7 @@ func TestBroadcaster_GapPrecedesNextChunkAfterDrain(t *testing.T) {
 		}
 	}
 	// Room now exists, so this broadcast flushes the gap and then delivers 131.
-	b.Broadcast(session, tailTestChunk(131, 1))
+	b.Broadcast(testTenantID, session, tailTestChunk(131, 1))
 
 	for seq := uint64(3); seq <= tailBufferSize; seq++ {
 		item := <-sub.Items()
@@ -331,6 +331,65 @@ func TestBroadcaster_GapPrecedesNextChunkAfterDrain(t *testing.T) {
 	next := <-sub.Items()
 	if next.Chunk == nil || next.Chunk.GetFirstSequence() != 131 {
 		t.Fatalf("expected chunk 131 after the gap, got %+v", next)
+	}
+}
+
+func TestBroadcaster_CrossTenantIsolation(t *testing.T) {
+	b := captureapi.NewBroadcaster()
+	const (
+		tenantA   = "0192e6a0-aaaa-7000-8000-0000000000aa"
+		tenantB   = "0192e6a0-bbbb-7000-8000-0000000000bb"
+		sessionID = "sess-shared"
+	)
+
+	subA, unsubA := b.Subscribe(tenantA, sessionID)
+	defer unsubA()
+	subB, unsubB := b.Subscribe(tenantB, sessionID)
+	defer unsubB()
+
+	// Broadcast chunk under tenant A only
+	chunkA := tailTestChunk(1, 1)
+	if dropped := b.Broadcast(tenantA, sessionID, chunkA); dropped != 0 {
+		t.Fatalf("Broadcast tenant A dropped = %d, want 0", dropped)
+	}
+
+	select {
+	case item := <-subA.Items():
+		if item.Chunk == nil || item.Chunk.GetFirstSequence() != 1 {
+			t.Fatalf("subA received unexpected chunk: %+v", item)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("subA timed out waiting for broadcast chunk")
+	}
+
+	// subB must receive nothing
+	select {
+	case item := <-subB.Items():
+		t.Fatalf("subB received cross-tenant chunk: %+v", item)
+	default:
+	}
+
+	// Close session for tenant B; subB is closed, subA remains open
+	b.CloseSession(tenantB, sessionID)
+
+	select {
+	case _, ok := <-subB.Items():
+		if ok {
+			t.Fatal("expected subB to be closed")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for subB close")
+	}
+
+	chunkA2 := tailTestChunk(2, 1)
+	b.Broadcast(tenantA, sessionID, chunkA2)
+	select {
+	case item := <-subA.Items():
+		if item.Chunk == nil || item.Chunk.GetFirstSequence() != 2 {
+			t.Fatalf("subA received unexpected chunk 2: %+v", item)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("subA timed out waiting for chunk 2")
 	}
 }
 

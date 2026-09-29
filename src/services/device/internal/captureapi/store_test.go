@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,7 +30,7 @@ import (
 )
 
 const (
-	testTenantID  = "0192e6a0-0000-7000-8000-000000000001"
+	testTenantID  = "0192e6a0-8888-7000-8000-000000000088"
 	testEdgeID    = "0192e6a0-0000-7000-8000-0000000000ed"
 	testSessionID = "0192e6a0-1111-7000-8000-000000000001"
 )
@@ -729,7 +730,9 @@ func TestReadArtifactEmitsAFinalChunkForAnEmptyArtifact(t *testing.T) {
 		t.Fatalf("CreateSession: %v", err)
 	}
 	tenantDir := filepath.Join(dir, testTenantID)
-	_ = os.MkdirAll(tenantDir, 0o700)
+	if err := os.MkdirAll(tenantDir, 0o700); err != nil {
+		t.Fatalf("mkdir tenant dir: %v", err)
+	}
 	if err := os.WriteFile(filepath.Join(tenantDir, testSessionID+".pcapng"), nil, 0o600); err != nil {
 		t.Fatalf("write empty artifact: %v", err)
 	}
@@ -783,8 +786,8 @@ func TestAppendPacketsRefusesADeletedSession(t *testing.T) {
 
 	tenantDir := filepath.Join(dir, testTenantID)
 	entries, err := os.ReadDir(tenantDir)
-	if err == nil && len(entries) != 0 {
-		t.Fatalf("a deleted session left %d file(s) behind that no sweep can reach", len(entries))
+	if (err != nil && !errors.Is(err, os.ErrNotExist)) || len(entries) != 0 {
+		t.Fatalf("a deleted session left %d file(s) behind that no sweep can reach (err: %v)", len(entries), err)
 	}
 }
 
@@ -845,16 +848,20 @@ func TestCrossTenantCaptureIsolation(t *testing.T) {
 		t.Errorf("artifact for tenantB not found at %s: %v", pathB, err)
 	}
 
-	_, _ = s.MutateSession(ctx, tenantA, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+	if _, err := s.MutateSession(ctx, tenantA, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
 		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
 		rec.GetState().SetArtifact(artifactA)
 		return nil
-	})
-	_, _ = s.MutateSession(ctx, tenantB, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+	}); err != nil {
+		t.Fatalf("MutateSession tenantA: %v", err)
+	}
+	if _, err := s.MutateSession(ctx, tenantB, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
 		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING)
 		rec.GetState().SetArtifact(artifactB)
 		return nil
-	})
+	}); err != nil {
+		t.Fatalf("MutateSession tenantB: %v", err)
+	}
 
 	recA, _, err := s.Session(ctx, tenantA, sessionID)
 	if err != nil || recA == nil {

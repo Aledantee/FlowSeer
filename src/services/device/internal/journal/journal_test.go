@@ -233,7 +233,10 @@ func TestApplyReportWalksThePhasesAndClosesTheRecord(t *testing.T) {
 	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
-	rec, _ := j.Record(ctx, tenantID, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.GetMutation().GetPhase() != accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED || !rec.GetDispatched() || !rec.GetDispatchConfirmed() {
 		t.Fatalf("after ADMITTED: phase %v dispatched %v confirmed %v", rec.GetMutation().GetPhase(), rec.GetDispatched(), rec.GetDispatchConfirmed())
 	}
@@ -247,7 +250,10 @@ func TestApplyReportWalksThePhasesAndClosesTheRecord(t *testing.T) {
 	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportVerified, Sequence: 99}); err != nil {
 		t.Fatalf("wrong-sequence report: %v", err)
 	}
-	rec, _ = j.Record(ctx, tenantID, deviceID)
+	rec, err = j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.GetMutation().HasDisposition() {
 		t.Fatal("a report for another sequence set a disposition")
 	}
@@ -258,7 +264,10 @@ func TestApplyReportWalksThePhasesAndClosesTheRecord(t *testing.T) {
 	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportReleased, Sequence: 1}); err != nil {
 		t.Fatalf("released: %v", err)
 	}
-	rec, _ = j.Record(ctx, tenantID, deviceID)
+	rec, err = j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.HasMutation() {
 		t.Fatal("RELEASED did not close the record")
 	}
@@ -278,7 +287,10 @@ func TestApplyReportErrorBeforeSubmissionDisposesRejected(t *testing.T) {
 	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportError, Sequence: 1, Submitted: false}); err != nil {
 		t.Fatalf("error report: %v", err)
 	}
-	rec, _ := j.Record(ctx, tenantID, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	m := rec.GetMutation()
 	if m == nil {
 		t.Fatal("a pre-submission error closed the record instead of disposing REJECTED")
@@ -290,7 +302,10 @@ func TestApplyReportErrorBeforeSubmissionDisposesRejected(t *testing.T) {
 	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportReleased, Sequence: 1}); err != nil {
 		t.Fatalf("released: %v", err)
 	}
-	rec, _ = j.Record(ctx, tenantID, deviceID)
+	rec, err = j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.HasMutation() {
 		t.Fatal("RELEASED did not close the rejected mutation")
 	}
@@ -323,14 +338,20 @@ func TestDisposeAndResolveDesynchronization(t *testing.T) {
 	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: 1}); err != nil {
 		t.Fatalf("abandoned: %v", err)
 	}
-	rec, _ := j.Record(ctx, tenantID, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if !rec.HasMutation() {
 		t.Fatal("abandonment closed the record; it must stay held for resolution")
 	}
 	if _, _, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{Sequence: 1}); err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
-	rec, _ = j.Record(ctx, tenantID, deviceID)
+	rec, err = j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.HasMutation() {
 		t.Fatal("ResolveDesynchronization did not clear the held mutation")
 	}
@@ -340,7 +361,10 @@ func TestDisposeAndResolveDesynchronization(t *testing.T) {
 	if err := j.ConfirmHoldResolved(ctx, tenantID, deviceID, 1); err != nil {
 		t.Fatalf("confirm hold: %v", err)
 	}
-	rec, _ = j.Record(ctx, tenantID, deviceID)
+	rec, err = j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if holdPending(rec, 1) {
 		t.Fatal("ConfirmHoldResolved did not clear the pending row")
 	}
@@ -380,7 +404,10 @@ func TestOpenAndCloseReadShareTheCounter(t *testing.T) {
 	if err := j.CloseRead(ctx, tenantID, deviceID, "ethernet 1/1/1", seq, obs, nil); err != nil {
 		t.Fatalf("close read: %v", err)
 	}
-	rec, _ := j.Record(ctx, tenantID, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if !rec.GetOpenReads()["ethernet 1/1/1"].HasObservation() {
 		t.Fatal("CloseRead did not record the observation")
 	}
@@ -412,7 +439,10 @@ func TestReadmissionAfterOnboardedConfirmsWithoutRedispatchLoop(t *testing.T) {
 	if err := j.MarkOnboarded(ctx, tenantID, deviceID); err != nil {
 		t.Fatalf("onboarded: %v", err)
 	}
-	rec, _ := j.Record(ctx, tenantID, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.GetDispatchConfirmed() || !rec.GetDispatched() {
 		t.Fatalf("after Onboarded: dispatched %v confirmed %v, want true and false", rec.GetDispatched(), rec.GetDispatchConfirmed())
 	}
@@ -422,7 +452,10 @@ func TestReadmissionAfterOnboardedConfirmsWithoutRedispatchLoop(t *testing.T) {
 	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("re-admitted: %v", err)
 	}
-	rec, _ = j.Record(ctx, tenantID, deviceID)
+	rec, err = j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if !rec.GetDispatchConfirmed() {
 		t.Fatal("re-admission after Onboarded did not re-confirm the dispatch: the execute row is owed forever")
 	}
@@ -449,7 +482,10 @@ func TestReportCannotOverwriteOperatorAbandonment(t *testing.T) {
 	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportVerified, Sequence: 1}); err != nil {
 		t.Fatalf("late verified: %v", err)
 	}
-	rec, _ := j.Record(ctx, tenantID, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.GetMutation().GetDisposition() != accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
 		t.Fatalf("late report overwrote the abandonment: disposition %v", rec.GetMutation().GetDisposition())
 	}
@@ -471,7 +507,10 @@ func TestDisposeBeforeDispatchClosesAndOwesHoldResolved(t *testing.T) {
 	if state.GetDisposition() != accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
 		t.Fatalf("returned disposition %v", state.GetDisposition())
 	}
-	rec, _ := j.Record(ctx, tenantID, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.HasMutation() {
 		t.Fatal("abandon-before-dispatch left the mutation open: the lane holds forever")
 	}
@@ -497,7 +536,10 @@ func TestPendingHoldsAccumulateAsASet(t *testing.T) {
 	if _, _, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{Sequence: first}); err != nil {
 		t.Fatalf("idempotent resolve: %v", err)
 	}
-	rec, _ := j.Record(ctx, tenantID, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if !holdPending(rec, first) || !holdPending(rec, second) || len(rec.GetHoldResolutionPending()) != 2 {
 		t.Fatalf("pending holds = %v, want {%d, %d}", rec.GetHoldResolutionPending(), first, second)
 	}
@@ -505,7 +547,10 @@ func TestPendingHoldsAccumulateAsASet(t *testing.T) {
 	if err := j.ConfirmHoldResolved(ctx, tenantID, deviceID, first); err != nil {
 		t.Fatalf("confirm %d: %v", first, err)
 	}
-	rec, _ = j.Record(ctx, tenantID, deviceID)
+	rec, err = j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if holdPending(rec, first) || !holdPending(rec, second) {
 		t.Fatalf("pending holds = %v, want only %d", rec.GetHoldResolutionPending(), second)
 	}
@@ -538,7 +583,10 @@ func TestCloseReadIgnoresAStaleSequence(t *testing.T) {
 	if err := j.CloseRead(ctx, tenantID, deviceID, iface, seq1, stale, nil); err != nil {
 		t.Fatalf("stale close: %v", err)
 	}
-	rec, _ := j.Record(ctx, tenantID, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.GetOpenReads()[iface].HasOutcome() {
 		t.Fatal("a stale result for an earlier read closed the read that succeeded it")
 	}
@@ -578,7 +626,10 @@ func TestSweepExpiredReadsClosesExpiredAndSkipsAnswered(t *testing.T) {
 	if len(swept) != 1 || swept[0] != "eth-expired" {
 		t.Fatalf("swept %v, want [eth-expired]", swept)
 	}
-	rec, _ := j.Record(ctx, tenantID, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if !rec.GetOpenReads()["eth-expired"].HasError() {
 		t.Fatal("the sweep did not record the deadline error")
 	}
@@ -610,7 +661,10 @@ func TestTerminatorsAreInvocable(t *testing.T) {
 		if _, err := j.Dispose(ctx, tenantID, deviceID, 1); err != nil {
 			t.Fatalf("dispose: %v", err)
 		}
-		rec, _ := j.Record(ctx, tenantID, deviceID)
+		rec, err := j.Record(ctx, tenantID, deviceID)
+		if err != nil {
+			t.Fatalf("Record: %v", err)
+		}
 		if !rec.GetMutation().HasDisposition() {
 			t.Fatal("AbandonMutation did not terminate the recovering mutation")
 		}
@@ -635,7 +689,10 @@ func TestTerminatorsAreInvocable(t *testing.T) {
 		if _, _, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{Sequence: 1}); err != nil {
 			t.Fatalf("resolve: %v", err)
 		}
-		rec, _ := j.Record(ctx, tenantID, deviceID)
+		rec, err := j.Record(ctx, tenantID, deviceID)
+		if err != nil {
+			t.Fatalf("Record: %v", err)
+		}
 		if rec.HasMutation() || !holdPending(rec, 1) {
 			t.Fatal("ResolveDesynchronization did not free the held abandonment")
 		}
@@ -835,5 +892,32 @@ func TestLaneKeyValidationAndSplit(t *testing.T) {
 		if _, _, ok := journal.SplitLaneKey(badKey); ok {
 			t.Errorf("SplitLaneKey(%q) = ok, want false", badKey)
 		}
+	}
+}
+
+func TestJournalRefusesEmptyTenantOrDevice(t *testing.T) {
+	j := newJournal(t)
+	ctx := context.Background()
+	const validTenant = "0192e6a0-0000-7000-8000-0000000000aa"
+	const validDevice = "0192e6a0-0000-7000-8000-000000000001"
+
+	// Record (which calls load) with empty tenant or device
+	_, err := j.Record(ctx, "", validDevice)
+	if code, ok := errs.CodeOf(err); !ok || code != journal.ErrCodeArgument {
+		t.Fatalf("Record with empty tenant got %v, want ErrCodeArgument", err)
+	}
+	_, err = j.Record(ctx, validTenant, "")
+	if code, ok := errs.CodeOf(err); !ok || code != journal.ErrCodeArgument {
+		t.Fatalf("Record with empty device got %v, want ErrCodeArgument", err)
+	}
+
+	// Mutate (e.g. via Dispose) with empty tenant or device
+	_, err = j.Dispose(ctx, "", validDevice, 1)
+	if code, ok := errs.CodeOf(err); !ok || code != journal.ErrCodeArgument {
+		t.Fatalf("Dispose with empty tenant got %v, want ErrCodeArgument", err)
+	}
+	_, err = j.Dispose(ctx, validTenant, "", 1)
+	if code, ok := errs.CodeOf(err); !ok || code != journal.ErrCodeArgument {
+		t.Fatalf("Dispose with empty device got %v, want ErrCodeArgument", err)
 	}
 }

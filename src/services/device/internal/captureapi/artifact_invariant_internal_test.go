@@ -24,7 +24,7 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
 
-const invariantTenant = "0192e6a0-0000-7000-8000-000000000001"
+const invariantTenant = "0192e6a0-7777-7000-8000-000000000077"
 
 // Three rounds of review each found a defect in the previous round's fix for
 // the same thing: which operation may create, truncate, or unlink the pcapng
@@ -164,7 +164,7 @@ func TestArtifactFileExistsExactlyWhileARecordClaimsIt(t *testing.T) {
 			t.Fatalf("after %s and a delete: %s", strings.Join(taken, " -> "), failure)
 		}
 		tenantDir := filepath.Join(dir, invariantTenant)
-		if entries, err := os.ReadDir(tenantDir); err == nil && len(entries) != 0 {
+		if entries, err := os.ReadDir(tenantDir); (err != nil && !errors.Is(err, os.ErrNotExist)) || len(entries) != 0 {
 			t.Fatalf("after %s and a delete: %d file(s) remain in the captures directory (err %v)",
 				strings.Join(taken, " -> "), len(entries), err)
 		}
@@ -331,4 +331,54 @@ func invariantPacket() *netcapturev1.PacketRecord {
 		OriginalLength: proto.Uint32(uint32(len(data))),
 		Data:           data,
 	}.Build()
+}
+
+func TestArtifactDirectoryPerTenantIsolation(t *testing.T) {
+	now := time.Date(2026, 9, 18, 14, 0, 0, 0, time.UTC)
+	store, dir := newInvariantStore(t, func() time.Time { return now })
+	ctx := context.Background()
+
+	tenantA := "0192e6a0-aaaa-7000-8000-0000000000aa"
+	tenantB := "0192e6a0-bbbb-7000-8000-0000000000bb"
+	sessionID := uuid.NewString()
+
+	linkType := netcapturev1.LinkType_LINK_TYPE_ETHERNET
+	packetsA := []*netcapturev1.PacketRecord{invariantPacket()}
+	packetsB := []*netcapturev1.PacketRecord{invariantPacket()}
+
+	if _, err := store.CreateSession(ctx, tenantA, invariantConfig(sessionID)); err != nil {
+		t.Fatalf("CreateSession A: %v", err)
+	}
+	if _, err := store.CreateSession(ctx, tenantB, invariantConfig(sessionID)); err != nil {
+		t.Fatalf("CreateSession B: %v", err)
+	}
+
+	if err := store.AppendPackets(ctx, tenantA, sessionID, linkType, 128, packetsA); err != nil {
+		t.Fatalf("AppendPackets A: %v", err)
+	}
+	if err := store.AppendPackets(ctx, tenantB, sessionID, linkType, 128, packetsB); err != nil {
+		t.Fatalf("AppendPackets B: %v", err)
+	}
+
+	pathA := filepath.Join(dir, tenantA, sessionID+".pcapng")
+	pathB := filepath.Join(dir, tenantB, sessionID+".pcapng")
+
+	if _, err := os.Stat(pathA); err != nil {
+		t.Fatalf("tenant A artifact not found at %s: %v", pathA, err)
+	}
+	if _, err := os.Stat(pathB); err != nil {
+		t.Fatalf("tenant B artifact not found at %s: %v", pathB, err)
+	}
+
+	// Deleting tenant A's session removes tenant A's file but leaves tenant B's intact
+	if err := store.DeleteSession(ctx, tenantA, sessionID); err != nil {
+		t.Fatalf("DeleteSession A: %v", err)
+	}
+
+	if _, err := os.Stat(pathA); !os.IsNotExist(err) {
+		t.Fatalf("tenant A artifact still exists after delete: %v", err)
+	}
+	if _, err := os.Stat(pathB); err != nil {
+		t.Fatalf("tenant B artifact was removed or inaccessible after tenant A delete: %v", err)
+	}
 }

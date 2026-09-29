@@ -31,6 +31,7 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/auditapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
 	"go.aledante.io/FlowSeer/src/services/device/internal/deviceapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edge"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
@@ -317,6 +318,23 @@ func portOf(address string) int {
 
 func newStderr() *os.File { return os.Stderr }
 
+var (
+	errCodeAdminNotConfigured = errs.NewCode("tenant/admin-not-configured")
+	errCodeTenantNotFound     = errs.NewCode("tenant/not-found")
+	errCodeTenantRequest      = errs.NewCode("tenant/request")
+)
+
+var tenantErrors = connecterr.Table{
+	tenantstore.ErrCodeAlreadyExists: {Code: connect.CodeAlreadyExists, UserMsg: "tenant already exists"},
+	tenantstore.ErrCodeInvalidConfig: {Code: connect.CodeInvalidArgument, UserMsg: "invalid tenant configuration"},
+	tenantstore.ErrCodeConflict:      {Code: connect.CodeUnavailable, UserMsg: "the tenant record is being written concurrently; retry"},
+	tenantstore.ErrCodeStore:         {Code: connect.CodeUnavailable, UserMsg: "tenant store unavailable; retry"},
+	tenantstore.ErrCodeDecode:        {Code: connect.CodeInternal, UserMsg: "stored tenant record is corrupt"},
+	errCodeAdminNotConfigured:        {Code: connect.CodePermissionDenied, UserMsg: "platform admin is not configured"},
+	errCodeTenantNotFound:            {Code: connect.CodeNotFound, UserMsg: "tenant not found"},
+	errCodeTenantRequest:             {Code: connect.CodeInvalidArgument, UserMsg: "invalid tenant request"},
+}
+
 // tenantService implements identityv1connect.TenantServiceHandler.
 // Management of tenants is permitted only when a platform administrator is configured.
 type tenantService struct {
@@ -326,7 +344,7 @@ type tenantService struct {
 
 func (s *tenantService) checkAdmin() error {
 	if s.admin == nil {
-		return connect.NewError(connect.CodePermissionDenied, errs.New().Msg("platform admin is not configured"))
+		return tenantErrors.Wrap(errs.New().Code(errCodeAdminNotConfigured).Msg("platform admin is not configured"))
 	}
 	return nil
 }
@@ -340,7 +358,7 @@ func (s *tenantService) CreateTenant(
 	}
 	id, err := uuid.NewV7()
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, errs.From(err).Msg("draw tenant identifier"))
+		return nil, tenantErrors.Wrap(errs.From(err).Code(tenantstore.ErrCodeStore).Msg("draw tenant identifier"))
 	}
 	tenantID := strings.ToLower(id.String())
 
@@ -368,13 +386,7 @@ func (s *tenantService) CreateTenant(
 
 	record, err := s.store.Create(ctx, config)
 	if err != nil {
-		if code, _ := errs.CodeOf(err); code == tenantstore.ErrCodeAlreadyExists {
-			return nil, connect.NewError(connect.CodeAlreadyExists, err)
-		}
-		if code, _ := errs.CodeOf(err); code == tenantstore.ErrCodeInvalidConfig {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, tenantErrors.Wrap(err)
 	}
 	resp := apiidentityv1.CreateTenantResponse_builder{
 		Tenant: record,
@@ -391,15 +403,15 @@ func (s *tenantService) GetTenant(
 	}
 	ref := req.Msg.GetTenant()
 	if ref == nil || ref.GetTenant() == nil || ref.GetTenant().GetId() == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errs.New().Msg("tenant id is required"))
+		return nil, tenantErrors.Wrap(errs.New().Code(errCodeTenantRequest).Msg("tenant id is required"))
 	}
 	tenantID := ref.GetTenant().GetId()
 	record, err := s.store.Get(ctx, tenantID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, tenantErrors.Wrap(err)
 	}
 	if record == nil {
-		return nil, connect.NewError(connect.CodeNotFound, errs.New().Attr("tenant", tenantID).Msg("tenant not found"))
+		return nil, tenantErrors.Wrap(errs.New().Code(errCodeTenantNotFound).Attr("tenant", tenantID).Msg("tenant not found"))
 	}
 	resp := apiidentityv1.GetTenantResponse_builder{
 		Tenant: record,
@@ -416,7 +428,7 @@ func (s *tenantService) ListTenants(
 	}
 	records, err := s.store.List(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, tenantErrors.Wrap(err)
 	}
 
 	pageSize := int(req.Msg.GetPageSize())

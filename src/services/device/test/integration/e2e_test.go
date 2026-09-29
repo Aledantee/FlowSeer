@@ -3,6 +3,7 @@ package integration_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -11,19 +12,27 @@ import (
 	"time"
 
 	connect "connectrpc.com/connect"
+	jwt "github.com/nats-io/jwt/v2"
 
+	apicapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	apiidentityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
+	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
+	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
-	"go.aledante.io/FlowSeer/src/services/device/internal/tenantstore"
+	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
+	centralhost "go.aledante.io/FlowSeer/src/services/device/internal/host"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	// Linked so protovalidate resolves the net/key predefined rules through the global registry (structure-record convention 4).
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
@@ -852,13 +861,86 @@ func accessGoroutines() string {
 	return strings.Join(kept, "\n\n")
 }
 
+func startCentralWithDevTenant(t *testing.T, c *central, devTenant string) {
+	t.Helper()
+	body := fmt.Sprintf(`
+dev_tenant: %q
+state_dir: %q
+registry_path: %q
+credential_root: %q
+listeners {
+  api: "127.0.0.1:%d"
+  bus: "127.0.0.1:%d"
+}
+edges {
+  central_url: %q
+  assertion_audience: "flowseer-e2e"
+  cluster_urls: "ws://127.0.0.1:%d"
+}
+intervals {
+  dispatch_resend { seconds: 1 }
+  drift { seconds: 3600 }%s
+}
+platform_admin {
+  issuer: "https://auth.example.test"
+  organization: "org_admin"
+  subject: "admin_user"
+}
+`, devTenant, filepath.Join(c.dir, "central-state"), c.registry, filepath.Join(c.dir, "credentials"),
+		c.apiPort, c.busPort, c.baseURL(), c.busPort, captureSweepLine(c.captureSweep))
+
+	cfg, err := centralhost.LoadConfig(writeFile(t, filepath.Join(c.configDir, "central.textproto"), []byte(body)))
+	if err != nil {
+		t.Fatalf("central LoadConfig: %v", err)
+	}
+
+	bound := make(chan string, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- centralhost.Run(ctx, cfg, "e2e", centralhost.Options{
+			Bound: func(api string) {
+				select {
+				case bound <- api:
+				default:
+				}
+			},
+			Hub: func(hub *edgebus.Hub) {
+				c.mu.Lock()
+				c.hub = hub
+				c.mu.Unlock()
+			},
+		})
+	}()
+
+	select {
+	case api := <-bound:
+		if want := fmt.Sprintf("127.0.0.1:%d", c.apiPort); api != want {
+			t.Fatalf("central bound %q, want %q", api, want)
+		}
+	case err := <-done:
+		t.Fatalf("central stopped before it bound its listener: %v", err)
+	case <-time.After(60 * time.Second):
+		cancel()
+		t.Fatal("central did not bind its listener within a minute")
+	}
+
+	c.mu.Lock()
+	c.stop, c.stopped = cancel, done
+	c.mu.Unlock()
+}
+
 func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 	dir := t.TempDir()
 	writeCredentials(t, filepath.Join(dir, "credentials"))
 
 	registryPath := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
 	c := newCentral(t, dir, registryPath)
-	c.start()
+
+	tenantA := "0192e6a0-aaaa-7000-8000-0000000000aa"
+	tenantB := "0192e6a0-bbbb-7000-8000-0000000000bb"
+
+	startCentralWithDevTenant(t, c, tenantA)
 	defer c.shutdown()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -880,121 +962,162 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 		}
 	}
 
-	// 1. Verify tenant bucket and tenant creation
-	tenantsKV, err := js.KeyValue(ctx, edgebus.TenantBucket)
-	if err != nil {
-		t.Fatalf("open tenants bucket: %v", err)
-	}
-	tenantStore := tenantstore.New(tenantsKV)
-
-	tenantA := "0192e6a0-0000-7000-8000-000000000001"
-	tenantB := "0192e6a0-0000-7000-8000-000000000002"
-
-	cfgA := identityv1.TenantConfig_builder{
-		Ref: identityv1.TenantGlobalRef_builder{
-			Tenant: identityv1.TenantLocalRef_builder{Id: proto.String(tenantA)}.Build(),
-		}.Build(),
-		Name:                   proto.String("Tenant Alpha"),
-		Issuer:                 proto.String("https://auth.alpha.example.test"),
+	// 1. Create tenant through TenantService
+	tenantClient := identityv1connect.NewTenantServiceClient(c.client, c.baseURL())
+	tenantResp, err := tenantClient.CreateTenant(ctx, connect.NewRequest(apiidentityv1.CreateTenantRequest_builder{
+		Issuer:                 proto.String("https://auth.example.test"),
 		OrganizationClaimName:  proto.String("org_id"),
 		OrganizationClaimValue: proto.String("org_alpha"),
-	}.Build()
-
-	cfgB := identityv1.TenantConfig_builder{
-		Ref: identityv1.TenantGlobalRef_builder{
-			Tenant: identityv1.TenantLocalRef_builder{Id: proto.String(tenantB)}.Build(),
-		}.Build(),
-		Name:                   proto.String("Tenant Beta"),
-		Issuer:                 proto.String("https://auth.beta.example.test"),
-		OrganizationClaimName:  proto.String("org_id"),
-		OrganizationClaimValue: proto.String("org_beta"),
-	}.Build()
-
-	recA, err := tenantStore.Create(ctx, cfgA)
+		Name:                   proto.String("Tenant Alpha"),
+	}.Build()))
 	if err != nil {
-		t.Fatalf("Create tenant A: %v", err)
+		t.Fatalf("CreateTenant: %v", err)
 	}
-	recB, err := tenantStore.Create(ctx, cfgB)
+	if tenantResp.Msg.GetTenant().GetConfig().GetRef().GetTenant().GetId() == "" {
+		t.Fatal("CreateTenant returned empty tenant ID")
+	}
+
+	// 2. Create edge via operator API under tenant A
+	edgeResp, err := c.admin().CreateEdge(ctx, connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
+		Name: proto.String("site-edge-a"),
+	}.Build()))
 	if err != nil {
-		t.Fatalf("Create tenant B: %v", err)
+		t.Fatalf("CreateEdge: %v", err)
+	}
+	edgeRef := edgeResp.Msg.GetEdge().GetConfig().GetRef()
+	edgeID := edgeRef.GetEdge().GetId()
+
+	// Assert edge KV key begins with A. (<tenantA>.<edgeID>)
+	kvEdges, err := js.KeyValue(ctx, edgebus.EdgeBucket)
+	if err != nil {
+		t.Fatalf("open edges KV: %v", err)
+	}
+	edgeEntry, err := kvEdges.Get(ctx, tenantA+"."+edgeID)
+	if err != nil {
+		t.Fatalf("expected edge key %s.%s in KV: %v", tenantA, edgeID, err)
+	}
+	var storedEdge storev1.StoredEdge
+	if err := proto.Unmarshal(edgeEntry.Value(), &storedEdge); err != nil {
+		t.Fatalf("unmarshal stored edge record: %v", err)
+	}
+	if storedEdge.GetRecord().GetConfig().GetRef().GetEdge().GetId() != edgeID {
+		t.Fatalf("stored edge ID = %q, want %q", storedEdge.GetRecord().GetConfig().GetRef().GetEdge().GetId(), edgeID)
 	}
 
-	if recA.GetConfig().GetRef().GetTenant().GetId() != tenantA {
-		t.Errorf("tenant A id = %s, want %s", recA.GetConfig().GetRef().GetTenant().GetId(), tenantA)
+	// 3. Attach edge on hub and index in edgestore, then assert minted edge JWT pub allow is flowseer.A.edge.<id>.>
+	edgeStore := edgestore.New(kvEdges)
+	if err := edgeStore.IndexEdge(ctx, edgeID, tenantA); err != nil {
+		t.Fatalf("IndexEdge: %v", err)
 	}
-	if recB.GetConfig().GetRef().GetTenant().GetId() != tenantB {
-		t.Errorf("tenant B id = %s, want %s", recB.GetConfig().GetRef().GetTenant().GetId(), tenantB)
-	}
-
-	// 2. Verify edgebus attach and mint per tenant
-	edgeID := "0192e6a0-0000-7000-8000-0000000000ee"
 	if err := hub.AttachEdge(ctx, tenantA, edgeID); err != nil {
-		t.Fatalf("AttachEdge under tenant A: %v", err)
+		t.Fatalf("AttachEdge: %v", err)
 	}
-	if got, ok := hub.EdgeTenant(edgeID); !ok || got != tenantA {
-		t.Errorf("hub.EdgeTenant(%s) = (%s, %v), want (%s, true)", edgeID, got, ok, tenantA)
-	}
-
 	creds, err := hub.MintEdgeUser(ctx, edgeID)
 	if err != nil {
 		t.Fatalf("MintEdgeUser: %v", err)
 	}
-	if creds.UserJWT.RevealString() == "" {
-		t.Fatal("MintEdgeUser returned empty JWT")
-	}
-
-	// 3. Verify lanes bucket partitioning: tenant A and tenant B can have distinct lane records for the same device ID
-	lanesKV, err := js.KeyValue(ctx, edgebus.LaneBucket)
+	claims, err := jwt.DecodeUserClaims(creds.UserJWT.RevealString())
 	if err != nil {
-		t.Fatalf("open lanes KV: %v", err)
+		t.Fatalf("decode claims: %v", err)
+	}
+	expectedSubtree := "flowseer." + tenantA + ".edge." + edgeID + ".>"
+	foundPubAllow := false
+	for _, sub := range claims.Pub.Allow {
+		if sub == expectedSubtree {
+			foundPubAllow = true
+			break
+		}
+	}
+	if !foundPubAllow {
+		t.Fatalf("claims.Pub.Allow %v does not contain %s", claims.Pub.Allow, expectedSubtree)
 	}
 
-	sharedDeviceID := "0192e6a0-0000-7000-8000-0000000000dd"
-	laneKeyA := tenantA + "." + sharedDeviceID
-	laneKeyB := tenantB + "." + sharedDeviceID
-
-	laneRecA := storev1.DeviceLaneRecord_builder{
-		Device: inventoryv1.DeviceGlobalRef_builder{
-			Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(sharedDeviceID)}.Build(),
+	// 4. Create capture session via operator API under tenant A
+	captureResp, err := c.captures().CreateCaptureSession(ctx, connect.NewRequest(apicapturev1.CreateCaptureSessionRequest_builder{
+		Edge: edgeRef,
+		Name: proto.String("capture-a"),
+		Source: modelcapturev1.CaptureSource_builder{
+			LocalInterface: modelcapturev1.LocalInterfaceSource_builder{
+				InterfaceName: proto.String("eth0"),
+			}.Build(),
 		}.Build(),
-		HighWatermark: 10,
-	}.Build()
-	dataA, _ := proto.Marshal(laneRecA)
-
-	laneRecB := storev1.DeviceLaneRecord_builder{
-		Device: inventoryv1.DeviceGlobalRef_builder{
-			Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(sharedDeviceID)}.Build(),
+		Budget: modelcapturev1.CaptureBudget_builder{
+			MaxPackets: proto.Uint64(10),
 		}.Build(),
-		HighWatermark: 20,
+		Authorization: modelcapturev1.CaptureAuthorization_builder{
+			Operator:             proto.String("alice"),
+			Reason:               proto.String("test"),
+			FullPayloadRequested: proto.Bool(false),
+		}.Build(),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CreateCaptureSession: %v", err)
+	}
+	captureRef := captureResp.Msg.GetSession().GetConfig().GetRef()
+	sessionID := captureRef.GetCaptureSession().GetId()
+
+	// Assert capture session KV key begins with A. (<tenantA>.<sessionID>)
+	kvCaptures, err := js.KeyValue(ctx, edgebus.CapturesBucket)
+	if err != nil {
+		t.Fatalf("open captures KV: %v", err)
+	}
+	capEntry, err := kvCaptures.Get(ctx, tenantA+"."+sessionID)
+	if err != nil {
+		t.Fatalf("expected capture key %s.%s in KV: %v", tenantA, sessionID, err)
+	}
+	var storedSession modelcapturev1.CaptureSessionRecord
+	if err := proto.Unmarshal(capEntry.Value(), &storedSession); err != nil {
+		t.Fatalf("unmarshal stored capture record: %v", err)
+	}
+
+	// 5. Append packets and finalize artifact to assert artifact lands under captures/A/<sessionID>.pcapng
+	capturesDir := filepath.Join(c.dir, "central-state", "captures")
+	capStore, err := captureapi.NewStore(kvCaptures, capturesDir, time.Now)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	packet := netcapturev1.PacketRecord_builder{
+		CapturedAt:     timestamppb.Now(),
+		OriginalLength: proto.Uint32(64),
+		Data:           []byte("payload-test"),
 	}.Build()
-
-	dataB, _ := proto.Marshal(laneRecB)
-
-	if _, err := lanesKV.Create(ctx, laneKeyA, dataA); err != nil {
-		t.Fatalf("create lane record A: %v", err)
+	if err := capStore.AppendPackets(ctx, tenantA, sessionID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128, []*netcapturev1.PacketRecord{packet}); err != nil {
+		t.Fatalf("AppendPackets: %v", err)
 	}
-	if _, err := lanesKV.Create(ctx, laneKeyB, dataB); err != nil {
-		t.Fatalf("create lane record B: %v", err)
-	}
-
-	entryA, err := lanesKV.Get(ctx, laneKeyA)
+	counters := netcapturev1.CaptureCounters_builder{ReceivedPackets: proto.Uint64(1), AcceptedPackets: proto.Uint64(1)}.Build()
+	artifact, err := capStore.FinalizeArtifact(ctx, tenantA, sessionID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128, counters, time.Now().Add(time.Hour))
 	if err != nil {
-		t.Fatalf("get lane record A: %v", err)
+		t.Fatalf("FinalizeArtifact: %v", err)
 	}
-	entryB, err := lanesKV.Get(ctx, laneKeyB)
-	if err != nil {
-		t.Fatalf("get lane record B: %v", err)
+	if _, err := capStore.MutateSession(ctx, tenantA, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
+		rec.GetState().SetArtifact(artifact)
+		return nil
+	}); err != nil {
+		t.Fatalf("MutateSession: %v", err)
 	}
 
-	var readRecA storev1.DeviceLaneRecord
-	_ = proto.Unmarshal(entryA.Value(), &readRecA)
-	var readRecB storev1.DeviceLaneRecord
-	_ = proto.Unmarshal(entryB.Value(), &readRecB)
-
-	if readRecA.GetHighWatermark() != 10 {
-		t.Errorf("readRecA watermark = %d, want 10", readRecA.GetHighWatermark())
+	artifactPath := filepath.Join(capturesDir, tenantA, sessionID+".pcapng")
+	if _, err := os.Stat(artifactPath); err != nil {
+		t.Fatalf("expected artifact on disk at %s: %v", artifactPath, err)
 	}
-	if readRecB.GetHighWatermark() != 20 {
-		t.Errorf("readRecB watermark = %d, want 20", readRecB.GetHighWatermark())
+
+	// 6. Restart central with dev_tenant = UUID B over the same state dir
+	c.shutdown()
+	startCentralWithDevTenant(t, c, tenantB)
+
+	// 7. Assert GetEdge and GetCaptureSession for A's IDs return NotFound under tenant B
+	_, err = c.admin().GetEdge(ctx, connect.NewRequest(apiedgev1.GetEdgeRequest_builder{
+		Edge: edgeRef,
+	}.Build()))
+	if connect.CodeOf(err) != connect.CodeNotFound {
+		t.Fatalf("GetEdge under tenant B got code %v, want CodeNotFound", connect.CodeOf(err))
+	}
+
+	_, err = c.captures().GetCaptureSession(ctx, connect.NewRequest(apicapturev1.GetCaptureSessionRequest_builder{
+		Session: captureRef,
+	}.Build()))
+	if connect.CodeOf(err) != connect.CodeNotFound {
+		t.Fatalf("GetCaptureSession under tenant B got code %v, want CodeNotFound", connect.CodeOf(err))
 	}
 }

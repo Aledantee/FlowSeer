@@ -151,7 +151,7 @@ func (s *Service) Heartbeat(ctx context.Context, req *connect.Request[attachv1.H
 		return nil, connectErr(err)
 	}
 	if tenantID == "" {
-		return nil, notFound(edgeID)
+		return nil, connectErr(notFound(edgeID))
 	}
 
 	now := s.clock()
@@ -190,7 +190,7 @@ func (s *Service) AttachBus(ctx context.Context, _ *connect.Request[attachv1.Att
 		return nil, connectErr(err)
 	}
 	if tenantID == "" {
-		return nil, notFound(edgeID)
+		return nil, connectErr(notFound(edgeID))
 	}
 
 	if err := s.bus.AttachEdge(ctx, tenantID, edgeID); err != nil {

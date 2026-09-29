@@ -56,6 +56,8 @@ var (
 	// intent, and answering with the new one would describe it as something
 	// central recorded when it recorded something else.
 	ErrCodeIdempotencyMismatch = errs.NewCode("journal/idempotency-mismatch")
+	// ErrCodeArgument is an argument validation failure such as an empty tenant or device.
+	ErrCodeArgument = errs.NewCode("journal/argument")
 )
 
 // intentDigestLen is how much of the intent's SHA-256 the record keeps, and
@@ -125,7 +127,7 @@ func (j *Journal) Record(ctx context.Context, tenantID, deviceID string) (*store
 
 func (j *Journal) load(ctx context.Context, tenantID, deviceID string) (*storev1.DeviceLaneRecord, uint64, error) {
 	if tenantID == "" || deviceID == "" {
-		return &storev1.DeviceLaneRecord{}, 0, nil
+		return nil, 0, errs.New().Code(ErrCodeArgument).Attr("tenant", tenantID).Attr("device", deviceID).Msg("tenant and device are required")
 	}
 	key, err := LaneKey(tenantID, deviceID)
 	if err != nil {
@@ -153,7 +155,7 @@ var errSkip = errs.Msg("journal: no write needed")
 // needed" and mutate returns nil without writing.
 func (j *Journal) mutate(ctx context.Context, tenantID, deviceID string, fn func(*storev1.DeviceLaneRecord) error) error {
 	if tenantID == "" || deviceID == "" {
-		return errs.New().Code(ErrCodeStore).Attr("tenant", tenantID).Attr("device", deviceID).Msg("tenant and device are required")
+		return errs.New().Code(ErrCodeArgument).Attr("tenant", tenantID).Attr("device", deviceID).Msg("tenant and device are required")
 	}
 	key, err := LaneKey(tenantID, deviceID)
 	if err != nil {
