@@ -1023,7 +1023,7 @@ var _ = '\n'
 func TestAfterRuneLiterals(t *testing.T) {}
 
 var _ = ` + "`" + `
-decoy raw string: /* */ // " 
+decoy raw string: /* */ // "
 func TestFakeInRawString(t *testing.T) {}
 ` + "`" + `
 func TestAfterRawString(t *testing.T) {}
