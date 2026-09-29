@@ -3,9 +3,8 @@ title: Package Guarantees - Plan
 type: docs
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: implemented
-review: rework
+artifact_readiness: implementation-ready
+status: planned
 execution: mixed
 ---
 
@@ -57,6 +56,114 @@ follow-up plan is written.
   CommonMark leaked first at the block level, then across lines, then
   inside code spans.
 
+- Where the Go command lives: `tools/check-guarantees/` (with `main.go`,
+  `check.go`, and `check_test.go`). Why: the repository layout in
+  `AGENTS.md:126-133` and `README.md:57-67` reserves `src/` exclusively for
+  product runtime subtrees (`protocol/`, `common/`, `modules/`, `services/`,
+  `edge/`), while developer and verification tooling lives under `tools/`
+  (matching `tools/test/service-otel-integration.sh`). Placing the command in
+  `tools/check-guarantees/` satisfies the conformance gates under
+  `test/conformance/`: `test/conformance/dependencies/no_as_test.go:11-33`
+  forbids `go.aledante.io/as` and `ae` (goldmark and stdlib imports comply),
+  and `test/conformance/panic/panic_policy_test.go:37-38` and
+  `test/conformance/errs/errs_policy_test.go:28-29` inspect only `src/`
+  (`srcRoot := filepath.Join(root, "src")`). It satisfies
+  `docs/code-style.md:214-220` (constructing errors via `src/common/errs`),
+  `docs/code-style.md:250-252` (process exit codes via `errs.ExitCode(err)`),
+  `docs/code-style.md:45-50` (doc comments on exported types), and
+  `docs/code-style.md:449` (plain `testing` package without assertion
+  frameworks). Standard Go toolchain commands (`go list ./...`,
+  `go test -race ./...`, `golangci-lint run`) naturally discover and test
+  `tools/check-guarantees/`, which they do not do for dot-directories like
+  `.agents/`. Adding `github.com/yuin/goldmark` to `go.mod` updates `go.sum`.
+
+- How the Go command is invoked (Python vs Go tradeoff): The Go command in
+  `tools/check-guarantees` replaces the Python checker (`check-guarantees.py`
+  and `test_check_guarantees.py`) entirely, invoked directly by
+  `verify-change.sh:518-520` via `go run ./tools/check-guarantees` (`--all` or
+  paths). Tradeoff: Having `check-guarantees.py` invoke a Go parser command via
+  subprocess would preserve the existing Python test harness and avoid
+  modifying `verify-change.sh`, but it incurs double subprocess overhead
+  (`verify-change.sh` -> Python -> `go run` -> stdout JSON -> Python ->
+  `go list`), requires maintaining an IPC JSON bridge, and leaves Python
+  orchestrating Go in a codebase that manages no Python dependencies.
+  Replacing the Python checker unifies the gate in Go, eliminates IPC
+  overhead, aligns with FlowSeer's pure-Go toolchain preference, and lets
+  the test suite run under `go test -race ./tools/check-guarantees/...`.
+  `verify-change.sh` is merge-gate configuration (`AGENTS.md:37-39`), so the
+  unit modifying it keeps the guardrail-review rule.
+
+- Preserved mechanics: `go list -mod=readonly -json .` test discovery in the
+  package directory with `GOWORK=off` (`check-guarantees.py:355-386`,
+  `verify-change.sh:305-308`), the Go test token scanner rules
+  (`check-guarantees.py:276-343`) recognizing top-level `Test` functions where
+  the 5th character is `!unicode.IsLower` and supporting `*testing.T`,
+  `*<pkg>.T`, anonymous parameters, multiline parameters, and empty returns,
+  the one-MUST-sentence rule (`check-guarantees.py:432-440, 597-599`), and the
+  error format `<path>:<line>: <message>` (`check-guarantees.py:429-466`) stay
+  as they are. Line numbers are derived directly from goldmark's AST node line
+  and segment offsets against the source buffer.
+
+- Hand-rolled grammar rules vs rules on the parsed tree:
+  Hand-rolled line rules become obsolete and are omitted: `strip_code_spans`
+  (`check-guarantees.py:157-193`), `has_hidden_markup`
+  (`check-guarantees.py:196-204`), `is_text_line`
+  (`check-guarantees.py:226-243`), `is_blank_text`
+  (`check-guarantees.py:206-209`), `starts_paragraph`
+  (`check-guarantees.py:212-224`), regexes `ORDERED_LIST_RE` and
+  `THEMATIC_BREAK_RE` (`check-guarantees.py:23-24`), line indentation checks
+  (`check-guarantees.py:493-496`), heading trailing `#` regex
+  (`check-guarantees.py:541`), and continuation line tracking
+  (`check-guarantees.py:468-472, 503-524`).
+  The rules on the parsed tree enforce:
+  - Document level: At most one `# ` title (`ast.KindHeading` with
+    `Level == 1`), only before sections; preamble paragraphs
+    (`ast.KindParagraph`), only before first section; at least one `## `
+    guarantee section (`Level == 2`); unique `## ` headings with HTML entity
+    decoding (`&amp;` -> `&`) and unspaced `#` preserved; any unexpected block
+    at root fails closed.
+  - Section level: Exactly three allowed block kinds:
+    1. Exactly one normative paragraph (`ast.KindParagraph` containing
+       whole-word MUST or MUST NOT in visible text).
+    2. Exactly one bullet list (`ast.KindList` where `!IsOrdered()`) containing
+       `- WHEN ... THEN ...` scenario items (`ast.KindListItem`).
+    3. Exactly one `Proved by:` paragraph (`ast.KindParagraph` starting with
+       `Proved by:`), containing comma-separated Go test identifiers,
+       disallowing trailing commas.
+    Any other block kind (`ast.KindCodeBlock`, `ast.KindFencedCodeBlock`,
+    `ast.KindThematicBreak`, `ast.KindBlockquote`, `ast.KindHTMLBlock`, ordered
+    `ast.KindList`, unallowed headings `###`, unindented non-normative
+    paragraphs, extra paragraphs) fails closed as an unknown block kind.
+
+- Review findings and regression tests:
+  The three open findings of the second review become regression cases:
+  1. An escaped backtick followed by `<!-- MUST -->` must not count as MUST:
+     `\` ` is parsed as literal text (`ast.KindText`) and `<!-- MUST -->` as
+     raw HTML (`ast.KindRawHTML`). Visible text does not contain MUST; fails
+     with no normative MUST sentence.
+  2. A code span opening on a `- WHEN` line and closing on the next must not
+     hide THEN: parsed as a single `ast.KindListItem` containing
+     `ast.KindCodeSpan` and trailing text containing `THEN`. Passes without
+     hiding `THEN`.
+  3. `## A &amp; B` and `## A & B` are duplicate headings: HTML character
+     references in headings are decoded, yielding identical heading text
+     `A & B`. Fails as duplicate heading.
+  The two low findings of that review are closed:
+  1. A package where one test file has a badly-signed test (go test fails the
+     package) while the checker still resolves the good one: The Go test
+     scanner validates signatures for all top-level functions matching
+     `Test...` (`!unicode.IsLower` on 5th char); if any function named
+     `Test...` in any discovered test file has an invalid test signature (wrong
+     parameter count, wrong parameter type, return value), report a malformed
+     test signature error, failing package test resolution so citations cannot
+     resolve.
+  2. The hidden-markup check on WHEN continuation lines has no test that fails
+     without it: Under CommonMark AST, continuation lines are absorbed into
+     the `ListItem` node and raw HTML is excluded from text; this hand-rolled
+     check (`check-guarantees.py:517-519`) is obsolete and omitted.
+  All 73 checker test cases from `test_check_guarantees.py` preserve their
+  intent in Go table-driven unit tests in `tools/check-guarantees/check_test.go`.
+
 - The checker reads `GUARANTEES.md` with a strict line grammar and resolves
   tests through `go list` (decided by the user, 2026-09-28, after review
   ended `rework`). Every line must be one of the kinds the format allows,
@@ -67,7 +174,8 @@ follow-up plan is written.
   heading), and a file lookup counted `_foo_test.go` and
   `//go:build ignore` files Go never compiles. A grammar that rejects
   every unknown line fails closed by construction. The check needs Go on
-  PATH, as the lexer's oracle test already does.
+  PATH, as the lexer's oracle test already does. Landed in U5; superseded by
+  the CommonMark AST parser decision above.
 - `verify-change.sh` classifies `.agents/*` paths as tooling (`hook_tooling=true`),
   so `--base main` and direct skill script edits run `test_check_guarantees.py`
   and other skill unit tests. Why: `.claude/skills` symlinks `.agents/skills`,
@@ -75,7 +183,7 @@ follow-up plan is written.
   `verify-change.sh`'s classification patterns (lines 255 and 288), diffs
   touching `.agents/skills/...` skipped the Python unit tests unless `--full` was
   passed. Because `verify-change.sh` is merge-gate configuration, any unit
-  touching it requires guardrail review.
+  touching it requires guardrail review. Landed in U4.
 
 - Guarantees live in `GUARANTEES.md` beside the package's `README.md`, not
   in the README. Why: the README is written for a person learning the
@@ -174,6 +282,34 @@ follow-up plan is written.
 11. `docs/conventions/guarantees.md` documents the strict line grammar and `go list`
     test resolution rules, and `src/protocol/ssh/GUARANTEES.md` passes the new
     checker. Example: `check-guarantees.py src/protocol/ssh/GUARANTEES.md` exits 0.
+12. `tools/check-guarantees` parses `GUARANTEES.md` through goldmark
+    (`github.com/yuin/goldmark`) into a CommonMark AST, deriving 1-based source
+    lines from node text segments. Block kinds outside the allowed set (one
+    normative paragraph, one bullet list of `- WHEN ... THEN ...` items, one
+    `Proved by:` paragraph per section) fail closed with `<path>:<line>: unknown
+    block kind`. Example: a guarantee section containing a fenced code block
+    ` ```go ` fails with `GUARANTEES.md:14: unknown block kind: fenced code block`.
+13. Text content extracted from the AST ignores raw HTML nodes
+    (`ast.KindRawHTML`, `ast.KindHTMLBlock`), unescapes HTML character entities
+    in headings (`&amp;` -> `&`), and correctly evaluates code spans spanning
+    multiple lines. Examples: `\` ` <!-- MUST -->` fails with no normative MUST
+    sentence; `- WHEN ` `code\nmore` ` THEN ...` passes; `## A &amp; B` and
+    `## A & B` fail as duplicate headings.
+14. The Go test scanner reports an error if any function named `Test...` in a
+    package's test files has an invalid test signature, preventing packages
+    with broken tests from passing citation resolution. Example: a package
+    containing `func TestGood(t *testing.T)` and `func TestBad(x int)` fails
+    resolution with `bad_test.go:3: TestBad has invalid test signature`.
+15. `verify-change.sh` invokes `go run ./tools/check-guarantees` (`--all` under
+    `--full`, changed paths otherwise) and passes guardrail review before
+    commit. `tools/check-guarantees` replaces `check-guarantees.py` and
+    `test_check_guarantees.py`. Example: `verify-change.sh --
+    src/protocol/ssh/command_test.go` executes `go run ./tools/check-guarantees`
+    and passes.
+16. `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
+    document the CommonMark block-based grammar and Go checker command.
+    `src/protocol/ssh/GUARANTEES.md` passes. Example: `go run
+    ./tools/check-guarantees src/protocol/ssh/GUARANTEES.md` exits 0.
 
 ## Out of scope
 
@@ -189,6 +325,8 @@ follow-up plan is written.
   that the test exists; `review` judges the rest.
 - Changes to `land`, `compound`, `drive`, or `next`, whose scripts parse no
   plan section beyond the frontmatter and unit fields.
+- Updating `--print-selection` output assertions for `hook_tooling` in
+  `tools/hooks/tests/run.sh` (policy surface; recorded under Open questions).
 
 ## Units
 
@@ -350,27 +488,87 @@ Tests: `test_check_guarantees.py` tests:
 - Pilot check: `src/protocol/ssh/GUARANTEES.md` passes.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills/verify-change/scripts/check-guarantees.py .agents/skills/verify-change/scripts/test_check_guarantees.py .agents/skills/verify-change/SKILL.md docs/conventions/guarantees.md src/protocol/ssh/GUARANTEES.md`
 
-Waves: U1 | U2 | U3 | U4 | U5
+### U6. CommonMark guarantees checker command in tools/check-guarantees
+
+Files: `go.mod`, `go.sum`, `tools/check-guarantees/main.go`, `tools/check-guarantees/check.go`, `tools/check-guarantees/check_test.go`
+After: U5
+Change: `tools/check-guarantees` implements the package guarantees checker in
+pure Go using goldmark:
+- Dependency: `github.com/yuin/goldmark` is added to `go.mod` and `go.sum`.
+- Command CLI (`main.go`): parses `--all`, `--root <path>`, `paths`, and `--`
+  separator. Selects `GUARANTEES.md` files matching `select_guarantee_files`
+  (selecting `GUARANTEES.md` in directory or parent directory of each changed
+  path, skipping `.git`, `node_modules`, `vendor`, `testdata`). Exits with
+  `errs.ExitCode(err)` (`docs/code-style.md:250-252`).
+- Checker logic (`check.go`): parses Markdown with `goldmark.DefaultParser()`,
+  deriving 1-based source lines from node line/segment offsets. Validates
+  allowed block kinds: at most one `# ` title before sections, preamble
+  paragraphs before first section, `## ` section headings with HTML entity
+  decoding (`&amp;` -> `&`), unspaced `#` preserved, and uniqueness check.
+  Each section allows exactly three block kinds: one normative MUST/MUST NOT
+  paragraph, one bullet list of `- WHEN ... THEN ...` items, and one
+  `Proved by:` paragraph; any other block kind fails closed as unknown block
+  kind. Text extraction ignores `ast.KindRawHTML` and handles multiline code
+  spans. Resolves tests via `go list -mod=readonly -json .` with `GOWORK=off`
+  and inherited environment. Scans discovered test files with Go token
+  scanner, validating signatures (`*testing.T`, `*<pkg>.T`, anonymous
+  parameters, multiline parameters); if any function named `Test...` has an
+  invalid test signature, reports a malformed test error failing resolution.
+  Removes obsolete hand-rolled line grammar rules.
+- Test suite (`check_test.go`): Go table-driven unit tests covering all 73
+  checker test intents, the 3 open review regression cases (escaped backtick
+  followed by comment, multiline code span on WHEN line, entity duplicate
+  headings), the badly-signed test package failure, and pilot file validation.
+Tests: `go test -race ./tools/check-guarantees/...` proves all 73 test intents,
+the 3 open review regression cases, and the invalid signature case.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- go.mod go.sum tools/check-guarantees/main.go tools/check-guarantees/check.go tools/check-guarantees/check_test.go`
+
+### U7. Wire Go checker into verify-change, remove Python checker, and update documentation
+
+Files: `.agents/skills/verify-change/scripts/verify-change.sh`, `.agents/skills/verify-change/scripts/check-guarantees.py`, `.agents/skills/verify-change/scripts/test_check_guarantees.py`, `docs/conventions/guarantees.md`, `.agents/skills/verify-change/SKILL.md`, `src/protocol/ssh/GUARANTEES.md`
+After: U6
+Change: `verify-change.sh` switches from the Python checker to the Go command,
+obsolete Python scripts are removed, and documentation is updated:
+- `verify-change.sh`: updates lines 518-520 to invoke `go run ./tools/check-guarantees`
+  with `--all` under `--full`, and `-- "${paths[@]}"` otherwise. Because
+  `verify-change.sh` is merge-gate configuration (`AGENTS.md:37-39`), this
+  change undergoes guardrail review before commit.
+- Python checker removal: `.agents/skills/verify-change/scripts/check-guarantees.py`
+  and `.agents/skills/verify-change/scripts/test_check_guarantees.py` are deleted.
+- Documentation: `docs/conventions/guarantees.md:44-98` replaces the strict line
+  grammar rules with the CommonMark block-based grammar specification, allowed
+  block kinds, entity-unescaped headings, and `tools/check-guarantees`
+  validator. `.agents/skills/verify-change/SKILL.md:164-187` updates the "Package
+  guarantees" gate description to document CommonMark block validation and the
+  Go tool invocation.
+- Pilot validation: `src/protocol/ssh/GUARANTEES.md` conforms to the CommonMark
+  specification and passes the new checker.
+Tests: `go run ./tools/check-guarantees src/protocol/ssh/GUARANTEES.md` passes;
+`verify-change.sh -- src/protocol/ssh/command_test.go` executes the new gate and
+passes.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills/verify-change/scripts/verify-change.sh .agents/skills/verify-change/scripts/check-guarantees.py .agents/skills/verify-change/scripts/test_check_guarantees.py docs/conventions/guarantees.md .agents/skills/verify-change/SKILL.md src/protocol/ssh/GUARANTEES.md`
+
+Waves: U1 | U2 | U3 | U4 | U5 | U6 | U7
 
 ## Verification
 
 ```bash
-.claude/skills/verify-change/scripts/verify-change.sh --base main
-```
-
-Focused test runner check for tooling classification and guarantees tests:
-```bash
-.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills/verify-change/scripts/test_check_guarantees.py
-```
-
-Direct Python unit tests execution:
-```bash
-env PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s .claude/skills/verify-change/scripts -p 'test_*.py'
+go test -race ./tools/check-guarantees/...
 ```
 
 Pilot validation:
 ```bash
-python3 .claude/skills/verify-change/scripts/check-guarantees.py src/protocol/ssh/GUARANTEES.md
+go run ./tools/check-guarantees src/protocol/ssh/GUARANTEES.md
+```
+
+Full repository verification:
+```bash
+.claude/skills/verify-change/scripts/verify-change.sh --base main
+```
+
+Targeted test of changed package:
+```bash
+.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/ssh/command_test.go
 ```
 
 Then rename `TestRunOutputCapTruncates` in
@@ -387,17 +585,21 @@ Then rename `TestRunOutputCapTruncates` in
 - [x] The pilot outcome recorded in this plan's outcome note: how many
       README contracts were already proved, how many needed a new test,
       and whether the stop condition held.
-- [x] Verifier green for every changed path across all units.
+- [x] Verifier green for every changed path across U1–U5.
 - [x] The `verify-change.sh` `.agents/*` classification edit passed guardrail
       review before U4 commit.
-- [x] Checker redesign implements strict line grammar and resolves tests via
-      `go list` and Go lexer, closing all seven round-3 review findings.
-- [x] Every branch in the lexer and line grammar has a test in `test_check_guarantees.py`
-      that fails without it.
-- [x] `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
-      state the strict line grammar and citation resolution rules.
-- [x] `src/protocol/ssh/GUARANTEES.md` passes under the new checker.
-- [x] No plan labels in code, scripts, or skill text.
+- [x] Checker redesign in U5 recorded as landed history.
+- [ ] Goldmark added to `go.mod` and `go.sum`, and Go checker command
+      implemented in `tools/check-guarantees/` in U6.
+- [ ] All 73 checker test intents, 3 open review regression cases, and the
+      invalid signature case pass under `go test -race ./tools/check-guarantees/...`.
+- [ ] `verify-change.sh` updated to invoke `go run ./tools/check-guarantees` and
+      passes guardrail review before U7 commit.
+- [ ] Obsolete Python checker scripts removed in U7.
+- [ ] `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
+      state CommonMark block rules and `tools/check-guarantees` invocation.
+- [ ] `src/protocol/ssh/GUARANTEES.md` passes under the new checker.
+- [ ] No plan labels in code, scripts, or skill text.
 
 ## Open questions
 
@@ -411,3 +613,10 @@ Then rename `TestRunOutputCapTruncates` in
   plan's outcome note shows the stop condition did not trigger.
 - Whether to add `docs/conventions/guarantees.md` to `AGENTS.md`'s
   Conventions list; propose it through `steer` after the follow-up lands.
+- Updating `--print-selection` assertions in `tools/hooks/tests/run.sh`:
+  `verify-change.sh` classified `.agents/*` as `hook_tooling=true` in U4, so
+  `verify-change.sh --print-selection -- .agents/skills/...` now includes
+  `hook_tooling` in its output. `tools/hooks/tests/run.sh:765` tests
+  `--print-selection` output without `hook_tooling`. Updating `run.sh` touches
+  `tools/hooks/`, which is a policy surface requiring a separate guardrail
+  review; this update is left for a future policy-surface maintenance pass.
