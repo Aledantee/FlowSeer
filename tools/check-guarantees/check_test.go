@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 func createTestPkg(t *testing.T, root string) string {
@@ -877,6 +879,7 @@ func TestAfterRawString(t *testing.T) {}
 func Test(t *testing.T) {}
 func TestAnon(*testing.T) {}
 func TestEmptyResults(t *testing.T) () {}
+func TestMain(t *testing.T) {}
 `
 	if err := os.WriteFile(filepath.Join(pkgDir, "oracle_test.go"), []byte(code), 0o644); err != nil {
 		t.Fatal(err)
@@ -953,11 +956,27 @@ func TestMainExitCodes(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected violation error")
 	}
+	if got := errs.ExitCode(err); got != 1 {
+		t.Fatalf("expected exit code 1 for violations, got %d", got)
+	}
 
 	// Flag error exit
 	errFlag := run([]string{"--nonexistent-flag"}, &stdout, &stderr)
 	if errFlag == nil {
 		t.Fatal("expected flag error")
+	}
+	if got := errs.ExitCode(errFlag); got != 2 {
+		t.Fatalf("expected exit code 2 for flag error, got %d", got)
+	}
+
+	// Restore valid content for deleted path run
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	deletedPath := filepath.Join(pkgDir, "deleted.go")
+	stderr.Reset()
+	if err := run([]string{"--root", root, "--", deletedPath}, &stdout, &stderr); err != nil {
+		t.Fatalf("expected exit 0 for run with deleted absolute path and leading --, got: %v", err)
 	}
 }
 
@@ -1186,7 +1205,7 @@ func TestBlankLineSeparatesBlocks(t *testing.T) {
 	}
 }
 
-// Open review regression case 1: Escaped backtick followed by <!-- MUST --> must not count as MUST
+// Escaped backtick followed by HTML comment does not satisfy normative MUST.
 func TestRegressionEscapedBacktickWithHTMLComment(t *testing.T) {
 	root := t.TempDir()
 	pkgDir := createTestPkg(t, root)
@@ -1212,7 +1231,7 @@ func TestRegressionEscapedBacktickWithHTMLComment(t *testing.T) {
 	}
 }
 
-// Open review regression case 2: Multiline code span on WHEN line must not hide THEN
+// Code span opening on a WHEN line and closing on the next does not hide THEN.
 func TestRegressionMultilineCodeSpanDoesNotHideTHEN(t *testing.T) {
 	root := t.TempDir()
 	pkgDir := createTestPkg(t, root)
@@ -1231,7 +1250,7 @@ func TestRegressionMultilineCodeSpanDoesNotHideTHEN(t *testing.T) {
 	}
 }
 
-// Open review regression case 3: ## A &amp; B and ## A & B are duplicate headings
+// Headings differing only by HTML character entity encoding are duplicate.
 func TestRegressionHTMLEntityDuplicateHeadings(t *testing.T) {
 	root := t.TempDir()
 	pkgDir := createTestPkg(t, root)
@@ -1257,7 +1276,7 @@ func TestRegressionHTMLEntityDuplicateHeadings(t *testing.T) {
 	}
 }
 
-// Requirement 14: Package containing TestGood(t *testing.T) and TestBad(x int) fails resolution
+// A package containing an invalid Test signature fails resolution.
 func TestBadlySignedTestFailsPackageResolution(t *testing.T) {
 	root := t.TempDir()
 	pkgDir := createTestPkg(t, root)
@@ -1317,4 +1336,491 @@ func TestPilotFilePasses(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatalf("expected 0 errors for pilot file, got: %v", errs)
 	}
+}
+
+func TestListItemNestedBlocksFail(t *testing.T) {
+	cases := []struct {
+		name    string
+		content string
+		wantErr string
+	}{
+		{
+			name:    "nested_paragraph_and_proved_by",
+			content: "## Heading\n\nIt MUST succeed.\n\n- WHEN a THEN b\n\n  Proved by: TestGone\n\n  It MUST NOT drop.\n\nProved by: TestA\n",
+			wantErr: "unknown block kind: paragraph",
+		},
+		{
+			name:    "nested_fenced_code",
+			content: "## Heading\n\nIt MUST succeed.\n\n- WHEN a THEN b\n\n  ```go\n  var x = 1\n  ```\n\nProved by: TestA\n",
+			wantErr: "unknown block kind: fenced code block",
+		},
+		{
+			name:    "nested_indented_code",
+			content: "## Heading\n\nIt MUST succeed.\n\n- WHEN a THEN b\n\n      var x = 1\n\nProved by: TestA\n",
+			wantErr: "unknown block kind: code block",
+		},
+		{
+			name:    "nested_blockquote",
+			content: "## Heading\n\nIt MUST succeed.\n\n- WHEN a THEN b\n\n  > blockquote\n\nProved by: TestA\n",
+			wantErr: "unknown block kind: blockquote",
+		},
+		{
+			name:    "nested_heading",
+			content: "## Heading\n\nIt MUST succeed.\n\n- WHEN a THEN b\n\n  ### Subheading\n\nProved by: TestA\n",
+			wantErr: "unknown block kind: heading",
+		},
+		{
+			name:    "nested_html_block",
+			content: "## Heading\n\nIt MUST succeed.\n\n- WHEN a THEN b\n\n  <div>decoy</div>\n\nProved by: TestA\n",
+			wantErr: "unknown block kind: html block",
+		},
+		{
+			name:    "nested_list",
+			content: "## Heading\n\nIt MUST succeed.\n\n- WHEN a THEN b\n  - nested bullet\n\nProved by: TestA\n",
+			wantErr: "unknown block kind: list",
+		},
+		{
+			name:    "lazy_continuation_proved_by",
+			content: "## Heading\n\nIt MUST succeed.\n\n- WHEN a THEN b\nProved by: TestGone\n\nProved by: TestA\n",
+			wantErr: "unknown block kind: list item",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			pkgDir := createTestPkg(t, root)
+			if err := os.WriteFile(filepath.Join(pkgDir, "foo_test.go"), []byte("package pkg\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) {}\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+			if err := os.WriteFile(gFile, []byte(tc.content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			errs := checkGuaranteesFile(gFile, root)
+			found := false
+			for _, e := range errs {
+				if strings.Contains(e, tc.wantErr) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("expected error containing %q, got: %v", tc.wantErr, errs)
+			}
+		})
+	}
+}
+
+func TestFencedCodeBlockNoInfoDescendantNoPanic(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	if err := os.WriteFile(filepath.Join(pkgDir, "foo_test.go"), []byte("package pkg\n\nimport \"testing\"\n\nfunc TestValid(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("blockquote_descendant", func(t *testing.T) {
+		content := "> ```\n> x\n> ```\n\n## Heading\n\nIt MUST succeed.\n\n- WHEN valid THEN ok\n\nProved by: TestValid\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		found := false
+		for _, e := range errs {
+			if strings.Contains(e, "unknown block kind: blockquote") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected unknown block kind: blockquote, got: %v", errs)
+		}
+	})
+
+	t.Run("list_item_descendant", func(t *testing.T) {
+		content := "## Heading\n\nIt MUST succeed.\n\n- ```\n  x\n  ```\n\nProved by: TestValid\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		found := false
+		for _, e := range errs {
+			if strings.Contains(e, "unknown block kind: fenced code block") || strings.Contains(e, "unknown block kind: list item") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected unknown block kind error, got: %v", errs)
+		}
+	})
+}
+
+func TestRenderedTextEscapesEntitiesAndAltText(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	if err := os.WriteFile(filepath.Join(pkgDir, "foo_test.go"), []byte("package pkg\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) {}\nfunc TestB(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("escape_duplicate", func(t *testing.T) {
+		content := "## A \\& B\n\nIt MUST succeed.\n\n- WHEN first THEN ok\n\nProved by: TestA\n\n## A & B\n\nIt MUST succeed.\n\n- WHEN second THEN ok\n\nProved by: TestB\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		found := false
+		for _, e := range errs {
+			if strings.Contains(e, `duplicate guarantee heading "A & B"`) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected duplicate heading for escaped ampersand, got: %v", errs)
+		}
+	})
+
+	t.Run("amp_no_semicolon_not_duplicate", func(t *testing.T) {
+		content := "## A &amp B\n\nIt MUST succeed.\n\n- WHEN first THEN ok\n\nProved by: TestA\n\n## A & B\n\nIt MUST succeed.\n\n- WHEN second THEN ok\n\nProved by: TestB\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		for _, e := range errs {
+			if strings.Contains(e, "duplicate guarantee heading") {
+				t.Fatalf("unexpected duplicate heading error for &amp without semicolon: %s", e)
+			}
+		}
+	})
+
+	t.Run("code_span_entity_not_duplicate", func(t *testing.T) {
+		content := "## A `&amp;` B\n\nIt MUST succeed.\n\n- WHEN first THEN ok\n\nProved by: TestA\n\n## A & B\n\nIt MUST succeed.\n\n- WHEN second THEN ok\n\nProved by: TestB\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		for _, e := range errs {
+			if strings.Contains(e, "duplicate guarantee heading") {
+				t.Fatalf("unexpected duplicate heading error for code-span entity: %s", e)
+			}
+		}
+	})
+
+	t.Run("image_alt_must_not_counted", func(t *testing.T) {
+		content := "## Heading\n\nIt is ![MUST](x.png).\n\n- WHEN valid THEN ok\n\nProved by: TestA\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		found := false
+		for _, e := range errs {
+			if strings.Contains(e, "has no normative MUST sentence") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected has no normative MUST sentence when MUST is image alt, got: %v", errs)
+		}
+	})
+
+	t.Run("image_alt_then_not_counted", func(t *testing.T) {
+		content := "## Heading\n\nIt MUST succeed.\n\n- WHEN valid ![THEN](y) ok\n\nProved by: TestA\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		found := false
+		for _, e := range errs {
+			if strings.Contains(e, "has no - WHEN ... THEN scenario bullet") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected has no - WHEN ... THEN scenario bullet when THEN is image alt, got: %v", errs)
+		}
+	})
+}
+
+func TestSectionBlockOrderAndSingleList(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	if err := os.WriteFile(filepath.Join(pkgDir, "foo_test.go"), []byte("package pkg\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("order_probe", func(t *testing.T) {
+		content := "## Heading\n\nProved by: TestA\n\n- WHEN valid THEN ok\n\nIt MUST succeed.\n\n* WHEN another THEN ok\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		if len(errs) == 0 {
+			t.Fatal("expected order probe to fail")
+		}
+	})
+
+	t.Run("star_marker_rejected", func(t *testing.T) {
+		content := "## Heading\n\nIt MUST succeed.\n\n* WHEN valid THEN ok\n\nProved by: TestA\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		found := false
+		for _, e := range errs {
+			if strings.Contains(e, "unknown block kind: list") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected unknown block kind: list for * marker, got: %v", errs)
+		}
+	})
+
+	t.Run("list_before_normative_rejected", func(t *testing.T) {
+		content := "## Heading\n\n- WHEN valid THEN ok\n\nIt MUST succeed.\n\nProved by: TestA\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		found := false
+		for _, e := range errs {
+			if strings.Contains(e, "unknown block kind: list") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected unknown block kind: list when list appears before normative, got: %v", errs)
+		}
+	})
+
+	t.Run("proved_by_before_list_rejected", func(t *testing.T) {
+		content := "## Heading\n\nIt MUST succeed.\n\nProved by: TestA\n\n- WHEN valid THEN ok\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		found := false
+		for _, e := range errs {
+			if strings.Contains(e, "unknown block kind: list") || strings.Contains(e, "has no Proved by: line") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected error for proved by before list, got: %v", errs)
+		}
+	})
+}
+
+func TestSubdirectoryFileSelectsNothing(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	content := "## Heading\n\nIt MUST succeed.\n\n- WHEN valid THEN ok\n\nProved by: TestA\n"
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	subDir := filepath.Join(pkgDir, "sub")
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	subFile := filepath.Join(subDir, "sub.go")
+	if err := os.WriteFile(subFile, []byte("package sub\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	selected, err := selectGuaranteeFiles([]string{"src/pkg/sub/sub.go"}, root, false)
+	if err != nil {
+		t.Fatalf("selectGuaranteeFiles failed: %v", err)
+	}
+	if len(selected) != 0 {
+		t.Fatalf("expected 0 files selected for subpackage file without GUARANTEES.md, got: %v", selected)
+	}
+}
+
+func TestTestMainWithTestingTResolves(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	code := "package pkg\nimport \"testing\"\nfunc TestMain(t *testing.T) {}\n"
+	if err := os.WriteFile(filepath.Join(pkgDir, "main_test.go"), []byte(code), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	funcs, err := findTestFunctions(pkgDir)
+	if err != nil {
+		t.Fatalf("findTestFunctions failed: %v", err)
+	}
+	if !funcs["TestMain"] {
+		t.Fatal("expected TestMain(t *testing.T) to resolve")
+	}
+
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	content := "## Heading\n\nIt MUST succeed.\n\n- WHEN valid THEN ok\n\nProved by: TestMain\n"
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	errs := checkGuaranteesFile(gFile, root)
+	if len(errs) != 0 {
+		t.Fatalf("expected 0 errors when citing TestMain(t *testing.T), got: %v", errs)
+	}
+}
+
+func TestLinelessBlockStartLine(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	content := "## Heading\n\nIt MUST succeed.\n\n\n\n***\n\n- WHEN valid THEN ok\n\nProved by: TestA\n"
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	errs := checkGuaranteesFile(gFile, root)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "GUARANTEES.md:7: unknown block kind: thematic break") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected error at line 7 for thematic break, got: %v", errs)
+	}
+}
+
+func TestFindWordLineWholeIdentifierMatch(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	code := "package pkg\nimport \"testing\"\nfunc TestAB(t *testing.T) {}\n"
+	if err := os.WriteFile(filepath.Join(pkgDir, "foo_test.go"), []byte(code), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	content := "## Heading\n\nIt MUST succeed.\n\n- WHEN valid THEN ok\n\nProved by: TestAB,\n  TestA\n"
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	errs := checkGuaranteesFile(gFile, root)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "GUARANTEES.md:8: \"Heading\" cites test \"TestA\" which does not exist in src/pkg") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected missing test error on line 8 for TestA, got: %v", errs)
+	}
+}
+
+func TestInvalidSignatureFormattedError(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	code := "package pkg\nimport \"testing\"\nfunc TestGood(t *testing.T) {}\nfunc TestBad(x int) {}\n"
+	if err := os.WriteFile(filepath.Join(pkgDir, "bad_test.go"), []byte(code), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	content := "## Heading\n\nIt MUST succeed.\n\n- WHEN valid THEN ok\n\nProved by: TestGood\n"
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	errs := checkGuaranteesFile(gFile, root)
+	want := "src/pkg/GUARANTEES.md:1: src/pkg/bad_test.go:4: TestBad has invalid test signature"
+	found := false
+	for _, e := range errs {
+		if e == want {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected formatted signature error %q, got: %v", want, errs)
+	}
+}
+
+func TestWalkDirPropagatesError(t *testing.T) {
+	_, err := selectGuaranteeFiles(nil, "/nonexistent/root/path/for/walk", true)
+	if err == nil {
+		t.Fatal("expected error from selectGuaranteeFiles with nonexistent root under --all, got nil")
+	}
+}
+
+func TestUnreadableTestFileFails(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	testFile := filepath.Join(pkgDir, "foo_test.go")
+	if err := os.WriteFile(testFile, []byte("package pkg\nimport \"testing\"\nfunc TestFoo(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	oldReadFile := readFile
+	defer func() { readFile = oldReadFile }()
+	readFile = func(_ string) ([]byte, error) {
+		return nil, os.ErrPermission
+	}
+
+	_, err := findTestFunctions(pkgDir)
+	if err == nil {
+		t.Fatal("expected findTestFunctions to fail on unreadable test file")
+	}
+}
+
+func TestMultilineCodeSpanAndCommentBoundaries(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	if err := os.WriteFile(filepath.Join(pkgDir, "foo_test.go"), []byte("package pkg\nimport \"testing\"\nfunc TestA(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("multiline_code_span_containing_html_comment_opener", func(t *testing.T) {
+		content := "## Heading\n\nIt MUST succeed.\n\n- WHEN `a\n<!--` THEN b\n\nProved by: TestA\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		if len(errs) != 0 {
+			t.Fatalf("expected 0 errors for multiline code span with <!-- inside, got: %v", errs)
+		}
+	})
+
+	t.Run("multiline_html_comment_containing_backtick_and_then", func(t *testing.T) {
+		content := "## Heading\n\nIt MUST succeed.\n\n- WHEN a\n<!-- `\nTHEN ` -->\n\nProved by: TestA\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		found := false
+		for _, e := range errs {
+			if strings.Contains(e, "has no - WHEN ... THEN scenario bullet") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected has no - WHEN ... THEN scenario bullet for THEN inside multiline HTML comment, got: %v", errs)
+		}
+	})
 }

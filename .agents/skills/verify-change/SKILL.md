@@ -166,15 +166,20 @@ reasons.
 `tools/check-guarantees` verifies each `GUARANTEES.md` in the directory of
 a changed path (or all of them under `--full`) against
 [`docs/conventions/guarantees.md`](../../../docs/conventions/guarantees.md).
+The check selects only the changed path's own directory without parent fallback.
 The check parses Markdown into a CommonMark abstract syntax tree using goldmark
 and validates allowed block structure, failing closed on any unknown block kind
 (such as code fences, setext underlines, indented code blocks, thematic breaks,
 block quotes, HTML blocks, or unallowed heading levels). It verifies unique
-`## ` section headings after HTML entity decoding while preserving unspaced `#`
-characters. Each section must contain exactly one normative MUST/MUST NOT
-paragraph in visible text (ignoring raw HTML), an unordered list of
-`- WHEN … THEN …` scenario bullets, and exactly one `Proved by:` paragraph
-listing comma-separated Go test identifiers. Cited tests resolve from the
-package's `TestGoFiles` and `XTestGoFiles` via `go list -mod=readonly -json .`
-using Go token scanning with signature validation; malformed test signatures in
-the package fail test resolution.
+`## ` section headings after HTML entity and escape decoding while preserving
+unspaced `#` characters. Within each section, exactly three blocks must appear
+in order: exactly one normative MUST/MUST NOT paragraph in rendered text,
+exactly one bullet list using the `-` marker only, and exactly one `Proved by:`
+paragraph listing comma-separated Go test identifiers. List items must contain
+only inline paragraph content; nested blocks and lazy continuations containing
+`Proved by:` are rejected. Rendered text evaluation decodes entities and
+escapes in non-raw text, preserves raw code spans, and skips image subtrees
+and raw HTML tags or comments. Cited tests resolve from the package's
+`TestGoFiles` and `XTestGoFiles` via `go list -mod=readonly -json .` using Go
+token scanning with signature validation; malformed test signatures in the
+package report a formatted error and fail test resolution.

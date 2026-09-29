@@ -1,14 +1,12 @@
-// Package main provides the check-guarantees command which validates that
-// package GUARANTEES.md files conform to conventions and their cited tests exist.
 package main
 
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go/scanner"
 	"go/token"
-	"html"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,12 +16,23 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/text"
+	"github.com/yuin/goldmark/util"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
+
+type signatureError struct {
+	file string
+	line int
+	name string
+}
+
+func (e *signatureError) Error() string {
+	return fmt.Sprintf("%s:%d: %s has invalid test signature", e.file, e.line, e.name)
+}
 
 var (
 	mustWordRegex = regexp.MustCompile(`\bMUST\b`)
@@ -69,7 +78,7 @@ func selectGuaranteeFiles(paths []string, root string, all bool) ([]string, erro
 		}
 		err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
-				return nil
+				return err
 			}
 			if d.IsDir() {
 				name := d.Name()
@@ -100,21 +109,12 @@ func selectGuaranteeFiles(paths []string, root string, all bool) ([]string, erro
 		}
 		target = filepath.Clean(target)
 
-		dir1 := target
+		dir := target
 		fi, err := os.Stat(target)
 		if err != nil || !fi.IsDir() {
-			dir1 = filepath.Dir(target)
+			dir = filepath.Dir(target)
 		}
-		if g := findGuaranteesInDir(dir1); g != "" {
-			selected[g] = true
-			continue
-		}
-
-		dir2 := filepath.Dir(target)
-		if dir2 == dir1 {
-			dir2 = filepath.Dir(dir1)
-		}
-		if g := findGuaranteesInDir(dir2); g != "" {
+		if g := findGuaranteesInDir(dir); g != "" {
 			selected[g] = true
 		}
 	}
@@ -138,6 +138,34 @@ func checkGuarantees(paths []string, root string, all bool) ([]string, error) {
 		allErrors = append(allErrors, checkGuaranteesFile(f, root)...)
 	}
 	return allErrors, nil
+}
+
+type nonInterruptingHTMLBlockParser struct {
+	parser.BlockParser
+}
+
+func (p *nonInterruptingHTMLBlockParser) CanInterruptParagraph() bool {
+	return false
+}
+
+func newGuaranteesParser() parser.Parser {
+	blockParsers := []util.PrioritizedValue{
+		util.Prioritized(parser.NewSetextHeadingParser(), 100),
+		util.Prioritized(parser.NewThematicBreakParser(), 200),
+		util.Prioritized(parser.NewListParser(), 300),
+		util.Prioritized(parser.NewListItemParser(), 400),
+		util.Prioritized(parser.NewCodeBlockParser(), 500),
+		util.Prioritized(parser.NewATXHeadingParser(), 600),
+		util.Prioritized(parser.NewFencedCodeBlockParser(), 700),
+		util.Prioritized(parser.NewBlockquoteParser(), 800),
+		util.Prioritized(&nonInterruptingHTMLBlockParser{BlockParser: parser.NewHTMLBlockParser()}, 900),
+		util.Prioritized(parser.NewParagraphParser(), 1000),
+	}
+	return parser.NewParser(
+		parser.WithBlockParsers(blockParsers...),
+		parser.WithInlineParsers(parser.DefaultInlineParsers()...),
+		parser.WithParagraphTransformers(parser.DefaultParagraphTransformers()...),
+	)
 }
 
 // checkGuaranteesFile checks a single GUARANTEES.md file for syntax and test citations.
@@ -168,12 +196,18 @@ func checkGuaranteesFile(filePath, root string) []string {
 	}
 
 	availableTests, listErr := findTestFunctions(pkgDir)
-	var errors []string
+	var checkErrors []string
 	if listErr != nil {
-		errors = append(errors, fmt.Sprintf("%s:1: go list failed in %s: %s", displayPath, pkgDisplay, listErr.Error()))
+		var sigErr *signatureError
+		if errors.As(listErr, &sigErr) {
+			relTestFile := filepath.Join(pkgDisplay, sigErr.file)
+			checkErrors = append(checkErrors, fmt.Sprintf("%s:1: %s:%d: %s has invalid test signature", displayPath, relTestFile, sigErr.line, sigErr.name))
+		} else {
+			checkErrors = append(checkErrors, fmt.Sprintf("%s:1: go list failed in %s: %s", displayPath, pkgDisplay, listErr.Error()))
+		}
 	}
 
-	doc := goldmark.DefaultParser().Parse(text.NewReader(content))
+	doc := newGuaranteesParser().Parse(text.NewReader(content))
 
 	seenHeadings := make(map[string]int)
 	seenTitle := false
@@ -183,41 +217,44 @@ func checkGuaranteesFile(filePath, root string) []string {
 	currentHasWhenThen := false
 	var currentNormativeLines []int
 	var currentProvedByBlocks []provedByBlock
+	seenNormative := false
+	seenList := false
+	seenProvedBy := false
 
 	finishSection := func() {
 		if currentHeading == "" {
 			return
 		}
-		if !currentHasWhenThen {
-			errors = append(errors, fmt.Sprintf("%s:%d: %q has no - WHEN ... THEN scenario bullet", displayPath, currentHeadingLine, currentHeading))
-		}
 		if len(currentNormativeLines) == 0 {
-			errors = append(errors, fmt.Sprintf("%s:%d: %q has no normative MUST sentence", displayPath, currentHeadingLine, currentHeading))
+			checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: %q has no normative MUST sentence", displayPath, currentHeadingLine, currentHeading))
 		} else if len(currentNormativeLines) > 1 {
 			for _, extraLine := range currentNormativeLines[1:] {
-				errors = append(errors, fmt.Sprintf("%s:%d: %q has more than one normative sentence", displayPath, extraLine, currentHeading))
+				checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: %q has more than one normative sentence", displayPath, extraLine, currentHeading))
 			}
+		}
+		if !currentHasWhenThen {
+			checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: %q has no - WHEN ... THEN scenario bullet", displayPath, currentHeadingLine, currentHeading))
 		}
 		switch len(currentProvedByBlocks) {
 		case 0:
-			errors = append(errors, fmt.Sprintf("%s:%d: %q has no Proved by: line", displayPath, currentHeadingLine, currentHeading))
+			checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: %q has no Proved by: line", displayPath, currentHeadingLine, currentHeading))
 		case 1:
 			block := currentProvedByBlocks[0]
 			if block.endsWithComma {
-				errors = append(errors, fmt.Sprintf("%s:%d: %q Proved by: list ends with a comma", displayPath, block.lastLine, currentHeading))
+				checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: %q Proved by: list ends with a comma", displayPath, block.lastLine, currentHeading))
 			}
 			if len(block.tests) == 0 {
-				errors = append(errors, fmt.Sprintf("%s:%d: %q Proved by: line names no tests", displayPath, block.startLine, currentHeading))
+				checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: %q Proved by: line names no tests", displayPath, block.startLine, currentHeading))
 			} else if listErr == nil {
 				for _, t := range block.tests {
 					if !availableTests[t.name] {
-						errors = append(errors, fmt.Sprintf("%s:%d: %q cites test %q which does not exist in %s", displayPath, t.line, currentHeading, t.name, pkgDisplay))
+						checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: %q cites test %q which does not exist in %s", displayPath, t.line, currentHeading, t.name, pkgDisplay))
 					}
 				}
 			}
 		default:
 			for _, extraBlock := range currentProvedByBlocks[1:] {
-				errors = append(errors, fmt.Sprintf("%s:%d: %q has duplicate Proved by: line", displayPath, extraBlock.startLine, currentHeading))
+				checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: %q has duplicate Proved by: line", displayPath, extraBlock.startLine, currentHeading))
 			}
 		}
 	}
@@ -228,10 +265,10 @@ func checkGuaranteesFile(filePath, root string) []string {
 		if currentHeading == "" {
 			if n.Kind() == ast.KindHeading {
 				h := n.(*ast.Heading)
-				pos := nodeStartOffset(n)
+				pos := nodeStartOffset(n, content)
 				if h.Level == 1 && isATXHeading(content, pos, 1) {
 					if seenTitle {
-						errors = append(errors, fmt.Sprintf("%s:%d: unknown block kind: heading", displayPath, line))
+						checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: heading", displayPath, line))
 					} else {
 						seenTitle = true
 					}
@@ -240,7 +277,7 @@ func checkGuaranteesFile(filePath, root string) []string {
 				if h.Level == 2 && isATXHeading(content, pos, 2) {
 					title := extractHeadingTitle(n, content)
 					if title == "" {
-						errors = append(errors, fmt.Sprintf("%s:%d: unknown block kind: heading", displayPath, line))
+						checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: heading", displayPath, line))
 						continue
 					}
 					currentHeading = title
@@ -248,14 +285,17 @@ func checkGuaranteesFile(filePath, root string) []string {
 					currentHasWhenThen = false
 					currentNormativeLines = nil
 					currentProvedByBlocks = nil
+					seenNormative = false
+					seenList = false
+					seenProvedBy = false
 					if _, seen := seenHeadings[title]; seen {
-						errors = append(errors, fmt.Sprintf("%s:%d: duplicate guarantee heading %q", displayPath, line, title))
+						checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: duplicate guarantee heading %q", displayPath, line, title))
 					} else {
 						seenHeadings[title] = line
 					}
 					continue
 				}
-				errors = append(errors, fmt.Sprintf("%s:%d: unknown block kind: heading", displayPath, line))
+				checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: heading", displayPath, line))
 				continue
 			}
 
@@ -264,19 +304,19 @@ func checkGuaranteesFile(filePath, root string) []string {
 				continue
 			}
 
-			errors = append(errors, fmt.Sprintf("%s:%d: unknown block kind: %s", displayPath, line, blockKindName(n)))
+			checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: %s", displayPath, line, blockKindName(n)))
 			continue
 		}
 
 		// Inside a section
 		if n.Kind() == ast.KindHeading {
 			h := n.(*ast.Heading)
-			pos := nodeStartOffset(n)
+			pos := nodeStartOffset(n, content)
 			if h.Level == 2 && isATXHeading(content, pos, 2) {
 				finishSection()
 				title := extractHeadingTitle(n, content)
 				if title == "" {
-					errors = append(errors, fmt.Sprintf("%s:%d: unknown block kind: heading", displayPath, line))
+					checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: heading", displayPath, line))
 					currentHeading = ""
 					continue
 				}
@@ -285,14 +325,17 @@ func checkGuaranteesFile(filePath, root string) []string {
 				currentHasWhenThen = false
 				currentNormativeLines = nil
 				currentProvedByBlocks = nil
+				seenNormative = false
+				seenList = false
+				seenProvedBy = false
 				if _, seen := seenHeadings[title]; seen {
-					errors = append(errors, fmt.Sprintf("%s:%d: duplicate guarantee heading %q", displayPath, line, title))
+					checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: duplicate guarantee heading %q", displayPath, line, title))
 				} else {
 					seenHeadings[title] = line
 				}
 				continue
 			}
-			errors = append(errors, fmt.Sprintf("%s:%d: unknown block kind: heading", displayPath, line))
+			checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: heading", displayPath, line))
 			continue
 		}
 
@@ -300,68 +343,117 @@ func checkGuaranteesFile(filePath, root string) []string {
 			pText := extractVisibleText(n, content)
 			trimmedText := strings.TrimSpace(pText)
 			if strings.HasPrefix(trimmedText, "Proved by:") {
+				if !seenNormative {
+					checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: paragraph", displayPath, line))
+					continue
+				}
+				if !seenProvedBy {
+					block, valid := parseProvedByParagraph(n, pText, content)
+					if !valid {
+						checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: paragraph", displayPath, line))
+					} else {
+						currentProvedByBlocks = append(currentProvedByBlocks, block)
+					}
+					seenProvedBy = true
+					continue
+				}
 				block, valid := parseProvedByParagraph(n, pText, content)
-				if !valid {
-					errors = append(errors, fmt.Sprintf("%s:%d: unknown block kind: paragraph", displayPath, line))
-				} else {
+				if valid {
 					currentProvedByBlocks = append(currentProvedByBlocks, block)
+				} else {
+					checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: paragraph", displayPath, line))
 				}
 				continue
 			}
 
 			if mustWordRegex.MatchString(pText) {
+				if seenProvedBy || seenList {
+					checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: paragraph", displayPath, line))
+					continue
+				}
 				currentNormativeLines = append(currentNormativeLines, line)
+				seenNormative = true
 				continue
 			}
 
-			errors = append(errors, fmt.Sprintf("%s:%d: unknown block kind: paragraph", displayPath, line))
+			checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: paragraph", displayPath, line))
 			continue
 		}
 
 		if n.Kind() == ast.KindList {
 			l := n.(*ast.List)
 			if l.IsOrdered() {
-				errors = append(errors, fmt.Sprintf("%s:%d: unknown block kind: ordered list", displayPath, line))
+				checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: ordered list", displayPath, line))
+				continue
+			}
+			if l.Marker != '-' {
+				checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: list", displayPath, line))
+				continue
+			}
+			if !seenNormative || seenList || seenProvedBy {
+				checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: list", displayPath, line))
 				continue
 			}
 
-			hasInvalidItem := false
+			seenList = true
 			for c := l.FirstChild(); c != nil; c = c.NextSibling() {
-				itemText := extractVisibleText(c, content)
 				itemLine := nodeLine(c, content)
+				childCount := 0
+				var invalidChild ast.Node
+				for ch := c.FirstChild(); ch != nil; ch = ch.NextSibling() {
+					childCount++
+					if childCount == 1 {
+						if ch.Kind() != ast.KindParagraph && ch.Kind() != ast.KindTextBlock {
+							invalidChild = ch
+							checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: %s", displayPath, nodeLine(ch, content), blockKindName(ch)))
+						}
+					} else {
+						if invalidChild == nil {
+							invalidChild = ch
+						}
+						checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: %s", displayPath, nodeLine(ch, content), blockKindName(ch)))
+					}
+				}
+				if childCount == 0 {
+					checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: list item", displayPath, itemLine))
+					continue
+				}
+				if invalidChild != nil {
+					continue
+				}
+
+				itemText := extractVisibleText(c, content)
+				if strings.Contains(itemText, "Proved by:") {
+					checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: list item", displayPath, itemLine))
+					continue
+				}
 				trimmed := strings.TrimSpace(itemText)
 				if !strings.HasPrefix(trimmed, "WHEN ") && trimmed != "WHEN" {
-					errors = append(errors, fmt.Sprintf("%s:%d: unknown block kind: list item", displayPath, itemLine))
-					hasInvalidItem = true
+					checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: list item", displayPath, itemLine))
 					continue
 				}
 				if thenWordRegex.MatchString(itemText) {
 					currentHasWhenThen = true
 				}
 			}
-			if hasInvalidItem {
-				continue
-			}
 			continue
 		}
 
-		errors = append(errors, fmt.Sprintf("%s:%d: unknown block kind: %s", displayPath, line, blockKindName(n)))
+		checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: %s", displayPath, line, blockKindName(n)))
 	}
 
 	finishSection()
 
 	if len(seenHeadings) == 0 {
-		errors = append(errors, fmt.Sprintf("%s:1: no guarantee sections (## headings) found", displayPath))
+		checkErrors = append(checkErrors, fmt.Sprintf("%s:1: no guarantee sections (## headings) found", displayPath))
 	}
 
-	return errors
+	return checkErrors
 }
 
 // extractHeadingTitle extracts, entity-unescapes, and trims the heading text.
 func extractHeadingTitle(n ast.Node, src []byte) string {
-	raw := extractVisibleText(n, src)
-	decoded := html.UnescapeString(raw)
-	return strings.TrimSpace(decoded)
+	return strings.TrimSpace(extractVisibleText(n, src))
 }
 
 // parseProvedByParagraph parses tests and comma structure from a Proved by: paragraph.
@@ -417,15 +509,37 @@ func parseProvedByParagraph(n ast.Node, pText string, src []byte) (provedByBlock
 
 func findWordLineInParagraph(src []byte, n ast.Node, word string) int {
 	if n.Lines() != nil && n.Lines().Len() > 0 {
+		wordBytes := []byte(word)
 		for i := 0; i < n.Lines().Len(); i++ {
 			seg := n.Lines().At(i)
 			segBytes := src[seg.Start:seg.Stop]
-			if bytes.Contains(segBytes, []byte(word)) {
+			if containsWholeIdentifier(segBytes, wordBytes) {
 				return 1 + bytes.Count(src[:seg.Start], []byte{'\n'})
 			}
 		}
 	}
 	return nodeLine(n, src)
+}
+
+func containsWholeIdentifier(seg, word []byte) bool {
+	wLen := len(word)
+	if wLen == 0 || len(seg) < wLen {
+		return false
+	}
+	for i := 0; i+wLen <= len(seg); i++ {
+		if bytes.Equal(seg[i:i+wLen], word) {
+			beforeOk := (i == 0 || !isIdentByte(seg[i-1]))
+			afterOk := (i+wLen == len(seg) || !isIdentByte(seg[i+wLen]))
+			if beforeOk && afterOk {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func isIdentByte(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '_'
 }
 
 func isGoIdentifier(s string) bool {
@@ -492,20 +606,23 @@ func fencedCodeBlockStart(fcb *ast.FencedCodeBlock, src []byte) int {
 	return -1
 }
 
-func nodeStartOffset(n ast.Node) int {
+func nodeStartOffset(n ast.Node, src []byte) int {
 	if n == nil {
 		return -1
 	}
 	if fcb, ok := n.(*ast.FencedCodeBlock); ok {
-		if pos := fencedCodeBlockStart(fcb, nil); pos >= 0 {
+		if pos := fencedCodeBlockStart(fcb, src); pos >= 0 {
 			return pos
 		}
 	}
-	if n.Lines() != nil && n.Lines().Len() > 0 {
+	if n.Type() == ast.TypeBlock && n.Lines() != nil && n.Lines().Len() > 0 {
 		return n.Lines().At(0).Start
 	}
+	if t, ok := n.(*ast.Text); ok {
+		return t.Segment.Start
+	}
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
-		if pos := nodeStartOffset(c); pos >= 0 {
+		if pos := nodeStartOffset(c, src); pos >= 0 {
 			return pos
 		}
 	}
@@ -513,20 +630,87 @@ func nodeStartOffset(n ast.Node) int {
 }
 
 func nodeLine(n ast.Node, src []byte) int {
-	pos := -1
-	if fcb, ok := n.(*ast.FencedCodeBlock); ok {
-		pos = fencedCodeBlockStart(fcb, src)
+	pos := nodeStartOffset(n, src)
+	if pos >= 0 {
+		if pos > len(src) {
+			pos = len(src)
+		}
+		return 1 + bytes.Count(src[:pos], []byte{'\n'})
 	}
-	if pos < 0 {
-		pos = nodeStartOffset(n)
+	searchStart := findPrecedingEndOffset(n, src)
+	if searchStart < 0 {
+		searchStart = 0
 	}
+	pos = findNextNonBlankLineOffset(src, searchStart)
 	if pos < 0 {
 		return 1
 	}
-	if pos > len(src) {
-		pos = len(src)
-	}
 	return 1 + bytes.Count(src[:pos], []byte{'\n'})
+}
+
+func findPrecedingEndOffset(n ast.Node, src []byte) int {
+	for prev := n.PreviousSibling(); prev != nil; prev = prev.PreviousSibling() {
+		if end := nodeEndOffset(prev); end >= 0 {
+			return end
+		}
+	}
+	if parent := n.Parent(); parent != nil && parent.Kind() != ast.KindDocument {
+		return nodeStartOffset(parent, src)
+	}
+	return 0
+}
+
+func nodeEndOffset(n ast.Node) int {
+	if n == nil {
+		return -1
+	}
+	maxEnd := -1
+	if n.Type() == ast.TypeBlock && n.Lines() != nil && n.Lines().Len() > 0 {
+		maxEnd = n.Lines().At(n.Lines().Len() - 1).Stop
+	}
+	if fcb, ok := n.(*ast.FencedCodeBlock); ok {
+		if fcb.Info != nil && fcb.Info.Segment.Stop > maxEnd {
+			maxEnd = fcb.Info.Segment.Stop
+		}
+	}
+	if t, ok := n.(*ast.Text); ok {
+		if t.Segment.Stop > maxEnd {
+			maxEnd = t.Segment.Stop
+		}
+	}
+	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
+		if cEnd := nodeEndOffset(c); cEnd > maxEnd {
+			maxEnd = cEnd
+		}
+	}
+	return maxEnd
+}
+
+func findNextNonBlankLineOffset(src []byte, start int) int {
+	if start < 0 {
+		start = 0
+	}
+	if start >= len(src) {
+		return -1
+	}
+	idx := start
+	for idx < len(src) {
+		lineEnd := bytes.IndexByte(src[idx:], '\n')
+		var line []byte
+		if lineEnd < 0 {
+			line = src[idx:]
+		} else {
+			line = src[idx : idx+lineEnd]
+		}
+		if len(bytes.TrimSpace(line)) > 0 {
+			return idx
+		}
+		if lineEnd < 0 {
+			break
+		}
+		idx += lineEnd + 1
+	}
+	return -1
 }
 
 func blockKindName(n ast.Node) string {
@@ -567,14 +751,37 @@ func walkVisibleText(n ast.Node, src []byte, b *strings.Builder) {
 	}
 	switch n.Kind() {
 	case ast.KindRawHTML, ast.KindHTMLBlock:
-		// Requirement 13: ignore raw HTML nodes
+		// Ignore raw HTML nodes.
+		return
+	case ast.KindImage:
+		// Skip image subtrees so alt text is not counted.
+		return
+	case ast.KindAutoLink:
+		al := n.(*ast.AutoLink)
+		b.Write(al.Label(src))
 		return
 	case ast.KindText:
 		t := n.(*ast.Text)
-		b.Write(t.Segment.Value(src))
+		val := t.Segment.Value(src)
+		if !t.IsRaw() {
+			val = util.UnescapePunctuations(val)
+			val = util.ResolveNumericReferences(val)
+			val = util.ResolveEntityNames(val)
+		}
+		b.Write(val)
 		if t.SoftLineBreak() || t.HardLineBreak() {
 			b.WriteByte('\n')
 		}
+		return
+	case ast.KindString:
+		s := n.(*ast.String)
+		val := s.Value
+		if !s.IsRaw() && !s.IsCode() {
+			val = util.UnescapePunctuations(val)
+			val = util.ResolveNumericReferences(val)
+			val = util.ResolveEntityNames(val)
+		}
+		b.Write(val)
 		return
 	case ast.KindCodeSpan:
 		for c := n.FirstChild(); c != nil; c = c.NextSibling() {
@@ -586,6 +793,8 @@ func walkVisibleText(n ast.Node, src []byte, b *strings.Builder) {
 		walkVisibleText(c, src, b)
 	}
 }
+
+var readFile = os.ReadFile
 
 func findTestFunctions(pkgDir string) (map[string]bool, error) {
 	fi, err := os.Stat(pkgDir)
@@ -631,9 +840,9 @@ func findTestFunctions(pkgDir string) (map[string]bool, error) {
 
 	for _, fname := range testFilenames {
 		testFilePath := filepath.Join(pkgDir, fname)
-		content, err := os.ReadFile(testFilePath)
+		content, err := readFile(testFilePath)
 		if err != nil {
-			continue
+			return nil, errs.Wrap(err, "read test file failed")
 		}
 		funcs, err := scanTestFile(content, fname)
 		if err != nil {
@@ -738,10 +947,10 @@ func scanTestFile(content []byte, filename string) (map[string]bool, error) {
 			}
 
 			if tokens[i].tok == token.LBRACK {
-				return nil, errs.New().ExitCode(1).Msgf("%s:%d: %s has invalid test signature", filename, funcLine, name)
+				return nil, &signatureError{file: filename, line: funcLine, name: name}
 			}
 			if tokens[i].tok != token.LPAREN {
-				return nil, errs.New().ExitCode(1).Msgf("%s:%d: %s has invalid test signature", filename, funcLine, name)
+				return nil, &signatureError{file: filename, line: funcLine, name: name}
 			}
 
 			i++
@@ -774,9 +983,7 @@ func scanTestFile(content []byte, filename string) (map[string]bool, error) {
 			validParam := isValidTestParamTokens(paramTokens)
 
 			if validParam && !hasReturn {
-				if name != "TestMain" {
-					testFuncs[name] = true
-				}
+				testFuncs[name] = true
 				continue
 			}
 
@@ -786,7 +993,7 @@ func scanTestFile(content []byte, filename string) (map[string]bool, error) {
 				}
 			}
 
-			return nil, errs.New().ExitCode(1).Msgf("%s:%d: %s has invalid test signature", filename, funcLine, name)
+			return nil, &signatureError{file: filename, line: funcLine, name: name}
 		}
 		i++
 	}
