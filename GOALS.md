@@ -18,6 +18,8 @@ reason in the commit message.
   [`device-service-and-inventory-direction`](docs/architecture/2026-08-20-device-service-and-inventory-direction.md)
 - A central inventory holds Device, Integration, Binding, and Placement,
   one lifecycle each. Same record.
+- A Site is a FlowSeer-owned inventory entity under a Tenant, and each Edge
+  belongs to one. No record decides its shape yet.
 - Discovery and asynchronous ingestion (traps, webhooks, pollers) are planes
   of their own that feed the inventory. Same record;
   [`src/services/README.md`](src/services/README.md) names where they land.
@@ -29,6 +31,11 @@ reason in the commit message.
 - The operator and admin API surfaces are authorized through OpenFGA.
   [`src/services/device/README.md`](src/services/device/README.md) names it
   as a follow-up; no record decides its shape yet.
+- OpenFGA grants operator-defined roles at the tenant or a site, and a grant
+  on a Tag covers everything tagged with it or its descendants. Adding or
+  removing a Tag that changes access previews who gains or loses what, and
+  applies only after an admin explicitly signs off that impact. No record
+  decides its shape yet.
 - A mutation is gated before apply by projecting it onto a full-network
   view. [`mutation-shadow-projection-direction`](docs/architecture/2026-09-09-mutation-shadow-projection-direction.md),
   deferred; the virtual-device record leaves open who computes the
