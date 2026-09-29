@@ -7,6 +7,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	apiidentityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 )
 
@@ -50,6 +51,24 @@ func TestModelIdentityRules(t *testing.T) {
 			wantValid: false,
 		},
 		{
+			name: "tenant config without organization claim name fails",
+			message: identityv1.TenantConfig_builder{
+				Ref:                    validTenantRef(),
+				Issuer:                 proto.String("https://idp.example.com"),
+				OrganizationClaimValue: proto.String("org-123"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "tenant config without organization claim value fails",
+			message: identityv1.TenantConfig_builder{
+				Ref:                   validTenantRef(),
+				Issuer:                proto.String("https://idp.example.com"),
+				OrganizationClaimName: proto.String("org_id"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
 			name: "tenant local ref with non-UUID string fails",
 			message: identityv1.TenantLocalRef_builder{
 				Id: proto.String("not-a-valid-uuid"),
@@ -66,11 +85,27 @@ func TestModelIdentityRules(t *testing.T) {
 			wantValid: false,
 		},
 		{
+			name: "tenant state without created_at fails",
+			message: identityv1.TenantState_builder{
+				Ref:       validTenantRef(),
+				Lifecycle: identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
+			}.Build(),
+			wantValid: false,
+		},
+		{
 			name: "tenant event with from equal to to fails",
 			message: identityv1.TenantEvent_builder{
 				Ref:  validTenantRef(),
 				From: identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
 				To:   identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "tenant event without to fails",
+			message: identityv1.TenantEvent_builder{
+				Ref:  validTenantRef(),
+				From: identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
 			}.Build(),
 			wantValid: false,
 		},
@@ -84,6 +119,14 @@ func TestModelIdentityRules(t *testing.T) {
 			wantValid: true,
 		},
 		{
+			name: "valid tenant creation event with from unset validates",
+			message: identityv1.TenantEvent_builder{
+				Ref: validTenantRef(),
+				To:  identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
+			}.Build(),
+			wantValid: true,
+		},
+		{
 			name: "valid tenant event with distinct lifecycle validates",
 			message: identityv1.TenantEvent_builder{
 				Ref:  validTenantRef(),
@@ -91,6 +134,50 @@ func TestModelIdentityRules(t *testing.T) {
 				To:   identityv1.TenantLifecycle_TENANT_LIFECYCLE_SUSPENDED.Enum(),
 			}.Build(),
 			wantValid: true,
+		},
+		{
+			name: "valid create tenant request validates",
+			message: apiidentityv1.CreateTenantRequest_builder{
+				Issuer:                 proto.String("https://idp.example.com"),
+				OrganizationClaimName:  proto.String("org_id"),
+				OrganizationClaimValue: proto.String("org-123"),
+				Name:                   proto.String("Acme Corp"),
+				Description:            proto.String("Primary tenant"),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "create tenant request without issuer fails",
+			message: apiidentityv1.CreateTenantRequest_builder{
+				OrganizationClaimName:  proto.String("org_id"),
+				OrganizationClaimValue: proto.String("org-123"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "create tenant request with invalid issuer uri fails",
+			message: apiidentityv1.CreateTenantRequest_builder{
+				Issuer:                 proto.String("not-a-uri"),
+				OrganizationClaimName:  proto.String("org_id"),
+				OrganizationClaimValue: proto.String("org-123"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "create tenant request without organization claim name fails",
+			message: apiidentityv1.CreateTenantRequest_builder{
+				Issuer:                 proto.String("https://idp.example.com"),
+				OrganizationClaimValue: proto.String("org-123"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "create tenant request without organization claim value fails",
+			message: apiidentityv1.CreateTenantRequest_builder{
+				Issuer:                proto.String("https://idp.example.com"),
+				OrganizationClaimName: proto.String("org_id"),
+			}.Build(),
+			wantValid: false,
 		},
 	})
 }

@@ -11,7 +11,9 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
+	"buf.build/go/protovalidate"
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -35,8 +37,9 @@ var (
 )
 
 const (
-	casRetries     = 8
-	orgIndexPrefix = "org_"
+	casRetries      = 8
+	orgIndexPrefix  = "org_"
+	rollbackTimeout = 5 * time.Second
 )
 
 // ErrSkip is a Mutate fn's signal that no write is needed.
@@ -59,30 +62,52 @@ func New(kv jetstream.KeyValue) *Store {
 	return &Store{kv: kv}
 }
 
+func (s *Store) rollbackDelete(ctx context.Context, key string) error {
+	delCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), rollbackTimeout)
+	defer cancel()
+	if err := s.kv.Delete(delCtx, key); err != nil && !errors.Is(err, jetstream.ErrKeyNotFound) {
+		return errs.From(err).Code(ErrCodeStore).Attr("key", key).Msg("rollback delete failed")
+	}
+	return nil
+}
+
 // Create stores a new tenant and its organization secondary index entry.
 // Returns ErrCodeAlreadyExists if the tenant ID or organization is already registered.
 func (s *Store) Create(ctx context.Context, config *identityv1.TenantConfig) (*identityv1.TenantRecord, error) {
-	if config == nil || config.GetRef() == nil || config.GetRef().GetTenant() == nil {
-		return nil, errs.New().Code(ErrCodeInvalidConfig).Msg("tenant config missing ref")
+	if err := protovalidate.Validate(config); err != nil {
+		return nil, errs.From(err).Code(ErrCodeInvalidConfig).Msg("invalid tenant config")
 	}
 	tenantID := config.GetRef().GetTenant().GetId()
-	if tenantID == "" {
-		return nil, errs.New().Code(ErrCodeInvalidConfig).Msg("tenant id is empty")
-	}
-	if config.GetIssuer() == "" || config.GetOrganizationClaimValue() == "" {
-		return nil, errs.New().Code(ErrCodeInvalidConfig).Msg("tenant issuer or organization claim value is empty")
-	}
 
 	orgKey := OrgIndexKey(config.GetIssuer(), config.GetOrganizationClaimValue())
 	// Create secondary index first to claim the (issuer, org) pair.
 	if _, err := s.kv.Create(ctx, orgKey, []byte(tenantID)); err != nil {
 		if errors.Is(err, jetstream.ErrKeyExists) {
-			return nil, errs.New().Code(ErrCodeAlreadyExists).
-				Attr("issuer", config.GetIssuer()).
-				Attr("organization", config.GetOrganizationClaimValue()).
-				Msg("tenant with organization already exists")
+			entry, getErr := s.kv.Get(ctx, orgKey)
+			if getErr != nil {
+				return nil, errs.From(getErr).Code(ErrCodeStore).Msg("read organization index")
+			}
+			existingTenantID := string(entry.Value())
+			existingRec, getRecErr := s.Get(ctx, existingTenantID)
+			if getRecErr != nil {
+				return nil, getRecErr
+			}
+			hasValidRecord := existingRec != nil &&
+				existingRec.GetConfig().GetIssuer() == config.GetIssuer() &&
+				existingRec.GetConfig().GetOrganizationClaimValue() == config.GetOrganizationClaimValue()
+			if hasValidRecord {
+				return nil, errs.New().Code(ErrCodeAlreadyExists).
+					Attr("issuer", config.GetIssuer()).
+					Attr("organization", config.GetOrganizationClaimValue()).
+					Msg("tenant with organization already exists")
+			}
+			// Orphaned index: the tenant it names has no matching record. Take it over with CAS.
+			if _, updateErr := s.kv.Update(ctx, orgKey, []byte(tenantID), entry.Revision()); updateErr != nil {
+				return nil, errs.From(updateErr).Code(ErrCodeStore).Msg("take over organization index")
+			}
+		} else {
+			return nil, errs.From(err).Code(ErrCodeStore).Msg("write organization index")
 		}
-		return nil, errs.From(err).Code(ErrCodeStore).Msg("write organization index")
 	}
 
 	active := identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE
@@ -99,16 +124,19 @@ func (s *Store) Create(ctx context.Context, config *identityv1.TenantConfig) (*i
 
 	data, err := proto.Marshal(record)
 	if err != nil {
-		_ = s.kv.Delete(ctx, orgKey)
-		return nil, errs.From(err).Code(ErrCodeDecode).Attr("tenant", tenantID).Msg("encode tenant record")
+		rbErr := s.rollbackDelete(ctx, orgKey)
+		retErr := errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("encode tenant record")
+		return nil, errors.Join(retErr, rbErr)
 	}
 
 	if _, err := s.kv.Create(ctx, tenantID, data); err != nil {
-		_ = s.kv.Delete(ctx, orgKey)
+		rbErr := s.rollbackDelete(ctx, orgKey)
 		if errors.Is(err, jetstream.ErrKeyExists) {
-			return nil, errs.New().Code(ErrCodeAlreadyExists).Attr("tenant", tenantID).Msg("tenant already exists")
+			retErr := errs.New().Code(ErrCodeAlreadyExists).Attr("tenant", tenantID).Msg("tenant already exists")
+			return nil, errors.Join(retErr, rbErr)
 		}
-		return nil, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("write tenant record")
+		retErr := errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("write tenant record")
+		return nil, errors.Join(retErr, rbErr)
 	}
 
 	return record, nil
@@ -149,7 +177,15 @@ func (s *Store) LookupByOrg(ctx context.Context, issuer, orgClaimValue string) (
 		return nil, errs.From(err).Code(ErrCodeStore).Msg("read organization index")
 	}
 	tenantID := string(entry.Value())
-	return s.Get(ctx, tenantID)
+	rec, err := s.Get(ctx, tenantID)
+	if err != nil || rec == nil {
+		return rec, err
+	}
+	cfg := rec.GetConfig()
+	if cfg == nil || cfg.GetIssuer() != issuer || cfg.GetOrganizationClaimValue() != orgClaimValue {
+		return nil, nil
+	}
+	return rec, nil
 }
 
 // List returns all stored tenant records in ascending order by tenant ID.
@@ -202,7 +238,7 @@ func (s *Store) Mutate(ctx context.Context, tenantID string, fn func(current *id
 		}
 		data, err := proto.Marshal(next)
 		if err != nil {
-			return nil, errs.From(err).Code(ErrCodeDecode).Attr("tenant", tenantID).Msg("encode tenant record")
+			return nil, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("encode tenant record")
 		}
 		if revision == 0 {
 			_, err = s.kv.Create(ctx, tenantID, data)
@@ -216,7 +252,7 @@ func (s *Store) Mutate(ctx context.Context, tenantID string, fn func(current *id
 			}
 		}
 		if err != nil {
-			return nil, errs.From(err).Code(ErrCodeConflict).Attr("tenant", tenantID).Msg("write tenant record")
+			return nil, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("write tenant record")
 		}
 		return next, nil
 	}

@@ -141,13 +141,17 @@ Three boundaries keep it from eroding the typed refs:
   that reference it, and its store can answer the existence check a
   reference-value write needs. Landing a new top-level entity includes joining
   the enum in the same change; the hook does not police `EntityRef`, so this
-  rule is the only guard. The Edge in `model/edge/v1` is the opposite exception: a landed, UUID-keyed
-  entity that has not joined the enum, because the cascade and the existence
-  check need the edge store, which lands with the first host. Until it joins,
-  nothing may name an edge through an `EntityRef`. `Location`, `PatchPanel`,
-  `Cable`, and `Link` in `model/inventory/v1`, `Wlan` in
-  `model/wireless/v1`, and `Endpoint` in `model/endpoint/v1`, are the same class:
-  UUID-keyed, landed, and outside the enum until their stores answer for them. `AccessPolicyHandle`,
+  rule is the only guard. Tenant in `model/identity/v1` is the exception to
+  the cascade rule: a tenant is suspended rather than deleted so its audit
+  trail, historic records, and entity keys remain referentially intact;
+  suspension replaces the cascade. The Edge in `model/edge/v1` is an exception
+  to immediate admission: a landed, UUID-keyed entity that has not joined the
+  enum, because the cascade and the existence check need the edge store,
+  which lands with the first host. Until it joins, nothing may name an edge
+  through an `EntityRef`. `Location`, `PatchPanel`, `Cable`, and `Link` in
+  `model/inventory/v1`, `Wlan` in `model/wireless/v1`, and `Endpoint` in
+  `model/endpoint/v1`, are the same class: UUID-keyed, landed, and outside
+  the enum until their stores answer for them. `AccessPolicyHandle`,
   `CredentialHandle`, and `HostTrustHandle` in `model/policy/v1` are the
   second deliberate class of non-entity: each an opaque key and version into
   the device service's store, with no ref pair, no triad, and no place in
@@ -189,10 +193,10 @@ names a RADIUS or TACACS+ server by address and has no field for its secret.
 
 ## Tenancy is ambient
 
-The landed `model/inventory/v1/tenant.proto` defines a deliberately keyless
-`TenantRef` for content relationships. It carries no tenant identifier and
-never scopes a request or record. Tenancy is resolved from context at the edge
-of the system:
+`TenantLocalRef` and `TenantGlobalRef` in `model/identity/v1/tenant.proto`
+identify a tenant for tenant administration and identity binding. Domain
+messages and entity refs never carry a tenant ref to scope themselves: tenancy
+is resolved from context at the edge of the system:
 
 - **RPC** — from the authenticated request context.
 - **Events and ingestion** — from the producing integration or binding, which

@@ -17,8 +17,35 @@ service TenantService {
 }
 
 message CreateTenantRequest {
-  // The configuration of the tenant to create. Must be present.
-  flowseer.model.identity.v1.TenantConfig config = 1 [(buf.validate.field).required = true];
+  // The identity provider's issuer URL. Must be present.
+  string issuer = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.uri = true,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // The claim name carrying the organization identifier. Must be present.
+  string organization_claim_name = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // The organization identifier value bound to this tenant. Must be present.
+  string organization_claim_value = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 256
+  ];
+  // Operator-assigned display name. Unset means none was assigned.
+  string name = 4 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Free-text description of the tenant. Unset means none was provided.
+  string description = 5 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
 }
 
 message CreateTenantResponse {

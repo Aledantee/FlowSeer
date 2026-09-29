@@ -169,7 +169,7 @@ var importOrder = map[string][]string{
 	// the operator-written prototext it reads at start. One process owns both,
 	// so this root sits above every boundary it embeds and is imported by
 	// none.
-	"store/device": {"model/edge", "model/identity", "model/inventory", "model/access", "model/credential", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	"store/device": {"model/edge", "model/inventory", "model/access", "model/credential", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The agent's own deployment file. It imports nothing FlowSeer-owned and
 	// is imported by nothing: what an edge is told about central lives in

@@ -9,8 +9,11 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	connect "connectrpc.com/connect"
+	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
@@ -21,6 +24,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/tenant"
@@ -334,10 +338,34 @@ func (s *tenantService) CreateTenant(
 	if err := s.checkAdmin(); err != nil {
 		return nil, err
 	}
-	config := req.Msg.GetConfig()
-	if config == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errs.New().Msg("tenant config is required"))
+	id, err := uuid.NewV7()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, errs.From(err).Msg("draw tenant identifier"))
 	}
+	tenantID := strings.ToLower(id.String())
+
+	var name *string
+	if req.Msg.HasName() {
+		name = proto.String(req.Msg.GetName())
+	}
+	var desc *string
+	if req.Msg.HasDescription() {
+		desc = proto.String(req.Msg.GetDescription())
+	}
+
+	config := identityv1.TenantConfig_builder{
+		Ref: identityv1.TenantGlobalRef_builder{
+			Tenant: identityv1.TenantLocalRef_builder{
+				Id: proto.String(tenantID),
+			}.Build(),
+		}.Build(),
+		Issuer:                 proto.String(req.Msg.GetIssuer()),
+		OrganizationClaimName:  proto.String(req.Msg.GetOrganizationClaimName()),
+		OrganizationClaimValue: proto.String(req.Msg.GetOrganizationClaimValue()),
+		Name:                   name,
+		Description:            desc,
+	}.Build()
+
 	record, err := s.store.Create(ctx, config)
 	if err != nil {
 		if code, _ := errs.CodeOf(err); code == tenantstore.ErrCodeAlreadyExists {

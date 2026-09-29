@@ -28,12 +28,11 @@ enum TenantLifecycle {
   TENANT_LIFECYCLE_UNSPECIFIED = 0;
   // Active and permitted to hold resources.
   TENANT_LIFECYCLE_ACTIVE = 1;
-  // Suspended; operators and edges belonging to this tenant cannot act.
+  // The tenant is suspended.
   TENANT_LIFECYCLE_SUSPENDED = 2;
 }
 
-// The intended definition of one tenant: who administers it and how its
-// operators authenticate.
+// The intended definition of one tenant: how its operators authenticate.
 message TenantConfig {
   // The ref to this tenant. Must be present.
   TenantGlobalRef ref = 1 [(buf.validate.field).required = true];

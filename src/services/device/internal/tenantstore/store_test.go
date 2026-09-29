@@ -6,7 +6,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -16,6 +18,12 @@ import (
 )
 
 func newStore(t *testing.T) *tenantstore.Store {
+	t.Helper()
+	s, _ := newStoreWithKV(t)
+	return s
+}
+
+func newStoreWithKV(t *testing.T) (*tenantstore.Store, jetstream.KeyValue) {
 	t.Helper()
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    t.TempDir(),
@@ -30,7 +38,7 @@ func newStore(t *testing.T) *tenantstore.Store {
 	if err != nil {
 		t.Fatalf("bucket: %v", err)
 	}
-	return tenantstore.New(kv)
+	return tenantstore.New(kv), kv
 }
 
 func tenantRef(id string) *identityv1.TenantGlobalRef {
@@ -190,6 +198,20 @@ func TestDuplicatePrevention(t *testing.T) {
 	if code, _ := errs.CodeOf(err); code != tenantstore.ErrCodeAlreadyExists {
 		t.Fatalf("got error code %v, want %v", code, tenantstore.ErrCodeAlreadyExists)
 	}
+
+	got, err := s.LookupByOrg(ctx, defaultIssuer, "org-different")
+	if err != nil {
+		t.Fatalf("LookupByOrg: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("LookupByOrg returned %v, want nil", got)
+	}
+
+	const freshID = "0192e6a0-0000-7000-8000-000000000003"
+	cfgFresh := sampleTenantConfig(freshID, "org-different")
+	if _, err := s.Create(ctx, cfgFresh); err != nil {
+		t.Fatalf("Create with fresh ID after rolled back org index: %v", err)
+	}
 }
 
 func TestListFiltersOrgKeys(t *testing.T) {
@@ -308,4 +330,123 @@ func TestMutateRetrySettlement(t *testing.T) {
 		t.Fatalf("final lifecycle = %v, want ACTIVE", finalRec.GetState().GetLifecycle())
 	}
 	_ = rec
+}
+
+func TestLookupByOrgMismatch(t *testing.T) {
+	s, kv := newStoreWithKV(t)
+	ctx := context.Background()
+	const id = "0192e6a0-0000-7000-8000-000000000040"
+	if _, err := s.Create(ctx, sampleTenantConfig(id, "org-actual")); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	// Simulate corrupted or orphaned index pointing to this tenant
+	spoofedKey := tenantstore.OrgIndexKey(defaultIssuer, "org-spoofed")
+	if _, err := kv.Create(ctx, spoofedKey, []byte(id)); err != nil {
+		t.Fatalf("create spoofed index: %v", err)
+	}
+	rec, err := s.LookupByOrg(ctx, defaultIssuer, "org-spoofed")
+	if err != nil {
+		t.Fatalf("LookupByOrg: %v", err)
+	}
+	if rec != nil {
+		t.Fatalf("LookupByOrg returned %v, want nil for mismatched org index", rec)
+	}
+}
+
+func TestOrphanedOrgIndexTakeover(t *testing.T) {
+	s, kv := newStoreWithKV(t)
+	ctx := context.Background()
+	const ghostID = "0192e6a0-0000-7000-8000-000000000050"
+	const newID = "0192e6a0-0000-7000-8000-000000000051"
+	const org = "org-orphaned"
+
+	// Simulate an orphaned index: ghostID was written to org index but no tenant record was written
+	orgKey := tenantstore.OrgIndexKey(defaultIssuer, org)
+	if _, err := kv.Create(ctx, orgKey, []byte(ghostID)); err != nil {
+		t.Fatalf("create orphaned index: %v", err)
+	}
+
+	// Create with newID should detect ghostID has no record, take over org index, and succeed
+	rec, err := s.Create(ctx, sampleTenantConfig(newID, org))
+	if err != nil {
+		t.Fatalf("Create with orphaned index: %v", err)
+	}
+	if rec.GetConfig().GetRef().GetTenant().GetId() != newID {
+		t.Fatalf("created tenant ID = %q, want %q", rec.GetConfig().GetRef().GetTenant().GetId(), newID)
+	}
+
+	lookedUp, err := s.LookupByOrg(ctx, defaultIssuer, org)
+	if err != nil {
+		t.Fatalf("LookupByOrg: %v", err)
+	}
+	if lookedUp == nil || lookedUp.GetConfig().GetRef().GetTenant().GetId() != newID {
+		t.Fatalf("LookupByOrg = %v, want tenant %s", lookedUp, newID)
+	}
+}
+
+func TestCreateValidation(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+
+	// Missing organization_claim_name
+	invalidCfg := identityv1.TenantConfig_builder{
+		Ref:                    tenantRef("0192e6a0-0000-7000-8000-000000000060"),
+		Issuer:                 proto.String(defaultIssuer),
+		OrganizationClaimValue: proto.String("org-test"),
+	}.Build()
+	_, err := s.Create(ctx, invalidCfg)
+	if err == nil {
+		t.Fatal("Create with invalid config succeeded, want error")
+	}
+	if code, _ := errs.CodeOf(err); code != tenantstore.ErrCodeInvalidConfig {
+		t.Fatalf("got code %v, want %v", code, tenantstore.ErrCodeInvalidConfig)
+	}
+
+	// Invalid UUID in ref
+	invalidUUIDCfg := sampleTenantConfig("not-a-uuid", "org-test-uuid")
+	_, err = s.Create(ctx, invalidUUIDCfg)
+	if err == nil {
+		t.Fatal("Create with non-UUID succeeded, want error")
+	}
+	if code, _ := errs.CodeOf(err); code != tenantstore.ErrCodeInvalidConfig {
+		t.Fatalf("got code %v, want %v", code, tenantstore.ErrCodeInvalidConfig)
+	}
+}
+
+func TestMutateRevision0Create(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+	const id = "0192e6a0-0000-7000-8000-000000000070"
+
+	cfg := sampleTenantConfig(id, "org-rev0")
+	active := identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE
+	initial := identityv1.TenantRecord_builder{
+		Config: cfg,
+		State: identityv1.TenantState_builder{
+			Ref:       cfg.GetRef(),
+			Lifecycle: &active,
+			CreatedAt: timestamppb.Now(),
+		}.Build(),
+	}.Build()
+
+	created, err := s.Mutate(ctx, id, func(current *identityv1.TenantRecord) (*identityv1.TenantRecord, error) {
+		if current != nil {
+			t.Fatalf("expected nil record on revision 0, got %v", current)
+		}
+		return initial, nil
+	})
+	if err != nil {
+		t.Fatalf("Mutate revision 0: %v", err)
+	}
+	if created.GetConfig().GetRef().GetTenant().GetId() != id {
+		t.Fatalf("Mutate returned ID %q, want %q", created.GetConfig().GetRef().GetTenant().GetId(), id)
+	}
+
+	got, err := s.Get(ctx, id)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got == nil || got.GetConfig().GetRef().GetTenant().GetId() != id {
+		t.Fatalf("Get = %v, want record with ID %s", got, id)
+	}
 }

@@ -32,7 +32,7 @@ const (
 	TenantLifecycle_TENANT_LIFECYCLE_UNSPECIFIED TenantLifecycle = 0
 	// Active and permitted to hold resources.
 	TenantLifecycle_TENANT_LIFECYCLE_ACTIVE TenantLifecycle = 1
-	// Suspended; operators and edges belonging to this tenant cannot act.
+	// The tenant is suspended.
 	TenantLifecycle_TENANT_LIFECYCLE_SUSPENDED TenantLifecycle = 2
 )
 
@@ -222,8 +222,7 @@ func (b0 TenantGlobalRef_builder) Build() *TenantGlobalRef {
 	return m0
 }
 
-// The intended definition of one tenant: who administers it and how its
-// operators authenticate.
+// The intended definition of one tenant: how its operators authenticate.
 type TenantConfig struct {
 	state                             protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Ref                    *TenantGlobalRef       `protobuf:"bytes,1,opt,name=ref"`

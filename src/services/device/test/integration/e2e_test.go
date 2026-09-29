@@ -896,6 +896,7 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 		}.Build(),
 		Name:                   proto.String("Tenant Alpha"),
 		Issuer:                 proto.String("https://auth.alpha.example.test"),
+		OrganizationClaimName:  proto.String("org_id"),
 		OrganizationClaimValue: proto.String("org_alpha"),
 	}.Build()
 
@@ -905,6 +906,7 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 		}.Build(),
 		Name:                   proto.String("Tenant Beta"),
 		Issuer:                 proto.String("https://auth.beta.example.test"),
+		OrganizationClaimName:  proto.String("org_id"),
 		OrganizationClaimValue: proto.String("org_beta"),
 	}.Build()
 
