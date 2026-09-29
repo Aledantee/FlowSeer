@@ -58,6 +58,7 @@ type provedByBlock struct {
 	startLine     int
 	lastLine      int
 	endsWithComma bool
+	hasTokens     bool
 	tests         []provedByTest
 }
 
@@ -105,7 +106,7 @@ func selectGuaranteeFiles(paths []string, root string, all bool) ([]string, erro
 			return nil, errs.Wrap(err, "walk failed")
 		}
 		sort.Strings(guaranteeFiles)
-		return uniqueStrings(guaranteeFiles), nil
+		return guaranteeFiles, nil
 	}
 
 	selected := make(map[string]bool)
@@ -223,7 +224,6 @@ func checkGuaranteesFile(filePath, root string) []string {
 	currentHasWhenThen := false
 	var currentNormativeLines []int
 	var currentProvedByBlocks []provedByBlock
-	seenNormative := false
 	seenList := false
 	seenProvedBy := false
 
@@ -249,7 +249,7 @@ func checkGuaranteesFile(filePath, root string) []string {
 			if block.endsWithComma {
 				checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: %q Proved by: list ends with a comma", displayPath, block.lastLine, currentHeading))
 			}
-			if len(block.tests) == 0 {
+			if !block.hasTokens {
 				checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: %q Proved by: line names no tests", displayPath, block.startLine, currentHeading))
 			} else if listErr == nil {
 				for _, t := range block.tests {
@@ -294,7 +294,6 @@ func checkGuaranteesFile(filePath, root string) []string {
 					currentHasWhenThen = false
 					currentNormativeLines = nil
 					currentProvedByBlocks = nil
-					seenNormative = false
 					seenList = false
 					seenProvedBy = false
 					if _, seen := seenHeadings[title]; seen {
@@ -334,7 +333,6 @@ func checkGuaranteesFile(filePath, root string) []string {
 				currentHasWhenThen = false
 				currentNormativeLines = nil
 				currentProvedByBlocks = nil
-				seenNormative = false
 				seenList = false
 				seenProvedBy = false
 				if _, seen := seenHeadings[title]; seen {
@@ -354,36 +352,20 @@ func checkGuaranteesFile(filePath, root string) []string {
 			pText := string(visible.value)
 			trimmedText := strings.TrimSpace(pText)
 			if strings.HasPrefix(trimmedText, "Proved by:") {
-				if !seenNormative {
-					checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: paragraph", displayPath, line))
-					continue
+				block, invalidTests := parseProvedByParagraph(n, visible, content)
+				for _, bad := range invalidTests {
+					checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: %q Proved by: %q is not a Go test identifier", displayPath, bad.line, currentHeading, bad.name))
 				}
-				if !seenProvedBy {
-					block, valid := parseProvedByParagraph(n, visible, content)
-					if !valid {
-						checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: paragraph", displayPath, line))
-					} else {
-						currentProvedByBlocks = append(currentProvedByBlocks, block)
-					}
-					seenProvedBy = true
-					continue
-				}
-				block, valid := parseProvedByParagraph(n, visible, content)
-				if valid {
-					currentProvedByBlocks = append(currentProvedByBlocks, block)
-				} else {
-					checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: paragraph", displayPath, line))
-				}
+				currentProvedByBlocks = append(currentProvedByBlocks, block)
+				seenProvedBy = true
 				continue
 			}
 
 			if mustWordRegex.MatchString(pText) {
 				if seenProvedBy || seenList {
 					checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: paragraph", displayPath, line))
-					continue
 				}
 				currentNormativeLines = append(currentNormativeLines, line)
-				seenNormative = true
 				continue
 			}
 
@@ -403,9 +385,8 @@ func checkGuaranteesFile(filePath, root string) []string {
 				checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: list", displayPath, line))
 				continue
 			}
-			if !seenNormative || seenList || seenProvedBy {
+			if seenList || seenProvedBy {
 				checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: list", displayPath, line))
-				continue
 			}
 
 			seenList = true
@@ -475,13 +456,10 @@ func extractHeadingTitle(n ast.Node, src []byte, displayPath string) (string, []
 }
 
 // parseProvedByParagraph parses tests and comma structure from a Proved by: paragraph.
-func parseProvedByParagraph(n ast.Node, visible inlineText, src []byte) (provedByBlock, bool) {
+func parseProvedByParagraph(n ast.Node, visible inlineText, src []byte) (provedByBlock, []provedByTest) {
 	startLine := nodeLine(n, src)
 	pText := string(visible.value)
 	idx := strings.Index(pText, "Proved by:")
-	if idx < 0 {
-		return provedByBlock{}, false
-	}
 	bodyStart := idx + len("Proved by:")
 	body := pText[bodyStart:]
 	trimmedBody := strings.TrimRight(body, " \t\r\n")
@@ -491,7 +469,7 @@ func parseProvedByParagraph(n ast.Node, visible inlineText, src []byte) (provedB
 			lastLine:      startLine,
 			endsWithComma: false,
 			tests:         nil,
-		}, true
+		}, nil
 	}
 	endsWithComma := strings.HasSuffix(trimmedBody, ",")
 
@@ -507,20 +485,22 @@ func parseProvedByParagraph(n ast.Node, visible inlineText, src []byte) (provedB
 	}
 
 	var tests []provedByTest
+	var invalidTests []provedByTest
+	hasTokens := false
 	partStart := bodyStart
 	for _, raw := range rawParts {
 		name := strings.Trim(raw, " \t\r\n`")
-		if name == "" {
-			return provedByBlock{}, false
-		}
-		if !isGoIdentifier(name) {
-			return provedByBlock{}, false
-		}
-
+		hasTokens = hasTokens || name != ""
 		leading := len(raw) - len(strings.TrimLeft(raw, " \t\r\n`"))
-		offset := visible.offsets[partStart+leading]
+		offsetIndex := min(partStart+leading, len(visible.offsets)-1)
+		offset := visible.offsets[offsetIndex]
 		testLine := 1 + bytes.Count(src[:offset], []byte{'\n'})
-		tests = append(tests, provedByTest{name: name, line: testLine})
+		found := provedByTest{name: name, line: testLine}
+		if isGoIdentifier(name) {
+			tests = append(tests, found)
+		} else {
+			invalidTests = append(invalidTests, found)
+		}
 		partStart += len(raw) + 1
 	}
 
@@ -528,8 +508,9 @@ func parseProvedByParagraph(n ast.Node, visible inlineText, src []byte) (provedB
 		startLine:     startLine,
 		lastLine:      lastLine,
 		endsWithComma: endsWithComma,
+		hasTokens:     hasTokens,
 		tests:         tests,
-	}, true
+	}, invalidTests
 }
 
 func isGoIdentifier(s string) bool {
@@ -694,14 +675,10 @@ func rejectHTMLBlockStartLines(n ast.Node, src []byte, displayPath string) []str
 		for i := 0; i < n.Lines().Len(); i++ {
 			segment := n.Lines().At(i)
 			line := segment.Value(src)
-			spaces := 0
-			for spaces < 3 && spaces < len(line) && line[spaces] == ' ' {
-				spaces++
-			}
-			if len(line) <= spaces+1 || line[spaces] != '<' {
+			if len(line) <= 1 || line[0] != '<' {
 				continue
 			}
-			next := line[spaces+1]
+			next := line[1]
 			if next >= 'A' && next <= 'Z' || next >= 'a' && next <= 'z' || next == '/' || next == '!' || next == '?' {
 				lineNumber := 1 + bytes.Count(src[:segment.Start], []byte{'\n'})
 				errs = append(errs, fmt.Sprintf("%s:%d: unknown block kind: html block", displayPath, lineNumber))
@@ -1136,19 +1113,4 @@ func isValidTestMainParamTokens(tokens []tokenItem) bool {
 		return true
 	}
 	return false
-}
-
-func uniqueStrings(in []string) []string {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(in))
-	seen := make(map[string]bool)
-	for _, s := range in {
-		if !seen[s] {
-			seen[s] = true
-			out = append(out, s)
-		}
-	}
-	return out
 }

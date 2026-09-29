@@ -166,31 +166,6 @@ reasons.
 `tools/check-guarantees` verifies each `GUARANTEES.md` in the directory of
 a changed path (or all of them under `--full`) against
 [`docs/conventions/guarantees.md`](../../../docs/conventions/guarantees.md).
-The check selects only the changed path's own directory.
-The check parses Markdown into a CommonMark abstract syntax tree using goldmark
-and validates allowed block structure, failing closed on any unknown block kind
-(such as code fences, setext underlines, indented code blocks, thematic breaks,
-block quotes, HTML blocks, or unallowed heading levels). It verifies unique
-`## ` section headings after HTML entity and escape decoding while preserving
-unspaced `#` characters. Within each section, exactly three blocks must appear
-in order: exactly one normative MUST/MUST NOT paragraph in visible text,
-exactly one bullet list using the `-` marker only, and exactly one `Proved by:`
-paragraph listing comma-separated Go test identifiers. List items must contain
-only inline paragraph content; nested blocks and lazy continuations containing
-`Proved by:` are rejected. Visible text is derived directly from allowed AST
-inline nodes (text with decoded entity references and punctuation escapes, line
-breaks, code spans with spaces replacing newlines, and emphasis) without HTML
-rendering or tag stripping; unallowed inline kinds (raw HTML, images, links,
-autolinks) fail closed with unknown inline kind errors. A paragraph or list-item
-content line starting, after up to three spaces, with `<` before an ASCII
-letter, `/`, `!`, or `?` fails as `unknown block kind: html block` at that line.
-The check reads block source lines, including starts held in code spans or
-rejected inline nodes, because goldmark can leave a CommonMark HTML block start
-inside a paragraph. An unescaped literal `<` before those characters in a text
-node mid-line also fails as `unknown inline kind: raw html`, including in a
-preamble paragraph. Write a literal `<` before a letter as `\<` or inside a
-mid-line code span.
-
-Cited tests resolve from the package's `TestGoFiles` and `XTestGoFiles` via `go list -mod=readonly -json .`
-using Go token scanning with signature validation; malformed test signatures in the
-package report a formatted error and fail test resolution.
+The check selects only the changed path's own directory and fails the verifier
+run when a guarantee violates the convention. The convention defines the block
+format, citation syntax, and handling of lines after any leading whitespace.
