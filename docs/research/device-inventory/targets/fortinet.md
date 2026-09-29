@@ -111,7 +111,7 @@ configuration file [10]. The CLI equivalent is `execute backup config <destinati
 (e.g. `execute backup config management-station <comment>` to push to FortiManager, or a
 TFTP/USB/flash destination) [23]. Full-configuration CLI dump for inspection or diffing is
 `show full-configuration` (undocumented in the pages fetched here beyond its name; treat as
-common knowledge from FortiOS CLI conventions, not independently sourced this session).
+common knowledge from FortiOS CLI conventions, not independently sourced for this dossier).
 
 **FortiManager.** Two configuration layers per managed device: the **device DB** (FortiManager's
 own copy of the device's config, editable offline) and **live config** on the device itself;
@@ -139,9 +139,9 @@ FortiSwitch.
 FortiGate's monitor API exposes point-in-time state: interface counters, session tables, VPN
 tunnel status, HA status, and (relevant to this project) switch-controller managed-switch health
 under `/api/v2/monitor/switch-controller/managed-switch` when FortiLink is active [16]. No
-webhook push mechanism was found in the pages reachable this session; push telemetry is via
+webhook push mechanism was found in the pages reachable for this dossier; push telemetry is via
 syslog, SNMP traps, and NetFlow/sFlow configured on the device, not a REST subscription — the
-searches run this session did not surface a FortiGate webhook API, so treat "no webhook support"
+searches run for this dossier did not surface a FortiGate webhook API, so treat "no webhook support"
 as based on absence of evidence rather than a vendor statement ruling it out.
 
 FortiAnalyzer is the log/event sink of record for the fabric (syslog and the proprietary
@@ -151,7 +151,7 @@ already-ingested logs and running reports, not for real-time event push to a thi
 ## Rate limits, quotas, pagination
 
 Fortinet does not appear to publish a formal numeric rate limit for the FortiGate REST API in the
-administration guide pages searched this session. A community support-forum thread (fetched in
+administration guide pages searched for this dossier. A community support-forum thread (fetched in
 full) states FortiGate returns HTTP 429 "Too Many Requests" when exceeded, and a community member
 (forum rank "Explorer", no Fortinet staff badge) cited "typical default caps" of roughly 100
 GET/monitor calls per second
@@ -167,7 +167,7 @@ readthedocs page [9] confirms only the `filter` parameter by direct fetch — `v
 FortiCloud's OAuth `access_token` expiry is shown as 3660 seconds in the
 vendor's own example response [13]; refresh via a
 `grant_type=refresh_token` call to the same token endpoint [13]. FortiManager/FortiAnalyzer
-session idle timeout is configurable server-side; no default value confirmed this session.
+session idle timeout is configurable server-side; no default value confirmed for this dossier.
 
 ## Device-side protocols still available
 
@@ -175,7 +175,7 @@ SNMP remains fully available in parallel with the REST/JSON-RPC APIs on FortiGat
 and FortiAP; it is not disabled by enrolling a device into FortiManager or FortiLink management.
 unverified: partial SNMPv3 support (RFC 3411 architecture, RFC 3414 User-based Security Model) was
 claimed for FortiOS in this dossier, but source [18] (`help.fortinet.com`) is a dead link — the
-hostname no longer resolves — and no replacement source was found this session confirming the RFC
+hostname no longer resolves — and no replacement source was found for this dossier confirming the RFC
 numbers; polling via the vendor MIBs `FORTINET-CORE-MIB` and `FORTINET-FORTIGATE-MIB`
 plus standard MIB-II, all registered under Fortinet's IANA enterprise number 12356 [19]. MIB files
 ship per firmware version from the Fortinet Support Portal, not from a public MIB repository
@@ -204,7 +204,7 @@ calls home [20][21].
 
 Factory reset and firmware management are CLI/GUI operations (`execute factory-reset`-class
 commands, firmware upload via GUI or CLI `execute restore image`); unverified: no REST API
-endpoint for firmware push was found in the sources reachable this session, distinct from
+endpoint for firmware push was found in the sources reachable for this dossier, distinct from
 FortiManager's own firmware management workflow, which does have `exec` calls for firmware
 upgrade but were not directly confirmed here.
 
@@ -260,7 +260,7 @@ upgrade but were not directly confirmed here.
   writes and roughly 100/s for monitor reads pending official confirmation; poll via batched
   table reads, not per-object loops, and reuse a single session/token per FortiGate [24].
 - Minimum API version to target: FortiOS 7.4.1+ if the transaction/batch CMDB flow is required;
-  otherwise no version floor found in sources reached this session beyond "REST API generally
+  otherwise no version floor found in sources reached for this dossier beyond "REST API generally
   available across the FortiOS 6.x/7.x/8.0 line" implied by the per-version doc pages found for
   6.4, 7.2, 7.4, 7.6, and 8.0.0 [2][5][9][22].
 
@@ -283,7 +283,7 @@ upgrade but were not directly confirmed here.
 15. https://docs.fortinet.com/document/fortigate/8.0.0/cli-reference/229031989/execute-backup — CLI reference existence for `execute backup`. Snippet-sourced. Fetched 2026-09-10.
 16. https://docs.fortinet.com/document/fortigate/6.2.1/cli-reference/174620/switch-controller-managed-switch — `switch-controller managed-switch` CMDB/CLI object. Snippet-sourced. Fetched 2026-09-10.
 17. https://docs.fortinet.com/document/fortiswitch/7.0.8/devices-managed-by-fortios/173260/configuring-fortilink and https://docs.fortinet.com/document/fortigate/7.6.4/cli-reference/324047635/execute-switch-controller — FortiLink auto-discovery, no switch-side config needed, `execute switch-controller` CLI. Snippet-sourced. Fetched 2026-09-10.
-18. https://help.fortinet.com/fmgr/50hlp/56/5-6-1/FMG-FAZ/2400_System_Settings/2400_Advanced/0220_SNMP%20MIBs.htm — DEAD LINK: `help.fortinet.com` no longer resolves (DNS lookup fails as of 2026-09-10). Originally cited for SNMPv3 RFC support (3411, partial 3414); claim is now unverified and no working replacement was found this session.
+18. https://help.fortinet.com/fmgr/50hlp/56/5-6-1/FMG-FAZ/2400_System_Settings/2400_Advanced/0220_SNMP%20MIBs.htm — DEAD LINK: `help.fortinet.com` no longer resolves (DNS lookup fails as of 2026-09-10). Originally cited for SNMPv3 RFC support (3411, partial 3414); claim is now unverified and no working replacement was found for this dossier.
 19. https://mibs.observium.org/mib/FORTINET-FORTIGATE-MIB/ and https://mibs.observium.org/mib/FORTINET-CORE-MIB/ — MIB names, Fortinet IANA enterprise number 12356, per-firmware MIB download from Support Portal. Snippet-sourced. Fetched 2026-09-10.
 20. https://community.fortinet.com/fortigate-3/technical-tip-zero-touch-provisioning-of-fortigate-using-fortideploy-99548 and https://www.historiantech.com/zeroish-touch-provisioning-with-fortimanager-explained/ — FortiDeploy/LTP serial-number-based auto-link to FortiManager. Snippet-sourced. Fetched 2026-09-10.
 21. https://docs.fortinet.com/document/fortigate/6.4.0/administration-guide/316039/zero-touch-provisioning-with-fortideploy — serial/cloud-key registration in FortiCloud portal before device claim. Snippet-sourced. Fetched 2026-09-10.

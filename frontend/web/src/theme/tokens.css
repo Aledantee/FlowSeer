@@ -101,4 +101,10 @@
   --duration-fast: 100ms;
   --duration-base: 140ms;
   --duration-slow: 160ms;
+
+  --z-raised: 2;
+  --z-sticky: 10;
+  --z-overlay: 50;
+  --z-toast: 60;
+  --z-skip-link: 100;
 }

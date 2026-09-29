@@ -150,8 +150,10 @@ registered.
 port can start a promiscuous capture on any edge, tail the packets live, and
 download the stored pcapng — other people's traffic, which the capture
 direction record treats as the most restricted data this system holds. Nothing
-scopes a session to the operator who created it: `authorization.operator` is a
-string the caller writes about itself.
+scopes a session to the operator who created it: `authorization.requested_by`
+is an `OperatorRef` the caller writes about itself, and nothing verifies it.
+The relations each capture RPC will be checked against are proposed in the
+[capture direction record](../../../docs/architecture/2026-09-09-remote-packet-capture-direction.md#2026-09-28--operator-identity-and-the-relations-capture-needs).
 
 The request body limit is also narrower than it looks: it wraps only the
 middleware-mounted paths, so `DeviceService`, `EdgeAdminService` and

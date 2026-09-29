@@ -58,6 +58,7 @@ spec/proto/flowseer/
   model/
     policy/v1/          AccessPolicyHandle, an opaque key and version; imports nothing
     credential/v1/      CredentialMaterial, the typed secret an edge carries; imports nothing
+    principal/v1/       OperatorRef, the identity provider's subject for a person; imports nothing
     edge/v1/            the Edge entity: ref pair, lifecycle, setup key, registered key, assertion, key proof, and provisioning file
     inventory/v1/       Device, Component, Integration, Binding, Placement, IntegrationScope, Location, PatchPanel, Cable, Link, Tag, provenance
     capture/v1/         the CaptureSession entity, its ref pair and lifecycle, and the chunk frames its two services share
@@ -107,10 +108,11 @@ net/packet ← net/switching
 model/edge ← {api/capture, api/edge, edge/attach, edge/capture, model/access, model/capture, model/inventory, store/device}
 model/policy ← {edge/attach, model/access, model/inventory, store/device}
 model/credential ← edge/attach
-{model/edge, net/capture} ← model/capture
+model/principal ← {model/access, model/capture}
+{model/edge, model/principal, net/capture} ← model/capture
 {model/edge, model/policy, model/credential, net/addr} ← edge/attach
 {model/edge, model/policy, net/addr, net/phy} ← model/inventory
-{model/edge, model/inventory, model/policy, net/interface} ← model/access
+{model/edge, model/inventory, model/policy, model/principal, net/interface} ← model/access
 {model/capture, model/edge, net/capture} ← api/capture
 {model/capture, model/edge} ← edge/capture
 {model/access, model/inventory} ← api/device
@@ -126,10 +128,11 @@ never import a protocol; a protocol package imports the address values it
 renders and nothing above them.
 `net/addr`, `net/packet`, and `net/phy` are leaves with respect to FlowSeer
 packages; `net/switching` imports address and packet values, while `net/ip`
-imports address values. `model/edge`, `model/credential`, and `model/policy`
-are leaves too: every package that needs the Edge ref, a credential, or an
-access-policy handle imports the matching one of the three, and none of
-them imports anything FlowSeer-owned back. `edge/attach` imports `model/edge`
+imports address values. `model/edge`, `model/credential`, `model/policy`, and
+`model/principal` are leaves too: every package that needs the Edge ref, a
+credential, an access-policy handle, or a person's identity-provider subject
+imports the matching one of the four, and none of them imports anything
+FlowSeer-owned back. `edge/attach` imports `model/edge`
 for the entity, `model/credential` and `model/policy` for the handles and
 secret material its services hand out, and `net/addr` for the IP address a
 listed device reports; `api/edge` imports `model/edge` alone. `api/capture`
@@ -687,9 +690,10 @@ documentation, API references).
 
 ### 2026-08-21 — no `core/v1`; typed address variants; provenance on the envelope
 
-Landed with `docs/plans/2026-08-21-1257-feat-proto-base-types-plan.md`, which
-wrote the first owned package and found that `core/v1`, as this record
-originally specified it, contradicted the record's own primitive/entity line.
+Landed 2026-08-21: base protobuf types and conventions in
+`spec/proto/flowseer`. That work wrote the first owned package and found that
+`core/v1`, as this record originally specified it, contradicted the record's
+own primitive/entity line.
 
 - **`core/v1` is gone** from the tree, the import order, and the sequencing.
   It held refs, provenance, and lifecycle enums — all entity concerns — yet
@@ -715,8 +719,9 @@ originally specified it, contradicted the record's own primitive/entity line.
 
 ### 2026-08-30 — the layer packages are named for their function
 
-Landed with `docs/plans/2026-08-30-1420-feat-net-interface-lldp-plan.md`, which
-opened by moving the two packages this record named after OSI layers.
+Landed 2026-08-30: function-named layer packages (`net/switching`, `net/ip`),
+interface, and LLDP in `spec/proto/flowseer`. That work opened by moving the
+two packages this record named after OSI layers.
 
 - **`net/l2` is now `net/switching` and `net/l3` is now `net/ip`.** The section
   above conceded that function-named roots are what the survey found almost
@@ -760,7 +765,8 @@ placeholder; amend this accepted record before adding the entity family.
 
 ### 2026-09-05 — phy owns the transport variants and the pluggable-module values
 
-Landed with `docs/plans/2026-09-05-0004-feat-phy-transport-optics-plan.md`.
+Landed 2026-09-05: physical layer transport variants and pluggable module
+diagnostics in `spec/proto/flowseer/net/phy/v1`.
 
 - **`EthernetFacet` splits by transport.** The flat facet with a medium enum
   accepted PoE on a fiber port without complaint, and every deferred field
@@ -794,8 +800,9 @@ Landed with `docs/plans/2026-09-05-0004-feat-phy-transport-optics-plan.md`.
 
 ### 2026-09-05 — the device-access boundary packages
 
-Landed with `docs/plans/2026-09-05-1709-feat-verified-local-device-access-plan.md`
-under the [verified device access record](2026-09-05-verified-device-access-direction.md).
+Landed 2026-09-10: device-access boundary packages in what were then
+`spec/proto/flowseer/device/` and `spec/proto/flowseer/api/device/` (the
+2026-09-17 re-cut below moved them under `model/`), under the [verified device access record](2026-09-05-verified-device-access-direction.md).
 
 - **The boundary names the 2026-09-04 amendment left open are settled.**
   `api/device/v1` is the operator-facing Connect service; `device/policy/v1`
@@ -888,10 +895,11 @@ LLDP and LACP report. None of the four top-level families joins
 
 ### 2026-09-17 — the tree is cut by kind of contract
 
-Landed with `docs/plans/2026-09-17-1141-refactor-proto-layout-phase1-plan.md`,
-the first of three plans that re-cut this tree by what kind of contract each
-package is rather than by which entity or boundary happened to define it
-first.
+Landed 2026-09-17: re-cut protobuf tree by contract kind (roots, sink rule,
+and layering conformance) in `spec/proto/flowseer` and
+`test/conformance/proto`, the first of three refactors that re-cut this tree
+by what kind of contract each package is rather than by which entity or
+boundary happened to define it first.
 
 - **The axis becomes the kind of contract.** The roots become `net`, `errs`,
   `model`, `event`, `api`, `edge`, `integration`, `store`, and `runtime`.
@@ -928,7 +936,8 @@ first.
 
 ### 2026-09-17 — the edge plane is its own root
 
-Landed with `docs/plans/2026-09-17-1141-refactor-proto-layout-phase2-plan.md`.
+Landed 2026-09-17 to 2026-09-18: edge plane root split (`edge/attach`, `edge/capture`,
+`edge/dispatch`, `edge/audit`, and `event/access`) in `spec/proto/flowseer`.
 
 - **The edge-facing Connect services move to `edge/`.** `EdgeService` moves
   from `api/edge/v1` to `edge/attach/v1`, leaving `api/edge/v1` holding

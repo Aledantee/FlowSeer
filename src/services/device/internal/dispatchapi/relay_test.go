@@ -12,6 +12,7 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
+	principalv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
@@ -89,7 +90,7 @@ func mutationIntent(key string) *accessv1.MutationIntent {
 	local.SetId(deviceID)
 	device.SetDevice(local)
 	actor := &accessv1.Actor{}
-	op := &accessv1.OperatorRef{}
+	op := &principalv1.OperatorRef{}
 	op.SetSubject("zitadel|1")
 	actor.SetOperator(op)
 	policy := &policyv1.AccessPolicyHandle{}

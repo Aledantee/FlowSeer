@@ -84,6 +84,5 @@ passes after either outcome
 ## What this does not cover
 
 The fix is still open: a rule for which augment wins, a skip entry for one
-side of each pair, or feeding goyang a deterministic order. The plan
-`docs/plans/2026-09-26-1108-perf-yang-nested-module-plan.md` (Open questions)
-records it. Once it lands, this solution is removed.
+side of each pair, or feeding goyang a deterministic order. Once it lands,
+this solution is removed.

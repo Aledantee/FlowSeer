@@ -36,7 +36,7 @@ a `parent:` field): it holds the checks that the tree is fit to plan from.
 ### Promote a decision to a direction record
 
 A decision that outlives the task belongs in `docs/architecture/`, since a
-plan goes stale once the work lands. Promote a decision when reverting it
+plan goes stale once the work lands and `land` then deletes it. Promote a decision when reverting it
 would touch more than one package or a wire contract, when it constrains
 work outside this plan's units, when it changes an accepted record, or when
 an earlier plan or record already decided the same question. Which library,

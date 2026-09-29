@@ -91,8 +91,8 @@ The fix is the same computation in the crafter, `ospfChecksum`
 
 ## Evidence
 
-Live run, 2026-09-24, `LABRT42` (Cisco IOS-XE 17.3.2), from
-`docs/plans/2026-09-24-2023-fix-netpen-ospf-checksum-plan.md`:
+Live run, 2026-09-24, `LABRT42` (Cisco IOS-XE 17.3.2), from the OSPF checksum fix
+(Landed 2026-09-24 in `src/edge/netpen/attacks/routing/`):
 
 > **Before the fix:** netpen sent 55 hellos ... the target sent hellos back but
 > **never listed the neighbor** — no adjacency. Hexdump of the OSPF header

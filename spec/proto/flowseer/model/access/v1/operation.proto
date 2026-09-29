@@ -12,6 +12,7 @@ import "flowseer/model/access/v1/interface.proto";
 import "flowseer/model/edge/v1/edge.proto";
 import "flowseer/model/inventory/v1/device.proto";
 import "flowseer/model/policy/v1/handle.proto";
+import "flowseer/model/principal/v1/operator.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
 
@@ -88,17 +89,6 @@ enum SystemReason {
   SYSTEM_REASON_RECONCILIATION = 1;
 }
 
-// A person, named by the identity provider's stable subject.
-message OperatorRef {
-  // The subject identifier the identity provider assigns, stable across
-  // renames. Must be present.
-  string subject = 1 [
-    (buf.validate.field).required = true,
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 256
-  ];
-}
-
 // A FlowSeer process acting on its own policy.
 message SystemActor {
   // Why the process acted. Must be present; the zero value is rejected.
@@ -117,7 +107,7 @@ message Actor {
   oneof principal {
     option (buf.validate.oneof).required = true;
 
-    OperatorRef operator = 1;
+    flowseer.model.principal.v1.OperatorRef operator = 1;
     SystemActor system = 2;
   }
 }

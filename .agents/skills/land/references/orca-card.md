@@ -1,7 +1,7 @@
 # The Orca card
 
 Load this in Orca (`ORCA_TERMINAL_HANDLE` set, `orca status --json` reachable
-unsandboxed), in step 1 to read the card and in step 4 to mark it.
+unsandboxed), in step 1 to read the card and in step 6 to mark it.
 
 ## Step 1: read
 
@@ -13,7 +13,7 @@ a stop:
 orca worktree show --worktree active --json   # .result.worktree.comment and .workspaceStatus
 ```
 
-## Step 4: mark
+## Step 6: mark
 
 ```bash
 orca worktree set --worktree active --workspace-status completed \

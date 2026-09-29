@@ -22,6 +22,7 @@ and continue.
 | --- | --- | --- |
 | Lookup with no judgment: which files reference a symbol, which fixtures exist, where a string appears | `lookup` | `Explore` subagent, or the pool's CLI |
 | Bounded question that needs conventions read and evidence weighed | `research` | `repo-researcher` subagent, or the pool's CLI |
+| Writing or re-planning a plan under `docs/plans/` | `plan` | Orca worker when Orca is reachable, else the pool's CLI |
 | Editing work that runs for minutes: an implementation unit, a solution refresh | `execute`; `execute-sensitive` when a changed path matches `sensitive_paths` | Orca worker when Orca is reachable, else see Orca or native |
 | Independent review of one unit's files | `review-unit` | `independent-reviewer` subagent, or the pool's CLI |
 | Review of the seams between units, and the verdict | `review-seam` | `independent-reviewer` subagent, or the pool's CLI |
@@ -32,7 +33,10 @@ and continue.
 CLI and vendor constraints come only from the role's fields (`fit`,
 `exclude`, `vendor_differs_from`, `model_differs_from`, `never_sensitive`).
 A stage being a skill under `.claude/skills/` does not tie it to `claude`;
-every agent CLI reads that file. Resolve each lane in this order:
+every agent CLI reads that file. A `fit` entry is a model id, optionally
+followed by `@<level>`. Every step below matches the model id before the
+`@` against pool rows, `exclude`, vendors, and executors. Resolve each
+lane in this order:
 
 1. Drop models whose pool row, as `scripts/pool-usage.sh` printed it for
    this wave (`~/.claude/models/host.yaml` holds the session-start rows),
@@ -65,9 +69,13 @@ and `--effort`; the Agent tool takes `model`. `claude` and `codex` take
 `--model` and `--effort`; `google` takes `--model gemini-3.8-flash-<effort>`
 on `agy`; `synthetic` and `zen` take `--model <pool_id>` on `opencode`, on
 the default agent, never an agent profile (a model-pinning profile carries
-no system prompt). A model whose `effort` list lacks the role's level gets
-its highest listed level: `execute` routes at `xhigh`, so that `google`
-lane launches as `gemini-3.8-flash-high`. Load `references/sensitive.md`
+no system prompt). A `fit` entry written `<model>@<level>` launches at that
+level, the one `tune` measured as the best tradeoff for the role: the model
+id goes to `--model` and the level to `--effort` (into the id on `agy`). A bare
+entry launches at the role's `effort`. A model whose `effort` list lacks
+that level gets its highest listed level: `execute` routes at `xhigh`, so a
+bare `gemini-3.8-flash` launches as `gemini-3.8-flash-high`. A role's
+`min_effort` is a floor under either. Load `references/sensitive.md`
 when a changed path matches `sensitive_paths`.
 
 ## Wave size

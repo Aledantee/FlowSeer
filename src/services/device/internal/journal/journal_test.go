@@ -14,6 +14,7 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
+	principalv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
@@ -65,7 +66,7 @@ func mutationIntent(key string) *accessv1.MutationIntent {
 		return r
 	}())
 	actor := &accessv1.Actor{}
-	op := &accessv1.OperatorRef{}
+	op := &principalv1.OperatorRef{}
 	op.SetSubject("zitadel|1")
 	actor.SetOperator(op)
 	policy := &policyv1.AccessPolicyHandle{}
@@ -653,7 +654,7 @@ func TestEveryProjectedIntentFieldChangesTheDigest(t *testing.T) {
 			i.SetDevice(ref)
 		},
 		"operator subject": func(i *accessv1.MutationIntent) {
-			op := &accessv1.OperatorRef{}
+			op := &principalv1.OperatorRef{}
 			op.SetSubject("zitadel|2")
 			i.GetActor().SetOperator(op)
 		},

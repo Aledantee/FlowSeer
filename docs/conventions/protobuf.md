@@ -162,7 +162,12 @@ Three boundaries keep it from eroding the typed refs:
   second deliberate class of non-entity: each an opaque key and version into
   the device service's store, with no ref pair, no triad, and no place in
   the enum, because nothing else points at one and the store that would
-  answer an existence check lands with that service.
+  answer an existence check lands with that service. `OperatorRef` in
+  `model/principal/v1` is the third: a person named by the identity
+  provider's stable subject, with no ref pair, no triad, and no place in the
+  enum, because the identity provider owns the person and nothing FlowSeer
+  stores answers for one. Its leaf is not a shared refs package: it holds no
+  entity's ref and imports nothing.
 - **A ref with the tenant kind is data, not scoping.** Tenancy stays ambient:
   the ref is content on the pointing entity and never stands in for the
   request's tenant context.

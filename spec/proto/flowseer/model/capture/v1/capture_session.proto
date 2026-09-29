@@ -8,6 +8,7 @@ edition = "2024";
 package flowseer.model.capture.v1;
 
 import "flowseer/model/edge/v1/edge.proto";
+import "flowseer/model/principal/v1/operator.proto";
 import "flowseer/net/capture/v1/capture_counters.proto";
 import "flowseer/net/capture/v1/capture_filter.proto";
 import "flowseer/net/capture/v1/link_type.proto";
@@ -107,13 +108,12 @@ message CaptureBudget {
 
 // Who asked for a capture, why, and how much of each packet they asked for.
 message CaptureAuthorization {
-  // The operator who requested this capture, as they identify themselves.
-  // Must be present.
-  string operator = 1 [
-    (buf.validate.field).required = true,
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 256
-  ];
+  reserved 1;
+  reserved operator;
+
+  // The person who requested this capture, as the caller names them. Must be
+  // present.
+  flowseer.model.principal.v1.OperatorRef requested_by = 4 [(buf.validate.field).required = true];
   // Free-text explanation of why this capture was requested. Must be
   // present.
   string reason = 2 [

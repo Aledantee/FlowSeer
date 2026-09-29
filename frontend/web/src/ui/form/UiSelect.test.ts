@@ -148,4 +148,54 @@ describe('UiSelect', () => {
     await selectOption(mountPoint, 'Hamburg')
     expect(form.checkValidity()).toBe(true)
   })
+
+  it('mounts open when defaultOpen is true', async () => {
+    mountSelect({
+      options,
+      defaultOpen: true,
+    })
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(document.body.querySelector('[role="listbox"]')).not.toBeNull()
+  })
+
+  it('emits closeAutoFocus on close and honors preventDefault to preserve custom focus', async () => {
+    let emittedEvent: Event | null = null
+    const customButton = document.createElement('button')
+    customButton.id = 'select-custom-focus'
+    document.body.append(customButton)
+
+    mountSelect({
+      options,
+      defaultOpen: true,
+      onCloseAutoFocus: (e: Event) => {
+        emittedEvent = e
+        e.preventDefault()
+        customButton.focus()
+      },
+    })
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const listbox = document.body.querySelector('[role="listbox"]')
+    expect(listbox).not.toBeNull()
+
+    listbox?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        code: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(emittedEvent).not.toBeNull()
+    expect(document.activeElement).toBe(customButton)
+    customButton.remove()
+  })
 })

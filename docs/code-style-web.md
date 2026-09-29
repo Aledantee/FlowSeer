@@ -59,6 +59,12 @@ The comment discipline and the *Rules for coding agents* in
 - Vitest; test files co-located or under `tests/`, mirroring the source layout.
 - Test the observable behavior of a module, not its internals; if a test needs to
   reach into private state, the module boundary is wrong.
+- A failing axe audit is fixed in the component. A test or story never strips
+  an `aria-*` or `role` attribute, disables or narrows axe rules, drops
+  violations before asserting them, mocks axe, or sets the Storybook a11y test
+  mode to `off` or `todo`. `test/conformance/a11y` fails the direct forms of
+  these and holds the rules `src/ui/a11y.test.ts` may disable, each with its
+  reason. Its package comment lists the indirect forms review has to catch.
 
 ## Sources
 

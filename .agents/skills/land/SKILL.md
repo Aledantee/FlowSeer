@@ -1,6 +1,6 @@
 ---
 name: land
-description: Lands finished FlowSeer work by merging main into the current worktree's branch, verifying the result there, and leaving main one fast-forward away, the worktree and Orca card ready for deletion. Use when asked to close, land, finish, or wrap up work after implement, review, and compound have run. Not while any of the three lacks its checkpoint or the review verdict is not accept (offers to run the missing one); never removes its own worktree or the Orca session.
+description: Lands finished FlowSeer work by merging main into the current worktree's branch, retiring its plan into the direction records, verifying the result there, and leaving main one fast-forward away, the worktree and Orca card ready for deletion. Use when asked to close, land, finish, or wrap up work after implement, review, and compound have run. Not while any of the three lacks its checkpoint or the review verdict is not accept (offers to run the missing one); never removes its own worktree or the Orca session.
 argument-hint: "[plan path]"
 ---
 
@@ -13,7 +13,7 @@ runs it after reading the report. Merged child worktrees are removed in step 2.
 Merge inside this worktree, from `main` into the branch. The harness refuses a
 worktree-isolated session every git command that names the primary checkout
 (`git -C` and `cd … && git` alike), so nothing below targets that checkout
-except the fast-forward in step 3, attempted once and handed to the person
+except the fast-forward in step 5, attempted once and handed to the person
 verbatim when refused.
 
 ## 1. Read the checkpoints
@@ -26,14 +26,16 @@ plan under `docs/plans/` that records this work among the files
 planless. Of a phase plan and its `parent:`, the phase plan is this work's;
 report the parent, do not gate on it. A branch that implemented several plans
 (a `drive` of a parent's phases) is gated on every one's three fields; one
-missing field pauses the merge.
+missing field pauses the merge. A plan an earlier run already retired
+(step 4) has a `docs(plans): retire <slug>` commit in `main..HEAD`: read
+its three fields from that commit's body, and do not retire it again.
 
 `implement`, `review`, and `compound` leave their outcome as the `status`,
 `review`, and `compound` fields of the plan's frontmatter, or for planless
 work as one `key: value` line each in
 `$(git rev-parse --git-dir)/flowseer-checkpoints`, beside the verifier receipt
 and the ledger. `implement` writes the file anew and the other two append; the
-last line for a key wins, and step 3 removes the file once the work has landed.
+last line for a key wins, and step 5 removes the file once the work has landed.
 
 ```text
 implemented: <request in a few words>
@@ -103,19 +105,19 @@ directory, not with a command against the checkout:
 cat "$(git rev-parse --git-common-dir)/HEAD"   # ref: refs/heads/main
 ```
 
-Do not inspect its working tree; the fast-forward in step 3 refuses on its own
+Do not inspect its working tree; the fast-forward in step 5 refuses on its own
 when a local change there overlaps the merge.
 
 Every worker, child worktree, and `orca-worker.sh` lane this task started must
 be settled, released, or removed; load `references/orca-cleanup.md`
 whenever `orca status --json` (unsandboxed) reports the runtime reachable,
-since lanes from an earlier session are invisible otherwise. A running
+since lanes this context did not start are invisible otherwise. A running
 worker stops the skill.
 
 ## 3. Merge
 
-When `HEAD..main` is empty, the branch's verifier run covers the result and
-there is nothing to merge here. Otherwise merge `main` into the branch:
+When `HEAD..main` is empty there is nothing to merge; go to step 4.
+Otherwise merge `main` into the branch:
 
 ```bash
 git merge --no-edit main
@@ -129,7 +131,30 @@ That failure is expected after any `steer` has landed, and the bypass is its
 remedy. Resolve a conflict only when the resolution is mechanical; otherwise
 `git merge --abort`, report the conflicting files, and stop.
 
-Then verify the union, sandbox disabled:
+## 4. Retire the plan
+
+A plan describes open work; once its work lands, a later agent would read
+it as a statement about the tree. Retire after the merge, so the links
+`main` gained since the fork and the parent's merged `Landed:` lines are in
+the tree the retire reads.
+
+Step 1 was the plan status ledger's last reader, and the verifier rejects a
+ledger that names a deleted plan, so remove it first:
+
+```bash
+find "$(git rev-parse --git-dir)" -maxdepth 1 -name flowseer-plan-status.json -delete
+```
+
+Then load `references/retire-plan.md` for each plan step 1 gated whose
+`status` reads `implemented` (a phase plan, and its parent too when the
+merged parent shows every phase landed), and for each plan the branch
+marked `superseded` or `abandoned`. It promotes or amends the direction
+records the plan's decisions call for, rewrites the links to the plan, and
+deletes it in a commit of its own. Planless work skips this step.
+
+## 5. Verify and fast-forward
+
+Verify the union, sandbox disabled:
 
 ```bash
 .claude/skills/verify-change/scripts/verify-change.sh --base main
@@ -155,8 +180,8 @@ git -C <primary> merge --ff-only <branch>   # <primary>: the parent of $(git rev
 ```
 
 `--ff-only` lands exactly the commit the verifier passed, and refuses when
-`main` moved again in the meantime, in which case this step runs again from
-the merge. Do not delete the branch; Orca deletes it with the worktree.
+`main` moved again in the meantime, in which case the skill runs again from
+step 3. Do not delete the branch; Orca deletes it with the worktree.
 Once `main` holds the branch, the plan status ledger and the checkpoints
 file are removed; when the person runs the fast-forward, this goes into
 the report beside it (not `rm -f`, which Codex's command policy rejects):
@@ -165,17 +190,19 @@ the report beside it (not `rm -f`, which Codex's command policy rejects):
 find "$(git rev-parse --git-dir)" -maxdepth 1 \( -name flowseer-plan-status.json -o -name flowseer-checkpoints \) -delete
 ```
 
-## 4. Mark the card
+## 6. Mark the card
 
 In Orca, mark the card as `references/orca-card.md` describes: `completed`
 with the merge sha, or `ready for main: <sha>` and `in-review` when the
 fast-forward is left for the person.
 
-## 5. Report
+## 7. Report
 
 Outcome first: `main` fast-forwarded to `<sha>`, or `<sha>` verified on top of
 `main` and one command away from it, or paused at the named signal with
-step 1's question about it. Then the commits landed, the commands run with
+step 1's question about it. Then the plans retired with the records drafted
+or amended (a drafted record waits for a person to accept it), the commits
+landed, the commands run with
 their results, whether the verifier ran on the merged tree, and the commands
 left for the user in the order to run them: the fast-forward, the ledger and
 checkpoints removal, any child worktree removal the harness refused, and

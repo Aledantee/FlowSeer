@@ -16,7 +16,12 @@ These entries complete the closed list in `SKILL.md`.
   the YANG bindings runs for over an hour.
 - A `frontend/web/` path selects the web workspace's typecheck, Vite build,
   ESLint, Stylelint, Prettier check, and Vitest suite, using the local
-  binaries installed from its lockfile.
+  binaries installed from its lockfile. With no Go module selected, it also
+  runs `test/conformance/...`, since `test/conformance/a11y` reads the web
+  tests and stories.
+- A changed `.md` file runs the relative-link check and
+  `.claude/skills/prose/scripts/check-prose.py`. Prose that cites an agent run
+  fails the gate. Style findings print as a warning count and do not.
 - `buf breaking` compares only the changed `.proto` files `main` already
   holds, and prints that it skipped when every changed schema file is new on
   the branch, since `--path` naming a file the baseline lacks fails without

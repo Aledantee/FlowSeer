@@ -35,6 +35,7 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
   (e: 'update:highlightedValue', value: string): void
   (e: 'highlight', value: string): void
+  (e: 'closeAutoFocus', event: Event): void
 }>()
 </script>
 
@@ -45,10 +46,13 @@ const emit = defineEmits<{
     @update:open="emit('update:open', $event)"
   >
     <DialogPortal>
-      <DialogOverlay class="bg-overlay fixed inset-0 z-50 backdrop-blur-xs" />
+      <DialogOverlay
+        class="bg-overlay fixed inset-0 z-(--z-overlay) backdrop-blur-xs data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out"
+      />
       <DialogContent
-        class="bg-popover text-foreground border border-border shadow-lg rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-0 w-full max-w-xl overflow-hidden focus:outline-none"
+        class="bg-popover text-foreground border border-border shadow-lg rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-(--z-overlay) p-0 w-full max-w-xl overflow-hidden focus:outline-none data-[state=closed]:animate-fade-out"
         @keydown.escape="emit('update:open', false)"
+        @close-auto-focus="emit('closeAutoFocus', $event)"
       >
         <VisuallyHidden as-child>
           <DialogTitle>Command Palette</DialogTitle>
