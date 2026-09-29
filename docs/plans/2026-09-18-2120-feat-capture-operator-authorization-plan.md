@@ -4,12 +4,20 @@ type: feat
 date: 2026-09-18
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: superseded
+superseded_by: docs/plans/2026-09-28-1618-refactor-capture-operator-identity-plan.md
 execution: mixed
 amends: docs/architecture/2026-09-09-remote-packet-capture-direction.md
 ---
 
 # Remote Packet Capture Operator Authorization - Plan
+
+Superseded on 2026-09-28 by
+[the operator identity plan](2026-09-28-1618-refactor-capture-operator-identity-plan.md).
+The units here enforced authorization and emitted a download event, which
+contradicted this plan's own decision to wait for the OpenFGA record. U1
+would also have failed the proto layering gate, because `model/capture` may
+not import `model/access`.
 
 ## Goal
 
