@@ -615,5 +615,22 @@ Open, and the reason for the verdict:
 
 ## Open questions
 
-None. The design follows the accepted direction record and conventions without
-unsettled choices.
+- Parked by drive: how does the rework the review left open get done?
+  Options: re-plan the open items as a follow-up pass of this phase,
+  widening its files to the edge leaf (`src/edge/agent/internal/busattach`,
+  `src/modules/edgebus/leaf.go`), then implement and review again (edges
+  under a UUID tenant work before this lands; one more implement and review
+  cycle) | accept this phase's review with the edge leaf tenant and the
+  `TenantService` gate moved to phase 3 (lands sooner; `main` carries edges
+  whose telemetry central refuses until phase 3). Recommended: the
+  follow-up pass, because the edge leaf gap breaks Requirement 3 for every
+  tenant but `default`, and the tenant store's index race is a correctness
+  bug in this phase's own files.
+- Parked by drive: is `TenantService` mounted before phase 3 authenticates
+  callers? Options: do not mount it until phase 3; tests and development
+  create tenants through the store (no unauthenticated way to create a
+  tenant or claim an organization) | mount it and list it among the
+  unauthenticated services in `src/services/device/README.md` (usable now;
+  anyone who reaches the API port can create tenants). Recommended: do not
+  mount it, because an open tenant-creation endpoint undoes the isolation
+  this phase builds.
