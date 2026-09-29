@@ -3,7 +3,7 @@
 //
 // Capture session metadata is stored in JetStream key-value under the
 // captures bucket. Packet batches are appended into per-session pcapng files
-// located under <StateDir>/captures/<session_id>.pcapng.
+// located under <StateDir>/captures/<tenant_id>/<session_id>.pcapng.
 //
 // The package implements two Connect services:
 //   - EdgeService (CaptureEdgeServiceHandler): streams owed capture

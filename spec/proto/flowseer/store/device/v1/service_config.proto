@@ -66,7 +66,7 @@ message DeviceServiceConfig {
   PlatformAdmin platform_admin = 9;
   // Tenant injected into unauthenticated requests during development and testing.
   // When unset, the device service defaults to injecting the default tenant ("default").
-  string dev_tenant = 10 [(buf.validate.field).string.uuid = true];
+  string dev_tenant = 10 [(buf.validate.field).string.pattern = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"];
 }
 
 // The platform administrator identity named in deployment configuration.
@@ -90,6 +90,12 @@ message PlatformAdmin {
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 256
+  ];
+  // The claim name carrying the organization identifier. Must be present.
+  string organization_claim_name = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
   ];
 }
 

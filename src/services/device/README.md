@@ -223,7 +223,7 @@ fresh assertion — an edge that simply goes quiet is the case a check on arriva
 would never see. Every chunk's `session.edge` must name the calling edge. On
 the first chunk upload, central transitions the session to `RUNNING`,
 withdrawing the start assignment. Uploaded packets are appended into a retained
-pcapng file on central at `<StateDir>/captures/<session_id>.pcapng` and
+pcapng file on central at `<StateDir>/captures/<tenant_id>/<session_id>.pcapng` and
 broadcast in memory to active `TailCaptureSession` subscribers. A tail slower
 than the upload loses chunks rather than stalling it, and central logs when it
 does.
