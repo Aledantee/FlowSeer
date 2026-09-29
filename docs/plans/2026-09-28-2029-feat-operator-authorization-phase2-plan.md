@@ -5,6 +5,7 @@ date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: rework
 execution: mixed
 parent: docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md
 ---
@@ -553,6 +554,64 @@ is reachable.
 - [x] Requirements 1, 2, and 3 hold by their acceptance tests.
 - [x] This plan's `status` set with an outcome note under its title, and parent U2's `Landed:` line filled.
 - [x] No plan labels in code.
+
+## Review
+
+Verdict: rework (2026-09-29). Three review rounds with two fix rounds ran
+over `a813410a..72427348`; the fixes are `f688cb7a..34b6638c`.
+
+The fixes changed the landed shape in ways a re-plan starts from:
+
+- An edge's tenant has one authority, the `edge_<edgeID>` index in the
+  `edges` bucket. `CreateEdge` writes it, and Enroll writes the same value.
+  Dispatch, drift, audit delivery, capture, and edge lane reads resolve
+  through it and refuse an edge without one; nothing substitutes the
+  default tenant for a tenant it could not resolve.
+- A device lane is keyed by its hosting edge's tenant, not by the caller's.
+  A caller whose tenant is not that edge's gets `NotFound`. This replaces
+  U5's rule that deviceapi keys lanes by `tenant.FromContext`.
+  `CreateCaptureSession` refuses an edge the caller's tenant does not own.
+- `CreateTenantRequest` carries the issuer and organization claim fields,
+  and the service assigns the tenant id.
+- A tenant token is a lowercase canonical UUID or `default` wherever a key,
+  subject, or path is built, and `dev_tenant` must be a UUID.
+- State written before this change is not read: unprefixed keys in
+  `device-lanes`, `edges`, and `captures`, capture files directly under
+  `<StateDir>/captures/`, and edge accounts without an
+  `edge-<edgeID>.tenant` file, which the hub skips on start.
+
+Open, and the reason for the verdict:
+
+- The edge leaf publishes under the default tenant.
+  `src/edge/agent/internal/busattach/busattach.go` starts the leaf without
+  `LeafConfig.Tenant`, and `src/modules/edgebus/leaf.go` falls back to
+  `default`, so the forwarder refuses every record from an edge enrolled
+  under a UUID tenant. The fix needs the leaf to take its tenant or
+  subjects from `AttachBus`, which is outside this change's files.
+- The organization index claim in `tenantstore.Create` held no clean round
+  in three. Its takeover of a stale claim rests on a time bound a delayed
+  claim acknowledgement can exceed, which leaves two active tenants for one
+  organization. A compare-and-set commit of the index after the record
+  write removes the clock from the argument. The rollback test drives the
+  KV bucket instead of `Store`.
+- `tenant.Validate` accepts only lowercase UUIDs, but the schema's
+  `string.uuid` rule on `dev_tenant` accepts upper case, so an upper-case
+  `dev_tenant` passes config validation and then stops central at start.
+- `host.go` binds an unindexed registry edge to the dev tenant at start,
+  because `host_test.go` never creates the edge it serves.
+- `edgebus.Hub.EdgeTenant` answers `default` for a zero `Hub`, which only
+  `forwarder_internal_test.go` relies on.
+- `TenantService` checks only that `platform_admin` is configured, so any
+  caller that reaches the API port can create tenants and claim an
+  organization. No test drives its handler, and
+  `src/services/device/README.md` does not list it among the
+  unauthenticated services. Whether to mount it before authentication
+  lands is a decision for the plan owner.
+- `PlatformAdmin` has no organization claim name, which `TenantConfig`
+  carries.
+- `src/services/device/internal/captureapi/doc.go` and
+  `src/services/device/README.md` still give the capture path as
+  `<StateDir>/captures/<session_id>.pcapng`.
 
 ## Open questions
 
