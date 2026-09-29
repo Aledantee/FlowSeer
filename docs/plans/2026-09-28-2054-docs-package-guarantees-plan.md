@@ -117,14 +117,14 @@ follow-up plan is written.
   Verifying that `verify-change.sh` wraps the binary build in `run` belongs in
   `tools/hooks/tests/run.sh` (a policy surface).
 
-- The checker reads `GUARANTEES.md` with goldmark and checks the parsed block
-  tree and visible text (decided by the user, 2026-09-29, after the second
-  review ended `rework`). Headings, normative sentences, WHEN/THEN bullets,
-  and `Proved by:` lines are taken from the block tree and allowed inline
-  nodes, so markup a reader never sees (HTML comments, escapes, code spans
-  across lines, entity-equal headings) cannot count or hide a clause. Source
-  line checks close known gaps between goldmark and CommonMark 0.31.2. Goldmark
-  (`github.com/yuin/goldmark`, MIT, pure Go) runs from a small Go command
+- The checker reads `GUARANTEES.md` through a conforming CommonMark parser
+  and checks the parsed document, not the source lines (decided by the
+  user, 2026-09-29, after the second review ended `rework`). Headings,
+  normative sentences, WHEN/THEN bullets, and `Proved by:` lines are taken
+  from the parser's block tree and rendered text, so markup a reader never
+  sees (HTML comments, escapes, code spans across lines, entity-equal
+  headings) cannot count or hide a clause. The parser is goldmark
+  (`github.com/yuin/goldmark`, MIT, pure Go), run from a small Go command,
   because the check already needs Go on PATH for `go list` and the repo
   manages no Python dependencies. Why: two review passes of hand-matched
   CommonMark leaked first at the block level, then across lines, then
@@ -822,3 +822,25 @@ Then rename `TestRunOutputCapTruncates` in
   `--print-selection` output without `hook_tooling`. Updating `run.sh` touches
   `tools/hooks/`, which is a policy surface requiring a separate guardrail
   review; this update is left for a future policy-surface maintenance pass.
+- Parked by drive: the fourth review ended `rework`. The inline allowlist
+  holds as specified, but goldmark diverges from CommonMark 0.31.2 in ways
+  that let hidden text count: it turns a link back into text once its
+  unmatched `[` openers span more than 998 bytes (so a link target's MUST
+  or THEN counts), and it does not treat a lone CR as a line ending. The
+  second fix round added source-line checks for such gaps (HTML block
+  starts, lone CR, HTML-start text) that the goldmark Decision above does
+  not cover; they stay in the code pending this answer. Open besides:
+  `</div\t` and `<DIV\t` lack test cases, and an indentation loop in
+  `tools/check-guarantees/check.go` near line 697 is dead code that the
+  docs describe. How should the divergences be closed? Options: plain
+  source charset for counted blocks (reject any unescaped `[`, `]`, `<`,
+  and any CR in headings, normative paragraphs, WHEN/THEN items, and
+  `Proved by:` paragraphs; removes link, HTML, and line-ending divergence
+  as a class and supersedes the per-gap source checks, but those blocks
+  cannot use brackets or angle brackets) | keep adding a guard per
+  divergence (keeps full Markdown, but each review pass has found a new
+  one) | accept the current checker (land with the 998-byte link case
+  recorded; it needs a deliberately crafted file, and the check's job is
+  proving cited tests exist, which it does). Recommended: plain source
+  charset, because it closes the divergence class rather than the
+  instances, and a guarantee sentence needs no bracket or angle bracket.
