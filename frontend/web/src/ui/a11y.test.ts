@@ -83,7 +83,6 @@ const AXE_OPTIONS: axe.RunOptions = {
   },
   rules: {
     'color-contrast': { enabled: false },
-    region: { enabled: false },
   },
 }
 

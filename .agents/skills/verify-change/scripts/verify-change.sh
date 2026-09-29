@@ -720,6 +720,14 @@ PY
     echo "== Repository-wide gates =="
     run go test -race ./src/common/errs ./test/conformance/...
   fi
+elif [[ $web == true && $full == false ]]; then
+  # test/conformance/a11y reads the web tests and stories, so a change
+  # that touches only frontend/web/ selects no Go module and would
+  # otherwise pass the gate written for it. The whole tree runs for the
+  # same enumeration reason as above.
+  need_tool go
+  echo "== Repository-wide gates =="
+  run go test -race ./test/conformance/...
 fi
 
 for dep in "${dependent_modules[@]:-}"; do
