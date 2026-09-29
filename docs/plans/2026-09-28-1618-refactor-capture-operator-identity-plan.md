@@ -4,12 +4,14 @@ type: refactor
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-09-remote-packet-capture-direction.md, docs/architecture/2026-08-20-network-model-structure-direction.md
 ---
 
 # Remote Packet Capture Operator Identity - Plan
+
+> Implemented. 1 unit, 2026-09-29T08:05Z to 2026-09-29T08:05Z.
 
 ## Goal
 
@@ -99,6 +101,16 @@ capture field should take that type.
   `CaptureService` in `serve.go`) rejects a request that breaks the schema
   rules. The handler's own tests run without the interceptor, so they see only
   the guard, and a conformance rules test pins the schema rule separately.
+- Ruled: the records' import rows leave out `net/key` for `model/capture`.
+  Why: `net/key` is an `import option` there, and the rows leave option
+  imports out; the `model/access` row omits its option import of `net/key`
+  the same way. Cost if wrong: one token in two record lines.
+- Ruled: the buf managed-mode drift (308 generated files at the parent
+  commit, `java_multiple_files` in every raw descriptor) lands as its own
+  `chore(generated)` commit before this unit. Why: the verifier regenerates
+  and diffs against what is committed, so the unit cannot pass without it,
+  and a separate commit keeps this unit's generated diff down to its own
+  schema. Cost if wrong: one revert of a no-schema-change commit.
 - **Relations, as proposed input for the OpenFGA record:**
 
   | RPC | Relation | Object |
@@ -227,7 +239,7 @@ Change:
   add `model/principal` to `Imports`. The `model/` README lists
   `principal/v1/` under Packages, and its Identity paragraph names the
   principal leaf beside the policy and credential leaves.
-- Generated code. `task gen` refreshes it, never an edit by hand.
+- Generated code. `buf generate` refreshes it, never an edit by hand.
 - Layering. `layering_test.go` gains `"model/principal": nil` and adds
   `model/principal` to the `model/access` and `model/capture` rows, each with
   its comment updated. It gains three cases: "access values import the
@@ -250,12 +262,12 @@ Change:
   session, and a download is itself an event" lands with caller identity, and
   why the download event cannot land before it. It restates the capture
   import line as
-  `{model/edge, model/principal, net/capture, net/key} ← model/capture`.
+  `{model/edge, model/principal, net/capture} ← model/capture`.
 - Network model structure record. Its package tree lists `principal/v1/`
   under `model/`. Its import-order block gains
   `model/principal ← {model/access, model/capture}`. Its `model/capture` row
-  becomes `{model/edge, model/principal, net/capture, net/key} ← model/capture`,
-  which also fixes the missing `net/key`, and its `model/access` row names
+  becomes `{model/edge, model/principal, net/capture} ← model/capture`,
+  and its `model/access` row names
   `model/principal`. Its leaf paragraph lists `model/principal` with
   `model/edge`, `model/credential`, and `model/policy`.
 - `protobuf.md`. The non-entity list gains `OperatorRef` in

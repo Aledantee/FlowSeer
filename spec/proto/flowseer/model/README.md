@@ -4,8 +4,8 @@
 
 The `model/` root holds everything in FlowSeer that carries or names identity:
 entities with their UUID ref pairs, Config/State/Event triads, and lifecycle
-enums, the device-access operation vocabulary, and the policy and credential
-leaves.
+enums, the device-access operation vocabulary, and the policy, credential,
+and principal leaves.
 
 ## Admission
 
@@ -35,4 +35,5 @@ Packages in `model/` may import `net/` primitives and sibling `model/` leaves.
 - `endpoint/v1/`: Endpoint entity, lifecycle, state, roam, connection failure, and events.
 - `inventory/v1/`: Hardware, component, integration, and topology entities and ref pairs.
 - `policy/v1/`: Access policy, credential, and host-trust handles.
+- `principal/v1/`: The person an authorization check is about, named by the identity provider's subject.
 - `wireless/v1/`: Wireless LAN entity, SSID configuration, broadcast state, and radio associations.

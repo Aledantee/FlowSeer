@@ -11,6 +11,7 @@ import (
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
+	principalv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
 )
 
 func validApply() *devicev1.ApplyInterfaceDescriptionRequest {
@@ -19,7 +20,7 @@ func validApply() *devicev1.ApplyInterfaceDescriptionRequest {
 	device := &inventoryv1.DeviceGlobalRef{}
 	device.SetDevice(local)
 
-	operator := &accessv1.OperatorRef{}
+	operator := &principalv1.OperatorRef{}
 	operator.SetSubject("zitadel|1")
 	actor := &accessv1.Actor{}
 	actor.SetOperator(operator)

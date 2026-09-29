@@ -17,6 +17,7 @@ import (
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
+	principalv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
 
 	"google.golang.org/protobuf/proto"
 
@@ -219,7 +220,7 @@ func (d *deployment) intent(key, description, fingerprint string) *accessv1.Muta
 		Device:         deviceRef(),
 		IdempotencyKey: proto.String(key),
 		Actor: accessv1.Actor_builder{
-			Operator: accessv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
+			Operator: principalv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
 		}.Build(),
 		AccessPolicy:                policyv1.AccessPolicyHandle_builder{Key: proto.String(fixturePolicyKey), Version: proto.Uint64(1)}.Build(),
 		ExpectedFirmwareFingerprint: proto.String(fingerprint),
@@ -380,7 +381,7 @@ func (d *deployment) abandon(t *testing.T, sequence uint64) {
 			Device:   deviceRef(),
 			Sequence: proto.Uint64(sequence),
 			Actor: accessv1.Actor_builder{
-				Operator: accessv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
+				Operator: principalv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
 			}.Build(),
 		}.Build()))
 	if err != nil {
@@ -471,7 +472,7 @@ func TestAnAbandonedMutationIsResolvedByRestoringWhatCentralExpected(t *testing.
 		Device:   deviceRef(),
 		Sequence: proto.Uint64(second.GetSequence()),
 		Actor: accessv1.Actor_builder{
-			Operator: accessv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
+			Operator: principalv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
 		}.Build(),
 		Restore: &devicev1.RestoreExpectedDecision{},
 	}.Build())

@@ -299,3 +299,48 @@ or a second write to disk; the price is that a tail slower than the upload
 loses chunks rather than stalling it, and that a tail sees nothing across a
 restart or a second central replica. Both are acceptable while the artifact on
 disk is the record of what was captured.
+
+### 2026-09-28 — operator identity and the relations capture needs
+
+"Every capture is bounded and authorized" above asks that a session record who
+authorized it. It did, as a free string. `CaptureAuthorization` now names the
+requester as `requested_by`, a `flowseer.model.principal.v1.OperatorRef`: the
+identity provider's stable subject, the same value a mutation intent's `Actor`
+carries. Field 1 and the name `operator` are reserved, so a record written
+before the change still decodes, with no requester. `OperatorRef` moved out of
+`model/access` into the `model/principal` leaf, because `model/capture` reaches
+the edge through `edge/capture` and must not pull the access plane with it. The
+import line in Consequences for this package reads
+`{model/edge, model/principal, net/capture} ← model/capture` now.
+
+The subject is still what the caller writes. `CaptureService` checks nothing
+about the caller: authorization for the operator and admin services is one
+OpenFGA record for `DeviceService`, `EdgeAdminService`, and `CaptureService`
+together, and capture carries no mechanism of its own before it. That record
+decides the model; these are the relations capture brings to it.
+
+| RPC | Relation | Object |
+| --- | --- | --- |
+| `CreateCaptureSession` | `edge#capture` | the request's `edge` |
+| `CreateCaptureSession` with `full_payload_requested` | `edge#capture` and `tenant#full_payload` | the edge, and the caller's tenant |
+| `GetCaptureSession`, `StopCaptureSession`, `DeleteCaptureSession` | `edge#capture` | the session's owning edge |
+| `ListCaptureSessions` | `edge#capture`, as a filter | each listed session's owning edge |
+| `TailCaptureSession`, `DownloadCaptureSession` | `session#download` | the session |
+
+Starting a capture is an action on an edge, and that edge is the session's one
+owning parent. Full payload gets a grant of its own at tenant scope because it
+is the most restricted data the system holds. Tenancy is ambient, so the tenant
+object's id comes from the authenticated request context, not from a field.
+`ListCaptureSessionsRequest` names no edge, so List is a filter over the read
+rather than one check, and a page must hold only visible sessions without the
+page token skipping or repeating one across the filter. Tail and download hand
+out the captured bytes, so they share one relation. `session#download` is
+proposed as held by the session's `requested_by` principal and by anyone with
+`edge#capture` on its owning edge, which takes a parent-edge tuple and a
+requester tuple written when the session is created.
+
+"An artifact is served only to a caller authorized for that session, and a
+download is itself an event" lands with caller identity. The download event
+cannot come first: `DownloadCaptureSessionRequest` carries only the session
+ref, so an event emitted today could name only the session's requester, and
+that is the wrong person whenever someone else downloads.

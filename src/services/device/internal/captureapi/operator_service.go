@@ -76,7 +76,7 @@ func (s *OperatorService) CreateCaptureSession(
 	if msg.GetSource() == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("capture source is required"))
 	}
-	if msg.GetAuthorization() == nil || msg.GetAuthorization().GetOperator() == "" || msg.GetAuthorization().GetReason() == "" {
+	if msg.GetAuthorization() == nil || msg.GetAuthorization().GetRequestedBy().GetSubject() == "" || msg.GetAuthorization().GetReason() == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("authorization is required"))
 	}
 

@@ -7,6 +7,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
+	principalv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 )
 
@@ -17,7 +18,7 @@ const (
 
 func operatorActor() *accessv1.Actor {
 	return accessv1.Actor_builder{
-		Operator: accessv1.OperatorRef_builder{Subject: proto.String("zitadel|2837")}.Build(),
+		Operator: principalv1.OperatorRef_builder{Subject: proto.String("zitadel|2837")}.Build(),
 	}.Build()
 }
 
@@ -113,7 +114,7 @@ func TestActorRules(t *testing.T) {
 		{
 			name: "operator without a subject is rejected",
 			message: accessv1.Actor_builder{
-				Operator: accessv1.OperatorRef_builder{}.Build(),
+				Operator: principalv1.OperatorRef_builder{}.Build(),
 			}.Build(),
 		},
 		{

@@ -28,9 +28,26 @@ A capture session's one owning parent is the edge that runs it:
 interface name or a UDP port to listen on, never a device in inventory.
 Nothing here imports `model/inventory`.
 
+## Who asked
+
+`CaptureAuthorization.requested_by` names the person who asked for the
+capture as an `OperatorRef` from
+[`model/principal/v1`](../../principal/v1/README.md), the same value a
+mutation intent's `Actor` carries. It comes from that leaf and not from
+`model/access`, so naming a person does not pull the access plane into the
+edge's capture schemas. The caller writes the subject, and nothing verifies it
+until caller authentication lands. Field 1, a free-text `operator` string
+before `requested_by`, is reserved.
+
+```prototext
+requested_by { subject: "zitadel|usr_123" }
+reason: "loss on the uplink"
+full_payload_requested: false
+```
+
 ## Boundaries
 
-Imports: model/edge, net/capture, net/key
+Imports: model/edge, model/principal, net/capture, net/key
 
 Imported by: api/capture, edge/capture
 

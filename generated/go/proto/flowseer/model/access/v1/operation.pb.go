@@ -14,9 +14,10 @@
 package accessv1
 
 import (
-	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
-	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
-	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
+	v13 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -280,87 +281,6 @@ func (x SystemReason) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// A person, named by the identity provider's stable subject.
-type OperatorRef struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Subject     *string                `protobuf:"bytes,1,opt,name=subject"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
-}
-
-func (x *OperatorRef) Reset() {
-	*x = OperatorRef{}
-	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *OperatorRef) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*OperatorRef) ProtoMessage() {}
-
-func (x *OperatorRef) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *OperatorRef) GetSubject() string {
-	if x != nil {
-		if x.xxx_hidden_Subject != nil {
-			return *x.xxx_hidden_Subject
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *OperatorRef) SetSubject(v string) {
-	x.xxx_hidden_Subject = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
-}
-
-func (x *OperatorRef) HasSubject() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *OperatorRef) ClearSubject() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Subject = nil
-}
-
-type OperatorRef_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The subject identifier the identity provider assigns, stable across
-	// renames. Must be present.
-	Subject *string
-}
-
-func (b0 OperatorRef_builder) Build() *OperatorRef {
-	m0 := &OperatorRef{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.Subject != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
-		x.xxx_hidden_Subject = b.Subject
-	}
-	return m0
-}
-
 // A FlowSeer process acting on its own policy.
 type SystemActor struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
@@ -373,7 +293,7 @@ type SystemActor struct {
 
 func (x *SystemActor) Reset() {
 	*x = SystemActor{}
-	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[1]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -385,7 +305,7 @@ func (x *SystemActor) String() string {
 func (*SystemActor) ProtoMessage() {}
 
 func (x *SystemActor) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[1]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -450,7 +370,7 @@ type Actor struct {
 
 func (x *Actor) Reset() {
 	*x = Actor{}
-	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[2]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -462,7 +382,7 @@ func (x *Actor) String() string {
 func (*Actor) ProtoMessage() {}
 
 func (x *Actor) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[2]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -473,7 +393,7 @@ func (x *Actor) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *Actor) GetOperator() *OperatorRef {
+func (x *Actor) GetOperator() *v1.OperatorRef {
 	if x != nil {
 		if x, ok := x.xxx_hidden_Principal.(*actor_Operator); ok {
 			return x.Operator
@@ -491,7 +411,7 @@ func (x *Actor) GetSystem() *SystemActor {
 	return nil
 }
 
-func (x *Actor) SetOperator(v *OperatorRef) {
+func (x *Actor) SetOperator(v *v1.OperatorRef) {
 	if v == nil {
 		x.xxx_hidden_Principal = nil
 		return
@@ -570,7 +490,7 @@ type Actor_builder struct {
 	// Exactly one principal.
 
 	// Fields of oneof xxx_hidden_Principal:
-	Operator *OperatorRef
+	Operator *v1.OperatorRef
 	System   *SystemActor
 	// -- end of xxx_hidden_Principal
 }
@@ -591,7 +511,7 @@ func (b0 Actor_builder) Build() *Actor {
 type case_Actor_Principal protoreflect.FieldNumber
 
 func (x case_Actor_Principal) String() string {
-	md := file_flowseer_model_access_v1_operation_proto_msgTypes[2].Descriptor()
+	md := file_flowseer_model_access_v1_operation_proto_msgTypes[1].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -603,7 +523,7 @@ type isActor_Principal interface {
 }
 
 type actor_Operator struct {
-	Operator *OperatorRef `protobuf:"bytes,1,opt,name=operator,oneof"`
+	Operator *v1.OperatorRef `protobuf:"bytes,1,opt,name=operator,oneof"`
 }
 
 type actor_System struct {
@@ -619,10 +539,10 @@ func (*actor_System) isActor_Principal() {}
 // MutationState.
 type MutationIntent struct {
 	state                                  protoimpl.MessageState  `protogen:"opaque.v1"`
-	xxx_hidden_Device                      *v1.DeviceGlobalRef     `protobuf:"bytes,1,opt,name=device"`
+	xxx_hidden_Device                      *v11.DeviceGlobalRef    `protobuf:"bytes,1,opt,name=device"`
 	xxx_hidden_IdempotencyKey              *string                 `protobuf:"bytes,2,opt,name=idempotency_key,json=idempotencyKey"`
 	xxx_hidden_Actor                       *Actor                  `protobuf:"bytes,3,opt,name=actor"`
-	xxx_hidden_AccessPolicy                *v11.AccessPolicyHandle `protobuf:"bytes,4,opt,name=access_policy,json=accessPolicy"`
+	xxx_hidden_AccessPolicy                *v12.AccessPolicyHandle `protobuf:"bytes,4,opt,name=access_policy,json=accessPolicy"`
 	xxx_hidden_ExpectedFirmwareFingerprint *string                 `protobuf:"bytes,5,opt,name=expected_firmware_fingerprint,json=expectedFirmwareFingerprint"`
 	xxx_hidden_Change                      isMutationIntent_Change `protobuf_oneof:"change"`
 	XXX_raceDetectHookData                 protoimpl.RaceDetectHookData
@@ -633,7 +553,7 @@ type MutationIntent struct {
 
 func (x *MutationIntent) Reset() {
 	*x = MutationIntent{}
-	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[3]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -645,7 +565,7 @@ func (x *MutationIntent) String() string {
 func (*MutationIntent) ProtoMessage() {}
 
 func (x *MutationIntent) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[3]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -656,7 +576,7 @@ func (x *MutationIntent) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *MutationIntent) GetDevice() *v1.DeviceGlobalRef {
+func (x *MutationIntent) GetDevice() *v11.DeviceGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_Device
 	}
@@ -680,7 +600,7 @@ func (x *MutationIntent) GetActor() *Actor {
 	return nil
 }
 
-func (x *MutationIntent) GetAccessPolicy() *v11.AccessPolicyHandle {
+func (x *MutationIntent) GetAccessPolicy() *v12.AccessPolicyHandle {
 	if x != nil {
 		return x.xxx_hidden_AccessPolicy
 	}
@@ -706,7 +626,7 @@ func (x *MutationIntent) GetInterfaceDescription() *InterfaceDescriptionChange {
 	return nil
 }
 
-func (x *MutationIntent) SetDevice(v *v1.DeviceGlobalRef) {
+func (x *MutationIntent) SetDevice(v *v11.DeviceGlobalRef) {
 	x.xxx_hidden_Device = v
 }
 
@@ -719,7 +639,7 @@ func (x *MutationIntent) SetActor(v *Actor) {
 	x.xxx_hidden_Actor = v
 }
 
-func (x *MutationIntent) SetAccessPolicy(v *v11.AccessPolicyHandle) {
+func (x *MutationIntent) SetAccessPolicy(v *v12.AccessPolicyHandle) {
 	x.xxx_hidden_AccessPolicy = v
 }
 
@@ -837,7 +757,7 @@ type MutationIntent_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The device to change. Must be present.
-	Device *v1.DeviceGlobalRef
+	Device *v11.DeviceGlobalRef
 	// Client-generated key that makes a retried submission the same intent.
 	// Must be present.
 	IdempotencyKey *string
@@ -845,7 +765,7 @@ type MutationIntent_builder struct {
 	Actor *Actor
 	// The policy version the intent is admitted under; a later policy edit
 	// does not change an intent in flight. Must be present.
-	AccessPolicy *v11.AccessPolicyHandle
+	AccessPolicy *v12.AccessPolicyHandle
 	// The firmware fingerprint the caller expects. A device reporting
 	// another blocks the intent before any write. Must be present.
 	ExpectedFirmwareFingerprint *string
@@ -880,7 +800,7 @@ func (b0 MutationIntent_builder) Build() *MutationIntent {
 type case_MutationIntent_Change protoreflect.FieldNumber
 
 func (x case_MutationIntent_Change) String() string {
-	md := file_flowseer_model_access_v1_operation_proto_msgTypes[3].Descriptor()
+	md := file_flowseer_model_access_v1_operation_proto_msgTypes[2].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -907,7 +827,7 @@ type MutationState struct {
 	xxx_hidden_Disposition     Disposition            `protobuf:"varint,4,opt,name=disposition,enum=flowseer.model.access.v1.Disposition"`
 	xxx_hidden_BlockReason     BlockReason            `protobuf:"varint,5,opt,name=block_reason,json=blockReason,enum=flowseer.model.access.v1.BlockReason"`
 	xxx_hidden_BlockedSince    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=blocked_since,json=blockedSince"`
-	xxx_hidden_ResponsibleEdge *v12.EdgeGlobalRef     `protobuf:"bytes,7,opt,name=responsible_edge,json=responsibleEdge"`
+	xxx_hidden_ResponsibleEdge *v13.EdgeGlobalRef     `protobuf:"bytes,7,opt,name=responsible_edge,json=responsibleEdge"`
 	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
 	XXX_presence               [1]uint32
 	unknownFields              protoimpl.UnknownFields
@@ -916,7 +836,7 @@ type MutationState struct {
 
 func (x *MutationState) Reset() {
 	*x = MutationState{}
-	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[4]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -928,7 +848,7 @@ func (x *MutationState) String() string {
 func (*MutationState) ProtoMessage() {}
 
 func (x *MutationState) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[4]
+	mi := &file_flowseer_model_access_v1_operation_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -987,7 +907,7 @@ func (x *MutationState) GetBlockedSince() *timestamppb.Timestamp {
 	return nil
 }
 
-func (x *MutationState) GetResponsibleEdge() *v12.EdgeGlobalRef {
+func (x *MutationState) GetResponsibleEdge() *v13.EdgeGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_ResponsibleEdge
 	}
@@ -1022,7 +942,7 @@ func (x *MutationState) SetBlockedSince(v *timestamppb.Timestamp) {
 	x.xxx_hidden_BlockedSince = v
 }
 
-func (x *MutationState) SetResponsibleEdge(v *v12.EdgeGlobalRef) {
+func (x *MutationState) SetResponsibleEdge(v *v13.EdgeGlobalRef) {
 	x.xxx_hidden_ResponsibleEdge = v
 }
 
@@ -1128,7 +1048,7 @@ type MutationState_builder struct {
 	// When the block began. Set exactly while block_reason is set.
 	BlockedSince *timestamppb.Timestamp
 	// The edge that executes, or executed, the mutation. Must be present.
-	ResponsibleEdge *v12.EdgeGlobalRef
+	ResponsibleEdge *v13.EdgeGlobalRef
 }
 
 func (b0 MutationState_builder) Build() *MutationState {
@@ -1161,15 +1081,12 @@ var File_flowseer_model_access_v1_operation_proto protoreflect.FileDescriptor
 
 const file_flowseer_model_access_v1_operation_proto_rawDesc = "" +
 	"\n" +
-	"(flowseer/model/access/v1/operation.proto\x12\x18flowseer.model.access.v1\x1a(flowseer/model/access/v1/interface.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"6\n" +
-	"\vOperatorRef\x12'\n" +
-	"\asubject\x18\x01 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\asubject\"\\\n" +
+	"(flowseer/model/access/v1/operation.proto\x12\x18flowseer.model.access.v1\x1a(flowseer/model/access/v1/interface.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a*flowseer/model/principal/v1/operator.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\\\n" +
 	"\vSystemActor\x12M\n" +
 	"\x06reason\x18\x01 \x01(\x0e2&.flowseer.model.access.v1.SystemReasonB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x06reason\"\xa1\x01\n" +
-	"\x05Actor\x12C\n" +
-	"\boperator\x18\x01 \x01(\v2%.flowseer.model.access.v1.OperatorRefH\x00R\boperator\x12?\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x06reason\"\xa4\x01\n" +
+	"\x05Actor\x12F\n" +
+	"\boperator\x18\x01 \x01(\v2(.flowseer.model.principal.v1.OperatorRefH\x00R\boperator\x12?\n" +
 	"\x06system\x18\x02 \x01(\v2%.flowseer.model.access.v1.SystemActorH\x00R\x06systemB\x12\n" +
 	"\tprincipal\x12\x05\xbaH\x02\b\x01\"\xff\x03\n" +
 	"\x0eMutationIntent\x12L\n" +
@@ -1227,32 +1144,32 @@ const file_flowseer_model_access_v1_operation_proto_rawDesc = "" +
 	"\x1ccom.flowseer.model.access.v1B\x0eOperationProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1;accessv1\xa2\x02\x03FMA\xaa\x02\x18Flowseer.Model.Access.V1\xca\x02\x18Flowseer\\Model\\Access\\V1\xe2\x02$Flowseer\\Model\\Access\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Model::Access::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_access_v1_operation_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_flowseer_model_access_v1_operation_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_flowseer_model_access_v1_operation_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_flowseer_model_access_v1_operation_proto_goTypes = []any{
 	(OperationPhase)(0),                // 0: flowseer.model.access.v1.OperationPhase
 	(Disposition)(0),                   // 1: flowseer.model.access.v1.Disposition
 	(BlockReason)(0),                   // 2: flowseer.model.access.v1.BlockReason
 	(SystemReason)(0),                  // 3: flowseer.model.access.v1.SystemReason
-	(*OperatorRef)(nil),                // 4: flowseer.model.access.v1.OperatorRef
-	(*SystemActor)(nil),                // 5: flowseer.model.access.v1.SystemActor
-	(*Actor)(nil),                      // 6: flowseer.model.access.v1.Actor
-	(*MutationIntent)(nil),             // 7: flowseer.model.access.v1.MutationIntent
-	(*MutationState)(nil),              // 8: flowseer.model.access.v1.MutationState
-	(*v1.DeviceGlobalRef)(nil),         // 9: flowseer.model.inventory.v1.DeviceGlobalRef
-	(*v11.AccessPolicyHandle)(nil),     // 10: flowseer.model.policy.v1.AccessPolicyHandle
+	(*SystemActor)(nil),                // 4: flowseer.model.access.v1.SystemActor
+	(*Actor)(nil),                      // 5: flowseer.model.access.v1.Actor
+	(*MutationIntent)(nil),             // 6: flowseer.model.access.v1.MutationIntent
+	(*MutationState)(nil),              // 7: flowseer.model.access.v1.MutationState
+	(*v1.OperatorRef)(nil),             // 8: flowseer.model.principal.v1.OperatorRef
+	(*v11.DeviceGlobalRef)(nil),        // 9: flowseer.model.inventory.v1.DeviceGlobalRef
+	(*v12.AccessPolicyHandle)(nil),     // 10: flowseer.model.policy.v1.AccessPolicyHandle
 	(*InterfaceDescriptionChange)(nil), // 11: flowseer.model.access.v1.InterfaceDescriptionChange
 	(*timestamppb.Timestamp)(nil),      // 12: google.protobuf.Timestamp
-	(*v12.EdgeGlobalRef)(nil),          // 13: flowseer.model.edge.v1.EdgeGlobalRef
+	(*v13.EdgeGlobalRef)(nil),          // 13: flowseer.model.edge.v1.EdgeGlobalRef
 }
 var file_flowseer_model_access_v1_operation_proto_depIdxs = []int32{
 	3,  // 0: flowseer.model.access.v1.SystemActor.reason:type_name -> flowseer.model.access.v1.SystemReason
-	4,  // 1: flowseer.model.access.v1.Actor.operator:type_name -> flowseer.model.access.v1.OperatorRef
-	5,  // 2: flowseer.model.access.v1.Actor.system:type_name -> flowseer.model.access.v1.SystemActor
+	8,  // 1: flowseer.model.access.v1.Actor.operator:type_name -> flowseer.model.principal.v1.OperatorRef
+	4,  // 2: flowseer.model.access.v1.Actor.system:type_name -> flowseer.model.access.v1.SystemActor
 	9,  // 3: flowseer.model.access.v1.MutationIntent.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
-	6,  // 4: flowseer.model.access.v1.MutationIntent.actor:type_name -> flowseer.model.access.v1.Actor
+	5,  // 4: flowseer.model.access.v1.MutationIntent.actor:type_name -> flowseer.model.access.v1.Actor
 	10, // 5: flowseer.model.access.v1.MutationIntent.access_policy:type_name -> flowseer.model.policy.v1.AccessPolicyHandle
 	11, // 6: flowseer.model.access.v1.MutationIntent.interface_description:type_name -> flowseer.model.access.v1.InterfaceDescriptionChange
-	7,  // 7: flowseer.model.access.v1.MutationState.intent:type_name -> flowseer.model.access.v1.MutationIntent
+	6,  // 7: flowseer.model.access.v1.MutationState.intent:type_name -> flowseer.model.access.v1.MutationIntent
 	0,  // 8: flowseer.model.access.v1.MutationState.phase:type_name -> flowseer.model.access.v1.OperationPhase
 	1,  // 9: flowseer.model.access.v1.MutationState.disposition:type_name -> flowseer.model.access.v1.Disposition
 	2,  // 10: flowseer.model.access.v1.MutationState.block_reason:type_name -> flowseer.model.access.v1.BlockReason
@@ -1271,11 +1188,11 @@ func file_flowseer_model_access_v1_operation_proto_init() {
 		return
 	}
 	file_flowseer_model_access_v1_interface_proto_init()
-	file_flowseer_model_access_v1_operation_proto_msgTypes[2].OneofWrappers = []any{
+	file_flowseer_model_access_v1_operation_proto_msgTypes[1].OneofWrappers = []any{
 		(*actor_Operator)(nil),
 		(*actor_System)(nil),
 	}
-	file_flowseer_model_access_v1_operation_proto_msgTypes[3].OneofWrappers = []any{
+	file_flowseer_model_access_v1_operation_proto_msgTypes[2].OneofWrappers = []any{
 		(*mutationIntent_InterfaceDescription)(nil),
 	}
 	type x struct{}
@@ -1284,7 +1201,7 @@ func file_flowseer_model_access_v1_operation_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_model_access_v1_operation_proto_rawDesc), len(file_flowseer_model_access_v1_operation_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   5,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

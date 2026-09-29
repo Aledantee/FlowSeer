@@ -20,6 +20,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	principalv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
@@ -91,7 +92,7 @@ func newTestCreateRequest(maxPackets uint64) *operatorcapturev1.CreateCaptureSes
 			}.Build(),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			Operator:             proto.String("alice"),
+			RequestedBy:          principalv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
 			Reason:               proto.String("debugging traffic"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),
@@ -135,6 +136,31 @@ func TestCreateCaptureSession_BudgetValidationAndCreation(t *testing.T) {
 		_, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(req))
 		if err == nil || connect.CodeOf(err) != connect.CodeInvalidArgument {
 			t.Fatalf("got missing-authorization error %v, want CodeInvalidArgument", err)
+		}
+	}
+
+	// A request naming no requester, or one with an empty subject, is refused
+	// and stores nothing.
+	for name, requester := range map[string]*principalv1.OperatorRef{
+		"no requester":  nil,
+		"empty subject": principalv1.OperatorRef_builder{Subject: proto.String("")}.Build(),
+	} {
+		before, err := h.store.ListSessions(ctx)
+		if err != nil {
+			t.Fatalf("%s: list sessions: %v", name, err)
+		}
+		req := newTestCreateRequest(100)
+		req.GetAuthorization().SetRequestedBy(requester)
+		_, err = h.client.CreateCaptureSession(ctx, connect.NewRequest(req))
+		if err == nil || connect.CodeOf(err) != connect.CodeInvalidArgument {
+			t.Fatalf("%s: got error %v, want CodeInvalidArgument", name, err)
+		}
+		after, err := h.store.ListSessions(ctx)
+		if err != nil {
+			t.Fatalf("%s: list sessions: %v", name, err)
+		}
+		if len(after) != len(before) {
+			t.Fatalf("%s: store holds %d sessions, want %d", name, len(after), len(before))
 		}
 	}
 
