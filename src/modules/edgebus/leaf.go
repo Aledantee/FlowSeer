@@ -16,6 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 )
 
 // ErrCodeLeaf identifies a failure starting or operating the leaf node.
@@ -105,9 +106,12 @@ func StartLeaf(ctx context.Context, cfg LeafConfig) (_ *Leaf, err error) {
 	if len(cfg.HubURLs) == 0 {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("leaf needs at least one hub url")
 	}
-	tenant := cfg.Tenant
-	if tenant == "" {
-		tenant = DefaultTenant
+	tenantID := cfg.Tenant
+	if tenantID == "" {
+		tenantID = DefaultTenant
+	}
+	if err := tenant.Validate(tenantID); err != nil {
+		return nil, errs.From(err).Code(ErrCodeConfig).Msg("validate leaf tenant")
 	}
 	var fsync server.Options
 	if err := applyFsync(&fsync, cfg.FsyncPolicy, cfg.FsyncInterval); err != nil {
@@ -157,7 +161,7 @@ func StartLeaf(ctx context.Context, cfg LeafConfig) (_ *Leaf, err error) {
 	logger := newQuietLogger(cfg.Logger)
 	srv.SetLoggerV2(logger, false, false, false)
 	srv.Start()
-	leaf := &Leaf{edgeID: cfg.EdgeID, tenant: tenant, server: srv, log: logger}
+	leaf := &Leaf{edgeID: cfg.EdgeID, tenant: tenantID, server: srv, log: logger}
 	defer func() {
 		if err != nil {
 			leaf.Close()
@@ -192,7 +196,7 @@ func StartLeaf(ctx context.Context, cfg LeafConfig) (_ *Leaf, err error) {
 	// not the whole subtree: the hub's source consumer delivers on the
 	// source branch, and a consumer may not deliver into the subjects of
 	// the stream it reads.
-	subtree := EdgeSubtree(tenant, cfg.EdgeID)
+	subtree := EdgeSubtree(tenantID, cfg.EdgeID)
 	if _, err := leaf.js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 		Name:      EdgeBufferStream,
 		Subjects:  []string{subtree + ".otel.>", subtree + ".ingest.>"},

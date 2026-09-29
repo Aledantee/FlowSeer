@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/tenant"
 )
 
@@ -97,6 +98,46 @@ func edgeOfHubStream(name string) (string, bool) {
 // belongsToEdge reports whether subject lies under the edge's own subtree.
 func belongsToEdge(tenant, edgeID, subject string) bool {
 	return strings.HasPrefix(subject, EdgeSubtree(tenant, edgeID)+".")
+}
+
+// TenantFromSubject parses and validates the tenant identifier from an edge subject
+// shaped flowseer.<tenant>.edge.<edgeID>...
+func TenantFromSubject(subject string) (string, error) {
+	parts := strings.Split(subject, ".")
+	if len(parts) < 4 || parts[0] != "flowseer" || parts[2] != "edge" {
+		return "", errs.New().Code(ErrCodeConfig).Attr("subject", subject).
+			Msg("malformed edge subject: expected flowseer.<tenant>.edge.<edgeID>...")
+	}
+	tenantID := parts[1]
+	if err := tenant.Validate(tenantID); err != nil {
+		return "", err
+	}
+	return tenantID, nil
+}
+
+// TenantFromSubjects parses and validates the tenant identifier from a map of
+// edge publish subjects (e.g. returned by AttachBus), ensuring all subjects agree
+// on the tenant.
+func TenantFromSubjects(subjects map[string]string) (string, error) {
+	if len(subjects) == 0 {
+		return "", errs.New().Code(ErrCodeConfig).Msg("empty subjects map")
+	}
+	var resolved string
+	for _, subject := range subjects {
+		t, err := TenantFromSubject(subject)
+		if err != nil {
+			return "", err
+		}
+		if resolved == "" {
+			resolved = t
+		} else if resolved != t {
+			return "", errs.New().Code(ErrCodeConfig).
+				Attr("expected", resolved).
+				Attr("actual", t).
+				Msg("mismatched tenant across subjects")
+		}
+	}
+	return resolved, nil
 }
 
 // EdgeDomain is the JetStream domain an edge's leaf node runs.

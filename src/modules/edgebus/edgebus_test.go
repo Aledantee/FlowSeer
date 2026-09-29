@@ -810,3 +810,70 @@ func TestRestartedHubFailsOnUnreadableSidecar(t *testing.T) {
 		t.Fatalf("broken edge tenant unexpectedly present")
 	}
 }
+
+func TestZeroHubEdgeTenantReturnsUnknown(t *testing.T) {
+	var h edgebus.Hub
+	if tenant, ok := h.EdgeTenant("edge-1"); ok || tenant != "" {
+		t.Fatalf("zero Hub EdgeTenant = (%q, %v), want (\"\", false)", tenant, ok)
+	}
+}
+
+func TestLeafPublishesUnderAssignedTenant(t *testing.T) {
+	ctx := context.Background()
+	const (
+		customTenant = "0192e6a0-aaaa-7000-8000-0000000000a1"
+		edge1        = "0192e6a0-eeee-7000-8000-0000000000e1"
+	)
+
+	hub := startHub(t, t.TempDir(), -1)
+	if err := hub.AttachEdge(ctx, customTenant, edge1); err != nil {
+		t.Fatalf("attach edge: %v", err)
+	}
+	creds, err := hub.MintEdgeUser(ctx, edge1)
+	if err != nil {
+		t.Fatalf("mint edge user: %v", err)
+	}
+
+	leaf, err := edgebus.StartLeaf(ctx, edgebus.LeafConfig{
+		StateDir:        t.TempDir(),
+		EdgeID:          edge1,
+		Tenant:          customTenant,
+		HubURLs:         []string{hub.ListenURL()},
+		CredentialsFile: secret.New(credsFileFor(t, creds)),
+		FsyncPolicy:     service.BusFsyncPeriodic,
+	})
+	if err != nil {
+		t.Fatalf("start leaf: %v", err)
+	}
+	t.Cleanup(leaf.Close)
+
+	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 })
+
+	c, collectorSrv := newCollector(t)
+	forwarder, err := edgebus.StartForwarder(ctx, hub, edgebus.ForwarderConfig{
+		Endpoint:   collectorSrv.URL,
+		RetryDelay: 100 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("start forwarder: %v", err)
+	}
+	t.Cleanup(forwarder.Close)
+
+	body := []byte{0x0a, 0x03, 0x01, 0x02, 0x03}
+	metricsSubject := leaf.OTelSubject(edgebus.SignalMetrics)
+	wantSubject := edgebus.OTelSubject(customTenant, edge1, edgebus.SignalMetrics)
+	if metricsSubject != wantSubject {
+		t.Fatalf("leaf OTelSubject = %q, want %q", metricsSubject, wantSubject)
+	}
+
+	if err := leaf.Publish(ctx, metricsSubject, body, ""); err != nil {
+		t.Fatalf("leaf publish: %v", err)
+	}
+
+	waitFor(t, "forwarded metrics", 15*time.Second, func() bool {
+		return len(c.received("/v1/metrics")) == 1
+	})
+	if got := c.received("/v1/metrics")[0]; !bytes.Equal(got, body) {
+		t.Fatalf("forwarded body = %x, want %x", got, body)
+	}
+}

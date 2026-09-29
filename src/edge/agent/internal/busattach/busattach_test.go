@@ -15,6 +15,7 @@ import (
 	connect "connectrpc.com/connect"
 
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/busattach"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
@@ -119,4 +120,59 @@ func selfSigned(t *testing.T) (der, digest []byte) {
 		t.Fatalf("parse certificate: %v", err)
 	}
 	return der, edgebus.SPKIDigest(parsed)
+}
+
+func TestAttachConfiguresLeafWithTenantFromAttachBusSubjects(t *testing.T) {
+	ctx := context.Background()
+	hubDir := t.TempDir()
+	hub, err := edgebus.StartHub(ctx, edgebus.HubConfig{
+		StateDir:    hubDir,
+		ListenPort:  0,
+		FsyncPolicy: service.BusFsyncPeriodic,
+	})
+	if err != nil {
+		t.Fatalf("StartHub: %v", err)
+	}
+	defer hub.Close()
+
+	const (
+		edgeID       = "0192e6a0-0000-7000-8000-0000000000e1"
+		customTenant = "0192e6a0-0000-7000-8000-0000000000c1"
+	)
+
+	if err := hub.AttachEdge(ctx, customTenant, edgeID); err != nil {
+		t.Fatalf("AttachEdge: %v", err)
+	}
+	creds, err := hub.MintEdgeUser(ctx, edgeID)
+	if err != nil {
+		t.Fatalf("MintEdgeUser: %v", err)
+	}
+	credsData, err := creds.CredsFile()
+	if err != nil {
+		t.Fatalf("CredsFile: %v", err)
+	}
+
+	client := &attachFake{
+		response: attachv1.AttachBusResponse_builder{
+			ClusterUrls:    []string{hub.ListenURL()},
+			UserCredential: credsData,
+			Subjects:       edgebus.EdgePublishSubjects(customTenant, edgeID),
+		}.Build(),
+	}
+
+	attachment, err := busattach.Attach(ctx, client, busattach.Config{
+		StateDir:     t.TempDir(),
+		EdgeID:       edgeID,
+		TrustAnchors: [][]byte{make([]byte, 32)},
+	})
+	if err != nil {
+		t.Fatalf("Attach: %v", err)
+	}
+	defer attachment.Leaf.Close()
+
+	gotSubject := attachment.Leaf.OTelSubject(edgebus.SignalMetrics)
+	wantSubject := edgebus.OTelSubject(customTenant, edgeID, edgebus.SignalMetrics)
+	if gotSubject != wantSubject {
+		t.Errorf("leaf OTelSubject = %q, want %q", gotSubject, wantSubject)
+	}
 }

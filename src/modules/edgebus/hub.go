@@ -380,9 +380,6 @@ func (h *Hub) EdgeTenant(edgeID string) (string, bool) {
 			return t, true
 		}
 	}
-	if h.server == nil && h.edges == nil && h.keys == nil {
-		return DefaultTenant, true
-	}
 	return "", false
 }
 

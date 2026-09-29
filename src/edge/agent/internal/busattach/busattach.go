@@ -95,9 +95,15 @@ func Attach(ctx context.Context, client Attacher, cfg Config) (_ *Attachment, er
 		return nil, errs.From(err).Code(ErrCodeAttach).Msg("attach to the bus")
 	}
 
+	tenantID, err := edgebus.TenantFromSubjects(response.Msg.GetSubjects())
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeAttach).Msg("resolve tenant from bus attach subjects")
+	}
+
 	leaf, err := edgebus.StartLeaf(ctx, edgebus.LeafConfig{
 		StateDir: cfg.StateDir,
 		EdgeID:   cfg.EdgeID,
+		Tenant:   tenantID,
 		HubURLs:  response.Msg.GetClusterUrls(),
 		// Copied rather than adopted: the bytes belong to the response
 		// message, and a secret.Value takes ownership of what it is given.
