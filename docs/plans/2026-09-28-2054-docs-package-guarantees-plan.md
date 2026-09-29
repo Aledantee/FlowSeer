@@ -298,17 +298,17 @@ Change: `check-guarantees.py` is redesigned to enforce a strict line grammar for
   characters, retaining titles such as `## Parses C#`.
 - Go test resolution: `check-guarantees.py` invokes `go list -json .` in the
   package directory (`cwd=pkg_dir`) with an environment inheriting `os.environ`
-  plus `GOWORK=off` to obtain `TestGoFiles` and `XTestGoFiles`, leaving `-mod`
-  at Go's read-only default so a verifier run never rewrites `go.mod` or
-  `go.sum`. Inheriting `os.environ` keeps `GOPATH` and `GOMODCACHE` valid;
+  plus `GOWORK=off` to obtain `TestGoFiles` and `XTestGoFiles`, passing
+  `-mod=readonly` on the command line so a verifier run never rewrites `go.mod`
+  or `go.sum`. Inheriting `os.environ` keeps `GOPATH` and `GOMODCACHE` valid;
   `go list` excludes `_foo_test.go` and `//go:build ignore` files by construction.
   Discovered test files are scanned with a Go token scanner that ignores
   whitespace, comments, and strings. Function declarations qualify as tests
-  when the name starts with `Test`, is not `TestMain`, and its 5th character
-  (if present) is not Unicode lowercase (`!unicode.IsLower`, rejecting `Testé`).
-  Parameter lists support `*testing.T`, `(*testing.T)`, or aliased imports
-  `*<pkg>.T` / `(*<pkg>.T)`, optional parameter names, and multiline parameter
-  layouts with optional trailing commas before `)`.
+  when the name starts with `Test` and its 5th character (if present) is not
+  Unicode lowercase (`!unicode.IsLower`, rejecting `Testé`).
+  Parameter lists support `*testing.T`, an aliased import `*<pkg>.T`, optional
+  parameter names, an empty `()` result list, and multiline parameter layouts
+  with optional trailing commas before `)`.
 - Branch coverage: every branch in the lexer and line grammar has a test in
   `test_check_guarantees.py` that fails when inverted.
 - Test fixture setup: `test_check_guarantees.py` provides a minimal `go.mod`
@@ -330,7 +330,7 @@ Tests: `test_check_guarantees.py` tests:
   collide with `## Parses C`.
 - Test resolution: tests in `_foo_test.go` or behind `//go:build ignore` do
   not resolve; Unicode lowercase test name `Testé` does not resolve; valid
-  signatures with anonymous parameter `(*testing.T)`, multiline parameters,
+  signatures with an unnamed `*testing.T` parameter, multiline parameters,
   and aliased `testing` imports all resolve.
 - Every lexer and grammar branch fails when inverted.
 - Pilot check: `src/protocol/ssh/GUARANTEES.md` passes.

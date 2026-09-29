@@ -64,11 +64,30 @@ Allowed line shapes are:
   spaces) until an empty line, a new heading, or another `Proved by:` line.
 
 A text line is column-0 text whose first character is a Unicode letter or digit,
-or a lone backtick that does not open a fence, and which is not an ordered-list
-marker (`1.` or `1)` followed by a space). A scenario continuation is a text
-line indented 1 to 3 spaces by the same rule. Each `Proved by:` item is a Go
-identifier, optionally wrapped in one pair of backticks; `,,`, an item of only
-backticks, and a list ending in a comma are errors.
+or a backtick run shorter than a code fence (one or two backticks), and which is
+not an ordered-list marker (`1.` or `1)` followed by a space). A scenario
+continuation is a text line indented 1 to 3 spaces by the same rule. Each
+`Proved by:` item is a Go identifier, optionally wrapped in one pair of
+backticks; `,,`, an item of only backticks, and a list ending in a comma are
+errors.
+
+Two visibility rules keep every line the checker counts in the CommonMark
+rendering:
+
+- A counted line that begins a counted construct — a normative sentence or a
+  column-0 `Proved by:` line — must begin its own paragraph. The line above it
+  is empty or a `## ` heading; otherwise CommonMark makes the line a lazy
+  continuation of the paragraph or list item above, and the check rejects it.
+- A counted line (a heading title, a normative sentence, a scenario bullet or
+  its continuation, a `Proved by:` line or its continuation) must hold no `<`,
+  `[`, or `]` outside a backtick code span. Those characters open raw HTML or a
+  link and can hide text the checker counts. Matched code spans are removed
+  before the check, so `` `a<b` `` is legal.
+
+A line splits only at line feeds, as CommonMark splits it; a control character
+other than a tab, or a Unicode line or paragraph separator, anywhere in a line
+fails the check. A line is empty only when it holds no character but spaces and
+tabs; a non-breaking space is text.
 
 Because the shapes are positive, any line that would open another CommonMark
 block is rejected: a fence, a setext underline, an indented code block (4 spaces
@@ -93,9 +112,10 @@ Proved by: TestHostKeyCallbackRequiresExplicitVerification, TestDialOptionsRequi
 ## Citation rules and test bounds
 
 - Cited tests resolve from the package's `TestGoFiles` and `XTestGoFiles` as
-  reported by `go list -json .`, run with `GOWORK=off` and any inherited `-mod=`
-  removed so Go's read-only default applies. `go list` excludes `_foo_test.go`
-  and `//go:build ignore` files by construction.
+  reported by `go list -json .`, run with `GOWORK=off` and `-mod=readonly` on
+  the command line. The flag overrides any `-mod` in `GOFLAGS` or the `go env`
+  file, so a verifier run never rewrites `go.mod` or `go.sum`. `go list`
+  excludes `_foo_test.go` and `//go:build ignore` files by construction.
 - When `go list` fails (no `go.mod`, no Go files, a missing `go`, bad JSON), the
   check reports one `<path>:1: go list failed in <pkg>: ...` error for the file
   and skips the per-citation existence errors, rather than reporting every
@@ -109,9 +129,11 @@ Proved by: TestHostKeyCallbackRequiresExplicitVerification, TestDialOptionsRequi
   treated like any other name: `func TestMain(m *testing.M)` is excluded because
   its parameter is not `*T`, while `func TestMain(t *testing.T)` resolves.
 - Parameter lists are the forms Go accepts: `*testing.T` through an ordinary or
-  dot import (`*T`), an aliased `*<pkg>.T`, optional parameter names, and
-  multiline layouts with optional trailing commas before `)`. A parenthesized
-  type such as `(*testing.T)` is not accepted, matching Go's AST check.
+  dot import (`*T`), an aliased `*<pkg>.T`, optional parameter names, an empty
+  `()` result list, and multiline layouts with optional trailing commas before
+  `)`. A parenthesized, array, or slice type such as `(*testing.T)`,
+  `[]*testing.T`, or `[4]*testing.T`, a second parameter, and a non-empty
+  result list are not accepted, matching Go's AST check.
 - Only test files in the default build for the host platform are citable. An
   untagged `go list` puts `//go:build <tag>` files and files for another GOOS in
   `IgnoredGoFiles`, so a test behind a build tag does not resolve; see
