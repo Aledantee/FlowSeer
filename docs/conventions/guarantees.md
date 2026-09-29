@@ -57,23 +57,36 @@ At document scope:
   Unspaced `#` characters are preserved (such as `## Parses C#`), stripping only
   trailing `#` characters preceded by whitespace.
 
-Within each guarantee section, exactly three block kinds must appear in order:
+Within each guarantee section, exactly three blocks must appear in order:
 
-1. Exactly one normative paragraph: visible paragraph text containing whole-word
+1. Exactly one normative paragraph: rendered paragraph text containing whole-word
    MUST or MUST NOT in the RFC 2119 / RFC 8174 sense. A section lacking a
-   normative statement or containing multiple normative paragraphs fails.
-2. Exactly one bullet list: an unordered list containing one or more
-   `- WHEN … THEN …` scenario items. Code spans spanning multiple lines inside a
-   bullet parse as structured AST inline nodes without hiding the THEN clause.
+   normative statement reports `has no normative MUST sentence`; a section with
+   multiple normative paragraphs reports `has more than one normative sentence`.
+   Placing blocks out of order fails closed with an unknown block kind error.
+2. Exactly one bullet list: an unordered list using the `-` marker only (other
+   markers like `*` or `+` fail as an unknown block kind) containing one or more
+   `- WHEN … THEN …` scenario items. Each list item must contain exactly one
+   paragraph or text block; nested blocks (nested lists, code blocks, block
+   quotes, headings, HTML blocks) fail closed as unknown block kinds at the
+   nested block's line. A list item whose rendered text contains `Proved by:`
+   fails closed with `unknown block kind: list item`.
 3. Exactly one `Proved by:` paragraph: a paragraph beginning with `Proved by:`
    followed by comma-separated Go test identifiers, optionally wrapped in
-   backticks. Trailing commas, empty items, and invalid identifiers fail.
+   backticks. Trailing commas, empty items, duplicate `Proved by:` paragraphs,
+   and invalid identifiers fail.
+
+All text evaluations (headings, normative MUST/MUST NOT clauses, WHEN/THEN clauses,
+and `Proved by:` test citations) inspect rendered CommonMark text (HTML rendering with
+tags stripped and character entities unescaped). Incomplete entities like `&amp`
+without a semicolon remain literal. Image subtrees are skipped, so image alt
+text cannot satisfy a MUST or THEN clause (`It is ![MUST](https://example.com/x.png)` is
+non-normative). Raw HTML tags and comments are skipped, so hidden markup cannot
+satisfy or hide a clause.
 
 Any block kind outside this grammar fails closed with `unknown block kind`:
 fenced code blocks, indented code blocks, thematic breaks, block quotes, HTML
-blocks, ordered lists, and unallowed heading levels (`###`). Raw HTML tags and
-comments are excluded from text extraction, so hidden markup cannot satisfy or
-hide a requirement.
+blocks, ordered lists, and unallowed heading levels (`###`).
 
 ### Example block
 
@@ -90,6 +103,10 @@ Proved by: TestHostKeyCallbackRequiresExplicitVerification, TestDialOptionsRequi
 
 ## Citation rules and test bounds
 
+- When passed explicit paths, the checker looks only in each path's own directory
+  for `GUARANTEES.md` (a directory path checks that directory; a file or
+  nonexistent path checks its parent directory). It does not fall back to parent
+  directories or traverse subdirectories.
 - Cited tests resolve from the package's `TestGoFiles` and `XTestGoFiles` as
   reported by `go list -json .`, run with `GOWORK=off` and `-mod=readonly` on
   the command line. The flag overrides any `-mod` in `GOFLAGS` or the `go env`
@@ -114,7 +131,8 @@ Proved by: TestHostKeyCallbackRequiresExplicitVerification, TestDialOptionsRequi
   `[]*testing.T`, or `[4]*testing.T`, a second parameter, and a non-empty
   result list are not accepted, matching Go's AST check. If any top-level
   `Test...` function in a package has an invalid test signature, the checker
-  fails test resolution for the package so broken test files cannot pass
+  reports `<GUARANTEES path>:1: <pkg>/<file>:<line>: <TestName> has invalid test signature`
+  and fails test resolution for the package so broken test files cannot pass
   citations.
 - Only test files in the default build for the host platform are citable. An
   untagged `go list` puts `//go:build <tag>` files and files for another GOOS in
