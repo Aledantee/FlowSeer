@@ -101,7 +101,7 @@ if [[ $explicit == false && $full == false ]]; then
   git rev-parse --verify "$base^{commit}" >/dev/null
   while IFS= read -r -d '' path; do
     add_path "$path"
-  done < <(git diff --name-only -z "$base" --)
+  done < <(git diff --no-renames --name-only -z "$base" --)
   while IFS= read -r -d '' path; do
     add_path "$path"
   done < <(git ls-files --others --exclude-standard -z)
