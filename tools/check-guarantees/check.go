@@ -290,6 +290,7 @@ func checkGuaranteesFile(filePath, root string) []string {
 			}
 
 			if n.Kind() == ast.KindParagraph {
+				checkErrors = append(checkErrors, rejectHTMLText(n, content, displayPath)...)
 				continue
 			}
 
@@ -329,8 +330,9 @@ func checkGuaranteesFile(filePath, root string) []string {
 		}
 
 		if n.Kind() == ast.KindParagraph {
-			pText, inlineErrs := extractInlines(n, content, displayPath)
+			visible, inlineErrs := extractInlinesWithOffsets(n, content, displayPath)
 			checkErrors = append(checkErrors, inlineErrs...)
+			pText := string(visible.value)
 			trimmedText := strings.TrimSpace(pText)
 			if strings.HasPrefix(trimmedText, "Proved by:") {
 				if !seenNormative {
@@ -338,7 +340,7 @@ func checkGuaranteesFile(filePath, root string) []string {
 					continue
 				}
 				if !seenProvedBy {
-					block, valid := parseProvedByParagraph(n, pText, content)
+					block, valid := parseProvedByParagraph(n, visible, content)
 					if !valid {
 						checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: paragraph", displayPath, line))
 					} else {
@@ -347,7 +349,7 @@ func checkGuaranteesFile(filePath, root string) []string {
 					seenProvedBy = true
 					continue
 				}
-				block, valid := parseProvedByParagraph(n, pText, content)
+				block, valid := parseProvedByParagraph(n, visible, content)
 				if valid {
 					currentProvedByBlocks = append(currentProvedByBlocks, block)
 				} else {
@@ -454,13 +456,15 @@ func extractHeadingTitle(n ast.Node, src []byte, displayPath string) (string, []
 }
 
 // parseProvedByParagraph parses tests and comma structure from a Proved by: paragraph.
-func parseProvedByParagraph(n ast.Node, pText string, src []byte) (provedByBlock, bool) {
+func parseProvedByParagraph(n ast.Node, visible inlineText, src []byte) (provedByBlock, bool) {
 	startLine := nodeLine(n, src)
+	pText := string(visible.value)
 	idx := strings.Index(pText, "Proved by:")
 	if idx < 0 {
 		return provedByBlock{}, false
 	}
-	body := pText[idx+len("Proved by:"):]
+	bodyStart := idx + len("Proved by:")
+	body := pText[bodyStart:]
 	trimmedBody := strings.TrimRight(body, " \t\r\n")
 	if strings.TrimSpace(body) == "" {
 		return provedByBlock{
@@ -483,28 +487,8 @@ func parseProvedByParagraph(n ast.Node, pText string, src []byte) (provedByBlock
 		rawParts = rawParts[:len(rawParts)-1]
 	}
 
-	type textSegment struct {
-		val   []byte
-		start int
-	}
-	var segments []textSegment
-	_ = ast.Walk(n, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
-		if !entering {
-			return ast.WalkContinue, nil
-		}
-		if node.Kind() == ast.KindRawHTML || node.Kind() == ast.KindImage {
-			return ast.WalkSkipChildren, nil
-		}
-		if t, ok := node.(*ast.Text); ok {
-			segments = append(segments, textSegment{val: t.Segment.Value(src), start: t.Segment.Start})
-		}
-		return ast.WalkContinue, nil
-	})
-
-	segIdx := 0
-	offsetInSeg := 0
-
 	var tests []provedByTest
+	partStart := bodyStart
 	for _, raw := range rawParts {
 		name := strings.Trim(raw, " \t\r\n`")
 		if name == "" {
@@ -514,34 +498,11 @@ func parseProvedByParagraph(n ast.Node, pText string, src []byte) (provedByBlock
 			return provedByBlock{}, false
 		}
 
-		nameBytes := []byte(name)
-		testLine := startLine
-		found := false
-
-		savedSegIdx := segIdx
-		savedOffset := offsetInSeg
-
-		for ; segIdx < len(segments); segIdx++ {
-			seg := segments[segIdx]
-			searchSlice := seg.val[offsetInSeg:]
-			matchOffset := findIdentifierInSlice(searchSlice, nameBytes)
-			if matchOffset >= 0 {
-				absOffset := seg.start + offsetInSeg + matchOffset
-				testLine = 1 + bytes.Count(src[:absOffset], []byte{'\n'})
-				offsetInSeg += matchOffset + len(nameBytes)
-				found = true
-				break
-			}
-			offsetInSeg = 0
-		}
-
-		if !found {
-			testLine = startLine
-			segIdx = savedSegIdx
-			offsetInSeg = savedOffset
-		}
-
+		leading := len(raw) - len(strings.TrimLeft(raw, " \t\r\n`"))
+		offset := visible.offsets[partStart+leading]
+		testLine := 1 + bytes.Count(src[:offset], []byte{'\n'})
 		tests = append(tests, provedByTest{name: name, line: testLine})
+		partStart += len(raw) + 1
 	}
 
 	return provedByBlock{
@@ -550,27 +511,6 @@ func parseProvedByParagraph(n ast.Node, pText string, src []byte) (provedByBlock
 		endsWithComma: endsWithComma,
 		tests:         tests,
 	}, true
-}
-
-func findIdentifierInSlice(seg, word []byte) int {
-	wLen := len(word)
-	if wLen == 0 || len(seg) < wLen {
-		return -1
-	}
-	for i := 0; i+wLen <= len(seg); i++ {
-		if bytes.Equal(seg[i:i+wLen], word) {
-			beforeOk := (i == 0 || !isIdentByte(seg[i-1]))
-			afterOk := (i+wLen == len(seg) || !isIdentByte(seg[i+wLen]))
-			if beforeOk && afterOk {
-				return i
-			}
-		}
-	}
-	return -1
-}
-
-func isIdentByte(b byte) bool {
-	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '_'
 }
 
 func isGoIdentifier(s string) bool {
@@ -625,12 +565,13 @@ func nodeLine(n ast.Node, src []byte) int {
 	}
 	pos := n.Pos()
 	if pos < 0 {
-		if raw, ok := n.(*ast.RawHTML); ok && raw.Segments != nil && raw.Segments.Len() > 0 {
-			pos = raw.Segments.At(0).Start
-		} else if n.Lines() != nil && n.Lines().Len() > 0 {
+		if n.Type() == ast.TypeBlock && n.Lines() != nil && n.Lines().Len() > 0 {
 			pos = n.Lines().At(0).Start
 		} else if n.FirstChild() != nil {
 			pos = n.FirstChild().Pos()
+		}
+		if pos < 0 && n.Parent() != nil {
+			return nodeLine(n.Parent(), src)
 		}
 	}
 	if pos < 0 {
@@ -668,55 +609,126 @@ func blockKindName(n ast.Node) string {
 	}
 }
 
-func extractInlines(n ast.Node, src []byte, displayPath string) (string, []string) {
-	if n == nil {
-		return "", nil
-	}
-	var buf bytes.Buffer
-	var errs []string
-	walkInlines(n, src, displayPath, &buf, &errs)
-	return buf.String(), errs
+type inlineText struct {
+	value   []byte
+	offsets []int
 }
 
-func walkInlines(parent ast.Node, src []byte, displayPath string, buf *bytes.Buffer, errs *[]string) {
+func (v *inlineText) appendByte(b byte, offset int) {
+	if b == 0 {
+		v.appendBytes([]byte(string(utf8.RuneError)), offset)
+		return
+	}
+	v.value = append(v.value, b)
+	v.offsets = append(v.offsets, offset)
+}
+
+func (v *inlineText) appendBytes(b []byte, offset int) {
+	for _, c := range b {
+		v.appendByte(c, offset)
+	}
+}
+
+func (v *inlineText) appendSource(b []byte, offset int) {
+	for i, c := range b {
+		v.appendByte(c, offset+i)
+	}
+}
+
+func extractInlines(n ast.Node, src []byte, displayPath string) (string, []string) {
+	visible, errs := extractInlinesWithOffsets(n, src, displayPath)
+	return string(visible.value), errs
+}
+
+func extractInlinesWithOffsets(n ast.Node, src []byte, displayPath string) (inlineText, []string) {
+	var visible inlineText
+	var errs []string
+	if n != nil {
+		walkInlines(n, src, displayPath, &visible, &errs)
+	}
+	return visible, errs
+}
+
+func rejectHTMLText(n ast.Node, src []byte, displayPath string) []string {
+	var errs []string
+	var inspect func(ast.Node)
+	inspect = func(parent ast.Node) {
+		for c := parent.FirstChild(); c != nil; c = c.NextSibling() {
+			switch c.Kind() {
+			case ast.KindText:
+				t := c.(*ast.Text)
+				if !t.IsRaw() && hasHTMLStart(t.Segment.Value(src), t.Segment.Start, src) {
+					errs = append(errs, fmt.Sprintf("%s:%d: unknown inline kind: raw html", displayPath, nodeLine(c, src)))
+				}
+			case ast.KindEmphasis:
+				inspect(c)
+			}
+		}
+	}
+	inspect(n)
+	return errs
+}
+
+func hasHTMLStart(source []byte, start int, full []byte) bool {
+	for i := 0; i < len(source); i++ {
+		if source[i] == '\\' && i+1 < len(source) && isASCIIPunct(source[i+1]) {
+			i++
+			continue
+		}
+		if source[i] == '<' && start+i+1 < len(full) {
+			next := full[start+i+1]
+			if next >= 'A' && next <= 'Z' || next >= 'a' && next <= 'z' || next == '/' || next == '!' || next == '?' {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func walkInlines(parent ast.Node, src []byte, displayPath string, visible *inlineText, errs *[]string) {
 	for c := parent.FirstChild(); c != nil; c = c.NextSibling() {
 		switch c.Kind() {
 		case ast.KindText:
 			t := c.(*ast.Text)
-			if t.IsRaw() {
-				buf.Write(t.Segment.Value(src))
-			} else {
-				val := t.Segment.Value(src)
-				val = bytes.TrimSuffix(val, []byte("\r"))
-				buf.Write(decodeTextInlines(val))
-				if t.HardLineBreak() || t.SoftLineBreak() {
-					buf.WriteByte('\n')
-				}
+			val := bytes.TrimSuffix(t.Segment.Value(src), []byte("\r"))
+			if hasHTMLStart(val, t.Segment.Start, src) {
+				*errs = append(*errs, fmt.Sprintf("%s:%d: unknown inline kind: raw html", displayPath, nodeLine(c, src)))
+			}
+			decodeTextInlines(val, t.Segment.Start, visible)
+			if t.HardLineBreak() || t.SoftLineBreak() {
+				visible.appendByte('\n', t.Segment.Stop)
 			}
 
 		case ast.KindString:
 			s := c.(*ast.String)
-			buf.Write(s.Value)
+			offset := 0
+			if c.Parent() != nil && c.Parent().Pos() >= 0 {
+				offset = c.Parent().Pos()
+			}
+			visible.appendBytes(s.Value, offset)
 
 		case ast.KindCodeSpan:
 			for ch := c.FirstChild(); ch != nil; ch = ch.NextSibling() {
-				if t, ok := ch.(*ast.Text); ok {
-					val := t.Segment.Value(src)
-					switch {
-					case bytes.HasSuffix(val, []byte("\r\n")):
-						buf.Write(val[:len(val)-2])
-						buf.WriteByte(' ')
-					case bytes.HasSuffix(val, []byte("\n")):
-						buf.Write(val[:len(val)-1])
-						buf.WriteByte(' ')
-					default:
-						buf.Write(val)
-					}
+				t, ok := ch.(*ast.Text)
+				if !ok {
+					*errs = append(*errs, fmt.Sprintf("%s:%d: unknown inline kind: %s", displayPath, nodeLine(ch, src), inlineKindName(ch)))
+					continue
+				}
+				val := t.Segment.Value(src)
+				switch {
+				case bytes.HasSuffix(val, []byte("\r\n")):
+					visible.appendSource(val[:len(val)-2], t.Segment.Start)
+					visible.appendByte(' ', t.Segment.Stop-1)
+				case bytes.HasSuffix(val, []byte("\n")):
+					visible.appendSource(val[:len(val)-1], t.Segment.Start)
+					visible.appendByte(' ', t.Segment.Stop-1)
+				default:
+					visible.appendSource(val, t.Segment.Start)
 				}
 			}
 
 		case ast.KindEmphasis:
-			walkInlines(c, src, displayPath, buf, errs)
+			walkInlines(c, src, displayPath, visible, errs)
 
 		default:
 			*errs = append(*errs, fmt.Sprintf("%s:%d: unknown inline kind: %s", displayPath, nodeLine(c, src), inlineKindName(c)))
@@ -724,8 +736,7 @@ func walkInlines(parent ast.Node, src []byte, displayPath string, buf *bytes.Buf
 	}
 }
 
-func decodeTextInlines(source []byte) []byte {
-	var buf bytes.Buffer
+func decodeTextInlines(source []byte, sourceOffset int, visible *inlineText) {
 	limit := len(source)
 	for i := 0; i < limit; i++ {
 		b := source[i]
@@ -733,17 +744,12 @@ func decodeTextInlines(source []byte) []byte {
 			if i+1 < limit {
 				next := source[i+1]
 				if isASCIIPunct(next) {
-					if next == '&' {
-						buf.WriteByte('&')
-						i++
-						continue
-					}
-					buf.WriteByte(next)
+					visible.appendByte(next, sourceOffset+i)
 					i++
 					continue
 				}
 			}
-			buf.WriteByte(b)
+			visible.appendByte(b, sourceOffset+i)
 			continue
 		}
 		if b == '&' {
@@ -764,7 +770,7 @@ func decodeTextInlines(source []byte) []byte {
 								if r == 0 || !utf8.ValidRune(r) {
 									r = utf8.RuneError
 								}
-								buf.WriteRune(r)
+								visible.appendBytes([]byte(string(r)), sourceOffset+i)
 								i = end
 								continue
 							}
@@ -783,7 +789,7 @@ func decodeTextInlines(source []byte) []byte {
 								if r == 0 || !utf8.ValidRune(r) {
 									r = utf8.RuneError
 								}
-								buf.WriteRune(r)
+								visible.appendBytes([]byte(string(r)), sourceOffset+i)
 								i = end
 								continue
 							}
@@ -799,16 +805,15 @@ func decodeTextInlines(source []byte) []byte {
 				if end > start && end < limit && source[end] == ';' {
 					name := string(source[start:end])
 					if entity, ok := util.LookUpHTML5EntityByName(name); ok {
-						buf.Write(entity.Characters)
+						visible.appendBytes(entity.Characters, sourceOffset+i)
 						i = end
 						continue
 					}
 				}
 			}
 		}
-		buf.WriteByte(b)
+		visible.appendByte(b, sourceOffset+i)
 	}
-	return buf.Bytes()
 }
 
 func isASCIIPunct(b byte) bool {

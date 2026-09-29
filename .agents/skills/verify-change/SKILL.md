@@ -181,7 +181,10 @@ only inline paragraph content; nested blocks and lazy continuations containing
 inline nodes (text with decoded entity references and punctuation escapes, line
 breaks, code spans with spaces replacing newlines, and emphasis) without HTML
 rendering or tag stripping; unallowed inline kinds (raw HTML, images, links,
-autolinks) fail closed with unknown inline kind errors. Cited tests resolve
-from the package's `TestGoFiles` and `XTestGoFiles` via `go list -mod=readonly -json .`
+autolinks) fail closed with unknown inline kind errors. An unescaped literal
+`<` before an ASCII letter, `/`, `!`, or `?` also fails as raw HTML, even in a
+preamble paragraph, because goldmark can leave a CommonMark HTML start as text.
+Write a literal `<` before a letter as `\<` or inside a code span. Cited tests
+resolve from the package's `TestGoFiles` and `XTestGoFiles` via `go list -mod=readonly -json .`
 using Go token scanning with signature validation; malformed test signatures in the
 package report a formatted error and fail test resolution.

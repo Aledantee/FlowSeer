@@ -43,9 +43,10 @@ context.
 
 ## Block format and document structure
 
-`tools/check-guarantees` parses `GUARANTEES.md` through a conforming CommonMark
-parser into an abstract syntax tree and evaluates the document's block structure
-and visible text. Any unexpected block kind fails the check.
+`tools/check-guarantees` parses `GUARANTEES.md` with goldmark into an abstract
+syntax tree and evaluates the document's block structure and visible text. The
+checker fails closed where goldmark is known to disagree with CommonMark 0.31.2,
+including lowercase HTML declarations. Any unexpected block kind fails the check.
 
 At document scope:
 
@@ -59,7 +60,7 @@ At document scope:
 
 Within each guarantee section, exactly three blocks must appear in order:
 
-1. Exactly one normative paragraph: rendered paragraph text containing whole-word
+1. Exactly one normative paragraph: visible paragraph text containing whole-word
    MUST or MUST NOT in the RFC 2119 / RFC 8174 sense. A section lacking a
    normative statement reports `has no normative MUST sentence`; a section with
    multiple normative paragraphs reports `has more than one normative sentence`.
@@ -69,7 +70,7 @@ Within each guarantee section, exactly three blocks must appear in order:
    `- WHEN … THEN …` scenario items. Each list item must contain exactly one
    paragraph or text block; nested blocks (nested lists, code blocks, block
    quotes, headings, HTML blocks) fail closed as unknown block kinds at the
-   nested block's line. A list item whose rendered text contains `Proved by:`
+   nested block's line. A list item whose visible text contains `Proved by:`
    fails closed with `unknown block kind: list item`.
 3. Exactly one `Proved by:` paragraph: a paragraph beginning with `Proved by:`
    followed by comma-separated Go test identifiers, optionally wrapped in
@@ -83,6 +84,9 @@ backslash-escaped punctuation decoded), soft and hard line breaks, code spans
 (with newlines normalized to single spaces), and emphasis. Every other inline
 node kind (raw HTML, images, links, autolinks, and extensions) fails closed with
 an unknown inline kind error. No HTML rendering or tag stripping is performed.
+An unescaped literal `<` before an ASCII letter, `/`, `!`, or `?` in a text node
+also fails as `unknown inline kind: raw html`, including in preamble paragraphs.
+Write a literal `<` before a letter as `\<` or inside a code span.
 
 Any block kind outside this grammar fails closed with `unknown block kind`:
 fenced code blocks, indented code blocks, thematic breaks, block quotes, HTML
