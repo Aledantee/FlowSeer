@@ -198,7 +198,7 @@ func TestCreateCaptureSession_BudgetValidationAndCreation(t *testing.T) {
 		"no requester":  nil,
 		"empty subject": identityv1.OperatorRef_builder{Subject: proto.String("")}.Build(),
 	} {
-		before, err := h.store.ListSessions(ctx)
+		before, err := h.store.ListSessions(ctx, testTenantID)
 		if err != nil {
 			t.Fatalf("%s: list sessions: %v", name, err)
 		}
@@ -208,7 +208,7 @@ func TestCreateCaptureSession_BudgetValidationAndCreation(t *testing.T) {
 		if err == nil || connect.CodeOf(err) != connect.CodeInvalidArgument {
 			t.Fatalf("%s: got error %v, want CodeInvalidArgument", name, err)
 		}
-		after, err := h.store.ListSessions(ctx)
+		after, err := h.store.ListSessions(ctx, testTenantID)
 		if err != nil {
 			t.Fatalf("%s: list sessions: %v", name, err)
 		}

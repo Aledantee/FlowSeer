@@ -16,7 +16,7 @@ parent: docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md
 
 This plan is phase 2 of the operator authorization parent plan, following
 phase 1 (`docs/plans/2026-09-28-2029-feat-operator-authorization-phase1-plan.md`,
-landed in `e5418c45..c6811f4e`). It implements the tenant entity in the
+landed in `f1f75c2f..6f8f73d5`). It implements the tenant entity in the
 identity leaf package `flowseer.model.identity.v1`, establishes central's
 tenant store, partitions central's KeyValue stores and capture artifact
 directories by tenant, updates the edgebus subject layout and `AuditStream`
@@ -863,10 +863,9 @@ is reachable.
 ## Review
 
 Verdict: rework (2026-09-30). This was the second review, over
-`a813410a..4451c64c` with its weight on follow-up units U7–U10. It ran two
-rounds with one fix round (`74bf2f06`, `38ad1659`, merged at `241253f5`
-and `cdbce3f7`). The first review ran three rounds over `a813410a..72427348`
-with fixes `f688cb7a..34b6638c`.
+`8e6994a4..edf8675d` with its weight on follow-up units U7–U10. It ran two
+rounds with one fix round (`b03b2b78`, `db0145b5`). The first review ran three rounds over `8e6994a4..2668b034`
+with fixes `9b827a82..574579ae`.
 
 The fixes changed the landed shape in ways a re-plan starts from:
 

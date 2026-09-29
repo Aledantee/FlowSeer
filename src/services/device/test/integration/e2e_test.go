@@ -1093,7 +1093,7 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 			MaxPackets: proto.Uint64(10),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			Operator:             proto.String("alice"),
+			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("alice")}.Build(),
 			Reason:               proto.String("test"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),

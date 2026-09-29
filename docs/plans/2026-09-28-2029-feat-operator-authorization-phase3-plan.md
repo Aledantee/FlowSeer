@@ -33,6 +33,13 @@ The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-
   Context7 evidence, against the vendor rule.
 - A test issuer (an in-process key pair serving a JWKS) backs every test,
   so no test depends on a real identity provider.
+- The user decided on 2026-09-30, when this branch was rebased onto a `main`
+  that had given `CaptureAuthorization` a typed `requested_by`, to keep that
+  field on the stored session record as a `flowseer.model.identity.v1.OperatorRef`
+  and to fold `main`'s `model/principal` leaf into `model/identity`. Today the
+  caller writes `requested_by`. This phase makes the server write it from the
+  authenticated token, and `CreateCaptureSessionRequest` stops accepting a
+  caller-written requester (parent Requirement 6).
 
 ## Requirements
 
