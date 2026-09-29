@@ -48,6 +48,10 @@ The repository has recorded both directions:
 - `089a2330` (2026-09-29, darwin, buf 1.70.0 from Homebrew) added it back to 308
   files, the reverse byte change. Its message: "managed mode now sets
   java_multiple_files, which lands in every raw descriptor. No schema changed."
+- `9c18947d` reverted it on the same branch and regenerated under buf 1.73.0
+  (`go run github.com/bufbuild/buf/cmd/buf@v1.73.0 generate`), because the tree
+  on `main` came from 1.73.0 and the 1.70.0 output was the older CLI's, not a
+  fix.
 
 The first capture of this lesson blamed the unpinned remote plugins. The flip
 back under an older CLI shows the option comes from the CLI, so pinning the

@@ -107,12 +107,13 @@ capture field should take that type.
   Why: `net/key` is an `import option` there, and the rows leave option
   imports out; the `model/access` row omits its option import of `net/key`
   the same way. Cost if wrong: one token in two record lines.
-- Ruled: the buf managed-mode drift (308 generated files at the parent
-  commit, `java_multiple_files` in every raw descriptor) lands as its own
-  `chore(generated)` commit before this unit. Why: the verifier regenerates
-  and diffs against what is committed, so the unit cannot pass without it,
-  and a separate commit keeps this unit's generated diff down to its own
-  schema. Cost if wrong: one revert of a no-schema-change commit.
+- Ruled: generated code comes from buf 1.73.0, the CLI that produced the
+  tree on `main` (`c106d8bc`). Why: managed mode's `java_multiple_files`
+  byte follows the buf CLI release, so a regeneration under the local
+  Homebrew buf 1.70.0 rewrote 308 unrelated files (`089a2330`, reverted by
+  `9c18947d`). Cost if wrong: one regeneration under whichever CLI the repo
+  pins, per
+  `docs/solutions/conventions/unpinned-buf-remote-plugins-drift-the-whole-generated-tree.md`.
 - **Relations, as proposed input for the OpenFGA record:**
 
   | RPC | Relation | Object |
