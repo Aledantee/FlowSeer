@@ -7,11 +7,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -357,9 +355,7 @@ func TestLookupByOrgMismatch(t *testing.T) {
 }
 
 func TestOrphanedOrgIndexTakeover(t *testing.T) {
-	_, kv := newStoreWithKV(t)
-	shortTimeout := 10 * time.Millisecond
-	s := tenantstore.New(kv, tenantstore.WithRollbackTimeout(shortTimeout))
+	s, kv := newStoreWithKV(t)
 	ctx := context.Background()
 	const ghostID = "0192e6a0-0000-7000-8000-000000000050"
 	const newID = "0192e6a0-0000-7000-8000-000000000051"
@@ -518,40 +514,82 @@ func TestCreateValidation(t *testing.T) {
 	}
 }
 
-func TestMutateRevision0Create(t *testing.T) {
+func TestMutateRequiresCommittedRecord(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
 	const id = "0192e6a0-0000-7000-8000-000000000070"
 
-	cfg := sampleTenantConfig(id, "org-rev0")
-	active := identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE
-	initial := identityv1.TenantRecord_builder{
-		Config: cfg,
-		State: identityv1.TenantState_builder{
-			Ref:       cfg.GetRef(),
-			Lifecycle: &active,
-			CreatedAt: timestamppb.Now(),
-		}.Build(),
-	}.Build()
-
-	created, err := s.Mutate(ctx, id, func(current *identityv1.TenantRecord) (*identityv1.TenantRecord, error) {
-		if current != nil {
-			t.Fatalf("expected nil record on revision 0, got %v", current)
-		}
-		return initial, nil
+	called := false
+	_, err := s.Mutate(ctx, id, func(_ *identityv1.TenantRecord) (*identityv1.TenantRecord, error) {
+		called = true
+		return sampleTenantRecord(sampleTenantConfig(id, "org-rev0")), nil
 	})
-	if err != nil {
-		t.Fatalf("Mutate revision 0: %v", err)
+	if err == nil {
+		t.Fatal("Mutate missing tenant succeeded, want error")
 	}
-	if created.GetConfig().GetRef().GetTenant().GetId() != id {
-		t.Fatalf("Mutate returned ID %q, want %q", created.GetConfig().GetRef().GetTenant().GetId(), id)
+	if called {
+		t.Fatal("Mutate called fn for a missing tenant")
 	}
 
 	got, err := s.Get(ctx, id)
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
-	if got == nil || got.GetConfig().GetRef().GetTenant().GetId() != id {
-		t.Fatalf("Get = %v, want record with ID %s", got, id)
+	if got != nil {
+		t.Fatalf("Get = %v, want nil", got)
+	}
+}
+
+func TestMutateRejectsOrganizationBindingChange(t *testing.T) {
+	const (
+		id       = "0192e6a0-0000-7000-8000-000000000071"
+		issuer   = "https://idp.example.test"
+		org      = "org-mutate-binding"
+		newOrg   = "org-mutate-binding-new"
+		newIssue = "https://other.example.test"
+	)
+
+	for _, tc := range []struct {
+		name   string
+		issuer string
+		org    string
+	}{
+		{name: "issuer", issuer: newIssue, org: org},
+		{name: "organization", issuer: issuer, org: newOrg},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newStore(t)
+			ctx := context.Background()
+			if _, err := s.Create(ctx, sampleTenantConfigWithIssuer(id, issuer, org)); err != nil {
+				t.Fatalf("Create: %v", err)
+			}
+
+			_, err := s.Mutate(ctx, id, func(current *identityv1.TenantRecord) (*identityv1.TenantRecord, error) {
+				return identityv1.TenantRecord_builder{
+					Config: sampleTenantConfigWithIssuer(id, tc.issuer, tc.org),
+					State:  current.GetState(),
+				}.Build(), nil
+			})
+			if err == nil {
+				t.Fatal("Mutate organization binding succeeded, want error")
+			}
+
+			got, err := s.LookupByOrg(ctx, issuer, org)
+			if err != nil {
+				t.Fatalf("LookupByOrg original binding: %v", err)
+			}
+			if tenantID(got) != id {
+				t.Fatalf("LookupByOrg original binding tenant = %q, want %q", tenantID(got), id)
+			}
+			changed, err := s.LookupByOrg(ctx, tc.issuer, tc.org)
+			if err != nil {
+				t.Fatalf("LookupByOrg changed binding: %v", err)
+			}
+			if tc.issuer != issuer || tc.org != org {
+				if changed != nil {
+					t.Fatalf("LookupByOrg changed binding = %v, want nil", changed)
+				}
+			}
+		})
 	}
 }

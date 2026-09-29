@@ -32,6 +32,8 @@ var (
 	ErrCodeDecode = errs.NewCode("tenantstore/decode")
 	// ErrCodeAlreadyExists indicates a tenant or organization index already exists.
 	ErrCodeAlreadyExists = errs.NewCode("tenantstore/already-exists")
+	// ErrCodeNotFound indicates the tenant does not have a committed record.
+	ErrCodeNotFound = errs.NewCode("tenantstore/not-found")
 	// ErrCodeInvalidConfig indicates the supplied tenant configuration is invalid.
 	ErrCodeInvalidConfig = errs.NewCode("tenantstore/invalid-config")
 )
@@ -61,7 +63,7 @@ type Store struct {
 // Option configures Store behavior.
 type Option func(*Store)
 
-// WithRollbackTimeout overrides the timeout for record writes and rollback deletes.
+// WithRollbackTimeout bounds record writes and recovery after an ambiguous write.
 func WithRollbackTimeout(d time.Duration) Option {
 	return func(s *Store) {
 		s.rollbackTimeout = d
@@ -89,8 +91,38 @@ func (s *Store) rollbackDelete(ctx context.Context, key string, claimRev uint64)
 	return nil
 }
 
-// Create stores a new tenant and its organization secondary index entry.
-// Returns ErrCodeAlreadyExists if the tenant ID or organization is already registered.
+func (s *Store) getRawWithRevision(ctx context.Context, tenantID string) (*identityv1.TenantRecord, uint64, error) {
+	entry, err := s.kv.Get(ctx, tenantID)
+	if errors.Is(err, jetstream.ErrKeyNotFound) {
+		return nil, 0, nil
+	}
+	if err != nil {
+		return nil, 0, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("read tenant record")
+	}
+	rec := &identityv1.TenantRecord{}
+	if err := proto.Unmarshal(entry.Value(), rec); err != nil {
+		return nil, 0, errs.From(err).Code(ErrCodeDecode).Attr("tenant", tenantID).Msg("decode tenant record")
+	}
+	return rec, entry.Revision(), nil
+}
+
+func (s *Store) ownsOrgIndex(ctx context.Context, orgKey, tenantID string) (bool, error) {
+	checkCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.rollbackTimeout)
+	defer cancel()
+	entry, err := s.kv.Get(checkCtx, orgKey)
+	if errors.Is(err, jetstream.ErrKeyNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("reconcile organization index")
+	}
+	return string(entry.Value()) == tenantID, nil
+}
+
+// Create stores a new tenant and commits its organization secondary index. A
+// retry with the same ID and configuration resumes an incomplete write. Create
+// returns ErrCodeAlreadyExists if the ID has different configuration or another
+// tenant owns the organization.
 func (s *Store) Create(ctx context.Context, config *identityv1.TenantConfig) (*identityv1.TenantRecord, error) {
 	if err := protovalidate.Validate(config); err != nil {
 		return nil, errs.From(err).Code(ErrCodeInvalidConfig).Msg("invalid tenant config")
@@ -119,18 +151,34 @@ func (s *Store) Create(ctx context.Context, config *identityv1.TenantConfig) (*i
 
 	recRev, err := s.kv.Create(recCtx, tenantID, data)
 	if err != nil {
-		if errors.Is(err, jetstream.ErrKeyExists) {
+		writeErr := errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("write tenant record")
+		existing, existingRev, getErr := s.getRawWithRevision(recCtx, tenantID)
+		if getErr != nil {
+			return nil, errors.Join(writeErr, getErr)
+		}
+		if existing == nil {
+			return nil, writeErr
+		}
+		if !proto.Equal(existing.GetConfig(), config) {
+			if !errors.Is(err, jetstream.ErrKeyExists) {
+				return nil, writeErr
+			}
 			return nil, errs.New().Code(ErrCodeAlreadyExists).Attr("tenant", tenantID).Msg("tenant already exists")
 		}
-		return nil, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("write tenant record")
+		record = existing
+		recRev = existingRev
 	}
 
 	orgKey := OrgIndexKey(config.GetIssuer(), config.GetOrganizationClaimValue())
 	for {
 		if ctx.Err() != nil {
+			owns, reconcileErr := s.ownsOrgIndex(ctx, orgKey, tenantID)
+			if owns {
+				return record, nil
+			}
 			rbErr := s.rollbackDelete(ctx, tenantID, recRev)
 			retErr := errs.From(ctx.Err()).Code(ErrCodeStore).Msg("context deadline exceeded committing index")
-			return nil, errors.Join(retErr, rbErr)
+			return nil, errors.Join(retErr, reconcileErr, rbErr)
 		}
 
 		_, err := s.kv.Create(ctx, orgKey, []byte(tenantID))
@@ -138,9 +186,13 @@ func (s *Store) Create(ctx context.Context, config *identityv1.TenantConfig) (*i
 			return record, nil
 		}
 		if !errors.Is(err, jetstream.ErrKeyExists) {
+			owns, reconcileErr := s.ownsOrgIndex(ctx, orgKey, tenantID)
+			if owns {
+				return record, nil
+			}
 			rbErr := s.rollbackDelete(ctx, tenantID, recRev)
 			retErr := errs.From(err).Code(ErrCodeStore).Msg("write organization index")
-			return nil, errors.Join(retErr, rbErr)
+			return nil, errors.Join(retErr, reconcileErr, rbErr)
 		}
 
 		entry, getErr := s.kv.Get(ctx, orgKey)
@@ -154,7 +206,10 @@ func (s *Store) Create(ctx context.Context, config *identityv1.TenantConfig) (*i
 		}
 
 		existingTenantID := string(entry.Value())
-		existingRec, getRecErr := s.Get(ctx, existingTenantID)
+		if existingTenantID == tenantID {
+			return record, nil
+		}
+		existingRec, _, getRecErr := s.getRawWithRevision(ctx, existingTenantID)
 		if getRecErr != nil {
 			rbErr := s.rollbackDelete(ctx, tenantID, recRev)
 			return nil, errors.Join(getRecErr, rbErr)
@@ -179,33 +234,48 @@ func (s *Store) Create(ctx context.Context, config *identityv1.TenantConfig) (*i
 		if errors.Is(updateErr, jetstream.ErrKeyNotFound) || errors.Is(updateErr, jetstream.ErrKeyRevisionMismatch) {
 			continue
 		}
+		owns, reconcileErr := s.ownsOrgIndex(ctx, orgKey, tenantID)
+		if owns {
+			return record, nil
+		}
 		rbErr := s.rollbackDelete(ctx, tenantID, recRev)
 		retErr := errs.From(updateErr).Code(ErrCodeStore).Msg("take over organization index")
-		return nil, errors.Join(retErr, rbErr)
+		return nil, errors.Join(retErr, reconcileErr, rbErr)
 	}
 }
 
-// Get returns the stored tenant record for tenantID, or nil if no record exists.
+// Get returns the committed tenant record for tenantID, or nil if no record is
+// named by its organization index.
 func (s *Store) Get(ctx context.Context, tenantID string) (*identityv1.TenantRecord, error) {
 	rec, _, err := s.GetWithRevision(ctx, tenantID)
 	return rec, err
 }
 
-// GetWithRevision returns the stored tenant record for tenantID and its KV revision,
-// or nil and revision 0 if no record exists.
+// GetWithRevision returns the committed tenant record for tenantID and its KV
+// revision, or nil and revision 0 if the record is absent or uncommitted.
 func (s *Store) GetWithRevision(ctx context.Context, tenantID string) (*identityv1.TenantRecord, uint64, error) {
-	entry, err := s.kv.Get(ctx, tenantID)
+	rec, revision, err := s.getRawWithRevision(ctx, tenantID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if rec == nil {
+		return nil, 0, nil
+	}
+	cfg := rec.GetConfig()
+	if cfg == nil || cfg.GetRef().GetTenant().GetId() != tenantID {
+		return nil, 0, nil
+	}
+	entry, err := s.kv.Get(ctx, OrgIndexKey(cfg.GetIssuer(), cfg.GetOrganizationClaimValue()))
 	if errors.Is(err, jetstream.ErrKeyNotFound) {
 		return nil, 0, nil
 	}
 	if err != nil {
-		return nil, 0, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("read tenant record")
+		return nil, 0, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("read organization index")
 	}
-	rec := &identityv1.TenantRecord{}
-	if err := proto.Unmarshal(entry.Value(), rec); err != nil {
-		return nil, 0, errs.From(err).Code(ErrCodeDecode).Attr("tenant", tenantID).Msg("decode tenant record")
+	if string(entry.Value()) != tenantID {
+		return nil, 0, nil
 	}
-	return rec, entry.Revision(), nil
+	return rec, revision, nil
 }
 
 // LookupByOrg resolves a tenant record by its identity provider issuer and organization claim value.
@@ -231,8 +301,7 @@ func (s *Store) LookupByOrg(ctx context.Context, issuer, orgClaimValue string) (
 	return rec, nil
 }
 
-// List returns all stored tenant records in ascending order by tenant ID.
-// Secondary index keys (prefixed with "org_") are filtered out.
+// List returns committed tenant records in ascending order by tenant ID.
 func (s *Store) List(ctx context.Context) ([]*identityv1.TenantRecord, error) {
 	keys, err := s.kv.Keys(ctx)
 	if errors.Is(err, jetstream.ErrNoKeysFound) {
@@ -263,14 +332,19 @@ func (s *Store) List(ctx context.Context) ([]*identityv1.TenantRecord, error) {
 	return records, nil
 }
 
-// Mutate runs fn against the tenant's record under compare-and-set, retrying on
-// a revision conflict. fn receives the current record, or nil when the tenant
-// has none, and returns the record to store. Returning ErrSkip stores nothing.
+// Mutate runs fn against a committed tenant record under compare-and-set,
+// retrying on a revision conflict. It returns ErrCodeNotFound without calling fn
+// when tenantID has no committed record. fn may change tenant state and mutable
+// configuration, but not the tenant ID, issuer, or organization claim value.
+// Returning ErrSkip stores nothing.
 func (s *Store) Mutate(ctx context.Context, tenantID string, fn func(current *identityv1.TenantRecord) (*identityv1.TenantRecord, error)) (*identityv1.TenantRecord, error) {
 	for attempt := 0; attempt < casRetries; attempt++ {
 		current, revision, err := s.GetWithRevision(ctx, tenantID)
 		if err != nil {
 			return nil, err
+		}
+		if current == nil {
+			return nil, errs.New().Code(ErrCodeNotFound).Attr("tenant", tenantID).Msg("tenant not found")
 		}
 		next, err := fn(current)
 		if err != nil {
@@ -279,20 +353,20 @@ func (s *Store) Mutate(ctx context.Context, tenantID string, fn func(current *id
 			}
 			return nil, err
 		}
+		currentCfg := current.GetConfig()
+		nextCfg := next.GetConfig()
+		if nextCfg.GetRef().GetTenant().GetId() != tenantID ||
+			currentCfg.GetIssuer() != nextCfg.GetIssuer() ||
+			currentCfg.GetOrganizationClaimValue() != nextCfg.GetOrganizationClaimValue() {
+			return nil, errs.New().Code(ErrCodeInvalidConfig).Attr("tenant", tenantID).Msg("tenant organization binding cannot change")
+		}
 		data, err := proto.Marshal(next)
 		if err != nil {
 			return nil, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("encode tenant record")
 		}
-		if revision == 0 {
-			_, err = s.kv.Create(ctx, tenantID, data)
-			if errors.Is(err, jetstream.ErrKeyExists) {
-				continue
-			}
-		} else {
-			_, err = s.kv.Update(ctx, tenantID, data, revision)
-			if errors.Is(err, jetstream.ErrKeyRevisionMismatch) {
-				continue
-			}
+		_, err = s.kv.Update(ctx, tenantID, data, revision)
+		if errors.Is(err, jetstream.ErrKeyRevisionMismatch) {
+			continue
 		}
 		if err != nil {
 			return nil, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("write tenant record")
