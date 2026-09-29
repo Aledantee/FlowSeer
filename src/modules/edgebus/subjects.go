@@ -3,6 +3,8 @@ package edgebus
 import (
 	"fmt"
 	"strings"
+
+	"go.aledante.io/FlowSeer/src/common/tenant"
 )
 
 // Subject names the fabric uses. Every subject an edge publishes on sits
@@ -12,7 +14,7 @@ import (
 const (
 	// DefaultTenant is the default tenant identifier used during development
 	// and testing when no ambient tenant is configured.
-	DefaultTenant = "default"
+	DefaultTenant = tenant.DefaultTenant
 
 	// EdgeBufferStream is the file-backed stream on the edge's own JetStream
 	// domain holding everything the edge has published and not yet shipped.

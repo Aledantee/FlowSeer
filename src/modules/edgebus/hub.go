@@ -254,6 +254,13 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 		return nil, err
 	}
 	for _, pe := range persisted {
+		if pe.err != nil {
+			hostLog.WarnContext(ctx, "skipping a persisted edge whose tenant could not be read",
+				slog.String("otel.event.name", "flowseer.edge.bus.tenant_read_failed"),
+				slog.String("flowseer.edge.id", pe.id),
+				slog.String("error.type", errorTypeOf(pe.err)))
+			continue
+		}
 		if _, err := hub.ensureEdgeAccount(ctx, pe.tenant, pe.id); err != nil {
 			// One edge's stored key must not stop the hub. A file that
 			// cannot be turned into an account is a fact about that edge,
@@ -354,10 +361,6 @@ func (h *Hub) JetStream() jetstream.JetStream { return h.centralJS }
 
 // Connection is central's own connection into the central account.
 func (h *Hub) Connection() *nats.Conn { return h.central }
-
-// Tenant is the default development and testing tenant identifier used for
-// hub-level subjects when no tenant is otherwise specified.
-func (h *Hub) Tenant() string { return DefaultTenant }
 
 // EdgeTenant returns the tenant assigned to edgeID, and whether the edge is known.
 func (h *Hub) EdgeTenant(edgeID string) (string, bool) {
@@ -559,7 +562,11 @@ func (h *Hub) MintEdgeUser(ctx context.Context, edgeID string) (EdgeCredentials,
 	if ea.tenant == "" {
 		return EdgeCredentials{}, errs.New().Code(ErrCodeHub).Attr("edge", edgeID).Msg("edge has no known tenant")
 	}
-	return h.keys.mintUser(ea.key, ea.accountJWT, "edge-"+edgeID, edgePermissions(ea.tenant, edgeID))
+	perms, err := edgePermissions(ea.tenant, edgeID)
+	if err != nil {
+		return EdgeCredentials{}, err
+	}
+	return h.keys.mintUser(ea.key, ea.accountJWT, "edge-"+edgeID, perms)
 }
 
 // AttachEdge ensures the edge's account, connection, and source stream

@@ -102,7 +102,7 @@ func (s *OperatorService) CreateCaptureSession(
 		if code, ok := errs.CodeOf(err); ok && code == edgestore.ErrCodeUnknownEdge {
 			return nil, connect.NewError(connect.CodeNotFound, errs.Msg("edge not found"))
 		}
-		return nil, connectErr(err)
+		return nil, connectErr(errs.From(err).Code(ErrCodeStore).Attr("edge", edgeID).Msg("resolve edge tenant"))
 	}
 	if owner != tenantID {
 		return nil, connect.NewError(connect.CodeNotFound, errs.Msg("edge not found"))

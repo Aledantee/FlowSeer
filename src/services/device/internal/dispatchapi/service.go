@@ -14,6 +14,7 @@ package dispatchapi
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"time"
 
 	connect "connectrpc.com/connect"
@@ -113,11 +114,12 @@ const (
 // is safe for concurrent use when its configured dependencies are safe for
 // concurrent use.
 type Service struct {
-	cfg           Config
-	clock         func() time.Time
-	resend        time.Duration
-	sweepInterval time.Duration
-	log           *slog.Logger
+	cfg               Config
+	clock             func() time.Time
+	resend            time.Duration
+	sweepInterval     time.Duration
+	log               *slog.Logger
+	seenMalformedKeys sync.Map
 }
 
 // New constructs the relay. Journal, Resolver, EdgeID, and EdgeTenant must be set.

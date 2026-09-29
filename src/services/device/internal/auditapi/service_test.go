@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	connect "connectrpc.com/connect"
@@ -11,6 +12,7 @@ import (
 	auditv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/auditapi"
@@ -181,8 +183,18 @@ func TestDeliverMultiTenantAuditSubject(t *testing.T) {
 	}
 }
 
+type succeedingPublisher struct {
+	called atomic.Bool
+}
+
+func (p *succeedingPublisher) Publish(context.Context, string, []byte, string) error {
+	p.called.Store(true)
+	return nil
+}
+
 func TestDeliverRefusesWhenEdgeTenantFails(t *testing.T) {
-	svc := auditapi.New(refusing{}, binding{hosts: true}, func(context.Context, string) (string, error) {
+	pub := &succeedingPublisher{}
+	svc := auditapi.New(pub, binding{hosts: true}, func(context.Context, string) (string, error) {
 		return "", errors.New("cannot resolve tenant")
 	})
 	err := deliver(t, svc, "0192e6a0-0000-7000-8000-00000000e001")
@@ -191,5 +203,11 @@ func TestDeliverRefusesWhenEdgeTenantFails(t *testing.T) {
 	}
 	if got := connect.CodeOf(err); got != connect.CodeUnavailable {
 		t.Fatalf("code = %v, want unavailable", got)
+	}
+	if pub.called.Load() {
+		t.Fatal("publisher was called despite edgeTenant failure")
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != auditapi.ErrCodeResolve {
+		t.Fatalf("error code = %v, want %v", code, auditapi.ErrCodeResolve)
 	}
 }

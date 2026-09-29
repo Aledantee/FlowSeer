@@ -9,6 +9,7 @@ import (
 	"buf.build/go/protovalidate"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go/jetstream"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
@@ -194,11 +195,16 @@ func observation(description string) *accessv1.InterfaceObservation {
 // device actually carries.
 func seeObserved(t *testing.T, h *harness, observed string) {
 	t.Helper()
+	seeObservedTenant(t, h.journal, tTenant, observed)
+}
+
+func seeObservedTenant(t *testing.T, j *journal.Journal, tenantID, observed string) {
+	t.Helper()
 	ctx := context.Background()
-	if err := h.journal.SetExpected(ctx, tTenant, deviceID, deviceRef(), iface, expected); err != nil {
+	if err := j.SetExpected(ctx, tenantID, deviceID, deviceRef(), iface, expected); err != nil {
 		t.Fatalf("set expected: %v", err)
 	}
-	if err := h.journal.SetFingerprint(ctx, tTenant, deviceID, deviceRef(), fingerprint); err != nil {
+	if err := j.SetFingerprint(ctx, tenantID, deviceID, deviceRef(), fingerprint); err != nil {
 		t.Fatalf("set fingerprint: %v", err)
 	}
 	read := &accessv1.TypedRead{}
@@ -210,11 +216,11 @@ func seeObserved(t *testing.T, h *harness, observed string) {
 	intent.SetInterfaceName(iface)
 	read.SetInterface(intent)
 
-	seq, err := h.journal.OpenRead(ctx, tTenant, deviceID, deviceRef(), iface, read, uuid.NewString(), time.Now().Add(time.Minute))
+	seq, err := j.OpenRead(ctx, tenantID, deviceID, deviceRef(), iface, read, uuid.NewString(), time.Now().Add(time.Minute))
 	if err != nil {
 		t.Fatalf("open read: %v", err)
 	}
-	if err := h.journal.CloseRead(ctx, tTenant, deviceID, iface, seq, observation(observed), nil); err != nil {
+	if err := j.CloseRead(ctx, tenantID, deviceID, iface, seq, observation(observed), nil); err != nil {
 		t.Fatalf("close read: %v", err)
 	}
 }
@@ -671,9 +677,37 @@ func TestDriftSkipsEdgeWhenTenantFails(t *testing.T) {
 	h := &harness{poller: poller, journal: j, recorder: rec}
 	seeObserved(t, h, "someone else's description")
 
+	// Seed an expectation and drifted observation under default tenant too.
+	seeObservedTenant(t, j, edgebus.DefaultTenant, "someone else's description")
+
+	recBeforeT, err := j.Record(ctx, tTenant, deviceID)
+	if err != nil {
+		t.Fatalf("record before under %s: %v", tTenant, err)
+	}
+	recBeforeDef, err := j.Record(ctx, edgebus.DefaultTenant, deviceID)
+	if err != nil {
+		t.Fatalf("record before under default: %v", err)
+	}
+
 	poller.Pass(ctx)
 
 	if len(rec.found) != 0 {
 		t.Fatalf("detections = %d, want 0 when edge tenant cannot be resolved", len(rec.found))
+	}
+
+	recAfterT, err := j.Record(ctx, tTenant, deviceID)
+	if err != nil {
+		t.Fatalf("record after under %s: %v", tTenant, err)
+	}
+	if !proto.Equal(recBeforeT, recAfterT) || recAfterT.HasMutation() {
+		t.Fatalf("lane write detected under %s", tTenant)
+	}
+
+	recAfterDef, err := j.Record(ctx, edgebus.DefaultTenant, deviceID)
+	if err != nil {
+		t.Fatalf("record after under default: %v", err)
+	}
+	if !proto.Equal(recBeforeDef, recAfterDef) || recAfterDef.HasMutation() {
+		t.Fatalf("lane write detected under default tenant")
 	}
 }

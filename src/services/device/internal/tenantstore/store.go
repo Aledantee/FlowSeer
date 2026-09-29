@@ -37,9 +37,9 @@ var (
 )
 
 const (
-	casRetries      = 8
-	orgIndexPrefix  = "org_"
-	rollbackTimeout = 5 * time.Second
+	casRetries             = 8
+	orgIndexPrefix         = "org_"
+	defaultRollbackTimeout = 5 * time.Second
 )
 
 // ErrSkip is a Mutate fn's signal that no write is needed.
@@ -54,18 +54,36 @@ func OrgIndexKey(issuer, orgClaimValue string) string {
 // Store is central's per-tenant record store over the tenants KV bucket.
 // Safe for concurrent use.
 type Store struct {
-	kv jetstream.KeyValue
+	kv              jetstream.KeyValue
+	rollbackTimeout time.Duration
+}
+
+// Option configures Store behavior.
+type Option func(*Store)
+
+// WithRollbackTimeout overrides the timeout for record writes and rollback deletes.
+func WithRollbackTimeout(d time.Duration) Option {
+	return func(s *Store) {
+		s.rollbackTimeout = d
+	}
 }
 
 // New constructs a Store over the tenants bucket.
-func New(kv jetstream.KeyValue) *Store {
-	return &Store{kv: kv}
+func New(kv jetstream.KeyValue, opts ...Option) *Store {
+	s := &Store{
+		kv:              kv,
+		rollbackTimeout: defaultRollbackTimeout,
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
-func (s *Store) rollbackDelete(ctx context.Context, key string) error {
-	delCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), rollbackTimeout)
+func (s *Store) rollbackDelete(ctx context.Context, key string, claimRev uint64) error {
+	delCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.rollbackTimeout)
 	defer cancel()
-	if err := s.kv.Delete(delCtx, key); err != nil && !errors.Is(err, jetstream.ErrKeyNotFound) {
+	if err := s.kv.Delete(delCtx, key, jetstream.LastRevision(claimRev)); err != nil && !errors.Is(err, jetstream.ErrKeyNotFound) {
 		return errs.From(err).Code(ErrCodeStore).Attr("key", key).Msg("rollback delete failed")
 	}
 	return nil
@@ -81,7 +99,9 @@ func (s *Store) Create(ctx context.Context, config *identityv1.TenantConfig) (*i
 
 	orgKey := OrgIndexKey(config.GetIssuer(), config.GetOrganizationClaimValue())
 	// Create secondary index first to claim the (issuer, org) pair.
-	if _, err := s.kv.Create(ctx, orgKey, []byte(tenantID)); err != nil {
+	var claimRev uint64
+	rev, err := s.kv.Create(ctx, orgKey, []byte(tenantID))
+	if err != nil {
 		if errors.Is(err, jetstream.ErrKeyExists) {
 			entry, getErr := s.kv.Get(ctx, orgKey)
 			if getErr != nil {
@@ -101,13 +121,23 @@ func (s *Store) Create(ctx context.Context, config *identityv1.TenantConfig) (*i
 					Attr("organization", config.GetOrganizationClaimValue()).
 					Msg("tenant with organization already exists")
 			}
-			// Orphaned index: the tenant it names has no matching record. Take it over with CAS.
-			if _, updateErr := s.kv.Update(ctx, orgKey, []byte(tenantID), entry.Revision()); updateErr != nil {
+			if time.Since(entry.Created()) <= 2*s.rollbackTimeout {
+				return nil, errs.New().Code(ErrCodeConflict).
+					Attr("issuer", config.GetIssuer()).
+					Attr("organization", config.GetOrganizationClaimValue()).
+					Msg("concurrent tenant registration in progress")
+			}
+			// Orphaned index: the tenant it names has no matching record and the claim has expired. Take it over with CAS.
+			var updateErr error
+			claimRev, updateErr = s.kv.Update(ctx, orgKey, []byte(tenantID), entry.Revision())
+			if updateErr != nil {
 				return nil, errs.From(updateErr).Code(ErrCodeStore).Msg("take over organization index")
 			}
 		} else {
 			return nil, errs.From(err).Code(ErrCodeStore).Msg("write organization index")
 		}
+	} else {
+		claimRev = rev
 	}
 
 	active := identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE
@@ -124,13 +154,16 @@ func (s *Store) Create(ctx context.Context, config *identityv1.TenantConfig) (*i
 
 	data, err := proto.Marshal(record)
 	if err != nil {
-		rbErr := s.rollbackDelete(ctx, orgKey)
+		rbErr := s.rollbackDelete(ctx, orgKey, claimRev)
 		retErr := errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("encode tenant record")
 		return nil, errors.Join(retErr, rbErr)
 	}
 
-	if _, err := s.kv.Create(ctx, tenantID, data); err != nil {
-		rbErr := s.rollbackDelete(ctx, orgKey)
+	recCtx, recCancel := context.WithTimeout(context.WithoutCancel(ctx), s.rollbackTimeout)
+	defer recCancel()
+
+	if _, err := s.kv.Create(recCtx, tenantID, data); err != nil {
+		rbErr := s.rollbackDelete(ctx, orgKey, claimRev)
 		if errors.Is(err, jetstream.ErrKeyExists) {
 			retErr := errs.New().Code(ErrCodeAlreadyExists).Attr("tenant", tenantID).Msg("tenant already exists")
 			return nil, errors.Join(retErr, rbErr)

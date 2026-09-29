@@ -2,6 +2,9 @@ package integration_test
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,6 +22,10 @@ import (
 	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	apiidentityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
+	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
+	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
@@ -27,7 +34,6 @@ import (
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
-	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	centralhost "go.aledante.io/FlowSeer/src/services/device/internal/host"
 
@@ -1004,14 +1010,50 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 		t.Fatalf("stored edge ID = %q, want %q", storedEdge.GetRecord().GetConfig().GetRef().GetEdge().GetId(), edgeID)
 	}
 
-	// 3. Attach edge on hub and index in edgestore, then assert minted edge JWT pub allow is flowseer.A.edge.<id>.>
+	// 3. Issue setup key and enroll edge via API, then assert indexed tenant and minted JWT
+	setupResp, err := c.admin().IssueSetupKey(ctx, connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{
+		Edge: edgeRef,
+	}.Build()))
+	if err != nil {
+		t.Fatalf("IssueSetupKey: %v", err)
+	}
+	setupKey := setupResp.Msg.GetProvisioning().GetSetupKey()
+
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	keyID := setupKey[len("fse1_") : len("fse1_")+26]
+	keyProofPayload := edgev1.KeyProofPayload_builder{
+		PublicKey:  pubKey,
+		SetupKeyId: proto.String(keyID),
+	}.Build()
+	payloadWire, err := proto.MarshalOptions{Deterministic: true}.Marshal(keyProofPayload)
+	if err != nil {
+		t.Fatalf("marshal key proof payload: %v", err)
+	}
+	proof := edgev1.KeyProof_builder{
+		Payload:   payloadWire,
+		Signature: ed25519.Sign(privKey, payloadWire),
+	}.Build()
+
+	edgeAttachClient := attachv1connect.NewEdgeServiceClient(c.client, c.baseURL())
+	if _, err := edgeAttachClient.Enroll(ctx, connect.NewRequest(attachv1.EnrollRequest_builder{
+		SetupKey: proto.String(setupKey),
+		Proof:    proof,
+	}.Build())); err != nil {
+		t.Fatalf("Enroll: %v", err)
+	}
+
 	edgeStore := edgestore.New(kvEdges)
-	if err := edgeStore.IndexEdge(ctx, edgeID, tenantA); err != nil {
-		t.Fatalf("IndexEdge: %v", err)
+	indexedTenant, err := edgeStore.TenantForEdge(ctx, edgeID)
+	if err != nil {
+		t.Fatalf("TenantForEdge: %v", err)
 	}
-	if err := hub.AttachEdge(ctx, tenantA, edgeID); err != nil {
-		t.Fatalf("AttachEdge: %v", err)
+	if indexedTenant != tenantA {
+		t.Fatalf("TenantForEdge = %q, want %q", indexedTenant, tenantA)
 	}
+
 	creds, err := hub.MintEdgeUser(ctx, edgeID)
 	if err != nil {
 		t.Fatalf("MintEdgeUser: %v", err)
@@ -1070,36 +1112,97 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 		t.Fatalf("unmarshal stored capture record: %v", err)
 	}
 
-	// 5. Append packets and finalize artifact to assert artifact lands under captures/A/<sessionID>.pcapng
-	capturesDir := filepath.Join(c.dir, "central-state", "captures")
-	capStore, err := captureapi.NewStore(kvCaptures, capturesDir, time.Now)
-	if err != nil {
-		t.Fatalf("NewStore: %v", err)
-	}
-	packet := netcapturev1.PacketRecord_builder{
-		CapturedAt:     timestamppb.Now(),
-		OriginalLength: proto.Uint32(64),
-		Data:           []byte("payload-test"),
-	}.Build()
-	if err := capStore.AppendPackets(ctx, tenantA, sessionID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128, []*netcapturev1.PacketRecord{packet}); err != nil {
-		t.Fatalf("AppendPackets: %v", err)
-	}
-	counters := netcapturev1.CaptureCounters_builder{ReceivedPackets: proto.Uint64(1), AcceptedPackets: proto.Uint64(1)}.Build()
-	artifact, err := capStore.FinalizeArtifact(ctx, tenantA, sessionID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128, counters, time.Now().Add(time.Hour))
-	if err != nil {
-		t.Fatalf("FinalizeArtifact: %v", err)
-	}
-	if _, err := capStore.MutateSession(ctx, tenantA, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
-		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
-		rec.GetState().SetArtifact(artifact)
-		return nil
-	}); err != nil {
-		t.Fatalf("MutateSession: %v", err)
+	// 5. Upload packets via edge UploadCapture stream and assert artifact lands under captures/A/<sessionID>.pcapng
+	signStreamAssertion := func() *edgev1.SignedEdgeAssertion {
+		nonce := make([]byte, 16)
+		if _, err := rand.Read(nonce); err != nil {
+			t.Fatalf("rand nonce: %v", err)
+		}
+		bodyHash := sha256.Sum256(nil)
+		now := time.Now()
+		assertion := edgev1.EdgeAssertion_builder{
+			Edge: edgev1.EdgeGlobalRef_builder{
+				Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(edgeID)}.Build(),
+			}.Build(),
+			Audience:   proto.String("flowseer-e2e"),
+			IssuedAt:   timestamppb.New(now),
+			ExpiresAt:  timestamppb.New(now.Add(30 * time.Second)),
+			Nonce:      nonce,
+			Procedure:  proto.String(captureedgev1connect.CaptureEdgeServiceUploadCaptureProcedure),
+			BodySha256: bodyHash[:],
+		}.Build()
+		payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(assertion)
+		if err != nil {
+			t.Fatalf("marshal stream assertion: %v", err)
+		}
+		return edgev1.SignedEdgeAssertion_builder{
+			Payload:   payload,
+			Signature: ed25519.Sign(privKey, payload),
+		}.Build()
 	}
 
+	uploadStream := c.edgeCaptures().UploadCapture(ctx)
+	if err := uploadStream.Send(captureedgev1.UploadCaptureRequest_builder{
+		Assertion: signStreamAssertion(),
+	}.Build()); err != nil {
+		t.Fatalf("upload open assertion: %v", err)
+	}
+
+	chunk := captureedgev1.UploadCaptureRequest_builder{
+		Chunk: modelcapturev1.CapturePacketChunk_builder{
+			Session:       captureRef,
+			FirstSequence: proto.Uint64(1),
+			Packets: []*netcapturev1.PacketRecord{
+				netcapturev1.PacketRecord_builder{
+					Sequence:       proto.Uint64(1),
+					CapturedAt:     timestamppb.Now(),
+					OriginalLength: proto.Uint32(64),
+					Data:           []byte("payload-test"),
+				}.Build(),
+			},
+			Counters: netcapturev1.CaptureCounters_builder{
+				ReceivedPackets: proto.Uint64(1),
+				AcceptedPackets: proto.Uint64(1),
+			}.Build(),
+			Final: proto.Bool(true),
+		}.Build(),
+	}.Build()
+	if err := uploadStream.Send(chunk); err != nil {
+		t.Fatalf("upload chunk: %v", err)
+	}
+	uploadResp, err := uploadStream.CloseAndReceive()
+	if err != nil {
+		t.Fatalf("close upload stream: %v", err)
+	}
+	if uploadResp.Msg.GetSession().GetCaptureSession().GetId() != sessionID {
+		t.Fatalf("response session id = %q, want %q", uploadResp.Msg.GetSession().GetCaptureSession().GetId(), sessionID)
+	}
+
+	capturesDir := filepath.Join(c.dir, "central-state", "captures")
 	artifactPath := filepath.Join(capturesDir, tenantA, sessionID+".pcapng")
 	if _, err := os.Stat(artifactPath); err != nil {
 		t.Fatalf("expected artifact on disk at %s: %v", artifactPath, err)
+	}
+
+	// Positive control: GetEdge and GetCaptureSession under tenant A succeed before restart
+	getEdgeResp, err := c.admin().GetEdge(ctx, connect.NewRequest(apiedgev1.GetEdgeRequest_builder{
+		Edge: edgeRef,
+	}.Build()))
+	if err != nil {
+		t.Fatalf("GetEdge under tenant A: %v", err)
+	}
+	if getEdgeResp.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId() != edgeID {
+		t.Fatalf("GetEdge returned edge ID = %q, want %q", getEdgeResp.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId(), edgeID)
+	}
+
+	getCapResp, err := c.captures().GetCaptureSession(ctx, connect.NewRequest(apicapturev1.GetCaptureSessionRequest_builder{
+		Session: captureRef,
+	}.Build()))
+	if err != nil {
+		t.Fatalf("GetCaptureSession under tenant A: %v", err)
+	}
+	if getCapResp.Msg.GetSession().GetConfig().GetRef().GetCaptureSession().GetId() != sessionID {
+		t.Fatalf("GetCaptureSession returned session ID = %q, want %q", getCapResp.Msg.GetSession().GetConfig().GetRef().GetCaptureSession().GetId(), sessionID)
 	}
 
 	// 6. Restart central with dev_tenant = UUID B over the same state dir

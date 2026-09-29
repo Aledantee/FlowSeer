@@ -911,3 +911,51 @@ func TestAdminRequiresTenantContext(t *testing.T) {
 	}.Build()))
 	wantConnectCode(t, err, connect.CodeUnauthenticated)
 }
+
+func TestCreateEdgeIndexesEdgeBeforeEnrollment(t *testing.T) {
+	hub := newHub(t)
+	store := newStoreOver(t, hub)
+	admin := newAdminOver(t, store, func() time.Time { return testClock })
+	resp, err := admin.CreateEdge(testContext(), connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
+		Name: proto.String("site-a"),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CreateEdge: %v", err)
+	}
+	edgeID := resp.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId()
+	indexedTenant, err := store.TenantForEdge(context.Background(), edgeID)
+	if err != nil {
+		t.Fatalf("TenantForEdge: %v", err)
+	}
+	if indexedTenant != defaultTenantID {
+		t.Fatalf("TenantForEdge = %q, want %q", indexedTenant, defaultTenantID)
+	}
+
+	setupKey := resp.Msg.GetProvisioning().GetSetupKey()
+	edgeSvc, err := edgeapi.NewService(store, testRegistry(t, edgeID, nil), &fakeLanes{}, &fakeCredentials{material: snmpMaterial()}, hub, edgeapi.ServiceConfig{
+		Audience:      "flowseer-central",
+		TrustAnchors:  [][]byte{make([]byte, 32)},
+		ClusterURLs:   []string{"wss://central.example.test:4223"},
+		PulseInterval: 5 * time.Millisecond,
+	}, func() time.Time { return testClock }, nil)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	public, private, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+	if _, err := edgeSvc.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
+		SetupKey: proto.String(setupKey),
+		Proof:    enrollProof(t, private, public, setupKey),
+	}.Build())); err != nil {
+		t.Fatalf("Enroll: %v", err)
+	}
+	enrolledTenant, err := store.TenantForEdge(context.Background(), edgeID)
+	if err != nil {
+		t.Fatalf("TenantForEdge after enroll: %v", err)
+	}
+	if enrolledTenant != defaultTenantID {
+		t.Fatalf("enrolled tenant = %q, want %q", enrolledTenant, defaultTenantID)
+	}
+}

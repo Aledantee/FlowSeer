@@ -894,3 +894,46 @@ func TestAcquireReadCredentialSendsNoCredentialFileContentToTheEdge(t *testing.T
 		t.Errorf("the edge was told what central failed to read: %q", err.Error())
 	}
 }
+
+type failingBus struct {
+	err error
+}
+
+func (b *failingBus) AttachEdge(context.Context, string, string) error {
+	return b.err
+}
+
+func (b *failingBus) MintEdgeUser(context.Context, string) (edgebus.EdgeCredentials, error) {
+	return edgebus.EdgeCredentials{}, b.err
+}
+
+func TestEnrollBusAttachFailureUnavailable(t *testing.T) {
+	hub := newHub(t)
+	store := newStoreOver(t, hub)
+	admin := newAdminOver(t, store, func() time.Time { return testClock })
+	record, setupKey := createEdge(t, admin)
+	edgeID := refOf(record).GetEdge().GetId()
+
+	bus := &failingBus{err: errors.New("bus connection failed")}
+	svc, err := edgeapi.NewService(store, testRegistry(t, edgeID, nil), &fakeLanes{}, &fakeCredentials{material: snmpMaterial()}, bus, edgeapi.ServiceConfig{
+		Audience:      "flowseer-central",
+		TrustAnchors:  [][]byte{make([]byte, 32)},
+		ClusterURLs:   []string{"wss://central.example.test:4223"},
+		PulseInterval: 5 * time.Millisecond,
+	}, func() time.Time { return testClock }, nil)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+
+	public, private, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+
+	_, err = svc.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
+		SetupKey: proto.String(setupKey),
+		Proof:    enrollProof(t, private, public, setupKey),
+	}.Build()))
+
+	wantConnectCode(t, err, connect.CodeUnavailable)
+}

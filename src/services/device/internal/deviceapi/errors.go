@@ -5,6 +5,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
+	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 )
@@ -44,6 +45,7 @@ var ClientErrors = connecterr.Table{
 
 	journal.ErrCodeConflict: {Code: connect.CodeUnavailable, UserMsg: "the device's record is being written concurrently; retry"},
 	journal.ErrCodeStore:    {Code: connect.CodeUnavailable, UserMsg: "the device's record cannot be reached right now"},
+	edgestore.ErrCodeStore:  {Code: connect.CodeUnavailable, UserMsg: "the edge store cannot be reached right now"},
 
 	journal.ErrCodeDecode:   {Code: connect.CodeInternal},
 	registry.ErrCodeLoad:    {Code: connect.CodeInternal},

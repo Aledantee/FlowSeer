@@ -37,12 +37,13 @@ func FromContext(ctx context.Context) (string, error) {
 	return val, nil
 }
 
-// Validate checks that tenantID is either a valid UUID or DefaultTenant.
+// Validate checks that tenantID is either a canonical lowercase UUID or DefaultTenant.
 func Validate(tenantID string) error {
 	if tenantID == DefaultTenant {
 		return nil
 	}
-	if _, err := uuid.Parse(tenantID); err != nil {
+	u, err := uuid.Parse(tenantID)
+	if err != nil || u.String() != tenantID {
 		return errs.New().Code(ErrCodeInvalidTenant).Attr("tenant", tenantID).
 			Msg("tenant identifier must be a UUID or the default tenant")
 	}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
@@ -354,7 +355,9 @@ func TestLookupByOrgMismatch(t *testing.T) {
 }
 
 func TestOrphanedOrgIndexTakeover(t *testing.T) {
-	s, kv := newStoreWithKV(t)
+	_, kv := newStoreWithKV(t)
+	shortTimeout := 10 * time.Millisecond
+	s := tenantstore.New(kv, tenantstore.WithRollbackTimeout(shortTimeout))
 	ctx := context.Background()
 	const ghostID = "0192e6a0-0000-7000-8000-000000000050"
 	const newID = "0192e6a0-0000-7000-8000-000000000051"
@@ -365,6 +368,9 @@ func TestOrphanedOrgIndexTakeover(t *testing.T) {
 	if _, err := kv.Create(ctx, orgKey, []byte(ghostID)); err != nil {
 		t.Fatalf("create orphaned index: %v", err)
 	}
+
+	// Wait until index is older than 2*rollbackTimeout
+	time.Sleep(30 * time.Millisecond)
 
 	// Create with newID should detect ghostID has no record, take over org index, and succeed
 	rec, err := s.Create(ctx, sampleTenantConfig(newID, org))
@@ -381,6 +387,70 @@ func TestOrphanedOrgIndexTakeover(t *testing.T) {
 	}
 	if lookedUp == nil || lookedUp.GetConfig().GetRef().GetTenant().GetId() != newID {
 		t.Fatalf("LookupByOrg = %v, want tenant %s", lookedUp, newID)
+	}
+}
+
+func TestConcurrentClaimWithinBoundRefused(t *testing.T) {
+	s, kv := newStoreWithKV(t)
+	ctx := context.Background()
+	const (
+		ghostID = "0192e6a0-0000-7000-8000-000000000052"
+		newID   = "0192e6a0-0000-7000-8000-000000000053"
+		org     = "org-concurrent-bound"
+	)
+
+	orgKey := tenantstore.OrgIndexKey(defaultIssuer, org)
+	if _, err := kv.Create(ctx, orgKey, []byte(ghostID)); err != nil {
+		t.Fatalf("create index: %v", err)
+	}
+
+	// Immediate Create for the same org must be refused as conflict, not taken over
+	_, err := s.Create(ctx, sampleTenantConfig(newID, org))
+	if err == nil {
+		t.Fatal("Create within rollback bound succeeded, want conflict")
+	}
+	if code, _ := errs.CodeOf(err); code != tenantstore.ErrCodeConflict {
+		t.Fatalf("got code %v, want %v", code, tenantstore.ErrCodeConflict)
+	}
+
+	entry, err := kv.Get(ctx, orgKey)
+	if err != nil {
+		t.Fatalf("get orgKey: %v", err)
+	}
+	if string(entry.Value()) != ghostID {
+		t.Fatalf("index value was modified: got %q, want %q", string(entry.Value()), ghostID)
+	}
+}
+
+func TestRollbackDoesNotDeleteNewerClaim(t *testing.T) {
+	_, kv := newStoreWithKV(t)
+	ctx := context.Background()
+	const (
+		id2 = "0192e6a0-0000-7000-8000-000000000055"
+		org = "org-rollback-newer"
+	)
+
+	orgKey := tenantstore.OrgIndexKey(defaultIssuer, org)
+	rev1, err := kv.Create(ctx, orgKey, []byte("claim-c1"))
+	if err != nil {
+		t.Fatalf("create rev1: %v", err)
+	}
+	if _, err := kv.Update(ctx, orgKey, []byte(id2), rev1); err != nil {
+		t.Fatalf("update to rev2: %v", err)
+	}
+
+	// Attempting rollback with stale rev1 must not delete the newer claim at rev2
+	err = kv.Delete(ctx, orgKey, jetstream.LastRevision(rev1))
+	if err == nil {
+		t.Fatal("Delete with stale LastRevision succeeded, want error")
+	}
+
+	entry, err := kv.Get(ctx, orgKey)
+	if err != nil {
+		t.Fatalf("expected orgKey to still exist: %v", err)
+	}
+	if string(entry.Value()) != id2 {
+		t.Fatalf("orgKey value = %q, want %q", string(entry.Value()), id2)
 	}
 }
 

@@ -58,6 +58,10 @@ func TestValidateTenant(t *testing.T) {
 		{name: "dotted tenant", tenant: "acme.prod", wantErr: true},
 		{name: "wildcard tenant", tenant: "*", wantErr: true},
 		{name: "path traversal tenant", tenant: "../foo", wantErr: true},
+		{name: "upper case uuid", tenant: "018F6C42-2B28-7654-A321-0123456789AB", wantErr: true},
+		{name: "braced uuid", tenant: "{018f6c42-2b28-7654-a321-0123456789ab}", wantErr: true},
+		{name: "urn uuid", tenant: "urn:uuid:018f6c42-2b28-7654-a321-0123456789ab", wantErr: true},
+		{name: "dashless hex uuid", tenant: "018f6c422b287654a3210123456789ab", wantErr: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := tenant.Validate(tc.tenant)

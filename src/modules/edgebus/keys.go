@@ -12,6 +12,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/secret"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 )
 
 // ErrCodeKeys identifies a failure loading, creating, or using the hub's
@@ -63,6 +64,7 @@ func loadOrCreateKeys(dir string) (*hubKeys, error) {
 type persistedEdge struct {
 	id     string
 	tenant string
+	err    error
 }
 
 // persistedEdgeIDs lists the edges whose account keys are on disk, reading each
@@ -79,12 +81,10 @@ func (k *hubKeys) persistedEdgeIDs() ([]persistedEdge, error) {
 		if strings.HasPrefix(name, "edge-") && strings.HasSuffix(name, ".nk") {
 			edgeID := strings.TrimSuffix(strings.TrimPrefix(name, "edge-"), ".nk")
 			t, _, err := k.edgeTenant(edgeID)
-			if err != nil {
-				return nil, err
-			}
 			edges = append(edges, persistedEdge{
 				id:     edgeID,
 				tenant: t,
+				err:    err,
 			})
 		}
 	}
@@ -354,14 +354,14 @@ func (k *hubKeys) mintUser(account nkeys.KeyPair, accountJWT, name string, permi
 // caller read the source consumer's delivery subject) nor any _INBOX
 // subject (the stock random inbox prefix matches none of these and an
 // account-wide _INBOX grant would reach central's own request replies).
-func edgePermissions(tenant, edgeID string) jwt.Permissions {
-	if tenant == "" {
-		tenant = DefaultTenant
+func edgePermissions(tenantID, edgeID string) (jwt.Permissions, error) {
+	if err := tenant.Validate(tenantID); err != nil {
+		return jwt.Permissions{}, errs.From(err).Code(ErrCodeKeys).Attr("tenant", tenantID).Attr("edge", edgeID).Msg("validate tenant")
 	}
-	subtree := EdgeSubtree(tenant, edgeID) + ".>"
+	subtree := EdgeSubtree(tenantID, edgeID) + ".>"
 	api := "$JS." + EdgeDomain(edgeID) + ".API.>"
 	return jwt.Permissions{
 		Pub: jwt.Permission{Allow: jwt.StringList{subtree, "$JSC.R.>"}},
 		Sub: jwt.Permission{Allow: jwt.StringList{api, "$JS.FC.>"}},
-	}
+	}, nil
 }

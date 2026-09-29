@@ -281,15 +281,25 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 	lane := journal.New(lanes, nil)
 	edgeStore := edgestore.New(edges)
 	audit := centralaudit.New(auditPublisher(hub), nil)
-	// Retained for un-enrolled edges in registry smoke tests (e.g. TestAListedDeviceIsAnsweredFromTheJournal)
-	// until host_test.go can be updated to enroll or index the edge.
+	// Bind an unindexed local registry edge to the configured development
+	// tenant when startup finds no tenant index for it.
 	if edgeID := h.registry.EdgeID(); edgeID != "" {
-		if t, err := edgeStore.TenantForEdge(ctx, edgeID); err == nil && t == "" {
+		t, err := edgeStore.TenantForEdge(ctx, edgeID)
+		if err != nil {
+			return nil, errs.From(err).Code(ErrCodeStart).Attr("edge", edgeID).Msg("lookup registry edge tenant")
+		}
+		if t == "" {
 			devTenant := h.cfg.DevTenant()
 			if devTenant == "" {
 				devTenant = edgebus.DefaultTenant
 			}
-			_ = edgeStore.IndexEdge(ctx, edgeID, devTenant)
+			log.WarnContext(ctx, "bound registry edge to dev tenant",
+				slog.String("otel.event.name", "flowseer.edge.tenant.dev_bind"),
+				slog.String("flowseer.edge.id", edgeID),
+			)
+			if err := edgeStore.IndexEdge(ctx, edgeID, devTenant); err != nil {
+				return nil, errs.From(err).Code(ErrCodeStart).Attr("edge", edgeID).Msg("index registry edge tenant")
+			}
 		}
 	}
 

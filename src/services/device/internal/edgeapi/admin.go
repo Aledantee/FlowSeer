@@ -171,6 +171,9 @@ func (s *AdminService) CreateEdge(ctx context.Context, req *connect.Request[apie
 	if err := s.store.IndexSetupKey(ctx, key.record.GetId(), tenantID, edgeID); err != nil {
 		return nil, connectErr(err)
 	}
+	if err := s.store.IndexEdge(ctx, edgeID, tenantID); err != nil {
+		return nil, connectErr(err)
+	}
 
 	return connect.NewResponse(apiedgev1.CreateEdgeResponse_builder{
 		Edge:         s.reported(stored),

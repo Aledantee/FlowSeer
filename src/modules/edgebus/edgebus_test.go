@@ -775,9 +775,13 @@ func TestRestartedHubFailsOnUnreadableSidecar(t *testing.T) {
 	dir := t.TempDir()
 
 	const customTenant = "11111111-2222-3333-4444-555555555555"
+	const healthyEdge = "edge-healthy"
 	first := startHub(t, dir, 0)
 	if err := first.AttachEdge(ctx, customTenant, edgeID); err != nil {
 		t.Fatalf("attach edge: %v", err)
+	}
+	if err := first.AttachEdge(ctx, customTenant, healthyEdge); err != nil {
+		t.Fatalf("attach healthy edge: %v", err)
 	}
 	first.Close()
 
@@ -793,8 +797,16 @@ func TestRestartedHubFailsOnUnreadableSidecar(t *testing.T) {
 		StateDir:    dir,
 		FsyncPolicy: service.BusFsyncPeriodic,
 	})
-	if err == nil {
-		second.Close()
-		t.Fatal("StartHub succeeded despite unreadable sidecar, want error")
+	if err != nil {
+		t.Fatalf("StartHub failed on unreadable sidecar: %v", err)
+	}
+	defer second.Close()
+
+	got, ok := second.EdgeTenant(healthyEdge)
+	if !ok || got != customTenant {
+		t.Fatalf("healthy edge tenant = (%q, %v), want (%q, true)", got, ok, customTenant)
+	}
+	if _, ok := second.EdgeTenant(edgeID); ok {
+		t.Fatalf("broken edge tenant unexpectedly present")
 	}
 }

@@ -3,6 +3,8 @@ package dispatchapi
 import (
 	"context"
 	"errors"
+	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -339,5 +341,87 @@ func TestSubscribeFailsWhenEdgeTenantFails(t *testing.T) {
 	}
 	if code, _ := errs.CodeOf(err); code != ErrCodeResolve {
 		t.Fatalf("error code = %v, want ErrCodeResolve", code)
+	}
+}
+
+type recordHandler struct {
+	mu      sync.Mutex
+	records []slog.Record
+}
+
+func (h *recordHandler) Enabled(context.Context, slog.Level) bool { return true }
+func (h *recordHandler) Handle(_ context.Context, r slog.Record) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.records = append(h.records, r.Clone())
+	return nil
+}
+func (h *recordHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *recordHandler) WithGroup(string) slog.Handler      { return h }
+
+type sliceKeyLister []string
+
+func (s sliceKeyLister) Keys(context.Context, ...jetstream.WatchOpt) ([]string, error) {
+	return []string(s), nil
+}
+
+func TestSweeperLogsMalformedLaneKeyOnceAtWarnThenDebug(t *testing.T) {
+	h := &recordHandler{}
+	logger := slog.New(h)
+	svc := New(Config{
+		Journal:    &journal.Journal{},
+		Resolver:   fakeResolver{},
+		EdgeID:     func(context.Context) (string, error) { return edgeID, nil },
+		EdgeTenant: func(context.Context, string) (string, error) { return tTenant, nil },
+		Logger:     logger,
+	})
+
+	badKey := "malformed-lane-key"
+	ctx := context.Background()
+
+	// First sweep logs at WARN with namespaced attributes.
+	svc.sweepAll(ctx, sliceKeyLister{badKey})
+
+	h.mu.Lock()
+	if len(h.records) != 1 {
+		h.mu.Unlock()
+		t.Fatalf("records count = %d, want 1", len(h.records))
+	}
+	r1 := h.records[0]
+	h.mu.Unlock()
+
+	if r1.Level != slog.LevelWarn {
+		t.Fatalf("first record level = %v, want WARN", r1.Level)
+	}
+	var laneKey, eventName string
+	r1.Attrs(func(a slog.Attr) bool {
+		switch a.Key {
+		case "flowseer.journal.lane_key":
+			laneKey = a.Value.String()
+		case "otel.event.name":
+			eventName = a.Value.String()
+		}
+		return true
+	})
+	if laneKey != badKey {
+		t.Fatalf("flowseer.journal.lane_key = %q, want %q", laneKey, badKey)
+	}
+	if eventName != "flowseer.dispatch.malformed_lane_key" {
+		t.Fatalf("otel.event.name = %q, want flowseer.dispatch.malformed_lane_key", eventName)
+	}
+
+	// Second sweep logs at DEBUG.
+	svc.sweepAll(ctx, sliceKeyLister{badKey})
+
+	h.mu.Lock()
+	if len(h.records) != 2 {
+		h.mu.Unlock()
+		t.Fatalf("records count = %d, want 2", len(h.records))
+	}
+	r2 := h.records[1]
+	h.mu.Unlock()
+
+	if r2.Level != slog.LevelDebug {
+		t.Fatalf("second record level = %v, want DEBUG", r2.Level)
 	}
 }

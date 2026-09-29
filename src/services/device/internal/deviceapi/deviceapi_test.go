@@ -2,7 +2,6 @@ package deviceapi_test
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -27,6 +26,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/deviceapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 
@@ -127,7 +127,7 @@ func newHarness(t *testing.T) *harness {
 			if id == edgeID {
 				return testTenant, nil
 			}
-			return "", errors.New("unknown edge")
+			return "", errs.New().Code(edgestore.ErrCodeUnknownEdge).Msg("unknown edge")
 		},
 		Watcher:  deviceapi.NewKVWatcher(kv),
 		ReadPoll: 20 * time.Millisecond,
@@ -1024,4 +1024,61 @@ func TestUnauthenticatedWithoutTenant(t *testing.T) {
 	if connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Fatalf("got code %v, want Unauthenticated", connect.CodeOf(err))
 	}
+}
+
+func TestEdgeTenantErrorMappings(t *testing.T) {
+	ctx := tenant.WithTenant(context.Background(), testTenant)
+	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+		StateDir:    t.TempDir(),
+		FsyncPolicy: service.BusFsyncPeriodic,
+		ListenPort:  0,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+	kv, err := hub.JetStream().KeyValue(context.Background(), edgebus.LaneBucket)
+	if err != nil {
+		t.Fatalf("bucket: %v", err)
+	}
+	j := journal.New(kv, nil)
+	res := &resolver{entry: registryEntry(2 * time.Minute)}
+
+	// Test 1: Unknown edge -> CodeNotFound
+	svcUnknown, err := deviceapi.New(deviceapi.Config{
+		Journal:  j,
+		Resolver: res,
+		EdgeTenant: func(_ context.Context, _ string) (string, error) {
+			return "", errs.New().Code(edgestore.ErrCodeUnknownEdge).Msg("edge not found")
+		},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	statusReq := &devicev1.GetDeviceAccessStatusRequest{}
+	statusReq.SetDevice(deviceRef())
+	_, err = svcUnknown.GetDeviceAccessStatus(ctx, connect.NewRequest(statusReq))
+	wantCode(t, err, connect.CodeNotFound)
+
+	listReq := &devicev1.ListEdgeOpenMutationsRequest{}
+	listReq.SetEdgeId("unknown-edge-id")
+	_, err = svcUnknown.ListEdgeOpenMutations(ctx, connect.NewRequest(listReq))
+	wantCode(t, err, connect.CodeNotFound)
+
+	// Test 2: Edge store fault -> CodeUnavailable
+	svcStoreFault, err := deviceapi.New(deviceapi.Config{
+		Journal:  j,
+		Resolver: res,
+		EdgeTenant: func(_ context.Context, _ string) (string, error) {
+			return "", errs.New().Code(edgestore.ErrCodeStore).Msg("store unavailable")
+		},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	_, err = svcStoreFault.GetDeviceAccessStatus(ctx, connect.NewRequest(statusReq))
+	wantCode(t, err, connect.CodeUnavailable)
+
+	_, err = svcStoreFault.ListEdgeOpenMutations(ctx, connect.NewRequest(listReq))
+	wantCode(t, err, connect.CodeUnavailable)
 }

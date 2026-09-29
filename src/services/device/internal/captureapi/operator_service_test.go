@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -23,9 +22,11 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 )
 
 const (
@@ -105,8 +106,10 @@ func newOperatorTestHarness(t *testing.T) *operatorTestHarness {
 				return testTenantID, nil
 			case testEdge2ID:
 				return testTenantB, nil
+			case "fault-edge":
+				return "", errs.New().Code(edgestore.ErrCodeStore).Msg("store failure")
 			default:
-				return "", errors.New("edge not found")
+				return "", errs.New().Code(edgestore.ErrCodeUnknownEdge).Msg("edge not found")
 			}
 		},
 		NotifyChange: func() {
@@ -1245,5 +1248,41 @@ func TestCreateCaptureSessionRefusesForeignTenantEdge(t *testing.T) {
 	}
 	if got := connect.CodeOf(err); got != connect.CodeNotFound {
 		t.Fatalf("code = %v, want CodeNotFound", got)
+	}
+}
+
+func TestCreateCaptureSessionRefusesUnknownEdge(t *testing.T) {
+	h := newOperatorTestHarness(t)
+	ctx := context.Background()
+
+	req := newTestCreateRequest(100)
+	req.SetEdge(edgev1.EdgeGlobalRef_builder{
+		Edge: edgev1.EdgeLocalRef_builder{Id: proto.String("unknown-edge-id")}.Build(),
+	}.Build())
+
+	_, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(req))
+	if err == nil {
+		t.Fatal("CreateCaptureSession accepted an unknown edge")
+	}
+	if got := connect.CodeOf(err); got != connect.CodeNotFound {
+		t.Fatalf("code = %v, want CodeNotFound", got)
+	}
+}
+
+func TestCreateCaptureSessionStoreFaultUnavailable(t *testing.T) {
+	h := newOperatorTestHarness(t)
+	ctx := context.Background()
+
+	req := newTestCreateRequest(100)
+	req.SetEdge(edgev1.EdgeGlobalRef_builder{
+		Edge: edgev1.EdgeLocalRef_builder{Id: proto.String("fault-edge")}.Build(),
+	}.Build())
+
+	_, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(req))
+	if err == nil {
+		t.Fatal("CreateCaptureSession accepted a faulting edge resolver")
+	}
+	if got := connect.CodeOf(err); got != connect.CodeUnavailable {
+		t.Fatalf("code = %v, want CodeUnavailable", got)
 	}
 }

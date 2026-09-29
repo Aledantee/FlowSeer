@@ -319,9 +319,9 @@ func portOf(address string) int {
 func newStderr() *os.File { return os.Stderr }
 
 var (
-	errCodeAdminNotConfigured = errs.NewCode("tenant/admin-not-configured")
-	errCodeTenantNotFound     = errs.NewCode("tenant/not-found")
-	errCodeTenantRequest      = errs.NewCode("tenant/request")
+	errCodeAdminNotConfigured = errs.NewCode("host/admin-not-configured")
+	errCodeTenantNotFound     = errs.NewCode("host/tenant-not-found")
+	errCodeTenantRequest      = errs.NewCode("host/tenant-request")
 )
 
 var tenantErrors = connecterr.Table{

@@ -225,7 +225,15 @@ func (s *Service) sweepAll(ctx context.Context, bucket KeyLister) {
 	for _, key := range keys {
 		tenantID, deviceID, ok := journal.SplitLaneKey(key)
 		if !ok {
-			s.log.WarnContext(ctx, "sweeper skipped malformed lane key", slog.String("key", key))
+			if _, loaded := s.seenMalformedKeys.LoadOrStore(key, struct{}{}); loaded {
+				s.log.DebugContext(ctx, "sweeper skipped malformed lane key",
+					slog.String("otel.event.name", "flowseer.dispatch.malformed_lane_key"),
+					slog.String("flowseer.journal.lane_key", key))
+			} else {
+				s.log.WarnContext(ctx, "sweeper skipped malformed lane key",
+					slog.String("otel.event.name", "flowseer.dispatch.malformed_lane_key"),
+					slog.String("flowseer.journal.lane_key", key))
+			}
 			continue
 		}
 		if _, err := s.cfg.Journal.SweepExpiredReads(ctx, tenantID, deviceID, s.clock(), s.sweepError()); err != nil {
