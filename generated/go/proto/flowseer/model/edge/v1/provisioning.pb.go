@@ -177,8 +177,8 @@ const file_flowseer_model_edge_v1_provisioning_proto_rawDesc = "" +
 	"centralUrl\x12G\n" +
 	"\tsetup_key\x18\x02 \x01(\tB*\xbaH'\xc8\x01\x01r\"2 ^fse1_[a-z2-7]{26}_[a-z2-7]{52}$R\bsetupKey\x125\n" +
 	"\rtrust_anchors\x18\x03 \x03(\fB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x10\b\"\x04z\x02h R\ftrustAnchorsB\xf4\x01\n" +
-	"\x1acom.flowseer.model.edge.v1B\x11ProvisioningProtoP\x01ZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1;edgev1\xa2\x02\x03FME\xaa\x02\x16Flowseer.Model.Edge.V1\xca\x02\x16Flowseer\\Model\\Edge\\V1\xe2\x02\"Flowseer\\Model\\Edge\\V1\\GPBMetadata\xea\x02\x19Flowseer::Model::Edge::V1b\beditionsp\xe9\a"
+	"\b\x01\x10\b\"\x04z\x02h R\ftrustAnchorsB\xf2\x01\n" +
+	"\x1acom.flowseer.model.edge.v1B\x11ProvisioningProtoZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1;edgev1\xa2\x02\x03FME\xaa\x02\x16Flowseer.Model.Edge.V1\xca\x02\x16Flowseer\\Model\\Edge\\V1\xe2\x02\"Flowseer\\Model\\Edge\\V1\\GPBMetadata\xea\x02\x19Flowseer::Model::Edge::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_edge_v1_provisioning_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_model_edge_v1_provisioning_proto_goTypes = []any{

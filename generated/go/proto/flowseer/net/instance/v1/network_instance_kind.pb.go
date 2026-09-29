@@ -92,8 +92,8 @@ const file_flowseer_net_instance_v1_network_instance_kind_proto_rawDesc = "" +
 	"\x1bNETWORK_INSTANCE_KIND_L3VRF\x10\x02\x12\x1f\n" +
 	"\x1bNETWORK_INSTANCE_KIND_L2VSI\x10\x03\x12\x1f\n" +
 	"\x1bNETWORK_INSTANCE_KIND_L2P2P\x10\x04\x12\x1e\n" +
-	"\x1aNETWORK_INSTANCE_KIND_L2L3\x10\x05B\x8b\x02\n" +
-	"\x1ccom.flowseer.net.instance.v1B\x18NetworkInstanceKindProtoP\x01ZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/instance/v1;instancev1\xa2\x02\x03FNI\xaa\x02\x18Flowseer.Net.Instance.V1\xca\x02\x18Flowseer\\Net\\Instance\\V1\xe2\x02$Flowseer\\Net\\Instance\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Instance::V1b\beditionsp\xe9\a"
+	"\x1aNETWORK_INSTANCE_KIND_L2L3\x10\x05B\x89\x02\n" +
+	"\x1ccom.flowseer.net.instance.v1B\x18NetworkInstanceKindProtoZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/instance/v1;instancev1\xa2\x02\x03FNI\xaa\x02\x18Flowseer.Net.Instance.V1\xca\x02\x18Flowseer\\Net\\Instance\\V1\xe2\x02$Flowseer\\Net\\Instance\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Instance::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_instance_v1_network_instance_kind_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_instance_v1_network_instance_kind_proto_goTypes = []any{

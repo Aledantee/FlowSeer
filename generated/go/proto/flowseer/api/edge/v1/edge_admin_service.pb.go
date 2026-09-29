@@ -1266,8 +1266,8 @@ const file_flowseer_api_edge_v1_edge_admin_service_proto_rawDesc = "" +
 	"\n" +
 	"RetireEdge\x12'.flowseer.api.edge.v1.RetireEdgeRequest\x1a(.flowseer.api.edge.v1.RetireEdgeResponse\x12V\n" +
 	"\aGetEdge\x12$.flowseer.api.edge.v1.GetEdgeRequest\x1a%.flowseer.api.edge.v1.GetEdgeResponse\x12\\\n" +
-	"\tListEdges\x12&.flowseer.api.edge.v1.ListEdgesRequest\x1a'.flowseer.api.edge.v1.ListEdgesResponseB\xec\x01\n" +
-	"\x18com.flowseer.api.edge.v1B\x15EdgeAdminServiceProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1;edgev1\xa2\x02\x03FAE\xaa\x02\x14Flowseer.Api.Edge.V1\xca\x02\x14Flowseer\\Api\\Edge\\V1\xe2\x02 Flowseer\\Api\\Edge\\V1\\GPBMetadata\xea\x02\x17Flowseer::Api::Edge::V1b\beditionsp\xe9\a"
+	"\tListEdges\x12&.flowseer.api.edge.v1.ListEdgesRequest\x1a'.flowseer.api.edge.v1.ListEdgesResponseB\xea\x01\n" +
+	"\x18com.flowseer.api.edge.v1B\x15EdgeAdminServiceProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1;edgev1\xa2\x02\x03FAE\xaa\x02\x14Flowseer.Api.Edge.V1\xca\x02\x14Flowseer\\Api\\Edge\\V1\xe2\x02 Flowseer\\Api\\Edge\\V1\\GPBMetadata\xea\x02\x17Flowseer::Api::Edge::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_flowseer_api_edge_v1_edge_admin_service_proto_goTypes = []any{

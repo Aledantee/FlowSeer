@@ -1740,8 +1740,8 @@ const file_flowseer_net_capture_v1_mirror_proto_rawDesc = "" +
 	"\x15ERSPAN_BAD_FRAME_GOOD\x10\x00\x12\x1a\n" +
 	"\x16ERSPAN_BAD_FRAME_SHORT\x10\x01\x12\x1e\n" +
 	"\x1aERSPAN_BAD_FRAME_OVERSIZED\x10\x02\x12\x1c\n" +
-	"\x18ERSPAN_BAD_FRAME_BAD_CRC\x10\x03B\xf7\x01\n" +
-	"\x1bcom.flowseer.net.capture.v1B\vMirrorProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1;capturev1\xa2\x02\x03FNC\xaa\x02\x17Flowseer.Net.Capture.V1\xca\x02\x17Flowseer\\Net\\Capture\\V1\xe2\x02#Flowseer\\Net\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Capture::V1b\beditionsp\xe9\a"
+	"\x18ERSPAN_BAD_FRAME_BAD_CRC\x10\x03B\xf5\x01\n" +
+	"\x1bcom.flowseer.net.capture.v1B\vMirrorProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1;capturev1\xa2\x02\x03FNC\xaa\x02\x17Flowseer.Net.Capture.V1\xca\x02\x17Flowseer\\Net\\Capture\\V1\xe2\x02#Flowseer\\Net\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Capture::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_capture_v1_mirror_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_flowseer_net_capture_v1_mirror_proto_msgTypes = make([]protoimpl.MessageInfo, 7)

@@ -160,8 +160,8 @@ const file_flowseer_model_inventory_v1_capability_proto_rawDesc = "" +
 	"\x14CAPABILITY_SWITCHING\x10\x03\x12\x16\n" +
 	"\x12CAPABILITY_ROUTING\x10\x04\x12\x17\n" +
 	"\x13CAPABILITY_FIREWALL\x10\x05\x12\x17\n" +
-	"\x13CAPABILITY_WIRELESS\x10\x06B\x95\x02\n" +
-	"\x1fcom.flowseer.model.inventory.v1B\x0fCapabilityProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"\x13CAPABILITY_WIRELESS\x10\x06B\x93\x02\n" +
+	"\x1fcom.flowseer.model.inventory.v1B\x0fCapabilityProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_capability_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_model_inventory_v1_capability_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

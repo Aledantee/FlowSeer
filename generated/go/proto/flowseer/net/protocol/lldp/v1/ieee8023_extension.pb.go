@@ -248,8 +248,8 @@ const file_flowseer_net_protocol_lldp_v1_ieee8023_extension_proto_rawDesc = "" +
 	"\x15advertised_link_modes\x18\x03 \x03(\x0e2 .flowseer.net.phy.v1.MauLinkModeB\b\xbaH\x05\x92\x01\x02\x18\x01R\x13advertisedLinkModes\x12N\n" +
 	"\x14operational_mau_type\x18\x04 \x01(\v2\x1c.flowseer.net.phy.v1.MauTypeR\x12operationalMauType\x12N\n" +
 	"\rpower_via_mdi\x18\x05 \x01(\v2*.flowseer.net.protocol.lldp.v1.PowerViaMdiR\vpowerViaMdi\x12:\n" +
-	"\x14max_frame_size_bytes\x18\x06 \x01(\x04B\t\xbaH\x062\x04\x18\xff\xff\x03R\x11maxFrameSizeBytesB\xa5\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x16Ieee8023ExtensionProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\x14max_frame_size_bytes\x18\x06 \x01(\x04B\t\xbaH\x062\x04\x18\xff\xff\x03R\x11maxFrameSizeBytesB\xa3\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x16Ieee8023ExtensionProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_ieee8023_extension_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_ieee8023_extension_proto_goTypes = []any{

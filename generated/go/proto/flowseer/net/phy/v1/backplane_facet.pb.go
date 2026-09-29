@@ -70,8 +70,8 @@ var File_flowseer_net_phy_v1_backplane_facet_proto protoreflect.FileDescriptor
 const file_flowseer_net_phy_v1_backplane_facet_proto_rawDesc = "" +
 	"\n" +
 	")flowseer/net/phy/v1/backplane_facet.proto\x12\x13flowseer.net.phy.v1\"\x10\n" +
-	"\x0eBackplaneFacetB\xe3\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\x13BackplaneFacetProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"\x0eBackplaneFacetB\xe1\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\x13BackplaneFacetProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_backplane_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_backplane_facet_proto_goTypes = []any{

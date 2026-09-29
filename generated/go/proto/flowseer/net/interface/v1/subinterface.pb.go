@@ -137,8 +137,8 @@ const file_flowseer_net_interface_v1_subinterface_proto_rawDesc = "" +
 	",flowseer/net/interface/v1/subinterface.proto\x12\x19flowseer.net.interface.v1\x1a.flowseer/net/switching/v1/vlan_tag_stack.proto\"\x9f\x01\n" +
 	"\fSubinterface\x12@\n" +
 	"\x15parent_interface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x80\xb5\x18\x01R\x13parentInterfaceName\x12M\n" +
-	"\rencapsulation\x18\x02 \x01(\v2'.flowseer.net.switching.v1.VlanTagStackR\rencapsulationB\x8d\x02\n" +
-	"\x1dcom.flowseer.net.interface.v1B\x11SubinterfaceProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
+	"\rencapsulation\x18\x02 \x01(\v2'.flowseer.net.switching.v1.VlanTagStackR\rencapsulationB\x8b\x02\n" +
+	"\x1dcom.flowseer.net.interface.v1B\x11SubinterfaceProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_interface_v1_subinterface_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_interface_v1_subinterface_proto_goTypes = []any{

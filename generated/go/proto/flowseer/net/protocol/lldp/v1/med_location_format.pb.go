@@ -85,8 +85,8 @@ const file_flowseer_net_protocol_lldp_v1_med_location_format_proto_rawDesc = "" 
 	"\x1fMED_LOCATION_FORMAT_UNSPECIFIED\x10\x00\x12(\n" +
 	"$MED_LOCATION_FORMAT_COORDINATE_BASED\x10\x01\x12%\n" +
 	"!MED_LOCATION_FORMAT_CIVIC_ADDRESS\x10\x02\x12\x1c\n" +
-	"\x18MED_LOCATION_FORMAT_ELIN\x10\x03B\xa5\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x16MedLocationFormatProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\x18MED_LOCATION_FORMAT_ELIN\x10\x03B\xa3\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x16MedLocationFormatProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_med_location_format_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_med_location_format_proto_goTypes = []any{

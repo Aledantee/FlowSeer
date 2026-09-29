@@ -378,8 +378,8 @@ const file_flowseer_net_nat_v1_nat_mapping_proto_rawDesc = "" +
 	"\x10global_addresses\x18\t \x01(\v2\x1d.flowseer.net.addr.v1.IpRangeR\x0fglobalAddresses\x12M\n" +
 	"\fglobal_ports\x18\n" +
 	" \x01(\v2*.flowseer.net.packet.v1.TransportPortRangeR\vglobalPorts:\x9e\x01\xbaH\x9a\x01\x1a\x97\x01\n" +
-	"\x1fnat_mapping.global_or_interface\x12<mapping without global_addresses must specify interface_name\x1a6has(this.global_addresses) || has(this.interface_name)B\xdf\x01\n" +
-	"\x17com.flowseer.net.nat.v1B\x0fNatMappingProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/nat/v1;natv1\xa2\x02\x03FNN\xaa\x02\x13Flowseer.Net.Nat.V1\xca\x02\x13Flowseer\\Net\\Nat\\V1\xe2\x02\x1fFlowseer\\Net\\Nat\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Nat::V1b\beditionsp\xe9\a"
+	"\x1fnat_mapping.global_or_interface\x12<mapping without global_addresses must specify interface_name\x1a6has(this.global_addresses) || has(this.interface_name)B\xdd\x01\n" +
+	"\x17com.flowseer.net.nat.v1B\x0fNatMappingProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/nat/v1;natv1\xa2\x02\x03FNN\xaa\x02\x13Flowseer.Net.Nat.V1\xca\x02\x13Flowseer\\Net\\Nat\\V1\xe2\x02\x1fFlowseer\\Net\\Nat\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Nat::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_nat_v1_nat_mapping_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_nat_v1_nat_mapping_proto_goTypes = []any{

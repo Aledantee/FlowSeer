@@ -393,8 +393,8 @@ const file_flowseer_model_policy_v1_handle_proto_rawDesc = "" +
 	"\x0fHostTrustHandle\x127\n" +
 	"\x03key\x18\x01 \x01(\tB%\xbaH\"\xc8\x01\x01r\x1d\x10\x01\x18\x80\x012\x16^[a-z0-9][a-z0-9._-]*$R\x03key\x12$\n" +
 	"\aversion\x18\x02 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\aversionB\xfc\x01\n" +
-	"\x1ccom.flowseer.model.policy.v1B\vHandleProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1;policyv1\xa2\x02\x03FMP\xaa\x02\x18Flowseer.Model.Policy.V1\xca\x02\x18Flowseer\\Model\\Policy\\V1\xe2\x02$Flowseer\\Model\\Policy\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Model::Policy::V1b\beditionsp\xe9\a"
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\aversionB\xfa\x01\n" +
+	"\x1ccom.flowseer.model.policy.v1B\vHandleProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1;policyv1\xa2\x02\x03FMP\xaa\x02\x18Flowseer.Model.Policy.V1\xca\x02\x18Flowseer\\Model\\Policy\\V1\xe2\x02$Flowseer\\Model\\Policy\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Model::Policy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_policy_v1_handle_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_flowseer_model_policy_v1_handle_proto_goTypes = []any{

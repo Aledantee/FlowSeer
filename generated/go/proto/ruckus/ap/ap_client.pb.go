@@ -3981,8 +3981,8 @@ const file_ruckus_ap_ap_client_proto_rawDesc = "" +
 	"deviceName\x12\"\n" +
 	"\fserialNumber\x18\x13 \x01(\tR\fserialNumber\x12$\n" +
 	"\rapRadioDeploy\x18\x14 \x01(\tR\rapRadioDeploy\x12?\n" +
-	"\x14ideal_stats_required\x18\x15 \x01(\v2\r.AttributeMapR\x12idealStatsRequiredBs\n" +
-	"\x1fcom.ruckuswireless.scg.protobufB\rApClientProtoP\x01Z4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\x14ideal_stats_required\x18\x15 \x01(\v2\r.AttributeMapR\x12idealStatsRequiredBq\n" +
+	"\x1fcom.ruckuswireless.scg.protobufB\rApClientProtoZ4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_ap_ap_client_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_ruckus_ap_ap_client_proto_goTypes = []any{

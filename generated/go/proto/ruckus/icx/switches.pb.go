@@ -54701,8 +54701,8 @@ const file_ruckus_icx_switches_proto_rawDesc = "" +
 	"secureMacs:\xa1\x01\n" +
 	"\x14selfGenerateTraffics\x122.com.ruckuswireless.scg.protobuf.storage.ListModel\x18\xa7\b \x03(\v28.com.ruckuswireless.scg.protobuf.icx.SelfGenerateTrafficR\x14selfGenerateTraffics:\x81\x01\n" +
 	"\tcliConfig\x122.com.ruckuswireless.scg.protobuf.storage.ListModel\x18\xa8\b \x03(\v2..com.ruckuswireless.scg.protobuf.icx.CliConfigR\tcliConfig:\x93\x01\n" +
-	"\x0fcliConfigDetail\x122.com.ruckuswireless.scg.protobuf.storage.ListModel\x18\xa9\b \x03(\v24.com.ruckuswireless.scg.protobuf.icx.CliConfigDetailR\x0fcliConfigDetailB\xac\x02\n" +
-	"'com.com.ruckuswireless.scg.protobuf.icxB\rSwitchesProtoP\x01Z5go.aledante.io/FlowSeer/generated/go/proto/ruckus/icx\xa2\x02\x05CRSPI\xaa\x02#Com.Ruckuswireless.Scg.Protobuf.Icx\xca\x02#Com\\Ruckuswireless\\Scg\\Protobuf\\Icx\xe2\x02/Com\\Ruckuswireless\\Scg\\Protobuf\\Icx\\GPBMetadata\xea\x02'Com::Ruckuswireless::Scg::Protobuf::Icx\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\x0fcliConfigDetail\x122.com.ruckuswireless.scg.protobuf.storage.ListModel\x18\xa9\b \x03(\v24.com.ruckuswireless.scg.protobuf.icx.CliConfigDetailR\x0fcliConfigDetailB\xaa\x02\n" +
+	"'com.com.ruckuswireless.scg.protobuf.icxB\rSwitchesProtoZ5go.aledante.io/FlowSeer/generated/go/proto/ruckus/icx\xa2\x02\x05CRSPI\xaa\x02#Com.Ruckuswireless.Scg.Protobuf.Icx\xca\x02#Com\\Ruckuswireless\\Scg\\Protobuf\\Icx\xe2\x02/Com\\Ruckuswireless\\Scg\\Protobuf\\Icx\\GPBMetadata\xea\x02'Com::Ruckuswireless::Scg::Protobuf::Icx\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_icx_switches_proto_enumTypes = make([]protoimpl.EnumInfo, 55)
 var file_ruckus_icx_switches_proto_msgTypes = make([]protoimpl.MessageInfo, 95)

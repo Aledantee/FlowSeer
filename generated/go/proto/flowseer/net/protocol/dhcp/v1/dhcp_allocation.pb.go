@@ -80,8 +80,8 @@ const file_flowseer_net_protocol_dhcp_v1_dhcp_allocation_proto_rawDesc = "" +
 	"\x1bDHCP_ALLOCATION_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19DHCP_ALLOCATION_AUTOMATIC\x10\x01\x12\x1b\n" +
 	"\x17DHCP_ALLOCATION_DYNAMIC\x10\x02\x12\x1a\n" +
-	"\x16DHCP_ALLOCATION_MANUAL\x10\x03B\xa2\x02\n" +
-	"!com.flowseer.net.protocol.dhcp.v1B\x13DhcpAllocationProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
+	"\x16DHCP_ALLOCATION_MANUAL\x10\x03B\xa0\x02\n" +
+	"!com.flowseer.net.protocol.dhcp.v1B\x13DhcpAllocationProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_dhcp_v1_dhcp_allocation_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_dhcp_v1_dhcp_allocation_proto_goTypes = []any{

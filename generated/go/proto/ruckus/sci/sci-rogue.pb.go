@@ -334,8 +334,8 @@ const file_ruckus_sci_sci_rogue_proto_rawDesc = "" +
 	"policyName\x12\x1a\n" +
 	"\bruleName\x18\x03 \x01(\tR\bruleName\x12\x12\n" +
 	"\x04type\x18\x04 \x01(\tR\x04type\x12,\n" +
-	"\x11policyDescription\x18\x05 \x01(\tR\x11policyDescriptionBx\n" +
-	"#com.ruckuswireless.scg.protobuf.sciB\rSciRogueProtoP\x01Z5go.aledante.io/FlowSeer/generated/go/proto/ruckus/sci\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\x11policyDescription\x18\x05 \x01(\tR\x11policyDescriptionBv\n" +
+	"#com.ruckuswireless.scg.protobuf.sciB\rSciRogueProtoZ5go.aledante.io/FlowSeer/generated/go/proto/ruckus/sci\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_sci_sci_rogue_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_ruckus_sci_sci_rogue_proto_goTypes = []any{

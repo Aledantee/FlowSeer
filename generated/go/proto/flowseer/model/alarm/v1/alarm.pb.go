@@ -1059,9 +1059,9 @@ const file_flowseer_model_alarm_v1_alarm_proto_rawDesc = "" +
 	"\x16ALARM_SEVERITY_WARNING\x10\x02\x12\x18\n" +
 	"\x14ALARM_SEVERITY_MINOR\x10\x03\x12\x18\n" +
 	"\x14ALARM_SEVERITY_MAJOR\x10\x04\x12\x1b\n" +
-	"\x17ALARM_SEVERITY_CRITICAL\x10\x05B\xf4\x01\n" +
+	"\x17ALARM_SEVERITY_CRITICAL\x10\x05B\xf2\x01\n" +
 	"\x1bcom.flowseer.model.alarm.v1B\n" +
-	"AlarmProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/alarm/v1;alarmv1\xa2\x02\x03FMA\xaa\x02\x17Flowseer.Model.Alarm.V1\xca\x02\x17Flowseer\\Model\\Alarm\\V1\xe2\x02#Flowseer\\Model\\Alarm\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Model::Alarm::V1b\beditionsp\xe9\a"
+	"AlarmProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/alarm/v1;alarmv1\xa2\x02\x03FMA\xaa\x02\x17Flowseer.Model.Alarm.V1\xca\x02\x17Flowseer\\Model\\Alarm\\V1\xe2\x02#Flowseer\\Model\\Alarm\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Model::Alarm::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_alarm_v1_alarm_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_model_alarm_v1_alarm_proto_msgTypes = make([]protoimpl.MessageInfo, 6)

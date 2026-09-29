@@ -365,9 +365,9 @@ const file_flowseer_errs_v1_error_proto_rawDesc = "" +
 	"\x10RetryDisposition\x12!\n" +
 	"\x1dRETRY_DISPOSITION_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bRETRY_DISPOSITION_RETRYABLE\x10\x01\x12\x1f\n" +
-	"\x1bRETRY_DISPOSITION_PERMANENT\x10\x02B\xc8\x01\n" +
+	"\x1bRETRY_DISPOSITION_PERMANENT\x10\x02B\xc6\x01\n" +
 	"\x14com.flowseer.errs.v1B\n" +
-	"ErrorProtoP\x01ZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1;errsv1\xa2\x02\x03FEX\xaa\x02\x10Flowseer.Errs.V1\xca\x02\x10Flowseer\\Errs\\V1\xe2\x02\x1cFlowseer\\Errs\\V1\\GPBMetadata\xea\x02\x12Flowseer::Errs::V1b\beditionsp\xe9\a"
+	"ErrorProtoZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1;errsv1\xa2\x02\x03FEX\xaa\x02\x10Flowseer.Errs.V1\xca\x02\x10Flowseer\\Errs\\V1\xe2\x02\x1cFlowseer\\Errs\\V1\\GPBMetadata\xea\x02\x12Flowseer::Errs::V1b\beditionsp\xe9\a"
 
 var file_flowseer_errs_v1_error_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_errs_v1_error_proto_msgTypes = make([]protoimpl.MessageInfo, 2)

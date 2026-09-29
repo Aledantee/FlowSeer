@@ -144,8 +144,8 @@ const file_flowseer_net_protocol_lldp_v1_other_management_address_proto_rawDesc 
 	"<flowseer/net/protocol/lldp/v1/other_management_address.proto\x12\x1dflowseer.net.protocol.lldp.v1\"s\n" +
 	"\x16OtherManagementAddress\x125\n" +
 	"\x0eaddress_family\x18\x01 \x01(\rB\x0e\xbaH\v\xc8\x01\x01*\x06\x18\xff\xff\x03(\x01R\raddressFamily\x12\"\n" +
-	"\x05value\x18\x02 \x01(\fB\f\xbaH\t\xc8\x01\x01z\x04\x10\x01\x18\x1fR\x05valueB\xaa\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x1bOtherManagementAddressProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\x05value\x18\x02 \x01(\fB\f\xbaH\t\xc8\x01\x01z\x04\x10\x01\x18\x1fR\x05valueB\xa8\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x1bOtherManagementAddressProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_other_management_address_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_other_management_address_proto_goTypes = []any{

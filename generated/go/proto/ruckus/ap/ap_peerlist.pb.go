@@ -1680,8 +1680,8 @@ const file_ruckus_ap_ap_peerlist_proto_rawDesc = "" +
 	"\rapRadioDeploy\x18\x10 \x01(\tR\rapRadioDeploy\x12?\n" +
 	"\x14ideal_stats_required\x18\x11 \x01(\v2\r.AttributeMapR\x12idealStatsRequired\x12\x16\n" +
 	"\x06reboot\x18\x12 \x01(\bR\x06reboot\x12\"\n" +
-	"\fserialNumber\x18\x13 \x01(\tR\fserialNumberBu\n" +
-	"\x1fcom.ruckuswireless.scg.protobufB\x0fApPeerlistProtoP\x01Z4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\fserialNumber\x18\x13 \x01(\tR\fserialNumberBs\n" +
+	"\x1fcom.ruckuswireless.scg.protobufB\x0fApPeerlistProtoZ4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_ap_ap_peerlist_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_ruckus_ap_ap_peerlist_proto_goTypes = []any{

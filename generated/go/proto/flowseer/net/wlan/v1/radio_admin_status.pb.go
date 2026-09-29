@@ -77,8 +77,8 @@ const file_flowseer_net_wlan_v1_radio_admin_status_proto_rawDesc = "" +
 	"\x10RadioAdminStatus\x12\"\n" +
 	"\x1eRADIO_ADMIN_STATUS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15RADIO_ADMIN_STATUS_UP\x10\x01\x12\x1b\n" +
-	"\x17RADIO_ADMIN_STATUS_DOWN\x10\x02B\xec\x01\n" +
-	"\x18com.flowseer.net.wlan.v1B\x15RadioAdminStatusProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
+	"\x17RADIO_ADMIN_STATUS_DOWN\x10\x02B\xea\x01\n" +
+	"\x18com.flowseer.net.wlan.v1B\x15RadioAdminStatusProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_wlan_v1_radio_admin_status_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_wlan_v1_radio_admin_status_proto_goTypes = []any{

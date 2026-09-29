@@ -792,8 +792,8 @@ const file_flowseer_model_inventory_v1_location_proto_rawDesc = "" +
 	"\bRackFace\x12\x19\n" +
 	"\x15RACK_FACE_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fRACK_FACE_FRONT\x10\x01\x12\x12\n" +
-	"\x0eRACK_FACE_REAR\x10\x02B\x93\x02\n" +
-	"\x1fcom.flowseer.model.inventory.v1B\rLocationProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"\x0eRACK_FACE_REAR\x10\x02B\x91\x02\n" +
+	"\x1fcom.flowseer.model.inventory.v1B\rLocationProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_location_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_flowseer_model_inventory_v1_location_proto_msgTypes = make([]protoimpl.MessageInfo, 4)

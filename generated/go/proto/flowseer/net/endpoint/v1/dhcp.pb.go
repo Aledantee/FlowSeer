@@ -45,8 +45,8 @@ const file_flowseer_net_endpoint_v1_dhcp_proto_rawDesc = "" +
 	"#flowseer/net/endpoint/v1/dhcp.proto\x12\x18flowseer.net.endpoint.v1\x1a\x1bbuf/validate/validate.proto:\xbe\x01\n" +
 	"\x10dhcp_option_code\x12\x19.buf.validate.UInt32Rules\x18ֆ\x03 \x01(\bBw\xc2Ht\n" +
 	"r\n" +
-	"\x17uint32.dhcp_option_code\x120value must be a valid DHCP option code in 1..254\x1a%!rule || (this >= 1u && this <= 254u)R\x0edhcpOptionCodeB\xfc\x01\n" +
-	"\x1ccom.flowseer.net.endpoint.v1B\tDhcpProtoP\x01ZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/endpoint/v1;endpointv1\xa2\x02\x03FNE\xaa\x02\x18Flowseer.Net.Endpoint.V1\xca\x02\x18Flowseer\\Net\\Endpoint\\V1\xe2\x02$Flowseer\\Net\\Endpoint\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Endpoint::V1b\beditionsp\xe9\a"
+	"\x17uint32.dhcp_option_code\x120value must be a valid DHCP option code in 1..254\x1a%!rule || (this >= 1u && this <= 254u)R\x0edhcpOptionCodeB\xfa\x01\n" +
+	"\x1ccom.flowseer.net.endpoint.v1B\tDhcpProtoZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/endpoint/v1;endpointv1\xa2\x02\x03FNE\xaa\x02\x18Flowseer.Net.Endpoint.V1\xca\x02\x18Flowseer\\Net\\Endpoint\\V1\xe2\x02$Flowseer\\Net\\Endpoint\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Endpoint::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_endpoint_v1_dhcp_proto_goTypes = []any{
 	(*validate.UInt32Rules)(nil), // 0: buf.validate.UInt32Rules

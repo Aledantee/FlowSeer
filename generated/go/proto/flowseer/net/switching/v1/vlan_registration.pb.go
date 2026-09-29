@@ -86,8 +86,8 @@ const file_flowseer_net_switching_v1_vlan_registration_proto_rawDesc = "" +
 	"\x1dVLAN_REGISTRATION_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17VLAN_REGISTRATION_OTHER\x10\x01\x12\x1f\n" +
 	"\x1bVLAN_REGISTRATION_PERMANENT\x10\x02\x12\x1d\n" +
-	"\x19VLAN_REGISTRATION_DYNAMIC\x10\x03B\x8f\x02\n" +
-	"\x1dcom.flowseer.net.switching.v1B\x15VlanRegistrationProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
+	"\x19VLAN_REGISTRATION_DYNAMIC\x10\x03B\x8d\x02\n" +
+	"\x1dcom.flowseer.net.switching.v1B\x15VlanRegistrationProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_switching_v1_vlan_registration_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_switching_v1_vlan_registration_proto_goTypes = []any{

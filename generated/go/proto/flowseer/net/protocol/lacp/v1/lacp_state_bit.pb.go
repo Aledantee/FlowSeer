@@ -106,8 +106,8 @@ const file_flowseer_net_protocol_lacp_v1_lacp_state_bit_proto_rawDesc = "" +
 	"\x19LACP_STATE_BIT_COLLECTING\x10\x05\x12\x1f\n" +
 	"\x1bLACP_STATE_BIT_DISTRIBUTING\x10\x06\x12\x1c\n" +
 	"\x18LACP_STATE_BIT_DEFAULTED\x10\a\x12\x1a\n" +
-	"\x16LACP_STATE_BIT_EXPIRED\x10\bB\xa0\x02\n" +
-	"!com.flowseer.net.protocol.lacp.v1B\x11LacpStateBitProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1;lacpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lacp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lacp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lacp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lacp::V1b\beditionsp\xe9\a"
+	"\x16LACP_STATE_BIT_EXPIRED\x10\bB\x9e\x02\n" +
+	"!com.flowseer.net.protocol.lacp.v1B\x11LacpStateBitProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1;lacpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lacp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lacp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lacp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lacp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lacp_v1_lacp_state_bit_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_lacp_v1_lacp_state_bit_proto_goTypes = []any{

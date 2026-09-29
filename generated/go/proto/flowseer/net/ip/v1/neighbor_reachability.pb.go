@@ -108,8 +108,8 @@ const file_flowseer_net_ip_v1_neighbor_reachability_proto_rawDesc = "" +
 	"\x1bNEIGHBOR_REACHABILITY_DELAY\x10\x04\x12\x1f\n" +
 	"\x1bNEIGHBOR_REACHABILITY_PROBE\x10\x05\x12 \n" +
 	"\x1cNEIGHBOR_REACHABILITY_FAILED\x10\x06\x12!\n" +
-	"\x1dNEIGHBOR_REACHABILITY_INVALID\x10\aB\xe2\x01\n" +
-	"\x16com.flowseer.net.ip.v1B\x19NeighborReachabilityProtoP\x01ZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1;ipv1\xa2\x02\x03FNI\xaa\x02\x12Flowseer.Net.Ip.V1\xca\x02\x12Flowseer\\Net\\Ip\\V1\xe2\x02\x1eFlowseer\\Net\\Ip\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::Ip::V1b\beditionsp\xe9\a"
+	"\x1dNEIGHBOR_REACHABILITY_INVALID\x10\aB\xe0\x01\n" +
+	"\x16com.flowseer.net.ip.v1B\x19NeighborReachabilityProtoZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1;ipv1\xa2\x02\x03FNI\xaa\x02\x12Flowseer.Net.Ip.V1\xca\x02\x12Flowseer\\Net\\Ip\\V1\xe2\x02\x1eFlowseer\\Net\\Ip\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::Ip::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_ip_v1_neighbor_reachability_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_ip_v1_neighbor_reachability_proto_goTypes = []any{

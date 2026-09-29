@@ -611,8 +611,8 @@ const file_flowseer_net_capture_v1_capture_filter_proto_rawDesc = "" +
 	"\tVlanMatch\x12\"\n" +
 	"\avlan_id\x18\x01 \x01(\rB\t\xbaH\x06*\x04\x88\xb5\x18\x01R\x06vlanId\x12\x1b\n" +
 	"\x03pcp\x18\x02 \x01(\rB\t\xbaH\x06*\x04\x90\xb5\x18\x01R\x03pcp:o\xbaHl\x1aj\n" +
-	"\x14vlan_match.non_empty\x12.a VLAN match must constrain the VID or the PCP\x1a\"has(this.vlan_id) || has(this.pcp)B\xfe\x01\n" +
-	"\x1bcom.flowseer.net.capture.v1B\x12CaptureFilterProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1;capturev1\xa2\x02\x03FNC\xaa\x02\x17Flowseer.Net.Capture.V1\xca\x02\x17Flowseer\\Net\\Capture\\V1\xe2\x02#Flowseer\\Net\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Capture::V1b\beditionsp\xe9\a"
+	"\x14vlan_match.non_empty\x12.a VLAN match must constrain the VID or the PCP\x1a\"has(this.vlan_id) || has(this.pcp)B\xfc\x01\n" +
+	"\x1bcom.flowseer.net.capture.v1B\x12CaptureFilterProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1;capturev1\xa2\x02\x03FNC\xaa\x02\x17Flowseer.Net.Capture.V1\xca\x02\x17Flowseer\\Net\\Capture\\V1\xe2\x02#Flowseer\\Net\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Capture::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_capture_v1_capture_filter_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_flowseer_net_capture_v1_capture_filter_proto_goTypes = []any{

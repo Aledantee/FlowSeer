@@ -1576,8 +1576,8 @@ const file_ruckus_sci_sci_pci_proto_rawDesc = "" +
 	"\x0esecurityMethod\x18\x06 \x01(\tR\x0esecurityMethod\x12\x1e\n" +
 	"\n" +
 	"wpaVersion\x18\a \x01(\tR\n" +
-	"wpaVersionBv\n" +
-	"#com.ruckuswireless.scg.protobuf.sciB\vSciPciProtoP\x01Z5go.aledante.io/FlowSeer/generated/go/proto/ruckus/sci\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"wpaVersionBt\n" +
+	"#com.ruckuswireless.scg.protobuf.sciB\vSciPciProtoZ5go.aledante.io/FlowSeer/generated/go/proto/ruckus/sci\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_sci_sci_pci_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_ruckus_sci_sci_pci_proto_goTypes = []any{

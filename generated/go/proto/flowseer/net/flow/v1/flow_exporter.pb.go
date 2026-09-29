@@ -302,8 +302,8 @@ const file_flowseer_net_flow_v1_flow_exporter_proto_rawDesc = "" +
 	"\x04dscp\x18\x06 \x01(\x0e2\x1e.flowseer.net.packet.v1.IpDscpB\n" +
 	"\xbaH\a\x82\x01\x04\x98\xb5\x18\x01R\x04dscp\x12V\n" +
 	"\x10template_refresh\x18\a \x01(\v2\x19.google.protobuf.DurationB\x10\xbaH\r\xaa\x01\n" +
-	"\"\x04\b\x80\xa3\x052\x02\b\x01R\x0ftemplateRefreshB\xe8\x01\n" +
-	"\x18com.flowseer.net.flow.v1B\x11FlowExporterProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/flow/v1;flowv1\xa2\x02\x03FNF\xaa\x02\x14Flowseer.Net.Flow.V1\xca\x02\x14Flowseer\\Net\\Flow\\V1\xe2\x02 Flowseer\\Net\\Flow\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Flow::V1b\beditionsp\xe9\a"
+	"\"\x04\b\x80\xa3\x052\x02\b\x01R\x0ftemplateRefreshB\xe6\x01\n" +
+	"\x18com.flowseer.net.flow.v1B\x11FlowExporterProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/flow/v1;flowv1\xa2\x02\x03FNF\xaa\x02\x14Flowseer.Net.Flow.V1\xca\x02\x14Flowseer\\Net\\Flow\\V1\xe2\x02 Flowseer\\Net\\Flow\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Flow::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_flow_v1_flow_exporter_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_flow_v1_flow_exporter_proto_goTypes = []any{

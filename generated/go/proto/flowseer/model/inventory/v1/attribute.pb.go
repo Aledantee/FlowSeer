@@ -1956,8 +1956,8 @@ const file_flowseer_model_inventory_v1_attribute_proto_rawDesc = "" +
 	"\x1eattribute_value_event.has_side\x128an attribute value event must carry a before or an after\x1a#has(this.before) || has(this.after)\x1a\xe8\x01\n" +
 	"(attribute_value_event.before_matches_ref\x128the before side must describe the entity the event names\x1a\x81\x01!has(this.before) || !has(this.ref) || !has(this.before.ref) || this.before.ref.attribute_value.id == this.ref.attribute_value.id\x1a\xe2\x01\n" +
 	"'attribute_value_event.after_matches_ref\x127the after side must describe the entity the event names\x1a~!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.attribute_value.id == this.ref.attribute_value.id\x1a\xdf\x01\n" +
-	"$attribute_value_event.immutable_core\x123an assignment transition may change only the values\x1a\x81\x01!has(this.before) || !has(this.after) || (this.before.owner == this.after.owner && this.before.attribute == this.after.attribute)B\x94\x02\n" +
-	"\x1fcom.flowseer.model.inventory.v1B\x0eAttributeProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"$attribute_value_event.immutable_core\x123an assignment transition may change only the values\x1a\x81\x01!has(this.before) || !has(this.after) || (this.before.owner == this.after.owner && this.before.attribute == this.after.attribute)B\x92\x02\n" +
+	"\x1fcom.flowseer.model.inventory.v1B\x0eAttributeProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_attribute_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_flowseer_model_inventory_v1_attribute_proto_goTypes = []any{

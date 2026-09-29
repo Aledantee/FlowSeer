@@ -1037,8 +1037,8 @@ const file_flowseer_model_inventory_v1_patch_panel_proto_rawDesc = "" +
 	"\x12PatchPanelPortSide\x12%\n" +
 	"!PATCH_PANEL_PORT_SIDE_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bPATCH_PANEL_PORT_SIDE_FRONT\x10\x01\x12\x1e\n" +
-	"\x1aPATCH_PANEL_PORT_SIDE_REAR\x10\x02B\x95\x02\n" +
-	"\x1fcom.flowseer.model.inventory.v1B\x0fPatchPanelProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"\x1aPATCH_PANEL_PORT_SIDE_REAR\x10\x02B\x93\x02\n" +
+	"\x1fcom.flowseer.model.inventory.v1B\x0fPatchPanelProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_patch_panel_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_model_inventory_v1_patch_panel_proto_msgTypes = make([]protoimpl.MessageInfo, 7)

@@ -606,8 +606,8 @@ const file_flowseer_model_inventory_v1_tag_proto_rawDesc = "" +
 	"\x05after\x18\x03 \x01(\v2&.flowseer.model.inventory.v1.TagConfigR\x05after:\xf3\x03\xbaH\xef\x03\x1af\n" +
 	"\x12tag_event.has_side\x12+a tag event must carry a before or an after\x1a#has(this.before) || has(this.after)\x1a\xc3\x01\n" +
 	"\x1ctag_event.before_matches_ref\x128the before side must describe the entity the event names\x1ai!has(this.before) || !has(this.ref) || !has(this.before.ref) || this.before.ref.tag.id == this.ref.tag.id\x1a\xbe\x01\n" +
-	"\x1btag_event.after_matches_ref\x127the after side must describe the entity the event names\x1af!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.tag.id == this.ref.tag.idB\x8e\x02\n" +
-	"\x1fcom.flowseer.model.inventory.v1B\bTagProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"\x1btag_event.after_matches_ref\x127the after side must describe the entity the event names\x1af!has(this.after) || !has(this.ref) || !has(this.after.ref) || this.after.ref.tag.id == this.ref.tag.idB\x8c\x02\n" +
+	"\x1fcom.flowseer.model.inventory.v1B\bTagProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_tag_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_flowseer_model_inventory_v1_tag_proto_goTypes = []any{

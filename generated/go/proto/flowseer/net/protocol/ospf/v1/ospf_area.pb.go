@@ -336,8 +336,8 @@ const file_flowseer_net_protocol_ospf_v1_ospf_area_proto_rawDesc = "" +
 	"\tarea_type\x18\x05 \x01(\x0e2+.flowseer.net.protocol.ospf.v1.OspfAreaTypeR\bareaType\x12\x1b\n" +
 	"\tlsa_count\x18\x06 \x01(\rR\blsaCount\x12.\n" +
 	"\x13area_border_routers\x18\a \x01(\rR\x11areaBorderRouters\x12*\n" +
-	"\x11as_border_routers\x18\b \x01(\rR\x0fasBorderRoutersB\x9c\x02\n" +
-	"!com.flowseer.net.protocol.ospf.v1B\rOspfAreaProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
+	"\x11as_border_routers\x18\b \x01(\rR\x0fasBorderRoutersB\x9a\x02\n" +
+	"!com.flowseer.net.protocol.ospf.v1B\rOspfAreaProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_ospf_v1_ospf_area_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_ospf_v1_ospf_area_proto_goTypes = []any{

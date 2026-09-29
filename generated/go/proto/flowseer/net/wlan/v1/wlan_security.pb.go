@@ -118,8 +118,8 @@ const file_flowseer_net_wlan_v1_wlan_security_proto_rawDesc = "" +
 	"\x1dWLAN_SECURITY_WPA3_ENTERPRISE\x10\b\x12,\n" +
 	"(WLAN_SECURITY_WPA3_ENTERPRISE_TRANSITION\x10\t\x12$\n" +
 	" WLAN_SECURITY_WPA3_ENTERPRISE192\x10\n" +
-	"B\xe8\x01\n" +
-	"\x18com.flowseer.net.wlan.v1B\x11WlanSecurityProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
+	"B\xe6\x01\n" +
+	"\x18com.flowseer.net.wlan.v1B\x11WlanSecurityProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_wlan_v1_wlan_security_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_wlan_v1_wlan_security_proto_goTypes = []any{

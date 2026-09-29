@@ -86,8 +86,8 @@ const file_flowseer_net_protocol_bgp_v1_bgp_as_path_segment_type_proto_rawDesc =
 	"\x1fBGP_AS_PATH_SEGMENT_TYPE_AS_SET\x10\x01\x12(\n" +
 	"$BGP_AS_PATH_SEGMENT_TYPE_AS_SEQUENCE\x10\x02\x12/\n" +
 	"+BGP_AS_PATH_SEGMENT_TYPE_AS_CONFED_SEQUENCE\x10\x03\x12*\n" +
-	"&BGP_AS_PATH_SEGMENT_TYPE_AS_CONFED_SET\x10\x04B\xa1\x02\n" +
-	" com.flowseer.net.protocol.bgp.v1B\x19BgpAsPathSegmentTypeProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
+	"&BGP_AS_PATH_SEGMENT_TYPE_AS_CONFED_SET\x10\x04B\x9f\x02\n" +
+	" com.flowseer.net.protocol.bgp.v1B\x19BgpAsPathSegmentTypeProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_bgp_v1_bgp_as_path_segment_type_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_bgp_v1_bgp_as_path_segment_type_proto_goTypes = []any{

@@ -105,8 +105,8 @@ const file_flowseer_net_protocol_ospf_v1_ospf_neighbor_state_proto_rawDesc = "" 
 	"\"OSPF_NEIGHBOR_STATE_EXCHANGE_START\x10\x05\x12 \n" +
 	"\x1cOSPF_NEIGHBOR_STATE_EXCHANGE\x10\x06\x12\x1f\n" +
 	"\x1bOSPF_NEIGHBOR_STATE_LOADING\x10\a\x12\x1c\n" +
-	"\x18OSPF_NEIGHBOR_STATE_FULL\x10\bB\xa5\x02\n" +
-	"!com.flowseer.net.protocol.ospf.v1B\x16OspfNeighborStateProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
+	"\x18OSPF_NEIGHBOR_STATE_FULL\x10\bB\xa3\x02\n" +
+	"!com.flowseer.net.protocol.ospf.v1B\x16OspfNeighborStateProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_ospf_v1_ospf_neighbor_state_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_ospf_v1_ospf_neighbor_state_proto_goTypes = []any{

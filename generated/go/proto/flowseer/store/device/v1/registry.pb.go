@@ -708,8 +708,8 @@ const file_flowseer_store_device_v1_registry_proto_rawDesc = "" +
 	"host_trust\x18\x04 \x01(\v2).flowseer.model.policy.v1.HostTrustHandleB\x06\xbaH\x03\xc8\x01\x01R\thostTrust\x12S\n" +
 	"\x13ssh_host_key_sha256\x18\x05 \x01(\tB$\xbaH!\xc8\x01\x01r\x1c2\x1a^SHA256:[A-Za-z0-9+/]{43}$R\x10sshHostKeySha256\x12U\n" +
 	"\x13read_credential_ttl\x18\x06 \x01(\v2\x19.google.protobuf.DurationB\n" +
-	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x11readCredentialTtlB\xfe\x01\n" +
-	"\x1ccom.flowseer.store.device.v1B\rRegistryProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
+	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x11readCredentialTtlB\xfc\x01\n" +
+	"\x1ccom.flowseer.store.device.v1B\rRegistryProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
 
 var file_flowseer_store_device_v1_registry_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_flowseer_store_device_v1_registry_proto_goTypes = []any{

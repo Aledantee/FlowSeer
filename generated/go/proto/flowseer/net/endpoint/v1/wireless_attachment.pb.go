@@ -546,8 +546,8 @@ const file_flowseer_net_endpoint_v1_wireless_attachment_proto_rawDesc = "" +
 	" \x01(\rB\t\xbaH\x06*\x04\x18\b(\x01R\x03nss\x12@\n" +
 	"\x0eguard_interval\x18\v \x01(\v2\x19.google.protobuf.DurationR\rguardInterval:\x90\x01\xbaH\x8c\x01\x1a\x89\x01\n" +
 	"&wireless_attachment.channel_needs_band\x12%channel requires band to be specified\x1a8!has(this.channel) || (has(this.band) && this.band != 0)B\x14\n" +
-	"\vserving_bss\x12\x05\xbaH\x02\b\x01B\x8a\x02\n" +
-	"\x1ccom.flowseer.net.endpoint.v1B\x17WirelessAttachmentProtoP\x01ZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/endpoint/v1;endpointv1\xa2\x02\x03FNE\xaa\x02\x18Flowseer.Net.Endpoint.V1\xca\x02\x18Flowseer\\Net\\Endpoint\\V1\xe2\x02$Flowseer\\Net\\Endpoint\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Endpoint::V1b\beditionsp\xe9\a"
+	"\vserving_bss\x12\x05\xbaH\x02\b\x01B\x88\x02\n" +
+	"\x1ccom.flowseer.net.endpoint.v1B\x17WirelessAttachmentProtoZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/endpoint/v1;endpointv1\xa2\x02\x03FNE\xaa\x02\x18Flowseer.Net.Endpoint.V1\xca\x02\x18Flowseer\\Net\\Endpoint\\V1\xe2\x02$Flowseer\\Net\\Endpoint\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Endpoint::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_endpoint_v1_wireless_attachment_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_endpoint_v1_wireless_attachment_proto_goTypes = []any{

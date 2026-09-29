@@ -85,8 +85,8 @@ const file_flowseer_net_protocol_isis_v1_isis_adjacency_state_proto_rawDesc = ""
 	"\x19ISIS_ADJACENCY_STATE_DOWN\x10\x01\x12%\n" +
 	"!ISIS_ADJACENCY_STATE_INITIALIZING\x10\x02\x12\x1b\n" +
 	"\x17ISIS_ADJACENCY_STATE_UP\x10\x03\x12\x1f\n" +
-	"\x1bISIS_ADJACENCY_STATE_FAILED\x10\x04B\xa6\x02\n" +
-	"!com.flowseer.net.protocol.isis.v1B\x17IsisAdjacencyStateProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/isis/v1;isisv1\xa2\x02\x04FNPI\xaa\x02\x1dFlowseer.Net.Protocol.Isis.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Isis\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Isis\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Isis::V1b\beditionsp\xe9\a"
+	"\x1bISIS_ADJACENCY_STATE_FAILED\x10\x04B\xa4\x02\n" +
+	"!com.flowseer.net.protocol.isis.v1B\x17IsisAdjacencyStateProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/isis/v1;isisv1\xa2\x02\x04FNPI\xaa\x02\x1dFlowseer.Net.Protocol.Isis.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Isis\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Isis\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Isis::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_isis_v1_isis_adjacency_state_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_isis_v1_isis_adjacency_state_proto_goTypes = []any{

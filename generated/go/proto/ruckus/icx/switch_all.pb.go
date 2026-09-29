@@ -671,8 +671,8 @@ const file_ruckus_icx_switch_all_proto_rawDesc = "" +
 	"switchName\x18\x12 \x01(\tR\n" +
 	"switchName\x12\x12\n" +
 	"\x04page\x18\x13 \x01(\x05R\x04page\x12\x14\n" +
-	"\x05total\x18\x14 \x01(\x05R\x05totalB\xad\x02\n" +
-	"'com.com.ruckuswireless.scg.protobuf.icxB\x0eSwitchAllProtoP\x01Z5go.aledante.io/FlowSeer/generated/go/proto/ruckus/icx\xa2\x02\x05CRSPI\xaa\x02#Com.Ruckuswireless.Scg.Protobuf.Icx\xca\x02#Com\\Ruckuswireless\\Scg\\Protobuf\\Icx\xe2\x02/Com\\Ruckuswireless\\Scg\\Protobuf\\Icx\\GPBMetadata\xea\x02'Com::Ruckuswireless::Scg::Protobuf::Icx\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\x05total\x18\x14 \x01(\x05R\x05totalB\xab\x02\n" +
+	"'com.com.ruckuswireless.scg.protobuf.icxB\x0eSwitchAllProtoZ5go.aledante.io/FlowSeer/generated/go/proto/ruckus/icx\xa2\x02\x05CRSPI\xaa\x02#Com.Ruckuswireless.Scg.Protobuf.Icx\xca\x02#Com\\Ruckuswireless\\Scg\\Protobuf\\Icx\xe2\x02/Com\\Ruckuswireless\\Scg\\Protobuf\\Icx\\GPBMetadata\xea\x02'Com::Ruckuswireless::Scg::Protobuf::Icx\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_icx_switch_all_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_ruckus_icx_switch_all_proto_goTypes = []any{

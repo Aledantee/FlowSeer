@@ -101,8 +101,8 @@ const file_flowseer_net_ip_v1_address_origin_proto_rawDesc = "" +
 	"\x15ADDRESS_ORIGIN_STATIC\x10\x02\x12\x17\n" +
 	"\x13ADDRESS_ORIGIN_DHCP\x10\x03\x12\x18\n" +
 	"\x14ADDRESS_ORIGIN_SLAAC\x10\x06\x12\x1d\n" +
-	"\x19ADDRESS_ORIGIN_LINK_LOCAL\x10\a\"\x04\b\x04\x10\x04\"\x04\b\x05\x10\x05*\x19ADDRESS_ORIGIN_LINK_LAYER*\x15ADDRESS_ORIGIN_RANDOMB\xdb\x01\n" +
-	"\x16com.flowseer.net.ip.v1B\x12AddressOriginProtoP\x01ZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1;ipv1\xa2\x02\x03FNI\xaa\x02\x12Flowseer.Net.Ip.V1\xca\x02\x12Flowseer\\Net\\Ip\\V1\xe2\x02\x1eFlowseer\\Net\\Ip\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::Ip::V1b\beditionsp\xe9\a"
+	"\x19ADDRESS_ORIGIN_LINK_LOCAL\x10\a\"\x04\b\x04\x10\x04\"\x04\b\x05\x10\x05*\x19ADDRESS_ORIGIN_LINK_LAYER*\x15ADDRESS_ORIGIN_RANDOMB\xd9\x01\n" +
+	"\x16com.flowseer.net.ip.v1B\x12AddressOriginProtoZBgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1;ipv1\xa2\x02\x03FNI\xaa\x02\x12Flowseer.Net.Ip.V1\xca\x02\x12Flowseer\\Net\\Ip\\V1\xe2\x02\x1eFlowseer\\Net\\Ip\\V1\\GPBMetadata\xea\x02\x15Flowseer::Net::Ip::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_ip_v1_address_origin_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_ip_v1_address_origin_proto_goTypes = []any{

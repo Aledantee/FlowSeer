@@ -417,8 +417,8 @@ const file_flowseer_edge_attach_v1_device_proto_rawDesc = "" +
 	"\bssh_port\x18\x05 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03(\x01R\asshPort\x12Y\n" +
 	"\raccess_policy\x18\x06 \x01(\v2,.flowseer.model.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12Y\n" +
 	"\x15delayed_apply_horizon\x18\a \x01(\v2\x19.google.protobuf.DurationB\n" +
-	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x13delayedApplyHorizonB\xf6\x01\n" +
-	"\x1bcom.flowseer.edge.attach.v1B\vDeviceProtoP\x01ZKgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1;attachv1\xa2\x02\x03FEA\xaa\x02\x17Flowseer.Edge.Attach.V1\xca\x02\x17Flowseer\\Edge\\Attach\\V1\xe2\x02#Flowseer\\Edge\\Attach\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Edge::Attach::V1b\beditionsp\xe9\a"
+	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x13delayedApplyHorizonB\xf4\x01\n" +
+	"\x1bcom.flowseer.edge.attach.v1B\vDeviceProtoZKgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1;attachv1\xa2\x02\x03FEA\xaa\x02\x17Flowseer.Edge.Attach.V1\xca\x02\x17Flowseer\\Edge\\Attach\\V1\xe2\x02#Flowseer\\Edge\\Attach\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Edge::Attach::V1b\beditionsp\xe9\a"
 
 var file_flowseer_edge_attach_v1_device_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_flowseer_edge_attach_v1_device_proto_goTypes = []any{

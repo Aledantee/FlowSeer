@@ -745,8 +745,8 @@ const file_flowseer_event_log_v1_syslog_record_proto_rawDesc = "" +
 	"\x06params\x18\x02 \x03(\v20.flowseer.event.log.v1.SyslogStructuredDataParamR\x06params\"`\n" +
 	"\x19SyslogStructuredDataParam\x12 \n" +
 	"\x04name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18 R\x04name\x12!\n" +
-	"\x05value\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\x18\x80\bR\x05valueB\xed\x01\n" +
-	"\x19com.flowseer.event.log.v1B\x11SyslogRecordProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/event/log/v1;logv1\xa2\x02\x03FEL\xaa\x02\x15Flowseer.Event.Log.V1\xca\x02\x15Flowseer\\Event\\Log\\V1\xe2\x02!Flowseer\\Event\\Log\\V1\\GPBMetadata\xea\x02\x18Flowseer::Event::Log::V1b\beditionsp\xe9\a"
+	"\x05value\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\x18\x80\bR\x05valueB\xeb\x01\n" +
+	"\x19com.flowseer.event.log.v1B\x11SyslogRecordProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/event/log/v1;logv1\xa2\x02\x03FEL\xaa\x02\x15Flowseer.Event.Log.V1\xca\x02\x15Flowseer\\Event\\Log\\V1\xe2\x02!Flowseer\\Event\\Log\\V1\\GPBMetadata\xea\x02\x18Flowseer::Event::Log::V1b\beditionsp\xe9\a"
 
 var file_flowseer_event_log_v1_syslog_record_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_flowseer_event_log_v1_syslog_record_proto_goTypes = []any{

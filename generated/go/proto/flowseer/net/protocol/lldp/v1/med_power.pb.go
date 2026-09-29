@@ -214,8 +214,8 @@ const file_flowseer_net_protocol_lldp_v1_med_power_proto_rawDesc = "" +
 	"\x04role\x18\x01 \x01(\x0e2\x1c.flowseer.net.phy.v1.PoeRoleR\x04role\x12E\n" +
 	"\x06source\x18\x02 \x01(\x0e2-.flowseer.net.protocol.lldp.v1.MedPowerSourceR\x06source\x12<\n" +
 	"\bpriority\x18\x03 \x01(\x0e2 .flowseer.net.phy.v1.PoePriorityR\bpriority\x125\n" +
-	"\x0fpower_nanowatts\x18\x04 \x01(\x04B\f\xbaH\t2\a\x18\x80\xbe\xb8\x8c\xfd\x02R\x0epowerNanowattsB\x9c\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\rMedPowerProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\x0fpower_nanowatts\x18\x04 \x01(\x04B\f\xbaH\t2\a\x18\x80\xbe\xb8\x8c\xfd\x02R\x0epowerNanowattsB\x9a\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\rMedPowerProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_med_power_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_med_power_proto_goTypes = []any{

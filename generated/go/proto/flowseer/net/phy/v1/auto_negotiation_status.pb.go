@@ -89,8 +89,8 @@ const file_flowseer_net_phy_v1_auto_negotiation_status_proto_rawDesc = "" +
 	" AUTO_NEGOTIATION_STATUS_DISABLED\x10\x01\x12'\n" +
 	"#AUTO_NEGOTIATION_STATUS_NEGOTIATING\x10\x02\x12$\n" +
 	" AUTO_NEGOTIATION_STATUS_COMPLETE\x10\x03\x12\"\n" +
-	"\x1eAUTO_NEGOTIATION_STATUS_FAILED\x10\x04B\xea\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\x1aAutoNegotiationStatusProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"\x1eAUTO_NEGOTIATION_STATUS_FAILED\x10\x04B\xe8\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\x1aAutoNegotiationStatusProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_auto_negotiation_status_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_phy_v1_auto_negotiation_status_proto_goTypes = []any{

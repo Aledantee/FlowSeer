@@ -521,8 +521,8 @@ const file_flowseer_net_protocol_bgp_v1_bgp_path_proto_rawDesc = "" +
 	"\x10BgpAsPathSegment\x12U\n" +
 	"\x04type\x18\x01 \x01(\x0e22.flowseer.net.protocol.bgp.v1.BgpAsPathSegmentTypeB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04type\x12\x1f\n" +
-	"\x04asns\x18\x02 \x03(\rB\v\xbaH\b\x92\x01\x05\b\x01\x10\xff\x01R\x04asnsB\x94\x02\n" +
-	" com.flowseer.net.protocol.bgp.v1B\fBgpPathProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
+	"\x04asns\x18\x02 \x03(\rB\v\xbaH\b\x92\x01\x05\b\x01\x10\xff\x01R\x04asnsB\x92\x02\n" +
+	" com.flowseer.net.protocol.bgp.v1B\fBgpPathProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_bgp_v1_bgp_path_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_net_protocol_bgp_v1_bgp_path_proto_goTypes = []any{

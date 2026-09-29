@@ -87,8 +87,8 @@ const file_flowseer_net_protocol_bgp_v1_bgp_afi_proto_rawDesc = "" +
 	"\fBGP_AFI_IPV4\x10\x01\x12\x10\n" +
 	"\fBGP_AFI_IPV6\x10\x02\x12\x11\n" +
 	"\rBGP_AFI_L2VPN\x10\x19\x12\x14\n" +
-	"\x0eBGP_AFI_BGP_LS\x10\x84\x80\x01B\x93\x02\n" +
-	" com.flowseer.net.protocol.bgp.v1B\vBgpAfiProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
+	"\x0eBGP_AFI_BGP_LS\x10\x84\x80\x01B\x91\x02\n" +
+	" com.flowseer.net.protocol.bgp.v1B\vBgpAfiProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_bgp_v1_bgp_afi_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_bgp_v1_bgp_afi_proto_goTypes = []any{

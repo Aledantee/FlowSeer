@@ -84,9 +84,9 @@ const file_flowseer_net_packet_v1_ip_ecn_proto_rawDesc = "" +
 	"\x0eIP_ECN_NON_ECT\x10\x00\x12\x12\n" +
 	"\x0eIP_ECN_ECT_ONE\x10\x01\x12\x13\n" +
 	"\x0fIP_ECN_ECT_ZERO\x10\x02\x12\r\n" +
-	"\tIP_ECN_CE\x10\x03B\xef\x01\n" +
+	"\tIP_ECN_CE\x10\x03B\xed\x01\n" +
 	"\x1acom.flowseer.net.packet.v1B\n" +
-	"IpEcnProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1;packetv1\xa2\x02\x03FNP\xaa\x02\x16Flowseer.Net.Packet.V1\xca\x02\x16Flowseer\\Net\\Packet\\V1\xe2\x02\"Flowseer\\Net\\Packet\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Packet::V1b\beditionsp\xe9\a"
+	"IpEcnProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1;packetv1\xa2\x02\x03FNP\xaa\x02\x16Flowseer.Net.Packet.V1\xca\x02\x16Flowseer\\Net\\Packet\\V1\xe2\x02\"Flowseer\\Net\\Packet\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Packet::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_packet_v1_ip_ecn_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_packet_v1_ip_ecn_proto_goTypes = []any{

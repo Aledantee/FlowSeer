@@ -114,8 +114,8 @@ const file_flowseer_net_protocol_lldp_v1_tlv_type_proto_rawDesc = "" +
 	"\x1bTLV_TYPE_SYSTEM_DESCRIPTION\x10\x06\x12 \n" +
 	"\x1cTLV_TYPE_SYSTEM_CAPABILITIES\x10\a\x12\x1f\n" +
 	"\x1bTLV_TYPE_MANAGEMENT_ADDRESS\x10\b\x12&\n" +
-	"\"TLV_TYPE_ORGANIZATIONALLY_SPECIFIC\x10\x7fB\x9b\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\fTlvTypeProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\"TLV_TYPE_ORGANIZATIONALLY_SPECIFIC\x10\x7fB\x99\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\fTlvTypeProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_tlv_type_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_tlv_type_proto_goTypes = []any{

@@ -241,8 +241,8 @@ const file_flowseer_net_phy_v1_mau_link_mode_proto_rawDesc = "" +
 	"\x1eMAU_LINK_MODE_BASE_CR4_GBPS100\x10\x1e\x12\"\n" +
 	"\x1eMAU_LINK_MODE_BASE_KR4_GBPS100\x10\x1f\x12\"\n" +
 	"\x1eMAU_LINK_MODE_BASE_KP4_GBPS100\x10 \x12$\n" +
-	" MAU_LINK_MODE_FORCE_MASTER_SLAVE\x10!B\xe0\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\x10MauLinkModeProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	" MAU_LINK_MODE_FORCE_MASTER_SLAVE\x10!B\xde\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\x10MauLinkModeProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_mau_link_mode_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_phy_v1_mau_link_mode_proto_goTypes = []any{

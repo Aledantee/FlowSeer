@@ -84,8 +84,8 @@ const file_flowseer_net_key_v1_key_proto_rawDesc = "" +
 	"\x1cstring.network_instance_name\x12<value must be a network instance name of 1 to 255 characters\x1a1!rule || (this.size() >= 1 && this.size() <= 255)R\x13networkInstanceName:\xec\x01\n" +
 	"\x16protocol_instance_name\x12\x19.buf.validate.StringRules\x18ӆ\x03 \x01(\bB\x98\x01\xc2H\x94\x01\n" +
 	"\x91\x01\n" +
-	"\x1dstring.protocol_instance_name\x12=value must be a protocol instance name of 1 to 255 characters\x1a1!rule || (this.size() >= 1 && this.size() <= 255)R\x14protocolInstanceNameB\xd8\x01\n" +
-	"\x17com.flowseer.net.key.v1B\bKeyProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1;keyv1\xa2\x02\x03FNK\xaa\x02\x13Flowseer.Net.Key.V1\xca\x02\x13Flowseer\\Net\\Key\\V1\xe2\x02\x1fFlowseer\\Net\\Key\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Key::V1b\beditionsp\xe9\a"
+	"\x1dstring.protocol_instance_name\x12=value must be a protocol instance name of 1 to 255 characters\x1a1!rule || (this.size() >= 1 && this.size() <= 255)R\x14protocolInstanceNameB\xd6\x01\n" +
+	"\x17com.flowseer.net.key.v1B\bKeyProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1;keyv1\xa2\x02\x03FNK\xaa\x02\x13Flowseer.Net.Key.V1\xca\x02\x13Flowseer\\Net\\Key\\V1\xe2\x02\x1fFlowseer\\Net\\Key\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Key::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_key_v1_key_proto_goTypes = []any{
 	(*validate.StringRules)(nil), // 0: buf.validate.StringRules

@@ -163,8 +163,8 @@ const file_flowseer_net_packet_v1_ip_protocol_proto_rawDesc = "" +
 	"\vip_protocol\x12\x17.buf.validate.EnumRules\x18҆\x03 \x01(\bBu\xc2Hr\n" +
 	"p\n" +
 	"\x10enum.ip_protocol\x127value must fit the one-octet IANA protocol number field\x1a#!rule || (this >= 0 && this <= 255)R\n" +
-	"ipProtocolB\xf4\x01\n" +
-	"\x1acom.flowseer.net.packet.v1B\x0fIpProtocolProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1;packetv1\xa2\x02\x03FNP\xaa\x02\x16Flowseer.Net.Packet.V1\xca\x02\x16Flowseer\\Net\\Packet\\V1\xe2\x02\"Flowseer\\Net\\Packet\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Packet::V1b\beditionsp\xe9\a"
+	"ipProtocolB\xf2\x01\n" +
+	"\x1acom.flowseer.net.packet.v1B\x0fIpProtocolProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1;packetv1\xa2\x02\x03FNP\xaa\x02\x16Flowseer.Net.Packet.V1\xca\x02\x16Flowseer\\Net\\Packet\\V1\xe2\x02\"Flowseer\\Net\\Packet\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Packet::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_packet_v1_ip_protocol_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_packet_v1_ip_protocol_proto_goTypes = []any{

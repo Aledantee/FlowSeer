@@ -448,8 +448,8 @@ const file_flowseer_net_protocol_ntp_v1_association_proto_rawDesc = "" +
 	" \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x022\x00R\x06jitter\x12H\n" +
 	"\rpoll_interval\x18\v \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x02*\x00R\fpollInterval\x12X\n" +
 	"\tselection\x18\f \x01(\x0e2..flowseer.net.protocol.ntp.v1.NtpPeerSelectionB\n" +
-	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\tselectionB\x98\x02\n" +
-	" com.flowseer.net.protocol.ntp.v1B\x10AssociationProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ntp/v1;ntpv1\xa2\x02\x04FNPN\xaa\x02\x1cFlowseer.Net.Protocol.Ntp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Ntp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Ntp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Ntp::V1b\beditionsp\xe9\a"
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\tselectionB\x96\x02\n" +
+	" com.flowseer.net.protocol.ntp.v1B\x10AssociationProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ntp/v1;ntpv1\xa2\x02\x04FNPN\xaa\x02\x1cFlowseer.Net.Protocol.Ntp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Ntp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Ntp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Ntp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_ntp_v1_association_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_ntp_v1_association_proto_goTypes = []any{

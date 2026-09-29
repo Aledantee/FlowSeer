@@ -363,8 +363,8 @@ const file_flowseer_net_wlan_v1_bss_proto_rawDesc = "" +
 	"\vdtim_period\x18\b \x01(\rB\n" +
 	"\xbaH\a*\x05\x18\xff\x01(\x01R\n" +
 	"dtimPeriod\x126\n" +
-	"\x17associated_client_count\x18\t \x01(\rR\x15associatedClientCountB\xdf\x01\n" +
-	"\x18com.flowseer.net.wlan.v1B\bBssProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
+	"\x17associated_client_count\x18\t \x01(\rR\x15associatedClientCountB\xdd\x01\n" +
+	"\x18com.flowseer.net.wlan.v1B\bBssProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_wlan_v1_bss_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_wlan_v1_bss_proto_goTypes = []any{

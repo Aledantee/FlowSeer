@@ -317,8 +317,8 @@ const file_flowseer_net_packet_v1_transport_port_proto_rawDesc = "" +
 	"\x12TransportPortMatch\x12!\n" +
 	"\x05exact\x18\x01 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03H\x00R\x05exact\x12B\n" +
 	"\x05range\x18\x02 \x01(\v2*.flowseer.net.packet.v1.TransportPortRangeH\x00R\x05rangeB\x12\n" +
-	"\tselection\x12\x05\xbaH\x02\b\x01B\xf7\x01\n" +
-	"\x1acom.flowseer.net.packet.v1B\x12TransportPortProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1;packetv1\xa2\x02\x03FNP\xaa\x02\x16Flowseer.Net.Packet.V1\xca\x02\x16Flowseer\\Net\\Packet\\V1\xe2\x02\"Flowseer\\Net\\Packet\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Packet::V1b\beditionsp\xe9\a"
+	"\tselection\x12\x05\xbaH\x02\b\x01B\xf5\x01\n" +
+	"\x1acom.flowseer.net.packet.v1B\x12TransportPortProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1;packetv1\xa2\x02\x03FNP\xaa\x02\x16Flowseer.Net.Packet.V1\xca\x02\x16Flowseer\\Net\\Packet\\V1\xe2\x02\"Flowseer\\Net\\Packet\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Packet::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_packet_v1_transport_port_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_net_packet_v1_transport_port_proto_goTypes = []any{

@@ -97,8 +97,8 @@ const file_flowseer_net_protocol_bgp_v1_bgp_peer_state_proto_rawDesc = "" +
 	"\x15BGP_PEER_STATE_ACTIVE\x10\x03\x12\x1c\n" +
 	"\x18BGP_PEER_STATE_OPEN_SENT\x10\x04\x12\x1f\n" +
 	"\x1bBGP_PEER_STATE_OPEN_CONFIRM\x10\x05\x12\x1e\n" +
-	"\x1aBGP_PEER_STATE_ESTABLISHED\x10\x06B\x99\x02\n" +
-	" com.flowseer.net.protocol.bgp.v1B\x11BgpPeerStateProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
+	"\x1aBGP_PEER_STATE_ESTABLISHED\x10\x06B\x97\x02\n" +
+	" com.flowseer.net.protocol.bgp.v1B\x11BgpPeerStateProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_bgp_v1_bgp_peer_state_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_bgp_v1_bgp_peer_state_proto_goTypes = []any{

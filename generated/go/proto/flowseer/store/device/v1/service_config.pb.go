@@ -1182,8 +1182,8 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\x0fLOG_LEVEL_DEBUG\x10\x01\x12\x12\n" +
 	"\x0eLOG_LEVEL_INFO\x10\x02\x12\x12\n" +
 	"\x0eLOG_LEVEL_WARN\x10\x03\x12\x13\n" +
-	"\x0fLOG_LEVEL_ERROR\x10\x04B\x83\x02\n" +
-	"\x1ccom.flowseer.store.device.v1B\x12ServiceConfigProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
+	"\x0fLOG_LEVEL_ERROR\x10\x04B\x81\x02\n" +
+	"\x1ccom.flowseer.store.device.v1B\x12ServiceConfigProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
 
 var file_flowseer_store_device_v1_service_config_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_store_device_v1_service_config_proto_msgTypes = make([]protoimpl.MessageInfo, 6)

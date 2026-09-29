@@ -112,8 +112,8 @@ const file_flowseer_model_principal_v1_operator_proto_rawDesc = "" +
 	"*flowseer/model/principal/v1/operator.proto\x12\x1bflowseer.model.principal.v1\"6\n" +
 	"\vOperatorRef\x12'\n" +
 	"\asubject\x18\x01 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\asubjectB\x93\x02\n" +
-	"\x1fcom.flowseer.model.principal.v1B\rOperatorProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1;principalv1\xa2\x02\x03FMP\xaa\x02\x1bFlowseer.Model.Principal.V1\xca\x02\x1bFlowseer\\Model\\Principal\\V1\xe2\x02'Flowseer\\Model\\Principal\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Principal::V1b\beditionsp\xe9\a"
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\asubjectB\x91\x02\n" +
+	"\x1fcom.flowseer.model.principal.v1B\rOperatorProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1;principalv1\xa2\x02\x03FMP\xaa\x02\x1bFlowseer.Model.Principal.V1\xca\x02\x1bFlowseer\\Model\\Principal\\V1\xe2\x02'Flowseer\\Model\\Principal\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Principal::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_principal_v1_operator_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_model_principal_v1_operator_proto_goTypes = []any{

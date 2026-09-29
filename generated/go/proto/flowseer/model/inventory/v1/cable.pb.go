@@ -1169,9 +1169,9 @@ const file_flowseer_model_inventory_v1_cable_proto_rawDesc = "" +
 	"\x16CABLE_ROLE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10CABLE_ROLE_PATCH\x10\x01\x12\x1d\n" +
 	"\x19CABLE_ROLE_PERMANENT_LINK\x10\x02\x12\x14\n" +
-	"\x10CABLE_ROLE_TRUNK\x10\x03B\x90\x02\n" +
+	"\x10CABLE_ROLE_TRUNK\x10\x03B\x8e\x02\n" +
 	"\x1fcom.flowseer.model.inventory.v1B\n" +
-	"CableProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"CableProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_cable_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_flowseer_model_inventory_v1_cable_proto_msgTypes = make([]protoimpl.MessageInfo, 5)

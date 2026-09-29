@@ -79,8 +79,8 @@ const file_flowseer_net_multicast_v1_membership_kind_proto_rawDesc = "" +
 	"\x0eMembershipKind\x12\x1f\n" +
 	"\x1bMEMBERSHIP_KIND_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16MEMBERSHIP_KIND_STATIC\x10\x01\x12\x1b\n" +
-	"\x17MEMBERSHIP_KIND_DYNAMIC\x10\x02B\x8d\x02\n" +
-	"\x1dcom.flowseer.net.multicast.v1B\x13MembershipKindProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/multicast/v1;multicastv1\xa2\x02\x03FNM\xaa\x02\x19Flowseer.Net.Multicast.V1\xca\x02\x19Flowseer\\Net\\Multicast\\V1\xe2\x02%Flowseer\\Net\\Multicast\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Multicast::V1b\beditionsp\xe9\a"
+	"\x17MEMBERSHIP_KIND_DYNAMIC\x10\x02B\x8b\x02\n" +
+	"\x1dcom.flowseer.net.multicast.v1B\x13MembershipKindProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/multicast/v1;multicastv1\xa2\x02\x03FNM\xaa\x02\x19Flowseer.Net.Multicast.V1\xca\x02\x19Flowseer\\Net\\Multicast\\V1\xe2\x02%Flowseer\\Net\\Multicast\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Multicast::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_multicast_v1_membership_kind_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_multicast_v1_membership_kind_proto_goTypes = []any{

@@ -45,8 +45,8 @@ const file_flowseer_net_measure_v1_basis_points_proto_rawDesc = "" +
 	"*flowseer/net/measure/v1/basis_points.proto\x12\x17flowseer.net.measure.v1\x1a\x1bbuf/validate/validate.proto:\xa2\x01\n" +
 	"\fbasis_points\x12\x19.buf.validate.UInt32Rules\x18ӆ\x03 \x01(\bBb\xc2H_\n" +
 	"]\n" +
-	"\x13uint32.basis_points\x12-value must be a basis-point ratio in 0..10000\x1a\x17!rule || this <= 10000uR\vbasisPointsB\xfc\x01\n" +
-	"\x1bcom.flowseer.net.measure.v1B\x10BasisPointsProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/measure/v1;measurev1\xa2\x02\x03FNM\xaa\x02\x17Flowseer.Net.Measure.V1\xca\x02\x17Flowseer\\Net\\Measure\\V1\xe2\x02#Flowseer\\Net\\Measure\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Measure::V1b\beditionsp\xe9\a"
+	"\x13uint32.basis_points\x12-value must be a basis-point ratio in 0..10000\x1a\x17!rule || this <= 10000uR\vbasisPointsB\xfa\x01\n" +
+	"\x1bcom.flowseer.net.measure.v1B\x10BasisPointsProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/measure/v1;measurev1\xa2\x02\x03FNM\xaa\x02\x17Flowseer.Net.Measure.V1\xca\x02\x17Flowseer\\Net\\Measure\\V1\xe2\x02#Flowseer\\Net\\Measure\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Measure::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_measure_v1_basis_points_proto_goTypes = []any{
 	(*validate.UInt32Rules)(nil), // 0: buf.validate.UInt32Rules

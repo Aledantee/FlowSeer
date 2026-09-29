@@ -86,8 +86,8 @@ const file_flowseer_net_protocol_ospf_v1_ospf_interface_type_proto_rawDesc = "" 
 	"\x1dOSPF_INTERFACE_TYPE_BROADCAST\x10\x01\x12\x1c\n" +
 	"\x18OSPF_INTERFACE_TYPE_NBMA\x10\x02\x12&\n" +
 	"\"OSPF_INTERFACE_TYPE_POINT_TO_POINT\x10\x03\x12+\n" +
-	"'OSPF_INTERFACE_TYPE_POINT_TO_MULTIPOINT\x10\x05B\xa5\x02\n" +
-	"!com.flowseer.net.protocol.ospf.v1B\x16OspfInterfaceTypeProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
+	"'OSPF_INTERFACE_TYPE_POINT_TO_MULTIPOINT\x10\x05B\xa3\x02\n" +
+	"!com.flowseer.net.protocol.ospf.v1B\x16OspfInterfaceTypeProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_ospf_v1_ospf_interface_type_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_ospf_v1_ospf_interface_type_proto_goTypes = []any{

@@ -204,8 +204,8 @@ const file_flowseer_net_flow_v1_sflow_poller_proto_rawDesc = "" +
 	"\binstance\x18\x02 \x01(\rR\binstance\x125\n" +
 	"\x0ereceiver_index\x18\x03 \x01(\rB\x0e\xbaH\v\xc8\x01\x01*\x06\x18\xff\xff\x03(\x01R\rreceiverIndex\x12D\n" +
 	"\binterval\x18\x04 \x01(\v2\x19.google.protobuf.DurationB\r\xbaH\n" +
-	"\xc8\x01\x01\xaa\x01\x042\x02\b\x01R\bintervalB\xe7\x01\n" +
-	"\x18com.flowseer.net.flow.v1B\x10SflowPollerProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/flow/v1;flowv1\xa2\x02\x03FNF\xaa\x02\x14Flowseer.Net.Flow.V1\xca\x02\x14Flowseer\\Net\\Flow\\V1\xe2\x02 Flowseer\\Net\\Flow\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Flow::V1b\beditionsp\xe9\a"
+	"\xc8\x01\x01\xaa\x01\x042\x02\b\x01R\bintervalB\xe5\x01\n" +
+	"\x18com.flowseer.net.flow.v1B\x10SflowPollerProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/flow/v1;flowv1\xa2\x02\x03FNF\xaa\x02\x14Flowseer.Net.Flow.V1\xca\x02\x14Flowseer\\Net\\Flow\\V1\xe2\x02 Flowseer\\Net\\Flow\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Flow::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_flow_v1_sflow_poller_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_flow_v1_sflow_poller_proto_goTypes = []any{

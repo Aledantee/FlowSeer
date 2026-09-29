@@ -89,8 +89,8 @@ const file_flowseer_net_protocol_lldp_v1_port_admin_status_proto_rawDesc = "" +
 	"\x19PORT_ADMIN_STATUS_TX_ONLY\x10\x01\x12\x1d\n" +
 	"\x19PORT_ADMIN_STATUS_RX_ONLY\x10\x02\x12\x1f\n" +
 	"\x1bPORT_ADMIN_STATUS_TX_AND_RX\x10\x03\x12\x1e\n" +
-	"\x1aPORT_ADMIN_STATUS_DISABLED\x10\x04B\xa3\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x14PortAdminStatusProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\x1aPORT_ADMIN_STATUS_DISABLED\x10\x04B\xa1\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x14PortAdminStatusProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_port_admin_status_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_port_admin_status_proto_goTypes = []any{

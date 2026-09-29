@@ -76,8 +76,8 @@ const file_flowseer_net_aaa_v1_aaa_server_status_proto_rawDesc = "" +
 	"\x0fAaaServerStatus\x12!\n" +
 	"\x1dAAA_SERVER_STATUS_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17AAA_SERVER_STATUS_ALIVE\x10\x01\x12\x1a\n" +
-	"\x16AAA_SERVER_STATUS_DEAD\x10\x02B\xe4\x01\n" +
-	"\x17com.flowseer.net.aaa.v1B\x14AaaServerStatusProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/aaa/v1;aaav1\xa2\x02\x03FNA\xaa\x02\x13Flowseer.Net.Aaa.V1\xca\x02\x13Flowseer\\Net\\Aaa\\V1\xe2\x02\x1fFlowseer\\Net\\Aaa\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Aaa::V1b\beditionsp\xe9\a"
+	"\x16AAA_SERVER_STATUS_DEAD\x10\x02B\xe2\x01\n" +
+	"\x17com.flowseer.net.aaa.v1B\x14AaaServerStatusProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/aaa/v1;aaav1\xa2\x02\x03FNA\xaa\x02\x13Flowseer.Net.Aaa.V1\xca\x02\x13Flowseer\\Net\\Aaa\\V1\xe2\x02\x1fFlowseer\\Net\\Aaa\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Aaa::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_aaa_v1_aaa_server_status_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_aaa_v1_aaa_server_status_proto_goTypes = []any{

@@ -89,8 +89,8 @@ const file_flowseer_net_nat_v1_nat_translation_proto_rawDesc = "" +
 	"\x1eNAT_TRANSLATION_INBOUND_SOURCE\x10\x01\x12(\n" +
 	"$NAT_TRANSLATION_OUTBOUND_DESTINATION\x10\x02\x12'\n" +
 	"#NAT_TRANSLATION_INBOUND_DESTINATION\x10\x03\x12#\n" +
-	"\x1fNAT_TRANSLATION_OUTBOUND_SOURCE\x10\x04B\xe3\x01\n" +
-	"\x17com.flowseer.net.nat.v1B\x13NatTranslationProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/nat/v1;natv1\xa2\x02\x03FNN\xaa\x02\x13Flowseer.Net.Nat.V1\xca\x02\x13Flowseer\\Net\\Nat\\V1\xe2\x02\x1fFlowseer\\Net\\Nat\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Nat::V1b\beditionsp\xe9\a"
+	"\x1fNAT_TRANSLATION_OUTBOUND_SOURCE\x10\x04B\xe1\x01\n" +
+	"\x17com.flowseer.net.nat.v1B\x13NatTranslationProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/nat/v1;natv1\xa2\x02\x03FNN\xaa\x02\x13Flowseer.Net.Nat.V1\xca\x02\x13Flowseer\\Net\\Nat\\V1\xe2\x02\x1fFlowseer\\Net\\Nat\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Nat::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_nat_v1_nat_translation_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_nat_v1_nat_translation_proto_goTypes = []any{

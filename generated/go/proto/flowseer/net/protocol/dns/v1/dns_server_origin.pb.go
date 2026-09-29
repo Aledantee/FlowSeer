@@ -75,8 +75,8 @@ const file_flowseer_net_protocol_dns_v1_dns_server_origin_proto_rawDesc = "" +
 	"\x0fDnsServerOrigin\x12!\n" +
 	"\x1dDNS_SERVER_ORIGIN_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18DNS_SERVER_ORIGIN_STATIC\x10\x01\x12\x1a\n" +
-	"\x16DNS_SERVER_ORIGIN_DHCP\x10\x02B\x9c\x02\n" +
-	" com.flowseer.net.protocol.dns.v1B\x14DnsServerOriginProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dns/v1;dnsv1\xa2\x02\x04FNPD\xaa\x02\x1cFlowseer.Net.Protocol.Dns.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Dns\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Dns\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Dns::V1b\beditionsp\xe9\a"
+	"\x16DNS_SERVER_ORIGIN_DHCP\x10\x02B\x9a\x02\n" +
+	" com.flowseer.net.protocol.dns.v1B\x14DnsServerOriginProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dns/v1;dnsv1\xa2\x02\x04FNPD\xaa\x02\x1cFlowseer.Net.Protocol.Dns.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Dns\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Dns\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Dns::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_dns_v1_dns_server_origin_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_dns_v1_dns_server_origin_proto_goTypes = []any{

@@ -99,8 +99,8 @@ const file_flowseer_net_endpoint_v1_roam_reason_proto_rawDesc = "" +
 	"%ROAM_REASON_OPPORTUNISTIC_KEY_CACHING\x10\x03\x12)\n" +
 	"%ROAM_REASON_BSS_TRANSITION_MANAGEMENT\x10\x04\x12\x1c\n" +
 	"\x18ROAM_REASON_BAND_STEERED\x10\x05\x12\x1d\n" +
-	"\x19ROAM_REASON_LOAD_BALANCED\x10\x06B\x82\x02\n" +
-	"\x1ccom.flowseer.net.endpoint.v1B\x0fRoamReasonProtoP\x01ZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/endpoint/v1;endpointv1\xa2\x02\x03FNE\xaa\x02\x18Flowseer.Net.Endpoint.V1\xca\x02\x18Flowseer\\Net\\Endpoint\\V1\xe2\x02$Flowseer\\Net\\Endpoint\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Endpoint::V1b\beditionsp\xe9\a"
+	"\x19ROAM_REASON_LOAD_BALANCED\x10\x06B\x80\x02\n" +
+	"\x1ccom.flowseer.net.endpoint.v1B\x0fRoamReasonProtoZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/endpoint/v1;endpointv1\xa2\x02\x03FNE\xaa\x02\x18Flowseer.Net.Endpoint.V1\xca\x02\x18Flowseer\\Net\\Endpoint\\V1\xe2\x02$Flowseer\\Net\\Endpoint\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Endpoint::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_endpoint_v1_roam_reason_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_endpoint_v1_roam_reason_proto_goTypes = []any{

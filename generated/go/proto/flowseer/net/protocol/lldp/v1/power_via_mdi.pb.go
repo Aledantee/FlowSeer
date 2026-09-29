@@ -278,8 +278,8 @@ const file_flowseer_net_protocol_lldp_v1_power_via_mdi_proto_rawDesc = "" +
 	"\x14pair_control_capable\x18\x04 \x01(\bR\x12pairControlCapable\x12?\n" +
 	"\x05pairs\x18\x05 \x01(\x0e2).flowseer.net.protocol.lldp.v1.PowerPairsR\x05pairs\x12(\n" +
 	"\vpower_class\x18\x06 \x01(\rB\a\xbaH\x04*\x02\x18\x04R\n" +
-	"powerClassB\x9f\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x10PowerViaMdiProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"powerClassB\x9d\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x10PowerViaMdiProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_power_via_mdi_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_power_via_mdi_proto_goTypes = []any{

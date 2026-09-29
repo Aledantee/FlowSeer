@@ -163,8 +163,8 @@ const file_flowseer_net_measure_v1_path_quality_proto_rawDesc = "" +
 	"\vPathQuality\x12=\n" +
 	"\alatency\x18\x01 \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x022\x00R\alatency\x12;\n" +
 	"\x06jitter\x18\x02 \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x022\x00R\x06jitter\x125\n" +
-	"\x11loss_basis_points\x18\x03 \x01(\rB\t\xbaH\x06*\x04\x98\xb5\x18\x01R\x0flossBasisPointsB\xfc\x01\n" +
-	"\x1bcom.flowseer.net.measure.v1B\x10PathQualityProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/measure/v1;measurev1\xa2\x02\x03FNM\xaa\x02\x17Flowseer.Net.Measure.V1\xca\x02\x17Flowseer\\Net\\Measure\\V1\xe2\x02#Flowseer\\Net\\Measure\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Measure::V1b\beditionsp\xe9\a"
+	"\x11loss_basis_points\x18\x03 \x01(\rB\t\xbaH\x06*\x04\x98\xb5\x18\x01R\x0flossBasisPointsB\xfa\x01\n" +
+	"\x1bcom.flowseer.net.measure.v1B\x10PathQualityProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/measure/v1;measurev1\xa2\x02\x03FNM\xaa\x02\x17Flowseer.Net.Measure.V1\xca\x02\x17Flowseer\\Net\\Measure\\V1\xe2\x02#Flowseer\\Net\\Measure\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Measure::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_measure_v1_path_quality_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_measure_v1_path_quality_proto_goTypes = []any{

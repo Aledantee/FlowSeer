@@ -58,8 +58,8 @@ const file_flowseer_net_wlan_v1_channel_proto_rawDesc = "" +
 	"\x13uint32.wifi_channel\x120value must be an 802.11 channel number in 1..233\x1a%!rule || (this >= 1u && this <= 233u)R\vwifiChannel:\xf6\x01\n" +
 	"\x16wifi_channel_width_mhz\x12\x19.buf.validate.UInt32Rules\x18Ն\x03 \x01(\bB\xa3\x01\xc2H\x9f\x01\n" +
 	"\x9c\x01\n" +
-	"\x1duint32.wifi_channel_width_mhz\x121value must be a valid 802.11 channel width in MHz\x1aH!rule || this in [20u, 40u, 80u, 160u, 320u, 2160u, 4320u, 6480u, 8640u]R\x13wifiChannelWidthMhzB\xe3\x01\n" +
-	"\x18com.flowseer.net.wlan.v1B\fChannelProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
+	"\x1duint32.wifi_channel_width_mhz\x121value must be a valid 802.11 channel width in MHz\x1aH!rule || this in [20u, 40u, 80u, 160u, 320u, 2160u, 4320u, 6480u, 8640u]R\x13wifiChannelWidthMhzB\xe1\x01\n" +
+	"\x18com.flowseer.net.wlan.v1B\fChannelProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_wlan_v1_channel_proto_goTypes = []any{
 	(*validate.UInt32Rules)(nil), // 0: buf.validate.UInt32Rules

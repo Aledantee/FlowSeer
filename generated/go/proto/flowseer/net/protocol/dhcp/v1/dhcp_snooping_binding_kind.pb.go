@@ -75,8 +75,8 @@ const file_flowseer_net_protocol_dhcp_v1_dhcp_snooping_binding_kind_proto_rawDes
 	"\x17DhcpSnoopingBindingKind\x12*\n" +
 	"&DHCP_SNOOPING_BINDING_KIND_UNSPECIFIED\x10\x00\x12%\n" +
 	"!DHCP_SNOOPING_BINDING_KIND_STATIC\x10\x01\x12&\n" +
-	"\"DHCP_SNOOPING_BINDING_KIND_DYNAMIC\x10\x02B\xab\x02\n" +
-	"!com.flowseer.net.protocol.dhcp.v1B\x1cDhcpSnoopingBindingKindProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
+	"\"DHCP_SNOOPING_BINDING_KIND_DYNAMIC\x10\x02B\xa9\x02\n" +
+	"!com.flowseer.net.protocol.dhcp.v1B\x1cDhcpSnoopingBindingKindProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_dhcp_v1_dhcp_snooping_binding_kind_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_dhcp_v1_dhcp_snooping_binding_kind_proto_goTypes = []any{

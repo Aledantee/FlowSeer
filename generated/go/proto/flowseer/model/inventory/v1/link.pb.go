@@ -1074,8 +1074,8 @@ const file_flowseer_model_inventory_v1_link_proto_rawDesc = "" +
 	"\x17LINK_STATUS_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12LINK_STATUS_ACTIVE\x10\x01\x12\x15\n" +
 	"\x11LINK_STATUS_STALE\x10\x02\x12\x14\n" +
-	"\x10LINK_STATUS_GONE\x10\x03B\x8f\x02\n" +
-	"\x1fcom.flowseer.model.inventory.v1B\tLinkProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"\x10LINK_STATUS_GONE\x10\x03B\x8d\x02\n" +
+	"\x1fcom.flowseer.model.inventory.v1B\tLinkProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_link_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_flowseer_model_inventory_v1_link_proto_msgTypes = make([]protoimpl.MessageInfo, 6)

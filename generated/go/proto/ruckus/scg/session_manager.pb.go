@@ -412,8 +412,8 @@ const file_ruckus_scg_session_manager_proto_rawDesc = "" +
 	"\bzoneName\x18\x03 \x01(\tR\bzoneName\x12\x1c\n" +
 	"\tapGroupId\x18\x04 \x01(\tR\tapGroupId\x12 \n" +
 	"\vapGroupName\x18\x05 \x01(\tR\vapGroupName\x12\x1a\n" +
-	"\bwlanName\x18\x06 \x01(\tR\bwlanNameB\x81\x01\n" +
-	"&com.ruckuswireless.scg.protobuf.clientB\x13SessionManagerProtoP\x01Z5go.aledante.io/FlowSeer/generated/go/proto/ruckus/scg\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\bwlanName\x18\x06 \x01(\tR\bwlanNameB\x7f\n" +
+	"&com.ruckuswireless.scg.protobuf.clientB\x13SessionManagerProtoZ5go.aledante.io/FlowSeer/generated/go/proto/ruckus/scg\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_scg_session_manager_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_ruckus_scg_session_manager_proto_goTypes = []any{

@@ -235,8 +235,8 @@ const file_flowseer_net_protocol_lldp_v1_med_extension_proto_rawDesc = "" +
 	"\tlocations\x18\x06 \x03(\v2*.flowseer.net.protocol.lldp.v1.MedLocationR\tlocations\x12=\n" +
 	"\x05power\x18\a \x01(\v2'.flowseer.net.protocol.lldp.v1.MedPowerR\x05power:\xa7\x02\xbaH\xa3\x02\x1a\xa9\x01\n" +
 	"6med_extension.network_policies.unique_application_type\x124network_policies must not repeat an application_type\x1a9this.network_policies.map(p, p.application_type).unique()\x1au\n" +
-	"%med_extension.locations.unique_format\x12\"locations must not repeat a format\x1a(this.locations.map(l, l.format).unique()B\xa0\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x11MedExtensionProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"%med_extension.locations.unique_format\x12\"locations must not repeat a format\x1a(this.locations.map(l, l.format).unique()B\x9e\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x11MedExtensionProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_med_extension_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_med_extension_proto_goTypes = []any{

@@ -87,8 +87,8 @@ const file_flowseer_net_wlan_v1_wifi_band_proto_rawDesc = "" +
 	"\x10WIFI_BAND_GHZ2P4\x10\x01\x12\x12\n" +
 	"\x0eWIFI_BAND_GHZ5\x10\x02\x12\x12\n" +
 	"\x0eWIFI_BAND_GHZ6\x10\x03\x12\x13\n" +
-	"\x0fWIFI_BAND_GHZ60\x10\x04B\xe4\x01\n" +
-	"\x18com.flowseer.net.wlan.v1B\rWifiBandProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
+	"\x0fWIFI_BAND_GHZ60\x10\x04B\xe2\x01\n" +
+	"\x18com.flowseer.net.wlan.v1B\rWifiBandProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_wlan_v1_wifi_band_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_wlan_v1_wifi_band_proto_goTypes = []any{

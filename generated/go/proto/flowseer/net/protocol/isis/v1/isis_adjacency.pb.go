@@ -353,8 +353,8 @@ const file_flowseer_net_protocol_isis_v1_isis_adjacency_proto_rawDesc = "" +
 	"\rneighbor_snpa\x18\x06 \x01(\v2 .flowseer.net.addr.v1.MacAddressR\fneighborSnpa\x12N\n" +
 	"\x12neighbor_addresses\x18\a \x03(\v2\x1f.flowseer.net.addr.v1.IpAddressR\x11neighborAddresses\x12F\n" +
 	"\thold_time\x18\b \x01(\v2\x19.google.protobuf.DurationB\x0e\xbaH\v\xaa\x01\b\"\x04\b\xff\xff\x032\x00R\bholdTime\x12#\n" +
-	"\bpriority\x18\t \x01(\rB\a\xbaH\x04*\x02\x18\x7fR\bpriorityB\xa1\x02\n" +
-	"!com.flowseer.net.protocol.isis.v1B\x12IsisAdjacencyProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/isis/v1;isisv1\xa2\x02\x04FNPI\xaa\x02\x1dFlowseer.Net.Protocol.Isis.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Isis\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Isis\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Isis::V1b\beditionsp\xe9\a"
+	"\bpriority\x18\t \x01(\rB\a\xbaH\x04*\x02\x18\x7fR\bpriorityB\x9f\x02\n" +
+	"!com.flowseer.net.protocol.isis.v1B\x12IsisAdjacencyProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/isis/v1;isisv1\xa2\x02\x04FNPI\xaa\x02\x1dFlowseer.Net.Protocol.Isis.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Isis\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Isis\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Isis::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_isis_v1_isis_adjacency_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_isis_v1_isis_adjacency_proto_goTypes = []any{

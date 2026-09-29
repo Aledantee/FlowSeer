@@ -1675,8 +1675,8 @@ const file_ruckus_ap_ap_hccd_report_proto_rawDesc = "" +
 	"\rapIpv6Address\x18\x13 \x01(\tR\rapIpv6Address\x12J\n" +
 	"\rapHccdClients\x18\x14 \x03(\v2\x1d.ApHccdClientReportConnectionB\x05\x92?\x02\x18\x04R\rapHccdClients\x12$\n" +
 	"\rapRadioDeploy\x18\x15 \x01(\tR\rapRadioDeploy\x12?\n" +
-	"\x14ideal_stats_required\x18\x16 \x01(\v2\r.AttributeMapR\x12idealStatsRequiredBw\n" +
-	"\x1fcom.ruckuswireless.scg.protobufB\x11ApHccdReportProtoP\x01Z4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\x14ideal_stats_required\x18\x16 \x01(\v2\r.AttributeMapR\x12idealStatsRequiredBu\n" +
+	"\x1fcom.ruckuswireless.scg.protobufB\x11ApHccdReportProtoZ4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_ap_ap_hccd_report_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_ruckus_ap_ap_hccd_report_proto_goTypes = []any{

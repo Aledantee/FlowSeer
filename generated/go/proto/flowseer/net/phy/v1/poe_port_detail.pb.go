@@ -309,8 +309,8 @@ const file_flowseer_net_phy_v1_poe_port_detail_proto_rawDesc = "" +
 	"\x0eoverload_count\x18\x05 \x01(\x04R\roverloadCount\x12\x1f\n" +
 	"\vshort_count\x18\x06 \x01(\x04R\n" +
 	"shortCount\x12(\n" +
-	"\x10mps_absent_count\x18\a \x01(\x04R\x0empsAbsentCountB\xe2\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\x12PoePortDetailProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"\x10mps_absent_count\x18\a \x01(\x04R\x0empsAbsentCountB\xe0\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\x12PoePortDetailProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_poe_port_detail_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_poe_port_detail_proto_goTypes = []any{

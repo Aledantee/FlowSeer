@@ -85,8 +85,8 @@ const file_flowseer_net_protocol_bfd_v1_bfd_session_type_proto_rawDesc = "" +
 	"\x1bBFD_SESSION_TYPE_SINGLE_HOP\x10\x01\x126\n" +
 	"2BFD_SESSION_TYPE_MULTI_HOP_TOTALLY_ARBITRARY_PATHS\x10\x02\x124\n" +
 	"0BFD_SESSION_TYPE_MULTI_HOP_OUT_OF_BAND_SIGNALING\x10\x03\x123\n" +
-	"/BFD_SESSION_TYPE_MULTI_HOP_UNIDIRECTIONAL_LINKS\x10\x04B\x9b\x02\n" +
-	" com.flowseer.net.protocol.bfd.v1B\x13BfdSessionTypeProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bfd/v1;bfdv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bfd.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bfd\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bfd\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bfd::V1b\beditionsp\xe9\a"
+	"/BFD_SESSION_TYPE_MULTI_HOP_UNIDIRECTIONAL_LINKS\x10\x04B\x99\x02\n" +
+	" com.flowseer.net.protocol.bfd.v1B\x13BfdSessionTypeProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bfd/v1;bfdv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bfd.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bfd\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bfd\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bfd::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_bfd_v1_bfd_session_type_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_bfd_v1_bfd_session_type_proto_goTypes = []any{

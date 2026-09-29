@@ -99,8 +99,8 @@ const file_flowseer_net_qos_v1_trust_mode_proto_rawDesc = "" +
 	"\x0eTRUST_MODE_COS\x10\x02\x12\x13\n" +
 	"\x0fTRUST_MODE_DSCP\x10\x03\x12\x1c\n" +
 	"\x18TRUST_MODE_IP_PRECEDENCE\x10\x04\x12\x17\n" +
-	"\x13TRUST_MODE_COS_DSCP\x10\x05B\xde\x01\n" +
-	"\x17com.flowseer.net.qos.v1B\x0eTrustModeProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/qos/v1;qosv1\xa2\x02\x03FNQ\xaa\x02\x13Flowseer.Net.Qos.V1\xca\x02\x13Flowseer\\Net\\Qos\\V1\xe2\x02\x1fFlowseer\\Net\\Qos\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Qos::V1b\beditionsp\xe9\a"
+	"\x13TRUST_MODE_COS_DSCP\x10\x05B\xdc\x01\n" +
+	"\x17com.flowseer.net.qos.v1B\x0eTrustModeProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/qos/v1;qosv1\xa2\x02\x03FNQ\xaa\x02\x13Flowseer.Net.Qos.V1\xca\x02\x13Flowseer\\Net\\Qos\\V1\xe2\x02\x1fFlowseer\\Net\\Qos\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Qos::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_qos_v1_trust_mode_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_qos_v1_trust_mode_proto_goTypes = []any{

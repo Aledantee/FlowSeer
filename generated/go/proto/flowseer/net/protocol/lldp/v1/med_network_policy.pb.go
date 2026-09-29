@@ -278,8 +278,8 @@ const file_flowseer_net_protocol_lldp_v1_med_network_policy_proto_rawDesc = "" +
 	"\avlan_id\x18\x04 \x01(\rB\b\xbaH\x05*\x03\x18\xff\x1fR\x06vlanId\x12%\n" +
 	"\bpriority\x18\x05 \x01(\rB\t\xbaH\x06*\x04\x90\xb5\x18\x01R\bpriority\x12>\n" +
 	"\x04dscp\x18\x06 \x01(\x0e2\x1e.flowseer.net.packet.v1.IpDscpB\n" +
-	"\xbaH\a\x82\x01\x04\x98\xb5\x18\x01R\x04dscpB\xa4\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x15MedNetworkPolicyProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\xbaH\a\x82\x01\x04\x98\xb5\x18\x01R\x04dscpB\xa2\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x15MedNetworkPolicyProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_med_network_policy_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_med_network_policy_proto_goTypes = []any{

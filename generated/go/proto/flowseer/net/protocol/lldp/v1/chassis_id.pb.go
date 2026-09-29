@@ -146,8 +146,8 @@ const file_flowseer_net_protocol_lldp_v1_chassis_id_proto_rawDesc = "" +
 	"\tChassisId\x12V\n" +
 	"\asubtype\x18\x01 \x01(\x0e2/.flowseer.net.protocol.lldp.v1.ChassisIdSubtypeB\v\xbaH\b\xc8\x01\x01\x82\x01\x02 \x00R\asubtype\x12#\n" +
 	"\x05value\x18\x02 \x01(\fB\r\xbaH\n" +
-	"\xc8\x01\x01z\x05\x10\x01\x18\xff\x01R\x05valueB\x9d\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x0eChassisIdProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\xc8\x01\x01z\x05\x10\x01\x18\xff\x01R\x05valueB\x9b\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x0eChassisIdProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_chassis_id_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_chassis_id_proto_goTypes = []any{

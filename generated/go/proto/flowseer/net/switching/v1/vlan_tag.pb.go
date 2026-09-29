@@ -209,8 +209,8 @@ const file_flowseer_net_switching_v1_vlan_tag_proto_rawDesc = "" +
 	"\xc8\x01\x01\x82\x01\x04\x80\xb5\x18\x01R\x04tpid\x12%\n" +
 	"\avlan_id\x18\x02 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x88\xb5\x18\x01R\x06vlanId\x12\x1e\n" +
 	"\x03pcp\x18\x03 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x90\xb5\x18\x01R\x03pcp\x12\x18\n" +
-	"\x03dei\x18\x04 \x01(\bB\x06\xbaH\x03\xc8\x01\x01R\x03deiB\x86\x02\n" +
-	"\x1dcom.flowseer.net.switching.v1B\fVlanTagProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
+	"\x03dei\x18\x04 \x01(\bB\x06\xbaH\x03\xc8\x01\x01R\x03deiB\x84\x02\n" +
+	"\x1dcom.flowseer.net.switching.v1B\fVlanTagProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_switching_v1_vlan_tag_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_switching_v1_vlan_tag_proto_goTypes = []any{

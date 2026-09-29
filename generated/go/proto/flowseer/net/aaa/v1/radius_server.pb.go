@@ -170,8 +170,8 @@ const file_flowseer_net_aaa_v1_radius_server_proto_rawDesc = "" +
 	"\fRadiusServer\x12&\n" +
 	"\tauth_port\x18\x01 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\bauthPort\x12&\n" +
 	"\tacct_port\x18\x02 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\bacctPort\x129\n" +
-	"\x13retransmit_attempts\x18\x03 \x01(\rB\b\xbaH\x05*\x03\x18\xff\x01R\x12retransmitAttemptsB\xe1\x01\n" +
-	"\x17com.flowseer.net.aaa.v1B\x11RadiusServerProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/aaa/v1;aaav1\xa2\x02\x03FNA\xaa\x02\x13Flowseer.Net.Aaa.V1\xca\x02\x13Flowseer\\Net\\Aaa\\V1\xe2\x02\x1fFlowseer\\Net\\Aaa\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Aaa::V1b\beditionsp\xe9\a"
+	"\x13retransmit_attempts\x18\x03 \x01(\rB\b\xbaH\x05*\x03\x18\xff\x01R\x12retransmitAttemptsB\xdf\x01\n" +
+	"\x17com.flowseer.net.aaa.v1B\x11RadiusServerProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/aaa/v1;aaav1\xa2\x02\x03FNA\xaa\x02\x13Flowseer.Net.Aaa.V1\xca\x02\x13Flowseer\\Net\\Aaa\\V1\xe2\x02\x1fFlowseer\\Net\\Aaa\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Aaa::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_aaa_v1_radius_server_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_aaa_v1_radius_server_proto_goTypes = []any{

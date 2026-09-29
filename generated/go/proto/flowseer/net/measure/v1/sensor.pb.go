@@ -1642,8 +1642,8 @@ const file_flowseer_net_measure_v1_sensor_proto_rawDesc = "" +
 	"\x05power\x18\x04 \x01(\v2\x1e.flowseer.net.measure.v1.PowerH\x00R\x05power\x12O\n" +
 	"\x0erotation_speed\x18\x05 \x01(\v2&.flowseer.net.measure.v1.RotationSpeedH\x00R\rrotationSpeed\x12X\n" +
 	"\x11relative_humidity\x18\x06 \x01(\v2).flowseer.net.measure.v1.RelativeHumidityH\x00R\x10relativeHumidityB\x11\n" +
-	"\bquantity\x12\x05\xbaH\x02\b\x01B\xf7\x01\n" +
-	"\x1bcom.flowseer.net.measure.v1B\vSensorProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/measure/v1;measurev1\xa2\x02\x03FNM\xaa\x02\x17Flowseer.Net.Measure.V1\xca\x02\x17Flowseer\\Net\\Measure\\V1\xe2\x02#Flowseer\\Net\\Measure\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Measure::V1b\beditionsp\xe9\a"
+	"\bquantity\x12\x05\xbaH\x02\b\x01B\xf5\x01\n" +
+	"\x1bcom.flowseer.net.measure.v1B\vSensorProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/measure/v1;measurev1\xa2\x02\x03FNM\xaa\x02\x17Flowseer.Net.Measure.V1\xca\x02\x17Flowseer\\Net\\Measure\\V1\xe2\x02#Flowseer\\Net\\Measure\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Measure::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_measure_v1_sensor_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_flowseer_net_measure_v1_sensor_proto_goTypes = []any{

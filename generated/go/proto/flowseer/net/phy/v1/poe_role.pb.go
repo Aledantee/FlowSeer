@@ -79,8 +79,8 @@ const file_flowseer_net_phy_v1_poe_role_proto_rawDesc = "" +
 	"\aPoeRole\x12\x18\n" +
 	"\x14POE_ROLE_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fPOE_ROLE_PSE\x10\x01\x12\x0f\n" +
-	"\vPOE_ROLE_PD\x10\x02B\xdc\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\fPoeRoleProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"\vPOE_ROLE_PD\x10\x02B\xda\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\fPoeRoleProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_poe_role_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_phy_v1_poe_role_proto_goTypes = []any{

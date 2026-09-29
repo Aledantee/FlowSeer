@@ -433,8 +433,8 @@ const file_flowseer_model_edge_v1_assertion_proto_rawDesc = "" +
 	"\apayload\x18\x01 \x01(\fB\r\xbaH\n" +
 	"\xc8\x01\x01z\x05\x10\x01\x18\x80\bR\apayload\x12(\n" +
 	"\tsignature\x18\x02 \x01(\fB\n" +
-	"\xbaH\a\xc8\x01\x01z\x02h@R\tsignatureB\xf1\x01\n" +
-	"\x1acom.flowseer.model.edge.v1B\x0eAssertionProtoP\x01ZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1;edgev1\xa2\x02\x03FME\xaa\x02\x16Flowseer.Model.Edge.V1\xca\x02\x16Flowseer\\Model\\Edge\\V1\xe2\x02\"Flowseer\\Model\\Edge\\V1\\GPBMetadata\xea\x02\x19Flowseer::Model::Edge::V1b\beditionsp\xe9\a"
+	"\xbaH\a\xc8\x01\x01z\x02h@R\tsignatureB\xef\x01\n" +
+	"\x1acom.flowseer.model.edge.v1B\x0eAssertionProtoZHgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1;edgev1\xa2\x02\x03FME\xaa\x02\x16Flowseer.Model.Edge.V1\xca\x02\x16Flowseer\\Model\\Edge\\V1\xe2\x02\"Flowseer\\Model\\Edge\\V1\\GPBMetadata\xea\x02\x19Flowseer::Model::Edge::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_edge_v1_assertion_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_model_edge_v1_assertion_proto_goTypes = []any{

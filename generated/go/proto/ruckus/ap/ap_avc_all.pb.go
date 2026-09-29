@@ -161,8 +161,8 @@ const file_ruckus_ap_ap_avc_all_proto_rawDesc = "" +
 	"\aversion\x18\x01 \x01(\rB\x05\xaa\x01\x02\b\x03R\aversion\x12,\n" +
 	"\varc_message\x18\x02 \x03(\v2\v.ArcMessageR\n" +
 	"arcMessage\x12?\n" +
-	"\x14ideal_stats_required\x18\x03 \x01(\v2\r.AttributeMapR\x12idealStatsRequiredBs\n" +
-	"\x1fcom.ruckuswireless.scg.protobufB\rApAvcAllProtoP\x01Z4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\x14ideal_stats_required\x18\x03 \x01(\v2\r.AttributeMapR\x12idealStatsRequiredBq\n" +
+	"\x1fcom.ruckuswireless.scg.protobufB\rApAvcAllProtoZ4go.aledante.io/FlowSeer/generated/go/proto/ruckus/ap\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_ap_ap_avc_all_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_ruckus_ap_ap_avc_all_proto_goTypes = []any{

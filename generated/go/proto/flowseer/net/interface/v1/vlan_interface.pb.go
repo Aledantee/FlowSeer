@@ -105,8 +105,8 @@ const file_flowseer_net_interface_v1_vlan_interface_proto_rawDesc = "" +
 	"\n" +
 	".flowseer/net/interface/v1/vlan_interface.proto\x12\x19flowseer.net.interface.v1\"6\n" +
 	"\rVlanInterface\x12%\n" +
-	"\avlan_id\x18\x01 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x80\xb5\x18\x01R\x06vlanIdB\x8e\x02\n" +
-	"\x1dcom.flowseer.net.interface.v1B\x12VlanInterfaceProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
+	"\avlan_id\x18\x01 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x80\xb5\x18\x01R\x06vlanIdB\x8c\x02\n" +
+	"\x1dcom.flowseer.net.interface.v1B\x12VlanInterfaceProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_interface_v1_vlan_interface_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_interface_v1_vlan_interface_proto_goTypes = []any{

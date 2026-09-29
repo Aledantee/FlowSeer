@@ -87,8 +87,8 @@ const file_flowseer_net_endpoint_v1_connection_failure_stage_proto_rawDesc = "" 
 	"$CONNECTION_FAILURE_STAGE_ASSOCIATION\x10\x01\x12+\n" +
 	"'CONNECTION_FAILURE_STAGE_AUTHENTICATION\x10\x02\x12!\n" +
 	"\x1dCONNECTION_FAILURE_STAGE_DHCP\x10\x03\x12 \n" +
-	"\x1cCONNECTION_FAILURE_STAGE_DNS\x10\x04B\x8e\x02\n" +
-	"\x1ccom.flowseer.net.endpoint.v1B\x1bConnectionFailureStageProtoP\x01ZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/endpoint/v1;endpointv1\xa2\x02\x03FNE\xaa\x02\x18Flowseer.Net.Endpoint.V1\xca\x02\x18Flowseer\\Net\\Endpoint\\V1\xe2\x02$Flowseer\\Net\\Endpoint\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Endpoint::V1b\beditionsp\xe9\a"
+	"\x1cCONNECTION_FAILURE_STAGE_DNS\x10\x04B\x8c\x02\n" +
+	"\x1ccom.flowseer.net.endpoint.v1B\x1bConnectionFailureStageProtoZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/endpoint/v1;endpointv1\xa2\x02\x03FNE\xaa\x02\x18Flowseer.Net.Endpoint.V1\xca\x02\x18Flowseer\\Net\\Endpoint\\V1\xe2\x02$Flowseer\\Net\\Endpoint\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Endpoint::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_endpoint_v1_connection_failure_stage_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_endpoint_v1_connection_failure_stage_proto_goTypes = []any{

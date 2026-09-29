@@ -260,8 +260,8 @@ const file_flowseer_net_endpoint_v1_endpoint_counters_proto_rawDesc = "" +
 	"\n" +
 	"out_frames\x18\x04 \x01(\x04R\toutFrames\x12&\n" +
 	"\x0ftx_retry_frames\x18\x05 \x01(\x04R\rtxRetryFrames\x12I\n" +
-	"\x12last_discontinuity\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\x88\x02\n" +
-	"\x1ccom.flowseer.net.endpoint.v1B\x15EndpointCountersProtoP\x01ZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/endpoint/v1;endpointv1\xa2\x02\x03FNE\xaa\x02\x18Flowseer.Net.Endpoint.V1\xca\x02\x18Flowseer\\Net\\Endpoint\\V1\xe2\x02$Flowseer\\Net\\Endpoint\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Endpoint::V1b\beditionsp\xe9\a"
+	"\x12last_discontinuity\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\x86\x02\n" +
+	"\x1ccom.flowseer.net.endpoint.v1B\x15EndpointCountersProtoZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/endpoint/v1;endpointv1\xa2\x02\x03FNE\xaa\x02\x18Flowseer.Net.Endpoint.V1\xca\x02\x18Flowseer\\Net\\Endpoint\\V1\xe2\x02$Flowseer\\Net\\Endpoint\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Endpoint::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_endpoint_v1_endpoint_counters_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_endpoint_v1_endpoint_counters_proto_goTypes = []any{

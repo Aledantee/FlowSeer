@@ -117,8 +117,8 @@ const file_flowseer_net_wlan_v1_country_environment_proto_rawDesc = "" +
 	"\x17COUNTRY_ENVIRONMENT_ALL\x10 \x12\x1e\n" +
 	"\x1aCOUNTRY_ENVIRONMENT_INDOOR\x10I\x12\x1f\n" +
 	"\x1bCOUNTRY_ENVIRONMENT_OUTDOOR\x10O\x12*\n" +
-	"&COUNTRY_ENVIRONMENT_NON_COUNTRY_ENTITY\x10XB\xee\x01\n" +
-	"\x18com.flowseer.net.wlan.v1B\x17CountryEnvironmentProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
+	"&COUNTRY_ENVIRONMENT_NON_COUNTRY_ENTITY\x10XB\xec\x01\n" +
+	"\x18com.flowseer.net.wlan.v1B\x17CountryEnvironmentProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_wlan_v1_country_environment_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_wlan_v1_country_environment_proto_goTypes = []any{

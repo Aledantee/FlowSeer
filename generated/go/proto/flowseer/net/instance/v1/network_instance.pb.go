@@ -205,8 +205,8 @@ const file_flowseer_net_instance_v1_network_instance_proto_rawDesc = "" +
 	"\x04kind\x18\x02 \x01(\x0e2-.flowseer.net.instance.v1.NetworkInstanceKindB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04kind\x12]\n" +
 	"\x13route_distinguisher\x18\x03 \x01(\v2,.flowseer.net.instance.v1.RouteDistinguisherR\x12routeDistinguisher\x12 \n" +
-	"\vdescription\x18\x04 \x01(\tR\vdescriptionB\x87\x02\n" +
-	"\x1ccom.flowseer.net.instance.v1B\x14NetworkInstanceProtoP\x01ZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/instance/v1;instancev1\xa2\x02\x03FNI\xaa\x02\x18Flowseer.Net.Instance.V1\xca\x02\x18Flowseer\\Net\\Instance\\V1\xe2\x02$Flowseer\\Net\\Instance\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Instance::V1b\beditionsp\xe9\a"
+	"\vdescription\x18\x04 \x01(\tR\vdescriptionB\x85\x02\n" +
+	"\x1ccom.flowseer.net.instance.v1B\x14NetworkInstanceProtoZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/instance/v1;instancev1\xa2\x02\x03FNI\xaa\x02\x18Flowseer.Net.Instance.V1\xca\x02\x18Flowseer\\Net\\Instance\\V1\xe2\x02$Flowseer\\Net\\Instance\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Instance::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_instance_v1_network_instance_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_instance_v1_network_instance_proto_goTypes = []any{

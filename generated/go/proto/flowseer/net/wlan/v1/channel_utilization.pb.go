@@ -262,8 +262,8 @@ const file_flowseer_net_wlan_v1_channel_utilization_proto_rawDesc = "" +
 	"\x19rx_dot11_avg_basis_points\x18\x03 \x01(\rB\t\xbaH\x06*\x04\x98\xb5\x18\x01R\x15rxDot11AvgBasisPoints\x12A\n" +
 	"\x18obss_rx_avg_basis_points\x18\x04 \x01(\rB\t\xbaH\x06*\x04\x98\xb5\x18\x01R\x14obssRxAvgBasisPoints\x12E\n" +
 	"\x1anon_dot11_avg_basis_points\x18\x05 \x01(\rB\t\xbaH\x06*\x04\x98\xb5\x18\x01R\x16nonDot11AvgBasisPoints\x121\n" +
-	"\x06window\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\x06windowB\xee\x01\n" +
-	"\x18com.flowseer.net.wlan.v1B\x17ChannelUtilizationProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
+	"\x06window\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\x06windowB\xec\x01\n" +
+	"\x18com.flowseer.net.wlan.v1B\x17ChannelUtilizationProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_wlan_v1_channel_utilization_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_wlan_v1_channel_utilization_proto_goTypes = []any{

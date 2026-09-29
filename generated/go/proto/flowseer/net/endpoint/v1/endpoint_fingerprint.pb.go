@@ -160,8 +160,8 @@ const file_flowseer_net_endpoint_v1_endpoint_fingerprint_proto_rawDesc = "" +
 	"\x13EndpointFingerprint\x12M\n" +
 	"\x1bdhcp_parameter_request_list\x18\x01 \x03(\rB\x0e\xbaH\v\x92\x01\b\"\x06*\x04\xb0\xb5\x18\x01R\x18dhcpParameterRequestList\x124\n" +
 	"\x11dhcp_vendor_class\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xff\x01R\x0fdhcpVendorClass\x120\n" +
-	"\x0fhttp_user_agent\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80\bR\rhttpUserAgentB\x8b\x02\n" +
-	"\x1ccom.flowseer.net.endpoint.v1B\x18EndpointFingerprintProtoP\x01ZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/endpoint/v1;endpointv1\xa2\x02\x03FNE\xaa\x02\x18Flowseer.Net.Endpoint.V1\xca\x02\x18Flowseer\\Net\\Endpoint\\V1\xe2\x02$Flowseer\\Net\\Endpoint\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Endpoint::V1b\beditionsp\xe9\a"
+	"\x0fhttp_user_agent\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80\bR\rhttpUserAgentB\x89\x02\n" +
+	"\x1ccom.flowseer.net.endpoint.v1B\x18EndpointFingerprintProtoZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/endpoint/v1;endpointv1\xa2\x02\x03FNE\xaa\x02\x18Flowseer.Net.Endpoint.V1\xca\x02\x18Flowseer\\Net\\Endpoint\\V1\xe2\x02$Flowseer\\Net\\Endpoint\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Endpoint::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_endpoint_v1_endpoint_fingerprint_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_endpoint_v1_endpoint_fingerprint_proto_goTypes = []any{

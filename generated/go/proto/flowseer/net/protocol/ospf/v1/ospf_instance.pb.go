@@ -238,8 +238,8 @@ const file_flowseer_net_protocol_ospf_v1_ospf_instance_proto_rawDesc = "" +
 	"\aversion\x18\x02 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x18\x03(\x02R\aversion\x129\n" +
 	"\x11protocol_instance\x18\x03 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x98\xb5\x18\x01R\x10protocolInstance\x12\x1b\n" +
 	"\trouter_id\x18\x04 \x01(\rR\brouterId\x12\x18\n" +
-	"\aenabled\x18\x05 \x01(\bR\aenabledB\xa0\x02\n" +
-	"!com.flowseer.net.protocol.ospf.v1B\x11OspfInstanceProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
+	"\aenabled\x18\x05 \x01(\bR\aenabledB\x9e\x02\n" +
+	"!com.flowseer.net.protocol.ospf.v1B\x11OspfInstanceProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_ospf_v1_ospf_instance_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_ospf_v1_ospf_instance_proto_goTypes = []any{

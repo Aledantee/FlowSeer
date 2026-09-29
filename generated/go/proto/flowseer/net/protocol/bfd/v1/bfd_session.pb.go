@@ -754,8 +754,8 @@ const file_flowseer_net_protocol_bfd_v1_bfd_session_proto_rawDesc = "" +
 	"\vout_packets\x18\x02 \x01(\x04R\n" +
 	"outPackets\x12%\n" +
 	"\x0eup_transitions\x18\x03 \x01(\x04R\rupTransitions\x12I\n" +
-	"\x12last_discontinuity\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\x97\x02\n" +
-	" com.flowseer.net.protocol.bfd.v1B\x0fBfdSessionProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bfd/v1;bfdv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bfd.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bfd\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bfd\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bfd::V1b\beditionsp\xe9\a"
+	"\x12last_discontinuity\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\x95\x02\n" +
+	" com.flowseer.net.protocol.bfd.v1B\x0fBfdSessionProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bfd/v1;bfdv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bfd.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bfd\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bfd\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bfd::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_bfd_v1_bfd_session_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_net_protocol_bfd_v1_bfd_session_proto_goTypes = []any{

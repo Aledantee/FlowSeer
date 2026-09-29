@@ -90,8 +90,8 @@ const file_flowseer_net_system_v1_license_status_proto_rawDesc = "" +
 	"\x15LICENSE_STATUS_IN_USE\x10\x02\x12\x1d\n" +
 	"\x19LICENSE_STATUS_EVALUATION\x10\x03\x12\x1a\n" +
 	"\x16LICENSE_STATUS_EXPIRED\x10\x04\x12$\n" +
-	" LICENSE_STATUS_OUT_OF_COMPLIANCE\x10\x05B\xf7\x01\n" +
-	"\x1acom.flowseer.net.system.v1B\x12LicenseStatusProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/system/v1;systemv1\xa2\x02\x03FNS\xaa\x02\x16Flowseer.Net.System.V1\xca\x02\x16Flowseer\\Net\\System\\V1\xe2\x02\"Flowseer\\Net\\System\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::System::V1b\beditionsp\xe9\a"
+	" LICENSE_STATUS_OUT_OF_COMPLIANCE\x10\x05B\xf5\x01\n" +
+	"\x1acom.flowseer.net.system.v1B\x12LicenseStatusProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/system/v1;systemv1\xa2\x02\x03FNS\xaa\x02\x16Flowseer.Net.System.V1\xca\x02\x16Flowseer\\Net\\System\\V1\xe2\x02\"Flowseer\\Net\\System\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::System::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_system_v1_license_status_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_system_v1_license_status_proto_goTypes = []any{

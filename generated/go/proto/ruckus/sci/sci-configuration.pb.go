@@ -1415,8 +1415,8 @@ const file_ruckus_sci_sci_configuration_proto_rawDesc = "" +
 	"\vapGroupName\x18\x02 \x01(\tR\vapGroupName\"Z\n" +
 	"\x10WlanGroupMessage\x12 \n" +
 	"\vwlanGroupId\x18\x01 \x01(\tR\vwlanGroupId\x12$\n" +
-	"\rwlanGroupName\x18\x02 \x01(\tR\rwlanGroupNameB\x80\x01\n" +
-	"#com.ruckuswireless.scg.protobuf.sciB\x15SciConfigurationProtoP\x01Z5go.aledante.io/FlowSeer/generated/go/proto/ruckus/sci\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
+	"\rwlanGroupName\x18\x02 \x01(\tR\rwlanGroupNameB~\n" +
+	"#com.ruckuswireless.scg.protobuf.sciB\x15SciConfigurationProtoZ5go.aledante.io/FlowSeer/generated/go/proto/ruckus/sci\x92\x03\b\x10\x02\x18\x02 \x030\x02b\beditionsp\xe9\a"
 
 var file_ruckus_sci_sci_configuration_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_ruckus_sci_sci_configuration_proto_goTypes = []any{

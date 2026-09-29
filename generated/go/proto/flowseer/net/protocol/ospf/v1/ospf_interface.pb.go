@@ -456,8 +456,8 @@ const file_flowseer_net_protocol_ospf_v1_ospf_interface_proto_rawDesc = "" +
 	" \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x022\x00R\rhelloInterval\x12H\n" +
 	"\rdead_interval\x18\v \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x022\x00R\fdeadInterval\x12T\n" +
 	"\x13retransmit_interval\x18\f \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x022\x00R\x12retransmitInterval:\x84\x01\xbaH\x80\x01\x1a~\n" +
-	" ospf_interface.instance_id_is_v3\x12,instance_id is valid only for OSPF version 3\x1a,!has(this.instance_id) || this.version == 3uB\xa1\x02\n" +
-	"!com.flowseer.net.protocol.ospf.v1B\x12OspfInterfaceProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
+	" ospf_interface.instance_id_is_v3\x12,instance_id is valid only for OSPF version 3\x1a,!has(this.instance_id) || this.version == 3uB\x9f\x02\n" +
+	"!com.flowseer.net.protocol.ospf.v1B\x12OspfInterfaceProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_ospf_v1_ospf_interface_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_ospf_v1_ospf_interface_proto_goTypes = []any{

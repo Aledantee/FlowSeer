@@ -78,8 +78,8 @@ const file_flowseer_net_protocol_lldp_v1_power_pairs_proto_rawDesc = "" +
 	"PowerPairs\x12\x1b\n" +
 	"\x17POWER_PAIRS_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12POWER_PAIRS_SIGNAL\x10\x01\x12\x15\n" +
-	"\x11POWER_PAIRS_SPARE\x10\x02B\x9e\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x0fPowerPairsProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\x11POWER_PAIRS_SPARE\x10\x02B\x9c\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x0fPowerPairsProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_power_pairs_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_power_pairs_proto_goTypes = []any{

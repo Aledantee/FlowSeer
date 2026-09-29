@@ -88,8 +88,8 @@ const file_flowseer_net_routing_v1_next_hop_group_proto_rawDesc = "" +
 	"\n" +
 	",flowseer/net/routing/v1/next_hop_group.proto\x12\x17flowseer.net.routing.v1\x1a&flowseer/net/routing/v1/next_hop.proto\"W\n" +
 	"\fNextHopGroup\x12G\n" +
-	"\tnext_hops\x18\x01 \x03(\v2 .flowseer.net.routing.v1.NextHopB\b\xbaH\x05\x92\x01\x02\b\x01R\bnextHopsB\xfd\x01\n" +
-	"\x1bcom.flowseer.net.routing.v1B\x11NextHopGroupProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/routing/v1;routingv1\xa2\x02\x03FNR\xaa\x02\x17Flowseer.Net.Routing.V1\xca\x02\x17Flowseer\\Net\\Routing\\V1\xe2\x02#Flowseer\\Net\\Routing\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Routing::V1b\beditionsp\xe9\a"
+	"\tnext_hops\x18\x01 \x03(\v2 .flowseer.net.routing.v1.NextHopB\b\xbaH\x05\x92\x01\x02\b\x01R\bnextHopsB\xfb\x01\n" +
+	"\x1bcom.flowseer.net.routing.v1B\x11NextHopGroupProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/routing/v1;routingv1\xa2\x02\x03FNR\xaa\x02\x17Flowseer.Net.Routing.V1\xca\x02\x17Flowseer\\Net\\Routing\\V1\xe2\x02#Flowseer\\Net\\Routing\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Routing::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_routing_v1_next_hop_group_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_routing_v1_next_hop_group_proto_goTypes = []any{

@@ -211,8 +211,8 @@ const file_flowseer_net_cellular_v1_cellular_signal_proto_rawDesc = "" +
 	":\b\x18\xc0\xb8\x02(\xef\x9f\x05R\vrsrqMillidb\x12#\n" +
 	"\rrssi_millidbm\x18\x03 \x01(\x11R\frssiMillidbm\x120\n" +
 	"\fsinr_millidb\x18\x04 \x01(\x11B\r\xbaH\n" +
-	":\b\x18\x80\xf1\x04(\xaf\xe7\x02R\vsinrMillidbB\x86\x02\n" +
-	"\x1ccom.flowseer.net.cellular.v1B\x13CellularSignalProtoP\x01ZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/cellular/v1;cellularv1\xa2\x02\x03FNC\xaa\x02\x18Flowseer.Net.Cellular.V1\xca\x02\x18Flowseer\\Net\\Cellular\\V1\xe2\x02$Flowseer\\Net\\Cellular\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Cellular::V1b\beditionsp\xe9\a"
+	":\b\x18\x80\xf1\x04(\xaf\xe7\x02R\vsinrMillidbB\x84\x02\n" +
+	"\x1ccom.flowseer.net.cellular.v1B\x13CellularSignalProtoZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/cellular/v1;cellularv1\xa2\x02\x03FNC\xaa\x02\x18Flowseer.Net.Cellular.V1\xca\x02\x18Flowseer\\Net\\Cellular\\V1\xe2\x02$Flowseer\\Net\\Cellular\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Cellular::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_cellular_v1_cellular_signal_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_cellular_v1_cellular_signal_proto_goTypes = []any{

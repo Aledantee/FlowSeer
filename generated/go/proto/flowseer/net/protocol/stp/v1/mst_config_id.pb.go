@@ -178,8 +178,8 @@ const file_flowseer_net_protocol_stp_v1_mst_config_id_proto_rawDesc = "" +
 	"\vMstConfigId\x12\x1b\n" +
 	"\x04name\x18\x01 \x01(\tB\a\xbaH\x04r\x02( R\x04name\x120\n" +
 	"\x0erevision_level\x18\x02 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\rrevisionLevel\x12\x1f\n" +
-	"\x06digest\x18\x03 \x01(\fB\a\xbaH\x04z\x02h\x10R\x06digestB\x98\x02\n" +
-	" com.flowseer.net.protocol.stp.v1B\x10MstConfigIdProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
+	"\x06digest\x18\x03 \x01(\fB\a\xbaH\x04z\x02h\x10R\x06digestB\x96\x02\n" +
+	" com.flowseer.net.protocol.stp.v1B\x10MstConfigIdProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_stp_v1_mst_config_id_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_stp_v1_mst_config_id_proto_goTypes = []any{

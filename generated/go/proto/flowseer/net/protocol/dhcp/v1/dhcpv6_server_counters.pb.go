@@ -263,8 +263,8 @@ const file_flowseer_net_protocol_dhcp_v1_dhcpv6_server_counters_proto_rawDesc = 
 	"\fmessage_type\x18\x01 \x01(\x0e20.flowseer.net.protocol.dhcp.v1.Dhcpv6MessageTypeBp\xbaHm\xba\x01b\n" +
 	"!dhcpv6_message_count.message_type\x120message_type must fit the 8-bit range (1 to 255)\x1a\vthis <= 255\xc8\x01\x01\x82\x01\x02 \x00R\vmessageType\x12+\n" +
 	"\x11received_messages\x18\x02 \x01(\x04R\x10receivedMessages\x12#\n" +
-	"\rsent_messages\x18\x03 \x01(\x04R\fsentMessagesB\xa8\x02\n" +
-	"!com.flowseer.net.protocol.dhcp.v1B\x19Dhcpv6ServerCountersProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
+	"\rsent_messages\x18\x03 \x01(\x04R\fsentMessagesB\xa6\x02\n" +
+	"!com.flowseer.net.protocol.dhcp.v1B\x19Dhcpv6ServerCountersProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_dhcp_v1_dhcpv6_server_counters_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_net_protocol_dhcp_v1_dhcpv6_server_counters_proto_goTypes = []any{

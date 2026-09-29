@@ -83,8 +83,8 @@ const file_flowseer_net_switching_v1_frame_admission_proto_rawDesc = "" +
 	"\x1bFRAME_ADMISSION_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13FRAME_ADMISSION_ALL\x10\x01\x12\x1f\n" +
 	"\x1bFRAME_ADMISSION_TAGGED_ONLY\x10\x02\x125\n" +
-	"1FRAME_ADMISSION_UNTAGGED_AND_PRIORITY_TAGGED_ONLY\x10\x03B\x8d\x02\n" +
-	"\x1dcom.flowseer.net.switching.v1B\x13FrameAdmissionProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
+	"1FRAME_ADMISSION_UNTAGGED_AND_PRIORITY_TAGGED_ONLY\x10\x03B\x8b\x02\n" +
+	"\x1dcom.flowseer.net.switching.v1B\x13FrameAdmissionProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_switching_v1_frame_admission_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_switching_v1_frame_admission_proto_goTypes = []any{
