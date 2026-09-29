@@ -27,7 +27,7 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
-## 2026-09-28 implement: nothing stops a test-side accessibility suppression
-Skill or agent: `.agents/skills/implement/SKILL.md`, step 2 (Work the units), and `AGENTS.md` hard boundaries.
-What happened: nothing in `implement` step 2 or the verifier stops a unit from making a failing accessibility audit pass by stripping attributes such as `aria-hidden` in test setup (the audit lives in `frontend/web/src/ui/a11y.test.ts`). The `AGENTS.md` hard boundary forbids that suppression, but only in prose, so only review catches it.
-Suggested change: enforce the suppression ban through an automated check under `test/conformance/` or a pre-commit hook that flags attribute stripping and disabled rules in test files, rather than relying on prose.
+## 2026-09-29 land: a driven phase plan reached main without its retire
+Skill or agent: `.claude/skills/land/SKILL.md`, step 4 (retire), as reached from `drive`.
+What happened: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase1-plan.md` sat on `main` with `status: implemented`, review and compound recorded (`42297bab`, `5c9e8051`), and no `docs(plans): retire` commit. `steer`'s sweep retired it. Whether `land` ran for the phase or the phase reached `main` through a `drive` merge alone is not recorded.
+Suggested change: have `drive` hand a finished phase to `land`, or have `land` retire every implemented phase plan on its branch, so a phase that lands never waits for the sweep.
