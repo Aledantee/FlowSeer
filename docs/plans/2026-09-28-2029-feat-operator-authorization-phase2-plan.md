@@ -842,61 +842,93 @@ is reachable.
 
 ## Review
 
-Verdict: rework (2026-09-29). Three review rounds with two fix rounds ran
-over `a813410a..72427348`; the fixes are `f688cb7a..34b6638c`.
+Verdict: rework (2026-09-30). This was the second review, over
+`a813410a..4451c64c` with its weight on follow-up units U7–U10. It ran two
+rounds with one fix round (`74bf2f06`, `38ad1659`, merged at `241253f5`
+and `cdbce3f7`). The first review ran three rounds over `a813410a..72427348`
+with fixes `f688cb7a..34b6638c`.
 
 The fixes changed the landed shape in ways a re-plan starts from:
 
 - An edge's tenant has one authority, the `edge_<edgeID>` index in the
   `edges` bucket. `CreateEdge` writes it, and Enroll writes the same value.
-  Dispatch, drift, audit delivery, capture, and edge lane reads resolve
-  through it and refuse an edge without one; nothing substitutes the
-  default tenant for a tenant it could not resolve.
+  Dispatch, drift, audit delivery, capture, AttachBus, and edge lane reads
+  resolve through it and refuse an edge without one. Nothing substitutes
+  the default tenant for a tenant it could not resolve: central startup
+  indexes no registry edge, `Hub.EdgeTenant` answers unknown on a zero
+  `Hub`, and `StartLeaf` refuses an empty tenant.
+- The edge agent takes its leaf tenant from the AttachBus subjects, which
+  must all name one valid tenant and the edge's own id.
 - A device lane is keyed by its hosting edge's tenant, not by the caller's.
-  A caller whose tenant is not that edge's gets `NotFound`. This replaces
-  U5's rule that deviceapi keys lanes by `tenant.FromContext`.
+  A caller whose tenant is not that edge's gets `NotFound`.
   `CreateCaptureSession` refuses an edge the caller's tenant does not own.
-- `CreateTenantRequest` carries the issuer and organization claim fields,
-  and the service assigns the tenant id.
 - A tenant token is a lowercase canonical UUID or `default` wherever a key,
-  subject, or path is built, and `dev_tenant` must be a UUID.
+  subject, or path is built, and `dev_tenant` must be a lowercase UUID.
+- `TenantService` is defined but not served; a host test fails if it is
+  mounted. `PlatformAdmin` carries the organization claim name. Nothing
+  reads `platform_admin` or the tenant store in production yet.
+- A tenant record counts as committed only while the `org_` index names it.
+  `Get`, `List`, and `LookupByOrg` hide any other record, and `Mutate`
+  neither creates a record nor changes its organization binding.
 - State written before this change is not read: unprefixed keys in
   `device-lanes`, `edges`, and `captures`, capture files directly under
   `<StateDir>/captures/`, and edge accounts without an
   `edge-<edgeID>.tenant` file, which the hub skips on start.
 
+Closed by this review: the edge leaf publishes under its assigned tenant,
+the dev tenant rejects upper case, the registry edge auto-bind and the
+zero-`Hub` default are gone, `TenantService` is unmounted and a test holds
+it there, `PlatformAdmin` has its claim name, and the capture path docs
+match the code.
+
 Open, and the reason for the verdict:
 
-- The edge leaf publishes under the default tenant.
-  `src/edge/agent/internal/busattach/busattach.go` starts the leaf without
-  `LeafConfig.Tenant`, and `src/modules/edgebus/leaf.go` falls back to
-  `default`, so the forwarder refuses every record from an edge enrolled
-  under a UUID tenant. The fix needs the leaf to take its tenant or
-  subjects from `AttachBus`, which is outside this change's files.
-- The organization index claim in `tenantstore.Create` held no clean round
-  in three. Its takeover of a stale claim rests on a time bound a delayed
-  claim acknowledgement can exceed, which leaves two active tenants for one
-  organization. A compare-and-set commit of the index after the record
-  write removes the clock from the argument. The rollback test drives the
-  KV bucket instead of `Store`.
-- `tenant.Validate` accepts only lowercase UUIDs, but the schema's
-  `string.uuid` rule on `dev_tenant` accepts upper case, so an upper-case
-  `dev_tenant` passes config validation and then stops central at start.
-- `host.go` binds an unindexed registry edge to the dev tenant at start,
-  because `host_test.go` never creates the edge it serves.
-- `edgebus.Hub.EdgeTenant` answers `default` for a zero `Hub`, which only
-  `forwarder_internal_test.go` relies on.
-- `TenantService` checks only that `platform_admin` is configured, so any
-  caller that reaches the API port can create tenants and claim an
-  organization. No test drives its handler, and
-  `src/services/device/README.md` does not list it among the
-  unauthenticated services. Whether to mount it before authentication
-  lands is a decision for the plan owner.
-- `PlatformAdmin` has no organization claim name, which `TenantConfig`
-  carries.
-- `src/services/device/internal/captureapi/doc.go` and
-  `src/services/device/README.md` still give the capture path as
-  `<StateDir>/captures/<session_id>.pcapng`.
+- The organization claim in `tenantstore.Create` has had five review
+  rounds without a clean one: three with a time-bound claim, then two with
+  record-first and a compare-and-set index. The second of the latest two
+  found defects in the first's fix, so per the review skill the mechanism
+  goes back to `plan` instead of another patch. What the rounds established:
+  - A retried `Create` of a committed tenant resumes with the committed
+    record's revision. If the index read then fails (the caller's context
+    expiring is enough), the revision-guarded rollback deletes the
+    committed tenant (`store.go:198-205`), and the unknown-outcome
+    rollbacks after a failed reconcile read do the same.
+  - Two concurrent `Create` calls with one id share a record revision, so a
+    cancelled one's rollback deletes the record the other reported as
+    created.
+  - "The index names me" is a read, not a compare-and-set. A competitor
+    holding the index's old revision can still take it over after `Create`
+    returned success.
+  - The property test (`ownership_test.go`) injects no `Get` or `Keys`
+    faults, faults only the first matching call, never retries a failed
+    `Create`, and has no same-id concurrency. Its visibility check holds by
+    construction. A re-plan should give the claim a state space that
+    covers every KV call and fault point, retries, and same-id contention,
+    and should decide whether same-id `Create` resumes at all.
+- `spec/proto/flowseer/edge/attach/v1/bus.proto` says an empty `subjects`
+  map is valid, but the edge agent now needs the map to learn its tenant.
+  Central always sends three subjects, so nothing fails today. An explicit
+  tenant field on `AttachBusResponse` would remove the inference. That file
+  is outside this change.
+- These docs still describe the one-tenant state and are outside this
+  change: `src/modules/edgebus/README.md` (the tenant token "carries no
+  broker enforcement"; a restart "re-attaches every edge"),
+  `spec/proto/flowseer/store/device/v1/README.md` ("A tenant" listed as
+  absent), `docs/solutions/architecture-patterns/a-restarted-hub-must-re-attach-every-persisted-edge-account.md`,
+  and the capture path in
+  `docs/architecture/2026-09-09-remote-packet-capture-direction.md`.
+- Low: `src/services/device/README.md` cites `serve.go:68-76` in prose.
+  A comment in `host_test.go` narrates when authentication lands.
+  `TestStartLeafRefusesEmptyAndInvalidTenant` does not show that validation
+  runs before the state directory is written.
+  `TestStartupDoesNotIndexUnindexedRegistryEdge` does not wait for the host
+  to stop.
+- Plan text that no longer matches the code: U8 and the tenant store
+  Decision say an existing id returns `ErrCodeAlreadyExists`, but the code
+  resumes it. U10 and a Decision name `TestE2EMultiTenantPartitioning`, but
+  the test is `TestMultiTenantIsolationAndEdgeBusPartitioning`. U2 says a
+  missing tenant sidecar defaults to `default`, but the hub skips the edge.
+  Requirement 1's grep also prints two vendor protos under `spec/proto/ruckus/`.
 
 ## Open questions
 
