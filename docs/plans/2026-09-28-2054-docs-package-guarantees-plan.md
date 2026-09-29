@@ -3,9 +3,8 @@ title: Package Guarantees - Plan
 type: docs
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: implemented
-review: rework
+artifact_readiness: implementation-ready
+status: planned
 execution: mixed
 ---
 
@@ -61,6 +60,57 @@ follow-up plan is written.
   the parsed tree leaves no such step, and a guarantee sentence needs no
   link or image.
 
+- Mapping allowed inline nodes to visible text and fail-closed inline rejection:
+  Inside counted blocks (headings, normative MUST/MUST NOT paragraphs,
+  WHEN/THEN items, and `Proved by:` paragraphs), the checker inspects AST
+  children directly instead of delegating to an HTML renderer:
+  - Text (`ast.KindText` / `*ast.Text`): non-raw text decodes HTML character
+    references (named entities such as `&amp;` via `util.ResolveEntityNames`,
+    decimal references such as `&#65;` and hex references such as `&#x41;`
+    via `util.ResolveNumericReferences`) and backslash-escaped ASCII
+    punctuation (`\*` -> `*`, `\&` -> `&` via `util.UnescapePunctuations`).
+    Soft line breaks (`t.SoftLineBreak()`) and hard line breaks
+    (`t.HardLineBreak()`) append `\n` to preserve line and word boundaries.
+    Raw text segments (`t.IsRaw()`) inside code spans are preserved literally
+    without unescaping.
+  - String (`ast.KindString` / `*ast.String`): concrete text value `s.Value`
+    (decoded bytes produced by goldmark transformations).
+  - Code spans (`ast.KindCodeSpan` / `*ast.CodeSpan`): children are raw text
+    segments whose literal bytes are extracted; newlines inside multiline code
+    spans are normalized to single spaces per CommonMark; surrounding
+    backticks are not part of visible text.
+  - Emphasis (`ast.KindEmphasis` / `*ast.Emphasis`): child nodes are
+    recursively traversed and appended; delimiter characters (`*` or `_`) are
+    not part of visible text.
+  - Every other inline kind (`ast.KindRawHTML`, `ast.KindImage`, `ast.KindLink`,
+    `ast.KindAutoLink`, and any extension node kind) fails closed immediately
+    with `<path>:<line>: unknown inline kind: <kind>` at that node's source line
+    (`nodeLine(n, content)`).
+  - Renderer removal: `extractVisibleText` and `stripHTMLTags`
+    (`tools/check-guarantees/check.go:651-678`) and `goldmark.DefaultRenderer()`
+    are completely removed. Why: HTML rendering and tag stripping guess what a
+    reader sees and allow leaks across attribute and tag boundaries (e.g. `<br>`
+    in image `alt` attributes or raw HTML comments). Directly walking allowed AST
+    inlines eliminates tag stripping and rendering entirely.
+
+- Test citation line accuracy with entity citations:
+  In `parseProvedByParagraph` (`tools/check-guarantees/check.go:444-535`),
+  searching for comma-separated test names across AST segments must not
+  permanently advance the segment index (`segIdx`) when a citation contains
+  HTML entities (such as `Test&#65;`). When a citation cannot be matched in
+  untransformed segment bytes, preserving the segment search position ensures
+  that subsequent missing test citations (such as `TestB`) find their source
+  segment and report their own source lines rather than falling back to
+  `startLine` (the `Proved by:` line).
+
+- Removal of shell-script string matching test:
+  `TestVerifyChangeBuildWrappedInRun` (`tools/check-guarantees/check_test.go:2091-2100`)
+  is removed. Why: unit tests under `tools/check-guarantees/` should test Go
+  checker functionality, not string-match shell script implementations across
+  relative directory boundaries (`../../.agents/skills/verify-change/scripts/verify-change.sh`).
+  Verifying that `verify-change.sh` wraps the binary build in `run` belongs in
+  `tools/hooks/tests/run.sh` (a policy surface).
+
 - The checker reads `GUARANTEES.md` through a conforming CommonMark parser
   and checks the parsed document, not the source lines (decided by the
   user, 2026-09-29, after the second review ended `rework`). Headings,
@@ -97,19 +147,25 @@ follow-up plan is written.
 
 - How the Go command is invoked (Python vs Go tradeoff): The Go command in
   `tools/check-guarantees` replaces the Python checker (`check-guarantees.py`
-  and `test_check_guarantees.py`) entirely, invoked directly by
-  `verify-change.sh:518-520` via `go run ./tools/check-guarantees` (`--all` or
-  paths). Tradeoff: Having `check-guarantees.py` invoke a Go parser command via
-  subprocess would preserve the existing Python test harness and avoid
+  and `test_check_guarantees.py`) entirely. As implemented in
+  `.agents/skills/verify-change/scripts/verify-change.sh:509-515`, the verifier
+  compiles the checker into a temporary directory via `run go build -o
+  "$build_dir/check-guarantees" ./tools/check-guarantees` and executes the
+  resulting binary with `run "$build_dir/check-guarantees" --all` under
+  `$full == true` or `run "$build_dir/check-guarantees" -- "${paths[@]}"`
+  otherwise. Tradeoff: Having `check-guarantees.py` invoke a Go parser command
+  via subprocess would preserve the existing Python test harness and avoid
   modifying `verify-change.sh`, but it incurs double subprocess overhead
   (`verify-change.sh` -> Python -> `go run` -> stdout JSON -> Python ->
   `go list`), requires maintaining an IPC JSON bridge, and leaves Python
   orchestrating Go in a codebase that manages no Python dependencies.
-  Replacing the Python checker unifies the gate in Go, eliminates IPC
-  overhead, aligns with FlowSeer's pure-Go toolchain preference, and lets
-  the test suite run under `go test -race ./tools/check-guarantees/...`.
-  `verify-change.sh` is merge-gate configuration (`AGENTS.md:37-39`), so the
-  unit modifying it keeps the guardrail-review rule.
+  Compiling with `go build` via `run` avoids the re-compilation overhead of
+  `go run` on repeated path evaluations while unifying the gate in Go,
+  eliminating IPC overhead, aligning with FlowSeer's pure-Go toolchain
+  preference, and letting the test suite run under `go test -race
+  ./tools/check-guarantees/...`. `verify-change.sh` is merge-gate
+  configuration (`AGENTS.md:37-39`), so any unit modifying it keeps the
+  guardrail-review rule.
 
 - Preserved mechanics: `go list -mod=readonly -json .` test discovery in the
   package directory with `GOWORK=off` (`check-guarantees.py:355-386`,
@@ -318,16 +374,64 @@ follow-up plan is written.
     with broken tests from passing citation resolution. Example: a package
     containing `func TestGood(t *testing.T)` and `func TestBad(x int)` fails
     resolution with `bad_test.go:3: TestBad has invalid test signature`.
-15. `verify-change.sh` invokes `go run ./tools/check-guarantees` (`--all` under
-    `--full`, changed paths otherwise) and passes guardrail review before
-    commit. `tools/check-guarantees` replaces `check-guarantees.py` and
+15. `verify-change.sh` compiles `tools/check-guarantees` via `run go build -o
+    "$build_dir/check-guarantees" ./tools/check-guarantees`
+    (`.agents/skills/verify-change/scripts/verify-change.sh:509-510`) into a
+    temporary directory and executes the compiled binary with `run
+    "$build_dir/check-guarantees" --all` under `--full` (`:512`), and `run
+    "$build_dir/check-guarantees" -- "${paths[@]}"` otherwise (`:514`).
+    `tools/check-guarantees` replaces `check-guarantees.py` and
     `test_check_guarantees.py`. Example: `verify-change.sh --
-    src/protocol/ssh/command_test.go` executes `go run ./tools/check-guarantees`
-    and passes.
+    src/protocol/ssh/command_test.go` executes the compiled binary and
+    passes.
 16. `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
     document the CommonMark block-based grammar and Go checker command.
     `src/protocol/ssh/GUARANTEES.md` passes. Example: `go run
     ./tools/check-guarantees src/protocol/ssh/GUARANTEES.md` exits 0.
+17. Counted blocks in `GUARANTEES.md` (document title `# ` and guarantee `## `
+    headings, normative MUST/MUST NOT paragraphs, `- WHEN ... THEN ...` list
+    items, and `Proved by:` paragraphs) may contain only allowed inline node
+    kinds: text (`ast.KindText` and `ast.KindString`), soft and hard line
+    breaks, code spans (`ast.KindCodeSpan`), and emphasis (`ast.KindEmphasis`).
+    Every other inline kind (`ast.KindRawHTML`, `ast.KindImage`, `ast.KindLink`,
+    `ast.KindAutoLink`, and any extension node) fails closed with `<path>:<line>:
+    unknown inline kind: <kind>`. Example: a normative paragraph containing an
+    inline link `It [MUST](https://example.com) hold` fails with
+    `GUARANTEES.md:7: unknown inline kind: link`.
+18. Visible text for counted blocks is derived directly from allowed AST nodes
+    without HTML rendering or tag stripping: text nodes unescape HTML entity
+    references (`&amp;` -> `&`, `&#65;` -> `A`, `&#x41;` -> `A`) and
+    backslash-escaped punctuation (`\*` -> `*`), code spans contribute raw code
+    text with newlines normalized to spaces, and emphasis unwraps its children.
+    `extractVisibleText` and `stripHTMLTags` (`tools/check-guarantees/check.go:651-678`)
+    and all renderer usage are removed. Example: `## A &amp; B` produces visible
+    heading text `A & B` and collides with `## A & B` as a duplicate heading.
+19. The checker test suite proves rejection for:
+    (a) an image whose alt text contains a hard line break followed by MUST
+        (`![x\\\nMUST](https://example.com/y.png)`);
+    (b) an image whose alt text contains a hard line break hiding THEN in a WHEN
+        item (`- WHEN ![x\\\nTHEN](https://example.com/y.png) a`);
+    (c) a raw HTML comment containing MUST (`<!-- MUST -->`) in a normative
+        candidate or guarantee block;
+    (d) an inline link in a normative sentence (`[MUST](https://example.com)`).
+    Each regression case fails against the current codebase and passes under the
+    inline allowlist. Existing cases for second-review findings continue to pass.
+    Example: running the checker against a file where a normative paragraph holds
+    `![x\\\nMUST](https://example.com/y.png)` fails with `GUARANTEES.md:7: unknown inline kind: image`.
+20. In `parseProvedByParagraph` (`tools/check-guarantees/check.go:444`), citation
+    line tracking maps entity-written test citations (e.g. `Test&#65;`) without
+    permanently advancing segment traversal past unmatched tokens, so later
+    missing test citations report their own source lines instead of the `Proved
+    by:` line. `TestVerifyChangeBuildWrappedInRun`
+    (`tools/check-guarantees/check_test.go:2091-2100`) is removed. Example:
+    in a `Proved by:` block with `Test&#65;` on line 12 and missing `TestB` on line
+    13, the error reports `GUARANTEES.md:13: "Heading" cites test "TestB" which
+    does not exist in pkg`.
+21. `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
+    document the inline allowlist (text, line breaks, code spans, emphasis), the
+    rejection of raw HTML, images, links, and autolinks, and AST-based visible
+    text derivation. `src/protocol/ssh/GUARANTEES.md` conforms and passes.
+    Example: `tools/check-guarantees src/protocol/ssh/GUARANTEES.md` exits 0.
 
 ## Out of scope
 
@@ -345,6 +449,9 @@ follow-up plan is written.
   plan section beyond the frontmatter and unit fields.
 - Updating `--print-selection` output assertions for `hook_tooling` in
   `tools/hooks/tests/run.sh` (policy surface; recorded under Open questions).
+- Adding a test in `tools/hooks/tests/run.sh` asserting that `verify-change.sh`
+  wraps the `check-guarantees` build in `run` (policy surface; recorded under
+  Open questions, no edit planned).
 
 ## Units
 
@@ -566,7 +673,56 @@ Tests: `go run ./tools/check-guarantees src/protocol/ssh/GUARANTEES.md` passes;
 passes.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills/verify-change/scripts/verify-change.sh .agents/skills/verify-change/scripts/check-guarantees.py .agents/skills/verify-change/scripts/test_check_guarantees.py docs/conventions/guarantees.md .agents/skills/verify-change/SKILL.md src/protocol/ssh/GUARANTEES.md`
 
-Waves: U1 | U2 | U3 | U4 | U5 | U6 | U7
+### U8. Inline allowlist on goldmark AST, renderer removal, and citation position fix
+
+Files: `tools/check-guarantees/check.go`, `tools/check-guarantees/check_test.go`, `docs/conventions/guarantees.md`, `.agents/skills/verify-change/SKILL.md`, `src/protocol/ssh/GUARANTEES.md`
+After: U7
+Change: `tools/check-guarantees` replaces HTML rendering and tag stripping with an inline allowlist evaluated directly on the goldmark AST:
+- Counted block inline validation: headings (`check.go:252-286, 296-324`),
+  normative paragraphs (`check.go:353-365`), WHEN/THEN list items
+  (`check.go:383-423`), and `Proved by:` paragraphs (`check.go:329-351`) allow
+  only text (`ast.KindText`, `ast.KindString`), soft/hard line breaks
+  (`Text.SoftLineBreak()`, `Text.HardLineBreak()`), code spans
+  (`ast.KindCodeSpan`), and emphasis (`ast.KindEmphasis`). Any other inline kind
+  (`ast.KindRawHTML`, `ast.KindImage`, `ast.KindLink`, `ast.KindAutoLink`, or
+  extension kinds) fails closed with `<path>:<line>: unknown inline kind: <kind>`
+  at `nodeLine(node, content)`.
+- Visible text extraction: `extractVisibleText` and `stripHTMLTags`
+  (`check.go:651-678`) and `goldmark.DefaultRenderer()` are removed. Visible text
+  is derived by walking allowed inlines: non-raw text decodes HTML character
+  entities (`util.ResolveEntityNames`, `util.ResolveNumericReferences`) and
+  backslash punctuation escapes (`util.UnescapePunctuations`); raw text (inside
+  code spans) is preserved without decoding; line breaks append `\n`; emphasis
+  unwraps its children.
+- Citation line tracking: in `parseProvedByParagraph` (`check.go:444-535`),
+  segment search for test identifiers preserves search positions across
+  unmatched entity-written citations (`Test&#65;`), preventing later missing
+  test citations from falling back to `startLine` (the `Proved by:` line).
+- Fragile test removal: `TestVerifyChangeBuildWrappedInRun`
+  (`check_test.go:2091-2100`) is removed.
+- Documentation: `docs/conventions/guarantees.md:79-86` and
+  `.agents/skills/verify-change/SKILL.md:180-182` document the inline allowlist
+  rules (allowed kinds: text, line breaks, code spans, emphasis; rejected kinds:
+  raw HTML, images, links, autolinks) and direct AST text derivation.
+- Pilot validation: `src/protocol/ssh/GUARANTEES.md` conforms to the allowlist
+  and passes.
+Tests: `tools/check-guarantees/check_test.go` adds regression tests:
+- Image alt text containing a hard line break followed by MUST fails closed as
+  unknown inline kind `image` (preventing alt-text normative leaks).
+- Image alt text containing a hard line break hiding THEN in a WHEN item fails
+  closed as unknown inline kind `image`.
+- Raw HTML comment containing MUST in a normative candidate fails closed as
+  unknown inline kind `raw html`.
+- Inline link in a normative sentence fails closed as unknown inline kind `link`.
+- `parseProvedByParagraph` with an entity-written citation `Test&#65;` followed
+  by a missing test `TestB` on a subsequent line reports `TestB` at its own line
+  number, not the `Proved by:` line.
+- Existing regression tests for second-review findings (entity duplicate
+  headings, multiline code spans, escaped backticks) continue to pass.
+- `src/protocol/ssh/GUARANTEES.md` passes.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- tools/check-guarantees/check.go tools/check-guarantees/check_test.go docs/conventions/guarantees.md .agents/skills/verify-change/SKILL.md src/protocol/ssh/GUARANTEES.md`
+
+Waves: U1 | U2 | U3 | U4 | U5 | U6 | U7 | U8
 
 ## Verification
 
@@ -617,29 +773,33 @@ Then rename `TestRunOutputCapTruncates` in
 - [x] `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
       state CommonMark block rules and `tools/check-guarantees` invocation.
 - [x] `src/protocol/ssh/GUARANTEES.md` passes under the new checker.
-- [x] No plan labels in code, scripts, or skill text.
+- [ ] Inline allowlist implemented in `tools/check-guarantees/check.go`: counted blocks
+      allow only text, line breaks, code spans, and emphasis; raw HTML, images, links,
+      and autolinks fail closed with `<path>:<line>: unknown inline kind: <kind>`.
+- [ ] `extractVisibleText` and `stripHTMLTags` and renderer usage removed from
+      `tools/check-guarantees/check.go`.
+- [ ] Regression tests added in `tools/check-guarantees/check_test.go` proving rejection
+      of image alt text with hard break + MUST, hidden THEN in image alt, raw HTML
+      comment containing MUST, and link in normative sentence.
+- [ ] Low findings closed: `parseProvedByParagraph` citation line tracking fixed for
+      entity citations, and `TestVerifyChangeBuildWrappedInRun` removed from
+      `tools/check-guarantees/check_test.go`.
+- [ ] `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
+      state inline allowlist rules and AST visible text derivation.
+- [ ] `src/protocol/ssh/GUARANTEES.md` conforms and passes.
+- [ ] Verifier green for every changed path in U8.
+- [ ] No plan labels in code, scripts, or skill text.
 
 ## Open questions
 
-- The third review ended `rework` after three rounds on how the checker
-  derives the text a reader sees, none of them clean. The rounds settled
-  the parser (`goldmark.DefaultParser()` unchanged: a line opening an HTML
-  block interrupts a paragraph or list item and fails closed) and block
-  lines (`n.Pos()`). Text derivation moved from raw segments, to
-  hand-chained `util` decoding (fails open on `\&#77;UST`, `&#0115;UST`,
-  over-long hex references), to rendering the node and stripping tags.
-  That last form still fails open: a hard line break inside image alt
-  text renders `<br>` inside the `alt` attribute, so `It is ![x\` +
-  newline + `MUST](y.png).` counts as normative, and the same leaks THEN.
-  Re-plan the derivation as a stated property with a generated or
-  exhaustive check against goldmark's renderer, not a fourth patch (a
-  quote-aware tag stripper is the candidate). Also open: citation lines
-  fall back to the `Proved by:` line for every name after one written
-  with an entity or escape (`Test&#65;`); the Go test that string-matches
-  a line of `verify-change.sh` belongs in `tools/hooks/tests/run.sh` or
-  nowhere; Requirement 15 and the invocation Decision still say `go run`,
-  while the verifier now builds the checker and runs the binary.
-
+- Checking that `verify-change.sh` wraps the `check-guarantees` build in `run`:
+  `TestVerifyChangeBuildWrappedInRun` was removed from
+  `tools/check-guarantees/check_test.go` because unit tests should not
+  inspect shell script source outside their tree. A test verifying that
+  `verify-change.sh` executes the build under `run` belongs in
+  `tools/hooks/tests/run.sh`. `tools/hooks/` is a policy surface
+  (`AGENTS.md:37-39`) requiring separate guardrail review, so this check is
+  deferred to a future policy-surface maintenance pass.
 - The follow-up plan: `plan`'s template gains a `## Guarantee changes`
   section with `Added:`, `Changed:`, and `Removed:` groups under one
   `### <package path>` heading each, the blocks in fenced code so their
