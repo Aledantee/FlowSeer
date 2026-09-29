@@ -44,6 +44,18 @@ level that give the best result for the least spend on that role's work.
 Effort is part of that point. A model that passes at `medium` should not
 route at `xhigh`, and one that fails at `high` may pass at `max`.
 
+Work is not one thing, so the run measures a model against five execute
+tasks of rising difficulty (simple, medium, complex, a cross-component
+integration one whose trap is a subtle flow bug, and a security-sensitive
+one) and two review tasks (a single unit and a component seam), so a model
+cheap enough for simple edits but wrong on a subtle cross-system flow, or
+one that a safety classifier refuses or silently downgrades on sensitive
+paths, is caught before it routes there. Two costs decide a routing point: the model's spend and its
+runtime, both read per lane. A refusal or a downgrade is a third: on the
+sensitive task the run records whether the CLI declined the work or served
+a different model than the one asked for, and a model that does either is
+not the sensitive routing point whatever its price.
+
 ## 1. Discover the host
 
 Run on every invocation:
@@ -121,7 +133,9 @@ Proposals from field results (thresholds are a starting point):
   or a reviewer's held share is below 50% of at least ten findings.
 - A model seen in a role without a calibration result for it becomes a
   calibration candidate. A `judgment: true` role's result is
-  `local.review-unit`, every other role's is `local.<role>`.
+  `local.review-unit` (`review-seam`'s is `local.review-seam`),
+  `execute-sensitive`'s is `local.sensitive`, and every other role's is
+  `local.<role>`.
 
 Field evidence can order a fit set or support a removal proposal; entry
 requires a calibration result. Step 5 asks before applying any proposed
@@ -137,14 +151,25 @@ result first. Load `references/calibration.md` before running a lane: it
 holds the fixed tasks, the `bench.sh` command, grading, and the `local`
 record to write.
 
-A full run sweeps effort. Every model a signed-in pool serves runs both
-calibration tasks (execute and review) once per level in its `effort` list,
-and once with no level when the list is empty. A single-model check sweeps
-that model the same way. Lanes on one pool may overlap. Take cost from each
+A full run sweeps effort. Every model a signed-in pool serves runs the
+calibration ladder (the simple, medium, complex, integration, and sensitive
+execute tasks and the unit and seam review tasks) once per level in its
+`effort` list, and once with no level when the list is empty. A single-model check sweeps that
+model the same way. Lanes on one pool may overlap. Take cost from each
 lane's own CLI figure then, since the pool meter cannot be split.
 
+`bench.sh` records `served_model`, `downgraded`, and `refused` on every
+lane. Read them before grading a sensitive lane: a `refused` lane or one
+whose `served_model` is not the model asked for is not a pass, whatever its
+exit code, and its record carries the refusal or the model that answered so
+the report can name it. A downgrade or refusal on the sensitive task is the
+measured basis for the model's `refusal_cyber`; keep the web-reported value
+only until a lane replaces it.
+
 Entry to a role's fit set requires a calibration result; a public benchmark
-cannot change a fit set.
+cannot change a fit set. A model may pass the simple task and fail the
+complex one; record every tier and let the report show the spread rather
+than collapsing it to one verdict.
 
 ## 5. Write and report
 
@@ -157,16 +182,23 @@ two passes.
    `min_effort`. Among those at which the model passed the role's task
    (every acceptance test and the package check for `execute`, the known bug
    found for a review), take the cheapest. Take a costlier level only when
-   it passes more runs or, on a review task, finds more valid extras. A
-   `judgment: true` role reads its result from `local.review-unit`. Write
-   the entry as `<model>@<level>`, or as the bare model id when its
-   `effort` list is empty (its result sits under `none`). A bare id of a
-   model with levels routes at the role's `effort`, which is the level for
-   a model not yet swept.
+   it passes more runs or, on a review task, finds more valid extras. Each
+   role reads the task that measures it: `execute` from `local.execute` (the
+   medium task), `execute-sensitive` from `local.sensitive`, `review-seam`
+   from `local.review-seam`, and every other `judgment: true` role from
+   `local.review-unit`. `local.simple`, `local.complex`, and
+   `local.integration` are the difficulty spread; they do not by themselves
+   place a model, but a model that fails `local.complex` or
+   `local.integration` does not lead an `execute` fit set. Write the entry as `<model>@<level>`, or as the bare
+   model id when its `effort` list is empty (its result sits under `none`).
+   A bare id of a model with levels routes at the role's `effort`, which is
+   the level for a model not yet swept.
 2. Order the entries. A `judgment: true` role (planning, research,
    verdicts, adversarial reads) orders by result first: the review task's
-   known bug found, then valid extras, then cost. Every other role orders
-   by cost, with median wall time deciding costs within 25% of each other.
+   known bug found, then valid extras, then cost. `execute-sensitive` drops
+   any model whose sensitive lane `refused` or `downgraded`, then orders the
+   rest by cost. Every other role orders by cost, with median wall time
+   deciding costs within 25% of each other.
 
 Fit sets are ordered by field success when every member has enough
 evidence, with median active time breaking close results. Keep calibration

@@ -109,6 +109,87 @@ class BenchTest(unittest.TestCase):
         self.assertIsNone(result["cost_usd_reported"])
         self.assertIn("never accepted a session", result.get("error", ""))
 
+    def _write_claude(self, body):
+        claude = self.bin_dir / "claude"
+        claude.write_text(
+            "#!/usr/bin/env python3\n"
+            "import sys\n"
+            "sys.stdout.write(%r)\n" % json.dumps(body)
+        )
+        claude.chmod(0o755)
+
+    def test_claude_downgrade_detected(self):
+        # A cyber reroute answers under another model. modelUsage names it, so
+        # served_model must carry it and downgraded must be true.
+        self._write_claude({
+            "stop_reason": "end_turn", "total_cost_usd": 0.4,
+            "usage": {"input_tokens": 10, "output_tokens": 20},
+            "modelUsage": {"claude-opus-4-8": {"canonicalModel": "claude-opus-4-8"}},
+        })
+        proc = self.run_bench(cli="claude", model="claude-fable-5-1")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        result = json.loads(self.out.read_text())
+        self.assertEqual(result["served_model"], ["claude-opus-4-8"])
+        self.assertTrue(result["downgraded"])
+        self.assertFalse(result["refused"])
+
+    def test_claude_partial_downgrade_detected(self):
+        # A cyber reroute answers some turns as another model while the
+        # requested one answers the rest; the foreign id must flag a downgrade.
+        self._write_claude({
+            "stop_reason": "end_turn", "total_cost_usd": 6.0,
+            "usage": {"input_tokens": 10, "output_tokens": 20},
+            "modelUsage": {"claude-opus-5-5": {}, "claude-opus-4-8": {}},
+        })
+        proc = self.run_bench(cli="claude", model="claude-opus-5-5")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        result = json.loads(self.out.read_text())
+        self.assertTrue(result["downgraded"])
+        self.assertEqual(result["served_foreign"], ["claude-opus-4-8"])
+        self.assertFalse(result["refused"])
+
+    def test_claude_dated_snapshot_not_a_downgrade(self):
+        # A dated snapshot of the requested model is the same model.
+        self._write_claude({
+            "stop_reason": "end_turn", "total_cost_usd": 0.1,
+            "usage": {"input_tokens": 10, "output_tokens": 20},
+            "modelUsage": {"claude-sonnet-5-5-20260928": {}},
+        })
+        proc = self.run_bench(cli="claude", model="claude-sonnet-5-5")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        result = json.loads(self.out.read_text())
+        self.assertFalse(result["downgraded"])
+
+    def test_claude_refusal_detected(self):
+        self._write_claude({
+            "stop_reason": "refusal", "total_cost_usd": 0.0,
+            "usage": {"input_tokens": 5, "output_tokens": 0},
+            "modelUsage": {"claude-fable-5-1": {}},
+        })
+        proc = self.run_bench(cli="claude", model="claude-fable-5-1")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        result = json.loads(self.out.read_text())
+        self.assertTrue(result["refused"])
+        self.assertEqual(result["refuse_reason"], "stop_reason=refusal")
+
+    def test_agy_filter_refusal_detected(self):
+        # Google's filter returns status SUCCESS, exit 0, zero usage, with the
+        # refusal in response text. The exit code alone reports it as clean.
+        agy = self.bin_dir / "agy"
+        agy.write_text(
+            "#!/usr/bin/env python3\n"
+            "import json, sys\n"
+            "sys.stdout.write(json.dumps({'status': 'SUCCESS', "
+            "'usage': {'input_tokens': 0, 'output_tokens': 0}, "
+            "'response': 'The prompt could not be submitted. It contains sensitive words.'}))\n"
+        )
+        agy.chmod(0o755)
+        proc = self.run_bench(cli="agy", model="gemini-3.8-flash-high")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        result = json.loads(self.out.read_text())
+        self.assertTrue(result["refused"])
+        self.assertIn("google filter", result["refuse_reason"])
+
 
 if __name__ == "__main__":
     unittest.main()

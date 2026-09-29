@@ -1,0 +1,72 @@
+package ethernet_test
+
+import (
+	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
+)
+
+// Acceptance tests for Frame.WireOctets. Copied into the package by the tune
+// skill's calibration step; the candidate implementation never sees them.
+
+func TestWireOctetsAccept(t *testing.T) {
+	tests := []struct {
+		name  string
+		frame ethernet.Frame
+		want  int
+	}{
+		{
+			name:  "an untagged minimum frame is 84 wire octets",
+			frame: ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 46)},
+			want:  84,
+		},
+		{
+			name: "a short tagged frame is padded to the tagged minimum",
+			frame: ethernet.Frame{
+				Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}},
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   make([]byte, 10),
+			},
+			want: 88,
+		},
+		{
+			name:  "a 1518-octet frame is 1542 wire octets",
+			frame: ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 1504)},
+			want:  1542,
+		},
+		{
+			name: "a frame whose Encode errors is still padded",
+			frame: ethernet.Frame{
+				Tags:      []vlan.Tag{{TPID: 0x9100, VID: 10}},
+				EtherType: ethernet.EtherTypeIPv4,
+			},
+			want: 88,
+		},
+		{
+			name:  "an oversized untagged frame is not padded",
+			frame: ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 2000)},
+			want:  2038,
+		},
+		{
+			name: "a double-tagged short frame is padded to the two-tag minimum",
+			frame: ethernet.Frame{
+				Tags: []vlan.Tag{
+					{TPID: uint16(ethernet.EtherTypeProviderBridging), VID: 20},
+					{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10},
+				},
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   make([]byte, 4),
+			},
+			want: 92,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.frame.WireOctets(); got != tc.want {
+				t.Errorf("WireOctets() = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
