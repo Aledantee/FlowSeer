@@ -336,13 +336,8 @@ deferred value decoding brought BulkWalk down from 1281 to 1185 allocs/op and
 from 63.7 KB to 58.9 KB B/op
 (`src/protocol/snmp/bench/testdata/baseline-micro.txt:35`).
 
-Per the 2026-08-16 session history, the Get/GetNext `56` is post-optimization: four
-prototypes were each benchmarked against a fresh baseline with benchstat at
-`n=10` and fully reverted before the next; three were adopted. Experiment 4 — the
-single-buffer request encode now called `encodeRequestFast` — measured −23%
-allocs/op on Get/GetNext (73→56) and −10% B/op with latency unchanged (session
-history); experiment 3 was the byte-keyed dispatch of Convention 3 (session
-history). The bench Taskfile carries the profile-first rule: never optimize a site
+The Get and GetNext figures above already include the single-buffer request
+encode, `encodeRequestFast` (`src/protocol/snmp/pdu.go:775`). The bench Taskfile carries the profile-first rule: never optimize a site
 you have not first seen in a profile (`src/protocol/snmp/bench/Taskfile.yml`,
 `profile` task).
 

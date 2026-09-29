@@ -48,15 +48,15 @@ FlowSeer's error handling was built directly on `go.aledante.io/ae`, an external
 module the project does not control. A grounding inventory taken before any
 design work found that across all 20 SNMP files plus generated code, the repo
 touched exactly six `ae` symbols — `ae.Msg` for sentinels, `ae.New`, `ae.Wrap`
-and `ae.Wrapf`, and the `.Attr()` / `.Cause()` builder methods (session history).
+and `ae.Wrapf`, and the `.Attr()` / `.Cause()` builder methods.
 Everything else in that module — a fourteen-field struct, printers, exit codes,
 hints, tags, trace and span IDs, OTel integration, the recoverable flag — was
 carried but unused. Depending on an outside module for something as pervasive as
 the error type, while exercising a fraction of its surface, meant importing that
 module's design decisions unchanged into roughly two hundred call sites.
 
-Three of those decisions were actively wrong for this codebase, per the plan's
-Problem Frame (`docs/plans/2026-08-17-2254-refactor-internal-errs-package-plan.md`):
+Three of those decisions were actively wrong for this codebase, and the
+internal errs package (landed 2026-08-19 in `src/common/errs`) replaced them:
 
 - `ae.Wrapf` placed the wrapped error *between* the format string and its
   arguments. Every call site read backwards relative to `fmt.Errorf`, and the
@@ -311,9 +311,7 @@ cloning, and the `Cause`/`CauseUnwrap` split into code the project *does* own �
 the worst of both, since owning a flawed design removes the excuse for it.
 
 **`errs` at `src/common/errs`, not `errors`.** Naming it `errors` shadows the
-stdlib and forces an alias at nearly every call site. Worth noting that the
-opening ask named `common/errors`; the rename to `errs` was a deliberate
-correction of the original framing, not a default (session history). The package
+stdlib and forces an alias at nearly every call site. The package
 clause is `package errs` (`src/common/errs/errs.go:1`) and the SNMP migration
 imports it unaliased.
 
@@ -330,8 +328,7 @@ encoding types across the wire. Because both ends of a FlowSeer boundary compile
 the same `NewCode` declarations, `errors.Is` works across processes with no
 registration protocol at all — the whole mechanism is the `Is` method at
 `src/common/errs/errs.go:98` plus a `sync.Map` used only for duplicate detection.
-One thing was adopted from cockroachdb/errors: an unknown cause decodes to an
-opaque leaf preserving message and code rather than failing (session history).
+One thing was adopted from cockroachdb/errors: decoding never fails. A foreign cause decodes to an uncoded leaf that keeps its message (`TestEncodeDecodeRoundTrip`), and an unregistered code decodes as `ErrCodeUnknownRemote` with the original in the `wire_code` attribute (`TestDecodeUnknownCodeSurfacesAsInternal`), both in `src/common/errs/wire_test.go`.
 
 **Attribute safety marked at creation, not scrubbed at the edge.** Boundary-time
 sanitization means a heuristic deciding, at the worst possible moment, whether
@@ -360,7 +357,7 @@ wire section, only the codes-are-a-wire-contract rule.
   `errors.Is` visibility is a trap that only bites at the moment someone needs
   matching to work. `errs` has exactly one cause channel and it is always visible.
 - **The samber/oops `Is` bug class.** That project's issue tracker was read as a
-  test checklist (session history): a custom `Is` panicking on non-comparable
+  test checklist: a custom `Is` panicking on non-comparable
   types and giving false positives, duplicated stacks on re-wrap, nil attribute
   values panicking. The tree answers each: `TestIsReflexive`,
   `TestIsWithNilOperands`, `TestIsWithUncomparableCauses`,
@@ -373,9 +370,6 @@ wire section, only the codes-are-a-wire-contract rule.
   (`src/common/errs/builder.go:127-137`), never per wrap.
 
 ### A usage inventory measures today's code, not the intended system
-
-This is the most transferable lesson in the whole arc, and it cost a second pass
-to learn (session history).
 
 The design opened from a grounding inventory: only six `ae` symbols are used,
 therefore everything else — stacks, exit codes, user messages, hints, the
@@ -400,9 +394,8 @@ the migration; design against the intended architecture.
 
 ### What review changed, and why those fixes must not be undone
 
-Several errors were caught in document review *before* any code was written
-(session history) — including a declared surface that could not have compiled,
-because it declared both a `Code` type and a `Code(err)` extractor in one package.
+Several errors were caught in document review *before* any code was written.
+One was a declared surface that could not have compiled, because it declared both a `Code` type and a `Code(err)` extractor in one package.
 That is why the extractor is named `CodeOf`.
 
 The third commit, *Close the errs contract gaps found in review*, reports five
@@ -411,8 +404,8 @@ new package, rather than defects in the migration, are worth carrying forward:
 
 - `SafeAttributes` was not the subset it claimed to be. Fixed by having `collect`
   claim a key *before* applying the safety filter
-  (`src/common/errs/attr.go:43-59`); the fix was validated by reverting to the old
-  logic to prove the new test actually fails (session history).
+  (`src/common/errs/attr.go:43-59`), pinned by `TestSafeAttributesAreAStrictSubset`
+  (`src/common/errs/attr_test.go`).
 - The code-uniqueness gate resolved calls by identifier spelling, so an aliased or
   dot import evaded it entirely. Rewritten to resolve by import path
   (`src/common/errs/code_test.go:369`) with the `src/common/errs/testdata/scan/` fixtures.
@@ -436,7 +429,7 @@ Eager capture stayed; the point
 was to make the cost visible, not to change the decision. The underlying concern —
 that every malformed datagram on the trap listener's unauthenticated path
 allocates and captures PCs before the packet is dropped — is documented rather
-than eliminated (session history), and is the thing to re-measure if that path
+than eliminated, and is the thing to re-measure if that path
 ever becomes hot.
 
 ## When to Apply
@@ -551,8 +544,8 @@ return 0, 0, errs.Wrap(errTruncated, "ber: parse length")
 
 `errors.Is(err, errTruncated)` holds in both, which is exactly why the unchanged
 SNMP suite could serve as the migration's oracle. Note that `ae.Wrap` is also
-message-first, not just `Wrapf` — an undercount caught in review, since it roughly
-doubled the number of call sites whose argument order flipped (session history).
+message-first, not just `Wrapf` — an undercount that roughly doubled the number of
+call sites whose argument order flipped.
 
 ### Sentinels
 
@@ -582,8 +575,7 @@ chain. The existing assertions passed because each asserted attribute sits on th
 outermost error and no test asserted an exact attribute set or a key's absence — a
 condition that was *audited* before the sweep, not assumed. (The plan had
 originally justified chain merging by claiming existing tests depended on that
-shape; review established the premise was false, and the behavior was kept on its
-own merits — session history.)
+shape. The premise was false, and the behavior was kept on its own merits.)
 
 ### The secret-material rule
 
@@ -640,7 +632,7 @@ list sees the constraint before they add to it.
   migration oracle; its unchanged test suite is what proved the rename
   behavior-preserving. The `doc.go`-is-authoritative documentation convention used
   here is borrowed from that package.
-- `docs/plans/2026-08-17-2254-refactor-internal-errs-package-plan.md` — the tracked
-  source plan, with the full requirement list and prior-art survey. Use it for
-  historical provenance; the current package contract lives in
+- Landed 2026-08-19: internal errs package in `src/common/errs`, replacing the
+  external `ae` dependency with the owned four-field error core, stable codes,
+  and slog `LogValuer`. The current package contract lives in
   `src/common/errs/doc.go`.

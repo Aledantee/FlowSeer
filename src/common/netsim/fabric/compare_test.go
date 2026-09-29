@@ -2034,3 +2034,168 @@ func TestCompareReplayReproducesBothCurrentAndCandidate(t *testing.T) {
 		t.Errorf("Replayed candidate journeys = %v, want 1 dropped journey", jB)
 	}
 }
+
+func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
+	t.Run("both sides configure equivalent", func(t *testing.T) {
+		cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
+		cfgB, _, _ := makeTwoSwitchConfigs(t)
+
+		fabA, err := fabric.New(statedPhysical(cfgA))
+		if err != nil {
+			t.Fatalf("New fabA: %v", err)
+		}
+		fabB, err := fabric.New(statedPhysical(cfgB))
+		if err != nil {
+			t.Fatalf("New fabB: %v", err)
+		}
+
+		t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+		sw2Orig := cfgA.Switches["sw2"]
+		sw2New := sw2Orig.Clone()
+		vid20 := vlan.ID(20)
+		sw2New.Bridge = &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{20: "vlan20"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1":  {PVID: &vid20, Untagged: []vlan.ID{20}},
+					"1/1/24": {Tagged: []vlan.ID{20}, IngressFiltering: true},
+				},
+			},
+		}
+
+		sc := fabric.Scenario{
+			Name: "configure-both-sides",
+			Actions: []fabric.Action{
+				{
+					At:   t0,
+					Kind: fabric.ActionInject,
+					Inject: &fabric.Injection{
+						Origin: fabric.Endpoint{Node: "h1"},
+						Frame: ethernet.Frame{
+							Src:       macH1,
+							Dst:       macH2,
+							EtherType: ethernet.EtherTypeIPv4,
+							Payload:   []byte("before-configure"),
+						},
+					},
+				},
+				{
+					At:   t0.Add(time.Second),
+					Kind: fabric.ActionConfigure,
+					Configure: &fabric.ConfigureAction{
+						Node:   "sw2",
+						Config: sw2New,
+					},
+				},
+				{
+					At:   t0.Add(2 * time.Second),
+					Kind: fabric.ActionInject,
+					Inject: &fabric.Injection{
+						Origin: fabric.Endpoint{Node: "h1"},
+						Frame: ethernet.Frame{
+							Src:       macH1,
+							Dst:       macH2,
+							EtherType: ethernet.EtherTypeIPv4,
+							Payload:   []byte("after-configure"),
+						},
+					},
+				},
+			},
+			Budget: 50,
+		}
+
+		cmp := fabric.Compare(fabA, fabB, sc, 50)
+		if cmp.Err != nil {
+			t.Fatalf("Compare: %v", cmp.Err)
+		}
+		if cmp.Disposition != analysis.Equivalent {
+			t.Errorf("Disposition = %v, want %v", cmp.Disposition, analysis.Equivalent)
+		}
+
+		// The configure action must have taken effect on both sides: the
+		// post-configure frame is dropped at sw2 by the bridge ingress filter.
+		for _, side := range []struct {
+			name     string
+			journeys []fabric.Journey
+		}{
+			{"current", cmp.Current},
+			{"expected", cmp.Expected},
+		} {
+			var after *fabric.Journey
+			for i := range side.journeys {
+				if string(side.journeys[i].Injection.Frame.Payload) == "after-configure" {
+					after = &side.journeys[i]
+				}
+			}
+			if after == nil {
+				t.Fatalf("%s: after-configure journey missing: %+v", side.name, side.journeys)
+			}
+			if after.State != fabric.JourneyDropped {
+				t.Errorf("%s: after-configure journey state = %v, want Dropped", side.name, after.State)
+			}
+			if len(after.Entries) == 0 {
+				t.Fatalf("%s: after-configure journey has no entries", side.name)
+			}
+			last := after.Entries[len(after.Entries)-1]
+			if last.Kind != fabric.EntryDrop || last.Reason != bridge.ReasonIngressFilter || last.Device != "sw2" {
+				t.Errorf("%s: after-configure last entry = %+v, want EntryDrop at sw2 with ingress-filter reason", side.name, last)
+			}
+		}
+	})
+
+	t.Run("missing switch returns inconclusive", func(t *testing.T) {
+		cfgA, macH1, _ := makeTwoSwitchConfigs(t)
+
+		sw1Clone := cfgA.Switches["sw1"].Clone()
+		cfgB := fabric.Config{
+			Switches: map[string]vswitch.Config{
+				"sw1": sw1Clone,
+			},
+			Hosts: map[string]fabric.Host{
+				"h1": {Address: macH1},
+			},
+			Cables: []fabric.Cable{
+				{
+					A: fabric.Endpoint{Node: "h1"},
+					B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				},
+			},
+		}
+
+		fabA, err := fabric.New(statedPhysical(cfgA))
+		if err != nil {
+			t.Fatalf("New fabA: %v", err)
+		}
+		fabB, err := fabric.New(statedPhysical(cfgB))
+		if err != nil {
+			t.Fatalf("New fabB: %v", err)
+		}
+
+		t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+		sc := fabric.Scenario{
+			Name: "configure-missing-switch",
+			Actions: []fabric.Action{
+				{
+					At:   t0,
+					Kind: fabric.ActionConfigure,
+					Configure: &fabric.ConfigureAction{
+						Node:   "sw2",
+						Config: cfgA.Switches["sw2"].Clone(),
+					},
+				},
+			},
+			Budget: 50,
+		}
+
+		cmp := fabric.Compare(fabA, fabB, sc, 50)
+		if cmp.Err == nil {
+			t.Fatal("Compare with missing switch expected error, got nil")
+		}
+		if !strings.Contains(cmp.Err.Error(), "sw2") {
+			t.Errorf("Compare err = %v, want it to name sw2", cmp.Err)
+		}
+		if cmp.Disposition != analysis.Inconclusive {
+			t.Errorf("Disposition = %v, want %v", cmp.Disposition, analysis.Inconclusive)
+		}
+	})
+}

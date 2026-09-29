@@ -50,16 +50,15 @@ the contract into the field's schema comment, which now reads
 > none. Unknown non-zero values stay valid so a newer writer's
 > capability passes an older reader.
 
-This was the second time the trap fired in one day. (session history) A
-schema-validations session earlier the same morning, while adding
-`defined_only` to the package's other enum rules, pattern-matched the same
+The trap is easy to fall into again. A change adding
+`defined_only` to the package's other enum rules pattern-matched the same
 "missing rule", discovered the pinned test before editing, and recorded the
 exception — but only in the commit message of "feat(inventory): move
 cross-field and range rules into the schema": "CapabilitySet keeps
 accepting unknown capabilities: they are device-reported, and an older
-core must tolerate kinds it does not know." Hours later, the review
-re-flagged the same omission, because reviewers read the schema, not git
-history. The test existed and caught the wrong edit both times; nothing at
+core must tolerate kinds it does not know." A reviewer reading the
+schema flags the same omission again, because the reason lives in git
+history. The test catches the wrong edit; nothing at
 the point of edit said the looseness was intentional until the comment
 landed.
 

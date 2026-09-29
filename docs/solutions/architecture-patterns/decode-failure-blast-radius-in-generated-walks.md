@@ -23,8 +23,8 @@ tags: [snmp, mibgen, decode, error-handling, blast-radius, walk-semantics, bits,
 
 ## Context
 
-While adding a size bound to `DecodeBitSet`, a review found the bound had
-created a worse failure than the one it prevented. The bound existed for a real
+A size bound added to `DecodeBitSet` created a worse failure than the one it
+prevented. The bound existed for a real
 reason — an agent answering a two-octet capability field with kilobytes of set
 bits becomes one enum value per position in every message built from it — but
 returning an error on the over-limit value meant that a single malformed field,

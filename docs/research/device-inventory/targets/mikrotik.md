@@ -77,7 +77,7 @@ users, or a RADIUS backend if configured, authenticate every surface [5].
 There is no scoped, read-only API role comparable to a controller's "viewer" role. A least-
 privilege read-only integration is built by creating a RouterOS user in a group with only `read`
 and `api`/`rest-api`/`ssh` policy bits (not `write`, `policy`, `sensitive`, or `test`); RouterOS
-group policies are documented under user management but were not fetched for this brief.
+group policies are documented under user management but were not fetched for this dossier.
 A write integration needs `write` plus the relevant service policy bit and, for anything touching
 firewall or routing, `sensitive`.
 
@@ -156,7 +156,7 @@ of the box, not gated behind an explicit enable step the way `www-ssl` and SNMP 
 
 - **No NETCONF, RESTCONF, or gNMI.** No YANG models exist for RouterOS; this was already recorded
   in `spec/openapi/mikrotik/SOURCES.md` and confirmed by the absence of any such surface in the
-  docs fetched for this brief.
+  docs fetched for this dossier.
 - **SwOS** has no CLI, no API, and no SSH — the vendor docs state plainly that "console access,
   API, or other management interfaces are not supported," leaving only the HTTP web UI (with its
   undocumented internal `.b` endpoints) and read-only SNMP v1/v2c [8].
@@ -250,7 +250,7 @@ binary API, and SSH — no separate firmware-push channel exists outside those s
 9. [SwOS api — MikroTik community forum](https://forum.mikrotik.com/t/swos-api/147075/5) — fetched 2026-09-10, community forum, not vendor documentation. `.b` endpoint names (`sys.b`, `link.b`), community reverse-engineering of the SwOS web UI's internal API; flagged unverified where used for anything beyond endpoint names.
 10. Search summary of [CRS3xx and CSS3xx series Manual — SwOS — MikroTik Documentation](https://help.mikrotik.com/docs/spaces/SWOS/pages/76415036/CRS3xx+and+CSS3xx+series+Manual) and vendor product pages — accessed via search 2026-09-10, not independently fetched page-by-page. Dual-boot mechanism, `boot-os=swos` setting.
 11. Search summary of [MikroTik Neighbor Discovery Protocol — MNDP, legacy manual](https://mikrotik.com/documentation/manual_2.5/IP/MNDP.html) and third-party packet-format writeups — accessed via search 2026-09-10; no current vendor page documents the wire format in full, so exact field offsets are unverified.
-12. Search summary, MikroTik community/blog sources on The Dude — accessed via search 2026-09-10, no MikroTik-authored page fetched directly for this topic in this session.
+12. Search summary, MikroTik community/blog sources on The Dude — accessed via search 2026-09-10, no MikroTik-authored page fetched directly for this topic.
 13. Search summary, MikroTik community/blog sources on CAPsMAN — accessed via search 2026-09-10; CAP-count ceiling explicitly marked unverified above.
 14. [Configuration Management — RouterOS — MikroTik Documentation](https://help.mikrotik.com/docs/spaces/ROS/pages/328155/Configuration+Management) — fetched 2026-09-10. `/system backup` vs `/export`, `compact`/`show-sensitive`/`terse`/`verbose` options, Safe Mode `F` flag, confirms no candidate/commit language appears in vendor docs.
 15. Search summary, [Netinstall — RouterOS — MikroTik Documentation](https://help.mikrotik.com/docs/spaces/ROS/pages/24805390/Netinstall) — accessed via search 2026-09-10, not independently fetched page-by-page; reimage/recovery mechanism, license-key preservation.

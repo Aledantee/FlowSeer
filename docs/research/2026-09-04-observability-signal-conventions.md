@@ -677,4 +677,4 @@ Repository evidence reviewed:
 - `src/protocol/snmp/instrument.go`
 - protocol client spans in `src/protocol/restconf`, `src/protocol/gnmi`, and
   `src/protocol/netconf`
-- `docs/plans/2026-09-04-1504-feat-service-managed-opentelemetry-plan.md`
+- Landed 2026-09-04: service-managed OpenTelemetry in `src/common/service`

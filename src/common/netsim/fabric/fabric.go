@@ -201,8 +201,9 @@ type Fabric struct {
 
 	// metadataCache holds the value [Fabric.Metadata] last built. Its inputs
 	// are fixed after construction except where [Fabric.SetFault] rewrites a
-	// link and its trust, or a queue with no stated buffer first backs up past
-	// one maximum-size frame; both nil the cache. The value is immutable, so a
+	// link and its trust, [Fabric.Configure] rebuilds a switch's ports and
+	// links, or a queue with no stated buffer first backs up past one
+	// maximum-size frame; each nils the cache. The value is immutable, so a
 	// fork may share it.
 	metadataCache *analysis.Metadata
 
@@ -490,29 +491,9 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 	// Rebuild each switch's port table with oper states derived from the cables.
 	switches := make(map[string]*vswitch.Switch, len(cloned.Switches))
 	for name, swCfg := range cloned.Switches {
-		b := port.NewBuilder()
-		ports := swCfg.Ports.Ports()
-
-		for _, p := range ports {
-			switch {
-			case p.Kind != port.LAG:
-				ep := Endpoint{Node: name, Port: p.Name}
-				if ref, ok := byEnd[ep]; ok {
-					p.OperStatus = ref.end.Oper
-				} else {
-					p.OperStatus = unlinkedEnd(ep, uncabled).Oper
-				}
-			case len(swCfg.Ports.Members(p.Name)) == 0:
-				// A LAG with no member hears no link and would keep whatever
-				// the configuration said.
-				p.OperStatus = port.Down
-			}
-			b.Add(p)
-		}
-
-		newTable, err := b.Build()
+		newTable, err := rebuildSwitchPorts(name, swCfg.Ports, byEnd, uncabled)
 		if err != nil {
-			return nil, errs.Wrapf(err, "rebuild ports for switch %q", name)
+			return nil, err
 		}
 		swCfg.Ports = newTable
 
@@ -524,21 +505,7 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 		}
 		switches[name] = sw
 
-		memberPorts := sw.Ports().Ports()
-		slices.SortFunc(memberPorts, func(a, b port.Port) int {
-			return cmp.Compare(a.Name, b.Name)
-		})
-		for _, p := range memberPorts {
-			if p.LagParent == "" {
-				continue
-			}
-			ep := Endpoint{Node: name, Port: p.Name}
-			if ref, ok := byEnd[ep]; ok {
-				p2p := portPointToPoint(cloned, name, p.Name, *ref.end, ref.peer.Endpoint)
-				speed := ref.end.Speed.SpeedBPS
-				sw.LinkChange(cloned.Start, p.Name, ref.end.Oper, p2p, speed)
-			}
-		}
+		notifyLAGMembers(sw, name, cloned, cloned.Start, byEnd)
 	}
 
 	hostStacks := make(map[string]*routing.Layer, len(cloned.Hosts))
@@ -576,6 +543,53 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 	}
 
 	return fab, nil
+}
+
+func rebuildSwitchPorts(name string, swPorts port.Table, byEnd map[Endpoint]linkEndRef, uncabled map[Endpoint]Uncabled) (port.Table, error) {
+	b := port.NewBuilder()
+	ports := swPorts.Ports()
+
+	for _, p := range ports {
+		switch {
+		case p.Kind != port.LAG:
+			ep := Endpoint{Node: name, Port: p.Name}
+			if ref, ok := byEnd[ep]; ok {
+				p.OperStatus = ref.end.Oper
+			} else {
+				p.OperStatus = unlinkedEnd(ep, uncabled).Oper
+			}
+		case len(swPorts.Members(p.Name)) == 0:
+			// A LAG with no member hears no link and would keep whatever
+			// the configuration said.
+			p.OperStatus = port.Down
+		}
+		b.Add(p)
+	}
+
+	newTable, err := b.Build()
+	if err != nil {
+		return port.Table{}, errs.Wrapf(err, "rebuild ports for switch %q", name)
+	}
+
+	return newTable, nil
+}
+
+func notifyLAGMembers(sw *vswitch.Switch, name string, cfg Config, now time.Time, byEnd map[Endpoint]linkEndRef) {
+	memberPorts := sw.Ports().Ports()
+	slices.SortFunc(memberPorts, func(a, b port.Port) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
+	for _, p := range memberPorts {
+		if p.LagParent == "" {
+			continue
+		}
+		ep := Endpoint{Node: name, Port: p.Name}
+		if ref, ok := byEnd[ep]; ok {
+			p2p := portPointToPoint(cfg, name, p.Name, *ref.end, ref.peer.Endpoint)
+			speed := ref.end.Speed.SpeedBPS
+			sw.LinkChange(now, p.Name, ref.end.Oper, p2p, speed)
+		}
+	}
 }
 
 // Fork returns an independent execution copy of the fabric at its current simulation point.
@@ -940,8 +954,9 @@ func unlinkedEnd(ep Endpoint, uncabled map[Endpoint]Uncabled) LinkEnd {
 // evidence catalog so all cited references resolve.
 //
 // The result is cached: its inputs are fixed after construction except where
-// [Fabric.SetFault] rewrites a link, or a queue with no stated buffer first
-// backs up past one maximum-size frame. Both clear the cache.
+// [Fabric.SetFault] rewrites a link, [Fabric.Configure] rebuilds a switch, or a
+// queue with no stated buffer first backs up past one maximum-size frame. Each
+// clears the cache.
 func (f *Fabric) Metadata() analysis.Metadata {
 	if f.metadataCache != nil {
 		return *f.metadataCache
@@ -1088,7 +1103,8 @@ func (f *Fabric) Config() Config {
 	return f.cfg.Clone()
 }
 
-// Retention reports the per-switch layer retention outcome of the most recent Derive or Fork.
+// Retention reports, for each switch, the layer retention outcome of the most recent Derive, Fork, or
+// Configure that produced it; a Configure of one switch leaves the others' outcomes as they were.
 func (f *Fabric) Retention() map[string]vswitch.Retention {
 	ret := make(map[string]vswitch.Retention, len(f.switches))
 	for name, sw := range f.switches {
@@ -1416,6 +1432,10 @@ func (f *Fabric) SetFault(a, b Endpoint, fault Fault) error {
 	// Links and configured cables share an index, and byEnd points into the
 	// link, so the link is overwritten in place.
 	f.cfg.Cables[idx].Fault = normalized
+	return f.relinkAt(idx)
+}
+
+func (f *Fabric) relinkAt(idx int) error {
 	f.links[idx], f.linkTrust[idx] = resolveLink(f.cfg.Cables[idx], f.cfg)
 	f.metadataCache = nil
 	linkA, linkB := f.links[idx].A, f.links[idx].B

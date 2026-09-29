@@ -20,10 +20,10 @@ while IFS= read -r candidate_file; do
   relative_file=$(hook_relative_path "$candidate_file")
   resolve_rc=$?
   if [ "$resolve_rc" -eq 2 ]; then
-    # Absolute path outside the repository: repository policy does not apply.
+    # Path outside the repository: repository policy does not apply.
     continue
   fi
-  if [ "$resolve_rc" -ne 0 ]; then
+  if [ "$resolve_rc" -ne 0 ] && [ "$resolve_rc" -ne 3 ]; then
     hook_deny "$candidate_file cannot be resolved safely inside the repository. Use a normalized repository-relative path."
   fi
   case "$relative_file" in

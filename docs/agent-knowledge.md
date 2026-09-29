@@ -16,7 +16,7 @@ information.
 | Narrow specialist behavior | `.claude/agents/` | Durable; bounded delegation roles |
 | Observed gaps in skills, agents, or hooks | `docs/agent-observations.md` | Queue; `steer` applies or rejects each entry on a maintainer's request and deletes it |
 | Claude auto-memory | Claude's local memory directory | Personal, machine-local, advisory, and potentially stale |
-| Session notes and scratch findings | Current conversation or worktree | Temporary; discard or promote before handoff |
+| Scratch notes and findings | Current conversation or worktree | Temporary; discard or promote before handoff |
 
 Do not copy auto-memory into the repository wholesale. Before promoting a memory,
 verify it against the current code and place it in the appropriate shared document.

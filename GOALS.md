@@ -4,7 +4,7 @@ What FlowSeer is being built to do, one line per goal, each with the record
 that states it. The `next` skill reads this file when no plan is open and
 looks for goals with nothing behind them, so a goal belongs here only when a
 person has decided it. This file records no status: whether a goal has
-landed is read from the tree and from `docs/plans/`, and a status column here
+landed is read from the tree and the direction records, and a status column here
 would be wrong within a week.
 
 Add a goal by naming the record that decides it, or by writing the decision

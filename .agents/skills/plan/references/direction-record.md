@@ -12,6 +12,8 @@ unit that changes the code and name it in `amends`, and check its premises
 against the tree as well as its paths, as `review`'s coordinator reading
 does. The body gives the
 context, the decision, the alternatives and why they lost, and the
-consequences. Write only what the evidence supports; nobody edits a record
-after acceptance. Only a person sets `accepted-direction`: ask for it in the
-handoff and treat a proposed record as non-binding until then.
+consequences. Write only what the evidence supports; after acceptance a
+record changes only by an amendment, which a person re-reads. Only a person sets `accepted-direction`: ask for it in the
+handoff and treat a proposed record as non-binding until then. The record
+never links this plan, which `land` deletes once the work lands; it names
+landed work by date and scope, as `docs/architecture/README.md` shows.

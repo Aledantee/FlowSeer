@@ -30,10 +30,11 @@ withDefaults(defineProps<UiDialogProps>(), {
 
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
+  (e: 'closeAutoFocus', event: Event): void
 }>()
 
 const dialogVariants = tv({
-  base: 'bg-popover text-foreground border border-border shadow-lg rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 p-6 w-full focus:outline-none',
+  base: 'bg-popover text-foreground border border-border shadow-lg rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-(--z-overlay) p-6 w-full focus:outline-none data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out motion-reduce:data-[state=open]:animate-dialog-fade-in motion-reduce:data-[state=closed]:animate-fade-out',
   variants: {
     size: {
       sm: 'max-w-sm',
@@ -58,9 +59,12 @@ const dialogVariants = tv({
     </DialogTrigger>
     <DialogPortal>
       <DialogOverlay
-        class="bg-overlay fixed inset-0 z-50 backdrop-blur-xs transition-opacity duration-140 ease-out"
+        class="bg-overlay fixed inset-0 z-(--z-overlay) backdrop-blur-xs data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out"
       />
-      <DialogContent :class="dialogVariants({ size })">
+      <DialogContent
+        :class="dialogVariants({ size })"
+        @close-auto-focus="emit('closeAutoFocus', $event)"
+      >
         <VisuallyHidden v-if="!title && !$slots.title" as-child>
           <DialogTitle>Dialog</DialogTitle>
         </VisuallyHidden>

@@ -125,8 +125,7 @@ version-dependent, say which version the claim holds for.
 - **SmartZone switch management**: switches are inventoried and configured
   through `/switchm/api/{version}/switchconfig` and related paths under a
   separate base (`https://{host}:8443/switchm/api`), with POST-based query
-  endpoints returning paginated, sortable results [5]. This confirms the
-  brief's premise that ICX switches are reachable *through* SmartZone, but
+  endpoints returning paginated, sortable results [5]. This confirms that ICX switches are reachable *through* SmartZone, but
   it is a distinct API tree from the AP/zone API, not a
   `/wsg/api/public/...` extension — the 7.1.1 "Essentials" spec vendored in
   this repo has no `/switches` or `/switchconfig` paths at all (checked:
@@ -164,7 +163,7 @@ version-dependent, say which version the claim holds for.
   found in the fetched pages; the pattern documented is poll-based
   (activity IDs for write confirmation, presumably periodic GETs for
   status). Searched: "Ruckus One API webhook", "Ruckus One API streaming
-  telemetry" (not run this session due to time budget — flagged as gap,
+  telemetry" (not run for this dossier due to time budget — flagged as gap,
   see Known quirks).
 - **Unleashed**: AJAX endpoints return current WLAN/client/AP state on
   request; no push mechanism documented. SNMP traps are available via
@@ -191,7 +190,7 @@ version-dependent, say which version the claim holds for.
   HTTP 429 when a limit is hit and that "each set of APIs identif[ies]
   the limits for those APIs in the API information included with each
   API section" — i.e. limits are per-endpoint, not global — but this page
-  could not be independently fetched this session (`docs.ruckus.cloud`
+  could not be independently fetched for this dossier (`docs.ruckus.cloud`
   serves a JS-rendered SPA shell to a direct fetch) and no numeric value
   was found [16].
 - Unleashed: none published; it is a single AP's web server, not a scaled
@@ -208,7 +207,7 @@ version-dependent, say which version the claim holds for.
 - **Under SmartZone**: an adopted AP is managed exclusively through the
   controller; direct AP CLI/SSH access still exists but the controller
   overwrites AP-local config on reconnect (standard Ruckus AP adoption
-  model — not separately re-verified this session).
+  model — not separately re-verified for this dossier).
 - **Under SmartZone (ICX)**: an ICX switch bridged into SmartZone still
   answers SSH CLI and SNMP directly — SmartZone push configuration through
   the switch-management API does not lock those out, per the
@@ -227,13 +226,12 @@ version-dependent, say which version the claim holds for.
 
 - **SmartZone AP adoption**: standard Ruckus zero-touch adoption (AP
   discovers controller via DHCP option, DNS, or static config, then joins
-  a zone) — not independently re-verified against a fetched source this
-  session; treat as background knowledge, unverified: exact discovery
+  a zone) — not independently re-verified against a fetched source for this dossier. Treat as background knowledge, unverified: exact discovery
   precedence order.
 - **SmartZone ICX bridging**: ICX switches join a SmartZone cluster
   through what the docs call ICX-SZ management, exposed via the
   switch-management API's inventory/group endpoints [5]; the exact
-  join/claim handshake was not fetched this session (unverified).
+  join/claim handshake was not fetched for this dossier (unverified).
 - **Ruckus One**: devices are claimed into a venue under a tenant. The
   Wi-Fi Services AP API exposes an "Add APs" operation, `POST
   /venues/{venueId}/aps`, taking a list of new APs with `serialNumber`,
@@ -242,7 +240,7 @@ version-dependent, say which version the claim holds for.
   — this is serial-based claim into a venue, not QR code or bulk import.
   unverified: this is a WebSearch summary of `docs.ruckus.cloud/api`
   (a JS-rendered SPA that returns only nav chrome to a direct fetch), not
-  independently fetched this session; treat the exact field names as
+  independently fetched for this dossier; treat the exact field names as
   second-hand [15].
 - **ICX FastIron firmware**: manifest-file upgrades are the vendor-
   recommended path. `copy tftp system-manifest <server-ip> <manifest-file>
@@ -280,7 +278,7 @@ version-dependent, say which version the claim holds for.
   WebSearch for the FastIron 10.0.10 Management Configuration Guide
   (`support.ruckuswireless.com/documents/4467-...`) only reached an
   unrelated vendor portal redirect, not the guide text — the 10.x NETCONF
-  question was not settled this session; treat FastIron as RESTCONF-only
+  question was not settled for this dossier; treat FastIron as RESTCONF-only
   until a fetched 10.x guide says otherwise.
 - FastIron's RESTCONF surface and the standalone SNMP MIB surface overlap
   in places (interfaces, VLANs, LLDP) but are not a 1:1 mirror — the
@@ -333,12 +331,12 @@ version-dependent, say which version the claim holds for.
 5. https://docs.ruckuswireless.com/smartzone/6.1.1/switch-management-public-api-reference-guide-611.html — fetched 2026-09-10 (`serviceTicket` auth, base path `/switchm/api`, `v11_1` covered by this doc with a `v9_0`-`v11_1` compatibility matrix, paginated `/switchconfig` query endpoints).
 6. WebSearch results for "Ruckus One API venue tenant model MSP hierarchy documentation" — 2026-09-10 (tenant ID in URL path, MSP entitlement/delegation model, venue-scoped endpoints such as floor-plan calibration); underlying pages (`docs.ruckus.cloud/api/mspservice-0.3.3`, `.../tenant`) not independently fetched — treat tenant/venue specifics here as second-hand.
 7. `docs/research/network-domain-atlas/vendors/ruckus.md` — read in-repo 2026-09-10 (ICX/wireless product taxonomy, SNMP/YANG/OpenAPI/protobuf corpus inventory).
-8. WebSearch results for "Ruckus Unleashed API JSON XML community" — 2026-09-10 (login-then-CSRF-token flow, XML/AJAX payload, unofficial/unpublished status); primary community-forum pages returned 404 or title-only on direct WebFetch this session.
+8. WebSearch results for "Ruckus Unleashed API JSON XML community" — 2026-09-10 (login-then-CSRF-token flow, XML/AJAX payload, unofficial/unpublished status); primary community-forum pages returned 404 or title-only on direct WebFetch for this dossier.
 9. https://github.com/commscope-ruckus/RUCKUS-Unleashed — fetched 2026-09-10 (Postman collection for XML/AJAX AP monitoring, explicitly "not officially supported by RUCKUS").
 10. `spec/yang/ruckus/icx/SOURCES.md` and `spec/yang/ruckus/icx/9.0.00/` — read in-repo 2026-09-10 (111 YANG modules, FastIron 09.0.00 RESTCONF model set, ICX `-dev`/`-aug` deviation/augmentation files).
 11. https://docs.ruckuswireless.com/fastiron/fastiron-09010-restconfapi.html — fetched 2026-09-10 (RESTCONF base path `https://{host}/restconf/data/...`, POST/GET/PATCH/PUT/DELETE methods, config domains covered such as AAA/ACL/DNS/LAG/LLDP/OSPF/PoE/STP/VLAN; page did not state FastIron version explicitly or confirm/deny NETCONF support).
 12. https://github.com/ms264556/aioruckus (via WebSearch summary, page itself not fetched) — 2026-09-10 (Python async client for Unleashed/ZoneDirector AJAX Web Service, BSD-0 license, offline backup-file parsing mode, ZoneDirector 9.10+ compatibility).
 13. https://docs.ruckuswireless.com/fastiron/08.0.70/fastiron-08070-upgradeguide/GUID-70D129FE-BA03-4044-99D3-072E361B20BE.html — fetched 2026-09-10 (`copy tftp system-manifest` syntax, manifest file contents, primary/secondary partition semantics, TFTP-only transfer, separate PoE firmware path).
 14. WebSearch results for "FastIron write memory configuration save reload semantics" — 2026-09-10 (write memory → `startup-config.txt`, stacking sync-on-write behavior, reload-without-save falls back to `stacking.boot`); underlying `docs.ruckuswireless.com` pages not independently fetched.
-15. WebSearch results for `docs.ruckus.cloud` AP API "Add APs" endpoint — 2026-09-10 (`POST /venues/{venueId}/aps`, `serialNumber`/`venueId`/`apGroupId` fields, "Serial Already Registered" conflict error); `docs.ruckus.cloud/api/wifi-17.3.3.312/ap` returned 404 on direct WebFetch this session, so this endpoint shape is second-hand.
-16. WebSearch results for Ruckus One API rate limiting — 2026-09-10 (429 on limit exceeded, limits documented per API section rather than globally); `docs.ruckus.cloud/api/overview.html` and `.../api/original/overview.html` both returned 404 on direct WebFetch this session (SPA shell only), so no numeric limit was confirmed against a primary source.
+15. WebSearch results for `docs.ruckus.cloud` AP API "Add APs" endpoint — 2026-09-10 (`POST /venues/{venueId}/aps`, `serialNumber`/`venueId`/`apGroupId` fields, "Serial Already Registered" conflict error); `docs.ruckus.cloud/api/wifi-17.3.3.312/ap` returned 404 on direct WebFetch for this dossier, so this endpoint shape is second-hand.
+16. WebSearch results for Ruckus One API rate limiting — 2026-09-10 (429 on limit exceeded, limits documented per API section rather than globally); `docs.ruckus.cloud/api/overview.html` and `.../api/original/overview.html` both returned 404 on direct WebFetch for this dossier (SPA shell only), so no numeric limit was confirmed against a primary source.

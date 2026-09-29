@@ -5,6 +5,78 @@
 @import './tokens.css';
 @import './ai.css';
 
+@theme {
+  --animate-overlay-in: overlay-in var(--duration-base) var(--ease-out);
+  --animate-overlay-out: overlay-out var(--duration-fast) var(--ease-out);
+  --animate-dialog-in: dialog-in var(--duration-slow) var(--ease-out);
+  --animate-dialog-out: dialog-out var(--duration-fast) var(--ease-out);
+  --animate-fade-in: fade-in var(--duration-base) var(--ease-out);
+  --animate-fade-out: fade-out var(--duration-fast) var(--ease-out);
+  --animate-dialog-fade-in: fade-in var(--duration-slow) var(--ease-out);
+
+  @keyframes overlay-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes overlay-out {
+    from {
+      opacity: 1;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+  }
+
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes dialog-out {
+    from {
+      opacity: 1;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+}
+
 @layer base {
   svg {
     display: block;

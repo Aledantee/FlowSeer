@@ -213,8 +213,19 @@ class FieldTest(unittest.TestCase):
         write_lines(self.log, self.lane(cli="agy", model="gemini-3.8-flash-high", start=0, grade=42))
         run = self.run_field()["runs"][0]
         self.assertEqual("gemini-3.8-flash", run["model"])
+        self.assertEqual("high", run["effort"])
         self.assertEqual("unsupported", run["transcript"])
         self.assertEqual(42, run["elapsed_s"])
+
+    def test_groups_split_by_effort_from_launch_flag(self):
+        events = self.lane(run="r1", cli="codex")
+        events[0]["effort"] = "high"
+        second = self.lane(run="r2", cli="codex")
+        second[0]["effort"] = "xhigh"
+        write_lines(self.log, events + second)
+        groups = self.run_field()["groups"]
+        self.assertEqual(["high", "xhigh"], [group["effort"] for group in groups])
+        self.assertEqual([1, 1], [group["runs"] for group in groups])
 
     def test_claude_tool_result_stays_inside_turn_and_orca_session_is_unique(self):
         write_lines(self.log, self.lane(cli="claude", model="claude-sonnet-5"))

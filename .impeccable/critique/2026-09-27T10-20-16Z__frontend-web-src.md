@@ -5,7 +5,7 @@ max_score: 40
 na_heuristics:
 p0_count: 0
 p1_count: 3
-target_identity: "file:/Users/aledante/orca/workspaces/FlowSeer/palolo/frontend/web/src"
+target_identity: "file:frontend/web/src"
 timestamp: 2026-09-27T10-20-16Z
 slug: frontend-web-src
 ---

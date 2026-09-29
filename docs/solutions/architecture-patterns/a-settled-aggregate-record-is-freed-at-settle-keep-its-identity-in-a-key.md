@@ -34,7 +34,7 @@ tracks descendants by that link.
 
 The first implementation kept a held aggregate journey alive until its release
 could claim it, on the reasoning that the release needed the journey to name its
-holder. Review found the two failures that rule produces:
+holder. That rule produces two failures:
 
 - **Convergence never fires.** `Report` counts a held journey that no release has
   named as `JourneyPending` (`src/common/netsim/fabric/journey.go:248-252`),

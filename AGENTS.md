@@ -24,11 +24,15 @@ Binding on humans and agents equally; each doc states its own scope.
 - [`docs/code-style-web.md`](docs/code-style-web.md) — TypeScript web frontend
   (`frontend/web/`; own toolchain, Go rules do not apply).
 - [`docs/doc-style.md`](docs/doc-style.md) — all prose: docs, READMEs, schema
-  comments, commit and PR text. The load-bearing rules: explain why, show a
-  working example, document the hard parts, no marketing register, update docs
-  in the change that invalidates them, and write like a person — none of the
-  machine-writing tells that doc catalogues (em-dash chains, rule-of-three
-  lists, trailing participles, puffery, comment-per-line).
+  comments, skills, commit and PR text, agent reports. The repository
+  documents itself: prose cites source code, a present file, or (last
+  resort) a commit, and never an agent run, session, transcript, or
+  conversation. Beyond that: explain why, show a working example, draw
+  complex flows as Mermaid, no marketing register, update docs in the change
+  that invalidates them, and none of the machine-writing tells that doc
+  catalogues (em dashes, semicolons, overexplaining, rule-of-three lists,
+  puffery). The `prose` skill applies it, and `verify-change` fails Markdown
+  that cites a run.
 - [`docs/agent-knowledge.md`](docs/agent-knowledge.md) — where shared rules and
   learnings live; repository guidance wins over private memory.
 - [`docs/agent-steering.md`](docs/agent-steering.md) — how to decide whether a
@@ -54,6 +58,9 @@ no remote. The Claude worktree hook defaults to the sibling
 
 ## Agent behavior
 
+- Keep every message short and plain: replies, reports, briefs to other
+  agents. Lead with the result, give only the evidence the reader needs, and
+  use a table or diagram when there are many moving parts.
 - Keep small sequential work in the main conversation. Delegate through the
   `delegate` skill, which names the worker and model for each kind of work:
   `repo-researcher` for a bounded read-only question, `independent-reviewer`
@@ -62,11 +69,12 @@ no remote. The Claude worktree hook defaults to the sibling
 - At a decision that is the user's (which workflow step runs next, which
   remedy to apply, a design choice the task does not settle), ask through
   the runtime's question tool (`AskUserQuestion` in Claude Code): one
-  specific question, two to four concrete options, the recommended one
-  first with its reason. A report ends with that question, not with a
-  sentence about what the user could ask for next. Where the runtime has no
-  question tool, the report ends with the same question and options as
-  text. A delegated worker never asks; it states the blocker and stops.
+  specific question, two to four concrete options each stating its
+  tradeoff, the recommended one first with its reason. A report ends with
+  that question, not with a sentence about what the user could ask for
+  next. Where the runtime has no question tool, the report ends with the
+  same question and options as text. A delegated worker never asks; it
+  states the blocker and stops.
 - The project skills `next`, `plan`, `implement`, `review`, `compound`,
   `land`, `drive`, and `steer` under `.claude/skills/` carry the
   multi-step workflows; each says when it applies and when to skip it.
@@ -76,7 +84,11 @@ no remote. The Claude worktree hook defaults to the sibling
   checkpoints and leaves the worktree ready for removal; removing it is a
   person's action. `steer` works the queue in `docs/agent-observations.md`
   on request and stops at a staged diff for any policy surface.
-  `docs/agent-steering.md` records why they are shaped this way.
+  `docs/agent-steering.md` records why they are shaped this way. Where a
+  project skill covers the work, it wins over a globally installed plugin
+  or skill of the same kind (compound-engineering's `ce-work` or
+  `ce-code-review`, for example); an external one is for work no project
+  skill covers.
 - Auto-memory is personal and fallible; promote durable team facts per
   `docs/agent-knowledge.md`.
 - FlowSeer is still building its building blocks and nothing external consumes

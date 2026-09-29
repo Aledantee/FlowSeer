@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, watch, type ComponentPublicInstance } from 'vue'
 import {
   ToastAction,
   ToastClose,
@@ -21,7 +22,7 @@ export interface UiToastProps {
   actionAltText?: string
 }
 
-withDefaults(defineProps<UiToastProps>(), {
+const props = withDefaults(defineProps<UiToastProps>(), {
   open: undefined,
   defaultOpen: true,
   title: undefined,
@@ -35,10 +36,58 @@ withDefaults(defineProps<UiToastProps>(), {
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
   (e: 'action'): void
+  (e: 'closed'): void
 }>()
 
+const rootRef = ref<ComponentPublicInstance | null>(null)
+const hasClosed = ref(false)
+
+function getRootElement(): HTMLElement | null {
+  const target = rootRef.value as
+    (ComponentPublicInstance & { currentElement?: HTMLElement }) | null
+  const el = target?.currentElement || target?.$el
+  return el instanceof HTMLElement ? el : null
+}
+
+function checkClosed() {
+  if (hasClosed.value) return
+  const el = getRootElement()
+  const animName = el ? window.getComputedStyle(el).animationName : 'none'
+  if (!animName || animName === 'none') {
+    hasClosed.value = true
+    emit('closed')
+  }
+}
+
+function handleUpdateOpen(val: boolean) {
+  emit('update:open', val)
+  if (!val) {
+    checkClosed()
+  }
+}
+
+watch(
+  () => props.open,
+  (val, oldVal) => {
+    if (val === true) {
+      hasClosed.value = false
+    } else if (oldVal !== false && val === false) {
+      checkClosed()
+    }
+  },
+  { flush: 'sync' },
+)
+
+function handleAnimationEnd(event: AnimationEvent) {
+  if (hasClosed.value || event.target !== event.currentTarget) return
+  if (event.animationName === 'fade-out') {
+    hasClosed.value = true
+    emit('closed')
+  }
+}
+
 const toastVariants = tv({
-  base: 'pointer-events-auto bg-popover text-foreground border shadow-lg rounded-control p-4 flex items-center justify-between gap-4 transition-all duration-140 ease-out',
+  base: 'pointer-events-auto bg-popover text-foreground border shadow-lg rounded-control p-4 flex items-center justify-between gap-4 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out',
   variants: {
     variant: {
       default: 'border-border',
@@ -55,11 +104,13 @@ const toastVariants = tv({
 
 <template>
   <ToastRoot
+    ref="rootRef"
     :open="open"
     :default-open="defaultOpen"
     :duration="duration"
     :class="toastVariants({ variant })"
-    @update:open="emit('update:open', $event)"
+    @update:open="handleUpdateOpen"
+    @animationend="handleAnimationEnd"
   >
     <div class="flex flex-col gap-1">
       <ToastTitle

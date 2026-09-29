@@ -67,10 +67,9 @@ Do not assert "both arms set fails": there is no input that reaches it.
   `test/conformance/proto/routing_rules_test.go` (`TestNextHopTarget`).
 - The same mis-specification appeared twice as a plan requirement
   ("a NextHop with both arms set fails", "an EndpointState whose attachment has
-  both arms fails") and was corrected both times to the empty-case invariant;
-  the ruling is recorded in
-  `docs/plans/2026-09-25-1713-feat-schema-building-blocks-phase2-plan.md`
-  (Decisions, the "Ruled (drive, on the user's decision)" entry).
+  both arms fails") and was corrected both times to the empty-case invariant
+  during the schema building blocks work (Landed 2026-09-26: routing and
+  endpoints in `spec/proto/flowseer/net/routing/v1` and `endpoint/v1`).
 
 ## What it does not cover
 

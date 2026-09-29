@@ -259,7 +259,7 @@ Central onboarding of switches and APs — not found in the fetched pages.
 
 ## Known quirks and traps
 
-- **AOS-S REST version numbering doesn't match the brief's "v7" label.**
+- **AOS-S REST version numbering doesn't match the assumed "v7" label.**
   Every fetched AOS-S guide and the community docs use `/rest/v1/...` as the
   URL prefix, versioned instead by the *firmware* release (16.03 through
   16.11 in the fetched titles) [13][14]. If "v7" refers to an older
