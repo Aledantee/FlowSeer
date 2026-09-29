@@ -34,5 +34,5 @@ Suggested change: require plans for verification and lint tooling to state autho
 
 ## 2026-09-29 review: fix worker rewrote user-attributed plan decision
 Skill or agent: `.claude/skills/review/references/fix-loop.md`, step 1.
-What happened: in commit `c21d12ac`, a review fix worker edited `docs/plans/2026-09-28-2054-docs-package-guarantees-plan.md` and rewrote a Decision explicitly marked as decided by the user (the goldmark CommonMark parser decision at lines 119-126). The user had to restore the decision in commit `54279a6c`. The fix loop permits editing stale files left by a fix, but fix worker briefs lacked an explicit boundary against modifying user-attributed decisions in plans.
+What happened: in commit `c21d12ac`, a review fix worker edited `docs/plans/2026-09-28-2054-docs-package-guarantees-plan.md` and rewrote a Decision explicitly marked as decided by the user (the goldmark CommonMark parser decision at lines 119-126). The drive coordinator restored the decision in commit `54279a6c`. The fix loop permits editing stale files left by a fix, but fix worker briefs lacked an explicit boundary against modifying user-attributed decisions in plans.
 Suggested change: update `fix-loop.md` step 1 and `delegate` fix briefs to forbid editing plan Decisions marked as decided by the user.
