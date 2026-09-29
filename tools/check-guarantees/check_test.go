@@ -2068,7 +2068,7 @@ func TestUnreadableTestFileFormattedError(t *testing.T) {
 	}
 }
 
-func TestCitationLineFromTextSegment(t *testing.T) {
+func TestCitationLineAfterRawHTMLComment(t *testing.T) {
 	root := t.TempDir()
 	pkgDir := createTestPkg(t, root)
 	testFile := filepath.Join(pkgDir, "foo_test.go")
@@ -2195,7 +2195,7 @@ func TestInlineLinkInNormativeSentenceRejected(t *testing.T) {
 	}
 }
 
-func TestProvedByEntityCitationPreservesSegmentSearchPosition(t *testing.T) {
+func TestProvedByEntityCitationTracksSourceLine(t *testing.T) {
 	root := t.TempDir()
 	pkgDir := createTestPkg(t, root)
 	testFile := filepath.Join(pkgDir, "foo_test.go")
@@ -2244,6 +2244,133 @@ func TestLowercaseDeclarationFailsClosed(t *testing.T) {
 				t.Fatalf("want %q in %v", want, errs)
 			}
 		})
+	}
+}
+
+func TestLoneCarriageReturnsFailClosed(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	if err := os.WriteFile(filepath.Join(pkgDir, "foo_test.go"), []byte("package pkg\nimport \"testing\"\nfunc TestA(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	valid := "## H\n\nIt MUST hold.\n\n- WHEN a THEN b\n\nProved by: TestA\n"
+	tests := []struct {
+		name    string
+		content string
+		want    []string
+	}{
+		{
+			"paragraph_interruption",
+			"## H\n\nIt is advisory.\r## Hidden\rIt MUST hold.\n\n- WHEN a THEN b\n\nProved by: TestA\n",
+			[]string{"src/pkg/GUARANTEES.md:3: lone carriage return", "src/pkg/GUARANTEES.md:4: lone carriage return"},
+		},
+		{"end_of_file", strings.TrimSuffix(valid, "\n") + "\r", []string{"src/pkg/GUARANTEES.md:7: lone carriage return"}},
+		{
+			"inside_code_span",
+			"## H\n\nIt MUST `a\r<!x` hold.\n\n- WHEN a THEN b\n\nProved by: TestA\n",
+			[]string{"src/pkg/GUARANTEES.md:3: lone carriage return"},
+		},
+		{"crlf", strings.ReplaceAll(valid, "\n", "\r\n"), nil},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := os.WriteFile(gFile, []byte(tc.content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if got := checkGuaranteesFile(gFile, root); !slices.Equal(got, tc.want) {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestTextHTMLStartBranchesFailClosed(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	if err := os.WriteFile(filepath.Join(pkgDir, "foo_test.go"), []byte("package pkg\nimport \"testing\"\nfunc TestA(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	tests := []struct {
+		name    string
+		content string
+		line    int
+	}{
+		{"open_tag", "## H\n\nIt MUST see a <div\tx.\n\n- WHEN a THEN b\n\nProved by: TestA\n", 3},
+		{"close_tag", "## H\n\nIt MUST see a </div\tx.\n\n- WHEN a THEN b\n\nProved by: TestA\n", 3},
+		{"processing", "## H\n\nIt MUST see a <?x.\n\n- WHEN a THEN b\n\nProved by: TestA\n", 3},
+		{"preamble_emphasis", "# T\n\n*<!x*\n\n## H\n\nIt MUST hold.\n\n- WHEN a THEN b\n\nProved by: TestA\n", 3},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := os.WriteFile(gFile, []byte(tc.content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			want := fmt.Sprintf("src/pkg/GUARANTEES.md:%d: unknown inline kind: raw html", tc.line)
+			if got := checkGuaranteesFile(gFile, root); !slices.Contains(got, want) {
+				t.Fatalf("want %q in %v", want, got)
+			}
+		})
+	}
+}
+
+func TestHTMLBlockStartLinesFailClosed(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	if err := os.WriteFile(filepath.Join(pkgDir, "foo_test.go"), []byte("package pkg\nimport \"testing\"\nfunc TestA(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+
+	starts := []string{"<script", "<pre", "<!--", "<?", "<!x", "<!X", "<![CDATA[", "<div\t", "<div>", "</div>", "<b>"}
+	carriers := []struct {
+		name   string
+		format string
+	}{
+		{"plain", "a\n%s b"},
+		{"emphasis", "*a\n%s* b"},
+		{"strong", "**a\n%s** b"},
+		{"code_span", "`a\n%s` b"},
+		{"link_label", "[a\n%s](u) b"},
+		{"link_destination", "[a](u\n%s) b"},
+		{"link_title", "[a](u \"t\n%s\") b"},
+		{"image_alt", "![a\n%s](u) b"},
+		{"html_attribute", "<span title=\"\n%s\"> b"},
+	}
+	contexts := []struct {
+		name   string
+		before string
+		after  string
+		indent int
+	}{
+		{"preamble", "# T\n\n", "\n\n## H\n\nIt MUST hold.\n\n- WHEN a THEN b\n\nProved by: TestA\n", 0},
+		{"normative", "## H\n\nIt MUST ", ".\n\n- WHEN a THEN b\n\nProved by: TestA\n", 0},
+		{"when_indented", "## H\n\nIt MUST hold.\n\n- WHEN a ", " THEN b\n\nProved by: TestA\n", 2},
+		{"when_lazy", "## H\n\nIt MUST hold.\n\n- WHEN a ", " THEN b\n\nProved by: TestA\n", 0},
+		{"proved_by", "## H\n\nIt MUST hold.\n\n- WHEN a THEN b\n\nProved by: TestA ", "\n", 0},
+	}
+
+	for _, start := range starts {
+		for _, carrier := range carriers {
+			for _, context := range contexts {
+				for spaces := 0; spaces <= 3; spaces++ {
+					name := fmt.Sprintf("%q/%s/%s/%d", start, carrier.name, context.name, spaces)
+					t.Run(name, func(t *testing.T) {
+						body := fmt.Sprintf(carrier.format, strings.Repeat(" ", context.indent+spaces)+start)
+						content := context.before + body + context.after
+						if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+							t.Fatal(err)
+						}
+						line := 2 + strings.Count(context.before, "\n")
+						want := fmt.Sprintf("src/pkg/GUARANTEES.md:%d: unknown block kind: html block", line)
+						if errs := checkGuaranteesFile(gFile, root); !slices.Contains(errs, want) {
+							t.Fatalf("want %q in %v", want, errs)
+						}
+					})
+				}
+			}
+		}
 	}
 }
 

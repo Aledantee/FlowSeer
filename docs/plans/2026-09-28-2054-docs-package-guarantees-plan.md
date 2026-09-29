@@ -116,14 +116,14 @@ follow-up plan is written.
   Verifying that `verify-change.sh` wraps the binary build in `run` belongs in
   `tools/hooks/tests/run.sh` (a policy surface).
 
-- The checker reads `GUARANTEES.md` through a conforming CommonMark parser
-  and checks the parsed document, not the source lines (decided by the
-  user, 2026-09-29, after the second review ended `rework`). Headings,
-  normative sentences, WHEN/THEN bullets, and `Proved by:` lines are taken
-  from the parser's block tree and rendered text, so markup a reader never
-  sees (HTML comments, escapes, code spans across lines, entity-equal
-  headings) cannot count or hide a clause. The parser is goldmark
-  (`github.com/yuin/goldmark`, MIT, pure Go), run from a small Go command,
+- The checker reads `GUARANTEES.md` with goldmark and checks the parsed block
+  tree and visible text (decided by the user, 2026-09-29, after the second
+  review ended `rework`). Headings, normative sentences, WHEN/THEN bullets,
+  and `Proved by:` lines are taken from the block tree and allowed inline
+  nodes, so markup a reader never sees (HTML comments, escapes, code spans
+  across lines, entity-equal headings) cannot count or hide a clause. Source
+  line checks close known gaps between goldmark and CommonMark 0.31.2. Goldmark
+  (`github.com/yuin/goldmark`, MIT, pure Go) runs from a small Go command
   because the check already needs Go on PATH for `go list` and the repo
   manages no Python dependencies. Why: two review passes of hand-matched
   CommonMark leaked first at the block level, then across lines, then
