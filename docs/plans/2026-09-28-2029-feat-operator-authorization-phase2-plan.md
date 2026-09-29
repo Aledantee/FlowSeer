@@ -3,8 +3,8 @@ title: Operator Authorization Phase 2, Tenant Entity and Partitioned Stores - Pl
 type: feat
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: implemented
+artifact_readiness: implementation-ready
+status: partially-implemented
 review: rework
 execution: mixed
 parent: docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md
@@ -12,7 +12,7 @@ parent: docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md
 
 # Operator Authorization Phase 2, Tenant Entity and Partitioned Stores - Plan
 
-> Implemented. 6 units, 2026-09-28T20:08:45Z to 2026-09-28T21:49:19Z.
+> Partially implemented. Units U1–U6 landed; follow-up units U7–U10 are open.
 
 This plan is phase 2 of the operator authorization parent plan, following
 phase 1 (`docs/plans/2026-09-28-2029-feat-operator-authorization-phase1-plan.md`,
@@ -57,6 +57,76 @@ The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-
   phase 3 authenticates callers. Tests and development create tenants
   through the tenant store; no unauthenticated caller can create a tenant
   or claim an organization.
+- Edge leaf publication scopes under the tenant returned by AttachBus.
+  Why: `busattach.Attach` (`src/edge/agent/internal/busattach/busattach.go:87-128`)
+  receives concrete broker subjects from `AttachBus`
+  (`src/services/device/internal/edgeapi/service.go:209-215`).
+  `edgebus.TenantFromSubjects` (`src/modules/edgebus/subjects.go`) extracts
+  and validates the tenant parameter from the subject prefix
+  (`flowseer.<tenant>.edge.<edgeID>.>`). Setting `Tenant: tenant` in
+  `edgebus.LeafConfig` (`src/modules/edgebus/leaf.go:26-70, 98-208`) ensures
+  the leaf creates its local buffer stream and publishes OpenTelemetry signals
+  under the assigned tenant. This ensures records forwarded to central match
+  the edge's authoritative tenant and pass `belongsToEdge` in
+  `src/modules/edgebus/forwarder.go:221-226`.
+- TenantStore organization index claim is made clock-free via CAS commit after
+  the primary record write.
+  Why: In `src/services/device/internal/tenantstore/store.go:94-176`, writing
+  the primary tenant record first (`s.kv.Create(recCtx, tenantID, data)`)
+  establishes durable record ownership before claiming the secondary index.
+  `Create` then attempts to commit the secondary index `org_<hash>` via
+  compare-and-set. If the index key exists, `Create` reads the record of the
+  tenant it points to. If an active tenant record exists, `Create` rolls back
+  the newly written primary record (`s.kv.Delete(delCtx, tenantID, jetstream.LastRevision(recRev))`)
+  and returns `ErrCodeAlreadyExists`. If the target tenant record does not exist
+  (an orphaned index entry), `Create` takes over the index key via CAS
+  `s.kv.Update(ctx, orgKey, []byte(tenantID), entry.Revision())`, retrying on
+  revision conflict. Removing the `2*s.rollbackTimeout` window eliminates
+  races against delayed claim acknowledgments. Rollback tests drive `Store`
+  APIs directly (`src/services/device/internal/tenantstore/store_test.go`).
+- Lowercase UUID validation for `dev_tenant` in deployment configuration.
+  Why: `tenant.Validate` (`src/common/tenant/tenant.go:41-51`) accepts only
+  canonical lowercase UUIDs or `DefaultTenant`. In
+  `spec/proto/flowseer/store/device/v1/service_config.proto:69`, adding a regex
+  pattern constraint
+  `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$` prevents
+  uppercase UUIDs from passing `host.LoadConfig` and halting central at
+  startup during service initialization.
+- Unindexed registry edge auto-bind is removed from `host.go`.
+  Why: `src/services/device/internal/host/host.go:284-304` previously
+  auto-indexed registry edges under `dev_tenant` on startup only to accommodate
+  `host_test.go`. Per the landed shape established in Review, an edge's tenant
+  has one authority: the `edge_<edgeID>` index in the `edges` bucket
+  (`src/services/device/internal/edgestore/store.go:47, 169-176, 179-189`).
+  Dropping this block enforces that all edges must be explicitly indexed via
+  `CreateEdge` or enrollment; `host_test.go` seeds its test edge explicitly in
+  the store via `host.Options.Hub`.
+- `Hub.EdgeTenant` returns unknown (`"", false`) on a zero or uninitialized
+  `Hub`.
+  Why: In `src/modules/edgebus/hub.go:383-385`, `EdgeTenant` fell back to
+  `DefaultTenant, true` when `h.server == nil && h.edges == nil && h.keys == nil`.
+  Dropping this fallback ensures no component silently defaults to
+  `DefaultTenant`. `forwarder_internal_test.go` configures edge accounts
+  explicitly.
+- `TenantService` is unmounted from central Connect listeners until Phase 3.
+  Why: Per user ruling 2, `TenantServiceHandler` is removed from
+  `src/services/device/internal/host/serve.go:149-157, 187-188, 321-336, 338-462`
+  and the `tenantService` handler struct is removed. Tests (such as
+  `src/services/device/test/integration/e2e_test.go:971-985`) and development
+  environments seed tenants directly through `tenantstore.Store`.
+- `PlatformAdmin` configuration message adds `organization_claim_name`.
+  Why: `PlatformAdmin` in
+  `spec/proto/flowseer/store/device/v1/service_config.proto:74-94` previously had
+  only `organization` (the value), lacking the claim name field present in
+  `TenantConfig` (`organization_claim_name`). Adding `string
+  organization_claim_name = 4` aligns schema definitions for Phase 3 token claim
+  matching.
+- Capture artifact documentation paths reflect per-tenant directories.
+  Why: `src/services/device/internal/captureapi/doc.go:6` and
+  `src/services/device/README.md:224` are updated from
+  `<StateDir>/captures/<session_id>.pcapng` to
+  `<StateDir>/captures/<tenant_id>/<session_id>.pcapng`, matching the
+  implementation in `src/services/device/internal/captureapi/store.go:108-112`.
 
 - The tenant entity replaces `model/inventory/v1/tenant.proto`: both its
   `TenantRef` and `Tenant` messages go, and nothing imports either. The file
@@ -173,13 +243,16 @@ The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-
   this interceptor is replaced by the OIDC token interceptor without requiring
   changes to service handlers.
 - Platform admin configuration is added to `DeviceServiceConfig`, and
-  `TenantService` allows creating tenants.
+  `TenantService` schema is defined in `spec/proto`.
   Why: `spec/proto/flowseer/store/device/v1/service_config.proto:24` defines
   deployment configuration. Adding `PlatformAdmin platform_admin = 9` (with
-  `issuer`, `organization`, and `subject`) satisfies the Goal requirement that
-  a platform admin named in deployment configuration creates tenants.
+  `issuer`, `organization`, and `subject`, and `organization_claim_name` in
+  the follow-up pass) satisfies the Goal requirement that a platform admin
+  named in deployment configuration creates tenants.
   `spec/proto/flowseer/api/identity/v1/tenant_service.proto` defines the
-  Connect RPCs (`CreateTenant`, `GetTenant`, `ListTenants`) mounted in central.
+  Connect RPCs (`CreateTenant`, `GetTenant`, `ListTenants`). Per user ruling 2,
+  the service is unmounted in central host until Phase 3 authenticates callers;
+  tests and development seed tenants directly via `tenantstore.Store`.
 - Units are sliced vertically by subsystem to preserve module-wide compilation.
   Why: In FlowSeer, `verify-change.sh` runs `go build ./...` across the entire
   module on every unit pass. Slicing horizontally between store method
@@ -543,13 +616,204 @@ Tests:
   isolated across tenants.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal/captureapi src/services/device/internal/host src/services/device/test/integration`
 
-Waves: U1 U2 | U3 | U4 U5 | U6
+Waves (landed): U1 U2 | U3 | U4 U5 | U6
+
+### U7. PlatformAdmin organization claim name, dev_tenant lowercase UUID validation, and capture documentation paths
+
+Files: `spec/proto/flowseer/store/device/v1/service_config.proto`,
+`src/services/device/internal/host/config.go`,
+`src/services/device/internal/host/config_test.go`,
+`src/services/device/internal/captureapi/doc.go`,
+`src/services/device/README.md`
+After: none
+Change:
+- `spec/proto/flowseer/store/device/v1/service_config.proto:69` tightens the
+  `dev_tenant` constraint with a regex pattern rule
+  `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$` enforcing
+  canonical lowercase UUIDs, ensuring uppercase UUIDs fail schema validation
+  during configuration loading.
+- `spec/proto/flowseer/store/device/v1/service_config.proto:74-94` adds
+  `string organization_claim_name = 4 [(buf.validate.field).required = true, (buf.validate.field).string.min_len = 1, (buf.validate.field).string.max_len = 128]`
+  to `PlatformAdmin`, matching `TenantConfig.organization_claim_name` in
+  `spec/proto/flowseer/model/identity/v1/tenant.proto:47-51`.
+- `buf generate` regenerates Go bindings under
+  `generated/go/proto/flowseer/store/device/v1/`.
+- `src/services/device/internal/host/config.go:175-179` exposes
+  `PlatformAdmin()` returning the updated message.
+- `src/services/device/internal/captureapi/doc.go:6` updates the capture
+  storage location documentation from `<StateDir>/captures/<session_id>.pcapng`
+  to `<StateDir>/captures/<tenant_id>/<session_id>.pcapng`.
+- `src/services/device/README.md:224` updates the capture payload path
+  documentation from `<StateDir>/captures/<session_id>.pcapng` to
+  `<StateDir>/captures/<tenant_id>/<session_id>.pcapng`.
+Tests:
+- `TestPlatformAdminAndDevTenant` in
+  `src/services/device/internal/host/config_test.go:234-286`:
+  - Asserts `platform_admin` parses and validates
+    `organization_claim_name: "org_id"`.
+  - Asserts `platform_admin` missing `organization_claim_name` fails
+    validation with `host.ErrCodeConfigInvalid`.
+  - Asserts an uppercase UUID for `dev_tenant` (such as
+    `"0192E6A0-0000-7000-8000-000000000001"`) fails validation with
+    `host.ErrCodeConfigInvalid`, aligning schema validation with
+    `tenant.Validate`.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flowseer/store/device/v1 src/services/device/internal/host/config.go src/services/device/internal/host/config_test.go src/services/device/internal/captureapi/doc.go src/services/device/README.md`
+
+### U8. Tenant store clock-free organization index claim and Store-driven rollback
+
+Files: `src/services/device/internal/tenantstore/store.go`,
+`src/services/device/internal/tenantstore/store_test.go`
+After: none
+Change:
+- `src/services/device/internal/tenantstore/store.go:94-176`:
+  - `Store.Create` writes the primary tenant record to the `tenants` KV bucket
+    first (`recRev, err := s.kv.Create(recCtx, tenantID, data)`). If `tenantID`
+    already exists, it returns `ErrCodeAlreadyExists`.
+  - After the primary record write, `Create` commits the secondary
+    organization index key `org_<sha256(issuer + "\x00" + orgValue)>` using
+    compare-and-set:
+    - Calls `s.kv.Create(ctx, orgKey, []byte(tenantID))`.
+    - If `s.kv.Create` returns `jetstream.ErrKeyExists`, reads the existing
+      entry (`s.kv.Get(ctx, orgKey)`).
+    - Checks whether the tenant ID named by the existing entry has a valid,
+      committed record matching the issuer and organization via
+      `s.Get(ctx, existingTenantID)`.
+    - If a valid matching tenant record exists, the organization is
+      legitimately claimed by another tenant: `Create` rolls back the newly
+      written primary record (`s.kv.Delete(delCtx, tenantID, jetstream.LastRevision(recRev))`)
+      and returns `ErrCodeAlreadyExists`.
+    - If no valid record exists (an orphaned index entry from an incomplete or
+      deleted registration), takes over the index key via CAS
+      `s.kv.Update(ctx, orgKey, []byte(tenantID), entry.Revision())`. If the
+      update fails with revision mismatch due to a concurrent write, retries
+      the CAS loop.
+    - If the index commit fails due to unrecoverable error or context deadline,
+      deletes the primary record (`s.kv.Delete(delCtx, tenantID, jetstream.LastRevision(recRev))`)
+      and returns the joined error.
+  - Drops the time bound (`time.Since(entry.Created()) <= 2*s.rollbackTimeout`)
+    and `ErrCodeConflict` from `Create` entirely, making organization claim
+    takeover clock-free.
+- `src/services/device/internal/tenantstore/store_test.go`:
+  - Removes clock-dependent assertions and sleeps in
+    `TestOrphanedOrgIndexTakeover` (`lines 357-391`) and removes
+    `TestConcurrentClaimWithinBoundRefused` (`lines 393-423`).
+  - Rewrites `TestRollbackDoesNotDeleteNewerClaim` (`lines 425-455`) and adds
+    rollback test cases that drive `Store` APIs (`s.Create`, `s.Get`) directly
+    rather than raw KV operations:
+    - Proves that when `Create` fails because the organization is already owned
+      by an existing active tenant, the new tenant's primary record is deleted
+      from the store (`s.Get(ctx, newID)` returns nil).
+    - Proves that an orphaned index entry (an `org_` key pointing to a
+      non-existent tenant ID) is immediately taken over by a new `Create`
+      without sleeping or waiting for a clock expiration.
+    - Proves concurrent `Create` calls competing for the same uncommitted
+      organization settle cleanly via CAS without leaving orphaned primary
+      records.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal/tenantstore`
+
+### U9. Edge leaf tenant publication and zero-hub edge tenant resolution
+
+Files: `src/modules/edgebus/subjects.go`,
+`src/modules/edgebus/leaf.go`,
+`src/modules/edgebus/hub.go`,
+`src/modules/edgebus/edgebus_test.go`,
+`src/modules/edgebus/forwarder_internal_test.go`,
+`src/edge/agent/internal/busattach/busattach.go`,
+`src/edge/agent/internal/busattach/busattach_test.go`
+After: none
+Change:
+- `src/modules/edgebus/subjects.go`:
+  - Adds `TenantFromSubject(subject string) (string, error)` and
+    `TenantFromSubjects(subjects map[string]string) (string, error)` to parse
+    the tenant identifier out of `flowseer.<tenant>.edge.<edgeID>...` concrete
+    subjects returned by `AttachBus`, validating each token with
+    `tenant.Validate(tenantID)`.
+- `src/modules/edgebus/leaf.go:26-70, 98-208`:
+  - In `StartLeaf`, validates `cfg.Tenant` using `tenant.Validate(cfg.Tenant)`.
+    If `cfg.Tenant` is empty, defaults to `DefaultTenant`.
+  - The leaf creates its local buffer stream under
+    `flowseer.<tenant>.edge.<edgeID>.>` and publishes OpenTelemetry signals
+    under `OTelSubject(cfg.Tenant, cfg.EdgeID, signal)`.
+- `src/edge/agent/internal/busattach/busattach.go:87-128`:
+  - `Attach` inspects `response.Msg.GetSubjects()`, extracts the tenant via
+    `edgebus.TenantFromSubjects`, and passes `Tenant: tenant` in
+    `edgebus.LeafConfig`. If subject parsing fails, returns an error coded with
+    `ErrCodeAttach`.
+  - An edge enrolled under a UUID tenant creates its leaf buffer stream under
+    `flowseer.<uuid>.edge.<edgeID>.>` and publishes telemetry on subjects
+    matching its assigned tenant, ensuring hub forwarder acceptance.
+- `src/modules/edgebus/hub.go:366-387`:
+  - In `Hub.EdgeTenant(edgeID string) (string, bool)`, removes lines 383-385
+    (`if h.server == nil && h.edges == nil && h.keys == nil { return DefaultTenant, true }`).
+    A zero or uninitialized `Hub` returns `"", false` for all edge lookups.
+- `src/modules/edgebus/forwarder_internal_test.go`:
+  - Updates test forwarder setup (`lines 85-93`) to configure attached edge
+    accounts on the fake hub with `DefaultTenant` rather than relying on
+    zero-Hub fallback.
+- `src/modules/edgebus/edgebus_test.go`:
+  - Adds `TestLeafPublishesUnderAssignedTenant`: proves that a leaf configured
+    with a UUID tenant publishes telemetry under
+    `flowseer.<uuid>.edge.<edgeID>.otel.metrics` and the hub forwarder accepts
+    it without refusal.
+  - Adds `TestZeroHubEdgeTenantReturnsUnknown`: proves that
+    `(&Hub{}).EdgeTenant("edge-1")` returns `"", false`.
+- `src/edge/agent/internal/busattach/busattach_test.go`:
+  - Adds `TestAttachConfiguresLeafWithTenantFromAttachBusSubjects`: verifies
+    `busattach.Attach` with an `AttachBusResponse` carrying UUID-scoped
+    subjects configures the leaf with that UUID tenant and publishes under that
+    tenant.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/edgebus src/edge/agent/internal/busattach`
+
+### U10. Host TenantService unmounting, registry edge binding removal, and e2e fixture alignment
+
+Files: `src/services/device/internal/host/host.go`,
+`src/services/device/internal/host/host_test.go`,
+`src/services/device/internal/host/serve.go`,
+`src/services/device/test/integration/e2e_test.go`
+After: U7, U8, U9
+Change:
+- `src/services/device/internal/host/serve.go`:
+  - Removes `serve.go:149-157` (`tenantsKV`, `tenantStore`, `tenantSvc := &tenantService{...}`).
+  - Removes `TenantService` mounting (`lines 187-188`:
+    `tenantPath, tenantHandler := identityv1connect.NewTenantServiceHandler(...)`).
+  - Removes `serve.go:321-336` (`tenantErrors`, `errCodeAdminNotConfigured`,
+    and tenant error wrapping functions).
+  - Removes `serve.go:338-462` (the full `tenantService` handler struct and
+    RPC methods `CreateTenant`, `GetTenant`, and `ListTenants`).
+  - Cleans up unused imports (`apiidentityv1`, `identityv1connect`).
+  - `TenantService` is no longer served on the Connect API mux, satisfying user
+    ruling 2 that unauthenticated callers cannot create tenants or claim
+    organizations.
+- `src/services/device/internal/host/host.go:284-304`:
+  - Removes the block auto-binding an unindexed registry edge to the
+    development tenant at startup (`if edgeID := h.registry.EdgeID(); edgeID != "" ... edgeStore.IndexEdge(ctx, edgeID, devTenant)`).
+  - Edges must have an authoritative index entry in the `edges` bucket created
+    through `CreateEdge` or enrollment; startup no longer creates synthetic
+    index entries for unindexed registry edges.
+- `src/services/device/internal/host/host_test.go:163-168`:
+  - Updates `runningServiceWithControl` to pass `Hub: func(hub *edgebus.Hub)` in
+    `host.Options`, opening the `edges` KV bucket and calling
+    `edgestore.New(edgesKV).IndexEdge(ctx, testEdgeID, edgebus.DefaultTenant)`.
+  - Ensures `TestAListedDeviceIsAnsweredFromTheJournal` tests against an
+    authoritatively indexed edge without host startup auto-binding.
+- `src/services/device/test/integration/e2e_test.go`:
+  - Updates `e2e_test.go:890-894` to include `organization_claim_name: "org_id"`
+    in the `platform_admin` textproto fixture, satisfying U7's required schema
+    validation on `centralhost.LoadConfig`.
+  - In `TestE2EMultiTenantPartitioning` (`lines 971-985`), replaces the call to
+    `tenantClient.CreateTenant` with direct tenant creation via
+    `tenantstore.New(kvTenant).Create(...)`.
+  - Verifies multi-tenant bucket partitioning, edge enrollment, and journal
+    operations with the tenant seeded directly through the store.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal/host src/services/device/test/integration`
+
+Waves: U7 U8 U9 | U10
 
 ## Verification
 
 ```bash
-.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flowseer/model/identity/v1 spec/proto/flowseer/api/identity/v1 spec/proto/flowseer/model/inventory/v1 spec/proto/flowseer/model/README.md spec/proto/flowseer/store/device/v1 src/modules/edgebus src/common/tenant src/services/device test/conformance/proto docs/conventions/protobuf.md
-go test -race ./src/modules/edgebus/... ./src/common/tenant/... ./src/services/device/... ./test/conformance/proto/...
+.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flowseer/model/identity/v1 spec/proto/flowseer/api/identity/v1 spec/proto/flowseer/model/inventory/v1 spec/proto/flowseer/model/README.md spec/proto/flowseer/store/device/v1 src/modules/edgebus src/edge/agent/internal/busattach src/common/tenant src/services/device test/conformance/proto docs/conventions/protobuf.md
+go test -race ./src/modules/edgebus/... ./src/edge/agent/internal/busattach/... ./src/common/tenant/... ./src/services/device/... ./test/conformance/proto/...
 ```
 
 Run targeted verification on these paths, never `--full`. Integration tests
@@ -558,13 +822,23 @@ is reachable.
 
 ## Definition of done
 
-- [x] Verifier green for every changed path.
+- [x] Verifier green for every changed path across U1–U6.
 - [x] `TenantLocalRef`, `TenantGlobalRef`, `TenantConfig`, `TenantState`, `TenantEvent`, and `TenantRecord` live in `model/identity/v1`.
 - [x] `spec/proto/flowseer/model/inventory/v1/tenant.proto` is deleted and `generated/` is regenerated.
 - [x] `docs/conventions/protobuf.md` has lost the `ENTITY_TYPE_TENANT` exception.
 - [x] Requirements 1, 2, and 3 hold by their acceptance tests.
-- [x] This plan's `status` set with an outcome note under its title, and parent U2's `Landed:` line filled.
-- [x] No plan labels in code.
+- [x] Parent U2's `Landed:` line filled.
+- [ ] Verifier green for every changed path across follow-up units U7–U10.
+- [ ] Edge leaf attaches with concrete tenant from `AttachBus` and publishes under assigned tenant.
+- [ ] Organization index claim in `tenantstore.Store.Create` is clock-free with CAS commit after record write.
+- [ ] Rollback tests drive `tenantstore.Store` directly.
+- [ ] `PlatformAdmin` schema defines `organization_claim_name` and `dev_tenant` rejects uppercase UUIDs.
+- [ ] `host.go` contains no synthetic registry edge index auto-bind.
+- [ ] `edgebus.Hub.EdgeTenant` never returns `DefaultTenant` on a zero Hub.
+- [ ] `TenantService` is unmounted from central host until phase 3.
+- [ ] Capture artifact path documentation reflects per-tenant directory layout.
+- [ ] This plan's `status` set with an outcome note under its title.
+- [ ] No plan labels in code.
 
 ## Review
 
