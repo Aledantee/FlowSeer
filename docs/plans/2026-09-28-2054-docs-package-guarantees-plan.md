@@ -5,6 +5,7 @@ date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: rework
 execution: mixed
 ---
 
@@ -607,6 +608,25 @@ Then rename `TestRunOutputCapTruncates` in
 - [x] No plan labels in code, scripts, or skill text.
 
 ## Open questions
+
+- The third review ended `rework` after three rounds on how the checker
+  derives the text a reader sees, none of them clean. The rounds settled
+  the parser (`goldmark.DefaultParser()` unchanged: a line opening an HTML
+  block interrupts a paragraph or list item and fails closed) and block
+  lines (`n.Pos()`). Text derivation moved from raw segments, to
+  hand-chained `util` decoding (fails open on `\&#77;UST`, `&#0115;UST`,
+  over-long hex references), to rendering the node and stripping tags.
+  That last form still fails open: a hard line break inside image alt
+  text renders `<br>` inside the `alt` attribute, so `It is ![x\` +
+  newline + `MUST](y.png).` counts as normative, and the same leaks THEN.
+  Re-plan the derivation as a stated property with a generated or
+  exhaustive check against goldmark's renderer, not a fourth patch (a
+  quote-aware tag stripper is the candidate). Also open: citation lines
+  fall back to the `Proved by:` line for every name after one written
+  with an entity or escape (`Test&#65;`); the Go test that string-matches
+  a line of `verify-change.sh` belongs in `tools/hooks/tests/run.sh` or
+  nowhere; Requirement 15 and the invocation Decision still say `go run`,
+  while the verifier now builds the checker and runs the binary.
 
 - The follow-up plan: `plan`'s template gains a `## Guarantee changes`
   section with `Added:`, `Changed:`, and `Removed:` groups under one
