@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Print, as YAML on stdout, what this machine can route delegated work to:
 # the agent CLIs present, which prepaid pools are signed in, what Orca can
-# pin with --model, every pool's rate-limit windows, and the opencode model
-# ids split by pool. Run unsandboxed: `orca` talks to a local socket, `agy`
-# reads the keyring, and `opencode` writes a log file.
+# pin with --model, every pool's rate-limit windows, and the synthetic model
+# ids omp serves. Run unsandboxed: `orca` talks to a local socket, `agy`
+# reads the keyring, and `omp` reads its config.
 
 set -uo pipefail
 
@@ -13,7 +13,7 @@ ver() { "$1" --version 2>/dev/null | head -1 | tr -d '\n'; }
 
 echo "generated: $(iso)"
 echo "clis:"
-for c in claude codex agy opencode; do
+for c in claude codex agy omp; do
   if have "$c"; then
     echo "  $c: {path: $(command -v "$c"), version: \"$(ver "$c")\"}"
   else
@@ -36,23 +36,22 @@ echo "pools:"
 # it, so it is not used.
 "$(dirname "$0")/../../delegate/scripts/pool-usage.sh" | sed 's/^/  /'
 
-# opencode: zen is per-token and has no window; list the model ids by pool.
-# The synthetic list is opencode's catalogue, which keeps ids Synthetic has
-# stopped serving, and Synthetic answers requests for some of those without
-# an error; its served list is GET api.synthetic.new/openai/v1/models.
-if have opencode; then
-  opencode models 2>/dev/null | python3 -c '
-import sys
-synthetic, zen = [], []
-for line in sys.stdin:
-    line = line.strip()
-    if line.startswith("synthetic/"): synthetic.append(line.split("/", 1)[1])
-    elif line.startswith("opencode/"): zen.append(line.split("/", 1)[1])
-print("  zen: {signed_in: %s}" % str(bool(zen)).lower())
-print("opencode_models:")
-print("  synthetic: [%s]" % ", ".join("\"%s\"" % m for m in synthetic))
-print("  zen: [%s]" % ", ".join(zen))
+# omp serves the synthetic pool by pinning an id with --model; list the
+# synthetic ids it offers, without the `synthetic/` selector prefix. The
+# catalogue can keep ids Synthetic has stopped serving, and Synthetic answers
+# requests for some of those without an error, so its served list is
+# GET api.synthetic.new/openai/v1/models.
+if have omp; then
+  omp models synthetic --json 2>/dev/null | python3 -c '
+import json, sys
+try:
+    models = json.load(sys.stdin).get("models", [])
+except (ValueError, AttributeError):
+    models = []
+ids = [m["id"] for m in models if m.get("id")]
+print("omp_models:")
+print("  synthetic: [%s]" % ", ".join("\"%s\"" % m for m in ids))
 '
 else
-  echo "  zen: {signed_in: false}"
+  echo "omp_models: {synthetic: []}"
 fi

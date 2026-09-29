@@ -4,7 +4,7 @@
 # the settled-state wait.
 #
 # orca-worker.sh start --lane SLUG --cli claude|codex|agy --model ID [--effort LEVEL] --role ROLE [--plan FILE] [--unit NAME] --brief FILE [--base REF]
-# orca-worker.sh start --lane SLUG --cli opencode --model provider/model --role ROLE [--plan FILE] [--unit NAME] --brief FILE [--base REF]
+# orca-worker.sh start --lane SLUG --cli omp --model provider/model [--effort LEVEL] --role ROLE [--plan FILE] [--unit NAME] --brief FILE [--base REF]
 # orca-worker.sh wait   SLUG [--timeout MS] [--stall S]  # prints idle|exited|stalled|timeout, then the screen
 # orca-worker.sh read   SLUG [--lines N]
 # orca-worker.sh keys   SLUG TEXT                # raw text into the terminal, no Enter; 200 characters at most
@@ -93,11 +93,9 @@ case "$cmd" in
     case "$cli" in
       claude|codex) [[ -n $model ]] || die "--model is required for $cli"; [[ -z $agent ]] || die "--agent does not apply to $cli" ;;
       agy) [[ -n $model ]] || die "--model is required for agy"; [[ -z $effort ]] || die "--effort does not apply to agy: it is part of the model id"; [[ -z $agent ]] || die "--agent does not apply to agy" ;;
-      # The default agent only. A custom agent profile that pins a model
-      # carries no system prompt, and models on it reason without ever
-      # calling a tool or answer nothing at all. The same models
-      # answer in seconds on the default agent with the model on the launch line.
-      opencode) [[ -n $model ]] || die "--model is required for opencode, as provider/model"; [[ -z $agent$effort ]] || die "--agent and --effort do not apply to opencode: it runs the default agent" ;;
+      # omp has no agent profiles; it pins the model with --model and maps
+      # --effort to --thinking on the launch line.
+      omp) [[ -n $model ]] || die "--model is required for omp, as provider/model"; [[ -z $agent ]] || die "--agent does not apply to omp: it has no agent profiles" ;;
       *) die "unknown cli $cli" ;;
     esac
     orca status --json 2>/dev/null | json 'd["result"]["runtime"]["reachable"]' | grep -q True \
@@ -156,7 +154,7 @@ case "$cmd" in
       claude) line="claude --model $model --dangerously-skip-permissions --settings '{\"switchModelsOnFlag\":false}'${effort:+ --effort $effort}" ;;
       codex)  line="codex -a never --sandbox danger-full-access -c check_for_update_on_startup=false -m $model${effort:+ -c model_reasoning_effort=$effort}" ;;
       agy)    line="agy --model $model --dangerously-skip-permissions" ;;
-      opencode) line="opencode --model $model" ;;
+      omp) line="omp --model $model${effort:+ --thinking $effort}" ;;
     esac
     # A Claude worker started under this session's child-session variables
     # runs with transcript saving off.
@@ -261,8 +259,8 @@ case "$cmd" in
     # the agent was mid-turn, and the interrupt hint vanishes between tool
     # calls. The turn has ended when two reads five seconds apart show no
     # hint and the same screen. A screen that shows the hint and has not
-    # changed for --stall seconds is a hung model stream (opencode lanes
-    # ignored Escape for an hour): `stalled`, for the coordinator to close.
+    # changed for --stall seconds is a hung model stream that Escape may not
+    # reach: `stalled`, for the coordinator to close.
     deadline=$(( timeout > 0 ? $(date +%s) + timeout / 1000 : 0 ))
     last='' since=$(date +%s) show_screen=true
     while :; do

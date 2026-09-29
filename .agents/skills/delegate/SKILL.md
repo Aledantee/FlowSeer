@@ -42,20 +42,18 @@ lane in this order:
    this wave (`~/.claude/models/host.yaml` holds the session-start rows),
    shows `signed_in` false or null, or over 85% on a window that applies to
    the model. Orca reporting a provider `unavailable` is not a pool row.
-2. Drop `zen` (per-token) unless every fitting prepaid pool is hot; a wave
-   that reaches it says so.
-3. Drop models the role `exclude`s. For `review-unit`, also drop the
+2. Drop models the role `exclude`s. For `review-unit`, also drop the
    `vendor` of the model that executed the unit under review; for
    `review-seam`, that model itself. Load `references/review-lanes.md` to
    find the executor.
-4. Drop a pool whose running lanes of this wave fill its slots (Wave size),
+3. Drop a pool whose running lanes of this wave fill its slots (Wave size),
    and move one that holds any running lane to the back.
-5. Take the first model left in the role's `fit` order. Headroom enters
-   only through steps 1 and 4. A signed-in pool with `windows: null` has
+4. Take the first model left in the role's `fit` order. Headroom enters
+   only through steps 1 and 3. A signed-in pool with `windows: null` has
    room until it answers with a 429.
 
-When steps 1–3 leave no `fit` model, apply them to `last_resort` when the
-role has one and take a survivor by step 5; the report names the lane a
+When steps 1–2 leave no `fit` model, apply them to `last_resort` when the
+role has one and take a survivor by step 4; the report names the lane a
 last resort and the pools that were out. A review role left with no
 survivor because the executors cover its fit set splits by writer, as
 `references/review-lanes.md` describes. The report names every fitting
@@ -67,9 +65,8 @@ task start to finish; the coordinator's model is an ordinary candidate.
 `scripts/orca-worker.sh` builds the launch line from `--cli`, `--model`,
 and `--effort`; the Agent tool takes `model`. `claude` and `codex` take
 `--model` and `--effort`; `google` takes `--model gemini-3.8-flash-<effort>`
-on `agy`; `synthetic` and `zen` take `--model <pool_id>` on `opencode`, on
-the default agent, never an agent profile (a model-pinning profile carries
-no system prompt). A `fit` entry written `<model>@<level>` launches at that
+on `agy`; `synthetic` takes `--model <pool_id>` on `omp`, which has no agent
+profiles. A `fit` entry written `<model>@<level>` launches at that
 level, the one `tune` measured as the best tradeoff for the role: the model
 id goes to `--model` and the level to `--effort` (into the id on `agy`). A bare
 entry launches at the role's `effort`. A model whose `effort` list lacks
@@ -105,7 +102,7 @@ mkdir -p ~/.claude/models
 
 It records the agent CLIs, Orca reachability (`orca: reachable: true`
 opens the worker lane), each pool's sign-in state and windows, and the
-opencode model ids by pool. Native subagents run only on Claude; an Orca
+the synthetic model ids omp serves. Native subagents run only on Claude; an Orca
 worker runs on any installed agent whose pool is signed in.
 
 ## Dispatch by quota
@@ -143,7 +140,7 @@ disabled; a sandboxed call reports the runtime as not running.
 ```bash
 s=.claude/skills/delegate/scripts/orca-worker.sh
 $s start --lane <slug> --cli <claude|codex|agy> --model <id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file>
-$s start --lane <slug> --cli opencode --model <pool_id> --role <role> [--plan <path>] [--unit <unit>] --brief <file>
+$s start --lane <slug> --cli omp --model <pool_id> --role <role> [--plan <path>] [--unit <unit>] --brief <file>
 $s wait <slug>            # blocks; prints idle, exited, stalled, or timeout, then the screen
 $s read <slug>            # the worker's report, from its screen
 $s keys <slug> <text>     # a dialog answer, at most 200 characters
@@ -183,7 +180,7 @@ verifier. Before reading the report as fact, check the tree:
 most expensive to get wrong are what the report says. An idle lane whose
 child has changes but no new commit stopped short: `tell` it to commit.
 Merge the branch here and run the verifier once, sandbox disabled, on the
-union of changed paths; for a worker on `agy` or `opencode`, load
+union of changed paths; for a worker on `agy` or `omp`, load
 `references/hookless-merge.md` after the merge, before the verifier. A child whose branch did not land stays,
 and the report names it with the reason. Never remove a child with a dirty
 tree; say what is there.

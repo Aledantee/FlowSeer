@@ -66,14 +66,14 @@ mkdir -p ~/.claude/models
 ```
 
 It writes which CLIs exist, which pools are signed in, what Orca can pin
-with `--model`, the `opencode` model ids split by `synthetic/` (prepaid) and
-`opencode/` (per-token), and the Claude rate-limit windows.
+with `--model`, the synthetic model ids omp serves, and the Claude
+rate-limit windows.
 
-opencode's `synthetic/` list keeps ids Synthetic no longer serves, and a
+omp's synthetic catalogue can keep ids Synthetic no longer serves, and a
 request to a retired id may answer without error. Read the served ids and
 their context from `GET https://api.synthetic.new/openai/v1/models` with the
-`synthetic` key from opencode's `auth.json`, and compare each registry
-`pool_id` on the `synthetic` pool with that list.
+`synthetic` key from `~/.local/share/opencode/auth.json`, and compare each
+registry `pool_id` on the `synthetic` pool with that list.
 
 ## 2. Pull live catalogues
 
@@ -206,9 +206,9 @@ order otherwise, and keep the registry's role-order header accurate. When the pr
 this run changed, name the override in the report: the project keeps
 routing on its own value.
 
-An opencode model is pinned by its `pool_id` on the launch line and needs
-nothing in `~/.config/opencode/opencode.json`; do not add agent profiles
-there, since a profile that pins a model gets no system prompt.
+An omp model is pinned by its `pool_id` on the `--model` launch flag and
+takes its effort level from `--thinking`. omp has no agent profiles, so a
+synthetic model needs nothing beyond that flag.
 
 Never apply a change to a role's `fit` membership or order silently. Report
 field-driven proposals separately from calibration-driven ones, with the

@@ -1,6 +1,6 @@
 # Merging a worker that ran without hooks
 
-Load this after merging the branch of a worker on `agy` or `opencode`,
+Load this after merging the branch of a worker on `agy` or `omp`,
 before running the verifier. Those CLIs load none of the repository hooks
 (no format-on-edit, no guard on `generated/`, no Stop gate), so the
 coordinator's checks after the merge are the only gate the branch gets.

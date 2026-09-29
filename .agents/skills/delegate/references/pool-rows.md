@@ -12,7 +12,7 @@ and the `worst` one with its reset time:
 | --- | --- | --- |
 | `claude`, `codex` | `orca account list --json`, `rateLimits` | `session`, `weekly`, `fableWeekly` |
 | `google` | `agy -p /quota --output-format json`, answered without a model turn | `gemini-5h`, `gemini-weekly`, `3p-5h`, `3p-weekly` |
-| `synthetic` | `GET https://api.synthetic.new/v2/quotas` with the key opencode holds; the call is not counted | `5h`, `week` |
+| `synthetic` | `GET https://api.synthetic.new/v2/quotas` with the key from `~/.local/share/opencode/auth.json`; the call is not counted | `5h`, `week` |
 
 - `orca account list` also carries an `antigravity` row with
   `status: unavailable`. It means Orca cannot read that usage (no Gemini CLI

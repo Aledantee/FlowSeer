@@ -23,7 +23,7 @@ class BenchTest(unittest.TestCase):
         self.brief.write_text("calibrate lane")
         self.out = self.root / "out.json"
 
-    def run_bench(self, cli="opencode", model="test/model", env_extra=None):
+    def run_bench(self, cli="omp", model="synthetic/hf:test", env_extra=None):
         env = os.environ.copy()
         env["PATH"] = str(self.bin_dir) + ":" + env.get("PATH", "")
         if env_extra:
@@ -43,71 +43,46 @@ class BenchTest(unittest.TestCase):
             text=True,
         )
 
-    def test_failed_final_message_preserves_steps(self):
-        # When the final message request fails after steps were executed,
-        # opencode writes step-finish parts to $raw.steps. bench.sh must sum
-        # the steps' tokens and cost rather than discarding them as null.
-        opencode = self.bin_dir / "opencode"
-        opencode.write_text(
+    def _write_omp(self, lines):
+        omp = self.bin_dir / "omp"
+        omp.write_text(
             "#!/usr/bin/env python3\n"
-            "import http.server, json, sys\n"
-            "\n"
-            "class Handler(http.server.BaseHTTPRequestHandler):\n"
-            "    def log_message(self, *args): pass\n"
-            "    def do_POST(self):\n"
-            "        if self.path == '/session':\n"
-            "            self.send_response(200)\n"
-            "            self.send_header('Content-Type', 'application/json')\n"
-            "            self.end_headers()\n"
-            "            self.wfile.write(b'{\"id\": \"s1\"}')\n"
-            "        elif '/message' in self.path:\n"
-            "            self.close_connection = True\n"
-            "    def do_GET(self):\n"
-            "        self.send_response(200)\n"
-            "        self.send_header('Content-Type', 'application/json')\n"
-            "        self.end_headers()\n"
-            "        if '/message' in self.path:\n"
-            "            steps = [{'parts': [{'type': 'step-finish', 'tokens': "
-            "                     {'input': 15, 'output': 30, 'reasoning': 10, "
-            "                      'cache': {'read': 5}}, 'cost': 0.05}]}]\n"
-            "            self.wfile.write(json.dumps(steps).encode('utf-8'))\n"
-            "        else:\n"
-            "            self.wfile.write(b'[]')\n"
-            "\n"
-            "port = int(sys.argv[sys.argv.index('--port') + 1])\n"
-            "http.server.HTTPServer(('127.0.0.1', port), Handler).serve_forever()\n"
+            "import sys\n"
+            "sys.stdout.write(%r)\n" % "".join(json.dumps(line) + "\n" for line in lines)
         )
-        opencode.chmod(0o755)
+        omp.chmod(0o755)
 
-        proc = self.run_bench()
+    def test_omp_reports_inline_usage_and_served_model(self):
+        # omp streams JSON lines; each assistant message_end carries usage with
+        # an inline cost and the model that answered. bench.sh sums them and
+        # records the served model. omp pins its model, so downgrade stays null.
+        self._write_omp([
+            {"type": "message_end", "message": {"role": "assistant",
+             "model": "hf:moonshotai/Kimi-K3",
+             "usage": {"input": 15, "output": 30, "cacheRead": 5, "reasoning": 10,
+                       "cost": {"total": 0.05}}, "stopReason": "stop"}}])
+        proc = self.run_bench(cli="omp", model="synthetic/hf:moonshotai/Kimi-K3")
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertTrue(self.out.exists(), "out.json was not created")
         result = json.loads(self.out.read_text())
-
-        self.assertNotEqual(result["exit"], 0)
-        self.assertEqual(
-            result["usage"],
-            {"input": 15, "output": 30, "cache_read": 5, "reasoning": 10},
-        )
+        self.assertEqual(result["exit"], 0)
+        self.assertEqual(result["usage"],
+                         {"input": 15, "output": 30, "cache_read": 5, "reasoning": 10})
         self.assertEqual(result["cost_usd_reported"], 0.05)
-        self.assertIn("curl: (52)", result.get("error", ""))
+        self.assertEqual(result["served_model"], ["hf:moonshotai/Kimi-K3"])
+        self.assertIsNone(result["downgraded"])
+        self.assertFalse(result["refused"])
 
-    def test_never_started_lane(self):
-        # When the server never binds or exits immediately, bench.sh must report
-        # null usage and record the startup failure in error.
-        opencode = self.bin_dir / "opencode"
-        opencode.write_text("#!/bin/sh\nexit 1\n")
-        opencode.chmod(0o755)
-
-        proc = self.run_bench()
+    def test_omp_content_filter_is_a_refusal(self):
+        # A safety stop reason on omp is a refusal a zero-usage exit-0 lane hides.
+        self._write_omp([
+            {"type": "message_end", "message": {"role": "assistant",
+             "model": "hf:moonshotai/Kimi-K3", "usage": {"input": 5, "output": 0},
+             "stopReason": "content_filter"}}])
+        proc = self.run_bench(cli="omp", model="synthetic/hf:moonshotai/Kimi-K3")
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertTrue(self.out.exists(), "out.json was not created")
         result = json.loads(self.out.read_text())
-
-        self.assertEqual(result["exit"], 1)
-        self.assertIsNone(result["usage"])
-        self.assertIsNone(result["cost_usd_reported"])
-        self.assertIn("never accepted a session", result.get("error", ""))
+        self.assertTrue(result["refused"])
+        self.assertEqual(result["refuse_reason"], "stopReason=content_filter")
 
     def _write_claude(self, body):
         claude = self.bin_dir / "claude"

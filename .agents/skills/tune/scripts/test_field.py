@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 import io
 import json
 from pathlib import Path
-import sqlite3
 import tempfile
 import unittest
 
@@ -32,7 +31,7 @@ class FieldTest(unittest.TestCase):
         self.log = self.root / "runs.jsonl"
         self.claude = self.root / "claude"
         self.codex = self.root / "codex"
-        self.db = self.root / "opencode.db"
+        self.omp = self.root / "omp-sessions"
         self.registry = self.root / "registry.yaml"
         self.claude.mkdir()
         self.codex.mkdir()
@@ -47,8 +46,17 @@ class FieldTest(unittest.TestCase):
         with redirect_stdout(output):
             field.main(["--since", since, "--match", "l1", "--runlog", str(self.log),
                         "--claude-projects", str(self.claude), "--codex-sessions", str(self.codex),
-                        "--opencode-db", str(self.db), "--registry", str(self.registry)])
+                        "--omp-sessions", str(self.omp), "--registry", str(self.registry)])
         return json.loads(output.getvalue())
+
+    def omp_session(self, sid, cwd, messages):
+        # Write one omp session JSONL: a `session` line and a `message_end`
+        # line per (offset, message) pair, under the cwd-slug directory.
+        slug = field.claude_directory(cwd)
+        records = [{"type": "session", "id": sid, "timestamp": stamp(-2), "cwd": cwd}]
+        for offset, message in messages:
+            records.append({"type": "message_end", "timestamp": stamp(offset), "message": message})
+        write_lines(self.omp / slug / ("2026-01-01T00-00-00_" + sid + ".jsonl"), records)
 
     def lane(self, run="r1", cli="codex", model="gpt-6-sol", start=-10, grade=100,
              role="execute", agent=None):
@@ -256,27 +264,22 @@ class FieldTest(unittest.TestCase):
                          field.claude_directory("/Users/aledante/orca/workspaces/FlowSeer/snipefish"))
         self.assertEqual("-w-lane-one", field.claude_directory("/w/lane_one"))
 
-    def test_opencode_uses_recorded_message_cost_and_agent_model(self):
-        write_lines(self.log, self.lane(cli="opencode", model="", agent="kimi-agent"))
-        with sqlite3.connect(self.db) as db:
-            db.execute("CREATE TABLE session (id TEXT, directory TEXT, time_created INTEGER, agent TEXT, model TEXT)")
-            db.execute("CREATE TABLE message (session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)")
-            created = int((BASE + timedelta(seconds=5)).timestamp() * 1000)
-            db.execute("INSERT INTO session VALUES (?, ?, ?, ?, ?)", ("oc1", "/w/l1", created, "kimi-agent", None))
-            db.execute("INSERT INTO message VALUES (?, ?, ?, ?)", ("oc1", created, created,
-                       json.dumps({"role": "user"})))
-            db.execute("INSERT INTO message VALUES (?, ?, ?, ?)", ("oc1", created + 10000, created + 10000,
-                       json.dumps({"role": "assistant", "cost": 0.123, "tokens": {
-                           "input": 10, "output": 20, "reasoning": 5, "cache": {"read": 3, "write": 2}}})))
-            db.execute("INSERT INTO message VALUES (?, ?, ?, ?)", ("oc1", created + 50000, created + 50000,
-                       json.dumps({"role": "user"})))
-            db.execute("INSERT INTO message VALUES (?, ?, ?, ?)", ("oc1", created + 60000, created + 60000,
-                       json.dumps({"role": "assistant", "cost": 0})))
+    def test_omp_uses_recorded_message_cost(self):
+        write_lines(self.log, self.lane(cli="omp", model="kimi-k3"))
+        self.omp_session("oc1", "/w/l1", [
+            (5, {"role": "user"}),
+            (15, {"role": "assistant", "model": "hf:moonshotai/Kimi-K3",
+                  "usage": {"input": 10, "output": 20, "reasoning": 5, "cacheRead": 3,
+                            "cacheWrite": 2, "cost": {"total": 0.123}}}),
+            (55, {"role": "user"}),
+            (65, {"role": "assistant", "usage": {"cost": {"total": 0}}})])
         run = self.run_field()["runs"][0]
         self.assertEqual("kimi-k3", run["model"])
         self.assertEqual(0.123, run["cost_usd"])
         self.assertFalse(run["est"])
         self.assertEqual(20, run["active_s"])
+        self.assertEqual(3, run["tokens"]["cache_read"])
+        self.assertEqual(2, run["tokens"]["cache_write_5m"])
 
     def test_codex_spanning_session_across_nonoverlapping_lanes_has_no_duplicate_attribution(self):
         events = []
@@ -422,28 +425,18 @@ class FieldTest(unittest.TestCase):
         self.assertEqual(15, group["medians"]["active_s"])
         self.assertIsNotNone(group["medians"]["cost_usd"])
 
-    def test_opencode_spanning_session_across_nonoverlapping_lanes_has_no_duplicate_attribution(self):
+    def test_omp_spanning_session_across_nonoverlapping_lanes_has_no_duplicate_attribution(self):
         events = []
-        events.extend(self.lane(run="r1", cli="opencode", model="", agent="kimi-agent", start=0, grade=100))
-        events.extend(self.lane(run="r2", cli="opencode", model="", agent="kimi-agent", start=200, grade=300))
+        events.extend(self.lane(run="r1", cli="omp", model="kimi-k3", start=0, grade=100))
+        events.extend(self.lane(run="r2", cli="omp", model="kimi-k3", start=200, grade=300))
         write_lines(self.log, events)
-        with sqlite3.connect(self.db) as db:
-            db.execute("CREATE TABLE session (id TEXT, directory TEXT, time_created INTEGER, agent TEXT, model TEXT)")
-            db.execute("CREATE TABLE message (session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)")
-            created = int((BASE + timedelta(seconds=-2)).timestamp() * 1000)
-            db.execute("INSERT INTO session VALUES (?, ?, ?, ?, ?)", ("oc1", "/w/l1", created, "kimi-agent", None))
+        self.omp_session("oc1", "/w/l1", [
             # Activity in Lane 1 [0, 100]
-            t1 = int((BASE + timedelta(seconds=10)).timestamp() * 1000)
-            t2 = int((BASE + timedelta(seconds=50)).timestamp() * 1000)
-            db.execute("INSERT INTO message VALUES (?, ?, ?, ?)", ("oc1", t1, t1, json.dumps({"role": "user"})))
-            db.execute("INSERT INTO message VALUES (?, ?, ?, ?)", ("oc1", t2, t2, json.dumps({
-                "role": "assistant", "cost": 0.05, "tokens": {"input": 100, "output": 20}})))
+            (10, {"role": "user"}),
+            (50, {"role": "assistant", "usage": {"input": 100, "output": 20, "cost": {"total": 0.05}}}),
             # Activity in Lane 2 [200, 300]
-            t3 = int((BASE + timedelta(seconds=210)).timestamp() * 1000)
-            t4 = int((BASE + timedelta(seconds=270)).timestamp() * 1000)
-            db.execute("INSERT INTO message VALUES (?, ?, ?, ?)", ("oc1", t3, t3, json.dumps({"role": "user"})))
-            db.execute("INSERT INTO message VALUES (?, ?, ?, ?)", ("oc1", t4, t4, json.dumps({
-                "role": "assistant", "cost": 0.07, "tokens": {"input": 200, "output": 40}})))
+            (210, {"role": "user"}),
+            (270, {"role": "assistant", "usage": {"input": 200, "output": 40, "cost": {"total": 0.07}}})])
         report = self.run_field()
         self.assertEqual(2, len(report["runs"]))
         r1, r2 = report["runs"]

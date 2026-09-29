@@ -1,6 +1,6 @@
 # Resolving review lanes
 
-Load this when resolving a `review-unit` or `review-seam` lane (step 3 of
+Load this when resolving a `review-unit` or `review-seam` lane (step 2 of
 `SKILL.md`), and when a review role has no survivor because the executors
 cover its fit set, as after a fix round on several models.
 
@@ -19,15 +19,15 @@ python3 -B -c 'import sys; sys.path.insert(0, ".claude/skills/delegate/scripts")
   `-`, or a `drive` stage name such as `implement`). With no such lane, the
   coordinator executed it, on its own vendor.
 - A `google` id carries the effort suffix (`gemini-3.8-flash-high` is
-  `gemini-3.8-flash`). An opencode id is the `pool_id` of its registry
-  model; a lane logged before opencode took `--model` names the agent.
+  `gemini-3.8-flash`). An omp id is the `pool_id` of its registry model,
+  pinned with `--model`.
 - A reviewer a session spawns as its own subagent runs on that session's
-  vendor, so step 3 applies to it like any other lane.
+  vendor, so step 2 applies to it like any other lane.
 
 ## Split by writer
 
 A review role left with no survivor because the executors cover its fit
-set splits by writer. The writers are the runs step 3 counts that also have
+set splits by writer. The writers are the runs step 2 counts that also have
 an `end` event. A commit belongs to the run with the fewest commits in its
 `start` `base` to `end` `head` range that still holds it, the later-started
 on a tie, since a `drive` stage's range holds the commits of the lanes it
@@ -48,7 +48,7 @@ names for it. Context lines and boundary lines (blamed to a commit before
 `<base>`, marked `^`) belong to no writer.
 
 - Group the lines by writer (by vendor for `review-unit`) and resolve one
-  lane per group, with step 3 dropping only that group's writer.
+  lane per group, with step 2 dropping only that group's writer.
 - A hunk whose lines have several writers is in each of their groups; each
   lane reviews its own lines.
 - A hunk that only deletes has no surviving line to blame; the coordinator

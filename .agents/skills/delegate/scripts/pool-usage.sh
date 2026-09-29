@@ -15,9 +15,10 @@
 # and an `error`; it does not mark the pool signed out unless the source
 # itself says so.
 #
-# The synthetic key comes from SYNTHETIC_API_KEY, else from the `synthetic`
-# entry opencode keeps in ~/.local/share/opencode/auth.json. It is sent only
-# to api.synthetic.new and never printed.
+# The synthetic pool is served through omp, but omp keeps no auth file, so
+# the key still comes from SYNTHETIC_API_KEY, else from the `synthetic` entry
+# that resides in ~/.local/share/opencode/auth.json. It is sent only to
+# api.synthetic.new and never printed.
 #
 # Run unsandboxed: orca uses a local socket, agy the network and the keyring,
 # and the synthetic read needs the network.

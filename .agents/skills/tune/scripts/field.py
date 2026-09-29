@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import re
-import sqlite3
 import statistics
 import sys
 
@@ -239,42 +238,54 @@ def codex_session(path):
             "tokens": result, "tool_errors": None}
 
 
-def opencode_sessions(path, match):
-    if not path.exists():
+def omp_sessions(sessions_dir, match):
+    # omp writes one JSONL per session under <sessions_dir>/<cwd-slug>/. A
+    # `session` line carries the cwd and id, and each assistant `message_end`
+    # line carries usage with an inline cost. omp has no agent profiles.
+    if not sessions_dir.exists():
         return []
     sessions = []
-    with sqlite3.connect("file:" + str(path) + "?mode=ro", uri=True) as db:
-        for sid, cwd, created, agent, model in db.execute(
-                "SELECT id, directory, time_created, agent, model FROM session"):
-            if match not in (cwd or ""):
+    for path in sessions_dir.glob("*/*.jsonl"):
+        items = list(records(path))
+        meta = next((item for item in items if item.get("type") == "session"), None)
+        if meta is None:
+            continue
+        cwd = meta.get("cwd")
+        if match not in (cwd or ""):
+            continue
+        usage, cost = tokens(), 0.0
+        model = None
+        started = ended = instant(meta.get("timestamp"))
+        timeline = []
+        for item in items:
+            if item.get("type") != "message_end":
                 continue
-            rows = db.execute("SELECT data, time_created, time_updated FROM message WHERE session_id=? ORDER BY time_created", (sid,))
-            usage, cost = tokens(), 0.0
-            ended = instant(created)
-            timeline = []
-            for raw, at, updated in rows:
-                try:
-                    item = json.loads(raw)
-                except (TypeError, ValueError):
-                    continue
-                part = item.get("tokens") or {}
-                cache = part.get("cache") or {}
-                usage = add_tokens(usage, tokens(input=part.get("input"), output=part.get("output"),
-                                                reasoning=part.get("reasoning"), cache_read=cache.get("read"),
-                                                cache_write_5m=cache.get("write")))
-                cost += item.get("cost") or 0
-                timeline.append({"timestamp": at, "role": item.get("role")})
-                if updated and updated != at:
-                    timeline.append({"timestamp": updated, "role": None})
-                message_end = instant(updated or at)
-                if message_end and (ended is None or message_end > ended):
-                    ended = message_end
-                agent = item.get("agent") or agent
-            sessions.append({"id": sid, "cwd": cwd, "started": instant(created), "agent": agent,
-                             "ended": ended,
-                             "model": model, "active_s": active_time(timeline, lambda item: item["role"] == "user"),
-                             "tokens": usage,
-                             "cost_usd": round(cost, 8), "tool_errors": None})
+            message = item.get("message") or {}
+            role = message.get("role")
+            at = instant(item.get("timestamp"))
+            if at is not None:
+                timeline.append({"timestamp": item.get("timestamp"), "role": role})
+                if started is None or at < started:
+                    started = at
+                if ended is None or at > ended:
+                    ended = at
+            if role != "assistant":
+                continue
+            model = message.get("model") or model
+            use = message.get("usage") or {}
+            usage = add_tokens(usage, tokens(
+                input=use.get("input"), output=use.get("output"),
+                reasoning=use.get("reasoning"), cache_read=use.get("cacheRead"),
+                cache_write_5m=use.get("cacheWrite")))
+            total = (use.get("cost") or {}).get("total")
+            if isinstance(total, (int, float)):
+                cost += total
+        sessions.append({"id": meta.get("id") or path.stem, "cwd": cwd,
+                         "started": started, "agent": None, "ended": ended,
+                         "model": model,
+                         "active_s": active_time(timeline, lambda item: item["role"] == "user"),
+                         "tokens": usage,
+                         "cost_usd": round(cost, 8), "tool_errors": None})
     return sessions
 
 
@@ -308,7 +319,7 @@ def apply_sessions(run, sessions, prices, models):
         run["model"] = model_for(reported, None, models) if reported else run["model"]
         error_values = [item["tool_errors"] for item in sessions if item.get("tool_errors") is not None]
         run["tool_errors"] = sum(error_values) if error_values else 0
-    elif run["cli"] == "opencode":
+    elif run["cli"] == "omp":
         cost_values = [item["cost_usd"] for item in sessions if item.get("cost_usd") is not None]
         if cost_values:
             run["cost_usd"] = round(sum(cost_values), 8)
@@ -406,7 +417,7 @@ def score(args):
                 claude.append(session)
     codex = [session for path in args.codex_sessions.rglob("*.jsonl") if path.stat().st_mtime >= since.timestamp()
              if (session := codex_session(path)) and args.match in (session.get("cwd") or "")]
-    opencode = opencode_sessions(args.opencode_db, args.match)
+    omp = omp_sessions(args.omp_sessions, args.match)
     branch_names = 0
     attributed_claude = []
     for session in claude:
@@ -431,7 +442,7 @@ def score(args):
         lane_windows[cwd].append((at, end, rid, start.get("cli")))
 
     ambiguous_runs = set()
-    for cli_name, candidates in (("claude", claude), ("codex", codex), ("opencode", opencode)):
+    for cli_name, candidates in (("claude", claude), ("codex", codex), ("omp", omp)):
         for session in candidates:
             if session.get("native"):
                 continue
@@ -456,7 +467,7 @@ def score(args):
         run["elapsed_s"] = seconds(at, instant(grade.get("at")))
         if roles and run["role"] not in roles:
             unmatched.append({"run": rid, "reason": "role_not_in_registry", "role": run["role"]})
-        candidates = {"claude": claude, "codex": codex, "opencode": opencode}.get(cli, [])
+        candidates = {"claude": claude, "codex": codex, "omp": omp}.get(cli, [])
         matches = [item for item in candidates if not item.get("native") and joinable(item, at, end, cwd)]
         for item in matches:
             joined.add((cli, item["id"]))
@@ -518,7 +529,7 @@ def main(argv=None):
     parser.add_argument("--runlog", type=Path, default=runlog.log_path())
     parser.add_argument("--claude-projects", type=Path, default=HOME / ".claude/projects")
     parser.add_argument("--codex-sessions", type=Path, default=HOME / ".codex/sessions")
-    parser.add_argument("--opencode-db", type=Path, default=HOME / ".local/share/opencode/opencode.db")
+    parser.add_argument("--omp-sessions", type=Path, default=HOME / ".omp/agent/sessions")
     parser.add_argument("--registry", type=Path, nargs="+", action="append", default=None)
     args = parser.parse_args(argv)
     args.registry = [path for group in args.registry for path in group] if args.registry else [HOME / ".claude/models/registry.yaml"]

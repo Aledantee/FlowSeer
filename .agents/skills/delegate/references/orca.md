@@ -20,8 +20,9 @@ Full handoff.
 - Starts the agent with `orca terminal create --command "<launch line>"`
   and the model on that line. `orca orchestration worker-start --model`
   pins Claude, Codex, and Cursor ids only, so it cannot start an `agy` or
-  `opencode` lane on a chosen model; a launch line can. opencode takes
-  `--model provider/model` and runs its default agent.
+  `omp` lane on a chosen model; a launch line can. omp pins the model with
+  `--model`, sets reasoning effort with `--thinking <level>`, has no agent,
+  and reports its cost inline.
 - Unsets `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, and
   `CLAUDE_CODE_CHILD_SESSION` on the launch line: a Claude worker started
   under the coordinator's child-session variables runs with transcript
@@ -40,9 +41,9 @@ Full handoff.
   pointer to it. A long paragraph through `orca terminal send` arrives as
   stray characters at the prompt, and the loss is silent at both ends. The
   file name is in the repository's `info/exclude`, so the child's tree
-  stays clean. Orca reports `provider: unsupported` for opencode and
-  cannot confirm delivery, so the script checks the screen for the
-  pointer and sends it once more when it is missing. Once the terminal is up
+  stays clean. Orca reported `provider: unsupported` for the earlier
+  opencode lane and could not confirm delivery, so the script checks the
+  screen for the pointer and sends it once more when it is missing. Once the terminal is up
   and before sending the pointer, `start` writes a `start` event to the run
   log with the lane metadata and base commit, storing `run` in the state file
   and printed JSON line.
@@ -50,7 +51,7 @@ Full handoff.
   the worktree. If either cleanup call fails, it keeps or writes lane state
   so `status` still lists the lane, and reports that it needs manual removal.
 - `wait` does not trust `orca terminal wait --for tui-idle` alone: it was
-  seen satisfied while an opencode worker was mid-turn. The turn has ended
+  seen satisfied while a worker was mid-turn. The turn has ended
   when two reads five seconds apart show no "esc to interrupt" or "esc to
   cancel" hint and the same screen. A screen that shows the hint unchanged
   for `--stall` seconds (default 1200) prints `stalled`; a terminal that
@@ -73,10 +74,10 @@ Full handoff.
   branch -d` follows, and an unmerged lane removed that way would lose its
   commits.
 
-The behavior above was measured on the `opencode` lane on Orca 1.4.203.
-The Codex launch and its hooks-review answer were measured on codex
-0.157.1. The `agy` and `claude` lanes start through this script, but their
-behavior here is not measured.
+The behavior above was measured on the earlier `opencode` lane on Orca
+1.4.203. The Codex launch and its hooks-review answer were measured on codex
+0.157.1. The `agy`, `omp`, and `claude` lanes start through this script, but
+their behavior here is not measured.
 
 ## When a step fails
 
@@ -89,10 +90,9 @@ behavior here is not measured.
   the brief anticipated is answered with `keys <slug> <text>`; anything
   else is reported to the user with the screen text.
 - `wait` prints `stalled`: the screen showed a turn in progress and did not
-  change for 20 minutes (`--stall <seconds>`), usually a hung model stream,
-  which Escape does not reach on opencode. Read the screen first, since an
-  `agy` or `opencode` tool call that prints nothing for that long looks the
-  same. A hung stream is graded `blocked`, stopped with
+  change for 20 minutes (`--stall <seconds>`), usually a hung model stream
+  that Escape may not reach. Read the screen first, since an `agy` or `omp`
+  tool call that prints nothing for that long looks the same. A hung stream is graded `blocked`, stopped with
   `stop <slug> --stalled`, and dispatched again; a dirty or unmerged
   checkout still stops `stop`, for a person to read.
 - A Claude worker stops at a prompt to switch models or edit the prompt: a

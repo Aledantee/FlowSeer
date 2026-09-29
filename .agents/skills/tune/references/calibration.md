@@ -102,22 +102,21 @@ One worktree per lane, branched from the same commit:
 git worktree add -b bench-<lane> ~/Projects/worktrees/FlowSeer/bench-<lane> <base>
 ```
 
-Lanes on the `opencode` CLI each get their own SQLite database: `bench.sh`
-sets `OPENCODE_DB` per lane, because instances sharing the default one
-corrupt each other's sessions when lanes overlap.
+omp lanes need no per-lane database: `bench.sh` runs omp with `--no-session`,
+so overlapping lanes on the synthetic pool never share session state.
 
 ## Run a lane
 
 ```bash
-.claude/skills/tune/scripts/bench.sh --lane <name> --cli <claude|codex|agy|opencode> \
+.claude/skills/tune/scripts/bench.sh --lane <name> --cli <claude|codex|agy|omp> \
   --model <id> [--effort <level>] \
   --brief <brief file> --dir <worktree> --out <json>
 ```
 
 A sweep runs one lane per level in the model's `effort` list. `agy` takes
-the level in the model id (`gemini-3.8-flash-<effort>`), and an `opencode`
-lane runs once with no level. `bench.sh` exits 2 on an `--effort` its CLI
-branch cannot apply. It records wall time, the CLI's reported usage, the
+the level in the model id (`gemini-3.8-flash-<effort>`), and `omp` takes it
+through `--thinking`. `bench.sh` exits 2 on an `--effort` it cannot apply,
+which only `agy` cannot. It records wall time, the CLI's reported usage, the
 exit code, and the `served_model`, `downgraded`, and `refused` fields the
 next section grades on.
 
@@ -165,7 +164,7 @@ swap is not read as a clean run:
 
 - `served_model`: the model ids the CLI reports actually answered, from
   Claude's `modelUsage`/`canonicalModel`, a Codex stream `model`, or Agy's
-  `model`. opencode pins its model and does not reroute, so its check stays
+  `model`. omp pins its model and does not reroute, so its check stays
   null.
 - `downgraded`: true when any `served_model` is a foreign model on a base id
   (a dated Claude snapshot is not a change), with `served_foreign` naming
@@ -181,9 +180,7 @@ swap is not read as a clean run:
 Grade the sensitive lane on these first: a `refused` or `downgraded` lane is
 not a pass whatever its acceptance count, and its record carries the flag
 and the model that answered. A refusal or downgrade here is the measured
-basis for the model's `refusal_cyber`. On opencode a lane that ends
-`finish: length` with `tool_calls: 0` never touched the repository: a 0, not
-a harness failure, and it spends an ordinary-looking number of tokens.
+basis for the model's `refusal_cyber`.
 
 ## Record the result
 
@@ -239,11 +236,10 @@ uses the 1.25 multiplier and `ephemeral_1h` uses 2. For example, 1,000
 uncached input, 2,000 cache reads, 3,000 five-minute writes, 4,000 one-hour
 writes, and 500 output tokens at `[2, 10]` cost $0.0309.
 
-Mark every computed figure `est`. opencode's recorded message cost takes
-precedence and is not estimated; `bench.sh` sums it over every step of the
-session and its child sessions, because the reply to the prompt carries
-only the last message's, and writes `usage: null` when it could not read
-the steps. A prepaid pool's marginal cost is zero below its cap, so also
+Mark every computed figure `est`. omp's reported cost takes precedence and
+is not estimated: `bench.sh` sums the inline cost each assistant
+`message_end` line carries, and writes `usage: null` only when the CLI
+produced no output. A prepaid pool's marginal cost is zero below its cap, so also
 report what share of the pool's window the lane consumed when the pool
 exposes one. When the lane had its pool to itself, compare that share with
 the reported cost before ranking lanes: a meter that moved well past what
