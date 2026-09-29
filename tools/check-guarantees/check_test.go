@@ -56,6 +56,65 @@ func TestValidFilePasses(t *testing.T) {
 	}
 }
 
+func TestExternalPackageTestCitation(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	testFile := filepath.Join(pkgDir, "external_test.go")
+	if err := os.WriteFile(testFile, []byte("package pkg_test\n\nimport \"testing\"\n\nfunc TestExternal(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	content := "## External behavior\n\nIt MUST succeed.\n\n- WHEN called THEN it succeeds.\n\nProved by: TestExternal\n"
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := checkGuaranteesFile(gFile, root); len(got) != 0 {
+		t.Fatalf("external package test citation rejected: %v", got)
+	}
+}
+
+func TestMissingNormativeStillChecksScenarioAndCitation(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	content := "## Heading\n\nIt must hold.\n\n- WHEN called THEN it succeeds.\n\nProved by: TestGone\n"
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		`src/pkg/GUARANTEES.md:3: unknown block kind: paragraph`,
+		`src/pkg/GUARANTEES.md:1: "Heading" has no normative MUST sentence`,
+		`src/pkg/GUARANTEES.md:7: "Heading" cites test "TestGone" which does not exist in src/pkg`,
+	}
+	if got := checkGuaranteesFile(gFile, root); !slices.Equal(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+func TestInvalidCitationNamesTokenWithoutMissingLine(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	for _, token := range []string{"TestA.", "TestA and TestB", "TestFoo/sub"} {
+		t.Run(token, func(t *testing.T) {
+			content := "## Heading\n\nIt MUST hold.\n\n- WHEN called THEN it succeeds.\n\nProved by: " + token + "\n"
+			if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			want := fmt.Sprintf("src/pkg/GUARANTEES.md:7: %q Proved by: %q is not a Go test identifier", "Heading", token)
+			got := checkGuaranteesFile(gFile, root)
+			if !slices.Contains(got, want) {
+				t.Fatalf("want %q in %v", want, got)
+			}
+			for _, diagnostic := range got {
+				if strings.Contains(diagnostic, "has no Proved by: line") {
+					t.Fatalf("present citation reported missing: %v", diagnostic)
+				}
+			}
+		})
+	}
+}
+
 func TestNormativeSentenceMustNot(t *testing.T) {
 	root := t.TempDir()
 	pkgDir := createTestPkg(t, root)
@@ -1600,15 +1659,13 @@ func TestSectionBlockOrderAndSingleList(t *testing.T) {
 			t.Fatal(err)
 		}
 		errs := checkGuaranteesFile(gFile, root)
-		found := false
-		for _, e := range errs {
-			if strings.Contains(e, "unknown block kind: list") {
-				found = true
-				break
-			}
+		if !slices.Contains(errs, "src/pkg/GUARANTEES.md:5: unknown block kind: paragraph") {
+			t.Fatalf("expected order error when normative follows list, got: %v", errs)
 		}
-		if !found {
-			t.Fatalf("expected unknown block kind: list when list appears before normative, got: %v", errs)
+		for _, e := range errs {
+			if strings.Contains(e, "has no - WHEN") || strings.Contains(e, "has no normative") {
+				t.Fatalf("present block reported missing: %v", errs)
+			}
 		}
 	})
 

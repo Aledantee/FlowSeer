@@ -45,8 +45,9 @@ context.
 
 `tools/check-guarantees` parses `GUARANTEES.md` with goldmark into an abstract
 syntax tree and evaluates the document's block structure and visible text. The
-checker fails closed where goldmark is known to disagree with CommonMark 0.31.2,
-including lowercase HTML declarations. Any unexpected block kind fails the check.
+checker catches malformed sections, missing citations, citations to tests that
+are not compiled, and duplicate headings. A file crafted to hide or fake a clause
+is outside its scope. Any unexpected block kind fails the check.
 A carriage return without a following line feed fails before parsing as
 `<path>:<line>: lone carriage return`, because CommonMark treats it as a line
 ending and goldmark does not.
@@ -88,7 +89,7 @@ backslash-escaped punctuation decoded), soft and hard line breaks, code spans
 node kind (raw HTML, images, links, autolinks, and extensions) fails closed with
 an unknown inline kind error. No HTML rendering or tag stripping is performed.
 Every paragraph or list-item content line starting with `<` followed by an ASCII
-letter, `/`, `!`, or `?`, after up to three spaces of indentation, fails as
+letter, `/`, `!`, or `?`, after any leading whitespace, fails as
 `<path>:<line>: unknown block kind: html block`. The checker reads the block's
 source lines, so an inline code span, link, image, or HTML attribute cannot hide
 the start. This also rejects a line starting with `<b>`, though CommonMark's
