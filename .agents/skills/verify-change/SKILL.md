@@ -166,6 +166,11 @@ reasons.
 `tools/check-guarantees` verifies each `GUARANTEES.md` in the directory of
 a changed path (or all of them under `--full`) against
 [`docs/conventions/guarantees.md`](../../../docs/conventions/guarantees.md).
-The check selects only the changed path's own directory and fails the verifier
-run when a guarantee violates the convention. The convention defines the block
-format, citation syntax, and handling of lines after any leading whitespace.
+The gate builds the Go checker and runs it on selected paths, or with `--all`
+under `--full`. Goldmark parses the CommonMark blocks. Each section needs one
+MUST/MUST NOT paragraph, one `-` list of WHEN ... THEN items, and one
+`Proved by:` paragraph; unknown blocks fail the run. Counted blocks allow text,
+line breaks, code spans, and emphasis. Raw HTML, images, links, and autolinks
+fail; visible text comes from parsed nodes without rendering. Cited tests
+resolve through `go list`'s `TestGoFiles` and `XTestGoFiles`. The linked
+convention gives the full rules and diagnostics.

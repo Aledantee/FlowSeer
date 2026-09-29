@@ -74,12 +74,27 @@ Within each guarantee section, exactly three blocks must appear in order:
    `- WHEN … THEN …` scenario items. Each list item must contain exactly one
    paragraph or text block; nested blocks (nested lists, code blocks, block
    quotes, headings, HTML blocks) fail closed as unknown block kinds at the
-   nested block's line. A list item whose visible text contains `Proved by:`
-   fails closed with `unknown block kind: list item`.
+   nested block's line. A section without a WHEN ... THEN item reports
+   `has no - WHEN ... THEN scenario bullet`. A `Proved by:` continuation on
+   the next line of a list item is checked as a citation and reports the
+   missing blank line.
 3. Exactly one `Proved by:` paragraph: a paragraph beginning with `Proved by:`
    followed by comma-separated Go test identifiers, optionally wrapped in
    backticks. Trailing commas, empty items, duplicate `Proved by:` paragraphs,
    and invalid identifiers fail.
+
+The citation diagnostics name the cause and source line:
+
+- `has no Proved by: line` means the section has no citation paragraph.
+- `Proved by: needs a blank line before it` means the citation joined the
+  preceding list item.
+- `Proved by: line names no tests` means nothing follows the colon.
+- `Proved by: has an empty item` means a comma leaves an empty entry.
+- `Proved by: list ends with a comma` means a comma has no following entry.
+- `Proved by: "<token>" is not a Go test identifier` names a malformed entry.
+- `has duplicate Proved by: line` identifies the second citation paragraph.
+- `cites test "<name>" which does not exist in <package>` means the named test
+  is absent from the package's compiled test files.
 
 All text evaluations (headings, normative MUST/MUST NOT clauses, WHEN/THEN clauses,
 and `Proved by:` test citations) inspect visible text derived directly from
