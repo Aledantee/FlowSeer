@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Check that package GUARANTEES.md files conform to conventions and tests exist.
 
-Each guarantee section in GUARANTEES.md has a unique ## heading, at least one
-- WHEN ... THEN scenario bullet, and exactly one Proved by: line citing top-level
-Go test functions discovered via go list. Every line must match one of the
-allowed line grammar shapes.
+Each guarantee section in GUARANTEES.md has a unique ## heading, exactly one
+normative MUST sentence, at least one - WHEN ... THEN scenario bullet, and
+exactly one Proved by: line citing top-level Go test functions discovered via
+go list. Every line must match one of the allowed line grammar shapes.
 """
 
 from __future__ import annotations
@@ -15,13 +15,16 @@ import os
 import re
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 
 THEN_RE = re.compile(r"\bTHEN\b")
 MUST_RE = re.compile(r"\bMUST\b")
-NUMBERED_LIST_RE = re.compile(r"^\d+\.\s+")
-INDENTED_PROVED_BY_RE = re.compile(r"^\s+Proved by:")
-TOKEN_RE = re.compile(r"[^\W\d]\w*|[(),.*{}]")
+ORDERED_LIST_RE = re.compile(r"^\d{1,9}[.)](\s|$)")
+THEMATIC_BREAK_RE = re.compile(r"^[ \t]*([-*_][ \t]*){3,}$")
+TOKEN_RE = re.compile(r"[^\W\d]\w*|[(),.*{}\[\]]")
+GO_IDENTIFIER_RE = re.compile(r"^[^\W\d]\w*$", re.UNICODE)
+HIDING_MARKUP = "<[]"
 
 
 def mask_comments_and_strings(content: str) -> str:
@@ -151,34 +154,148 @@ def mask_comments_and_strings(content: str) -> str:
     return "".join(out)
 
 
+def strip_code_spans(text: str) -> str:
+    """Remove CommonMark backtick code spans, whose content renders literally.
+
+    A backtick run opens a code span only when a later run of the same length
+    closes it; an unmatched opening is literal text and stays.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i] != "`":
+            out.append(text[i])
+            i += 1
+            continue
+        open_end = i
+        while open_end < n and text[open_end] == "`":
+            open_end += 1
+        open_len = open_end - i
+        close_end = open_end
+        found = False
+        while close_end < n:
+            if text[close_end] == "`":
+                run_end = close_end
+                while run_end < n and text[run_end] == "`":
+                    run_end += 1
+                if run_end - close_end == open_len:
+                    found = True
+                    break
+                close_end = run_end
+            else:
+                close_end += 1
+        if found:
+            i = close_end + open_len
+        else:
+            out.append(text[i:open_end])
+            i = open_end
+    return "".join(out)
+
+
+def has_hidden_markup(text: str) -> bool:
+    """Report whether a line holds raw HTML or link markup outside code spans.
+
+    Outside a backtick code span, `<` opens raw HTML and `[`/`]` open a link
+    or image; either can hide text from the CommonMark rendering while the
+    line keeps the letters the checker counts.
+    """
+    return any(char in strip_code_spans(text) for char in HIDING_MARKUP)
+
+
+def is_blank_text(line: str) -> bool:
+    """Report whether a line is blank to CommonMark, which counts only spaces
+    and tabs; a non-breaking space is paragraph text."""
+    return line.strip(" \t") == ""
+
+
+def starts_paragraph(previous: str | None) -> bool:
+    """Report whether a line after `previous` begins its own CommonMark block.
+
+    A blank line or a `## ` heading ends the block above, so the next
+    paragraph-shaped line is not a lazy continuation of it. `None` is the
+    start of the document.
+    """
+    return (
+        previous is None
+        or is_blank_text(previous)
+        or previous.startswith("## ")
+    )
+
+
+def is_text_line(line: str) -> bool:
+    """Report whether a column-0 line starts CommonMark paragraph text.
+
+    Any character that can open a leaf block or container (a fence, a heading
+    marker, a list marker, a block quote, a thematic break, an HTML block, a
+    link reference definition) is rejected, so only a Unicode letter, digit,
+    or backtick run shorter than a fence begins text. An ordered-list marker
+    (`1.` or `1)` followed by a space) is a list, not text.
+    """
+    if line.startswith("```"):
+        return False
+    first = line[0]
+    if first == "`":
+        return True
+    if unicodedata.category(first)[0] not in ("L", "N"):
+        return False
+    return ORDERED_LIST_RE.match(line) is None
+
+
+def citation_name(item: str) -> str | None:
+    """Return the Go test name an item cites, or None when it is malformed."""
+    name = item
+    if name.startswith("`") and name.endswith("`"):
+        name = name[1:-1]
+    if GO_IDENTIFIER_RE.match(name):
+        return name
+    return None
+
+
+def parse_citation_line(text: str) -> tuple[list[str], bool]:
+    """Split a citation list body and validate every item.
+
+    The body may be empty, so the list can continue on the next indented
+    line. Only spaces and tabs separate items, matching CommonMark's blank
+    line; a non-breaking space is an item character. A trailing comma is
+    tolerated here and reported once for the whole block; an empty item
+    anywhere else is malformed.
+    """
+    parts = text.split(",")
+    if not parts[-1].strip(" \t"):
+        parts = parts[:-1]
+    names: list[str] = []
+    for raw in parts:
+        name = citation_name(raw.strip(" \t"))
+        if name is None:
+            return names, False
+        names.append(name)
+    return names, True
+
+
 def is_valid_test_param(param_tokens: list[str]) -> bool:
-    """Validate parameter list tokens for top-level Test functions."""
+    """Validate the parameter tokens Go accepts for a top-level Test function.
+
+    Go requires exactly one `*T` or `*<pkg>.T` parameter by AST shape, with no
+    parenthesized, array, or slice type. A leading parameter name is dropped
+    only when it is an identifier, so a leading `[` type is never mistaken for
+    one.
+    """
     if param_tokens and param_tokens[-1] == ",":
         param_tokens = param_tokens[:-1]
     if not param_tokens:
         return False
-    # Strip optional parameter name
-    if param_tokens[0] not in ("*", "("):
+    if GO_IDENTIFIER_RE.match(param_tokens[0]):
         param_tokens = param_tokens[1:]
-    # Form 1: ["*", pkg, ".", "T"]
-    if (
+    if param_tokens == ["*", "T"]:
+        return True
+    return (
         len(param_tokens) == 4
         and param_tokens[0] == "*"
         and param_tokens[2] == "."
         and param_tokens[3] == "T"
-    ):
-        return param_tokens[1].isidentifier()
-    # Form 2: ["(", "*", pkg, ".", "T", ")"]
-    if (
-        len(param_tokens) == 6
-        and param_tokens[0] == "("
-        and param_tokens[1] == "*"
-        and param_tokens[3] == "."
-        and param_tokens[4] == "T"
-        and param_tokens[5] == ")"
-    ):
-        return param_tokens[2].isidentifier()
-    return False
+        and param_tokens[1].isidentifier()
+    )
 
 
 def scan_test_functions(content: str) -> set[str]:
@@ -199,12 +316,10 @@ def scan_test_functions(content: str) -> set[str]:
             i += 1
             continue
         if brace_depth == 0 and tok == "func":
-            if i + 2 < n and tokens[i + 1].isidentifier() and tokens[i + 2] == "(":
+            if i + 2 < n and tokens[i + 2] == "(":
                 name = tokens[i + 1]
-                if (
-                    name.startswith("Test")
-                    and name != "TestMain"
-                    and (len(name) == 4 or not name[4].islower())
+                if name.startswith("Test") and (
+                    len(name) == 4 or unicodedata.category(name[4]) != "Ll"
                 ):
                     j = i + 3
                     paren_depth = 1
@@ -214,51 +329,61 @@ def scan_test_functions(content: str) -> set[str]:
                         elif tokens[j] == ")":
                             paren_depth -= 1
                         j += 1
-                    if paren_depth == 0 and j < n and tokens[j] == "{":
-                        param_tokens = tokens[i + 3 : j - 1]
-                        if is_valid_test_param(param_tokens):
-                            test_funcs.add(name)
+                    if paren_depth == 0:
+                        body = j
+                        if body + 1 < n and tokens[body] == "(" and tokens[body + 1] == ")":
+                            body += 2
+                        if body < n and tokens[body] == "{":
+                            param_tokens = tokens[i + 3 : j - 1]
+                            if is_valid_test_param(param_tokens):
+                                test_funcs.add(name)
             i += 1
             continue
         i += 1
     return test_funcs
 
 
-def find_test_functions(pkg_dir: Path) -> set[str]:
-    """Find all top-level Test functions in package test files via go list."""
+def find_test_functions(pkg_dir: Path) -> tuple[set[str], str | None]:
+    """Resolve top-level Test functions from the package's go list test files.
+
+    Returns the names and, when go list cannot report the package, the first
+    stderr line (or the OS error) explaining why no test file was scanned.
+    """
     test_funcs: set[str] = set()
     if not pkg_dir.is_dir():
-        return test_funcs
+        return test_funcs, "package directory does not exist"
     env = dict(os.environ)
+    # GOWORK=off keeps a stray go.work from pulling in unrelated packages.
+    # -mod=readonly on the command line overrides any -mod in GOFLAGS or the
+    # go env file, so a verifier run never rewrites go.mod or go.sum.
     env["GOWORK"] = "off"
     try:
         res = subprocess.run(
-            ["go", "list", "-json", "."],
+            ["go", "list", "-mod=readonly", "-json", "."],
             cwd=str(pkg_dir),
             capture_output=True,
             text=True,
             env=env,
         )
-    except (OSError, ValueError):
-        return test_funcs
+    except OSError as err:
+        return test_funcs, str(err)
     if res.returncode != 0:
-        return test_funcs
+        first = next((line for line in res.stderr.splitlines() if line.strip()), "")
+        return test_funcs, first or f"go list exited {res.returncode}"
     try:
         pkg_data = json.loads(res.stdout)
-    except ValueError:
-        return test_funcs
+    except ValueError as err:
+        return test_funcs, f"invalid go list JSON: {err}"
     test_filenames = pkg_data.get("TestGoFiles", []) + pkg_data.get("XTestGoFiles", [])
     for fname in test_filenames:
         test_file = pkg_dir / fname
-        if not test_file.is_file():
-            continue
         try:
             content = test_file.read_text(encoding="utf-8")
         except OSError:
             continue
         masked = mask_comments_and_strings(content)
         test_funcs.update(scan_test_functions(masked))
-    return test_funcs
+    return test_funcs, None
 
 
 def check_guarantees_file(file_path: Path, root: Path) -> list[str]:
@@ -281,14 +406,18 @@ def check_guarantees_file(file_path: Path, root: Path) -> list[str]:
     except ValueError:
         pkg_display = str(pkg_dir)
 
-    available_tests = find_test_functions(pkg_dir)
+    available_tests, list_error = find_test_functions(pkg_dir)
     errors: list[str] = []
+    if list_error is not None:
+        errors.append(f"{display_path}:1: go list failed in {pkg_display}: {list_error}")
+
     seen_headings: dict[str, int] = {}
     seen_doc_title = False
 
     current_heading: str | None = None
     current_heading_line: int = 0
     current_has_when_then: bool = False
+    current_normative_lines: list[int] = []
     current_proved_by_blocks: list[dict[str, object]] = []
     in_when_bullet: bool = False
     in_proved_by: bool = False
@@ -300,6 +429,15 @@ def check_guarantees_file(file_path: Path, root: Path) -> list[str]:
             errors.append(
                 f'{display_path}:{current_heading_line}: "{current_heading}" has no - WHEN ... THEN scenario bullet'
             )
+        if not current_normative_lines:
+            errors.append(
+                f'{display_path}:{current_heading_line}: "{current_heading}" has no normative MUST sentence'
+            )
+        else:
+            for extra_line in current_normative_lines[1:]:
+                errors.append(
+                    f'{display_path}:{extra_line}: "{current_heading}" has more than one normative sentence'
+                )
         if len(current_proved_by_blocks) == 0:
             errors.append(
                 f'{display_path}:{current_heading_line}: "{current_heading}" has no Proved by: line'
@@ -311,102 +449,104 @@ def check_guarantees_file(file_path: Path, root: Path) -> list[str]:
                 )
         else:
             block = current_proved_by_blocks[0]
+            if block["ends_with_comma"]:
+                errors.append(
+                    f'{display_path}:{block["last_line"]}: "{current_heading}" Proved by: list ends with a comma'
+                )
             tests = block["tests"]
             if not tests:
                 errors.append(
                     f'{display_path}:{block["start_line"]}: "{current_heading}" Proved by: line names no tests'
                 )
-            else:
-                if block["ends_with_comma"]:
-                    errors.append(
-                        f'{display_path}:{block["last_line"]}: "{current_heading}" Proved by: list ends with a comma'
-                    )
+            elif list_error is None:
                 for line_no, test_name in tests:
                     if test_name not in available_tests:
                         errors.append(
                             f'{display_path}:{line_no}: "{current_heading}" cites test "{test_name}" which does not exist in {pkg_display}'
                         )
 
-    lines = content.splitlines()
-    for line_num, line in enumerate(lines, 1):
-        if not line.strip():
-            in_when_bullet = False
-            in_proved_by = False
-            continue
-
-        # Disallowed formats (fail closed as unknown line format)
-        if line.startswith("    ") or line.startswith("\t"):
-            errors.append(f"{display_path}:{line_num}: unknown line format")
-            in_when_bullet = False
-            in_proved_by = False
-            continue
-
-        if (
-            line.startswith("```")
-            or line.startswith("~~~")
-            or line.startswith("---")
-            or line.startswith("===")
-        ):
-            errors.append(f"{display_path}:{line_num}: unknown line format")
-            in_when_bullet = False
-            in_proved_by = False
-            continue
-
-        if NUMBERED_LIST_RE.match(line):
-            errors.append(f"{display_path}:{line_num}: unknown line format")
-            in_when_bullet = False
-            in_proved_by = False
-            continue
-
-        if line.startswith("#") and not line.startswith("# ") and not line.startswith("## "):
-            errors.append(f"{display_path}:{line_num}: unknown line format")
-            in_when_bullet = False
-            in_proved_by = False
-            continue
-
-        if INDENTED_PROVED_BY_RE.match(line):
-            errors.append(f"{display_path}:{line_num}: unknown line format")
-            in_when_bullet = False
-            in_proved_by = False
-            continue
-
-        # Allowed indented lines (1-3 leading spaces)
-        if line.startswith(" "):
-            if in_proved_by:
-                raw_tests = [t.strip("`'\" \t") for t in line.split(",") if t.strip("`'\" \t")]
-                block = current_proved_by_blocks[-1]
-                block["last_line"] = line_num
-                block["ends_with_comma"] = line.rstrip().endswith(",")
-                block["tests"].extend((line_num, t) for t in raw_tests)
-                continue
-            if in_when_bullet:
-                if THEN_RE.search(line):
-                    current_has_when_then = True
-                continue
-            errors.append(f"{display_path}:{line_num}: unknown line format")
-            continue
-
-        # Unindented lines
+    def clear_continuation() -> None:
+        nonlocal in_when_bullet, in_proved_by
         in_when_bullet = False
         in_proved_by = False
 
+    def reject(line_num: int) -> None:
+        errors.append(f"{display_path}:{line_num}: unknown line format")
+        clear_continuation()
+
+    lines = content.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    for line_num, line in enumerate(lines, 1):
+        if any(
+            (unicodedata.category(char) == "Cc" and char != "\t")
+            or unicodedata.category(char) in ("Zl", "Zp")
+            for char in line
+        ):
+            reject(line_num)
+            continue
+        if is_blank_text(line):
+            clear_continuation()
+            continue
+        previous = lines[line_num - 2] if line_num >= 2 else None
+
+        indent = len(line) - len(line.lstrip(" "))
+        if indent > 3:
+            reject(line_num)
+            continue
+
+        if indent > 0:
+            body = line[indent:]
+            if body.startswith("Proved by:"):
+                reject(line_num)
+                continue
+            if in_proved_by:
+                if THEMATIC_BREAK_RE.match(body) or has_hidden_markup(body):
+                    reject(line_num)
+                    continue
+                names, valid = parse_citation_line(body)
+                if not valid:
+                    reject(line_num)
+                    continue
+                block = current_proved_by_blocks[-1]
+                block["last_line"] = line_num
+                block["ends_with_comma"] = body.rstrip().endswith(",")
+                block["tests"].extend((line_num, name) for name in names)
+                continue
+            if in_when_bullet and is_text_line(body):
+                if has_hidden_markup(body):
+                    reject(line_num)
+                    continue
+                if THEN_RE.search(body):
+                    current_has_when_then = True
+                continue
+            reject(line_num)
+            continue
+
+        clear_continuation()
+
         if line.startswith("# "):
-            if current_heading is not None or seen_doc_title:
-                errors.append(f"{display_path}:{line_num}: unknown line format")
+            if (
+                current_heading is not None
+                or seen_doc_title
+                or has_hidden_markup(line[2:])
+            ):
+                reject(line_num)
             else:
                 seen_doc_title = True
             continue
 
         if line.startswith("## "):
             finish_current_section()
-            raw_title = line[3:].strip()
-            title = re.sub(r"\s+#+$", "", raw_title)
-            if not title:
-                errors.append(f"{display_path}:{line_num}: unknown line format")
+            title = re.sub(r"(^|\s+)#+$", "", line[3:].strip())
+            if not title or has_hidden_markup(title):
+                reject(line_num)
+                current_heading = None
                 continue
             current_heading = title
             current_heading_line = line_num
             current_has_when_then = False
+            current_normative_lines = []
             current_proved_by_blocks = []
             if title in seen_headings:
                 errors.append(
@@ -417,37 +557,50 @@ def check_guarantees_file(file_path: Path, root: Path) -> list[str]:
             continue
 
         if current_heading is None:
-            if line.startswith("- ") or line.startswith("* ") or line.startswith("Proved by:"):
-                errors.append(f"{display_path}:{line_num}: unknown line format")
+            if not is_text_line(line):
+                reject(line_num)
             continue
 
-        # Inside a guarantee section
         if line.startswith("Proved by:"):
-            in_proved_by = True
-            raw_tests_str = line[len("Proved by:"):].strip()
-            test_names = [
-                t.strip("`'\" \t") for t in raw_tests_str.split(",") if t.strip("`'\" \t")
-            ]
+            body = line[len("Proved by:"):]
+            if not starts_paragraph(previous) or has_hidden_markup(body):
+                reject(line_num)
+                continue
+            names, valid = parse_citation_line(body)
+            if not valid:
+                reject(line_num)
+                continue
             current_proved_by_blocks.append(
                 {
                     "start_line": line_num,
                     "last_line": line_num,
-                    "ends_with_comma": line.rstrip().endswith(","),
-                    "tests": [(line_num, t) for t in test_names],
+                    "ends_with_comma": body.rstrip().endswith(","),
+                    "tests": [(line_num, name) for name in names],
                 }
             )
+            in_proved_by = True
             continue
 
         if line.startswith("- WHEN "):
+            if has_hidden_markup(line):
+                reject(line_num)
+                continue
             in_when_bullet = True
             if THEN_RE.search(line):
                 current_has_when_then = True
             continue
 
-        if not line.startswith("- ") and MUST_RE.search(line):
+        if is_text_line(line):
+            if not starts_paragraph(previous) or has_hidden_markup(line):
+                reject(line_num)
+                continue
+            if MUST_RE.search(line):
+                current_normative_lines.append(line_num)
+                continue
+            reject(line_num)
             continue
 
-        errors.append(f"{display_path}:{line_num}: unknown line format")
+        reject(line_num)
 
     finish_current_section()
     if len(seen_headings) == 0:

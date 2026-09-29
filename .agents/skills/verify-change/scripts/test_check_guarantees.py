@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 spec = importlib.util.spec_from_file_location(
     "check_guarantees", Path(__file__).with_name("check-guarantees.py")
@@ -17,6 +18,7 @@ def create_pkg(root: Path, pkg_rel: str = "src/pkg") -> Path:
     pkg = root / pkg_rel
     pkg.mkdir(parents=True, exist_ok=True)
     (root / "go.mod").write_text("module testmod\n\ngo 1.27\n", encoding="utf-8")
+    (pkg / "pkg.go").write_text("package pkg\n", encoding="utf-8")
     return pkg
 
 
@@ -308,7 +310,8 @@ class CheckGuaranteesTest(unittest.TestCase):
                 "func TestValid(t *testing.T) {}\n",
                 encoding="utf-8",
             )
-            tests = check_guarantees.find_test_functions(pkg)
+            tests, list_error = check_guarantees.find_test_functions(pkg)
+            self.assertIsNone(list_error)
             self.assertEqual(tests, {"TestValid"})
             (pkg / "GUARANTEES.md").write_text(
                 "## TestMain cited\n\n"
@@ -378,15 +381,21 @@ class CheckGuaranteesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             pkg = create_pkg(root)
-            (pkg / "GUARANTEES.md").write_text(
-                "## \n\n"
-                "It MUST succeed.\n\n"
-                "- WHEN valid THEN ok\n\n"
-                "Proved by: TestValid\n",
-                encoding="utf-8",
-            )
-            errors = check_guarantees.check_guarantees(["src/pkg/GUARANTEES.md"], root)
-            self.assertIn("src/pkg/GUARANTEES.md:1: unknown line format", errors)
+            for heading in ("## \n", "## #\n", "## ##\n"):
+                with self.subTest(heading=heading.strip()):
+                    (pkg / "GUARANTEES.md").write_text(
+                        heading + "\n"
+                        "It MUST succeed.\n\n"
+                        "- WHEN valid THEN ok\n\n"
+                        "Proved by: TestValid\n",
+                        encoding="utf-8",
+                    )
+                    errors = check_guarantees.check_guarantees(
+                        ["src/pkg/GUARANTEES.md"], root
+                    )
+                    self.assertIn(
+                        "src/pkg/GUARANTEES.md:1: unknown line format", errors
+                    )
 
     def test_setext_underline_rejected(self):
         with tempfile.TemporaryDirectory() as d:
@@ -540,7 +549,10 @@ class CheckGuaranteesTest(unittest.TestCase):
             )
             errors = check_guarantees.check_guarantees(["src/pkg/GUARANTEES.md"], root)
             self.assertIn("src/pkg/GUARANTEES.md:3: unknown line format", errors)
-            self.assertIn("src/pkg/GUARANTEES.md:5: unknown line format", errors)
+            self.assertFalse(
+                any(e.startswith("src/pkg/GUARANTEES.md:5:") for e in errors),
+                "preamble paragraph text is not a citation",
+            )
 
     def test_indented_line_without_active_continuation_fails(self):
         with tempfile.TemporaryDirectory() as d:
@@ -614,7 +626,7 @@ class CheckGuaranteesTest(unittest.TestCase):
                 "## Double Proved\n\n"
                 "It MUST succeed.\n\n"
                 "- WHEN valid THEN ok\n\n"
-                "Proved by: TestA\n"
+                "Proved by: TestA\n\n"
                 "Proved by: TestB\n",
                 encoding="utf-8",
             )
@@ -622,7 +634,7 @@ class CheckGuaranteesTest(unittest.TestCase):
             self.assertEqual(len(errors), 1)
             self.assertEqual(
                 errors[0],
-                'src/pkg/GUARANTEES.md:8: "Double Proved" has duplicate Proved by: line',
+                'src/pkg/GUARANTEES.md:9: "Double Proved" has duplicate Proved by: line',
             )
 
     def test_proved_by_names_no_tests_fails(self):
@@ -692,7 +704,8 @@ class CheckGuaranteesTest(unittest.TestCase):
                 "func TestValid(t *testing.T) {}\n",
                 encoding="utf-8",
             )
-            tests = check_guarantees.find_test_functions(pkg)
+            tests, list_error = check_guarantees.find_test_functions(pkg)
+            self.assertIsNone(list_error)
             self.assertEqual(tests, {"TestValid"})
 
     def test_supported_test_signatures_resolve(self):
@@ -701,28 +714,40 @@ class CheckGuaranteesTest(unittest.TestCase):
             pkg = create_pkg(root)
             (pkg / "foo_test.go").write_text(
                 "package pkg\n\n"
-                "import \"testing\"\n"
-                "import tst \"testing\"\n\n"
+                "import \"testing\"\n\n"
                 "func Test(t *testing.T) {}\n"
                 "func TestAnon(*testing.T) {}\n"
-                "func TestAnonParen((*testing.T)) {}\n"
-                "func TestNamedParen(t (*testing.T)) {}\n"
-                "func TestAliased(t *tst.T) {}\n"
-                "func TestAliasedParen(t (*tst.T)) {}\n"
+                "func TestMain(t *testing.T) {}\n"
+                "func TestEmptyResults(t *testing.T) () {}\n"
+                "func TestªX(t *testing.T) {}\n"
                 "func TestMultiline(\n"
                 "  t *testing.T,\n"
                 ") {}\n",
                 encoding="utf-8",
             )
-            tests = check_guarantees.find_test_functions(pkg)
+            (pkg / "alias_test.go").write_text(
+                "package pkg\n\n"
+                "import tst \"testing\"\n\n"
+                "func TestAliased(t *tst.T) {}\n",
+                encoding="utf-8",
+            )
+            (pkg / "dot_test.go").write_text(
+                "package pkg\n\n"
+                "import . \"testing\"\n\n"
+                "func TestDot(t *T) {}\n",
+                encoding="utf-8",
+            )
+            tests, list_error = check_guarantees.find_test_functions(pkg)
+            self.assertIsNone(list_error)
             expected = {
                 "Test",
                 "TestAnon",
-                "TestAnonParen",
-                "TestNamedParen",
-                "TestAliased",
-                "TestAliasedParen",
+                "TestMain",
+                "TestEmptyResults",
+                "TestªX",
                 "TestMultiline",
+                "TestAliased",
+                "TestDot",
             }
             self.assertEqual(tests, expected)
 
@@ -736,14 +761,60 @@ class CheckGuaranteesTest(unittest.TestCase):
                 "func TestBench(b *testing.B) {}\n"
                 "func TestNoArgs() {}\n"
                 "func TestMultiArgs(t *testing.T, x int) {}\n"
+                "func TestTwoParams(t, u *testing.T) {}\n"
                 "func TestWithReturn(t *testing.T) bool { return true }\n"
+                "func TestAnonParen((*testing.T)) {}\n"
+                "func TestNamedParen(t (*testing.T)) {}\n"
+                "func TestSliceAnon([]*testing.T) {}\n"
+                "func TestArrayAnon([4]*testing.T) {}\n"
+                "func TestPtrSlice(t *[]testing.T) {}\n"
+                "func TestGeneric[T any](t *testing.T) {}\n"
+                "func TestMain(m *testing.M) {}\n"
                 "type Suite struct{}\n"
                 "func (s *Suite) TestMethod(t *testing.T) {}\n"
                 "func TestValid(t *testing.T) {}\n",
                 encoding="utf-8",
             )
-            tests = check_guarantees.find_test_functions(pkg)
+            tests, list_error = check_guarantees.find_test_functions(pkg)
+            self.assertIsNone(list_error)
             self.assertEqual(tests, {"TestValid"})
+
+    def test_rejected_signature_forms_fail_go_list(self):
+        forms = [
+            "func TestAnonParen((*testing.T)) {}",
+            "func TestNamedParen(t (*testing.T)) {}",
+            "func Testé(t *testing.T) {}",
+            "func TestTwoParams(t, u *testing.T) {}",
+            "func TestWithReturn(t *testing.T) bool { return true }",
+            "func TestGeneric[T any](t *testing.T) {}",
+            "func TestQualified(t *a.b.T) {}",
+            "func TestSliceAnon([]*testing.T) {}",
+            "func TestArrayAnon([4]*testing.T) {}",
+            "func TestPtrSlice(t *[]testing.T) {}",
+        ]
+        for form in forms:
+            with self.subTest(form=form), tempfile.TemporaryDirectory() as d:
+                root = Path(d)
+                pkg = create_pkg(root)
+                (pkg / "bad_test.go").write_text(
+                    "package pkg\n\nimport \"testing\"\n\n" + form + "\n",
+                    encoding="utf-8",
+                )
+                env = dict(os.environ)
+                env["GOWORK"] = "off"
+                res = subprocess.run(
+                    ["go", "test", "-list", "^Test", "."],
+                    cwd=str(pkg),
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertNotEqual(
+                    res.returncode, 0, f"go test -list accepted {form}: {res.stdout}"
+                )
+                tests, list_error = check_guarantees.find_test_functions(pkg)
+                self.assertIsNone(list_error)
+                self.assertEqual(tests, set())
 
     def test_lexer_oracle_against_go_test_list(self):
         go_bin = shutil.which("go")
@@ -776,7 +847,27 @@ class CheckGuaranteesTest(unittest.TestCase):
                 "decoy raw string: /* */ // \" \n"
                 "func TestFakeInRawString(t *testing.T) {}\n"
                 "`\n"
-                "func TestAfterRawString(t *testing.T) {}\n",
+                "func TestAfterRawString(t *testing.T) {}\n\n"
+                "func Test(t *testing.T) {}\n"
+                "func TestAnon(*testing.T) {}\n"
+                "func TestMain(t *testing.T) {}\n"
+                "func TestEmptyResults(t *testing.T) () {}\n"
+                "func TestªX(t *testing.T) {}\n"
+                "func TestMultiline(\n"
+                "  t *testing.T,\n"
+                ") {}\n",
+                encoding="utf-8",
+            )
+            (pkg / "alias_test.go").write_text(
+                "package fixture\n\n"
+                "import tst \"testing\"\n\n"
+                "func TestAliased(t *tst.T) {}\n",
+                encoding="utf-8",
+            )
+            (pkg / "dot_test.go").write_text(
+                "package fixture\n\n"
+                "import . \"testing\"\n\n"
+                "func TestDot(t *T) {}\n",
                 encoding="utf-8",
             )
 
@@ -795,7 +886,8 @@ class CheckGuaranteesTest(unittest.TestCase):
                 for line in res.stdout.splitlines()
                 if line.strip().startswith("Test")
             }
-            py_tests = check_guarantees.find_test_functions(pkg)
+            py_tests, list_error = check_guarantees.find_test_functions(pkg)
+            self.assertIsNone(list_error)
 
             expected = {
                 "TestAfterLineComment",
@@ -803,10 +895,17 @@ class CheckGuaranteesTest(unittest.TestCase):
                 "TestAfterInterpretedString",
                 "TestAfterRuneLiterals",
                 "TestAfterRawString",
+                "Test",
+                "TestAnon",
+                "TestMain",
+                "TestEmptyResults",
+                "TestªX",
+                "TestMultiline",
+                "TestAliased",
+                "TestDot",
             }
             self.assertEqual(go_tests, expected)
             self.assertEqual(py_tests, go_tests)
-            self.assertEqual(py_tests, expected)
 
     def test_main_exit_codes(self):
         with tempfile.TemporaryDirectory() as d:
@@ -825,15 +924,11 @@ class CheckGuaranteesTest(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            # Clean run exits 0
             code = check_guarantees.main(["--root", str(root), "src/pkg/GUARANTEES.md"])
             self.assertEqual(code, 0)
 
-            # --all path selects nested file and exits 0
             code_all = check_guarantees.main(["--root", str(root), "--all"])
             self.assertEqual(code_all, 0)
-
-            # Violation exits 1
             (pkg / "GUARANTEES.md").write_text(
                 "## Invalid\n\n"
                 "It MUST fail.\n\n"
@@ -850,11 +945,614 @@ class CheckGuaranteesTest(unittest.TestCase):
                 )
                 self.assertEqual(code_violation, 1)
 
-                # --all with violation exits 1
                 code_all_violation = check_guarantees.main(
                     ["--root", str(root), "--all"]
                 )
                 self.assertEqual(code_all_violation, 1)
+
+    def _check_grammar(
+        self, root: Path, text: str, tests: tuple[str, ...] = ("TestValid", "TestA")
+    ) -> list[str]:
+        (root / "src" / "pkg" / "GUARANTEES.md").write_text(text, encoding="utf-8")
+        with mock.patch.object(
+            check_guarantees,
+            "find_test_functions",
+            return_value=(set(tests), None),
+        ):
+            return check_guarantees.check_guarantees(
+                ["src/pkg/GUARANTEES.md"], root
+            )
+
+    def test_section_needs_exactly_one_normative_sentence(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            create_pkg(root)
+            errors = self._check_grammar(
+                root,
+                "## No Normative\n\n"
+                "- WHEN x THEN y\n\n"
+                "Proved by: TestA\n\n"
+                "## Two Normative\n\n"
+                "It MUST hold.\n\n"
+                "It MUST also hold.\n\n"
+                "- WHEN x THEN y\n\n"
+                "Proved by: TestA\n",
+            )
+            self.assertIn(
+                'src/pkg/GUARANTEES.md:1: "No Normative" has no normative MUST sentence',
+                errors,
+            )
+            self.assertIn(
+                'src/pkg/GUARANTEES.md:11: "Two Normative" has more than one normative sentence',
+                errors,
+            )
+
+    def test_document_title_is_optional_and_single(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            create_pkg(root)
+            self.assertEqual(
+                self._check_grammar(
+                    root,
+                    "## S\n\nIt MUST hold.\n\n- WHEN x THEN y\n\nProved by: TestA\n",
+                ),
+                [],
+            )
+            errors = self._check_grammar(
+                root,
+                "# One\n\n## S\n\nIt MUST hold.\n\n- WHEN x THEN y\n\n"
+                "Proved by: TestA\n\n# Two\n",
+            )
+            self.assertIn("src/pkg/GUARANTEES.md:11: unknown line format", errors)
+            errors = self._check_grammar(
+                root,
+                "# One\n\n# Two\n\n## S\n\nIt MUST hold.\n\n- WHEN x THEN y\n\n"
+                "Proved by: TestA\n",
+            )
+            self.assertIn("src/pkg/GUARANTEES.md:3: unknown line format", errors)
+
+    def test_citation_items_are_go_identifiers(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            create_pkg(root)
+            self.assertEqual(
+                self._check_grammar(
+                    root,
+                    "## Backticked\n\nIt MUST hold.\n\n- WHEN x THEN y\n\n"
+                    "Proved by: `TestA`, `TestValid`\n",
+                ),
+                [],
+            )
+            errors = self._check_grammar(
+                root,
+                "## Empty item\n\nIt MUST hold.\n\n- WHEN x THEN y\n\n"
+                "Proved by: TestA,, TestValid\n",
+            )
+            self.assertIn("src/pkg/GUARANTEES.md:7: unknown line format", errors)
+            errors = self._check_grammar(
+                root,
+                "## Backtick only\n\nIt MUST hold.\n\n- WHEN x THEN y\n\n"
+                "Proved by: TestA,\n  `\n",
+            )
+            self.assertIn("src/pkg/GUARANTEES.md:8: unknown line format", errors)
+
+    def test_go_list_failure_reported_once(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            pkg = root / "pkg"
+            pkg.mkdir(parents=True)
+            (pkg / "foo_test.go").write_text(
+                "package pkg\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) {}\n",
+                encoding="utf-8",
+            )
+            (pkg / "GUARANTEES.md").write_text(
+                "## S\n\nIt MUST hold.\n\n- WHEN x THEN y\n\nProved by: TestA\n",
+                encoding="utf-8",
+            )
+            errors = check_guarantees.check_guarantees(["pkg/GUARANTEES.md"], root)
+            self.assertEqual(len(errors), 1, errors)
+            self.assertIn("pkg/GUARANTEES.md:1: go list failed in pkg:", errors[0])
+            self.assertIn("go.mod", errors[0])
+            self.assertNotIn("cites test", errors[0])
+
+    def test_go_list_uses_readonly_mod_without_touching_goflags(self):
+        with tempfile.TemporaryDirectory() as d:
+            fake = mock.Mock(returncode=0, stdout='{"TestGoFiles": []}', stderr="")
+            with mock.patch.object(
+                check_guarantees.subprocess, "run", return_value=fake
+            ) as run:
+                check_guarantees.find_test_functions(Path(d))
+            argv = run.call_args[0][0]
+            env = run.call_args[1]["env"]
+            self.assertIn("-mod=readonly", argv)
+            self.assertEqual(env["GOWORK"], "off")
+            self.assertEqual(env.get("GOFLAGS"), os.environ.get("GOFLAGS"))
+
+    def test_is_valid_test_param_rejects_non_identifier_package(self):
+        self.assertFalse(check_guarantees.is_valid_test_param(["*", "9", ".", "T"]))
+        self.assertTrue(check_guarantees.is_valid_test_param(["*", "tst", ".", "T"]))
+        self.assertTrue(check_guarantees.is_valid_test_param(["*", "T"]))
+        self.assertTrue(check_guarantees.is_valid_test_param(["t", "*", "T"]))
+        self.assertTrue(
+            check_guarantees.is_valid_test_param(["*", "testing", ".", "T", ","])
+        )
+        self.assertFalse(check_guarantees.is_valid_test_param([]))
+        self.assertFalse(
+            check_guarantees.is_valid_test_param(["[", "]", "*", "testing", ".", "T"])
+        )
+        self.assertFalse(
+            check_guarantees.is_valid_test_param(["*", "[", "]", "testing", ".", "T"])
+        )
+        self.assertFalse(
+            check_guarantees.is_valid_test_param(
+                ["[", "4", "]", "*", "testing", ".", "T"]
+            )
+        )
+        self.assertFalse(
+            check_guarantees.is_valid_test_param(["(", "*", "testing", ".", "T"])
+        )
+        self.assertFalse(check_guarantees.is_valid_test_param(["[", "*", "T"]))
+
+    def test_mask_interpreted_string_newline_ends_string(self):
+        masked = check_guarantees.mask_comments_and_strings(
+            'var _ = "unterminated\nfunc TestVisible(t *testing.T) {}\n'
+        )
+        self.assertEqual(
+            check_guarantees.scan_test_functions(masked), {"TestVisible"}
+        )
+
+    def test_mask_rune_newline_ends_rune(self):
+        masked = check_guarantees.mask_comments_and_strings(
+            "var _ = 'x\nfunc TestVisible(t *testing.T) {}\n"
+        )
+        self.assertEqual(
+            check_guarantees.scan_test_functions(masked), {"TestVisible"}
+        )
+
+    def test_mask_backslash_at_eof_is_masked(self):
+        masked = check_guarantees.mask_comments_and_strings('var _ = "abc\\')
+        self.assertEqual(masked, "var _ = " + " " * 5)
+        masked = check_guarantees.mask_comments_and_strings("var _ = 'a\\")
+        self.assertEqual(masked, "var _ = " + " " * 3)
+
+    def test_mask_preserves_newlines(self):
+        content = (
+            "// line comment\n"
+            "/* block\ncomment */\n"
+            "var _ = `raw\nstring`\n"
+            'var _ = "interp"\n'
+            "var _ = 'r'\n"
+        )
+        masked = check_guarantees.mask_comments_and_strings(content)
+        self.assertEqual(content.count("\n"), masked.count("\n"))
+
+    def test_scan_ends_interpreted_string_at_closing_quote(self):
+        masked = check_guarantees.mask_comments_and_strings(
+            'var _ = "x"; func TestAfter(t *testing.T) {}\n'
+        )
+        self.assertEqual(check_guarantees.scan_test_functions(masked), {"TestAfter"})
+
+    def test_scan_ends_rune_at_closing_quote(self):
+        masked = check_guarantees.mask_comments_and_strings(
+            "var _ = 'a'; func TestAfter(t *testing.T) {}\n"
+        )
+        self.assertEqual(check_guarantees.scan_test_functions(masked), {"TestAfter"})
+
+    def test_mask_escaped_quote_stays_in_string(self):
+        masked = check_guarantees.mask_comments_and_strings(
+            'var _ = "a\\"b"; func TestAfter(t *testing.T) {}\n'
+        )
+        self.assertEqual(check_guarantees.scan_test_functions(masked), {"TestAfter"})
+
+    def test_mask_escaped_rune_quote_stays_in_rune(self):
+        masked = check_guarantees.mask_comments_and_strings(
+            "var _ = '\\''; func TestAfter(t *testing.T) {}\n"
+        )
+        self.assertEqual(check_guarantees.scan_test_functions(masked), {"TestAfter"})
+
+    def test_scan_ignores_func_in_line_comment(self):
+        masked = check_guarantees.mask_comments_and_strings(
+            "// func TestInLineComment(t *testing.T) {}\n"
+            "func TestReal(t *testing.T) {}\n"
+        )
+        self.assertEqual(check_guarantees.scan_test_functions(masked), {"TestReal"})
+
+    def test_scan_handles_truncated_function_tokens(self):
+        self.assertEqual(check_guarantees.scan_test_functions("func"), set())
+        self.assertEqual(check_guarantees.scan_test_functions("func Test"), set())
+        self.assertEqual(
+            check_guarantees.scan_test_functions("func TestX(t *testing.T)"), set()
+        )
+
+    def test_scan_ignores_nested_func_tokens(self):
+        masked = check_guarantees.mask_comments_and_strings(
+            "func TestOuter(t *testing.T) {\n"
+            "func TestInner(t *testing.T) {}\n"
+            "}\n"
+        )
+        self.assertEqual(
+            check_guarantees.scan_test_functions(masked), {"TestOuter"}
+        )
+
+    def test_find_test_functions_missing_directory(self):
+        tests, error = check_guarantees.find_test_functions(
+            Path("/nonexistent-flowseer-dir")
+        )
+        self.assertEqual(tests, set())
+        self.assertEqual(error, "package directory does not exist")
+
+    def test_find_test_functions_reports_oserror(self):
+        with tempfile.TemporaryDirectory() as d:
+            with mock.patch.object(
+                check_guarantees.subprocess, "run", side_effect=OSError("no go")
+            ):
+                tests, error = check_guarantees.find_test_functions(Path(d))
+        self.assertEqual(tests, set())
+        self.assertEqual(error, "no go")
+
+    def test_find_test_functions_reports_bad_json(self):
+        with tempfile.TemporaryDirectory() as d:
+            fake = mock.Mock(returncode=0, stdout="not json", stderr="")
+            with mock.patch.object(
+                check_guarantees.subprocess, "run", return_value=fake
+            ):
+                tests, error = check_guarantees.find_test_functions(Path(d))
+        self.assertEqual(tests, set())
+        self.assertIn("invalid go list JSON", error)
+
+    def test_find_test_functions_skips_unreadable_listed_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            fake = mock.Mock(
+                returncode=0, stdout='{"TestGoFiles": ["gone_test.go"]}', stderr=""
+            )
+            with mock.patch.object(
+                check_guarantees.subprocess, "run", return_value=fake
+            ):
+                tests, error = check_guarantees.find_test_functions(Path(d))
+        self.assertEqual(tests, set())
+        self.assertIsNone(error)
+
+    def test_single_backtick_text_line_is_paragraph(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            create_pkg(root)
+            errors = self._check_grammar(
+                root,
+                "## Backtick text\n\n"
+                "`Run` MUST return nil.\n\n"
+                "- WHEN x THEN y\n\n"
+                "Proved by: TestA\n",
+            )
+            self.assertEqual(errors, [])
+
+    def test_blank_line_ends_when_continuation(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            create_pkg(root)
+            errors = self._check_grammar(
+                root,
+                "## S\n\nIt MUST hold.\n\n- WHEN x THEN y\n\n"
+                "  stray continuation\n\nProved by: TestA\n",
+            )
+            self.assertIn("src/pkg/GUARANTEES.md:7: unknown line format", errors)
+
+    def test_blank_line_ends_proved_by_list(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            create_pkg(root)
+            errors = self._check_grammar(
+                root,
+                "## S\n\nIt MUST hold.\n\n- WHEN x THEN y\n\n"
+                "Proved by: TestA,\n\n  TestB\n",
+            )
+            self.assertIn("src/pkg/GUARANTEES.md:9: unknown line format", errors)
+            self.assertFalse(any('cites test "TestB"' in e for e in errors), errors)
+
+    def test_indented_proved_by_inside_when_bullet_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            create_pkg(root)
+            errors = self._check_grammar(
+                root,
+                "## S\n\nIt MUST hold.\n\n- WHEN x THEN y\n  Proved by: TestA\n",
+            )
+            self.assertIn("src/pkg/GUARANTEES.md:6: unknown line format", errors)
+            self.assertIn(
+                'src/pkg/GUARANTEES.md:1: "S" has no Proved by: line', errors
+            )
+
+    def test_four_space_continuation_rejected(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            create_pkg(root)
+            errors = self._check_grammar(
+                root,
+                "## S\n\nIt MUST hold.\n\n- WHEN x THEN y\n"
+                "    THEN ok\n\nProved by: TestA\n",
+            )
+            self.assertIn("src/pkg/GUARANTEES.md:6: unknown line format", errors)
+
+    def test_block_starts_rejected_in_every_context(self):
+        block_starts = [
+            ("***", (0, 1, 2, 3)),
+            ("---", (0, 1, 2, 3)),
+            ("___", (0, 1, 2, 3)),
+            ("* * *", (0, 1, 2, 3)),
+            ("#", (0, 1, 2, 3)),
+            ("##", (0, 1, 2, 3)),
+            ("### x", (0, 1, 2, 3)),
+            ("#### x", (0, 1, 2, 3)),
+            ("##### x", (0, 1, 2, 3)),
+            ("###### x", (0, 1, 2, 3)),
+            ("## x", (1, 2, 3)),
+            ("=", (0, 1, 2, 3)),
+            ("--", (0, 1, 2, 3)),
+            ("===", (0, 1, 2, 3)),
+            ("```", (0, 1, 2, 3)),
+            ("````", (0, 1, 2, 3)),
+            ("~~~", (0, 1, 2, 3)),
+            ("```go", (0, 1, 2, 3)),
+            ("<script", (0, 1, 2, 3)),
+            ("<pre", (0, 1, 2, 3)),
+            ("<style", (0, 1, 2, 3)),
+            ("<textarea", (0, 1, 2, 3)),
+            ("<!--", (0, 1, 2, 3)),
+            ("<?", (0, 1, 2, 3)),
+            ("<!D", (0, 1, 2, 3)),
+            ("<![CDATA[", (0, 1, 2, 3)),
+            ("<div", (0, 1, 2, 3)),
+            ("</div>", (0, 1, 2, 3)),
+            ("<x-y>", (0, 1, 2, 3)),
+            ("[x]: /u", (0, 1, 2, 3)),
+            ("> quote", (0, 1, 2, 3)),
+            ("- item", (0, 1, 2, 3)),
+            ("+ item", (0, 1, 2, 3)),
+            ("* item", (0, 1, 2, 3)),
+            ("1. item", (0, 1, 2, 3)),
+            ("1) item", (0, 1, 2, 3)),
+            ("| a |", (0, 1, 2, 3)),
+            ("\u00a0", (0, 1, 2, 3)),
+        ]
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            create_pkg(root)
+            for construct, indents in block_starts:
+                for indent in indents:
+                    for context in ("preamble", "normative", "when", "proved"):
+                        with self.subTest(
+                            construct=construct, indent=indent, context=context
+                        ):
+                            doc, line_no = self._block_start_document(
+                                construct, indent, context
+                            )
+                            errors = self._check_grammar(root, doc)
+                            self.assertIn(
+                                f"src/pkg/GUARANTEES.md:{line_no}: unknown line format",
+                                errors,
+                            )
+            for construct in self._INLINE_HIDING:
+                for context in ("heading", "normative", "when", "proved"):
+                    with self.subTest(construct=construct, context=context):
+                        doc, line_no = self._inline_document(construct, context)
+                        errors = self._check_grammar(root, doc)
+                        self.assertIn(
+                            f"src/pkg/GUARANTEES.md:{line_no}: unknown line format",
+                            errors,
+                        )
+            for first, second in self._ADJACENT_CONSTRUCTS:
+                with self.subTest(first=first, second=second):
+                    doc, line_no = self._adjacent_document(first, second)
+                    errors = self._check_grammar(root, doc)
+                    self.assertIn(
+                        f"src/pkg/GUARANTEES.md:{line_no}: unknown line format",
+                        errors,
+                    )
+            controls = (
+                "\x0b",
+                "\x0c",
+                "\x1c",
+                "\x1d",
+                "\x1e",
+                "\x85",
+                "\u2028",
+                "\u2029",
+            )
+            for char in controls:
+                with self.subTest(control=repr(char)):
+                    doc, line_no = self._control_char_document(char)
+                    errors = self._check_grammar(root, doc)
+                    self.assertIn(
+                        f"src/pkg/GUARANTEES.md:{line_no}: unknown line format",
+                        errors,
+                    )
+
+    _INLINE_HIDING = (
+        "<!-- x -->",
+        '<span title="MUST">',
+        "<?x?>",
+        "<!X >",
+        "<![CDATA[x]]>",
+        '[x](/u "MUST")',
+        "![MUST](u)",
+        "[x][MUST]",
+    )
+
+    _ADJACENT_CONSTRUCTS = (
+        ("It MUST hold.", "It MUST also hold."),
+        ("It MUST hold.", "Proved by: TestA"),
+        ("- WHEN x THEN y", "It MUST also hold."),
+        ("- WHEN x THEN y", "Proved by: TestA"),
+        ("Proved by: TestA", "It MUST also hold."),
+        ("Proved by: TestA", "Proved by: TestB"),
+    )
+
+    @staticmethod
+    def _inline_document(construct: str, context: str) -> tuple[str, int]:
+        if context == "heading":
+            return (
+                f"# T\n\n## Title {construct}\n\nIt MUST hold.\n\n"
+                f"- WHEN x THEN y\n\nProved by: TestValid\n",
+                3,
+            )
+        if context == "normative":
+            return (
+                f"# T\n\n## S\n\nIt {construct} MUST hold.\n\n"
+                f"- WHEN x THEN y\n\nProved by: TestValid\n",
+                5,
+            )
+        if context == "when":
+            return (
+                f"# T\n\n## S\n\nIt MUST hold.\n\n"
+                f"- WHEN {construct} THEN y\n\nProved by: TestValid\n",
+                7,
+            )
+        return (
+            f"# T\n\n## S\n\nIt MUST hold.\n\n- WHEN x THEN y\n\n"
+            f"Proved by: TestA, {construct}\n",
+            9,
+        )
+
+    @staticmethod
+    def _adjacent_document(first: str, second: str) -> tuple[str, int]:
+        return (
+            f"# T\n\n## S\n\n{first}\n{second}\n\n- WHEN z THEN w\n\n"
+            f"Proved by: TestValid\n",
+            6,
+        )
+
+    @staticmethod
+    def _control_char_document(char: str) -> tuple[str, int]:
+        return (
+            f"# T\n\n## S\n\nIt MUST hold.{char}\n\n- WHEN x THEN y\n\n"
+            f"Proved by: TestValid\n",
+            5,
+        )
+
+    @staticmethod
+    def _block_start_document(
+        construct: str, indent: int, context: str
+    ) -> tuple[str, int]:
+        line = " " * indent + construct
+        if context == "preamble":
+            return (
+                f"# T\n\n{line}\n\n## S\n\nIt MUST hold.\n\n"
+                f"- WHEN x THEN y\n\nProved by: TestValid\n",
+                3,
+            )
+        if context == "normative":
+            return (
+                f"# T\n\n## S\n\n{line}\n\n- WHEN x THEN y\n\n"
+                f"Proved by: TestValid\n",
+                5,
+            )
+        if context == "when":
+            return (
+                f"# T\n\n## S\n\nIt MUST hold.\n\n- WHEN x THEN y\n"
+                f"{line}\n\nProved by: TestValid\n",
+                8,
+            )
+        return (
+            f"# T\n\n## S\n\nIt MUST hold.\n\n- WHEN x THEN y\n\n"
+            f"Proved by: TestA,\n{line}\n",
+            10,
+        )
+
+    def test_continuation_blocks_do_not_count_hidden_citations(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            create_pkg(root)
+            for construct in ("```", "~~~", "<!--", "| a |"):
+                with self.subTest(construct=construct):
+                    errors = self._check_grammar(
+                        root,
+                        "## S\n\nIt MUST hold.\n\n- WHEN x THEN y\n\n"
+                        f"Proved by: TestA,\n  {construct}\n  TestB\n",
+                    )
+                    self.assertIn(
+                        "src/pkg/GUARANTEES.md:8: unknown line format", errors
+                    )
+                    self.assertIn(
+                        "src/pkg/GUARANTEES.md:9: unknown line format", errors
+                    )
+                    self.assertFalse(
+                        any('cites test "TestB"' in e for e in errors), errors
+                    )
+
+    def test_lazy_continuation_does_not_hide_counted_text(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            create_pkg(root)
+            errors = self._check_grammar(
+                root,
+                "## S\n\n- WHEN x THEN y <!--\nProved by: TestA\nIt MUST hold. -->\n",
+            )
+            self.assertIn("src/pkg/GUARANTEES.md:3: unknown line format", errors)
+            self.assertIn("src/pkg/GUARANTEES.md:4: unknown line format", errors)
+            self.assertIn("src/pkg/GUARANTEES.md:5: unknown line format", errors)
+
+    def test_inline_comment_does_not_hide_a_keyword(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            create_pkg(root)
+            self.assertIn(
+                "src/pkg/GUARANTEES.md:3: unknown line format",
+                self._check_grammar(
+                    root,
+                    "## S\n\nIt <!-- MUST --> holds.\n\n- WHEN x THEN y\n\n"
+                    "Proved by: TestA\n",
+                ),
+            )
+            self.assertIn(
+                "src/pkg/GUARANTEES.md:5: unknown line format",
+                self._check_grammar(
+                    root,
+                    "## S\n\nIt MUST hold.\n\n- WHEN x <!-- THEN --> y\n\n"
+                    "Proved by: TestA\n",
+                ),
+            )
+
+    def test_code_span_content_is_not_hiding(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            create_pkg(root)
+            self.assertEqual(
+                self._check_grammar(
+                    root,
+                    "## S\n\n`a<b` `[x]` MUST hold.\n\n- WHEN x THEN y\n\n"
+                    "Proved by: TestA\n",
+                ),
+                [],
+            )
+            self.assertIn(
+                "src/pkg/GUARANTEES.md:3: unknown line format",
+                self._check_grammar(
+                    root,
+                    "## S\n\n`a<b` [x] MUST hold.\n\n- WHEN x THEN y\n\n"
+                    "Proved by: TestA\n",
+                ),
+            )
+
+    def test_column0_line_clears_proved_by_continuation(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            create_pkg(root)
+            errors = self._check_grammar(
+                root,
+                "## S\n\nIt MUST hold.\n\n- WHEN x THEN y\n\n"
+                "Proved by: TestA\n- WHEN x THEN y\n  TestB\n",
+            )
+            self.assertEqual(errors, [])
+
+    def test_hashes_only_heading_does_not_reprocess_previous_section(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            create_pkg(root)
+            errors = self._check_grammar(
+                root,
+                "## A\n\nIt MUST hold.\n\n- WHEN x THEN y\n\n## #\n",
+            )
+            self.assertIn("src/pkg/GUARANTEES.md:7: unknown line format", errors)
+            self.assertEqual(sum('"A"' in error for error in errors), 1, errors)
 
     def test_pilot_file_passes(self):
         root = Path(__file__).resolve().parents[4]

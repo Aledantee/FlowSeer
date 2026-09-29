@@ -43,29 +43,58 @@ context.
 
 ## Block format and line grammar
 
-`GUARANTEES.md` is parsed with a strict line grammar that rejects any line not
-matching an allowed shape. Allowed line shapes are:
+`GUARANTEES.md` is parsed with a strict line grammar: every line must match an
+allowed shape, and any other line fails the check with `unknown line format`.
+Allowed line shapes are:
 
 - Empty lines.
-- Exactly one top-level `# ` document title before any guarantee section.
-- Unindented preamble paragraph text before the first guarantee section.
+- At most one top-level `# ` document title, before any guarantee section.
+- Preamble paragraph text before the first guarantee section.
 - `## ` guarantee headings giving each guarantee's name. Heading titles retain
   unspaced `#` characters (such as `## Parses C#`), stripping only trailing `#`
   characters preceded by whitespace.
-- Exactly one normative sentence per section: a single unindented line
-  containing MUST or MUST NOT in the RFC 2119 / RFC 8174 sense.
+- Exactly one normative sentence per section: a text line containing MUST or
+  MUST NOT in the RFC 2119 / RFC 8174 sense. A section with no normative line,
+  or more than one, fails.
 - One or more scenario bullets starting with `- WHEN ` and containing `THEN`. A
   scenario bullet may continue onto indented continuation lines (indented 1 to 3
   spaces).
 - Exactly one column-0 `Proved by:` line listing comma-separated top-level Go
   test names. The list may continue across following indented lines (1 to 3
-  spaces) until an empty line, a new heading, or another `Proved by:` line. A
-  `Proved by:` list ending with a trailing comma is an error.
+  spaces) until an empty line, a new heading, or another `Proved by:` line.
 
-Fenced code blocks (``` or ~~~), setext underlines (`---`), indented code blocks
-(4 spaces or tabs), numbered lists (`1. ...`), and unallowed heading levels
-(`###`) fail closed as unknown line formats. Indented `Proved by:` lines fail as
-unknown line format and never count as citations.
+A text line is column-0 text whose first character is a Unicode letter or digit,
+or a backtick run shorter than a code fence (one or two backticks), and which is
+not an ordered-list marker (`1.` or `1)` followed by a space). A scenario
+continuation is a text line indented 1 to 3 spaces by the same rule. Each
+`Proved by:` item is a Go identifier, optionally wrapped in one pair of
+backticks; `,,`, an item of only backticks, and a list ending in a comma are
+errors.
+
+Two visibility rules keep every line the checker counts in the CommonMark
+rendering:
+
+- A counted line that begins a counted construct — a normative sentence or a
+  column-0 `Proved by:` line — must begin its own paragraph. The line above it
+  is empty or a `## ` heading; otherwise CommonMark makes the line a lazy
+  continuation of the paragraph or list item above, and the check rejects it.
+- A counted line (a heading title, a normative sentence, a scenario bullet or
+  its continuation, a `Proved by:` line or its continuation) must hold no `<`,
+  `[`, or `]` outside a backtick code span. Those characters open raw HTML or a
+  link and can hide text the checker counts. Matched code spans are removed
+  before the check, so `` `a<b` `` is legal.
+
+A line splits only at line feeds, as CommonMark splits it; a control character
+other than a tab, or a Unicode line or paragraph separator, anywhere in a line
+fails the check. A line is empty only when it holds no character but spaces and
+tabs; a non-breaking space is text.
+
+Because the shapes are positive, any line that would open another CommonMark
+block is rejected: a fence, a setext underline, an indented code block (4 spaces
+or a tab), a thematic break, a block quote, a bullet or ordered-list item, an
+HTML block, a link reference definition, a GFM table, or an ATX heading of any
+level. An indented `Proved by:` line fails as unknown line format and never
+counts as a citation.
 
 ### Example block
 
@@ -83,17 +112,32 @@ Proved by: TestHostKeyCallbackRequiresExplicitVerification, TestDialOptionsRequi
 ## Citation rules and test bounds
 
 - Cited tests resolve from the package's `TestGoFiles` and `XTestGoFiles` as
-  reported by `go list -json .` (invoked with `GOWORK=off` and read-only `-mod`).
-  `go list` excludes `_foo_test.go` and `//go:build ignore` files by construction.
+  reported by `go list -json .`, run with `GOWORK=off` and `-mod=readonly` on
+  the command line. The flag overrides any `-mod` in `GOFLAGS` or the `go env`
+  file, so a verifier run never rewrites `go.mod` or `go.sum`. `go list`
+  excludes `_foo_test.go` and `//go:build ignore` files by construction.
+- When `go list` fails (no `go.mod`, no Go files, a missing `go`, bad JSON), the
+  check reports one `<path>:1: go list failed in <pkg>: ...` error for the file
+  and skips the per-citation existence errors, rather than reporting every
+  citation as missing.
 - Discovered test files are scanned with a Go token scanner that ignores
   whitespace, comments (`//` and `/* */`), and strings (interpreted, raw, and rune
   literals).
-- Function declarations qualify as tests when the name starts with `Test`, is
-  not `TestMain`, and its fifth character (if present) is not Unicode lowercase
-  (`!unicode.IsLower`, rejecting `Testé`).
-- Parameter lists support `*testing.T`, `(*testing.T)`, or aliased imports
-  `*<pkg>.T` / `(*<pkg>.T)`, optional parameter names, and multiline parameter
-  layouts with optional trailing commas before `)`.
+- Function declarations qualify as tests when the name starts with `Test` and
+  its fifth character (if present) is not Unicode lowercase (Go's
+  `!unicode.IsLower`, category `Ll`, so `Testé` is rejected). `TestMain` is
+  treated like any other name: `func TestMain(m *testing.M)` is excluded because
+  its parameter is not `*T`, while `func TestMain(t *testing.T)` resolves.
+- Parameter lists are the forms Go accepts: `*testing.T` through an ordinary or
+  dot import (`*T`), an aliased `*<pkg>.T`, optional parameter names, an empty
+  `()` result list, and multiline layouts with optional trailing commas before
+  `)`. A parenthesized, array, or slice type such as `(*testing.T)`,
+  `[]*testing.T`, or `[4]*testing.T`, a second parameter, and a non-empty
+  result list are not accepted, matching Go's AST check.
+- Only test files in the default build for the host platform are citable. An
+  untagged `go list` puts `//go:build <tag>` files and files for another GOOS in
+  `IgnoredGoFiles`, so a test behind a build tag does not resolve; see
+  [An untagged go list misses imports made only from build-tagged files](../solutions/conventions/go-list-deps-misses-imports-behind-build-tags.md).
 - Citations do not search subdirectories. Subdirectories are separate Go
   packages. Searching subdirectories would allow a subpackage test to mask the
   deletion of a parent package's test.
