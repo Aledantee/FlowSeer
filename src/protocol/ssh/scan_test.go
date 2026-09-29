@@ -78,6 +78,29 @@ func TestScanPromptTable(t *testing.T) {
 	}
 }
 
+// TestScanPromptMoreWinsAtSameStart covers the boundary the pagination
+// guarantee rests on: a marker and a prompt that begin at the same offset
+// resolve to the marker, so the keystroke is written before the prompt
+// could end the command. scanPrompt's comparison is `<=` for this case.
+func TestScanPromptMoreWinsAtSameStart(t *testing.T) {
+	more := regexp.MustCompile(`--More--`)
+	// A prompt pattern that matches the marker text itself, so marker and
+	// prompt begin at the same offset.
+	prompts := []Prompt{{Name: "marker-as-prompt", Pattern: regexp.MustCompile(`--More--`)}}
+
+	buf := []byte("page one\r\n--More--")
+	res, ok := scanPrompt(buf, prompts, more)
+	if !ok {
+		t.Fatal("scanPrompt() ok = false, want true")
+	}
+	if res.kind != scanMore {
+		t.Errorf("kind = %v, want scanMore (a marker at the same start as a prompt is answered, not treated as a boundary)", res.kind)
+	}
+	if res.outputEnd != len("page one\r\n") {
+		t.Errorf("outputEnd = %d, want %d", res.outputEnd, len("page one\r\n"))
+	}
+}
+
 func TestScanPromptEarliestMatchAndTieOrder(t *testing.T) {
 	user := Prompt{Name: "user", Pattern: regexp.MustCompile(`(?m)>\s*$`)}
 	priv := Prompt{Name: "privileged", Pattern: regexp.MustCompile(`(?m)#\s*$`)}
