@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/conventions/unpinned-buf-remote-plugins-drift-the-whole-generated-tree.md
 execution: mixed
 amends: docs/architecture/2026-09-09-remote-packet-capture-direction.md, docs/architecture/2026-08-20-network-model-structure-direction.md
 ---

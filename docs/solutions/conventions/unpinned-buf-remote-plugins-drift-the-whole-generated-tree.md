@@ -1,6 +1,7 @@
 ---
-title: Unpinned buf remote plugins drift the whole generated tree, so a regen for one proto change touches hundreds of files
+title: The buf CLI version decides one option byte in every generated descriptor, so the generated tree flips between machines
 date: 2026-09-23
+last_verified: 2026-09-29
 category: conventions
 module: buf.gen.yaml
 problem_type: bug
@@ -8,75 +9,86 @@ component: codegen
 severity: medium
 applies_when:
   - "Running buf generate after a .proto change and seeing hundreds of generated/ files change that your proto did not touch"
-  - "The verify --full diff generated/go/proto gate fails on generated files unrelated to your change"
+  - "The verifier's diff generated/go/proto gate fails on generated files unrelated to your change, on a branch or on main"
   - "Deciding whether generated-tree churn belongs in a feature commit"
+  - "Pinning buf.gen.yaml plugins, or the buf CLI, to make buf generate reproducible"
 related_components: [spec/proto, generated]
 tags: [buf, codegen, generated, protobuf, verify]
 symptoms:
-  - "buf generate reports ~175 changed .pb.go files after a one-field proto edit"
-  - "verify-change.sh --full fails in gate: diff generated/go/proto on files like ruckus/sci/sci-rogue.pb.go that have nothing to do with the change"
-  - "git diff of a drifted file shows only a shrunk descriptor length prefix and a dropped option byte, no Go API change"
-root_cause: "buf.gen.yaml pins no version on its remote plugins, so buf generate resolves the latest published plugin; when that plugin releases, its output differs from the committed tree (which an older plugin produced) and every file drifts."
+  - "buf generate reports 175 to 308 changed .pb.go files after a one-field proto edit, or with no proto edit at all"
+  - "verify-change.sh fails in gate: diff generated/go/proto on files like ruckus/sci/sci-rogue.pb.go that have nothing to do with the change"
+  - "git diff of a drifted file shows only a descriptor length prefix moving by two and a P\\x01 byte appearing or disappearing, no Go API change"
+root_cause: "buf managed mode writes the java_multiple_files file option into each descriptor it hands the plugins, and whether it does depends on the buf CLI release. The CLI is not pinned anywhere in the repository, so each contributor's local buf decides the byte, and the committed tree matches whichever version last regenerated it."
 resolution_type: workaround
 ---
 
 ## The situation
 
-`buf.gen.yaml` declares its code generators as versionless remote plugins:
+`buf.gen.yaml` turns managed mode on and declares versionless remote plugins:
 
 ```yaml
+managed:
+  enabled: true
 plugins:
   - remote: buf.build/protocolbuffers/go
     out: generated/go/proto
     opt: paths=source_relative
-  - remote: buf.build/connectrpc/go
-    out: generated/go/proto
 ```
 
-With no `:vX.Y.Z` suffix, `buf generate` resolves whatever the registry
-currently serves. The committed `generated/` tree was produced by an older
-plugin, so the moment upstream ships a new release, running `buf generate`
-rewrites every file — even ones whose `.proto` you never opened.
+Managed mode rewrites file options before the plugins see the descriptors, and
+`protoc-gen-go` embeds each descriptor verbatim in the `.pb.go` file. One of
+those options, `java_multiple_files` (field 10, encoded `P\x01`), is set by some
+buf CLI releases and not by others. So the embedded bytes in every generated
+file follow the local `buf --version`, not the schema.
 
-Observed on 2026-09-23 (darwin, buf 1.73.0): a single new field in
-`spec/proto/flowseer/store/device/v1/service_config.proto` regenerated 176
-files. The 175 unrelated ones differed only by a dropped `java_multiple_files`
-option in each embedded raw descriptor (the `P\x01` byte, with the file option
-block's length prefix shrinking by two), for example `B\xff\x01…P\x01Z` becoming
-`B\xfd\x01…Z`. No message shape or Go API changed.
+The repository has recorded both directions:
+
+- `c106d8bc` (2026-09-23, darwin, buf 1.73.0) removed the option from 175 files:
+  `B\xff\x01…P\x01Z` became `B\xfd\x01…Z`.
+- `089a2330` (2026-09-29, darwin, buf 1.70.0 from Homebrew) added it back to 308
+  files, the reverse byte change. Its message: "managed mode now sets
+  java_multiple_files, which lands in every raw descriptor. No schema changed."
+
+The first capture of this lesson blamed the unpinned remote plugins. The flip
+back under an older CLI shows the option comes from the CLI, so pinning the
+plugins alone would not stop it.
 
 ## Why it bites
 
-The full verifier regenerates and diffs the tree:
+The verifier regenerates and diffs on every change that touches a `.proto`
+file, not only under `--full`:
 
-```
-FlowSeer verification FAILED (exit 1) in gate: diff generated/go/proto
+```bash
+  run buf generate -o "$generated_dir"
+  run diff -qr generated/go/proto "$generated_dir/generated/go/proto"
 ```
 
-Because the drift is repo-wide and environmental, the gate fails on `main`
-too, and it fails on files your change did not touch. The trap is reading that
-failure as caused by your change and either debugging the wrong thing or
-sweeping the churn into your feature commit.
+(`.claude/skills/verify-change/scripts/verify-change.sh:788-789`). With a buf
+CLI that disagrees with the last regeneration, that gate fails on `main` and
+on every branch, on files the change never reached. The trap is reading the
+failure as caused by your change, or sweeping the churn into the feature
+commit.
 
 ## How to apply
 
-When a regen for a small proto change touches far more than the files your
-proto reaches, and the extra diffs are option-byte-only:
+When a regen touches far more files than your proto reaches and the extra
+diffs are option-byte-only:
 
-1. Treat the churn as pre-existing plugin drift, not your change. Confirm by
-   reverting your proto edit and regenerating: if the same unrelated files
-   still drift, it is the plugin.
-2. Do not fold it into the feature commit. Land the drift as its own
-   `chore(generated): regenerate under the updated remote protobuf plugin`
-   commit so the feature stays reviewable, then the `--full` gate passes.
-3. The durable fix is to pin the remote plugins to explicit versions in
-   `buf.gen.yaml`, which makes `buf generate` reproducible and stops the
-   drift recurring. `buf.gen.yaml` is not a policy surface, but pinning
-   changes generation for the whole repo, so raise it rather than doing it
-   inside an unrelated feature — this solution is the workaround until then.
+1. Run `buf --version` and compare it with the version named in the last
+   `chore(generated): regenerate` commit. Confirm by regenerating at the
+   parent commit with your schema edit absent: if the same files drift, it is
+   the CLI.
+2. Land the drift as its own commit before the feature, naming the buf
+   version, as `089a2330` did, so the feature's generated diff holds only
+   what its schema produced.
+3. The durable fix is to pin the buf CLI version the repository generates
+   with (and the remote plugins with it) so every machine produces the same
+   bytes. That changes generation for the whole repository, so raise it as
+   its own change. Until then each regeneration commit records its buf
+   version.
 
 ## What it does not cover
 
 A regen that changes a Go type, a method set, or a descriptor's field numbers
-is a real schema change, not this drift; review it as one. This entry is only
-about option-byte-only churn across files a change did not touch.
+is a real schema change, not this drift, and is reviewed as one. This entry is
+only about the managed-mode option byte across files a change did not touch.

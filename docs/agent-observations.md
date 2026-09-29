@@ -26,3 +26,29 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-09-29 delegate: a land or drive stage without Orca stops instead of using a native subagent
+Skill or agent: `.claude/skills/delegate/SKILL.md`, "Orca or native", the
+paragraph on stage workers of `land` or `drive`, and
+`.claude/skills/land/SKILL.md`, step 2, which defers to it ("without Orca,
+its 'Orca or native' stops here").
+What happened: without Orca, the coordinator stopped a stage and handed it
+to the user for a fresh session, as the paragraph says. The user
+corrected the procedure: a native subagent is allowed when nothing else is
+available. The step was followed as written.
+Suggested change: without Orca, run the stage in a native `general-purpose`
+subagent in the worktree, pinned to a model other than the change's author,
+and stop only when no native subagent can run.
+
+## 2026-09-29 delegate: a review stage fell back to Sonnet with no machine-wide registry
+Skill or agent: `.claude/skills/delegate/SKILL.md`, "Pick the role, then
+resolve the lane".
+What happened: with no `~/.claude/models/registry.yaml`, the coordinator
+picked Sonnet for a `review-seam` stage. The user corrected it: review runs
+on Opus or Fable, never on Sonnet. The skill states no default for a
+missing registry, so the step gave no rule to follow. Where the project
+registry is read, its review fit sets already omit Sonnet
+(`.claude/models/registry.yaml:76-77`).
+Suggested change: state that review roles' `fit` and `last_resort` never
+hold Sonnet, and that with no registry read a review lane defaults to Opus
+or Fable, whichever did not author the change.
