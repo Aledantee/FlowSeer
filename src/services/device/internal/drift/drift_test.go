@@ -28,7 +28,7 @@ import (
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
 )
 
-const tTenant = edgebus.DefaultTenant
+const tTenant = "0192e6a0-0000-7000-8000-0000000000aa"
 
 var errAudit = errors.New("stream refused the publish")
 
@@ -56,6 +56,7 @@ func (r *resolver) Device(id string) (*storev1.RegistryDevice, bool) {
 func (r *resolver) EdgeID() string { return edgeID }
 
 type detection struct {
+	tenantID string
 	iface    string
 	expected string
 	observed string
@@ -82,11 +83,11 @@ func (s *signals) DriftDetected(_ context.Context, _, iface, expected, observed 
 	s.outcomes = append(s.outcomes, outcome)
 }
 
-func (r *recorder) DriftDetected(_ context.Context, _ string, _ *inventoryv1.DeviceGlobalRef, iface, expected, observed string) error {
+func (r *recorder) DriftDetected(_ context.Context, tenantID string, _ *inventoryv1.DeviceGlobalRef, iface, expected, observed string) error {
 	if r.err != nil {
 		return r.err
 	}
-	r.found = append(r.found, detection{iface: iface, expected: expected, observed: observed})
+	r.found = append(r.found, detection{tenantID: tenantID, iface: iface, expected: expected, observed: observed})
 	return nil
 }
 
@@ -136,11 +137,12 @@ func newHarness(t *testing.T, mode inventoryv1.DeviceManagementMode) *harness {
 	rec := &recorder{}
 	sig := &signals{}
 	poller, err := drift.New(drift.Config{
-		Journal:   j,
-		Resolver:  &resolver{entry: registryEntry(mode)},
-		Audit:     rec,
-		Telemetry: sig,
-		Interval:  time.Minute,
+		Journal:    j,
+		Resolver:   &resolver{entry: registryEntry(mode)},
+		EdgeTenant: func(context.Context, string) (string, error) { return tTenant, nil },
+		Audit:      rec,
+		Telemetry:  sig,
+		Interval:   time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -230,8 +232,8 @@ func TestDriftUnderOperatorManagedHoldsAnIntentForTheOperator(t *testing.T) {
 		t.Fatalf("recorded %d detections, want 1", len(h.recorder.found))
 	}
 	got := h.recorder.found[0]
-	if got.iface != iface || got.expected != expected || got.observed != "someone else's description" {
-		t.Errorf("recorded %+v, want the interface and both values", got)
+	if got.tenantID != tTenant || got.iface != iface || got.expected != expected || got.observed != "someone else's description" {
+		t.Errorf("recorded %+v, want tenant %q, the interface and both values", got, tTenant)
 	}
 
 	record, _ := h.journal.Record(ctx, tTenant, deviceID)
@@ -566,10 +568,11 @@ func TestAPollWithNoTelemetryStillRecordsAndActs(t *testing.T) {
 	j := journal.New(kv, nil)
 	rec := &recorder{}
 	poller, err := drift.New(drift.Config{
-		Journal:  j,
-		Resolver: &resolver{entry: registryEntry(inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)},
-		Audit:    rec,
-		Interval: time.Minute,
+		Journal:    j,
+		Resolver:   &resolver{entry: registryEntry(inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)},
+		EdgeTenant: func(context.Context, string) (string, error) { return tTenant, nil },
+		Audit:      rec,
+		Interval:   time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -600,11 +603,11 @@ func TestDriftPartitionedByTenant(t *testing.T) {
 	poller, err := drift.New(drift.Config{
 		Journal:  j,
 		Resolver: &resolver{entry: registryEntry(inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)},
-		EdgeTenant: func(id string) string {
+		EdgeTenant: func(_ context.Context, id string) (string, error) {
 			if id == edgeID {
-				return customTenant
+				return customTenant, nil
 			}
-			return edgebus.DefaultTenant
+			return "", errors.New("unknown edge")
 		},
 		Audit:    rec,
 		Interval: time.Minute,
@@ -637,6 +640,9 @@ func TestDriftPartitionedByTenant(t *testing.T) {
 	if len(rec.found) != 1 {
 		t.Fatalf("detections = %d, want 1", len(rec.found))
 	}
+	if got := rec.found[0].tenantID; got != customTenant {
+		t.Errorf("recorded tenant = %q, want %q", got, customTenant)
+	}
 	recCustom, err := j.Record(ctx, customTenant, deviceID)
 	if err != nil || !recCustom.HasMutation() {
 		t.Fatalf("custom tenant did not admit mutation: err=%v, rec=%v", err, recCustom)
@@ -644,5 +650,30 @@ func TestDriftPartitionedByTenant(t *testing.T) {
 	recDefault, _ := j.Record(ctx, edgebus.DefaultTenant, deviceID)
 	if recDefault.HasMutation() {
 		t.Fatal("default tenant record had mutation admitted by custom tenant drift")
+	}
+}
+
+func TestDriftSkipsEdgeWhenTenantFails(t *testing.T) {
+	ctx := context.Background()
+	kv := newBucket(t)
+	j := journal.New(kv, nil)
+	rec := &recorder{}
+	poller, err := drift.New(drift.Config{
+		Journal:    j,
+		Resolver:   &resolver{entry: registryEntry(inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)},
+		EdgeTenant: func(context.Context, string) (string, error) { return "", errors.New("cannot resolve edge tenant") },
+		Audit:      rec,
+		Interval:   time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	h := &harness{poller: poller, journal: j, recorder: rec}
+	seeObserved(t, h, "someone else's description")
+
+	poller.Pass(ctx)
+
+	if len(rec.found) != 0 {
+		t.Fatalf("detections = %d, want 0 when edge tenant cannot be resolved", len(rec.found))
 	}
 }

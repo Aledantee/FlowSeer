@@ -83,7 +83,7 @@ func TestAWatchPanicIsLoggedAndStopStillWorks(t *testing.T) {
 	sink := withRecordingLogger(t)
 	w := NewKVWatcher(fakeKV{watcher: panicKeyWatcher{}})
 
-	_, stop, err := w.Watch(context.Background(), "tenant-1", "dev-1")
+	_, stop, err := w.Watch(context.Background(), "0192e6a0-0000-7000-8000-0000000000aa", "dev-1")
 	if err != nil {
 		t.Fatalf("Watch: %v", err)
 	}
@@ -137,12 +137,14 @@ func (fakeKeyWatcher) Stop() error                             { return nil }
 func TestWatchKeyIncludesTenant(t *testing.T) {
 	rec := &recordingWatcher{}
 	w := NewKVWatcher(rec)
-	_, stop, err := w.Watch(context.Background(), "tenant-abc", "dev-xyz")
+	tenantID := "0192e6a0-0000-7000-8000-0000000000aa"
+	_, stop, err := w.Watch(context.Background(), tenantID, "dev-xyz")
 	if err != nil {
 		t.Fatalf("Watch: %v", err)
 	}
 	defer stop()
-	if rec.watchedKey != "tenant-abc.dev-xyz" {
-		t.Fatalf("watched key = %q, want tenant-abc.dev-xyz", rec.watchedKey)
+	wantKey := tenantID + ".dev-xyz"
+	if rec.watchedKey != wantKey {
+		t.Fatalf("watched key = %q, want %s", rec.watchedKey, wantKey)
 	}
 }

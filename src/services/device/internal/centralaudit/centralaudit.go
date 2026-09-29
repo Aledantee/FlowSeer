@@ -21,6 +21,7 @@ import (
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
 
@@ -53,17 +54,16 @@ type Publisher interface {
 // Emitter writes central's own audit records. Safe for concurrent use.
 type Emitter struct {
 	publisher Publisher
-	tenant    string
 	clock     func() time.Time
 }
 
-// New builds an emitter publishing to tenant's audit subjects. A nil clock
+// New builds an emitter publishing audit subjects. A nil clock
 // uses the wall clock.
-func New(publisher Publisher, tenant string, clock func() time.Time) *Emitter {
+func New(publisher Publisher, clock func() time.Time) *Emitter {
 	if clock == nil {
 		clock = time.Now
 	}
-	return &Emitter{publisher: publisher, tenant: tenant, clock: clock}
+	return &Emitter{publisher: publisher, clock: clock}
 }
 
 // DispatchRejected records central disposing a mutation because the edge
@@ -124,10 +124,10 @@ func (e *Emitter) DriftDetected(ctx context.Context, tenantID string, device *in
 
 func (e *Emitter) emit(ctx context.Context, tenantID, deviceID string, event *eventaccessv1.DeviceOperationEvent) error {
 	if tenantID == "" {
-		tenantID = e.tenant
+		return errs.New().Code(ErrCodePublish).Attr("device", deviceID).Msg("tenant is required for audit event")
 	}
-	if tenantID == "" {
-		tenantID = edgebus.DefaultTenant
+	if err := tenant.Validate(tenantID); err != nil {
+		return errs.From(err).Code(ErrCodePublish).Attr("tenant", tenantID).Attr("device", deviceID).Msg("validate tenant")
 	}
 	data, err := proto.Marshal(event)
 	if err != nil {

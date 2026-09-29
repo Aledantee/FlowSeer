@@ -24,7 +24,7 @@ import (
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 )
 
@@ -81,9 +81,8 @@ type Config struct {
 	// EdgeID identifies the calling edge from the request context the
 	// assertion middleware populated.
 	EdgeID func(ctx context.Context) (string, error)
-	// EdgeTenant resolves an edge's tenant identifier. If nil or returns "",
-	// DefaultTenant is used.
-	EdgeTenant func(edgeID string) string
+	// EdgeTenant resolves an edge's tenant identifier. Must not be nil.
+	EdgeTenant func(ctx context.Context, edgeID string) (string, error)
 	// Resend is one backoff step: how often an open stream re-derives while a
 	// row stays owed.
 	Resend time.Duration
@@ -121,7 +120,7 @@ type Service struct {
 	log           *slog.Logger
 }
 
-// New constructs the relay. Journal, Resolver, and EdgeID must be set.
+// New constructs the relay. Journal, Resolver, EdgeID, and EdgeTenant must be set.
 func New(cfg Config) *Service {
 	clock := cfg.Clock
 	if clock == nil {
@@ -142,13 +141,18 @@ func New(cfg Config) *Service {
 	return &Service{cfg: cfg, clock: clock, resend: resend, sweepInterval: sweep, log: log}
 }
 
-func (s *Service) edgeTenant(edgeID string) string {
-	if s.cfg.EdgeTenant != nil {
-		if t := s.cfg.EdgeTenant(edgeID); t != "" {
-			return t
-		}
+func (s *Service) edgeTenant(ctx context.Context, edgeID string) (string, error) {
+	if s.cfg.EdgeTenant == nil {
+		return "", errs.New().Code(ErrCodeResolve).Attr("edge", edgeID).Msg("no edge tenant resolver configured")
 	}
-	return edgebus.DefaultTenant
+	tenantID, err := s.cfg.EdgeTenant(ctx, edgeID)
+	if err != nil {
+		return "", errs.From(err).Code(ErrCodeResolve).Attr("edge", edgeID).Msg("resolve edge tenant")
+	}
+	if err := tenant.Validate(tenantID); err != nil {
+		return "", errs.From(err).Code(ErrCodeResolve).Attr("edge", edgeID).Attr("tenant", tenantID).Msg("validate edge tenant")
+	}
+	return tenantID, nil
 }
 
 // Subscribe holds the stream open for one edge, deriving and sending every row

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
@@ -18,6 +19,7 @@ import (
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 )
 
 // Error codes the journal returns.
@@ -91,6 +93,25 @@ func New(kv jetstream.KeyValue, clock func() time.Time) *Journal {
 	return &Journal{kv: kv, clock: clock}
 }
 
+// LaneKey formats a lane record key from tenantID and deviceID.
+// It returns an error if tenantID is not valid.
+func LaneKey(tenantID, deviceID string) (string, error) {
+	if err := tenant.Validate(tenantID); err != nil {
+		return "", err
+	}
+	return tenantID + "." + deviceID, nil
+}
+
+// SplitLaneKey splits a lane record key into tenantID and deviceID.
+// It returns false if the key is not well-formed or the tenant is invalid.
+func SplitLaneKey(key string) (tenantID, deviceID string, ok bool) {
+	parts := strings.SplitN(key, ".", 2)
+	if len(parts) != 2 || tenant.Validate(parts[0]) != nil {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
+}
+
 func laneRecordKey(tenantID, deviceID string) string {
 	return tenantID + "." + deviceID
 }
@@ -106,7 +127,10 @@ func (j *Journal) load(ctx context.Context, tenantID, deviceID string) (*storev1
 	if tenantID == "" || deviceID == "" {
 		return &storev1.DeviceLaneRecord{}, 0, nil
 	}
-	key := laneRecordKey(tenantID, deviceID)
+	key, err := LaneKey(tenantID, deviceID)
+	if err != nil {
+		return nil, 0, err
+	}
 	entry, err := j.kv.Get(ctx, key)
 	if errors.Is(err, jetstream.ErrKeyNotFound) {
 		return &storev1.DeviceLaneRecord{}, 0, nil
@@ -131,7 +155,10 @@ func (j *Journal) mutate(ctx context.Context, tenantID, deviceID string, fn func
 	if tenantID == "" || deviceID == "" {
 		return errs.New().Code(ErrCodeStore).Attr("tenant", tenantID).Attr("device", deviceID).Msg("tenant and device are required")
 	}
-	key := laneRecordKey(tenantID, deviceID)
+	key, err := LaneKey(tenantID, deviceID)
+	if err != nil {
+		return err
+	}
 	for attempt := 0; attempt < casRetries; attempt++ {
 		rec, revision, err := j.load(ctx, tenantID, deviceID)
 		if err != nil {

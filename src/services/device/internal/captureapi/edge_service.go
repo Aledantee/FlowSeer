@@ -16,7 +16,7 @@ import (
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
-	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
@@ -235,7 +235,7 @@ type EdgeServiceConfig struct {
 	ResendInterval  time.Duration
 	RetentionPeriod time.Duration
 	EdgeID          func(context.Context) (string, error)
-	EdgeTenant      func(edgeID string) string
+	EdgeTenant      func(ctx context.Context, edgeID string) (string, error)
 	Clock           func() time.Time
 	Logger          *slog.Logger
 }
@@ -251,7 +251,7 @@ type EdgeService struct {
 	resendInterval  time.Duration
 	retentionPeriod time.Duration
 	edgeID          func(context.Context) (string, error)
-	edgeTenant      func(edgeID string) string
+	edgeTenant      func(ctx context.Context, edgeID string) (string, error)
 	clock           func() time.Time
 	log             *slog.Logger
 
@@ -291,11 +291,6 @@ func NewEdgeService(store *Store, verifier AssertionVerifier, broadcaster *Broad
 		edgeIDFunc = edgeapi.EdgeIDFromContext
 	}
 
-	edgeTenant := cfg.EdgeTenant
-	if edgeTenant == nil {
-		edgeTenant = func(string) string { return edgebus.DefaultTenant }
-	}
-
 	return &EdgeService{
 		store:           store,
 		verifier:        verifier,
@@ -304,7 +299,7 @@ func NewEdgeService(store *Store, verifier AssertionVerifier, broadcaster *Broad
 		resendInterval:  resendInterval,
 		retentionPeriod: retentionPeriod,
 		edgeID:          edgeIDFunc,
-		edgeTenant:      edgeTenant,
+		edgeTenant:      cfg.EdgeTenant,
 		clock:           clock,
 		log:             logger,
 		watchers:        make(map[chan struct{}]struct{}),
@@ -312,13 +307,18 @@ func NewEdgeService(store *Store, verifier AssertionVerifier, broadcaster *Broad
 	}
 }
 
-func (s *EdgeService) resolveTenant(edgeID string) string {
-	if s.edgeTenant != nil {
-		if t := s.edgeTenant(edgeID); t != "" {
-			return t
-		}
+func (s *EdgeService) resolveTenant(ctx context.Context, edgeID string) (string, error) {
+	if s.edgeTenant == nil {
+		return "", errs.New().Code(ErrCodeStore).Attr("edge", edgeID).Msg("no edge tenant resolver configured")
 	}
-	return edgebus.DefaultTenant
+	tenantID, err := s.edgeTenant(ctx, edgeID)
+	if err != nil {
+		return "", errs.From(err).Code(ErrCodeStore).Attr("edge", edgeID).Msg("resolve edge tenant")
+	}
+	if err := tenant.Validate(tenantID); err != nil {
+		return "", errs.From(err).Code(ErrCodeBadSession).Attr("edge", edgeID).Attr("tenant", tenantID).Msg("validate edge tenant")
+	}
+	return tenantID, nil
 }
 
 // unauthenticated returns a Connect error with [connect.CodeUnauthenticated]
@@ -390,7 +390,10 @@ func (s *EdgeService) SubscribeCaptureAssignments(
 	if err != nil {
 		return unauthenticated(err)
 	}
-	tenantID := s.resolveTenant(edgeID)
+	tenantID, err := s.resolveTenant(ctx, edgeID)
+	if err != nil {
+		return connectErr(err)
+	}
 
 	notifyCh, unwatch := s.registerWatcher()
 	defer unwatch()
@@ -495,7 +498,10 @@ func (s *EdgeService) UploadCapture(
 	}
 
 	callingEdgeID := firstAssertion.GetEdge().GetEdge().GetId()
-	tenantID := s.resolveTenant(callingEdgeID)
+	tenantID, err := s.resolveTenant(ctx, callingEdgeID)
+	if err != nil {
+		return nil, connectErr(err)
+	}
 	lastAssertionAt := s.clock()
 
 	var (

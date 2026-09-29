@@ -800,3 +800,40 @@ func TestCrossTenantLanePartitioning(t *testing.T) {
 
 	_ = stateA
 }
+
+func TestLaneKeyValidationAndSplit(t *testing.T) {
+	const validTenant = "0192e6a0-0000-7000-8000-0000000000aa"
+	const validDevice = "0192e6a0-0000-7000-8000-000000000001"
+
+	key, err := journal.LaneKey(validTenant, validDevice)
+	if err != nil {
+		t.Fatalf("LaneKey(%s, %s): %v", validTenant, validDevice, err)
+	}
+	wantKey := validTenant + "." + validDevice
+	if key != wantKey {
+		t.Fatalf("LaneKey = %q, want %q", key, wantKey)
+	}
+
+	gotTenant, gotDevice, ok := journal.SplitLaneKey(key)
+	if !ok || gotTenant != validTenant || gotDevice != validDevice {
+		t.Fatalf("SplitLaneKey(%q) = (%q, %q, %v), want (%q, %q, true)", key, gotTenant, gotDevice, ok, validTenant, validDevice)
+	}
+
+	defKey, err := journal.LaneKey("default", validDevice)
+	if err != nil {
+		t.Fatalf("LaneKey(default, %s): %v", validDevice, err)
+	}
+	if defTenant, defDev, ok := journal.SplitLaneKey(defKey); !ok || defTenant != "default" || defDev != validDevice {
+		t.Fatalf("SplitLaneKey(%q) = (%q, %q, %v)", defKey, defTenant, defDev, ok)
+	}
+
+	for _, badTenant := range []string{"acme.prod", "", "*", "invalid-uuid"} {
+		if _, err := journal.LaneKey(badTenant, validDevice); err == nil {
+			t.Errorf("LaneKey(%q) = nil, want error", badTenant)
+		}
+		badKey := badTenant + "." + validDevice
+		if _, _, ok := journal.SplitLaneKey(badKey); ok {
+			t.Errorf("SplitLaneKey(%q) = ok, want false", badKey)
+		}
+	}
+}

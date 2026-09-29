@@ -69,6 +69,9 @@ func startHub(t *testing.T, dir string, port int) *edgebus.Hub {
 
 func startLeaf(t *testing.T, dir string, hub *edgebus.Hub, id string) *edgebus.Leaf {
 	t.Helper()
+	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, id); err != nil {
+		t.Fatalf("attach edge: %v", err)
+	}
 	creds, err := hub.MintEdgeUser(context.Background(), id)
 	if err != nil {
 		t.Fatalf("mint edge user: %v", err)
@@ -324,15 +327,15 @@ func TestRecordsPublishedWhileTheHubIsDownArriveAfterReconnect(t *testing.T) {
 	first := startHub(t, hubDir, -1)
 	url := first.ListenURL()
 	port := first.ListenPort()
+	if err := first.AttachEdge(context.Background(), edgebus.DefaultTenant, edgeID); err != nil {
+		t.Fatalf("add edge source: %v", err)
+	}
 	creds, err := first.MintEdgeUser(context.Background(), edgeID)
 	if err != nil {
 		t.Fatalf("mint: %v", err)
 	}
 	leaf := startLeafWith(t, t.TempDir(), url, edgeID, creds)
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return first.LeafCount() == 1 })
-	if err := first.AttachEdge(context.Background(), edgebus.DefaultTenant, edgeID); err != nil {
-		t.Fatalf("add edge source: %v", err)
-	}
 	first.Close()
 	waitFor(t, "link down", 10*time.Second, func() bool { return !leaf.HubConnected() })
 
@@ -639,7 +642,7 @@ func TestMintEdgeUserPerTenant(t *testing.T) {
 	ctx := context.Background()
 	hub := startHub(t, t.TempDir(), 0)
 
-	const customTenant = "tenant-prod-42"
+	const customTenant = "11111111-2222-3333-4444-555555555555"
 	if err := hub.AttachEdge(ctx, customTenant, edgeID); err != nil {
 		t.Fatalf("attach edge: %v", err)
 	}
@@ -671,13 +674,13 @@ func TestRestartedHubReattachesEdgeUnderPersistedTenant(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
 
-	const customTenant = "tenant-corp-99"
+	const customTenant = "11111111-2222-3333-4444-555555555555"
 	first := startHub(t, dir, 0)
 	if err := first.AttachEdge(ctx, customTenant, edgeID); err != nil {
 		t.Fatalf("attach edge: %v", err)
 	}
-	if got := first.EdgeTenant(edgeID); got != customTenant {
-		t.Fatalf("first hub edge tenant = %s, want %s", got, customTenant)
+	if got, ok := first.EdgeTenant(edgeID); !ok || got != customTenant {
+		t.Fatalf("first hub edge tenant = %s (ok=%v), want %s", got, ok, customTenant)
 	}
 	first.Close()
 
@@ -699,8 +702,8 @@ func TestRestartedHubReattachesEdgeUnderPersistedTenant(t *testing.T) {
 	}
 	t.Cleanup(second.Close)
 
-	if got := second.EdgeTenant(edgeID); got != customTenant {
-		t.Fatalf("second hub edge tenant = %s, want %s", got, customTenant)
+	if got, ok := second.EdgeTenant(edgeID); !ok || got != customTenant {
+		t.Fatalf("second hub edge tenant = %s (ok=%v), want %s", got, ok, customTenant)
 	}
 
 	creds, err := second.MintEdgeUser(ctx, edgeID)
@@ -721,5 +724,77 @@ func TestRestartedHubReattachesEdgeUnderPersistedTenant(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("restarted hub pub permissions %v do not contain %s", claims.Pub.Allow, expectedSubtree)
+	}
+}
+
+func TestAttachEdgeRejectsInvalidTenant(t *testing.T) {
+	ctx := context.Background()
+	hub := startHub(t, t.TempDir(), 0)
+
+	invalidTenants := []string{
+		"not-a-uuid",
+		"acme.prod",
+		"../escape",
+		"tenant-prod-42",
+		"",
+	}
+	for _, bad := range invalidTenants {
+		if err := hub.AttachEdge(ctx, bad, edgeID); err == nil {
+			t.Errorf("AttachEdge with invalid tenant %q succeeded, want error", bad)
+		}
+	}
+}
+
+func TestMintEdgeUserRefusesUnknownEdge(t *testing.T) {
+	ctx := context.Background()
+	hub := startHub(t, t.TempDir(), 0)
+
+	if _, err := hub.MintEdgeUser(ctx, "unknown-edge"); err == nil {
+		t.Fatal("MintEdgeUser on unknown edge succeeded, want error")
+	}
+}
+
+func TestAttachEdgeRejectsConflictingTenant(t *testing.T) {
+	ctx := context.Background()
+	hub := startHub(t, t.TempDir(), 0)
+
+	const (
+		tenant1 = "11111111-1111-1111-1111-111111111111"
+		tenant2 = "22222222-2222-2222-2222-222222222222"
+	)
+	if err := hub.AttachEdge(ctx, tenant1, edgeID); err != nil {
+		t.Fatalf("initial AttachEdge: %v", err)
+	}
+	if err := hub.AttachEdge(ctx, tenant2, edgeID); err == nil {
+		t.Fatal("AttachEdge with conflicting tenant succeeded, want error")
+	}
+}
+
+func TestRestartedHubFailsOnUnreadableSidecar(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+
+	const customTenant = "11111111-2222-3333-4444-555555555555"
+	first := startHub(t, dir, 0)
+	if err := first.AttachEdge(ctx, customTenant, edgeID); err != nil {
+		t.Fatalf("attach edge: %v", err)
+	}
+	first.Close()
+
+	sidecarPath := filepath.Join(dir, "keys", "edge-"+edgeID+".tenant")
+	if err := os.Chmod(sidecarPath, 0o000); err != nil {
+		t.Fatalf("chmod 0000 sidecar: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(sidecarPath, 0o600)
+	})
+
+	second, err := edgebus.StartHub(ctx, edgebus.HubConfig{
+		StateDir:    dir,
+		FsyncPolicy: service.BusFsyncPeriodic,
+	})
+	if err == nil {
+		second.Close()
+		t.Fatal("StartHub succeeded despite unreadable sidecar, want error")
 	}
 }

@@ -12,11 +12,12 @@ import (
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 )
 
-const tTenant = edgebus.DefaultTenant
+const tTenant = "0192e6a0-0000-7000-8000-0000000000aa"
 
 func report(t *testing.T, svc *Service, req *dispatchv1.ReportRequest) {
 	t.Helper()
@@ -325,11 +326,12 @@ func refusedReport(kind dispatchv1.DispatchKind, code string) *dispatchv1.Report
 func TestListsFailureLeavesTheExecuteRowOwed(t *testing.T) {
 	j, kv := newJournalKV(t)
 	svc := New(Config{
-		Journal:  j,
-		Resolver: fakeResolver{lists: true, listsErr: errors.New("registry unavailable")},
-		Watch:    kv,
-		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
-		Resend:   50 * time.Millisecond,
+		Journal:    j,
+		Resolver:   fakeResolver{lists: true, listsErr: errors.New("registry unavailable")},
+		Watch:      kv,
+		EdgeID:     func(context.Context) (string, error) { return edgeID, nil },
+		EdgeTenant: func(context.Context, string) (string, error) { return tTenant, nil },
+		Resend:     50 * time.Millisecond,
 	})
 	ctx := context.Background()
 	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c01"), edgeRef()); err != nil {
@@ -421,11 +423,12 @@ func TestATerminalRefusalRecordsWhyCentralRejectedIt(t *testing.T) {
 	j, kv := newJournalKV(t)
 	audit := &recordingAudit{}
 	svc := New(Config{
-		Journal:  j,
-		Resolver: fakeResolver{lists: true},
-		Watch:    kv,
-		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
-		Audit:    audit,
+		Journal:    j,
+		Resolver:   fakeResolver{lists: true},
+		Watch:      kv,
+		EdgeID:     func(context.Context) (string, error) { return edgeID, nil },
+		EdgeTenant: func(context.Context, string) (string, error) { return tTenant, nil },
+		Audit:      audit,
 	})
 	state, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c07"), edgeRef())
 	if err != nil {
@@ -463,11 +466,12 @@ func TestARetryableRefusalRecordsNothing(t *testing.T) {
 	j, kv := newJournalKV(t)
 	audit := &recordingAudit{}
 	svc := New(Config{
-		Journal:  j,
-		Resolver: fakeResolver{lists: true},
-		Watch:    kv,
-		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
-		Audit:    audit,
+		Journal:    j,
+		Resolver:   fakeResolver{lists: true},
+		Watch:      kv,
+		EdgeID:     func(context.Context) (string, error) { return edgeID, nil },
+		EdgeTenant: func(context.Context, string) (string, error) { return tTenant, nil },
+		Audit:      audit,
 	})
 	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c08"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
@@ -488,11 +492,11 @@ func TestReportMultiTenantPartitioning(t *testing.T) {
 		Resolver: fakeResolver{lists: true},
 		Watch:    kv,
 		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
-		EdgeTenant: func(id string) string {
+		EdgeTenant: func(ctx context.Context, id string) (string, error) {
 			if id == edgeID {
-				return customTenant
+				return customTenant, nil
 			}
-			return edgebus.DefaultTenant
+			return "", errs.New().Code(ErrCodeResolve).Msg("unknown edge")
 		},
 	})
 	ctx := context.Background()
@@ -511,5 +515,26 @@ func TestReportMultiTenantPartitioning(t *testing.T) {
 	recDefault, _ := j.Record(ctx, edgebus.DefaultTenant, deviceID)
 	if recDefault.GetDispatchConfirmed() {
 		t.Fatal("default tenant record was modified by custom tenant report")
+	}
+}
+
+func TestReportFailsWhenEdgeTenantFails(t *testing.T) {
+	j, kv := newJournalKV(t)
+	svc := New(Config{
+		Journal:    j,
+		Resolver:   fakeResolver{lists: true},
+		Watch:      kv,
+		EdgeID:     func(context.Context) (string, error) { return edgeID, nil },
+		EdgeTenant: func(context.Context, string) (string, error) { return "", errors.New("cannot resolve tenant") },
+	})
+	req := resultReport(1, accessv1.OperationPhase_OPERATION_PHASE_ADMITTED, func(r *dispatchv1.ExecuteResult) {
+		r.SetProgress(&dispatchv1.Progress{})
+	})
+	_, err := svc.Report(context.Background(), connect.NewRequest(req))
+	if err == nil {
+		t.Fatal("Report succeeded when EdgeTenant failed, want error")
+	}
+	if got := connect.CodeOf(err); got != connect.CodeUnavailable {
+		t.Fatalf("code = %v, want unavailable", got)
 	}
 }

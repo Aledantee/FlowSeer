@@ -929,8 +929,8 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 	if err := hub.AttachEdge(ctx, tenantA, edgeID); err != nil {
 		t.Fatalf("AttachEdge under tenant A: %v", err)
 	}
-	if got := hub.EdgeTenant(edgeID); got != tenantA {
-		t.Errorf("hub.EdgeTenant(%s) = %s, want %s", edgeID, got, tenantA)
+	if got, ok := hub.EdgeTenant(edgeID); !ok || got != tenantA {
+		t.Errorf("hub.EdgeTenant(%s) = (%s, %v), want (%s, true)", edgeID, got, ok, tenantA)
 	}
 
 	creds, err := hub.MintEdgeUser(ctx, edgeID)

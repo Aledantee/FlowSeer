@@ -56,7 +56,6 @@ var setupKeyStringPattern = regexp.MustCompile(`^fse1_[a-z2-7]{26}_[a-z2-7]{52}$
 type BusMinter interface {
 	AttachEdge(ctx context.Context, tenant, edgeID string) error
 	MintEdgeUser(ctx context.Context, edgeID string) (edgebus.EdgeCredentials, error)
-	Tenant() string
 }
 
 // CredentialSource resolves a pinned credential version to its material.
@@ -192,6 +191,10 @@ func (s *Service) AttachBus(ctx context.Context, _ *connect.Request[attachv1.Att
 	}
 	if tenantID == "" {
 		return nil, notFound(edgeID)
+	}
+
+	if err := s.bus.AttachEdge(ctx, tenantID, edgeID); err != nil {
+		return nil, connectErr(errs.From(err).Code(ErrCodeBus).Attr("edge", edgeID).Msg("attach edge to bus"))
 	}
 
 	creds, err := s.bus.MintEdgeUser(ctx, edgeID)

@@ -27,7 +27,7 @@ import (
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
@@ -72,8 +72,8 @@ type Config struct {
 	Journal *journal.Journal
 	// Resolver names the devices and their managed interfaces.
 	Resolver DeviceResolver
-	// EdgeTenant resolves an edge ID to its tenant ID; nil falls back to DefaultTenant.
-	EdgeTenant func(edgeID string) string
+	// EdgeTenant resolves an edge ID to its tenant ID. Must not be nil.
+	EdgeTenant func(ctx context.Context, edgeID string) (string, error)
 	// Audit records each detection.
 	Audit Audit
 	// Telemetry reports each detection as an event and a measurement.
@@ -108,7 +108,7 @@ type Poller struct {
 	log      *slog.Logger
 }
 
-// New builds the poller. A missing journal, resolver, or audit is refused
+// New builds the poller. A missing journal, resolver, audit, or edge tenant resolver is refused
 // rather than defaulted: a poll with no audit would detect drift and record
 // nothing, which is the failure the detector exists to prevent.
 func New(cfg Config) (*Poller, error) {
@@ -119,6 +119,8 @@ func New(cfg Config) (*Poller, error) {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("drift poll needs a device resolver")
 	case cfg.Audit == nil:
 		return nil, errs.New().Code(ErrCodeConfig).Msg("drift poll needs somewhere to record what it finds")
+	case cfg.EdgeTenant == nil:
+		return nil, errs.New().Code(ErrCodeConfig).Msg("drift poll needs an edge tenant resolver")
 	}
 
 	p := &Poller{cfg: cfg, clock: cfg.Clock, interval: cfg.Interval, deadline: cfg.ReadDeadline, log: cfg.Logger}
@@ -135,15 +137,6 @@ func New(cfg Config) (*Poller, error) {
 		p.log = slog.New(slog.DiscardHandler)
 	}
 	return p, nil
-}
-
-func (p *Poller) edgeTenant(edgeID string) string {
-	if p.cfg.EdgeTenant != nil {
-		if t := p.cfg.EdgeTenant(edgeID); t != "" {
-			return t
-		}
-	}
-	return edgebus.DefaultTenant
 }
 
 // Run polls every interval until ctx ends. It returns nil on cancellation: a
@@ -172,7 +165,15 @@ func (p *Poller) Pass(ctx context.Context) {
 		p.log.ErrorContext(ctx, "drift poll could not name the devices to poll", slog.String("flowseer.edge.id", edgeID), slog.String("error.type", telemetry.ErrorType(err)))
 		return
 	}
-	tenantID := p.edgeTenant(edgeID)
+	tenantID, err := p.cfg.EdgeTenant(ctx, edgeID)
+	if err != nil {
+		p.log.WarnContext(ctx, "drift poll skipped edge with unresolvable tenant", slog.String("flowseer.edge.id", edgeID), slog.String("error.type", telemetry.ErrorType(err)))
+		return
+	}
+	if err := tenant.Validate(tenantID); err != nil {
+		p.log.WarnContext(ctx, "drift poll skipped edge with invalid tenant", slog.String("flowseer.edge.id", edgeID), slog.String("flowseer.tenant.id", tenantID), slog.String("error.type", telemetry.ErrorType(err)))
+		return
+	}
 	for _, deviceID := range devices {
 		if err := p.pollDevice(ctx, tenantID, deviceID); err != nil {
 			p.log.ErrorContext(ctx, "drift poll skipped a device", slog.String("flowseer.tenant.id", tenantID), slog.String("flowseer.device.id", deviceID), slog.String("error.type", telemetry.ErrorType(err)))

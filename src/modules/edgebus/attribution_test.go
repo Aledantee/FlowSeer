@@ -64,28 +64,36 @@ func TestForwarderRefusesARecordOutsideItsStreamsEdge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	const testTenant = "11111111-2222-3333-4444-555555555555"
 	f := &Forwarder{
 		cfg:        ForwarderConfig{Endpoint: collector.URL, Client: collector.Client(), RetryDelay: time.Millisecond},
-		hub:        &Hub{},
+		hub:        &Hub{edges: map[string]*edgeAccount{"edge-a": {tenant: testTenant}}},
 		logger:     slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelWarn})),
 		refused:    refused,
 		lastLogged: map[string]time.Time{},
 	}
 	f.cfg.Client.Timeout = 5 * time.Second
 
-	own := &fakeMsg{subject: OTelSubject(DefaultTenant, "edge-a", SignalLogs), data: []byte("x")}
+	own := &fakeMsg{subject: OTelSubject(testTenant, "edge-a", SignalLogs), data: []byte("x")}
 	f.forward("edge-a", own)
 	if !own.acked || posted != 1 {
 		t.Fatalf("own record: acked=%v posted=%d", own.acked, posted)
 	}
 
-	foreign := &fakeMsg{subject: OTelSubject(DefaultTenant, "edge-b", SignalLogs), data: []byte("x")}
+	foreign := &fakeMsg{subject: OTelSubject(testTenant, "edge-b", SignalLogs), data: []byte("x")}
 	f.forward("edge-a", foreign)
 	if !foreign.termed || foreign.acked || posted != 1 {
 		t.Fatalf("foreign record: termed=%v acked=%v posted=%d", foreign.termed, foreign.acked, posted)
 	}
-	if f.Dropped() != 1 {
-		t.Fatalf("dropped = %d, want 1", f.Dropped())
+
+	unknown := &fakeMsg{subject: OTelSubject(testTenant, "edge-unknown", SignalLogs), data: []byte("x")}
+	f.forward("edge-unknown", unknown)
+	if !unknown.termed || unknown.acked || posted != 1 {
+		t.Fatalf("unknown edge record: termed=%v acked=%v posted=%d", unknown.termed, unknown.acked, posted)
+	}
+
+	if f.Dropped() != 2 {
+		t.Fatalf("dropped = %d, want 2", f.Dropped())
 	}
 
 	// The refusal is visible: a WARN event naming both edges, and a counter
@@ -109,7 +117,7 @@ func TestForwarderRefusesARecordOutsideItsStreamsEdge(t *testing.T) {
 			sum := m.Data.(metricdata.Sum[int64])
 			for _, point := range sum.DataPoints {
 				reason, _ := point.Attributes.Value("flowseer.edgebus.reason")
-				if reason.AsString() == reasonForeignSubject && point.Value == 1 {
+				if reason.AsString() == reasonForeignSubject && point.Value == 2 {
 					found = true
 				}
 				if _, hasEdge := point.Attributes.Value("flowseer.edge.id"); hasEdge {
@@ -124,8 +132,8 @@ func TestForwarderRefusesARecordOutsideItsStreamsEdge(t *testing.T) {
 
 	// A second refusal inside the interval is counted but not logged again.
 	logs.Reset()
-	f.forward("edge-a", &fakeMsg{subject: OTelSubject(DefaultTenant, "edge-b", SignalLogs)})
-	if f.Dropped() != 2 || logs.Len() != 0 {
+	f.forward("edge-a", &fakeMsg{subject: OTelSubject(testTenant, "edge-b", SignalLogs)})
+	if f.Dropped() != 3 || logs.Len() != 0 {
 		t.Fatalf("second refusal: dropped=%d logged=%q", f.Dropped(), logs.String())
 	}
 }

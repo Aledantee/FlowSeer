@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -98,6 +99,16 @@ func newOperatorTestHarness(t *testing.T) *operatorTestHarness {
 	h.store = newTestStoreWithClock(t, h.now)
 
 	svc := captureapi.NewOperatorService(h.store, broadcaster, captureapi.OperatorServiceConfig{
+		EdgeTenant: func(_ context.Context, edgeID string) (string, error) {
+			switch edgeID {
+			case testEdge1ID:
+				return testTenantID, nil
+			case testEdge2ID:
+				return testTenantB, nil
+			default:
+				return "", errors.New("edge not found")
+			}
+		},
 		NotifyChange: func() {
 			h.notifyCount.Add(1)
 		},
@@ -1174,5 +1185,25 @@ func TestOperatorService_UnauthenticatedWithoutTenantContext(t *testing.T) {
 	_, err = h.client.ListCaptureSessions(ctx, listReq)
 	if connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Errorf("ListCaptureSessions without tenant got %v, want CodeUnauthenticated", connect.CodeOf(err))
+	}
+}
+
+func TestCreateCaptureSessionRefusesForeignTenantEdge(t *testing.T) {
+	h := newOperatorTestHarness(t)
+	ctx := context.Background()
+
+	// Caller is authenticated under testTenantID (tenant A).
+	// testEdge2ID is owned by testTenantB (tenant B).
+	req := newTestCreateRequest(100)
+	req.SetEdge(edgev1.EdgeGlobalRef_builder{
+		Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(testEdge2ID)}.Build(),
+	}.Build())
+
+	_, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(req))
+	if err == nil {
+		t.Fatal("CreateCaptureSession accepted an edge owned by another tenant")
+	}
+	if got := connect.CodeOf(err); got != connect.CodeNotFound {
+		t.Fatalf("code = %v, want CodeNotFound", got)
 	}
 }

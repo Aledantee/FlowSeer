@@ -58,7 +58,7 @@ func (b binding) Hosts(context.Context, string, string) (bool, error) {
 	return b.hosts, nil
 }
 
-func edgeTenant(_ string) string { return tenant }
+func edgeTenant(context.Context, string) (string, error) { return tenant, nil }
 
 func TestDeliverFailsWhenTheStreamRefuses(t *testing.T) {
 	svc := auditapi.New(refusing{}, binding{hosts: true}, edgeTenant)
@@ -156,9 +156,9 @@ func TestDeliverMultiTenantAuditSubject(t *testing.T) {
 	}
 	t.Cleanup(hub.Close)
 
-	const customTenant = "tenant-custom-42"
-	svc := auditapi.New(auditapi.JetStreamPublisher{JS: hub.JetStream()}, binding{hosts: true}, func(string) string {
-		return customTenant
+	const customTenant = "0192e6a0-0000-7000-8000-0000000000aa"
+	svc := auditapi.New(auditapi.JetStreamPublisher{JS: hub.JetStream()}, binding{hosts: true}, func(context.Context, string) (string, error) {
+		return customTenant, nil
 	})
 
 	const id = "0192e6a0-0000-7000-8000-00000000e099"
@@ -167,5 +167,29 @@ func TestDeliverMultiTenantAuditSubject(t *testing.T) {
 	}
 	if got := streamMsgs(ctx, t, hub); got != 1 {
 		t.Fatalf("audit stream holds %d messages, want 1", got)
+	}
+	stream, err := hub.JetStream().Stream(ctx, edgebus.AuditStream)
+	if err != nil {
+		t.Fatalf("audit stream: %v", err)
+	}
+	msg, err := stream.GetLastMsgForSubject(ctx, edgebus.AuditSubject(customTenant, deviceID))
+	if err != nil {
+		t.Fatalf("get message under tenant subject: %v", err)
+	}
+	if msg == nil {
+		t.Fatal("expected message under custom tenant subject")
+	}
+}
+
+func TestDeliverRefusesWhenEdgeTenantFails(t *testing.T) {
+	svc := auditapi.New(refusing{}, binding{hosts: true}, func(context.Context, string) (string, error) {
+		return "", errors.New("cannot resolve tenant")
+	})
+	err := deliver(t, svc, "0192e6a0-0000-7000-8000-00000000e001")
+	if err == nil {
+		t.Fatal("Deliver succeeded when edgeTenant failed, want error")
+	}
+	if got := connect.CodeOf(err); got != connect.CodeUnavailable {
+		t.Fatalf("code = %v, want unavailable", got)
 	}
 }

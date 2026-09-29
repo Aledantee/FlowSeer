@@ -890,3 +890,103 @@ func TestCrossTenantCaptureIsolation(t *testing.T) {
 		t.Error("tenantB artifact was removed when tenantA was deleted")
 	}
 }
+
+func TestStoreRejectsInvalidTenant(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	const invalidTenant = "not-a-valid-tenant"
+
+	if _, err := s.CreateSession(ctx, invalidTenant, newSessionConfig(t, testSessionID)); err == nil {
+		t.Fatal("CreateSession accepted invalid tenant")
+	}
+	if _, _, err := s.Session(ctx, invalidTenant, testSessionID); err == nil {
+		t.Fatal("Session accepted invalid tenant")
+	}
+	if _, err := s.ListSessions(ctx, invalidTenant); err == nil {
+		t.Fatal("ListSessions accepted invalid tenant")
+	}
+	if err := s.DeleteSession(ctx, invalidTenant, testSessionID); err == nil {
+		t.Fatal("DeleteSession accepted invalid tenant")
+	}
+	if _, err := s.MutateSession(ctx, invalidTenant, testSessionID, func(*modelcapturev1.CaptureSessionRecord) error { return nil }); err == nil {
+		t.Fatal("MutateSession accepted invalid tenant")
+	}
+	if err := s.ReadArtifact(ctx, invalidTenant, testSessionID, func(*modelcapturev1.CaptureArtifactChunk) error { return nil }); err == nil {
+		t.Fatal("ReadArtifact accepted invalid tenant")
+	}
+}
+
+func TestListSessionsFiltersNonUUIDRemainder(t *testing.T) {
+	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+		StateDir:    t.TempDir(),
+		FsyncPolicy: service.BusFsyncPeriodic,
+		ListenPort:  0,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+	kv, err := hub.JetStream().KeyValue(context.Background(), edgebus.CapturesBucket)
+	if err != nil {
+		t.Fatalf("captures bucket: %v", err)
+	}
+	capturesDir := filepath.Join(t.TempDir(), "captures")
+	store, err := captureapi.NewStore(kv, capturesDir, time.Now)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	ctx := context.Background()
+
+	// Create a valid session
+	if _, err := store.CreateSession(ctx, testTenantID, newSessionConfig(t, testSessionID)); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	// Directly insert a key with non-UUID remainder
+	if _, err := kv.Put(ctx, testTenantID+".not-a-uuid", []byte("garbage")); err != nil {
+		t.Fatalf("put key: %v", err)
+	}
+
+	sessions, err := store.ListSessions(ctx, testTenantID)
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("ListSessions returned %d sessions, want 1", len(sessions))
+	}
+	if got := sessions[0].GetConfig().GetRef().GetCaptureSession().GetId(); got != testSessionID {
+		t.Fatalf("session ID = %q, want %q", got, testSessionID)
+	}
+}
+
+func TestSweepExpiredReportsUnparseableKeysAsFailures(t *testing.T) {
+	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+		StateDir:    t.TempDir(),
+		FsyncPolicy: service.BusFsyncPeriodic,
+		ListenPort:  0,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+	kv, err := hub.JetStream().KeyValue(context.Background(), edgebus.CapturesBucket)
+	if err != nil {
+		t.Fatalf("captures bucket: %v", err)
+	}
+	capturesDir := filepath.Join(t.TempDir(), "captures")
+	store, err := captureapi.NewStore(kv, capturesDir, time.Now)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	ctx := context.Background()
+
+	// Directly insert an unparseable key (single part)
+	if _, err := kv.Put(ctx, "unparseablekey", []byte("garbage")); err != nil {
+		t.Fatalf("put key: %v", err)
+	}
+
+	_, err = store.SweepExpired(ctx)
+	if err == nil {
+		t.Fatal("SweepExpired returned nil error for unparseable key, want failure")
+	}
+}

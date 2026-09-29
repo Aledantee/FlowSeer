@@ -50,7 +50,7 @@ func rejected(sequence uint64) *accessv1.MutationState {
 func TestDispatchRejectedRecordsTheDispositionAndTheReason(t *testing.T) {
 	pub := &publisher{}
 	clock := func() time.Time { return time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC) }
-	emitter := centralaudit.New(pub, edgebus.DefaultTenant, clock)
+	emitter := centralaudit.New(pub, clock)
 
 	err := emitter.DispatchRejected(context.Background(), edgebus.DefaultTenant, deviceRef(), rejected(4),
 		accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED, "mutation/firmware-epoch")
@@ -89,7 +89,7 @@ func TestDispatchRejectedRecordsTheDispositionAndTheReason(t *testing.T) {
 // would leave a rejection with no trace and nothing saying so.
 func TestDispatchRejectedReportsAFailedPublish(t *testing.T) {
 	pub := &publisher{err: errors.New("stream refused the publish")}
-	emitter := centralaudit.New(pub, edgebus.DefaultTenant, nil)
+	emitter := centralaudit.New(pub, nil)
 
 	err := emitter.DispatchRejected(context.Background(), edgebus.DefaultTenant, deviceRef(), rejected(4),
 		accessv1.OperationPhase_OPERATION_PHASE_ADMITTED, "mutation/firmware-epoch")
@@ -103,7 +103,7 @@ func TestDispatchRejectedReportsAFailedPublish(t *testing.T) {
 // administering.
 func TestDriftDetectedRecordsBothValues(t *testing.T) {
 	pub := &publisher{}
-	emitter := centralaudit.New(pub, edgebus.DefaultTenant, nil)
+	emitter := centralaudit.New(pub, nil)
 
 	err := emitter.DriftDetected(context.Background(), edgebus.DefaultTenant, deviceRef(), "ethernet 1/1/1", "uplink to core", "temporary")
 	if err != nil {
@@ -133,7 +133,7 @@ func TestDriftDetectedRecordsBothValues(t *testing.T) {
 
 func TestDispatchRejectedCustomTenant(t *testing.T) {
 	pub := &publisher{}
-	emitter := centralaudit.New(pub, edgebus.DefaultTenant, nil)
+	emitter := centralaudit.New(pub, nil)
 	customTenant := "0192e6a0-0000-7000-8000-0000000000aa"
 
 	err := emitter.DispatchRejected(context.Background(), customTenant, deviceRef(), rejected(1),
@@ -144,5 +144,18 @@ func TestDispatchRejectedCustomTenant(t *testing.T) {
 
 	if want := edgebus.AuditSubject(customTenant, deviceID); pub.subject != want {
 		t.Errorf("subject = %q, want %q", pub.subject, want)
+	}
+}
+
+func TestEmitRejectsEmptyOrInvalidTenant(t *testing.T) {
+	pub := &publisher{}
+	emitter := centralaudit.New(pub, nil)
+
+	for _, bad := range []string{"", "not-a-uuid", "acme.prod"} {
+		err := emitter.DispatchRejected(context.Background(), bad, deviceRef(), rejected(1),
+			accessv1.OperationPhase_OPERATION_PHASE_ADMITTED, "mutation/firmware-epoch")
+		if code, _ := errs.CodeOf(err); code != centralaudit.ErrCodePublish {
+			t.Errorf("bad tenant %q error code = %v, want ErrCodePublish", bad, code)
+		}
 	}
 }

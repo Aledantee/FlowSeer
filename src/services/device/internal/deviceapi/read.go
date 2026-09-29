@@ -11,7 +11,6 @@ import (
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/tenant"
 )
 
 // ReadInterface opens a read on the device's lane and waits for the answer.
@@ -23,11 +22,7 @@ import (
 // passes first the read stays open and its answer still lands in the record;
 // only this call gives up.
 func (s *Service) ReadInterface(ctx context.Context, req *connect.Request[devicev1.ReadInterfaceRequest]) (*connect.Response[devicev1.ReadInterfaceResponse], error) {
-	tenantID, err := tenant.FromContext(ctx)
-	if err != nil {
-		return nil, connectErr(err)
-	}
-	deviceID, entry, err := s.device(req.Msg.GetDevice())
+	deviceID, laneTenant, entry, err := s.device(ctx, req.Msg.GetDevice())
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -48,12 +43,12 @@ func (s *Service) ReadInterface(ctx context.Context, req *connect.Request[device
 	intent.SetInterfaceName(iface)
 	read.SetInterface(intent)
 
-	sequence, err := s.cfg.Journal.OpenRead(ctx, tenantID, deviceID, req.Msg.GetDevice(), iface, read, uuid.NewString(), deadline)
+	sequence, err := s.cfg.Journal.OpenRead(ctx, laneTenant, deviceID, req.Msg.GetDevice(), iface, read, uuid.NewString(), deadline)
 	if err != nil {
 		return nil, connectErr(err)
 	}
 
-	observation, err := s.awaitRead(ctx, tenantID, deviceID, iface, sequence)
+	observation, err := s.awaitRead(ctx, laneTenant, deviceID, iface, sequence)
 	if err != nil {
 		return nil, connectErr(err)
 	}

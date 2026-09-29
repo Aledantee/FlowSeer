@@ -274,4 +274,13 @@ platform_admin {
 	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
 		t.Fatalf("expected ErrCodeConfigInvalid for platform_admin missing issuer, got %v", err)
 	}
+
+	// Non-UUID dev_tenant fails validation
+	badDevTenant := validConfig + `
+dev_tenant: "acme.prod"
+`
+	_, err = host.LoadConfig(writeConfig(t, badDevTenant))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("expected ErrCodeConfigInvalid for non-UUID dev_tenant, got %v", err)
+	}
 }

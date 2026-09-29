@@ -8,7 +8,6 @@ import (
 
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
-	"go.aledante.io/FlowSeer/src/common/tenant"
 )
 
 // GetDeviceAccessStatus reports the record: how far the device's sequence has
@@ -19,15 +18,11 @@ import (
 // and writes nothing. The interface rows come out in name order, because a map
 // would otherwise hand the same device a different answer each time.
 func (s *Service) GetDeviceAccessStatus(ctx context.Context, req *connect.Request[devicev1.GetDeviceAccessStatusRequest]) (*connect.Response[devicev1.GetDeviceAccessStatusResponse], error) {
-	tenantID, err := tenant.FromContext(ctx)
+	deviceID, laneTenant, _, err := s.device(ctx, req.Msg.GetDevice())
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	deviceID, _, err := s.device(req.Msg.GetDevice())
-	if err != nil {
-		return nil, connectErr(err)
-	}
-	record, err := s.cfg.Journal.Record(ctx, tenantID, deviceID)
+	record, err := s.cfg.Journal.Record(ctx, laneTenant, deviceID)
 	if err != nil {
 		return nil, connectErr(err)
 	}

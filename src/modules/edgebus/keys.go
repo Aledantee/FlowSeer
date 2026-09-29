@@ -1,6 +1,7 @@
 package edgebus
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -65,8 +66,8 @@ type persistedEdge struct {
 }
 
 // persistedEdgeIDs lists the edges whose account keys are on disk, reading each
-// edge's tenant from its sidecar file (or defaulting to DefaultTenant if
-// absent), so a restarted hub re-attaches every edge under its persisted tenant.
+// edge's tenant from its sidecar file, so a restarted hub re-attaches every
+// edge under its persisted tenant.
 func (k *hubKeys) persistedEdgeIDs() ([]persistedEdge, error) {
 	entries, err := os.ReadDir(k.dir)
 	if err != nil {
@@ -77,31 +78,41 @@ func (k *hubKeys) persistedEdgeIDs() ([]persistedEdge, error) {
 		name := entry.Name()
 		if strings.HasPrefix(name, "edge-") && strings.HasSuffix(name, ".nk") {
 			edgeID := strings.TrimSuffix(strings.TrimPrefix(name, "edge-"), ".nk")
+			t, _, err := k.edgeTenant(edgeID)
+			if err != nil {
+				return nil, err
+			}
 			edges = append(edges, persistedEdge{
 				id:     edgeID,
-				tenant: k.edgeTenant(edgeID),
+				tenant: t,
 			})
 		}
 	}
 	return edges, nil
 }
 
-func (k *hubKeys) persistEdgeTenant(edgeID, tenant string) error {
-	if tenant == "" {
-		tenant = DefaultTenant
-	}
+func (k *hubKeys) persistEdgeTenant(edgeID, tenantID string) error {
 	tenantPath := filepath.Join(k.dir, "edge-"+edgeID+".tenant")
-	return writeSecretFile(tenantPath, []byte(tenant+"\n"))
+	if err := writeSecretFile(tenantPath, []byte(tenantID+"\n")); err != nil {
+		return errs.From(err).Code(ErrCodeKeys).Attr("path", tenantPath).Msg("store edge tenant")
+	}
+	return nil
 }
 
-func (k *hubKeys) edgeTenant(edgeID string) string {
+func (k *hubKeys) edgeTenant(edgeID string) (string, bool, error) {
 	tenantPath := filepath.Join(k.dir, "edge-"+edgeID+".tenant")
-	if data, err := os.ReadFile(tenantPath); err == nil {
-		if t := strings.TrimSpace(string(data)); t != "" {
-			return t
-		}
+	data, err := os.ReadFile(tenantPath)
+	if errors.Is(err, os.ErrNotExist) {
+		return "", false, nil
 	}
-	return DefaultTenant
+	if err != nil {
+		return "", false, errs.From(err).Code(ErrCodeKeys).Attr("path", tenantPath).Msg("read edge tenant")
+	}
+	t := strings.TrimSpace(string(data))
+	if t == "" {
+		return "", false, nil
+	}
+	return t, true, nil
 }
 
 // validEdgeID reports whether id is safe to use as a file name component

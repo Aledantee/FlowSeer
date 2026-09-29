@@ -218,11 +218,12 @@ func (f *Forwarder) forward(edgeID string, msg jetstream.Msg) {
 	ctx, cancel := context.WithTimeout(context.Background(), f.cfg.Client.Timeout)
 	defer cancel()
 	signal, ok := signalOf(msg.Subject())
+	tenantID, knownEdge := f.hub.EdgeTenant(edgeID)
 	switch {
 	case !ok:
 		f.refuse(ctx, edgeID, msg, reasonNotOTel, "")
 		return
-	case !belongsToEdge(f.hub.EdgeTenant(edgeID), edgeID, msg.Subject()):
+	case !knownEdge || !belongsToEdge(tenantID, edgeID, msg.Subject()):
 		f.refuse(ctx, edgeID, msg, reasonForeignSubject, string(signal))
 		return
 	}

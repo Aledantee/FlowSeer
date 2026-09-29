@@ -4,11 +4,19 @@ package tenant
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
+// DefaultTenant is the default tenant identifier used in dev and test environments.
+const DefaultTenant = "default"
+
 // ErrCodeNoTenant is the error code returned when no tenant is found in context.
 var ErrCodeNoTenant = errs.NewCode("tenant/no-tenant")
+
+// ErrCodeInvalidTenant is the error code returned when a tenant identifier is not valid.
+var ErrCodeInvalidTenant = errs.NewCode("tenant/invalid-tenant")
 
 type contextKey struct{}
 
@@ -27,4 +35,16 @@ func FromContext(ctx context.Context) (string, error) {
 		return "", errs.New().Code(ErrCodeNoTenant).Msg("no tenant in context")
 	}
 	return val, nil
+}
+
+// Validate checks that tenantID is either a valid UUID or DefaultTenant.
+func Validate(tenantID string) error {
+	if tenantID == DefaultTenant {
+		return nil
+	}
+	if _, err := uuid.Parse(tenantID); err != nil {
+		return errs.New().Code(ErrCodeInvalidTenant).Attr("tenant", tenantID).
+			Msg("tenant identifier must be a UUID or the default tenant")
+	}
+	return nil
 }

@@ -2,6 +2,7 @@ package deviceapi_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -122,6 +123,12 @@ func newHarness(t *testing.T) *harness {
 	svc, err := deviceapi.New(deviceapi.Config{
 		Journal:  j,
 		Resolver: res,
+		EdgeTenant: func(_ context.Context, id string) (string, error) {
+			if id == edgeID {
+				return testTenant, nil
+			}
+			return "", errors.New("unknown edge")
+		},
 		Watcher:  deviceapi.NewKVWatcher(kv),
 		ReadPoll: 20 * time.Millisecond,
 	})
@@ -963,41 +970,47 @@ func TestResolveReplaceRefusesAnIntentNamingAnotherDevice(t *testing.T) {
 
 func TestCrossTenantDeviceIsolation(t *testing.T) {
 	h := newHarness(t)
-	tenantA := "0192e6a0-0000-7000-8000-0000000000aa"
 	tenantB := "0192e6a0-0000-7000-8000-0000000000bb"
-	ctxA := tenant.WithTenant(context.Background(), tenantA)
 	ctxB := tenant.WithTenant(context.Background(), tenantB)
 
-	// Apply under tenant A
-	intent := intentFor("applied on A")
-	respA, err := h.svc.ApplyInterfaceDescription(ctxA, applyRequest(intent, false))
-	if err != nil {
-		t.Fatalf("apply tenant A: %v", err)
-	}
-	if respA.Msg.GetMutation().GetSequence() != 1 {
-		t.Fatalf("seq tenant A = %d, want 1", respA.Msg.GetMutation().GetSequence())
-	}
+	// Apply under tenant B for tenant A's device -> NotFound
+	intentB := intentFor("applied on B")
+	_, err := h.svc.ApplyInterfaceDescription(ctxB, applyRequest(intentB, false))
+	wantCode(t, err, connect.CodeNotFound)
 
-	// Status under tenant B for same device should have no mutation
+	// Status under tenant B for tenant A's device -> NotFound
 	statusReq := &devicev1.GetDeviceAccessStatusRequest{}
 	statusReq.SetDevice(deviceRef())
-	statusB, err := h.svc.GetDeviceAccessStatus(ctxB, connect.NewRequest(statusReq))
-	if err != nil {
-		t.Fatalf("status tenant B: %v", err)
-	}
-	if statusB.Msg.GetUnresolved() != nil {
-		t.Fatalf("tenant B saw unresolved mutation: %v", statusB.Msg.GetUnresolved())
-	}
+	_, err = h.svc.GetDeviceAccessStatus(ctxB, connect.NewRequest(statusReq))
+	wantCode(t, err, connect.CodeNotFound)
 
-	// Apply under tenant B for same device succeeds (isolated lane)
-	intentB := intentFor("applied on B")
-	respB, err := h.svc.ApplyInterfaceDescription(ctxB, applyRequest(intentB, false))
-	if err != nil {
-		t.Fatalf("apply tenant B: %v", err)
-	}
-	if respB.Msg.GetMutation().GetSequence() != 1 {
-		t.Fatalf("seq tenant B = %d, want 1", respB.Msg.GetMutation().GetSequence())
-	}
+	// Read under tenant B for tenant A's device -> NotFound
+	readReq := &devicev1.ReadInterfaceRequest{}
+	readReq.SetDevice(deviceRef())
+	readReq.SetInterfaceName(iface)
+	_, err = h.svc.ReadInterface(ctxB, connect.NewRequest(readReq))
+	wantCode(t, err, connect.CodeNotFound)
+
+	// Abandon under tenant B for tenant A's device -> NotFound
+	abandonReq := &devicev1.AbandonMutationRequest{}
+	abandonReq.SetDevice(deviceRef())
+	abandonReq.SetSequence(1)
+	_, err = h.svc.AbandonMutation(ctxB, connect.NewRequest(abandonReq))
+	wantCode(t, err, connect.CodeNotFound)
+
+	// Resolve under tenant B for tenant A's device -> NotFound
+	resolveReq := &devicev1.ResolveDesynchronizationRequest{}
+	resolveReq.SetDevice(deviceRef())
+	resolveReq.SetSequence(1)
+	resolveReq.SetAccept(&devicev1.AcceptObservedDecision{})
+	_, err = h.svc.ResolveDesynchronization(ctxB, connect.NewRequest(resolveReq))
+	wantCode(t, err, connect.CodeNotFound)
+
+	// ListEdgeOpenMutations under tenant B for tenant A's edge -> NotFound
+	listReq := &devicev1.ListEdgeOpenMutationsRequest{}
+	listReq.SetEdgeId(edgeID)
+	_, err = h.svc.ListEdgeOpenMutations(ctxB, connect.NewRequest(listReq))
+	wantCode(t, err, connect.CodeNotFound)
 }
 
 func TestUnauthenticatedWithoutTenant(t *testing.T) {

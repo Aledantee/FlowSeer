@@ -37,6 +37,7 @@ func unauthenticatedOperator(err error) error {
 // OperatorServiceConfig configures an [OperatorService]. Nil NotifyChange is a
 // no-op, and nil Clock uses the wall clock.
 type OperatorServiceConfig struct {
+	EdgeTenant   func(ctx context.Context, edgeID string) (string, error)
 	NotifyChange func()
 	Clock        func() time.Time
 }
@@ -47,6 +48,7 @@ type OperatorServiceConfig struct {
 type OperatorService struct {
 	store        *Store
 	broadcaster  *Broadcaster
+	edgeTenant   func(ctx context.Context, edgeID string) (string, error)
 	notifyChange func()
 	clock        func() time.Time
 }
@@ -67,6 +69,7 @@ func NewOperatorService(store *Store, broadcaster *Broadcaster, cfg OperatorServ
 	return &OperatorService{
 		store:        store,
 		broadcaster:  broadcaster,
+		edgeTenant:   cfg.EdgeTenant,
 		notifyChange: notify,
 		clock:        clock,
 	}
@@ -88,6 +91,14 @@ func (s *OperatorService) CreateCaptureSession(
 
 	if msg.GetEdge() == nil || msg.GetEdge().GetEdge().GetId() == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("edge is required"))
+	}
+	edgeID := msg.GetEdge().GetEdge().GetId()
+	if s.edgeTenant == nil {
+		return nil, connect.NewError(connect.CodeUnavailable, errs.Msg("edge tenant resolver not configured"))
+	}
+	owner, err := s.edgeTenant(ctx, edgeID)
+	if err != nil || owner != tenantID {
+		return nil, connect.NewError(connect.CodeNotFound, errs.Msg("edge not found"))
 	}
 	if msg.GetSource() == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("capture source is required"))

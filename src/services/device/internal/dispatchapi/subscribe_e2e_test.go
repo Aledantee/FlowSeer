@@ -24,11 +24,12 @@ func TestSubscribeStreamsOnOpenAndWakesOnChange(t *testing.T) {
 	// after the record change can only have come from the watch waking the
 	// loop, not from the fallback ticker. With Watch nil this test would hang.
 	svc := New(Config{
-		Journal:  j,
-		Resolver: fakeResolver{lists: true},
-		Watch:    kv,
-		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
-		Resend:   10 * time.Minute,
+		Journal:    j,
+		Resolver:   fakeResolver{lists: true},
+		Watch:      kv,
+		EdgeID:     func(context.Context) (string, error) { return edgeID, nil },
+		EdgeTenant: func(context.Context, string) (string, error) { return tTenant, nil },
+		Resend:     10 * time.Minute,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

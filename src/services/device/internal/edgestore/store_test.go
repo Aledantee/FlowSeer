@@ -221,3 +221,29 @@ func TestMutateSkipWritesNothing(t *testing.T) {
 		t.Fatalf("a skipped mutate wrote a record: revision %d, err %v", revision, err)
 	}
 }
+
+func TestTenantValidation(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+	invalidTenants := []string{"not-a-uuid", "acme.prod", "../escape"}
+
+	for _, bad := range invalidTenants {
+		if _, _, err := s.Get(ctx, bad, edgeID); err == nil {
+			t.Errorf("Get with bad tenant %q succeeded, want error", bad)
+		}
+		if _, err := s.Mutate(ctx, bad, edgeID, func(c *storev1.StoredEdge) (*storev1.StoredEdge, error) {
+			return nil, edgestore.ErrSkip
+		}); err == nil {
+			t.Errorf("Mutate with bad tenant %q succeeded, want error", bad)
+		}
+		if _, err := s.Keys(ctx, bad); err == nil {
+			t.Errorf("Keys with bad tenant %q succeeded, want error", bad)
+		}
+		if err := s.IndexSetupKey(ctx, "key-1", bad, edgeID); err == nil {
+			t.Errorf("IndexSetupKey with bad tenant %q succeeded, want error", bad)
+		}
+		if err := s.IndexEdge(ctx, edgeID, bad); err == nil {
+			t.Errorf("IndexEdge with bad tenant %q succeeded, want error", bad)
+		}
+	}
+}

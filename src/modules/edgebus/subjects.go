@@ -10,8 +10,8 @@ import (
 // confines the edge by prefix; the OpenTelemetry signals take the otel
 // branch and each ingestion source will take ingest.<source>.
 const (
-	// DefaultTenant is the one account this slice runs; the tenant token
-	// carries no broker enforcement until a second account exists.
+	// DefaultTenant is the default tenant identifier used during development
+	// and testing when no ambient tenant is configured.
 	DefaultTenant = "default"
 
 	// EdgeBufferStream is the file-backed stream on the edge's own JetStream

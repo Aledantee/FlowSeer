@@ -417,7 +417,7 @@ type DeviceServiceConfig_builder struct {
 	// Identity of the platform administrator permitted to manage tenants.
 	PlatformAdmin *PlatformAdmin
 	// Tenant injected into unauthenticated requests during development and testing.
-	// Unset means no ambient tenant is injected.
+	// When unset, the device service defaults to injecting the default tenant ("default").
 	DevTenant *string
 }
 
@@ -1339,7 +1339,7 @@ var File_flowseer_store_device_v1_service_config_proto protoreflect.FileDescript
 
 const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\n" +
-	"-flowseer/store/device/v1/service_config.proto\x12\x18flowseer.store.device.v1\x1a\x1egoogle/protobuf/duration.proto\"\xa1\x05\n" +
+	"-flowseer/store/device/v1/service_config.proto\x12\x18flowseer.store.device.v1\x1a\x1egoogle/protobuf/duration.proto\"\x9f\x05\n" +
 	"\x13DeviceServiceConfig\x12,\n" +
 	"\tstate_dir\x18\x01 \x01(\tB\x0f\xbaH\f\xc8\x01\x01r\a\x18\x80 2\x02^/R\bstateDir\x122\n" +
 	"\rregistry_path\x18\x02 \x01(\tB\r\xbaH\n" +
@@ -1350,11 +1350,10 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\ttelemetry\x18\x06 \x01(\v2*.flowseer.store.device.v1.ServiceTelemetryR\ttelemetry\x12H\n" +
 	"\tintervals\x18\a \x01(\v2*.flowseer.store.device.v1.ServiceIntervalsR\tintervals\x12?\n" +
 	"\tlog_level\x18\b \x01(\x0e2\".flowseer.store.device.v1.LogLevelR\blogLevel\x12N\n" +
-	"\x0eplatform_admin\x18\t \x01(\v2'.flowseer.store.device.v1.PlatformAdminR\rplatformAdmin\x12)\n" +
+	"\x0eplatform_admin\x18\t \x01(\v2'.flowseer.store.device.v1.PlatformAdminR\rplatformAdmin\x12'\n" +
 	"\n" +
 	"dev_tenant\x18\n" +
-	" \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\tdevTenant\"\x95\x01\n" +
+	" \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\tdevTenant\"\x95\x01\n" +
 	"\rPlatformAdmin\x12(\n" +
 	"\x06issuer\x18\x01 \x01(\tB\x10\xbaH\r\xc8\x01\x01r\b\x10\x01\x18\x80\x10\x88\x01\x01R\x06issuer\x121\n" +
 	"\forganization\x18\x02 \x01(\tB\r\xbaH\n" +

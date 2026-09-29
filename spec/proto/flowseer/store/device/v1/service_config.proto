@@ -65,10 +65,9 @@ message DeviceServiceConfig {
   // Identity of the platform administrator permitted to manage tenants.
   PlatformAdmin platform_admin = 9;
   // Tenant injected into unauthenticated requests during development and testing.
-  // Unset means no ambient tenant is injected.
+  // When unset, the device service defaults to injecting the default tenant ("default").
   string dev_tenant = 10 [
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 128
+    (buf.validate.field).string.uuid = true
   ];
 }
 

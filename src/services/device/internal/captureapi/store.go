@@ -20,6 +20,7 @@ import (
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/capture/pcapng"
 )
 
@@ -84,8 +85,11 @@ func NewStore(kv jetstream.KeyValue, capturesDir string, clock func() time.Time)
 	}, nil
 }
 
-func captureKey(tenantID, sessionID string) string {
-	return tenantID + "." + sessionID
+func captureKey(tenantID, sessionID string) (string, error) {
+	if err := tenant.Validate(tenantID); err != nil {
+		return "", errs.From(err).Code(ErrCodeBadSession).Attr("tenant", tenantID).Msg("validate tenant")
+	}
+	return tenantID + "." + sessionID, nil
 }
 
 // artifactPath maps a tenant and session identifier onto its pcapng file. The
@@ -95,8 +99,8 @@ func captureKey(tenantID, sessionID string) string {
 // capturesDir, and the streaming RPCs are not covered by the validating
 // interceptor.
 func (s *Store) artifactPath(tenantID, sessionID string) (string, error) {
-	if tenantID == "" {
-		return "", errs.New().Code(ErrCodeBadSession).Msg("empty tenant identifier")
+	if err := tenant.Validate(tenantID); err != nil {
+		return "", errs.From(err).Code(ErrCodeBadSession).Attr("tenant", tenantID).Msg("validate tenant")
 	}
 	if _, err := uuid.Parse(sessionID); err != nil {
 		return "", errs.From(err).Code(ErrCodeBadSession).Attr("session", sessionID).Msg("capture session identifier is not a uuid")
@@ -110,8 +114,8 @@ func (s *Store) artifactPath(tenantID, sessionID string) (string, error) {
 
 // CreateSession persists a new capture session in the PENDING state.
 func (s *Store) CreateSession(ctx context.Context, tenantID string, config *modelcapturev1.CaptureSessionConfig) (*modelcapturev1.CaptureSessionRecord, error) {
-	if tenantID == "" {
-		return nil, errs.New().Code(ErrCodeStore).Msg("empty tenant identifier")
+	if err := tenant.Validate(tenantID); err != nil {
+		return nil, errs.From(err).Code(ErrCodeBadSession).Attr("tenant", tenantID).Msg("validate tenant")
 	}
 	sessionID := config.GetRef().GetCaptureSession().GetId()
 	if sessionID == "" {
@@ -133,7 +137,10 @@ func (s *Store) CreateSession(ctx context.Context, tenantID string, config *mode
 		return nil, errs.From(err).Code(ErrCodeDecode).Attr("session", sessionID).Msg("encode capture session record")
 	}
 
-	key := captureKey(tenantID, sessionID)
+	key, err := captureKey(tenantID, sessionID)
+	if err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	delete(s.deleted, key)
 	s.mu.Unlock()
@@ -151,7 +158,10 @@ func (s *Store) CreateSession(ctx context.Context, tenantID string, config *mode
 // Session returns one capture session record and its revision, or (nil, 0,
 // nil) if the session does not exist.
 func (s *Store) Session(ctx context.Context, tenantID, sessionID string) (*modelcapturev1.CaptureSessionRecord, uint64, error) {
-	key := captureKey(tenantID, sessionID)
+	key, err := captureKey(tenantID, sessionID)
+	if err != nil {
+		return nil, 0, err
+	}
 	entry, err := s.kv.Get(ctx, key)
 	if errors.Is(err, jetstream.ErrKeyNotFound) {
 		return nil, 0, nil
@@ -169,6 +179,9 @@ func (s *Store) Session(ctx context.Context, tenantID, sessionID string) (*model
 
 // ListSessions returns all capture session records belonging to tenantID ordered by session identifier.
 func (s *Store) ListSessions(ctx context.Context, tenantID string) ([]*modelcapturev1.CaptureSessionRecord, error) {
+	if err := tenant.Validate(tenantID); err != nil {
+		return nil, errs.From(err).Code(ErrCodeBadSession).Attr("tenant", tenantID).Msg("validate tenant")
+	}
 	keys, err := s.kv.Keys(ctx)
 	if errors.Is(err, jetstream.ErrNoKeysFound) {
 		return nil, nil
@@ -181,7 +194,11 @@ func (s *Store) ListSessions(ctx context.Context, tenantID string) ([]*modelcapt
 	var sessionIDs []string
 	for _, key := range keys {
 		if strings.HasPrefix(key, prefix) {
-			sessionIDs = append(sessionIDs, strings.TrimPrefix(key, prefix))
+			remainder := strings.TrimPrefix(key, prefix)
+			if _, err := uuid.Parse(remainder); err != nil {
+				continue
+			}
+			sessionIDs = append(sessionIDs, remainder)
 		}
 	}
 	sort.Strings(sessionIDs)
@@ -202,7 +219,10 @@ func (s *Store) ListSessions(ctx context.Context, tenantID string) ([]*modelcapt
 // eight compare-and-set attempts. It retries a concurrent conflict and returns
 // an error with [ErrCodeConflict] when no update settles within that bound.
 func (s *Store) MutateSession(ctx context.Context, tenantID, sessionID string, fn func(rec *modelcapturev1.CaptureSessionRecord) error) (*modelcapturev1.CaptureSessionRecord, error) {
-	key := captureKey(tenantID, sessionID)
+	key, err := captureKey(tenantID, sessionID)
+	if err != nil {
+		return nil, err
+	}
 	for attempt := 0; attempt < casRetries; attempt++ {
 		rec, revision, err := s.Session(ctx, tenantID, sessionID)
 		if err != nil {
@@ -239,7 +259,10 @@ func (s *Store) MutateSession(ctx context.Context, tenantID, sessionID string, f
 // the record's removal: an artifact whose record is gone is one the retention
 // sweep can no longer reach, and its payload would stay on disk forever.
 func (s *Store) DeleteSession(ctx context.Context, tenantID, sessionID string) error {
-	key := captureKey(tenantID, sessionID)
+	key, err := captureKey(tenantID, sessionID)
+	if err != nil {
+		return err
+	}
 	path, err := s.artifactPath(tenantID, sessionID)
 	if err != nil {
 		return err
@@ -287,7 +310,10 @@ func (s *Store) DiscardArtifact(tenantID, sessionID string) {
 // artifact. The artifact-file invariant reads it: a file with no descriptor is
 // legitimate only while a writer owns it.
 func (s *Store) hasOpenWriter(tenantID, sessionID string) bool {
-	key := captureKey(tenantID, sessionID)
+	key, err := captureKey(tenantID, sessionID)
+	if err != nil {
+		return false
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	_, open := s.writers[key]
@@ -308,7 +334,10 @@ func (s *Store) hasOpenWriter(tenantID, sessionID string) bool {
 // It unlinks only when it held the writer, which is what keeps it away from a
 // finalized artifact: finalization drops the writer first.
 func (s *Store) AbandonWriter(tenantID, sessionID string) {
-	key := captureKey(tenantID, sessionID)
+	key, err := captureKey(tenantID, sessionID)
+	if err != nil {
+		return
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -338,7 +367,10 @@ func (s *Store) AbandonWriter(tenantID, sessionID string) {
 // stream already has the permission, and asking again on every batch would
 // put a network read in the packet path.
 func (s *Store) mayWriteArtifact(ctx context.Context, tenantID, sessionID string) error {
-	key := captureKey(tenantID, sessionID)
+	key, err := captureKey(tenantID, sessionID)
+	if err != nil {
+		return err
+	}
 	s.mu.Lock()
 	_, open := s.writers[key]
 	s.mu.Unlock()
@@ -386,7 +418,10 @@ func (s *Store) AppendPackets(ctx context.Context, tenantID, sessionID string, l
 		return err
 	}
 
-	key := captureKey(tenantID, sessionID)
+	key, err := captureKey(tenantID, sessionID)
+	if err != nil {
+		return err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -442,7 +477,10 @@ func (s *Store) FinalizeArtifact(ctx context.Context, tenantID, sessionID string
 		return nil, err
 	}
 
-	key := captureKey(tenantID, sessionID)
+	key, err := captureKey(tenantID, sessionID)
+	if err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	_, gone := s.deleted[key]
 	w, ok := s.writers[key]
@@ -641,9 +679,18 @@ func (s *Store) SweepExpired(ctx context.Context) (int, error) {
 	for _, key := range keys {
 		parts := strings.Split(key, ".")
 		if len(parts) != 2 {
+			failures = append(failures, errs.New().Code(ErrCodeBadSession).Attr("key", key).Msg("unparseable capture session key"))
 			continue
 		}
 		tenantID, sessionID := parts[0], parts[1]
+		if err := tenant.Validate(tenantID); err != nil {
+			failures = append(failures, errs.From(err).Code(ErrCodeBadSession).Attr("key", key).Attr("tenant", tenantID).Msg("invalid tenant in capture session key"))
+			continue
+		}
+		if _, err := uuid.Parse(sessionID); err != nil {
+			failures = append(failures, errs.From(err).Code(ErrCodeBadSession).Attr("key", key).Attr("session", sessionID).Msg("invalid session uuid in capture session key"))
+			continue
+		}
 
 		rec, _, err := s.Session(ctx, tenantID, sessionID)
 		if err != nil {

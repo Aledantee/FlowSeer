@@ -9,7 +9,6 @@ import (
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 )
 
@@ -22,15 +21,11 @@ import (
 // The lane stays blocked afterwards. What the device now carries is unknown,
 // and ResolveDesynchronization is where an operator says what to do about it.
 func (s *Service) AbandonMutation(ctx context.Context, req *connect.Request[devicev1.AbandonMutationRequest]) (*connect.Response[devicev1.AbandonMutationResponse], error) {
-	tenantID, err := tenant.FromContext(ctx)
+	deviceID, laneTenant, _, err := s.device(ctx, req.Msg.GetDevice())
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	deviceID, _, err := s.device(req.Msg.GetDevice())
-	if err != nil {
-		return nil, connectErr(err)
-	}
-	state, err := s.cfg.Journal.Dispose(ctx, tenantID, deviceID, req.Msg.GetSequence())
+	state, err := s.cfg.Journal.Dispose(ctx, laneTenant, deviceID, req.Msg.GetSequence())
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -46,15 +41,11 @@ func (s *Service) AbandonMutation(ctx context.Context, req *connect.Request[devi
 // description back, and replace admits the intent the caller carries. All of
 // them, and the hold that releases the edge, land in one journal write.
 func (s *Service) ResolveDesynchronization(ctx context.Context, req *connect.Request[devicev1.ResolveDesynchronizationRequest]) (*connect.Response[devicev1.ResolveDesynchronizationResponse], error) {
-	tenantID, err := tenant.FromContext(ctx)
+	deviceID, laneTenant, entry, err := s.device(ctx, req.Msg.GetDevice())
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	deviceID, entry, err := s.device(req.Msg.GetDevice())
-	if err != nil {
-		return nil, connectErr(err)
-	}
-	record, err := s.cfg.Journal.Record(ctx, tenantID, deviceID)
+	record, err := s.cfg.Journal.Record(ctx, laneTenant, deviceID)
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -63,7 +54,7 @@ func (s *Service) ResolveDesynchronization(ctx context.Context, req *connect.Req
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	_, admitted, err := s.cfg.Journal.ResolveDesynchronization(ctx, tenantID, deviceID, resolution)
+	_, admitted, err := s.cfg.Journal.ResolveDesynchronization(ctx, laneTenant, deviceID, resolution)
 	if err != nil {
 		return nil, connectErr(err)
 	}

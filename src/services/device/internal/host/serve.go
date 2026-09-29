@@ -82,7 +82,7 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	middleware := edgeapi.NewMiddleware(verifier, maxEdgeBody, log)
 
 	edgeService, err := edgeapi.NewService(
-		resources.edges, h.registry, &edgeLaneRecords{journal: resources.journal, hub: resources.hub}, h.credentials, resources.hub,
+		resources.edges, h.registry, &edgeLaneRecords{journal: resources.journal, edgeTenant: resources.edgeTenant}, h.credentials, resources.hub,
 		edgeapi.ServiceConfig{
 			Audience:      h.cfg.AssertionAudience(),
 			TrustAnchors:  [][]byte{h.certificate.SPKI},
@@ -108,9 +108,10 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	}
 
 	deviceService, err := deviceapi.New(deviceapi.Config{
-		Journal:  resources.journal,
-		Resolver: h.registry,
-		Watcher:  deviceapi.NewKVWatcher(resources.lanes),
+		Journal:    resources.journal,
+		Resolver:   h.registry,
+		EdgeTenant: resources.edgeTenant,
+		Watcher:    deviceapi.NewKVWatcher(resources.lanes),
 	})
 	if err != nil {
 		return nil, err
@@ -119,7 +120,7 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	auditService := auditapi.New(
 		auditPublisher(resources.hub),
 		&auditBinding{registry: h.registry},
-		resources.hub.EdgeTenant,
+		resources.edgeTenant,
 	)
 
 	captureEdgeService := captureapi.NewEdgeService(
@@ -128,7 +129,7 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 		resources.broadcaster,
 		captureapi.EdgeServiceConfig{
 			Logger:     log,
-			EdgeTenant: resources.hub.EdgeTenant,
+			EdgeTenant: resources.edgeTenant,
 		},
 	)
 	captureOperatorService := captureapi.NewOperatorService(
@@ -136,6 +137,7 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 		resources.broadcaster,
 		captureapi.OperatorServiceConfig{
 			NotifyChange: captureEdgeService.NotifyStoreChange,
+			EdgeTenant:   resources.edgeTenant,
 		},
 	)
 
@@ -224,17 +226,17 @@ func (l *laneAdmin) Devices(ctx context.Context, edgeID string) ([]string, error
 }
 
 func (l *laneAdmin) DropHolds(ctx context.Context, deviceID string) error {
-	tenantID, _ := tenant.FromContext(ctx)
-	if tenantID == "" {
-		tenantID = edgebus.DefaultTenant
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return err
 	}
 	return l.journal.DropHolds(ctx, tenantID, deviceID)
 }
 
 func (l *laneAdmin) OpenMutation(ctx context.Context, deviceID string) (uint64, bool, error) {
-	tenantID, _ := tenant.FromContext(ctx)
-	if tenantID == "" {
-		tenantID = edgebus.DefaultTenant
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return 0, false, err
 	}
 	record, err := l.journal.Record(ctx, tenantID, deviceID)
 	if err != nil {
@@ -248,17 +250,18 @@ func (l *laneAdmin) OpenMutation(ctx context.Context, deviceID string) (uint64, 
 }
 
 type edgeLaneRecords struct {
-	journal *journal.Journal
-	hub     *edgebus.Hub
+	journal    *journal.Journal
+	edgeTenant func(ctx context.Context, edgeID string) (string, error)
 }
 
 func (e *edgeLaneRecords) Record(ctx context.Context, deviceID string) (*storev1.DeviceLaneRecord, error) {
 	edgeID, _ := edgeapi.EdgeIDFromContext(ctx)
-	tenantID := edgebus.DefaultTenant
-	if edgeID != "" && e.hub != nil {
-		if t := e.hub.EdgeTenant(edgeID); t != "" {
-			tenantID = t
-		}
+	if edgeID == "" {
+		return nil, errs.New().Msg("no edge in context")
+	}
+	tenantID, err := e.edgeTenant(ctx, edgeID)
+	if err != nil {
+		return nil, err
 	}
 	return e.journal.Record(ctx, tenantID, deviceID)
 }

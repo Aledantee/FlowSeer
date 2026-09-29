@@ -57,7 +57,10 @@ func (s *Service) Report(ctx context.Context, req *connect.Request[dispatchv1.Re
 	if err := s.authorizeDevice(ctx, edgeID, deviceID); err != nil {
 		return nil, connectErr(err)
 	}
-	tenantID := s.edgeTenant(edgeID)
+	tenantID, err := s.edgeTenant(ctx, edgeID)
+	if err != nil {
+		return nil, connectErr(err)
+	}
 	switch req.Msg.WhichReport() {
 	case dispatchv1.ReportRequest_Result_case:
 		err = s.applyResult(ctx, tenantID, deviceID, req.Msg.GetResult())

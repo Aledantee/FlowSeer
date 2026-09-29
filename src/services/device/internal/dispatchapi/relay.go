@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
@@ -41,7 +40,10 @@ func (s *Service) dispatchPass(ctx context.Context, edgeID string, out sender) e
 	if err != nil {
 		return errs.From(err).Code(ErrCodeResolve).Attr("edge", edgeID).Msg("resolve edge devices")
 	}
-	tenantID := s.edgeTenant(edgeID)
+	tenantID, err := s.edgeTenant(ctx, edgeID)
+	if err != nil {
+		return err
+	}
 	for _, deviceID := range devices {
 		fatal, err := s.dispatchDevice(ctx, tenantID, deviceID, out)
 		if err != nil {
@@ -221,11 +223,11 @@ func (s *Service) sweepAll(ctx context.Context, bucket KeyLister) {
 		return // an empty bucket is not an empty error worth logging every tick
 	}
 	for _, key := range keys {
-		parts := strings.SplitN(key, ".", 2)
-		if len(parts) != 2 {
+		tenantID, deviceID, ok := journal.SplitLaneKey(key)
+		if !ok {
+			s.log.WarnContext(ctx, "sweeper skipped malformed lane key", slog.String("key", key))
 			continue
 		}
-		tenantID, deviceID := parts[0], parts[1]
 		if _, err := s.cfg.Journal.SweepExpiredReads(ctx, tenantID, deviceID, s.clock(), s.sweepError()); err != nil {
 			s.log.WarnContext(ctx, "sweeper could not close expired reads", slog.String("flowseer.tenant.id", tenantID), slog.String("flowseer.device.id", deviceID), slog.String("error.type", telemetry.ErrorType(err)))
 		}

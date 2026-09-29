@@ -257,6 +257,17 @@ func (h *assembly) setupHub(ctx context.Context) (service.Attempt, error) {
 	}}, nil
 }
 
+func (b *busResources) edgeTenant(ctx context.Context, edgeID string) (string, error) {
+	t, err := b.edges.TenantForEdge(ctx, edgeID)
+	if err != nil {
+		return "", err
+	}
+	if t == "" {
+		return "", errs.New().Code(edgestore.ErrCodeUnknownEdge).Attr("edge", edgeID).Msg("edge has no indexed tenant")
+	}
+	return t, nil
+}
+
 func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *slog.Logger) (*busResources, error) {
 	lanes, err := hub.JetStream().KeyValue(ctx, edgebus.LaneBucket)
 	if err != nil {
@@ -268,14 +279,34 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 	}
 
 	lane := journal.New(lanes, nil)
-	audit := centralaudit.New(auditPublisher(hub), hub.Tenant(), nil)
+	edgeStore := edgestore.New(edges)
+	audit := centralaudit.New(auditPublisher(hub), nil)
 	intervals := h.cfg.Intervals()
+	edgeTenantResolver := func(ctx context.Context, edgeID string) (string, error) {
+		t, err := edgeStore.TenantForEdge(ctx, edgeID)
+		if err != nil {
+			return "", err
+		}
+		if t == "" {
+			return "", errs.New().Code(edgestore.ErrCodeUnknownEdge).Attr("edge", edgeID).Msg("edge has no indexed tenant")
+		}
+		return t, nil
+	}
+	if edgeID := h.registry.EdgeID(); edgeID != "" {
+		if t, err := edgeStore.TenantForEdge(ctx, edgeID); err == nil && t == "" {
+			devTenant := h.cfg.DevTenant()
+			if devTenant == "" {
+				devTenant = edgebus.DefaultTenant
+			}
+			_ = edgeStore.IndexEdge(ctx, edgeID, devTenant)
+		}
+	}
 	dispatch := dispatchapi.New(dispatchapi.Config{
 		Journal:       lane,
 		Resolver:      h.registry,
 		Watch:         lanes,
 		EdgeID:        edgeIDFromContext,
-		EdgeTenant:    hub.EdgeTenant,
+		EdgeTenant:    edgeTenantResolver,
 		Resend:        intervals.DispatchResend,
 		SweepInterval: intervals.ReadSweep,
 		Audit:         audit,
@@ -297,7 +328,7 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 		hub:         hub,
 		lanes:       lanes,
 		journal:     lane,
-		edges:       edgestore.New(edges),
+		edges:       edgeStore,
 		dispatch:    dispatch,
 		captures:    captureStore,
 		broadcaster: broadcaster,
@@ -369,8 +400,8 @@ func (h *assembly) setupDrift(ctx context.Context) (service.Attempt, error) {
 	poller, err := drift.New(drift.Config{
 		Journal:      resources.journal,
 		Resolver:     h.registry,
-		EdgeTenant:   resources.hub.EdgeTenant,
-		Audit:        centralaudit.New(auditPublisher(resources.hub), resources.hub.Tenant(), nil),
+		EdgeTenant:   resources.edgeTenant,
+		Audit:        centralaudit.New(auditPublisher(resources.hub), nil),
 		Telemetry:    view,
 		Interval:     intervals.Drift,
 		ReadDeadline: intervals.DriftReadDeadline,

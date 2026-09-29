@@ -7,7 +7,9 @@ import (
 	connect "connectrpc.com/connect"
 
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/tenant"
+	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 )
 
 // maxOpenMutationPage is the most rows one page carries, matching the
@@ -30,6 +32,10 @@ func (s *Service) ListEdgeOpenMutations(ctx context.Context, req *connect.Reques
 		return nil, connectErr(err)
 	}
 	edgeID := req.Msg.GetEdgeId()
+	owner, err := s.cfg.EdgeTenant(ctx, edgeID)
+	if err != nil || owner != tenantID {
+		return nil, connectErr(errs.New().Code(registry.ErrCodeUnknownEdge).Attr("edge", edgeID).Msg("unknown edge"))
+	}
 	devices, err := s.cfg.Resolver.Devices(ctx, edgeID)
 	if err != nil {
 		return nil, connectErr(err)

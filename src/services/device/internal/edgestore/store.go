@@ -22,6 +22,7 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 )
 
 // Error codes the store returns.
@@ -34,6 +35,8 @@ var (
 	ErrCodeDecode = errs.NewCode("edgestore/decode")
 	// ErrCodeState is a write invalid for the record's current state.
 	ErrCodeState = errs.NewCode("edgestore/state")
+	// ErrCodeUnknownEdge is an edge whose tenant could not be resolved.
+	ErrCodeUnknownEdge = errs.NewCode("edgestore/unknown-edge")
 )
 
 const (
@@ -42,8 +45,11 @@ const (
 	edgeIndexPrefix     = "edge_"
 )
 
-func edgeRecordKey(tenantID, edgeID string) string {
-	return tenantID + "." + edgeID
+func edgeRecordKey(tenantID, edgeID string) (string, error) {
+	if err := tenant.Validate(tenantID); err != nil {
+		return "", errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Attr("edge", edgeID).Msg("validate tenant")
+	}
+	return tenantID + "." + edgeID, nil
 }
 
 // Store is central's per-edge record store over the edges bucket. Safe for
@@ -61,7 +67,10 @@ func (s *Store) Get(ctx context.Context, tenantID, edgeID string) (*storev1.Stor
 	if tenantID == "" || edgeID == "" {
 		return nil, 0, nil
 	}
-	key := edgeRecordKey(tenantID, edgeID)
+	key, err := edgeRecordKey(tenantID, edgeID)
+	if err != nil {
+		return nil, 0, err
+	}
 	entry, err := s.kv.Get(ctx, key)
 	if errors.Is(err, jetstream.ErrKeyNotFound) {
 		return nil, 0, nil
@@ -122,6 +131,9 @@ func (s *Store) EdgeForSetupKey(ctx context.Context, keyID string) (tenantID str
 
 // IndexSetupKey points a setup key identifier at an edge under tenantID.
 func (s *Store) IndexSetupKey(ctx context.Context, keyID, tenantID, edgeID string) error {
+	if err := tenant.Validate(tenantID); err != nil {
+		return errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Attr("edge", edgeID).Msg("validate tenant")
+	}
 	val := tenantID + "." + edgeID
 	if _, err := s.kv.Put(ctx, setupKeyIndexPrefix+keyID, []byte(val)); err != nil {
 		return errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Attr("edge", edgeID).Msg("write setup key index")
@@ -141,6 +153,9 @@ func (s *Store) UnindexSetupKey(ctx context.Context, keyID string) error {
 
 // IndexEdge records the tenant an enrolled edge belongs to.
 func (s *Store) IndexEdge(ctx context.Context, edgeID, tenantID string) error {
+	if err := tenant.Validate(tenantID); err != nil {
+		return errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Attr("edge", edgeID).Msg("validate tenant")
+	}
 	if _, err := s.kv.Put(ctx, edgeIndexPrefix+edgeID, []byte(tenantID)); err != nil {
 		return errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Attr("edge", edgeID).Msg("write edge index")
 	}
@@ -162,6 +177,9 @@ func (s *Store) TenantForEdge(ctx context.Context, edgeID string) (string, error
 // Keys returns every stored edge id belonging to tenantID in ascending order.
 // An empty bucket or tenant with no edges returns nil keys and no error.
 func (s *Store) Keys(ctx context.Context, tenantID string) ([]string, error) {
+	if err := tenant.Validate(tenantID); err != nil {
+		return nil, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("validate tenant")
+	}
 	keys, err := s.kv.Keys(ctx)
 	if errors.Is(err, jetstream.ErrNoKeysFound) {
 		return nil, nil
@@ -184,7 +202,10 @@ func (s *Store) Keys(ctx context.Context, tenantID string) ([]string, error) {
 // a revision conflict. fn receives the current record, or nil when the edge
 // has none, and returns the record to store. Returning ErrSkip stores nothing.
 func (s *Store) Mutate(ctx context.Context, tenantID, edgeID string, fn func(current *storev1.StoredEdge) (*storev1.StoredEdge, error)) (*storev1.StoredEdge, error) {
-	key := edgeRecordKey(tenantID, edgeID)
+	key, err := edgeRecordKey(tenantID, edgeID)
+	if err != nil {
+		return nil, err
+	}
 	for attempt := 0; attempt < casRetries; attempt++ {
 		current, revision, err := s.Get(ctx, tenantID, edgeID)
 		if err != nil {

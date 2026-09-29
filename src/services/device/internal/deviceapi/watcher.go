@@ -7,6 +7,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"go.aledante.io/FlowSeer/src/common/spawn"
+	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 )
 
 // KVWatcher wakes a waiting read from the lane bucket's own key watch, so a
@@ -27,7 +28,11 @@ func NewKVWatcher(kv jetstream.KeyValue) *KVWatcher { return &KVWatcher{kv: kv} 
 // since a waiter re-reads the record on every wakeup and only needs to know
 // that something changed.
 func (w *KVWatcher) Watch(ctx context.Context, tenantID, deviceID string) (<-chan struct{}, func(), error) {
-	watcher, err := w.kv.Watch(ctx, tenantID+"."+deviceID, jetstream.UpdatesOnly(), jetstream.IgnoreDeletes())
+	key, err := journal.LaneKey(tenantID, deviceID)
+	if err != nil {
+		return nil, nil, err
+	}
+	watcher, err := w.kv.Watch(ctx, key, jetstream.UpdatesOnly(), jetstream.IgnoreDeletes())
 	if err != nil {
 		return nil, nil, err
 	}
