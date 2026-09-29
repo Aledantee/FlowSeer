@@ -649,8 +649,9 @@ Then rename `TestRunOutputCapTruncates` in
   parses with goldmark, but it takes visible text by rendering a block to
   HTML and stripping tags (`tools/check-guarantees/check.go`
   `extractVisibleText`, `stripHTMLTags`), and a `<br>` inside image alt
-  text ends the strip early, so `It is ![x\` + newline + `MUST](y.png).`
-  counts as a normative sentence and the same trick hides a THEN. Open
+  text ends the strip early, so an image whose alt text holds a hard line
+  break followed by MUST counts as a normative sentence, and the same
+  trick hides a THEN. Open
   besides: an entity-written citation misplaces later errors' lines; a Go
   test string-matches `verify-change.sh`; Requirement 15 and the
   invocation Decision still say `go run` where the verifier now builds
