@@ -4,13 +4,13 @@ type: docs
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 ---
 
 # Package Guarantees - Plan
 
-> Implemented. 5 units, 2026-09-28T19:09:14Z to 2026-09-28T21:00:14Z.
+> Implemented. 7 units, 2026-09-28T19:09:14Z to 2026-09-29T16:44:30Z.
 > Pilot outcome: 4 of 7 README contracts were proved by existing tests as-is,
 > 2 needed a new test (session closure on peer disconnection and prompt
 > earliest-match: TestScanPromptEarliestMatchAndTieOrder and
@@ -19,12 +19,17 @@ execution: mixed
 > the Dial-level test because the helper-level one does not call Dial. The stop
 > condition held (did not trigger); the convention and check format are
 > validated.
-> Redesign outcome: the checker enforces a strict line grammar for
-> GUARANTEES.md (failing closed on code fences, setext underlines, indented
-> code blocks, numbered lists, and unallowed headings) and resolves top-level
-> tests via go list and a Go token scanner supporting anonymous parameters,
-> aliased testing imports, and multiline parameter lists while excluding
-> build-ignored and underscore files.
+> Redesign outcome: the checker parses GUARANTEES.md into a CommonMark AST via
+> goldmark (tools/check-guarantees), enforcing allowed block structures (one
+> normative MUST/MUST NOT paragraph, one bullet list of - WHEN ... THEN ...
+> scenarios, one Proved by: paragraph) and failing closed on unallowed blocks
+> (code fences, underlines, indented code, blockquotes, HTML blocks, ordered
+> lists, extra headings). It decodes HTML character entities in headings, parses
+> multiline code spans without hiding clauses, excludes raw HTML from visible
+> text, and resolves top-level package tests through go list -mod=readonly -json .
+> and a Go token scanner validating test signatures (rejecting packages with
+> invalid Test signatures). Obsolete Python checker scripts were removed and
+> verify-change was updated to invoke the Go checker.
 
 ## Goal
 
@@ -589,17 +594,17 @@ Then rename `TestRunOutputCapTruncates` in
 - [x] The `verify-change.sh` `.agents/*` classification edit passed guardrail
       review before U4 commit.
 - [x] Checker redesign in U5 recorded as landed history.
-- [ ] Goldmark added to `go.mod` and `go.sum`, and Go checker command
+- [x] Goldmark added to `go.mod` and `go.sum`, and Go checker command
       implemented in `tools/check-guarantees/` in U6.
-- [ ] All 73 checker test intents, 3 open review regression cases, and the
+- [x] All 73 checker test intents, 3 open review regression cases, and the
       invalid signature case pass under `go test -race ./tools/check-guarantees/...`.
-- [ ] `verify-change.sh` updated to invoke `go run ./tools/check-guarantees` and
+- [x] `verify-change.sh` updated to invoke `go run ./tools/check-guarantees` and
       passes guardrail review before U7 commit.
-- [ ] Obsolete Python checker scripts removed in U7.
-- [ ] `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
+- [x] Obsolete Python checker scripts removed in U7.
+- [x] `docs/conventions/guarantees.md` and `.agents/skills/verify-change/SKILL.md`
       state CommonMark block rules and `tools/check-guarantees` invocation.
-- [ ] `src/protocol/ssh/GUARANTEES.md` passes under the new checker.
-- [ ] No plan labels in code, scripts, or skill text.
+- [x] `src/protocol/ssh/GUARANTEES.md` passes under the new checker.
+- [x] No plan labels in code, scripts, or skill text.
 
 ## Open questions
 
