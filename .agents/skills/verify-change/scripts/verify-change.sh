@@ -515,9 +515,9 @@ fi
 need_tool python3
 run python3 "$script_dir/check-plan-status.py"
 if [[ $full == true ]]; then
-  run python3 "$script_dir/check-guarantees.py" --all
+  run go run ./tools/check-guarantees --all
 else
-  run python3 "$script_dir/check-guarantees.py" -- "${paths[@]}"
+  run go run ./tools/check-guarantees -- "${paths[@]}"
 fi
 
 # Reported, not failed: deleting a test, skipping it, or rewriting a golden

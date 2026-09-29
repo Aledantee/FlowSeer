@@ -22,6 +22,7 @@ require (
 	github.com/openconfig/goyang v1.6.3
 	github.com/stretchr/testify v1.12.1
 	github.com/testcontainers/testcontainers-go v0.44.0
+	github.com/yuin/goldmark v1.8.6
 	go.aledante.io/FlowSeer/generated/go/yang v0.0.0-00010101000000-000000000000
 	go.opentelemetry.io/contrib/bridges/otelslog v0.20.1
 	go.opentelemetry.io/otel v1.46.0
