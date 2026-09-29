@@ -85,6 +85,70 @@ func TestRunPromptSplitAcrossReads(t *testing.T) {
 	}
 }
 
+func TestRunPromptEarliestMatchInStream(t *testing.T) {
+	t.Parallel()
+	user := ssh.Prompt{Name: "user", Pattern: regexp.MustCompile(`(?m)switch>\s*$`)}
+	priv := ssh.Prompt{Name: "privileged", Pattern: regexp.MustCompile(`(?m)switch#\s*$`)}
+
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readCommandLine(ch)
+		_, _ = ch.Write([]byte("some output\r\nswitch>\r\nsubsequent output\r\nswitch#"))
+	})
+	s := dialSession(t, fs, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	res, err := s.Run(ctx, ssh.Command{
+		Line:    "show status",
+		Prompts: []ssh.Prompt{priv, user},
+	})
+	if err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+	if res.MatchedPrompt != "user" {
+		t.Errorf("MatchedPrompt = %q, want %q (earliest match in stream wins over slice order)", res.MatchedPrompt, "user")
+	}
+}
+
+func TestRunPromptTieOrderFollowsSliceOrder(t *testing.T) {
+	t.Parallel()
+	first := ssh.Prompt{Name: "first", Pattern: regexp.MustCompile(`(?m)switch>\s*$`)}
+	second := ssh.Prompt{Name: "second", Pattern: regexp.MustCompile(`(?m)switch>\s*$`)}
+
+	for _, tc := range []struct {
+		name    string
+		prompts []ssh.Prompt
+		want    string
+	}{
+		{"first listed first", []ssh.Prompt{first, second}, "first"},
+		{"second listed first", []ssh.Prompt{second, first}, "second"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+				readCommandLine(ch)
+				_, _ = ch.Write([]byte("some output\r\nswitch>"))
+			})
+			s := dialSession(t, fs, nil)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			res, err := s.Run(ctx, ssh.Command{
+				Line:    "show status",
+				Prompts: tc.prompts,
+			})
+			if err != nil {
+				t.Fatalf("Run() = %v", err)
+			}
+			if res.MatchedPrompt != tc.want {
+				t.Errorf("MatchedPrompt = %q, want %q (a tie at the same start goes to the earlier prompt in slice order)", res.MatchedPrompt, tc.want)
+			}
+		})
+	}
+}
+
 func TestRunStripsEchoedInput(t *testing.T) {
 	t.Parallel()
 	const line = "show version"
@@ -257,6 +321,58 @@ func TestRunPagination(t *testing.T) {
 	}
 }
 
+func TestRunPaginationBeatsLaterPrompt(t *testing.T) {
+	t.Parallel()
+	keyResult := make(chan error, 1)
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readCommandLine(ch)
+		// The marker and this command's prompt arrive in one write, so
+		// the scan has both in its buffer and must answer the earlier
+		// marker rather than treat the prompt as the boundary.
+		_, _ = ch.Write([]byte("page one\r\n--More--\r\npage two\r\nswitch#"))
+		key := make([]byte, 1)
+		if _, err := io.ReadFull(ch, key); err != nil {
+			keyResult <- fmt.Errorf("read continuation keystroke: %w", err)
+			return
+		}
+		if key[0] != ' ' {
+			keyResult <- fmt.Errorf("continuation keystroke = %q, want %q", key, " ")
+			return
+		}
+		keyResult <- nil
+	})
+	s := dialSession(t, fs, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	res, err := s.Run(ctx, ssh.Command{
+		Line:          "show run",
+		Prompts:       []ssh.Prompt{privPrompt},
+		MorePattern:   regexp.MustCompile(`--More--`),
+		MoreKeystroke: []byte(" "),
+	})
+	if err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+	// The prompt is already in the buffer, so Run returns whether or not
+	// the marker was answered; wait with a timeout for the keystroke
+	// rather than block forever on a test that is expected to fail.
+	select {
+	case kerr := <-keyResult:
+		if kerr != nil {
+			t.Fatal(kerr)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("no keystroke was sent; the later prompt ended the command before the marker was answered")
+	}
+	if bytes.Contains(res.Output, []byte("--More--")) {
+		t.Errorf("Output = %q, still contains the pagination marker", res.Output)
+	}
+	if !bytes.Contains(res.Output, []byte("page one")) || !bytes.Contains(res.Output, []byte("page two")) {
+		t.Errorf("Output = %q, want both pages", res.Output)
+	}
+}
+
 func TestRunAnchorOnEchoPagination(t *testing.T) {
 	t.Parallel()
 	const line = "show run"
@@ -370,7 +486,7 @@ func TestRunOutputCapTruncates(t *testing.T) {
 		}
 		_, _ = ch.Write([]byte("\r\nswitch#"))
 	})
-	s := dialSession(t, fs, func(o *ssh.Options) { o.StdoutBufferBytes = 1024 })
+	s := dialSession(t, fs, nil)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -388,8 +504,9 @@ func TestRunOutputCapTruncates(t *testing.T) {
 	if len(res.Output) > 256 {
 		t.Errorf("len(Output) = %d, want <= 256", len(res.Output))
 	}
-	if res.Evidence.BytesReceived < flood {
-		t.Errorf("BytesReceived = %d, want >= %d (the true flood size)", res.Evidence.BytesReceived, flood)
+	const wantBytes = int64(flood + len("\r\nswitch#"))
+	if res.Evidence.BytesReceived != wantBytes {
+		t.Errorf("BytesReceived = %d, want %d (the exact stream length, not the flood alone)", res.Evidence.BytesReceived, wantBytes)
 	}
 }
 
@@ -475,6 +592,27 @@ func TestRunConnectionLostAfterCommandSent(t *testing.T) {
 	}
 	if string(res.Evidence.Sent) != "show version" {
 		t.Errorf("Evidence.Sent = %q, want %q even though the peer hung up", res.Evidence.Sent, "show version")
+	}
+}
+
+func TestRunConnectionLostClosesSession(t *testing.T) {
+	t.Parallel()
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readCommandLine(ch)
+		_ = ch.Close()
+	})
+	s := dialSession(t, fs, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := s.Run(ctx, ssh.Command{Line: "show version", Prompts: []ssh.Prompt{privPrompt}})
+	if err == nil {
+		t.Fatal("Run() = nil error, want a connection-lost failure")
+	}
+
+	_, err = s.Run(ctx, ssh.Command{Line: "show version", Prompts: []ssh.Prompt{privPrompt}})
+	if !errors.Is(err, ssh.ErrSessionClosed) {
+		t.Fatalf("second Run() error = %v, want ErrSessionClosed (peer closure closes session)", err)
 	}
 }
 

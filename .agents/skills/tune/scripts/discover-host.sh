@@ -24,7 +24,7 @@ done
 echo "orca:"
 if have orca && orca status --json 2>/dev/null | python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin)["result"]["runtime"]["reachable"] else 1)' 2>/dev/null; then
   echo "  reachable: true"
-  pin=$(orca orchestration worker-start --help 2>/dev/null | sed -n 's/.*--model supports \(.*\) opaque provider model ids.*/\1/p' | tr -d ',' | tr 'A-Z' 'a-z' | sed 's/ and / /')
+  pin=$(orca orchestration worker-start --help 2>/dev/null | sed -n 's/.*--model supports \(.*\) opaque provider model ids.*/\1/p' | tr -d ',' | tr '[:upper:]' '[:lower:]' | sed 's/ and / /')
   echo "  model_pinnable: [${pin// /, }]"
 else
   echo "  reachable: false"

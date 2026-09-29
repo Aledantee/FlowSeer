@@ -101,7 +101,7 @@ if [[ $explicit == false && $full == false ]]; then
   git rev-parse --verify "$base^{commit}" >/dev/null
   while IFS= read -r -d '' path; do
     add_path "$path"
-  done < <(git diff --name-only -z "$base" --)
+  done < <(git diff --no-renames --name-only -z "$base" --)
   while IFS= read -r -d '' path; do
     add_path "$path"
   done < <(git ls-files --others --exclude-standard -z)
@@ -252,7 +252,7 @@ else
       *.md)
         [[ -f $path ]] && markdown_files+=("$path")
         case "$path" in
-          .claude/*|.codex/*|CLAUDE.md|AGENTS.md|docs/agent-knowledge.md|tools/hooks/*) hook_tooling=true ;;
+          .agents/*|.claude/*|.codex/*|CLAUDE.md|AGENTS.md|docs/agent-knowledge.md|tools/hooks/*) hook_tooling=true ;;
         esac
         ;;
       *.go)
@@ -285,7 +285,7 @@ else
           fi
         fi
         ;;
-      .claude/*|.codex/*|tools/hooks/*|tools/test/*)
+      .agents/*|.claude/*|.codex/*|tools/hooks/*|tools/test/*)
         hook_tooling=true
         ;;
     esac
@@ -460,7 +460,7 @@ fi
 # reads as one of them. The list mirrors the per-gate need_tool calls
 # below, which stay as the last line of defence for a gate this list
 # misses.
-required_tools=(python3)
+required_tools=(python3 go)
 if ((${#go_files[@]})); then
   required_tools+=(gofumpt goimports)
 fi
@@ -474,7 +474,7 @@ if [[ $proto == true ]]; then
   required_tools+=(buf)
 fi
 if [[ $hook_tooling == true ]]; then
-  required_tools+=(jq shellcheck)
+  required_tools+=(jq shellcheck go)
 fi
 if [[ $web == true ]]; then
   required_tools+=(node)
@@ -504,7 +504,15 @@ if ((${#missing_tools[@]})); then
 fi
 
 need_tool python3
+need_tool go
 run python3 "$script_dir/check-plan-status.py"
+build_dir=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-build.XXXXXX")
+run go build -o "$build_dir/check-guarantees" ./tools/check-guarantees
+if [[ $full == true ]]; then
+  run "$build_dir/check-guarantees" --all
+else
+  run "$build_dir/check-guarantees" -- "${paths[@]}"
+fi
 
 # Reported, not failed: deleting a test, skipping it, or rewriting a golden
 # file is sometimes right in a repository that breaks APIs on purpose, and
@@ -521,8 +529,6 @@ if [[ -n $test_changes ]]; then
   printf '  %s\n' "${test_changes//$'\n'/$'\n'  }"
 fi
 
-build_dir=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-build.XXXXXX")
-
 if [[ $web == true ]]; then
   (
     cd frontend/web
@@ -537,7 +543,7 @@ fi
 
 if ((${#markdown_files[@]})); then
   need_tool python3
-  run python3 .claude/skills/verify-change/scripts/check-markdown-links.py "${markdown_files[@]}"
+  run python3 "$script_dir/check-markdown-links.py" "${markdown_files[@]}"
   run python3 .claude/skills/prose/scripts/check-prose.py --quiet "${markdown_files[@]}"
 fi
 
@@ -846,11 +852,21 @@ if [[ $hook_tooling == true ]]; then
   need_tool shellcheck
   run jq empty .claude/settings.json
   run jq empty .codex/hooks.json
-  hook_scripts=(tools/hooks/*.sh tools/hooks/tests/*.sh tools/test/*.sh .claude/skills/verify-change/scripts/*.sh .claude/skills/delegate/scripts/*.sh)
+  # Glob every skill's scripts so a shell script added to any skill is
+  # linted without editing this line.
+  hook_scripts=(tools/hooks/*.sh tools/hooks/tests/*.sh tools/test/*.sh .claude/skills/*/scripts/*.sh)
   run shellcheck "${hook_scripts[@]}"
   if [[ -x tools/hooks/tests/run.sh ]]; then
     run tools/hooks/tests/run.sh
   fi
+  # A skill script with no test_*.py beside it (plan-deviations.py,
+  # plan-queue.py) is imported by nothing, so a syntax error in one passes
+  # the shellcheck and unittest gates below. Compiling every skill script
+  # parses each; the set is tiny. -Xpycache_prefix sends the bytecode to
+  # the throwaway build dir: PYTHONDONTWRITEBYTECODE does not stop
+  # py_compile from writing a __pycache__ beside the source. The flag is
+  # attached so the gate label stays `python3 py_compile`.
+  run python3 -X"pycache_prefix=$build_dir/pycache" -m py_compile .claude/skills/*/scripts/*.py
   for test_dir in .claude/skills/*/scripts; do
     test_files=("$test_dir"/test_*.py)
     [[ -f ${test_files[0]} ]] || continue

@@ -18,11 +18,13 @@ code beside them, while current source and tests show what has actually landed.
 Plans and research preserve implementation choices and evidence; they do not
 override an accepted direction or binding convention.
 
-A package README and its source are one maintained contract, not competing
-authorities. If they disagree about what exists, the source and tests show the
-landed behavior and the README is stale; update the README in the same change.
-This does not let landed code silently overturn an accepted direction: record
-that mismatch and reconcile the direction explicitly.
+A package README, its `GUARANTEES.md`, and its source are one maintained contract,
+not competing authorities. `GUARANTEES.md` is the normative list of guaranteed
+behavior, while the README explains it. If they disagree about what exists, the
+source and tests show the landed behavior and the documentation is stale; update
+`GUARANTEES.md` and the README in the same change. This does not let landed code
+silently overturn an accepted direction: record that mismatch and reconcile the
+direction explicitly.
 
 `artifact_readiness: implementation-ready` describes whether a plan contains
 enough detail to execute. It does not say that the work is still pending. The
@@ -56,6 +58,7 @@ removes it after the merge.
 | --- | --- |
 | [`architecture/`](architecture/README.md) | Accepted system direction, supporting research, and the status of each record. |
 | [`conventions/`](conventions/) | Cross-cutting shapes and workflows, including protobuf and test layout. |
+| [`conventions/guarantees.md`](conventions/guarantees.md) | Package guarantee format, same-directory test citations, and relation to READMEs and doc comments. |
 | [`conventions/observability.md`](conventions/observability.md) | Binding logging, OpenTelemetry event, trace, metric, namespacing, and semantic-convention rules. |
 | [`code-style.md`](code-style.md) | Go API, error, concurrency, comment, and test conventions. |
 | [`code-style-proto.md`](code-style-proto.md) | Protobuf syntax, evolution, validation, and generation rules. |
@@ -72,7 +75,7 @@ removes it after the merge.
 
 Specifications document their own provenance and update procedures under
 [`spec/`](../spec/README.md). Package-level behavior belongs beside the package
-in its README or Go documentation.
+in its README, `GUARANTEES.md`, or Go documentation.
 
 ## Where a new document belongs
 
