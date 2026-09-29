@@ -5,7 +5,6 @@ date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: rework
 execution: mixed
 ---
 
@@ -56,6 +55,17 @@ unproven prose, and the format or the check is redesigned before the
 follow-up plan is written.
 
 ## Decisions
+
+- The checker's job is catching honest mistakes: a malformed section, a
+  missing `Proved by:` line, and a cited test that is gone or that Go does
+  not compile. It is not a defence against a `GUARANTEES.md` crafted to hide
+  or fake a clause (decided by the user, 2026-09-29, after the fourth review
+  ended `rework`). The markup rules below stay because they are built and
+  tested, but a way to make hidden text count through a goldmark and
+  CommonMark divergence is out of scope, not a defect. Why: these files are
+  written by the project's own contributors and agents and read by
+  `review`; four review passes spent on adversarial Markdown did not move
+  the Goal, which the first implement stage already met.
 
 - The checker takes a counted block's text from the goldmark parse tree
   through an inline allowlist, not from rendered HTML (decided by the
@@ -314,6 +324,9 @@ follow-up plan is written.
 
 ## Requirements
 
+Requirements 6, 10, and 11 describe the Python checker that Requirement 15
+replaced; 12 to 21 supersede them.
+
 1. Every `GUARANTEES.md` the verifier checks has unique `##` headings, and
    each section has at least one `- WHEN` bullet containing `THEN` and
    exactly one `Proved by:` line. Example: a section with no `Proved by:`
@@ -441,6 +454,8 @@ follow-up plan is written.
 
 ## Out of scope
 
+- Rejecting a `GUARANTEES.md` crafted to make hidden text count, such as a
+  link past goldmark's 998-byte opener limit or a lone CR line ending.
 - The OpenSpec CLI, its `openspec/` tree, and its `/opsx:*` commands.
 - Changes to `plan`, `implement`, and `review` so plans carry guarantee
   deltas and units apply them. That is the follow-up plan (Open
@@ -822,25 +837,3 @@ Then rename `TestRunOutputCapTruncates` in
   `--print-selection` output without `hook_tooling`. Updating `run.sh` touches
   `tools/hooks/`, which is a policy surface requiring a separate guardrail
   review; this update is left for a future policy-surface maintenance pass.
-- Parked by drive: the fourth review ended `rework`. The inline allowlist
-  holds as specified, but goldmark diverges from CommonMark 0.31.2 in ways
-  that let hidden text count: it turns a link back into text once its
-  unmatched `[` openers span more than 998 bytes (so a link target's MUST
-  or THEN counts), and it does not treat a lone CR as a line ending. The
-  second fix round added source-line checks for such gaps (HTML block
-  starts, lone CR, HTML-start text) that the goldmark Decision above does
-  not cover; they stay in the code pending this answer. Open besides:
-  `</div\t` and `<DIV\t` lack test cases, and an indentation loop in
-  `tools/check-guarantees/check.go` near line 697 is dead code that the
-  docs describe. How should the divergences be closed? Options: plain
-  source charset for counted blocks (reject any unescaped `[`, `]`, `<`,
-  and any CR in headings, normative paragraphs, WHEN/THEN items, and
-  `Proved by:` paragraphs; removes link, HTML, and line-ending divergence
-  as a class and supersedes the per-gap source checks, but those blocks
-  cannot use brackets or angle brackets) | keep adding a guard per
-  divergence (keeps full Markdown, but each review pass has found a new
-  one) | accept the current checker (land with the 998-byte link case
-  recorded; it needs a deliberately crafted file, and the check's job is
-  proving cited tests exist, which it does). Recommended: plain source
-  charset, because it closes the divergence class rather than the
-  instances, and a guarantee sentence needs no bracket or angle bracket.
