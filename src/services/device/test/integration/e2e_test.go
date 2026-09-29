@@ -20,8 +20,6 @@ import (
 	apicapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	apiidentityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
@@ -36,6 +34,7 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	centralhost "go.aledante.io/FlowSeer/src/services/device/internal/host"
+	"go.aledante.io/FlowSeer/src/services/device/internal/tenantstore"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -890,6 +889,7 @@ intervals {
 platform_admin {
   issuer: "https://auth.example.test"
   organization: "org_admin"
+  organization_claim_name: "org_id"
   subject: "admin_user"
 }
 `, devTenant, filepath.Join(c.dir, "central-state"), c.registry, filepath.Join(c.dir, "credentials"),
@@ -968,19 +968,25 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 		}
 	}
 
-	// 1. Create tenant through TenantService
-	tenantClient := identityv1connect.NewTenantServiceClient(c.client, c.baseURL())
-	tenantResp, err := tenantClient.CreateTenant(ctx, connect.NewRequest(apiidentityv1.CreateTenantRequest_builder{
+	// 1. Create tenant directly in tenant store
+	kvTenant, err := js.KeyValue(ctx, edgebus.TenantBucket)
+	if err != nil {
+		t.Fatalf("open tenant bucket: %v", err)
+	}
+	ts := tenantstore.New(kvTenant)
+	tenantConfig := identityv1.TenantConfig_builder{
+		Ref: identityv1.TenantGlobalRef_builder{
+			Tenant: identityv1.TenantLocalRef_builder{
+				Id: proto.String(tenantA),
+			}.Build(),
+		}.Build(),
 		Issuer:                 proto.String("https://auth.example.test"),
 		OrganizationClaimName:  proto.String("org_id"),
 		OrganizationClaimValue: proto.String("org_alpha"),
 		Name:                   proto.String("Tenant Alpha"),
-	}.Build()))
-	if err != nil {
-		t.Fatalf("CreateTenant: %v", err)
-	}
-	if tenantResp.Msg.GetTenant().GetConfig().GetRef().GetTenant().GetId() == "" {
-		t.Fatal("CreateTenant returned empty tenant ID")
+	}.Build()
+	if _, err := ts.Create(ctx, tenantConfig); err != nil {
+		t.Fatalf("Create tenant in store: %v", err)
 	}
 
 	// 2. Create edge via operator API under tenant A

@@ -28,6 +28,8 @@ import (
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
+	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/host"
 )
 
@@ -160,12 +162,24 @@ edges {
 	// reports again, and the service must not stall on a test that has
 	// already taken the first address.
 	apiBound := make(chan string, 1)
-	options := host.Options{Bound: func(api string) {
-		select {
-		case apiBound <- api:
-		default:
-		}
-	}}
+	options := host.Options{
+		Bound: func(api string) {
+			select {
+			case apiBound <- api:
+			default:
+			}
+		},
+		Hub: func(hub *edgebus.Hub) {
+			edgesKV, err := hub.JetStream().KeyValue(context.Background(), edgebus.EdgeBucket)
+			if err != nil {
+				t.Errorf("open edge bucket: %v", err)
+				return
+			}
+			if err := edgestore.New(edgesKV).IndexEdge(context.Background(), testEdgeID, edgebus.DefaultTenant); err != nil {
+				t.Errorf("index test edge: %v", err)
+			}
+		},
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
