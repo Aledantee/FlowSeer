@@ -4,7 +4,7 @@ type: feat
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: partially-implemented
+status: implemented
 review: rework
 execution: mixed
 parent: docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md
@@ -12,7 +12,7 @@ parent: docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md
 
 # Operator Authorization Phase 2, Tenant Entity and Partitioned Stores - Plan
 
-> Partially implemented. Units U1–U6 landed; follow-up units U7–U10 are open.
+> Implemented. 10 units, 2026-09-28T20:08:45Z to 2026-09-29T21:10:37Z.
 
 This plan is phase 2 of the operator authorization parent plan, following
 phase 1 (`docs/plans/2026-09-28-2029-feat-operator-authorization-phase1-plan.md`,
@@ -828,17 +828,17 @@ is reachable.
 - [x] `docs/conventions/protobuf.md` has lost the `ENTITY_TYPE_TENANT` exception.
 - [x] Requirements 1, 2, and 3 hold by their acceptance tests.
 - [x] Parent U2's `Landed:` line filled.
-- [ ] Verifier green for every changed path across follow-up units U7–U10.
-- [ ] Edge leaf attaches with concrete tenant from `AttachBus` and publishes under assigned tenant.
-- [ ] Organization index claim in `tenantstore.Store.Create` is clock-free with CAS commit after record write.
-- [ ] Rollback tests drive `tenantstore.Store` directly.
-- [ ] `PlatformAdmin` schema defines `organization_claim_name` and `dev_tenant` rejects uppercase UUIDs.
-- [ ] `host.go` contains no synthetic registry edge index auto-bind.
-- [ ] `edgebus.Hub.EdgeTenant` never returns `DefaultTenant` on a zero Hub.
-- [ ] `TenantService` is unmounted from central host until phase 3.
-- [ ] Capture artifact path documentation reflects per-tenant directory layout.
-- [ ] This plan's `status` set with an outcome note under its title.
-- [ ] No plan labels in code.
+- [x] Verifier green for every changed path across follow-up units U7–U10.
+- [x] Edge leaf attaches with concrete tenant from `AttachBus` and publishes under assigned tenant.
+- [x] Organization index claim in `tenantstore.Store.Create` is clock-free with CAS commit after record write.
+- [x] Rollback tests drive `tenantstore.Store` directly.
+- [x] `PlatformAdmin` schema defines `organization_claim_name` and `dev_tenant` rejects uppercase UUIDs.
+- [x] `host.go` contains no synthetic registry edge index auto-bind.
+- [x] `edgebus.Hub.EdgeTenant` never returns `DefaultTenant` on a zero Hub.
+- [x] `TenantService` is unmounted from central host until phase 3.
+- [x] Capture artifact path documentation reflects per-tenant directory layout.
+- [x] This plan's `status` set with an outcome note under its title.
+- [x] No plan labels in code.
 
 ## Review
 
