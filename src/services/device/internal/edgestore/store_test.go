@@ -231,7 +231,7 @@ func TestTenantValidation(t *testing.T) {
 		if _, _, err := s.Get(ctx, bad, edgeID); err == nil {
 			t.Errorf("Get with bad tenant %q succeeded, want error", bad)
 		}
-		if _, err := s.Mutate(ctx, bad, edgeID, func(c *storev1.StoredEdge) (*storev1.StoredEdge, error) {
+		if _, err := s.Mutate(ctx, bad, edgeID, func(_ *storev1.StoredEdge) (*storev1.StoredEdge, error) {
 			return nil, edgestore.ErrSkip
 		}); err == nil {
 			t.Errorf("Mutate with bad tenant %q succeeded, want error", bad)

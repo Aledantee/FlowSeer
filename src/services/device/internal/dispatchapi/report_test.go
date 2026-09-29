@@ -492,7 +492,7 @@ func TestReportMultiTenantPartitioning(t *testing.T) {
 		Resolver: fakeResolver{lists: true},
 		Watch:    kv,
 		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
-		EdgeTenant: func(ctx context.Context, id string) (string, error) {
+		EdgeTenant: func(_ context.Context, id string) (string, error) {
 			if id == edgeID {
 				return customTenant, nil
 			}

@@ -114,10 +114,6 @@ func SplitLaneKey(key string) (tenantID, deviceID string, ok bool) {
 	return parts[0], parts[1], true
 }
 
-func laneRecordKey(tenantID, deviceID string) string {
-	return tenantID + "." + deviceID
-}
-
 // Record reads one device's record, or an empty record when the device has
 // none yet.
 func (j *Journal) Record(ctx context.Context, tenantID, deviceID string) (*storev1.DeviceLaneRecord, error) {
