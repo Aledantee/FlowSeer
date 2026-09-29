@@ -27,7 +27,9 @@ plan, so code and record change together.
 Ask only questions whose answer changes the design, at most three, in one
 call of the question tool (`AGENTS.md`, Agent behavior), each with a
 recommended answer. When the user cannot answer, take the recommendation,
-mark the decision "unconfirmed", and repeat it under Open questions. Every
+mark the decision "unconfirmed", and repeat it under Open questions. A
+decision the user answered ends with `(decided by the user, <YYYY-MM-DD>)`,
+which no worker may edit (`delegate`, Write the brief, item 6). Every
 decision carries its reason.
 
 Load `references/replan-phase.md` before re-planning a phase plan (one with
@@ -162,6 +164,10 @@ Rules:
   holding the old shape; an unlisted one blocks the implement pass or
   collides with a parallel unit. Grep `*_test.go` and `testdata/` for the
   distinctive token of the old output (`with-hyphen`).
+- A plan for a checker, linter, parser, or other tool that reads input
+  says under Out of scope whose input it reads and whether that author is
+  trusted. `review` briefs its reviewer with that sentence, so a plan that
+  omits it invites findings about hostile input no one meant to handle.
 - A unit adding or changing the exported `Config` of a module under
   `src/modules/` names a test in a package outside that module's directory.
 - Over six units or 300 lines (an inventory of sites excluded), cut what the

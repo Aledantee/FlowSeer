@@ -11,7 +11,9 @@ The coordinating session runs the rounds; no skill runs them on its own, and
    in the owning layer where the fix belongs (a helper a test needs goes in
    that layer, not in the test), every file the fix leaves stale (a Taskfile
    description, a README), and the files of the other sites it finds, each
-   listed in its report. The review's changed paths do not bound the fix.
+   listed in its report. It never edits a plan Decision marked
+   `decided by the user` (`delegate`, Write the brief, item 6). The review's changed paths do not
+   bound the fix.
    The coordinating session does not make the fixes itself.
 2. Merge each worker's branch, then run the verifier once on the union of
    the changed paths, before anything is reviewed again.

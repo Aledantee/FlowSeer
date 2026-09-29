@@ -473,8 +473,11 @@ subagent with worktree isolation only when the role's fit set holds a
 Claude model. Otherwise the coordinator works the units itself. A native
 subagent runs only on Claude, and a role whose fit set holds no Claude
 model would send editing work to a model with no calibration for it.
-Sequential work is the safer fallback. A stage of `land` or `drive` stops instead, because it needs a session of
-its own that commits a checkpoint. The Orca command surface is
+Sequential work is the safer fallback. A stage of `land` or `drive` needs a
+session of its own that commits a checkpoint, so it runs in a native
+subagent with worktree isolation, on a Claude model from the stage role's
+fit set, for a review stage one other than the change's author. Stopping the stage for the user
+left a drive waiting on a person for work a subagent could do. The Orca command surface is
 version-matched and served by the binary (`orca skills get orca-cli`,
 `orca skills get orchestration`), so the skills show the shape of the loop
 and defer to that guide for flags.

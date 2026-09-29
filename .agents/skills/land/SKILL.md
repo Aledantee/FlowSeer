@@ -150,7 +150,19 @@ Then load `references/retire-plan.md` for each plan step 1 gated whose
 merged parent shows every phase landed), and for each plan the branch
 marked `superseded` or `abandoned`. It promotes or amends the direction
 records the plan's decisions call for, rewrites the links to the plan, and
-deletes it in a commit of its own. Planless work skips this step.
+deletes it in a commit of its own.
+
+A merge can carry in a finished plan that no `land` gated, such as a phase a
+`drive` merged into another branch. Retire those too: each plan the merged tree holds whose `status` is
+`superseded` or `abandoned`, and each `implemented` one whose `review` and
+`compound` fields read as step 1 requires. Report an `implemented` plan
+missing a field without retiring it.
+
+```bash
+grep -l -E '^status: (implemented|superseded|abandoned)' docs/plans/*-plan.md
+```
+
+Planless work skips the first retire and still runs the check.
 
 ## 5. Verify and fast-forward
 

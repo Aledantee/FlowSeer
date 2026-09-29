@@ -198,7 +198,9 @@ two passes.
    known bug found, then valid extras, then cost. `execute-sensitive` drops
    any model whose sensitive lane `refused` or `downgraded`, then orders the
    rest by cost. Every other role orders by cost, with median wall time
-   deciding costs within 25% of each other.
+   deciding costs within 25% of each other. A review role's `fit` and
+   `last_resort` hold no Sonnet model, whatever it scores (`delegate`,
+   "Pick the role").
 
 Fit sets are ordered by field success when every member has enough
 evidence, with median active time breaking close results. Keep calibration

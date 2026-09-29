@@ -20,6 +20,8 @@ the drive at step 5.
 
 ## Answer
 
-Write the user's answer into the plan's Decisions as the user's and remove
+Write the user's answer into the plan's Decisions, ending it with
+`(decided by the user, <YYYY-MM-DD>)` so workers leave it alone
+(`delegate`, Write the brief, item 6), and remove
 its `Parked by drive:` line in the same commit. Run the verifier on the plan
 path; the plan rejoins the next round.

@@ -15,8 +15,12 @@ one-grep question yourself.
 
 Name work by role, never by model. Read `~/.claude/models/registry.yaml`
 when present, then lay `.claude/models/registry.yaml` over it (`tune` says
-how an override merges). An `as_of` over 30 days old: say so in the report
-and continue.
+how an override merges). When only one exists, it is the registry. An
+`as_of` over 30 days old: say so in the report and continue. Review roles
+(`review-unit`, `review-seam`, `judge`) never run on Sonnet: their `fit`
+and `last_resort` hold none. With no registry readable, a review lane takes
+`claude-opus-5-5`, or `claude-fable-5-1` when Opus 5.5 authored the change,
+and the report says the registry was missing.
 
 | Work | Role | Worker |
 | --- | --- | --- |
@@ -213,7 +217,9 @@ order:
    nothing else from the ledger.
 6. The boundaries: no edits outside the named files; no changes to
    `AGENTS.md`, `buf.yaml`, `tools/hooks/`, `.claude/settings.json`,
-   `generated/`, or `buf.lock`; no plan labels in code; no running a script
+   `generated/`, or `buf.lock`; no edit to a plan Decision marked
+   `decided by the user` (a finding or unit that needs one changed is a
+   blocker); no plan labels in code; no running a script
    under `tools/hooks/` (it blocks on stdin; the focused tests, `buf lint`,
    and the verifier on the changed paths are the checks); no lint or race
    run over all of `generated/go/yang` (it exhausts host memory; lint two

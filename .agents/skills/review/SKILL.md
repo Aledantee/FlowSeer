@@ -42,7 +42,14 @@ convention paths, the matched solutions, and the pinned version of every
 external convention or library a finding could cite (`go.mod`, `buf.lock`,
 the semantic-convention version `docs/conventions/observability.md` names),
 so the reviewer checks rather than recalls. When the plan's `status` is
-still `planned` because work is mid-flight, say so in the brief. Ask for findings that affect correctness, the stated requirements, or a
+still `planned` because work is mid-flight, say so in the brief. State
+whose input the change reads and whether that author is trusted, quoting
+the plan's Out of scope (`plan`, step 3). Without one, files contributors
+and agents write in this repository are trusted, and input from a network
+peer, a device, or a runtime user is not. A way to defeat the change that
+needs a hostile author of trusted input is a note, not a finding: a
+checker for honest mistakes (`docs/conventions/guarantees.md`) is not
+reworked for crafted files. Ask for findings that affect correctness, the stated requirements, or a
 repository rule, ordered by severity, each with path and line, the failure
 scenario, and the smallest safe fix, or, when the fix rests on a claim about
 code the reviewer did not open, a direction and the claim left unchecked.

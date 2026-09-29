@@ -7,7 +7,8 @@ The skill runs in a session of its own, never in this one: this session's
 context stays on the merge, and a review is independent only when its reader
 did not watch the work being closed. Dispatch one worker as `delegate`
 describes for editing work, `review` included, since the worker commits its
-checkpoint; without Orca, `delegate`'s "Orca or native" stops here. Use role
+checkpoint. Without Orca, `delegate`'s `references/no-orca.md` runs it in
+a native subagent. Use role
 `execute` for `implement` and `compound`, `review-seam` for `review`.
 
 The brief names the skill to run, this branch as the scope, the plan path or
