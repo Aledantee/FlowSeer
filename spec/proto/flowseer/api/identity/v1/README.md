@@ -15,7 +15,9 @@ Imported by: nothing
 
 Deliberately absent:
 
-- Tenant deletion. A tenant is suspended rather than deleted so its audit trail, historic records, and entity keys stay referentially intact. This package has no suspend RPC.
+- Tenant deletion. A tenant is suspended rather than deleted so its audit
+  trail, historic records, and entity keys stay referentially intact. This
+  package has no suspend RPC.
 - Operator management RPCs. Operators authenticate against their external
   identity provider and are authorized through relationship tuples rather
   than user records managed in this service.
