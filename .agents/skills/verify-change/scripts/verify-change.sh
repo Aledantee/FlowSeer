@@ -204,7 +204,6 @@ proto_files=()
 proto_deleted=false
 proto=false
 hook_tooling=false
-guarantees=false
 mib=false
 service_otel_integration=false
 web=false
@@ -241,7 +240,6 @@ if [[ $full == true ]]; then
   done < <(find . -name '*.go' -not -path './.git/*' -not -path './.claude/worktrees/*' -not -path './.codex/worktrees/*' -not -path './generated/*' -not -path './frontend/web/generated/*' -print | sort)
   proto=true
   hook_tooling=true
-  guarantees=true
   mib=true
   service_otel_integration=true
   web=true
@@ -302,10 +300,6 @@ else
         service_otel_integration=true
         ;;
     esac
-    # The guarantees checker shells out to `go list` to resolve the tests a
-    # GUARANTEES.md cites, so a change beside one needs go on PATH even when
-    # no Go module is selected and the checks below would not add it.
-    [[ -f $(dirname "$path")/GUARANTEES.md ]] && guarantees=true
   done
 fi
 
@@ -466,7 +460,7 @@ fi
 # reads as one of them. The list mirrors the per-gate need_tool calls
 # below, which stay as the last line of defence for a gate this list
 # misses.
-required_tools=(python3)
+required_tools=(python3 go)
 if ((${#go_files[@]})); then
   required_tools+=(gofumpt goimports)
 fi
@@ -474,9 +468,6 @@ if ((${#modules[@]})); then
   required_tools+=(go golangci-lint)
 fi
 if [[ $proto == true || $mib == true ]]; then
-  required_tools+=(go)
-fi
-if [[ $guarantees == true ]]; then
   required_tools+=(go)
 fi
 if [[ $proto == true ]]; then
@@ -513,11 +504,14 @@ if ((${#missing_tools[@]})); then
 fi
 
 need_tool python3
+need_tool go
 run python3 "$script_dir/check-plan-status.py"
+build_dir=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-build.XXXXXX")
+go build -o "$build_dir/check-guarantees" ./tools/check-guarantees
 if [[ $full == true ]]; then
-  run go run ./tools/check-guarantees --all
+  run "$build_dir/check-guarantees" --all
 else
-  run go run ./tools/check-guarantees -- "${paths[@]}"
+  run "$build_dir/check-guarantees" -- "${paths[@]}"
 fi
 
 # Reported, not failed: deleting a test, skipping it, or rewriting a golden
@@ -534,8 +528,6 @@ if [[ -n $test_changes ]]; then
   echo "Test changes to account for:"
   printf '  %s\n' "${test_changes//$'\n'/$'\n'  }"
 fi
-
-build_dir=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-build.XXXXXX")
 
 if [[ $web == true ]]; then
   (
