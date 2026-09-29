@@ -398,3 +398,21 @@ Then rename `TestRunOutputCapTruncates` in
   plan's outcome note shows the stop condition did not trigger.
 - Whether to add `docs/conventions/guarantees.md` to `AGENTS.md`'s
   Conventions list; propose it through `steer` after the follow-up lands.
+- Parked by drive: the second review ended `rework` after four more fix
+  rounds. The grammar now fails closed at the block level, but hand-matched
+  CommonMark still leaks inside code spans and across lines: an escaped
+  backtick followed by `<!-- MUST -->` passes, a code span that opens on a
+  `- WHEN` line and closes on the next hides THEN, and headings that render
+  the same (`A &amp; B` and `A & B`) count as distinct. How should counted
+  lines be read? Options: narrow character rule (counted lines and headings
+  admit only letters, digits, spaces, and plain punctuation, with no
+  backticks, backslashes, `<`, `&`, or `*`; identifiers are written bare;
+  fails closed with no dependency and a small checker, but guarantees
+  cannot use code spans) | real CommonMark parser (check the rendered text
+  from a conforming implementation, such as goldmark in a small Go command
+  or markdown-it-py; exact, and keeps full Markdown, but adds a dependency
+  to the merge gate and rewrites the checker again) | accept the current
+  checker (land with the three open findings recorded; a crafted file can
+  still hide a MUST or THEN). Recommended: narrow character rule, because
+  three rounds of CommonMark matching have leaked at a new layer each
+  time, and a guarantee is one plain sentence that needs no markup.
