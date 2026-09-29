@@ -82,8 +82,8 @@ const file_flowseer_net_protocol_bgp_v1_bgp_origin_proto_rawDesc = "" +
 	"\x16BGP_ORIGIN_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eBGP_ORIGIN_IGP\x10\x01\x12\x12\n" +
 	"\x0eBGP_ORIGIN_EGP\x10\x02\x12\x19\n" +
-	"\x15BGP_ORIGIN_INCOMPLETE\x10\x03B\x94\x02\n" +
-	" com.flowseer.net.protocol.bgp.v1B\x0eBgpOriginProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
+	"\x15BGP_ORIGIN_INCOMPLETE\x10\x03B\x96\x02\n" +
+	" com.flowseer.net.protocol.bgp.v1B\x0eBgpOriginProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_bgp_v1_bgp_origin_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_bgp_v1_bgp_origin_proto_goTypes = []any{

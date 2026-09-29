@@ -78,8 +78,8 @@ const file_flowseer_net_routing_v1_route_table_type_proto_rawDesc = "" +
 	"\x0eRouteTableType\x12 \n" +
 	"\x1cROUTE_TABLE_TYPE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14ROUTE_TABLE_TYPE_RIB\x10\x01\x12\x18\n" +
-	"\x14ROUTE_TABLE_TYPE_FIB\x10\x02B\xfd\x01\n" +
-	"\x1bcom.flowseer.net.routing.v1B\x13RouteTableTypeProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/routing/v1;routingv1\xa2\x02\x03FNR\xaa\x02\x17Flowseer.Net.Routing.V1\xca\x02\x17Flowseer\\Net\\Routing\\V1\xe2\x02#Flowseer\\Net\\Routing\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Routing::V1b\beditionsp\xe9\a"
+	"\x14ROUTE_TABLE_TYPE_FIB\x10\x02B\xff\x01\n" +
+	"\x1bcom.flowseer.net.routing.v1B\x13RouteTableTypeProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/routing/v1;routingv1\xa2\x02\x03FNR\xaa\x02\x17Flowseer.Net.Routing.V1\xca\x02\x17Flowseer\\Net\\Routing\\V1\xe2\x02#Flowseer\\Net\\Routing\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Routing::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_routing_v1_route_table_type_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_routing_v1_route_table_type_proto_goTypes = []any{

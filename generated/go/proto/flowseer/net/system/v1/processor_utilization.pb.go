@@ -133,8 +133,8 @@ const file_flowseer_net_system_v1_processor_utilization_proto_rawDesc = "" +
 	"2flowseer/net/system/v1/processor_utilization.proto\x12\x16flowseer.net.system.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1egoogle/protobuf/duration.proto\"\xa2\x01\n" +
 	"\x14ProcessorUtilization\x12M\n" +
 	"\x1cutilization_avg_basis_points\x18\x01 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x98\xb5\x18\x01R\x19utilizationAvgBasisPoints\x12;\n" +
-	"\x06window\x18\x02 \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x02*\x00R\x06windowB\xfc\x01\n" +
-	"\x1acom.flowseer.net.system.v1B\x19ProcessorUtilizationProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/system/v1;systemv1\xa2\x02\x03FNS\xaa\x02\x16Flowseer.Net.System.V1\xca\x02\x16Flowseer\\Net\\System\\V1\xe2\x02\"Flowseer\\Net\\System\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::System::V1b\beditionsp\xe9\a"
+	"\x06window\x18\x02 \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x02*\x00R\x06windowB\xfe\x01\n" +
+	"\x1acom.flowseer.net.system.v1B\x19ProcessorUtilizationProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/system/v1;systemv1\xa2\x02\x03FNS\xaa\x02\x16Flowseer.Net.System.V1\xca\x02\x16Flowseer\\Net\\System\\V1\xe2\x02\"Flowseer\\Net\\System\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::System::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_system_v1_processor_utilization_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_system_v1_processor_utilization_proto_goTypes = []any{

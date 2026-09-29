@@ -95,8 +95,8 @@ const file_flowseer_net_system_v1_storage_kind_proto_rawDesc = "" +
 	"\x1bSTORAGE_KIND_VIRTUAL_MEMORY\x10\x03\x12\x1b\n" +
 	"\x17STORAGE_KIND_FIXED_DISK\x10\x04\x12\x1f\n" +
 	"\x1bSTORAGE_KIND_REMOVABLE_DISK\x10\x05\x12\x1d\n" +
-	"\x19STORAGE_KIND_FLASH_MEMORY\x10\x06B\xf3\x01\n" +
-	"\x1acom.flowseer.net.system.v1B\x10StorageKindProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/system/v1;systemv1\xa2\x02\x03FNS\xaa\x02\x16Flowseer.Net.System.V1\xca\x02\x16Flowseer\\Net\\System\\V1\xe2\x02\"Flowseer\\Net\\System\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::System::V1b\beditionsp\xe9\a"
+	"\x19STORAGE_KIND_FLASH_MEMORY\x10\x06B\xf5\x01\n" +
+	"\x1acom.flowseer.net.system.v1B\x10StorageKindProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/system/v1;systemv1\xa2\x02\x03FNS\xaa\x02\x16Flowseer.Net.System.V1\xca\x02\x16Flowseer\\Net\\System\\V1\xe2\x02\"Flowseer\\Net\\System\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::System::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_system_v1_storage_kind_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_system_v1_storage_kind_proto_goTypes = []any{

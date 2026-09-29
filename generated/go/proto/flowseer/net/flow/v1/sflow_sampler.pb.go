@@ -241,8 +241,8 @@ const file_flowseer_net_flow_v1_sflow_sampler_proto_rawDesc = "" +
 	"\x0ereceiver_index\x18\x03 \x01(\rB\x0e\xbaH\v\xc8\x01\x01*\x06\x18\xff\xff\x03(\x01R\rreceiverIndex\x12/\n" +
 	"\rsampling_rate\x18\x04 \x01(\rB\n" +
 	"\xbaH\a\xc8\x01\x01*\x02(\x01R\fsamplingRate\x121\n" +
-	"\x15max_header_size_bytes\x18\x05 \x01(\x04R\x12maxHeaderSizeBytesB\xe6\x01\n" +
-	"\x18com.flowseer.net.flow.v1B\x11SflowSamplerProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/flow/v1;flowv1\xa2\x02\x03FNF\xaa\x02\x14Flowseer.Net.Flow.V1\xca\x02\x14Flowseer\\Net\\Flow\\V1\xe2\x02 Flowseer\\Net\\Flow\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Flow::V1b\beditionsp\xe9\a"
+	"\x15max_header_size_bytes\x18\x05 \x01(\x04R\x12maxHeaderSizeBytesB\xe8\x01\n" +
+	"\x18com.flowseer.net.flow.v1B\x11SflowSamplerProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/flow/v1;flowv1\xa2\x02\x03FNF\xaa\x02\x14Flowseer.Net.Flow.V1\xca\x02\x14Flowseer\\Net\\Flow\\V1\xe2\x02 Flowseer\\Net\\Flow\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Flow::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_flow_v1_sflow_sampler_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_flow_v1_sflow_sampler_proto_goTypes = []any{

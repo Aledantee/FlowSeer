@@ -95,8 +95,8 @@ const file_flowseer_net_protocol_lldp_v1_med_capability_proto_rawDesc = "" +
 	"\x17MED_CAPABILITY_LOCATION\x10\x02\x12\x1f\n" +
 	"\x1bMED_CAPABILITY_EXTENDED_PSE\x10\x03\x12\x1e\n" +
 	"\x1aMED_CAPABILITY_EXTENDED_PD\x10\x04\x12\x1c\n" +
-	"\x18MED_CAPABILITY_INVENTORY\x10\x05B\x9f\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x12MedCapabilityProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\x18MED_CAPABILITY_INVENTORY\x10\x05B\xa1\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x12MedCapabilityProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_med_capability_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_med_capability_proto_goTypes = []any{

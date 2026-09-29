@@ -336,8 +336,8 @@ const file_flowseer_net_protocol_ospf_v1_ospf_neighbor_proto_rawDesc = "" +
 	"\x05state\x18\a \x01(\x0e20.flowseer.net.protocol.ospf.v1.OspfNeighborStateR\x05state\x12$\n" +
 	"\bpriority\x18\b \x01(\rB\b\xbaH\x05*\x03\x18\xff\x01R\bpriority:\xe7\x02\xbaH\xe3\x02\x1a}\n" +
 	"\x1fospf_neighbor.instance_id_is_v3\x12,instance_id is valid only for OSPF version 3\x1a,!has(this.instance_id) || this.version == 3u\x1a\xe1\x01\n" +
-	"\x1cospf_neighbor.address_family\x12Lneighbor_address must be IPv4 for OSPF version 2 and IPv6 for OSPF version 3\x1as!has(this.neighbor_address) || (this.version == 2u ? has(this.neighbor_address.v4) : has(this.neighbor_address.v6))B\x9e\x02\n" +
-	"!com.flowseer.net.protocol.ospf.v1B\x11OspfNeighborProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
+	"\x1cospf_neighbor.address_family\x12Lneighbor_address must be IPv4 for OSPF version 2 and IPv6 for OSPF version 3\x1as!has(this.neighbor_address) || (this.version == 2u ? has(this.neighbor_address.v4) : has(this.neighbor_address.v6))B\xa0\x02\n" +
+	"!com.flowseer.net.protocol.ospf.v1B\x11OspfNeighborProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_ospf_v1_ospf_neighbor_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_ospf_v1_ospf_neighbor_proto_goTypes = []any{

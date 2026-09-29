@@ -243,8 +243,8 @@ const file_flowseer_net_system_v1_storage_utilization_proto_rawDesc = "" +
 	"\n" +
 	"used_bytes\x18\x04 \x01(\x04R\tusedBytes\x125\n" +
 	"\x11used_basis_points\x18\x05 \x01(\rB\t\xbaH\x06*\x04\x98\xb5\x18\x01R\x0fusedBasisPoints:\xae\x01\xbaH\xaa\x01\x1a\xa7\x01\n" +
-	"%storage_utilization.used_within_total\x12&used_bytes must not exceed total_bytes\x1aV!has(this.used_bytes) || !has(this.total_bytes) || this.used_bytes <= this.total_bytesB\xfa\x01\n" +
-	"\x1acom.flowseer.net.system.v1B\x17StorageUtilizationProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/system/v1;systemv1\xa2\x02\x03FNS\xaa\x02\x16Flowseer.Net.System.V1\xca\x02\x16Flowseer\\Net\\System\\V1\xe2\x02\"Flowseer\\Net\\System\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::System::V1b\beditionsp\xe9\a"
+	"%storage_utilization.used_within_total\x12&used_bytes must not exceed total_bytes\x1aV!has(this.used_bytes) || !has(this.total_bytes) || this.used_bytes <= this.total_bytesB\xfc\x01\n" +
+	"\x1acom.flowseer.net.system.v1B\x17StorageUtilizationProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/system/v1;systemv1\xa2\x02\x03FNS\xaa\x02\x16Flowseer.Net.System.V1\xca\x02\x16Flowseer\\Net\\System\\V1\xe2\x02\"Flowseer\\Net\\System\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::System::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_system_v1_storage_utilization_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_system_v1_storage_utilization_proto_goTypes = []any{

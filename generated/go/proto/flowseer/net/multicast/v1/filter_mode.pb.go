@@ -79,8 +79,8 @@ const file_flowseer_net_multicast_v1_filter_mode_proto_rawDesc = "" +
 	"FilterMode\x12\x1b\n" +
 	"\x17FILTER_MODE_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13FILTER_MODE_INCLUDE\x10\x01\x12\x17\n" +
-	"\x13FILTER_MODE_EXCLUDE\x10\x02B\x87\x02\n" +
-	"\x1dcom.flowseer.net.multicast.v1B\x0fFilterModeProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/multicast/v1;multicastv1\xa2\x02\x03FNM\xaa\x02\x19Flowseer.Net.Multicast.V1\xca\x02\x19Flowseer\\Net\\Multicast\\V1\xe2\x02%Flowseer\\Net\\Multicast\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Multicast::V1b\beditionsp\xe9\a"
+	"\x13FILTER_MODE_EXCLUDE\x10\x02B\x89\x02\n" +
+	"\x1dcom.flowseer.net.multicast.v1B\x0fFilterModeProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/multicast/v1;multicastv1\xa2\x02\x03FNM\xaa\x02\x19Flowseer.Net.Multicast.V1\xca\x02\x19Flowseer\\Net\\Multicast\\V1\xe2\x02%Flowseer\\Net\\Multicast\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Multicast::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_multicast_v1_filter_mode_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_multicast_v1_filter_mode_proto_goTypes = []any{

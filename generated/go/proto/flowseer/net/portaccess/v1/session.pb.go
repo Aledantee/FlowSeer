@@ -311,8 +311,8 @@ const file_flowseer_net_portaccess_v1_session_proto_rawDesc = "" +
 	"auth_state\x18\x04 \x01(\x0e2/.flowseer.net.portaccess.v1.PortAccessAuthStateB\b\xbaH\x05\x82\x01\x02\x10\x01R\tauthState\x123\n" +
 	"\x10assigned_vlan_id\x18\x05 \x01(\rB\t\xbaH\x06*\x04\x80\xb5\x18\x01R\x0eassignedVlanId\x12%\n" +
 	"\trole_name\x18\x06 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x02R\broleName\x12%\n" +
-	"\tuser_name\x18\a \x01(\tB\b\xbaH\x05r\x03\x18\x80\x02R\buserNameB\x8b\x02\n" +
-	"\x1ecom.flowseer.net.portaccess.v1B\fSessionProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/portaccess/v1;portaccessv1\xa2\x02\x03FNP\xaa\x02\x1aFlowseer.Net.Portaccess.V1\xca\x02\x1aFlowseer\\Net\\Portaccess\\V1\xe2\x02&Flowseer\\Net\\Portaccess\\V1\\GPBMetadata\xea\x02\x1dFlowseer::Net::Portaccess::V1b\beditionsp\xe9\a"
+	"\tuser_name\x18\a \x01(\tB\b\xbaH\x05r\x03\x18\x80\x02R\buserNameB\x8d\x02\n" +
+	"\x1ecom.flowseer.net.portaccess.v1B\fSessionProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/portaccess/v1;portaccessv1\xa2\x02\x03FNP\xaa\x02\x1aFlowseer.Net.Portaccess.V1\xca\x02\x1aFlowseer\\Net\\Portaccess\\V1\xe2\x02&Flowseer\\Net\\Portaccess\\V1\\GPBMetadata\xea\x02\x1dFlowseer::Net::Portaccess::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_portaccess_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_portaccess_v1_session_proto_goTypes = []any{

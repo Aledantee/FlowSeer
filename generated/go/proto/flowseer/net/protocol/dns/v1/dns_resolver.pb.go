@@ -317,8 +317,8 @@ const file_flowseer_net_protocol_dns_v1_dns_resolver_proto_rawDesc = "" +
 	"\aaddress\x18\x01 \x01(\v2\x1f.flowseer.net.addr.v1.IpAddressB\x06\xbaH\x03\xc8\x01\x01R\aaddress\x12\x1f\n" +
 	"\x04port\x18\x02 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03(\x01R\x04port\x12E\n" +
 	"\x06origin\x18\x03 \x01(\x0e2-.flowseer.net.protocol.dns.v1.DnsServerOriginR\x06origin\x120\n" +
-	"\x0einterface_name\x18\x04 \x01(\tB\t\xbaH\x06r\x04\x80\xb5\x18\x01R\rinterfaceNameB\x96\x02\n" +
-	" com.flowseer.net.protocol.dns.v1B\x10DnsResolverProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dns/v1;dnsv1\xa2\x02\x04FNPD\xaa\x02\x1cFlowseer.Net.Protocol.Dns.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Dns\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Dns\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Dns::V1b\beditionsp\xe9\a"
+	"\x0einterface_name\x18\x04 \x01(\tB\t\xbaH\x06r\x04\x80\xb5\x18\x01R\rinterfaceNameB\x98\x02\n" +
+	" com.flowseer.net.protocol.dns.v1B\x10DnsResolverProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dns/v1;dnsv1\xa2\x02\x04FNPD\xaa\x02\x1cFlowseer.Net.Protocol.Dns.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Dns\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Dns\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Dns::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_dns_v1_dns_resolver_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_net_protocol_dns_v1_dns_resolver_proto_goTypes = []any{

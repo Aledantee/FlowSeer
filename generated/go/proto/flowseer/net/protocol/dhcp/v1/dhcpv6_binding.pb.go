@@ -612,8 +612,8 @@ const file_flowseer_net_protocol_dhcp_v1_dhcpv6_binding_proto_rawDesc = "" +
 	"\blifetime\x18\x02 \x01(\v2 .flowseer.net.addr.v1.IpLifetimeR\blifetime\"\x90\x01\n" +
 	"\x0eDhcpv6IaPrefix\x12@\n" +
 	"\x06prefix\x18\x01 \x01(\v2 .flowseer.net.addr.v1.Ipv6PrefixB\x06\xbaH\x03\xc8\x01\x01R\x06prefix\x12<\n" +
-	"\blifetime\x18\x02 \x01(\v2 .flowseer.net.addr.v1.IpLifetimeR\blifetimeB\x9f\x02\n" +
-	"!com.flowseer.net.protocol.dhcp.v1B\x12Dhcpv6BindingProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
+	"\blifetime\x18\x02 \x01(\v2 .flowseer.net.addr.v1.IpLifetimeR\blifetimeB\xa1\x02\n" +
+	"!com.flowseer.net.protocol.dhcp.v1B\x12Dhcpv6BindingProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_dhcp_v1_dhcpv6_binding_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_flowseer_net_protocol_dhcp_v1_dhcpv6_binding_proto_goTypes = []any{

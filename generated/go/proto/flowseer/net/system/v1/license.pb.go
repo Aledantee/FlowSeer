@@ -302,8 +302,8 @@ const file_flowseer_net_system_v1_license_proto_rawDesc = "" +
 	"\tissued_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\bissuedAt\x129\n" +
 	"\n" +
 	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12+\n" +
-	"\x11entitlement_count\x18\a \x01(\rR\x10entitlementCountB\xef\x01\n" +
-	"\x1acom.flowseer.net.system.v1B\fLicenseProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/system/v1;systemv1\xa2\x02\x03FNS\xaa\x02\x16Flowseer.Net.System.V1\xca\x02\x16Flowseer\\Net\\System\\V1\xe2\x02\"Flowseer\\Net\\System\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::System::V1b\beditionsp\xe9\a"
+	"\x11entitlement_count\x18\a \x01(\rR\x10entitlementCountB\xf1\x01\n" +
+	"\x1acom.flowseer.net.system.v1B\fLicenseProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/system/v1;systemv1\xa2\x02\x03FNS\xaa\x02\x16Flowseer.Net.System.V1\xca\x02\x16Flowseer\\Net\\System\\V1\xe2\x02\"Flowseer\\Net\\System\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::System::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_system_v1_license_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_system_v1_license_proto_goTypes = []any{

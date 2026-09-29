@@ -112,8 +112,8 @@ const file_flowseer_net_protocol_bfd_v1_bfd_diagnostic_proto_rawDesc = "" +
 	"%BFD_DIAGNOSTIC_CONCATENATED_PATH_DOWN\x10\x06\x12(\n" +
 	"$BFD_DIAGNOSTIC_ADMINISTRATIVELY_DOWN\x10\a\x121\n" +
 	"-BFD_DIAGNOSTIC_REVERSE_CONCATENATED_PATH_DOWN\x10\b\x12*\n" +
-	"&BFD_DIAGNOSTIC_MIS_CONNECTIVITY_DEFECT\x10\tB\x98\x02\n" +
-	" com.flowseer.net.protocol.bfd.v1B\x12BfdDiagnosticProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bfd/v1;bfdv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bfd.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bfd\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bfd\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bfd::V1b\beditionsp\xe9\a"
+	"&BFD_DIAGNOSTIC_MIS_CONNECTIVITY_DEFECT\x10\tB\x9a\x02\n" +
+	" com.flowseer.net.protocol.bfd.v1B\x12BfdDiagnosticProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bfd/v1;bfdv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bfd.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bfd\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bfd\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bfd::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_bfd_v1_bfd_diagnostic_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_bfd_v1_bfd_diagnostic_proto_goTypes = []any{

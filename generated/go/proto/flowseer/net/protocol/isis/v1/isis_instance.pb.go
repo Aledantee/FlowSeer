@@ -229,8 +229,8 @@ const file_flowseer_net_protocol_isis_v1_isis_instance_proto_rawDesc = "" +
 	"\n" +
 	"level_type\x18\x04 \x01(\x0e2(.flowseer.net.protocol.isis.v1.IsisLevelR\tlevelType\x127\n" +
 	"\x0earea_addresses\x18\x05 \x03(\fB\x10\xbaH\r\x92\x01\n" +
-	"\x18\x01\"\x06z\x04\x10\x01\x18\x14R\rareaAddressesB\x9e\x02\n" +
-	"!com.flowseer.net.protocol.isis.v1B\x11IsisInstanceProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/isis/v1;isisv1\xa2\x02\x04FNPI\xaa\x02\x1dFlowseer.Net.Protocol.Isis.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Isis\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Isis\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Isis::V1b\beditionsp\xe9\a"
+	"\x18\x01\"\x06z\x04\x10\x01\x18\x14R\rareaAddressesB\xa0\x02\n" +
+	"!com.flowseer.net.protocol.isis.v1B\x11IsisInstanceProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/isis/v1;isisv1\xa2\x02\x04FNPI\xaa\x02\x1dFlowseer.Net.Protocol.Isis.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Isis\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Isis\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Isis::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_isis_v1_isis_instance_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_isis_v1_isis_instance_proto_goTypes = []any{

@@ -81,8 +81,8 @@ const file_flowseer_net_flow_v1_flow_export_protocol_proto_rawDesc = "" +
 	" FLOW_EXPORT_PROTOCOL_UNSPECIFIED\x10\x00\x12#\n" +
 	"\x1fFLOW_EXPORT_PROTOCOL_NETFLOW_V5\x10\x01\x12#\n" +
 	"\x1fFLOW_EXPORT_PROTOCOL_NETFLOW_V9\x10\x02\x12\x1e\n" +
-	"\x1aFLOW_EXPORT_PROTOCOL_IPFIX\x10\x03B\xec\x01\n" +
-	"\x18com.flowseer.net.flow.v1B\x17FlowExportProtocolProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/flow/v1;flowv1\xa2\x02\x03FNF\xaa\x02\x14Flowseer.Net.Flow.V1\xca\x02\x14Flowseer\\Net\\Flow\\V1\xe2\x02 Flowseer\\Net\\Flow\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Flow::V1b\beditionsp\xe9\a"
+	"\x1aFLOW_EXPORT_PROTOCOL_IPFIX\x10\x03B\xee\x01\n" +
+	"\x18com.flowseer.net.flow.v1B\x17FlowExportProtocolProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/flow/v1;flowv1\xa2\x02\x03FNF\xaa\x02\x14Flowseer.Net.Flow.V1\xca\x02\x14Flowseer\\Net\\Flow\\V1\xe2\x02 Flowseer\\Net\\Flow\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Flow::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_flow_v1_flow_export_protocol_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_flow_v1_flow_export_protocol_proto_goTypes = []any{

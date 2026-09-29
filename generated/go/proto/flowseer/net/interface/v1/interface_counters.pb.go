@@ -500,8 +500,8 @@ const file_flowseer_net_interface_v1_interface_counters_proto_rawDesc = "" +
 	"\vin_discards\x18\v \x01(\x04R\n" +
 	"inDiscards\x12!\n" +
 	"\fout_discards\x18\f \x01(\x04R\voutDiscards\x12I\n" +
-	"\x12last_discontinuity\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\x90\x02\n" +
-	"\x1dcom.flowseer.net.interface.v1B\x16InterfaceCountersProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
+	"\x12last_discontinuity\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\x92\x02\n" +
+	"\x1dcom.flowseer.net.interface.v1B\x16InterfaceCountersProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1;interfacev1\xa2\x02\x03FNI\xaa\x02\x19Flowseer.Net.Interface.V1\xca\x02\x1aFlowseer\\Net\\Interface_\\V1\xe2\x02&Flowseer\\Net\\Interface_\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Interface::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_interface_v1_interface_counters_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_interface_v1_interface_counters_proto_goTypes = []any{

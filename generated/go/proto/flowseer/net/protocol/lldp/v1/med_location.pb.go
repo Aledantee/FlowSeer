@@ -142,8 +142,8 @@ const file_flowseer_net_protocol_lldp_v1_med_location_proto_rawDesc = "" +
 	"0flowseer/net/protocol/lldp/v1/med_location.proto\x12\x1dflowseer.net.protocol.lldp.v1\x1a7flowseer/net/protocol/lldp/v1/med_location_format.proto\"}\n" +
 	"\vMedLocation\x12P\n" +
 	"\x06format\x18\x01 \x01(\x0e20.flowseer.net.protocol.lldp.v1.MedLocationFormatB\x06\xbaH\x03\xc8\x01\x01R\x06format\x12\x1c\n" +
-	"\x04info\x18\x02 \x01(\fB\b\xbaH\x05z\x03\x18\x80\x02R\x04infoB\x9d\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x10MedLocationProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\x04info\x18\x02 \x01(\fB\b\xbaH\x05z\x03\x18\x80\x02R\x04infoB\x9f\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x10MedLocationProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_med_location_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_med_location_proto_goTypes = []any{

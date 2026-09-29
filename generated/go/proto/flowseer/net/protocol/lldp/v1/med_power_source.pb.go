@@ -95,8 +95,8 @@ const file_flowseer_net_protocol_lldp_v1_med_power_source_proto_rawDesc = "" +
 	"\x1bMED_POWER_SOURCE_PSE_BACKUP\x10\x02\x12 \n" +
 	"\x1cMED_POWER_SOURCE_PD_FROM_PSE\x10\x03\x12\x1d\n" +
 	"\x19MED_POWER_SOURCE_PD_LOCAL\x10\x04\x12%\n" +
-	"!MED_POWER_SOURCE_PD_LOCAL_AND_PSE\x10\x05B\xa0\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x13MedPowerSourceProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"!MED_POWER_SOURCE_PD_LOCAL_AND_PSE\x10\x05B\xa2\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x13MedPowerSourceProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_med_power_source_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_med_power_source_proto_goTypes = []any{

@@ -185,8 +185,8 @@ const file_flowseer_net_log_v1_syslog_facility_proto_rawDesc = "" +
 	"\x16SYSLOG_FACILITY_LOCAL4\x10\x14\x12\x1a\n" +
 	"\x16SYSLOG_FACILITY_LOCAL5\x10\x15\x12\x1a\n" +
 	"\x16SYSLOG_FACILITY_LOCAL6\x10\x16\x12\x1a\n" +
-	"\x16SYSLOG_FACILITY_LOCAL7\x10\x17B\xe1\x01\n" +
-	"\x17com.flowseer.net.log.v1B\x13SyslogFacilityProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/log/v1;logv1\xa2\x02\x03FNL\xaa\x02\x13Flowseer.Net.Log.V1\xca\x02\x13Flowseer\\Net\\Log\\V1\xe2\x02\x1fFlowseer\\Net\\Log\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Log::V1b\beditionsp\xe9\a"
+	"\x16SYSLOG_FACILITY_LOCAL7\x10\x17B\xe3\x01\n" +
+	"\x17com.flowseer.net.log.v1B\x13SyslogFacilityProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/log/v1;logv1\xa2\x02\x03FNL\xaa\x02\x13Flowseer.Net.Log.V1\xca\x02\x13Flowseer\\Net\\Log\\V1\xe2\x02\x1fFlowseer\\Net\\Log\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Log::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_log_v1_syslog_facility_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_log_v1_syslog_facility_proto_goTypes = []any{

@@ -128,8 +128,8 @@ const file_flowseer_net_filter_v1_mac_match_proto_rawDesc = "" +
 	"&flowseer/net/filter/v1/mac_match.proto\x12\x16flowseer.net.filter.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\"\x88\x01\n" +
 	"\bMacMatch\x12D\n" +
 	"\aaddress\x18\x01 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressB\x06\xbaH\x03\xc8\x01\x01R\aaddress\x126\n" +
-	"\x04mask\x18\x02 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressR\x04maskB\xf0\x01\n" +
-	"\x1acom.flowseer.net.filter.v1B\rMacMatchProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/filter/v1;filterv1\xa2\x02\x03FNF\xaa\x02\x16Flowseer.Net.Filter.V1\xca\x02\x16Flowseer\\Net\\Filter\\V1\xe2\x02\"Flowseer\\Net\\Filter\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Filter::V1b\beditionsp\xe9\a"
+	"\x04mask\x18\x02 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressR\x04maskB\xf2\x01\n" +
+	"\x1acom.flowseer.net.filter.v1B\rMacMatchProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/filter/v1;filterv1\xa2\x02\x03FNF\xaa\x02\x16Flowseer.Net.Filter.V1\xca\x02\x16Flowseer\\Net\\Filter\\V1\xe2\x02\"Flowseer\\Net\\Filter\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Filter::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_filter_v1_mac_match_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_filter_v1_mac_match_proto_goTypes = []any{

@@ -333,9 +333,9 @@ const file_flowseer_net_routing_v1_route_proto_rawDesc = "" +
 	"\x0enext_hop_group\x18\x06 \x01(\v2%.flowseer.net.routing.v1.NextHopGroupR\fnextHopGroup\x12\x16\n" +
 	"\x06active\x18\a \x01(\bR\x06active\x12F\n" +
 	"\n" +
-	"table_type\x18\b \x01(\x0e2'.flowseer.net.routing.v1.RouteTableTypeR\ttableTypeB\xf4\x01\n" +
+	"table_type\x18\b \x01(\x0e2'.flowseer.net.routing.v1.RouteTableTypeR\ttableTypeB\xf6\x01\n" +
 	"\x1bcom.flowseer.net.routing.v1B\n" +
-	"RouteProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/routing/v1;routingv1\xa2\x02\x03FNR\xaa\x02\x17Flowseer.Net.Routing.V1\xca\x02\x17Flowseer\\Net\\Routing\\V1\xe2\x02#Flowseer\\Net\\Routing\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Routing::V1b\beditionsp\xe9\a"
+	"RouteProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/routing/v1;routingv1\xa2\x02\x03FNR\xaa\x02\x17Flowseer.Net.Routing.V1\xca\x02\x17Flowseer\\Net\\Routing\\V1\xe2\x02#Flowseer\\Net\\Routing\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Routing::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_routing_v1_route_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_routing_v1_route_proto_goTypes = []any{

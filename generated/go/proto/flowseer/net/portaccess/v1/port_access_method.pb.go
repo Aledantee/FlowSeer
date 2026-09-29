@@ -81,8 +81,8 @@ const file_flowseer_net_portaccess_v1_port_access_method_proto_rawDesc = "" +
 	"\x1ePORT_ACCESS_METHOD_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18PORT_ACCESS_METHOD_DOT1X\x10\x01\x12\x1a\n" +
 	"\x16PORT_ACCESS_METHOD_MAB\x10\x02\x12\x1f\n" +
-	"\x1bPORT_ACCESS_METHOD_WEB_AUTH\x10\x03B\x94\x02\n" +
-	"\x1ecom.flowseer.net.portaccess.v1B\x15PortAccessMethodProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/portaccess/v1;portaccessv1\xa2\x02\x03FNP\xaa\x02\x1aFlowseer.Net.Portaccess.V1\xca\x02\x1aFlowseer\\Net\\Portaccess\\V1\xe2\x02&Flowseer\\Net\\Portaccess\\V1\\GPBMetadata\xea\x02\x1dFlowseer::Net::Portaccess::V1b\beditionsp\xe9\a"
+	"\x1bPORT_ACCESS_METHOD_WEB_AUTH\x10\x03B\x96\x02\n" +
+	"\x1ecom.flowseer.net.portaccess.v1B\x15PortAccessMethodProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/portaccess/v1;portaccessv1\xa2\x02\x03FNP\xaa\x02\x1aFlowseer.Net.Portaccess.V1\xca\x02\x1aFlowseer\\Net\\Portaccess\\V1\xe2\x02&Flowseer\\Net\\Portaccess\\V1\\GPBMetadata\xea\x02\x1dFlowseer::Net::Portaccess::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_portaccess_v1_port_access_method_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_portaccess_v1_port_access_method_proto_goTypes = []any{

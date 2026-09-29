@@ -105,8 +105,8 @@ const file_flowseer_net_protocol_ospf_v1_ospf_interface_state_proto_rawDesc = ""
 	"&OSPF_INTERFACE_STATE_DESIGNATED_ROUTER\x10\x05\x121\n" +
 	"-OSPF_INTERFACE_STATE_BACKUP_DESIGNATED_ROUTER\x10\x06\x120\n" +
 	",OSPF_INTERFACE_STATE_OTHER_DESIGNATED_ROUTER\x10\a\x12 \n" +
-	"\x1cOSPF_INTERFACE_STATE_STANDBY\x10\bB\xa4\x02\n" +
-	"!com.flowseer.net.protocol.ospf.v1B\x17OspfInterfaceStateProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
+	"\x1cOSPF_INTERFACE_STATE_STANDBY\x10\bB\xa6\x02\n" +
+	"!com.flowseer.net.protocol.ospf.v1B\x17OspfInterfaceStateProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_ospf_v1_ospf_interface_state_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_ospf_v1_ospf_interface_state_proto_goTypes = []any{

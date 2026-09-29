@@ -642,8 +642,8 @@ const file_flowseer_net_protocol_vrrp_v1_vrrp_group_proto_rawDesc = "" +
 	"\x11VrrpGroupCounters\x12-\n" +
 	"\x12master_transitions\x18\x01 \x01(\x04R\x11masterTransitions\x127\n" +
 	"\x17received_advertisements\x18\x02 \x01(\x04R\x16receivedAdvertisements\x12I\n" +
-	"\x12last_discontinuity\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\x9b\x02\n" +
-	"!com.flowseer.net.protocol.vrrp.v1B\x0eVrrpGroupProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/vrrp/v1;vrrpv1\xa2\x02\x04FNPV\xaa\x02\x1dFlowseer.Net.Protocol.Vrrp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Vrrp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Vrrp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Vrrp::V1b\beditionsp\xe9\a"
+	"\x12last_discontinuity\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\x9d\x02\n" +
+	"!com.flowseer.net.protocol.vrrp.v1B\x0eVrrpGroupProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/vrrp/v1;vrrpv1\xa2\x02\x04FNPV\xaa\x02\x1dFlowseer.Net.Protocol.Vrrp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Vrrp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Vrrp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Vrrp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_vrrp_v1_vrrp_group_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_net_protocol_vrrp_v1_vrrp_group_proto_goTypes = []any{

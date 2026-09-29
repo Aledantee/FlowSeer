@@ -473,8 +473,8 @@ const file_flowseer_net_protocol_stp_v1_mst_port_proto_rawDesc = "" +
 	"\x11designated_bridge\x18\n" +
 	" \x01(\v2&.flowseer.net.protocol.stp.v1.BridgeIdR\x10designatedBridge\x122\n" +
 	"\x0fdesignated_port\x18\v \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\x0edesignatedPort\x12\x1a\n" +
-	"\bdisputed\x18\f \x01(\bR\bdisputedB\x92\x02\n" +
-	" com.flowseer.net.protocol.stp.v1B\fMstPortProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
+	"\bdisputed\x18\f \x01(\bR\bdisputedB\x94\x02\n" +
+	" com.flowseer.net.protocol.stp.v1B\fMstPortProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_stp_v1_mst_port_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_stp_v1_mst_port_proto_goTypes = []any{

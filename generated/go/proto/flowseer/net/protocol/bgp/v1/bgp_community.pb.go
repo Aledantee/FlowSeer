@@ -347,8 +347,8 @@ const file_flowseer_net_protocol_bgp_v1_bgp_community_proto_rawDesc = "" +
 	"\x11BgpLargeCommunity\x129\n" +
 	"\x14global_administrator\x18\x01 \x01(\rB\x06\xbaH\x03\xc8\x01\x01R\x13globalAdministrator\x120\n" +
 	"\x10local_data_part1\x18\x02 \x01(\rB\x06\xbaH\x03\xc8\x01\x01R\x0elocalDataPart1\x120\n" +
-	"\x10local_data_part2\x18\x03 \x01(\rB\x06\xbaH\x03\xc8\x01\x01R\x0elocalDataPart2B\x97\x02\n" +
-	" com.flowseer.net.protocol.bgp.v1B\x11BgpCommunityProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
+	"\x10local_data_part2\x18\x03 \x01(\rB\x06\xbaH\x03\xc8\x01\x01R\x0elocalDataPart2B\x99\x02\n" +
+	" com.flowseer.net.protocol.bgp.v1B\x11BgpCommunityProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_bgp_v1_bgp_community_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_net_protocol_bgp_v1_bgp_community_proto_goTypes = []any{

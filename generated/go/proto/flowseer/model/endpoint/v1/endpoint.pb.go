@@ -1411,8 +1411,8 @@ const file_flowseer_model_endpoint_v1_endpoint_proto_rawDesc = "" +
 	"\x1eENDPOINT_LIFECYCLE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19ENDPOINT_LIFECYCLE_ACTIVE\x10\x01\x12\x1c\n" +
 	"\x18ENDPOINT_LIFECYCLE_STALE\x10\x02\x12\x1e\n" +
-	"\x1aENDPOINT_LIFECYCLE_RETIRED\x10\x03B\x8a\x02\n" +
-	"\x1ecom.flowseer.model.endpoint.v1B\rEndpointProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/endpoint/v1;endpointv1\xa2\x02\x03FME\xaa\x02\x1aFlowseer.Model.Endpoint.V1\xca\x02\x1aFlowseer\\Model\\Endpoint\\V1\xe2\x02&Flowseer\\Model\\Endpoint\\V1\\GPBMetadata\xea\x02\x1dFlowseer::Model::Endpoint::V1b\beditionsp\xe9\a"
+	"\x1aENDPOINT_LIFECYCLE_RETIRED\x10\x03B\x8c\x02\n" +
+	"\x1ecom.flowseer.model.endpoint.v1B\rEndpointProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/endpoint/v1;endpointv1\xa2\x02\x03FME\xaa\x02\x1aFlowseer.Model.Endpoint.V1\xca\x02\x1aFlowseer\\Model\\Endpoint\\V1\xe2\x02&Flowseer\\Model\\Endpoint\\V1\\GPBMetadata\xea\x02\x1dFlowseer::Model::Endpoint::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_endpoint_v1_endpoint_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_model_endpoint_v1_endpoint_proto_msgTypes = make([]protoimpl.MessageInfo, 7)

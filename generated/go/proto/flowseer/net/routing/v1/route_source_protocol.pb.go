@@ -169,8 +169,8 @@ const file_flowseer_net_routing_v1_route_source_protocol_proto_rawDesc = "" +
 	"\x1bROUTE_SOURCE_PROTOCOL_DVMRP\x10\x11\x12\x1d\n" +
 	"\x19ROUTE_SOURCE_PROTOCOL_RPL\x10\x12\x12\x1e\n" +
 	"\x1aROUTE_SOURCE_PROTOCOL_DHCP\x10\x13\x12\x1e\n" +
-	"\x1aROUTE_SOURCE_PROTOCOL_TTDP\x10\x14B\x82\x02\n" +
-	"\x1bcom.flowseer.net.routing.v1B\x18RouteSourceProtocolProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/routing/v1;routingv1\xa2\x02\x03FNR\xaa\x02\x17Flowseer.Net.Routing.V1\xca\x02\x17Flowseer\\Net\\Routing\\V1\xe2\x02#Flowseer\\Net\\Routing\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Routing::V1b\beditionsp\xe9\a"
+	"\x1aROUTE_SOURCE_PROTOCOL_TTDP\x10\x14B\x84\x02\n" +
+	"\x1bcom.flowseer.net.routing.v1B\x18RouteSourceProtocolProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/routing/v1;routingv1\xa2\x02\x03FNR\xaa\x02\x17Flowseer.Net.Routing.V1\xca\x02\x17Flowseer\\Net\\Routing\\V1\xe2\x02#Flowseer\\Net\\Routing\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Routing::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_routing_v1_route_source_protocol_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_routing_v1_route_source_protocol_proto_goTypes = []any{

@@ -161,8 +161,8 @@ const file_flowseer_net_protocol_stp_v1_mst_vlan_map_proto_rawDesc = "" +
 	"\x10network_instance\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x90\xb5\x18\x01R\x0fnetworkInstance\x12\"\n" +
 	"\x06mst_id\x18\x02 \x01(\rB\v\xbaH\b\xc8\x01\x01*\x03\x18\xfe\x1fR\x05mstId\x12+\n" +
 	"\bvlan_ids\x18\x03 \x03(\rB\x10\xbaH\r\x92\x01\n" +
-	"\x18\x01\"\x06*\x04\x80\xb5\x18\x01R\avlanIdsB\x95\x02\n" +
-	" com.flowseer.net.protocol.stp.v1B\x0fMstVlanMapProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
+	"\x18\x01\"\x06*\x04\x80\xb5\x18\x01R\avlanIdsB\x97\x02\n" +
+	" com.flowseer.net.protocol.stp.v1B\x0fMstVlanMapProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_stp_v1_mst_vlan_map_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_stp_v1_mst_vlan_map_proto_goTypes = []any{

@@ -104,8 +104,8 @@ const file_flowseer_net_aaa_v1_tacacs_server_proto_rawDesc = "" +
 	"\n" +
 	"'flowseer/net/aaa/v1/tacacs_server.proto\x12\x13flowseer.net.aaa.v1\"-\n" +
 	"\fTacacsServer\x12\x1d\n" +
-	"\x04port\x18\x01 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\x04portB\xdf\x01\n" +
-	"\x17com.flowseer.net.aaa.v1B\x11TacacsServerProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/aaa/v1;aaav1\xa2\x02\x03FNA\xaa\x02\x13Flowseer.Net.Aaa.V1\xca\x02\x13Flowseer\\Net\\Aaa\\V1\xe2\x02\x1fFlowseer\\Net\\Aaa\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Aaa::V1b\beditionsp\xe9\a"
+	"\x04port\x18\x01 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\x04portB\xe1\x01\n" +
+	"\x17com.flowseer.net.aaa.v1B\x11TacacsServerProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/aaa/v1;aaav1\xa2\x02\x03FNA\xaa\x02\x13Flowseer.Net.Aaa.V1\xca\x02\x13Flowseer\\Net\\Aaa\\V1\xe2\x02\x1fFlowseer\\Net\\Aaa\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Aaa::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_aaa_v1_tacacs_server_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_aaa_v1_tacacs_server_proto_goTypes = []any{

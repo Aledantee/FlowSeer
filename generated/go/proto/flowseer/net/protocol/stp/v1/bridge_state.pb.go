@@ -667,8 +667,8 @@ const file_flowseer_net_protocol_stp_v1_bridge_state_proto_rawDesc = "" +
 	"\rmst_config_id\x18\x10 \x01(\v2).flowseer.net.protocol.stp.v1.MstConfigIdR\vmstConfigId\x12T\n" +
 	"\x12cist_regional_root\x18\x11 \x01(\v2&.flowseer.net.protocol.stp.v1.BridgeIdR\x10cistRegionalRoot\x12K\n" +
 	"\x1ccist_internal_root_path_cost\x18\x12 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\xff\xff\aR\x18cistInternalRootPathCost\x12$\n" +
-	"\bmax_hops\x18\x13 \x01(\rB\t\xbaH\x06*\x04\x18((\x06R\amaxHopsB\x96\x02\n" +
-	" com.flowseer.net.protocol.stp.v1B\x10BridgeStateProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
+	"\bmax_hops\x18\x13 \x01(\rB\t\xbaH\x06*\x04\x18((\x06R\amaxHopsB\x98\x02\n" +
+	" com.flowseer.net.protocol.stp.v1B\x10BridgeStateProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_stp_v1_bridge_state_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_stp_v1_bridge_state_proto_goTypes = []any{

@@ -156,8 +156,8 @@ const file_flowseer_net_protocol_dhcp_v1_dhcpv4_message_type_proto_rawDesc = "" 
 	"\"DHCPV4_MESSAGE_TYPE_LEASEQUERYDONE\x10\x0f\x12(\n" +
 	"$DHCPV4_MESSAGE_TYPE_ACTIVELEASEQUERY\x10\x10\x12(\n" +
 	"$DHCPV4_MESSAGE_TYPE_LEASEQUERYSTATUS\x10\x11\x12\x1b\n" +
-	"\x17DHCPV4_MESSAGE_TYPE_TLS\x10\x12B\xa3\x02\n" +
-	"!com.flowseer.net.protocol.dhcp.v1B\x16Dhcpv4MessageTypeProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
+	"\x17DHCPV4_MESSAGE_TYPE_TLS\x10\x12B\xa5\x02\n" +
+	"!com.flowseer.net.protocol.dhcp.v1B\x16Dhcpv4MessageTypeProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_dhcp_v1_dhcpv4_message_type_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_dhcp_v1_dhcpv4_message_type_proto_goTypes = []any{

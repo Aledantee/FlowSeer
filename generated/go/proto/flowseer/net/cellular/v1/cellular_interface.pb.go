@@ -482,8 +482,8 @@ const file_flowseer_net_cellular_v1_cellular_interface_proto_rawDesc = "" +
 	"\x12tracking_area_code\x18\n" +
 	" \x01(\rR\x10trackingAreaCode\x12(\n" +
 	"\x10physical_cell_id\x18\v \x01(\rR\x0ephysicalCellId\x12@\n" +
-	"\x06signal\x18\f \x01(\v2(.flowseer.net.cellular.v1.CellularSignalR\x06signalB\x87\x02\n" +
-	"\x1ccom.flowseer.net.cellular.v1B\x16CellularInterfaceProtoZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/cellular/v1;cellularv1\xa2\x02\x03FNC\xaa\x02\x18Flowseer.Net.Cellular.V1\xca\x02\x18Flowseer\\Net\\Cellular\\V1\xe2\x02$Flowseer\\Net\\Cellular\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Cellular::V1b\beditionsp\xe9\a"
+	"\x06signal\x18\f \x01(\v2(.flowseer.net.cellular.v1.CellularSignalR\x06signalB\x89\x02\n" +
+	"\x1ccom.flowseer.net.cellular.v1B\x16CellularInterfaceProtoP\x01ZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/cellular/v1;cellularv1\xa2\x02\x03FNC\xaa\x02\x18Flowseer.Net.Cellular.V1\xca\x02\x18Flowseer\\Net\\Cellular\\V1\xe2\x02$Flowseer\\Net\\Cellular\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Cellular::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_cellular_v1_cellular_interface_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_cellular_v1_cellular_interface_proto_goTypes = []any{

@@ -80,8 +80,8 @@ const file_flowseer_net_protocol_vrrp_v1_vrrp_state_proto_rawDesc = "" +
 	"\x16VRRP_STATE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15VRRP_STATE_INITIALIZE\x10\x01\x12\x15\n" +
 	"\x11VRRP_STATE_BACKUP\x10\x02\x12\x15\n" +
-	"\x11VRRP_STATE_MASTER\x10\x03B\x9b\x02\n" +
-	"!com.flowseer.net.protocol.vrrp.v1B\x0eVrrpStateProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/vrrp/v1;vrrpv1\xa2\x02\x04FNPV\xaa\x02\x1dFlowseer.Net.Protocol.Vrrp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Vrrp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Vrrp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Vrrp::V1b\beditionsp\xe9\a"
+	"\x11VRRP_STATE_MASTER\x10\x03B\x9d\x02\n" +
+	"!com.flowseer.net.protocol.vrrp.v1B\x0eVrrpStateProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/vrrp/v1;vrrpv1\xa2\x02\x04FNPV\xaa\x02\x1dFlowseer.Net.Protocol.Vrrp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Vrrp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Vrrp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Vrrp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_vrrp_v1_vrrp_state_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_vrrp_v1_vrrp_state_proto_goTypes = []any{

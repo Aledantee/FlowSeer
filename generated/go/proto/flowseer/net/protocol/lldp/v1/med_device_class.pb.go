@@ -88,8 +88,8 @@ const file_flowseer_net_protocol_lldp_v1_med_device_class_proto_rawDesc = "" +
 	" MED_DEVICE_CLASS_ENDPOINT_CLASS1\x10\x01\x12$\n" +
 	" MED_DEVICE_CLASS_ENDPOINT_CLASS2\x10\x02\x12$\n" +
 	" MED_DEVICE_CLASS_ENDPOINT_CLASS3\x10\x03\x12)\n" +
-	"%MED_DEVICE_CLASS_NETWORK_CONNECTIVITY\x10\x04B\xa0\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\x13MedDeviceClassProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"%MED_DEVICE_CLASS_NETWORK_CONNECTIVITY\x10\x04B\xa2\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\x13MedDeviceClassProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_med_device_class_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_med_device_class_proto_goTypes = []any{

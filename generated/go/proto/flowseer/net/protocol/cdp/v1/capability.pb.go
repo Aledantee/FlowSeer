@@ -124,8 +124,8 @@ const file_flowseer_net_protocol_cdp_v1_capability_proto_rawDesc = "" +
 	"\x1bCAPABILITY_REMOTELY_MANAGED\x10\b\x12\x13\n" +
 	"\x0fCAPABILITY_CVTA\x10\t\x12!\n" +
 	"\x1dCAPABILITY_TWO_PORT_MAC_RELAY\x10\n" +
-	"B\x95\x02\n" +
-	" com.flowseer.net.protocol.cdp.v1B\x0fCapabilityProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/cdp/v1;cdpv1\xa2\x02\x04FNPC\xaa\x02\x1cFlowseer.Net.Protocol.Cdp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Cdp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Cdp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Cdp::V1b\beditionsp\xe9\a"
+	"B\x97\x02\n" +
+	" com.flowseer.net.protocol.cdp.v1B\x0fCapabilityProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/cdp/v1;cdpv1\xa2\x02\x04FNPC\xaa\x02\x1cFlowseer.Net.Protocol.Cdp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Cdp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Cdp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Cdp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_cdp_v1_capability_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_cdp_v1_capability_proto_goTypes = []any{

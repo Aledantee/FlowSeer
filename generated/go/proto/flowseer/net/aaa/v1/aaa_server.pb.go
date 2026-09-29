@@ -432,8 +432,8 @@ const file_flowseer_net_aaa_v1_aaa_server_proto_rawDesc = "" +
 	"\x06radius\x18\n" +
 	" \x01(\v2!.flowseer.net.aaa.v1.RadiusServerH\x00R\x06radius\x12;\n" +
 	"\x06tacacs\x18\v \x01(\v2!.flowseer.net.aaa.v1.TacacsServerH\x00R\x06tacacsB\x11\n" +
-	"\bprotocol\x12\x05\xbaH\x02\b\x01B\xdc\x01\n" +
-	"\x17com.flowseer.net.aaa.v1B\x0eAaaServerProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/aaa/v1;aaav1\xa2\x02\x03FNA\xaa\x02\x13Flowseer.Net.Aaa.V1\xca\x02\x13Flowseer\\Net\\Aaa\\V1\xe2\x02\x1fFlowseer\\Net\\Aaa\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Aaa::V1b\beditionsp\xe9\a"
+	"\bprotocol\x12\x05\xbaH\x02\b\x01B\xde\x01\n" +
+	"\x17com.flowseer.net.aaa.v1B\x0eAaaServerProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/aaa/v1;aaav1\xa2\x02\x03FNA\xaa\x02\x13Flowseer.Net.Aaa.V1\xca\x02\x13Flowseer\\Net\\Aaa\\V1\xe2\x02\x1fFlowseer\\Net\\Aaa\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Aaa::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_aaa_v1_aaa_server_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_aaa_v1_aaa_server_proto_goTypes = []any{

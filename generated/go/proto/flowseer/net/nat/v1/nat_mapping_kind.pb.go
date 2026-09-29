@@ -75,8 +75,8 @@ const file_flowseer_net_nat_v1_nat_mapping_kind_proto_rawDesc = "" +
 	"\x0eNatMappingKind\x12 \n" +
 	"\x1cNAT_MAPPING_KIND_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17NAT_MAPPING_KIND_STATIC\x10\x01\x12\x1c\n" +
-	"\x18NAT_MAPPING_KIND_DYNAMIC\x10\x02B\xe1\x01\n" +
-	"\x17com.flowseer.net.nat.v1B\x13NatMappingKindProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/nat/v1;natv1\xa2\x02\x03FNN\xaa\x02\x13Flowseer.Net.Nat.V1\xca\x02\x13Flowseer\\Net\\Nat\\V1\xe2\x02\x1fFlowseer\\Net\\Nat\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Nat::V1b\beditionsp\xe9\a"
+	"\x18NAT_MAPPING_KIND_DYNAMIC\x10\x02B\xe3\x01\n" +
+	"\x17com.flowseer.net.nat.v1B\x13NatMappingKindProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/nat/v1;natv1\xa2\x02\x03FNN\xaa\x02\x13Flowseer.Net.Nat.V1\xca\x02\x13Flowseer\\Net\\Nat\\V1\xe2\x02\x1fFlowseer\\Net\\Nat\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Nat::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_nat_v1_nat_mapping_kind_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_nat_v1_nat_mapping_kind_proto_goTypes = []any{

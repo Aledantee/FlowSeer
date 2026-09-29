@@ -419,8 +419,8 @@ const file_flowseer_net_protocol_lldp_v1_neighbor_proto_rawDesc = "" +
 	"timeToLive\x12L\n" +
 	"\bieee8023\x18\f \x01(\v20.flowseer.net.protocol.lldp.v1.Ieee8023ExtensionR\bieee8023\x12=\n" +
 	"\x03med\x18\r \x01(\v2+.flowseer.net.protocol.lldp.v1.MedExtensionR\x03medJ\x04\b\n" +
-	"\x10\vR\x14time_to_live_secondsB\x9a\x02\n" +
-	"!com.flowseer.net.protocol.lldp.v1B\rNeighborProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
+	"\x10\vR\x14time_to_live_secondsB\x9c\x02\n" +
+	"!com.flowseer.net.protocol.lldp.v1B\rNeighborProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1;lldpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lldp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lldp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lldp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lldp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_lldp_v1_neighbor_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_lldp_v1_neighbor_proto_goTypes = []any{

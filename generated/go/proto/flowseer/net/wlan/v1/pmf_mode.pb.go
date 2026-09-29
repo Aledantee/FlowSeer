@@ -83,8 +83,8 @@ const file_flowseer_net_wlan_v1_pmf_mode_proto_rawDesc = "" +
 	"\x14PMF_MODE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11PMF_MODE_DISABLED\x10\x01\x12\x15\n" +
 	"\x11PMF_MODE_OPTIONAL\x10\x02\x12\x15\n" +
-	"\x11PMF_MODE_REQUIRED\x10\x03B\xe1\x01\n" +
-	"\x18com.flowseer.net.wlan.v1B\fPmfModeProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
+	"\x11PMF_MODE_REQUIRED\x10\x03B\xe3\x01\n" +
+	"\x18com.flowseer.net.wlan.v1B\fPmfModeProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_wlan_v1_pmf_mode_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_wlan_v1_pmf_mode_proto_goTypes = []any{

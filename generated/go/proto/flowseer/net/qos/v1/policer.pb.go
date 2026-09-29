@@ -204,8 +204,8 @@ const file_flowseer_net_qos_v1_policer_proto_rawDesc = "" +
 	"\rpeak_rate_bps\x18\x03 \x01(\x04R\vpeakRateBps\x12(\n" +
 	"\x10peak_burst_bytes\x18\x04 \x01(\x04R\x0epeakBurstBytes:\xbf\x02\xbaH\xbb\x02\x1a\xba\x01\n" +
 	"\x19policer.peak_rate_ordered\x121the peak rate must be at least the committed rate\x1aj!has(this.peak_rate_bps) || !has(this.committed_rate_bps) || this.peak_rate_bps >= this.committed_rate_bps\x1a|\n" +
-	"\"policer.peak_burst_needs_peak_rate\x12\x1ea peak burst needs a peak rate\x1a6!has(this.peak_burst_bytes) || has(this.peak_rate_bps)B\xda\x01\n" +
-	"\x17com.flowseer.net.qos.v1B\fPolicerProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/qos/v1;qosv1\xa2\x02\x03FNQ\xaa\x02\x13Flowseer.Net.Qos.V1\xca\x02\x13Flowseer\\Net\\Qos\\V1\xe2\x02\x1fFlowseer\\Net\\Qos\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Qos::V1b\beditionsp\xe9\a"
+	"\"policer.peak_burst_needs_peak_rate\x12\x1ea peak burst needs a peak rate\x1a6!has(this.peak_burst_bytes) || has(this.peak_rate_bps)B\xdc\x01\n" +
+	"\x17com.flowseer.net.qos.v1B\fPolicerProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/qos/v1;qosv1\xa2\x02\x03FNQ\xaa\x02\x13Flowseer.Net.Qos.V1\xca\x02\x13Flowseer\\Net\\Qos\\V1\xe2\x02\x1fFlowseer\\Net\\Qos\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Qos::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_qos_v1_policer_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_qos_v1_policer_proto_goTypes = []any{

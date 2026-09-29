@@ -311,9 +311,9 @@ const file_flowseer_net_qos_v1_queue_proto_rawDesc = "" +
 	"\x1amax_bandwidth_basis_points\x18\a \x01(\rB\t\xbaH\x06*\x04\x98\xb5\x18\x01R\x17maxBandwidthBasisPoints:\xfe\x03\xbaH\xfa\x03\x1a`\n" +
 	"\x10queue.identified\x12&a queue must have a name or a queue id\x1a$has(this.name) || has(this.queue_id)\x1a\xa5\x01\n" +
 	"\x12queue.rate_ordered\x121the minimum rate must not exceed the maximum rate\x1a\\!has(this.min_rate_bps) || !has(this.max_rate_bps) || this.min_rate_bps <= this.max_rate_bps\x1a\xed\x01\n" +
-	"\x17queue.bandwidth_ordered\x12;the minimum bandwidth must not exceed the maximum bandwidth\x1a\x94\x01!has(this.min_bandwidth_basis_points) || !has(this.max_bandwidth_basis_points) || this.min_bandwidth_basis_points <= this.max_bandwidth_basis_pointsB\xd8\x01\n" +
+	"\x17queue.bandwidth_ordered\x12;the minimum bandwidth must not exceed the maximum bandwidth\x1a\x94\x01!has(this.min_bandwidth_basis_points) || !has(this.max_bandwidth_basis_points) || this.min_bandwidth_basis_points <= this.max_bandwidth_basis_pointsB\xda\x01\n" +
 	"\x17com.flowseer.net.qos.v1B\n" +
-	"QueueProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/qos/v1;qosv1\xa2\x02\x03FNQ\xaa\x02\x13Flowseer.Net.Qos.V1\xca\x02\x13Flowseer\\Net\\Qos\\V1\xe2\x02\x1fFlowseer\\Net\\Qos\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Qos::V1b\beditionsp\xe9\a"
+	"QueueProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/qos/v1;qosv1\xa2\x02\x03FNQ\xaa\x02\x13Flowseer.Net.Qos.V1\xca\x02\x13Flowseer\\Net\\Qos\\V1\xe2\x02\x1fFlowseer\\Net\\Qos\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Qos::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_qos_v1_queue_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_qos_v1_queue_proto_goTypes = []any{

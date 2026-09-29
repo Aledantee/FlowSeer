@@ -369,8 +369,8 @@ const file_flowseer_net_protocol_stp_v1_mst_instance_proto_rawDesc = "" +
 	"\x18root_port_interface_name\x18\x06 \x01(\tB\t\xbaH\x06r\x04\x80\xb5\x18\x01R\x15rootPortInterfaceName\x12'\n" +
 	"\x0ftopology_change\x18\a \x01(\bR\x0etopologyChange\x12)\n" +
 	"\x10topology_changes\x18\b \x01(\x04R\x0ftopologyChanges\x12V\n" +
-	"\x1atime_since_topology_change\x18\t \x01(\v2\x19.google.protobuf.DurationR\x17timeSinceTopologyChangeB\x96\x02\n" +
-	" com.flowseer.net.protocol.stp.v1B\x10MstInstanceProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
+	"\x1atime_since_topology_change\x18\t \x01(\v2\x19.google.protobuf.DurationR\x17timeSinceTopologyChangeB\x98\x02\n" +
+	" com.flowseer.net.protocol.stp.v1B\x10MstInstanceProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_stp_v1_mst_instance_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_stp_v1_mst_instance_proto_goTypes = []any{

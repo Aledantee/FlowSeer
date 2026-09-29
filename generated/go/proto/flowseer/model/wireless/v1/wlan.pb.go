@@ -1164,8 +1164,8 @@ const file_flowseer_model_wireless_v1_wlan_proto_rawDesc = "" +
 	"\x17WLAN_STATUS_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18WLAN_STATUS_BROADCASTING\x10\x01\x12 \n" +
 	"\x1cWLAN_STATUS_NOT_BROADCASTING\x10\x02\x12\x17\n" +
-	"\x13WLAN_STATUS_MISSING\x10\x03B\x86\x02\n" +
-	"\x1ecom.flowseer.model.wireless.v1B\tWlanProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/wireless/v1;wirelessv1\xa2\x02\x03FMW\xaa\x02\x1aFlowseer.Model.Wireless.V1\xca\x02\x1aFlowseer\\Model\\Wireless\\V1\xe2\x02&Flowseer\\Model\\Wireless\\V1\\GPBMetadata\xea\x02\x1dFlowseer::Model::Wireless::V1b\beditionsp\xe9\a"
+	"\x13WLAN_STATUS_MISSING\x10\x03B\x88\x02\n" +
+	"\x1ecom.flowseer.model.wireless.v1B\tWlanProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/wireless/v1;wirelessv1\xa2\x02\x03FMW\xaa\x02\x1aFlowseer.Model.Wireless.V1\xca\x02\x1aFlowseer\\Model\\Wireless\\V1\xe2\x02&Flowseer\\Model\\Wireless\\V1\\GPBMetadata\xea\x02\x1dFlowseer::Model::Wireless::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_wireless_v1_wlan_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_model_wireless_v1_wlan_proto_msgTypes = make([]protoimpl.MessageInfo, 6)

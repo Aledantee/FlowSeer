@@ -104,8 +104,8 @@ const file_flowseer_net_log_v1_syslog_severity_proto_rawDesc = "" +
 	"\x17SYSLOG_SEVERITY_WARNING\x10\x04\x12\x1a\n" +
 	"\x16SYSLOG_SEVERITY_NOTICE\x10\x05\x12!\n" +
 	"\x1dSYSLOG_SEVERITY_INFORMATIONAL\x10\x06\x12\x19\n" +
-	"\x15SYSLOG_SEVERITY_DEBUG\x10\aB\xe1\x01\n" +
-	"\x17com.flowseer.net.log.v1B\x13SyslogSeverityProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/log/v1;logv1\xa2\x02\x03FNL\xaa\x02\x13Flowseer.Net.Log.V1\xca\x02\x13Flowseer\\Net\\Log\\V1\xe2\x02\x1fFlowseer\\Net\\Log\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Log::V1b\beditionsp\xe9\a"
+	"\x15SYSLOG_SEVERITY_DEBUG\x10\aB\xe3\x01\n" +
+	"\x17com.flowseer.net.log.v1B\x13SyslogSeverityProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/log/v1;logv1\xa2\x02\x03FNL\xaa\x02\x13Flowseer.Net.Log.V1\xca\x02\x13Flowseer\\Net\\Log\\V1\xe2\x02\x1fFlowseer\\Net\\Log\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Log::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_log_v1_syslog_severity_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_log_v1_syslog_severity_proto_goTypes = []any{

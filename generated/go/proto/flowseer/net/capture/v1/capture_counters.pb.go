@@ -265,8 +265,8 @@ const file_flowseer_net_capture_v1_capture_counters_proto_rawDesc = "" +
 	"\x1cdropped_by_interface_packets\x18\x03 \x01(\x04R\x19droppedByInterfacePackets\x129\n" +
 	"\x19dropped_by_budget_packets\x18\x04 \x01(\x04R\x16droppedByBudgetPackets\x12?\n" +
 	"\x1cdropped_by_transport_packets\x18\x05 \x01(\x04R\x19droppedByTransportPackets\x12I\n" +
-	"\x12last_discontinuity\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\xfe\x01\n" +
-	"\x1bcom.flowseer.net.capture.v1B\x14CaptureCountersProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1;capturev1\xa2\x02\x03FNC\xaa\x02\x17Flowseer.Net.Capture.V1\xca\x02\x17Flowseer\\Net\\Capture\\V1\xe2\x02#Flowseer\\Net\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Capture::V1b\beditionsp\xe9\a"
+	"\x12last_discontinuity\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\x80\x02\n" +
+	"\x1bcom.flowseer.net.capture.v1B\x14CaptureCountersProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1;capturev1\xa2\x02\x03FNC\xaa\x02\x17Flowseer.Net.Capture.V1\xca\x02\x17Flowseer\\Net\\Capture\\V1\xe2\x02#Flowseer\\Net\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Capture::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_capture_v1_capture_counters_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_capture_v1_capture_counters_proto_goTypes = []any{

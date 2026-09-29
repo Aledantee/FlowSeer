@@ -375,8 +375,8 @@ const file_flowseer_net_qos_v1_classifier_proto_rawDesc = "" +
 	"\bset_dscp\x18\x04 \x01(\x0e2\x1e.flowseer.net.packet.v1.IpDscpB\n" +
 	"\xbaH\a\x82\x01\x04\x98\xb5\x18\x01R\asetDscp\x12\"\n" +
 	"\aset_pcp\x18\x05 \x01(\rB\t\xbaH\x06*\x04\x90\xb5\x18\x01R\x06setPcp\x126\n" +
-	"\apolicer\x18\x06 \x01(\v2\x1c.flowseer.net.qos.v1.PolicerR\apolicerB\xdd\x01\n" +
-	"\x17com.flowseer.net.qos.v1B\x0fClassifierProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/qos/v1;qosv1\xa2\x02\x03FNQ\xaa\x02\x13Flowseer.Net.Qos.V1\xca\x02\x13Flowseer\\Net\\Qos\\V1\xe2\x02\x1fFlowseer\\Net\\Qos\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Qos::V1b\beditionsp\xe9\a"
+	"\apolicer\x18\x06 \x01(\v2\x1c.flowseer.net.qos.v1.PolicerR\apolicerB\xdf\x01\n" +
+	"\x17com.flowseer.net.qos.v1B\x0fClassifierProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/qos/v1;qosv1\xa2\x02\x03FNQ\xaa\x02\x13Flowseer.Net.Qos.V1\xca\x02\x13Flowseer\\Net\\Qos\\V1\xe2\x02\x1fFlowseer\\Net\\Qos\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Qos::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_qos_v1_classifier_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_flowseer_net_qos_v1_classifier_proto_goTypes = []any{

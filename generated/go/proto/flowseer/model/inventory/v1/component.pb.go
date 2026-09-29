@@ -1194,8 +1194,8 @@ const file_flowseer_model_inventory_v1_component_proto_rawDesc = "" +
 	"\x18COMPONENT_OPER_STATUS_UP\x10\x01\x12\x1e\n" +
 	"\x1aCOMPONENT_OPER_STATUS_DOWN\x10\x02\x12!\n" +
 	"\x1dCOMPONENT_OPER_STATUS_TESTING\x10\x03\x12!\n" +
-	"\x1dCOMPONENT_OPER_STATUS_UNKNOWN\x10\x04B\x92\x02\n" +
-	"\x1fcom.flowseer.model.inventory.v1B\x0eComponentProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
+	"\x1dCOMPONENT_OPER_STATUS_UNKNOWN\x10\x04B\x94\x02\n" +
+	"\x1fcom.flowseer.model.inventory.v1B\x0eComponentProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_inventory_v1_component_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_flowseer_model_inventory_v1_component_proto_msgTypes = make([]protoimpl.MessageInfo, 4)

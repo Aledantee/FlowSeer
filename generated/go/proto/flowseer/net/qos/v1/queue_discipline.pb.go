@@ -81,8 +81,8 @@ const file_flowseer_net_qos_v1_queue_discipline_proto_rawDesc = "" +
 	"\x1cQUEUE_DISCIPLINE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aQUEUE_DISCIPLINE_DROP_TAIL\x10\x01\x12\x18\n" +
 	"\x14QUEUE_DISCIPLINE_RED\x10\x02\x12\x19\n" +
-	"\x15QUEUE_DISCIPLINE_WRED\x10\x03B\xe2\x01\n" +
-	"\x17com.flowseer.net.qos.v1B\x14QueueDisciplineProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/qos/v1;qosv1\xa2\x02\x03FNQ\xaa\x02\x13Flowseer.Net.Qos.V1\xca\x02\x13Flowseer\\Net\\Qos\\V1\xe2\x02\x1fFlowseer\\Net\\Qos\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Qos::V1b\beditionsp\xe9\a"
+	"\x15QUEUE_DISCIPLINE_WRED\x10\x03B\xe4\x01\n" +
+	"\x17com.flowseer.net.qos.v1B\x14QueueDisciplineProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/qos/v1;qosv1\xa2\x02\x03FNQ\xaa\x02\x13Flowseer.Net.Qos.V1\xca\x02\x13Flowseer\\Net\\Qos\\V1\xe2\x02\x1fFlowseer\\Net\\Qos\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Qos::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_qos_v1_queue_discipline_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_qos_v1_queue_discipline_proto_goTypes = []any{

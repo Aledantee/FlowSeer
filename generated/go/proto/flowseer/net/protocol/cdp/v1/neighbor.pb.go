@@ -704,8 +704,8 @@ const file_flowseer_net_protocol_cdp_v1_neighbor_proto_rawDesc = "" +
 	"\ftime_to_live\x18\x12 \x01(\v2\x19.google.protobuf.DurationB\r\xbaH\n" +
 	"\xaa\x01\a\"\x03\b\xff\x012\x00R\n" +
 	"timeToLive\x124\n" +
-	"\x10protocol_version\x18\x13 \x01(\rB\t\xbaH\x06*\x04\x18\x02(\x01R\x0fprotocolVersionB\x93\x02\n" +
-	" com.flowseer.net.protocol.cdp.v1B\rNeighborProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/cdp/v1;cdpv1\xa2\x02\x04FNPC\xaa\x02\x1cFlowseer.Net.Protocol.Cdp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Cdp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Cdp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Cdp::V1b\beditionsp\xe9\a"
+	"\x10protocol_version\x18\x13 \x01(\rB\t\xbaH\x06*\x04\x18\x02(\x01R\x0fprotocolVersionB\x95\x02\n" +
+	" com.flowseer.net.protocol.cdp.v1B\rNeighborProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/cdp/v1;cdpv1\xa2\x02\x04FNPC\xaa\x02\x1cFlowseer.Net.Protocol.Cdp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Cdp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Cdp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Cdp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_cdp_v1_neighbor_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_cdp_v1_neighbor_proto_goTypes = []any{

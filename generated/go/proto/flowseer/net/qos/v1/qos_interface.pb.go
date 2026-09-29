@@ -236,8 +236,8 @@ const file_flowseer_net_qos_v1_qos_interface_proto_rawDesc = "" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\bR\x10outputClassifier\x122\n" +
 	"\x06queues\x18\x05 \x03(\v2\x1a.flowseer.net.qos.v1.QueueR\x06queues:\xaa\x02\xbaH\xa6\x02\x1a\x92\x01\n" +
 	"\x1eqos_interface.queue_ids_unique\x12,queue ids must be unique within an interface\x1aBthis.queues.filter(q, has(q.queue_id)).map(q, q.queue_id).unique()\x1a\x8e\x01\n" +
-	" qos_interface.queue_names_unique\x12.queue names must be unique within an interface\x1a:this.queues.filter(q, has(q.name)).map(q, q.name).unique()B\xdf\x01\n" +
-	"\x17com.flowseer.net.qos.v1B\x11QosInterfaceProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/qos/v1;qosv1\xa2\x02\x03FNQ\xaa\x02\x13Flowseer.Net.Qos.V1\xca\x02\x13Flowseer\\Net\\Qos\\V1\xe2\x02\x1fFlowseer\\Net\\Qos\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Qos::V1b\beditionsp\xe9\a"
+	" qos_interface.queue_names_unique\x12.queue names must be unique within an interface\x1a:this.queues.filter(q, has(q.name)).map(q, q.name).unique()B\xe1\x01\n" +
+	"\x17com.flowseer.net.qos.v1B\x11QosInterfaceProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/qos/v1;qosv1\xa2\x02\x03FNQ\xaa\x02\x13Flowseer.Net.Qos.V1\xca\x02\x13Flowseer\\Net\\Qos\\V1\xe2\x02\x1fFlowseer\\Net\\Qos\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Qos::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_qos_v1_qos_interface_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_qos_v1_qos_interface_proto_goTypes = []any{

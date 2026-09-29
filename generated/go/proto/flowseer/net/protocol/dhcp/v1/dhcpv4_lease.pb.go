@@ -442,8 +442,8 @@ const file_flowseer_net_protocol_dhcp_v1_dhcpv4_lease_proto_rawDesc = "" +
 	"expires_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampH\x00R\texpiresAt\x12%\n" +
 	"\binfinite\x18\v \x01(\bB\a\xbaH\x04j\x02\b\x01H\x00R\binfiniteB\b\n" +
-	"\x06expiryB\x9d\x02\n" +
-	"!com.flowseer.net.protocol.dhcp.v1B\x10Dhcpv4LeaseProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
+	"\x06expiryB\x9f\x02\n" +
+	"!com.flowseer.net.protocol.dhcp.v1B\x10Dhcpv4LeaseProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_dhcp_v1_dhcpv4_lease_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_dhcp_v1_dhcpv4_lease_proto_goTypes = []any{

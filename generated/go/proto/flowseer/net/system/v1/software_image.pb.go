@@ -278,8 +278,8 @@ const file_flowseer_net_system_v1_software_image_proto_rawDesc = "" +
 	"\arunning\x18\x04 \x01(\bR\arunning\x12\x1b\n" +
 	"\tnext_boot\x18\x05 \x01(\bR\bnextBoot\x12\x1d\n" +
 	"\n" +
-	"size_bytes\x18\x06 \x01(\x04R\tsizeBytesB\xf5\x01\n" +
-	"\x1acom.flowseer.net.system.v1B\x12SoftwareImageProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/system/v1;systemv1\xa2\x02\x03FNS\xaa\x02\x16Flowseer.Net.System.V1\xca\x02\x16Flowseer\\Net\\System\\V1\xe2\x02\"Flowseer\\Net\\System\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::System::V1b\beditionsp\xe9\a"
+	"size_bytes\x18\x06 \x01(\x04R\tsizeBytesB\xf7\x01\n" +
+	"\x1acom.flowseer.net.system.v1B\x12SoftwareImageProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/system/v1;systemv1\xa2\x02\x03FNS\xaa\x02\x16Flowseer.Net.System.V1\xca\x02\x16Flowseer\\Net\\System\\V1\xe2\x02\"Flowseer\\Net\\System\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::System::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_system_v1_software_image_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_system_v1_software_image_proto_goTypes = []any{

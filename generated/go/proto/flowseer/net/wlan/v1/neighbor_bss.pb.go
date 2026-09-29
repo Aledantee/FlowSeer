@@ -373,8 +373,8 @@ const file_flowseer_net_wlan_v1_neighbor_bss_proto_rawDesc = "" +
 	"\n" +
 	"radio_name\x18\t \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x02R\tradioName:\x9f\x01\xbaH\x9b\x01\x1a\x98\x01\n" +
-	"\x1fneighbor_bss.channel_needs_band\x123primary_channel requires an explicit, non-zero band\x1a@!has(this.primary_channel) || (has(this.band) && this.band != 0)B\xe5\x01\n" +
-	"\x18com.flowseer.net.wlan.v1B\x10NeighborBssProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
+	"\x1fneighbor_bss.channel_needs_band\x123primary_channel requires an explicit, non-zero band\x1a@!has(this.primary_channel) || (has(this.band) && this.band != 0)B\xe7\x01\n" +
+	"\x18com.flowseer.net.wlan.v1B\x10NeighborBssProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_wlan_v1_neighbor_bss_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_wlan_v1_neighbor_bss_proto_goTypes = []any{

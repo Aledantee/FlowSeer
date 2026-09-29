@@ -122,8 +122,8 @@ const file_flowseer_net_protocol_bgp_v1_bgp_safi_proto_rawDesc = "" +
 	"\x11BGP_SAFI_MPLS_VPN\x10\x80\x01\x12%\n" +
 	" BGP_SAFI_ROUTE_TARGET_CONSTRAINT\x10\x84\x01\x12\x16\n" +
 	"\x11BGP_SAFI_FLOWSPEC\x10\x85\x01\x12\x1a\n" +
-	"\x15BGP_SAFI_FLOWSPEC_VPN\x10\x86\x01B\x92\x02\n" +
-	" com.flowseer.net.protocol.bgp.v1B\fBgpSafiProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
+	"\x15BGP_SAFI_FLOWSPEC_VPN\x10\x86\x01B\x94\x02\n" +
+	" com.flowseer.net.protocol.bgp.v1B\fBgpSafiProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_bgp_v1_bgp_safi_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_bgp_v1_bgp_safi_proto_goTypes = []any{

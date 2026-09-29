@@ -82,8 +82,8 @@ const file_flowseer_net_protocol_bfd_v1_bfd_session_state_proto_rawDesc = "" +
 	"\x1cBFD_SESSION_STATE_ADMIN_DOWN\x10\x00\x12\x1a\n" +
 	"\x16BFD_SESSION_STATE_DOWN\x10\x01\x12\x1a\n" +
 	"\x16BFD_SESSION_STATE_INIT\x10\x02\x12\x18\n" +
-	"\x14BFD_SESSION_STATE_UP\x10\x03B\x9a\x02\n" +
-	" com.flowseer.net.protocol.bfd.v1B\x14BfdSessionStateProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bfd/v1;bfdv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bfd.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bfd\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bfd\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bfd::V1b\beditionsp\xe9\a"
+	"\x14BFD_SESSION_STATE_UP\x10\x03B\x9c\x02\n" +
+	" com.flowseer.net.protocol.bfd.v1B\x14BfdSessionStateProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bfd/v1;bfdv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bfd.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bfd\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bfd\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bfd::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_bfd_v1_bfd_session_state_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_bfd_v1_bfd_session_state_proto_goTypes = []any{

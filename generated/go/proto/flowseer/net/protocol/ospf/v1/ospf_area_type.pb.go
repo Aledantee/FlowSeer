@@ -80,8 +80,8 @@ const file_flowseer_net_protocol_ospf_v1_ospf_area_type_proto_rawDesc = "" +
 	"\x1aOSPF_AREA_TYPE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15OSPF_AREA_TYPE_NORMAL\x10\x01\x12\x17\n" +
 	"\x13OSPF_AREA_TYPE_STUB\x10\x02\x12\x17\n" +
-	"\x13OSPF_AREA_TYPE_NSSA\x10\x03B\x9e\x02\n" +
-	"!com.flowseer.net.protocol.ospf.v1B\x11OspfAreaTypeProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
+	"\x13OSPF_AREA_TYPE_NSSA\x10\x03B\xa0\x02\n" +
+	"!com.flowseer.net.protocol.ospf.v1B\x11OspfAreaTypeProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ospf/v1;ospfv1\xa2\x02\x04FNPO\xaa\x02\x1dFlowseer.Net.Protocol.Ospf.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Ospf\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Ospf\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Ospf::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_ospf_v1_ospf_area_type_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_ospf_v1_ospf_area_type_proto_goTypes = []any{

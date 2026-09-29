@@ -233,8 +233,8 @@ const file_flowseer_net_flow_v1_sflow_receiver_proto_rawDesc = "" +
 	"\aaddress\x18\x02 \x01(\v2\x1f.flowseer.net.addr.v1.IpAddressB\x06\xbaH\x03\xc8\x01\x01R\aaddress\x12\x1d\n" +
 	"\x04port\x18\x03 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\x04port\x125\n" +
 	"\x17max_datagram_size_bytes\x18\x04 \x01(\x04R\x14maxDatagramSizeBytes\x12)\n" +
-	"\x10datagram_version\x18\x05 \x01(\rR\x0fdatagramVersionB\xe7\x01\n" +
-	"\x18com.flowseer.net.flow.v1B\x12SflowReceiverProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/flow/v1;flowv1\xa2\x02\x03FNF\xaa\x02\x14Flowseer.Net.Flow.V1\xca\x02\x14Flowseer\\Net\\Flow\\V1\xe2\x02 Flowseer\\Net\\Flow\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Flow::V1b\beditionsp\xe9\a"
+	"\x10datagram_version\x18\x05 \x01(\rR\x0fdatagramVersionB\xe9\x01\n" +
+	"\x18com.flowseer.net.flow.v1B\x12SflowReceiverProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/flow/v1;flowv1\xa2\x02\x03FNF\xaa\x02\x14Flowseer.Net.Flow.V1\xca\x02\x14Flowseer\\Net\\Flow\\V1\xe2\x02 Flowseer\\Net\\Flow\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Flow::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_flow_v1_sflow_receiver_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_flow_v1_sflow_receiver_proto_goTypes = []any{

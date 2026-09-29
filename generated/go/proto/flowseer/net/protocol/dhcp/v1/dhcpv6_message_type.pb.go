@@ -131,8 +131,8 @@ const file_flowseer_net_protocol_dhcp_v1_dhcpv6_message_type_proto_rawDesc = "" 
 	"\x12+\n" +
 	"'DHCPV6_MESSAGE_TYPE_INFORMATION_REQUEST\x10\v\x12\"\n" +
 	"\x1eDHCPV6_MESSAGE_TYPE_RELAY_FORW\x10\f\x12\"\n" +
-	"\x1eDHCPV6_MESSAGE_TYPE_RELAY_REPL\x10\rB\xa3\x02\n" +
-	"!com.flowseer.net.protocol.dhcp.v1B\x16Dhcpv6MessageTypeProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
+	"\x1eDHCPV6_MESSAGE_TYPE_RELAY_REPL\x10\rB\xa5\x02\n" +
+	"!com.flowseer.net.protocol.dhcp.v1B\x16Dhcpv6MessageTypeProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_dhcp_v1_dhcpv6_message_type_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_dhcp_v1_dhcpv6_message_type_proto_goTypes = []any{

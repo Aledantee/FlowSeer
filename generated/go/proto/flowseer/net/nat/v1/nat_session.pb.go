@@ -654,8 +654,8 @@ const file_flowseer_net_nat_v1_nat_session_proto_rawDesc = "" +
 	"outPackets\x12\x19\n" +
 	"\bin_bytes\x18\x03 \x01(\x04R\ainBytes\x12\x1b\n" +
 	"\tout_bytes\x18\x04 \x01(\x04R\boutBytes\x12I\n" +
-	"\x12last_discontinuity\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\xdd\x01\n" +
-	"\x17com.flowseer.net.nat.v1B\x0fNatSessionProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/nat/v1;natv1\xa2\x02\x03FNN\xaa\x02\x13Flowseer.Net.Nat.V1\xca\x02\x13Flowseer\\Net\\Nat\\V1\xe2\x02\x1fFlowseer\\Net\\Nat\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Nat::V1b\beditionsp\xe9\a"
+	"\x12last_discontinuity\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\xdf\x01\n" +
+	"\x17com.flowseer.net.nat.v1B\x0fNatSessionProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/nat/v1;natv1\xa2\x02\x03FNN\xaa\x02\x13Flowseer.Net.Nat.V1\xca\x02\x13Flowseer\\Net\\Nat\\V1\xe2\x02\x1fFlowseer\\Net\\Nat\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Nat::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_nat_v1_nat_session_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_flowseer_net_nat_v1_nat_session_proto_goTypes = []any{

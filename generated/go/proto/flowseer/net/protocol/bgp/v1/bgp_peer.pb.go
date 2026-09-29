@@ -1011,8 +1011,8 @@ const file_flowseer_net_protocol_bgp_v1_bgp_peer_proto_rawDesc = "" +
 	"inMessages\x12!\n" +
 	"\fout_messages\x18\x04 \x01(\x04R\voutMessages\x127\n" +
 	"\x17established_transitions\x18\x05 \x01(\x04R\x16establishedTransitions\x12I\n" +
-	"\x12last_discontinuity\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\x92\x02\n" +
-	" com.flowseer.net.protocol.bgp.v1B\fBgpPeerProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
+	"\x12last_discontinuity\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastDiscontinuityB\x94\x02\n" +
+	" com.flowseer.net.protocol.bgp.v1B\fBgpPeerProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_bgp_v1_bgp_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_flowseer_net_protocol_bgp_v1_bgp_peer_proto_goTypes = []any{

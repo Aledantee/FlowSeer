@@ -89,8 +89,8 @@ const file_flowseer_net_routing_v1_special_next_hop_proto_rawDesc = "" +
 	"\x1aSPECIAL_NEXT_HOP_BLACKHOLE\x10\x01\x12 \n" +
 	"\x1cSPECIAL_NEXT_HOP_UNREACHABLE\x10\x02\x12\x1d\n" +
 	"\x19SPECIAL_NEXT_HOP_PROHIBIT\x10\x03\x12\x1c\n" +
-	"\x18SPECIAL_NEXT_HOP_RECEIVE\x10\x04B\xfd\x01\n" +
-	"\x1bcom.flowseer.net.routing.v1B\x13SpecialNextHopProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/routing/v1;routingv1\xa2\x02\x03FNR\xaa\x02\x17Flowseer.Net.Routing.V1\xca\x02\x17Flowseer\\Net\\Routing\\V1\xe2\x02#Flowseer\\Net\\Routing\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Routing::V1b\beditionsp\xe9\a"
+	"\x18SPECIAL_NEXT_HOP_RECEIVE\x10\x04B\xff\x01\n" +
+	"\x1bcom.flowseer.net.routing.v1B\x13SpecialNextHopProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/routing/v1;routingv1\xa2\x02\x03FNR\xaa\x02\x17Flowseer.Net.Routing.V1\xca\x02\x17Flowseer\\Net\\Routing\\V1\xe2\x02#Flowseer\\Net\\Routing\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Net::Routing::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_routing_v1_special_next_hop_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_routing_v1_special_next_hop_proto_goTypes = []any{

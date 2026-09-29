@@ -652,8 +652,8 @@ const file_flowseer_net_wlan_v1_radio_facet_proto_rawDesc = "" +
 	"\x05bsses\x18\x12 \x03(\v2\x19.flowseer.net.wlan.v1.BssR\x05bsses:\xec\x04\xbaH\xe8\x04\x1a\xb3\x01\n" +
 	"\x1eradio_facet.channel_needs_band\x12-a channel requires an explicit, non-zero band\x1ab(!has(this.primary_channel) && !has(this.secondary_channel)) || (has(this.band) && this.band != 0)\x1a\xc1\x01\n" +
 	"\x1fradio_facet.secondary_needs_160\x12=secondary_channel is valid only at a channel width of 160 MHz\x1a_!has(this.secondary_channel) || (has(this.channel_width_mhz) && this.channel_width_mhz == 160u)\x1a\xeb\x01\n" +
-	"#radio_facet.non_country_entity_code\x12Icountry_environment of 88 (non-country entity) requires country_code 'XX'\x1ay!has(this.country_environment) || this.country_environment != 88 || (has(this.country_code) && this.country_code == 'XX')B\xe4\x01\n" +
-	"\x18com.flowseer.net.wlan.v1B\x0fRadioFacetProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
+	"#radio_facet.non_country_entity_code\x12Icountry_environment of 88 (non-country entity) requires country_code 'XX'\x1ay!has(this.country_environment) || this.country_environment != 88 || (has(this.country_code) && this.country_code == 'XX')B\xe6\x01\n" +
+	"\x18com.flowseer.net.wlan.v1B\x0fRadioFacetProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_wlan_v1_radio_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_wlan_v1_radio_facet_proto_goTypes = []any{

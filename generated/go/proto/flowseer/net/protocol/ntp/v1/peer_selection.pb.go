@@ -107,8 +107,8 @@ const file_flowseer_net_protocol_ntp_v1_peer_selection_proto_rawDesc = "" +
 	"\x1cNTP_PEER_SELECTION_CANDIDATE\x10\x05\x12\x1d\n" +
 	"\x19NTP_PEER_SELECTION_BACKUP\x10\x06\x12\"\n" +
 	"\x1eNTP_PEER_SELECTION_SYSTEM_PEER\x10\a\x12\x1f\n" +
-	"\x1bNTP_PEER_SELECTION_PPS_PEER\x10\bB\x98\x02\n" +
-	" com.flowseer.net.protocol.ntp.v1B\x12PeerSelectionProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ntp/v1;ntpv1\xa2\x02\x04FNPN\xaa\x02\x1cFlowseer.Net.Protocol.Ntp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Ntp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Ntp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Ntp::V1b\beditionsp\xe9\a"
+	"\x1bNTP_PEER_SELECTION_PPS_PEER\x10\bB\x9a\x02\n" +
+	" com.flowseer.net.protocol.ntp.v1B\x12PeerSelectionProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/ntp/v1;ntpv1\xa2\x02\x04FNPN\xaa\x02\x1cFlowseer.Net.Protocol.Ntp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Ntp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Ntp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Ntp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_ntp_v1_peer_selection_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_protocol_ntp_v1_peer_selection_proto_goTypes = []any{

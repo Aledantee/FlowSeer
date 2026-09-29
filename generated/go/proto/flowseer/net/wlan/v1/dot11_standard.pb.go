@@ -102,8 +102,8 @@ const file_flowseer_net_wlan_v1_dot11_standard_proto_rawDesc = "" +
 	"\x10DOT11_STANDARD_N\x10\x04\x12\x15\n" +
 	"\x11DOT11_STANDARD_AC\x10\x05\x12\x15\n" +
 	"\x11DOT11_STANDARD_AX\x10\x06\x12\x15\n" +
-	"\x11DOT11_STANDARD_BE\x10\aB\xe7\x01\n" +
-	"\x18com.flowseer.net.wlan.v1B\x12Dot11StandardProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
+	"\x11DOT11_STANDARD_BE\x10\aB\xe9\x01\n" +
+	"\x18com.flowseer.net.wlan.v1B\x12Dot11StandardProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_wlan_v1_dot11_standard_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_wlan_v1_dot11_standard_proto_goTypes = []any{

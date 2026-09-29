@@ -76,8 +76,8 @@ const file_flowseer_net_portaccess_v1_port_access_auth_state_proto_rawDesc = "" 
 	"\x13PortAccessAuthState\x12&\n" +
 	"\"PORT_ACCESS_AUTH_STATE_UNSPECIFIED\x10\x00\x12%\n" +
 	"!PORT_ACCESS_AUTH_STATE_AUTHORIZED\x10\x01\x12'\n" +
-	"#PORT_ACCESS_AUTH_STATE_UNAUTHORIZED\x10\x02B\x97\x02\n" +
-	"\x1ecom.flowseer.net.portaccess.v1B\x18PortAccessAuthStateProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/portaccess/v1;portaccessv1\xa2\x02\x03FNP\xaa\x02\x1aFlowseer.Net.Portaccess.V1\xca\x02\x1aFlowseer\\Net\\Portaccess\\V1\xe2\x02&Flowseer\\Net\\Portaccess\\V1\\GPBMetadata\xea\x02\x1dFlowseer::Net::Portaccess::V1b\beditionsp\xe9\a"
+	"#PORT_ACCESS_AUTH_STATE_UNAUTHORIZED\x10\x02B\x99\x02\n" +
+	"\x1ecom.flowseer.net.portaccess.v1B\x18PortAccessAuthStateProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/portaccess/v1;portaccessv1\xa2\x02\x03FNP\xaa\x02\x1aFlowseer.Net.Portaccess.V1\xca\x02\x1aFlowseer\\Net\\Portaccess\\V1\xe2\x02&Flowseer\\Net\\Portaccess\\V1\\GPBMetadata\xea\x02\x1dFlowseer::Net::Portaccess::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_portaccess_v1_port_access_auth_state_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_portaccess_v1_port_access_auth_state_proto_goTypes = []any{

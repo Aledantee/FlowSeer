@@ -180,8 +180,8 @@ const file_flowseer_net_endpoint_v1_wired_attachment_proto_rawDesc = "" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x02R\n" +
 	"switchName\x120\n" +
 	"\x0einterface_name\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x80\xb5\x18\x01R\rinterfaceName\x12\"\n" +
-	"\avlan_id\x18\x03 \x01(\rB\t\xbaH\x06*\x04\x80\xb5\x18\x01R\x06vlanIdB\x85\x02\n" +
-	"\x1ccom.flowseer.net.endpoint.v1B\x14WiredAttachmentProtoZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/endpoint/v1;endpointv1\xa2\x02\x03FNE\xaa\x02\x18Flowseer.Net.Endpoint.V1\xca\x02\x18Flowseer\\Net\\Endpoint\\V1\xe2\x02$Flowseer\\Net\\Endpoint\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Endpoint::V1b\beditionsp\xe9\a"
+	"\avlan_id\x18\x03 \x01(\rB\t\xbaH\x06*\x04\x80\xb5\x18\x01R\x06vlanIdB\x87\x02\n" +
+	"\x1ccom.flowseer.net.endpoint.v1B\x14WiredAttachmentProtoP\x01ZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/endpoint/v1;endpointv1\xa2\x02\x03FNE\xaa\x02\x18Flowseer.Net.Endpoint.V1\xca\x02\x18Flowseer\\Net\\Endpoint\\V1\xe2\x02$Flowseer\\Net\\Endpoint\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Net::Endpoint::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_endpoint_v1_wired_attachment_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_endpoint_v1_wired_attachment_proto_goTypes = []any{

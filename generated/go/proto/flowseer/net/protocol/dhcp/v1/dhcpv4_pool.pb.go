@@ -465,8 +465,8 @@ const file_flowseer_net_protocol_dhcp_v1_dhcpv4_pool_proto_rawDesc = "" +
 	"\binfinite\x18\v \x01(\bB\a\xbaH\x04j\x02\b\x01H\x00R\binfinite:\xc2\x01\xbaH\xbe\x01\x1a\xbb\x01\n" +
 	"\x1bdhcpv4_pool.leased_le_total\x120leased_addresses must not exceed total_addresses\x1aj!has(this.leased_addresses) || !has(this.total_addresses) || this.leased_addresses <= this.total_addressesB\f\n" +
 	"\n" +
-	"lease_timeB\x9c\x02\n" +
-	"!com.flowseer.net.protocol.dhcp.v1B\x0fDhcpv4PoolProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
+	"lease_timeB\x9e\x02\n" +
+	"!com.flowseer.net.protocol.dhcp.v1B\x0fDhcpv4PoolProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_dhcp_v1_dhcpv4_pool_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_dhcp_v1_dhcpv4_pool_proto_goTypes = []any{

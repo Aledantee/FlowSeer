@@ -207,8 +207,8 @@ const file_flowseer_net_protocol_bgp_v1_bgp_instance_proto_rawDesc = "" +
 	"\x10network_instance\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x90\xb5\x18\x01R\x0fnetworkInstance\x129\n" +
 	"\x11protocol_instance\x18\x02 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x98\xb5\x18\x01R\x10protocolInstance\x12\x18\n" +
 	"\x03asn\x18\x03 \x01(\rB\x06\xbaH\x03\xc8\x01\x01R\x03asn\x12$\n" +
-	"\trouter_id\x18\x04 \x01(\rB\a\xbaH\x04*\x02(\x01R\brouterIdB\x96\x02\n" +
-	" com.flowseer.net.protocol.bgp.v1B\x10BgpInstanceProtoZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
+	"\trouter_id\x18\x04 \x01(\rB\a\xbaH\x04*\x02(\x01R\brouterIdB\x98\x02\n" +
+	" com.flowseer.net.protocol.bgp.v1B\x10BgpInstanceProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/bgp/v1;bgpv1\xa2\x02\x04FNPB\xaa\x02\x1cFlowseer.Net.Protocol.Bgp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Bgp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Bgp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Bgp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_bgp_v1_bgp_instance_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_bgp_v1_bgp_instance_proto_goTypes = []any{

@@ -292,8 +292,8 @@ const file_flowseer_net_protocol_dhcp_v1_dhcp_snooping_binding_proto_rawDesc = "
 	"\x0einterface_name\x18\x05 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x80\xb5\x18\x01R\rinterfaceName\x12J\n" +
 	"\x04kind\x18\x06 \x01(\x0e26.flowseer.net.protocol.dhcp.v1.DhcpSnoopingBindingKindR\x04kind\x12B\n" +
 	"\n" +
-	"expires_in\x18\a \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x022\x00R\texpiresInB\xa5\x02\n" +
-	"!com.flowseer.net.protocol.dhcp.v1B\x18DhcpSnoopingBindingProtoZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
+	"expires_in\x18\a \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x022\x00R\texpiresInB\xa7\x02\n" +
+	"!com.flowseer.net.protocol.dhcp.v1B\x18DhcpSnoopingBindingProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/dhcp/v1;dhcpv1\xa2\x02\x04FNPD\xaa\x02\x1dFlowseer.Net.Protocol.Dhcp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Dhcp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Dhcp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Dhcp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_dhcp_v1_dhcp_snooping_binding_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_protocol_dhcp_v1_dhcp_snooping_binding_proto_goTypes = []any{

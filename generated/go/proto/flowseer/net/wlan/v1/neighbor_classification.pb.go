@@ -92,8 +92,8 @@ const file_flowseer_net_wlan_v1_neighbor_classification_proto_rawDesc = "" +
 	" NEIGHBOR_CLASSIFICATION_FRIENDLY\x10\x02\x12%\n" +
 	"!NEIGHBOR_CLASSIFICATION_MALICIOUS\x10\x03\x12!\n" +
 	"\x1dNEIGHBOR_CLASSIFICATION_ROGUE\x10\x04\x12!\n" +
-	"\x1dNEIGHBOR_CLASSIFICATION_SPOOF\x10\x05B\xf0\x01\n" +
-	"\x18com.flowseer.net.wlan.v1B\x1bNeighborClassificationProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
+	"\x1dNEIGHBOR_CLASSIFICATION_SPOOF\x10\x05B\xf2\x01\n" +
+	"\x18com.flowseer.net.wlan.v1B\x1bNeighborClassificationProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/wlan/v1;wlanv1\xa2\x02\x03FNW\xaa\x02\x14Flowseer.Net.Wlan.V1\xca\x02\x14Flowseer\\Net\\Wlan\\V1\xe2\x02 Flowseer\\Net\\Wlan\\V1\\GPBMetadata\xea\x02\x17Flowseer::Net::Wlan::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_wlan_v1_neighbor_classification_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_wlan_v1_neighbor_classification_proto_goTypes = []any{

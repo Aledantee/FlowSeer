@@ -246,8 +246,8 @@ const file_flowseer_net_phy_v1_pse_budget_proto_rawDesc = "" +
 	"\x0fpower_nanowatts\x18\x06 \x01(\x04B\a\xbaH\x042\x02 \x00R\x0epowerNanowatts\x123\n" +
 	"\x15consumption_nanowatts\x18\a \x01(\x04R\x14consumptionNanowatts\x12K\n" +
 	"\x1cusage_threshold_basis_points\x18\b \x01(\rB\n" +
-	"\xbaH\a*\x05\x18\xacM(dR\x19usageThresholdBasisPointsJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06R\x10power_milliwattsR\x16consumption_milliwattsR\x17usage_threshold_percentB\xdc\x01\n" +
-	"\x17com.flowseer.net.phy.v1B\x0ePseBudgetProtoZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
+	"\xbaH\a*\x05\x18\xacM(dR\x19usageThresholdBasisPointsJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06R\x10power_milliwattsR\x16consumption_milliwattsR\x17usage_threshold_percentB\xde\x01\n" +
+	"\x17com.flowseer.net.phy.v1B\x0ePseBudgetProtoP\x01ZDgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1;phyv1\xa2\x02\x03FNP\xaa\x02\x13Flowseer.Net.Phy.V1\xca\x02\x13Flowseer\\Net\\Phy\\V1\xe2\x02\x1fFlowseer\\Net\\Phy\\V1\\GPBMetadata\xea\x02\x16Flowseer::Net::Phy::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_phy_v1_pse_budget_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_phy_v1_pse_budget_proto_goTypes = []any{
