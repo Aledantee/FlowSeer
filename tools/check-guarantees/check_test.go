@@ -890,7 +890,6 @@ func TestMain(t *testing.T) {}
 		t.Fatal(err)
 	}
 
-	// Compare with go test -list
 	cmd := exec.Command("go", "test", "-list=^Test", ".")
 	cmd.Dir = pkgDir
 	out, err := cmd.Output()
@@ -946,7 +945,6 @@ func TestMainExitCodes(t *testing.T) {
 		t.Fatalf("expected exit 0 for --all, got: %v", err)
 	}
 
-	// Violation exit
 	contentBad := "## Invalid\n\nIt MUST fail.\n\n- WHEN invalid THEN fail\n\nProved by: TestMissing\n"
 	if err := os.WriteFile(gFile, []byte(contentBad), 0o644); err != nil {
 		t.Fatal(err)
@@ -960,7 +958,6 @@ func TestMainExitCodes(t *testing.T) {
 		t.Fatalf("expected exit code 1 for violations, got %d", got)
 	}
 
-	// Flag error exit
 	errFlag := run([]string{"--nonexistent-flag"}, &stdout, &stderr)
 	if errFlag == nil {
 		t.Fatal("expected flag error")
@@ -969,11 +966,19 @@ func TestMainExitCodes(t *testing.T) {
 		t.Fatalf("expected exit code 2 for flag error, got %d", got)
 	}
 
-	// Restore valid content for deleted path run
+	deletedPath := filepath.Join(pkgDir, "deleted.go")
+	stderr.Reset()
+	errDeleted := run([]string{"--root", root, "--", deletedPath}, &stdout, &stderr)
+	if errDeleted == nil {
+		t.Fatal("expected failure when deleted path selects invalid GUARANTEES.md")
+	}
+	if got := errs.ExitCode(errDeleted); got != 1 {
+		t.Fatalf("expected exit code 1 when deleted path selects invalid GUARANTEES.md, got %d", got)
+	}
+
 	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	deletedPath := filepath.Join(pkgDir, "deleted.go")
 	stderr.Reset()
 	if err := run([]string{"--root", root, "--", deletedPath}, &stdout, &stderr); err != nil {
 		t.Fatalf("expected exit 0 for run with deleted absolute path and leading --, got: %v", err)
@@ -987,7 +992,6 @@ func TestSectionNeedsExactlyOneNormativeSentence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Two normative sentences
 	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
 	content := "## Two Normative\n\nIt MUST succeed.\n\nIt MUST also hold.\n\n- WHEN check THEN ok\n\nProved by: TestA\n"
 	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
@@ -1013,7 +1017,6 @@ func TestDocumentTitleIsOptionalAndSingle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Two H1 titles
 	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
 	content := "# Title 1\n\n# Title 2\n\n## Section\n\nIt MUST hold.\n\n- WHEN x THEN y\n\nProved by: TestA\n"
 	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
@@ -1039,7 +1042,6 @@ func TestCitationItemsAreGoIdentifiers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Backticked citations pass
 	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
 	content := "## Backticked\n\nIt MUST hold.\n\n- WHEN x THEN y\n\nProved by: `TestA`, `TestValid`\n"
 	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
@@ -1050,7 +1052,6 @@ func TestCitationItemsAreGoIdentifiers(t *testing.T) {
 		t.Fatalf("expected backticked citations to pass, got: %v", errs)
 	}
 
-	// Empty citation item fails
 	contentEmpty := "## Empty item\n\nIt MUST hold.\n\n- WHEN x THEN y\n\nProved by: TestA,, TestValid\n"
 	if err := os.WriteFile(gFile, []byte(contentEmpty), 0o644); err != nil {
 		t.Fatal(err)
@@ -1067,7 +1068,6 @@ func TestGoListFailureReportedOnce(t *testing.T) {
 	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	// No go.mod in root, so go list will fail
 	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
 	content := "## Section\n\nIt MUST hold.\n\n- WHEN x THEN y\n\nProved by: TestA\n"
 	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
@@ -1205,8 +1205,7 @@ func TestBlankLineSeparatesBlocks(t *testing.T) {
 	}
 }
 
-// Escaped backtick followed by HTML comment does not satisfy normative MUST.
-func TestRegressionEscapedBacktickWithHTMLComment(t *testing.T) {
+func TestEscapedBacktickWithHTMLComment(t *testing.T) {
 	root := t.TempDir()
 	pkgDir := createTestPkg(t, root)
 	if err := os.WriteFile(filepath.Join(pkgDir, "foo_test.go"), []byte("package pkg\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) {}\n"), 0o644); err != nil {
@@ -1231,8 +1230,7 @@ func TestRegressionEscapedBacktickWithHTMLComment(t *testing.T) {
 	}
 }
 
-// Code span opening on a WHEN line and closing on the next does not hide THEN.
-func TestRegressionMultilineCodeSpanDoesNotHideTHEN(t *testing.T) {
+func TestMultilineCodeSpanDoesNotHideTHEN(t *testing.T) {
 	root := t.TempDir()
 	pkgDir := createTestPkg(t, root)
 	if err := os.WriteFile(filepath.Join(pkgDir, "foo_test.go"), []byte("package pkg\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) {}\n"), 0o644); err != nil {
@@ -1250,8 +1248,7 @@ func TestRegressionMultilineCodeSpanDoesNotHideTHEN(t *testing.T) {
 	}
 }
 
-// Headings differing only by HTML character entity encoding are duplicate.
-func TestRegressionHTMLEntityDuplicateHeadings(t *testing.T) {
+func TestHTMLEntityDuplicateHeadings(t *testing.T) {
 	root := t.TempDir()
 	pkgDir := createTestPkg(t, root)
 	if err := os.WriteFile(filepath.Join(pkgDir, "foo_test.go"), []byte("package pkg\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) {}\nfunc TestB(t *testing.T) {}\n"), 0o644); err != nil {
@@ -1794,14 +1791,36 @@ func TestMultilineCodeSpanAndCommentBoundaries(t *testing.T) {
 	}
 
 	t.Run("multiline_code_span_containing_html_comment_opener", func(t *testing.T) {
-		content := "## Heading\n\nIt MUST succeed.\n\n- WHEN `a\n<!--` THEN b\n\nProved by: TestA\n"
+		content := "## Heading\n\nIt MUST succeed.\n\n- WHEN `a\n  b <!--` THEN c\n\nProved by: TestA\n"
 		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
 		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		errs := checkGuaranteesFile(gFile, root)
 		if len(errs) != 0 {
-			t.Fatalf("expected 0 errors for multiline code span with <!-- inside, got: %v", errs)
+			t.Fatalf("expected 0 errors for multiline code span with <!-- not at line start, got: %v", errs)
+		}
+	})
+
+	t.Run("html_comment_opener_at_line_start_interrupts_item", func(t *testing.T) {
+		content := "## Heading\n\nIt MUST succeed.\n\n- WHEN `a\n<!--` THEN b\n\nProved by: TestA\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		hasHTMLBlock := false
+		hasNoThen := false
+		for _, e := range errs {
+			if strings.Contains(e, "unknown block kind: html block") {
+				hasHTMLBlock = true
+			}
+			if strings.Contains(e, "has no - WHEN ... THEN scenario bullet") {
+				hasNoThen = true
+			}
+		}
+		if !hasHTMLBlock || !hasNoThen {
+			t.Fatalf("expected html block and missing THEN errors for line-starting <!--, got: %v", errs)
 		}
 	})
 
@@ -1823,4 +1842,259 @@ func TestMultilineCodeSpanAndCommentBoundaries(t *testing.T) {
 			t.Fatalf("expected has no - WHEN ... THEN scenario bullet for THEN inside multiline HTML comment, got: %v", errs)
 		}
 	})
+}
+
+func TestRenderBasedTextExtractionExecutableProperty(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	if err := os.WriteFile(filepath.Join(pkgDir, "foo_test.go"), []byte("package pkg\nimport \"testing\"\nfunc TestA(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name        string
+		content     string
+		expectError string
+	}{
+		{
+			name:        "escaped_numeric_reference_not_normative",
+			content:     "## Heading\n\nIt \\&#77;UST hold.\n\n- WHEN a THEN b\n\nProved by: TestA\n",
+			expectError: "has no normative MUST sentence",
+		},
+		{
+			name:        "long_hex_numeric_reference_not_normative",
+			content:     "## Heading\n\nIt &#x000004D;UST hold.\n\n- WHEN a THEN b\n\nProved by: TestA\n",
+			expectError: "has no normative MUST sentence",
+		},
+		{
+			name:        "numeric_reference_s_not_normative",
+			content:     "## Heading\n\nIt &#0115;UST hold.\n\n- WHEN a THEN b\n\nProved by: TestA\n",
+			expectError: "has no normative MUST sentence",
+		},
+		{
+			name:        "numeric_reference_M_is_normative",
+			content:     "## Heading\n\nIt &#077;UST hold.\n\n- WHEN a THEN b\n\nProved by: TestA\n",
+			expectError: "",
+		},
+		{
+			name:        "escaped_numeric_reference_in_then_has_no_then",
+			content:     "## Heading\n\nIt MUST hold.\n\n- WHEN a \\&#84;HEN b\n\nProved by: TestA\n",
+			expectError: "has no - WHEN ... THEN scenario bullet",
+		},
+		{
+			name:        "escaped_colon_in_proved_by_not_citation",
+			content:     "## Heading\n\nIt MUST hold.\n\n- WHEN a THEN b\n\nProved by\\&#58; TestA\n",
+			expectError: "has no Proved by: line",
+		},
+		{
+			name: "amp_entity_not_duplicate_of_ampersand",
+			content: "## A \\&amp; B\n\nIt MUST hold.\n\n- WHEN a THEN b\n\nProved by: TestA\n\n" +
+				"## A & B\n\nIt MUST hold.\n\n- WHEN a THEN b\n\nProved by: TestA\n",
+			expectError: "",
+		},
+		{
+			name: "escaped_ampersand_duplicates_literal_ampersand",
+			content: "## A \\& B\n\nIt MUST hold.\n\n- WHEN a THEN b\n\nProved by: TestA\n\n" +
+				"## A & B\n\nIt MUST hold.\n\n- WHEN a THEN b\n\nProved by: TestA\n",
+			expectError: `duplicate guarantee heading "A & B"`,
+		},
+		{
+			name:        "image_alt_must_not_counted",
+			content:     "## Heading\n\nIt is ![MUST](x.png).\n\n- WHEN a THEN b\n\nProved by: TestA\n",
+			expectError: "has no normative MUST sentence",
+		},
+		{
+			name:        "html_block_in_section_reported",
+			content:     "## Heading\n\nIt MUST succeed.\n\n<!--\n\n- WHEN a THEN b\n\nProved by: TestA\n",
+			expectError: "unknown block kind: html block",
+		},
+		{
+			name:        "html_block_does_not_satisfy_normative",
+			content:     "## Heading\n\nIt is fine.\n<div>\nIt MUST hold.\n</div>\n\n- WHEN a THEN b\n\nProved by: TestA\n",
+			expectError: "has no normative MUST sentence",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+			if err := os.WriteFile(gFile, []byte(tc.content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			errs := checkGuaranteesFile(gFile, root)
+			if tc.expectError == "" {
+				if len(errs) != 0 {
+					t.Fatalf("expected 0 errors, got: %v", errs)
+				}
+				return
+			}
+			found := false
+			for _, e := range errs {
+				if strings.Contains(e, tc.expectError) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("expected error containing %q, got: %v", tc.expectError, errs)
+			}
+		})
+	}
+}
+
+func TestBlockStartLines(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	if err := os.WriteFile(filepath.Join(pkgDir, "foo_test.go"), []byte("package pkg\nimport \"testing\"\nfunc TestA(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("blockquote_with_infoless_fence_at_line_1", func(t *testing.T) {
+		content := "> ```\n> x\n> ```\n\n## Heading\n\nIt MUST succeed.\n\n- WHEN a THEN b\n\nProved by: TestA\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		expected := "src/pkg/GUARANTEES.md:1: unknown block kind: blockquote"
+		found := false
+		for _, e := range errs {
+			if strings.Contains(e, expected) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected %q, got: %v", expected, errs)
+		}
+	})
+
+	t.Run("indented_infoless_fence_in_section", func(t *testing.T) {
+		content := "## Heading\n\nIt MUST succeed.\n\n   ```\n   x\n   ```\n\n- WHEN a THEN b\n\nProved by: TestA\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		expected := "src/pkg/GUARANTEES.md:5: unknown block kind: fenced code block"
+		found := false
+		for _, e := range errs {
+			if strings.Contains(e, expected) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected %q, got: %v", expected, errs)
+		}
+	})
+
+	t.Run("fence_nested_in_list_item", func(t *testing.T) {
+		content := "## Heading\n\nIt MUST succeed.\n\n- WHEN a THEN b\n  ```\n  x\n  ```\n\nProved by: TestA\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		expected := "src/pkg/GUARANTEES.md:6: unknown block kind: fenced code block"
+		found := false
+		for _, e := range errs {
+			if strings.Contains(e, expected) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected %q, got: %v", expected, errs)
+		}
+	})
+
+	t.Run("thematic_break", func(t *testing.T) {
+		content := "## Heading\n\nIt MUST succeed.\n\n- WHEN a THEN b\n\n***\n\nProved by: TestA\n"
+		gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+		if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		errs := checkGuaranteesFile(gFile, root)
+		expected := "src/pkg/GUARANTEES.md:7: unknown block kind: thematic break"
+		found := false
+		for _, e := range errs {
+			if strings.Contains(e, expected) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected %q, got: %v", expected, errs)
+		}
+	})
+}
+
+func TestUnreadableTestFileFormattedError(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	testFile := filepath.Join(pkgDir, "foo_test.go")
+	if err := os.WriteFile(testFile, []byte("package pkg\nimport \"testing\"\nfunc TestFoo(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	if err := os.WriteFile(gFile, []byte("## Heading\n\nIt MUST succeed.\n\n- WHEN a THEN b\n\nProved by: TestFoo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	oldReadFile := readFile
+	defer func() { readFile = oldReadFile }()
+	readFile = func(p string) ([]byte, error) {
+		if strings.HasSuffix(p, "foo_test.go") {
+			return nil, os.ErrPermission
+		}
+		return os.ReadFile(p)
+	}
+
+	errs := checkGuaranteesFile(gFile, root)
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error, got %v", errs)
+	}
+	expected := "src/pkg/GUARANTEES.md:1: cannot read src/pkg/foo_test.go: "
+	if !strings.HasPrefix(errs[0], expected) {
+		t.Fatalf("expected error prefix %q, got %q", expected, errs[0])
+	}
+}
+
+func TestCitationLineFromTextSegment(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	testFile := filepath.Join(pkgDir, "foo_test.go")
+	if err := os.WriteFile(testFile, []byte("package pkg\nimport \"testing\"\nfunc TestB(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	content := "## Heading\n\nIt MUST succeed.\n\n- WHEN a THEN b\n\nProved by: TestB <!-- TestA -->,\n  TestA\n"
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	errs := checkGuaranteesFile(gFile, root)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "src/pkg/GUARANTEES.md:8:") && strings.Contains(e, "TestA") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected error at line 8 for missing TestA on line 2 of Proved by paragraph, got: %v", errs)
+	}
+}
+
+func TestVerifyChangeBuildWrappedInRun(t *testing.T) {
+	content, err := os.ReadFile("../../.agents/skills/verify-change/scripts/verify-change.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := `run go build -o "$build_dir/check-guarantees" ./tools/check-guarantees`
+	if !strings.Contains(string(content), expected) {
+		t.Fatalf("expected verify-change.sh to contain %q", expected)
+	}
 }

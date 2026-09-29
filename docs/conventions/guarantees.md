@@ -61,27 +61,25 @@ Within each guarantee section, exactly three blocks must appear in order:
 
 1. Exactly one normative paragraph: rendered paragraph text containing whole-word
    MUST or MUST NOT in the RFC 2119 / RFC 8174 sense. A section lacking a
-   normative statement, containing multiple normative paragraphs, or placing
-   blocks out of order fails closed with an unknown block kind error.
+   normative statement reports `has no normative MUST sentence`; a section with
+   multiple normative paragraphs reports `has more than one normative sentence`.
+   Placing blocks out of order fails closed with an unknown block kind error.
 2. Exactly one bullet list: an unordered list using the `-` marker only (other
    markers like `*` or `+` fail as an unknown block kind) containing one or more
    `- WHEN … THEN …` scenario items. Each list item must contain exactly one
    paragraph or text block; nested blocks (nested lists, code blocks, block
    quotes, headings, HTML blocks) fail closed as unknown block kinds at the
    nested block's line. A list item whose rendered text contains `Proved by:`
-   fails closed as an invalid continuation. Code spans spanning multiple lines
-   inside a bullet parse without hiding the THEN clause.
+   fails closed with `unknown block kind: list item`.
 3. Exactly one `Proved by:` paragraph: a paragraph beginning with `Proved by:`
    followed by comma-separated Go test identifiers, optionally wrapped in
    backticks. Trailing commas, empty items, duplicate `Proved by:` paragraphs,
    and invalid identifiers fail.
 
-All text evaluations (headings, normative MUST/MUST NOT, WHEN/THEN clauses, and
-`Proved by:` test citations) inspect rendered CommonMark text. Non-raw text
-decodes punctuation escapes, numeric character references, and HTML5 entities
-(for example, `## A \& B` and `## A & B` collide as duplicate headings, while
-incomplete entities like `&amp` without a semicolon remain literal). Raw
-code-span content is preserved as is. Image subtrees are skipped, so image alt
+All text evaluations (headings, normative MUST/MUST NOT clauses, WHEN/THEN clauses,
+and `Proved by:` test citations) inspect rendered CommonMark text (HTML rendering with
+tags stripped and character entities unescaped). Incomplete entities like `&amp`
+without a semicolon remain literal. Image subtrees are skipped, so image alt
 text cannot satisfy a MUST or THEN clause (`It is ![MUST](https://example.com/x.png)` is
 non-normative). Raw HTML tags and comments are skipped, so hidden markup cannot
 satisfy or hide a clause.

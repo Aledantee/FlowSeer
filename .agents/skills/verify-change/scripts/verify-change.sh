@@ -507,7 +507,7 @@ need_tool python3
 need_tool go
 run python3 "$script_dir/check-plan-status.py"
 build_dir=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-build.XXXXXX")
-go build -o "$build_dir/check-guarantees" ./tools/check-guarantees
+run go build -o "$build_dir/check-guarantees" ./tools/check-guarantees
 if [[ $full == true ]]; then
   run "$build_dir/check-guarantees" --all
 else

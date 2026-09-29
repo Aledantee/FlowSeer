@@ -166,7 +166,7 @@ reasons.
 `tools/check-guarantees` verifies each `GUARANTEES.md` in the directory of
 a changed path (or all of them under `--full`) against
 [`docs/conventions/guarantees.md`](../../../docs/conventions/guarantees.md).
-The check selects only the changed path's own directory without parent fallback.
+The check selects only the changed path's own directory.
 The check parses Markdown into a CommonMark abstract syntax tree using goldmark
 and validates allowed block structure, failing closed on any unknown block kind
 (such as code fences, setext underlines, indented code blocks, thematic breaks,
