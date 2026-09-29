@@ -111,6 +111,44 @@ func TestRunPromptEarliestMatchInStream(t *testing.T) {
 	}
 }
 
+func TestRunPromptTieOrderFollowsSliceOrder(t *testing.T) {
+	t.Parallel()
+	first := ssh.Prompt{Name: "first", Pattern: regexp.MustCompile(`(?m)switch>\s*$`)}
+	second := ssh.Prompt{Name: "second", Pattern: regexp.MustCompile(`(?m)switch>\s*$`)}
+
+	for _, tc := range []struct {
+		name    string
+		prompts []ssh.Prompt
+		want    string
+	}{
+		{"first listed first", []ssh.Prompt{first, second}, "first"},
+		{"second listed first", []ssh.Prompt{second, first}, "second"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+				readCommandLine(ch)
+				_, _ = ch.Write([]byte("some output\r\nswitch>"))
+			})
+			s := dialSession(t, fs, nil)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			res, err := s.Run(ctx, ssh.Command{
+				Line:    "show status",
+				Prompts: tc.prompts,
+			})
+			if err != nil {
+				t.Fatalf("Run() = %v", err)
+			}
+			if res.MatchedPrompt != tc.want {
+				t.Errorf("MatchedPrompt = %q, want %q (a tie at the same start goes to the earlier prompt in slice order)", res.MatchedPrompt, tc.want)
+			}
+		})
+	}
+}
+
 func TestRunStripsEchoedInput(t *testing.T) {
 	t.Parallel()
 	const line = "show version"
@@ -414,8 +452,9 @@ func TestRunOutputCapTruncates(t *testing.T) {
 	if len(res.Output) > 256 {
 		t.Errorf("len(Output) = %d, want <= 256", len(res.Output))
 	}
-	if res.Evidence.BytesReceived < flood {
-		t.Errorf("BytesReceived = %d, want >= %d (the true flood size)", res.Evidence.BytesReceived, flood)
+	const wantBytes = int64(flood + len("\r\nswitch#"))
+	if res.Evidence.BytesReceived != wantBytes {
+		t.Errorf("BytesReceived = %d, want %d (the exact stream length, not the flood alone)", res.Evidence.BytesReceived, wantBytes)
 	}
 }
 
