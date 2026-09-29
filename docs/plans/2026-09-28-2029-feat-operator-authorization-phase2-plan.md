@@ -932,4 +932,16 @@ Open, and the reason for the verdict:
 
 ## Open questions
 
-None.
+- Parked by drive: how does the tenant store enforce one tenant per
+  organization, after five review rounds failed the two-key claim?
+  Options: move the organization claim to phase 3, where token lookup is
+  its first reader; phase 2 keeps tenants keyed by id with no uniqueness
+  check (lands now; no production path creates tenants while
+  `TenantService` is unmounted) | collapse the claim to one atomic write:
+  the record lives under its organization key, created with KV create-only,
+  and id lookups go through a watch-fed map (fixes it here; another
+  implement and review cycle) | re-plan the two-key protocol with a state
+  space covering every KV call, fault, retry, and same-id contention (keeps
+  the shape; costliest, and the mechanism that keeps failing).
+  Recommended: move it to phase 3, because nothing reads the claim before
+  then and its design belongs with its reader.
