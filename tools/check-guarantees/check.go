@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"go/scanner"
 	"go/token"
-	"html"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -20,6 +20,7 @@ import (
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"
+	"github.com/yuin/goldmark/util"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
@@ -257,11 +258,14 @@ func checkGuaranteesFile(filePath, root string) []string {
 						checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: heading", displayPath, line))
 					} else {
 						seenTitle = true
+						_, inlineErrs := extractInlines(n, content, displayPath)
+						checkErrors = append(checkErrors, inlineErrs...)
 					}
 					continue
 				}
 				if h.Level == 2 && isATXHeading(content, pos, 2) {
-					title := extractHeadingTitle(n, content)
+					title, inlineErrs := extractHeadingTitle(n, content, displayPath)
+					checkErrors = append(checkErrors, inlineErrs...)
 					if title == "" {
 						checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: heading", displayPath, line))
 						continue
@@ -298,7 +302,8 @@ func checkGuaranteesFile(filePath, root string) []string {
 			pos := n.Pos()
 			if h.Level == 2 && isATXHeading(content, pos, 2) {
 				finishSection()
-				title := extractHeadingTitle(n, content)
+				title, inlineErrs := extractHeadingTitle(n, content, displayPath)
+				checkErrors = append(checkErrors, inlineErrs...)
 				if title == "" {
 					checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: heading", displayPath, line))
 					currentHeading = ""
@@ -324,7 +329,8 @@ func checkGuaranteesFile(filePath, root string) []string {
 		}
 
 		if n.Kind() == ast.KindParagraph {
-			pText := extractVisibleText(n, content)
+			pText, inlineErrs := extractInlines(n, content, displayPath)
+			checkErrors = append(checkErrors, inlineErrs...)
 			trimmedText := strings.TrimSpace(pText)
 			if strings.HasPrefix(trimmedText, "Proved by:") {
 				if !seenNormative {
@@ -360,7 +366,9 @@ func checkGuaranteesFile(filePath, root string) []string {
 				continue
 			}
 
-			checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: paragraph", displayPath, line))
+			if len(inlineErrs) == 0 {
+				checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: paragraph", displayPath, line))
+			}
 			continue
 		}
 
@@ -384,12 +392,15 @@ func checkGuaranteesFile(filePath, root string) []string {
 				itemLine := nodeLine(c, content)
 				childCount := 0
 				var invalidChild ast.Node
+				var itemContentNode ast.Node
 				for ch := c.FirstChild(); ch != nil; ch = ch.NextSibling() {
 					childCount++
 					if childCount == 1 {
 						if ch.Kind() != ast.KindParagraph && ch.Kind() != ast.KindTextBlock {
 							invalidChild = ch
 							checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: %s", displayPath, nodeLine(ch, content), blockKindName(ch)))
+						} else {
+							itemContentNode = ch
 						}
 					} else {
 						if invalidChild == nil {
@@ -406,7 +417,8 @@ func checkGuaranteesFile(filePath, root string) []string {
 					continue
 				}
 
-				itemText := extractVisibleText(c, content)
+				itemText, inlineErrs := extractInlines(itemContentNode, content, displayPath)
+				checkErrors = append(checkErrors, inlineErrs...)
 				if strings.Contains(itemText, "Proved by:") {
 					checkErrors = append(checkErrors, fmt.Sprintf("%s:%d: unknown block kind: list item", displayPath, itemLine))
 					continue
@@ -436,8 +448,9 @@ func checkGuaranteesFile(filePath, root string) []string {
 }
 
 // extractHeadingTitle extracts, entity-unescapes, and trims the heading text.
-func extractHeadingTitle(n ast.Node, src []byte) string {
-	return strings.TrimSpace(extractVisibleText(n, src))
+func extractHeadingTitle(n ast.Node, src []byte, displayPath string) (string, []string) {
+	text, errs := extractInlines(n, src, displayPath)
+	return strings.TrimSpace(text), errs
 }
 
 // parseProvedByParagraph parses tests and comma structure from a Proved by: paragraph.
@@ -505,6 +518,9 @@ func parseProvedByParagraph(n ast.Node, pText string, src []byte) (provedByBlock
 		testLine := startLine
 		found := false
 
+		savedSegIdx := segIdx
+		savedOffset := offsetInSeg
+
 		for ; segIdx < len(segments); segIdx++ {
 			seg := segments[segIdx]
 			searchSlice := seg.val[offsetInSeg:]
@@ -521,6 +537,8 @@ func parseProvedByParagraph(n ast.Node, pText string, src []byte) (provedByBlock
 
 		if !found {
 			testLine = startLine
+			segIdx = savedSegIdx
+			offsetInSeg = savedOffset
 		}
 
 		tests = append(tests, provedByTest{name: name, line: testLine})
@@ -607,7 +625,9 @@ func nodeLine(n ast.Node, src []byte) int {
 	}
 	pos := n.Pos()
 	if pos < 0 {
-		if n.Lines() != nil && n.Lines().Len() > 0 {
+		if raw, ok := n.(*ast.RawHTML); ok && raw.Segments != nil && raw.Segments.Len() > 0 {
+			pos = raw.Segments.At(0).Start
+		} else if n.Lines() != nil && n.Lines().Len() > 0 {
 			pos = n.Lines().At(0).Start
 		} else if n.FirstChild() != nil {
 			pos = n.FirstChild().Pos()
@@ -648,34 +668,174 @@ func blockKindName(n ast.Node) string {
 	}
 }
 
-func stripHTMLTags(htmlContent []byte) string {
-	var buf strings.Builder
-	inTag := false
-	for _, b := range htmlContent {
-		if inTag {
-			if b == '>' {
-				inTag = false
+func extractInlines(n ast.Node, src []byte, displayPath string) (string, []string) {
+	if n == nil {
+		return "", nil
+	}
+	var buf bytes.Buffer
+	var errs []string
+	walkInlines(n, src, displayPath, &buf, &errs)
+	return buf.String(), errs
+}
+
+func walkInlines(parent ast.Node, src []byte, displayPath string, buf *bytes.Buffer, errs *[]string) {
+	for c := parent.FirstChild(); c != nil; c = c.NextSibling() {
+		switch c.Kind() {
+		case ast.KindText:
+			t := c.(*ast.Text)
+			if t.IsRaw() {
+				buf.Write(t.Segment.Value(src))
+			} else {
+				val := t.Segment.Value(src)
+				val = bytes.TrimSuffix(val, []byte("\r"))
+				buf.Write(decodeTextInlines(val))
+				if t.HardLineBreak() || t.SoftLineBreak() {
+					buf.WriteByte('\n')
+				}
 			}
+
+		case ast.KindString:
+			s := c.(*ast.String)
+			buf.Write(s.Value)
+
+		case ast.KindCodeSpan:
+			for ch := c.FirstChild(); ch != nil; ch = ch.NextSibling() {
+				if t, ok := ch.(*ast.Text); ok {
+					val := t.Segment.Value(src)
+					switch {
+					case bytes.HasSuffix(val, []byte("\r\n")):
+						buf.Write(val[:len(val)-2])
+						buf.WriteByte(' ')
+					case bytes.HasSuffix(val, []byte("\n")):
+						buf.Write(val[:len(val)-1])
+						buf.WriteByte(' ')
+					default:
+						buf.Write(val)
+					}
+				}
+			}
+
+		case ast.KindEmphasis:
+			walkInlines(c, src, displayPath, buf, errs)
+
+		default:
+			*errs = append(*errs, fmt.Sprintf("%s:%d: unknown inline kind: %s", displayPath, nodeLine(c, src), inlineKindName(c)))
+		}
+	}
+}
+
+func decodeTextInlines(source []byte) []byte {
+	var buf bytes.Buffer
+	limit := len(source)
+	for i := 0; i < limit; i++ {
+		b := source[i]
+		if b == '\\' {
+			if i+1 < limit {
+				next := source[i+1]
+				if isASCIIPunct(next) {
+					if next == '&' {
+						buf.WriteByte('&')
+						i++
+						continue
+					}
+					buf.WriteByte(next)
+					i++
+					continue
+				}
+			}
+			buf.WriteByte(b)
 			continue
 		}
-		if b == '<' {
-			inTag = true
-			continue
+		if b == '&' {
+			if i+1 < limit && source[i+1] == '#' {
+				if i+2 < limit {
+					nc := source[i+2]
+					if (nc == 'x' || nc == 'X') && i+3 < limit {
+						start := i + 3
+						end := start
+						for end < limit && isHexDigit(source[end]) {
+							end++
+						}
+						hexDigits := end - start
+						if hexDigits >= 1 && hexDigits <= 6 && end < limit && source[end] == ';' {
+							v, err := strconv.ParseUint(string(source[start:end]), 16, 32)
+							if err == nil {
+								r := rune(v)
+								if r == 0 || !utf8.ValidRune(r) {
+									r = utf8.RuneError
+								}
+								buf.WriteRune(r)
+								i = end
+								continue
+							}
+						}
+					} else if nc >= '0' && nc <= '9' {
+						start := i + 2
+						end := start
+						for end < limit && source[end] >= '0' && source[end] <= '9' {
+							end++
+						}
+						digits := end - start
+						if digits >= 1 && digits <= 7 && end < limit && source[end] == ';' {
+							v, err := strconv.ParseUint(string(source[start:end]), 10, 32)
+							if err == nil {
+								r := rune(v)
+								if r == 0 || !utf8.ValidRune(r) {
+									r = utf8.RuneError
+								}
+								buf.WriteRune(r)
+								i = end
+								continue
+							}
+						}
+					}
+				}
+			} else {
+				start := i + 1
+				end := start
+				for end < limit && isAlphaNumeric(source[end]) {
+					end++
+				}
+				if end > start && end < limit && source[end] == ';' {
+					name := string(source[start:end])
+					if entity, ok := util.LookUpHTML5EntityByName(name); ok {
+						buf.Write(entity.Characters)
+						i = end
+						continue
+					}
+				}
+			}
 		}
 		buf.WriteByte(b)
 	}
-	return buf.String()
+	return buf.Bytes()
 }
 
-func extractVisibleText(n ast.Node, src []byte) string {
-	if n == nil {
-		return ""
+func isASCIIPunct(b byte) bool {
+	return (b >= '!' && b <= '/') || (b >= ':' && b <= '@') || (b >= '[' && b <= '`') || (b >= '{' && b <= '~')
+}
+
+func isHexDigit(b byte) bool {
+	return (b >= '0' && b <= '9') || (b >= 'a' && b <= 'f') || (b >= 'A' && b <= 'F')
+}
+
+func isAlphaNumeric(b byte) bool {
+	return (b >= '0' && b <= '9') || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
+}
+
+func inlineKindName(n ast.Node) string {
+	switch n.Kind() {
+	case ast.KindRawHTML:
+		return "raw html"
+	case ast.KindImage:
+		return "image"
+	case ast.KindLink:
+		return "link"
+	case ast.KindAutoLink:
+		return "autolink"
+	default:
+		return strings.ToLower(n.Kind().String())
 	}
-	var buf bytes.Buffer
-	if err := goldmark.DefaultRenderer().Render(&buf, src, n); err != nil {
-		return ""
-	}
-	return html.UnescapeString(stripHTMLTags(buf.Bytes()))
 }
 
 var readFile = os.ReadFile

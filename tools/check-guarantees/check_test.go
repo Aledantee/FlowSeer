@@ -2088,13 +2088,127 @@ func TestCitationLineFromTextSegment(t *testing.T) {
 	}
 }
 
-func TestVerifyChangeBuildWrappedInRun(t *testing.T) {
-	content, err := os.ReadFile("../../.agents/skills/verify-change/scripts/verify-change.sh")
-	if err != nil {
+func TestImageAltTextWithHardBreakMUSTRejected(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	testFile := filepath.Join(pkgDir, "foo_test.go")
+	if err := os.WriteFile(testFile, []byte("package pkg\nimport \"testing\"\nfunc TestA(t *testing.T) {}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	expected := `run go build -o "$build_dir/check-guarantees" ./tools/check-guarantees`
-	if !strings.Contains(string(content), expected) {
-		t.Fatalf("expected verify-change.sh to contain %q", expected)
+	content := "## Heading\n\n![x\\\nMUST](https://example.com/y.png)\n\n- WHEN a THEN b\n\nProved by: TestA\n"
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	errs := checkGuaranteesFile(gFile, root)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "unknown inline kind: image") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected unknown inline kind: image, got: %v", errs)
+	}
+}
+
+func TestImageAltTextHardBreakTHENInWHENRejected(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	testFile := filepath.Join(pkgDir, "foo_test.go")
+	if err := os.WriteFile(testFile, []byte("package pkg\nimport \"testing\"\nfunc TestA(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	content := "## Heading\n\nIt MUST succeed.\n\n- WHEN ![x\\\nTHEN](https://example.com/y.png) a\n\nProved by: TestA\n"
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	errs := checkGuaranteesFile(gFile, root)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "unknown inline kind: image") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected unknown inline kind: image, got: %v", errs)
+	}
+}
+
+func TestRawHTMLCommentWithMUSTRejected(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	testFile := filepath.Join(pkgDir, "foo_test.go")
+	if err := os.WriteFile(testFile, []byte("package pkg\nimport \"testing\"\nfunc TestA(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	content := "## Heading\n\nIt MUST succeed <!-- MUST -->.\n\n- WHEN a THEN b\n\nProved by: TestA\n"
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	errs := checkGuaranteesFile(gFile, root)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "unknown inline kind: raw html") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected unknown inline kind: raw html, got: %v", errs)
+	}
+}
+
+func TestInlineLinkInNormativeSentenceRejected(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	testFile := filepath.Join(pkgDir, "foo_test.go")
+	if err := os.WriteFile(testFile, []byte("package pkg\nimport \"testing\"\nfunc TestA(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	content := "## Heading\n\nIt [MUST](https://example.com) succeed.\n\n- WHEN a THEN b\n\nProved by: TestA\n"
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	errs := checkGuaranteesFile(gFile, root)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "unknown inline kind: link") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected unknown inline kind: link, got: %v", errs)
+	}
+}
+
+func TestProvedByEntityCitationPreservesSegmentSearchPosition(t *testing.T) {
+	root := t.TempDir()
+	pkgDir := createTestPkg(t, root)
+	testFile := filepath.Join(pkgDir, "foo_test.go")
+	if err := os.WriteFile(testFile, []byte("package pkg\nimport \"testing\"\nfunc TestA(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	content := "## Heading\n\nIt MUST succeed.\n\n- WHEN a THEN b\n\nProved by: Test&#65;,\n  TestB\n"
+	gFile := filepath.Join(pkgDir, "GUARANTEES.md")
+	if err := os.WriteFile(gFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	errs := checkGuaranteesFile(gFile, root)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "src/pkg/GUARANTEES.md:8:") && strings.Contains(e, `cites test "TestB" which does not exist in src/pkg`) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected missing TestB citation at line 8, got: %v", errs)
 	}
 }

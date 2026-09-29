@@ -173,13 +173,15 @@ and validates allowed block structure, failing closed on any unknown block kind
 block quotes, HTML blocks, or unallowed heading levels). It verifies unique
 `## ` section headings after HTML entity and escape decoding while preserving
 unspaced `#` characters. Within each section, exactly three blocks must appear
-in order: exactly one normative MUST/MUST NOT paragraph in rendered text,
+in order: exactly one normative MUST/MUST NOT paragraph in visible text,
 exactly one bullet list using the `-` marker only, and exactly one `Proved by:`
 paragraph listing comma-separated Go test identifiers. List items must contain
 only inline paragraph content; nested blocks and lazy continuations containing
-`Proved by:` are rejected. Rendered text evaluation decodes entities and
-escapes in non-raw text, preserves raw code spans, and skips image subtrees
-and raw HTML tags or comments. Cited tests resolve from the package's
-`TestGoFiles` and `XTestGoFiles` via `go list -mod=readonly -json .` using Go
-token scanning with signature validation; malformed test signatures in the
+`Proved by:` are rejected. Visible text is derived directly from allowed AST
+inline nodes (text with decoded entity references and punctuation escapes, line
+breaks, code spans with spaces replacing newlines, and emphasis) without HTML
+rendering or tag stripping; unallowed inline kinds (raw HTML, images, links,
+autolinks) fail closed with unknown inline kind errors. Cited tests resolve
+from the package's `TestGoFiles` and `XTestGoFiles` via `go list -mod=readonly -json .`
+using Go token scanning with signature validation; malformed test signatures in the
 package report a formatted error and fail test resolution.
