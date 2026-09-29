@@ -1023,7 +1023,7 @@ type CaptureAuthorization_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The person who requested this capture, as the caller names them. Must be
-	// present. Nothing verifies the subject until caller authentication lands.
+	// present.
 	RequestedBy *v12.OperatorRef
 	// Free-text explanation of why this capture was requested. Must be
 	// present.

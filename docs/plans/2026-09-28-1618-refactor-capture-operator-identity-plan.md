@@ -231,8 +231,9 @@ Change:
   `CaptureAuthorization` reserves `1` and `operator`, and adds
   `flowseer.model.principal.v1.OperatorRef requested_by = 4
   [(buf.validate.field).required = true]`. The field comment says the caller
-  names the requester and nothing verifies it until caller authentication
-  lands.
+  names the requester. That nothing verifies it yet is status, which
+  `docs/code-style-proto.md` keeps out of the schema, so it goes in the
+  capture README.
 - READMEs. The principal README's Boundaries read `Imports: nothing
   FlowSeer-owned` and `Imported by: model/access, model/capture`. It says
   `OperatorRef` keys an identity-provider subject and not a FlowSeer entity,
@@ -317,15 +318,15 @@ The grep prints nothing.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] `OperatorRef` declared only in `model/principal/v1`.
-- [ ] `CaptureAuthorization` reserves `1` and `operator`, and carries
+- [x] Verifier green for every changed path.
+- [x] `OperatorRef` declared only in `model/principal/v1`.
+- [x] `CaptureAuthorization` reserves `1` and `operator`, and carries
       `requested_by`.
-- [ ] Package READMEs under `spec/proto/flowseer/model/`, both direction
+- [x] Package READMEs under `spec/proto/flowseer/model/`, both direction
       records, `docs/conventions/protobuf.md`, and the device README updated
       in the same change.
-- [ ] This plan's `status` set, with an outcome note under its title.
-- [ ] No plan labels in code.
+- [x] This plan's `status` set, with an outcome note under its title.
+- [x] No plan labels in code.
 
 ## Open questions
 

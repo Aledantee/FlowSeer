@@ -112,7 +112,7 @@ message CaptureAuthorization {
   reserved operator;
 
   // The person who requested this capture, as the caller names them. Must be
-  // present. Nothing verifies the subject until caller authentication lands.
+  // present.
   flowseer.model.principal.v1.OperatorRef requested_by = 4 [(buf.validate.field).required = true];
   // Free-text explanation of why this capture was requested. Must be
   // present.

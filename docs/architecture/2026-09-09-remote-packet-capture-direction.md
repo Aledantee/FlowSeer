@@ -310,7 +310,7 @@ carries. Field 1 and the name `operator` are reserved, so a record written
 before the change still decodes, with no requester. `OperatorRef` moved out of
 `model/access` into the `model/principal` leaf, because `model/capture` reaches
 the edge through `edge/capture` and must not pull the access plane with it. The
-import line in Consequences for this package reads
+import line the 2026-09-17 amendment gives for this package reads
 `{model/edge, model/principal, net/capture} ← model/capture` now.
 
 The subject is still what the caller writes. `CaptureService` checks nothing
