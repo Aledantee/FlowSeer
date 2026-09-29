@@ -12,9 +12,10 @@
 // set to a passing value (setAttribute('aria-hidden', 'false')), an aliased
 // axe.configure, a story skipped by widening the audit's own skip list, an
 // axe context that excludes nodes, a call split across lines, and any of
-// these moved into a helper module or a Vite or Vitest config. Adding a rule
-// to allowedDisabledRules is not a policy surface either, so review is where
-// a new entry has to justify itself.
+// these moved into a helper module or a Vite or Vitest config. This package
+// is a policy surface (tools/hooks/pre-tool-policy.sh), so a rule added to
+// allowedDisabledRules waits for guardrail review like a .golangci.yml
+// exclusion does.
 package conformance
 
 import (

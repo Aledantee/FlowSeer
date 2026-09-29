@@ -213,7 +213,7 @@ sibling_input=$(jq -n --arg cwd "$linked_worktree" --arg path "$fixture/generate
 assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$sibling_input"
 ok "Edit leaves a path outside every checkout to the sandbox and holds another checkout to policy"
 
-for policy_path in AGENTS.md buf.yaml .claude/settings.json .codex/hooks.json tools/hooks/new-guard.sh; do
+for policy_path in AGENTS.md buf.yaml .claude/settings.json .codex/hooks.json tools/hooks/new-guard.sh test/conformance/a11y/a11y_policy_test.go; do
   policy_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/$policy_path" \
     '{cwd:$cwd,tool_input:{file_path:$path}}')
   policy_output=$(printf '%s' "$policy_input" | "$repo_root/tools/hooks/pre-tool-policy.sh")
