@@ -13,28 +13,28 @@ Proved by: TestHostKeyCallbackRequiresExplicitVerification, TestDialOptionsRequi
 
 ## A failed wait closes the session
 
-When a Run call fails to complete cleanly due to deadline expiration, context cancellation, or peer connection loss, the Session MUST be closed and subsequent Run calls MUST return ErrSessionClosed.
+When a Run call fails to complete cleanly due to deadline expiration, context cancellation, or the peer closing the shell channel, the Session MUST be closed and subsequent Run calls MUST return ErrSessionClosed.
 
 - WHEN a command wait exceeds its deadline THEN Run returns context.DeadlineExceeded and subsequent Run calls return ErrSessionClosed.
 - WHEN a command context is canceled mid-wait THEN Run returns context.Canceled and subsequent Run calls return ErrSessionClosed.
-- WHEN the peer closes the connection while a command is running THEN Run returns an error and subsequent Run calls return ErrSessionClosed.
+- WHEN the peer closes the shell channel while a command is running THEN Run returns an error and subsequent Run calls return ErrSessionClosed.
 
 Proved by: TestRunCommandDeadlineExceeded, TestRunCancellationMidWait, TestRunConnectionLostClosesSession
 
 ## A command ends at the earliest prompt match
 
-In the output scanned after the command echo (stripped leading echo, or anchored echo when AnchorOnEcho is set), Run MUST end the command at the earliest matching prompt, resolving ties in match position to the earliest prompt in Prompts slice order.
+Run MUST end the command at the prompt whose pattern matches earliest in the output observed for that command, resolving a tie at the same match start position in favor of the prompt earlier in Command.Prompts.
 
-- WHEN multiple prompts match at different positions in output scanned after the echo THEN the prompt with the earliest match start offset ends the command.
+- WHEN multiple prompts match at different positions in the observed output THEN the prompt with the earliest match start offset ends the command.
 - WHEN multiple prompts match at the identical start position THEN the prompt appearing earlier in Command.Prompts wins the tie.
 
-Proved by: TestScanPromptEarliestMatchAndTieOrder, TestRunPromptEarliestMatchInStream
+Proved by: TestRunPromptEarliestMatchInStream, TestRunPromptTieOrderFollowsSliceOrder, TestScanPromptEarliestMatchAndTieOrder
 
 ## Pagination markers are answered and excluded from output
 
-When Command.MorePattern matches accumulated output, Run MUST write Command.MoreKeystroke and MUST NOT include the marker text in Result.Output.
+When Command.MorePattern matches accumulated output starting no later than the earliest matching prompt, Run MUST write Command.MoreKeystroke and MUST NOT include the marker text in Result.Output.
 
-- WHEN MorePattern matches in the output stream THEN MoreKeystroke is sent to stdin and the matched marker is omitted from Result.Output.
+- WHEN MorePattern matches in the output stream starting no later than the earliest prompt match THEN MoreKeystroke is sent to stdin and the matched marker is omitted from Result.Output.
 
 Proved by: TestRunPagination
 

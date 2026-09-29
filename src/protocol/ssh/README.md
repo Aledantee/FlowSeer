@@ -95,8 +95,9 @@ A leading echo of `Command.Line` in the shell's response is stripped automatical
 Every `Run` call has a deadline — `Command.Deadline`, else
 `Options.CommandDeadline` (60s by default) — independent of `Dial`'s timeout,
 and honors the caller's `ctx`. Any failure to complete cleanly — deadline
-expiration, context cancellation, or peer connection loss — closes the `Session`
-so a caller never resumes against an untrusted read cursor; see
+expiration, context cancellation, or the peer closing the shell channel —
+closes the `Session` so a caller never resumes against an untrusted read
+cursor; see
 [A failed wait closes the session](GUARANTEES.md#a-failed-wait-closes-the-session).
 A canceled or timed-out wait surfaces unwrapped `context.Canceled` or
 `context.DeadlineExceeded`, not a package error code.
@@ -107,7 +108,7 @@ A canceled or timed-out wait surfaces unwrapped `context.Canceled` or
 When output exceeds the limit, truncation keeps the most recent bytes, since a
 prompt or pagination marker is expected at the tail of the stream.
 
-## Evidence never carries a credential
+## Evidence and redaction
 
 Every `Run` call returns an `Evidence` record: `Sent` (`Command.Line`, or
 `Command.Redacted` when set, before the trailing newline `Run` appends),
@@ -115,9 +116,10 @@ Every `Run` call returns an `Evidence` record: `Sent` (`Command.Line`, or
 `Command.Redacted` replaces `Command.Line` in `Sent`; see
 [Command redaction replaces sent line in evidence](GUARANTEES.md#command-redaction-replaces-sent-line-in-evidence).
 The package does no pattern-based secret scrubbing of its own; a caller that
-sends a credential is responsible for setting `Redacted`. `Evidence` never
-contains device output beyond byte counts and timing, so it is safe to log or
-attach to a durable audit record.
+sends a credential is responsible for setting `Redacted`, and `Sent` carries
+`Command.Line`, credential included, until it does. `Evidence` contains no
+device output beyond byte counts and timing, so with `Redacted` set it is safe
+to log or attach to a durable audit record.
 
 ## Scope
 
