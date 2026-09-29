@@ -5,6 +5,7 @@ date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: rework
 execution: mixed
 ---
 
@@ -35,9 +36,9 @@ execution: mixed
 > line breaks, code spans, and emphasis; rejecting raw HTML, images, links, and
 > autolinks). Visible text is derived by decoding entity references and
 > punctuation escapes in non-raw text and normalizing code span newlines to spaces.
-> Test citation line tracking in parseProvedByParagraph preserves segment search
-> positions across entity citations so subsequent missing tests report their own
-> source lines.
+> Test citation line tracking maps visible citation bytes to source offsets, so
+> entity and escape decoding still reports each missing test on its own source
+> line.
 
 ## Goal
 
@@ -73,10 +74,10 @@ follow-up plan is written.
   WHEN/THEN items, and `Proved by:` paragraphs), the checker inspects AST
   children directly instead of delegating to an HTML renderer:
   - Text (`ast.KindText` / `*ast.Text`): non-raw text decodes HTML character
-    references (named entities such as `&amp;` via `util.ResolveEntityNames`,
-    decimal references such as `&#65;` and hex references such as `&#x41;`
-    via `util.ResolveNumericReferences`) and backslash-escaped ASCII
-    punctuation (`\*` -> `*`, `\&` -> `&` via `util.UnescapePunctuations`).
+    references (named entities such as `&amp;`, decimal references such as
+    `&#65;`, and hex references such as `&#x41;`) and backslash-escaped ASCII
+    punctuation (`\*` -> `*`, `\&` -> `&`) in a single pass. Chaining goldmark's
+    entity and punctuation helpers would double-decode `\&amp;amp;`.
     Soft line breaks (`t.SoftLineBreak()`) and hard line breaks
     (`t.HardLineBreak()`) append `\n` to preserve line and word boundaries.
     Raw text segments (`t.IsRaw()`) inside code spans are preserved literally
@@ -102,14 +103,11 @@ follow-up plan is written.
     inlines eliminates tag stripping and rendering entirely.
 
 - Test citation line accuracy with entity citations:
-  In `parseProvedByParagraph` (`tools/check-guarantees/check.go:444-535`),
-  searching for comma-separated test names across AST segments must not
-  permanently advance the segment index (`segIdx`) when a citation contains
-  HTML entities (such as `Test&#65;`). When a citation cannot be matched in
-  untransformed segment bytes, preserving the segment search position ensures
-  that subsequent missing test citations (such as `TestB`) find their source
-  segment and report their own source lines rather than falling back to
-  `startLine` (the `Proved by:` line).
+  Inline extraction records a source offset for each visible byte.
+  `parseProvedByParagraph` maps each citation's position in visible text back
+  to its source line. Searching untransformed AST segments cannot locate names
+  containing entities (such as `Test&#65;`) or punctuation escapes (such as
+  `Test\_B`), and can report the wrong line for a later citation.
 
 - Removal of shell-script string matching test:
   `TestVerifyChangeBuildWrappedInRun` (`tools/check-guarantees/check_test.go:2091-2100`)
@@ -119,14 +117,14 @@ follow-up plan is written.
   Verifying that `verify-change.sh` wraps the binary build in `run` belongs in
   `tools/hooks/tests/run.sh` (a policy surface).
 
-- The checker reads `GUARANTEES.md` through a conforming CommonMark parser
-  and checks the parsed document, not the source lines (decided by the
-  user, 2026-09-29, after the second review ended `rework`). Headings,
-  normative sentences, WHEN/THEN bullets, and `Proved by:` lines are taken
-  from the parser's block tree and rendered text, so markup a reader never
-  sees (HTML comments, escapes, code spans across lines, entity-equal
-  headings) cannot count or hide a clause. The parser is goldmark
-  (`github.com/yuin/goldmark`, MIT, pure Go), run from a small Go command,
+- The checker reads `GUARANTEES.md` with goldmark and checks the parsed block
+  tree and visible text (decided by the user, 2026-09-29, after the second
+  review ended `rework`). Headings, normative sentences, WHEN/THEN bullets,
+  and `Proved by:` lines are taken from the block tree and allowed inline
+  nodes, so markup a reader never sees (HTML comments, escapes, code spans
+  across lines, entity-equal headings) cannot count or hide a clause. Source
+  line checks close known gaps between goldmark and CommonMark 0.31.2. Goldmark
+  (`github.com/yuin/goldmark`, MIT, pure Go) runs from a small Go command
   because the check already needs Go on PATH for `go list` and the repo
   manages no Python dependencies. Why: two review passes of hand-matched
   CommonMark leaked first at the block level, then across lines, then
@@ -698,14 +696,13 @@ Change: `tools/check-guarantees` replaces HTML rendering and tag stripping with 
 - Visible text extraction: `extractVisibleText` and `stripHTMLTags`
   (`check.go:651-678`) and `goldmark.DefaultRenderer()` are removed. Visible text
   is derived by walking allowed inlines: non-raw text decodes HTML character
-  entities (`util.ResolveEntityNames`, `util.ResolveNumericReferences`) and
-  backslash punctuation escapes (`util.UnescapePunctuations`); raw text (inside
-  code spans) is preserved without decoding; line breaks append `\n`; emphasis
+  entities and backslash punctuation escapes in a single pass so `\&amp;amp;`
+  is not decoded twice; raw text inside code spans is preserved without decoding;
+  line breaks append `\n`; emphasis
   unwraps its children.
-- Citation line tracking: in `parseProvedByParagraph` (`check.go:444-535`),
-  segment search for test identifiers preserves search positions across
-  unmatched entity-written citations (`Test&#65;`), preventing later missing
-  test citations from falling back to `startLine` (the `Proved by:` line).
+- Citation line tracking: inline extraction records source offsets for visible
+  bytes, and `parseProvedByParagraph` uses them to report each citation's line
+  after entity or punctuation-escape decoding.
 - Fragile test removal: `TestVerifyChangeBuildWrappedInRun`
   (`check_test.go:2091-2100`) is removed.
 - Documentation: `docs/conventions/guarantees.md:79-86` and
