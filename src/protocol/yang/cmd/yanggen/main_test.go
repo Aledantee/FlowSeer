@@ -15,6 +15,9 @@ func TestRunVerifyFixture(t *testing.T) {
 	if !strings.Contains(stdout.String(), "OK: resolved 5 modules") {
 		t.Errorf("stdout = %q, want the resolved-module count", stdout.String())
 	}
+	if !strings.Contains(stdout.String(), "vendor fixture: 5 module(s), 0 skipped, 0 recovered") {
+		t.Errorf("stdout = %q, want 0 recovered", stdout.String())
+	}
 }
 
 func TestRunCheckWithoutLockfileFails(t *testing.T) {
@@ -54,8 +57,17 @@ func TestRunVerifyRealTrees(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("run -verify on real trees = %d, stderr: %s", code, stderr.String())
 	}
-	for _, vendor := range []string{"cisco-iosxe", "ruckus-icx", "aruba-cx"} {
-		if !strings.Contains(stdout.String(), "vendor "+vendor+":") {
+	for vendor, count := range map[string]string{"cisco-iosxe": "113", "ruckus-icx": "1", "aruba-cx": "0"} {
+		found := false
+		for _, line := range strings.Split(stdout.String(), "\n") {
+			if strings.HasPrefix(line, "vendor "+vendor+":") {
+				found = true
+				if !strings.HasSuffix(line, ", "+count+" recovered") {
+					t.Errorf("vendor line = %q, want %s recovered", line, count)
+				}
+			}
+		}
+		if !found {
 			t.Errorf("verify output missing vendor %s", vendor)
 		}
 	}

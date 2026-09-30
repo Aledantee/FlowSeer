@@ -75,7 +75,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch {
 	case *verify:
 		for _, vs := range sets {
-			fmt.Fprintf(stdout, "vendor %s: %d module(s), %d skipped\n", vs.Vendor, len(vs.Modules), len(vs.Skipped))
+			recovered := 0
+			for _, children := range vs.Recovered {
+				recovered += len(children)
+			}
+			fmt.Fprintf(stdout, "vendor %s: %d module(s), %d skipped, %d recovered\n", vs.Vendor, len(vs.Modules), len(vs.Skipped), recovered)
 			for _, s := range vs.Skipped {
 				fmt.Fprintf(stdout, "  skip %s: %s\n", s.Module, s.Reason)
 			}
