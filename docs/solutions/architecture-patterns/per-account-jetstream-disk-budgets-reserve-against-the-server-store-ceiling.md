@@ -104,8 +104,8 @@ In edgebus, `ensureEdgeAccount` looks up the account immediately after
 authenticated account before it returns. A successful lookup with a false
 flag on an open hub therefore records a server refusal. When the wait then
 fails, the hub returns `ErrCodeStorage` with the `edge`,
-`central_budget_bytes`, `edge_budget_bytes`, and `ceiling_bytes` attributes when
-`srv.JetStreamConfig()` returns a ceiling
+`central_budget_bytes`, and `edge_budget_bytes` attributes, plus
+`ceiling_bytes` when `srv.JetStreamConfig()` is non-nil
 (`src/modules/edgebus/hub.go:450-464`). A lookup failure, an enabled account,
 or a hub that closed between the connect and the flag read keeps
 `ErrCodeHub`. `errs.From(err)` keeps the wait error in the returned chain.
