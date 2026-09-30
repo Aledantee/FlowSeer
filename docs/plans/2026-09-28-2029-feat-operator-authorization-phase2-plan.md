@@ -288,7 +288,7 @@ The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-
   bucket flag, which U11 documents in `src/modules/edgebus/README.md`.
   Multi-key uniqueness by atomic batch is a `compound` candidate once U12
   lands.
-- U13 amends the partition rule in
+- The user accepted this amendment on 2026-09-30. U13 amends the partition rule in
   `docs/architecture/2026-09-28-operator-authorization-direction.md`
   (lines 85-87: "every key in the `device-lanes`, `edges`, and `captures`
   buckets, and every key a later store adds, starts with the tenant id").
@@ -1362,7 +1362,7 @@ sections "2. Work the units", step 2, and "3. Finish", step 4). A `--full` run a
 - [ ] `KV_tenants` allows atomic publish after every hub start (Requirement 4).
 - [ ] `tenantstore.Create` writes a record and its `org_` index in one atomic batch, and nothing in the package deletes, rolls back, or takes over a key (Requirements 5, 6, and 7).
 - [ ] `claim_internal_test.go` replaces `ownership_test.go`.
-- [ ] The tenancy docs and low findings U13 names are fixed, and a person has re-read the amended partition rule in `docs/architecture/2026-09-28-operator-authorization-direction.md`.
+- [ ] The tenancy docs and low findings U13 names are fixed, and the amended partition rule reads as the user accepted it on 2026-09-30 in `docs/architecture/2026-09-28-operator-authorization-direction.md`.
 - [ ] This plan's `status` set to `implemented` with an outcome note under its title.
 - [ ] No plan labels in code after U11–U13.
 
