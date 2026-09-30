@@ -189,6 +189,7 @@ func (x *DeviceLaneRecord) SetDevice(v *v1.DeviceGlobalRef) {
 
 func (x *DeviceLaneRecord) SetHighWatermark(v uint64) {
 	x.xxx_hidden_HighWatermark = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 14)
 }
 
 func (x *DeviceLaneRecord) SetMutation(v *v11.MutationState) {
@@ -201,6 +202,7 @@ func (x *DeviceLaneRecord) SetAdmittedAt(v *timestamppb.Timestamp) {
 
 func (x *DeviceLaneRecord) SetDispatched(v bool) {
 	x.xxx_hidden_Dispatched = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 14)
 }
 
 func (x *DeviceLaneRecord) SetLastReportedPhase(v v11.OperationPhase) {
@@ -210,10 +212,12 @@ func (x *DeviceLaneRecord) SetLastReportedPhase(v v11.OperationPhase) {
 
 func (x *DeviceLaneRecord) SetDispatchConfirmed(v bool) {
 	x.xxx_hidden_DispatchConfirmed = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 14)
 }
 
 func (x *DeviceLaneRecord) SetCheckpointConfirmed(v bool) {
 	x.xxx_hidden_CheckpointConfirmed = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 14)
 }
 
 func (x *DeviceLaneRecord) SetHoldResolutionPending(v []uint64) {
@@ -248,6 +252,13 @@ func (x *DeviceLaneRecord) HasDevice() bool {
 	return x.xxx_hidden_Device != nil
 }
 
+func (x *DeviceLaneRecord) HasHighWatermark() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
 func (x *DeviceLaneRecord) HasMutation() bool {
 	if x == nil {
 		return false
@@ -262,11 +273,32 @@ func (x *DeviceLaneRecord) HasAdmittedAt() bool {
 	return x.xxx_hidden_AdmittedAt != nil
 }
 
+func (x *DeviceLaneRecord) HasDispatched() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
 func (x *DeviceLaneRecord) HasLastReportedPhase() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
+func (x *DeviceLaneRecord) HasDispatchConfirmed() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 6)
+}
+
+func (x *DeviceLaneRecord) HasCheckpointConfirmed() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 7)
 }
 
 func (x *DeviceLaneRecord) HasFirmwareFingerprint() bool {
@@ -280,6 +312,11 @@ func (x *DeviceLaneRecord) ClearDevice() {
 	x.xxx_hidden_Device = nil
 }
 
+func (x *DeviceLaneRecord) ClearHighWatermark() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_HighWatermark = 0
+}
+
 func (x *DeviceLaneRecord) ClearMutation() {
 	x.xxx_hidden_Mutation = nil
 }
@@ -288,9 +325,24 @@ func (x *DeviceLaneRecord) ClearAdmittedAt() {
 	x.xxx_hidden_AdmittedAt = nil
 }
 
+func (x *DeviceLaneRecord) ClearDispatched() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_Dispatched = false
+}
+
 func (x *DeviceLaneRecord) ClearLastReportedPhase() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
 	x.xxx_hidden_LastReportedPhase = v11.OperationPhase_OPERATION_PHASE_UNSPECIFIED
+}
+
+func (x *DeviceLaneRecord) ClearDispatchConfirmed() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 6)
+	x.xxx_hidden_DispatchConfirmed = false
+}
+
+func (x *DeviceLaneRecord) ClearCheckpointConfirmed() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 7)
+	x.xxx_hidden_CheckpointConfirmed = false
 }
 
 func (x *DeviceLaneRecord) ClearFirmwareFingerprint() {
@@ -304,25 +356,27 @@ type DeviceLaneRecord_builder struct {
 	// Must be present.
 	Device *v1.DeviceGlobalRef
 	// The highest sequence assigned on this device, to mutations and reads
-	// alike. Implicit presence: zero and never assigned are one state.
-	HighWatermark uint64
+	// alike. Zero means no sequence has been assigned yet.
+	HighWatermark *uint64
 	// The mutation that holds the lane. Unset means the lane is free.
 	Mutation *v11.MutationState
 	// When the open mutation was admitted; carried on a resumed dispatch as
 	// the start of its delayed-apply horizon. Set exactly with mutation.
 	AdmittedAt *timestamppb.Timestamp
 	// Whether the edge ever reported the open mutation admitted. Survives
-	// an edge restart, unlike the confirmations below. Implicit presence.
-	Dispatched bool
+	// an edge restart, unlike the confirmations below. False means the mutation
+	// has not been reported admitted.
+	Dispatched *bool
 	// The phase the edge last reported for the open mutation. Unset means no
 	// report yet. The zero value is rejected.
 	LastReportedPhase *v11.OperationPhase
 	// Whether the current dispatch of the open mutation is confirmed by the
-	// edge. Cleared when the edge reports onboarded. Implicit presence.
-	DispatchConfirmed bool
+	// edge. Cleared when the edge reports onboarded. False means the edge has
+	// not confirmed the dispatch.
+	DispatchConfirmed *bool
 	// Whether the edge acknowledged the checkpoint. Cleared when the edge
-	// reports onboarded. Implicit presence.
-	CheckpointConfirmed bool
+	// reports onboarded. False means the edge has not acknowledged the checkpoint.
+	CheckpointConfirmed *bool
 	// The sequence whose hold resolution central recorded and the edge has
 	// not yet confirmed. Unset means none is owed. This alone derives the
 	// hold row; an edge reporting onboarded leaves it as it is, since the
@@ -356,16 +410,28 @@ func (b0 DeviceLaneRecord_builder) Build() *DeviceLaneRecord {
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_Device = b.Device
-	x.xxx_hidden_HighWatermark = b.HighWatermark
+	if b.HighWatermark != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 14)
+		x.xxx_hidden_HighWatermark = *b.HighWatermark
+	}
 	x.xxx_hidden_Mutation = b.Mutation
 	x.xxx_hidden_AdmittedAt = b.AdmittedAt
-	x.xxx_hidden_Dispatched = b.Dispatched
+	if b.Dispatched != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 14)
+		x.xxx_hidden_Dispatched = *b.Dispatched
+	}
 	if b.LastReportedPhase != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 14)
 		x.xxx_hidden_LastReportedPhase = *b.LastReportedPhase
 	}
-	x.xxx_hidden_DispatchConfirmed = b.DispatchConfirmed
-	x.xxx_hidden_CheckpointConfirmed = b.CheckpointConfirmed
+	if b.DispatchConfirmed != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 14)
+		x.xxx_hidden_DispatchConfirmed = *b.DispatchConfirmed
+	}
+	if b.CheckpointConfirmed != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 14)
+		x.xxx_hidden_CheckpointConfirmed = *b.CheckpointConfirmed
+	}
 	x.xxx_hidden_HoldResolutionPending = b.HoldResolutionPending
 	x.xxx_hidden_OpenReads = b.OpenReads
 	x.xxx_hidden_ExpectedDescriptions = b.ExpectedDescriptions
@@ -866,20 +932,20 @@ var File_flowseer_store_device_v1_lane_record_proto protoreflect.FileDescriptor
 
 const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/store/device/v1/lane_record.proto\x12\x18flowseer.store.device.v1\x1a\x1cflowseer/errs/v1/error.proto\x1a(flowseer/model/access/v1/interface.proto\x1a(flowseer/model/access/v1/operation.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe6\x11\n" +
+	"*flowseer/store/device/v1/lane_record.proto\x12\x18flowseer.store.device.v1\x1a\x1cflowseer/errs/v1/error.proto\x1a(flowseer/model/access/v1/interface.proto\x1a(flowseer/model/access/v1/operation.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xca\x11\n" +
 	"\x10DeviceLaneRecord\x12L\n" +
-	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12,\n" +
-	"\x0ehigh_watermark\x18\x02 \x01(\x04B\x05\xaa\x01\x02\b\x02R\rhighWatermark\x12C\n" +
+	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12%\n" +
+	"\x0ehigh_watermark\x18\x02 \x01(\x04R\rhighWatermark\x12C\n" +
 	"\bmutation\x18\x03 \x01(\v2'.flowseer.model.access.v1.MutationStateR\bmutation\x12;\n" +
 	"\vadmitted_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"admittedAt\x12%\n" +
+	"admittedAt\x12\x1e\n" +
 	"\n" +
-	"dispatched\x18\x05 \x01(\bB\x05\xaa\x01\x02\b\x02R\n" +
+	"dispatched\x18\x05 \x01(\bR\n" +
 	"dispatched\x12d\n" +
 	"\x13last_reported_phase\x18\x06 \x01(\x0e2(.flowseer.model.access.v1.OperationPhaseB\n" +
-	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x11lastReportedPhase\x124\n" +
-	"\x12dispatch_confirmed\x18\a \x01(\bB\x05\xaa\x01\x02\b\x02R\x11dispatchConfirmed\x128\n" +
-	"\x14checkpoint_confirmed\x18\b \x01(\bB\x05\xaa\x01\x02\b\x02R\x13checkpointConfirmed\x12H\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x11lastReportedPhase\x12-\n" +
+	"\x12dispatch_confirmed\x18\a \x01(\bR\x11dispatchConfirmed\x121\n" +
+	"\x14checkpoint_confirmed\x18\b \x01(\bR\x13checkpointConfirmed\x12H\n" +
 	"\x17hold_resolution_pending\x18\t \x03(\x04B\x10\xbaH\r\x92\x01\n" +
 	"\x10@\x18\x01\"\x042\x02(\x01R\x15holdResolutionPending\x12\x8c\x01\n" +
 	"\n" +

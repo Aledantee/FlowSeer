@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
+	"google.golang.org/protobuf/proto"
+
+	"buf.build/go/protovalidate"
 
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
@@ -748,3 +751,31 @@ func TestAReadPastItsDeadlineIsNotJoined(t *testing.T) {
 		t.Fatalf("owed = %+v, want the fresh read at %d", owed, fresh)
 	}
 }
+
+// DeviceLaneRecord validates under edition 2024 explicit presence with
+// high_watermark and dispatched unset, and with them explicitly set to zero
+// and false, matching the pre-change validation outcome.
+func TestDeviceLaneRecordPresencePreservesValidation(t *testing.T) {
+	unsetRecord := storev1.DeviceLaneRecord_builder{
+		Device: deviceRef(),
+	}.Build()
+	if unsetRecord.HasHighWatermark() || unsetRecord.HasDispatched() {
+		t.Fatalf("unset record has presence: watermark=%v dispatched=%v", unsetRecord.HasHighWatermark(), unsetRecord.HasDispatched())
+	}
+	if err := protovalidate.Validate(unsetRecord); err != nil {
+		t.Fatalf("unset high_watermark and dispatched: validate failed: %v", err)
+	}
+
+	explicitZeroRecord := storev1.DeviceLaneRecord_builder{
+		Device:        deviceRef(),
+		HighWatermark: proto.Uint64(0),
+		Dispatched:    proto.Bool(false),
+	}.Build()
+	if !explicitZeroRecord.HasHighWatermark() || !explicitZeroRecord.HasDispatched() {
+		t.Fatalf("explicit zero record missing presence: watermark=%v dispatched=%v", explicitZeroRecord.HasHighWatermark(), explicitZeroRecord.HasDispatched())
+	}
+	if err := protovalidate.Validate(explicitZeroRecord); err != nil {
+		t.Fatalf("explicit zero high_watermark and false dispatched: validate failed: %v", err)
+	}
+}
+
