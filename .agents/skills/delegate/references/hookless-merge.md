@@ -12,7 +12,7 @@ coordinator's checks after the merge are the only gate the branch gets.
 
 ```bash
 git diff --name-only --diff-filter=d <base>..<branch> -- '*.go' ':!generated' | xargs -r sh -c 'gofumpt -w "$@" && goimports -w "$@"' sh
-git diff --name-only --diff-filter=d <base>..<branch> -- 'spec/proto/*.proto' | xargs -r -n1 buf format -w
+git diff --name-only --diff-filter=d <base>..<branch> -- 'spec/proto/*.proto' | xargs -r -n1 go tool -modfile=tools/buf/go.mod buf format -w
 ```
 
 3. Run the message-sync hook on each changed schema, which the verifier

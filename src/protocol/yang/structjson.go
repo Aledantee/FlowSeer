@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"reflect"
+	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
@@ -37,9 +38,19 @@ func writeJSONObject(b *bytes.Buffer, s *Schema, rv reflect.Value) error {
 		}
 		first = false
 	}
-	for i := range s.Fields {
-		f := &s.Fields[i]
-		fv, err := fieldValue(rv, f)
+	if err := walkFields(s, func(f *Field, owner *Schema, group *Field) error {
+		fieldRV := rv
+		if group != nil {
+			var err error
+			fieldRV, err = groupValue(rv, group, false)
+			if err != nil {
+				return err
+			}
+			if !fieldRV.IsValid() {
+				return nil
+			}
+		}
+		fv, err := fieldValue(fieldRV, f)
 		if err != nil {
 			return err
 		}
@@ -47,7 +58,7 @@ func writeJSONObject(b *bytes.Buffer, s *Schema, rv reflect.Value) error {
 		if f.Child != nil {
 			name = f.Child.Name
 		}
-		if mod := f.qualifiedModule(s); mod != s.moduleName() {
+		if mod := f.qualifiedModule(owner); mod != s.moduleName() {
 			name = mod + ":" + name
 		}
 		key, err := json.Marshal(name)
@@ -58,7 +69,7 @@ func writeJSONObject(b *bytes.Buffer, s *Schema, rv reflect.Value) error {
 		switch {
 		case f.Child != nil && f.List:
 			if fv.Len() == 0 {
-				continue
+				return nil
 			}
 			comma()
 			b.Write(key)
@@ -74,7 +85,7 @@ func writeJSONObject(b *bytes.Buffer, s *Schema, rv reflect.Value) error {
 			b.WriteByte(']')
 		case f.Child != nil:
 			if fv.IsNil() {
-				continue
+				return nil
 			}
 			comma()
 			b.Write(key)
@@ -84,7 +95,7 @@ func writeJSONObject(b *bytes.Buffer, s *Schema, rv reflect.Value) error {
 			}
 		case f.LeafList:
 			if fv.Len() == 0 {
-				continue
+				return nil
 			}
 			comma()
 			b.Write(key)
@@ -102,11 +113,11 @@ func writeJSONObject(b *bytes.Buffer, s *Schema, rv reflect.Value) error {
 			scalar := fv
 			if scalar.Kind() == reflect.Pointer {
 				if scalar.IsNil() {
-					continue
+					return nil
 				}
 				scalar = scalar.Elem()
 			} else if scalar.Kind() == reflect.Slice && scalar.IsNil() {
-				continue
+				return nil
 			}
 			comma()
 			b.Write(key)
@@ -115,6 +126,9 @@ func writeJSONObject(b *bytes.Buffer, s *Schema, rv reflect.Value) error {
 				return err
 			}
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	b.WriteByte('}')
 	return nil
@@ -193,19 +207,91 @@ func lookupMember(obj map[string]json.RawMessage, module, name string) (json.Raw
 	return raw, ok
 }
 
+// lookupJSONField finds a field's JSON member using the struct decoder's
+// qualification rule. A bare grouped member is accepted only when its name
+// is unique among the parent's fields.
+func lookupJSONField(obj map[string]json.RawMessage, parent *Schema, f *Field, owner *Schema, group *Field) (json.RawMessage, bool, error) {
+	name := f.Name
+	if f.Child != nil {
+		name = f.Child.Name
+	}
+	module := f.qualifiedModule(owner)
+	if group == nil {
+		raw, ok := lookupMember(obj, module, name)
+		return raw, ok, nil
+	}
+	if raw, ok := obj[module+":"+name]; ok {
+		return raw, true, nil
+	}
+	raw, ok := obj[name]
+	if !ok {
+		return nil, false, nil
+	}
+
+	var candidates []string
+	plain := false
+	if err := walkFields(parent, func(candidate *Field, candidateOwner *Schema, candidateGroup *Field) error {
+		candidateName := candidate.Name
+		if candidate.Child != nil {
+			candidateName = candidate.Child.Name
+		}
+		if candidateName != name {
+			return nil
+		}
+		if candidateGroup == nil {
+			plain = true
+			return nil
+		}
+		candidates = append(candidates, candidate.qualifiedModule(candidateOwner))
+		return nil
+	}); err != nil {
+		return nil, false, err
+	}
+	if plain {
+		return nil, false, nil
+	}
+	if len(candidates) == 1 {
+		return raw, true, nil
+	}
+	return nil, false, errs.Msgf("ambiguous bare JSON member %q matches grouped fields from modules %s", name, strings.Join(candidates, ", "))
+}
+
 // decodeJSONObject populates rv from obj per s.
 func decodeJSONObject(s *Schema, obj map[string]json.RawMessage, rv reflect.Value) error {
-	for i := range s.Fields {
-		f := &s.Fields[i]
+	return walkFields(s, func(f *Field, owner *Schema, group *Field) error {
 		name := f.Name
 		if f.Child != nil {
 			name = f.Child.Name
 		}
-		raw, ok := lookupMember(obj, f.qualifiedModule(s), name)
-		if !ok {
-			continue
+		raw, ok, err := lookupJSONField(obj, s, f, owner, group)
+		if err != nil {
+			return err
 		}
-		fv, err := fieldValue(rv, f)
+		if !ok {
+			return nil
+		}
+		if group != nil && ((f.Child != nil && f.List) || f.LeafList) {
+			var entries []json.RawMessage
+			if err := json.Unmarshal(raw, &entries); err != nil || entries == nil {
+				kind := "leaf-list"
+				if f.Child != nil {
+					kind = "list"
+				}
+				return errs.From(err).Code(ErrCodeValueParse).Msgf("%s %s is not a JSON array", kind, name)
+			}
+			if len(entries) == 0 {
+				return nil
+			}
+		}
+		fieldRV := rv
+		if group != nil {
+			var err error
+			fieldRV, err = groupValue(rv, group, true)
+			if err != nil {
+				return err
+			}
+		}
+		fv, err := fieldValue(fieldRV, f)
 		if err != nil {
 			return err
 		}
@@ -246,8 +332,8 @@ func decodeJSONObject(s *Schema, obj map[string]json.RawMessage, rv reflect.Valu
 				return err
 			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 // storeLeafJSON parses one RFC 7951 leaf value under f's type and

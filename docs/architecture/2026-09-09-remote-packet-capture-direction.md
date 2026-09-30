@@ -346,3 +346,23 @@ download is itself an event" lands with caller identity. The download event
 cannot come first: `DownloadCaptureSessionRequest` carries only the session
 ref, so an event emitted today could name only the session's requester, and
 that is the wrong person whenever someone else downloads.
+
+### 2026-09-30 — the edge reports why a capture stopped
+
+Central used to infer a stopped session's reason from its budget, checking
+packets, then duration, then bytes. A run bounded by both bytes and duration
+that stopped on bytes was recorded as DURATION, and an operator stop on a
+final batch was recorded as a budget reason. The edge now reports the reason
+it holds. `CapturePacketChunk` carries `stop_reason` (field 6) on the final
+chunk only, and the rule `capture_packet_chunk.final_has_stop_reason`
+(`spec/proto/flowseer/model/capture/v1/capture_chunk.proto`) makes the
+field present exactly when `final` is set. A final chunk never carries
+UNSPECIFIED or ERROR, because a run that fails sends no final batch and
+central records ERROR itself.
+
+Central validates every uploaded chunk against its schema rules, since
+streaming RPCs bypass the validating interceptor, and fails the session on a
+chunk that breaks them. It maps the reported reason to a lifecycle the way
+the engine does: OPERATOR gives CANCELED and a budget reason gives
+COMPLETED. A session the operator already canceled keeps OPERATOR, and a
+reported reason that disagrees with it is logged.

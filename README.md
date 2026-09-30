@@ -28,12 +28,12 @@ enter the control-plane dependency graph. Test it separately:
 go -C src/edge/netpen test -race ./...
 ```
 
-Go and protobuf changes also use golangci-lint v2 and Buf. Run the command for
+Go and protobuf changes also use golangci-lint v2 and the pinned Buf CLI. Run the command for
 the area you changed:
 
 ```bash
 golangci-lint run
-buf lint
+go tool -modfile=tools/buf/go.mod buf lint
 ```
 
 Docker is needed only for integration suites that start real protocol targets.

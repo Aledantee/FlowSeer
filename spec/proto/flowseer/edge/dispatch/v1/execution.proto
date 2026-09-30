@@ -46,9 +46,9 @@ message ExecuteRequest {
 
   // Central has already recorded that the command may have reached the
   // device: the edge admits the mutation straight into recovery and
-  // observes before any retry, never submitting first. Unset means false,
-  // the ordinary path. Implicit presence: false and unset are one state.
-  bool resume = 4 [features.field_presence = IMPLICIT];
+  // observes before any retry, never submitting first. False means the
+  // ordinary path without recovery.
+  bool resume = 4;
   // When central admitted the mutation. A resumed mutation measures its
   // delayed-apply horizon from here, since the moment the command was
   // handed to the device is lost with the edge that held it; the horizon
@@ -84,9 +84,9 @@ message ExecuteResult {
 
   // Whether the command was handed to the device before this report.
   // False on a report from before submission, so central may dispose the
-  // mutation as rejected; true afterwards, so it may not. Implicit
-  // presence: false and unset are one state.
-  bool submitted = 3 [features.field_presence = IMPLICIT];
+  // mutation as rejected; true afterwards, so it may not. False means the
+  // command has not been handed to the device.
+  bool submitted = 3;
 
   // Exactly one outcome.
   oneof outcome {

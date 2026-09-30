@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/protocol/yang"
+	fixtureaug "go.aledante.io/FlowSeer/src/protocol/yang/cmd/yanggen/testdata/golden/fixture/fixtureaug"
+	fixtureaug2 "go.aledante.io/FlowSeer/src/protocol/yang/cmd/yanggen/testdata/golden/fixture/fixtureaug2"
 	fixturemain "go.aledante.io/FlowSeer/src/protocol/yang/cmd/yanggen/testdata/golden/fixture/fixturemain"
 )
 
@@ -24,13 +26,18 @@ func sampleGenServer() fixturemain.ServersServer {
 	addr := "10.0.0.1"
 	var epPort uint16 = 443
 	enabled := true
+	owner := "augment-owner"
+	var secondOwner uint8 = 7
+	secondPort := "8443"
 	return fixturemain.ServersServer{
-		Name:   &name,
-		Port:   &port,
-		Listen: &listen,
-		Proto:  &proto,
-		Ratio:  &ratio,
-		TLS:    &fixturemain.TLS{MinVersion: &tlsMin},
+		Name:        &name,
+		Port:        &port,
+		Listen:      &listen,
+		Proto:       &proto,
+		Ratio:       &ratio,
+		TLS:         &fixturemain.TLS{MinVersion: &tlsMin},
+		FixtureAug:  &fixtureaug.ServerAugment{Owner: &owner},
+		FixtureAug2: &fixtureaug2.ServerAugment{Owner: &secondOwner, Port: &secondPort},
 		Endpoint: []fixturemain.Endpoint{
 			{Address: &addr, Port: &epPort, Enabled: &enabled},
 		},
@@ -39,7 +46,7 @@ func sampleGenServer() fixturemain.ServersServer {
 
 func TestGeneratedXMLRoundTrip(t *testing.T) {
 	in := sampleGenServer()
-	data, err := yang.MarshalXMLStruct(fixturemain.ServersServerSchemaX9bc561, in)
+	data, err := yang.MarshalXMLStruct(fixturemain.ServersServerSchemaX431a4c, in)
 	if err != nil {
 		t.Fatalf("MarshalXMLStruct: %v", err)
 	}
@@ -49,6 +56,8 @@ func TestGeneratedXMLRoundTrip(t *testing.T) {
 		"<proto>fixture-types:tcp</proto>",
 		"<ratio>1.5</ratio>",
 		"<min-version>tls13</min-version>",
+		`<owner xmlns="urn:flowseer:fixture-aug">augment-owner</owner>`,
+		`<owner xmlns="urn:flowseer:fixture-aug2">7</owner>`,
 		"<endpoint><address>10.0.0.1</address>",
 	} {
 		if !strings.Contains(string(data), frag) {
@@ -56,7 +65,7 @@ func TestGeneratedXMLRoundTrip(t *testing.T) {
 		}
 	}
 	var out fixturemain.ServersServer
-	if err := yang.UnmarshalXMLStruct(fixturemain.ServersServerSchemaX9bc561, data, &out); err != nil {
+	if err := yang.UnmarshalXMLStruct(fixturemain.ServersServerSchemaX431a4c, data, &out); err != nil {
 		t.Fatalf("UnmarshalXMLStruct: %v", err)
 	}
 	if !yang.EqualStructs(in, out) {
@@ -66,7 +75,7 @@ func TestGeneratedXMLRoundTrip(t *testing.T) {
 
 func TestGeneratedJSONRoundTrip(t *testing.T) {
 	in := sampleGenServer()
-	data, err := yang.MarshalJSON7951Struct(fixturemain.ServersServerSchemaX9bc561, in)
+	data, err := yang.MarshalJSON7951Struct(fixturemain.ServersServerSchemaX431a4c, in)
 	if err != nil {
 		t.Fatalf("MarshalJSON7951Struct: %v", err)
 	}
@@ -75,13 +84,15 @@ func TestGeneratedJSONRoundTrip(t *testing.T) {
 		`"proto":"fixture-types:tcp"`,
 		`"ratio":"1.5"`,
 		`"min-version":"tls13"`,
+		`"fixture-aug:owner":"augment-owner"`,
+		`"fixture-aug2:owner":7`,
 	} {
 		if !strings.Contains(string(data), frag) {
 			t.Errorf("JSON missing %q in %s", frag, data)
 		}
 	}
 	var out fixturemain.ServersServer
-	if err := yang.UnmarshalJSON7951Struct(fixturemain.ServersServerSchemaX9bc561, data, &out); err != nil {
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.ServersServerSchemaX431a4c, data, &out); err != nil {
 		t.Fatalf("UnmarshalJSON7951Struct: %v", err)
 	}
 	if !yang.EqualStructs(in, out) {
@@ -190,7 +201,7 @@ func TestGeneratedDescriptorPaths(t *testing.T) {
 func TestGeneratedVisitLeaves(t *testing.T) {
 	v := sampleGenServer()
 	var leaves []string
-	err := yang.VisitStructLeaves(fixturemain.ServersServerSchemaX9bc561, v, func(p yang.Path, val yang.Value) bool {
+	err := yang.VisitStructLeaves(fixturemain.ServersServerSchemaX431a4c, v, func(p yang.Path, val yang.Value) bool {
 		canon, cerr := val.Canonical()
 		if cerr != nil {
 			t.Fatal(cerr)
@@ -207,10 +218,24 @@ func TestGeneratedVisitLeaves(t *testing.T) {
 		"/fixture-main:endpoint[address=10.0.0.1][port=443]/address=10.0.0.1",
 		"/fixture-main:tls/min-version=tls13",
 		"/fixture-main:proto=fixture-types:tcp",
+		"/fixture-aug2:owner=7",
 	} {
 		if !strings.Contains(joined, frag) {
 			t.Errorf("leaves missing %q:\n%s", frag, joined)
 		}
+	}
+}
+
+func TestGeneratedAugmentListDescriptor(t *testing.T) {
+	if got := fixturemain.MirrorDescriptor().Path.String(); got != "/fixture-main:servers/fixture-aug2:mirror" {
+		t.Fatalf("mirror descriptor path = %q", got)
+	}
+	rows, err := fixturemain.MirrorDescriptor().Codec.DecodeJSON([]byte(`{"fixture-aug2:mirror":[{"id":"m1"}]}`))
+	if err != nil {
+		t.Fatalf("mirror DecodeJSON: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID == nil || *rows[0].ID != "m1" {
+		t.Fatalf("mirror rows = %+v, want one row m1", rows)
 	}
 }
 
@@ -283,7 +308,7 @@ func TestGeneratedSeparatedShapesDecodeTheirOwnWireForm(t *testing.T) {
 	if err := yang.UnmarshalJSON7951Struct(fixturemain.ByModuleBSchema, payload, &byModuleB); err != nil {
 		t.Fatalf("by-module-b: %v", err)
 	}
-	if byModuleB.Slot == nil || byModuleB.Slot.Value == nil || *byModuleB.Slot.Value != 7 {
+	if byModuleB.Slot == nil || byModuleB.Slot.FixtureAug == nil || byModuleB.Slot.FixtureAug.Value == nil || *byModuleB.Slot.FixtureAug.Value != 7 {
 		t.Errorf("by-module-b slot = %+v, want fixture-aug:value 7", byModuleB.Slot)
 	}
 	var byModuleA fixturemain.ByModuleA

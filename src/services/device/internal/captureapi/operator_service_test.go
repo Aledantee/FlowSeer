@@ -644,8 +644,9 @@ func TestTailCaptureSession_LiveStreaming(t *testing.T) {
 		Packets: []*netcapturev1.PacketRecord{
 			testPacketRecord(2, []byte("tail-packet-2")),
 		},
-		Counters: counters2,
-		Final:    proto.Bool(true),
+		Counters:   counters2,
+		Final:      proto.Bool(true),
+		StopReason: modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT.Enum(),
 	}.Build()
 
 	// A fixture is a claim the wire could deliver this message.
@@ -771,6 +772,9 @@ func TestTailCaptureSession_InBandGapOnSlowConsumer(t *testing.T) {
 			Packets:       []*netcapturev1.PacketRecord{testPacketRecord(seq, payload)},
 			Final:         proto.Bool(seq == total),
 		}.Build()
+		if seq == total {
+			chunk.SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT)
+		}
 		h.broadcaster.Broadcast(testTenantID, sessID, chunk)
 	}
 	h.broadcaster.CloseSession(testTenantID, sessID)

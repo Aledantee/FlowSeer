@@ -54,7 +54,7 @@ with proto2-equivalent behavior:
 The original and converted trees were compiled to descriptor sets and compared
 across messages, fields, labels and presence, defaults, packedness, enums,
 extensions, and extension ranges. The conversion was verified with protoc 35.1
-and Buf 1.72.0.
+and the pinned Buf CLI v1.73.0.
 
 ## Refreshing the vendor schemas
 
@@ -62,4 +62,4 @@ and Buf 1.72.0.
 2. Extract it, omit `src/google/`, and group files under the directories above.
 3. Reapply the Edition 2024 feature pins, label conversion, and import rewrite.
 4. Compare descriptor sets against the pristine bundle.
-5. Run `buf lint --path spec/proto/ruckus` and `buf build`.
+5. Run `go tool -modfile=tools/buf/go.mod buf lint --path spec/proto/ruckus` and `go tool -modfile=tools/buf/go.mod buf build`.

@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Print, as one YAML flow map per line, the sign-in state and used percent of
-# every window of the four prepaid pools. Each pool is read from the source
-# that owns its numbers, because no single tool sees all four:
+# every window of the prepaid pools (claude, codex, google, synthetic, zai). Each pool is read from the source
+# that owns its numbers, because no single tool sees them all:
 #
 #   claude, codex  orca account list --json      (rateLimits), falling back
 #                  to each CLI's own token when Orca has no account for it
 #   google         agy -p /quota                 (answers without a model turn)
 #   synthetic      GET api.synthetic.new/v2/quotas (rolling five-hour request
 #                  limit and weekly credit limit; the call is not counted)
+#   zai            omp usage --provider zai --json (Z.ai GLM Lite plan quota;
+#                  omp owns the credential and the numbers)
 #
 # Orca also lists `antigravity` with status `unavailable`. That status means
 # Orca cannot read its usage, not that the pool is down, so it is never
@@ -184,7 +186,41 @@ def synthetic_pool():
     emit("synthetic", True, "synthetic-api", windows)
 
 
+def zai_pool():
+    # Z.ai (GLM) is served through omp, which reads its own credential store
+    # and exposes the plan's quota through `omp usage --json`. omp owns the
+    # numbers, so read them from it rather than calling api.z.ai directly.
+    if not shutil.which("omp"):
+        emit("zai", None, "omp", error="omp not installed")
+        return
+    out, err = run(["omp", "usage", "--provider", "zai", "--json"])
+    try:
+        reports = json.loads(out)["reports"]
+        report = next(r for r in reports if r.get("provider") == "zai")
+        limits = report["limits"]
+    except (TypeError, ValueError, KeyError, StopIteration):
+        # No zai report means omp has no Z.ai credential signed in.
+        emit("zai", False, "omp", error=err or "no zai account in omp")
+        return
+    windows, resets = {}, {}
+    # Name the windows as the registry's zai pool expects: 5h and week.
+    name_map = {"5h": "5h", "1w": "week", "weekly": "week"}
+    for lim in limits:
+        wid = lim.get("window", {}).get("id") or lim.get("scope", {}).get("windowId")
+        amount = lim.get("amount", {})
+        frac = amount.get("usedFraction")
+        if wid is None or frac is None:
+            continue
+        key = name_map.get(wid, wid)
+        windows[key] = round(frac * 100)
+        r = lim.get("window", {}).get("resetsAt")
+        if r:
+            resets[key] = iso(r)
+    emit("zai", True, "omp", windows or None, resets)
+
+
 orca_pools()
 google_pool()
 synthetic_pool()
+zai_pool()
 PY

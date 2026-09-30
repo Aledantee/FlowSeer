@@ -1,5 +1,5 @@
 {
-  "generator_version": "yanggen-5",
+  "generator_version": "yanggen-6",
   "modules": {
     "aruba-cx/iana-if-type": {
       "revision": "2017-01-19",

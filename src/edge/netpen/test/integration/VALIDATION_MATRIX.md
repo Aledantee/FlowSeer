@@ -14,7 +14,11 @@ assertion.
 - **(a)** Python-fixture wire-shape truth: the characterization fixture
   harvested from `l2l3-audit` (KTD14) pins the protocol structure.
   The Go behavior's TX is compared byte-for-byte (deterministic) or by
-  field-set (randomized) against the fixture.
+  field-set (randomized) against the fixture. GLBP is the exception: its
+  fixture follows Wireshark
+  [`packet-glbp.c`](https://github.com/wireshark/wireshark/blob/1dbb8baf9c5bb2e9501b15cce98cea6a3c0f41a3/epan/dissectors/packet-glbp.c#L289-L365)
+  at commit `1dbb8baf9c5bb2e9501b15cce98cea6a3c0f41a3`, with a 12-byte header and
+  one-byte TLV type and length. No device capture confirms it.
 - **(b)** T2 vendor behavioral truth: the live lab injects from a Linux host and
   reads the Cisco target's own observable over SSH. The OSPF path asserts the
   spoofed neighbor's appearance and removal. The other behaviors remain pending.
@@ -130,7 +134,7 @@ recorded manually; the tests do not update this file.
 | mld | (a) | lab segment | 2026-09-27: source-(c), finding:mld | live lab (pending) | IPv6 multicast; no receiver observable is asserted |
 | raflood | (a) | lab segment | 2026-09-27: source-(c), finding:ra | live lab (pending) | IPv6 RA; no receiver observable is asserted |
 | lldpspoof | (a) | FRR r1 lab segment | 2026-09-27: source-(c), finding:lldp | live lab (pending) | No LLDP decoder assertion |
-| glbp | (a) | FRR r1 lab segment | 2026-09-27: source-(c), finding:glbp | live lab (pending) | No GLBP responder or wire assertion |
+| glbp | (a) | FRR r1 lab segment | 2026-09-27: source-(c), finding:glbp | live lab (pending) | `packet-glbp.c` byte layout pinned, no GLBP responder assertion |
 
 ### Source-(c) caveat
 

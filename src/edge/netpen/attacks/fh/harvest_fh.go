@@ -9,7 +9,7 @@
 //   - arpsweep, arpspoof, gratarp, hsrp, vrrp, icmpredirect, llmnr, ghost
 //
 // Spec-authored (the baseline has no craft for these):
-//   - glbp (RFC 7868), lldpspoof (IEEE 802.1AB)
+//   - glbp (Wireshark packet-glbp.c), lldpspoof (IEEE 802.1AB)
 //
 // Run from the attacks/fh directory:
 //
@@ -137,12 +137,13 @@ func run() error {
 		ambientFrame(),
 	)
 
-	// GLBP: hello with high priority to claim AVG (spec-authored, RFC 7868).
+	// GLBP: packet-glbp.c at 1dbb8baf9c5bb2e9501b15cce98cea6a3c0f41a3,
+	// lines 137-218 and 289-365.
 	writePcap(filepath.Join(outDir, "glbp.pcap"),
-		glbpHelloFrame(1, 255, 4), // group=1, priority=255, state=active
+		glbpHelloFrame(1, 255, 0x20), // group=1, priority=255, state=active
 	)
 	writePcap(filepath.Join(outDir, "glbp_restore.pcap"),
-		glbpHelloFrame(1, 100, 0), // resign: priority lowered, state=init
+		glbpHelloFrame(1, 100, 4), // resign: priority lowered, state=listen
 	)
 
 	// LLDP spoof: spoofed LLDP with false chassis/port/TTL (spec-authored).
@@ -504,36 +505,25 @@ func ambientFrame() []byte {
 
 // glbpHelloFrame crafts a GLBP hello with the given priority and state.
 func glbpHelloFrame(group uint16, priority uint8, state uint8) []byte {
-	vmac := []byte{0x00, 0x07, 0xb4, 0x00, 0x01, 0x01}
-
-	// Fixed header (23 bytes):
-	//   Version(1) Reserved(1) Opcode(1) Group(2)
-	//   HelloTime(2) HoldTime(2) VirtualMAC(6)
-	//   Priority(1) State(1) AddressFamily(1) Unknown(1)
-	//   AuthData(2) Reserved(2)
-	header := make([]byte, 23)
+	// Fixed header: version(1), unknown(1), group(2), unknown(2), owner ID(6).
+	header := make([]byte, 12)
 	header[0] = 1 // version
-	header[1] = 0 // reserved
-	header[2] = 1 // opcode = hello
-	binary.BigEndian.PutUint16(header[3:5], group)
-	binary.BigEndian.PutUint16(header[5:7], 3000)  // hello time (ms)
-	binary.BigEndian.PutUint16(header[7:9], 10000) // hold time (ms)
-	copy(header[9:15], vmac)
-	header[15] = priority
-	header[16] = state
-	header[17] = 1                               // address family = IPv4
-	header[18] = 0                               // unknown
-	binary.BigEndian.PutUint16(header[19:21], 0) // auth data
-	binary.BigEndian.PutUint16(header[21:23], 0) // reserved
+	binary.BigEndian.PutUint16(header[2:4], group)
+	copy(header[6:12], srcBytes())
 
-	// Timer TLV (type 1): helloTime(2) holdTime(2). Length includes header.
-	timerTLV := make([]byte, 8)
-	binary.BigEndian.PutUint16(timerTLV[0:2], 1)     // type
-	binary.BigEndian.PutUint16(timerTLV[2:4], 8)     // length (4 header + 4 value)
-	binary.BigEndian.PutUint16(timerTLV[4:6], 3000)  // hello time
-	binary.BigEndian.PutUint16(timerTLV[6:8], 10000) // hold time
+	// Hello TLV length includes the one-byte type and one-byte length.
+	helloTLV := make([]byte, 28)
+	helloTLV[0] = 1
+	helloTLV[1] = 28
+	helloTLV[3] = state
+	helloTLV[5] = priority
+	binary.BigEndian.PutUint32(helloTLV[8:12], 3000)
+	binary.BigEndian.PutUint32(helloTLV[12:16], 10000)
+	helloTLV[22] = 1 // IPv4
+	helloTLV[23] = 4
+	copy(helloTLV[24:28], net.IPv4(10, 0, 0, 1).To4())
 
-	body := append(header, timerTLV...)
+	body := append(header, helloTLV...)
 	return craftUDPL3(glbpDstMAC, srcBytes(),
 		net.IPv4(10, 0, 0, 2), net.IPv4(224, 0, 0, 102),
 		3222, 3222, body)

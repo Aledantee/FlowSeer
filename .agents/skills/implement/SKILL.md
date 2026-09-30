@@ -63,13 +63,18 @@ For each unit:
    current source and tests for its files.
 2. Make the smallest change that satisfies it, through the editor tools, which
    run the format and schema hooks a Bash write skips. A Bash command that
-   changes `generated/`, a `go.mod` or `go.sum`, or `buf.lock` (`buf generate`,
+   changes `generated/`, a `go.mod` or `go.sum`, or `buf.lock` (`go tool -modfile=tools/buf/go.mod buf generate`,
    `go mod tidy`) marks the tree `<Bash mutation; verify with --full>` and
    turns Finish into a full module race run; any other Bash write is marked by
    path. Search for an existing helper first; no abstraction with a single
    caller. Before calling a third-party API the tree does not already use,
    check its signature: `go doc` for Go, Context7 (`mcp__context7__query-docs`
-   or the `ctx7` CLI) for the rest. Where the plan and the working code
+   or the `ctx7` CLI) for the rest. Before code relies on external behavior
+   the plan does not cite, read its source (`AGENTS.md`, Investigation
+   discipline) and cite it in the commit message. A fact you cannot check
+   is a ruling (`references/rulings.md`): a `Ruled:` line, or the unit
+   blocks, and the code that depends on it names the assumption in a test
+   or comment. Where the plan and the working code
    disagree about a shape, the code wins: leave the member out and edit the
    plan, with the reason, in the same commit, since the next session reads the
    plan as the specification.
@@ -86,7 +91,7 @@ For each unit:
 4. In the same unit, update the package README, convention doc, solution
    citations, and any test or benchmark name the unit made false.
 5. Check, commit, verify, in that order:
-   - Run the focused checks (`go test -race ./<pkg>/...`, `buf lint`), never a
+   - Run the focused checks (`go test -race ./<pkg>/...`, `go tool -modfile=tools/buf/go.mod buf lint`), never a
      script under `tools/hooks/` (`delegate`, Write the brief, item 6). Send
      output that may carry diagnostics to a file and grep it after
      (`go test ... > "$TMPDIR/run.log" 2>&1; grep -E '^(FAIL|--- FAIL)' "$TMPDIR/run.log"`),

@@ -148,3 +148,106 @@ func TestNestedRowCodec(t *testing.T) {
 		t.Errorf("merged2 Value = %v, want 'new-value'", merged2.Entry.Value)
 	}
 }
+
+func TestVisitStructLeavesFlattensGroups(t *testing.T) {
+	s := parentSchema()
+	v := Parent{X: ptr(int32(1)), B: &ParentB{Y: ptr("v")}}
+
+	var got []string
+	err := yang.VisitStructLeaves(s, v, func(path yang.Path, value yang.Value) bool {
+		canonical, err := value.Canonical()
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, path.String()+"="+canonical)
+		return true
+	})
+	if err != nil {
+		t.Fatalf("VisitStructLeaves: %v", err)
+	}
+	want := []string{"/a:x=1", "/b:y=v"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("leaves = %v, want %v", got, want)
+	}
+}
+
+func TestMergeAndEqualStructsDescendIntoGroups(t *testing.T) {
+	s := parentSchema()
+	base := Parent{X: ptr(int32(1))}
+	update := Parent{B: &ParentB{Y: ptr("w")}}
+
+	merged := yang.MergeStructs(s, base, update)
+	if merged.B == nil || merged.B.Y == nil || *merged.B.Y != "w" {
+		t.Fatalf("merged group = %+v, want B.Y='w'", merged.B)
+	}
+	if !yang.EqualStructs(merged, Parent{X: ptr(int32(1)), B: &ParentB{Y: ptr("w")}}) {
+		t.Errorf("merged value = %+v", merged)
+	}
+
+	different := merged
+	different.B = &ParentB{Y: ptr("different")}
+	if yang.EqualStructs(merged, different) {
+		t.Error("values differing in a grouped leaf compare equal")
+	}
+}
+
+func TestVisitStructLeavesUsesGroupedOwnerModule(t *testing.T) {
+	type row struct {
+		ID    *string
+		Value *string
+	}
+	type box struct{ L *string }
+	type group struct {
+		Box  *box
+		Rows []row
+	}
+	type parent struct{ B *group }
+	rowSchema := &yang.Schema{
+		Module: modB,
+		Name:   "row",
+		Keys:   []string{"id"},
+		Fields: []yang.Field{
+			{GoName: "ID", Name: "id", Type: yang.TString},
+			{GoName: "Value", Name: "value", Type: yang.TString},
+		},
+	}
+	s := &yang.Schema{
+		Module: modA,
+		Name:   "p",
+		Fields: []yang.Field{{
+			GoName: "B",
+			Group:  true,
+			Child: &yang.Schema{
+				Module: modB,
+				Fields: []yang.Field{
+					{GoName: "Box", Child: &yang.Schema{
+						Module: modB,
+						Name:   "box",
+						Fields: []yang.Field{{GoName: "L", Name: "l", Type: yang.TString}},
+					}},
+					{GoName: "Rows", Child: rowSchema, List: true},
+				},
+			},
+		}},
+	}
+	v := parent{B: &group{
+		Box:  &box{L: ptr("x")},
+		Rows: []row{{ID: ptr("r"), Value: ptr("v")}},
+	}}
+	var got []string
+	err := yang.VisitStructLeaves(s, v, func(path yang.Path, value yang.Value) bool {
+		canonical, err := value.Canonical()
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, path.String()+"="+canonical)
+		return true
+	})
+	if err != nil {
+		t.Fatalf("VisitStructLeaves: %v", err)
+	}
+	want := []string{"/b:box/l=x", "/b:row[id=r]/id=r", "/b:row[id=r]/value=v"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("leaves = %v, want %v", got, want)
+	}
+}

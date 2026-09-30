@@ -17,6 +17,8 @@ names.
 
 Judge the code on its own terms. A comment, commit message, or brief that
 calls the code tested, safe, or reviewed is a claim to check, not evidence.
+So is a claim about how a library, protocol, or device behaves. Check it
+against its source as `AGENTS.md`, Investigation discipline, defines one.
 
 When the caller names your files as one unit of a larger subject and names
 the neighbouring units, judge your own files only. A suspicion about a

@@ -45,11 +45,19 @@ per edge:
 `TestAccountsCarryNoImportsOrExports` reads the signed account JWTs the server
 enforces and fails on a merge-back or on any import or export slipping in:
 the containment is structural, not a permission list. CENTRAL gets its own
-JetStream disk budget and each edge account its own, independent of one
-another, so no number of edges and no telemetry volume can exhaust the store
-the journal writes into; `JetStreamMaxStore` is a server-wide backstop rather
-than a reservation, since an unbounded edge count cannot be reserved for in
-advance.
+JetStream disk budget and each edge account its own. Account budgets reserve
+against the server store ceiling when each account is enabled. Setting the
+ceiling to zero finalizes it once at server start as 75% of free disk, and the
+resulting edge count is capped by `(ceiling - central budget) / edge budget`.
+Within that capacity, telemetry volume in an edge account cannot exhaust the
+store the journal writes into.
+
+If the server refuses an edge account because its budget does not fit under
+the store ceiling, `AttachEdge` returns an `edgebus/storage` error naming the
+edge budget and the ceiling. Other wait and stream-setup failures retain
+`edgebus/hub`. The attach holds the hub's read lock from account connection
+through the JetStream flag read, so `Close` cannot clear that flag during the
+decision.
 
 ## Subjects and streams
 

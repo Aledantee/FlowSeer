@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"errors"
 	"flag"
 	"go/ast"
 	"go/parser"
@@ -12,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 // updateGolden refreshes the committed goldens under testdata/golden/.
@@ -22,12 +25,39 @@ import (
 // after intentional emitter changes and audit the diff.
 var updateGolden = flag.Bool("update-golden", false, "rewrite testdata/golden/* with the current emitter output")
 
+const fixtureGoldenImportBase = "go.aledante.io/FlowSeer/src/protocol/yang/cmd/yanggen/testdata/golden/fixture"
+
+func emitOne(vs *VendorSet, m *LoadedModule) (string, error) {
+	plan, err := buildEmissionPlan(vs, fixtureGoldenImportBase)
+	if err != nil {
+		return "", err
+	}
+	files, err := emitModuleFiles(plan, plan.packages[m.Name])
+	if err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	for _, name := range sortedKeys(files) {
+		b.Write(files[name])
+	}
+	return b.String(), nil
+}
+
+func TestContainsIdentifierIgnoresComments(t *testing.T) {
+	if containsIdentifier("// /native:pim.\n", "pim") {
+		t.Fatal("comment text was treated as a package reference")
+	}
+	if !containsIdentifier("// comment\nvar _ = pim.Schema\n", "pim") {
+		t.Fatal("package reference was not detected")
+	}
+}
+
 // TestEmitFixtureGolden renders every fixture module and compares
 // byte-for-byte against the committed goldens.
 func TestEmitFixtureGolden(t *testing.T) {
 	vs := fixtureVendor(t)
 	for _, m := range vs.Modules {
-		got, err := emitOne(m)
+		got, err := emitOne(vs, m)
 		if err != nil {
 			t.Fatalf("emit %s: %v", m.Name, err)
 		}
@@ -59,7 +89,7 @@ func TestEmitFixtureGolden(t *testing.T) {
 func TestEmitFixtureParses(t *testing.T) {
 	vs := fixtureVendor(t)
 	for _, m := range vs.Modules {
-		got, err := emitOne(m)
+		got, err := emitOne(vs, m)
 		if err != nil {
 			t.Fatalf("emit %s: %v", m.Name, err)
 		}
@@ -75,7 +105,7 @@ func TestEmitFixtureParses(t *testing.T) {
 func TestEmitFixtureSurface(t *testing.T) {
 	vs := fixtureVendor(t)
 	main := moduleByName(t, vs, "fixture-main")
-	src, err := emitOne(main)
+	src, err := emitOne(vs, main)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,23 +167,28 @@ func TestEmitFixtureSurface(t *testing.T) {
 	}
 }
 
-// TestEmitAugmentModule asserts the augmenting module's own emission
-// and that its augmented-in nodes live in the target module's package
-// with foreign-module qualification.
+// TestEmitAugmentModule asserts that augmenting nodes are emitted in a
+// package-owned group and that the target package references that group.
 func TestEmitAugmentModule(t *testing.T) {
 	vs := fixtureVendor(t)
-	mainSrc, err := emitOne(moduleByName(t, vs, "fixture-main"))
+	mainSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-main"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !regexp.MustCompile(`Module:\s+moduleFixtureAug`).MatchString(mainSrc) {
-		t.Error("augmented-in owner leaf lost its defining-module qualification")
+	if !strings.Contains(mainSrc, "FixtureAug  *fixtureaug.ServerAugment") {
+		t.Error("fixture-main server is missing the fixture-aug group field")
 	}
-	if !regexp.MustCompile(`Owner\s+\*string`).MatchString(mainSrc) {
-		t.Error("augmented-in owner leaf missing from the target struct")
+	if !strings.Contains(mainSrc, "FixtureAug2 *fixtureaug2.ServerAugment") {
+		t.Error("fixture-main server is missing the fixture-aug2 group field")
+	}
+	if regexp.MustCompile(`Module:\s+moduleFixtureAug`).MatchString(mainSrc) {
+		t.Error("plain fields still carry foreign-module qualification")
+	}
+	if strings.Contains(mainSrc, "var moduleFixtureAug ") {
+		t.Error("fixture-main declares an unused fixture-aug module variable")
 	}
 
-	typesSrc, err := emitOne(moduleByName(t, vs, "fixture-types"))
+	typesSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-types"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +203,7 @@ func TestEmitAugmentModule(t *testing.T) {
 // a grouping in another module take the instantiating module's name.
 func TestEmitGroupingInstantiatingModule(t *testing.T) {
 	vs := fixtureVendor(t)
-	mainSrc, err := emitOne(moduleByName(t, vs, "fixture-main"))
+	mainSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-main"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +223,7 @@ func TestEmitGroupingInstantiatingModule(t *testing.T) {
 // two containers of fixture-main generates one struct for the two instances.
 func TestEmitGroupingSharedShape(t *testing.T) {
 	vs := fixtureVendor(t)
-	mainSrc, err := emitOne(moduleByName(t, vs, "fixture-main"))
+	mainSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-main"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,9 +234,50 @@ func TestEmitGroupingSharedShape(t *testing.T) {
 	if strings.Contains(mainSrc, "PrimaryGroupItem") || strings.Contains(mainSrc, "SecondaryGroupItem") {
 		t.Error("emitted separate structs for grouping instances instead of shared Item")
 	}
-	wantComment := "Item is the fixture-main node shape instantiated at 2 schema paths, such as /fixture-main/primary-group/item."
+	wantComment := "Item is the fixture-main node shape instantiated at 2 schema paths, such as /fixture-main:primary-group/item."
 	if !strings.Contains(mainSrc, wantComment) {
 		t.Errorf("emitted fixture-main missing doc comment %q", wantComment)
+	}
+}
+
+func TestEmitMergesIdenticalGroupShapes(t *testing.T) {
+	dir := t.TempDir()
+	writeYangModule(t, dir, "group-base.yang", `module group-base {
+  yang-version 1.1;
+  namespace "urn:flowseer:group-base";
+  prefix gb;
+  container first { container target; }
+  container second { container target; }
+}`)
+	writeYangModule(t, dir, "group-aug.yang", `module group-aug {
+  yang-version 1.1;
+  namespace "urn:flowseer:group-aug";
+  prefix ga;
+  import group-base { prefix gb; }
+  augment "/gb:first/gb:target" { leaf value { type string; } }
+  augment "/gb:second/gb:target" { leaf value { type string; } }
+}`)
+	vs, err := LoadVendor(&Vendor{Name: "groups", Paths: []string{dir}})
+	if err != nil {
+		t.Fatalf("LoadVendor: %v", err)
+	}
+	plan, err := buildEmissionPlan(vs, "example.test/groups")
+	if err != nil {
+		t.Fatalf("buildEmissionPlan: %v", err)
+	}
+	if got := len(plan.packages["group-aug"].groups); got != 1 {
+		t.Fatalf("group shapes = %d, want one shared shape", got)
+	}
+	files, err := emitModuleFiles(plan, plan.packages["group-aug"])
+	if err != nil {
+		t.Fatalf("emit group-aug: %v", err)
+	}
+	var src strings.Builder
+	for _, name := range sortedKeys(files) {
+		src.Write(files[name])
+	}
+	if got := strings.Count(src.String(), "type TargetAugment struct"); got != 1 {
+		t.Fatalf("TargetAugment declarations = %d, want one", got)
 	}
 }
 
@@ -214,7 +290,7 @@ func TestEmitGroupingSharedShape(t *testing.T) {
 // for nodes that decode differently would lose data at one of its paths.
 func TestEmitShapeKeySeparatesDifferingNodes(t *testing.T) {
 	vs := fixtureVendor(t)
-	src, err := emitOne(moduleByName(t, vs, "fixture-main"))
+	src, err := emitOne(vs, moduleByName(t, vs, "fixture-main"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +339,6 @@ func TestEmitShapeKeySeparatesDifferingNodes(t *testing.T) {
 		{"leaf type", "ByTypeA", "ByTypeB", "Setting"},
 		{"presence", "ByPresenceA", "ByPresenceB", "Marker"},
 		{"child module", "ByModuleA", "ByModuleB", "Slot"},
-		{"node module", "ByOwnerA", "ByOwnerB", "Flag"},
 	} {
 		ta, tb := fieldTypes[pair.a][pair.field], fieldTypes[pair.b][pair.field]
 		if ta == "" || tb == "" {
@@ -274,6 +349,9 @@ func TestEmitShapeKeySeparatesDifferingNodes(t *testing.T) {
 			t.Errorf("%s: %s.%s and %s.%s share type %s; nodes that differ in %s must not share a type",
 				pair.property, pair.a, pair.field, pair.b, pair.field, ta, pair.property)
 		}
+	}
+	if got := fieldTypes["ByOwnerB"]["FixtureAug"]; !strings.Contains(got, "fixtureaug.ByOwnerBAugment") {
+		t.Errorf("ByOwnerB.FixtureAug = %q, want fixtureaug.ByOwnerBAugment", got)
 	}
 
 	if got, want := fieldTypes["PrimaryGroup"]["Peer"], "[]Peer"; got != want {
@@ -318,9 +396,10 @@ func TestEmitModuleOrderIndependent(t *testing.T) {
 		if reverse {
 			slices.Reverse(mods)
 		}
+		vs.Modules = mods
 		out := make(map[string]string, len(mods))
 		for _, m := range mods {
-			src, err := emitOne(m)
+			src, err := emitOne(vs, m)
 			if err != nil {
 				t.Fatalf("emit %s: %v", m.Name, err)
 			}
@@ -333,6 +412,429 @@ func TestEmitModuleOrderIndependent(t *testing.T) {
 		if reversed[name] != src {
 			t.Errorf("%s differs when the module list is reversed", name)
 		}
+	}
+}
+
+// TestEmitFixtureRepeatedLoadsDeterministic proves that goyang's augment
+// survivor does not affect the emitted package bytes.
+func TestEmitFixtureRepeatedLoadsDeterministic(t *testing.T) {
+	var want map[string]string
+	survivors := make(map[string]bool)
+	for i := 0; i < 20; i++ {
+		vs := fixtureVendor(t)
+		main := moduleByName(t, vs, "fixture-main")
+		server := main.Entry.Dir["servers"].Dir["server"]
+		survivor, err := server.Dir["owner"].InstantiatingModule()
+		if err != nil {
+			t.Fatalf("owner survivor module: %v", err)
+		}
+		if survivor != "fixture-aug" && survivor != "fixture-aug2" {
+			t.Fatalf("owner survivor module = %q, want one of the augmenting modules", survivor)
+		}
+		survivors[survivor] = true
+		got := make(map[string]string, len(vs.Modules))
+		for _, module := range vs.Modules {
+			src, err := emitOne(vs, module)
+			if err != nil {
+				t.Fatalf("emit %s: %v", module.Name, err)
+			}
+			got[module.Name] = src
+		}
+		if i == 0 {
+			want = got
+			continue
+		}
+		for name, src := range want {
+			if got[name] != src {
+				t.Fatalf("%s output changed on load %d", name, i)
+			}
+		}
+	}
+	if !survivors["fixture-aug"] || !survivors["fixture-aug2"] {
+		t.Fatalf("owner survivor modules = %v, want both augmenting modules", survivors)
+	}
+}
+
+func TestEmitValidatesBeforeClearingOutput(t *testing.T) {
+	vs := fixtureVendor(t)
+	vs.Modules[0].Entry = nil
+	tempDir, err := os.MkdirTemp(".", ".yanggen-emit-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	outDir := filepath.Join(tempDir, "generated")
+	sentinel := filepath.Join(outDir, "fixture", "sentinel")
+	if err := os.MkdirAll(filepath.Dir(sentinel), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sentinel, []byte("keep"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Emit([]*VendorSet{vs}, outDir); err == nil {
+		t.Fatal("Emit accepted a module without an entry tree")
+	}
+	if got, err := os.ReadFile(sentinel); err != nil {
+		t.Fatalf("read sentinel after failed Emit: %v", err)
+	} else if string(got) != "keep" {
+		t.Fatalf("sentinel = %q, want it preserved", got)
+	}
+}
+
+func TestEmitFileRenderFailurePreservesExistingOutput(t *testing.T) {
+	tempDir, err := os.MkdirTemp(".", ".yanggen-emit-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	outDir := filepath.Join(tempDir, "generated")
+
+	vsGood := fixtureVendor(t)
+	if err := Emit([]*VendorSet{vsGood}, outDir); err != nil {
+		t.Fatalf("initial Emit: %v", err)
+	}
+
+	vendorDir := filepath.Join(outDir, vsGood.Vendor)
+	assertOutputModes(t, vendorDir)
+	before := make(map[string][]byte)
+	err = filepath.Walk(vendorDir, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			rel, err := filepath.Rel(vendorDir, p)
+			if err != nil {
+				return err
+			}
+			data, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			before[rel] = data
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("snapshot vendorDir: %v", err)
+	}
+	if len(before) == 0 {
+		t.Fatal("initial Emit produced no files")
+	}
+
+	vsBad := fixtureVendor(t)
+	mainMod := moduleByName(t, vsBad, "fixture-main")
+	server := mainMod.Entry.Dir["servers"].Dir["server"]
+	server.Key = "nonexistent-key"
+
+	err = Emit([]*VendorSet{vsBad}, outDir)
+	if err == nil {
+		t.Fatal("Emit with invalid list key succeeded, want error")
+	}
+	if !strings.Contains(err.Error(), "not a leaf child") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	assertOutputModes(t, vendorDir)
+	after := make(map[string][]byte)
+	err = filepath.Walk(vendorDir, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			rel, err := filepath.Rel(vendorDir, p)
+			if err != nil {
+				return err
+			}
+			data, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			after[rel] = data
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("read vendorDir after failed Emit: %v", err)
+	}
+
+	for rel, prev := range before {
+		curr, ok := after[rel]
+		if !ok {
+			t.Errorf("file %s missing after failed Emit", rel)
+			continue
+		}
+		if !bytes.Equal(prev, curr) {
+			t.Errorf("file %s content changed after failed Emit", rel)
+		}
+	}
+	for rel := range after {
+		if _, ok := before[rel]; !ok {
+			t.Errorf("unexpected new file %s found after failed Emit", rel)
+		}
+	}
+
+	entries, err := os.ReadDir(outDir)
+	if err != nil {
+		t.Fatalf("ReadDir outDir: %v", err)
+	}
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") {
+			t.Errorf("temporary directory/file %s leaked under outDir", e.Name())
+		}
+	}
+}
+
+func assertOutputModes(t *testing.T, vendorDir string) {
+	t.Helper()
+	vInfo, err := os.Stat(vendorDir)
+	if err != nil {
+		t.Fatalf("stat vendor dir: %v", err)
+	}
+	if got := vInfo.Mode().Perm(); got != 0o755 {
+		t.Errorf("vendor dir %s mode = %04o, want 0755", vendorDir, got)
+	}
+	err = filepath.Walk(vendorDir, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if got := info.Mode().Perm(); got != 0o755 {
+				t.Errorf("dir %s mode = %04o, want 0755", p, got)
+			}
+		} else {
+			if got := info.Mode().Perm(); got != 0o644 {
+				t.Errorf("file %s mode = %04o, want 0644", p, got)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk vendor dir %s: %v", vendorDir, err)
+	}
+}
+
+func TestEmitOutputModes(t *testing.T) {
+	tempDir, err := os.MkdirTemp(".", ".yanggen-emit-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	outDir := filepath.Join(tempDir, "generated")
+
+	vs := fixtureVendor(t)
+	if err := Emit([]*VendorSet{vs}, outDir); err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+	vendorDir := filepath.Join(outDir, vs.Vendor)
+	assertOutputModes(t, vendorDir)
+}
+
+func TestEmitPrunesStaleTmpDirsAndRestoresOld(t *testing.T) {
+	t.Run("prunes stale staging when vendor dir exists", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp(".", ".yanggen-emit-test-")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+		outDir := filepath.Join(tempDir, "generated")
+
+		vsGood := fixtureVendor(t)
+		if err := Emit([]*VendorSet{vsGood}, outDir); err != nil {
+			t.Fatalf("initial Emit: %v", err)
+		}
+
+		staleTmp := filepath.Join(outDir, "."+vsGood.Vendor+"-tmp-stale")
+		if err := os.Mkdir(staleTmp, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		staleOld := filepath.Join(outDir, "."+vsGood.Vendor+"-old-stale")
+		if err := os.Mkdir(staleOld, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := Emit([]*VendorSet{vsGood}, outDir); err != nil {
+			t.Fatalf("second Emit: %v", err)
+		}
+
+		if _, err := os.Stat(staleTmp); !os.IsNotExist(err) {
+			t.Errorf("stale tmp dir %s still exists", staleTmp)
+		}
+		if _, err := os.Stat(staleOld); !os.IsNotExist(err) {
+			t.Errorf("stale old dir %s still exists", staleOld)
+		}
+	})
+
+	t.Run("restores newest old dir when vendor dir is missing", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp(".", ".yanggen-emit-test-")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+		outDir := filepath.Join(tempDir, "generated")
+
+		vsGood := fixtureVendor(t)
+		vendorDir := filepath.Join(outDir, vsGood.Vendor)
+
+		if err := os.MkdirAll(outDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		staleTmp := filepath.Join(outDir, "."+vsGood.Vendor+"-tmp-crash")
+		if err := os.Mkdir(staleTmp, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		olderDir := filepath.Join(outDir, "."+vsGood.Vendor+"-old-1")
+		if err := os.Mkdir(olderDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(olderDir, "sentinel.txt"), []byte("older-sentinel"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		newerDir := filepath.Join(outDir, "."+vsGood.Vendor+"-old-2")
+		if err := os.Mkdir(newerDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(newerDir, "sentinel.txt"), []byte("newer-sentinel"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		now := time.Now()
+		if err := os.Chtimes(olderDir, now.Add(-10*time.Minute), now.Add(-10*time.Minute)); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(newerDir, now.Add(-1*time.Minute), now.Add(-1*time.Minute)); err != nil {
+			t.Fatal(err)
+		}
+
+		vsBad := fixtureVendor(t)
+		mainMod := moduleByName(t, vsBad, "fixture-main")
+		server := mainMod.Entry.Dir["servers"].Dir["server"]
+		server.Key = "nonexistent-key"
+
+		err = Emit([]*VendorSet{vsBad}, outDir)
+		if err == nil {
+			t.Fatal("Emit with invalid list key succeeded, want error")
+		}
+
+		got, err := os.ReadFile(filepath.Join(vendorDir, "sentinel.txt"))
+		if err != nil {
+			t.Fatalf("read sentinel from restored vendorDir: %v", err)
+		}
+		if string(got) != "newer-sentinel" {
+			t.Errorf("restored vendorDir sentinel = %q, want %q", got, "newer-sentinel")
+		}
+
+		if _, err := os.Stat(olderDir); !os.IsNotExist(err) {
+			t.Errorf("older dir %s still exists", olderDir)
+		}
+		if _, err := os.Stat(staleTmp); !os.IsNotExist(err) {
+			t.Errorf("stale tmp dir %s still exists", staleTmp)
+		}
+		if _, err := os.Stat(newerDir); !os.IsNotExist(err) {
+			t.Errorf("newer dir %s still exists at temp path", newerDir)
+		}
+	})
+}
+
+func TestEmitRollbackFailurePreservesOldDir(t *testing.T) {
+	tempDir, err := os.MkdirTemp(".", ".yanggen-emit-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	outDir := filepath.Join(tempDir, "generated")
+
+	vsGood := fixtureVendor(t)
+	if err := Emit([]*VendorSet{vsGood}, outDir); err != nil {
+		t.Fatalf("initial Emit: %v", err)
+	}
+	vendorDir := filepath.Join(outDir, vsGood.Vendor)
+	sentinel := filepath.Join(vendorDir, "sentinel.txt")
+	if err := os.WriteFile(sentinel, []byte("original-data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origRename := rename
+	t.Cleanup(func() { rename = origRename })
+
+	var capturedOldDir string
+	rename = func(oldpath, newpath string) error {
+		if oldpath == vendorDir && strings.Contains(newpath, "-old-") {
+			capturedOldDir = newpath
+			return origRename(oldpath, newpath)
+		}
+		if strings.Contains(oldpath, "-tmp-") && newpath == vendorDir {
+			return errors.New("injected swap failure")
+		}
+		if capturedOldDir != "" && oldpath == capturedOldDir && newpath == vendorDir {
+			return errors.New("injected rollback failure")
+		}
+		return origRename(oldpath, newpath)
+	}
+
+	err = Emit([]*VendorSet{vsGood}, outDir)
+	if err == nil {
+		t.Fatal("Emit succeeded, want swap/rollback error")
+	}
+	if capturedOldDir == "" {
+		t.Fatal("vendorDir was never renamed to oldDir")
+	}
+	if !strings.Contains(err.Error(), capturedOldDir) {
+		t.Fatalf("error %q does not name oldDir %q", err, capturedOldDir)
+	}
+	if _, statErr := os.Stat(capturedOldDir); statErr != nil {
+		t.Fatalf("oldDir %s missing after rollback failure: %v", capturedOldDir, statErr)
+	}
+	got, readErr := os.ReadFile(filepath.Join(capturedOldDir, "sentinel.txt"))
+	if readErr != nil {
+		t.Fatalf("read sentinel in oldDir: %v", readErr)
+	}
+	if string(got) != "original-data" {
+		t.Fatalf("sentinel in oldDir = %q, want %q", got, "original-data")
+	}
+}
+
+func TestEmitRollbackSuccessRestoresVendorDir(t *testing.T) {
+	tempDir, err := os.MkdirTemp(".", ".yanggen-emit-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	outDir := filepath.Join(tempDir, "generated")
+
+	vsGood := fixtureVendor(t)
+	if err := Emit([]*VendorSet{vsGood}, outDir); err != nil {
+		t.Fatalf("initial Emit: %v", err)
+	}
+	vendorDir := filepath.Join(outDir, vsGood.Vendor)
+	sentinel := filepath.Join(vendorDir, "sentinel.txt")
+	if err := os.WriteFile(sentinel, []byte("original-data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origRename := rename
+	t.Cleanup(func() { rename = origRename })
+
+	rename = func(oldpath, newpath string) error {
+		if strings.Contains(oldpath, "-tmp-") && newpath == vendorDir {
+			return errors.New("injected swap failure")
+		}
+		return origRename(oldpath, newpath)
+	}
+
+	err = Emit([]*VendorSet{vsGood}, outDir)
+	if err == nil {
+		t.Fatal("Emit succeeded, want swap error")
+	}
+	got, readErr := os.ReadFile(sentinel)
+	if readErr != nil {
+		t.Fatalf("read sentinel after rollback: %v", readErr)
+	}
+	if string(got) != "original-data" {
+		t.Fatalf("sentinel after rollback = %q, want %q", got, "original-data")
 	}
 }
 

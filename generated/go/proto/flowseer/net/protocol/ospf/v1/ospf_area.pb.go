@@ -280,7 +280,7 @@ type OspfArea_builder struct {
 	LsaCount *uint32
 	// Number of area border routers reachable within this area (OSPF-MIB ospfAreaBdrRtrCount).
 	AreaBorderRouters *uint32
-	// Number of AS border routers reachable within this area (OSPF-MIB ospfAreaAsBdrRtrCount).
+	// Number of AS border routers reachable within this area (OSPF-MIB ospfAsBdrRtrCount).
 	AsBorderRouters *uint32
 }
 

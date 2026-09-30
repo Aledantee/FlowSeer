@@ -304,6 +304,15 @@ func TestHandler_StartAndUploadChunks(t *testing.T) {
 	if totalPackets != 3 {
 		t.Errorf("total uploaded packets = %d, want 3", totalPackets)
 	}
+	for _, chunk := range chunks {
+		if chunk.GetFinal() {
+			if got := chunk.GetStopReason(); got != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT {
+				t.Errorf("final chunk stop reason = %v, want PACKET_COUNT", got)
+			}
+		} else if chunk.HasStopReason() {
+			t.Errorf("non-final chunk carries stop reason %v", chunk.GetStopReason())
+		}
+	}
 }
 
 func TestHandler_PeriodicMidStreamReAssertion(t *testing.T) {
@@ -568,8 +577,8 @@ func TestLogAttrs_SessionID(t *testing.T) {
 // packet source dies mid-run ends its upload the way a silent one does: with
 // no final chunk, so central records FAILED. A final chunk is the only thing
 // that tells central a capture finished, and central would answer one from a
-// run that died after a single packet by finalizing the artifact and deriving
-// PACKET_COUNT from a budget of 100 that was never reached.
+// run that died after a single packet by finalizing the artifact despite the
+// budget of 100 never being reached.
 func TestHandler_SourceFailureAbortsWithoutFinalChunk(t *testing.T) {
 	sessID := "0192e6a0-0000-7000-8000-000000000016"
 	cfg := testSessionConfig(sessID, 100)

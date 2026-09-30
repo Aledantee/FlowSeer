@@ -121,14 +121,11 @@ func scanXMLAncestor[Inner any](dec *xml.Decoder, chain []*Schema, anc [][]KeyVa
 		case xml.EndElement:
 			return nil
 		case xml.StartElement:
-			if slices.Contains(level.Keys, t.Name.Local) {
+			field := findFieldByName(level, t.Name.Local)
+			if slices.Contains(level.Keys, t.Name.Local) && field != nil && field.Type != nil && xmlNameMatches(t.Name, t.Name.Local, field.qualifiedNamespace(level)) {
 				text, err := elementText(dec)
 				if err != nil {
 					return errs.Wrapf(err, "%s key %s", level.Name, t.Name.Local)
-				}
-				field := findFieldByName(level, t.Name.Local)
-				if field == nil || field.Type == nil {
-					continue
 				}
 				value, err := ParseCanonical(*field.Type, text)
 				if err != nil {
@@ -262,7 +259,10 @@ func walkJSONLevel[Inner any](chain []*Schema, arr json.RawMessage, anc [][]KeyV
 			return err
 		}
 		next := chain[1]
-		childArr, ok := findJSONDescendant(level, next, obj)
+		childArr, ok, err := findJSONDescendant(level, next, obj)
+		if err != nil {
+			return err
+		}
 		if !ok {
 			continue
 		}
@@ -298,31 +298,49 @@ func jsonLevelKeys(level *Schema, obj map[string]json.RawMessage) ([]KeyValue, e
 	return keys, nil
 }
 
-// findJSONDescendant locates the next level's entry array within an
-// ancestor entry: directly as a member, or one intermediate container
-// object down (lists nested under a wrapper container).
-func findJSONDescendant(level, next *Schema, obj map[string]json.RawMessage) (json.RawMessage, bool) {
-	if arr, ok := lookupMember(obj, next.moduleName(), next.Name); ok {
-		return arr, true
-	}
-	for i := range level.Fields {
-		f := &level.Fields[i]
-		if f.Child == nil || f.List {
-			continue
+// findJSONDescendant locates the first matching next list at any depth within
+// an ancestor entry in schema order. It stops at list boundaries and uses the
+// same member qualification rule as the struct decoder.
+func findJSONDescendant(level, next *Schema, obj map[string]json.RawMessage) (json.RawMessage, bool, error) {
+	var found json.RawMessage
+	foundOK := false
+	err := walkFields(level, func(f *Field, owner *Schema, group *Field) error {
+		if foundOK {
+			return nil
 		}
-		raw, ok := lookupMember(obj, f.qualifiedModule(level), f.Child.Name)
+		raw, ok, err := lookupJSONField(obj, level, f, owner, group)
+		if err != nil {
+			return err
+		}
 		if !ok {
-			continue
+			return nil
+		}
+		if f.Child == nil {
+			return nil
+		}
+		if f.List {
+			if f.Child.Name == next.Name && f.qualifiedModule(owner) == next.moduleName() {
+				found, foundOK = raw, true
+			}
+			return nil
 		}
 		var inner map[string]json.RawMessage
 		if err := json.Unmarshal(raw, &inner); err != nil {
-			continue
+			return nil
 		}
-		if arr, ok := findJSONDescendant(f.Child, next, inner); ok {
-			return arr, true
+		arr, ok, err := findJSONDescendant(f.Child, next, inner)
+		if err != nil {
+			return err
 		}
+		if ok {
+			found, foundOK = arr, true
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, false, err
 	}
-	return json.RawMessage{}, false
+	return found, foundOK, nil
 }
 
 // SubtreeDescriptor builds the synthetic-row descriptor for any

@@ -44,11 +44,13 @@ type LoadedModule struct {
 }
 
 // VendorSet is one vendor's fully-loaded tree: emitted modules in
-// deterministic name order, plus the skip bookkeeping -verify reports.
+// deterministic name order, recovered augment children keyed by their
+// target entries, and the skip bookkeeping -verify reports.
 type VendorSet struct {
-	Vendor  string
-	Modules []*LoadedModule
-	Skipped []Skip // the config's skip entries, all verified to exist on disk
+	Vendor    string
+	Modules   []*LoadedModule
+	Skipped   []Skip // the config's skip entries, all verified to exist on disk
+	Recovered map[*yang.Entry][]*yang.Entry
 }
 
 // LoadError reports a structured load failure, mirroring
@@ -92,8 +94,8 @@ func LoadVendors(cfg *Config) ([]*VendorSet, error) {
 // LoadVendor discovers, parses, and resolves one vendor's tree:
 // every .yang file under the vendor's paths is parsed, the skip-list
 // subtracted, goyang resolves the schema (groupings, augments,
-// deviations), and each surviving module gets its Entry tree and
-// closure hash.
+// deviations), dropped augment children are recovered, and each
+// surviving module gets its Entry tree and closure hash.
 func LoadVendor(v *Vendor) (*VendorSet, error) {
 	files, err := discoverSources(v)
 	if err != nil {
@@ -119,10 +121,19 @@ func LoadVendor(v *Vendor) (*VendorSet, error) {
 	if err != nil {
 		return nil, err
 	}
+	recovered, err := recoverAugments(v.Name, ms)
+	if err != nil {
+		return nil, err
+	}
 
 	graph := buildClosureGraph(ms, files, skip, includes)
 
-	return buildModules(v, ms, raw, files, graph, skipped)
+	set, err := buildModules(v, ms, raw, files, graph, skipped)
+	if err != nil {
+		return nil, err
+	}
+	set.Recovered = recovered
+	return set, nil
 }
 
 // resolveSkips expands the vendor's skip-list against the discovered

@@ -35,16 +35,17 @@ message DeviceLaneRecord {
   // Must be present.
   flowseer.model.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
   // The highest sequence assigned on this device, to mutations and reads
-  // alike. Implicit presence: zero and never assigned are one state.
-  uint64 high_watermark = 2 [features.field_presence = IMPLICIT];
+  // alike. Zero means no sequence has been assigned yet.
+  uint64 high_watermark = 2;
   // The mutation that holds the lane. Unset means the lane is free.
   flowseer.model.access.v1.MutationState mutation = 3;
   // When the open mutation was admitted; carried on a resumed dispatch as
   // the start of its delayed-apply horizon. Set exactly with mutation.
   google.protobuf.Timestamp admitted_at = 4;
   // Whether the edge ever reported the open mutation admitted. Survives
-  // an edge restart, unlike the confirmations below. Implicit presence.
-  bool dispatched = 5 [features.field_presence = IMPLICIT];
+  // an edge restart, unlike the confirmations below. False means the mutation
+  // has not been reported admitted.
+  bool dispatched = 5;
   // The phase the edge last reported for the open mutation. Unset means no
   // report yet. The zero value is rejected.
   flowseer.model.access.v1.OperationPhase last_reported_phase = 6 [(buf.validate.field).enum = {
@@ -52,11 +53,12 @@ message DeviceLaneRecord {
     not_in: [0]
   }];
   // Whether the current dispatch of the open mutation is confirmed by the
-  // edge. Cleared when the edge reports onboarded. Implicit presence.
-  bool dispatch_confirmed = 7 [features.field_presence = IMPLICIT];
+  // edge. Cleared when the edge reports onboarded. False means the edge has
+  // not confirmed the dispatch.
+  bool dispatch_confirmed = 7;
   // Whether the edge acknowledged the checkpoint. Cleared when the edge
-  // reports onboarded. Implicit presence.
-  bool checkpoint_confirmed = 8 [features.field_presence = IMPLICIT];
+  // reports onboarded. False means the edge has not acknowledged the checkpoint.
+  bool checkpoint_confirmed = 8;
   // The sequence whose hold resolution central recorded and the edge has
   // not yet confirmed. Unset means none is owed. This alone derives the
   // hold row; an edge reporting onboarded leaves it as it is, since the

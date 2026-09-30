@@ -434,9 +434,11 @@ type BgpPeer_builder struct {
 	InterfaceName *string
 	// The local IP address of the connection (BGP4-MIB bgpPeerLocalAddr).
 	LocalAddress *v1.IpAddress
-	// The remote autonomous system number (BGP4-MIB bgpPeerRemoteAs, RFC 6793).
+	// The remote autonomous system number (OpenConfig `peer-as`). BGP4-MIB
+	// `bgpPeerRemoteAs` is `Integer32 (0..65535)` and reads AS_TRANS (23456,
+	// RFC 6793 section 9) for a four-byte peer.
 	RemoteAsn *uint32
-	// The local autonomous system number (BGP4-MIB bgpPeerLocalAs, RFC 6793).
+	// The local autonomous system number (OpenConfig `local-as`).
 	LocalAsn *uint32
 	// The remote BGP router identifier (BGP4-MIB bgpPeerIdentifier, RFC 6286).
 	// Absent if not yet received in an OPEN message.

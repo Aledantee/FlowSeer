@@ -6,8 +6,13 @@ import (
 	"net"
 	"testing"
 
+	"buf.build/go/protovalidate"
+
+	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/modules/capture/mirror"
+
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 )
 
 // inner is a stand-in mirrored Ethernet frame carried by every fixture below
@@ -274,4 +279,57 @@ func TestDecodeUDP_NoCandidateMatches(t *testing.T) {
 	if _, _, err := mirror.DecodeUDP([]byte{0, 1, 2}, srcIP, dstIP, nil); err == nil {
 		t.Fatal("DecodeUDP: want an error when no candidate matches, got nil")
 	}
+}
+
+func validMirrorAddress(last byte) *addrv1.IpAddress {
+	v4 := &addrv1.Ipv4Address{}
+	v4.SetOctets([]byte{192, 0, 2, last})
+
+	ip := &addrv1.IpAddress{}
+	ip.SetV4(v4)
+	return ip
+}
+
+func validateErspanEnvelope(t *testing.T, setWrapper func(*capturev1.MirrorEnvelope)) {
+	t.Helper()
+
+	env := &capturev1.MirrorEnvelope{}
+	env.SetSource(validMirrorAddress(1))
+	env.SetDestination(validMirrorAddress(2))
+	setWrapper(env)
+	if err := protovalidate.Validate(env); err != nil {
+		t.Fatalf("decoded ERSPAN envelope failed validation: %v", err)
+	}
+}
+
+// FuzzParseErspanTypeIIValidation proves every accepted Type II header can be
+// placed in a MirrorEnvelope that satisfies the capture schema.
+func FuzzParseErspanTypeIIValidation(f *testing.F) {
+	f.Add(mustHex("1fff000000000000"))
+	f.Add(mustHex("1000000100000000"))
+	f.Fuzz(func(t *testing.T, b []byte) {
+		fields, _, err := mirror.ParseErspanTypeII(b)
+		if err != nil {
+			return
+		}
+		validateErspanEnvelope(t, func(env *capturev1.MirrorEnvelope) {
+			env.SetErspanTypeIi(fields)
+		})
+	})
+}
+
+// FuzzParseErspanTypeIIIValidation proves every accepted Type III header can
+// be placed in a MirrorEnvelope that satisfies the capture schema.
+func FuzzParseErspanTypeIIIValidation(f *testing.F) {
+	f.Add(mustHex("2fff00000000000000000000"))
+	f.Add(mustHex("200000020000000080008000"))
+	f.Fuzz(func(t *testing.T, b []byte) {
+		fields, _, err := mirror.ParseErspanTypeIII(b)
+		if err != nil {
+			return
+		}
+		validateErspanEnvelope(t, func(env *capturev1.MirrorEnvelope) {
+			env.SetErspanTypeIii(fields)
+		})
+	})
 }

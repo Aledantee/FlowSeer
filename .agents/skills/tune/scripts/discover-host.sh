@@ -31,7 +31,7 @@ else
 fi
 
 echo "pools:"
-# The four prepaid pools, each read from the source that owns its numbers.
+# The prepaid pools, each read from the source that owns its numbers.
 # Orca's `unavailable` row for antigravity says only that Orca cannot read
 # it, so it is not used.
 "$(dirname "$0")/../../delegate/scripts/pool-usage.sh" | sed 's/^/  /'

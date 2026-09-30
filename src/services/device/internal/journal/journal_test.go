@@ -8,6 +8,10 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"buf.build/go/protovalidate"
 
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
@@ -806,6 +810,68 @@ func TestAReadPastItsDeadlineIsNotJoined(t *testing.T) {
 	owed := journal.OwedRows(rec, time.Now())
 	if len(owed) != 1 || owed[0].Sequence != fresh {
 		t.Fatalf("owed = %+v, want the fresh read at %d", owed, fresh)
+	}
+}
+
+// TestDeviceLaneRecordPresencePreservesValidation validates absent and explicit
+// zero presence fields and checks mutation sequences against the high watermark.
+func TestDeviceLaneRecordPresencePreservesValidation(t *testing.T) {
+	unsetRecord := storev1.DeviceLaneRecord_builder{
+		Device:              deviceRef(),
+		DispatchConfirmed:   proto.Bool(false),
+		CheckpointConfirmed: proto.Bool(false),
+	}.Build()
+	if unsetRecord.HasHighWatermark() || unsetRecord.HasDispatched() || !unsetRecord.HasDispatchConfirmed() || !unsetRecord.HasCheckpointConfirmed() {
+		t.Fatalf("unexpected presence: watermark=%v dispatched=%v dispatch_confirmed=%v checkpoint_confirmed=%v", unsetRecord.HasHighWatermark(), unsetRecord.HasDispatched(), unsetRecord.HasDispatchConfirmed(), unsetRecord.HasCheckpointConfirmed())
+	}
+	if err := protovalidate.Validate(unsetRecord); err != nil {
+		t.Fatalf("unset high_watermark and dispatched: validate failed: %v", err)
+	}
+
+	explicitZeroRecord := storev1.DeviceLaneRecord_builder{
+		Device:              deviceRef(),
+		HighWatermark:       proto.Uint64(0),
+		Dispatched:          proto.Bool(false),
+		DispatchConfirmed:   proto.Bool(false),
+		CheckpointConfirmed: proto.Bool(false),
+	}.Build()
+	if !explicitZeroRecord.HasHighWatermark() || !explicitZeroRecord.HasDispatched() || !explicitZeroRecord.HasDispatchConfirmed() || !explicitZeroRecord.HasCheckpointConfirmed() {
+		t.Fatalf("explicit zero record missing presence: watermark=%v dispatched=%v dispatch_confirmed=%v checkpoint_confirmed=%v", explicitZeroRecord.HasHighWatermark(), explicitZeroRecord.HasDispatched(), explicitZeroRecord.HasDispatchConfirmed(), explicitZeroRecord.HasCheckpointConfirmed())
+	}
+	if err := protovalidate.Validate(explicitZeroRecord); err != nil {
+		t.Fatalf("explicit zero high_watermark and false dispatched: validate failed: %v", err)
+	}
+
+	mutation := accessv1.MutationState_builder{
+		Intent:          mutationIntent("0192e6a0-0000-7000-8000-00000000d001"),
+		Sequence:        proto.Uint64(1),
+		Phase:           accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED.Enum(),
+		ResponsibleEdge: edgeRef(),
+	}.Build()
+	for _, test := range []struct {
+		name          string
+		highWatermark *uint64
+		wantValid     bool
+	}{
+		{name: "unset", highWatermark: nil, wantValid: false},
+		{name: "zero", highWatermark: proto.Uint64(0), wantValid: false},
+		{name: "covers", highWatermark: proto.Uint64(1), wantValid: true},
+	} {
+		t.Run("open mutation with "+test.name+" high_watermark", func(t *testing.T) {
+			record := storev1.DeviceLaneRecord_builder{
+				Device:        deviceRef(),
+				HighWatermark: test.highWatermark,
+				Mutation:      mutation,
+				AdmittedAt:    timestamppb.New(time.Unix(0, 0)),
+			}.Build()
+			err := protovalidate.Validate(record)
+			if test.wantValid && err != nil {
+				t.Fatalf("validate failed: %v", err)
+			}
+			if !test.wantValid && err == nil {
+				t.Fatal("validate succeeded")
+			}
+		})
 	}
 }
 

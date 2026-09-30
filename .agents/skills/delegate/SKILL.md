@@ -203,8 +203,12 @@ order:
 2. The files or diff, as repository-relative paths; a reviewer gets the
    path of a diff file in the scratchpad directory.
 3. The conventions that apply, as paths, and the matched `docs/solutions/`
-   entries; for a reviewer, the pinned version (`go.mod`, `buf.lock`) of
-   every external convention or library those files rely on.
+   entries. For every worker, name the pinned version (`go.mod`, `buf.lock`)
+   of every external convention or library those files rely on, and the
+   vendored spec paths under `spec/` for every protocol or vendor surface
+   they touch. State an external fact in the brief only with its source
+   (`AGENTS.md`, Investigation discipline), since a worker repeats an
+   uncited fact as settled.
 4. What to return: evidence with `path:line`; findings by severity, each
    with a failure scenario; or the changed paths, the focused test command
    and its result, and the commit hash (an editing worker commits before
@@ -220,7 +224,7 @@ order:
    `generated/`, or `buf.lock`; no edit to a plan Decision marked
    `decided by the user` (a finding or unit that needs one changed is a
    blocker); no plan labels in code; no running a script
-   under `tools/hooks/` (it blocks on stdin; the focused tests, `buf lint`,
+   under `tools/hooks/` (it blocks on stdin; the focused tests, `go tool -modfile=tools/buf/go.mod buf lint`,
    and the verifier on the changed paths are the checks); no lint or race
    run over all of `generated/go/yang` (it exhausts host memory; lint two
    or three sample packages); no git write outside the worker's own
