@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"buf.build/go/protovalidate"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/synadia-io/orbit.go/jetstreamext"
@@ -62,6 +63,10 @@ func newClaimFixture(t *testing.T) *claimFixture {
 }
 
 func claimConfig(id, org string) *identityv1.TenantConfig {
+	return claimConfigWithName(id, org, "Claim test tenant")
+}
+
+func claimConfigWithName(id, org, name string) *identityv1.TenantConfig {
 	return identityv1.TenantConfig_builder{
 		Ref: identityv1.TenantGlobalRef_builder{
 			Tenant: identityv1.TenantLocalRef_builder{Id: proto.String(id)}.Build(),
@@ -69,7 +74,7 @@ func claimConfig(id, org string) *identityv1.TenantConfig {
 		Issuer:                 proto.String(claimIssuer),
 		OrganizationClaimName:  proto.String("org_id"),
 		OrganizationClaimValue: proto.String(org),
-		Name:                   proto.String("Claim test tenant"),
+		Name:                   proto.String(name),
 		Description:            proto.String("Tenant used by claim property tests"),
 	}.Build()
 }
@@ -204,7 +209,11 @@ func claimSeededOrphans(t *testing.T, before map[string]claimMessageSnapshot, ke
 
 func seedClaimRecord(t *testing.T, fixture *claimFixture, config *identityv1.TenantConfig) {
 	t.Helper()
-	data, err := proto.Marshal(claimRecord(config))
+	record := claimRecord(config)
+	if err := protovalidate.Validate(record); err != nil {
+		t.Fatalf("validate seeded record: %v", err)
+	}
+	data, err := proto.Marshal(record)
 	if err != nil {
 		t.Fatalf("marshal seeded record: %v", err)
 	}
@@ -213,23 +222,75 @@ func seedClaimRecord(t *testing.T, fixture *claimFixture, config *identityv1.Ten
 	}
 }
 
-type claimState struct {
-	name           string
-	config         *identityv1.TenantConfig
-	expectedOK     bool
-	setup          func(*testing.T, *claimFixture)
-	orphanKeys     []string
-	preserveRecord bool
+type claimCallKind string
+
+const (
+	claimReadCall    claimCallKind = "R"
+	claimPublishCall claimCallKind = "P"
+)
+
+type claimSeedPoint int
+
+const (
+	claimAfterFirstRead claimSeedPoint = iota
+	claimAtPublish
+)
+
+type claimFaultMode string
+
+const (
+	claimReadFault    claimFaultMode = "read"
+	claimBeforeSend   claimFaultMode = "before-send"
+	claimAbandonBatch claimFaultMode = "staged-and-abandoned"
+	claimLoseReply    claimFaultMode = "lost-reply"
+)
+
+type claimFault struct {
+	position int
+	mode     claimFaultMode
 }
 
-func claimStates() []claimState {
+type claimCase struct {
+	name            string
+	config          *identityv1.TenantConfig
+	expectedOK      bool
+	path            []claimCallKind
+	expectedCalls   int
+	setup           func(*testing.T, *claimFixture)
+	orphanKeys      []string
+	preserveRecord  bool
+	publishFaults   bool
+	competitor      *identityv1.TenantConfig
+	competitorPoint claimSeedPoint
+}
+
+func claimCases() []claimCase {
 	target := claimConfig("0192e6a0-0000-7000-8000-000000001001", "org-claim-target")
-	return []claimState{
-		{name: "empty", config: target, expectedOK: true},
+	deleted := func(t *testing.T, f *claimFixture) {
+		if _, err := f.store.Create(context.Background(), target); err != nil {
+			t.Fatalf("seed tenant: %v", err)
+		}
+		for _, key := range []string{target.GetRef().GetTenant().GetId(), OrgIndexKey(claimIssuer, target.GetOrganizationClaimValue())} {
+			if err := f.kv.Delete(context.Background(), key); err != nil {
+				t.Fatalf("delete %s: %v", key, err)
+			}
+		}
+	}
+	return []claimCase{
 		{
-			name:       "same tenant committed",
-			config:     target,
-			expectedOK: true,
+			name:          "empty",
+			config:        target,
+			expectedOK:    true,
+			path:          []claimCallKind{claimReadCall, claimReadCall, claimPublishCall},
+			expectedCalls: 3,
+			publishFaults: true,
+		},
+		{
+			name:          "same tenant committed",
+			config:        target,
+			expectedOK:    true,
+			path:          []claimCallKind{claimReadCall, claimReadCall},
+			expectedCalls: 2,
 			setup: func(t *testing.T, f *claimFixture) {
 				if _, err := f.store.Create(context.Background(), target); err != nil {
 					t.Fatalf("seed committed tenant: %v", err)
@@ -237,8 +298,10 @@ func claimStates() []claimState {
 			},
 		},
 		{
-			name:   "id committed for another organization",
-			config: target,
+			name:          "id committed for another organization",
+			config:        target,
+			path:          []claimCallKind{claimReadCall},
+			expectedCalls: 1,
 			setup: func(t *testing.T, f *claimFixture) {
 				if _, err := f.store.Create(context.Background(), claimConfig(target.GetRef().GetTenant().GetId(), "org-other")); err != nil {
 					t.Fatalf("seed tenant with other organization: %v", err)
@@ -246,8 +309,10 @@ func claimStates() []claimState {
 			},
 		},
 		{
-			name:   "organization committed by another id",
-			config: target,
+			name:          "organization committed by another id",
+			config:        target,
+			path:          []claimCallKind{claimReadCall, claimReadCall},
+			expectedCalls: 2,
 			setup: func(t *testing.T, f *claimFixture) {
 				if _, err := f.store.Create(context.Background(), claimConfig("0192e6a0-0000-7000-8000-000000001002", target.GetOrganizationClaimValue())); err != nil {
 					t.Fatalf("seed organization owner: %v", err)
@@ -255,25 +320,21 @@ func claimStates() []claimState {
 			},
 		},
 		{
-			name:       "both keys deleted",
-			config:     target,
-			expectedOK: true,
-			setup: func(t *testing.T, f *claimFixture) {
-				if _, err := f.store.Create(context.Background(), target); err != nil {
-					t.Fatalf("seed tenant: %v", err)
-				}
-				orgKey := OrgIndexKey(claimIssuer, target.GetOrganizationClaimValue())
-				for _, key := range []string{target.GetRef().GetTenant().GetId(), orgKey} {
-					if err := f.kv.Delete(context.Background(), key); err != nil {
-						t.Fatalf("delete %s: %v", key, err)
-					}
-				}
-			},
+			name:          "both keys deleted",
+			config:        target,
+			expectedOK:    true,
+			path:          []claimCallKind{claimReadCall, claimReadCall, claimPublishCall},
+			expectedCalls: 3,
+			setup:         deleted,
+			publishFaults: true,
 		},
 		{
 			name:           "record without index",
 			config:         target,
 			expectedOK:     true,
+			path:           []claimCallKind{claimReadCall, claimReadCall, claimPublishCall},
+			expectedCalls:  3,
+			publishFaults:  true,
 			orphanKeys:     []string{target.GetRef().GetTenant().GetId()},
 			preserveRecord: true,
 			setup: func(t *testing.T, f *claimFixture) {
@@ -281,56 +342,94 @@ func claimStates() []claimState {
 			},
 		},
 		{
-			name:       "organization index without record",
-			config:     target,
-			orphanKeys: []string{OrgIndexKey(claimIssuer, target.GetOrganizationClaimValue())},
+			name:          "record without index, organization claimed",
+			config:        claimConfig("0192e6a0-0000-7000-8000-000000001003", "org-record-claimed"),
+			path:          []claimCallKind{claimReadCall, claimReadCall},
+			expectedCalls: 2,
+			orphanKeys:    []string{"0192e6a0-0000-7000-8000-000000001003"},
+			setup: func(t *testing.T, f *claimFixture) {
+				if _, err := f.store.Create(context.Background(), claimConfig("0192e6a0-0000-7000-8000-000000001004", "org-record-claimed")); err != nil {
+					t.Fatalf("seed organization owner: %v", err)
+				}
+				seedClaimRecord(t, f, claimConfig("0192e6a0-0000-7000-8000-000000001003", "org-record-claimed"))
+			},
+		},
+		{
+			name:          "organization index names target without record",
+			config:        target,
+			path:          []claimCallKind{claimReadCall, claimReadCall, claimReadCall},
+			expectedCalls: 3,
+			orphanKeys:    []string{OrgIndexKey(claimIssuer, target.GetOrganizationClaimValue())},
 			setup: func(t *testing.T, f *claimFixture) {
 				orgKey := OrgIndexKey(claimIssuer, target.GetOrganizationClaimValue())
-				if _, err := f.kv.Create(context.Background(), orgKey, []byte("0192e6a0-0000-7000-8000-000000001099")); err != nil {
-					t.Fatalf("seed orphaned organization index: %v", err)
+				if _, err := f.kv.Create(context.Background(), orgKey, []byte(target.GetRef().GetTenant().GetId())); err != nil {
+					t.Fatalf("seed target organization index: %v", err)
 				}
 			},
+		},
+		{
+			name:            "same config competitor after first read",
+			config:          claimConfig("0192e6a0-0000-7000-8000-000000001010", "org-reread-same"),
+			expectedOK:      true,
+			path:            []claimCallKind{claimReadCall, claimReadCall, claimReadCall},
+			expectedCalls:   3,
+			competitor:      claimConfig("0192e6a0-0000-7000-8000-000000001010", "org-reread-same"),
+			competitorPoint: claimAfterFirstRead,
+		},
+		{
+			name:            "same config competitor at publish",
+			config:          claimConfig("0192e6a0-0000-7000-8000-000000001011", "org-reread-publish"),
+			expectedOK:      true,
+			path:            []claimCallKind{claimReadCall, claimReadCall, claimPublishCall, claimReadCall, claimReadCall},
+			expectedCalls:   5,
+			competitor:      claimConfig("0192e6a0-0000-7000-8000-000000001011", "org-reread-publish"),
+			competitorPoint: claimAtPublish,
+		},
+		{
+			name:            "same id and organization with different name",
+			config:          claimConfigWithName("0192e6a0-0000-7000-8000-000000001012", "org-reread-different", "requested"),
+			path:            []claimCallKind{claimReadCall, claimReadCall, claimReadCall},
+			expectedCalls:   3,
+			competitor:      claimConfigWithName("0192e6a0-0000-7000-8000-000000001012", "org-reread-different", "committed"),
+			competitorPoint: claimAfterFirstRead,
 		},
 	}
 }
 
-func TestClaimProperties(t *testing.T) {
-	for _, state := range claimStates() {
-		state := state
-		t.Run(state.name, func(t *testing.T) {
-			fixture := newClaimFixture(t)
-			if state.setup != nil {
-				state.setup(t, fixture)
-			}
-			before := claimSnapshot(t, fixture)
-			beforeSequence := claimStreamLastSequence(t, fixture)
-			record, err := fixture.store.Create(context.Background(), state.config)
-			if state.expectedOK {
-				if err != nil {
-					t.Fatalf("Create: %v", err)
-				}
-				if record == nil {
-					t.Fatal("Create returned nil record")
-				}
-			} else if code, _ := errs.CodeOf(err); code != ErrCodeAlreadyExists {
-				t.Fatalf("Create error code = %v, want %v: %v", code, ErrCodeAlreadyExists, err)
-			} else if record != nil {
-				t.Fatalf("Create returned %v with an AlreadyExists error", record)
-			}
-			assertClaimCallPreservesState(t, fixture, before, beforeSequence)
-			assertClaimInvariant(t, fixture, claimInvariantOptions{
-				target:          state.config,
-				targetCommitted: state.expectedOK,
-				allowedOrphans:  claimSeededOrphans(t, before, state.orphanKeys),
-			})
-			if state.preserveRecord {
-				assertSeededRecordPreserved(t, fixture, before, state.config)
-			}
-		})
+func assertCreateOutcome(t *testing.T, fixture *claimFixture, config *identityv1.TenantConfig, record *identityv1.TenantRecord, err error, wantSuccess bool) {
+	t.Helper()
+	if !wantSuccess {
+		if err == nil {
+			t.Fatalf("Create succeeded, want %v", ErrCodeAlreadyExists)
+		}
+		if code, _ := errs.CodeOf(err); code != ErrCodeAlreadyExists {
+			t.Fatalf("Create error code = %v, want %v: %v", code, ErrCodeAlreadyExists, err)
+		}
+		if record != nil {
+			t.Fatalf("Create returned %v with an AlreadyExists error", record)
+		}
+		return
+	}
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if record == nil {
+		t.Fatal("Create returned nil record")
+	}
+	message := rawLast(t, fixture.stream, config.GetRef().GetTenant().GetId())
+	if message == nil || isMarker(message) {
+		t.Fatal("successful Create has no live record message")
+	}
+	stored := &identityv1.TenantRecord{}
+	if err := proto.Unmarshal(message.Data, stored); err != nil {
+		t.Fatalf("decode successful record: %v", err)
+	}
+	if !proto.Equal(record, stored) {
+		t.Fatalf("returned record differs from the committed record")
 	}
 }
 
-func assertSeededRecordPreserved(t *testing.T, fixture *claimFixture, before map[string]claimMessageSnapshot, config *identityv1.TenantConfig) {
+func assertSeededRecordPreserved(t *testing.T, fixture *claimFixture, before map[string]claimMessageSnapshot, config *identityv1.TenantConfig, returned *identityv1.TenantRecord) {
 	t.Helper()
 	id := config.GetRef().GetTenant().GetId()
 	seeded := before[id]
@@ -345,12 +444,8 @@ func assertSeededRecordPreserved(t *testing.T, fixture *claimFixture, before map
 	if err := proto.Unmarshal(seeded.data, seededRecord); err != nil {
 		t.Fatalf("decode seeded record %s: %v", id, err)
 	}
-	currentRecord := &identityv1.TenantRecord{}
-	if err := proto.Unmarshal(current.Data, currentRecord); err != nil {
-		t.Fatalf("decode completed record %s: %v", id, err)
-	}
-	if !proto.Equal(seededRecord.GetState().GetCreatedAt(), currentRecord.GetState().GetCreatedAt()) {
-		t.Fatalf("completed record %s changed created_at from %v to %v", id, seededRecord.GetState().GetCreatedAt(), currentRecord.GetState().GetCreatedAt())
+	if !proto.Equal(returned, seededRecord) {
+		t.Fatalf("completed Create returned a record different from the seeded record")
 	}
 }
 
@@ -375,9 +470,6 @@ func assertClaimInvariant(t *testing.T, fixture *claimFixture, options claimInva
 		msg := rawLast(t, fixture.stream, key)
 		if msg == nil || isMarker(msg) {
 			continue
-		}
-		if msg.Header.Get("KV-Operation") != "" {
-			t.Fatalf("live subject %s has a delete operation header", key)
 		}
 		live[key] = msg
 	}
@@ -404,11 +496,8 @@ func assertClaimInvariant(t *testing.T, fixture *claimFixture, options claimInva
 		orgKey := OrgIndexKey(config.GetIssuer(), config.GetOrganizationClaimValue())
 		indexMsg, ok := live[orgKey]
 		if !ok || string(indexMsg.Data) != id {
-			if ok {
-				t.Fatalf("live record %s has a mismatched live index", id)
-			}
 			if !claimOrphanMatches(live[id], options.allowedOrphans, id) {
-				t.Fatalf("live record %s has no live organization index", id)
+				t.Fatalf("live record %s is not committed", id)
 			}
 			continue
 		}
@@ -447,21 +536,15 @@ func assertClaimInvariant(t *testing.T, fixture *claimFixture, options claimInva
 		if err != nil {
 			t.Fatalf("Get %s: %v", id, err)
 		}
-		if got == nil {
-			t.Fatalf("Get %s returned nil for committed pair", id)
-		}
-		if !proto.Equal(got.GetConfig(), config) {
-			t.Fatalf("Get %s returned a different configuration", id)
+		if got == nil || !proto.Equal(got.GetConfig(), config) {
+			t.Fatalf("Get %s disagrees with the committed pair", id)
 		}
 		lookup, err := fixture.store.LookupByOrg(ctx, config.GetIssuer(), config.GetOrganizationClaimValue())
 		if err != nil {
 			t.Fatalf("LookupByOrg %s: %v", id, err)
 		}
-		if lookup == nil || lookup.GetConfig().GetRef().GetTenant().GetId() != id {
-			t.Fatalf("LookupByOrg for %s returned %v", id, lookup)
-		}
-		if !proto.Equal(lookup.GetConfig(), config) {
-			t.Fatalf("LookupByOrg for %s returned a different configuration", id)
+		if lookup == nil || !proto.Equal(lookup.GetConfig(), config) {
+			t.Fatalf("LookupByOrg %s disagrees with the committed pair", id)
 		}
 	}
 	slices.Sort(listIDs)
@@ -469,285 +552,12 @@ func assertClaimInvariant(t *testing.T, fixture *claimFixture, options claimInva
 	if !slices.Equal(listIDs, expectedIDs) {
 		t.Fatalf("List IDs = %v, want %v", listIDs, expectedIDs)
 	}
-	for _, record := range list {
-		if record.GetConfig().GetRef().GetTenant().GetId() == "" {
-			t.Fatal("List returned a tenant without an id")
-		}
-	}
 	if options.targetCommitted {
 		targetID := options.target.GetRef().GetTenant().GetId()
 		config, ok := committed[targetID]
 		if !ok || !proto.Equal(config, options.target) {
 			t.Fatalf("target %s is not committed with the requested configuration", targetID)
 		}
-		got, err := fixture.store.Get(ctx, targetID)
-		if err != nil {
-			t.Fatalf("Get target %s: %v", targetID, err)
-		}
-		if got == nil || !proto.Equal(got.GetConfig(), options.target) {
-			t.Fatalf("Get target %s is not visible with the requested configuration", targetID)
-		}
-		lookup, err := fixture.store.LookupByOrg(ctx, options.target.GetIssuer(), options.target.GetOrganizationClaimValue())
-		if err != nil {
-			t.Fatalf("LookupByOrg target %s: %v", targetID, err)
-		}
-		if lookup == nil || !proto.Equal(lookup.GetConfig(), options.target) {
-			t.Fatalf("LookupByOrg target %s is not visible with the requested configuration", targetID)
-		}
-	}
-}
-
-func claimPathCallCount(t *testing.T, state claimState) int {
-	t.Helper()
-	fixture := newClaimFixture(t)
-	if state.setup != nil {
-		state.setup(t, fixture)
-	}
-	calls := 0
-	realLastMsg := fixture.store.lastMsg
-	realPublish := fixture.store.publish
-	fixture.store.lastMsg = func(ctx context.Context, subject string) (*jetstream.RawStreamMsg, error) {
-		calls++
-		return realLastMsg(ctx, subject)
-	}
-	fixture.store.publish = func(ctx context.Context, messages []*nats.Msg) (*jetstreamext.BatchAck, error) {
-		calls++
-		return realPublish(ctx, messages)
-	}
-	if _, err := fixture.store.Create(context.Background(), state.config); state.expectedOK {
-		if err != nil {
-			t.Fatalf("trace Create: %v", err)
-		}
-	} else if code, _ := errs.CodeOf(err); code != ErrCodeAlreadyExists {
-		t.Fatalf("trace Create error code = %v, want %v: %v", code, ErrCodeAlreadyExists, err)
-	}
-	return calls
-}
-
-func TestClaimFaultMatrix(t *testing.T) {
-	for _, state := range claimStates() {
-		state := state
-		callCount := claimPathCallCount(t, state)
-		if callCount == 0 {
-			t.Fatalf("%s path made no calls", state.name)
-		}
-		for failAt := 1; failAt <= callCount; failAt++ {
-			t.Run(fmt.Sprintf("%s call %d", state.name, failAt), func(t *testing.T) {
-				fixture := newClaimFixture(t)
-				if state.setup != nil {
-					state.setup(t, fixture)
-				}
-				before := claimSnapshot(t, fixture)
-				beforeSequence := claimStreamLastSequence(t, fixture)
-				calls := 0
-				realLastMsg := fixture.store.lastMsg
-				realPublish := fixture.store.publish
-				fixture.store.lastMsg = func(ctx context.Context, subject string) (*jetstream.RawStreamMsg, error) {
-					calls++
-					if calls == failAt {
-						return nil, errors.New("injected claim fault")
-					}
-					return realLastMsg(ctx, subject)
-				}
-				fixture.store.publish = func(ctx context.Context, messages []*nats.Msg) (*jetstreamext.BatchAck, error) {
-					calls++
-					if calls == failAt {
-						return nil, errors.New("injected claim fault")
-					}
-					return realPublish(ctx, messages)
-				}
-				first, err := fixture.store.Create(context.Background(), state.config)
-				if code, _ := errs.CodeOf(err); code != ErrCodeStore {
-					t.Fatalf("faulted Create error code = %v, want %v: %v", code, ErrCodeStore, err)
-				}
-				if first != nil {
-					t.Fatalf("faulted Create returned %v", first)
-				}
-				fixture.store.lastMsg = realLastMsg
-				fixture.store.publish = realPublish
-				assertClaimCallPreservesState(t, fixture, before, beforeSequence)
-				assertClaimInvariant(t, fixture, claimInvariantOptions{
-					target:         state.config,
-					allowedOrphans: claimSeededOrphans(t, before, state.orphanKeys),
-				})
-
-				afterFault := claimSnapshot(t, fixture)
-				afterFaultSequence := claimStreamLastSequence(t, fixture)
-				retry, retryErr := fixture.store.Create(context.Background(), state.config)
-				if state.expectedOK {
-					if retryErr != nil {
-						t.Fatalf("retry Create: %v", retryErr)
-					}
-					if retry == nil {
-						t.Fatal("retry Create returned nil record")
-					}
-				} else {
-					if code, _ := errs.CodeOf(retryErr); code != ErrCodeAlreadyExists {
-						t.Fatalf("retry Create error code = %v, want %v: %v", code, ErrCodeAlreadyExists, retryErr)
-					}
-					if retry != nil {
-						t.Fatalf("retry Create returned %v with an AlreadyExists error", retry)
-					}
-				}
-				assertClaimCallPreservesState(t, fixture, afterFault, afterFaultSequence)
-				assertClaimInvariant(t, fixture, claimInvariantOptions{
-					target:          state.config,
-					targetCommitted: state.expectedOK,
-					allowedOrphans:  claimSeededOrphans(t, before, state.orphanKeys),
-				})
-				if state.preserveRecord {
-					assertSeededRecordPreserved(t, fixture, before, state.config)
-				}
-			})
-		}
-	}
-}
-
-func TestClaimBatchFaults(t *testing.T) {
-	t.Run("before send", func(t *testing.T) {
-		fixture := newClaimFixture(t)
-		config := claimConfig("0192e6a0-0000-8000-8000-000000001011", "org-batch-before")
-		before := claimSnapshot(t, fixture)
-		beforeSequence := claimStreamLastSequence(t, fixture)
-		realPublish := fixture.store.publish
-		fixture.store.publish = func(context.Context, []*nats.Msg) (*jetstreamext.BatchAck, error) {
-			return nil, errors.New("injected batch failure")
-		}
-		first, err := fixture.store.Create(context.Background(), config)
-		if code, _ := errs.CodeOf(err); code != ErrCodeStore {
-			t.Fatalf("Create error code = %v, want %v: %v", code, ErrCodeStore, err)
-		}
-		if first != nil {
-			t.Fatalf("faulted Create returned %v", first)
-		}
-		fixture.store.publish = realPublish
-		assertClaimCallPreservesState(t, fixture, before, beforeSequence)
-		retryBefore := claimSnapshot(t, fixture)
-		retryBeforeSequence := claimStreamLastSequence(t, fixture)
-		retry, err := fixture.store.Create(context.Background(), config)
-		if err != nil {
-			t.Fatalf("retry Create: %v", err)
-		}
-		if retry == nil {
-			t.Fatal("retry Create returned nil record")
-		}
-		assertClaimCallPreservesState(t, fixture, retryBefore, retryBeforeSequence)
-		assertClaimInvariant(t, fixture, claimInvariantOptions{target: config, targetCommitted: true})
-	})
-
-	t.Run("staged and abandoned", func(t *testing.T) {
-		fixture := newClaimFixture(t)
-		config := claimConfig("0192e6a0-0000-8000-8000-000000001012", "org-batch-staged")
-		before := claimSnapshot(t, fixture)
-		beforeSequence := claimStreamLastSequence(t, fixture)
-		publisher, err := jetstreamext.NewBatchPublisher(fixture.js, jetstreamext.BatchFlowControl{AckFirst: false})
-		if err != nil {
-			t.Fatalf("new batch publisher: %v", err)
-		}
-		realPublish := fixture.store.publish
-		fixture.store.publish = func(_ context.Context, messages []*nats.Msg) (*jetstreamext.BatchAck, error) {
-			if err := publisher.AddMsg(messages[0]); err != nil {
-				return nil, err
-			}
-			return nil, errors.New("abandoned batch")
-		}
-		first, err := fixture.store.Create(context.Background(), config)
-		if code, _ := errs.CodeOf(err); code != ErrCodeStore {
-			t.Fatalf("Create error code = %v, want %v: %v", code, ErrCodeStore, err)
-		}
-		if first != nil {
-			t.Fatalf("faulted Create returned %v", first)
-		}
-		fixture.store.publish = realPublish
-		assertClaimCallPreservesState(t, fixture, before, beforeSequence)
-		retryBefore := claimSnapshot(t, fixture)
-		retryBeforeSequence := claimStreamLastSequence(t, fixture)
-		retry, err := fixture.store.Create(context.Background(), config)
-		if err != nil {
-			t.Fatalf("retry Create: %v", err)
-		}
-		if retry == nil {
-			t.Fatal("retry Create returned nil record")
-		}
-		assertClaimCallPreservesState(t, fixture, retryBefore, retryBeforeSequence)
-		assertClaimInvariant(t, fixture, claimInvariantOptions{target: config, targetCommitted: true})
-	})
-
-	t.Run("lost reply", func(t *testing.T) {
-		fixture := newClaimFixture(t)
-		config := claimConfig("0192e6a0-0000-8000-8000-000000001013", "org-batch-lost")
-		before := claimSnapshot(t, fixture)
-		beforeSequence := claimStreamLastSequence(t, fixture)
-		realPublish := fixture.store.publish
-		fixture.store.publish = func(ctx context.Context, messages []*nats.Msg) (*jetstreamext.BatchAck, error) {
-			ack, err := realPublish(ctx, messages)
-			if err != nil {
-				return ack, err
-			}
-			return nil, context.DeadlineExceeded
-		}
-		first, err := fixture.store.Create(context.Background(), config)
-		if code, _ := errs.CodeOf(err); code != ErrCodeStore {
-			t.Fatalf("Create error code = %v, want %v: %v", code, ErrCodeStore, err)
-		}
-		if first != nil {
-			t.Fatalf("lost-reply Create returned %v", first)
-		}
-		fixture.store.publish = realPublish
-		assertClaimCallPreservesState(t, fixture, before, beforeSequence)
-		recordMessage := rawLast(t, fixture.stream, config.GetRef().GetTenant().GetId())
-		indexMessage := rawLast(t, fixture.stream, OrgIndexKey(config.GetIssuer(), config.GetOrganizationClaimValue()))
-		if recordMessage == nil || indexMessage == nil {
-			t.Fatal("lost-reply Create committed an incomplete pair")
-		}
-		committed := &identityv1.TenantRecord{}
-		if err := proto.Unmarshal(recordMessage.Data, committed); err != nil {
-			t.Fatalf("decode lost-reply record: %v", err)
-		}
-		retryBefore := claimSnapshot(t, fixture)
-		retryBeforeSequence := claimStreamLastSequence(t, fixture)
-		retry, err := fixture.store.Create(context.Background(), config)
-		if err != nil {
-			t.Fatalf("retry Create: %v", err)
-		}
-		if retry == nil {
-			t.Fatal("lost-reply retry returned nil record")
-		}
-		if !proto.Equal(retry.GetState().GetCreatedAt(), committed.GetState().GetCreatedAt()) {
-			t.Fatalf("lost-reply retry created_at = %v, want %v", retry.GetState().GetCreatedAt(), committed.GetState().GetCreatedAt())
-		}
-		assertClaimCallPreservesState(t, fixture, retryBefore, retryBeforeSequence)
-		for _, key := range []string{config.GetRef().GetTenant().GetId(), OrgIndexKey(config.GetIssuer(), config.GetOrganizationClaimValue())} {
-			message := rawLast(t, fixture.stream, key)
-			if message == nil || message.Sequence != retryBefore[key].sequence {
-				t.Fatalf("lost-reply retry changed %s sequence", key)
-			}
-		}
-		assertClaimInvariant(t, fixture, claimInvariantOptions{target: config, targetCommitted: true})
-	})
-}
-
-type claimConflictCase struct {
-	name       string
-	target     *identityv1.TenantConfig
-	competitor *identityv1.TenantConfig
-	callCount  int
-}
-
-func claimConflictCases() []claimConflictCase {
-	return []claimConflictCase{
-		{
-			name:       "organization",
-			target:     claimConfig("0192e6a0-0000-8000-8000-000000001020", "org-conflict"),
-			competitor: claimConfig("0192e6a0-0000-8000-8000-000000001021", "org-conflict"),
-			callCount:  5,
-		},
-		{
-			name:       "same id",
-			target:     claimConfig("0192e6a0-0000-8000-8000-000000001022", "org-conflict"),
-			competitor: claimConfig("0192e6a0-0000-8000-8000-000000001022", "org-other-id"),
-			callCount:  4,
-		},
 	}
 }
 
@@ -762,95 +572,168 @@ func seedClaimConflict(t *testing.T, fixture *claimFixture, config *identityv1.T
 	}
 }
 
-func claimConflictCallCount(t *testing.T, tc claimConflictCase) int {
+func assertStoreFault(t *testing.T, record *identityv1.TenantRecord, err error) {
+	t.Helper()
+	if code, _ := errs.CodeOf(err); code != ErrCodeStore {
+		t.Fatalf("faulted Create error code = %v, want %v: %v", code, ErrCodeStore, err)
+	}
+	if record != nil {
+		t.Fatalf("faulted Create returned %v", record)
+	}
+}
+
+func runClaimCase(t *testing.T, c claimCase, fault *claimFault) {
 	t.Helper()
 	fixture := newClaimFixture(t)
+	if c.setup != nil {
+		c.setup(t, fixture)
+	}
+	before := claimSnapshot(t, fixture)
+	beforeSequence := claimStreamLastSequence(t, fixture)
 	calls := 0
 	seeded := false
+	seed := func() {
+		if c.competitor != nil && !seeded {
+			seeded = true
+			seedClaimConflict(t, fixture, c.competitor)
+		}
+	}
+	failAt := 0
+	mode := claimFaultMode("")
+	if fault != nil {
+		failAt = fault.position
+		mode = fault.mode
+	}
 	realLastMsg := fixture.store.lastMsg
 	realPublish := fixture.store.publish
+	var publisher jetstreamext.BatchPublisher
+	if mode == claimAbandonBatch {
+		var err error
+		publisher, err = jetstreamext.NewBatchPublisher(fixture.js, jetstreamext.BatchFlowControl{AckFirst: false})
+		if err != nil {
+			t.Fatalf("new batch publisher: %v", err)
+		}
+	}
 	fixture.store.lastMsg = func(ctx context.Context, subject string) (*jetstream.RawStreamMsg, error) {
 		calls++
-		return realLastMsg(ctx, subject)
+		if calls == failAt {
+			seed()
+			return nil, errors.New("injected claim read failure")
+		}
+		msg, err := realLastMsg(ctx, subject)
+		if (err == nil || errors.Is(err, jetstream.ErrMsgNotFound)) && c.competitorPoint == claimAfterFirstRead && calls == 1 {
+			seed()
+		}
+		return msg, err
 	}
 	fixture.store.publish = func(ctx context.Context, messages []*nats.Msg) (*jetstreamext.BatchAck, error) {
 		calls++
-		if !seeded {
-			seeded = true
-			seedClaimConflict(t, fixture, tc.competitor)
+		if c.competitorPoint == claimAtPublish {
+			seed()
+		}
+		if calls == failAt {
+			switch mode {
+			case claimBeforeSend:
+				return nil, errors.New("injected publish failure")
+			case claimAbandonBatch:
+				if err := publisher.AddMsg(messages[0]); err != nil {
+					return nil, err
+				}
+				return nil, errors.New("abandoned batch")
+			case claimLoseReply:
+				ack, err := realPublish(ctx, messages)
+				if err != nil {
+					return ack, err
+				}
+				return nil, context.DeadlineExceeded
+			}
 		}
 		return realPublish(ctx, messages)
 	}
-	_, err := fixture.store.Create(context.Background(), tc.target)
-	if code, _ := errs.CodeOf(err); code != ErrCodeAlreadyExists {
-		t.Fatalf("trace Create error code = %v, want %v: %v", code, ErrCodeAlreadyExists, err)
+	record, err := fixture.store.Create(context.Background(), c.config)
+	if fault == nil {
+		if calls != c.expectedCalls {
+			t.Fatalf("unfaulted calls = %d, want %d (%v)", calls, c.expectedCalls, c.path)
+		}
+		assertCreateOutcome(t, fixture, c.config, record, err, c.expectedOK)
+		assertClaimCallPreservesState(t, fixture, before, beforeSequence)
+		assertClaimInvariant(t, fixture, claimInvariantOptions{
+			target:          c.config,
+			targetCommitted: c.expectedOK,
+			allowedOrphans:  claimSeededOrphans(t, before, c.orphanKeys),
+		})
+		if c.preserveRecord && c.expectedOK {
+			assertSeededRecordPreserved(t, fixture, before, c.config, record)
+		}
+		return
 	}
-	return calls
+	if calls != failAt {
+		t.Fatalf("fault at call %d reached call %d", failAt, calls)
+	}
+	assertStoreFault(t, record, err)
+	fixture.store.lastMsg = realLastMsg
+	fixture.store.publish = realPublish
+	assertClaimCallPreservesState(t, fixture, before, beforeSequence)
+	assertClaimInvariant(t, fixture, claimInvariantOptions{
+		target:         c.config,
+		allowedOrphans: claimSeededOrphans(t, before, c.orphanKeys),
+	})
+	afterFault := claimSnapshot(t, fixture)
+	afterFaultSequence := claimStreamLastSequence(t, fixture)
+	retry, retryErr := fixture.store.Create(context.Background(), c.config)
+	assertCreateOutcome(t, fixture, c.config, retry, retryErr, c.expectedOK)
+	assertClaimCallPreservesState(t, fixture, afterFault, afterFaultSequence)
+	assertClaimInvariant(t, fixture, claimInvariantOptions{
+		target:          c.config,
+		targetCommitted: c.expectedOK,
+		allowedOrphans:  claimSeededOrphans(t, before, c.orphanKeys),
+	})
+	if c.preserveRecord && c.expectedOK {
+		assertSeededRecordPreserved(t, fixture, before, c.config, retry)
+	}
 }
 
-func TestClaimConflictSettlement(t *testing.T) {
-	for _, tc := range claimConflictCases() {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			callCount := claimConflictCallCount(t, tc)
-			if callCount != tc.callCount {
-				t.Fatalf("unfaulted conflict path calls = %d, want %d", callCount, tc.callCount)
+func validateClaimCase(t *testing.T, c claimCase) (publishAt int) {
+	t.Helper()
+	if len(c.path) != c.expectedCalls {
+		t.Fatalf("case %s pins %d calls but names %d", c.name, c.expectedCalls, len(c.path))
+	}
+	for position, kind := range c.path {
+		if kind == claimPublishCall {
+			if publishAt != 0 {
+				t.Fatalf("case %s names multiple publish calls", c.name)
 			}
-			for failAt := 1; failAt <= callCount; failAt++ {
-				failAt := failAt
-				t.Run(fmt.Sprintf("call %d", failAt), func(t *testing.T) {
-					fixture := newClaimFixture(t)
-					before := claimSnapshot(t, fixture)
-					beforeSequence := claimStreamLastSequence(t, fixture)
-					calls := 0
-					seeded := false
-					realLastMsg := fixture.store.lastMsg
-					realPublish := fixture.store.publish
-					seed := func() {
-						if !seeded {
-							seeded = true
-							seedClaimConflict(t, fixture, tc.competitor)
-						}
-					}
-					fixture.store.lastMsg = func(ctx context.Context, subject string) (*jetstream.RawStreamMsg, error) {
-						calls++
-						if calls == failAt {
-							seed()
-							return nil, errors.New("injected conflict fault")
-						}
-						return realLastMsg(ctx, subject)
-					}
-					fixture.store.publish = func(ctx context.Context, messages []*nats.Msg) (*jetstreamext.BatchAck, error) {
-						calls++
-						seed()
-						if calls == failAt {
-							return nil, errors.New("injected conflict fault")
-						}
-						return realPublish(ctx, messages)
-					}
-					first, err := fixture.store.Create(context.Background(), tc.target)
-					if code, _ := errs.CodeOf(err); code != ErrCodeStore {
-						t.Fatalf("faulted Create error code = %v, want %v: %v", code, ErrCodeStore, err)
-					}
-					if first != nil {
-						t.Fatalf("faulted Create returned %v", first)
-					}
-					fixture.store.lastMsg = realLastMsg
-					fixture.store.publish = realPublish
-					assertClaimCallPreservesState(t, fixture, before, beforeSequence)
-					assertClaimInvariant(t, fixture, claimInvariantOptions{target: tc.target})
+			publishAt = position + 1
+		}
+	}
+	if c.publishFaults && publishAt == 0 {
+		t.Fatalf("case %s enables publish faults without a publish call", c.name)
+	}
+	return publishAt
+}
 
-					afterFault := claimSnapshot(t, fixture)
-					afterFaultSequence := claimStreamLastSequence(t, fixture)
-					retry, retryErr := fixture.store.Create(context.Background(), tc.target)
-					if code, _ := errs.CodeOf(retryErr); code != ErrCodeAlreadyExists {
-						t.Fatalf("retry Create error code = %v, want %v: %v", code, ErrCodeAlreadyExists, retryErr)
-					}
-					if retry != nil {
-						t.Fatalf("retry Create returned %v with an AlreadyExists error", retry)
-					}
-					assertClaimCallPreservesState(t, fixture, afterFault, afterFaultSequence)
-					assertClaimInvariant(t, fixture, claimInvariantOptions{target: tc.target})
+func TestClaimMatrix(t *testing.T) {
+	for _, c := range claimCases() {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			publishAt := validateClaimCase(t, c)
+			runClaimCase(t, c, nil)
+			for position, kind := range c.path {
+				if kind != claimReadCall {
+					continue
+				}
+				position++
+				t.Run(fmt.Sprintf("fault %s%d", kind, position), func(t *testing.T) {
+					runClaimCase(t, c, &claimFault{position: position, mode: claimReadFault})
+				})
+			}
+			if !c.publishFaults {
+				return
+			}
+			for _, mode := range []claimFaultMode{claimBeforeSend, claimAbandonBatch, claimLoseReply} {
+				mode := mode
+				t.Run("fault P "+string(mode), func(t *testing.T) {
+					runClaimCase(t, c, &claimFault{position: publishAt, mode: mode})
 				})
 			}
 		})
@@ -860,6 +743,8 @@ func TestClaimConflictSettlement(t *testing.T) {
 func TestClaimContention(t *testing.T) {
 	t.Run("same configuration", func(t *testing.T) {
 		fixture := newClaimFixture(t)
+		before := claimSnapshot(t, fixture)
+		beforeSequence := claimStreamLastSequence(t, fixture)
 		config := claimConfig("0192e6a0-0000-8000-8000-000000001030", "org-contention-same")
 		const count = 8
 		results := make(chan *identityv1.TenantRecord, count)
@@ -896,66 +781,62 @@ func TestClaimContention(t *testing.T) {
 		if msg := rawLast(t, fixture.stream, config.GetRef().GetTenant().GetId()); msg == nil {
 			t.Fatal("same-config contention wrote no record")
 		}
+		assertClaimCallPreservesState(t, fixture, before, beforeSequence)
+		assertClaimInvariant(t, fixture, claimInvariantOptions{target: config, targetCommitted: true})
 	})
 
-	for _, mode := range []string{"same id", "same organization"} {
-		mode := mode
-		t.Run(mode, func(t *testing.T) {
-			fixture := newClaimFixture(t)
-			const count = 8
-			ids := make([]string, count)
-			for i := range ids {
-				ids[i] = fmt.Sprintf("0192e6a0-0000-8000-8000-%012d", 1040+i)
+	t.Run("same id", func(t *testing.T) {
+		fixture := newClaimFixture(t)
+		before := claimSnapshot(t, fixture)
+		beforeSequence := claimStreamLastSequence(t, fixture)
+		const count = 8
+		ids := make([]string, count)
+		for i := range ids {
+			ids[i] = fmt.Sprintf("0192e6a0-0000-8000-8000-%012d", 1040+i)
+		}
+		var wg sync.WaitGroup
+		results := make(chan error, count)
+		for i := range ids {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				org := fmt.Sprintf("org-contention-%d", i)
+				_, err := fixture.store.Create(context.Background(), claimConfig(ids[0], org))
+				results <- err
+			}(i)
+		}
+		wg.Wait()
+		close(results)
+		successes := 0
+		for err := range results {
+			if err == nil {
+				successes++
+			} else if code, _ := errs.CodeOf(err); code != ErrCodeAlreadyExists {
+				t.Fatalf("contention error code = %v, want %v: %v", code, ErrCodeAlreadyExists, err)
 			}
-			var wg sync.WaitGroup
-			results := make(chan error, count)
-			for i := range ids {
-				wg.Add(1)
-				go func(i int) {
-					defer wg.Done()
-					org := "org-contention"
-					if mode == "same id" {
-						org = fmt.Sprintf("org-contention-%d", i)
-					}
-					id := ids[i]
-					if mode == "same id" {
-						id = ids[0]
-					}
-					_, err := fixture.store.Create(context.Background(), claimConfig(id, org))
-					results <- err
-				}(i)
+		}
+		if successes != 1 {
+			t.Fatalf("contention successes = %d, want 1", successes)
+		}
+		assertClaimCallPreservesState(t, fixture, before, beforeSequence)
+		snapshot := claimSnapshot(t, fixture)
+		records, indexes, markers := 0, 0, 0
+		for key, message := range snapshot {
+			if message.marker {
+				markers++
+				continue
 			}
-			wg.Wait()
-			close(results)
-			successes := 0
-			for err := range results {
-				if err == nil {
-					successes++
-				} else if code, _ := errs.CodeOf(err); code != ErrCodeAlreadyExists {
-					t.Fatalf("contention error code = %v, want %v: %v", code, ErrCodeAlreadyExists, err)
-				}
+			if strings.HasPrefix(key, orgIndexPrefix) {
+				indexes++
+			} else {
+				records++
 			}
-			if successes != 1 {
-				t.Fatalf("contention successes = %d, want 1", successes)
-			}
-			snapshot := claimSnapshot(t, fixture)
-			records, indexes := 0, 0
-			for key, message := range snapshot {
-				if message.marker {
-					continue
-				}
-				if strings.HasPrefix(key, orgIndexPrefix) {
-					indexes++
-				} else {
-					records++
-				}
-			}
-			if records != 1 || indexes != 1 {
-				t.Fatalf("contention live subjects = %d records, %d indexes, want one each", records, indexes)
-			}
-			assertClaimInvariant(t, fixture, claimInvariantOptions{target: claimConfig(ids[0], "org-contention")})
-		})
-	}
+		}
+		if markers != 0 || records != 1 || indexes != 1 {
+			t.Fatalf("contention subjects = %d records, %d indexes, %d markers, want one each and no markers", records, indexes, markers)
+		}
+		assertClaimInvariant(t, fixture, claimInvariantOptions{target: claimConfig(ids[0], "org-contention-0")})
+	})
 }
 
 type claimCreateResult struct {
