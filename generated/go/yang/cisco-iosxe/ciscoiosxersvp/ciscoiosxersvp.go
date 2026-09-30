@@ -651,117 +651,13 @@ var ValueSchema = &yang.Schema{
 	Name:   "value",
 }
 
-// AppGigabitEthernetIPAugment is the Cisco-IOS-XE-rsvp augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ip.
-type AppGigabitEthernetIPAugment struct {
+// IPAugment is the Cisco-IOS-XE-rsvp augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ip.
+type IPAugment struct {
 	Rsvp *IPRsvp
 }
 
-// AppGigabitEthernetIPAugmentSchema describes AppGigabitEthernetIPAugment group fields with no codec root.
-var AppGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPRsvpSchema, GoName: "Rsvp", Name: "rsvp"},
-	},
-	Module: moduleCiscoIOSXERsvp,
-}
-
-// BDIIPAugment is the Cisco-IOS-XE-rsvp augment group at /Cisco-IOS-XE-native:native/interface/BDI/ip.
-type BDIIPAugment struct {
-	Rsvp *IPRsvp
-}
-
-// BDIIPAugmentSchema describes BDIIPAugment group fields with no codec root.
-var BDIIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPRsvpSchema, GoName: "Rsvp", Name: "rsvp"},
-	},
-	Module: moduleCiscoIOSXERsvp,
-}
-
-// FastEthernetIPAugment is the Cisco-IOS-XE-rsvp augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/ip.
-type FastEthernetIPAugment struct {
-	Rsvp *IPRsvp
-}
-
-// FastEthernetIPAugmentSchema describes FastEthernetIPAugment group fields with no codec root.
-var FastEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPRsvpSchema, GoName: "Rsvp", Name: "rsvp"},
-	},
-	Module: moduleCiscoIOSXERsvp,
-}
-
-// FiftyGigabitEthernetIPAugment is the Cisco-IOS-XE-rsvp augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/ip.
-type FiftyGigabitEthernetIPAugment struct {
-	Rsvp *IPRsvp
-}
-
-// FiftyGigabitEthernetIPAugmentSchema describes FiftyGigabitEthernetIPAugment group fields with no codec root.
-var FiftyGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPRsvpSchema, GoName: "Rsvp", Name: "rsvp"},
-	},
-	Module: moduleCiscoIOSXERsvp,
-}
-
-// FiveGigabitEthernetIPAugment is the Cisco-IOS-XE-rsvp augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/ip.
-type FiveGigabitEthernetIPAugment struct {
-	Rsvp *IPRsvp
-}
-
-// FiveGigabitEthernetIPAugmentSchema describes FiveGigabitEthernetIPAugment group fields with no codec root.
-var FiveGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPRsvpSchema, GoName: "Rsvp", Name: "rsvp"},
-	},
-	Module: moduleCiscoIOSXERsvp,
-}
-
-// FortyGigabitEthernetIPAugment is the Cisco-IOS-XE-rsvp augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/ip.
-type FortyGigabitEthernetIPAugment struct {
-	Rsvp *IPRsvp
-}
-
-// FortyGigabitEthernetIPAugmentSchema describes FortyGigabitEthernetIPAugment group fields with no codec root.
-var FortyGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPRsvpSchema, GoName: "Rsvp", Name: "rsvp"},
-	},
-	Module: moduleCiscoIOSXERsvp,
-}
-
-// GigabitEthernetIPAugment is the Cisco-IOS-XE-rsvp augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/ip.
-type GigabitEthernetIPAugment struct {
-	Rsvp *IPRsvp
-}
-
-// GigabitEthernetIPAugmentSchema describes GigabitEthernetIPAugment group fields with no codec root.
-var GigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPRsvpSchema, GoName: "Rsvp", Name: "rsvp"},
-	},
-	Module: moduleCiscoIOSXERsvp,
-}
-
-// HundredGigEIPAugment is the Cisco-IOS-XE-rsvp augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/ip.
-type HundredGigEIPAugment struct {
-	Rsvp *IPRsvp
-}
-
-// HundredGigEIPAugmentSchema describes HundredGigEIPAugment group fields with no codec root.
-var HundredGigEIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPRsvpSchema, GoName: "Rsvp", Name: "rsvp"},
-	},
-	Module: moduleCiscoIOSXERsvp,
-}
-
-// LoopbackIPAugment is the Cisco-IOS-XE-rsvp augment group at /Cisco-IOS-XE-native:native/interface/Loopback/ip.
-type LoopbackIPAugment struct {
-	Rsvp *IPRsvp
-}
-
-// LoopbackIPAugmentSchema describes LoopbackIPAugment group fields with no codec root.
-var LoopbackIPAugmentSchema = &yang.Schema{
+// IPAugmentSchema describes IPAugment group fields with no codec root.
+var IPAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: IPRsvpSchema, GoName: "Rsvp", Name: "rsvp"},
 	},
@@ -777,71 +673,6 @@ type NativeIPAugment struct {
 var NativeIPAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: NativeIPRsvpSchema, GoName: "Rsvp", Name: "rsvp"},
-	},
-	Module: moduleCiscoIOSXERsvp,
-}
-
-// PortChannelIPAugment is the Cisco-IOS-XE-rsvp augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/ip.
-type PortChannelIPAugment struct {
-	Rsvp *IPRsvp
-}
-
-// PortChannelIPAugmentSchema describes PortChannelIPAugment group fields with no codec root.
-var PortChannelIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPRsvpSchema, GoName: "Rsvp", Name: "rsvp"},
-	},
-	Module: moduleCiscoIOSXERsvp,
-}
-
-// TenGigabitEthernetIPAugment is the Cisco-IOS-XE-rsvp augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/ip.
-type TenGigabitEthernetIPAugment struct {
-	Rsvp *IPRsvp
-}
-
-// TenGigabitEthernetIPAugmentSchema describes TenGigabitEthernetIPAugment group fields with no codec root.
-var TenGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPRsvpSchema, GoName: "Rsvp", Name: "rsvp"},
-	},
-	Module: moduleCiscoIOSXERsvp,
-}
-
-// TunnelIPAugment is the Cisco-IOS-XE-rsvp augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ip.
-type TunnelIPAugment struct {
-	Rsvp *IPRsvp
-}
-
-// TunnelIPAugmentSchema describes TunnelIPAugment group fields with no codec root.
-var TunnelIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPRsvpSchema, GoName: "Rsvp", Name: "rsvp"},
-	},
-	Module: moduleCiscoIOSXERsvp,
-}
-
-// TwentyFiveGigEIPAugment is the Cisco-IOS-XE-rsvp augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/ip.
-type TwentyFiveGigEIPAugment struct {
-	Rsvp *IPRsvp
-}
-
-// TwentyFiveGigEIPAugmentSchema describes TwentyFiveGigEIPAugment group fields with no codec root.
-var TwentyFiveGigEIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPRsvpSchema, GoName: "Rsvp", Name: "rsvp"},
-	},
-	Module: moduleCiscoIOSXERsvp,
-}
-
-// TwoGigabitEthernetIPAugment is the Cisco-IOS-XE-rsvp augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/ip.
-type TwoGigabitEthernetIPAugment struct {
-	Rsvp *IPRsvp
-}
-
-// TwoGigabitEthernetIPAugmentSchema describes TwoGigabitEthernetIPAugment group fields with no codec root.
-var TwoGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPRsvpSchema, GoName: "Rsvp", Name: "rsvp"},
 	},
 	Module: moduleCiscoIOSXERsvp,
 }

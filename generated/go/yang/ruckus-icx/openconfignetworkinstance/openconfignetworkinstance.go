@@ -13,12 +13,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleOpenconfigAftNetworkInstance identifies the openconfig-aft-network-instance YANG module.
-var moduleOpenconfigAftNetworkInstance = &yang.Module{
-	Name:      "openconfig-aft-network-instance",
-	Namespace: "http://openconfig.net/yang/aft/ni",
-}
-
 // moduleOpenconfigNetworkInstance identifies the openconfig-network-instance YANG module.
 var moduleOpenconfigNetworkInstance = &yang.Module{
 	Name:      "openconfig-network-instance",
@@ -29,12 +23,6 @@ var moduleOpenconfigNetworkInstance = &yang.Module{
 var moduleOpenconfigPfSrte = &yang.Module{
 	Name:      "openconfig-pf-srte",
 	Namespace: "http://openconfig.net/yang/policy-forwarding/sr-te",
-}
-
-// moduleOpenconfigRsvpSrExt identifies the openconfig-rsvp-sr-ext YANG module.
-var moduleOpenconfigRsvpSrExt = &yang.Module{
-	Name:      "openconfig-rsvp-sr-ext",
-	Namespace: "http://openconfig.net/yang/rsvp-sr-ext",
 }
 
 // Action is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/policy-forwarding/policies/policy/rules/rule/action.
@@ -4419,13 +4407,13 @@ var HelloAdjacencySchema = &yang.Schema{
 
 // HelloAdjacencyInterfaceRef is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/mpls/signaling-protocols/ldp/neighbors/neighbor/hello-adjacencies/hello-adjacency/interface-ref.
 type HelloAdjacencyInterfaceRef struct {
-	State *State
+	State *StateX7f4584
 }
 
 // HelloAdjacencyInterfaceRefSchema describes HelloAdjacencyInterfaceRef for the generic codecs.
 var HelloAdjacencyInterfaceRefSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{Child: StateSchema, GoName: "State", Name: "state"},
+		{Child: StateSchemaXe6ceba, GoName: "State", Name: "state"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "interface-ref",
@@ -4636,7 +4624,7 @@ var IPv4ConfigSchema = &yang.Schema{
 type IPv4Entry struct {
 	Config *Config
 	Prefix *string
-	State  *IPv4EntryState
+	State  *State
 }
 
 // IPv4EntrySchema describes IPv4Entry for the generic codecs.
@@ -4644,35 +4632,11 @@ var IPv4EntrySchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: ConfigSchema, GoName: "Config", Name: "config"},
 		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: IPv4EntryStateSchema, GoName: "State", Name: "state"},
+		{Child: StateSchema, GoName: "State", Name: "state"},
 	},
 	Keys:   []string{"prefix"},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "ipv4-entry",
-}
-
-// IPv4EntryState is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/afts/ipv4-unicast/ipv4-entry/state.
-type IPv4EntryState struct {
-	DecapsulateHeader            *string
-	NextHopGroup                 *uint64
-	OctetsForwarded              *uint64
-	PacketsForwarded             *uint64
-	Prefix                       *string
-	OpenconfigAftNetworkInstance *openconfigaftnetworkinstance.IPv4EntryStateAugment
-}
-
-// IPv4EntryStateSchema describes IPv4EntryState for the generic codecs.
-var IPv4EntryStateSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "DecapsulateHeader", Name: "decapsulate-header", Type: yang.TEnum},
-		{GoName: "NextHopGroup", Name: "next-hop-group", Type: yang.TUint64},
-		{GoName: "OctetsForwarded", Name: "octets-forwarded", Type: yang.TUint64},
-		{GoName: "PacketsForwarded", Name: "packets-forwarded", Type: yang.TUint64},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: openconfigaftnetworkinstance.IPv4EntryStateAugmentSchema, GoName: "OpenconfigAftNetworkInstance", Group: true},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "state",
 }
 
 // IPv4ExternalReachability is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/isis/levels/level/link-state-database/lsp/tlvs/tlv/ipv4-external-reachability.
@@ -4932,7 +4896,7 @@ var IPv6ConfigSchema = &yang.Schema{
 type IPv6Entry struct {
 	Config *Config
 	Prefix *string
-	State  *IPv6EntryState
+	State  *State
 }
 
 // IPv6EntrySchema describes IPv6Entry for the generic codecs.
@@ -4940,35 +4904,11 @@ var IPv6EntrySchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: ConfigSchema, GoName: "Config", Name: "config"},
 		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: IPv6EntryStateSchema, GoName: "State", Name: "state"},
+		{Child: StateSchema, GoName: "State", Name: "state"},
 	},
 	Keys:   []string{"prefix"},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "ipv6-entry",
-}
-
-// IPv6EntryState is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/afts/ipv6-unicast/ipv6-entry/state.
-type IPv6EntryState struct {
-	DecapsulateHeader            *string
-	NextHopGroup                 *uint64
-	OctetsForwarded              *uint64
-	PacketsForwarded             *uint64
-	Prefix                       *string
-	OpenconfigAftNetworkInstance *openconfigaftnetworkinstance.IPv6EntryStateAugment
-}
-
-// IPv6EntryStateSchema describes IPv6EntryState for the generic codecs.
-var IPv6EntryStateSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "DecapsulateHeader", Name: "decapsulate-header", Type: yang.TEnum},
-		{GoName: "NextHopGroup", Name: "next-hop-group", Type: yang.TUint64},
-		{GoName: "OctetsForwarded", Name: "octets-forwarded", Type: yang.TUint64},
-		{GoName: "PacketsForwarded", Name: "packets-forwarded", Type: yang.TUint64},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: openconfigaftnetworkinstance.IPv6EntryStateAugmentSchema, GoName: "OpenconfigAftNetworkInstance", Group: true},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "state",
 }
 
 // IPv6InterfaceAddress is the openconfig-network-instance node shape instantiated at 4 schema paths, such as /openconfig-network-instance:network-instances/network-instance/protocols/protocol/isis/levels/level/link-state-database/lsp/tlvs/tlv/extended-is-reachability/neighbors/neighbor/instances/instance/subtlvs/subtlv/ipv6-interface-address.
@@ -6356,14 +6296,14 @@ var InterfaceNeighborsNeighborConfigSchema = &yang.Schema{
 // InterfaceRef is the openconfig-network-instance node shape instantiated at 13 schema paths, such as /openconfig-network-instance:network-instances/network-instance/afts/next-hops/next-hop/interface-ref.
 type InterfaceRef struct {
 	Config *ConfigX32545e
-	State  *State
+	State  *StateX7f4584
 }
 
 // InterfaceRefSchema describes InterfaceRef for the generic codecs.
 var InterfaceRefSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: ConfigSchemaXff0a14, GoName: "Config", Name: "config"},
-		{Child: StateSchema, GoName: "State", Name: "state"},
+		{Child: StateSchemaXe6ceba, GoName: "State", Name: "state"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "interface-ref",
@@ -7926,14 +7866,14 @@ var LinkSubTlvsSubTlvStateSchema = &yang.Schema{
 // Local is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/connection-points/connection-point/endpoints/endpoint/local.
 type Local struct {
 	Config *ConfigX32545e
-	State  *State
+	State  *StateX7f4584
 }
 
 // LocalSchema describes Local for the generic codecs.
 var LocalSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: ConfigSchemaXff0a14, GoName: "Config", Name: "config"},
-		{Child: StateSchema, GoName: "State", Name: "state"},
+		{Child: StateSchemaXe6ceba, GoName: "State", Name: "state"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "local",
@@ -14511,17 +14451,25 @@ var SsmStateSchema = &yang.Schema{
 	Name:   "state",
 }
 
-// State is the openconfig-network-instance node shape instantiated at 15 schema paths, such as /openconfig-network-instance:network-instances/network-instance/afts/next-hops/next-hop/interface-ref/state.
+// State is the openconfig-network-instance node shape instantiated at 2 schema paths, such as /openconfig-network-instance:network-instances/network-instance/afts/ipv4-unicast/ipv4-entry/state.
 type State struct {
-	Interface    *string
-	Subinterface *string
+	DecapsulateHeader            *string
+	NextHopGroup                 *uint64
+	OctetsForwarded              *uint64
+	PacketsForwarded             *uint64
+	Prefix                       *string
+	OpenconfigAftNetworkInstance *openconfigaftnetworkinstance.StateAugment
 }
 
 // StateSchema describes State for the generic codecs.
 var StateSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{GoName: "Interface", Name: "interface", Type: yang.TString},
-		{GoName: "Subinterface", Name: "subinterface", Type: yang.TString},
+		{GoName: "DecapsulateHeader", Name: "decapsulate-header", Type: yang.TEnum},
+		{GoName: "NextHopGroup", Name: "next-hop-group", Type: yang.TUint64},
+		{GoName: "OctetsForwarded", Name: "octets-forwarded", Type: yang.TUint64},
+		{GoName: "PacketsForwarded", Name: "packets-forwarded", Type: yang.TUint64},
+		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
+		{Child: openconfigaftnetworkinstance.StateAugmentSchema, GoName: "OpenconfigAftNetworkInstance", Group: true},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "state",
@@ -14680,6 +14628,22 @@ var StateSchemaX54340a = &yang.Schema{
 			Kind:    yang.TypeUnion,
 			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeString}},
 		}},
+	},
+	Module: moduleOpenconfigNetworkInstance,
+	Name:   "state",
+}
+
+// StateX7f4584 is the openconfig-network-instance node shape instantiated at 15 schema paths, such as /openconfig-network-instance:network-instances/network-instance/afts/next-hops/next-hop/interface-ref/state.
+type StateX7f4584 struct {
+	Interface    *string
+	Subinterface *string
+}
+
+// StateSchemaXe6ceba describes StateX7f4584 for the generic codecs.
+var StateSchemaXe6ceba = &yang.Schema{
+	Fields: []yang.Field{
+		{GoName: "Interface", Name: "interface", Type: yang.TString},
+		{GoName: "Subinterface", Name: "subinterface", Type: yang.TString},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "state",

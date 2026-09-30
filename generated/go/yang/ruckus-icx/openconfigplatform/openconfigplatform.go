@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleOpenconfigAlarms identifies the openconfig-alarms YANG module.
-var moduleOpenconfigAlarms = &yang.Module{
-	Name:      "openconfig-alarms",
-	Namespace: "http://openconfig.net/yang/alarms",
-}
-
 // moduleOpenconfigPlatform identifies the openconfig-platform YANG module.
 var moduleOpenconfigPlatform = &yang.Module{
 	Name:      "openconfig-platform",

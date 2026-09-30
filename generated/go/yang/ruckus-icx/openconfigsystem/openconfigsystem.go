@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleIcxOpenconfigAaaAug identifies the icx-openconfig-aaa-aug YANG module.
-var moduleIcxOpenconfigAaaAug = &yang.Module{
-	Name:      "icx-openconfig-aaa-aug",
-	Namespace: "http://commscope.com/ns/yang/icx/icx-openconfig-aaa-aug",
-}
-
 // moduleOpenconfigSystem identifies the openconfig-system YANG module.
 var moduleOpenconfigSystem = &yang.Module{
 	Name:      "openconfig-system",

@@ -1315,13 +1315,13 @@ var WirelessSchema = &yang.Schema{
 	Name:   "wireless",
 }
 
-// AppGigabitEthernetAccessSessionAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/access-session.
-type AppGigabitEthernetAccessSessionAugment struct {
+// AccessSessionAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/access-session.
+type AccessSessionAugment struct {
 	Limit *AccessSessionLimit
 }
 
-// AppGigabitEthernetAccessSessionAugmentSchema describes AppGigabitEthernetAccessSessionAugment group fields with no codec root.
-var AppGigabitEthernetAccessSessionAugmentSchema = &yang.Schema{
+// AccessSessionAugmentSchema describes AccessSessionAugment group fields with no codec root.
+var AccessSessionAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: AccessSessionLimitSchema, GoName: "Limit", Name: "limit"},
 	},
@@ -1343,19 +1343,6 @@ var AppGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESanet,
 }
 
-// FastEthernetAccessSessionAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/access-session.
-type FastEthernetAccessSessionAugment struct {
-	Limit *AccessSessionLimit
-}
-
-// FastEthernetAccessSessionAugmentSchema describes FastEthernetAccessSessionAugment group fields with no codec root.
-var FastEthernetAccessSessionAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AccessSessionLimitSchema, GoName: "Limit", Name: "limit"},
-	},
-	Module: moduleCiscoIOSXESanet,
-}
-
 // FastEthernetAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet.
 type FastEthernetAugment struct {
 	Authentication *Authentication
@@ -1367,19 +1354,6 @@ var FastEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: AuthenticationSchema, GoName: "Authentication", Name: "authentication"},
 		{Child: MabSchema, GoName: "Mab", Name: "mab"},
-	},
-	Module: moduleCiscoIOSXESanet,
-}
-
-// FiftyGigabitEthernetAccessSessionAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/access-session.
-type FiftyGigabitEthernetAccessSessionAugment struct {
-	Limit *AccessSessionLimit
-}
-
-// FiftyGigabitEthernetAccessSessionAugmentSchema describes FiftyGigabitEthernetAccessSessionAugment group fields with no codec root.
-var FiftyGigabitEthernetAccessSessionAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AccessSessionLimitSchema, GoName: "Limit", Name: "limit"},
 	},
 	Module: moduleCiscoIOSXESanet,
 }
@@ -1399,19 +1373,6 @@ var FiftyGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESanet,
 }
 
-// FiveGigabitEthernetAccessSessionAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/access-session.
-type FiveGigabitEthernetAccessSessionAugment struct {
-	Limit *AccessSessionLimit
-}
-
-// FiveGigabitEthernetAccessSessionAugmentSchema describes FiveGigabitEthernetAccessSessionAugment group fields with no codec root.
-var FiveGigabitEthernetAccessSessionAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AccessSessionLimitSchema, GoName: "Limit", Name: "limit"},
-	},
-	Module: moduleCiscoIOSXESanet,
-}
-
 // FiveGigabitEthernetAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet.
 type FiveGigabitEthernetAugment struct {
 	Authentication *Authentication
@@ -1423,19 +1384,6 @@ var FiveGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: AuthenticationSchema, GoName: "Authentication", Name: "authentication"},
 		{Child: MabSchema, GoName: "Mab", Name: "mab"},
-	},
-	Module: moduleCiscoIOSXESanet,
-}
-
-// FortyGigabitEthernetAccessSessionAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/access-session.
-type FortyGigabitEthernetAccessSessionAugment struct {
-	Limit *AccessSessionLimit
-}
-
-// FortyGigabitEthernetAccessSessionAugmentSchema describes FortyGigabitEthernetAccessSessionAugment group fields with no codec root.
-var FortyGigabitEthernetAccessSessionAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AccessSessionLimitSchema, GoName: "Limit", Name: "limit"},
 	},
 	Module: moduleCiscoIOSXESanet,
 }
@@ -1455,19 +1403,6 @@ var FortyGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESanet,
 }
 
-// GigabitEthernetAccessSessionAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/access-session.
-type GigabitEthernetAccessSessionAugment struct {
-	Limit *AccessSessionLimit
-}
-
-// GigabitEthernetAccessSessionAugmentSchema describes GigabitEthernetAccessSessionAugment group fields with no codec root.
-var GigabitEthernetAccessSessionAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AccessSessionLimitSchema, GoName: "Limit", Name: "limit"},
-	},
-	Module: moduleCiscoIOSXESanet,
-}
-
 // GigabitEthernetAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet.
 type GigabitEthernetAugment struct {
 	Authentication *Authentication
@@ -1479,19 +1414,6 @@ var GigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: AuthenticationSchema, GoName: "Authentication", Name: "authentication"},
 		{Child: MabSchema, GoName: "Mab", Name: "mab"},
-	},
-	Module: moduleCiscoIOSXESanet,
-}
-
-// HundredGigEAccessSessionAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/access-session.
-type HundredGigEAccessSessionAugment struct {
-	Limit *AccessSessionLimit
-}
-
-// HundredGigEAccessSessionAugmentSchema describes HundredGigEAccessSessionAugment group fields with no codec root.
-var HundredGigEAccessSessionAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AccessSessionLimitSchema, GoName: "Limit", Name: "limit"},
 	},
 	Module: moduleCiscoIOSXESanet,
 }
@@ -1543,19 +1465,6 @@ var PortChannelAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESanet,
 }
 
-// TenGigabitEthernetAccessSessionAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/access-session.
-type TenGigabitEthernetAccessSessionAugment struct {
-	Limit *AccessSessionLimit
-}
-
-// TenGigabitEthernetAccessSessionAugmentSchema describes TenGigabitEthernetAccessSessionAugment group fields with no codec root.
-var TenGigabitEthernetAccessSessionAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AccessSessionLimitSchema, GoName: "Limit", Name: "limit"},
-	},
-	Module: moduleCiscoIOSXESanet,
-}
-
 // TenGigabitEthernetAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet.
 type TenGigabitEthernetAugment struct {
 	Authentication *Authentication
@@ -1571,19 +1480,6 @@ var TenGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESanet,
 }
 
-// TwentyFiveGigEAccessSessionAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/access-session.
-type TwentyFiveGigEAccessSessionAugment struct {
-	Limit *AccessSessionLimit
-}
-
-// TwentyFiveGigEAccessSessionAugmentSchema describes TwentyFiveGigEAccessSessionAugment group fields with no codec root.
-var TwentyFiveGigEAccessSessionAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AccessSessionLimitSchema, GoName: "Limit", Name: "limit"},
-	},
-	Module: moduleCiscoIOSXESanet,
-}
-
 // TwentyFiveGigEAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE.
 type TwentyFiveGigEAugment struct {
 	Authentication *Authentication
@@ -1595,19 +1491,6 @@ var TwentyFiveGigEAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: AuthenticationSchema, GoName: "Authentication", Name: "authentication"},
 		{Child: MabSchema, GoName: "Mab", Name: "mab"},
-	},
-	Module: moduleCiscoIOSXESanet,
-}
-
-// TwoGigabitEthernetAccessSessionAugment is the Cisco-IOS-XE-sanet augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/access-session.
-type TwoGigabitEthernetAccessSessionAugment struct {
-	Limit *AccessSessionLimit
-}
-
-// TwoGigabitEthernetAccessSessionAugmentSchema describes TwoGigabitEthernetAccessSessionAugment group fields with no codec root.
-var TwoGigabitEthernetAccessSessionAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AccessSessionLimitSchema, GoName: "Limit", Name: "limit"},
 	},
 	Module: moduleCiscoIOSXESanet,
 }

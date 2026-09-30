@@ -17555,19 +17555,6 @@ var AppGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXECrypto,
 }
 
-// AppGigabitEthernetIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ipv6.
-type AppGigabitEthernetIPv6Augment struct {
-	Crypto *IPv6Crypto
-}
-
-// AppGigabitEthernetIPv6AugmentSchema describes AppGigabitEthernetIPv6Augment group fields with no codec root.
-var AppGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
 // CryptoAugment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/crypto.
 type CryptoAugment struct {
 	Autovpn     []Autovpn
@@ -17674,19 +17661,6 @@ var FastEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXECrypto,
 }
 
-// FastEthernetIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/ipv6.
-type FastEthernetIPv6Augment struct {
-	Crypto *IPv6Crypto
-}
-
-// FastEthernetIPv6AugmentSchema describes FastEthernetIPv6Augment group fields with no codec root.
-var FastEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
 // FiftyGigabitEthernetAugment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet.
 type FiftyGigabitEthernetAugment struct {
 	Crypto *Crypto
@@ -17696,19 +17670,6 @@ type FiftyGigabitEthernetAugment struct {
 var FiftyGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: CryptoSchema, GoName: "Crypto", Name: "crypto"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
-// FiftyGigabitEthernetIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/ipv6.
-type FiftyGigabitEthernetIPv6Augment struct {
-	Crypto *IPv6Crypto
-}
-
-// FiftyGigabitEthernetIPv6AugmentSchema describes FiftyGigabitEthernetIPv6Augment group fields with no codec root.
-var FiftyGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
 	},
 	Module: moduleCiscoIOSXECrypto,
 }
@@ -17726,19 +17687,6 @@ var FiveGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXECrypto,
 }
 
-// FiveGigabitEthernetIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/ipv6.
-type FiveGigabitEthernetIPv6Augment struct {
-	Crypto *IPv6Crypto
-}
-
-// FiveGigabitEthernetIPv6AugmentSchema describes FiveGigabitEthernetIPv6Augment group fields with no codec root.
-var FiveGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
 // FortyGigabitEthernetAugment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet.
 type FortyGigabitEthernetAugment struct {
 	Crypto *Crypto
@@ -17748,19 +17696,6 @@ type FortyGigabitEthernetAugment struct {
 var FortyGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: CryptoSchema, GoName: "Crypto", Name: "crypto"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
-// FortyGigabitEthernetIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/ipv6.
-type FortyGigabitEthernetIPv6Augment struct {
-	Crypto *IPv6Crypto
-}
-
-// FortyGigabitEthernetIPv6AugmentSchema describes FortyGigabitEthernetIPv6Augment group fields with no codec root.
-var FortyGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
 	},
 	Module: moduleCiscoIOSXECrypto,
 }
@@ -17778,19 +17713,6 @@ var GigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXECrypto,
 }
 
-// GigabitEthernetIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/ipv6.
-type GigabitEthernetIPv6Augment struct {
-	Crypto *IPv6Crypto
-}
-
-// GigabitEthernetIPv6AugmentSchema describes GigabitEthernetIPv6Augment group fields with no codec root.
-var GigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
 // HundredGigEAugment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE.
 type HundredGigEAugment struct {
 	Crypto *Crypto
@@ -17804,13 +17726,13 @@ var HundredGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXECrypto,
 }
 
-// HundredGigEIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/ipv6.
-type HundredGigEIPv6Augment struct {
+// IPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ipv6.
+type IPv6Augment struct {
 	Crypto *IPv6Crypto
 }
 
-// HundredGigEIPv6AugmentSchema describes HundredGigEIPv6Augment group fields with no codec root.
-var HundredGigEIPv6AugmentSchema = &yang.Schema{
+// IPv6AugmentSchema describes IPv6Augment group fields with no codec root.
+var IPv6AugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
 	},
@@ -17858,19 +17780,6 @@ var LoopbackAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXECrypto,
 }
 
-// LoopbackIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/Loopback/ipv6.
-type LoopbackIPv6Augment struct {
-	Crypto *IPv6Crypto
-}
-
-// LoopbackIPv6AugmentSchema describes LoopbackIPv6Augment group fields with no codec root.
-var LoopbackIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
 // PortChannelAugment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/Port-channel.
 type PortChannelAugment struct {
 	Crypto *Crypto
@@ -17884,15 +17793,17 @@ var PortChannelAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXECrypto,
 }
 
-// PortChannelIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/ipv6.
-type PortChannelIPv6Augment struct {
-	Crypto *IPv6Crypto
+// ProtectionAugment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/Cisco-IOS-XE-tunnel:tunnel/protection.
+type ProtectionAugment struct {
+	Dike  *Dike
+	Ipsec *ProtectionIpsec
 }
 
-// PortChannelIPv6AugmentSchema describes PortChannelIPv6Augment group fields with no codec root.
-var PortChannelIPv6AugmentSchema = &yang.Schema{
+// ProtectionAugmentSchema describes ProtectionAugment group fields with no codec root.
+var ProtectionAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
+		{Child: DikeSchema, GoName: "Dike", Name: "dike"},
+		{Child: ProtectionIpsecSchema, GoName: "Ipsec", Name: "ipsec"},
 	},
 	Module: moduleCiscoIOSXECrypto,
 }
@@ -17906,19 +17817,6 @@ type TenGigabitEthernetAugment struct {
 var TenGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: CryptoSchema, GoName: "Crypto", Name: "crypto"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
-// TenGigabitEthernetIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/ipv6.
-type TenGigabitEthernetIPv6Augment struct {
-	Crypto *IPv6Crypto
-}
-
-// TenGigabitEthernetIPv6AugmentSchema describes TenGigabitEthernetIPv6Augment group fields with no codec root.
-var TenGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
 	},
 	Module: moduleCiscoIOSXECrypto,
 }
@@ -17949,34 +17847,6 @@ var TunnelAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXECrypto,
 }
 
-// TunnelIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ipv6.
-type TunnelIPv6Augment struct {
-	Crypto *IPv6Crypto
-}
-
-// TunnelIPv6AugmentSchema describes TunnelIPv6Augment group fields with no codec root.
-var TunnelIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
-// TunnelTunnelProtectionAugment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/Cisco-IOS-XE-tunnel:tunnel/protection.
-type TunnelTunnelProtectionAugment struct {
-	Dike  *Dike
-	Ipsec *ProtectionIpsec
-}
-
-// TunnelTunnelProtectionAugmentSchema describes TunnelTunnelProtectionAugment group fields with no codec root.
-var TunnelTunnelProtectionAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: DikeSchema, GoName: "Dike", Name: "dike"},
-		{Child: ProtectionIpsecSchema, GoName: "Ipsec", Name: "ipsec"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
 // TwentyFiveGigEAugment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE.
 type TwentyFiveGigEAugment struct {
 	Crypto *Crypto
@@ -17986,19 +17856,6 @@ type TwentyFiveGigEAugment struct {
 var TwentyFiveGigEAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: CryptoSchema, GoName: "Crypto", Name: "crypto"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
-// TwentyFiveGigEIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/ipv6.
-type TwentyFiveGigEIPv6Augment struct {
-	Crypto *IPv6Crypto
-}
-
-// TwentyFiveGigEIPv6AugmentSchema describes TwentyFiveGigEIPv6Augment group fields with no codec root.
-var TwentyFiveGigEIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
 	},
 	Module: moduleCiscoIOSXECrypto,
 }
@@ -18016,19 +17873,6 @@ var TwoGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXECrypto,
 }
 
-// TwoGigabitEthernetIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/ipv6.
-type TwoGigabitEthernetIPv6Augment struct {
-	Crypto *IPv6Crypto
-}
-
-// TwoGigabitEthernetIPv6AugmentSchema describes TwoGigabitEthernetIPv6Augment group fields with no codec root.
-var TwoGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
 // VLANAugment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/Vlan.
 type VLANAugment struct {
 	Crypto *Crypto
@@ -18038,19 +17882,6 @@ type VLANAugment struct {
 var VLANAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: CryptoSchema, GoName: "Crypto", Name: "crypto"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
-// VLANIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/Vlan/ipv6.
-type VLANIPv6Augment struct {
-	Crypto *IPv6Crypto
-}
-
-// VLANIPv6AugmentSchema describes VLANIPv6Augment group fields with no codec root.
-var VLANIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
 	},
 	Module: moduleCiscoIOSXECrypto,
 }
@@ -18068,19 +17899,6 @@ var VirtualPPPAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXECrypto,
 }
 
-// VirtualPPPIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/Virtual-PPP/ipv6.
-type VirtualPPPIPv6Augment struct {
-	Crypto *IPv6Crypto
-}
-
-// VirtualPPPIPv6AugmentSchema describes VirtualPPPIPv6Augment group fields with no codec root.
-var VirtualPPPIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
 // VirtualTemplateAugment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/Virtual-Template.
 type VirtualTemplateAugment struct {
 	Crypto *Crypto
@@ -18090,34 +17908,6 @@ type VirtualTemplateAugment struct {
 var VirtualTemplateAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: CryptoSchema, GoName: "Crypto", Name: "crypto"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
-// VirtualTemplateIPv6Augment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/Virtual-Template/ipv6.
-type VirtualTemplateIPv6Augment struct {
-	Crypto *IPv6Crypto
-}
-
-// VirtualTemplateIPv6AugmentSchema describes VirtualTemplateIPv6Augment group fields with no codec root.
-var VirtualTemplateIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6CryptoSchema, GoName: "Crypto", Name: "crypto"},
-	},
-	Module: moduleCiscoIOSXECrypto,
-}
-
-// VirtualTemplateTunnelProtectionAugment is the Cisco-IOS-XE-crypto augment group at /Cisco-IOS-XE-native:native/interface/Virtual-Template/Cisco-IOS-XE-tunnel:tunnel/protection.
-type VirtualTemplateTunnelProtectionAugment struct {
-	Dike  *Dike
-	Ipsec *ProtectionIpsec
-}
-
-// VirtualTemplateTunnelProtectionAugmentSchema describes VirtualTemplateTunnelProtectionAugment group fields with no codec root.
-var VirtualTemplateTunnelProtectionAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: DikeSchema, GoName: "Dike", Name: "dike"},
-		{Child: ProtectionIpsecSchema, GoName: "Ipsec", Name: "ipsec"},
 	},
 	Module: moduleCiscoIOSXECrypto,
 }

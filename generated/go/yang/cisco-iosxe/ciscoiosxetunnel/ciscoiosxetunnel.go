@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCiscoIOSXECrypto identifies the Cisco-IOS-XE-crypto YANG module.
-var moduleCiscoIOSXECrypto = &yang.Module{
-	Name:      "Cisco-IOS-XE-crypto",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
-}
-
 // moduleCiscoIOSXETunnel identifies the Cisco-IOS-XE-tunnel YANG module.
 var moduleCiscoIOSXETunnel = &yang.Module{
 	Name:      "Cisco-IOS-XE-tunnel",
@@ -1312,6 +1306,20 @@ var ProtectListSchema = &yang.Schema{
 	Name:   "list",
 }
 
+// Protection is the Cisco-IOS-XE-tunnel node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/interface/Tunnel/Cisco-IOS-XE-tunnel:tunnel/protection.
+type Protection struct {
+	CiscoIOSXECrypto *ciscoiosxecrypto.ProtectionAugment
+}
+
+// ProtectionSchema describes Protection for the generic codecs.
+var ProtectionSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: ciscoiosxecrypto.ProtectionAugmentSchema, GoName: "CiscoIOSXECrypto", Group: true},
+	},
+	Module: moduleCiscoIOSXETunnel,
+	Name:   "protection",
+}
+
 // RawPacketInterfaceConfig is the Cisco-IOS-XE-tunnel node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/interface/Tunnel/Cisco-IOS-XE-tunnel:tunnel/raw-packet-interface-config.
 type RawPacketInterfaceConfig struct {
 	ATM                       *string
@@ -1865,6 +1873,90 @@ var Tun6rdIPv4Schema = &yang.Schema{
 	Name:   "ipv4",
 }
 
+// Tunnel is the Cisco-IOS-XE-tunnel node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/interface/Tunnel/Cisco-IOS-XE-tunnel:tunnel.
+type Tunnel struct {
+	Bandwidth                *TunnelBandwidth
+	Checksum                 *bool
+	Destination              *Destination
+	DestinationConfig        *DestinationConfig
+	DstPort                  *DstPort
+	Endpoint                 *Endpoint
+	Entropy                  *bool
+	Fixup                    *Fixup
+	Flow                     *Flow
+	Key                      *uint64
+	Metadata                 *Metadata
+	Mode                     *Mode
+	Mpls                     *TunnelMpls
+	MplsIPOnly               *bool
+	NetworkID                *NetworkID
+	PathMTUDiscovery         *PathMTUDiscovery
+	Protection               *Protection
+	RawPacketInterface       *string
+	RawPacketInterfaceConfig *RawPacketInterfaceConfig
+	Rbscp                    *Rbscp
+	RouteVia                 *RouteVia
+	Rrr                      *string
+	Snooping                 *string
+	Source                   *string
+	SrcMACAddress            *string
+	SrcPort                  *SrcPort
+	Tos                      *uint8
+	TspHop                   *bool
+	TTL                      *uint8
+	Tun6rd                   *Tun6rd
+	Udlr                     *Udlr
+	UdlrConfig               *UdlrConfig
+	VLAN                     *VLAN
+	VRF                      *string
+	VRFConfig                *VRFConfig
+	Vxlan                    *TunnelVxlan
+}
+
+// TunnelSchema describes Tunnel for the generic codecs.
+var TunnelSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: TunnelBandwidthSchema, GoName: "Bandwidth", Name: "bandwidth"},
+		{GoName: "Checksum", Name: "checksum", Type: yang.TEmpty},
+		{Child: DestinationSchema, GoName: "Destination", Name: "destination"},
+		{Child: DestinationConfigSchema, GoName: "DestinationConfig", Name: "destination-config"},
+		{Child: DstPortSchema, GoName: "DstPort", Name: "dst-port"},
+		{Child: EndpointSchema, GoName: "Endpoint", Name: "endpoint"},
+		{GoName: "Entropy", Name: "entropy", Type: yang.TEmpty},
+		{Child: FixupSchema, GoName: "Fixup", Name: "fixup"},
+		{Child: FlowSchema, GoName: "Flow", Name: "flow"},
+		{GoName: "Key", Name: "key", Type: yang.TUint64},
+		{Child: MetadataSchema, GoName: "Metadata", Name: "metadata"},
+		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
+		{Child: TunnelMplsSchema, GoName: "Mpls", Name: "mpls"},
+		{GoName: "MplsIPOnly", Name: "mpls-ip-only", Type: yang.TEmpty},
+		{Child: NetworkIDSchema, GoName: "NetworkID", Name: "network-id"},
+		{Child: PathMTUDiscoverySchema, GoName: "PathMTUDiscovery", Name: "path-mtu-discovery"},
+		{Child: ProtectionSchema, GoName: "Protection", Name: "protection"},
+		{GoName: "RawPacketInterface", Name: "raw-packet-interface", Type: yang.TString},
+		{Child: RawPacketInterfaceConfigSchema, GoName: "RawPacketInterfaceConfig", Name: "raw-packet-interface-config"},
+		{Child: RbscpSchema, GoName: "Rbscp", Name: "rbscp"},
+		{Child: RouteViaSchema, GoName: "RouteVia", Name: "route-via"},
+		{GoName: "Rrr", Name: "rrr", Type: yang.TString},
+		{GoName: "Snooping", Name: "snooping", Type: yang.TEnum},
+		{GoName: "Source", Name: "source", Type: yang.TString},
+		{GoName: "SrcMACAddress", Name: "src-mac-address", Type: yang.TString},
+		{Child: SrcPortSchema, GoName: "SrcPort", Name: "src-port"},
+		{GoName: "Tos", Name: "tos", Type: yang.TUint8},
+		{GoName: "TspHop", Name: "tsp-hop", Type: yang.TEmpty},
+		{GoName: "TTL", Name: "ttl", Type: yang.TUint8},
+		{Child: Tun6rdSchema, GoName: "Tun6rd", Name: "tun-6rd"},
+		{Child: UdlrSchema, GoName: "Udlr", Name: "udlr"},
+		{Child: UdlrConfigSchema, GoName: "UdlrConfig", Name: "udlr-config"},
+		{Child: VLANSchema, GoName: "VLAN", Name: "vlan"},
+		{GoName: "VRF", Name: "vrf", Type: yang.TString},
+		{Child: VRFConfigSchema, GoName: "VRFConfig", Name: "vrf-config"},
+		{Child: TunnelVxlanSchema, GoName: "Vxlan", Name: "vxlan"},
+	},
+	Module: moduleCiscoIOSXETunnel,
+	Name:   "tunnel",
+}
+
 // TunnelBandwidth is the Cisco-IOS-XE-tunnel node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/interface/Tunnel/Cisco-IOS-XE-tunnel:tunnel/bandwidth.
 type TunnelBandwidth struct {
 	Receive  *uint32
@@ -1941,104 +2033,6 @@ var TunnelMplsTrafficEngSchema = &yang.Schema{
 	},
 	Module: moduleCiscoIOSXETunnel,
 	Name:   "traffic-eng",
-}
-
-// TunnelTunnel is the Cisco-IOS-XE-tunnel node /Cisco-IOS-XE-native:native/interface/Tunnel/Cisco-IOS-XE-tunnel:tunnel.
-type TunnelTunnel struct {
-	Bandwidth                *TunnelBandwidth
-	Checksum                 *bool
-	Destination              *Destination
-	DestinationConfig        *DestinationConfig
-	DstPort                  *DstPort
-	Endpoint                 *Endpoint
-	Entropy                  *bool
-	Fixup                    *Fixup
-	Flow                     *Flow
-	Key                      *uint64
-	Metadata                 *Metadata
-	Mode                     *Mode
-	Mpls                     *TunnelMpls
-	MplsIPOnly               *bool
-	NetworkID                *NetworkID
-	PathMTUDiscovery         *PathMTUDiscovery
-	Protection               *TunnelTunnelProtection
-	RawPacketInterface       *string
-	RawPacketInterfaceConfig *RawPacketInterfaceConfig
-	Rbscp                    *Rbscp
-	RouteVia                 *RouteVia
-	Rrr                      *string
-	Snooping                 *string
-	Source                   *string
-	SrcMACAddress            *string
-	SrcPort                  *SrcPort
-	Tos                      *uint8
-	TspHop                   *bool
-	TTL                      *uint8
-	Tun6rd                   *Tun6rd
-	Udlr                     *Udlr
-	UdlrConfig               *UdlrConfig
-	VLAN                     *VLAN
-	VRF                      *string
-	VRFConfig                *VRFConfig
-	Vxlan                    *TunnelVxlan
-}
-
-// TunnelTunnelSchema describes TunnelTunnel for the generic codecs.
-var TunnelTunnelSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: TunnelBandwidthSchema, GoName: "Bandwidth", Name: "bandwidth"},
-		{GoName: "Checksum", Name: "checksum", Type: yang.TEmpty},
-		{Child: DestinationSchema, GoName: "Destination", Name: "destination"},
-		{Child: DestinationConfigSchema, GoName: "DestinationConfig", Name: "destination-config"},
-		{Child: DstPortSchema, GoName: "DstPort", Name: "dst-port"},
-		{Child: EndpointSchema, GoName: "Endpoint", Name: "endpoint"},
-		{GoName: "Entropy", Name: "entropy", Type: yang.TEmpty},
-		{Child: FixupSchema, GoName: "Fixup", Name: "fixup"},
-		{Child: FlowSchema, GoName: "Flow", Name: "flow"},
-		{GoName: "Key", Name: "key", Type: yang.TUint64},
-		{Child: MetadataSchema, GoName: "Metadata", Name: "metadata"},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{Child: TunnelMplsSchema, GoName: "Mpls", Name: "mpls"},
-		{GoName: "MplsIPOnly", Name: "mpls-ip-only", Type: yang.TEmpty},
-		{Child: NetworkIDSchema, GoName: "NetworkID", Name: "network-id"},
-		{Child: PathMTUDiscoverySchema, GoName: "PathMTUDiscovery", Name: "path-mtu-discovery"},
-		{Child: TunnelTunnelProtectionSchema, GoName: "Protection", Name: "protection"},
-		{GoName: "RawPacketInterface", Name: "raw-packet-interface", Type: yang.TString},
-		{Child: RawPacketInterfaceConfigSchema, GoName: "RawPacketInterfaceConfig", Name: "raw-packet-interface-config"},
-		{Child: RbscpSchema, GoName: "Rbscp", Name: "rbscp"},
-		{Child: RouteViaSchema, GoName: "RouteVia", Name: "route-via"},
-		{GoName: "Rrr", Name: "rrr", Type: yang.TString},
-		{GoName: "Snooping", Name: "snooping", Type: yang.TEnum},
-		{GoName: "Source", Name: "source", Type: yang.TString},
-		{GoName: "SrcMACAddress", Name: "src-mac-address", Type: yang.TString},
-		{Child: SrcPortSchema, GoName: "SrcPort", Name: "src-port"},
-		{GoName: "Tos", Name: "tos", Type: yang.TUint8},
-		{GoName: "TspHop", Name: "tsp-hop", Type: yang.TEmpty},
-		{GoName: "TTL", Name: "ttl", Type: yang.TUint8},
-		{Child: Tun6rdSchema, GoName: "Tun6rd", Name: "tun-6rd"},
-		{Child: UdlrSchema, GoName: "Udlr", Name: "udlr"},
-		{Child: UdlrConfigSchema, GoName: "UdlrConfig", Name: "udlr-config"},
-		{Child: VLANSchema, GoName: "VLAN", Name: "vlan"},
-		{GoName: "VRF", Name: "vrf", Type: yang.TString},
-		{Child: VRFConfigSchema, GoName: "VRFConfig", Name: "vrf-config"},
-		{Child: TunnelVxlanSchema, GoName: "Vxlan", Name: "vxlan"},
-	},
-	Module: moduleCiscoIOSXETunnel,
-	Name:   "tunnel",
-}
-
-// TunnelTunnelProtection is the Cisco-IOS-XE-tunnel node /Cisco-IOS-XE-native:native/interface/Tunnel/Cisco-IOS-XE-tunnel:tunnel/protection.
-type TunnelTunnelProtection struct {
-	CiscoIOSXECrypto *ciscoiosxecrypto.TunnelTunnelProtectionAugment
-}
-
-// TunnelTunnelProtectionSchema describes TunnelTunnelProtection for the generic codecs.
-var TunnelTunnelProtectionSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: ciscoiosxecrypto.TunnelTunnelProtectionAugmentSchema, GoName: "CiscoIOSXECrypto", Group: true},
-	},
-	Module: moduleCiscoIOSXETunnel,
-	Name:   "protection",
 }
 
 // TunnelVxlan is the Cisco-IOS-XE-tunnel node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/interface/Tunnel/Cisco-IOS-XE-tunnel:tunnel/vxlan.
@@ -2195,104 +2189,6 @@ var VRFIngressSchema = &yang.Schema{
 	Name:   "vrf-ingress",
 }
 
-// VirtualTemplateTunnel is the Cisco-IOS-XE-tunnel node /Cisco-IOS-XE-native:native/interface/Virtual-Template/Cisco-IOS-XE-tunnel:tunnel.
-type VirtualTemplateTunnel struct {
-	Bandwidth                *TunnelBandwidth
-	Checksum                 *bool
-	Destination              *Destination
-	DestinationConfig        *DestinationConfig
-	DstPort                  *DstPort
-	Endpoint                 *Endpoint
-	Entropy                  *bool
-	Fixup                    *Fixup
-	Flow                     *Flow
-	Key                      *uint64
-	Metadata                 *Metadata
-	Mode                     *Mode
-	Mpls                     *TunnelMpls
-	MplsIPOnly               *bool
-	NetworkID                *NetworkID
-	PathMTUDiscovery         *PathMTUDiscovery
-	Protection               *VirtualTemplateTunnelProtection
-	RawPacketInterface       *string
-	RawPacketInterfaceConfig *RawPacketInterfaceConfig
-	Rbscp                    *Rbscp
-	RouteVia                 *RouteVia
-	Rrr                      *string
-	Snooping                 *string
-	Source                   *string
-	SrcMACAddress            *string
-	SrcPort                  *SrcPort
-	Tos                      *uint8
-	TspHop                   *bool
-	TTL                      *uint8
-	Tun6rd                   *Tun6rd
-	Udlr                     *Udlr
-	UdlrConfig               *UdlrConfig
-	VLAN                     *VLAN
-	VRF                      *string
-	VRFConfig                *VRFConfig
-	Vxlan                    *TunnelVxlan
-}
-
-// VirtualTemplateTunnelSchema describes VirtualTemplateTunnel for the generic codecs.
-var VirtualTemplateTunnelSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: TunnelBandwidthSchema, GoName: "Bandwidth", Name: "bandwidth"},
-		{GoName: "Checksum", Name: "checksum", Type: yang.TEmpty},
-		{Child: DestinationSchema, GoName: "Destination", Name: "destination"},
-		{Child: DestinationConfigSchema, GoName: "DestinationConfig", Name: "destination-config"},
-		{Child: DstPortSchema, GoName: "DstPort", Name: "dst-port"},
-		{Child: EndpointSchema, GoName: "Endpoint", Name: "endpoint"},
-		{GoName: "Entropy", Name: "entropy", Type: yang.TEmpty},
-		{Child: FixupSchema, GoName: "Fixup", Name: "fixup"},
-		{Child: FlowSchema, GoName: "Flow", Name: "flow"},
-		{GoName: "Key", Name: "key", Type: yang.TUint64},
-		{Child: MetadataSchema, GoName: "Metadata", Name: "metadata"},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{Child: TunnelMplsSchema, GoName: "Mpls", Name: "mpls"},
-		{GoName: "MplsIPOnly", Name: "mpls-ip-only", Type: yang.TEmpty},
-		{Child: NetworkIDSchema, GoName: "NetworkID", Name: "network-id"},
-		{Child: PathMTUDiscoverySchema, GoName: "PathMTUDiscovery", Name: "path-mtu-discovery"},
-		{Child: VirtualTemplateTunnelProtectionSchema, GoName: "Protection", Name: "protection"},
-		{GoName: "RawPacketInterface", Name: "raw-packet-interface", Type: yang.TString},
-		{Child: RawPacketInterfaceConfigSchema, GoName: "RawPacketInterfaceConfig", Name: "raw-packet-interface-config"},
-		{Child: RbscpSchema, GoName: "Rbscp", Name: "rbscp"},
-		{Child: RouteViaSchema, GoName: "RouteVia", Name: "route-via"},
-		{GoName: "Rrr", Name: "rrr", Type: yang.TString},
-		{GoName: "Snooping", Name: "snooping", Type: yang.TEnum},
-		{GoName: "Source", Name: "source", Type: yang.TString},
-		{GoName: "SrcMACAddress", Name: "src-mac-address", Type: yang.TString},
-		{Child: SrcPortSchema, GoName: "SrcPort", Name: "src-port"},
-		{GoName: "Tos", Name: "tos", Type: yang.TUint8},
-		{GoName: "TspHop", Name: "tsp-hop", Type: yang.TEmpty},
-		{GoName: "TTL", Name: "ttl", Type: yang.TUint8},
-		{Child: Tun6rdSchema, GoName: "Tun6rd", Name: "tun-6rd"},
-		{Child: UdlrSchema, GoName: "Udlr", Name: "udlr"},
-		{Child: UdlrConfigSchema, GoName: "UdlrConfig", Name: "udlr-config"},
-		{Child: VLANSchema, GoName: "VLAN", Name: "vlan"},
-		{GoName: "VRF", Name: "vrf", Type: yang.TString},
-		{Child: VRFConfigSchema, GoName: "VRFConfig", Name: "vrf-config"},
-		{Child: TunnelVxlanSchema, GoName: "Vxlan", Name: "vxlan"},
-	},
-	Module: moduleCiscoIOSXETunnel,
-	Name:   "tunnel",
-}
-
-// VirtualTemplateTunnelProtection is the Cisco-IOS-XE-tunnel node /Cisco-IOS-XE-native:native/interface/Virtual-Template/Cisco-IOS-XE-tunnel:tunnel/protection.
-type VirtualTemplateTunnelProtection struct {
-	CiscoIOSXECrypto *ciscoiosxecrypto.VirtualTemplateTunnelProtectionAugment
-}
-
-// VirtualTemplateTunnelProtectionSchema describes VirtualTemplateTunnelProtection for the generic codecs.
-var VirtualTemplateTunnelProtectionSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: ciscoiosxecrypto.VirtualTemplateTunnelProtectionAugmentSchema, GoName: "CiscoIOSXECrypto", Group: true},
-	},
-	Module: moduleCiscoIOSXETunnel,
-	Name:   "protection",
-}
-
 // VxlanGpe is the Cisco-IOS-XE-tunnel node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/interface/Tunnel/Cisco-IOS-XE-tunnel:tunnel/mode/vxlan-gpe.
 type VxlanGpe struct {
 	IPv4       *bool
@@ -2412,14 +2308,14 @@ var WorkingSegmentRoutingSchema = &yang.Schema{
 // TunnelAugment is the Cisco-IOS-XE-tunnel augment group at /Cisco-IOS-XE-native:native/interface/Tunnel.
 type TunnelAugment struct {
 	Nhrp   *Nhrp
-	Tunnel *TunnelTunnel
+	Tunnel *Tunnel
 }
 
 // TunnelAugmentSchema describes TunnelAugment group fields with no codec root.
 var TunnelAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: NhrpSchema, GoName: "Nhrp", Name: "nhrp"},
-		{Child: TunnelTunnelSchema, GoName: "Tunnel", Name: "tunnel"},
+		{Child: TunnelSchema, GoName: "Tunnel", Name: "tunnel"},
 	},
 	Module: moduleCiscoIOSXETunnel,
 }
@@ -2427,14 +2323,14 @@ var TunnelAugmentSchema = &yang.Schema{
 // VirtualTemplateAugment is the Cisco-IOS-XE-tunnel augment group at /Cisco-IOS-XE-native:native/interface/Virtual-Template.
 type VirtualTemplateAugment struct {
 	Nhrp   *Nhrp
-	Tunnel *VirtualTemplateTunnel
+	Tunnel *Tunnel
 }
 
 // VirtualTemplateAugmentSchema describes VirtualTemplateAugment group fields with no codec root.
 var VirtualTemplateAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: NhrpSchema, GoName: "Nhrp", Name: "nhrp"},
-		{Child: VirtualTemplateTunnelSchema, GoName: "Tunnel", Name: "tunnel"},
+		{Child: TunnelSchema, GoName: "Tunnel", Name: "tunnel"},
 	},
 	Module: moduleCiscoIOSXETunnel,
 }

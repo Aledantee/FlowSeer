@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCISCOSTPEXTENSIONSMIB identifies the CISCO-STP-EXTENSIONS-MIB YANG module.
-var moduleCISCOSTPEXTENSIONSMIB = &yang.Module{
-	Name:      "CISCO-STP-EXTENSIONS-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:CISCO-STP-EXTENSIONS-MIB",
-}
-
 // moduleCISCOVTPMIB identifies the CISCO-VTP-MIB YANG module.
 var moduleCISCOVTPMIB = &yang.Module{
 	Name:      "CISCO-VTP-MIB",

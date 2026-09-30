@@ -2161,91 +2161,13 @@ var VRFDistanceSchema = &yang.Schema{
 	Name:   "distance",
 }
 
-// AppGigabitEthernetIPv6Augment is the Cisco-IOS-XE-rip augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ipv6.
-type AppGigabitEthernetIPv6Augment struct {
+// IPv6Augment is the Cisco-IOS-XE-rip augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ipv6.
+type IPv6Augment struct {
 	Rip []IPv6Rip
 }
 
-// AppGigabitEthernetIPv6AugmentSchema describes AppGigabitEthernetIPv6Augment group fields with no codec root.
-var AppGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6RipSchema, GoName: "Rip", List: true, Name: "rip"},
-	},
-	Module: moduleCiscoIOSXERip,
-}
-
-// FastEthernetIPv6Augment is the Cisco-IOS-XE-rip augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/ipv6.
-type FastEthernetIPv6Augment struct {
-	Rip []IPv6Rip
-}
-
-// FastEthernetIPv6AugmentSchema describes FastEthernetIPv6Augment group fields with no codec root.
-var FastEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6RipSchema, GoName: "Rip", List: true, Name: "rip"},
-	},
-	Module: moduleCiscoIOSXERip,
-}
-
-// FiftyGigabitEthernetIPv6Augment is the Cisco-IOS-XE-rip augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/ipv6.
-type FiftyGigabitEthernetIPv6Augment struct {
-	Rip []IPv6Rip
-}
-
-// FiftyGigabitEthernetIPv6AugmentSchema describes FiftyGigabitEthernetIPv6Augment group fields with no codec root.
-var FiftyGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6RipSchema, GoName: "Rip", List: true, Name: "rip"},
-	},
-	Module: moduleCiscoIOSXERip,
-}
-
-// FiveGigabitEthernetIPv6Augment is the Cisco-IOS-XE-rip augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/ipv6.
-type FiveGigabitEthernetIPv6Augment struct {
-	Rip []IPv6Rip
-}
-
-// FiveGigabitEthernetIPv6AugmentSchema describes FiveGigabitEthernetIPv6Augment group fields with no codec root.
-var FiveGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6RipSchema, GoName: "Rip", List: true, Name: "rip"},
-	},
-	Module: moduleCiscoIOSXERip,
-}
-
-// FortyGigabitEthernetIPv6Augment is the Cisco-IOS-XE-rip augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/ipv6.
-type FortyGigabitEthernetIPv6Augment struct {
-	Rip []IPv6Rip
-}
-
-// FortyGigabitEthernetIPv6AugmentSchema describes FortyGigabitEthernetIPv6Augment group fields with no codec root.
-var FortyGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6RipSchema, GoName: "Rip", List: true, Name: "rip"},
-	},
-	Module: moduleCiscoIOSXERip,
-}
-
-// GigabitEthernetIPv6Augment is the Cisco-IOS-XE-rip augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/ipv6.
-type GigabitEthernetIPv6Augment struct {
-	Rip []IPv6Rip
-}
-
-// GigabitEthernetIPv6AugmentSchema describes GigabitEthernetIPv6Augment group fields with no codec root.
-var GigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6RipSchema, GoName: "Rip", List: true, Name: "rip"},
-	},
-	Module: moduleCiscoIOSXERip,
-}
-
-// HundredGigEIPv6Augment is the Cisco-IOS-XE-rip augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/ipv6.
-type HundredGigEIPv6Augment struct {
-	Rip []IPv6Rip
-}
-
-// HundredGigEIPv6AugmentSchema describes HundredGigEIPv6Augment group fields with no codec root.
-var HundredGigEIPv6AugmentSchema = &yang.Schema{
+// IPv6AugmentSchema describes IPv6Augment group fields with no codec root.
+var IPv6AugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: IPv6RipSchema, GoName: "Rip", List: true, Name: "rip"},
 	},
@@ -2261,19 +2183,6 @@ type IPv6RouterAugment struct {
 var IPv6RouterAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: IPv6RouterRipSchema, GoName: "Rip", List: true, Name: "rip"},
-	},
-	Module: moduleCiscoIOSXERip,
-}
-
-// LoopbackIPv6Augment is the Cisco-IOS-XE-rip augment group at /Cisco-IOS-XE-native:native/interface/Loopback/ipv6.
-type LoopbackIPv6Augment struct {
-	Rip []IPv6Rip
-}
-
-// LoopbackIPv6AugmentSchema describes LoopbackIPv6Augment group fields with no codec root.
-var LoopbackIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6RipSchema, GoName: "Rip", List: true, Name: "rip"},
 	},
 	Module: moduleCiscoIOSXERip,
 }
@@ -2300,84 +2209,6 @@ type NativeRouterAugment struct {
 var NativeRouterAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: NativeRouterRipSchema, GoName: "Rip", Name: "rip"},
-	},
-	Module: moduleCiscoIOSXERip,
-}
-
-// PortChannelIPv6Augment is the Cisco-IOS-XE-rip augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/ipv6.
-type PortChannelIPv6Augment struct {
-	Rip []IPv6Rip
-}
-
-// PortChannelIPv6AugmentSchema describes PortChannelIPv6Augment group fields with no codec root.
-var PortChannelIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6RipSchema, GoName: "Rip", List: true, Name: "rip"},
-	},
-	Module: moduleCiscoIOSXERip,
-}
-
-// TenGigabitEthernetIPv6Augment is the Cisco-IOS-XE-rip augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/ipv6.
-type TenGigabitEthernetIPv6Augment struct {
-	Rip []IPv6Rip
-}
-
-// TenGigabitEthernetIPv6AugmentSchema describes TenGigabitEthernetIPv6Augment group fields with no codec root.
-var TenGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6RipSchema, GoName: "Rip", List: true, Name: "rip"},
-	},
-	Module: moduleCiscoIOSXERip,
-}
-
-// TunnelIPv6Augment is the Cisco-IOS-XE-rip augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ipv6.
-type TunnelIPv6Augment struct {
-	Rip []IPv6Rip
-}
-
-// TunnelIPv6AugmentSchema describes TunnelIPv6Augment group fields with no codec root.
-var TunnelIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6RipSchema, GoName: "Rip", List: true, Name: "rip"},
-	},
-	Module: moduleCiscoIOSXERip,
-}
-
-// TwentyFiveGigEIPv6Augment is the Cisco-IOS-XE-rip augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/ipv6.
-type TwentyFiveGigEIPv6Augment struct {
-	Rip []IPv6Rip
-}
-
-// TwentyFiveGigEIPv6AugmentSchema describes TwentyFiveGigEIPv6Augment group fields with no codec root.
-var TwentyFiveGigEIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6RipSchema, GoName: "Rip", List: true, Name: "rip"},
-	},
-	Module: moduleCiscoIOSXERip,
-}
-
-// TwoGigabitEthernetIPv6Augment is the Cisco-IOS-XE-rip augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/ipv6.
-type TwoGigabitEthernetIPv6Augment struct {
-	Rip []IPv6Rip
-}
-
-// TwoGigabitEthernetIPv6AugmentSchema describes TwoGigabitEthernetIPv6Augment group fields with no codec root.
-var TwoGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6RipSchema, GoName: "Rip", List: true, Name: "rip"},
-	},
-	Module: moduleCiscoIOSXERip,
-}
-
-// VLANIPv6Augment is the Cisco-IOS-XE-rip augment group at /Cisco-IOS-XE-native:native/interface/Vlan/ipv6.
-type VLANIPv6Augment struct {
-	Rip []IPv6Rip
-}
-
-// VLANIPv6AugmentSchema describes VLANIPv6Augment group fields with no codec root.
-var VLANIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6RipSchema, GoName: "Rip", List: true, Name: "rip"},
 	},
 	Module: moduleCiscoIOSXERip,
 }

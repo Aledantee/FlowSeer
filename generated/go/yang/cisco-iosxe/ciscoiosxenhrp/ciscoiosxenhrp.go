@@ -4177,6 +4177,19 @@ var Vpv4Schema = &yang.Schema{
 	Name:   "vpv4",
 }
 
+// IPv6Augment is the Cisco-IOS-XE-nhrp augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ipv6.
+type IPv6Augment struct {
+	Nhrp *IPv6Nhrp
+}
+
+// IPv6AugmentSchema describes IPv6Augment group fields with no codec root.
+var IPv6AugmentSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: IPv6NhrpSchema, GoName: "Nhrp", Name: "nhrp"},
+	},
+	Module: moduleCiscoIOSXENhrp,
+}
+
 // NativeAugment is the Cisco-IOS-XE-nhrp augment group at /Cisco-IOS-XE-native:native.
 type NativeAugment struct {
 	Nhrp *NativeNhrp
@@ -4248,19 +4261,6 @@ var TunnelIPAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXENhrp,
 }
 
-// TunnelIPv6Augment is the Cisco-IOS-XE-nhrp augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ipv6.
-type TunnelIPv6Augment struct {
-	Nhrp *IPv6Nhrp
-}
-
-// TunnelIPv6AugmentSchema describes TunnelIPv6Augment group fields with no codec root.
-var TunnelIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6NhrpSchema, GoName: "Nhrp", Name: "nhrp"},
-	},
-	Module: moduleCiscoIOSXENhrp,
-}
-
 // VirtualTemplateAugment is the Cisco-IOS-XE-nhrp augment group at /Cisco-IOS-XE-native:native/interface/Virtual-Template.
 type VirtualTemplateAugment struct {
 	IfStateTunnel *IfStateTunnel
@@ -4285,19 +4285,6 @@ type VirtualTemplateIPAugment struct {
 var VirtualTemplateIPAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: NhrpV4Schema, GoName: "NhrpV4", Name: "nhrp-v4"},
-	},
-	Module: moduleCiscoIOSXENhrp,
-}
-
-// VirtualTemplateIPv6Augment is the Cisco-IOS-XE-nhrp augment group at /Cisco-IOS-XE-native:native/interface/Virtual-Template/ipv6.
-type VirtualTemplateIPv6Augment struct {
-	Nhrp *IPv6Nhrp
-}
-
-// VirtualTemplateIPv6AugmentSchema describes VirtualTemplateIPv6Augment group fields with no codec root.
-var VirtualTemplateIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6NhrpSchema, GoName: "Nhrp", Name: "nhrp"},
 	},
 	Module: moduleCiscoIOSXENhrp,
 }

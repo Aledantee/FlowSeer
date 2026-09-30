@@ -435,91 +435,13 @@ var SubscriberSchema = &yang.Schema{
 	Name:   "subscriber",
 }
 
-// BDIIPAugment is the Cisco-IOS-XE-isg augment group at /Cisco-IOS-XE-native:native/interface/BDI/ip.
-type BDIIPAugment struct {
+// IPAugment is the Cisco-IOS-XE-isg augment group at /Cisco-IOS-XE-native:native/interface/BDI/ip.
+type IPAugment struct {
 	Subscriber *Subscriber
 }
 
-// BDIIPAugmentSchema describes BDIIPAugment group fields with no codec root.
-var BDIIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SubscriberSchema, GoName: "Subscriber", Name: "subscriber"},
-	},
-	Module: moduleCiscoIOSXEIsg,
-}
-
-// FastEthernetIPAugment is the Cisco-IOS-XE-isg augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/ip.
-type FastEthernetIPAugment struct {
-	Subscriber *Subscriber
-}
-
-// FastEthernetIPAugmentSchema describes FastEthernetIPAugment group fields with no codec root.
-var FastEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SubscriberSchema, GoName: "Subscriber", Name: "subscriber"},
-	},
-	Module: moduleCiscoIOSXEIsg,
-}
-
-// FiftyGigabitEthernetIPAugment is the Cisco-IOS-XE-isg augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/ip.
-type FiftyGigabitEthernetIPAugment struct {
-	Subscriber *Subscriber
-}
-
-// FiftyGigabitEthernetIPAugmentSchema describes FiftyGigabitEthernetIPAugment group fields with no codec root.
-var FiftyGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SubscriberSchema, GoName: "Subscriber", Name: "subscriber"},
-	},
-	Module: moduleCiscoIOSXEIsg,
-}
-
-// FiveGigabitEthernetIPAugment is the Cisco-IOS-XE-isg augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/ip.
-type FiveGigabitEthernetIPAugment struct {
-	Subscriber *Subscriber
-}
-
-// FiveGigabitEthernetIPAugmentSchema describes FiveGigabitEthernetIPAugment group fields with no codec root.
-var FiveGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SubscriberSchema, GoName: "Subscriber", Name: "subscriber"},
-	},
-	Module: moduleCiscoIOSXEIsg,
-}
-
-// FortyGigabitEthernetIPAugment is the Cisco-IOS-XE-isg augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/ip.
-type FortyGigabitEthernetIPAugment struct {
-	Subscriber *Subscriber
-}
-
-// FortyGigabitEthernetIPAugmentSchema describes FortyGigabitEthernetIPAugment group fields with no codec root.
-var FortyGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SubscriberSchema, GoName: "Subscriber", Name: "subscriber"},
-	},
-	Module: moduleCiscoIOSXEIsg,
-}
-
-// GigabitEthernetIPAugment is the Cisco-IOS-XE-isg augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/ip.
-type GigabitEthernetIPAugment struct {
-	Subscriber *Subscriber
-}
-
-// GigabitEthernetIPAugmentSchema describes GigabitEthernetIPAugment group fields with no codec root.
-var GigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SubscriberSchema, GoName: "Subscriber", Name: "subscriber"},
-	},
-	Module: moduleCiscoIOSXEIsg,
-}
-
-// HundredGigEIPAugment is the Cisco-IOS-XE-isg augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/ip.
-type HundredGigEIPAugment struct {
-	Subscriber *Subscriber
-}
-
-// HundredGigEIPAugmentSchema describes HundredGigEIPAugment group fields with no codec root.
-var HundredGigEIPAugmentSchema = &yang.Schema{
+// IPAugmentSchema describes IPAugment group fields with no codec root.
+var IPAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: SubscriberSchema, GoName: "Subscriber", Name: "subscriber"},
 	},
@@ -535,71 +457,6 @@ type PolicyMapAugment struct {
 var PolicyMapAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: IsgClassSchema, GoName: "IsgClass", Name: "isg-class"},
-	},
-	Module: moduleCiscoIOSXEIsg,
-}
-
-// PortChannelIPAugment is the Cisco-IOS-XE-isg augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/ip.
-type PortChannelIPAugment struct {
-	Subscriber *Subscriber
-}
-
-// PortChannelIPAugmentSchema describes PortChannelIPAugment group fields with no codec root.
-var PortChannelIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SubscriberSchema, GoName: "Subscriber", Name: "subscriber"},
-	},
-	Module: moduleCiscoIOSXEIsg,
-}
-
-// TenGigabitEthernetIPAugment is the Cisco-IOS-XE-isg augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/ip.
-type TenGigabitEthernetIPAugment struct {
-	Subscriber *Subscriber
-}
-
-// TenGigabitEthernetIPAugmentSchema describes TenGigabitEthernetIPAugment group fields with no codec root.
-var TenGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SubscriberSchema, GoName: "Subscriber", Name: "subscriber"},
-	},
-	Module: moduleCiscoIOSXEIsg,
-}
-
-// TunnelIPAugment is the Cisco-IOS-XE-isg augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ip.
-type TunnelIPAugment struct {
-	Subscriber *Subscriber
-}
-
-// TunnelIPAugmentSchema describes TunnelIPAugment group fields with no codec root.
-var TunnelIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SubscriberSchema, GoName: "Subscriber", Name: "subscriber"},
-	},
-	Module: moduleCiscoIOSXEIsg,
-}
-
-// TwentyFiveGigEIPAugment is the Cisco-IOS-XE-isg augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/ip.
-type TwentyFiveGigEIPAugment struct {
-	Subscriber *Subscriber
-}
-
-// TwentyFiveGigEIPAugmentSchema describes TwentyFiveGigEIPAugment group fields with no codec root.
-var TwentyFiveGigEIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SubscriberSchema, GoName: "Subscriber", Name: "subscriber"},
-	},
-	Module: moduleCiscoIOSXEIsg,
-}
-
-// TwoGigabitEthernetIPAugment is the Cisco-IOS-XE-isg augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/ip.
-type TwoGigabitEthernetIPAugment struct {
-	Subscriber *Subscriber
-}
-
-// TwoGigabitEthernetIPAugmentSchema describes TwoGigabitEthernetIPAugment group fields with no codec root.
-var TwoGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SubscriberSchema, GoName: "Subscriber", Name: "subscriber"},
 	},
 	Module: moduleCiscoIOSXEIsg,
 }

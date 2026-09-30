@@ -285,12 +285,12 @@ group schemas in `ciscoiosxeswitch` (`macsec` typed `yang.TEmpty`) and
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] `yanggen -check` passes, and two `-update` runs leave no diff.
-- [ ] Timings recorded in the parent plan's outcome note.
-- [ ] This plan's `status` set with an outcome note, and the parent's
+- [x] Verifier green for every changed path.
+- [x] `yanggen -check` passes, and two `-update` runs leave no diff.
+- [x] Timings recorded in the parent plan's outcome note.
+- [x] This plan's `status` set with an outcome note, and the parent's
       `Landed:` line for U2 filled.
-- [ ] No plan labels in code.
+- [x] No plan labels in code.
 
 ## Open questions
 

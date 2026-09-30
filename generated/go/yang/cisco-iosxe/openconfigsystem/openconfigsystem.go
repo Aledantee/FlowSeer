@@ -14,18 +14,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCiscoXeOpenconfigSystemExt identifies the cisco-xe-openconfig-system-ext YANG module.
-var moduleCiscoXeOpenconfigSystemExt = &yang.Module{
-	Name:      "cisco-xe-openconfig-system-ext",
-	Namespace: "http://cisco.com/ns/yang/cisco-xe-openconfig-system-ext",
-}
-
-// moduleCiscoXeRoutingOpenconfigSystemExt identifies the cisco-xe-routing-openconfig-system-ext YANG module.
-var moduleCiscoXeRoutingOpenconfigSystemExt = &yang.Module{
-	Name:      "cisco-xe-routing-openconfig-system-ext",
-	Namespace: "http://cisco.com/ns/yang/cisco-xe-routing-openconfig-system-ext",
-}
-
 // moduleOpenconfigOpenflow identifies the openconfig-openflow YANG module.
 var moduleOpenconfigOpenflow = &yang.Module{
 	Name:      "openconfig-openflow",

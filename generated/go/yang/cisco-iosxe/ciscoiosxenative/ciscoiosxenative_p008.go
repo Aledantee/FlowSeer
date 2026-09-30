@@ -6,7076 +6,12 @@
 package ciscoiosxenative
 
 import (
-	ciscoiosxebgp "go.aledante.io/FlowSeer/generated/go/yang/cisco-iosxe/ciscoiosxebgp"
 	ciscoiosxeeigrp "go.aledante.io/FlowSeer/generated/go/yang/cisco-iosxe/ciscoiosxeeigrp"
 	ciscoiosxeisis "go.aledante.io/FlowSeer/generated/go/yang/cisco-iosxe/ciscoiosxeisis"
 	ciscoiosxelisp "go.aledante.io/FlowSeer/generated/go/yang/cisco-iosxe/ciscoiosxelisp"
 	ciscoiosxesegmentrouting "go.aledante.io/FlowSeer/generated/go/yang/cisco-iosxe/ciscoiosxesegmentrouting"
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastPeerGroupNeighborRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFIPv6IPv6UnicastPeerGroupNeighborRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastPeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastPeerGroupNeighborRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastPeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastPeerGroupNeighborRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFIPv6Schema, ciscoiosxebgp.IPv6IPv6UnicastPeerGroupNeighborSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFIPv6IPv6UnicastPeerGroupNeighborRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFIPv6IPv6UnicastPeerGroupNeighborRouteMapFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				IPv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID: yang.AncestorKey(anc, 3, "id"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastPeerGroupNeighborRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastPeerGroupNeighborRouteMapFlatRow) VRFAddressFamilyNoVRFIPv6IPv6UnicastPeerGroupNeighborRouteMapKey {
-			var k VRFAddressFamilyNoVRFIPv6IPv6UnicastPeerGroupNeighborRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.IPv6AfName = r.IPv6AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "ipv6", "ipv6-unicast", "peer-group", "neighbor", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListKey is RedistributeV6EigrpList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListKey struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	AsNo       uint16
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListFlatRow flattens one RedistributeV6EigrpList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListFlatRow struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	Entry      ciscoiosxebgp.RedistributeV6EigrpList
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListDescriptor is the flattened-row descriptor for the nested list RedistributeV6EigrpList.
-func VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFIPv6Schema, ciscoiosxebgp.RedistributeV6EigrpListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RedistributeV6EigrpList) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListFlatRow {
-			return VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				IPv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListFlatRow) *ciscoiosxebgp.RedistributeV6EigrpList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListFlatRow) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListKey {
-			var k VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6EigrpListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.IPv6AfName = r.IPv6AfName
-			if r.Entry.AsNo != nil {
-				k.AsNo = *r.Entry.AsNo
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "ipv6", "ipv6-unicast", "redistribute-v6", "eigrp-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisKey is RedistributeV6IsisAreaTagIsis's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisKey struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	AreaTag    string
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisFlatRow flattens one RedistributeV6IsisAreaTagIsis entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisFlatRow struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	Entry      ciscoiosxebgp.RedistributeV6IsisAreaTagIsis
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisDescriptor is the flattened-row descriptor for the nested list RedistributeV6IsisAreaTagIsis.
-func VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFIPv6Schema, ciscoiosxebgp.RedistributeV6IsisAreaTagIsisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RedistributeV6IsisAreaTagIsis) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisFlatRow {
-			return VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				IPv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisFlatRow) *ciscoiosxebgp.RedistributeV6IsisAreaTagIsis {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisFlatRow) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisKey {
-			var k VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.IPv6AfName = r.IPv6AfName
-			if r.Entry.AreaTag != nil {
-				k.AreaTag = *r.Entry.AreaTag
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "ipv6", "ipv6-unicast", "redistribute-v6", "isis-area-tag", "isis")),
-	}
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2Key is RedistributeV6IsisAreaTagIsisV2's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2Key struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	AreaTag    string
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2FlatRow flattens one RedistributeV6IsisAreaTagIsisV2 entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2FlatRow struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	Entry      ciscoiosxebgp.RedistributeV6IsisAreaTagIsisV2
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2Descriptor is the flattened-row descriptor for the nested list RedistributeV6IsisAreaTagIsisV2.
-func VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2Descriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2FlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2Key] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2FlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFIPv6Schema, ciscoiosxebgp.RedistributeV6IsisAreaTagIsisV2Schema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RedistributeV6IsisAreaTagIsisV2) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2FlatRow {
-			return VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2FlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				IPv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2FlatRow) *ciscoiosxebgp.RedistributeV6IsisAreaTagIsisV2 {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2FlatRow) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2Key {
-			var k VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6IsisAreaTagIsisV2Key
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.IPv6AfName = r.IPv6AfName
-			if r.Entry.AreaTag != nil {
-				k.AreaTag = *r.Entry.AreaTag
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "ipv6", "ipv6-unicast", "redistribute-v6", "isis-area-tag", "isis-v2")),
-	}
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFKey is RedistributeV6OSPF's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFKey struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	ID         uint16
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFFlatRow flattens one RedistributeV6OSPF entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFFlatRow struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	Entry      ciscoiosxebgp.RedistributeV6OSPF
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFDescriptor is the flattened-row descriptor for the nested list RedistributeV6OSPF.
-func VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFIPv6Schema, ciscoiosxebgp.RedistributeV6OSPFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RedistributeV6OSPF) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFFlatRow {
-			return VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				IPv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFFlatRow) *ciscoiosxebgp.RedistributeV6OSPF {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFFlatRow) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFKey {
-			var k VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeV6OSPFKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.IPv6AfName = r.IPv6AfName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "ipv6", "ipv6-unicast", "redistribute-v6", "ospf")),
-	}
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameKey is ApplicationName's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameKey struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	Name       string
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameFlatRow flattens one ApplicationName entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameFlatRow struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	Entry      ciscoiosxebgp.ApplicationName
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameDescriptor is the flattened-row descriptor for the nested list ApplicationName.
-func VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFIPv6Schema, ciscoiosxebgp.ApplicationNameSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.ApplicationName) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameFlatRow {
-			return VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				IPv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameFlatRow) *ciscoiosxebgp.ApplicationName {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameFlatRow) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameKey {
-			var k VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeApplicationNameKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.IPv6AfName = r.IPv6AfName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "ipv6", "ipv6-unicast", "redistribute", "application", "name")),
-	}
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisKey is IsisAreaTagIsis's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisKey struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	AreaTag    string
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisFlatRow flattens one IsisAreaTagIsis entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisFlatRow struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	Entry      ciscoiosxebgp.IsisAreaTagIsis
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisDescriptor is the flattened-row descriptor for the nested list IsisAreaTagIsis.
-func VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFIPv6Schema, ciscoiosxebgp.IsisAreaTagIsisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.IsisAreaTagIsis) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisFlatRow {
-			return VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				IPv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisFlatRow) *ciscoiosxebgp.IsisAreaTagIsis {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisFlatRow) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisKey {
-			var k VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsisAreaTagIsisKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.IPv6AfName = r.IPv6AfName
-			if r.Entry.AreaTag != nil {
-				k.AreaTag = *r.Entry.AreaTag
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "ipv6", "ipv6-unicast", "redistribute", "isis-area-tag", "isis")),
-	}
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaKey is IsoIgrpArea's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaKey struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	Name       string
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaFlatRow flattens one IsoIgrpArea entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaFlatRow struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	Entry      ciscoiosxebgp.IsoIgrpArea
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaDescriptor is the flattened-row descriptor for the nested list IsoIgrpArea.
-func VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFIPv6Schema, ciscoiosxebgp.IsoIgrpAreaSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.IsoIgrpArea) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaFlatRow {
-			return VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				IPv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaFlatRow) *ciscoiosxebgp.IsoIgrpArea {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaFlatRow) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaKey {
-			var k VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeIsoIgrpIsoIgrpAreaKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.IPv6AfName = r.IPv6AfName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "ipv6", "ipv6-unicast", "redistribute", "iso-igrp", "iso-igrp-area")),
-	}
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFKey is OSPF's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFKey struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	ID         uint16
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFFlatRow flattens one OSPF entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFFlatRow struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	Entry      ciscoiosxebgp.OSPF
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFDescriptor is the flattened-row descriptor for the nested list OSPF.
-func VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFIPv6Schema, ciscoiosxebgp.OSPFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.OSPF) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFFlatRow {
-			return VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				IPv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFFlatRow) *ciscoiosxebgp.OSPF {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFFlatRow) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFKey {
-			var k VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.IPv6AfName = r.IPv6AfName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "ipv6", "ipv6-unicast", "redistribute", "ospf")),
-	}
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFKey is OSPFVRF's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFKey struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	OSPFID     string
-	Name       string
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFFlatRow flattens one OSPFVRF entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFFlatRow struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	OSPFID     string
-	Entry      ciscoiosxebgp.OSPFVRF
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFDescriptor is the flattened-row descriptor for the nested list OSPFVRF.
-func VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFIPv6Schema, ciscoiosxebgp.OSPFSchema, ciscoiosxebgp.OSPFVRFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.OSPFVRF) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFFlatRow {
-			return VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				IPv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-				OSPFID:     yang.AncestorKey(anc, 3, "id"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFFlatRow) *ciscoiosxebgp.OSPFVRF {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFFlatRow) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFKey {
-			var k VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOSPFVRFKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.IPv6AfName = r.IPv6AfName
-			k.OSPFID = r.OSPFID
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "ipv6", "ipv6-unicast", "redistribute", "ospf", "vrf")),
-	}
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3Key is Ospfv3's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3Key struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	ID         uint16
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3FlatRow flattens one Ospfv3 entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3FlatRow struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	Entry      ciscoiosxebgp.Ospfv3
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3Descriptor is the flattened-row descriptor for the nested list Ospfv3.
-func VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3Descriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3FlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3Key] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3FlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFIPv6Schema, ciscoiosxebgp.Ospfv3Schema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.Ospfv3) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3FlatRow {
-			return VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3FlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				IPv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3FlatRow) *ciscoiosxebgp.Ospfv3 {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3FlatRow) VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3Key {
-			var k VRFAddressFamilyNoVRFIPv6IPv6UnicastRedistributeOspfv3Key
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.IPv6AfName = r.IPv6AfName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "ipv6", "ipv6-unicast", "redistribute", "ospfv3")),
-	}
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordKey is ContextWord's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordKey struct {
-	BGPID       string
-	VRFID       string
-	IPv6AfName  string
-	ContextWord string
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordFlatRow flattens one ContextWord entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordFlatRow struct {
-	BGPID      string
-	VRFID      string
-	IPv6AfName string
-	Entry      ciscoiosxebgp.ContextWord
-}
-
-// VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordDescriptor is the flattened-row descriptor for the nested list ContextWord.
-func VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFIPv6Schema, ciscoiosxebgp.ContextWordSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.ContextWord) VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordFlatRow {
-			return VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				IPv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordFlatRow) *ciscoiosxebgp.ContextWord {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordFlatRow) VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordKey {
-			var k VRFAddressFamilyNoVRFIPv6IPv6UnicastSNMPContextContextWordKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.IPv6AfName = r.IPv6AfName
-			if r.Entry.ContextWord != nil {
-				k.ContextWord = *r.Entry.ContextWord
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "ipv6", "ipv6-unicast", "snmp", "context", "context_word")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnKey is NoVRFL2vpn's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnKey struct {
-	BGPID  string
-	VRFID  string
-	AfName string
-}
-
-// VRFAddressFamilyNoVRFL2vpnFlatRow flattens one NoVRFL2vpn entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnFlatRow struct {
-	BGPID string
-	VRFID string
-	Entry ciscoiosxebgp.NoVRFL2vpn
-}
-
-// VRFAddressFamilyNoVRFL2vpnDescriptor is the flattened-row descriptor for the nested list NoVRFL2vpn.
-func VRFAddressFamilyNoVRFL2vpnDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnFlatRow, VRFAddressFamilyNoVRFL2vpnKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnFlatRow, VRFAddressFamilyNoVRFL2vpnKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NoVRFL2vpn) VRFAddressFamilyNoVRFL2vpnFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnFlatRow{
-				BGPID: yang.AncestorKey(anc, 0, "id"),
-				Entry: e,
-				VRFID: yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnFlatRow) *ciscoiosxebgp.NoVRFL2vpn {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnFlatRow) VRFAddressFamilyNoVRFL2vpnKey {
-			var k VRFAddressFamilyNoVRFL2vpnKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			if r.Entry.AfName != nil {
-				k.AfName = *r.Entry.AfName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborKey is L2vpnEvpnNeighbor's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	ID          string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFlatRow flattens one L2vpnEvpnNeighbor entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	Entry       ciscoiosxebgp.L2vpnEvpnNeighbor
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDescriptor is the flattened-row descriptor for the nested list L2vpnEvpnNeighbor.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnEvpnNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.L2vpnEvpnNeighbor) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFlatRow) *ciscoiosxebgp.L2vpnEvpnNeighbor {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			if r.Entry.ID != nil {
-				k.ID = yang.CanonicalKey(r.Entry.ID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "neighbor")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeKey is AllBestBestRange's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Range       uint8
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow flattens one AllBestBestRange entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.AllBestBestRange
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeDescriptor is the flattened-row descriptor for the nested list AllBestBestRange.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnEvpnNeighborSchema, ciscoiosxebgp.AllBestBestRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AllBestBestRange) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow) *ciscoiosxebgp.AllBestBestRange {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsAllBestBestRangeKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "neighbor", "advertise", "additional-paths", "all", "best", "best-range")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeKey is AdditionalPathsBestBestRange's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Range       uint8
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow flattens one AdditionalPathsBestBestRange entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.AdditionalPathsBestBestRange
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeDescriptor is the flattened-row descriptor for the nested list AdditionalPathsBestBestRange.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnEvpnNeighborSchema, ciscoiosxebgp.AdditionalPathsBestBestRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AdditionalPathsBestBestRange) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow) *ciscoiosxebgp.AdditionalPathsBestBestRange {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborAdvertiseAdditionalPathsBestBestRangeKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "neighbor", "advertise", "additional-paths", "best", "best-range")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListKey is DistributeList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListFlatRow flattens one DistributeList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.DistributeList
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListDescriptor is the flattened-row descriptor for the nested list DistributeList.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnEvpnNeighborSchema, ciscoiosxebgp.DistributeListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.DistributeList) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListFlatRow) *ciscoiosxebgp.DistributeList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborDistributeListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "neighbor", "distribute-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListKey is NeighborFilterList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListFlatRow flattens one NeighborFilterList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.NeighborFilterList
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListDescriptor is the flattened-row descriptor for the nested list NeighborFilterList.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnEvpnNeighborSchema, ciscoiosxebgp.NeighborFilterListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NeighborFilterList) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListFlatRow) *ciscoiosxebgp.NeighborFilterList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborFilterListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "neighbor", "filter-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListKey is PrefixList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListFlatRow flattens one PrefixList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.PrefixList
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListDescriptor is the flattened-row descriptor for the nested list PrefixList.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnEvpnNeighborSchema, ciscoiosxebgp.PrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.PrefixList) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListFlatRow) *ciscoiosxebgp.PrefixList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborPrefixListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "neighbor", "prefix-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapKey is RouteMap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapFlatRow flattens one RouteMap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.RouteMap
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnEvpnNeighborSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNeighborRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "neighbor", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskKey is NetworkNoMask's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	Number      string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskFlatRow flattens one NetworkNoMask entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	Entry       ciscoiosxebgp.NetworkNoMask
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskDescriptor is the flattened-row descriptor for the nested list NetworkNoMask.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.NetworkNoMaskSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NetworkNoMask) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskFlatRow) *ciscoiosxebgp.NetworkNoMask {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkNoMaskKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			if r.Entry.Number != nil {
-				k.Number = *r.Entry.Number
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "network", "no-mask")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskKey is NetworkWithMask's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	Number      string
-	Mask        string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskFlatRow flattens one NetworkWithMask entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	Entry       ciscoiosxebgp.NetworkWithMask
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskDescriptor is the flattened-row descriptor for the nested list NetworkWithMask.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.NetworkWithMaskSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NetworkWithMask) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskFlatRow) *ciscoiosxebgp.NetworkWithMask {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnNetworkWithMaskKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			if r.Entry.Number != nil {
-				k.Number = *r.Entry.Number
-			}
-			if r.Entry.Mask != nil {
-				k.Mask = *r.Entry.Mask
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "network", "with-mask")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborKey is L2vpnEvpnPeerGroupNeighbor's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	ID          string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFlatRow flattens one L2vpnEvpnPeerGroupNeighbor entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	Entry       ciscoiosxebgp.L2vpnEvpnPeerGroupNeighbor
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDescriptor is the flattened-row descriptor for the nested list L2vpnEvpnPeerGroupNeighbor.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnEvpnPeerGroupNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.L2vpnEvpnPeerGroupNeighbor) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFlatRow) *ciscoiosxebgp.L2vpnEvpnPeerGroupNeighbor {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "peer-group", "neighbor")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey is AllBestBestRange's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Range       uint8
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow flattens one AllBestBestRange entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.AllBestBestRange
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeDescriptor is the flattened-row descriptor for the nested list AllBestBestRange.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnEvpnPeerGroupNeighborSchema, ciscoiosxebgp.AllBestBestRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AllBestBestRange) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow) *ciscoiosxebgp.AllBestBestRange {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "peer-group", "neighbor", "advertise", "additional-paths", "all", "best", "best-range")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey is AdditionalPathsBestBestRange's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Range       uint8
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow flattens one AdditionalPathsBestBestRange entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.AdditionalPathsBestBestRange
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeDescriptor is the flattened-row descriptor for the nested list AdditionalPathsBestBestRange.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnEvpnPeerGroupNeighborSchema, ciscoiosxebgp.AdditionalPathsBestBestRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AdditionalPathsBestBestRange) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow) *ciscoiosxebgp.AdditionalPathsBestBestRange {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "peer-group", "neighbor", "advertise", "additional-paths", "best", "best-range")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListKey is DistributeList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListFlatRow flattens one DistributeList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.DistributeList
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListDescriptor is the flattened-row descriptor for the nested list DistributeList.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnEvpnPeerGroupNeighborSchema, ciscoiosxebgp.DistributeListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.DistributeList) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListFlatRow) *ciscoiosxebgp.DistributeList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborDistributeListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "peer-group", "neighbor", "distribute-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListKey is NeighborFilterList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListFlatRow flattens one NeighborFilterList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.NeighborFilterList
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListDescriptor is the flattened-row descriptor for the nested list NeighborFilterList.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnEvpnPeerGroupNeighborSchema, ciscoiosxebgp.NeighborFilterListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NeighborFilterList) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListFlatRow) *ciscoiosxebgp.NeighborFilterList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborFilterListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "peer-group", "neighbor", "filter-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListKey is PrefixList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListFlatRow flattens one PrefixList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.PrefixList
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListDescriptor is the flattened-row descriptor for the nested list PrefixList.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnEvpnPeerGroupNeighborSchema, ciscoiosxebgp.PrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.PrefixList) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListFlatRow) *ciscoiosxebgp.PrefixList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborPrefixListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "peer-group", "neighbor", "prefix-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapKey is RouteMap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapFlatRow flattens one RouteMap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.RouteMap
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnEvpnPeerGroupNeighborSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnPeerGroupNeighborRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "peer-group", "neighbor", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapKey is RouteMap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapFlatRow flattens one RouteMap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	Entry       ciscoiosxebgp.RouteMap
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordKey is ContextWord's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	ContextWord string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordFlatRow flattens one ContextWord entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	Entry       ciscoiosxebgp.ContextWord
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordDescriptor is the flattened-row descriptor for the nested list ContextWord.
-func VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.ContextWordSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.ContextWord) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordFlatRow) *ciscoiosxebgp.ContextWord {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnEvpnSNMPContextContextWordKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			if r.Entry.ContextWord != nil {
-				k.ContextWord = *r.Entry.ContextWord
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-evpn", "snmp", "context", "context_word")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborKey is L2vpnVplsNeighbor's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	ID          string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborFlatRow flattens one L2vpnVplsNeighbor entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	Entry       ciscoiosxebgp.L2vpnVplsNeighbor
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborDescriptor is the flattened-row descriptor for the nested list L2vpnVplsNeighbor.
-func VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnVplsNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.L2vpnVplsNeighbor) VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborFlatRow) *ciscoiosxebgp.L2vpnVplsNeighbor {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			if r.Entry.ID != nil {
-				k.ID = yang.CanonicalKey(r.Entry.ID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-vpls", "neighbor")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapKey is RouteMap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapFlatRow flattens one RouteMap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.RouteMap
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnVplsNeighborSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnVplsNeighborRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-vpls", "neighbor", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborKey is L2vpnVplsPeerGroupNeighbor's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	ID          string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborFlatRow flattens one L2vpnVplsPeerGroupNeighbor entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	Entry       ciscoiosxebgp.L2vpnVplsPeerGroupNeighbor
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborDescriptor is the flattened-row descriptor for the nested list L2vpnVplsPeerGroupNeighbor.
-func VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnVplsPeerGroupNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.L2vpnVplsPeerGroupNeighbor) VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborFlatRow) *ciscoiosxebgp.L2vpnVplsPeerGroupNeighbor {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-vpls", "peer-group", "neighbor")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapKey is RouteMap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapFlatRow flattens one RouteMap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.RouteMap
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.L2vpnVplsPeerGroupNeighborSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnVplsPeerGroupNeighborRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-vpls", "peer-group", "neighbor", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordKey is ContextWord's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordKey struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	ContextWord string
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordFlatRow flattens one ContextWord entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordFlatRow struct {
-	BGPID       string
-	VRFID       string
-	L2vpnAfName string
-	Entry       ciscoiosxebgp.ContextWord
-}
-
-// VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordDescriptor is the flattened-row descriptor for the nested list ContextWord.
-func VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFL2vpnSchema, ciscoiosxebgp.ContextWordSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.ContextWord) VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordFlatRow {
-			return VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				L2vpnAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordFlatRow) *ciscoiosxebgp.ContextWord {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordFlatRow) VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordKey {
-			var k VRFAddressFamilyNoVRFL2vpnL2vpnVplsSNMPContextContextWordKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.L2vpnAfName = r.L2vpnAfName
-			if r.Entry.ContextWord != nil {
-				k.ContextWord = *r.Entry.ContextWord
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "l2vpn", "l2vpn-vpls", "snmp", "context", "context_word")),
-	}
-}
-
-// VRFAddressFamilyNoVRFLinkStateKey is NoVRFLinkState's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFLinkStateKey struct {
-	BGPID  string
-	VRFID  string
-	AfName string
-}
-
-// VRFAddressFamilyNoVRFLinkStateFlatRow flattens one NoVRFLinkState entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFLinkStateFlatRow struct {
-	BGPID string
-	VRFID string
-	Entry ciscoiosxebgp.NoVRFLinkState
-}
-
-// VRFAddressFamilyNoVRFLinkStateDescriptor is the flattened-row descriptor for the nested list NoVRFLinkState.
-func VRFAddressFamilyNoVRFLinkStateDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFLinkStateFlatRow, VRFAddressFamilyNoVRFLinkStateKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFLinkStateFlatRow, VRFAddressFamilyNoVRFLinkStateKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFLinkStateSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NoVRFLinkState) VRFAddressFamilyNoVRFLinkStateFlatRow {
-			return VRFAddressFamilyNoVRFLinkStateFlatRow{
-				BGPID: yang.AncestorKey(anc, 0, "id"),
-				Entry: e,
-				VRFID: yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFLinkStateFlatRow) *ciscoiosxebgp.NoVRFLinkState {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFLinkStateFlatRow) VRFAddressFamilyNoVRFLinkStateKey {
-			var k VRFAddressFamilyNoVRFLinkStateKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			if r.Entry.AfName != nil {
-				k.AfName = *r.Entry.AfName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "link-state")),
-	}
-}
-
-// VRFAddressFamilyNoVRFLinkStateLinkStateNeighborKey is Neighbor's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFLinkStateLinkStateNeighborKey struct {
-	BGPID           string
-	VRFID           string
-	LinkStateAfName string
-	ID              string
-}
-
-// VRFAddressFamilyNoVRFLinkStateLinkStateNeighborFlatRow flattens one Neighbor entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFLinkStateLinkStateNeighborFlatRow struct {
-	BGPID           string
-	VRFID           string
-	LinkStateAfName string
-	Entry           ciscoiosxebgp.Neighbor
-}
-
-// VRFAddressFamilyNoVRFLinkStateLinkStateNeighborDescriptor is the flattened-row descriptor for the nested list Neighbor.
-func VRFAddressFamilyNoVRFLinkStateLinkStateNeighborDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFLinkStateLinkStateNeighborFlatRow, VRFAddressFamilyNoVRFLinkStateLinkStateNeighborKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFLinkStateLinkStateNeighborFlatRow, VRFAddressFamilyNoVRFLinkStateLinkStateNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFLinkStateSchema, ciscoiosxebgp.NeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.Neighbor) VRFAddressFamilyNoVRFLinkStateLinkStateNeighborFlatRow {
-			return VRFAddressFamilyNoVRFLinkStateLinkStateNeighborFlatRow{
-				BGPID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:           e,
-				LinkStateAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:           yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFLinkStateLinkStateNeighborFlatRow) *ciscoiosxebgp.Neighbor {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFLinkStateLinkStateNeighborFlatRow) VRFAddressFamilyNoVRFLinkStateLinkStateNeighborKey {
-			var k VRFAddressFamilyNoVRFLinkStateLinkStateNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.LinkStateAfName = r.LinkStateAfName
-			if r.Entry.ID != nil {
-				k.ID = yang.CanonicalKey(r.Entry.ID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "link-state", "link-state", "neighbor")),
-	}
-}
-
-// VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapKey is RouteMap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapKey struct {
-	BGPID           string
-	VRFID           string
-	LinkStateAfName string
-	NeighborID      string
-	Inout           string
-}
-
-// VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapFlatRow flattens one RouteMap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapFlatRow struct {
-	BGPID           string
-	VRFID           string
-	LinkStateAfName string
-	NeighborID      string
-	Entry           ciscoiosxebgp.RouteMap
-}
-
-// VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFLinkStateSchema, ciscoiosxebgp.NeighborSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapFlatRow{
-				BGPID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:           e,
-				LinkStateAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:      yang.AncestorKey(anc, 3, "id"),
-				VRFID:           yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapFlatRow) VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapKey {
-			var k VRFAddressFamilyNoVRFLinkStateLinkStateNeighborRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.LinkStateAfName = r.LinkStateAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "link-state", "link-state", "neighbor", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborKey is PeerGroupNeighbor's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborKey struct {
-	BGPID           string
-	VRFID           string
-	LinkStateAfName string
-	ID              string
-}
-
-// VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborFlatRow flattens one PeerGroupNeighbor entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborFlatRow struct {
-	BGPID           string
-	VRFID           string
-	LinkStateAfName string
-	Entry           ciscoiosxebgp.PeerGroupNeighbor
-}
-
-// VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborDescriptor is the flattened-row descriptor for the nested list PeerGroupNeighbor.
-func VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborFlatRow, VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborFlatRow, VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFLinkStateSchema, ciscoiosxebgp.PeerGroupNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.PeerGroupNeighbor) VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborFlatRow {
-			return VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborFlatRow{
-				BGPID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:           e,
-				LinkStateAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:           yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborFlatRow) *ciscoiosxebgp.PeerGroupNeighbor {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborFlatRow) VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborKey {
-			var k VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.LinkStateAfName = r.LinkStateAfName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "link-state", "link-state", "peer-group", "neighbor")),
-	}
-}
-
-// VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapKey is RouteMap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapKey struct {
-	BGPID           string
-	VRFID           string
-	LinkStateAfName string
-	NeighborID      string
-	Inout           string
-}
-
-// VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapFlatRow flattens one RouteMap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapFlatRow struct {
-	BGPID           string
-	VRFID           string
-	LinkStateAfName string
-	NeighborID      string
-	Entry           ciscoiosxebgp.RouteMap
-}
-
-// VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFLinkStateSchema, ciscoiosxebgp.PeerGroupNeighborSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapFlatRow{
-				BGPID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:           e,
-				LinkStateAfName: yang.AncestorKey(anc, 2, "af-name"),
-				NeighborID:      yang.AncestorKey(anc, 3, "id"),
-				VRFID:           yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapFlatRow) VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapKey {
-			var k VRFAddressFamilyNoVRFLinkStateLinkStatePeerGroupNeighborRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.LinkStateAfName = r.LinkStateAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "link-state", "link-state", "peer-group", "neighbor", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordKey is ContextWord's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordKey struct {
-	BGPID           string
-	VRFID           string
-	LinkStateAfName string
-	ContextWord     string
-}
-
-// VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordFlatRow flattens one ContextWord entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordFlatRow struct {
-	BGPID           string
-	VRFID           string
-	LinkStateAfName string
-	Entry           ciscoiosxebgp.ContextWord
-}
-
-// VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordDescriptor is the flattened-row descriptor for the nested list ContextWord.
-func VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFLinkStateSchema, ciscoiosxebgp.ContextWordSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.ContextWord) VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordFlatRow {
-			return VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordFlatRow{
-				BGPID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:           e,
-				LinkStateAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:           yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordFlatRow) *ciscoiosxebgp.ContextWord {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordFlatRow) VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordKey {
-			var k VRFAddressFamilyNoVRFLinkStateLinkStateSNMPContextContextWordKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.LinkStateAfName = r.LinkStateAfName
-			if r.Entry.ContextWord != nil {
-				k.ContextWord = *r.Entry.ContextWord
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "link-state", "link-state", "snmp", "context", "context_word")),
-	}
-}
-
-// VRFAddressFamilyNoVRFNsapKey is NoVRFNsap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFNsapKey struct {
-	BGPID  string
-	VRFID  string
-	AfName string
-}
-
-// VRFAddressFamilyNoVRFNsapFlatRow flattens one NoVRFNsap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFNsapFlatRow struct {
-	BGPID string
-	VRFID string
-	Entry ciscoiosxebgp.NoVRFNsap
-}
-
-// VRFAddressFamilyNoVRFNsapDescriptor is the flattened-row descriptor for the nested list NoVRFNsap.
-func VRFAddressFamilyNoVRFNsapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFNsapFlatRow, VRFAddressFamilyNoVRFNsapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFNsapFlatRow, VRFAddressFamilyNoVRFNsapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFNsapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NoVRFNsap) VRFAddressFamilyNoVRFNsapFlatRow {
-			return VRFAddressFamilyNoVRFNsapFlatRow{
-				BGPID: yang.AncestorKey(anc, 0, "id"),
-				Entry: e,
-				VRFID: yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFNsapFlatRow) *ciscoiosxebgp.NoVRFNsap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFNsapFlatRow) VRFAddressFamilyNoVRFNsapKey {
-			var k VRFAddressFamilyNoVRFNsapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			if r.Entry.AfName != nil {
-				k.AfName = *r.Entry.AfName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "nsap")),
-	}
-}
-
-// VRFAddressFamilyNoVRFNsapNsapNeighborKey is NsapNeighbor's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFNsapNsapNeighborKey struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	ID         string
-}
-
-// VRFAddressFamilyNoVRFNsapNsapNeighborFlatRow flattens one NsapNeighbor entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFNsapNsapNeighborFlatRow struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	Entry      ciscoiosxebgp.NsapNeighbor
-}
-
-// VRFAddressFamilyNoVRFNsapNsapNeighborDescriptor is the flattened-row descriptor for the nested list NsapNeighbor.
-func VRFAddressFamilyNoVRFNsapNsapNeighborDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapNeighborFlatRow, VRFAddressFamilyNoVRFNsapNsapNeighborKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapNeighborFlatRow, VRFAddressFamilyNoVRFNsapNsapNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFNsapSchema, ciscoiosxebgp.NsapNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NsapNeighbor) VRFAddressFamilyNoVRFNsapNsapNeighborFlatRow {
-			return VRFAddressFamilyNoVRFNsapNsapNeighborFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				NsapAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapNeighborFlatRow) *ciscoiosxebgp.NsapNeighbor {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapNeighborFlatRow) VRFAddressFamilyNoVRFNsapNsapNeighborKey {
-			var k VRFAddressFamilyNoVRFNsapNsapNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.NsapAfName = r.NsapAfName
-			if r.Entry.ID != nil {
-				k.ID = yang.CanonicalKey(r.Entry.ID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "nsap", "nsap", "neighbor")),
-	}
-}
-
-// VRFAddressFamilyNoVRFNsapNsapNeighborFilterListKey is NeighborFilterList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFNsapNsapNeighborFilterListKey struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	NeighborID string
-	Inout      string
-}
-
-// VRFAddressFamilyNoVRFNsapNsapNeighborFilterListFlatRow flattens one NeighborFilterList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFNsapNsapNeighborFilterListFlatRow struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	NeighborID string
-	Entry      ciscoiosxebgp.NeighborFilterList
-}
-
-// VRFAddressFamilyNoVRFNsapNsapNeighborFilterListDescriptor is the flattened-row descriptor for the nested list NeighborFilterList.
-func VRFAddressFamilyNoVRFNsapNsapNeighborFilterListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapNeighborFilterListFlatRow, VRFAddressFamilyNoVRFNsapNsapNeighborFilterListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapNeighborFilterListFlatRow, VRFAddressFamilyNoVRFNsapNsapNeighborFilterListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFNsapSchema, ciscoiosxebgp.NsapNeighborSchema, ciscoiosxebgp.NeighborFilterListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NeighborFilterList) VRFAddressFamilyNoVRFNsapNsapNeighborFilterListFlatRow {
-			return VRFAddressFamilyNoVRFNsapNsapNeighborFilterListFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				NeighborID: yang.AncestorKey(anc, 3, "id"),
-				NsapAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapNeighborFilterListFlatRow) *ciscoiosxebgp.NeighborFilterList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapNeighborFilterListFlatRow) VRFAddressFamilyNoVRFNsapNsapNeighborFilterListKey {
-			var k VRFAddressFamilyNoVRFNsapNsapNeighborFilterListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.NsapAfName = r.NsapAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "nsap", "nsap", "neighbor", "filter-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListKey is PrefixList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListKey struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	NeighborID string
-	Inout      string
-}
-
-// VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListFlatRow flattens one PrefixList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListFlatRow struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	NeighborID string
-	Entry      ciscoiosxebgp.PrefixList
-}
-
-// VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListDescriptor is the flattened-row descriptor for the nested list PrefixList.
-func VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFNsapSchema, ciscoiosxebgp.NsapNeighborSchema, ciscoiosxebgp.PrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.PrefixList) VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListFlatRow {
-			return VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				NeighborID: yang.AncestorKey(anc, 3, "id"),
-				NsapAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListFlatRow) *ciscoiosxebgp.PrefixList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListFlatRow) VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListKey {
-			var k VRFAddressFamilyNoVRFNsapNsapNeighborPrefixListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.NsapAfName = r.NsapAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "nsap", "nsap", "neighbor", "prefix-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapKey is RouteMap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapKey struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	NeighborID string
-	Inout      string
-}
-
-// VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapFlatRow flattens one RouteMap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapFlatRow struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	NeighborID string
-	Entry      ciscoiosxebgp.RouteMap
-}
-
-// VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFNsapSchema, ciscoiosxebgp.NsapNeighborSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				NeighborID: yang.AncestorKey(anc, 3, "id"),
-				NsapAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapFlatRow) VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapKey {
-			var k VRFAddressFamilyNoVRFNsapNsapNeighborRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.NsapAfName = r.NsapAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "nsap", "nsap", "neighbor", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFNsapNsapNetworkKey is NsapNetwork's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFNsapNsapNetworkKey struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	Number     string
-}
-
-// VRFAddressFamilyNoVRFNsapNsapNetworkFlatRow flattens one NsapNetwork entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFNsapNsapNetworkFlatRow struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	Entry      ciscoiosxebgp.NsapNetwork
-}
-
-// VRFAddressFamilyNoVRFNsapNsapNetworkDescriptor is the flattened-row descriptor for the nested list NsapNetwork.
-func VRFAddressFamilyNoVRFNsapNsapNetworkDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapNetworkFlatRow, VRFAddressFamilyNoVRFNsapNsapNetworkKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapNetworkFlatRow, VRFAddressFamilyNoVRFNsapNsapNetworkKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFNsapSchema, ciscoiosxebgp.NsapNetworkSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NsapNetwork) VRFAddressFamilyNoVRFNsapNsapNetworkFlatRow {
-			return VRFAddressFamilyNoVRFNsapNsapNetworkFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				NsapAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapNetworkFlatRow) *ciscoiosxebgp.NsapNetwork {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapNetworkFlatRow) VRFAddressFamilyNoVRFNsapNsapNetworkKey {
-			var k VRFAddressFamilyNoVRFNsapNsapNetworkKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.NsapAfName = r.NsapAfName
-			if r.Entry.Number != nil {
-				k.Number = *r.Entry.Number
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "nsap", "nsap", "network")),
-	}
-}
-
-// VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborKey is NsapPeerGroupNeighbor's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborKey struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	ID         string
-}
-
-// VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFlatRow flattens one NsapPeerGroupNeighbor entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFlatRow struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	Entry      ciscoiosxebgp.NsapPeerGroupNeighbor
-}
-
-// VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborDescriptor is the flattened-row descriptor for the nested list NsapPeerGroupNeighbor.
-func VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFlatRow, VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFlatRow, VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFNsapSchema, ciscoiosxebgp.NsapPeerGroupNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NsapPeerGroupNeighbor) VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFlatRow {
-			return VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				NsapAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFlatRow) *ciscoiosxebgp.NsapPeerGroupNeighbor {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFlatRow) VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborKey {
-			var k VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.NsapAfName = r.NsapAfName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "nsap", "nsap", "peer-group", "neighbor")),
-	}
-}
-
-// VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListKey is NeighborFilterList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListKey struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	NeighborID string
-	Inout      string
-}
-
-// VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListFlatRow flattens one NeighborFilterList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListFlatRow struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	NeighborID string
-	Entry      ciscoiosxebgp.NeighborFilterList
-}
-
-// VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListDescriptor is the flattened-row descriptor for the nested list NeighborFilterList.
-func VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListFlatRow, VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListFlatRow, VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFNsapSchema, ciscoiosxebgp.NsapPeerGroupNeighborSchema, ciscoiosxebgp.NeighborFilterListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NeighborFilterList) VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListFlatRow {
-			return VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				NeighborID: yang.AncestorKey(anc, 3, "id"),
-				NsapAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListFlatRow) *ciscoiosxebgp.NeighborFilterList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListFlatRow) VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListKey {
-			var k VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborFilterListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.NsapAfName = r.NsapAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "nsap", "nsap", "peer-group", "neighbor", "filter-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListKey is PrefixList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListKey struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	NeighborID string
-	Inout      string
-}
-
-// VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListFlatRow flattens one PrefixList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListFlatRow struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	NeighborID string
-	Entry      ciscoiosxebgp.PrefixList
-}
-
-// VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListDescriptor is the flattened-row descriptor for the nested list PrefixList.
-func VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFNsapSchema, ciscoiosxebgp.NsapPeerGroupNeighborSchema, ciscoiosxebgp.PrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.PrefixList) VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListFlatRow {
-			return VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				NeighborID: yang.AncestorKey(anc, 3, "id"),
-				NsapAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListFlatRow) *ciscoiosxebgp.PrefixList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListFlatRow) VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListKey {
-			var k VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborPrefixListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.NsapAfName = r.NsapAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "nsap", "nsap", "peer-group", "neighbor", "prefix-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapKey is RouteMap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapKey struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	NeighborID string
-	Inout      string
-}
-
-// VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapFlatRow flattens one RouteMap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapFlatRow struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	NeighborID string
-	Entry      ciscoiosxebgp.RouteMap
-}
-
-// VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFNsapSchema, ciscoiosxebgp.NsapPeerGroupNeighborSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				NeighborID: yang.AncestorKey(anc, 3, "id"),
-				NsapAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapFlatRow) VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapKey {
-			var k VRFAddressFamilyNoVRFNsapNsapPeerGroupNeighborRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.NsapAfName = r.NsapAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "nsap", "nsap", "peer-group", "neighbor", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordKey is ContextWord's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordKey struct {
-	BGPID       string
-	VRFID       string
-	NsapAfName  string
-	ContextWord string
-}
-
-// VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordFlatRow flattens one ContextWord entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordFlatRow struct {
-	BGPID      string
-	VRFID      string
-	NsapAfName string
-	Entry      ciscoiosxebgp.ContextWord
-}
-
-// VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordDescriptor is the flattened-row descriptor for the nested list ContextWord.
-func VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFNsapSchema, ciscoiosxebgp.ContextWordSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.ContextWord) VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordFlatRow {
-			return VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordFlatRow{
-				BGPID:      yang.AncestorKey(anc, 0, "id"),
-				Entry:      e,
-				NsapAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:      yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordFlatRow) *ciscoiosxebgp.ContextWord {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordFlatRow) VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordKey {
-			var k VRFAddressFamilyNoVRFNsapNsapSNMPContextContextWordKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.NsapAfName = r.NsapAfName
-			if r.Entry.ContextWord != nil {
-				k.ContextWord = *r.Entry.ContextWord
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "nsap", "nsap", "snmp", "context", "context_word")),
-	}
-}
-
-// VRFAddressFamilyNoVRFRtfilterKey is NoVRFRtfilter's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFRtfilterKey struct {
-	BGPID  string
-	VRFID  string
-	AfName string
-}
-
-// VRFAddressFamilyNoVRFRtfilterFlatRow flattens one NoVRFRtfilter entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFRtfilterFlatRow struct {
-	BGPID string
-	VRFID string
-	Entry ciscoiosxebgp.NoVRFRtfilter
-}
-
-// VRFAddressFamilyNoVRFRtfilterDescriptor is the flattened-row descriptor for the nested list NoVRFRtfilter.
-func VRFAddressFamilyNoVRFRtfilterDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFRtfilterFlatRow, VRFAddressFamilyNoVRFRtfilterKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFRtfilterFlatRow, VRFAddressFamilyNoVRFRtfilterKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFRtfilterSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NoVRFRtfilter) VRFAddressFamilyNoVRFRtfilterFlatRow {
-			return VRFAddressFamilyNoVRFRtfilterFlatRow{
-				BGPID: yang.AncestorKey(anc, 0, "id"),
-				Entry: e,
-				VRFID: yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFRtfilterFlatRow) *ciscoiosxebgp.NoVRFRtfilter {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFRtfilterFlatRow) VRFAddressFamilyNoVRFRtfilterKey {
-			var k VRFAddressFamilyNoVRFRtfilterKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			if r.Entry.AfName != nil {
-				k.AfName = *r.Entry.AfName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "rtfilter")),
-	}
-}
-
-// VRFAddressFamilyNoVRFRtfilterRtfilterNeighborKey is RtfilterNeighbor's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFRtfilterRtfilterNeighborKey struct {
-	BGPID          string
-	VRFID          string
-	RtfilterAfName string
-	ID             string
-}
-
-// VRFAddressFamilyNoVRFRtfilterRtfilterNeighborFlatRow flattens one RtfilterNeighbor entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFRtfilterRtfilterNeighborFlatRow struct {
-	BGPID          string
-	VRFID          string
-	RtfilterAfName string
-	Entry          ciscoiosxebgp.RtfilterNeighbor
-}
-
-// VRFAddressFamilyNoVRFRtfilterRtfilterNeighborDescriptor is the flattened-row descriptor for the nested list RtfilterNeighbor.
-func VRFAddressFamilyNoVRFRtfilterRtfilterNeighborDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFRtfilterRtfilterNeighborFlatRow, VRFAddressFamilyNoVRFRtfilterRtfilterNeighborKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFRtfilterRtfilterNeighborFlatRow, VRFAddressFamilyNoVRFRtfilterRtfilterNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFRtfilterSchema, ciscoiosxebgp.RtfilterNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RtfilterNeighbor) VRFAddressFamilyNoVRFRtfilterRtfilterNeighborFlatRow {
-			return VRFAddressFamilyNoVRFRtfilterRtfilterNeighborFlatRow{
-				BGPID:          yang.AncestorKey(anc, 0, "id"),
-				Entry:          e,
-				RtfilterAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:          yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFRtfilterRtfilterNeighborFlatRow) *ciscoiosxebgp.RtfilterNeighbor {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFRtfilterRtfilterNeighborFlatRow) VRFAddressFamilyNoVRFRtfilterRtfilterNeighborKey {
-			var k VRFAddressFamilyNoVRFRtfilterRtfilterNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.RtfilterAfName = r.RtfilterAfName
-			if r.Entry.ID != nil {
-				k.ID = yang.CanonicalKey(r.Entry.ID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "rtfilter", "rtfilter", "neighbor")),
-	}
-}
-
-// VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapKey is RouteMap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapKey struct {
-	BGPID          string
-	VRFID          string
-	RtfilterAfName string
-	NeighborID     string
-	Inout          string
-}
-
-// VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapFlatRow flattens one RouteMap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapFlatRow struct {
-	BGPID          string
-	VRFID          string
-	RtfilterAfName string
-	NeighborID     string
-	Entry          ciscoiosxebgp.RouteMap
-}
-
-// VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFRtfilterSchema, ciscoiosxebgp.RtfilterNeighborSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapFlatRow{
-				BGPID:          yang.AncestorKey(anc, 0, "id"),
-				Entry:          e,
-				NeighborID:     yang.AncestorKey(anc, 3, "id"),
-				RtfilterAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:          yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapFlatRow) VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapKey {
-			var k VRFAddressFamilyNoVRFRtfilterRtfilterNeighborRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.RtfilterAfName = r.RtfilterAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "rtfilter", "rtfilter", "neighbor", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborKey is RtfilterPeerGroupNeighbor's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborKey struct {
-	BGPID          string
-	VRFID          string
-	RtfilterAfName string
-	ID             string
-}
-
-// VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborFlatRow flattens one RtfilterPeerGroupNeighbor entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborFlatRow struct {
-	BGPID          string
-	VRFID          string
-	RtfilterAfName string
-	Entry          ciscoiosxebgp.RtfilterPeerGroupNeighbor
-}
-
-// VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborDescriptor is the flattened-row descriptor for the nested list RtfilterPeerGroupNeighbor.
-func VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborFlatRow, VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborFlatRow, VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFRtfilterSchema, ciscoiosxebgp.RtfilterPeerGroupNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RtfilterPeerGroupNeighbor) VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborFlatRow {
-			return VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborFlatRow{
-				BGPID:          yang.AncestorKey(anc, 0, "id"),
-				Entry:          e,
-				RtfilterAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:          yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborFlatRow) *ciscoiosxebgp.RtfilterPeerGroupNeighbor {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborFlatRow) VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborKey {
-			var k VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.RtfilterAfName = r.RtfilterAfName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "rtfilter", "rtfilter", "peer-group", "neighbor")),
-	}
-}
-
-// VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapKey is RouteMap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapKey struct {
-	BGPID          string
-	VRFID          string
-	RtfilterAfName string
-	NeighborID     string
-	Inout          string
-}
-
-// VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapFlatRow flattens one RouteMap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapFlatRow struct {
-	BGPID          string
-	VRFID          string
-	RtfilterAfName string
-	NeighborID     string
-	Entry          ciscoiosxebgp.RouteMap
-}
-
-// VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFRtfilterSchema, ciscoiosxebgp.RtfilterPeerGroupNeighborSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapFlatRow{
-				BGPID:          yang.AncestorKey(anc, 0, "id"),
-				Entry:          e,
-				NeighborID:     yang.AncestorKey(anc, 3, "id"),
-				RtfilterAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:          yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapFlatRow) VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapKey {
-			var k VRFAddressFamilyNoVRFRtfilterRtfilterPeerGroupNeighborRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.RtfilterAfName = r.RtfilterAfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "rtfilter", "rtfilter", "peer-group", "neighbor", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordKey is ContextWord's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordKey struct {
-	BGPID          string
-	VRFID          string
-	RtfilterAfName string
-	ContextWord    string
-}
-
-// VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordFlatRow flattens one ContextWord entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordFlatRow struct {
-	BGPID          string
-	VRFID          string
-	RtfilterAfName string
-	Entry          ciscoiosxebgp.ContextWord
-}
-
-// VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordDescriptor is the flattened-row descriptor for the nested list ContextWord.
-func VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.NoVRFRtfilterSchema, ciscoiosxebgp.ContextWordSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.ContextWord) VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordFlatRow {
-			return VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordFlatRow{
-				BGPID:          yang.AncestorKey(anc, 0, "id"),
-				Entry:          e,
-				RtfilterAfName: yang.AncestorKey(anc, 2, "af-name"),
-				VRFID:          yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordFlatRow) *ciscoiosxebgp.ContextWord {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordFlatRow) VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordKey {
-			var k VRFAddressFamilyNoVRFRtfilterRtfilterSNMPContextContextWordKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.RtfilterAfName = r.RtfilterAfName
-			if r.Entry.ContextWord != nil {
-				k.ContextWord = *r.Entry.ContextWord
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "rtfilter", "rtfilter", "snmp", "context", "context_word")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Key is AddressFamilyNoVRFVpnv4's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Key struct {
-	BGPID  string
-	VRFID  string
-	AfName string
-}
-
-// VRFAddressFamilyNoVRFVpnv4FlatRow flattens one AddressFamilyNoVRFVpnv4 entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4FlatRow struct {
-	BGPID string
-	VRFID string
-	Entry ciscoiosxebgp.AddressFamilyNoVRFVpnv4
-}
-
-// VRFAddressFamilyNoVRFVpnv4Descriptor is the flattened-row descriptor for the nested list AddressFamilyNoVRFVpnv4.
-func VRFAddressFamilyNoVRFVpnv4Descriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4FlatRow, VRFAddressFamilyNoVRFVpnv4Key] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4FlatRow, VRFAddressFamilyNoVRFVpnv4Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AddressFamilyNoVRFVpnv4) VRFAddressFamilyNoVRFVpnv4FlatRow {
-			return VRFAddressFamilyNoVRFVpnv4FlatRow{
-				BGPID: yang.AncestorKey(anc, 0, "id"),
-				Entry: e,
-				VRFID: yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4FlatRow) *ciscoiosxebgp.AddressFamilyNoVRFVpnv4 {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4FlatRow) VRFAddressFamilyNoVRFVpnv4Key {
-			var k VRFAddressFamilyNoVRFVpnv4Key
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			if r.Entry.AfName != nil {
-				k.AfName = *r.Entry.AfName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborKey is Vpnv4UnicastNeighbor's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	ID          string
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFlatRow flattens one Vpnv4UnicastNeighbor entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	Entry       ciscoiosxebgp.Vpnv4UnicastNeighbor
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDescriptor is the flattened-row descriptor for the nested list Vpnv4UnicastNeighbor.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.Vpnv4UnicastNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.Vpnv4UnicastNeighbor) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFlatRow) *ciscoiosxebgp.Vpnv4UnicastNeighbor {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			if r.Entry.ID != nil {
-				k.ID = yang.CanonicalKey(r.Entry.ID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "neighbor")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeKey is AllBestBestRange's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Range       uint8
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow flattens one AllBestBestRange entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.AllBestBestRange
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeDescriptor is the flattened-row descriptor for the nested list AllBestBestRange.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.Vpnv4UnicastNeighborSchema, ciscoiosxebgp.AllBestBestRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AllBestBestRange) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow) *ciscoiosxebgp.AllBestBestRange {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "neighbor", "advertise", "additional-paths", "all", "best", "best-range")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeKey is AdditionalPathsBestBestRange's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Range       uint8
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow flattens one AdditionalPathsBestBestRange entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.AdditionalPathsBestBestRange
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeDescriptor is the flattened-row descriptor for the nested list AdditionalPathsBestBestRange.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.Vpnv4UnicastNeighborSchema, ciscoiosxebgp.AdditionalPathsBestBestRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AdditionalPathsBestBestRange) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow) *ciscoiosxebgp.AdditionalPathsBestBestRange {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborAdvertiseAdditionalPathsBestBestRangeKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "neighbor", "advertise", "additional-paths", "best", "best-range")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListKey is DistributeList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListFlatRow flattens one DistributeList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.DistributeList
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListDescriptor is the flattened-row descriptor for the nested list DistributeList.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.Vpnv4UnicastNeighborSchema, ciscoiosxebgp.DistributeListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.DistributeList) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListFlatRow) *ciscoiosxebgp.DistributeList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborDistributeListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "neighbor", "distribute-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListKey is NeighborFilterList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListFlatRow flattens one NeighborFilterList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.NeighborFilterList
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListDescriptor is the flattened-row descriptor for the nested list NeighborFilterList.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.Vpnv4UnicastNeighborSchema, ciscoiosxebgp.NeighborFilterListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NeighborFilterList) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListFlatRow) *ciscoiosxebgp.NeighborFilterList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborFilterListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "neighbor", "filter-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListKey is PrefixList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListFlatRow flattens one PrefixList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.PrefixList
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListDescriptor is the flattened-row descriptor for the nested list PrefixList.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.Vpnv4UnicastNeighborSchema, ciscoiosxebgp.PrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.PrefixList) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListFlatRow) *ciscoiosxebgp.PrefixList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborPrefixListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "neighbor", "prefix-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapKey is RouteMap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapFlatRow flattens one RouteMap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.RouteMap
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.Vpnv4UnicastNeighborSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNeighborRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "neighbor", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskKey is NetworkNoMask's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	Number      string
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskFlatRow flattens one NetworkNoMask entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	Entry       ciscoiosxebgp.NetworkNoMask
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskDescriptor is the flattened-row descriptor for the nested list NetworkNoMask.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.NetworkNoMaskSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NetworkNoMask) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskFlatRow) *ciscoiosxebgp.NetworkNoMask {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkNoMaskKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			if r.Entry.Number != nil {
-				k.Number = *r.Entry.Number
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "network", "no-mask")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskKey is NetworkWithMask's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	Number      string
-	Mask        string
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskFlatRow flattens one NetworkWithMask entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	Entry       ciscoiosxebgp.NetworkWithMask
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskDescriptor is the flattened-row descriptor for the nested list NetworkWithMask.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.NetworkWithMaskSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NetworkWithMask) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskFlatRow) *ciscoiosxebgp.NetworkWithMask {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastNetworkWithMaskKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			if r.Entry.Number != nil {
-				k.Number = *r.Entry.Number
-			}
-			if r.Entry.Mask != nil {
-				k.Mask = *r.Entry.Mask
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "network", "with-mask")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborKey is Vpnv4UnicastPeerGroupNeighbor's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	ID          string
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFlatRow flattens one Vpnv4UnicastPeerGroupNeighbor entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	Entry       ciscoiosxebgp.Vpnv4UnicastPeerGroupNeighbor
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDescriptor is the flattened-row descriptor for the nested list Vpnv4UnicastPeerGroupNeighbor.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.Vpnv4UnicastPeerGroupNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.Vpnv4UnicastPeerGroupNeighbor) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFlatRow) *ciscoiosxebgp.Vpnv4UnicastPeerGroupNeighbor {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "peer-group", "neighbor")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey is AllBestBestRange's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Range       uint8
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow flattens one AllBestBestRange entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.AllBestBestRange
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeDescriptor is the flattened-row descriptor for the nested list AllBestBestRange.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.Vpnv4UnicastPeerGroupNeighborSchema, ciscoiosxebgp.AllBestBestRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AllBestBestRange) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow) *ciscoiosxebgp.AllBestBestRange {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "peer-group", "neighbor", "advertise", "additional-paths", "all", "best", "best-range")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey is AdditionalPathsBestBestRange's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Range       uint8
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow flattens one AdditionalPathsBestBestRange entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.AdditionalPathsBestBestRange
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeDescriptor is the flattened-row descriptor for the nested list AdditionalPathsBestBestRange.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.Vpnv4UnicastPeerGroupNeighborSchema, ciscoiosxebgp.AdditionalPathsBestBestRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AdditionalPathsBestBestRange) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow) *ciscoiosxebgp.AdditionalPathsBestBestRange {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "peer-group", "neighbor", "advertise", "additional-paths", "best", "best-range")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListKey is DistributeList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListFlatRow flattens one DistributeList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.DistributeList
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListDescriptor is the flattened-row descriptor for the nested list DistributeList.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.Vpnv4UnicastPeerGroupNeighborSchema, ciscoiosxebgp.DistributeListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.DistributeList) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListFlatRow) *ciscoiosxebgp.DistributeList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborDistributeListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "peer-group", "neighbor", "distribute-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListKey is NeighborFilterList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListFlatRow flattens one NeighborFilterList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.NeighborFilterList
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListDescriptor is the flattened-row descriptor for the nested list NeighborFilterList.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.Vpnv4UnicastPeerGroupNeighborSchema, ciscoiosxebgp.NeighborFilterListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NeighborFilterList) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListFlatRow) *ciscoiosxebgp.NeighborFilterList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborFilterListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "peer-group", "neighbor", "filter-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListKey is PrefixList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListFlatRow flattens one PrefixList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.PrefixList
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListDescriptor is the flattened-row descriptor for the nested list PrefixList.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.Vpnv4UnicastPeerGroupNeighborSchema, ciscoiosxebgp.PrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.PrefixList) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListFlatRow) *ciscoiosxebgp.PrefixList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborPrefixListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "peer-group", "neighbor", "prefix-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapKey is RouteMap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapFlatRow flattens one RouteMap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.RouteMap
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.Vpnv4UnicastPeerGroupNeighborSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastPeerGroupNeighborRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "peer-group", "neighbor", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6Key is SegmentRoutingSrv6's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6Key struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	SrSrv6      string
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6FlatRow flattens one SegmentRoutingSrv6 entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6FlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	Entry       ciscoiosxebgp.SegmentRoutingSrv6
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6Descriptor is the flattened-row descriptor for the nested list SegmentRoutingSrv6.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6Descriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6FlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6Key] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6FlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.SegmentRoutingSrv6Schema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.SegmentRoutingSrv6) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6FlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6FlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6FlatRow) *ciscoiosxebgp.SegmentRoutingSrv6 {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6FlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6Key {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSegmentRoutingSrv6Key
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			if r.Entry.SrSrv6 != nil {
-				k.SrSrv6 = *r.Entry.SrSrv6
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "segment-routing-srv6")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordKey is ContextWord's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	ContextWord string
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordFlatRow flattens one ContextWord entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv4AfName string
-	Entry       ciscoiosxebgp.ContextWord
-}
-
-// VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordDescriptor is the flattened-row descriptor for the nested list ContextWord.
-func VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv4Schema, ciscoiosxebgp.ContextWordSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.ContextWord) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordFlatRow {
-			return VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv4AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordFlatRow) *ciscoiosxebgp.ContextWord {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordFlatRow) VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordKey {
-			var k VRFAddressFamilyNoVRFVpnv4Vpnv4UnicastSNMPContextContextWordKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv4AfName = r.Vpnv4AfName
-			if r.Entry.ContextWord != nil {
-				k.ContextWord = *r.Entry.ContextWord
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv4", "vpnv4-unicast", "snmp", "context", "context_word")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Key is AddressFamilyNoVRFVpnv6's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Key struct {
-	BGPID  string
-	VRFID  string
-	AfName string
-}
-
-// VRFAddressFamilyNoVRFVpnv6FlatRow flattens one AddressFamilyNoVRFVpnv6 entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6FlatRow struct {
-	BGPID string
-	VRFID string
-	Entry ciscoiosxebgp.AddressFamilyNoVRFVpnv6
-}
-
-// VRFAddressFamilyNoVRFVpnv6Descriptor is the flattened-row descriptor for the nested list AddressFamilyNoVRFVpnv6.
-func VRFAddressFamilyNoVRFVpnv6Descriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6FlatRow, VRFAddressFamilyNoVRFVpnv6Key] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6FlatRow, VRFAddressFamilyNoVRFVpnv6Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AddressFamilyNoVRFVpnv6) VRFAddressFamilyNoVRFVpnv6FlatRow {
-			return VRFAddressFamilyNoVRFVpnv6FlatRow{
-				BGPID: yang.AncestorKey(anc, 0, "id"),
-				Entry: e,
-				VRFID: yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6FlatRow) *ciscoiosxebgp.AddressFamilyNoVRFVpnv6 {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6FlatRow) VRFAddressFamilyNoVRFVpnv6Key {
-			var k VRFAddressFamilyNoVRFVpnv6Key
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			if r.Entry.AfName != nil {
-				k.AfName = *r.Entry.AfName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborKey is Vpnv6UnicastNeighbor's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	ID          string
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFlatRow flattens one Vpnv6UnicastNeighbor entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	Entry       ciscoiosxebgp.Vpnv6UnicastNeighbor
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDescriptor is the flattened-row descriptor for the nested list Vpnv6UnicastNeighbor.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.Vpnv6UnicastNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.Vpnv6UnicastNeighbor) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFlatRow) *ciscoiosxebgp.Vpnv6UnicastNeighbor {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborKey {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			if r.Entry.ID != nil {
-				k.ID = yang.CanonicalKey(r.Entry.ID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "neighbor")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeKey is AllBestBestRange's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Range       uint8
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow flattens one AllBestBestRange entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.AllBestBestRange
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeDescriptor is the flattened-row descriptor for the nested list AllBestBestRange.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.Vpnv6UnicastNeighborSchema, ciscoiosxebgp.AllBestBestRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AllBestBestRange) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow) *ciscoiosxebgp.AllBestBestRange {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeKey {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsAllBestBestRangeKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "neighbor", "advertise", "additional-paths", "all", "best", "best-range")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeKey is AdditionalPathsBestBestRange's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Range       uint8
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow flattens one AdditionalPathsBestBestRange entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.AdditionalPathsBestBestRange
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeDescriptor is the flattened-row descriptor for the nested list AdditionalPathsBestBestRange.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.Vpnv6UnicastNeighborSchema, ciscoiosxebgp.AdditionalPathsBestBestRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AdditionalPathsBestBestRange) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow) *ciscoiosxebgp.AdditionalPathsBestBestRange {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeKey {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborAdvertiseAdditionalPathsBestBestRangeKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "neighbor", "advertise", "additional-paths", "best", "best-range")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListKey is DistributeList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListFlatRow flattens one DistributeList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.DistributeList
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListDescriptor is the flattened-row descriptor for the nested list DistributeList.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.Vpnv6UnicastNeighborSchema, ciscoiosxebgp.DistributeListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.DistributeList) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListFlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListFlatRow) *ciscoiosxebgp.DistributeList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListFlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListKey {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborDistributeListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "neighbor", "distribute-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListKey is NeighborFilterList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListFlatRow flattens one NeighborFilterList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.NeighborFilterList
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListDescriptor is the flattened-row descriptor for the nested list NeighborFilterList.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.Vpnv6UnicastNeighborSchema, ciscoiosxebgp.NeighborFilterListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NeighborFilterList) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListFlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListFlatRow) *ciscoiosxebgp.NeighborFilterList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListFlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListKey {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborFilterListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "neighbor", "filter-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListKey is PrefixList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListFlatRow flattens one PrefixList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.PrefixList
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListDescriptor is the flattened-row descriptor for the nested list PrefixList.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.Vpnv6UnicastNeighborSchema, ciscoiosxebgp.PrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.PrefixList) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListFlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListFlatRow) *ciscoiosxebgp.PrefixList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListFlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListKey {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborPrefixListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "neighbor", "prefix-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapKey is RouteMap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapFlatRow flattens one RouteMap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.RouteMap
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.Vpnv6UnicastNeighborSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapFlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapKey {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastNeighborRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "neighbor", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborKey is Vpnv6UnicastPeerGroupNeighbor's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	ID          string
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFlatRow flattens one Vpnv6UnicastPeerGroupNeighbor entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	Entry       ciscoiosxebgp.Vpnv6UnicastPeerGroupNeighbor
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDescriptor is the flattened-row descriptor for the nested list Vpnv6UnicastPeerGroupNeighbor.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.Vpnv6UnicastPeerGroupNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.Vpnv6UnicastPeerGroupNeighbor) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFlatRow) *ciscoiosxebgp.Vpnv6UnicastPeerGroupNeighbor {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborKey {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "peer-group", "neighbor")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey is AllBestBestRange's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Range       uint8
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow flattens one AllBestBestRange entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.AllBestBestRange
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeDescriptor is the flattened-row descriptor for the nested list AllBestBestRange.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.Vpnv6UnicastPeerGroupNeighborSchema, ciscoiosxebgp.AllBestBestRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AllBestBestRange) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow) *ciscoiosxebgp.AllBestBestRange {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeFlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsAllBestBestRangeKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "peer-group", "neighbor", "advertise", "additional-paths", "all", "best", "best-range")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey is AdditionalPathsBestBestRange's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Range       uint8
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow flattens one AdditionalPathsBestBestRange entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.AdditionalPathsBestBestRange
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeDescriptor is the flattened-row descriptor for the nested list AdditionalPathsBestBestRange.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.Vpnv6UnicastPeerGroupNeighborSchema, ciscoiosxebgp.AdditionalPathsBestBestRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AdditionalPathsBestBestRange) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow) *ciscoiosxebgp.AdditionalPathsBestBestRange {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeFlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborAdvertiseAdditionalPathsBestBestRangeKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "peer-group", "neighbor", "advertise", "additional-paths", "best", "best-range")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListKey is DistributeList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListFlatRow flattens one DistributeList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.DistributeList
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListDescriptor is the flattened-row descriptor for the nested list DistributeList.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.Vpnv6UnicastPeerGroupNeighborSchema, ciscoiosxebgp.DistributeListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.DistributeList) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListFlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListFlatRow) *ciscoiosxebgp.DistributeList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListFlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListKey {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborDistributeListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "peer-group", "neighbor", "distribute-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListKey is NeighborFilterList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListFlatRow flattens one NeighborFilterList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.NeighborFilterList
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListDescriptor is the flattened-row descriptor for the nested list NeighborFilterList.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.Vpnv6UnicastPeerGroupNeighborSchema, ciscoiosxebgp.NeighborFilterListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.NeighborFilterList) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListFlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListFlatRow) *ciscoiosxebgp.NeighborFilterList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListFlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListKey {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborFilterListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "peer-group", "neighbor", "filter-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListKey is PrefixList's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListFlatRow flattens one PrefixList entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.PrefixList
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListDescriptor is the flattened-row descriptor for the nested list PrefixList.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.Vpnv6UnicastPeerGroupNeighborSchema, ciscoiosxebgp.PrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.PrefixList) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListFlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListFlatRow) *ciscoiosxebgp.PrefixList {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListFlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListKey {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborPrefixListKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "peer-group", "neighbor", "prefix-list")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapKey is RouteMap's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Inout       string
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapFlatRow flattens one RouteMap entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	NeighborID  string
-	Entry       ciscoiosxebgp.RouteMap
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapDescriptor is the flattened-row descriptor for the nested list RouteMap.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.Vpnv6UnicastPeerGroupNeighborSchema, ciscoiosxebgp.RouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapFlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				NeighborID:  yang.AncestorKey(anc, 3, "id"),
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapFlatRow) *ciscoiosxebgp.RouteMap {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapFlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapKey {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastPeerGroupNeighborRouteMapKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			k.NeighborID = r.NeighborID
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "peer-group", "neighbor", "route-map")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6Key is SegmentRoutingSrv6's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6Key struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	SrSrv6      string
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6FlatRow flattens one SegmentRoutingSrv6 entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6FlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	Entry       ciscoiosxebgp.SegmentRoutingSrv6
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6Descriptor is the flattened-row descriptor for the nested list SegmentRoutingSrv6.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6Descriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6FlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6Key] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6FlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.SegmentRoutingSrv6Schema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.SegmentRoutingSrv6) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6FlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6FlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6FlatRow) *ciscoiosxebgp.SegmentRoutingSrv6 {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6FlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6Key {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSegmentRoutingSrv6Key
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			if r.Entry.SrSrv6 != nil {
-				k.SrSrv6 = *r.Entry.SrSrv6
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "segment-routing-srv6")),
-	}
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordKey is ContextWord's row identity (ancestor keys in canonical form).
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordKey struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	ContextWord string
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordFlatRow flattens one ContextWord entry with its ancestor list keys.
-type VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordFlatRow struct {
-	BGPID       string
-	VRFID       string
-	Vpnv6AfName string
-	Entry       ciscoiosxebgp.ContextWord
-}
-
-// VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordDescriptor is the flattened-row descriptor for the nested list ContextWord.
-func VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordDescriptor() yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordKey] {
-	return yang.ListDescriptor[VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordFlatRow, VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.AddressFamilyNoVRFVpnv6Schema, ciscoiosxebgp.ContextWordSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.ContextWord) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordFlatRow {
-			return VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordFlatRow{
-				BGPID:       yang.AncestorKey(anc, 0, "id"),
-				Entry:       e,
-				VRFID:       yang.AncestorKey(anc, 1, "id"),
-				Vpnv6AfName: yang.AncestorKey(anc, 2, "af-name"),
-			}
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordFlatRow) *ciscoiosxebgp.ContextWord {
-			return &r.Entry
-		}, func(r *VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordFlatRow) VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordKey {
-			var k VRFAddressFamilyNoVRFVpnv6Vpnv6UnicastSNMPContextContextWordKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			k.Vpnv6AfName = r.Vpnv6AfName
-			if r.Entry.ContextWord != nil {
-				k.ContextWord = *r.Entry.ContextWord
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "address-family", "no-vrf", "vpnv6", "vpnv6-unicast", "snmp", "context", "context_word")),
-	}
-}
-
-// ScopeVRFNeighborKey is VRFNeighbor's row identity (ancestor keys in canonical form).
-type ScopeVRFNeighborKey struct {
-	BGPID string
-	VRFID string
-	ID    string
-}
-
-// ScopeVRFNeighborFlatRow flattens one VRFNeighbor entry with its ancestor list keys.
-type ScopeVRFNeighborFlatRow struct {
-	BGPID string
-	VRFID string
-	Entry ciscoiosxebgp.VRFNeighbor
-}
-
-// ScopeVRFNeighborDescriptor is the flattened-row descriptor for the nested list VRFNeighbor.
-func ScopeVRFNeighborDescriptor() yang.ListDescriptor[ScopeVRFNeighborFlatRow, ScopeVRFNeighborKey] {
-	return yang.ListDescriptor[ScopeVRFNeighborFlatRow, ScopeVRFNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.VRFNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.VRFNeighbor) ScopeVRFNeighborFlatRow {
-			return ScopeVRFNeighborFlatRow{
-				BGPID: yang.AncestorKey(anc, 0, "id"),
-				Entry: e,
-				VRFID: yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *ScopeVRFNeighborFlatRow) *ciscoiosxebgp.VRFNeighbor {
-			return &r.Entry
-		}, func(r *ScopeVRFNeighborFlatRow) ScopeVRFNeighborKey {
-			var k ScopeVRFNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			if r.Entry.ID != nil {
-				k.ID = yang.CanonicalKey(r.Entry.ID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "neighbor")),
-	}
-}
-
-// VRFPeerGroupNeighborKey is VRFPeerGroupNeighbor's row identity (ancestor keys in canonical form).
-type VRFPeerGroupNeighborKey struct {
-	BGPID string
-	VRFID string
-	ID    string
-}
-
-// VRFPeerGroupNeighborFlatRow flattens one VRFPeerGroupNeighbor entry with its ancestor list keys.
-type VRFPeerGroupNeighborFlatRow struct {
-	BGPID string
-	VRFID string
-	Entry ciscoiosxebgp.VRFPeerGroupNeighbor
-}
-
-// VRFPeerGroupNeighborDescriptor is the flattened-row descriptor for the nested list VRFPeerGroupNeighbor.
-func VRFPeerGroupNeighborDescriptor() yang.ListDescriptor[VRFPeerGroupNeighborFlatRow, VRFPeerGroupNeighborKey] {
-	return yang.ListDescriptor[VRFPeerGroupNeighborFlatRow, VRFPeerGroupNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.ScopeVRFSchema, ciscoiosxebgp.VRFPeerGroupNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.VRFPeerGroupNeighbor) VRFPeerGroupNeighborFlatRow {
-			return VRFPeerGroupNeighborFlatRow{
-				BGPID: yang.AncestorKey(anc, 0, "id"),
-				Entry: e,
-				VRFID: yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *VRFPeerGroupNeighborFlatRow) *ciscoiosxebgp.VRFPeerGroupNeighbor {
-			return &r.Entry
-		}, func(r *VRFPeerGroupNeighborFlatRow) VRFPeerGroupNeighborKey {
-			var k VRFPeerGroupNeighborKey
-			k.BGPID = r.BGPID
-			k.VRFID = r.VRFID
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "scope", "vrf", "peer-group", "neighbor")),
-	}
-}
-
-// BGPSegmentRoutingSrv6Key is BGPSegmentRoutingSrv6's row identity (ancestor keys in canonical form).
-type BGPSegmentRoutingSrv6Key struct {
-	BGPID  string
-	SrSrv6 string
-}
-
-// BGPSegmentRoutingSrv6FlatRow flattens one BGPSegmentRoutingSrv6 entry with its ancestor list keys.
-type BGPSegmentRoutingSrv6FlatRow struct {
-	BGPID string
-	Entry ciscoiosxebgp.BGPSegmentRoutingSrv6
-}
-
-// BGPSegmentRoutingSrv6Descriptor is the flattened-row descriptor for the nested list BGPSegmentRoutingSrv6.
-func BGPSegmentRoutingSrv6Descriptor() yang.ListDescriptor[BGPSegmentRoutingSrv6FlatRow, BGPSegmentRoutingSrv6Key] {
-	return yang.ListDescriptor[BGPSegmentRoutingSrv6FlatRow, BGPSegmentRoutingSrv6Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.BGPSegmentRoutingSrv6Schema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.BGPSegmentRoutingSrv6) BGPSegmentRoutingSrv6FlatRow {
-			return BGPSegmentRoutingSrv6FlatRow{
-				BGPID: yang.AncestorKey(anc, 0, "id"),
-				Entry: e,
-			}
-		}, func(r *BGPSegmentRoutingSrv6FlatRow) *ciscoiosxebgp.BGPSegmentRoutingSrv6 {
-			return &r.Entry
-		}, func(r *BGPSegmentRoutingSrv6FlatRow) BGPSegmentRoutingSrv6Key {
-			var k BGPSegmentRoutingSrv6Key
-			k.BGPID = r.BGPID
-			if r.Entry.SrSrv6 != nil {
-				k.SrSrv6 = *r.Entry.SrSrv6
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "segment-routing-srv6")),
-	}
-}
-
-// PeerPolicyKey is TemplatePeerPolicy's row identity (ancestor keys in canonical form).
-type PeerPolicyKey struct {
-	BGPID string
-	Name  string
-}
-
-// PeerPolicyFlatRow flattens one TemplatePeerPolicy entry with its ancestor list keys.
-type PeerPolicyFlatRow struct {
-	BGPID string
-	Entry ciscoiosxebgp.TemplatePeerPolicy
-}
-
-// PeerPolicyDescriptor is the flattened-row descriptor for the nested list TemplatePeerPolicy.
-func PeerPolicyDescriptor() yang.ListDescriptor[PeerPolicyFlatRow, PeerPolicyKey] {
-	return yang.ListDescriptor[PeerPolicyFlatRow, PeerPolicyKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.TemplatePeerPolicySchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.TemplatePeerPolicy) PeerPolicyFlatRow {
-			return PeerPolicyFlatRow{
-				BGPID: yang.AncestorKey(anc, 0, "id"),
-				Entry: e,
-			}
-		}, func(r *PeerPolicyFlatRow) *ciscoiosxebgp.TemplatePeerPolicy {
-			return &r.Entry
-		}, func(r *PeerPolicyFlatRow) PeerPolicyKey {
-			var k PeerPolicyKey
-			k.BGPID = r.BGPID
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "template", "peer-policy")),
-	}
-}
-
-// PeerPolicyAdvertiseMapNameKey is AdvertiseMapName's row identity (ancestor keys in canonical form).
-type PeerPolicyAdvertiseMapNameKey struct {
-	BGPID          string
-	PeerPolicyName string
-	Word           string
-}
-
-// PeerPolicyAdvertiseMapNameFlatRow flattens one AdvertiseMapName entry with its ancestor list keys.
-type PeerPolicyAdvertiseMapNameFlatRow struct {
-	BGPID          string
-	PeerPolicyName string
-	Entry          ciscoiosxebgp.AdvertiseMapName
-}
-
-// PeerPolicyAdvertiseMapNameDescriptor is the flattened-row descriptor for the nested list AdvertiseMapName.
-func PeerPolicyAdvertiseMapNameDescriptor() yang.ListDescriptor[PeerPolicyAdvertiseMapNameFlatRow, PeerPolicyAdvertiseMapNameKey] {
-	return yang.ListDescriptor[PeerPolicyAdvertiseMapNameFlatRow, PeerPolicyAdvertiseMapNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.TemplatePeerPolicySchema, ciscoiosxebgp.AdvertiseMapNameSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AdvertiseMapName) PeerPolicyAdvertiseMapNameFlatRow {
-			return PeerPolicyAdvertiseMapNameFlatRow{
-				BGPID:          yang.AncestorKey(anc, 0, "id"),
-				Entry:          e,
-				PeerPolicyName: yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *PeerPolicyAdvertiseMapNameFlatRow) *ciscoiosxebgp.AdvertiseMapName {
-			return &r.Entry
-		}, func(r *PeerPolicyAdvertiseMapNameFlatRow) PeerPolicyAdvertiseMapNameKey {
-			var k PeerPolicyAdvertiseMapNameKey
-			k.BGPID = r.BGPID
-			k.PeerPolicyName = r.PeerPolicyName
-			if r.Entry.Word != nil {
-				k.Word = *r.Entry.Word
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "template", "peer-policy", "advertise-map", "name")),
-	}
-}
-
-// PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeKey is AllBestBestRange's row identity (ancestor keys in canonical form).
-type PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeKey struct {
-	BGPID          string
-	PeerPolicyName string
-	Range          uint8
-}
-
-// PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeFlatRow flattens one AllBestBestRange entry with its ancestor list keys.
-type PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeFlatRow struct {
-	BGPID          string
-	PeerPolicyName string
-	Entry          ciscoiosxebgp.AllBestBestRange
-}
-
-// PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeDescriptor is the flattened-row descriptor for the nested list AllBestBestRange.
-func PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeDescriptor() yang.ListDescriptor[PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeFlatRow, PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeKey] {
-	return yang.ListDescriptor[PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeFlatRow, PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.TemplatePeerPolicySchema, ciscoiosxebgp.AllBestBestRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AllBestBestRange) PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeFlatRow {
-			return PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeFlatRow{
-				BGPID:          yang.AncestorKey(anc, 0, "id"),
-				Entry:          e,
-				PeerPolicyName: yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeFlatRow) *ciscoiosxebgp.AllBestBestRange {
-			return &r.Entry
-		}, func(r *PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeFlatRow) PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeKey {
-			var k PeerPolicyAdvertiseAdditionalPathsAllBestBestRangeKey
-			k.BGPID = r.BGPID
-			k.PeerPolicyName = r.PeerPolicyName
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "template", "peer-policy", "advertise", "additional-paths", "all", "best", "best-range")),
-	}
-}
-
-// PeerPolicyAdvertiseAdditionalPathsBestBestRangeKey is AdditionalPathsBestBestRange's row identity (ancestor keys in canonical form).
-type PeerPolicyAdvertiseAdditionalPathsBestBestRangeKey struct {
-	BGPID          string
-	PeerPolicyName string
-	Range          uint8
-}
-
-// PeerPolicyAdvertiseAdditionalPathsBestBestRangeFlatRow flattens one AdditionalPathsBestBestRange entry with its ancestor list keys.
-type PeerPolicyAdvertiseAdditionalPathsBestBestRangeFlatRow struct {
-	BGPID          string
-	PeerPolicyName string
-	Entry          ciscoiosxebgp.AdditionalPathsBestBestRange
-}
-
-// PeerPolicyAdvertiseAdditionalPathsBestBestRangeDescriptor is the flattened-row descriptor for the nested list AdditionalPathsBestBestRange.
-func PeerPolicyAdvertiseAdditionalPathsBestBestRangeDescriptor() yang.ListDescriptor[PeerPolicyAdvertiseAdditionalPathsBestBestRangeFlatRow, PeerPolicyAdvertiseAdditionalPathsBestBestRangeKey] {
-	return yang.ListDescriptor[PeerPolicyAdvertiseAdditionalPathsBestBestRangeFlatRow, PeerPolicyAdvertiseAdditionalPathsBestBestRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.TemplatePeerPolicySchema, ciscoiosxebgp.AdditionalPathsBestBestRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AdditionalPathsBestBestRange) PeerPolicyAdvertiseAdditionalPathsBestBestRangeFlatRow {
-			return PeerPolicyAdvertiseAdditionalPathsBestBestRangeFlatRow{
-				BGPID:          yang.AncestorKey(anc, 0, "id"),
-				Entry:          e,
-				PeerPolicyName: yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *PeerPolicyAdvertiseAdditionalPathsBestBestRangeFlatRow) *ciscoiosxebgp.AdditionalPathsBestBestRange {
-			return &r.Entry
-		}, func(r *PeerPolicyAdvertiseAdditionalPathsBestBestRangeFlatRow) PeerPolicyAdvertiseAdditionalPathsBestBestRangeKey {
-			var k PeerPolicyAdvertiseAdditionalPathsBestBestRangeKey
-			k.BGPID = r.BGPID
-			k.PeerPolicyName = r.PeerPolicyName
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "template", "peer-policy", "advertise", "additional-paths", "best", "best-range")),
-	}
-}
-
-// PeerPolicyDistributeListKey is DistributeList's row identity (ancestor keys in canonical form).
-type PeerPolicyDistributeListKey struct {
-	BGPID          string
-	PeerPolicyName string
-	Inout          string
-}
-
-// PeerPolicyDistributeListFlatRow flattens one DistributeList entry with its ancestor list keys.
-type PeerPolicyDistributeListFlatRow struct {
-	BGPID          string
-	PeerPolicyName string
-	Entry          ciscoiosxebgp.DistributeList
-}
-
-// PeerPolicyDistributeListDescriptor is the flattened-row descriptor for the nested list DistributeList.
-func PeerPolicyDistributeListDescriptor() yang.ListDescriptor[PeerPolicyDistributeListFlatRow, PeerPolicyDistributeListKey] {
-	return yang.ListDescriptor[PeerPolicyDistributeListFlatRow, PeerPolicyDistributeListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.TemplatePeerPolicySchema, ciscoiosxebgp.DistributeListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.DistributeList) PeerPolicyDistributeListFlatRow {
-			return PeerPolicyDistributeListFlatRow{
-				BGPID:          yang.AncestorKey(anc, 0, "id"),
-				Entry:          e,
-				PeerPolicyName: yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *PeerPolicyDistributeListFlatRow) *ciscoiosxebgp.DistributeList {
-			return &r.Entry
-		}, func(r *PeerPolicyDistributeListFlatRow) PeerPolicyDistributeListKey {
-			var k PeerPolicyDistributeListKey
-			k.BGPID = r.BGPID
-			k.PeerPolicyName = r.PeerPolicyName
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "template", "peer-policy", "distribute-list")),
-	}
-}
-
-// PeerPolicyFilterListKey is PeerPolicyFilterList's row identity (ancestor keys in canonical form).
-type PeerPolicyFilterListKey struct {
-	BGPID          string
-	PeerPolicyName string
-	FilterRange    uint16
-}
-
-// PeerPolicyFilterListFlatRow flattens one PeerPolicyFilterList entry with its ancestor list keys.
-type PeerPolicyFilterListFlatRow struct {
-	BGPID          string
-	PeerPolicyName string
-	Entry          ciscoiosxebgp.PeerPolicyFilterList
-}
-
-// PeerPolicyFilterListDescriptor is the flattened-row descriptor for the nested list PeerPolicyFilterList.
-func PeerPolicyFilterListDescriptor() yang.ListDescriptor[PeerPolicyFilterListFlatRow, PeerPolicyFilterListKey] {
-	return yang.ListDescriptor[PeerPolicyFilterListFlatRow, PeerPolicyFilterListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.TemplatePeerPolicySchema, ciscoiosxebgp.PeerPolicyFilterListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.PeerPolicyFilterList) PeerPolicyFilterListFlatRow {
-			return PeerPolicyFilterListFlatRow{
-				BGPID:          yang.AncestorKey(anc, 0, "id"),
-				Entry:          e,
-				PeerPolicyName: yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *PeerPolicyFilterListFlatRow) *ciscoiosxebgp.PeerPolicyFilterList {
-			return &r.Entry
-		}, func(r *PeerPolicyFilterListFlatRow) PeerPolicyFilterListKey {
-			var k PeerPolicyFilterListKey
-			k.BGPID = r.BGPID
-			k.PeerPolicyName = r.PeerPolicyName
-			if r.Entry.FilterRange != nil {
-				k.FilterRange = *r.Entry.FilterRange
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "template", "peer-policy", "filter-list")),
-	}
-}
-
-// FilterList1Key is FilterList1's row identity (ancestor keys in canonical form).
-type FilterList1Key struct {
-	BGPID          string
-	PeerPolicyName string
-	Inout          string
-}
-
-// FilterList1FlatRow flattens one FilterList1 entry with its ancestor list keys.
-type FilterList1FlatRow struct {
-	BGPID          string
-	PeerPolicyName string
-	Entry          ciscoiosxebgp.FilterList1
-}
-
-// FilterList1Descriptor is the flattened-row descriptor for the nested list FilterList1.
-func FilterList1Descriptor() yang.ListDescriptor[FilterList1FlatRow, FilterList1Key] {
-	return yang.ListDescriptor[FilterList1FlatRow, FilterList1Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.TemplatePeerPolicySchema, ciscoiosxebgp.FilterList1Schema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.FilterList1) FilterList1FlatRow {
-			return FilterList1FlatRow{
-				BGPID:          yang.AncestorKey(anc, 0, "id"),
-				Entry:          e,
-				PeerPolicyName: yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *FilterList1FlatRow) *ciscoiosxebgp.FilterList1 {
-			return &r.Entry
-		}, func(r *FilterList1FlatRow) FilterList1Key {
-			var k FilterList1Key
-			k.BGPID = r.BGPID
-			k.PeerPolicyName = r.PeerPolicyName
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "template", "peer-policy", "filter-list1")),
-	}
-}
-
-// PeerPolicyTemplateKey is PeerPolicyTemplate's row identity (ancestor keys in canonical form).
-type PeerPolicyTemplateKey struct {
-	BGPID          string
-	PeerPolicyName string
-	Name           string
-}
-
-// PeerPolicyTemplateFlatRow flattens one PeerPolicyTemplate entry with its ancestor list keys.
-type PeerPolicyTemplateFlatRow struct {
-	BGPID          string
-	PeerPolicyName string
-	Entry          ciscoiosxebgp.PeerPolicyTemplate
-}
-
-// PeerPolicyTemplateDescriptor is the flattened-row descriptor for the nested list PeerPolicyTemplate.
-func PeerPolicyTemplateDescriptor() yang.ListDescriptor[PeerPolicyTemplateFlatRow, PeerPolicyTemplateKey] {
-	return yang.ListDescriptor[PeerPolicyTemplateFlatRow, PeerPolicyTemplateKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.TemplatePeerPolicySchema, ciscoiosxebgp.PeerPolicyTemplateSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.PeerPolicyTemplate) PeerPolicyTemplateFlatRow {
-			return PeerPolicyTemplateFlatRow{
-				BGPID:          yang.AncestorKey(anc, 0, "id"),
-				Entry:          e,
-				PeerPolicyName: yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *PeerPolicyTemplateFlatRow) *ciscoiosxebgp.PeerPolicyTemplate {
-			return &r.Entry
-		}, func(r *PeerPolicyTemplateFlatRow) PeerPolicyTemplateKey {
-			var k PeerPolicyTemplateKey
-			k.BGPID = r.BGPID
-			k.PeerPolicyName = r.PeerPolicyName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "template", "peer-policy", "inherit", "peer-policy", "template")),
-	}
-}
-
-// PeerPolicyPrefixListKey is PrefixList's row identity (ancestor keys in canonical form).
-type PeerPolicyPrefixListKey struct {
-	BGPID          string
-	PeerPolicyName string
-	Inout          string
-}
-
-// PeerPolicyPrefixListFlatRow flattens one PrefixList entry with its ancestor list keys.
-type PeerPolicyPrefixListFlatRow struct {
-	BGPID          string
-	PeerPolicyName string
-	Entry          ciscoiosxebgp.PrefixList
-}
-
-// PeerPolicyPrefixListDescriptor is the flattened-row descriptor for the nested list PrefixList.
-func PeerPolicyPrefixListDescriptor() yang.ListDescriptor[PeerPolicyPrefixListFlatRow, PeerPolicyPrefixListKey] {
-	return yang.ListDescriptor[PeerPolicyPrefixListFlatRow, PeerPolicyPrefixListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.TemplatePeerPolicySchema, ciscoiosxebgp.PrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.PrefixList) PeerPolicyPrefixListFlatRow {
-			return PeerPolicyPrefixListFlatRow{
-				BGPID:          yang.AncestorKey(anc, 0, "id"),
-				Entry:          e,
-				PeerPolicyName: yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *PeerPolicyPrefixListFlatRow) *ciscoiosxebgp.PrefixList {
-			return &r.Entry
-		}, func(r *PeerPolicyPrefixListFlatRow) PeerPolicyPrefixListKey {
-			var k PeerPolicyPrefixListKey
-			k.BGPID = r.BGPID
-			k.PeerPolicyName = r.PeerPolicyName
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "template", "peer-policy", "prefix-list")),
-	}
-}
-
-// PeerPolicyRouteMapKey is PeerPolicyRouteMap's row identity (ancestor keys in canonical form).
-type PeerPolicyRouteMapKey struct {
-	BGPID          string
-	PeerPolicyName string
-	Name           string
-}
-
-// PeerPolicyRouteMapFlatRow flattens one PeerPolicyRouteMap entry with its ancestor list keys.
-type PeerPolicyRouteMapFlatRow struct {
-	BGPID          string
-	PeerPolicyName string
-	Entry          ciscoiosxebgp.PeerPolicyRouteMap
-}
-
-// PeerPolicyRouteMapDescriptor is the flattened-row descriptor for the nested list PeerPolicyRouteMap.
-func PeerPolicyRouteMapDescriptor() yang.ListDescriptor[PeerPolicyRouteMapFlatRow, PeerPolicyRouteMapKey] {
-	return yang.ListDescriptor[PeerPolicyRouteMapFlatRow, PeerPolicyRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.TemplatePeerPolicySchema, ciscoiosxebgp.PeerPolicyRouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.PeerPolicyRouteMap) PeerPolicyRouteMapFlatRow {
-			return PeerPolicyRouteMapFlatRow{
-				BGPID:          yang.AncestorKey(anc, 0, "id"),
-				Entry:          e,
-				PeerPolicyName: yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *PeerPolicyRouteMapFlatRow) *ciscoiosxebgp.PeerPolicyRouteMap {
-			return &r.Entry
-		}, func(r *PeerPolicyRouteMapFlatRow) PeerPolicyRouteMapKey {
-			var k PeerPolicyRouteMapKey
-			k.BGPID = r.BGPID
-			k.PeerPolicyName = r.PeerPolicyName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "template", "peer-policy", "route-map")),
-	}
-}
-
-// RouteMap1Key is RouteMap1's row identity (ancestor keys in canonical form).
-type RouteMap1Key struct {
-	BGPID          string
-	PeerPolicyName string
-	Inout          string
-}
-
-// RouteMap1FlatRow flattens one RouteMap1 entry with its ancestor list keys.
-type RouteMap1FlatRow struct {
-	BGPID          string
-	PeerPolicyName string
-	Entry          ciscoiosxebgp.RouteMap1
-}
-
-// RouteMap1Descriptor is the flattened-row descriptor for the nested list RouteMap1.
-func RouteMap1Descriptor() yang.ListDescriptor[RouteMap1FlatRow, RouteMap1Key] {
-	return yang.ListDescriptor[RouteMap1FlatRow, RouteMap1Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.TemplatePeerPolicySchema, ciscoiosxebgp.RouteMap1Schema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.RouteMap1) RouteMap1FlatRow {
-			return RouteMap1FlatRow{
-				BGPID:          yang.AncestorKey(anc, 0, "id"),
-				Entry:          e,
-				PeerPolicyName: yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *RouteMap1FlatRow) *ciscoiosxebgp.RouteMap1 {
-			return &r.Entry
-		}, func(r *RouteMap1FlatRow) RouteMap1Key {
-			var k RouteMap1Key
-			k.BGPID = r.BGPID
-			k.PeerPolicyName = r.PeerPolicyName
-			if r.Entry.Inout != nil {
-				k.Inout = *r.Entry.Inout
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "template", "peer-policy", "route-map1")),
-	}
-}
-
-// PeerSessionKey is PeerSession's row identity (ancestor keys in canonical form).
-type PeerSessionKey struct {
-	BGPID string
-	Name  string
-}
-
-// PeerSessionFlatRow flattens one PeerSession entry with its ancestor list keys.
-type PeerSessionFlatRow struct {
-	BGPID string
-	Entry ciscoiosxebgp.PeerSession
-}
-
-// PeerSessionDescriptor is the flattened-row descriptor for the nested list PeerSession.
-func PeerSessionDescriptor() yang.ListDescriptor[PeerSessionFlatRow, PeerSessionKey] {
-	return yang.ListDescriptor[PeerSessionFlatRow, PeerSessionKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.PeerSessionSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.PeerSession) PeerSessionFlatRow {
-			return PeerSessionFlatRow{
-				BGPID: yang.AncestorKey(anc, 0, "id"),
-				Entry: e,
-			}
-		}, func(r *PeerSessionFlatRow) *ciscoiosxebgp.PeerSession {
-			return &r.Entry
-		}, func(r *PeerSessionFlatRow) PeerSessionKey {
-			var k PeerSessionKey
-			k.BGPID = r.BGPID
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "template", "peer-session")),
-	}
-}
-
-// PeerSessionPathAttributeDiscardAttributeTypeKey is AttributeType's row identity (ancestor keys in canonical form).
-type PeerSessionPathAttributeDiscardAttributeTypeKey struct {
-	BGPID           string
-	PeerSessionName string
-	Type            uint8
-}
-
-// PeerSessionPathAttributeDiscardAttributeTypeFlatRow flattens one AttributeType entry with its ancestor list keys.
-type PeerSessionPathAttributeDiscardAttributeTypeFlatRow struct {
-	BGPID           string
-	PeerSessionName string
-	Entry           ciscoiosxebgp.AttributeType
-}
-
-// PeerSessionPathAttributeDiscardAttributeTypeDescriptor is the flattened-row descriptor for the nested list AttributeType.
-func PeerSessionPathAttributeDiscardAttributeTypeDescriptor() yang.ListDescriptor[PeerSessionPathAttributeDiscardAttributeTypeFlatRow, PeerSessionPathAttributeDiscardAttributeTypeKey] {
-	return yang.ListDescriptor[PeerSessionPathAttributeDiscardAttributeTypeFlatRow, PeerSessionPathAttributeDiscardAttributeTypeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.PeerSessionSchema, ciscoiosxebgp.AttributeTypeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AttributeType) PeerSessionPathAttributeDiscardAttributeTypeFlatRow {
-			return PeerSessionPathAttributeDiscardAttributeTypeFlatRow{
-				BGPID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:           e,
-				PeerSessionName: yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *PeerSessionPathAttributeDiscardAttributeTypeFlatRow) *ciscoiosxebgp.AttributeType {
-			return &r.Entry
-		}, func(r *PeerSessionPathAttributeDiscardAttributeTypeFlatRow) PeerSessionPathAttributeDiscardAttributeTypeKey {
-			var k PeerSessionPathAttributeDiscardAttributeTypeKey
-			k.BGPID = r.BGPID
-			k.PeerSessionName = r.PeerSessionName
-			if r.Entry.Type != nil {
-				k.Type = *r.Entry.Type
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "template", "peer-session", "path-attribute", "discard", "attribute-type")),
-	}
-}
-
-// PeerSessionPathAttributeTreatAsWithdrawAttributeTypeKey is AttributeType's row identity (ancestor keys in canonical form).
-type PeerSessionPathAttributeTreatAsWithdrawAttributeTypeKey struct {
-	BGPID           string
-	PeerSessionName string
-	Type            uint8
-}
-
-// PeerSessionPathAttributeTreatAsWithdrawAttributeTypeFlatRow flattens one AttributeType entry with its ancestor list keys.
-type PeerSessionPathAttributeTreatAsWithdrawAttributeTypeFlatRow struct {
-	BGPID           string
-	PeerSessionName string
-	Entry           ciscoiosxebgp.AttributeType
-}
-
-// PeerSessionPathAttributeTreatAsWithdrawAttributeTypeDescriptor is the flattened-row descriptor for the nested list AttributeType.
-func PeerSessionPathAttributeTreatAsWithdrawAttributeTypeDescriptor() yang.ListDescriptor[PeerSessionPathAttributeTreatAsWithdrawAttributeTypeFlatRow, PeerSessionPathAttributeTreatAsWithdrawAttributeTypeKey] {
-	return yang.ListDescriptor[PeerSessionPathAttributeTreatAsWithdrawAttributeTypeFlatRow, PeerSessionPathAttributeTreatAsWithdrawAttributeTypeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxebgp.RouterBGPSchema, ciscoiosxebgp.PeerSessionSchema, ciscoiosxebgp.AttributeTypeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxebgp.AttributeType) PeerSessionPathAttributeTreatAsWithdrawAttributeTypeFlatRow {
-			return PeerSessionPathAttributeTreatAsWithdrawAttributeTypeFlatRow{
-				BGPID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:           e,
-				PeerSessionName: yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *PeerSessionPathAttributeTreatAsWithdrawAttributeTypeFlatRow) *ciscoiosxebgp.AttributeType {
-			return &r.Entry
-		}, func(r *PeerSessionPathAttributeTreatAsWithdrawAttributeTypeFlatRow) PeerSessionPathAttributeTreatAsWithdrawAttributeTypeKey {
-			var k PeerSessionPathAttributeTreatAsWithdrawAttributeTypeKey
-			k.BGPID = r.BGPID
-			k.PeerSessionName = r.PeerSessionName
-			if r.Entry.Type != nil {
-				k.Type = *r.Entry.Type
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEBGP, "bgp", "template", "peer-session", "path-attribute", "treat-as-withdraw", "attribute-type")),
-	}
-}
-
-// NativeRouterEigrpKey is RouterEigrp's row identity (ancestor keys in canonical form).
-type NativeRouterEigrpKey struct {
-	ID string
-}
-
-// NativeRouterEigrpDescriptor is the list descriptor callers hand to a protocol library.
-func NativeRouterEigrpDescriptor() yang.ListDescriptor[ciscoiosxeeigrp.RouterEigrp, NativeRouterEigrpKey] {
-	return yang.ListDescriptor[ciscoiosxeeigrp.RouterEigrp, NativeRouterEigrpKey]{
-		Codec: yang.StructRowCodec(ciscoiosxeeigrp.RouterEigrpSchema, func(r *ciscoiosxeeigrp.RouterEigrp) NativeRouterEigrpKey {
-			var k NativeRouterEigrpKey
-			if r.ID != nil {
-				k.ID = yang.CanonicalKey(r.ID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp")),
-	}
-}
-
-// AddressFamilyKey is EigrpAddressFamily's row identity (ancestor keys in canonical form).
-type AddressFamilyKey struct {
-	EigrpID string
-	Type    string
-}
-
-// AddressFamilyFlatRow flattens one EigrpAddressFamily entry with its ancestor list keys.
-type AddressFamilyFlatRow struct {
-	EigrpID string
-	Entry   ciscoiosxeeigrp.EigrpAddressFamily
-}
-
-// AddressFamilyDescriptor is the flattened-row descriptor for the nested list EigrpAddressFamily.
-func AddressFamilyDescriptor() yang.ListDescriptor[AddressFamilyFlatRow, AddressFamilyKey] {
-	return yang.ListDescriptor[AddressFamilyFlatRow, AddressFamilyKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.EigrpAddressFamily) AddressFamilyFlatRow {
-			return AddressFamilyFlatRow{
-				EigrpID: yang.AncestorKey(anc, 0, "id"),
-				Entry:   e,
-			}
-		}, func(r *AddressFamilyFlatRow) *ciscoiosxeeigrp.EigrpAddressFamily {
-			return &r.Entry
-		}, func(r *AddressFamilyFlatRow) AddressFamilyKey {
-			var k AddressFamilyKey
-			k.EigrpID = r.EigrpID
-			if r.Entry.Type != nil {
-				k.Type = *r.Entry.Type
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family")),
-	}
-}
-
-// AfIPListKey is AfIPList's row identity (ancestor keys in canonical form).
-type AfIPListKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	UnicastMulticast  string
-}
-
-// AfIPListFlatRow flattens one AfIPList entry with its ancestor list keys.
-type AfIPListFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	Entry             ciscoiosxeeigrp.AfIPList
-}
-
-// AfIPListDescriptor is the flattened-row descriptor for the nested list AfIPList.
-func AfIPListDescriptor() yang.ListDescriptor[AfIPListFlatRow, AfIPListKey] {
-	return yang.ListDescriptor[AfIPListFlatRow, AfIPListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.AfIPList) AfIPListFlatRow {
-			return AfIPListFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPListFlatRow) *ciscoiosxeeigrp.AfIPList {
-			return &r.Entry
-		}, func(r *AfIPListFlatRow) AfIPListKey {
-			var k AfIPListKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			if r.Entry.UnicastMulticast != nil {
-				k.UnicastMulticast = *r.Entry.UnicastMulticast
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list")),
-	}
-}
-
-// AfIPListAfInterfaceKey is AfInterface's row identity (ancestor keys in canonical form).
-type AfIPListAfInterfaceKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Name                     string
-}
-
-// AfIPListAfInterfaceFlatRow flattens one AfInterface entry with its ancestor list keys.
-type AfIPListAfInterfaceFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.AfInterface
-}
-
-// AfIPListAfInterfaceDescriptor is the flattened-row descriptor for the nested list AfInterface.
-func AfIPListAfInterfaceDescriptor() yang.ListDescriptor[AfIPListAfInterfaceFlatRow, AfIPListAfInterfaceKey] {
-	return yang.ListDescriptor[AfIPListAfInterfaceFlatRow, AfIPListAfInterfaceKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.AfInterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.AfInterface) AfIPListAfInterfaceFlatRow {
-			return AfIPListAfInterfaceFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListAfInterfaceFlatRow) *ciscoiosxeeigrp.AfInterface {
-			return &r.Entry
-		}, func(r *AfIPListAfInterfaceFlatRow) AfIPListAfInterfaceKey {
-			var k AfIPListAfInterfaceKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "af-interface")),
-	}
-}
-
-// AfIPListAfInterfaceSummaryAddressKey is AfInterfaceSummaryAddress's row identity (ancestor keys in canonical form).
-type AfIPListAfInterfaceSummaryAddressKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	AfInterfaceName          string
-	Prefix                   string
-}
-
-// AfIPListAfInterfaceSummaryAddressFlatRow flattens one AfInterfaceSummaryAddress entry with its ancestor list keys.
-type AfIPListAfInterfaceSummaryAddressFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	AfInterfaceName          string
-	Entry                    ciscoiosxeeigrp.AfInterfaceSummaryAddress
-}
-
-// AfIPListAfInterfaceSummaryAddressDescriptor is the flattened-row descriptor for the nested list AfInterfaceSummaryAddress.
-func AfIPListAfInterfaceSummaryAddressDescriptor() yang.ListDescriptor[AfIPListAfInterfaceSummaryAddressFlatRow, AfIPListAfInterfaceSummaryAddressKey] {
-	return yang.ListDescriptor[AfIPListAfInterfaceSummaryAddressFlatRow, AfIPListAfInterfaceSummaryAddressKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.AfInterfaceSchema, ciscoiosxeeigrp.AfInterfaceSummaryAddressSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.AfInterfaceSummaryAddress) AfIPListAfInterfaceSummaryAddressFlatRow {
-			return AfIPListAfInterfaceSummaryAddressFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				AfInterfaceName:          yang.AncestorKey(anc, 3, "name"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListAfInterfaceSummaryAddressFlatRow) *ciscoiosxeeigrp.AfInterfaceSummaryAddress {
-			return &r.Entry
-		}, func(r *AfIPListAfInterfaceSummaryAddressFlatRow) AfIPListAfInterfaceSummaryAddressKey {
-			var k AfIPListAfInterfaceSummaryAddressKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			k.AfInterfaceName = r.AfInterfaceName
-			if r.Entry.Prefix != nil {
-				k.Prefix = yang.CanonicalKey(r.Entry.Prefix)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "af-interface", "summary-address")),
-	}
-}
-
-// AfIPListDefaultMetricDmRdrKey is DmRdr's row identity (ancestor keys in canonical form).
-type AfIPListDefaultMetricDmRdrKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	DmRdr                    uint32
-}
-
-// AfIPListDefaultMetricDmRdrFlatRow flattens one DmRdr entry with its ancestor list keys.
-type AfIPListDefaultMetricDmRdrFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.DmRdr
-}
-
-// AfIPListDefaultMetricDmRdrDescriptor is the flattened-row descriptor for the nested list DmRdr.
-func AfIPListDefaultMetricDmRdrDescriptor() yang.ListDescriptor[AfIPListDefaultMetricDmRdrFlatRow, AfIPListDefaultMetricDmRdrKey] {
-	return yang.ListDescriptor[AfIPListDefaultMetricDmRdrFlatRow, AfIPListDefaultMetricDmRdrKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.DmRdrSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DmRdr) AfIPListDefaultMetricDmRdrFlatRow {
-			return AfIPListDefaultMetricDmRdrFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListDefaultMetricDmRdrFlatRow) *ciscoiosxeeigrp.DmRdr {
-			return &r.Entry
-		}, func(r *AfIPListDefaultMetricDmRdrFlatRow) AfIPListDefaultMetricDmRdrKey {
-			var k AfIPListDefaultMetricDmRdrKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.DmRdr != nil {
-				k.DmRdr = *r.Entry.DmRdr
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "default-metric", "dm-rdr")),
-	}
-}
-
-// AfIPListDefaultMetricDmRdrDmRdr0Key is DmRdr0's row identity (ancestor keys in canonical form).
-type AfIPListDefaultMetricDmRdrDmRdr0Key struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	DmRdrDmRdr               string
-	DmRdr0                   uint32
-}
-
-// AfIPListDefaultMetricDmRdrDmRdr0FlatRow flattens one DmRdr0 entry with its ancestor list keys.
-type AfIPListDefaultMetricDmRdrDmRdr0FlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	DmRdrDmRdr               string
-	Entry                    ciscoiosxeeigrp.DmRdr0
-}
-
-// AfIPListDefaultMetricDmRdrDmRdr0Descriptor is the flattened-row descriptor for the nested list DmRdr0.
-func AfIPListDefaultMetricDmRdrDmRdr0Descriptor() yang.ListDescriptor[AfIPListDefaultMetricDmRdrDmRdr0FlatRow, AfIPListDefaultMetricDmRdrDmRdr0Key] {
-	return yang.ListDescriptor[AfIPListDefaultMetricDmRdrDmRdr0FlatRow, AfIPListDefaultMetricDmRdrDmRdr0Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.DmRdrSchema, ciscoiosxeeigrp.DmRdr0Schema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DmRdr0) AfIPListDefaultMetricDmRdrDmRdr0FlatRow {
-			return AfIPListDefaultMetricDmRdrDmRdr0FlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				DmRdrDmRdr:               yang.AncestorKey(anc, 3, "dm-rdr"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListDefaultMetricDmRdrDmRdr0FlatRow) *ciscoiosxeeigrp.DmRdr0 {
-			return &r.Entry
-		}, func(r *AfIPListDefaultMetricDmRdrDmRdr0FlatRow) AfIPListDefaultMetricDmRdrDmRdr0Key {
-			var k AfIPListDefaultMetricDmRdrDmRdr0Key
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			k.DmRdrDmRdr = r.DmRdrDmRdr
-			if r.Entry.DmRdr0 != nil {
-				k.DmRdr0 = *r.Entry.DmRdr0
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "default-metric", "dm-rdr", "dm-rdr0")),
-	}
-}
-
-// AfIPListDistanceEigrpDiRtKey is DiRt's row identity (ancestor keys in canonical form).
-type AfIPListDistanceEigrpDiRtKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	DiRt                     uint8
-}
-
-// AfIPListDistanceEigrpDiRtFlatRow flattens one DiRt entry with its ancestor list keys.
-type AfIPListDistanceEigrpDiRtFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.DiRt
-}
-
-// AfIPListDistanceEigrpDiRtDescriptor is the flattened-row descriptor for the nested list DiRt.
-func AfIPListDistanceEigrpDiRtDescriptor() yang.ListDescriptor[AfIPListDistanceEigrpDiRtFlatRow, AfIPListDistanceEigrpDiRtKey] {
-	return yang.ListDescriptor[AfIPListDistanceEigrpDiRtFlatRow, AfIPListDistanceEigrpDiRtKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.DiRtSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DiRt) AfIPListDistanceEigrpDiRtFlatRow {
-			return AfIPListDistanceEigrpDiRtFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListDistanceEigrpDiRtFlatRow) *ciscoiosxeeigrp.DiRt {
-			return &r.Entry
-		}, func(r *AfIPListDistanceEigrpDiRtFlatRow) AfIPListDistanceEigrpDiRtKey {
-			var k AfIPListDistanceEigrpDiRtKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.DiRt != nil {
-				k.DiRt = *r.Entry.DiRt
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "distance", "eigrp", "di-rt")),
-	}
-}
-
-// AfIPListDistanceRadDisKey is RadDis's row identity (ancestor keys in canonical form).
-type AfIPListDistanceRadDisKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	RadDis                   uint8
-}
-
-// AfIPListDistanceRadDisFlatRow flattens one RadDis entry with its ancestor list keys.
-type AfIPListDistanceRadDisFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.RadDis
-}
-
-// AfIPListDistanceRadDisDescriptor is the flattened-row descriptor for the nested list RadDis.
-func AfIPListDistanceRadDisDescriptor() yang.ListDescriptor[AfIPListDistanceRadDisFlatRow, AfIPListDistanceRadDisKey] {
-	return yang.ListDescriptor[AfIPListDistanceRadDisFlatRow, AfIPListDistanceRadDisKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.RadDisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.RadDis) AfIPListDistanceRadDisFlatRow {
-			return AfIPListDistanceRadDisFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListDistanceRadDisFlatRow) *ciscoiosxeeigrp.RadDis {
-			return &r.Entry
-		}, func(r *AfIPListDistanceRadDisFlatRow) AfIPListDistanceRadDisKey {
-			var k AfIPListDistanceRadDisKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.RadDis != nil {
-				k.RadDis = *r.Entry.RadDis
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "distance", "rad-dis")),
-	}
-}
-
-// AfIPListDistanceRadDisIPv4Key is RadDisIPv4's row identity (ancestor keys in canonical form).
-type AfIPListDistanceRadDisIPv4Key struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	RadDisRadDis             string
-	IPv4                     string
-}
-
-// AfIPListDistanceRadDisIPv4FlatRow flattens one RadDisIPv4 entry with its ancestor list keys.
-type AfIPListDistanceRadDisIPv4FlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	RadDisRadDis             string
-	Entry                    ciscoiosxeeigrp.RadDisIPv4
-}
-
-// AfIPListDistanceRadDisIPv4Descriptor is the flattened-row descriptor for the nested list RadDisIPv4.
-func AfIPListDistanceRadDisIPv4Descriptor() yang.ListDescriptor[AfIPListDistanceRadDisIPv4FlatRow, AfIPListDistanceRadDisIPv4Key] {
-	return yang.ListDescriptor[AfIPListDistanceRadDisIPv4FlatRow, AfIPListDistanceRadDisIPv4Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.RadDisSchema, ciscoiosxeeigrp.RadDisIPv4Schema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.RadDisIPv4) AfIPListDistanceRadDisIPv4FlatRow {
-			return AfIPListDistanceRadDisIPv4FlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-				RadDisRadDis:             yang.AncestorKey(anc, 3, "rad-dis"),
-			}
-		}, func(r *AfIPListDistanceRadDisIPv4FlatRow) *ciscoiosxeeigrp.RadDisIPv4 {
-			return &r.Entry
-		}, func(r *AfIPListDistanceRadDisIPv4FlatRow) AfIPListDistanceRadDisIPv4Key {
-			var k AfIPListDistanceRadDisIPv4Key
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			k.RadDisRadDis = r.RadDisRadDis
-			if r.Entry.IPv4 != nil {
-				k.IPv4 = *r.Entry.IPv4
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "distance", "rad-dis", "ipv4")),
-	}
-}
-
-// AfIPListDistributeListEigFiltKey is EigFilt's row identity (ancestor keys in canonical form).
-type AfIPListDistributeListEigFiltKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	EigFilt                  string
-}
-
-// AfIPListDistributeListEigFiltFlatRow flattens one EigFilt entry with its ancestor list keys.
-type AfIPListDistributeListEigFiltFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.EigFilt
-}
-
-// AfIPListDistributeListEigFiltDescriptor is the flattened-row descriptor for the nested list EigFilt.
-func AfIPListDistributeListEigFiltDescriptor() yang.ListDescriptor[AfIPListDistributeListEigFiltFlatRow, AfIPListDistributeListEigFiltKey] {
-	return yang.ListDescriptor[AfIPListDistributeListEigFiltFlatRow, AfIPListDistributeListEigFiltKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.EigFiltSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.EigFilt) AfIPListDistributeListEigFiltFlatRow {
-			return AfIPListDistributeListEigFiltFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListDistributeListEigFiltFlatRow) *ciscoiosxeeigrp.EigFilt {
-			return &r.Entry
-		}, func(r *AfIPListDistributeListEigFiltFlatRow) AfIPListDistributeListEigFiltKey {
-			var k AfIPListDistributeListEigFiltKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.EigFilt != nil {
-				k.EigFilt = yang.CanonicalKey(r.Entry.EigFilt)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "distribute-list", "eig-filt")),
-	}
-}
-
-// AfIPListDistributeListGatewayGwListKey is GwList's row identity (ancestor keys in canonical form).
-type AfIPListDistributeListGatewayGwListKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	GwList                   string
-}
-
-// AfIPListDistributeListGatewayGwListFlatRow flattens one GwList entry with its ancestor list keys.
-type AfIPListDistributeListGatewayGwListFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.GwList
-}
-
-// AfIPListDistributeListGatewayGwListDescriptor is the flattened-row descriptor for the nested list GwList.
-func AfIPListDistributeListGatewayGwListDescriptor() yang.ListDescriptor[AfIPListDistributeListGatewayGwListFlatRow, AfIPListDistributeListGatewayGwListKey] {
-	return yang.ListDescriptor[AfIPListDistributeListGatewayGwListFlatRow, AfIPListDistributeListGatewayGwListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.GwListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.GwList) AfIPListDistributeListGatewayGwListFlatRow {
-			return AfIPListDistributeListGatewayGwListFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListDistributeListGatewayGwListFlatRow) *ciscoiosxeeigrp.GwList {
-			return &r.Entry
-		}, func(r *AfIPListDistributeListGatewayGwListFlatRow) AfIPListDistributeListGatewayGwListKey {
-			var k AfIPListDistributeListGatewayGwListKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.GwList != nil {
-				k.GwList = *r.Entry.GwList
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "distribute-list", "gateway", "gw-list")),
-	}
-}
-
-// AfIPListDistributeListPrefixPlNameKey is PlName's row identity (ancestor keys in canonical form).
-type AfIPListDistributeListPrefixPlNameKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	PlName                   string
-}
-
-// AfIPListDistributeListPrefixPlNameFlatRow flattens one PlName entry with its ancestor list keys.
-type AfIPListDistributeListPrefixPlNameFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.PlName
-}
-
-// AfIPListDistributeListPrefixPlNameDescriptor is the flattened-row descriptor for the nested list PlName.
-func AfIPListDistributeListPrefixPlNameDescriptor() yang.ListDescriptor[AfIPListDistributeListPrefixPlNameFlatRow, AfIPListDistributeListPrefixPlNameKey] {
-	return yang.ListDescriptor[AfIPListDistributeListPrefixPlNameFlatRow, AfIPListDistributeListPrefixPlNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.PlNameSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.PlName) AfIPListDistributeListPrefixPlNameFlatRow {
-			return AfIPListDistributeListPrefixPlNameFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListDistributeListPrefixPlNameFlatRow) *ciscoiosxeeigrp.PlName {
-			return &r.Entry
-		}, func(r *AfIPListDistributeListPrefixPlNameFlatRow) AfIPListDistributeListPrefixPlNameKey {
-			var k AfIPListDistributeListPrefixPlNameKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.PlName != nil {
-				k.PlName = *r.Entry.PlName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "distribute-list", "prefix", "pl-name")),
-	}
-}
-
-// AfIPListDistributeListRouteMapRmapNameKey is DistributeListRouteMapRmapName's row identity (ancestor keys in canonical form).
-type AfIPListDistributeListRouteMapRmapNameKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	RmapName                 string
-}
-
-// AfIPListDistributeListRouteMapRmapNameFlatRow flattens one DistributeListRouteMapRmapName entry with its ancestor list keys.
-type AfIPListDistributeListRouteMapRmapNameFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.DistributeListRouteMapRmapName
-}
-
-// AfIPListDistributeListRouteMapRmapNameDescriptor is the flattened-row descriptor for the nested list DistributeListRouteMapRmapName.
-func AfIPListDistributeListRouteMapRmapNameDescriptor() yang.ListDescriptor[AfIPListDistributeListRouteMapRmapNameFlatRow, AfIPListDistributeListRouteMapRmapNameKey] {
-	return yang.ListDescriptor[AfIPListDistributeListRouteMapRmapNameFlatRow, AfIPListDistributeListRouteMapRmapNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.DistributeListRouteMapRmapNameSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DistributeListRouteMapRmapName) AfIPListDistributeListRouteMapRmapNameFlatRow {
-			return AfIPListDistributeListRouteMapRmapNameFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListDistributeListRouteMapRmapNameFlatRow) *ciscoiosxeeigrp.DistributeListRouteMapRmapName {
-			return &r.Entry
-		}, func(r *AfIPListDistributeListRouteMapRmapNameFlatRow) AfIPListDistributeListRouteMapRmapNameKey {
-			var k AfIPListDistributeListRouteMapRmapNameKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.RmapName != nil {
-				k.RmapName = *r.Entry.RmapName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "distribute-list", "route-map", "rmap-name")),
-	}
-}
-
-// AfIPListNeighborIPv4Key is NeighborIPv4's row identity (ancestor keys in canonical form).
-type AfIPListNeighborIPv4Key struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	IPv4                     string
-}
-
-// AfIPListNeighborIPv4FlatRow flattens one NeighborIPv4 entry with its ancestor list keys.
-type AfIPListNeighborIPv4FlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.NeighborIPv4
-}
-
-// AfIPListNeighborIPv4Descriptor is the flattened-row descriptor for the nested list NeighborIPv4.
-func AfIPListNeighborIPv4Descriptor() yang.ListDescriptor[AfIPListNeighborIPv4FlatRow, AfIPListNeighborIPv4Key] {
-	return yang.ListDescriptor[AfIPListNeighborIPv4FlatRow, AfIPListNeighborIPv4Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.NeighborIPv4Schema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.NeighborIPv4) AfIPListNeighborIPv4FlatRow {
-			return AfIPListNeighborIPv4FlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListNeighborIPv4FlatRow) *ciscoiosxeeigrp.NeighborIPv4 {
-			return &r.Entry
-		}, func(r *AfIPListNeighborIPv4FlatRow) AfIPListNeighborIPv4Key {
-			var k AfIPListNeighborIPv4Key
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.IPv4 != nil {
-				k.IPv4 = *r.Entry.IPv4
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "neighbor", "ipv4")),
-	}
-}
-
-// AfIPListNetworkKey is Network's row identity (ancestor keys in canonical form).
-type AfIPListNetworkKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Number                   string
-}
-
-// AfIPListNetworkFlatRow flattens one Network entry with its ancestor list keys.
-type AfIPListNetworkFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.Network
-}
-
-// AfIPListNetworkDescriptor is the flattened-row descriptor for the nested list Network.
-func AfIPListNetworkDescriptor() yang.ListDescriptor[AfIPListNetworkFlatRow, AfIPListNetworkKey] {
-	return yang.ListDescriptor[AfIPListNetworkFlatRow, AfIPListNetworkKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.NetworkSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.Network) AfIPListNetworkFlatRow {
-			return AfIPListNetworkFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListNetworkFlatRow) *ciscoiosxeeigrp.Network {
-			return &r.Entry
-		}, func(r *AfIPListNetworkFlatRow) AfIPListNetworkKey {
-			var k AfIPListNetworkKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.Number != nil {
-				k.Number = *r.Entry.Number
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "network")),
-	}
-}
-
-// AfIPListOffsetListNsrListKey is NsrList's row identity (ancestor keys in canonical form).
-type AfIPListOffsetListNsrListKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	NsrList                  uint16
-}
-
-// AfIPListOffsetListNsrListFlatRow flattens one NsrList entry with its ancestor list keys.
-type AfIPListOffsetListNsrListFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.NsrList
-}
-
-// AfIPListOffsetListNsrListDescriptor is the flattened-row descriptor for the nested list NsrList.
-func AfIPListOffsetListNsrListDescriptor() yang.ListDescriptor[AfIPListOffsetListNsrListFlatRow, AfIPListOffsetListNsrListKey] {
-	return yang.ListDescriptor[AfIPListOffsetListNsrListFlatRow, AfIPListOffsetListNsrListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.NsrListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.NsrList) AfIPListOffsetListNsrListFlatRow {
-			return AfIPListOffsetListNsrListFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListOffsetListNsrListFlatRow) *ciscoiosxeeigrp.NsrList {
-			return &r.Entry
-		}, func(r *AfIPListOffsetListNsrListFlatRow) AfIPListOffsetListNsrListKey {
-			var k AfIPListOffsetListNsrListKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.NsrList != nil {
-				k.NsrList = *r.Entry.NsrList
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "offset-list", "nsr-list")),
-	}
-}
-
-// AfIPListOffsetListOlACLKey is OlACL's row identity (ancestor keys in canonical form).
-type AfIPListOffsetListOlACLKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	OlACL                    string
-}
-
-// AfIPListOffsetListOlACLFlatRow flattens one OlACL entry with its ancestor list keys.
-type AfIPListOffsetListOlACLFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.OlACL
-}
-
-// AfIPListOffsetListOlACLDescriptor is the flattened-row descriptor for the nested list OlACL.
-func AfIPListOffsetListOlACLDescriptor() yang.ListDescriptor[AfIPListOffsetListOlACLFlatRow, AfIPListOffsetListOlACLKey] {
-	return yang.ListDescriptor[AfIPListOffsetListOlACLFlatRow, AfIPListOffsetListOlACLKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.OlACLSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.OlACL) AfIPListOffsetListOlACLFlatRow {
-			return AfIPListOffsetListOlACLFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListOffsetListOlACLFlatRow) *ciscoiosxeeigrp.OlACL {
-			return &r.Entry
-		}, func(r *AfIPListOffsetListOlACLFlatRow) AfIPListOffsetListOlACLKey {
-			var k AfIPListOffsetListOlACLKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.OlACL != nil {
-				k.OlACL = *r.Entry.OlACL
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "offset-list", "ol-acl")),
-	}
-}
-
-// AfIPListRedistributeBGPKey is RedistributeBGP's row identity (ancestor keys in canonical form).
-type AfIPListRedistributeBGPKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	RdrAs                    string
-}
-
-// AfIPListRedistributeBGPFlatRow flattens one RedistributeBGP entry with its ancestor list keys.
-type AfIPListRedistributeBGPFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.RedistributeBGP
-}
-
-// AfIPListRedistributeBGPDescriptor is the flattened-row descriptor for the nested list RedistributeBGP.
-func AfIPListRedistributeBGPDescriptor() yang.ListDescriptor[AfIPListRedistributeBGPFlatRow, AfIPListRedistributeBGPKey] {
-	return yang.ListDescriptor[AfIPListRedistributeBGPFlatRow, AfIPListRedistributeBGPKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.RedistributeBGPSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.RedistributeBGP) AfIPListRedistributeBGPFlatRow {
-			return AfIPListRedistributeBGPFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListRedistributeBGPFlatRow) *ciscoiosxeeigrp.RedistributeBGP {
-			return &r.Entry
-		}, func(r *AfIPListRedistributeBGPFlatRow) AfIPListRedistributeBGPKey {
-			var k AfIPListRedistributeBGPKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.RdrAs != nil {
-				k.RdrAs = yang.CanonicalKey(r.Entry.RdrAs)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "redistribute", "bgp")),
-	}
-}
-
-// AfIPListSummaryMetricIPv4Key is IPv4's row identity (ancestor keys in canonical form).
-type AfIPListSummaryMetricIPv4Key struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	IPv4                     string
-}
-
-// AfIPListSummaryMetricIPv4FlatRow flattens one IPv4 entry with its ancestor list keys.
-type AfIPListSummaryMetricIPv4FlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.IPv4
-}
-
-// AfIPListSummaryMetricIPv4Descriptor is the flattened-row descriptor for the nested list IPv4.
-func AfIPListSummaryMetricIPv4Descriptor() yang.ListDescriptor[AfIPListSummaryMetricIPv4FlatRow, AfIPListSummaryMetricIPv4Key] {
-	return yang.ListDescriptor[AfIPListSummaryMetricIPv4FlatRow, AfIPListSummaryMetricIPv4Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.IPv4Schema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.IPv4) AfIPListSummaryMetricIPv4FlatRow {
-			return AfIPListSummaryMetricIPv4FlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListSummaryMetricIPv4FlatRow) *ciscoiosxeeigrp.IPv4 {
-			return &r.Entry
-		}, func(r *AfIPListSummaryMetricIPv4FlatRow) AfIPListSummaryMetricIPv4Key {
-			var k AfIPListSummaryMetricIPv4Key
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.IPv4 != nil {
-				k.IPv4 = *r.Entry.IPv4
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "summary-metric", "ipv4")),
-	}
-}
-
-// AfIPListTopologyBaseDistanceEigrpDistanceListKey is DistanceList's row identity (ancestor keys in canonical form).
-type AfIPListTopologyBaseDistanceEigrpDistanceListKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	InternalRoute            uint8
-}
-
-// AfIPListTopologyBaseDistanceEigrpDistanceListFlatRow flattens one DistanceList entry with its ancestor list keys.
-type AfIPListTopologyBaseDistanceEigrpDistanceListFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.DistanceList
-}
-
-// AfIPListTopologyBaseDistanceEigrpDistanceListDescriptor is the flattened-row descriptor for the nested list DistanceList.
-func AfIPListTopologyBaseDistanceEigrpDistanceListDescriptor() yang.ListDescriptor[AfIPListTopologyBaseDistanceEigrpDistanceListFlatRow, AfIPListTopologyBaseDistanceEigrpDistanceListKey] {
-	return yang.ListDescriptor[AfIPListTopologyBaseDistanceEigrpDistanceListFlatRow, AfIPListTopologyBaseDistanceEigrpDistanceListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.DistanceListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DistanceList) AfIPListTopologyBaseDistanceEigrpDistanceListFlatRow {
-			return AfIPListTopologyBaseDistanceEigrpDistanceListFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListTopologyBaseDistanceEigrpDistanceListFlatRow) *ciscoiosxeeigrp.DistanceList {
-			return &r.Entry
-		}, func(r *AfIPListTopologyBaseDistanceEigrpDistanceListFlatRow) AfIPListTopologyBaseDistanceEigrpDistanceListKey {
-			var k AfIPListTopologyBaseDistanceEigrpDistanceListKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.InternalRoute != nil {
-				k.InternalRoute = *r.Entry.InternalRoute
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "topology", "base", "distance", "eigrp", "distance-list")),
-	}
-}
-
-// AfIPListTopologyBaseDistributeListPrefixListKey is BaseDistributeListPrefixList's row identity (ancestor keys in canonical form).
-type AfIPListTopologyBaseDistributeListPrefixListKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	PrefixList               string
-}
-
-// AfIPListTopologyBaseDistributeListPrefixListFlatRow flattens one BaseDistributeListPrefixList entry with its ancestor list keys.
-type AfIPListTopologyBaseDistributeListPrefixListFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.BaseDistributeListPrefixList
-}
-
-// AfIPListTopologyBaseDistributeListPrefixListDescriptor is the flattened-row descriptor for the nested list BaseDistributeListPrefixList.
-func AfIPListTopologyBaseDistributeListPrefixListDescriptor() yang.ListDescriptor[AfIPListTopologyBaseDistributeListPrefixListFlatRow, AfIPListTopologyBaseDistributeListPrefixListKey] {
-	return yang.ListDescriptor[AfIPListTopologyBaseDistributeListPrefixListFlatRow, AfIPListTopologyBaseDistributeListPrefixListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.BaseDistributeListPrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.BaseDistributeListPrefixList) AfIPListTopologyBaseDistributeListPrefixListFlatRow {
-			return AfIPListTopologyBaseDistributeListPrefixListFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListTopologyBaseDistributeListPrefixListFlatRow) *ciscoiosxeeigrp.BaseDistributeListPrefixList {
-			return &r.Entry
-		}, func(r *AfIPListTopologyBaseDistributeListPrefixListFlatRow) AfIPListTopologyBaseDistributeListPrefixListKey {
-			var k AfIPListTopologyBaseDistributeListPrefixListKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.PrefixList != nil {
-				k.PrefixList = *r.Entry.PrefixList
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "topology", "base", "distribute-list", "prefix-list")),
-	}
-}
-
-// AfIPListTopologyBaseDistributeListRouteMapKey is BaseDistributeListRouteMap's row identity (ancestor keys in canonical form).
-type AfIPListTopologyBaseDistributeListRouteMapKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Name                     string
-}
-
-// AfIPListTopologyBaseDistributeListRouteMapFlatRow flattens one BaseDistributeListRouteMap entry with its ancestor list keys.
-type AfIPListTopologyBaseDistributeListRouteMapFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.BaseDistributeListRouteMap
-}
-
-// AfIPListTopologyBaseDistributeListRouteMapDescriptor is the flattened-row descriptor for the nested list BaseDistributeListRouteMap.
-func AfIPListTopologyBaseDistributeListRouteMapDescriptor() yang.ListDescriptor[AfIPListTopologyBaseDistributeListRouteMapFlatRow, AfIPListTopologyBaseDistributeListRouteMapKey] {
-	return yang.ListDescriptor[AfIPListTopologyBaseDistributeListRouteMapFlatRow, AfIPListTopologyBaseDistributeListRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.BaseDistributeListRouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.BaseDistributeListRouteMap) AfIPListTopologyBaseDistributeListRouteMapFlatRow {
-			return AfIPListTopologyBaseDistributeListRouteMapFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListTopologyBaseDistributeListRouteMapFlatRow) *ciscoiosxeeigrp.BaseDistributeListRouteMap {
-			return &r.Entry
-		}, func(r *AfIPListTopologyBaseDistributeListRouteMapFlatRow) AfIPListTopologyBaseDistributeListRouteMapKey {
-			var k AfIPListTopologyBaseDistributeListRouteMapKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "topology", "base", "distribute-list", "route-map")),
-	}
-}
-
-// AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameKey is RouteMapRmapName's row identity (ancestor keys in canonical form).
-type AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	RmapName                 string
-}
-
-// AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow flattens one RouteMapRmapName entry with its ancestor list keys.
-type AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.RouteMapRmapName
-}
-
-// AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameDescriptor is the flattened-row descriptor for the nested list RouteMapRmapName.
-func AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameDescriptor() yang.ListDescriptor[AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow, AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameKey] {
-	return yang.ListDescriptor[AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow, AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.RouteMapRmapNameSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.RouteMapRmapName) AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow {
-			return AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow) *ciscoiosxeeigrp.RouteMapRmapName {
-			return &r.Entry
-		}, func(r *AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow) AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameKey {
-			var k AfIPListTopologyBaseRedistributeBGPRouteMapRmapNameKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.RmapName != nil {
-				k.RmapName = *r.Entry.RmapName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "topology", "base", "redistribute", "bgp", "route-map", "rmap-name")),
-	}
-}
-
-// AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameKey is RouteMapRmapName's row identity (ancestor keys in canonical form).
-type AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	RmapName                 string
-}
-
-// AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameFlatRow flattens one RouteMapRmapName entry with its ancestor list keys.
-type AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.RouteMapRmapName
-}
-
-// AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameDescriptor is the flattened-row descriptor for the nested list RouteMapRmapName.
-func AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameDescriptor() yang.ListDescriptor[AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameFlatRow, AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameKey] {
-	return yang.ListDescriptor[AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameFlatRow, AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.RouteMapRmapNameSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.RouteMapRmapName) AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameFlatRow {
-			return AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameFlatRow) *ciscoiosxeeigrp.RouteMapRmapName {
-			return &r.Entry
-		}, func(r *AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameFlatRow) AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameKey {
-			var k AfIPListTopologyBaseRedistributeConnectedRouteMapRmapNameKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.RmapName != nil {
-				k.RmapName = *r.Entry.RmapName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "topology", "base", "redistribute", "connected", "route-map", "rmap-name")),
-	}
-}
-
-// AfIPListTopologyBaseRedistributeEigrpAsListKey is AsList's row identity (ancestor keys in canonical form).
-type AfIPListTopologyBaseRedistributeEigrpAsListKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	AutonomousSystem         uint16
-}
-
-// AfIPListTopologyBaseRedistributeEigrpAsListFlatRow flattens one AsList entry with its ancestor list keys.
-type AfIPListTopologyBaseRedistributeEigrpAsListFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.AsList
-}
-
-// AfIPListTopologyBaseRedistributeEigrpAsListDescriptor is the flattened-row descriptor for the nested list AsList.
-func AfIPListTopologyBaseRedistributeEigrpAsListDescriptor() yang.ListDescriptor[AfIPListTopologyBaseRedistributeEigrpAsListFlatRow, AfIPListTopologyBaseRedistributeEigrpAsListKey] {
-	return yang.ListDescriptor[AfIPListTopologyBaseRedistributeEigrpAsListFlatRow, AfIPListTopologyBaseRedistributeEigrpAsListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.AsListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.AsList) AfIPListTopologyBaseRedistributeEigrpAsListFlatRow {
-			return AfIPListTopologyBaseRedistributeEigrpAsListFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListTopologyBaseRedistributeEigrpAsListFlatRow) *ciscoiosxeeigrp.AsList {
-			return &r.Entry
-		}, func(r *AfIPListTopologyBaseRedistributeEigrpAsListFlatRow) AfIPListTopologyBaseRedistributeEigrpAsListKey {
-			var k AfIPListTopologyBaseRedistributeEigrpAsListKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.AutonomousSystem != nil {
-				k.AutonomousSystem = *r.Entry.AutonomousSystem
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "topology", "base", "redistribute", "eigrp", "as-list")),
-	}
-}
-
-// AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameKey is RouteMapRmapName's row identity (ancestor keys in canonical form).
-type AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	AsListAutonomousSystem   string
-	RmapName                 string
-}
-
-// AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameFlatRow flattens one RouteMapRmapName entry with its ancestor list keys.
-type AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	AsListAutonomousSystem   string
-	Entry                    ciscoiosxeeigrp.RouteMapRmapName
-}
-
-// AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameDescriptor is the flattened-row descriptor for the nested list RouteMapRmapName.
-func AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameDescriptor() yang.ListDescriptor[AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameFlatRow, AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameKey] {
-	return yang.ListDescriptor[AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameFlatRow, AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.AsListSchema, ciscoiosxeeigrp.RouteMapRmapNameSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.RouteMapRmapName) AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameFlatRow {
-			return AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				AsListAutonomousSystem:   yang.AncestorKey(anc, 3, "autonomous-system"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameFlatRow) *ciscoiosxeeigrp.RouteMapRmapName {
-			return &r.Entry
-		}, func(r *AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameFlatRow) AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameKey {
-			var k AfIPListTopologyBaseRedistributeEigrpAsListRouteMapRmapNameKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			k.AsListAutonomousSystem = r.AsListAutonomousSystem
-			if r.Entry.RmapName != nil {
-				k.RmapName = *r.Entry.RmapName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "topology", "base", "redistribute", "eigrp", "as-list", "route-map", "rmap-name")),
-	}
-}
-
-// AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameKey is RouteMapRmapName's row identity (ancestor keys in canonical form).
-type AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	RmapName                 string
-}
-
-// AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameFlatRow flattens one RouteMapRmapName entry with its ancestor list keys.
-type AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.RouteMapRmapName
-}
-
-// AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameDescriptor is the flattened-row descriptor for the nested list RouteMapRmapName.
-func AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameDescriptor() yang.ListDescriptor[AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameFlatRow, AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameKey] {
-	return yang.ListDescriptor[AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameFlatRow, AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.RouteMapRmapNameSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.RouteMapRmapName) AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameFlatRow {
-			return AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameFlatRow) *ciscoiosxeeigrp.RouteMapRmapName {
-			return &r.Entry
-		}, func(r *AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameFlatRow) AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameKey {
-			var k AfIPListTopologyBaseRedistributeNatRouteRouteMapRmapNameKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.RmapName != nil {
-				k.RmapName = *r.Entry.RmapName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "topology", "base", "redistribute", "nat-route", "route-map", "rmap-name")),
-	}
-}
-
-// AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameKey is RouteMapRmapName's row identity (ancestor keys in canonical form).
-type AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	RmapName                 string
-}
-
-// AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameFlatRow flattens one RouteMapRmapName entry with its ancestor list keys.
-type AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.RouteMapRmapName
-}
-
-// AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameDescriptor is the flattened-row descriptor for the nested list RouteMapRmapName.
-func AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameDescriptor() yang.ListDescriptor[AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameFlatRow, AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameKey] {
-	return yang.ListDescriptor[AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameFlatRow, AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.RouteMapRmapNameSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.RouteMapRmapName) AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameFlatRow {
-			return AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameFlatRow) *ciscoiosxeeigrp.RouteMapRmapName {
-			return &r.Entry
-		}, func(r *AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameFlatRow) AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameKey {
-			var k AfIPListTopologyBaseRedistributeOmpRouteMapRmapNameKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.RmapName != nil {
-				k.RmapName = *r.Entry.RmapName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "topology", "base", "redistribute", "omp", "route-map", "rmap-name")),
-	}
-}
-
-// AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameKey is RouteMapRmapName's row identity (ancestor keys in canonical form).
-type AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	RmapName                 string
-}
-
-// AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameFlatRow flattens one RouteMapRmapName entry with its ancestor list keys.
-type AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.RouteMapRmapName
-}
-
-// AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameDescriptor is the flattened-row descriptor for the nested list RouteMapRmapName.
-func AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameDescriptor() yang.ListDescriptor[AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameFlatRow, AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameKey] {
-	return yang.ListDescriptor[AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameFlatRow, AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.RouteMapRmapNameSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.RouteMapRmapName) AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameFlatRow {
-			return AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameFlatRow) *ciscoiosxeeigrp.RouteMapRmapName {
-			return &r.Entry
-		}, func(r *AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameFlatRow) AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameKey {
-			var k AfIPListTopologyBaseRedistributeOSPFRouteMapRmapNameKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.RmapName != nil {
-				k.RmapName = *r.Entry.RmapName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "topology", "base", "redistribute", "ospf", "route-map", "rmap-name")),
-	}
-}
-
-// AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameKey is RouteMapRmapName's row identity (ancestor keys in canonical form).
-type AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	RmapName                 string
-}
-
-// AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameFlatRow flattens one RouteMapRmapName entry with its ancestor list keys.
-type AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.RouteMapRmapName
-}
-
-// AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameDescriptor is the flattened-row descriptor for the nested list RouteMapRmapName.
-func AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameDescriptor() yang.ListDescriptor[AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameFlatRow, AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameKey] {
-	return yang.ListDescriptor[AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameFlatRow, AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.RouteMapRmapNameSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.RouteMapRmapName) AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameFlatRow {
-			return AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameFlatRow) *ciscoiosxeeigrp.RouteMapRmapName {
-			return &r.Entry
-		}, func(r *AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameFlatRow) AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameKey {
-			var k AfIPListTopologyBaseRedistributeStaticRouteMapRmapNameKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.RmapName != nil {
-				k.RmapName = *r.Entry.RmapName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "topology", "base", "redistribute", "static", "route-map", "rmap-name")),
-	}
-}
-
-// AfIPListTopologyBaseSummaryMetricKey is BaseSummaryMetric's row identity (ancestor keys in canonical form).
-type AfIPListTopologyBaseSummaryMetricKey struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	IPv4AddrSlashPrefixLen   string
-}
-
-// AfIPListTopologyBaseSummaryMetricFlatRow flattens one BaseSummaryMetric entry with its ancestor list keys.
-type AfIPListTopologyBaseSummaryMetricFlatRow struct {
-	EigrpID                  string
-	AddressFamilyType        string
-	AfIPListUnicastMulticast string
-	Entry                    ciscoiosxeeigrp.BaseSummaryMetric
-}
-
-// AfIPListTopologyBaseSummaryMetricDescriptor is the flattened-row descriptor for the nested list BaseSummaryMetric.
-func AfIPListTopologyBaseSummaryMetricDescriptor() yang.ListDescriptor[AfIPListTopologyBaseSummaryMetricFlatRow, AfIPListTopologyBaseSummaryMetricKey] {
-	return yang.ListDescriptor[AfIPListTopologyBaseSummaryMetricFlatRow, AfIPListTopologyBaseSummaryMetricKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPListSchema, ciscoiosxeeigrp.BaseSummaryMetricSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.BaseSummaryMetric) AfIPListTopologyBaseSummaryMetricFlatRow {
-			return AfIPListTopologyBaseSummaryMetricFlatRow{
-				AddressFamilyType:        yang.AncestorKey(anc, 1, "type"),
-				AfIPListUnicastMulticast: yang.AncestorKey(anc, 2, "unicast-multicast"),
-				EigrpID:                  yang.AncestorKey(anc, 0, "id"),
-				Entry:                    e,
-			}
-		}, func(r *AfIPListTopologyBaseSummaryMetricFlatRow) *ciscoiosxeeigrp.BaseSummaryMetric {
-			return &r.Entry
-		}, func(r *AfIPListTopologyBaseSummaryMetricFlatRow) AfIPListTopologyBaseSummaryMetricKey {
-			var k AfIPListTopologyBaseSummaryMetricKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPListUnicastMulticast = r.AfIPListUnicastMulticast
-			if r.Entry.IPv4AddrSlashPrefixLen != nil {
-				k.IPv4AddrSlashPrefixLen = *r.Entry.IPv4AddrSlashPrefixLen
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-list", "topology", "base", "summary-metric")),
-	}
-}
-
-// AfIPVRFListKey is AfIPVRFList's row identity (ancestor keys in canonical form).
-type AfIPVRFListKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	VRF               string
-}
-
-// AfIPVRFListFlatRow flattens one AfIPVRFList entry with its ancestor list keys.
-type AfIPVRFListFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	Entry             ciscoiosxeeigrp.AfIPVRFList
-}
-
-// AfIPVRFListDescriptor is the flattened-row descriptor for the nested list AfIPVRFList.
-func AfIPVRFListDescriptor() yang.ListDescriptor[AfIPVRFListFlatRow, AfIPVRFListKey] {
-	return yang.ListDescriptor[AfIPVRFListFlatRow, AfIPVRFListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.AfIPVRFList) AfIPVRFListFlatRow {
-			return AfIPVRFListFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListFlatRow) *ciscoiosxeeigrp.AfIPVRFList {
-			return &r.Entry
-		}, func(r *AfIPVRFListFlatRow) AfIPVRFListKey {
-			var k AfIPVRFListKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			if r.Entry.VRF != nil {
-				k.VRF = *r.Entry.VRF
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list")),
-	}
-}
-
-// AfIPVRFListAfInterfaceKey is AfInterface's row identity (ancestor keys in canonical form).
-type AfIPVRFListAfInterfaceKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Name              string
-}
-
-// AfIPVRFListAfInterfaceFlatRow flattens one AfInterface entry with its ancestor list keys.
-type AfIPVRFListAfInterfaceFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.AfInterface
-}
-
-// AfIPVRFListAfInterfaceDescriptor is the flattened-row descriptor for the nested list AfInterface.
-func AfIPVRFListAfInterfaceDescriptor() yang.ListDescriptor[AfIPVRFListAfInterfaceFlatRow, AfIPVRFListAfInterfaceKey] {
-	return yang.ListDescriptor[AfIPVRFListAfInterfaceFlatRow, AfIPVRFListAfInterfaceKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.AfInterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.AfInterface) AfIPVRFListAfInterfaceFlatRow {
-			return AfIPVRFListAfInterfaceFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListAfInterfaceFlatRow) *ciscoiosxeeigrp.AfInterface {
-			return &r.Entry
-		}, func(r *AfIPVRFListAfInterfaceFlatRow) AfIPVRFListAfInterfaceKey {
-			var k AfIPVRFListAfInterfaceKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "af-interface")),
-	}
-}
-
-// AfIPVRFListAfInterfaceSummaryAddressKey is AfInterfaceSummaryAddress's row identity (ancestor keys in canonical form).
-type AfIPVRFListAfInterfaceSummaryAddressKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	AfInterfaceName   string
-	Prefix            string
-}
-
-// AfIPVRFListAfInterfaceSummaryAddressFlatRow flattens one AfInterfaceSummaryAddress entry with its ancestor list keys.
-type AfIPVRFListAfInterfaceSummaryAddressFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	AfInterfaceName   string
-	Entry             ciscoiosxeeigrp.AfInterfaceSummaryAddress
-}
-
-// AfIPVRFListAfInterfaceSummaryAddressDescriptor is the flattened-row descriptor for the nested list AfInterfaceSummaryAddress.
-func AfIPVRFListAfInterfaceSummaryAddressDescriptor() yang.ListDescriptor[AfIPVRFListAfInterfaceSummaryAddressFlatRow, AfIPVRFListAfInterfaceSummaryAddressKey] {
-	return yang.ListDescriptor[AfIPVRFListAfInterfaceSummaryAddressFlatRow, AfIPVRFListAfInterfaceSummaryAddressKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.AfInterfaceSchema, ciscoiosxeeigrp.AfInterfaceSummaryAddressSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.AfInterfaceSummaryAddress) AfIPVRFListAfInterfaceSummaryAddressFlatRow {
-			return AfIPVRFListAfInterfaceSummaryAddressFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				AfInterfaceName:   yang.AncestorKey(anc, 3, "name"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListAfInterfaceSummaryAddressFlatRow) *ciscoiosxeeigrp.AfInterfaceSummaryAddress {
-			return &r.Entry
-		}, func(r *AfIPVRFListAfInterfaceSummaryAddressFlatRow) AfIPVRFListAfInterfaceSummaryAddressKey {
-			var k AfIPVRFListAfInterfaceSummaryAddressKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			k.AfInterfaceName = r.AfInterfaceName
-			if r.Entry.Prefix != nil {
-				k.Prefix = yang.CanonicalKey(r.Entry.Prefix)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "af-interface", "summary-address")),
-	}
-}
-
-// AfIPVRFListDefaultMetricDmRdrKey is DmRdr's row identity (ancestor keys in canonical form).
-type AfIPVRFListDefaultMetricDmRdrKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	DmRdr             uint32
-}
-
-// AfIPVRFListDefaultMetricDmRdrFlatRow flattens one DmRdr entry with its ancestor list keys.
-type AfIPVRFListDefaultMetricDmRdrFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.DmRdr
-}
-
-// AfIPVRFListDefaultMetricDmRdrDescriptor is the flattened-row descriptor for the nested list DmRdr.
-func AfIPVRFListDefaultMetricDmRdrDescriptor() yang.ListDescriptor[AfIPVRFListDefaultMetricDmRdrFlatRow, AfIPVRFListDefaultMetricDmRdrKey] {
-	return yang.ListDescriptor[AfIPVRFListDefaultMetricDmRdrFlatRow, AfIPVRFListDefaultMetricDmRdrKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.DmRdrSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DmRdr) AfIPVRFListDefaultMetricDmRdrFlatRow {
-			return AfIPVRFListDefaultMetricDmRdrFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListDefaultMetricDmRdrFlatRow) *ciscoiosxeeigrp.DmRdr {
-			return &r.Entry
-		}, func(r *AfIPVRFListDefaultMetricDmRdrFlatRow) AfIPVRFListDefaultMetricDmRdrKey {
-			var k AfIPVRFListDefaultMetricDmRdrKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.DmRdr != nil {
-				k.DmRdr = *r.Entry.DmRdr
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "default-metric", "dm-rdr")),
-	}
-}
-
-// AfIPVRFListDefaultMetricDmRdrDmRdr0Key is DmRdr0's row identity (ancestor keys in canonical form).
-type AfIPVRFListDefaultMetricDmRdrDmRdr0Key struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	DmRdrDmRdr        string
-	DmRdr0            uint32
-}
-
-// AfIPVRFListDefaultMetricDmRdrDmRdr0FlatRow flattens one DmRdr0 entry with its ancestor list keys.
-type AfIPVRFListDefaultMetricDmRdrDmRdr0FlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	DmRdrDmRdr        string
-	Entry             ciscoiosxeeigrp.DmRdr0
-}
-
-// AfIPVRFListDefaultMetricDmRdrDmRdr0Descriptor is the flattened-row descriptor for the nested list DmRdr0.
-func AfIPVRFListDefaultMetricDmRdrDmRdr0Descriptor() yang.ListDescriptor[AfIPVRFListDefaultMetricDmRdrDmRdr0FlatRow, AfIPVRFListDefaultMetricDmRdrDmRdr0Key] {
-	return yang.ListDescriptor[AfIPVRFListDefaultMetricDmRdrDmRdr0FlatRow, AfIPVRFListDefaultMetricDmRdrDmRdr0Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.DmRdrSchema, ciscoiosxeeigrp.DmRdr0Schema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DmRdr0) AfIPVRFListDefaultMetricDmRdrDmRdr0FlatRow {
-			return AfIPVRFListDefaultMetricDmRdrDmRdr0FlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				DmRdrDmRdr:        yang.AncestorKey(anc, 3, "dm-rdr"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListDefaultMetricDmRdrDmRdr0FlatRow) *ciscoiosxeeigrp.DmRdr0 {
-			return &r.Entry
-		}, func(r *AfIPVRFListDefaultMetricDmRdrDmRdr0FlatRow) AfIPVRFListDefaultMetricDmRdrDmRdr0Key {
-			var k AfIPVRFListDefaultMetricDmRdrDmRdr0Key
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			k.DmRdrDmRdr = r.DmRdrDmRdr
-			if r.Entry.DmRdr0 != nil {
-				k.DmRdr0 = *r.Entry.DmRdr0
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "default-metric", "dm-rdr", "dm-rdr0")),
-	}
-}
-
-// AfIPVRFListDistanceEigrpDiRtKey is DiRt's row identity (ancestor keys in canonical form).
-type AfIPVRFListDistanceEigrpDiRtKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	DiRt              uint8
-}
-
-// AfIPVRFListDistanceEigrpDiRtFlatRow flattens one DiRt entry with its ancestor list keys.
-type AfIPVRFListDistanceEigrpDiRtFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.DiRt
-}
-
-// AfIPVRFListDistanceEigrpDiRtDescriptor is the flattened-row descriptor for the nested list DiRt.
-func AfIPVRFListDistanceEigrpDiRtDescriptor() yang.ListDescriptor[AfIPVRFListDistanceEigrpDiRtFlatRow, AfIPVRFListDistanceEigrpDiRtKey] {
-	return yang.ListDescriptor[AfIPVRFListDistanceEigrpDiRtFlatRow, AfIPVRFListDistanceEigrpDiRtKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.DiRtSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DiRt) AfIPVRFListDistanceEigrpDiRtFlatRow {
-			return AfIPVRFListDistanceEigrpDiRtFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListDistanceEigrpDiRtFlatRow) *ciscoiosxeeigrp.DiRt {
-			return &r.Entry
-		}, func(r *AfIPVRFListDistanceEigrpDiRtFlatRow) AfIPVRFListDistanceEigrpDiRtKey {
-			var k AfIPVRFListDistanceEigrpDiRtKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.DiRt != nil {
-				k.DiRt = *r.Entry.DiRt
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "distance", "eigrp", "di-rt")),
-	}
-}
-
-// AfIPVRFListDistanceRadDisKey is RadDis's row identity (ancestor keys in canonical form).
-type AfIPVRFListDistanceRadDisKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	RadDis            uint8
-}
-
-// AfIPVRFListDistanceRadDisFlatRow flattens one RadDis entry with its ancestor list keys.
-type AfIPVRFListDistanceRadDisFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.RadDis
-}
-
-// AfIPVRFListDistanceRadDisDescriptor is the flattened-row descriptor for the nested list RadDis.
-func AfIPVRFListDistanceRadDisDescriptor() yang.ListDescriptor[AfIPVRFListDistanceRadDisFlatRow, AfIPVRFListDistanceRadDisKey] {
-	return yang.ListDescriptor[AfIPVRFListDistanceRadDisFlatRow, AfIPVRFListDistanceRadDisKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.RadDisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.RadDis) AfIPVRFListDistanceRadDisFlatRow {
-			return AfIPVRFListDistanceRadDisFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListDistanceRadDisFlatRow) *ciscoiosxeeigrp.RadDis {
-			return &r.Entry
-		}, func(r *AfIPVRFListDistanceRadDisFlatRow) AfIPVRFListDistanceRadDisKey {
-			var k AfIPVRFListDistanceRadDisKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.RadDis != nil {
-				k.RadDis = *r.Entry.RadDis
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "distance", "rad-dis")),
-	}
-}
-
-// AfIPVRFListDistanceRadDisIPv4Key is RadDisIPv4's row identity (ancestor keys in canonical form).
-type AfIPVRFListDistanceRadDisIPv4Key struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	RadDisRadDis      string
-	IPv4              string
-}
-
-// AfIPVRFListDistanceRadDisIPv4FlatRow flattens one RadDisIPv4 entry with its ancestor list keys.
-type AfIPVRFListDistanceRadDisIPv4FlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	RadDisRadDis      string
-	Entry             ciscoiosxeeigrp.RadDisIPv4
-}
-
-// AfIPVRFListDistanceRadDisIPv4Descriptor is the flattened-row descriptor for the nested list RadDisIPv4.
-func AfIPVRFListDistanceRadDisIPv4Descriptor() yang.ListDescriptor[AfIPVRFListDistanceRadDisIPv4FlatRow, AfIPVRFListDistanceRadDisIPv4Key] {
-	return yang.ListDescriptor[AfIPVRFListDistanceRadDisIPv4FlatRow, AfIPVRFListDistanceRadDisIPv4Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.RadDisSchema, ciscoiosxeeigrp.RadDisIPv4Schema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.RadDisIPv4) AfIPVRFListDistanceRadDisIPv4FlatRow {
-			return AfIPVRFListDistanceRadDisIPv4FlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-				RadDisRadDis:      yang.AncestorKey(anc, 3, "rad-dis"),
-			}
-		}, func(r *AfIPVRFListDistanceRadDisIPv4FlatRow) *ciscoiosxeeigrp.RadDisIPv4 {
-			return &r.Entry
-		}, func(r *AfIPVRFListDistanceRadDisIPv4FlatRow) AfIPVRFListDistanceRadDisIPv4Key {
-			var k AfIPVRFListDistanceRadDisIPv4Key
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			k.RadDisRadDis = r.RadDisRadDis
-			if r.Entry.IPv4 != nil {
-				k.IPv4 = *r.Entry.IPv4
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "distance", "rad-dis", "ipv4")),
-	}
-}
-
-// AfIPVRFListDistributeListEigFiltKey is EigFilt's row identity (ancestor keys in canonical form).
-type AfIPVRFListDistributeListEigFiltKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	EigFilt           string
-}
-
-// AfIPVRFListDistributeListEigFiltFlatRow flattens one EigFilt entry with its ancestor list keys.
-type AfIPVRFListDistributeListEigFiltFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.EigFilt
-}
-
-// AfIPVRFListDistributeListEigFiltDescriptor is the flattened-row descriptor for the nested list EigFilt.
-func AfIPVRFListDistributeListEigFiltDescriptor() yang.ListDescriptor[AfIPVRFListDistributeListEigFiltFlatRow, AfIPVRFListDistributeListEigFiltKey] {
-	return yang.ListDescriptor[AfIPVRFListDistributeListEigFiltFlatRow, AfIPVRFListDistributeListEigFiltKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.EigFiltSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.EigFilt) AfIPVRFListDistributeListEigFiltFlatRow {
-			return AfIPVRFListDistributeListEigFiltFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListDistributeListEigFiltFlatRow) *ciscoiosxeeigrp.EigFilt {
-			return &r.Entry
-		}, func(r *AfIPVRFListDistributeListEigFiltFlatRow) AfIPVRFListDistributeListEigFiltKey {
-			var k AfIPVRFListDistributeListEigFiltKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.EigFilt != nil {
-				k.EigFilt = yang.CanonicalKey(r.Entry.EigFilt)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "distribute-list", "eig-filt")),
-	}
-}
-
-// AfIPVRFListDistributeListGatewayGwListKey is GwList's row identity (ancestor keys in canonical form).
-type AfIPVRFListDistributeListGatewayGwListKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	GwList            string
-}
-
-// AfIPVRFListDistributeListGatewayGwListFlatRow flattens one GwList entry with its ancestor list keys.
-type AfIPVRFListDistributeListGatewayGwListFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.GwList
-}
-
-// AfIPVRFListDistributeListGatewayGwListDescriptor is the flattened-row descriptor for the nested list GwList.
-func AfIPVRFListDistributeListGatewayGwListDescriptor() yang.ListDescriptor[AfIPVRFListDistributeListGatewayGwListFlatRow, AfIPVRFListDistributeListGatewayGwListKey] {
-	return yang.ListDescriptor[AfIPVRFListDistributeListGatewayGwListFlatRow, AfIPVRFListDistributeListGatewayGwListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.GwListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.GwList) AfIPVRFListDistributeListGatewayGwListFlatRow {
-			return AfIPVRFListDistributeListGatewayGwListFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListDistributeListGatewayGwListFlatRow) *ciscoiosxeeigrp.GwList {
-			return &r.Entry
-		}, func(r *AfIPVRFListDistributeListGatewayGwListFlatRow) AfIPVRFListDistributeListGatewayGwListKey {
-			var k AfIPVRFListDistributeListGatewayGwListKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.GwList != nil {
-				k.GwList = *r.Entry.GwList
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "distribute-list", "gateway", "gw-list")),
-	}
-}
-
-// AfIPVRFListDistributeListPrefixPlNameKey is PlName's row identity (ancestor keys in canonical form).
-type AfIPVRFListDistributeListPrefixPlNameKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	PlName            string
-}
-
-// AfIPVRFListDistributeListPrefixPlNameFlatRow flattens one PlName entry with its ancestor list keys.
-type AfIPVRFListDistributeListPrefixPlNameFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.PlName
-}
-
-// AfIPVRFListDistributeListPrefixPlNameDescriptor is the flattened-row descriptor for the nested list PlName.
-func AfIPVRFListDistributeListPrefixPlNameDescriptor() yang.ListDescriptor[AfIPVRFListDistributeListPrefixPlNameFlatRow, AfIPVRFListDistributeListPrefixPlNameKey] {
-	return yang.ListDescriptor[AfIPVRFListDistributeListPrefixPlNameFlatRow, AfIPVRFListDistributeListPrefixPlNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.PlNameSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.PlName) AfIPVRFListDistributeListPrefixPlNameFlatRow {
-			return AfIPVRFListDistributeListPrefixPlNameFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListDistributeListPrefixPlNameFlatRow) *ciscoiosxeeigrp.PlName {
-			return &r.Entry
-		}, func(r *AfIPVRFListDistributeListPrefixPlNameFlatRow) AfIPVRFListDistributeListPrefixPlNameKey {
-			var k AfIPVRFListDistributeListPrefixPlNameKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.PlName != nil {
-				k.PlName = *r.Entry.PlName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "distribute-list", "prefix", "pl-name")),
-	}
-}
-
-// AfIPVRFListDistributeListRouteMapRmapNameKey is DistributeListRouteMapRmapName's row identity (ancestor keys in canonical form).
-type AfIPVRFListDistributeListRouteMapRmapNameKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	RmapName          string
-}
-
-// AfIPVRFListDistributeListRouteMapRmapNameFlatRow flattens one DistributeListRouteMapRmapName entry with its ancestor list keys.
-type AfIPVRFListDistributeListRouteMapRmapNameFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.DistributeListRouteMapRmapName
-}
-
-// AfIPVRFListDistributeListRouteMapRmapNameDescriptor is the flattened-row descriptor for the nested list DistributeListRouteMapRmapName.
-func AfIPVRFListDistributeListRouteMapRmapNameDescriptor() yang.ListDescriptor[AfIPVRFListDistributeListRouteMapRmapNameFlatRow, AfIPVRFListDistributeListRouteMapRmapNameKey] {
-	return yang.ListDescriptor[AfIPVRFListDistributeListRouteMapRmapNameFlatRow, AfIPVRFListDistributeListRouteMapRmapNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.DistributeListRouteMapRmapNameSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DistributeListRouteMapRmapName) AfIPVRFListDistributeListRouteMapRmapNameFlatRow {
-			return AfIPVRFListDistributeListRouteMapRmapNameFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListDistributeListRouteMapRmapNameFlatRow) *ciscoiosxeeigrp.DistributeListRouteMapRmapName {
-			return &r.Entry
-		}, func(r *AfIPVRFListDistributeListRouteMapRmapNameFlatRow) AfIPVRFListDistributeListRouteMapRmapNameKey {
-			var k AfIPVRFListDistributeListRouteMapRmapNameKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.RmapName != nil {
-				k.RmapName = *r.Entry.RmapName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "distribute-list", "route-map", "rmap-name")),
-	}
-}
-
-// AfIPVRFListNeighborIPv4Key is NeighborIPv4's row identity (ancestor keys in canonical form).
-type AfIPVRFListNeighborIPv4Key struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	IPv4              string
-}
-
-// AfIPVRFListNeighborIPv4FlatRow flattens one NeighborIPv4 entry with its ancestor list keys.
-type AfIPVRFListNeighborIPv4FlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.NeighborIPv4
-}
-
-// AfIPVRFListNeighborIPv4Descriptor is the flattened-row descriptor for the nested list NeighborIPv4.
-func AfIPVRFListNeighborIPv4Descriptor() yang.ListDescriptor[AfIPVRFListNeighborIPv4FlatRow, AfIPVRFListNeighborIPv4Key] {
-	return yang.ListDescriptor[AfIPVRFListNeighborIPv4FlatRow, AfIPVRFListNeighborIPv4Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.NeighborIPv4Schema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.NeighborIPv4) AfIPVRFListNeighborIPv4FlatRow {
-			return AfIPVRFListNeighborIPv4FlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListNeighborIPv4FlatRow) *ciscoiosxeeigrp.NeighborIPv4 {
-			return &r.Entry
-		}, func(r *AfIPVRFListNeighborIPv4FlatRow) AfIPVRFListNeighborIPv4Key {
-			var k AfIPVRFListNeighborIPv4Key
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.IPv4 != nil {
-				k.IPv4 = *r.Entry.IPv4
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "neighbor", "ipv4")),
-	}
-}
-
-// AfIPVRFListNetworkKey is Network's row identity (ancestor keys in canonical form).
-type AfIPVRFListNetworkKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Number            string
-}
-
-// AfIPVRFListNetworkFlatRow flattens one Network entry with its ancestor list keys.
-type AfIPVRFListNetworkFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.Network
-}
-
-// AfIPVRFListNetworkDescriptor is the flattened-row descriptor for the nested list Network.
-func AfIPVRFListNetworkDescriptor() yang.ListDescriptor[AfIPVRFListNetworkFlatRow, AfIPVRFListNetworkKey] {
-	return yang.ListDescriptor[AfIPVRFListNetworkFlatRow, AfIPVRFListNetworkKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.NetworkSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.Network) AfIPVRFListNetworkFlatRow {
-			return AfIPVRFListNetworkFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListNetworkFlatRow) *ciscoiosxeeigrp.Network {
-			return &r.Entry
-		}, func(r *AfIPVRFListNetworkFlatRow) AfIPVRFListNetworkKey {
-			var k AfIPVRFListNetworkKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.Number != nil {
-				k.Number = *r.Entry.Number
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "network")),
-	}
-}
-
-// AfIPVRFListOffsetListNsrListKey is NsrList's row identity (ancestor keys in canonical form).
-type AfIPVRFListOffsetListNsrListKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	NsrList           uint16
-}
-
-// AfIPVRFListOffsetListNsrListFlatRow flattens one NsrList entry with its ancestor list keys.
-type AfIPVRFListOffsetListNsrListFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.NsrList
-}
-
-// AfIPVRFListOffsetListNsrListDescriptor is the flattened-row descriptor for the nested list NsrList.
-func AfIPVRFListOffsetListNsrListDescriptor() yang.ListDescriptor[AfIPVRFListOffsetListNsrListFlatRow, AfIPVRFListOffsetListNsrListKey] {
-	return yang.ListDescriptor[AfIPVRFListOffsetListNsrListFlatRow, AfIPVRFListOffsetListNsrListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.NsrListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.NsrList) AfIPVRFListOffsetListNsrListFlatRow {
-			return AfIPVRFListOffsetListNsrListFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListOffsetListNsrListFlatRow) *ciscoiosxeeigrp.NsrList {
-			return &r.Entry
-		}, func(r *AfIPVRFListOffsetListNsrListFlatRow) AfIPVRFListOffsetListNsrListKey {
-			var k AfIPVRFListOffsetListNsrListKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.NsrList != nil {
-				k.NsrList = *r.Entry.NsrList
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "offset-list", "nsr-list")),
-	}
-}
-
-// AfIPVRFListOffsetListOlACLKey is OlACL's row identity (ancestor keys in canonical form).
-type AfIPVRFListOffsetListOlACLKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	OlACL             string
-}
-
-// AfIPVRFListOffsetListOlACLFlatRow flattens one OlACL entry with its ancestor list keys.
-type AfIPVRFListOffsetListOlACLFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.OlACL
-}
-
-// AfIPVRFListOffsetListOlACLDescriptor is the flattened-row descriptor for the nested list OlACL.
-func AfIPVRFListOffsetListOlACLDescriptor() yang.ListDescriptor[AfIPVRFListOffsetListOlACLFlatRow, AfIPVRFListOffsetListOlACLKey] {
-	return yang.ListDescriptor[AfIPVRFListOffsetListOlACLFlatRow, AfIPVRFListOffsetListOlACLKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.OlACLSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.OlACL) AfIPVRFListOffsetListOlACLFlatRow {
-			return AfIPVRFListOffsetListOlACLFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListOffsetListOlACLFlatRow) *ciscoiosxeeigrp.OlACL {
-			return &r.Entry
-		}, func(r *AfIPVRFListOffsetListOlACLFlatRow) AfIPVRFListOffsetListOlACLKey {
-			var k AfIPVRFListOffsetListOlACLKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.OlACL != nil {
-				k.OlACL = *r.Entry.OlACL
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "offset-list", "ol-acl")),
-	}
-}
-
-// AfIPVRFListRedistributeBGPKey is RedistributeBGP's row identity (ancestor keys in canonical form).
-type AfIPVRFListRedistributeBGPKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	RdrAs             string
-}
-
-// AfIPVRFListRedistributeBGPFlatRow flattens one RedistributeBGP entry with its ancestor list keys.
-type AfIPVRFListRedistributeBGPFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.RedistributeBGP
-}
-
-// AfIPVRFListRedistributeBGPDescriptor is the flattened-row descriptor for the nested list RedistributeBGP.
-func AfIPVRFListRedistributeBGPDescriptor() yang.ListDescriptor[AfIPVRFListRedistributeBGPFlatRow, AfIPVRFListRedistributeBGPKey] {
-	return yang.ListDescriptor[AfIPVRFListRedistributeBGPFlatRow, AfIPVRFListRedistributeBGPKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.RedistributeBGPSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.RedistributeBGP) AfIPVRFListRedistributeBGPFlatRow {
-			return AfIPVRFListRedistributeBGPFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListRedistributeBGPFlatRow) *ciscoiosxeeigrp.RedistributeBGP {
-			return &r.Entry
-		}, func(r *AfIPVRFListRedistributeBGPFlatRow) AfIPVRFListRedistributeBGPKey {
-			var k AfIPVRFListRedistributeBGPKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.RdrAs != nil {
-				k.RdrAs = yang.CanonicalKey(r.Entry.RdrAs)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "redistribute", "bgp")),
-	}
-}
-
-// AfIPVRFListSummaryMetricIPv4Key is IPv4's row identity (ancestor keys in canonical form).
-type AfIPVRFListSummaryMetricIPv4Key struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	IPv4              string
-}
-
-// AfIPVRFListSummaryMetricIPv4FlatRow flattens one IPv4 entry with its ancestor list keys.
-type AfIPVRFListSummaryMetricIPv4FlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.IPv4
-}
-
-// AfIPVRFListSummaryMetricIPv4Descriptor is the flattened-row descriptor for the nested list IPv4.
-func AfIPVRFListSummaryMetricIPv4Descriptor() yang.ListDescriptor[AfIPVRFListSummaryMetricIPv4FlatRow, AfIPVRFListSummaryMetricIPv4Key] {
-	return yang.ListDescriptor[AfIPVRFListSummaryMetricIPv4FlatRow, AfIPVRFListSummaryMetricIPv4Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.IPv4Schema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.IPv4) AfIPVRFListSummaryMetricIPv4FlatRow {
-			return AfIPVRFListSummaryMetricIPv4FlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListSummaryMetricIPv4FlatRow) *ciscoiosxeeigrp.IPv4 {
-			return &r.Entry
-		}, func(r *AfIPVRFListSummaryMetricIPv4FlatRow) AfIPVRFListSummaryMetricIPv4Key {
-			var k AfIPVRFListSummaryMetricIPv4Key
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.IPv4 != nil {
-				k.IPv4 = *r.Entry.IPv4
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "summary-metric", "ipv4")),
-	}
-}
-
-// AfIPVRFListTopologyBaseDistanceEigrpDistanceListKey is DistanceList's row identity (ancestor keys in canonical form).
-type AfIPVRFListTopologyBaseDistanceEigrpDistanceListKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	InternalRoute     uint8
-}
-
-// AfIPVRFListTopologyBaseDistanceEigrpDistanceListFlatRow flattens one DistanceList entry with its ancestor list keys.
-type AfIPVRFListTopologyBaseDistanceEigrpDistanceListFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.DistanceList
-}
-
-// AfIPVRFListTopologyBaseDistanceEigrpDistanceListDescriptor is the flattened-row descriptor for the nested list DistanceList.
-func AfIPVRFListTopologyBaseDistanceEigrpDistanceListDescriptor() yang.ListDescriptor[AfIPVRFListTopologyBaseDistanceEigrpDistanceListFlatRow, AfIPVRFListTopologyBaseDistanceEigrpDistanceListKey] {
-	return yang.ListDescriptor[AfIPVRFListTopologyBaseDistanceEigrpDistanceListFlatRow, AfIPVRFListTopologyBaseDistanceEigrpDistanceListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.DistanceListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DistanceList) AfIPVRFListTopologyBaseDistanceEigrpDistanceListFlatRow {
-			return AfIPVRFListTopologyBaseDistanceEigrpDistanceListFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListTopologyBaseDistanceEigrpDistanceListFlatRow) *ciscoiosxeeigrp.DistanceList {
-			return &r.Entry
-		}, func(r *AfIPVRFListTopologyBaseDistanceEigrpDistanceListFlatRow) AfIPVRFListTopologyBaseDistanceEigrpDistanceListKey {
-			var k AfIPVRFListTopologyBaseDistanceEigrpDistanceListKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.InternalRoute != nil {
-				k.InternalRoute = *r.Entry.InternalRoute
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "topology", "base", "distance", "eigrp", "distance-list")),
-	}
-}
-
-// AfIPVRFListTopologyBaseDistributeListPrefixListKey is BaseDistributeListPrefixList's row identity (ancestor keys in canonical form).
-type AfIPVRFListTopologyBaseDistributeListPrefixListKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	PrefixList        string
-}
-
-// AfIPVRFListTopologyBaseDistributeListPrefixListFlatRow flattens one BaseDistributeListPrefixList entry with its ancestor list keys.
-type AfIPVRFListTopologyBaseDistributeListPrefixListFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.BaseDistributeListPrefixList
-}
-
-// AfIPVRFListTopologyBaseDistributeListPrefixListDescriptor is the flattened-row descriptor for the nested list BaseDistributeListPrefixList.
-func AfIPVRFListTopologyBaseDistributeListPrefixListDescriptor() yang.ListDescriptor[AfIPVRFListTopologyBaseDistributeListPrefixListFlatRow, AfIPVRFListTopologyBaseDistributeListPrefixListKey] {
-	return yang.ListDescriptor[AfIPVRFListTopologyBaseDistributeListPrefixListFlatRow, AfIPVRFListTopologyBaseDistributeListPrefixListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.BaseDistributeListPrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.BaseDistributeListPrefixList) AfIPVRFListTopologyBaseDistributeListPrefixListFlatRow {
-			return AfIPVRFListTopologyBaseDistributeListPrefixListFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListTopologyBaseDistributeListPrefixListFlatRow) *ciscoiosxeeigrp.BaseDistributeListPrefixList {
-			return &r.Entry
-		}, func(r *AfIPVRFListTopologyBaseDistributeListPrefixListFlatRow) AfIPVRFListTopologyBaseDistributeListPrefixListKey {
-			var k AfIPVRFListTopologyBaseDistributeListPrefixListKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.PrefixList != nil {
-				k.PrefixList = *r.Entry.PrefixList
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "topology", "base", "distribute-list", "prefix-list")),
-	}
-}
-
-// AfIPVRFListTopologyBaseDistributeListRouteMapKey is BaseDistributeListRouteMap's row identity (ancestor keys in canonical form).
-type AfIPVRFListTopologyBaseDistributeListRouteMapKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Name              string
-}
-
-// AfIPVRFListTopologyBaseDistributeListRouteMapFlatRow flattens one BaseDistributeListRouteMap entry with its ancestor list keys.
-type AfIPVRFListTopologyBaseDistributeListRouteMapFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.BaseDistributeListRouteMap
-}
-
-// AfIPVRFListTopologyBaseDistributeListRouteMapDescriptor is the flattened-row descriptor for the nested list BaseDistributeListRouteMap.
-func AfIPVRFListTopologyBaseDistributeListRouteMapDescriptor() yang.ListDescriptor[AfIPVRFListTopologyBaseDistributeListRouteMapFlatRow, AfIPVRFListTopologyBaseDistributeListRouteMapKey] {
-	return yang.ListDescriptor[AfIPVRFListTopologyBaseDistributeListRouteMapFlatRow, AfIPVRFListTopologyBaseDistributeListRouteMapKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.BaseDistributeListRouteMapSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.BaseDistributeListRouteMap) AfIPVRFListTopologyBaseDistributeListRouteMapFlatRow {
-			return AfIPVRFListTopologyBaseDistributeListRouteMapFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListTopologyBaseDistributeListRouteMapFlatRow) *ciscoiosxeeigrp.BaseDistributeListRouteMap {
-			return &r.Entry
-		}, func(r *AfIPVRFListTopologyBaseDistributeListRouteMapFlatRow) AfIPVRFListTopologyBaseDistributeListRouteMapKey {
-			var k AfIPVRFListTopologyBaseDistributeListRouteMapKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "topology", "base", "distribute-list", "route-map")),
-	}
-}
-
-// AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameKey is RouteMapRmapName's row identity (ancestor keys in canonical form).
-type AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	RmapName          string
-}
-
-// AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow flattens one RouteMapRmapName entry with its ancestor list keys.
-type AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.RouteMapRmapName
-}
-
-// AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameDescriptor is the flattened-row descriptor for the nested list RouteMapRmapName.
-func AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameDescriptor() yang.ListDescriptor[AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow, AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameKey] {
-	return yang.ListDescriptor[AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow, AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeeigrp.RouterEigrpSchema, ciscoiosxeeigrp.EigrpAddressFamilySchema, ciscoiosxeeigrp.AfIPVRFListSchema, ciscoiosxeeigrp.RouteMapRmapNameSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.RouteMapRmapName) AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow {
-			return AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow{
-				AddressFamilyType: yang.AncestorKey(anc, 1, "type"),
-				AfIPVRFListVRF:    yang.AncestorKey(anc, 2, "vrf"),
-				EigrpID:           yang.AncestorKey(anc, 0, "id"),
-				Entry:             e,
-			}
-		}, func(r *AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow) *ciscoiosxeeigrp.RouteMapRmapName {
-			return &r.Entry
-		}, func(r *AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameFlatRow) AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameKey {
-			var k AfIPVRFListTopologyBaseRedistributeBGPRouteMapRmapNameKey
-			k.EigrpID = r.EigrpID
-			k.AddressFamilyType = r.AddressFamilyType
-			k.AfIPVRFListVRF = r.AfIPVRFListVRF
-			if r.Entry.RmapName != nil {
-				k.RmapName = *r.Entry.RmapName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXEEigrp, "eigrp", "address-family", "af-ip-vrf-list", "topology", "base", "redistribute", "bgp", "route-map", "rmap-name")),
-	}
-}
-
-// AfIPVRFListTopologyBaseRedistributeConnectedRouteMapRmapNameKey is RouteMapRmapName's row identity (ancestor keys in canonical form).
-type AfIPVRFListTopologyBaseRedistributeConnectedRouteMapRmapNameKey struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	RmapName          string
-}
-
-// AfIPVRFListTopologyBaseRedistributeConnectedRouteMapRmapNameFlatRow flattens one RouteMapRmapName entry with its ancestor list keys.
-type AfIPVRFListTopologyBaseRedistributeConnectedRouteMapRmapNameFlatRow struct {
-	EigrpID           string
-	AddressFamilyType string
-	AfIPVRFListVRF    string
-	Entry             ciscoiosxeeigrp.RouteMapRmapName
-}
 
 // AfIPVRFListTopologyBaseRedistributeConnectedRouteMapRmapNameDescriptor is the flattened-row descriptor for the nested list RouteMapRmapName.
 func AfIPVRFListTopologyBaseRedistributeConnectedRouteMapRmapNameDescriptor() yang.ListDescriptor[AfIPVRFListTopologyBaseRedistributeConnectedRouteMapRmapNameFlatRow, AfIPVRFListTopologyBaseRedistributeConnectedRouteMapRmapNameKey] {
@@ -16086,27 +9022,27 @@ func IsisContainerIsisAddressFamilyIPv4TopologySummaryAddressDescriptor() yang.L
 	}
 }
 
-// IsisContainerIsisAddressFamilyIPv6Key is IsisContainerIsisAddressFamilyIPv6's row identity (ancestor keys in canonical form).
+// IsisContainerIsisAddressFamilyIPv6Key is AddressFamilyIPv6's row identity (ancestor keys in canonical form).
 type IsisContainerIsisAddressFamilyIPv6Key struct {
 	IsisAreaTag          string
 	V6AddressFamilyTypes string
 }
 
-// IsisContainerIsisAddressFamilyIPv6FlatRow flattens one IsisContainerIsisAddressFamilyIPv6 entry with its ancestor list keys.
+// IsisContainerIsisAddressFamilyIPv6FlatRow flattens one AddressFamilyIPv6 entry with its ancestor list keys.
 type IsisContainerIsisAddressFamilyIPv6FlatRow struct {
 	IsisAreaTag string
-	Entry       ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6
+	Entry       ciscoiosxeisis.AddressFamilyIPv6
 }
 
-// IsisContainerIsisAddressFamilyIPv6Descriptor is the flattened-row descriptor for the nested list IsisContainerIsisAddressFamilyIPv6.
+// IsisContainerIsisAddressFamilyIPv6Descriptor is the flattened-row descriptor for the nested list AddressFamilyIPv6.
 func IsisContainerIsisAddressFamilyIPv6Descriptor() yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6FlatRow, IsisContainerIsisAddressFamilyIPv6Key] {
 	return yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6FlatRow, IsisContainerIsisAddressFamilyIPv6Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6Schema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6) IsisContainerIsisAddressFamilyIPv6FlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.AddressFamilyIPv6Schema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.AddressFamilyIPv6) IsisContainerIsisAddressFamilyIPv6FlatRow {
 			return IsisContainerIsisAddressFamilyIPv6FlatRow{
 				Entry:       e,
 				IsisAreaTag: yang.AncestorKey(anc, 0, "area-tag"),
 			}
-		}, func(r *IsisContainerIsisAddressFamilyIPv6FlatRow) *ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6 {
+		}, func(r *IsisContainerIsisAddressFamilyIPv6FlatRow) *ciscoiosxeisis.AddressFamilyIPv6 {
 			return &r.Entry
 		}, func(r *IsisContainerIsisAddressFamilyIPv6FlatRow) IsisContainerIsisAddressFamilyIPv6Key {
 			var k IsisContainerIsisAddressFamilyIPv6Key
@@ -16137,7 +9073,7 @@ type IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorFlatRow struct {
 // IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorDescriptor is the flattened-row descriptor for the nested list Srv6Locator.
 func IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorDescriptor() yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorFlatRow, IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorKey] {
 	return yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorFlatRow, IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6Schema, ciscoiosxesegmentrouting.Srv6LocatorSchema}, func(anc [][]yang.KeyValue, e ciscoiosxesegmentrouting.Srv6Locator) IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxesegmentrouting.Srv6LocatorSchema}, func(anc [][]yang.KeyValue, e ciscoiosxesegmentrouting.Srv6Locator) IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorFlatRow {
 			return IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 1, "v6-address-family-types"),
@@ -16177,7 +9113,7 @@ type IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricList
 // IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListDescriptor is the flattened-row descriptor for the nested list MetricList.
 func IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListDescriptor() yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListFlatRow, IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListKey] {
 	return yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListFlatRow, IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6Schema, ciscoiosxesegmentrouting.Srv6LocatorSchema, ciscoiosxesegmentrouting.MetricListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxesegmentrouting.MetricList) IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxesegmentrouting.Srv6LocatorSchema, ciscoiosxesegmentrouting.MetricListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxesegmentrouting.MetricList) IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListFlatRow {
 			return IsisContainerIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 1, "v6-address-family-types"),
@@ -16218,7 +9154,7 @@ type IsisContainerIsisAddressFamilyIPv6DistributeListPrefixListFlatRow struct {
 // IsisContainerIsisAddressFamilyIPv6DistributeListPrefixListDescriptor is the flattened-row descriptor for the nested list PrefixList.
 func IsisContainerIsisAddressFamilyIPv6DistributeListPrefixListDescriptor() yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6DistributeListPrefixListFlatRow, IsisContainerIsisAddressFamilyIPv6DistributeListPrefixListKey] {
 	return yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6DistributeListPrefixListFlatRow, IsisContainerIsisAddressFamilyIPv6DistributeListPrefixListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6Schema, ciscoiosxeisis.PrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.PrefixList) IsisContainerIsisAddressFamilyIPv6DistributeListPrefixListFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.PrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.PrefixList) IsisContainerIsisAddressFamilyIPv6DistributeListPrefixListFlatRow {
 			return IsisContainerIsisAddressFamilyIPv6DistributeListPrefixListFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 1, "v6-address-family-types"),
@@ -16259,7 +9195,7 @@ type IsisContainerIsisAddressFamilyIPv6MetricMetricsFlatRow struct {
 // IsisContainerIsisAddressFamilyIPv6MetricMetricsDescriptor is the flattened-row descriptor for the nested list Metrics.
 func IsisContainerIsisAddressFamilyIPv6MetricMetricsDescriptor() yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6MetricMetricsFlatRow, IsisContainerIsisAddressFamilyIPv6MetricMetricsKey] {
 	return yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6MetricMetricsFlatRow, IsisContainerIsisAddressFamilyIPv6MetricMetricsKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6Schema, ciscoiosxeisis.MetricsSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.Metrics) IsisContainerIsisAddressFamilyIPv6MetricMetricsFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.MetricsSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.Metrics) IsisContainerIsisAddressFamilyIPv6MetricMetricsFlatRow {
 			return IsisContainerIsisAddressFamilyIPv6MetricMetricsFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 1, "v6-address-family-types"),
@@ -16297,7 +9233,7 @@ type IsisContainerIsisAddressFamilyIPv6RedistributeApplicationFlatRow struct {
 // IsisContainerIsisAddressFamilyIPv6RedistributeApplicationDescriptor is the flattened-row descriptor for the nested list IPv6RedistributeApplication.
 func IsisContainerIsisAddressFamilyIPv6RedistributeApplicationDescriptor() yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6RedistributeApplicationFlatRow, IsisContainerIsisAddressFamilyIPv6RedistributeApplicationKey] {
 	return yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6RedistributeApplicationFlatRow, IsisContainerIsisAddressFamilyIPv6RedistributeApplicationKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeApplicationSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeApplication) IsisContainerIsisAddressFamilyIPv6RedistributeApplicationFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeApplicationSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeApplication) IsisContainerIsisAddressFamilyIPv6RedistributeApplicationFlatRow {
 			return IsisContainerIsisAddressFamilyIPv6RedistributeApplicationFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 1, "v6-address-family-types"),
@@ -16335,7 +9271,7 @@ type IsisContainerIsisAddressFamilyIPv6RedistributeBGPBGPIPFlatRow struct {
 // IsisContainerIsisAddressFamilyIPv6RedistributeBGPBGPIPDescriptor is the flattened-row descriptor for the nested list IPv6RedistributeBGPBGPIP.
 func IsisContainerIsisAddressFamilyIPv6RedistributeBGPBGPIPDescriptor() yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6RedistributeBGPBGPIPFlatRow, IsisContainerIsisAddressFamilyIPv6RedistributeBGPBGPIPKey] {
 	return yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6RedistributeBGPBGPIPFlatRow, IsisContainerIsisAddressFamilyIPv6RedistributeBGPBGPIPKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeBGPBGPIPSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeBGPBGPIP) IsisContainerIsisAddressFamilyIPv6RedistributeBGPBGPIPFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeBGPBGPIPSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeBGPBGPIP) IsisContainerIsisAddressFamilyIPv6RedistributeBGPBGPIPFlatRow {
 			return IsisContainerIsisAddressFamilyIPv6RedistributeBGPBGPIPFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 1, "v6-address-family-types"),
@@ -16373,7 +9309,7 @@ type IsisContainerIsisAddressFamilyIPv6RedistributeEigrpFlatRow struct {
 // IsisContainerIsisAddressFamilyIPv6RedistributeEigrpDescriptor is the flattened-row descriptor for the nested list IPv6RedistributeEigrp.
 func IsisContainerIsisAddressFamilyIPv6RedistributeEigrpDescriptor() yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6RedistributeEigrpFlatRow, IsisContainerIsisAddressFamilyIPv6RedistributeEigrpKey] {
 	return yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6RedistributeEigrpFlatRow, IsisContainerIsisAddressFamilyIPv6RedistributeEigrpKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeEigrp) IsisContainerIsisAddressFamilyIPv6RedistributeEigrpFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeEigrp) IsisContainerIsisAddressFamilyIPv6RedistributeEigrpFlatRow {
 			return IsisContainerIsisAddressFamilyIPv6RedistributeEigrpFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 1, "v6-address-family-types"),
@@ -16412,7 +9348,7 @@ type IsisContainerIsisAddressFamilyIPv6RedistributeIsisLeakIsisFlatRow struct {
 // IsisContainerIsisAddressFamilyIPv6RedistributeIsisLeakIsisDescriptor is the flattened-row descriptor for the nested list IPv6RedistributeIsisLeakIsis.
 func IsisContainerIsisAddressFamilyIPv6RedistributeIsisLeakIsisDescriptor() yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6RedistributeIsisLeakIsisFlatRow, IsisContainerIsisAddressFamilyIPv6RedistributeIsisLeakIsisKey] {
 	return yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6RedistributeIsisLeakIsisFlatRow, IsisContainerIsisAddressFamilyIPv6RedistributeIsisLeakIsisKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeIsisLeakIsisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeIsisLeakIsis) IsisContainerIsisAddressFamilyIPv6RedistributeIsisLeakIsisFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeIsisLeakIsisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeIsisLeakIsis) IsisContainerIsisAddressFamilyIPv6RedistributeIsisLeakIsisFlatRow {
 			return IsisContainerIsisAddressFamilyIPv6RedistributeIsisLeakIsisFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 1, "v6-address-family-types"),
@@ -16453,7 +9389,7 @@ type IsisContainerIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisFlatRow s
 // IsisContainerIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisDescriptor is the flattened-row descriptor for the nested list IPv6RedistributeIsisRedistributeIsis.
 func IsisContainerIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisDescriptor() yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisFlatRow, IsisContainerIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisKey] {
 	return yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisFlatRow, IsisContainerIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeIsisRedistributeIsisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeIsisRedistributeIsis) IsisContainerIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeIsisRedistributeIsisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeIsisRedistributeIsis) IsisContainerIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisFlatRow {
 			return IsisContainerIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 1, "v6-address-family-types"),
@@ -16491,7 +9427,7 @@ type IsisContainerIsisAddressFamilyIPv6RedistributeOSPFFlatRow struct {
 // IsisContainerIsisAddressFamilyIPv6RedistributeOSPFDescriptor is the flattened-row descriptor for the nested list IPv6RedistributeOSPF.
 func IsisContainerIsisAddressFamilyIPv6RedistributeOSPFDescriptor() yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6RedistributeOSPFFlatRow, IsisContainerIsisAddressFamilyIPv6RedistributeOSPFKey] {
 	return yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6RedistributeOSPFFlatRow, IsisContainerIsisAddressFamilyIPv6RedistributeOSPFKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeOSPFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeOSPF) IsisContainerIsisAddressFamilyIPv6RedistributeOSPFFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeOSPFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeOSPF) IsisContainerIsisAddressFamilyIPv6RedistributeOSPFFlatRow {
 			return IsisContainerIsisAddressFamilyIPv6RedistributeOSPFFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 1, "v6-address-family-types"),
@@ -16529,7 +9465,7 @@ type IsisContainerIsisAddressFamilyIPv6RedistributeRipFlatRow struct {
 // IsisContainerIsisAddressFamilyIPv6RedistributeRipDescriptor is the flattened-row descriptor for the nested list IPv6RedistributeRip.
 func IsisContainerIsisAddressFamilyIPv6RedistributeRipDescriptor() yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6RedistributeRipFlatRow, IsisContainerIsisAddressFamilyIPv6RedistributeRipKey] {
 	return yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6RedistributeRipFlatRow, IsisContainerIsisAddressFamilyIPv6RedistributeRipKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeRipSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeRip) IsisContainerIsisAddressFamilyIPv6RedistributeRipFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeRipSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeRip) IsisContainerIsisAddressFamilyIPv6RedistributeRipFlatRow {
 			return IsisContainerIsisAddressFamilyIPv6RedistributeRipFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 1, "v6-address-family-types"),
@@ -16567,7 +9503,7 @@ type IsisContainerIsisAddressFamilyIPv6SpfIntervalLevel12FlatRow struct {
 // IsisContainerIsisAddressFamilyIPv6SpfIntervalLevel12Descriptor is the flattened-row descriptor for the nested list Level12.
 func IsisContainerIsisAddressFamilyIPv6SpfIntervalLevel12Descriptor() yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6SpfIntervalLevel12FlatRow, IsisContainerIsisAddressFamilyIPv6SpfIntervalLevel12Key] {
 	return yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6SpfIntervalLevel12FlatRow, IsisContainerIsisAddressFamilyIPv6SpfIntervalLevel12Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6Schema, ciscoiosxeisis.Level12Schema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.Level12) IsisContainerIsisAddressFamilyIPv6SpfIntervalLevel12FlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.Level12Schema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.Level12) IsisContainerIsisAddressFamilyIPv6SpfIntervalLevel12FlatRow {
 			return IsisContainerIsisAddressFamilyIPv6SpfIntervalLevel12FlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 1, "v6-address-family-types"),
@@ -16605,7 +9541,7 @@ type IsisContainerIsisAddressFamilyIPv6SummaryPrefixFlatRow struct {
 // IsisContainerIsisAddressFamilyIPv6SummaryPrefixDescriptor is the flattened-row descriptor for the nested list SummaryPrefix.
 func IsisContainerIsisAddressFamilyIPv6SummaryPrefixDescriptor() yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6SummaryPrefixFlatRow, IsisContainerIsisAddressFamilyIPv6SummaryPrefixKey] {
 	return yang.ListDescriptor[IsisContainerIsisAddressFamilyIPv6SummaryPrefixFlatRow, IsisContainerIsisAddressFamilyIPv6SummaryPrefixKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.IsisContainerIsisAddressFamilyIPv6Schema, ciscoiosxeisis.SummaryPrefixSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.SummaryPrefix) IsisContainerIsisAddressFamilyIPv6SummaryPrefixFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.IsisContainerIsisSchema, ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.SummaryPrefixSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.SummaryPrefix) IsisContainerIsisAddressFamilyIPv6SummaryPrefixFlatRow {
 			return IsisContainerIsisAddressFamilyIPv6SummaryPrefixFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 1, "v6-address-family-types"),
@@ -18025,15 +10961,15 @@ func RouterIsisAddressFamilyIPv4TopologySummaryAddressDescriptor() yang.ListDesc
 	}
 }
 
-// RouterIsisAddressFamilyIPv6Key is RouterIsisAddressFamilyIPv6's row identity (ancestor keys in canonical form).
+// RouterIsisAddressFamilyIPv6Key is AddressFamilyIPv6's row identity (ancestor keys in canonical form).
 type RouterIsisAddressFamilyIPv6Key struct {
 	V6AddressFamilyTypes string
 }
 
 // RouterIsisAddressFamilyIPv6Descriptor is the list descriptor callers hand to a protocol library.
-func RouterIsisAddressFamilyIPv6Descriptor() yang.ListDescriptor[ciscoiosxeisis.RouterIsisAddressFamilyIPv6, RouterIsisAddressFamilyIPv6Key] {
-	return yang.ListDescriptor[ciscoiosxeisis.RouterIsisAddressFamilyIPv6, RouterIsisAddressFamilyIPv6Key]{
-		Codec: yang.StructRowCodec(ciscoiosxeisis.RouterIsisAddressFamilyIPv6Schema, func(r *ciscoiosxeisis.RouterIsisAddressFamilyIPv6) RouterIsisAddressFamilyIPv6Key {
+func RouterIsisAddressFamilyIPv6Descriptor() yang.ListDescriptor[ciscoiosxeisis.AddressFamilyIPv6, RouterIsisAddressFamilyIPv6Key] {
+	return yang.ListDescriptor[ciscoiosxeisis.AddressFamilyIPv6, RouterIsisAddressFamilyIPv6Key]{
+		Codec: yang.StructRowCodec(ciscoiosxeisis.AddressFamilyIPv6Schema, func(r *ciscoiosxeisis.AddressFamilyIPv6) RouterIsisAddressFamilyIPv6Key {
 			var k RouterIsisAddressFamilyIPv6Key
 			if r.V6AddressFamilyTypes != nil {
 				k.V6AddressFamilyTypes = *r.V6AddressFamilyTypes
@@ -18059,7 +10995,7 @@ type RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorFlatRow struct {
 // RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorDescriptor is the flattened-row descriptor for the nested list Srv6Locator.
 func RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorDescriptor() yang.ListDescriptor[RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorFlatRow, RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorKey] {
 	return yang.ListDescriptor[RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorFlatRow, RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.RouterIsisAddressFamilyIPv6Schema, ciscoiosxesegmentrouting.Srv6LocatorSchema}, func(anc [][]yang.KeyValue, e ciscoiosxesegmentrouting.Srv6Locator) RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxesegmentrouting.Srv6LocatorSchema}, func(anc [][]yang.KeyValue, e ciscoiosxesegmentrouting.Srv6Locator) RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorFlatRow {
 			return RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 0, "v6-address-family-types"),
@@ -18095,7 +11031,7 @@ type RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListFlatRow
 // RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListDescriptor is the flattened-row descriptor for the nested list MetricList.
 func RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListDescriptor() yang.ListDescriptor[RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListFlatRow, RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListKey] {
 	return yang.ListDescriptor[RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListFlatRow, RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.RouterIsisAddressFamilyIPv6Schema, ciscoiosxesegmentrouting.Srv6LocatorSchema, ciscoiosxesegmentrouting.MetricListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxesegmentrouting.MetricList) RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxesegmentrouting.Srv6LocatorSchema, ciscoiosxesegmentrouting.MetricListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxesegmentrouting.MetricList) RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListFlatRow {
 			return RouterIsisAddressFamilyIPv6SegmentRoutingSrv6LocatorMetricMetricListFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 0, "v6-address-family-types"),
@@ -18132,7 +11068,7 @@ type RouterIsisAddressFamilyIPv6DistributeListPrefixListFlatRow struct {
 // RouterIsisAddressFamilyIPv6DistributeListPrefixListDescriptor is the flattened-row descriptor for the nested list PrefixList.
 func RouterIsisAddressFamilyIPv6DistributeListPrefixListDescriptor() yang.ListDescriptor[RouterIsisAddressFamilyIPv6DistributeListPrefixListFlatRow, RouterIsisAddressFamilyIPv6DistributeListPrefixListKey] {
 	return yang.ListDescriptor[RouterIsisAddressFamilyIPv6DistributeListPrefixListFlatRow, RouterIsisAddressFamilyIPv6DistributeListPrefixListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.RouterIsisAddressFamilyIPv6Schema, ciscoiosxeisis.PrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.PrefixList) RouterIsisAddressFamilyIPv6DistributeListPrefixListFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.PrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.PrefixList) RouterIsisAddressFamilyIPv6DistributeListPrefixListFlatRow {
 			return RouterIsisAddressFamilyIPv6DistributeListPrefixListFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 0, "v6-address-family-types"),
@@ -18169,7 +11105,7 @@ type RouterIsisAddressFamilyIPv6MetricMetricsFlatRow struct {
 // RouterIsisAddressFamilyIPv6MetricMetricsDescriptor is the flattened-row descriptor for the nested list Metrics.
 func RouterIsisAddressFamilyIPv6MetricMetricsDescriptor() yang.ListDescriptor[RouterIsisAddressFamilyIPv6MetricMetricsFlatRow, RouterIsisAddressFamilyIPv6MetricMetricsKey] {
 	return yang.ListDescriptor[RouterIsisAddressFamilyIPv6MetricMetricsFlatRow, RouterIsisAddressFamilyIPv6MetricMetricsKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.RouterIsisAddressFamilyIPv6Schema, ciscoiosxeisis.MetricsSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.Metrics) RouterIsisAddressFamilyIPv6MetricMetricsFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.MetricsSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.Metrics) RouterIsisAddressFamilyIPv6MetricMetricsFlatRow {
 			return RouterIsisAddressFamilyIPv6MetricMetricsFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 0, "v6-address-family-types"),
@@ -18203,7 +11139,7 @@ type RouterIsisAddressFamilyIPv6RedistributeApplicationFlatRow struct {
 // RouterIsisAddressFamilyIPv6RedistributeApplicationDescriptor is the flattened-row descriptor for the nested list IPv6RedistributeApplication.
 func RouterIsisAddressFamilyIPv6RedistributeApplicationDescriptor() yang.ListDescriptor[RouterIsisAddressFamilyIPv6RedistributeApplicationFlatRow, RouterIsisAddressFamilyIPv6RedistributeApplicationKey] {
 	return yang.ListDescriptor[RouterIsisAddressFamilyIPv6RedistributeApplicationFlatRow, RouterIsisAddressFamilyIPv6RedistributeApplicationKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.RouterIsisAddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeApplicationSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeApplication) RouterIsisAddressFamilyIPv6RedistributeApplicationFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeApplicationSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeApplication) RouterIsisAddressFamilyIPv6RedistributeApplicationFlatRow {
 			return RouterIsisAddressFamilyIPv6RedistributeApplicationFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 0, "v6-address-family-types"),
@@ -18237,7 +11173,7 @@ type RouterIsisAddressFamilyIPv6RedistributeBGPBGPIPFlatRow struct {
 // RouterIsisAddressFamilyIPv6RedistributeBGPBGPIPDescriptor is the flattened-row descriptor for the nested list IPv6RedistributeBGPBGPIP.
 func RouterIsisAddressFamilyIPv6RedistributeBGPBGPIPDescriptor() yang.ListDescriptor[RouterIsisAddressFamilyIPv6RedistributeBGPBGPIPFlatRow, RouterIsisAddressFamilyIPv6RedistributeBGPBGPIPKey] {
 	return yang.ListDescriptor[RouterIsisAddressFamilyIPv6RedistributeBGPBGPIPFlatRow, RouterIsisAddressFamilyIPv6RedistributeBGPBGPIPKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.RouterIsisAddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeBGPBGPIPSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeBGPBGPIP) RouterIsisAddressFamilyIPv6RedistributeBGPBGPIPFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeBGPBGPIPSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeBGPBGPIP) RouterIsisAddressFamilyIPv6RedistributeBGPBGPIPFlatRow {
 			return RouterIsisAddressFamilyIPv6RedistributeBGPBGPIPFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 0, "v6-address-family-types"),
@@ -18271,7 +11207,7 @@ type RouterIsisAddressFamilyIPv6RedistributeEigrpFlatRow struct {
 // RouterIsisAddressFamilyIPv6RedistributeEigrpDescriptor is the flattened-row descriptor for the nested list IPv6RedistributeEigrp.
 func RouterIsisAddressFamilyIPv6RedistributeEigrpDescriptor() yang.ListDescriptor[RouterIsisAddressFamilyIPv6RedistributeEigrpFlatRow, RouterIsisAddressFamilyIPv6RedistributeEigrpKey] {
 	return yang.ListDescriptor[RouterIsisAddressFamilyIPv6RedistributeEigrpFlatRow, RouterIsisAddressFamilyIPv6RedistributeEigrpKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.RouterIsisAddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeEigrp) RouterIsisAddressFamilyIPv6RedistributeEigrpFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeEigrp) RouterIsisAddressFamilyIPv6RedistributeEigrpFlatRow {
 			return RouterIsisAddressFamilyIPv6RedistributeEigrpFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 0, "v6-address-family-types"),
@@ -18306,7 +11242,7 @@ type RouterIsisAddressFamilyIPv6RedistributeIsisLeakIsisFlatRow struct {
 // RouterIsisAddressFamilyIPv6RedistributeIsisLeakIsisDescriptor is the flattened-row descriptor for the nested list IPv6RedistributeIsisLeakIsis.
 func RouterIsisAddressFamilyIPv6RedistributeIsisLeakIsisDescriptor() yang.ListDescriptor[RouterIsisAddressFamilyIPv6RedistributeIsisLeakIsisFlatRow, RouterIsisAddressFamilyIPv6RedistributeIsisLeakIsisKey] {
 	return yang.ListDescriptor[RouterIsisAddressFamilyIPv6RedistributeIsisLeakIsisFlatRow, RouterIsisAddressFamilyIPv6RedistributeIsisLeakIsisKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.RouterIsisAddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeIsisLeakIsisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeIsisLeakIsis) RouterIsisAddressFamilyIPv6RedistributeIsisLeakIsisFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeIsisLeakIsisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeIsisLeakIsis) RouterIsisAddressFamilyIPv6RedistributeIsisLeakIsisFlatRow {
 			return RouterIsisAddressFamilyIPv6RedistributeIsisLeakIsisFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 0, "v6-address-family-types"),
@@ -18343,7 +11279,7 @@ type RouterIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisFlatRow struct {
 // RouterIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisDescriptor is the flattened-row descriptor for the nested list IPv6RedistributeIsisRedistributeIsis.
 func RouterIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisDescriptor() yang.ListDescriptor[RouterIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisFlatRow, RouterIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisKey] {
 	return yang.ListDescriptor[RouterIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisFlatRow, RouterIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.RouterIsisAddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeIsisRedistributeIsisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeIsisRedistributeIsis) RouterIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeIsisRedistributeIsisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeIsisRedistributeIsis) RouterIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisFlatRow {
 			return RouterIsisAddressFamilyIPv6RedistributeIsisRedistributeIsisFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 0, "v6-address-family-types"),
@@ -18377,7 +11313,7 @@ type RouterIsisAddressFamilyIPv6RedistributeOSPFFlatRow struct {
 // RouterIsisAddressFamilyIPv6RedistributeOSPFDescriptor is the flattened-row descriptor for the nested list IPv6RedistributeOSPF.
 func RouterIsisAddressFamilyIPv6RedistributeOSPFDescriptor() yang.ListDescriptor[RouterIsisAddressFamilyIPv6RedistributeOSPFFlatRow, RouterIsisAddressFamilyIPv6RedistributeOSPFKey] {
 	return yang.ListDescriptor[RouterIsisAddressFamilyIPv6RedistributeOSPFFlatRow, RouterIsisAddressFamilyIPv6RedistributeOSPFKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.RouterIsisAddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeOSPFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeOSPF) RouterIsisAddressFamilyIPv6RedistributeOSPFFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeOSPFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeOSPF) RouterIsisAddressFamilyIPv6RedistributeOSPFFlatRow {
 			return RouterIsisAddressFamilyIPv6RedistributeOSPFFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 0, "v6-address-family-types"),
@@ -18411,7 +11347,7 @@ type RouterIsisAddressFamilyIPv6RedistributeRipFlatRow struct {
 // RouterIsisAddressFamilyIPv6RedistributeRipDescriptor is the flattened-row descriptor for the nested list IPv6RedistributeRip.
 func RouterIsisAddressFamilyIPv6RedistributeRipDescriptor() yang.ListDescriptor[RouterIsisAddressFamilyIPv6RedistributeRipFlatRow, RouterIsisAddressFamilyIPv6RedistributeRipKey] {
 	return yang.ListDescriptor[RouterIsisAddressFamilyIPv6RedistributeRipFlatRow, RouterIsisAddressFamilyIPv6RedistributeRipKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.RouterIsisAddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeRipSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeRip) RouterIsisAddressFamilyIPv6RedistributeRipFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.IPv6RedistributeRipSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.IPv6RedistributeRip) RouterIsisAddressFamilyIPv6RedistributeRipFlatRow {
 			return RouterIsisAddressFamilyIPv6RedistributeRipFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 0, "v6-address-family-types"),
@@ -18445,7 +11381,7 @@ type RouterIsisAddressFamilyIPv6SpfIntervalLevel12FlatRow struct {
 // RouterIsisAddressFamilyIPv6SpfIntervalLevel12Descriptor is the flattened-row descriptor for the nested list Level12.
 func RouterIsisAddressFamilyIPv6SpfIntervalLevel12Descriptor() yang.ListDescriptor[RouterIsisAddressFamilyIPv6SpfIntervalLevel12FlatRow, RouterIsisAddressFamilyIPv6SpfIntervalLevel12Key] {
 	return yang.ListDescriptor[RouterIsisAddressFamilyIPv6SpfIntervalLevel12FlatRow, RouterIsisAddressFamilyIPv6SpfIntervalLevel12Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.RouterIsisAddressFamilyIPv6Schema, ciscoiosxeisis.Level12Schema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.Level12) RouterIsisAddressFamilyIPv6SpfIntervalLevel12FlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.Level12Schema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.Level12) RouterIsisAddressFamilyIPv6SpfIntervalLevel12FlatRow {
 			return RouterIsisAddressFamilyIPv6SpfIntervalLevel12FlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 0, "v6-address-family-types"),
@@ -18479,7 +11415,7 @@ type RouterIsisAddressFamilyIPv6SummaryPrefixFlatRow struct {
 // RouterIsisAddressFamilyIPv6SummaryPrefixDescriptor is the flattened-row descriptor for the nested list SummaryPrefix.
 func RouterIsisAddressFamilyIPv6SummaryPrefixDescriptor() yang.ListDescriptor[RouterIsisAddressFamilyIPv6SummaryPrefixFlatRow, RouterIsisAddressFamilyIPv6SummaryPrefixKey] {
 	return yang.ListDescriptor[RouterIsisAddressFamilyIPv6SummaryPrefixFlatRow, RouterIsisAddressFamilyIPv6SummaryPrefixKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.RouterIsisAddressFamilyIPv6Schema, ciscoiosxeisis.SummaryPrefixSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.SummaryPrefix) RouterIsisAddressFamilyIPv6SummaryPrefixFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeisis.AddressFamilyIPv6Schema, ciscoiosxeisis.SummaryPrefixSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.SummaryPrefix) RouterIsisAddressFamilyIPv6SummaryPrefixFlatRow {
 			return RouterIsisAddressFamilyIPv6SummaryPrefixFlatRow{
 				Entry:                    e,
 				IPv6V6AddressFamilyTypes: yang.AncestorKey(anc, 0, "v6-address-family-types"),
@@ -33805,4 +26741,5496 @@ type LispListEidTableInstanceListKey struct {
 type LispListEidTableInstanceListFlatRow struct {
 	LispListLisp string
 	Entry        ciscoiosxelisp.EidTableInstanceList
+}
+
+// LispListEidTableInstanceListDescriptor is the flattened-row descriptor for the nested list EidTableInstanceList.
+func LispListEidTableInstanceListDescriptor() yang.ListDescriptor[LispListEidTableInstanceListFlatRow, LispListEidTableInstanceListKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListFlatRow, LispListEidTableInstanceListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidTableInstanceList) LispListEidTableInstanceListFlatRow {
+			return LispListEidTableInstanceListFlatRow{
+				Entry:        e,
+				LispListLisp: yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListFlatRow) *ciscoiosxelisp.EidTableInstanceList {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListFlatRow) LispListEidTableInstanceListKey {
+			var k LispListEidTableInstanceListKey
+			k.LispListLisp = r.LispListLisp
+			if r.Entry.InstanceID != nil {
+				k.InstanceID = *r.Entry.InstanceID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list")),
+	}
+}
+
+// LispListEidTableInstanceListAltSummaryRouteKey is SummaryRoute's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListAltSummaryRouteKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListEidTableInstanceListAltSummaryRouteFlatRow flattens one SummaryRoute entry with its ancestor list keys.
+type LispListEidTableInstanceListAltSummaryRouteFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.SummaryRoute
+}
+
+// LispListEidTableInstanceListAltSummaryRouteDescriptor is the flattened-row descriptor for the nested list SummaryRoute.
+func LispListEidTableInstanceListAltSummaryRouteDescriptor() yang.ListDescriptor[LispListEidTableInstanceListAltSummaryRouteFlatRow, LispListEidTableInstanceListAltSummaryRouteKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListAltSummaryRouteFlatRow, LispListEidTableInstanceListAltSummaryRouteKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.SummaryRouteSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.SummaryRoute) LispListEidTableInstanceListAltSummaryRouteFlatRow {
+			return LispListEidTableInstanceListAltSummaryRouteFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListAltSummaryRouteFlatRow) *ciscoiosxelisp.SummaryRoute {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListAltSummaryRouteFlatRow) LispListEidTableInstanceListAltSummaryRouteKey {
+			var k LispListEidTableInstanceListAltSummaryRouteKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = yang.CanonicalKey(r.Entry.EidPrefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "alt", "summary-route")),
+	}
+}
+
+// LispListEidTableInstanceListDatabaseMappingKey is InstanceListDatabaseMapping's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListDatabaseMappingKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListEidTableInstanceListDatabaseMappingFlatRow flattens one InstanceListDatabaseMapping entry with its ancestor list keys.
+type LispListEidTableInstanceListDatabaseMappingFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.InstanceListDatabaseMapping
+}
+
+// LispListEidTableInstanceListDatabaseMappingDescriptor is the flattened-row descriptor for the nested list InstanceListDatabaseMapping.
+func LispListEidTableInstanceListDatabaseMappingDescriptor() yang.ListDescriptor[LispListEidTableInstanceListDatabaseMappingFlatRow, LispListEidTableInstanceListDatabaseMappingKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListDatabaseMappingFlatRow, LispListEidTableInstanceListDatabaseMappingKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.InstanceListDatabaseMappingSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.InstanceListDatabaseMapping) LispListEidTableInstanceListDatabaseMappingFlatRow {
+			return LispListEidTableInstanceListDatabaseMappingFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListDatabaseMappingFlatRow) *ciscoiosxelisp.InstanceListDatabaseMapping {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListDatabaseMappingFlatRow) LispListEidTableInstanceListDatabaseMappingKey {
+			var k LispListEidTableInstanceListDatabaseMappingKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = yang.CanonicalKey(r.Entry.EidPrefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "database-mapping")),
+	}
+}
+
+// LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListKey is InstanceIDEidPrefixList's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	InstanceID             uint32
+	EidPrefix              string
+}
+
+// LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListFlatRow flattens one InstanceIDEidPrefixList entry with its ancestor list keys.
+type LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.InstanceIDEidPrefixList
+}
+
+// LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListDescriptor is the flattened-row descriptor for the nested list InstanceIDEidPrefixList.
+func LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListDescriptor() yang.ListDescriptor[LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListFlatRow, LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListFlatRow, LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.InstanceIDEidPrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.InstanceIDEidPrefixList) LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListFlatRow {
+			return LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListFlatRow) *ciscoiosxelisp.InstanceIDEidPrefixList {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListFlatRow) LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListKey {
+			var k LispListEidTableInstanceListDdtAuthoritativeInstanceIDEidPrefixListKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.InstanceID != nil {
+				k.InstanceID = *r.Entry.InstanceID
+			}
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = yang.CanonicalKey(r.Entry.EidPrefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ddt", "authoritative", "instance-id-eid-prefix-list")),
+	}
+}
+
+// LispListEidTableInstanceListDdtAuthoritativeInstanceIDListKey is InstanceIDList's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListDdtAuthoritativeInstanceIDListKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	InstanceID             string
+}
+
+// LispListEidTableInstanceListDdtAuthoritativeInstanceIDListFlatRow flattens one InstanceIDList entry with its ancestor list keys.
+type LispListEidTableInstanceListDdtAuthoritativeInstanceIDListFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.InstanceIDList
+}
+
+// LispListEidTableInstanceListDdtAuthoritativeInstanceIDListDescriptor is the flattened-row descriptor for the nested list InstanceIDList.
+func LispListEidTableInstanceListDdtAuthoritativeInstanceIDListDescriptor() yang.ListDescriptor[LispListEidTableInstanceListDdtAuthoritativeInstanceIDListFlatRow, LispListEidTableInstanceListDdtAuthoritativeInstanceIDListKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListDdtAuthoritativeInstanceIDListFlatRow, LispListEidTableInstanceListDdtAuthoritativeInstanceIDListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.InstanceIDListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.InstanceIDList) LispListEidTableInstanceListDdtAuthoritativeInstanceIDListFlatRow {
+			return LispListEidTableInstanceListDdtAuthoritativeInstanceIDListFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListDdtAuthoritativeInstanceIDListFlatRow) *ciscoiosxelisp.InstanceIDList {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListDdtAuthoritativeInstanceIDListFlatRow) LispListEidTableInstanceListDdtAuthoritativeInstanceIDListKey {
+			var k LispListEidTableInstanceListDdtAuthoritativeInstanceIDListKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.InstanceID != nil {
+				k.InstanceID = *r.Entry.InstanceID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ddt", "authoritative", "instance-id-list")),
+	}
+}
+
+// LispListEidTableInstanceListDynamicEidKey is EidTableInstanceListDynamicEid's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListDynamicEidKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Name                   string
+}
+
+// LispListEidTableInstanceListDynamicEidFlatRow flattens one EidTableInstanceListDynamicEid entry with its ancestor list keys.
+type LispListEidTableInstanceListDynamicEidFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.EidTableInstanceListDynamicEid
+}
+
+// LispListEidTableInstanceListDynamicEidDescriptor is the flattened-row descriptor for the nested list EidTableInstanceListDynamicEid.
+func LispListEidTableInstanceListDynamicEidDescriptor() yang.ListDescriptor[LispListEidTableInstanceListDynamicEidFlatRow, LispListEidTableInstanceListDynamicEidKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListDynamicEidFlatRow, LispListEidTableInstanceListDynamicEidKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.EidTableInstanceListDynamicEidSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidTableInstanceListDynamicEid) LispListEidTableInstanceListDynamicEidFlatRow {
+			return LispListEidTableInstanceListDynamicEidFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListDynamicEidFlatRow) *ciscoiosxelisp.EidTableInstanceListDynamicEid {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListDynamicEidFlatRow) LispListEidTableInstanceListDynamicEidKey {
+			var k LispListEidTableInstanceListDynamicEidKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "dynamic-eid")),
+	}
+}
+
+// LispListEidTableInstanceListDynamicEidDatabaseMappingKey is EidTableInstanceListDynamicEidDatabaseMapping's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListDynamicEidDatabaseMappingKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	DynamicEidName         string
+	EidPrefix              string
+}
+
+// LispListEidTableInstanceListDynamicEidDatabaseMappingFlatRow flattens one EidTableInstanceListDynamicEidDatabaseMapping entry with its ancestor list keys.
+type LispListEidTableInstanceListDynamicEidDatabaseMappingFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	DynamicEidName         string
+	Entry                  ciscoiosxelisp.EidTableInstanceListDynamicEidDatabaseMapping
+}
+
+// LispListEidTableInstanceListDynamicEidDatabaseMappingDescriptor is the flattened-row descriptor for the nested list EidTableInstanceListDynamicEidDatabaseMapping.
+func LispListEidTableInstanceListDynamicEidDatabaseMappingDescriptor() yang.ListDescriptor[LispListEidTableInstanceListDynamicEidDatabaseMappingFlatRow, LispListEidTableInstanceListDynamicEidDatabaseMappingKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListDynamicEidDatabaseMappingFlatRow, LispListEidTableInstanceListDynamicEidDatabaseMappingKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.EidTableInstanceListDynamicEidSchema, ciscoiosxelisp.EidTableInstanceListDynamicEidDatabaseMappingSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidTableInstanceListDynamicEidDatabaseMapping) LispListEidTableInstanceListDynamicEidDatabaseMappingFlatRow {
+			return LispListEidTableInstanceListDynamicEidDatabaseMappingFlatRow{
+				DynamicEidName:         yang.AncestorKey(anc, 2, "name"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListDynamicEidDatabaseMappingFlatRow) *ciscoiosxelisp.EidTableInstanceListDynamicEidDatabaseMapping {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListDynamicEidDatabaseMappingFlatRow) LispListEidTableInstanceListDynamicEidDatabaseMappingKey {
+			var k LispListEidTableInstanceListDynamicEidDatabaseMappingKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.DynamicEidName = r.DynamicEidName
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = *r.Entry.EidPrefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "dynamic-eid", "database-mapping")),
+	}
+}
+
+// LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyKey is InstanceListDynamicEidEidNotifyGatewayKey's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	DynamicEidName         string
+	GatewayIP              string
+}
+
+// LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyFlatRow flattens one InstanceListDynamicEidEidNotifyGatewayKey entry with its ancestor list keys.
+type LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	DynamicEidName         string
+	Entry                  ciscoiosxelisp.InstanceListDynamicEidEidNotifyGatewayKey
+}
+
+// LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyDescriptor is the flattened-row descriptor for the nested list InstanceListDynamicEidEidNotifyGatewayKey.
+func LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyDescriptor() yang.ListDescriptor[LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyFlatRow, LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyFlatRow, LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.EidTableInstanceListDynamicEidSchema, ciscoiosxelisp.InstanceListDynamicEidEidNotifyGatewayKeySchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.InstanceListDynamicEidEidNotifyGatewayKey) LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyFlatRow {
+			return LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyFlatRow{
+				DynamicEidName:         yang.AncestorKey(anc, 2, "name"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyFlatRow) *ciscoiosxelisp.InstanceListDynamicEidEidNotifyGatewayKey {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyFlatRow) LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyKey {
+			var k LispListEidTableInstanceListDynamicEidEidNotifyGatewayKeyKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.DynamicEidName = r.DynamicEidName
+			if r.Entry.GatewayIP != nil {
+				k.GatewayIP = yang.CanonicalKey(r.Entry.GatewayIP)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "dynamic-eid", "eid-notify", "gateway-key")),
+	}
+}
+
+// LispListEidTableInstanceListDynamicEidMapServerKey is DynamicEidMapServer's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListDynamicEidMapServerKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	DynamicEidName         string
+	IP                     string
+}
+
+// LispListEidTableInstanceListDynamicEidMapServerFlatRow flattens one DynamicEidMapServer entry with its ancestor list keys.
+type LispListEidTableInstanceListDynamicEidMapServerFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	DynamicEidName         string
+	Entry                  ciscoiosxelisp.DynamicEidMapServer
+}
+
+// LispListEidTableInstanceListDynamicEidMapServerDescriptor is the flattened-row descriptor for the nested list DynamicEidMapServer.
+func LispListEidTableInstanceListDynamicEidMapServerDescriptor() yang.ListDescriptor[LispListEidTableInstanceListDynamicEidMapServerFlatRow, LispListEidTableInstanceListDynamicEidMapServerKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListDynamicEidMapServerFlatRow, LispListEidTableInstanceListDynamicEidMapServerKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.EidTableInstanceListDynamicEidSchema, ciscoiosxelisp.DynamicEidMapServerSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DynamicEidMapServer) LispListEidTableInstanceListDynamicEidMapServerFlatRow {
+			return LispListEidTableInstanceListDynamicEidMapServerFlatRow{
+				DynamicEidName:         yang.AncestorKey(anc, 2, "name"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListDynamicEidMapServerFlatRow) *ciscoiosxelisp.DynamicEidMapServer {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListDynamicEidMapServerFlatRow) LispListEidTableInstanceListDynamicEidMapServerKey {
+			var k LispListEidTableInstanceListDynamicEidMapServerKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.DynamicEidName = r.DynamicEidName
+			if r.Entry.IP != nil {
+				k.IP = yang.CanonicalKey(r.Entry.IP)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "dynamic-eid", "map-server")),
+	}
+}
+
+// LispListEidTableInstanceListIPv4EtrMapServerKey is EtrMapServerX8d3a24's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv4EtrMapServerKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListEidTableInstanceListIPv4EtrMapServerFlatRow flattens one EtrMapServerX8d3a24 entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv4EtrMapServerFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.EtrMapServerX8d3a24
+}
+
+// LispListEidTableInstanceListIPv4EtrMapServerDescriptor is the flattened-row descriptor for the nested list EtrMapServerX8d3a24.
+func LispListEidTableInstanceListIPv4EtrMapServerDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv4EtrMapServerFlatRow, LispListEidTableInstanceListIPv4EtrMapServerKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv4EtrMapServerFlatRow, LispListEidTableInstanceListIPv4EtrMapServerKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.EtrMapServerSchemaX6363a5}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EtrMapServerX8d3a24) LispListEidTableInstanceListIPv4EtrMapServerFlatRow {
+			return LispListEidTableInstanceListIPv4EtrMapServerFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv4EtrMapServerFlatRow) *ciscoiosxelisp.EtrMapServerX8d3a24 {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv4EtrMapServerFlatRow) LispListEidTableInstanceListIPv4EtrMapServerKey {
+			var k LispListEidTableInstanceListIPv4EtrMapServerKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv4", "etr", "map-server")),
+	}
+}
+
+// LispListEidTableInstanceListIPv4ItrMapResolverKey is ItrMapResolver's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv4ItrMapResolverKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListEidTableInstanceListIPv4ItrMapResolverFlatRow flattens one ItrMapResolver entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv4ItrMapResolverFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.ItrMapResolver
+}
+
+// LispListEidTableInstanceListIPv4ItrMapResolverDescriptor is the flattened-row descriptor for the nested list ItrMapResolver.
+func LispListEidTableInstanceListIPv4ItrMapResolverDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv4ItrMapResolverFlatRow, LispListEidTableInstanceListIPv4ItrMapResolverKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv4ItrMapResolverFlatRow, LispListEidTableInstanceListIPv4ItrMapResolverKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.ItrMapResolverSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.ItrMapResolver) LispListEidTableInstanceListIPv4ItrMapResolverFlatRow {
+			return LispListEidTableInstanceListIPv4ItrMapResolverFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv4ItrMapResolverFlatRow) *ciscoiosxelisp.ItrMapResolver {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv4ItrMapResolverFlatRow) LispListEidTableInstanceListIPv4ItrMapResolverKey {
+			var k LispListEidTableInstanceListIPv4ItrMapResolverKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv4", "itr", "map-resolver")),
+	}
+}
+
+// LispListEidTableInstanceListIPv4RouteImportDatabaseBGPKey is DatabaseBGP's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv4RouteImportDatabaseBGPKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     string
+}
+
+// LispListEidTableInstanceListIPv4RouteImportDatabaseBGPFlatRow flattens one DatabaseBGP entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv4RouteImportDatabaseBGPFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseBGP
+}
+
+// LispListEidTableInstanceListIPv4RouteImportDatabaseBGPDescriptor is the flattened-row descriptor for the nested list DatabaseBGP.
+func LispListEidTableInstanceListIPv4RouteImportDatabaseBGPDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportDatabaseBGPFlatRow, LispListEidTableInstanceListIPv4RouteImportDatabaseBGPKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportDatabaseBGPFlatRow, LispListEidTableInstanceListIPv4RouteImportDatabaseBGPKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.DatabaseBGPSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseBGP) LispListEidTableInstanceListIPv4RouteImportDatabaseBGPFlatRow {
+			return LispListEidTableInstanceListIPv4RouteImportDatabaseBGPFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportDatabaseBGPFlatRow) *ciscoiosxelisp.DatabaseBGP {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportDatabaseBGPFlatRow) LispListEidTableInstanceListIPv4RouteImportDatabaseBGPKey {
+			var k LispListEidTableInstanceListIPv4RouteImportDatabaseBGPKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = yang.CanonicalKey(r.Entry.ID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv4", "route-import", "database", "bgp")),
+	}
+}
+
+// LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpKey is DatabaseEigrp's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpFlatRow flattens one DatabaseEigrp entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseEigrp
+}
+
+// LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpDescriptor is the flattened-row descriptor for the nested list DatabaseEigrp.
+func LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpFlatRow, LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpFlatRow, LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.DatabaseEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseEigrp) LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpFlatRow {
+			return LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpFlatRow) *ciscoiosxelisp.DatabaseEigrp {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpFlatRow) LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpKey {
+			var k LispListEidTableInstanceListIPv4RouteImportDatabaseEigrpKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv4", "route-import", "database", "eigrp")),
+	}
+}
+
+// LispListEidTableInstanceListIPv4RouteImportDatabaseIsisKey is RouteImportDatabaseIsis's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv4RouteImportDatabaseIsisKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     string
+}
+
+// LispListEidTableInstanceListIPv4RouteImportDatabaseIsisFlatRow flattens one RouteImportDatabaseIsis entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv4RouteImportDatabaseIsisFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.RouteImportDatabaseIsis
+}
+
+// LispListEidTableInstanceListIPv4RouteImportDatabaseIsisDescriptor is the flattened-row descriptor for the nested list RouteImportDatabaseIsis.
+func LispListEidTableInstanceListIPv4RouteImportDatabaseIsisDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportDatabaseIsisFlatRow, LispListEidTableInstanceListIPv4RouteImportDatabaseIsisKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportDatabaseIsisFlatRow, LispListEidTableInstanceListIPv4RouteImportDatabaseIsisKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.RouteImportDatabaseIsisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.RouteImportDatabaseIsis) LispListEidTableInstanceListIPv4RouteImportDatabaseIsisFlatRow {
+			return LispListEidTableInstanceListIPv4RouteImportDatabaseIsisFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportDatabaseIsisFlatRow) *ciscoiosxelisp.RouteImportDatabaseIsis {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportDatabaseIsisFlatRow) LispListEidTableInstanceListIPv4RouteImportDatabaseIsisKey {
+			var k LispListEidTableInstanceListIPv4RouteImportDatabaseIsisKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv4", "route-import", "database", "isis")),
+	}
+}
+
+// LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFKey is DatabaseOSPF's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFFlatRow flattens one DatabaseOSPF entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseOSPF
+}
+
+// LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFDescriptor is the flattened-row descriptor for the nested list DatabaseOSPF.
+func LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFFlatRow, LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFFlatRow, LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.DatabaseOSPFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseOSPF) LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFFlatRow {
+			return LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFFlatRow) *ciscoiosxelisp.DatabaseOSPF {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFFlatRow) LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFKey {
+			var k LispListEidTableInstanceListIPv4RouteImportDatabaseOSPFKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv4", "route-import", "database", "ospf")),
+	}
+}
+
+// LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3Key is DatabaseOspfv3's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3Key struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3FlatRow flattens one DatabaseOspfv3 entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3FlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseOspfv3
+}
+
+// LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3Descriptor is the flattened-row descriptor for the nested list DatabaseOspfv3.
+func LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3Descriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3FlatRow, LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3Key] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3FlatRow, LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3Key]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.DatabaseOspfv3Schema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseOspfv3) LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3FlatRow {
+			return LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3FlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3FlatRow) *ciscoiosxelisp.DatabaseOspfv3 {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3FlatRow) LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3Key {
+			var k LispListEidTableInstanceListIPv4RouteImportDatabaseOspfv3Key
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv4", "route-import", "database", "ospfv3")),
+	}
+}
+
+// LispListEidTableInstanceListIPv4RouteImportMapCacheBGPKey is MapCacheBGP's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv4RouteImportMapCacheBGPKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     string
+}
+
+// LispListEidTableInstanceListIPv4RouteImportMapCacheBGPFlatRow flattens one MapCacheBGP entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv4RouteImportMapCacheBGPFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheBGP
+}
+
+// LispListEidTableInstanceListIPv4RouteImportMapCacheBGPDescriptor is the flattened-row descriptor for the nested list MapCacheBGP.
+func LispListEidTableInstanceListIPv4RouteImportMapCacheBGPDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportMapCacheBGPFlatRow, LispListEidTableInstanceListIPv4RouteImportMapCacheBGPKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportMapCacheBGPFlatRow, LispListEidTableInstanceListIPv4RouteImportMapCacheBGPKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.MapCacheBGPSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheBGP) LispListEidTableInstanceListIPv4RouteImportMapCacheBGPFlatRow {
+			return LispListEidTableInstanceListIPv4RouteImportMapCacheBGPFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportMapCacheBGPFlatRow) *ciscoiosxelisp.MapCacheBGP {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportMapCacheBGPFlatRow) LispListEidTableInstanceListIPv4RouteImportMapCacheBGPKey {
+			var k LispListEidTableInstanceListIPv4RouteImportMapCacheBGPKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = yang.CanonicalKey(r.Entry.ID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv4", "route-import", "map-cache", "bgp")),
+	}
+}
+
+// LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpKey is MapCacheEigrp's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpFlatRow flattens one MapCacheEigrp entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheEigrp
+}
+
+// LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpDescriptor is the flattened-row descriptor for the nested list MapCacheEigrp.
+func LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpFlatRow, LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpFlatRow, LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.MapCacheEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheEigrp) LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpFlatRow {
+			return LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpFlatRow) *ciscoiosxelisp.MapCacheEigrp {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpFlatRow) LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpKey {
+			var k LispListEidTableInstanceListIPv4RouteImportMapCacheEigrpKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv4", "route-import", "map-cache", "eigrp")),
+	}
+}
+
+// LispListEidTableInstanceListIPv4RouteImportMapCacheIsisKey is RouteImportMapCacheIsis's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv4RouteImportMapCacheIsisKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     string
+}
+
+// LispListEidTableInstanceListIPv4RouteImportMapCacheIsisFlatRow flattens one RouteImportMapCacheIsis entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv4RouteImportMapCacheIsisFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.RouteImportMapCacheIsis
+}
+
+// LispListEidTableInstanceListIPv4RouteImportMapCacheIsisDescriptor is the flattened-row descriptor for the nested list RouteImportMapCacheIsis.
+func LispListEidTableInstanceListIPv4RouteImportMapCacheIsisDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportMapCacheIsisFlatRow, LispListEidTableInstanceListIPv4RouteImportMapCacheIsisKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportMapCacheIsisFlatRow, LispListEidTableInstanceListIPv4RouteImportMapCacheIsisKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.RouteImportMapCacheIsisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.RouteImportMapCacheIsis) LispListEidTableInstanceListIPv4RouteImportMapCacheIsisFlatRow {
+			return LispListEidTableInstanceListIPv4RouteImportMapCacheIsisFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportMapCacheIsisFlatRow) *ciscoiosxelisp.RouteImportMapCacheIsis {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportMapCacheIsisFlatRow) LispListEidTableInstanceListIPv4RouteImportMapCacheIsisKey {
+			var k LispListEidTableInstanceListIPv4RouteImportMapCacheIsisKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv4", "route-import", "map-cache", "isis")),
+	}
+}
+
+// LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFKey is MapCacheOSPF's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFFlatRow flattens one MapCacheOSPF entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheOSPF
+}
+
+// LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFDescriptor is the flattened-row descriptor for the nested list MapCacheOSPF.
+func LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFFlatRow, LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFFlatRow, LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.MapCacheOSPFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheOSPF) LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFFlatRow {
+			return LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFFlatRow) *ciscoiosxelisp.MapCacheOSPF {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFFlatRow) LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFKey {
+			var k LispListEidTableInstanceListIPv4RouteImportMapCacheOSPFKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv4", "route-import", "map-cache", "ospf")),
+	}
+}
+
+// LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3Key is MapCacheOspfv3's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3Key struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3FlatRow flattens one MapCacheOspfv3 entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3FlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheOspfv3
+}
+
+// LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3Descriptor is the flattened-row descriptor for the nested list MapCacheOspfv3.
+func LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3Descriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3FlatRow, LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3Key] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3FlatRow, LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3Key]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.MapCacheOspfv3Schema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheOspfv3) LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3FlatRow {
+			return LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3FlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3FlatRow) *ciscoiosxelisp.MapCacheOspfv3 {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3FlatRow) LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3Key {
+			var k LispListEidTableInstanceListIPv4RouteImportMapCacheOspfv3Key
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv4", "route-import", "map-cache", "ospfv3")),
+	}
+}
+
+// LispListEidTableInstanceListIPv4UsePetrKey is UsePetr's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv4UsePetrKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	LocatorAddress         string
+}
+
+// LispListEidTableInstanceListIPv4UsePetrFlatRow flattens one UsePetr entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv4UsePetrFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.UsePetr
+}
+
+// LispListEidTableInstanceListIPv4UsePetrDescriptor is the flattened-row descriptor for the nested list UsePetr.
+func LispListEidTableInstanceListIPv4UsePetrDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv4UsePetrFlatRow, LispListEidTableInstanceListIPv4UsePetrKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv4UsePetrFlatRow, LispListEidTableInstanceListIPv4UsePetrKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.UsePetrSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.UsePetr) LispListEidTableInstanceListIPv4UsePetrFlatRow {
+			return LispListEidTableInstanceListIPv4UsePetrFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv4UsePetrFlatRow) *ciscoiosxelisp.UsePetr {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv4UsePetrFlatRow) LispListEidTableInstanceListIPv4UsePetrKey {
+			var k LispListEidTableInstanceListIPv4UsePetrKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.LocatorAddress != nil {
+				k.LocatorAddress = yang.CanonicalKey(r.Entry.LocatorAddress)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv4", "use-petr")),
+	}
+}
+
+// LispListEidTableInstanceListIPv6EtrMapServerKey is EtrMapServerX8d3a24's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv6EtrMapServerKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListEidTableInstanceListIPv6EtrMapServerFlatRow flattens one EtrMapServerX8d3a24 entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv6EtrMapServerFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.EtrMapServerX8d3a24
+}
+
+// LispListEidTableInstanceListIPv6EtrMapServerDescriptor is the flattened-row descriptor for the nested list EtrMapServerX8d3a24.
+func LispListEidTableInstanceListIPv6EtrMapServerDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv6EtrMapServerFlatRow, LispListEidTableInstanceListIPv6EtrMapServerKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv6EtrMapServerFlatRow, LispListEidTableInstanceListIPv6EtrMapServerKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.EtrMapServerSchemaX6363a5}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EtrMapServerX8d3a24) LispListEidTableInstanceListIPv6EtrMapServerFlatRow {
+			return LispListEidTableInstanceListIPv6EtrMapServerFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv6EtrMapServerFlatRow) *ciscoiosxelisp.EtrMapServerX8d3a24 {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv6EtrMapServerFlatRow) LispListEidTableInstanceListIPv6EtrMapServerKey {
+			var k LispListEidTableInstanceListIPv6EtrMapServerKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv6", "etr", "map-server")),
+	}
+}
+
+// LispListEidTableInstanceListIPv6ItrMapResolverKey is ItrMapResolver's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv6ItrMapResolverKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListEidTableInstanceListIPv6ItrMapResolverFlatRow flattens one ItrMapResolver entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv6ItrMapResolverFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.ItrMapResolver
+}
+
+// LispListEidTableInstanceListIPv6ItrMapResolverDescriptor is the flattened-row descriptor for the nested list ItrMapResolver.
+func LispListEidTableInstanceListIPv6ItrMapResolverDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv6ItrMapResolverFlatRow, LispListEidTableInstanceListIPv6ItrMapResolverKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv6ItrMapResolverFlatRow, LispListEidTableInstanceListIPv6ItrMapResolverKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.ItrMapResolverSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.ItrMapResolver) LispListEidTableInstanceListIPv6ItrMapResolverFlatRow {
+			return LispListEidTableInstanceListIPv6ItrMapResolverFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv6ItrMapResolverFlatRow) *ciscoiosxelisp.ItrMapResolver {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv6ItrMapResolverFlatRow) LispListEidTableInstanceListIPv6ItrMapResolverKey {
+			var k LispListEidTableInstanceListIPv6ItrMapResolverKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv6", "itr", "map-resolver")),
+	}
+}
+
+// LispListEidTableInstanceListIPv6RouteImportDatabaseBGPKey is DatabaseBGP's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv6RouteImportDatabaseBGPKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     string
+}
+
+// LispListEidTableInstanceListIPv6RouteImportDatabaseBGPFlatRow flattens one DatabaseBGP entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv6RouteImportDatabaseBGPFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseBGP
+}
+
+// LispListEidTableInstanceListIPv6RouteImportDatabaseBGPDescriptor is the flattened-row descriptor for the nested list DatabaseBGP.
+func LispListEidTableInstanceListIPv6RouteImportDatabaseBGPDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportDatabaseBGPFlatRow, LispListEidTableInstanceListIPv6RouteImportDatabaseBGPKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportDatabaseBGPFlatRow, LispListEidTableInstanceListIPv6RouteImportDatabaseBGPKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.DatabaseBGPSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseBGP) LispListEidTableInstanceListIPv6RouteImportDatabaseBGPFlatRow {
+			return LispListEidTableInstanceListIPv6RouteImportDatabaseBGPFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportDatabaseBGPFlatRow) *ciscoiosxelisp.DatabaseBGP {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportDatabaseBGPFlatRow) LispListEidTableInstanceListIPv6RouteImportDatabaseBGPKey {
+			var k LispListEidTableInstanceListIPv6RouteImportDatabaseBGPKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = yang.CanonicalKey(r.Entry.ID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv6", "route-import", "database", "bgp")),
+	}
+}
+
+// LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpKey is DatabaseEigrp's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpFlatRow flattens one DatabaseEigrp entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseEigrp
+}
+
+// LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpDescriptor is the flattened-row descriptor for the nested list DatabaseEigrp.
+func LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpFlatRow, LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpFlatRow, LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.DatabaseEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseEigrp) LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpFlatRow {
+			return LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpFlatRow) *ciscoiosxelisp.DatabaseEigrp {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpFlatRow) LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpKey {
+			var k LispListEidTableInstanceListIPv6RouteImportDatabaseEigrpKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv6", "route-import", "database", "eigrp")),
+	}
+}
+
+// LispListEidTableInstanceListIPv6RouteImportDatabaseIsisKey is RouteImportDatabaseIsis's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv6RouteImportDatabaseIsisKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     string
+}
+
+// LispListEidTableInstanceListIPv6RouteImportDatabaseIsisFlatRow flattens one RouteImportDatabaseIsis entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv6RouteImportDatabaseIsisFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.RouteImportDatabaseIsis
+}
+
+// LispListEidTableInstanceListIPv6RouteImportDatabaseIsisDescriptor is the flattened-row descriptor for the nested list RouteImportDatabaseIsis.
+func LispListEidTableInstanceListIPv6RouteImportDatabaseIsisDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportDatabaseIsisFlatRow, LispListEidTableInstanceListIPv6RouteImportDatabaseIsisKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportDatabaseIsisFlatRow, LispListEidTableInstanceListIPv6RouteImportDatabaseIsisKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.RouteImportDatabaseIsisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.RouteImportDatabaseIsis) LispListEidTableInstanceListIPv6RouteImportDatabaseIsisFlatRow {
+			return LispListEidTableInstanceListIPv6RouteImportDatabaseIsisFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportDatabaseIsisFlatRow) *ciscoiosxelisp.RouteImportDatabaseIsis {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportDatabaseIsisFlatRow) LispListEidTableInstanceListIPv6RouteImportDatabaseIsisKey {
+			var k LispListEidTableInstanceListIPv6RouteImportDatabaseIsisKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv6", "route-import", "database", "isis")),
+	}
+}
+
+// LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFKey is DatabaseOSPF's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFFlatRow flattens one DatabaseOSPF entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseOSPF
+}
+
+// LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFDescriptor is the flattened-row descriptor for the nested list DatabaseOSPF.
+func LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFFlatRow, LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFFlatRow, LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.DatabaseOSPFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseOSPF) LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFFlatRow {
+			return LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFFlatRow) *ciscoiosxelisp.DatabaseOSPF {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFFlatRow) LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFKey {
+			var k LispListEidTableInstanceListIPv6RouteImportDatabaseOSPFKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv6", "route-import", "database", "ospf")),
+	}
+}
+
+// LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3Key is DatabaseOspfv3's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3Key struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3FlatRow flattens one DatabaseOspfv3 entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3FlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseOspfv3
+}
+
+// LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3Descriptor is the flattened-row descriptor for the nested list DatabaseOspfv3.
+func LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3Descriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3FlatRow, LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3Key] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3FlatRow, LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3Key]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.DatabaseOspfv3Schema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseOspfv3) LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3FlatRow {
+			return LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3FlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3FlatRow) *ciscoiosxelisp.DatabaseOspfv3 {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3FlatRow) LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3Key {
+			var k LispListEidTableInstanceListIPv6RouteImportDatabaseOspfv3Key
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv6", "route-import", "database", "ospfv3")),
+	}
+}
+
+// LispListEidTableInstanceListIPv6RouteImportMapCacheBGPKey is MapCacheBGP's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv6RouteImportMapCacheBGPKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     string
+}
+
+// LispListEidTableInstanceListIPv6RouteImportMapCacheBGPFlatRow flattens one MapCacheBGP entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv6RouteImportMapCacheBGPFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheBGP
+}
+
+// LispListEidTableInstanceListIPv6RouteImportMapCacheBGPDescriptor is the flattened-row descriptor for the nested list MapCacheBGP.
+func LispListEidTableInstanceListIPv6RouteImportMapCacheBGPDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportMapCacheBGPFlatRow, LispListEidTableInstanceListIPv6RouteImportMapCacheBGPKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportMapCacheBGPFlatRow, LispListEidTableInstanceListIPv6RouteImportMapCacheBGPKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.MapCacheBGPSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheBGP) LispListEidTableInstanceListIPv6RouteImportMapCacheBGPFlatRow {
+			return LispListEidTableInstanceListIPv6RouteImportMapCacheBGPFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportMapCacheBGPFlatRow) *ciscoiosxelisp.MapCacheBGP {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportMapCacheBGPFlatRow) LispListEidTableInstanceListIPv6RouteImportMapCacheBGPKey {
+			var k LispListEidTableInstanceListIPv6RouteImportMapCacheBGPKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = yang.CanonicalKey(r.Entry.ID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv6", "route-import", "map-cache", "bgp")),
+	}
+}
+
+// LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpKey is MapCacheEigrp's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpFlatRow flattens one MapCacheEigrp entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheEigrp
+}
+
+// LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpDescriptor is the flattened-row descriptor for the nested list MapCacheEigrp.
+func LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpFlatRow, LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpFlatRow, LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.MapCacheEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheEigrp) LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpFlatRow {
+			return LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpFlatRow) *ciscoiosxelisp.MapCacheEigrp {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpFlatRow) LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpKey {
+			var k LispListEidTableInstanceListIPv6RouteImportMapCacheEigrpKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv6", "route-import", "map-cache", "eigrp")),
+	}
+}
+
+// LispListEidTableInstanceListIPv6RouteImportMapCacheIsisKey is RouteImportMapCacheIsis's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv6RouteImportMapCacheIsisKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     string
+}
+
+// LispListEidTableInstanceListIPv6RouteImportMapCacheIsisFlatRow flattens one RouteImportMapCacheIsis entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv6RouteImportMapCacheIsisFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.RouteImportMapCacheIsis
+}
+
+// LispListEidTableInstanceListIPv6RouteImportMapCacheIsisDescriptor is the flattened-row descriptor for the nested list RouteImportMapCacheIsis.
+func LispListEidTableInstanceListIPv6RouteImportMapCacheIsisDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportMapCacheIsisFlatRow, LispListEidTableInstanceListIPv6RouteImportMapCacheIsisKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportMapCacheIsisFlatRow, LispListEidTableInstanceListIPv6RouteImportMapCacheIsisKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.RouteImportMapCacheIsisSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.RouteImportMapCacheIsis) LispListEidTableInstanceListIPv6RouteImportMapCacheIsisFlatRow {
+			return LispListEidTableInstanceListIPv6RouteImportMapCacheIsisFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportMapCacheIsisFlatRow) *ciscoiosxelisp.RouteImportMapCacheIsis {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportMapCacheIsisFlatRow) LispListEidTableInstanceListIPv6RouteImportMapCacheIsisKey {
+			var k LispListEidTableInstanceListIPv6RouteImportMapCacheIsisKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv6", "route-import", "map-cache", "isis")),
+	}
+}
+
+// LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFKey is MapCacheOSPF's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFFlatRow flattens one MapCacheOSPF entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheOSPF
+}
+
+// LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFDescriptor is the flattened-row descriptor for the nested list MapCacheOSPF.
+func LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFFlatRow, LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFFlatRow, LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.MapCacheOSPFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheOSPF) LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFFlatRow {
+			return LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFFlatRow) *ciscoiosxelisp.MapCacheOSPF {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFFlatRow) LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFKey {
+			var k LispListEidTableInstanceListIPv6RouteImportMapCacheOSPFKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv6", "route-import", "map-cache", "ospf")),
+	}
+}
+
+// LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3Key is MapCacheOspfv3's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3Key struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3FlatRow flattens one MapCacheOspfv3 entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3FlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheOspfv3
+}
+
+// LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3Descriptor is the flattened-row descriptor for the nested list MapCacheOspfv3.
+func LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3Descriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3FlatRow, LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3Key] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3FlatRow, LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3Key]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.MapCacheOspfv3Schema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheOspfv3) LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3FlatRow {
+			return LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3FlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3FlatRow) *ciscoiosxelisp.MapCacheOspfv3 {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3FlatRow) LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3Key {
+			var k LispListEidTableInstanceListIPv6RouteImportMapCacheOspfv3Key
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv6", "route-import", "map-cache", "ospfv3")),
+	}
+}
+
+// LispListEidTableInstanceListIPv6UsePetrKey is UsePetr's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListIPv6UsePetrKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	LocatorAddress         string
+}
+
+// LispListEidTableInstanceListIPv6UsePetrFlatRow flattens one UsePetr entry with its ancestor list keys.
+type LispListEidTableInstanceListIPv6UsePetrFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.UsePetr
+}
+
+// LispListEidTableInstanceListIPv6UsePetrDescriptor is the flattened-row descriptor for the nested list UsePetr.
+func LispListEidTableInstanceListIPv6UsePetrDescriptor() yang.ListDescriptor[LispListEidTableInstanceListIPv6UsePetrFlatRow, LispListEidTableInstanceListIPv6UsePetrKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListIPv6UsePetrFlatRow, LispListEidTableInstanceListIPv6UsePetrKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.UsePetrSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.UsePetr) LispListEidTableInstanceListIPv6UsePetrFlatRow {
+			return LispListEidTableInstanceListIPv6UsePetrFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListIPv6UsePetrFlatRow) *ciscoiosxelisp.UsePetr {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListIPv6UsePetrFlatRow) LispListEidTableInstanceListIPv6UsePetrKey {
+			var k LispListEidTableInstanceListIPv6UsePetrKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.LocatorAddress != nil {
+				k.LocatorAddress = yang.CanonicalKey(r.Entry.LocatorAddress)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "ipv6", "use-petr")),
+	}
+}
+
+// LispListEidTableInstanceListMapCacheKey is InstanceListMapCache's row identity (ancestor keys in canonical form).
+type LispListEidTableInstanceListMapCacheKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListEidTableInstanceListMapCacheFlatRow flattens one InstanceListMapCache entry with its ancestor list keys.
+type LispListEidTableInstanceListMapCacheFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.InstanceListMapCache
+}
+
+// LispListEidTableInstanceListMapCacheDescriptor is the flattened-row descriptor for the nested list InstanceListMapCache.
+func LispListEidTableInstanceListMapCacheDescriptor() yang.ListDescriptor[LispListEidTableInstanceListMapCacheFlatRow, LispListEidTableInstanceListMapCacheKey] {
+	return yang.ListDescriptor[LispListEidTableInstanceListMapCacheFlatRow, LispListEidTableInstanceListMapCacheKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.EidTableInstanceListSchema, ciscoiosxelisp.InstanceListMapCacheSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.InstanceListMapCache) LispListEidTableInstanceListMapCacheFlatRow {
+			return LispListEidTableInstanceListMapCacheFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListEidTableInstanceListMapCacheFlatRow) *ciscoiosxelisp.InstanceListMapCache {
+			return &r.Entry
+		}, func(r *LispListEidTableInstanceListMapCacheFlatRow) LispListEidTableInstanceListMapCacheKey {
+			var k LispListEidTableInstanceListMapCacheKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = yang.CanonicalKey(r.Entry.EidPrefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "eid-table", "instance-list", "map-cache")),
+	}
+}
+
+// LispListExtranetKey is Extranet's row identity (ancestor keys in canonical form).
+type LispListExtranetKey struct {
+	LispListLisp string
+	ExtName      string
+}
+
+// LispListExtranetFlatRow flattens one Extranet entry with its ancestor list keys.
+type LispListExtranetFlatRow struct {
+	LispListLisp string
+	Entry        ciscoiosxelisp.Extranet
+}
+
+// LispListExtranetDescriptor is the flattened-row descriptor for the nested list Extranet.
+func LispListExtranetDescriptor() yang.ListDescriptor[LispListExtranetFlatRow, LispListExtranetKey] {
+	return yang.ListDescriptor[LispListExtranetFlatRow, LispListExtranetKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.ExtranetSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.Extranet) LispListExtranetFlatRow {
+			return LispListExtranetFlatRow{
+				Entry:        e,
+				LispListLisp: yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListExtranetFlatRow) *ciscoiosxelisp.Extranet {
+			return &r.Entry
+		}, func(r *LispListExtranetFlatRow) LispListExtranetKey {
+			var k LispListExtranetKey
+			k.LispListLisp = r.LispListLisp
+			if r.Entry.ExtName != nil {
+				k.ExtName = *r.Entry.ExtName
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "extranet")),
+	}
+}
+
+// LispListExtranetDefaultEidRecordProviderKey is EidRecordProvider's row identity (ancestor keys in canonical form).
+type LispListExtranetDefaultEidRecordProviderKey struct {
+	LispListLisp    string
+	ExtranetExtName string
+	InstanceID      uint32
+}
+
+// LispListExtranetDefaultEidRecordProviderFlatRow flattens one EidRecordProvider entry with its ancestor list keys.
+type LispListExtranetDefaultEidRecordProviderFlatRow struct {
+	LispListLisp    string
+	ExtranetExtName string
+	Entry           ciscoiosxelisp.EidRecordProvider
+}
+
+// LispListExtranetDefaultEidRecordProviderDescriptor is the flattened-row descriptor for the nested list EidRecordProvider.
+func LispListExtranetDefaultEidRecordProviderDescriptor() yang.ListDescriptor[LispListExtranetDefaultEidRecordProviderFlatRow, LispListExtranetDefaultEidRecordProviderKey] {
+	return yang.ListDescriptor[LispListExtranetDefaultEidRecordProviderFlatRow, LispListExtranetDefaultEidRecordProviderKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.ExtranetSchema, ciscoiosxelisp.EidRecordProviderSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidRecordProvider) LispListExtranetDefaultEidRecordProviderFlatRow {
+			return LispListExtranetDefaultEidRecordProviderFlatRow{
+				Entry:           e,
+				ExtranetExtName: yang.AncestorKey(anc, 1, "ext-name"),
+				LispListLisp:    yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListExtranetDefaultEidRecordProviderFlatRow) *ciscoiosxelisp.EidRecordProvider {
+			return &r.Entry
+		}, func(r *LispListExtranetDefaultEidRecordProviderFlatRow) LispListExtranetDefaultEidRecordProviderKey {
+			var k LispListExtranetDefaultEidRecordProviderKey
+			k.LispListLisp = r.LispListLisp
+			k.ExtranetExtName = r.ExtranetExtName
+			if r.Entry.InstanceID != nil {
+				k.InstanceID = *r.Entry.InstanceID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "extranet", "default", "eid-record-provider")),
+	}
+}
+
+// LispListExtranetDefaultEidRecordProviderDefaultPrefixesKey is PrefixesX2965ab's row identity (ancestor keys in canonical form).
+type LispListExtranetDefaultEidRecordProviderDefaultPrefixesKey struct {
+	LispListLisp                string
+	ExtranetExtName             string
+	EidRecordProviderInstanceID string
+	Prefix                      string
+}
+
+// LispListExtranetDefaultEidRecordProviderDefaultPrefixesFlatRow flattens one PrefixesX2965ab entry with its ancestor list keys.
+type LispListExtranetDefaultEidRecordProviderDefaultPrefixesFlatRow struct {
+	LispListLisp                string
+	ExtranetExtName             string
+	EidRecordProviderInstanceID string
+	Entry                       ciscoiosxelisp.PrefixesX2965ab
+}
+
+// LispListExtranetDefaultEidRecordProviderDefaultPrefixesDescriptor is the flattened-row descriptor for the nested list PrefixesX2965ab.
+func LispListExtranetDefaultEidRecordProviderDefaultPrefixesDescriptor() yang.ListDescriptor[LispListExtranetDefaultEidRecordProviderDefaultPrefixesFlatRow, LispListExtranetDefaultEidRecordProviderDefaultPrefixesKey] {
+	return yang.ListDescriptor[LispListExtranetDefaultEidRecordProviderDefaultPrefixesFlatRow, LispListExtranetDefaultEidRecordProviderDefaultPrefixesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.ExtranetSchema, ciscoiosxelisp.EidRecordProviderSchema, ciscoiosxelisp.PrefixesSchemaX509e5f}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.PrefixesX2965ab) LispListExtranetDefaultEidRecordProviderDefaultPrefixesFlatRow {
+			return LispListExtranetDefaultEidRecordProviderDefaultPrefixesFlatRow{
+				EidRecordProviderInstanceID: yang.AncestorKey(anc, 2, "instance-id"),
+				Entry:                       e,
+				ExtranetExtName:             yang.AncestorKey(anc, 1, "ext-name"),
+				LispListLisp:                yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListExtranetDefaultEidRecordProviderDefaultPrefixesFlatRow) *ciscoiosxelisp.PrefixesX2965ab {
+			return &r.Entry
+		}, func(r *LispListExtranetDefaultEidRecordProviderDefaultPrefixesFlatRow) LispListExtranetDefaultEidRecordProviderDefaultPrefixesKey {
+			var k LispListExtranetDefaultEidRecordProviderDefaultPrefixesKey
+			k.LispListLisp = r.LispListLisp
+			k.ExtranetExtName = r.ExtranetExtName
+			k.EidRecordProviderInstanceID = r.EidRecordProviderInstanceID
+			if r.Entry.Prefix != nil {
+				k.Prefix = yang.CanonicalKey(r.Entry.Prefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "extranet", "default", "eid-record-provider", "default", "prefixes")),
+	}
+}
+
+// LispListExtranetDefaultEidRecordProviderPrefixesKey is PrefixesX2965ab's row identity (ancestor keys in canonical form).
+type LispListExtranetDefaultEidRecordProviderPrefixesKey struct {
+	LispListLisp                string
+	ExtranetExtName             string
+	EidRecordProviderInstanceID string
+	Prefix                      string
+}
+
+// LispListExtranetDefaultEidRecordProviderPrefixesFlatRow flattens one PrefixesX2965ab entry with its ancestor list keys.
+type LispListExtranetDefaultEidRecordProviderPrefixesFlatRow struct {
+	LispListLisp                string
+	ExtranetExtName             string
+	EidRecordProviderInstanceID string
+	Entry                       ciscoiosxelisp.PrefixesX2965ab
+}
+
+// LispListExtranetDefaultEidRecordProviderPrefixesDescriptor is the flattened-row descriptor for the nested list PrefixesX2965ab.
+func LispListExtranetDefaultEidRecordProviderPrefixesDescriptor() yang.ListDescriptor[LispListExtranetDefaultEidRecordProviderPrefixesFlatRow, LispListExtranetDefaultEidRecordProviderPrefixesKey] {
+	return yang.ListDescriptor[LispListExtranetDefaultEidRecordProviderPrefixesFlatRow, LispListExtranetDefaultEidRecordProviderPrefixesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.ExtranetSchema, ciscoiosxelisp.EidRecordProviderSchema, ciscoiosxelisp.PrefixesSchemaX509e5f}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.PrefixesX2965ab) LispListExtranetDefaultEidRecordProviderPrefixesFlatRow {
+			return LispListExtranetDefaultEidRecordProviderPrefixesFlatRow{
+				EidRecordProviderInstanceID: yang.AncestorKey(anc, 2, "instance-id"),
+				Entry:                       e,
+				ExtranetExtName:             yang.AncestorKey(anc, 1, "ext-name"),
+				LispListLisp:                yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListExtranetDefaultEidRecordProviderPrefixesFlatRow) *ciscoiosxelisp.PrefixesX2965ab {
+			return &r.Entry
+		}, func(r *LispListExtranetDefaultEidRecordProviderPrefixesFlatRow) LispListExtranetDefaultEidRecordProviderPrefixesKey {
+			var k LispListExtranetDefaultEidRecordProviderPrefixesKey
+			k.LispListLisp = r.LispListLisp
+			k.ExtranetExtName = r.ExtranetExtName
+			k.EidRecordProviderInstanceID = r.EidRecordProviderInstanceID
+			if r.Entry.Prefix != nil {
+				k.Prefix = yang.CanonicalKey(r.Entry.Prefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "extranet", "default", "eid-record-provider", "prefixes")),
+	}
+}
+
+// LispListExtranetDefaultEidRecordSubscriberKey is EidRecordSubscriber's row identity (ancestor keys in canonical form).
+type LispListExtranetDefaultEidRecordSubscriberKey struct {
+	LispListLisp    string
+	ExtranetExtName string
+	InstanceID      uint32
+}
+
+// LispListExtranetDefaultEidRecordSubscriberFlatRow flattens one EidRecordSubscriber entry with its ancestor list keys.
+type LispListExtranetDefaultEidRecordSubscriberFlatRow struct {
+	LispListLisp    string
+	ExtranetExtName string
+	Entry           ciscoiosxelisp.EidRecordSubscriber
+}
+
+// LispListExtranetDefaultEidRecordSubscriberDescriptor is the flattened-row descriptor for the nested list EidRecordSubscriber.
+func LispListExtranetDefaultEidRecordSubscriberDescriptor() yang.ListDescriptor[LispListExtranetDefaultEidRecordSubscriberFlatRow, LispListExtranetDefaultEidRecordSubscriberKey] {
+	return yang.ListDescriptor[LispListExtranetDefaultEidRecordSubscriberFlatRow, LispListExtranetDefaultEidRecordSubscriberKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.ExtranetSchema, ciscoiosxelisp.EidRecordSubscriberSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidRecordSubscriber) LispListExtranetDefaultEidRecordSubscriberFlatRow {
+			return LispListExtranetDefaultEidRecordSubscriberFlatRow{
+				Entry:           e,
+				ExtranetExtName: yang.AncestorKey(anc, 1, "ext-name"),
+				LispListLisp:    yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListExtranetDefaultEidRecordSubscriberFlatRow) *ciscoiosxelisp.EidRecordSubscriber {
+			return &r.Entry
+		}, func(r *LispListExtranetDefaultEidRecordSubscriberFlatRow) LispListExtranetDefaultEidRecordSubscriberKey {
+			var k LispListExtranetDefaultEidRecordSubscriberKey
+			k.LispListLisp = r.LispListLisp
+			k.ExtranetExtName = r.ExtranetExtName
+			if r.Entry.InstanceID != nil {
+				k.InstanceID = *r.Entry.InstanceID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "extranet", "default", "eid-record-subscriber")),
+	}
+}
+
+// LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesKey is PrefixesX2965ab's row identity (ancestor keys in canonical form).
+type LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesKey struct {
+	LispListLisp                  string
+	ExtranetExtName               string
+	EidRecordSubscriberInstanceID string
+	Prefix                        string
+}
+
+// LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesFlatRow flattens one PrefixesX2965ab entry with its ancestor list keys.
+type LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesFlatRow struct {
+	LispListLisp                  string
+	ExtranetExtName               string
+	EidRecordSubscriberInstanceID string
+	Entry                         ciscoiosxelisp.PrefixesX2965ab
+}
+
+// LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesDescriptor is the flattened-row descriptor for the nested list PrefixesX2965ab.
+func LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesDescriptor() yang.ListDescriptor[LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesFlatRow, LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesKey] {
+	return yang.ListDescriptor[LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesFlatRow, LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.ExtranetSchema, ciscoiosxelisp.EidRecordSubscriberSchema, ciscoiosxelisp.PrefixesSchemaX509e5f}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.PrefixesX2965ab) LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesFlatRow {
+			return LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesFlatRow{
+				EidRecordSubscriberInstanceID: yang.AncestorKey(anc, 2, "instance-id"),
+				Entry:                         e,
+				ExtranetExtName:               yang.AncestorKey(anc, 1, "ext-name"),
+				LispListLisp:                  yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesFlatRow) *ciscoiosxelisp.PrefixesX2965ab {
+			return &r.Entry
+		}, func(r *LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesFlatRow) LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesKey {
+			var k LispListExtranetDefaultEidRecordSubscriberDefaultPrefixesKey
+			k.LispListLisp = r.LispListLisp
+			k.ExtranetExtName = r.ExtranetExtName
+			k.EidRecordSubscriberInstanceID = r.EidRecordSubscriberInstanceID
+			if r.Entry.Prefix != nil {
+				k.Prefix = yang.CanonicalKey(r.Entry.Prefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "extranet", "default", "eid-record-subscriber", "default", "prefixes")),
+	}
+}
+
+// LispListExtranetDefaultEidRecordSubscriberPrefixesKey is PrefixesX2965ab's row identity (ancestor keys in canonical form).
+type LispListExtranetDefaultEidRecordSubscriberPrefixesKey struct {
+	LispListLisp                  string
+	ExtranetExtName               string
+	EidRecordSubscriberInstanceID string
+	Prefix                        string
+}
+
+// LispListExtranetDefaultEidRecordSubscriberPrefixesFlatRow flattens one PrefixesX2965ab entry with its ancestor list keys.
+type LispListExtranetDefaultEidRecordSubscriberPrefixesFlatRow struct {
+	LispListLisp                  string
+	ExtranetExtName               string
+	EidRecordSubscriberInstanceID string
+	Entry                         ciscoiosxelisp.PrefixesX2965ab
+}
+
+// LispListExtranetDefaultEidRecordSubscriberPrefixesDescriptor is the flattened-row descriptor for the nested list PrefixesX2965ab.
+func LispListExtranetDefaultEidRecordSubscriberPrefixesDescriptor() yang.ListDescriptor[LispListExtranetDefaultEidRecordSubscriberPrefixesFlatRow, LispListExtranetDefaultEidRecordSubscriberPrefixesKey] {
+	return yang.ListDescriptor[LispListExtranetDefaultEidRecordSubscriberPrefixesFlatRow, LispListExtranetDefaultEidRecordSubscriberPrefixesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.ExtranetSchema, ciscoiosxelisp.EidRecordSubscriberSchema, ciscoiosxelisp.PrefixesSchemaX509e5f}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.PrefixesX2965ab) LispListExtranetDefaultEidRecordSubscriberPrefixesFlatRow {
+			return LispListExtranetDefaultEidRecordSubscriberPrefixesFlatRow{
+				EidRecordSubscriberInstanceID: yang.AncestorKey(anc, 2, "instance-id"),
+				Entry:                         e,
+				ExtranetExtName:               yang.AncestorKey(anc, 1, "ext-name"),
+				LispListLisp:                  yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListExtranetDefaultEidRecordSubscriberPrefixesFlatRow) *ciscoiosxelisp.PrefixesX2965ab {
+			return &r.Entry
+		}, func(r *LispListExtranetDefaultEidRecordSubscriberPrefixesFlatRow) LispListExtranetDefaultEidRecordSubscriberPrefixesKey {
+			var k LispListExtranetDefaultEidRecordSubscriberPrefixesKey
+			k.LispListLisp = r.LispListLisp
+			k.ExtranetExtName = r.ExtranetExtName
+			k.EidRecordSubscriberInstanceID = r.EidRecordSubscriberInstanceID
+			if r.Entry.Prefix != nil {
+				k.Prefix = yang.CanonicalKey(r.Entry.Prefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "extranet", "default", "eid-record-subscriber", "prefixes")),
+	}
+}
+
+// LispListExtranetEidRecordProviderKey is EidRecordProvider's row identity (ancestor keys in canonical form).
+type LispListExtranetEidRecordProviderKey struct {
+	LispListLisp    string
+	ExtranetExtName string
+	InstanceID      uint32
+}
+
+// LispListExtranetEidRecordProviderFlatRow flattens one EidRecordProvider entry with its ancestor list keys.
+type LispListExtranetEidRecordProviderFlatRow struct {
+	LispListLisp    string
+	ExtranetExtName string
+	Entry           ciscoiosxelisp.EidRecordProvider
+}
+
+// LispListExtranetEidRecordProviderDescriptor is the flattened-row descriptor for the nested list EidRecordProvider.
+func LispListExtranetEidRecordProviderDescriptor() yang.ListDescriptor[LispListExtranetEidRecordProviderFlatRow, LispListExtranetEidRecordProviderKey] {
+	return yang.ListDescriptor[LispListExtranetEidRecordProviderFlatRow, LispListExtranetEidRecordProviderKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.ExtranetSchema, ciscoiosxelisp.EidRecordProviderSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidRecordProvider) LispListExtranetEidRecordProviderFlatRow {
+			return LispListExtranetEidRecordProviderFlatRow{
+				Entry:           e,
+				ExtranetExtName: yang.AncestorKey(anc, 1, "ext-name"),
+				LispListLisp:    yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListExtranetEidRecordProviderFlatRow) *ciscoiosxelisp.EidRecordProvider {
+			return &r.Entry
+		}, func(r *LispListExtranetEidRecordProviderFlatRow) LispListExtranetEidRecordProviderKey {
+			var k LispListExtranetEidRecordProviderKey
+			k.LispListLisp = r.LispListLisp
+			k.ExtranetExtName = r.ExtranetExtName
+			if r.Entry.InstanceID != nil {
+				k.InstanceID = *r.Entry.InstanceID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "extranet", "eid-record-provider")),
+	}
+}
+
+// LispListExtranetEidRecordProviderDefaultPrefixesKey is PrefixesX2965ab's row identity (ancestor keys in canonical form).
+type LispListExtranetEidRecordProviderDefaultPrefixesKey struct {
+	LispListLisp                string
+	ExtranetExtName             string
+	EidRecordProviderInstanceID string
+	Prefix                      string
+}
+
+// LispListExtranetEidRecordProviderDefaultPrefixesFlatRow flattens one PrefixesX2965ab entry with its ancestor list keys.
+type LispListExtranetEidRecordProviderDefaultPrefixesFlatRow struct {
+	LispListLisp                string
+	ExtranetExtName             string
+	EidRecordProviderInstanceID string
+	Entry                       ciscoiosxelisp.PrefixesX2965ab
+}
+
+// LispListExtranetEidRecordProviderDefaultPrefixesDescriptor is the flattened-row descriptor for the nested list PrefixesX2965ab.
+func LispListExtranetEidRecordProviderDefaultPrefixesDescriptor() yang.ListDescriptor[LispListExtranetEidRecordProviderDefaultPrefixesFlatRow, LispListExtranetEidRecordProviderDefaultPrefixesKey] {
+	return yang.ListDescriptor[LispListExtranetEidRecordProviderDefaultPrefixesFlatRow, LispListExtranetEidRecordProviderDefaultPrefixesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.ExtranetSchema, ciscoiosxelisp.EidRecordProviderSchema, ciscoiosxelisp.PrefixesSchemaX509e5f}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.PrefixesX2965ab) LispListExtranetEidRecordProviderDefaultPrefixesFlatRow {
+			return LispListExtranetEidRecordProviderDefaultPrefixesFlatRow{
+				EidRecordProviderInstanceID: yang.AncestorKey(anc, 2, "instance-id"),
+				Entry:                       e,
+				ExtranetExtName:             yang.AncestorKey(anc, 1, "ext-name"),
+				LispListLisp:                yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListExtranetEidRecordProviderDefaultPrefixesFlatRow) *ciscoiosxelisp.PrefixesX2965ab {
+			return &r.Entry
+		}, func(r *LispListExtranetEidRecordProviderDefaultPrefixesFlatRow) LispListExtranetEidRecordProviderDefaultPrefixesKey {
+			var k LispListExtranetEidRecordProviderDefaultPrefixesKey
+			k.LispListLisp = r.LispListLisp
+			k.ExtranetExtName = r.ExtranetExtName
+			k.EidRecordProviderInstanceID = r.EidRecordProviderInstanceID
+			if r.Entry.Prefix != nil {
+				k.Prefix = yang.CanonicalKey(r.Entry.Prefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "extranet", "eid-record-provider", "default", "prefixes")),
+	}
+}
+
+// LispListExtranetEidRecordProviderPrefixesKey is PrefixesX2965ab's row identity (ancestor keys in canonical form).
+type LispListExtranetEidRecordProviderPrefixesKey struct {
+	LispListLisp                string
+	ExtranetExtName             string
+	EidRecordProviderInstanceID string
+	Prefix                      string
+}
+
+// LispListExtranetEidRecordProviderPrefixesFlatRow flattens one PrefixesX2965ab entry with its ancestor list keys.
+type LispListExtranetEidRecordProviderPrefixesFlatRow struct {
+	LispListLisp                string
+	ExtranetExtName             string
+	EidRecordProviderInstanceID string
+	Entry                       ciscoiosxelisp.PrefixesX2965ab
+}
+
+// LispListExtranetEidRecordProviderPrefixesDescriptor is the flattened-row descriptor for the nested list PrefixesX2965ab.
+func LispListExtranetEidRecordProviderPrefixesDescriptor() yang.ListDescriptor[LispListExtranetEidRecordProviderPrefixesFlatRow, LispListExtranetEidRecordProviderPrefixesKey] {
+	return yang.ListDescriptor[LispListExtranetEidRecordProviderPrefixesFlatRow, LispListExtranetEidRecordProviderPrefixesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.ExtranetSchema, ciscoiosxelisp.EidRecordProviderSchema, ciscoiosxelisp.PrefixesSchemaX509e5f}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.PrefixesX2965ab) LispListExtranetEidRecordProviderPrefixesFlatRow {
+			return LispListExtranetEidRecordProviderPrefixesFlatRow{
+				EidRecordProviderInstanceID: yang.AncestorKey(anc, 2, "instance-id"),
+				Entry:                       e,
+				ExtranetExtName:             yang.AncestorKey(anc, 1, "ext-name"),
+				LispListLisp:                yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListExtranetEidRecordProviderPrefixesFlatRow) *ciscoiosxelisp.PrefixesX2965ab {
+			return &r.Entry
+		}, func(r *LispListExtranetEidRecordProviderPrefixesFlatRow) LispListExtranetEidRecordProviderPrefixesKey {
+			var k LispListExtranetEidRecordProviderPrefixesKey
+			k.LispListLisp = r.LispListLisp
+			k.ExtranetExtName = r.ExtranetExtName
+			k.EidRecordProviderInstanceID = r.EidRecordProviderInstanceID
+			if r.Entry.Prefix != nil {
+				k.Prefix = yang.CanonicalKey(r.Entry.Prefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "extranet", "eid-record-provider", "prefixes")),
+	}
+}
+
+// LispListExtranetEidRecordSubscriberKey is EidRecordSubscriber's row identity (ancestor keys in canonical form).
+type LispListExtranetEidRecordSubscriberKey struct {
+	LispListLisp    string
+	ExtranetExtName string
+	InstanceID      uint32
+}
+
+// LispListExtranetEidRecordSubscriberFlatRow flattens one EidRecordSubscriber entry with its ancestor list keys.
+type LispListExtranetEidRecordSubscriberFlatRow struct {
+	LispListLisp    string
+	ExtranetExtName string
+	Entry           ciscoiosxelisp.EidRecordSubscriber
+}
+
+// LispListExtranetEidRecordSubscriberDescriptor is the flattened-row descriptor for the nested list EidRecordSubscriber.
+func LispListExtranetEidRecordSubscriberDescriptor() yang.ListDescriptor[LispListExtranetEidRecordSubscriberFlatRow, LispListExtranetEidRecordSubscriberKey] {
+	return yang.ListDescriptor[LispListExtranetEidRecordSubscriberFlatRow, LispListExtranetEidRecordSubscriberKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.ExtranetSchema, ciscoiosxelisp.EidRecordSubscriberSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidRecordSubscriber) LispListExtranetEidRecordSubscriberFlatRow {
+			return LispListExtranetEidRecordSubscriberFlatRow{
+				Entry:           e,
+				ExtranetExtName: yang.AncestorKey(anc, 1, "ext-name"),
+				LispListLisp:    yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListExtranetEidRecordSubscriberFlatRow) *ciscoiosxelisp.EidRecordSubscriber {
+			return &r.Entry
+		}, func(r *LispListExtranetEidRecordSubscriberFlatRow) LispListExtranetEidRecordSubscriberKey {
+			var k LispListExtranetEidRecordSubscriberKey
+			k.LispListLisp = r.LispListLisp
+			k.ExtranetExtName = r.ExtranetExtName
+			if r.Entry.InstanceID != nil {
+				k.InstanceID = *r.Entry.InstanceID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "extranet", "eid-record-subscriber")),
+	}
+}
+
+// LispListExtranetEidRecordSubscriberDefaultPrefixesKey is PrefixesX2965ab's row identity (ancestor keys in canonical form).
+type LispListExtranetEidRecordSubscriberDefaultPrefixesKey struct {
+	LispListLisp                  string
+	ExtranetExtName               string
+	EidRecordSubscriberInstanceID string
+	Prefix                        string
+}
+
+// LispListExtranetEidRecordSubscriberDefaultPrefixesFlatRow flattens one PrefixesX2965ab entry with its ancestor list keys.
+type LispListExtranetEidRecordSubscriberDefaultPrefixesFlatRow struct {
+	LispListLisp                  string
+	ExtranetExtName               string
+	EidRecordSubscriberInstanceID string
+	Entry                         ciscoiosxelisp.PrefixesX2965ab
+}
+
+// LispListExtranetEidRecordSubscriberDefaultPrefixesDescriptor is the flattened-row descriptor for the nested list PrefixesX2965ab.
+func LispListExtranetEidRecordSubscriberDefaultPrefixesDescriptor() yang.ListDescriptor[LispListExtranetEidRecordSubscriberDefaultPrefixesFlatRow, LispListExtranetEidRecordSubscriberDefaultPrefixesKey] {
+	return yang.ListDescriptor[LispListExtranetEidRecordSubscriberDefaultPrefixesFlatRow, LispListExtranetEidRecordSubscriberDefaultPrefixesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.ExtranetSchema, ciscoiosxelisp.EidRecordSubscriberSchema, ciscoiosxelisp.PrefixesSchemaX509e5f}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.PrefixesX2965ab) LispListExtranetEidRecordSubscriberDefaultPrefixesFlatRow {
+			return LispListExtranetEidRecordSubscriberDefaultPrefixesFlatRow{
+				EidRecordSubscriberInstanceID: yang.AncestorKey(anc, 2, "instance-id"),
+				Entry:                         e,
+				ExtranetExtName:               yang.AncestorKey(anc, 1, "ext-name"),
+				LispListLisp:                  yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListExtranetEidRecordSubscriberDefaultPrefixesFlatRow) *ciscoiosxelisp.PrefixesX2965ab {
+			return &r.Entry
+		}, func(r *LispListExtranetEidRecordSubscriberDefaultPrefixesFlatRow) LispListExtranetEidRecordSubscriberDefaultPrefixesKey {
+			var k LispListExtranetEidRecordSubscriberDefaultPrefixesKey
+			k.LispListLisp = r.LispListLisp
+			k.ExtranetExtName = r.ExtranetExtName
+			k.EidRecordSubscriberInstanceID = r.EidRecordSubscriberInstanceID
+			if r.Entry.Prefix != nil {
+				k.Prefix = yang.CanonicalKey(r.Entry.Prefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "extranet", "eid-record-subscriber", "default", "prefixes")),
+	}
+}
+
+// LispListExtranetEidRecordSubscriberPrefixesKey is PrefixesX2965ab's row identity (ancestor keys in canonical form).
+type LispListExtranetEidRecordSubscriberPrefixesKey struct {
+	LispListLisp                  string
+	ExtranetExtName               string
+	EidRecordSubscriberInstanceID string
+	Prefix                        string
+}
+
+// LispListExtranetEidRecordSubscriberPrefixesFlatRow flattens one PrefixesX2965ab entry with its ancestor list keys.
+type LispListExtranetEidRecordSubscriberPrefixesFlatRow struct {
+	LispListLisp                  string
+	ExtranetExtName               string
+	EidRecordSubscriberInstanceID string
+	Entry                         ciscoiosxelisp.PrefixesX2965ab
+}
+
+// LispListExtranetEidRecordSubscriberPrefixesDescriptor is the flattened-row descriptor for the nested list PrefixesX2965ab.
+func LispListExtranetEidRecordSubscriberPrefixesDescriptor() yang.ListDescriptor[LispListExtranetEidRecordSubscriberPrefixesFlatRow, LispListExtranetEidRecordSubscriberPrefixesKey] {
+	return yang.ListDescriptor[LispListExtranetEidRecordSubscriberPrefixesFlatRow, LispListExtranetEidRecordSubscriberPrefixesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.ExtranetSchema, ciscoiosxelisp.EidRecordSubscriberSchema, ciscoiosxelisp.PrefixesSchemaX509e5f}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.PrefixesX2965ab) LispListExtranetEidRecordSubscriberPrefixesFlatRow {
+			return LispListExtranetEidRecordSubscriberPrefixesFlatRow{
+				EidRecordSubscriberInstanceID: yang.AncestorKey(anc, 2, "instance-id"),
+				Entry:                         e,
+				ExtranetExtName:               yang.AncestorKey(anc, 1, "ext-name"),
+				LispListLisp:                  yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListExtranetEidRecordSubscriberPrefixesFlatRow) *ciscoiosxelisp.PrefixesX2965ab {
+			return &r.Entry
+		}, func(r *LispListExtranetEidRecordSubscriberPrefixesFlatRow) LispListExtranetEidRecordSubscriberPrefixesKey {
+			var k LispListExtranetEidRecordSubscriberPrefixesKey
+			k.LispListLisp = r.LispListLisp
+			k.ExtranetExtName = r.ExtranetExtName
+			k.EidRecordSubscriberInstanceID = r.EidRecordSubscriberInstanceID
+			if r.Entry.Prefix != nil {
+				k.Prefix = yang.CanonicalKey(r.Entry.Prefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "extranet", "eid-record-subscriber", "prefixes")),
+	}
+}
+
+// LispListInstanceContainerInstanceListKey is InstanceContainerInstanceList's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListKey struct {
+	LispListLisp string
+	InstanceID   uint32
+}
+
+// LispListInstanceContainerInstanceListFlatRow flattens one InstanceContainerInstanceList entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListFlatRow struct {
+	LispListLisp string
+	Entry        ciscoiosxelisp.InstanceContainerInstanceList
+}
+
+// LispListInstanceContainerInstanceListDescriptor is the flattened-row descriptor for the nested list InstanceContainerInstanceList.
+func LispListInstanceContainerInstanceListDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListFlatRow, LispListInstanceContainerInstanceListKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListFlatRow, LispListInstanceContainerInstanceListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.InstanceContainerInstanceList) LispListInstanceContainerInstanceListFlatRow {
+			return LispListInstanceContainerInstanceListFlatRow{
+				Entry:        e,
+				LispListLisp: yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListFlatRow) *ciscoiosxelisp.InstanceContainerInstanceList {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListFlatRow) LispListInstanceContainerInstanceListKey {
+			var k LispListInstanceContainerInstanceListKey
+			k.LispListLisp = r.LispListLisp
+			if r.Entry.InstanceID != nil {
+				k.InstanceID = *r.Entry.InstanceID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultDynamicEidKey is DynamicEid's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultDynamicEidKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Name                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultDynamicEidFlatRow flattens one DynamicEid entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultDynamicEidFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DynamicEid
+}
+
+// LispListInstanceContainerInstanceListDefaultDynamicEidDescriptor is the flattened-row descriptor for the nested list DynamicEid.
+func LispListInstanceContainerInstanceListDefaultDynamicEidDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultDynamicEidFlatRow, LispListInstanceContainerInstanceListDefaultDynamicEidKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultDynamicEidFlatRow, LispListInstanceContainerInstanceListDefaultDynamicEidKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DynamicEidSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DynamicEid) LispListInstanceContainerInstanceListDefaultDynamicEidFlatRow {
+			return LispListInstanceContainerInstanceListDefaultDynamicEidFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultDynamicEidFlatRow) *ciscoiosxelisp.DynamicEid {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultDynamicEidFlatRow) LispListInstanceContainerInstanceListDefaultDynamicEidKey {
+			var k LispListInstanceContainerInstanceListDefaultDynamicEidKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "dynamic-eid")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixKey is DynamicEidDatabaseMappingIPv4Prefix's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	DynamicEidName         string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixFlatRow flattens one DynamicEidDatabaseMappingIPv4Prefix entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	DynamicEidName         string
+	Entry                  ciscoiosxelisp.DynamicEidDatabaseMappingIPv4Prefix
+}
+
+// LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixDescriptor is the flattened-row descriptor for the nested list DynamicEidDatabaseMappingIPv4Prefix.
+func LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixFlatRow, LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixFlatRow, LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DynamicEidSchema, ciscoiosxelisp.DynamicEidDatabaseMappingIPv4PrefixSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DynamicEidDatabaseMappingIPv4Prefix) LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixFlatRow {
+			return LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixFlatRow{
+				DynamicEidName:         yang.AncestorKey(anc, 2, "name"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixFlatRow) *ciscoiosxelisp.DynamicEidDatabaseMappingIPv4Prefix {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixFlatRow) LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixKey {
+			var k LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv4PrefixKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.DynamicEidName = r.DynamicEidName
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = *r.Entry.EidPrefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "dynamic-eid", "database-mapping", "ipv4-prefix")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixKey is DynamicEidDatabaseMappingIPv6Prefix's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	DynamicEidName         string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixFlatRow flattens one DynamicEidDatabaseMappingIPv6Prefix entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	DynamicEidName         string
+	Entry                  ciscoiosxelisp.DynamicEidDatabaseMappingIPv6Prefix
+}
+
+// LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixDescriptor is the flattened-row descriptor for the nested list DynamicEidDatabaseMappingIPv6Prefix.
+func LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixFlatRow, LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixFlatRow, LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DynamicEidSchema, ciscoiosxelisp.DynamicEidDatabaseMappingIPv6PrefixSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DynamicEidDatabaseMappingIPv6Prefix) LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixFlatRow {
+			return LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixFlatRow{
+				DynamicEidName:         yang.AncestorKey(anc, 2, "name"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixFlatRow) *ciscoiosxelisp.DynamicEidDatabaseMappingIPv6Prefix {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixFlatRow) LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixKey {
+			var k LispListInstanceContainerInstanceListDefaultDynamicEidDatabaseMappingIPv6PrefixKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.DynamicEidName = r.DynamicEidName
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = *r.Entry.EidPrefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "dynamic-eid", "database-mapping", "ipv6-prefix")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyKey is DynamicEidEidNotifyGatewayKey's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	DynamicEidName         string
+	GatewayIP              string
+}
+
+// LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyFlatRow flattens one DynamicEidEidNotifyGatewayKey entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	DynamicEidName         string
+	Entry                  ciscoiosxelisp.DynamicEidEidNotifyGatewayKey
+}
+
+// LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyDescriptor is the flattened-row descriptor for the nested list DynamicEidEidNotifyGatewayKey.
+func LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyFlatRow, LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyFlatRow, LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DynamicEidSchema, ciscoiosxelisp.DynamicEidEidNotifyGatewayKeySchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DynamicEidEidNotifyGatewayKey) LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyFlatRow {
+			return LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyFlatRow{
+				DynamicEidName:         yang.AncestorKey(anc, 2, "name"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyFlatRow) *ciscoiosxelisp.DynamicEidEidNotifyGatewayKey {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyFlatRow) LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyKey {
+			var k LispListInstanceContainerInstanceListDefaultDynamicEidEidNotifyGatewayKeyKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.DynamicEidName = r.DynamicEidName
+			if r.Entry.GatewayIP != nil {
+				k.GatewayIP = yang.CanonicalKey(r.Entry.GatewayIP)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "dynamic-eid", "eid-notify", "gateway-key")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultDynamicEidMapServerKey is MapServerX44f5d7's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultDynamicEidMapServerKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	DynamicEidName         string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultDynamicEidMapServerFlatRow flattens one MapServerX44f5d7 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultDynamicEidMapServerFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	DynamicEidName         string
+	Entry                  ciscoiosxelisp.MapServerX44f5d7
+}
+
+// LispListInstanceContainerInstanceListDefaultDynamicEidMapServerDescriptor is the flattened-row descriptor for the nested list MapServerX44f5d7.
+func LispListInstanceContainerInstanceListDefaultDynamicEidMapServerDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultDynamicEidMapServerFlatRow, LispListInstanceContainerInstanceListDefaultDynamicEidMapServerKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultDynamicEidMapServerFlatRow, LispListInstanceContainerInstanceListDefaultDynamicEidMapServerKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DynamicEidSchema, ciscoiosxelisp.MapServerSchemaXbaa972}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapServerX44f5d7) LispListInstanceContainerInstanceListDefaultDynamicEidMapServerFlatRow {
+			return LispListInstanceContainerInstanceListDefaultDynamicEidMapServerFlatRow{
+				DynamicEidName:         yang.AncestorKey(anc, 2, "name"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultDynamicEidMapServerFlatRow) *ciscoiosxelisp.MapServerX44f5d7 {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultDynamicEidMapServerFlatRow) LispListInstanceContainerInstanceListDefaultDynamicEidMapServerKey {
+			var k LispListInstanceContainerInstanceListDefaultDynamicEidMapServerKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.DynamicEidName = r.DynamicEidName
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "dynamic-eid", "map-server")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContKey is DatabaseMappingEidContX4946bd's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContFlatRow flattens one DatabaseMappingEidContX4946bd entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseMappingEidContX4946bd
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContDescriptor is the flattened-row descriptor for the nested list DatabaseMappingEidContX4946bd.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaXd5b4bc}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseMappingEidContX4946bd) LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContFlatRow) *ciscoiosxelisp.DatabaseMappingEidContX4946bd {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = *r.Entry.EidPrefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "database-mapping", "eid-cont")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceKey is EidContIPv4Interface's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Name                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceFlatRow flattens one EidContIPv4Interface entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.EidContIPv4Interface
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceDescriptor is the flattened-row descriptor for the nested list EidContIPv4Interface.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaXd5b4bc, ciscoiosxelisp.EidContIPv4InterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidContIPv4Interface) LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceFlatRow) *ciscoiosxelisp.EidContIPv4Interface {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4InterfaceKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "database-mapping", "eid-cont", "IPv4-interface")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceKey is EidContIPv6Interface's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Name                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceFlatRow flattens one EidContIPv6Interface entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.EidContIPv6Interface
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceDescriptor is the flattened-row descriptor for the nested list EidContIPv6Interface.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaXd5b4bc, ciscoiosxelisp.EidContIPv6InterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidContIPv6Interface) LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceFlatRow) *ciscoiosxelisp.EidContIPv6Interface {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6InterfaceKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "database-mapping", "eid-cont", "IPv6-interface")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesKey is IPv4Addrees's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Address                string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesFlatRow flattens one IPv4Addrees entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.IPv4Addrees
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesDescriptor is the flattened-row descriptor for the nested list IPv4Addrees.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaXd5b4bc, ciscoiosxelisp.IPv4AddreesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.IPv4Addrees) LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesFlatRow) *ciscoiosxelisp.IPv4Addrees {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv4AddreesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "database-mapping", "eid-cont", "ipv4-addrees")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesKey is IPv6Addrees's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Address                string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesFlatRow flattens one IPv6Addrees entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.IPv6Addrees
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesDescriptor is the flattened-row descriptor for the nested list IPv6Addrees.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaXd5b4bc, ciscoiosxelisp.IPv6AddreesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.IPv6Addrees) LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesFlatRow) *ciscoiosxelisp.IPv6Addrees {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetDatabaseMappingEidContIPv6AddreesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "database-mapping", "eid-cont", "ipv6-addrees")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContKey is DatabaseMappingEidContX4946bd's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContFlatRow flattens one DatabaseMappingEidContX4946bd entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseMappingEidContX4946bd
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContDescriptor is the flattened-row descriptor for the nested list DatabaseMappingEidContX4946bd.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaXd5b4bc}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseMappingEidContX4946bd) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContFlatRow) *ciscoiosxelisp.DatabaseMappingEidContX4946bd {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = *r.Entry.EidPrefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "default", "database-mapping", "eid-cont")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceKey is EidContIPv4Interface's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Name                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceFlatRow flattens one EidContIPv4Interface entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.EidContIPv4Interface
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceDescriptor is the flattened-row descriptor for the nested list EidContIPv4Interface.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaXd5b4bc, ciscoiosxelisp.EidContIPv4InterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidContIPv4Interface) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceFlatRow) *ciscoiosxelisp.EidContIPv4Interface {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4InterfaceKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "default", "database-mapping", "eid-cont", "IPv4-interface")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceKey is EidContIPv6Interface's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Name                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceFlatRow flattens one EidContIPv6Interface entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.EidContIPv6Interface
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceDescriptor is the flattened-row descriptor for the nested list EidContIPv6Interface.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaXd5b4bc, ciscoiosxelisp.EidContIPv6InterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidContIPv6Interface) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceFlatRow) *ciscoiosxelisp.EidContIPv6Interface {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6InterfaceKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "default", "database-mapping", "eid-cont", "IPv6-interface")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesKey is IPv4Addrees's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Address                string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesFlatRow flattens one IPv4Addrees entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.IPv4Addrees
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesDescriptor is the flattened-row descriptor for the nested list IPv4Addrees.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaXd5b4bc, ciscoiosxelisp.IPv4AddreesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.IPv4Addrees) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesFlatRow) *ciscoiosxelisp.IPv4Addrees {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv4AddreesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "default", "database-mapping", "eid-cont", "ipv4-addrees")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesKey is IPv6Addrees's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Address                string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesFlatRow flattens one IPv6Addrees entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.IPv6Addrees
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesDescriptor is the flattened-row descriptor for the nested list IPv6Addrees.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaXd5b4bc, ciscoiosxelisp.IPv6AddreesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.IPv6Addrees) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesFlatRow) *ciscoiosxelisp.IPv6Addrees {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultDatabaseMappingEidContIPv6AddreesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "default", "database-mapping", "eid-cont", "ipv6-addrees")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerKey is MapServerX44f5d7's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerFlatRow flattens one MapServerX44f5d7 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapServerX44f5d7
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerDescriptor is the flattened-row descriptor for the nested list MapServerX44f5d7.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.MapServerSchemaXbaa972}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapServerX44f5d7) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerFlatRow) *ciscoiosxelisp.MapServerX44f5d7 {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultEtrMapServerKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "default", "etr", "map-server")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherKey is Publisher's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherFlatRow flattens one Publisher entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.Publisher
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherDescriptor is the flattened-row descriptor for the nested list Publisher.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.PublisherSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.Publisher) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherFlatRow) *ciscoiosxelisp.Publisher {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultImportPublicationPublisherKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "default", "import", "publication", "publisher")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverKey is ItrMapResolverXb66490's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverFlatRow flattens one ItrMapResolverXb66490 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.ItrMapResolverXb66490
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverDescriptor is the flattened-row descriptor for the nested list ItrMapResolverXb66490.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.ItrMapResolverSchemaX760b03}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.ItrMapResolverXb66490) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverFlatRow) *ciscoiosxelisp.ItrMapResolverXb66490 {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultItrMapResolverKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "default", "itr", "map-resolver")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContKey is MapCacheEidCont's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContFlatRow flattens one MapCacheEidCont entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheEidCont
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContDescriptor is the flattened-row descriptor for the nested list MapCacheEidCont.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.MapCacheEidContSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheEidCont) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContFlatRow) *ciscoiosxelisp.MapCacheEidCont {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = *r.Entry.EidPrefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "default", "map-cache", "eid-cont")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesKey is RlocAttributes's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Rloc                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesFlatRow flattens one RlocAttributes entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.RlocAttributes
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesDescriptor is the flattened-row descriptor for the nested list RlocAttributes.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.MapCacheEidContSchema, ciscoiosxelisp.RlocAttributesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.RlocAttributes) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesFlatRow) *ciscoiosxelisp.RlocAttributes {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetDefaultMapCacheEidContRlocAttributesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Rloc != nil {
+				k.Rloc = yang.CanonicalKey(r.Entry.Rloc)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "default", "map-cache", "eid-cont", "rloc-attributes")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerKey is MapServerX44f5d7's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerFlatRow flattens one MapServerX44f5d7 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapServerX44f5d7
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerDescriptor is the flattened-row descriptor for the nested list MapServerX44f5d7.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.MapServerSchemaXbaa972}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapServerX44f5d7) LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerFlatRow) *ciscoiosxelisp.MapServerX44f5d7 {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetEtrMapServerKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "etr", "map-server")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherKey is Publisher's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherFlatRow flattens one Publisher entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.Publisher
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherDescriptor is the flattened-row descriptor for the nested list Publisher.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.PublisherSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.Publisher) LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherFlatRow) *ciscoiosxelisp.Publisher {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetImportPublicationPublisherKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "import", "publication", "publisher")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverKey is ItrMapResolverXb66490's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverFlatRow flattens one ItrMapResolverXb66490 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.ItrMapResolverXb66490
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverDescriptor is the flattened-row descriptor for the nested list ItrMapResolverXb66490.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.ItrMapResolverSchemaX760b03}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.ItrMapResolverXb66490) LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverFlatRow) *ciscoiosxelisp.ItrMapResolverXb66490 {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetItrMapResolverKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "itr", "map-resolver")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContKey is MapCacheEidCont's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContFlatRow flattens one MapCacheEidCont entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheEidCont
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContDescriptor is the flattened-row descriptor for the nested list MapCacheEidCont.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.MapCacheEidContSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheEidCont) LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContFlatRow) *ciscoiosxelisp.MapCacheEidCont {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = *r.Entry.EidPrefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "map-cache", "eid-cont")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesKey is RlocAttributes's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Rloc                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesFlatRow flattens one RlocAttributes entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.RlocAttributes
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesDescriptor is the flattened-row descriptor for the nested list RlocAttributes.
+func LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesFlatRow, LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.MapCacheEidContSchema, ciscoiosxelisp.RlocAttributesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.RlocAttributes) LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesFlatRow) *ciscoiosxelisp.RlocAttributes {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesFlatRow) LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceEthernetMapCacheEidContRlocAttributesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Rloc != nil {
+				k.Rloc = yang.CanonicalKey(r.Entry.Rloc)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ethernet", "map-cache", "eid-cont", "rloc-attributes")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteKey is SummaryRoute's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteFlatRow flattens one SummaryRoute entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.SummaryRoute
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteDescriptor is the flattened-row descriptor for the nested list SummaryRoute.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.SummaryRouteSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.SummaryRoute) LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteFlatRow) *ciscoiosxelisp.SummaryRoute {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4AltSummaryRouteKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = yang.CanonicalKey(r.Entry.EidPrefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "alt", "summary-route")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContKey is DatabaseMappingEidContXe7dacb's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContFlatRow flattens one DatabaseMappingEidContXe7dacb entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseMappingEidContXe7dacb
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContDescriptor is the flattened-row descriptor for the nested list DatabaseMappingEidContXe7dacb.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseMappingEidContXe7dacb) LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContFlatRow) *ciscoiosxelisp.DatabaseMappingEidContXe7dacb {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = *r.Entry.EidPrefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "database-mapping", "eid-cont")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceKey is EidContIPv4Interface's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Name                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceFlatRow flattens one EidContIPv4Interface entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.EidContIPv4Interface
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceDescriptor is the flattened-row descriptor for the nested list EidContIPv4Interface.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.EidContIPv4InterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidContIPv4Interface) LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceFlatRow) *ciscoiosxelisp.EidContIPv4Interface {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4InterfaceKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "database-mapping", "eid-cont", "IPv4-interface")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceKey is EidContIPv6Interface's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Name                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceFlatRow flattens one EidContIPv6Interface entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.EidContIPv6Interface
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceDescriptor is the flattened-row descriptor for the nested list EidContIPv6Interface.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.EidContIPv6InterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidContIPv6Interface) LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceFlatRow) *ciscoiosxelisp.EidContIPv6Interface {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6InterfaceKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "database-mapping", "eid-cont", "IPv6-interface")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesKey is IPv4Addrees's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Address                string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesFlatRow flattens one IPv4Addrees entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.IPv4Addrees
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesDescriptor is the flattened-row descriptor for the nested list IPv4Addrees.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.IPv4AddreesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.IPv4Addrees) LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesFlatRow) *ciscoiosxelisp.IPv4Addrees {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv4AddreesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "database-mapping", "eid-cont", "ipv4-addrees")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesKey is IPv6Addrees's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Address                string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesFlatRow flattens one IPv6Addrees entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.IPv6Addrees
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesDescriptor is the flattened-row descriptor for the nested list IPv6Addrees.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.IPv6AddreesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.IPv6Addrees) LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesFlatRow) *ciscoiosxelisp.IPv6Addrees {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DatabaseMappingEidContIPv6AddreesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "database-mapping", "eid-cont", "ipv6-addrees")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteKey is SummaryRoute's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteFlatRow flattens one SummaryRoute entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.SummaryRoute
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteDescriptor is the flattened-row descriptor for the nested list SummaryRoute.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.SummaryRouteSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.SummaryRoute) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteFlatRow) *ciscoiosxelisp.SummaryRoute {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultAltSummaryRouteKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = yang.CanonicalKey(r.Entry.EidPrefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "alt", "summary-route")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContKey is DatabaseMappingEidContXe7dacb's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContFlatRow flattens one DatabaseMappingEidContXe7dacb entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseMappingEidContXe7dacb
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContDescriptor is the flattened-row descriptor for the nested list DatabaseMappingEidContXe7dacb.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseMappingEidContXe7dacb) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContFlatRow) *ciscoiosxelisp.DatabaseMappingEidContXe7dacb {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = *r.Entry.EidPrefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "database-mapping", "eid-cont")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceKey is EidContIPv4Interface's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Name                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceFlatRow flattens one EidContIPv4Interface entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.EidContIPv4Interface
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceDescriptor is the flattened-row descriptor for the nested list EidContIPv4Interface.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.EidContIPv4InterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidContIPv4Interface) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceFlatRow) *ciscoiosxelisp.EidContIPv4Interface {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4InterfaceKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "database-mapping", "eid-cont", "IPv4-interface")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceKey is EidContIPv6Interface's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Name                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceFlatRow flattens one EidContIPv6Interface entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.EidContIPv6Interface
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceDescriptor is the flattened-row descriptor for the nested list EidContIPv6Interface.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.EidContIPv6InterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidContIPv6Interface) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceFlatRow) *ciscoiosxelisp.EidContIPv6Interface {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6InterfaceKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "database-mapping", "eid-cont", "IPv6-interface")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesKey is IPv4Addrees's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Address                string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesFlatRow flattens one IPv4Addrees entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.IPv4Addrees
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesDescriptor is the flattened-row descriptor for the nested list IPv4Addrees.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.IPv4AddreesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.IPv4Addrees) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesFlatRow) *ciscoiosxelisp.IPv4Addrees {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv4AddreesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "database-mapping", "eid-cont", "ipv4-addrees")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesKey is IPv6Addrees's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Address                string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesFlatRow flattens one IPv6Addrees entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.IPv6Addrees
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesDescriptor is the flattened-row descriptor for the nested list IPv6Addrees.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.IPv6AddreesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.IPv6Addrees) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesFlatRow) *ciscoiosxelisp.IPv6Addrees {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultDatabaseMappingEidContIPv6AddreesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "database-mapping", "eid-cont", "ipv6-addrees")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerKey is MapServerX44f5d7's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerFlatRow flattens one MapServerX44f5d7 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapServerX44f5d7
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerDescriptor is the flattened-row descriptor for the nested list MapServerX44f5d7.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.MapServerSchemaXbaa972}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapServerX44f5d7) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerFlatRow) *ciscoiosxelisp.MapServerX44f5d7 {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultEtrMapServerKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "etr", "map-server")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherKey is Publisher's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherFlatRow flattens one Publisher entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.Publisher
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherDescriptor is the flattened-row descriptor for the nested list Publisher.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.PublisherSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.Publisher) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherFlatRow) *ciscoiosxelisp.Publisher {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultImportPublicationPublisherKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "import", "publication", "publisher")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverKey is ItrMapResolverXb66490's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverFlatRow flattens one ItrMapResolverXb66490 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.ItrMapResolverXb66490
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverDescriptor is the flattened-row descriptor for the nested list ItrMapResolverXb66490.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.ItrMapResolverSchemaX760b03}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.ItrMapResolverXb66490) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverFlatRow) *ciscoiosxelisp.ItrMapResolverXb66490 {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultItrMapResolverKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "itr", "map-resolver")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceKey is EidInterface's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceFlatRow flattens one EidInterface entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.EidInterface
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceDescriptor is the flattened-row descriptor for the nested list EidInterface.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.EidInterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidInterface) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceFlatRow) *ciscoiosxelisp.EidInterface {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = yang.CanonicalKey(r.Entry.EidPrefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "map-cache", "eid-interface")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesKey is RlocAttributes's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidInterfaceEidPrefix  string
+	Rloc                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesFlatRow flattens one RlocAttributes entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidInterfaceEidPrefix  string
+	Entry                  ciscoiosxelisp.RlocAttributes
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesDescriptor is the flattened-row descriptor for the nested list RlocAttributes.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.EidInterfaceSchema, ciscoiosxelisp.RlocAttributesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.RlocAttributes) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesFlatRow{
+				EidInterfaceEidPrefix:  yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesFlatRow) *ciscoiosxelisp.RlocAttributes {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultMapCacheEidInterfaceRlocAttributesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidInterfaceEidPrefix = r.EidInterfaceEidPrefix
+			if r.Entry.Rloc != nil {
+				k.Rloc = yang.CanonicalKey(r.Entry.Rloc)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "map-cache", "eid-interface", "rloc-attributes")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPKey is DatabaseBGP's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPFlatRow flattens one DatabaseBGP entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseBGP
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPDescriptor is the flattened-row descriptor for the nested list DatabaseBGP.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseBGPSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseBGP) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPFlatRow) *ciscoiosxelisp.DatabaseBGP {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseBGPKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = yang.CanonicalKey(r.Entry.ID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "route-import", "database", "bgp")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpKey is DatabaseEigrp's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpFlatRow flattens one DatabaseEigrp entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseEigrp
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpDescriptor is the flattened-row descriptor for the nested list DatabaseEigrp.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseEigrp) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpFlatRow) *ciscoiosxelisp.DatabaseEigrp {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseEigrpKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "route-import", "database", "eigrp")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFKey is DatabaseOSPF's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFFlatRow flattens one DatabaseOSPF entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseOSPF
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFDescriptor is the flattened-row descriptor for the nested list DatabaseOSPF.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseOSPFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseOSPF) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFFlatRow) *ciscoiosxelisp.DatabaseOSPF {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportDatabaseOSPFKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "route-import", "database", "ospf")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPKey is MapCacheBGP's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPFlatRow flattens one MapCacheBGP entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheBGP
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPDescriptor is the flattened-row descriptor for the nested list MapCacheBGP.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.MapCacheBGPSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheBGP) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPFlatRow) *ciscoiosxelisp.MapCacheBGP {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheBGPKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = yang.CanonicalKey(r.Entry.ID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "route-import", "map-cache", "bgp")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpKey is MapCacheEigrp's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpFlatRow flattens one MapCacheEigrp entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheEigrp
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpDescriptor is the flattened-row descriptor for the nested list MapCacheEigrp.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.MapCacheEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheEigrp) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpFlatRow) *ciscoiosxelisp.MapCacheEigrp {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheEigrpKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "route-import", "map-cache", "eigrp")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFKey is MapCacheOSPF's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFFlatRow flattens one MapCacheOSPF entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheOSPF
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFDescriptor is the flattened-row descriptor for the nested list MapCacheOSPF.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.MapCacheOSPFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheOSPF) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFFlatRow) *ciscoiosxelisp.MapCacheOSPF {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportMapCacheOSPFKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "route-import", "map-cache", "ospf")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoKey is PrefixListProto's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	PrefixList             string
+	Protocol               string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoFlatRow flattens one PrefixListProto entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.PrefixListProto
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoDescriptor is the flattened-row descriptor for the nested list PrefixListProto.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.PrefixListProtoSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.PrefixListProto) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoFlatRow) *ciscoiosxelisp.PrefixListProto {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.PrefixList != nil {
+				k.PrefixList = *r.Entry.PrefixList
+			}
+			if r.Entry.Protocol != nil {
+				k.Protocol = *r.Entry.Protocol
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "route-import", "prefix-list-proto")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDKey is BGPID's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDKey struct {
+	LispListLisp              string
+	InstanceListInstanceID    string
+	PrefixListProtoPrefixList string
+	PrefixListProtoProtocol   string
+	BGPID                     string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDFlatRow flattens one BGPID entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDFlatRow struct {
+	LispListLisp              string
+	InstanceListInstanceID    string
+	PrefixListProtoPrefixList string
+	PrefixListProtoProtocol   string
+	Entry                     ciscoiosxelisp.BGPID
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDDescriptor is the flattened-row descriptor for the nested list BGPID.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.PrefixListProtoSchema, ciscoiosxelisp.BGPIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.BGPID) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDFlatRow{
+				Entry:                     e,
+				InstanceListInstanceID:    yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:              yang.AncestorKey(anc, 0, "lisp"),
+				PrefixListProtoPrefixList: yang.AncestorKey(anc, 2, "prefix-list"),
+				PrefixListProtoProtocol:   yang.AncestorKey(anc, 2, "protocol"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDFlatRow) *ciscoiosxelisp.BGPID {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoBGPIDKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.PrefixListProtoPrefixList = r.PrefixListProtoPrefixList
+			k.PrefixListProtoProtocol = r.PrefixListProtoProtocol
+			if r.Entry.BGPID != nil {
+				k.BGPID = yang.CanonicalKey(r.Entry.BGPID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "route-import", "prefix-list-proto", "bgp-id")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDKey is EigrpOrOSPFID's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDKey struct {
+	LispListLisp              string
+	InstanceListInstanceID    string
+	PrefixListProtoPrefixList string
+	PrefixListProtoProtocol   string
+	Int16ID                   uint16
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDFlatRow flattens one EigrpOrOSPFID entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDFlatRow struct {
+	LispListLisp              string
+	InstanceListInstanceID    string
+	PrefixListProtoPrefixList string
+	PrefixListProtoProtocol   string
+	Entry                     ciscoiosxelisp.EigrpOrOSPFID
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDDescriptor is the flattened-row descriptor for the nested list EigrpOrOSPFID.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.PrefixListProtoSchema, ciscoiosxelisp.EigrpOrOSPFIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EigrpOrOSPFID) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDFlatRow{
+				Entry:                     e,
+				InstanceListInstanceID:    yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:              yang.AncestorKey(anc, 0, "lisp"),
+				PrefixListProtoPrefixList: yang.AncestorKey(anc, 2, "prefix-list"),
+				PrefixListProtoProtocol:   yang.AncestorKey(anc, 2, "protocol"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDFlatRow) *ciscoiosxelisp.EigrpOrOSPFID {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultRouteImportPrefixListProtoEigrpOrOSPFIDKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.PrefixListProtoPrefixList = r.PrefixListProtoPrefixList
+			k.PrefixListProtoProtocol = r.PrefixListProtoProtocol
+			if r.Entry.Int16ID != nil {
+				k.Int16ID = *r.Entry.Int16ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "route-import", "prefix-list-proto", "eigrp-or-ospf-id")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrKey is UsePetrXf79ad3's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	LocatorAddress         string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrFlatRow flattens one UsePetrXf79ad3 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.UsePetrXf79ad3
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrDescriptor is the flattened-row descriptor for the nested list UsePetrXf79ad3.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.UsePetrSchemaX857918}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.UsePetrXf79ad3) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrFlatRow) *ciscoiosxelisp.UsePetrXf79ad3 {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.LocatorAddress != nil {
+				k.LocatorAddress = yang.CanonicalKey(r.Entry.LocatorAddress)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "use-petr")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrKey is UsePetrXf79ad3's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	LocatorAddress         string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrFlatRow flattens one UsePetrXf79ad3 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.UsePetrXf79ad3
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrDescriptor is the flattened-row descriptor for the nested list UsePetrXf79ad3.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.UsePetrSchemaX857918}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.UsePetrXf79ad3) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrFlatRow) *ciscoiosxelisp.UsePetrXf79ad3 {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4DefaultUsePetrConfigUsePetrKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.LocatorAddress != nil {
+				k.LocatorAddress = yang.CanonicalKey(r.Entry.LocatorAddress)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "default", "use-petr-config", "use-petr")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerKey is MapServerX44f5d7's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerFlatRow flattens one MapServerX44f5d7 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapServerX44f5d7
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerDescriptor is the flattened-row descriptor for the nested list MapServerX44f5d7.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.MapServerSchemaXbaa972}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapServerX44f5d7) LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerFlatRow) *ciscoiosxelisp.MapServerX44f5d7 {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4EtrMapServerKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "etr", "map-server")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherKey is Publisher's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherFlatRow flattens one Publisher entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.Publisher
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherDescriptor is the flattened-row descriptor for the nested list Publisher.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.PublisherSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.Publisher) LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherFlatRow) *ciscoiosxelisp.Publisher {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4ImportPublicationPublisherKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "import", "publication", "publisher")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverKey is ItrMapResolverXb66490's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverFlatRow flattens one ItrMapResolverXb66490 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.ItrMapResolverXb66490
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverDescriptor is the flattened-row descriptor for the nested list ItrMapResolverXb66490.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.ItrMapResolverSchemaX760b03}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.ItrMapResolverXb66490) LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverFlatRow) *ciscoiosxelisp.ItrMapResolverXb66490 {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4ItrMapResolverKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "itr", "map-resolver")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceKey is EidInterface's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceFlatRow flattens one EidInterface entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.EidInterface
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceDescriptor is the flattened-row descriptor for the nested list EidInterface.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.EidInterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidInterface) LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceFlatRow) *ciscoiosxelisp.EidInterface {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = yang.CanonicalKey(r.Entry.EidPrefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "map-cache", "eid-interface")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesKey is RlocAttributes's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidInterfaceEidPrefix  string
+	Rloc                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesFlatRow flattens one RlocAttributes entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidInterfaceEidPrefix  string
+	Entry                  ciscoiosxelisp.RlocAttributes
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesDescriptor is the flattened-row descriptor for the nested list RlocAttributes.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.EidInterfaceSchema, ciscoiosxelisp.RlocAttributesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.RlocAttributes) LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesFlatRow{
+				EidInterfaceEidPrefix:  yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesFlatRow) *ciscoiosxelisp.RlocAttributes {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4MapCacheEidInterfaceRlocAttributesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidInterfaceEidPrefix = r.EidInterfaceEidPrefix
+			if r.Entry.Rloc != nil {
+				k.Rloc = yang.CanonicalKey(r.Entry.Rloc)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "map-cache", "eid-interface", "rloc-attributes")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPKey is DatabaseBGP's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPFlatRow flattens one DatabaseBGP entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseBGP
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPDescriptor is the flattened-row descriptor for the nested list DatabaseBGP.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseBGPSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseBGP) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPFlatRow) *ciscoiosxelisp.DatabaseBGP {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseBGPKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = yang.CanonicalKey(r.Entry.ID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "route-import", "database", "bgp")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpKey is DatabaseEigrp's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpFlatRow flattens one DatabaseEigrp entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseEigrp
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpDescriptor is the flattened-row descriptor for the nested list DatabaseEigrp.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseEigrp) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpFlatRow) *ciscoiosxelisp.DatabaseEigrp {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseEigrpKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "route-import", "database", "eigrp")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFKey is DatabaseOSPF's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFFlatRow flattens one DatabaseOSPF entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseOSPF
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFDescriptor is the flattened-row descriptor for the nested list DatabaseOSPF.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseOSPFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseOSPF) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFFlatRow) *ciscoiosxelisp.DatabaseOSPF {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportDatabaseOSPFKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "route-import", "database", "ospf")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPKey is MapCacheBGP's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPFlatRow flattens one MapCacheBGP entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheBGP
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPDescriptor is the flattened-row descriptor for the nested list MapCacheBGP.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.MapCacheBGPSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheBGP) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPFlatRow) *ciscoiosxelisp.MapCacheBGP {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheBGPKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = yang.CanonicalKey(r.Entry.ID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "route-import", "map-cache", "bgp")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpKey is MapCacheEigrp's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpFlatRow flattens one MapCacheEigrp entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheEigrp
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpDescriptor is the flattened-row descriptor for the nested list MapCacheEigrp.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.MapCacheEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheEigrp) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpFlatRow) *ciscoiosxelisp.MapCacheEigrp {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheEigrpKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "route-import", "map-cache", "eigrp")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFKey is MapCacheOSPF's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFFlatRow flattens one MapCacheOSPF entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapCacheOSPF
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFDescriptor is the flattened-row descriptor for the nested list MapCacheOSPF.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.MapCacheOSPFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapCacheOSPF) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFFlatRow) *ciscoiosxelisp.MapCacheOSPF {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportMapCacheOSPFKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "route-import", "map-cache", "ospf")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoKey is PrefixListProto's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	PrefixList             string
+	Protocol               string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoFlatRow flattens one PrefixListProto entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.PrefixListProto
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoDescriptor is the flattened-row descriptor for the nested list PrefixListProto.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.PrefixListProtoSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.PrefixListProto) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoFlatRow) *ciscoiosxelisp.PrefixListProto {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.PrefixList != nil {
+				k.PrefixList = *r.Entry.PrefixList
+			}
+			if r.Entry.Protocol != nil {
+				k.Protocol = *r.Entry.Protocol
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "route-import", "prefix-list-proto")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDKey is BGPID's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDKey struct {
+	LispListLisp              string
+	InstanceListInstanceID    string
+	PrefixListProtoPrefixList string
+	PrefixListProtoProtocol   string
+	BGPID                     string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDFlatRow flattens one BGPID entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDFlatRow struct {
+	LispListLisp              string
+	InstanceListInstanceID    string
+	PrefixListProtoPrefixList string
+	PrefixListProtoProtocol   string
+	Entry                     ciscoiosxelisp.BGPID
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDDescriptor is the flattened-row descriptor for the nested list BGPID.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.PrefixListProtoSchema, ciscoiosxelisp.BGPIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.BGPID) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDFlatRow{
+				Entry:                     e,
+				InstanceListInstanceID:    yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:              yang.AncestorKey(anc, 0, "lisp"),
+				PrefixListProtoPrefixList: yang.AncestorKey(anc, 2, "prefix-list"),
+				PrefixListProtoProtocol:   yang.AncestorKey(anc, 2, "protocol"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDFlatRow) *ciscoiosxelisp.BGPID {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoBGPIDKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.PrefixListProtoPrefixList = r.PrefixListProtoPrefixList
+			k.PrefixListProtoProtocol = r.PrefixListProtoProtocol
+			if r.Entry.BGPID != nil {
+				k.BGPID = yang.CanonicalKey(r.Entry.BGPID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "route-import", "prefix-list-proto", "bgp-id")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDKey is EigrpOrOSPFID's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDKey struct {
+	LispListLisp              string
+	InstanceListInstanceID    string
+	PrefixListProtoPrefixList string
+	PrefixListProtoProtocol   string
+	Int16ID                   uint16
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDFlatRow flattens one EigrpOrOSPFID entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDFlatRow struct {
+	LispListLisp              string
+	InstanceListInstanceID    string
+	PrefixListProtoPrefixList string
+	PrefixListProtoProtocol   string
+	Entry                     ciscoiosxelisp.EigrpOrOSPFID
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDDescriptor is the flattened-row descriptor for the nested list EigrpOrOSPFID.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.PrefixListProtoSchema, ciscoiosxelisp.EigrpOrOSPFIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EigrpOrOSPFID) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDFlatRow{
+				Entry:                     e,
+				InstanceListInstanceID:    yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:              yang.AncestorKey(anc, 0, "lisp"),
+				PrefixListProtoPrefixList: yang.AncestorKey(anc, 2, "prefix-list"),
+				PrefixListProtoProtocol:   yang.AncestorKey(anc, 2, "protocol"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDFlatRow) *ciscoiosxelisp.EigrpOrOSPFID {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4RouteImportPrefixListProtoEigrpOrOSPFIDKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.PrefixListProtoPrefixList = r.PrefixListProtoPrefixList
+			k.PrefixListProtoProtocol = r.PrefixListProtoProtocol
+			if r.Entry.Int16ID != nil {
+				k.Int16ID = *r.Entry.Int16ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "route-import", "prefix-list-proto", "eigrp-or-ospf-id")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrKey is UsePetrXf79ad3's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	LocatorAddress         string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrFlatRow flattens one UsePetrXf79ad3 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.UsePetrXf79ad3
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrDescriptor is the flattened-row descriptor for the nested list UsePetrXf79ad3.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.UsePetrSchemaX857918}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.UsePetrXf79ad3) LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrFlatRow) *ciscoiosxelisp.UsePetrXf79ad3 {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.LocatorAddress != nil {
+				k.LocatorAddress = yang.CanonicalKey(r.Entry.LocatorAddress)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "use-petr")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrKey is UsePetrXf79ad3's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	LocatorAddress         string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrFlatRow flattens one UsePetrXf79ad3 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.UsePetrXf79ad3
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrDescriptor is the flattened-row descriptor for the nested list UsePetrXf79ad3.
+func LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.UsePetrSchemaX857918}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.UsePetrXf79ad3) LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrFlatRow) *ciscoiosxelisp.UsePetrXf79ad3 {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv4UsePetrConfigUsePetrKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.LocatorAddress != nil {
+				k.LocatorAddress = yang.CanonicalKey(r.Entry.LocatorAddress)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv4", "use-petr-config", "use-petr")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteKey is SummaryRoute's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteFlatRow flattens one SummaryRoute entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.SummaryRoute
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteDescriptor is the flattened-row descriptor for the nested list SummaryRoute.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.SummaryRouteSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.SummaryRoute) LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteFlatRow) *ciscoiosxelisp.SummaryRoute {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6AltSummaryRouteKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = yang.CanonicalKey(r.Entry.EidPrefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "alt", "summary-route")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContKey is DatabaseMappingEidContXe7dacb's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContFlatRow flattens one DatabaseMappingEidContXe7dacb entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseMappingEidContXe7dacb
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContDescriptor is the flattened-row descriptor for the nested list DatabaseMappingEidContXe7dacb.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseMappingEidContXe7dacb) LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContFlatRow) *ciscoiosxelisp.DatabaseMappingEidContXe7dacb {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = *r.Entry.EidPrefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "database-mapping", "eid-cont")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceKey is EidContIPv4Interface's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Name                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceFlatRow flattens one EidContIPv4Interface entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.EidContIPv4Interface
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceDescriptor is the flattened-row descriptor for the nested list EidContIPv4Interface.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.EidContIPv4InterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidContIPv4Interface) LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceFlatRow) *ciscoiosxelisp.EidContIPv4Interface {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4InterfaceKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "database-mapping", "eid-cont", "IPv4-interface")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceKey is EidContIPv6Interface's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Name                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceFlatRow flattens one EidContIPv6Interface entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.EidContIPv6Interface
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceDescriptor is the flattened-row descriptor for the nested list EidContIPv6Interface.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.EidContIPv6InterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidContIPv6Interface) LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceFlatRow) *ciscoiosxelisp.EidContIPv6Interface {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6InterfaceKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "database-mapping", "eid-cont", "IPv6-interface")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesKey is IPv4Addrees's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Address                string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesFlatRow flattens one IPv4Addrees entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.IPv4Addrees
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesDescriptor is the flattened-row descriptor for the nested list IPv4Addrees.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.IPv4AddreesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.IPv4Addrees) LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesFlatRow) *ciscoiosxelisp.IPv4Addrees {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv4AddreesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "database-mapping", "eid-cont", "ipv4-addrees")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesKey is IPv6Addrees's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Address                string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesFlatRow flattens one IPv6Addrees entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.IPv6Addrees
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesDescriptor is the flattened-row descriptor for the nested list IPv6Addrees.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.IPv6AddreesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.IPv6Addrees) LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesFlatRow) *ciscoiosxelisp.IPv6Addrees {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DatabaseMappingEidContIPv6AddreesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "database-mapping", "eid-cont", "ipv6-addrees")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteKey is SummaryRoute's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteFlatRow flattens one SummaryRoute entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.SummaryRoute
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteDescriptor is the flattened-row descriptor for the nested list SummaryRoute.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.SummaryRouteSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.SummaryRoute) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteFlatRow) *ciscoiosxelisp.SummaryRoute {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultAltSummaryRouteKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = yang.CanonicalKey(r.Entry.EidPrefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "default", "alt", "summary-route")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContKey is DatabaseMappingEidContXe7dacb's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContFlatRow flattens one DatabaseMappingEidContXe7dacb entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseMappingEidContXe7dacb
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContDescriptor is the flattened-row descriptor for the nested list DatabaseMappingEidContXe7dacb.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseMappingEidContXe7dacb) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContFlatRow) *ciscoiosxelisp.DatabaseMappingEidContXe7dacb {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = *r.Entry.EidPrefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "default", "database-mapping", "eid-cont")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceKey is EidContIPv4Interface's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Name                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceFlatRow flattens one EidContIPv4Interface entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.EidContIPv4Interface
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceDescriptor is the flattened-row descriptor for the nested list EidContIPv4Interface.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.EidContIPv4InterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidContIPv4Interface) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceFlatRow) *ciscoiosxelisp.EidContIPv4Interface {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4InterfaceKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "default", "database-mapping", "eid-cont", "IPv4-interface")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceKey is EidContIPv6Interface's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Name                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceFlatRow flattens one EidContIPv6Interface entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.EidContIPv6Interface
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceDescriptor is the flattened-row descriptor for the nested list EidContIPv6Interface.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.EidContIPv6InterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidContIPv6Interface) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceFlatRow) *ciscoiosxelisp.EidContIPv6Interface {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6InterfaceKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "default", "database-mapping", "eid-cont", "IPv6-interface")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesKey is IPv4Addrees's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Address                string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesFlatRow flattens one IPv4Addrees entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.IPv4Addrees
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesDescriptor is the flattened-row descriptor for the nested list IPv4Addrees.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.IPv4AddreesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.IPv4Addrees) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesFlatRow) *ciscoiosxelisp.IPv4Addrees {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv4AddreesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "default", "database-mapping", "eid-cont", "ipv4-addrees")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesKey is IPv6Addrees's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Address                string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesFlatRow flattens one IPv6Addrees entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidContEidPrefix       string
+	Entry                  ciscoiosxelisp.IPv6Addrees
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesDescriptor is the flattened-row descriptor for the nested list IPv6Addrees.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseMappingEidContSchemaX3faf64, ciscoiosxelisp.IPv6AddreesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.IPv6Addrees) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesFlatRow{
+				EidContEidPrefix:       yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesFlatRow) *ciscoiosxelisp.IPv6Addrees {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultDatabaseMappingEidContIPv6AddreesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidContEidPrefix = r.EidContEidPrefix
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "default", "database-mapping", "eid-cont", "ipv6-addrees")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerKey is MapServerX44f5d7's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerFlatRow flattens one MapServerX44f5d7 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.MapServerX44f5d7
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerDescriptor is the flattened-row descriptor for the nested list MapServerX44f5d7.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.MapServerSchemaXbaa972}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MapServerX44f5d7) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerFlatRow) *ciscoiosxelisp.MapServerX44f5d7 {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultEtrMapServerKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "default", "etr", "map-server")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherKey is Publisher's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherFlatRow flattens one Publisher entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.Publisher
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherDescriptor is the flattened-row descriptor for the nested list Publisher.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.PublisherSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.Publisher) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherFlatRow) *ciscoiosxelisp.Publisher {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultImportPublicationPublisherKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "default", "import", "publication", "publisher")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverKey is ItrMapResolverXb66490's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	IPAddr                 string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverFlatRow flattens one ItrMapResolverXb66490 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.ItrMapResolverXb66490
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverDescriptor is the flattened-row descriptor for the nested list ItrMapResolverXb66490.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.ItrMapResolverSchemaX760b03}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.ItrMapResolverXb66490) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverFlatRow) *ciscoiosxelisp.ItrMapResolverXb66490 {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultItrMapResolverKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.IPAddr != nil {
+				k.IPAddr = yang.CanonicalKey(r.Entry.IPAddr)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "default", "itr", "map-resolver")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceKey is EidInterface's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidPrefix              string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceFlatRow flattens one EidInterface entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.EidInterface
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceDescriptor is the flattened-row descriptor for the nested list EidInterface.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.EidInterfaceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.EidInterface) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceFlatRow) *ciscoiosxelisp.EidInterface {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.EidPrefix != nil {
+				k.EidPrefix = yang.CanonicalKey(r.Entry.EidPrefix)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "default", "map-cache", "eid-interface")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesKey is RlocAttributes's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidInterfaceEidPrefix  string
+	Rloc                   string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesFlatRow flattens one RlocAttributes entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	EidInterfaceEidPrefix  string
+	Entry                  ciscoiosxelisp.RlocAttributes
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesDescriptor is the flattened-row descriptor for the nested list RlocAttributes.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.EidInterfaceSchema, ciscoiosxelisp.RlocAttributesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.RlocAttributes) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesFlatRow{
+				EidInterfaceEidPrefix:  yang.AncestorKey(anc, 2, "eid-prefix"),
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesFlatRow) *ciscoiosxelisp.RlocAttributes {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultMapCacheEidInterfaceRlocAttributesKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			k.EidInterfaceEidPrefix = r.EidInterfaceEidPrefix
+			if r.Entry.Rloc != nil {
+				k.Rloc = yang.CanonicalKey(r.Entry.Rloc)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "default", "map-cache", "eid-interface", "rloc-attributes")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPKey is DatabaseBGP's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPFlatRow flattens one DatabaseBGP entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseBGP
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPDescriptor is the flattened-row descriptor for the nested list DatabaseBGP.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseBGPSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseBGP) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPFlatRow) *ciscoiosxelisp.DatabaseBGP {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseBGPKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = yang.CanonicalKey(r.Entry.ID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "default", "route-import", "database", "bgp")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpKey is DatabaseEigrp's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpFlatRow flattens one DatabaseEigrp entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseEigrp
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpDescriptor is the flattened-row descriptor for the nested list DatabaseEigrp.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseEigrp) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpFlatRow) *ciscoiosxelisp.DatabaseEigrp {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseEigrpKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "default", "route-import", "database", "eigrp")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFKey is DatabaseOSPF's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     uint16
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFFlatRow flattens one DatabaseOSPF entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.DatabaseOSPF
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFDescriptor is the flattened-row descriptor for the nested list DatabaseOSPF.
+func LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFDescriptor() yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFKey] {
+	return yang.ListDescriptor[LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFFlatRow, LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxelisp.LispListSchema, ciscoiosxelisp.InstanceContainerInstanceListSchema, ciscoiosxelisp.DatabaseOSPFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.DatabaseOSPF) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFFlatRow {
+			return LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFFlatRow{
+				Entry:                  e,
+				InstanceListInstanceID: yang.AncestorKey(anc, 1, "instance-id"),
+				LispListLisp:           yang.AncestorKey(anc, 0, "lisp"),
+			}
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFFlatRow) *ciscoiosxelisp.DatabaseOSPF {
+			return &r.Entry
+		}, func(r *LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFFlatRow) LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFKey {
+			var k LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseOSPFKey
+			k.LispListLisp = r.LispListLisp
+			k.InstanceListInstanceID = r.InstanceListInstanceID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "router"), yang.In(moduleCiscoIOSXELisp, "lisp-list", "instance-container", "instance-list", "default", "service", "ipv6", "default", "route-import", "database", "ospf")),
+	}
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseRipKey is RouteImportDatabaseRipX7f0045's row identity (ancestor keys in canonical form).
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseRipKey struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	ID                     string
+}
+
+// LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseRipFlatRow flattens one RouteImportDatabaseRipX7f0045 entry with its ancestor list keys.
+type LispListInstanceContainerInstanceListDefaultServiceIPv6DefaultRouteImportDatabaseRipFlatRow struct {
+	LispListLisp           string
+	InstanceListInstanceID string
+	Entry                  ciscoiosxelisp.RouteImportDatabaseRipX7f0045
 }

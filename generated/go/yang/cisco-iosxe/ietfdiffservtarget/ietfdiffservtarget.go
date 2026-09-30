@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCiscoPolicyTarget identifies the cisco-policy-target YANG module.
-var moduleCiscoPolicyTarget = &yang.Module{
-	Name:      "cisco-policy-target",
-	Namespace: "urn:ietf:params:xml:ns:yang:cisco-policy-target",
-}
-
 // moduleIetfDiffservTarget identifies the ietf-diffserv-target YANG module.
 var moduleIetfDiffservTarget = &yang.Module{
 	Name:      "ietf-diffserv-target",

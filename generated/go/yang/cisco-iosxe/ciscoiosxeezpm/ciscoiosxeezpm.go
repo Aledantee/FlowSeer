@@ -1010,19 +1010,6 @@ var HundredGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEEzpm,
 }
 
-// InterfacePortChannelAugment is the Cisco-IOS-XE-ezpm augment group at /Cisco-IOS-XE-native:native/interface/Port-channel.
-type InterfacePortChannelAugment struct {
-	Performance *Performance
-}
-
-// InterfacePortChannelAugmentSchema describes InterfacePortChannelAugment group fields with no codec root.
-var InterfacePortChannelAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: PerformanceSchema, GoName: "Performance", Name: "performance"},
-	},
-	Module: moduleCiscoIOSXEEzpm,
-}
-
 // LISPAugment is the Cisco-IOS-XE-ezpm augment group at /Cisco-IOS-XE-native:native/interface/LISP.
 type LISPAugment struct {
 	Performance *Performance
@@ -1075,13 +1062,13 @@ var PerformanceAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEEzpm,
 }
 
-// PortChannelSubinterfacePortChannelAugment is the Cisco-IOS-XE-ezpm augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel.
-type PortChannelSubinterfacePortChannelAugment struct {
+// PortChannelAugment is the Cisco-IOS-XE-ezpm augment group at /Cisco-IOS-XE-native:native/interface/Port-channel.
+type PortChannelAugment struct {
 	Performance *Performance
 }
 
-// PortChannelSubinterfacePortChannelAugmentSchema describes PortChannelSubinterfacePortChannelAugment group fields with no codec root.
-var PortChannelSubinterfacePortChannelAugmentSchema = &yang.Schema{
+// PortChannelAugmentSchema describes PortChannelAugment group fields with no codec root.
+var PortChannelAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: PerformanceSchema, GoName: "Performance", Name: "performance"},
 	},

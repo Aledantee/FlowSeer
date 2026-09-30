@@ -215,182 +215,26 @@ var SourceSchema = &yang.Schema{
 	Name:   "source",
 }
 
-// AppGigabitEthernetIPAugment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ip.
-type AppGigabitEthernetIPAugment struct {
+// IPAugment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ip.
+type IPAugment struct {
 	Mux *bool
 }
 
-// AppGigabitEthernetIPAugmentSchema describes AppGigabitEthernetIPAugment group fields with no codec root.
-var AppGigabitEthernetIPAugmentSchema = &yang.Schema{
+// IPAugmentSchema describes IPAugment group fields with no codec root.
+var IPAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
 	},
 	Module: moduleCiscoIOSXEIpmux,
 }
 
-// AppGigabitEthernetIPv6Augment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ipv6.
-type AppGigabitEthernetIPv6Augment struct {
+// IPv6Augment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ipv6.
+type IPv6Augment struct {
 	Mux *bool
 }
 
-// AppGigabitEthernetIPv6AugmentSchema describes AppGigabitEthernetIPv6Augment group fields with no codec root.
-var AppGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// EthernetIPAugment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/Ethernet/ip.
-type EthernetIPAugment struct {
-	Mux *bool
-}
-
-// EthernetIPAugmentSchema describes EthernetIPAugment group fields with no codec root.
-var EthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// EthernetIPv6Augment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/Ethernet/ipv6.
-type EthernetIPv6Augment struct {
-	Mux *bool
-}
-
-// EthernetIPv6AugmentSchema describes EthernetIPv6Augment group fields with no codec root.
-var EthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// FastEthernetIPAugment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/ip.
-type FastEthernetIPAugment struct {
-	Mux *bool
-}
-
-// FastEthernetIPAugmentSchema describes FastEthernetIPAugment group fields with no codec root.
-var FastEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// FastEthernetIPv6Augment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/ipv6.
-type FastEthernetIPv6Augment struct {
-	Mux *bool
-}
-
-// FastEthernetIPv6AugmentSchema describes FastEthernetIPv6Augment group fields with no codec root.
-var FastEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// FiveGigabitEthernetIPAugment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/ip.
-type FiveGigabitEthernetIPAugment struct {
-	Mux *bool
-}
-
-// FiveGigabitEthernetIPAugmentSchema describes FiveGigabitEthernetIPAugment group fields with no codec root.
-var FiveGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// FiveGigabitEthernetIPv6Augment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/ipv6.
-type FiveGigabitEthernetIPv6Augment struct {
-	Mux *bool
-}
-
-// FiveGigabitEthernetIPv6AugmentSchema describes FiveGigabitEthernetIPv6Augment group fields with no codec root.
-var FiveGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// FortyGigabitEthernetIPAugment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/ip.
-type FortyGigabitEthernetIPAugment struct {
-	Mux *bool
-}
-
-// FortyGigabitEthernetIPAugmentSchema describes FortyGigabitEthernetIPAugment group fields with no codec root.
-var FortyGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// FortyGigabitEthernetIPv6Augment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/ipv6.
-type FortyGigabitEthernetIPv6Augment struct {
-	Mux *bool
-}
-
-// FortyGigabitEthernetIPv6AugmentSchema describes FortyGigabitEthernetIPv6Augment group fields with no codec root.
-var FortyGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// GigabitEthernetIPAugment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/ip.
-type GigabitEthernetIPAugment struct {
-	Mux *bool
-}
-
-// GigabitEthernetIPAugmentSchema describes GigabitEthernetIPAugment group fields with no codec root.
-var GigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// GigabitEthernetIPv6Augment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/ipv6.
-type GigabitEthernetIPv6Augment struct {
-	Mux *bool
-}
-
-// GigabitEthernetIPv6AugmentSchema describes GigabitEthernetIPv6Augment group fields with no codec root.
-var GigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// HundredGigEIPAugment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/ip.
-type HundredGigEIPAugment struct {
-	Mux *bool
-}
-
-// HundredGigEIPAugmentSchema describes HundredGigEIPAugment group fields with no codec root.
-var HundredGigEIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// HundredGigEIPv6Augment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/ipv6.
-type HundredGigEIPv6Augment struct {
-	Mux *bool
-}
-
-// HundredGigEIPv6AugmentSchema describes HundredGigEIPv6Augment group fields with no codec root.
-var HundredGigEIPv6AugmentSchema = &yang.Schema{
+// IPv6AugmentSchema describes IPv6Augment group fields with no codec root.
+var IPv6AugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
 	},
@@ -419,110 +263,6 @@ type NativeIPv6Augment struct {
 var NativeIPv6AugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: IPv6MuxSchema, GoName: "Mux", Name: "mux"},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// TenGigabitEthernetIPAugment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/ip.
-type TenGigabitEthernetIPAugment struct {
-	Mux *bool
-}
-
-// TenGigabitEthernetIPAugmentSchema describes TenGigabitEthernetIPAugment group fields with no codec root.
-var TenGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// TenGigabitEthernetIPv6Augment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/ipv6.
-type TenGigabitEthernetIPv6Augment struct {
-	Mux *bool
-}
-
-// TenGigabitEthernetIPv6AugmentSchema describes TenGigabitEthernetIPv6Augment group fields with no codec root.
-var TenGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// TunnelIPAugment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ip.
-type TunnelIPAugment struct {
-	Mux *bool
-}
-
-// TunnelIPAugmentSchema describes TunnelIPAugment group fields with no codec root.
-var TunnelIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// TunnelIPv6Augment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ipv6.
-type TunnelIPv6Augment struct {
-	Mux *bool
-}
-
-// TunnelIPv6AugmentSchema describes TunnelIPv6Augment group fields with no codec root.
-var TunnelIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// TwentyFiveGigEIPAugment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/ip.
-type TwentyFiveGigEIPAugment struct {
-	Mux *bool
-}
-
-// TwentyFiveGigEIPAugmentSchema describes TwentyFiveGigEIPAugment group fields with no codec root.
-var TwentyFiveGigEIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// TwentyFiveGigEIPv6Augment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/ipv6.
-type TwentyFiveGigEIPv6Augment struct {
-	Mux *bool
-}
-
-// TwentyFiveGigEIPv6AugmentSchema describes TwentyFiveGigEIPv6Augment group fields with no codec root.
-var TwentyFiveGigEIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// TwoGigabitEthernetIPAugment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/ip.
-type TwoGigabitEthernetIPAugment struct {
-	Mux *bool
-}
-
-// TwoGigabitEthernetIPAugmentSchema describes TwoGigabitEthernetIPAugment group fields with no codec root.
-var TwoGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
-	},
-	Module: moduleCiscoIOSXEIpmux,
-}
-
-// TwoGigabitEthernetIPv6Augment is the Cisco-IOS-XE-ipmux augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/ipv6.
-type TwoGigabitEthernetIPv6Augment struct {
-	Mux *bool
-}
-
-// TwoGigabitEthernetIPv6AugmentSchema describes TwoGigabitEthernetIPv6Augment group fields with no codec root.
-var TwoGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Mux", Name: "mux", Type: yang.TEmpty},
 	},
 	Module: moduleCiscoIOSXEIpmux,
 }

@@ -258,39 +258,13 @@ var HundredGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEZone,
 }
 
-// InterfaceLISPAugment is the Cisco-IOS-XE-zone augment group at /Cisco-IOS-XE-native:native/interface/LISP.
-type InterfaceLISPAugment struct {
+// LISPAugment is the Cisco-IOS-XE-zone augment group at /Cisco-IOS-XE-native:native/interface/LISP.
+type LISPAugment struct {
 	ZoneMember *ZoneMember
 }
 
-// InterfaceLISPAugmentSchema describes InterfaceLISPAugment group fields with no codec root.
-var InterfaceLISPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: ZoneMemberSchema, GoName: "ZoneMember", Name: "zone-member"},
-	},
-	Module: moduleCiscoIOSXEZone,
-}
-
-// InterfacePortChannelAugment is the Cisco-IOS-XE-zone augment group at /Cisco-IOS-XE-native:native/interface/Port-channel.
-type InterfacePortChannelAugment struct {
-	ZoneMember *ZoneMember
-}
-
-// InterfacePortChannelAugmentSchema describes InterfacePortChannelAugment group fields with no codec root.
-var InterfacePortChannelAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: ZoneMemberSchema, GoName: "ZoneMember", Name: "zone-member"},
-	},
-	Module: moduleCiscoIOSXEZone,
-}
-
-// LISPSubinterfaceLISPAugment is the Cisco-IOS-XE-zone augment group at /Cisco-IOS-XE-native:native/interface/LISP-subinterface/LISP.
-type LISPSubinterfaceLISPAugment struct {
-	ZoneMember *ZoneMember
-}
-
-// LISPSubinterfaceLISPAugmentSchema describes LISPSubinterfaceLISPAugment group fields with no codec root.
-var LISPSubinterfaceLISPAugmentSchema = &yang.Schema{
+// LISPAugmentSchema describes LISPAugment group fields with no codec root.
+var LISPAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: ZoneMemberSchema, GoName: "ZoneMember", Name: "zone-member"},
 	},
@@ -310,13 +284,13 @@ var LoopbackAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEZone,
 }
 
-// PortChannelSubinterfacePortChannelAugment is the Cisco-IOS-XE-zone augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel.
-type PortChannelSubinterfacePortChannelAugment struct {
+// PortChannelAugment is the Cisco-IOS-XE-zone augment group at /Cisco-IOS-XE-native:native/interface/Port-channel.
+type PortChannelAugment struct {
 	ZoneMember *ZoneMember
 }
 
-// PortChannelSubinterfacePortChannelAugmentSchema describes PortChannelSubinterfacePortChannelAugment group fields with no codec root.
-var PortChannelSubinterfacePortChannelAugmentSchema = &yang.Schema{
+// PortChannelAugmentSchema describes PortChannelAugment group fields with no codec root.
+var PortChannelAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: ZoneMemberSchema, GoName: "ZoneMember", Name: "zone-member"},
 	},

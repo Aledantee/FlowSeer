@@ -76,6 +76,70 @@ func TestBuildVendorDataViewFixture(t *testing.T) {
 	}
 }
 
+func TestBuildVendorDataViewFlattensRecoveredChoiceChildren(t *testing.T) {
+	dir := t.TempDir()
+	writeYangModule(t, dir, "choice-base.yang", `module choice-base {
+  yang-version 1.1;
+  namespace "urn:flowseer:choice-base";
+  prefix cb;
+  container root {
+    choice mode {
+      case selected {
+        leaf present { type string; }
+      }
+    }
+  }
+}`)
+	writeYangModule(t, dir, "choice-aug.yang", `module choice-aug {
+  yang-version 1.1;
+  namespace "urn:flowseer:choice-aug";
+  prefix ca;
+  import choice-base { prefix cb; }
+  leaf recovered { type string; }
+}`)
+	vs, err := LoadVendor(&Vendor{Name: "choice", Paths: []string{dir}})
+	if err != nil {
+		t.Fatalf("LoadVendor: %v", err)
+	}
+	base := moduleByName(t, vs, "choice-base")
+	aug := moduleByName(t, vs, "choice-aug")
+	var caseEntry *yang.Entry
+	var findCase func(*yang.Entry)
+	findCase = func(entry *yang.Entry) {
+		if caseEntry != nil {
+			return
+		}
+		if entry.IsCase() {
+			caseEntry = entry
+			return
+		}
+		for _, child := range entry.Dir {
+			findCase(child)
+		}
+	}
+	findCase(base.Entry)
+	if caseEntry == nil {
+		t.Fatal("choice case is missing from the entry tree")
+	}
+	recovered := map[*yang.Entry][]*yang.Entry{caseEntry: {aug.Entry.Dir["recovered"]}}
+	view, err := buildVendorDataView(vs.Modules, recovered)
+	if err != nil {
+		t.Fatalf("buildVendorDataView: %v", err)
+	}
+	root := findDataNode(view.moduleViews["choice-base"].roots, "/choice-base:root")
+	if root == nil {
+		t.Fatal("choice-base root is missing")
+	}
+	group := findDataGroup(root.groups, "choice-aug")
+	if group == nil {
+		t.Fatal("choice-aug group is missing")
+	}
+	recoveredNode := findDataNode(group.children, "/choice-base:root/choice-aug:recovered")
+	if recoveredNode == nil {
+		t.Fatal("recovered child under choice case is missing from the flattened path")
+	}
+}
+
 func TestBuildVendorDataViewRejectsImportPackageCycle(t *testing.T) {
 	dir := t.TempDir()
 	writeYangModule(t, dir, "cyc-a.yang", `module cyc-a {

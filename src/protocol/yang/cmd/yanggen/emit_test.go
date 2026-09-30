@@ -181,6 +181,9 @@ func TestEmitAugmentModule(t *testing.T) {
 	if regexp.MustCompile(`Module:\s+moduleFixtureAug`).MatchString(mainSrc) {
 		t.Error("plain fields still carry foreign-module qualification")
 	}
+	if strings.Contains(mainSrc, "var moduleFixtureAug ") {
+		t.Error("fixture-main declares an unused fixture-aug module variable")
+	}
 
 	typesSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-types"))
 	if err != nil {
@@ -231,6 +234,47 @@ func TestEmitGroupingSharedShape(t *testing.T) {
 	wantComment := "Item is the fixture-main node shape instantiated at 2 schema paths, such as /fixture-main:primary-group/item."
 	if !strings.Contains(mainSrc, wantComment) {
 		t.Errorf("emitted fixture-main missing doc comment %q", wantComment)
+	}
+}
+
+func TestEmitMergesIdenticalGroupShapes(t *testing.T) {
+	dir := t.TempDir()
+	writeYangModule(t, dir, "group-base.yang", `module group-base {
+  yang-version 1.1;
+  namespace "urn:flowseer:group-base";
+  prefix gb;
+  container first { container target; }
+  container second { container target; }
+}`)
+	writeYangModule(t, dir, "group-aug.yang", `module group-aug {
+  yang-version 1.1;
+  namespace "urn:flowseer:group-aug";
+  prefix ga;
+  import group-base { prefix gb; }
+  augment "/gb:first/gb:target" { leaf value { type string; } }
+  augment "/gb:second/gb:target" { leaf value { type string; } }
+}`)
+	vs, err := LoadVendor(&Vendor{Name: "groups", Paths: []string{dir}})
+	if err != nil {
+		t.Fatalf("LoadVendor: %v", err)
+	}
+	plan, err := buildEmissionPlan(vs, "example.test/groups")
+	if err != nil {
+		t.Fatalf("buildEmissionPlan: %v", err)
+	}
+	if got := len(plan.packages["group-aug"].groups); got != 1 {
+		t.Fatalf("group shapes = %d, want one shared shape", got)
+	}
+	files, err := emitModuleFiles(plan, plan.packages["group-aug"])
+	if err != nil {
+		t.Fatalf("emit group-aug: %v", err)
+	}
+	var src strings.Builder
+	for _, name := range sortedKeys(files) {
+		src.Write(files[name])
+	}
+	if got := strings.Count(src.String(), "type TargetAugment struct"); got != 1 {
+		t.Fatalf("TargetAugment declarations = %d, want one", got)
 	}
 }
 
@@ -349,6 +393,7 @@ func TestEmitModuleOrderIndependent(t *testing.T) {
 		if reverse {
 			slices.Reverse(mods)
 		}
+		vs.Modules = mods
 		out := make(map[string]string, len(mods))
 		for _, m := range mods {
 			src, err := emitOne(vs, m)
@@ -370,7 +415,8 @@ func TestEmitModuleOrderIndependent(t *testing.T) {
 // TestEmitFixtureRepeatedLoadsDeterministic proves that goyang's augment
 // survivor does not affect the emitted package bytes.
 func TestEmitFixtureRepeatedLoadsDeterministic(t *testing.T) {
-	var want string
+	var want map[string]string
+	survivors := make(map[string]bool)
 	for i := 0; i < 20; i++ {
 		vs := fixtureVendor(t)
 		main := moduleByName(t, vs, "fixture-main")
@@ -382,17 +428,54 @@ func TestEmitFixtureRepeatedLoadsDeterministic(t *testing.T) {
 		if survivor != "fixture-aug" && survivor != "fixture-aug2" {
 			t.Fatalf("owner survivor module = %q, want one of the augmenting modules", survivor)
 		}
-		got, err := emitOne(vs, main)
-		if err != nil {
-			t.Fatalf("emit fixture-main: %v", err)
+		survivors[survivor] = true
+		got := make(map[string]string, len(vs.Modules))
+		for _, module := range vs.Modules {
+			src, err := emitOne(vs, module)
+			if err != nil {
+				t.Fatalf("emit %s: %v", module.Name, err)
+			}
+			got[module.Name] = src
 		}
 		if i == 0 {
 			want = got
 			continue
 		}
-		if got != want {
-			t.Fatalf("fixture-main output changed on load %d", i)
+		for name, src := range want {
+			if got[name] != src {
+				t.Fatalf("%s output changed on load %d", name, i)
+			}
 		}
+	}
+	if !survivors["fixture-aug"] || !survivors["fixture-aug2"] {
+		t.Fatalf("owner survivor modules = %v, want both augmenting modules", survivors)
+	}
+}
+
+func TestEmitValidatesBeforeClearingOutput(t *testing.T) {
+	vs := fixtureVendor(t)
+	vs.Modules[0].Entry = nil
+	tempDir, err := os.MkdirTemp(".", ".yanggen-emit-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	outDir := filepath.Join(tempDir, "generated")
+	sentinel := filepath.Join(outDir, "fixture", "sentinel")
+	if err := os.MkdirAll(filepath.Dir(sentinel), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sentinel, []byte("keep"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Emit([]*VendorSet{vs}, outDir); err == nil {
+		t.Fatal("Emit accepted a module without an entry tree")
+	}
+	if got, err := os.ReadFile(sentinel); err != nil {
+		t.Fatalf("read sentinel after failed Emit: %v", err)
+	} else if string(got) != "keep" {
+		t.Fatalf("sentinel = %q, want it preserved", got)
 	}
 }
 

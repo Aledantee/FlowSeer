@@ -17,12 +17,6 @@ var moduleRMONMIB = &yang.Module{
 	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:RMON-MIB",
 }
 
-// moduleRMON2MIB identifies the RMON2-MIB YANG module.
-var moduleRMON2MIB = &yang.Module{
-	Name:      "RMON2-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:RMON2-MIB",
-}
-
 // IdentityRmonEventsV2 is the RMON-MIB identity "rmonEventsV2".
 var IdentityRmonEventsV2 = yang.Identity{
 	Module: "RMON-MIB",

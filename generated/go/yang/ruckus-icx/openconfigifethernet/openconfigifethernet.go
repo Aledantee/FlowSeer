@@ -15,40 +15,10 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleIcxOpenconfigIfEthernetAug identifies the icx-openconfig-if-ethernet-aug YANG module.
-var moduleIcxOpenconfigIfEthernetAug = &yang.Module{
-	Name:      "icx-openconfig-if-ethernet-aug",
-	Namespace: "http://commscope.com/ns/yang/icx/icx-openconfig-if-ethernet-aug",
-}
-
-// moduleIcxOpenconfigIfPoeAug identifies the icx-openconfig-if-poe-aug YANG module.
-var moduleIcxOpenconfigIfPoeAug = &yang.Module{
-	Name:      "icx-openconfig-if-poe-aug",
-	Namespace: "http://commscope.com/ns/yang/icx/icx-openconfig-if-poe-aug",
-}
-
-// moduleOpenconfigIfAggregate identifies the openconfig-if-aggregate YANG module.
-var moduleOpenconfigIfAggregate = &yang.Module{
-	Name:      "openconfig-if-aggregate",
-	Namespace: "http://openconfig.net/yang/interfaces/aggregate",
-}
-
 // moduleOpenconfigIfEthernet identifies the openconfig-if-ethernet YANG module.
 var moduleOpenconfigIfEthernet = &yang.Module{
 	Name:      "openconfig-if-ethernet",
 	Namespace: "http://openconfig.net/yang/interfaces/ethernet",
-}
-
-// moduleOpenconfigIfPoe identifies the openconfig-if-poe YANG module.
-var moduleOpenconfigIfPoe = &yang.Module{
-	Name:      "openconfig-if-poe",
-	Namespace: "http://openconfig.net/yang/poe",
-}
-
-// moduleOpenconfigVLAN identifies the openconfig-vlan YANG module.
-var moduleOpenconfigVLAN = &yang.Module{
-	Name:      "openconfig-vlan",
-	Namespace: "http://openconfig.net/yang/vlan",
 }
 
 // IdentityETHERNETSPEED is the openconfig-if-ethernet identity "ETHERNET_SPEED".

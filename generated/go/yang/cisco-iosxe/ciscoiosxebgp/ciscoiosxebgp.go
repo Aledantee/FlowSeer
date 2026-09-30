@@ -14986,54 +14986,15 @@ var IPv6AugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEBGP,
 }
 
-// RouteMapSeqMatchAugment is the Cisco-IOS-XE-bgp augment group at /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-seq/match.
-type RouteMapSeqMatchAugment struct {
+// MatchAugment is the Cisco-IOS-XE-bgp augment group at /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-seq/match.
+type MatchAugment struct {
 	BGPRouteMapMatch *BGPRouteMapMatch
 }
 
-// RouteMapSeqMatchAugmentSchema describes RouteMapSeqMatchAugment group fields with no codec root.
-var RouteMapSeqMatchAugmentSchema = &yang.Schema{
+// MatchAugmentSchema describes MatchAugment group fields with no codec root.
+var MatchAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: BGPRouteMapMatchSchema, GoName: "BGPRouteMapMatch", Name: "bgp-route-map-match"},
-	},
-	Module: moduleCiscoIOSXEBGP,
-}
-
-// RouteMapSeqSetAugment is the Cisco-IOS-XE-bgp augment group at /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-seq/set.
-type RouteMapSeqSetAugment struct {
-	BGPRouteMapSet *BGPRouteMapSet
-}
-
-// RouteMapSeqSetAugmentSchema describes RouteMapSeqSetAugment group fields with no codec root.
-var RouteMapSeqSetAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: BGPRouteMapSetSchema, GoName: "BGPRouteMapSet", Name: "bgp-route-map-set"},
-	},
-	Module: moduleCiscoIOSXEBGP,
-}
-
-// RouteMapWithoutOrderSeqMatchAugment is the Cisco-IOS-XE-bgp augment group at /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-without-order-seq/match.
-type RouteMapWithoutOrderSeqMatchAugment struct {
-	BGPRouteMapMatch *BGPRouteMapMatch
-}
-
-// RouteMapWithoutOrderSeqMatchAugmentSchema describes RouteMapWithoutOrderSeqMatchAugment group fields with no codec root.
-var RouteMapWithoutOrderSeqMatchAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: BGPRouteMapMatchSchema, GoName: "BGPRouteMapMatch", Name: "bgp-route-map-match"},
-	},
-	Module: moduleCiscoIOSXEBGP,
-}
-
-// RouteMapWithoutOrderSeqSetAugment is the Cisco-IOS-XE-bgp augment group at /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-without-order-seq/set.
-type RouteMapWithoutOrderSeqSetAugment struct {
-	BGPRouteMapSet *BGPRouteMapSet
-}
-
-// RouteMapWithoutOrderSeqSetAugmentSchema describes RouteMapWithoutOrderSeqSetAugment group fields with no codec root.
-var RouteMapWithoutOrderSeqSetAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: BGPRouteMapSetSchema, GoName: "BGPRouteMapSet", Name: "bgp-route-map-set"},
 	},
 	Module: moduleCiscoIOSXEBGP,
 }
@@ -15047,6 +15008,19 @@ type RouterAugment struct {
 var RouterAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: RouterBGPSchema, GoName: "BGP", List: true, Name: "bgp"},
+	},
+	Module: moduleCiscoIOSXEBGP,
+}
+
+// SetAugment is the Cisco-IOS-XE-bgp augment group at /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-seq/set.
+type SetAugment struct {
+	BGPRouteMapSet *BGPRouteMapSet
+}
+
+// SetAugmentSchema describes SetAugment group fields with no codec root.
+var SetAugmentSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: BGPRouteMapSetSchema, GoName: "BGPRouteMapSet", Name: "bgp-route-map-set"},
 	},
 	Module: moduleCiscoIOSXEBGP,
 }

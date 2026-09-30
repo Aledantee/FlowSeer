@@ -4882,92 +4882,6 @@ var AppGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESwitch,
 }
 
-// AppGigabitEthernetSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/switchport.
-type AppGigabitEthernetSwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	DeviceTracking   *SwitchportDeviceTracking
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// AppGigabitEthernetSwitchportAugmentSchema describes AppGigabitEthernetSwitchportAugment group fields with no codec root.
-var AppGigabitEthernetSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{Child: SwitchportDeviceTrackingSchema, GoName: "DeviceTracking", Name: "device-tracking"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// AppGigabitEthernetSwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/switchport-config/switchport.
-type AppGigabitEthernetSwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// AppGigabitEthernetSwitchportConfigSwitchportAugmentSchema describes AppGigabitEthernetSwitchportConfigSwitchportAugment group fields with no codec root.
-var AppGigabitEthernetSwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
 // ArpAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/Cisco-IOS-XE-arp:arp.
 type ArpAugment struct {
 	AccessList []AccessList
@@ -5028,90 +4942,6 @@ var BootSystemAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESwitch,
 }
 
-// EthernetInternalSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/Ethernet-Internal/switchport.
-type EthernetInternalSwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// EthernetInternalSwitchportAugmentSchema describes EthernetInternalSwitchportAugment group fields with no codec root.
-var EthernetInternalSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// EthernetInternalSwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/Ethernet-Internal/switchport-config/switchport.
-type EthernetInternalSwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// EthernetInternalSwitchportConfigSwitchportAugmentSchema describes EthernetInternalSwitchportConfigSwitchportAugment group fields with no codec root.
-var EthernetInternalSwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
 // FastEthernetAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet.
 type FastEthernetAugment struct {
 	Auto             *Auto
@@ -5149,92 +4979,6 @@ var FastEthernetAugmentSchema = &yang.Schema{
 		{Child: SrrQueueSchema, GoName: "SrrQueue", Name: "srr-queue"},
 		{Child: SwitchSchema, GoName: "Switch", Name: "switch"},
 		{Child: VLANRangeSchema, GoName: "VLANRange", List: true, Name: "vlan-range"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// FastEthernetSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/switchport.
-type FastEthernetSwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	DeviceTracking   *SwitchportDeviceTracking
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// FastEthernetSwitchportAugmentSchema describes FastEthernetSwitchportAugment group fields with no codec root.
-var FastEthernetSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{Child: SwitchportDeviceTrackingSchema, GoName: "DeviceTracking", Name: "device-tracking"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// FastEthernetSwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/switchport-config/switchport.
-type FastEthernetSwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// FastEthernetSwitchportConfigSwitchportAugmentSchema describes FastEthernetSwitchportConfigSwitchportAugment group fields with no codec root.
-var FastEthernetSwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
 	},
 	Module: moduleCiscoIOSXESwitch,
 }
@@ -5280,90 +5024,6 @@ var FiftyGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESwitch,
 }
 
-// FiftyGigabitEthernetSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/switchport.
-type FiftyGigabitEthernetSwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// FiftyGigabitEthernetSwitchportAugmentSchema describes FiftyGigabitEthernetSwitchportAugment group fields with no codec root.
-var FiftyGigabitEthernetSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// FiftyGigabitEthernetSwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/switchport-config/switchport.
-type FiftyGigabitEthernetSwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// FiftyGigabitEthernetSwitchportConfigSwitchportAugmentSchema describes FiftyGigabitEthernetSwitchportConfigSwitchportAugment group fields with no codec root.
-var FiftyGigabitEthernetSwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
 // FiveGigabitEthernetAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet.
 type FiveGigabitEthernetAugment struct {
 	Auto             *Auto
@@ -5401,92 +5061,6 @@ var FiveGigabitEthernetAugmentSchema = &yang.Schema{
 		{Child: SrrQueueSchema, GoName: "SrrQueue", Name: "srr-queue"},
 		{Child: SwitchSchema, GoName: "Switch", Name: "switch"},
 		{Child: VLANRangeSchema, GoName: "VLANRange", List: true, Name: "vlan-range"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// FiveGigabitEthernetSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/switchport.
-type FiveGigabitEthernetSwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	DeviceTracking   *SwitchportDeviceTracking
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// FiveGigabitEthernetSwitchportAugmentSchema describes FiveGigabitEthernetSwitchportAugment group fields with no codec root.
-var FiveGigabitEthernetSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{Child: SwitchportDeviceTrackingSchema, GoName: "DeviceTracking", Name: "device-tracking"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/switchport-config/switchport.
-type FiveGigabitEthernetSwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportAugmentSchema describes FiveGigabitEthernetSwitchportConfigSwitchportAugment group fields with no codec root.
-var FiveGigabitEthernetSwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
 	},
 	Module: moduleCiscoIOSXESwitch,
 }
@@ -5532,90 +5106,6 @@ var FortyGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESwitch,
 }
 
-// FortyGigabitEthernetSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/switchport.
-type FortyGigabitEthernetSwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// FortyGigabitEthernetSwitchportAugmentSchema describes FortyGigabitEthernetSwitchportAugment group fields with no codec root.
-var FortyGigabitEthernetSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// FortyGigabitEthernetSwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/switchport-config/switchport.
-type FortyGigabitEthernetSwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// FortyGigabitEthernetSwitchportConfigSwitchportAugmentSchema describes FortyGigabitEthernetSwitchportConfigSwitchportAugment group fields with no codec root.
-var FortyGigabitEthernetSwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
 // FourHundredGigEAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/FourHundredGigE.
 type FourHundredGigEAugment struct {
 	Auto             *Auto
@@ -5653,47 +5143,6 @@ var FourHundredGigEAugmentSchema = &yang.Schema{
 		{Child: SrrQueueSchema, GoName: "SrrQueue", Name: "srr-queue"},
 		{Child: SwitchSchema, GoName: "Switch", Name: "switch"},
 		{Child: VLANRangeSchema, GoName: "VLANRange", List: true, Name: "vlan-range"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// FourHundredGigESwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/FourHundredGigE/switchport-config/switchport.
-type FourHundredGigESwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// FourHundredGigESwitchportConfigSwitchportAugmentSchema describes FourHundredGigESwitchportConfigSwitchportAugment group fields with no codec root.
-var FourHundredGigESwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
 	},
 	Module: moduleCiscoIOSXESwitch,
 }
@@ -5739,133 +5188,6 @@ var GigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESwitch,
 }
 
-// GigabitEthernetSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/switchport.
-type GigabitEthernetSwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	DeviceTracking   *SwitchportDeviceTracking
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// GigabitEthernetSwitchportAugmentSchema describes GigabitEthernetSwitchportAugment group fields with no codec root.
-var GigabitEthernetSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{Child: SwitchportDeviceTrackingSchema, GoName: "DeviceTracking", Name: "device-tracking"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// GigabitEthernetSwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/switchport-config/switchport.
-type GigabitEthernetSwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// GigabitEthernetSwitchportConfigSwitchportAugmentSchema describes GigabitEthernetSwitchportConfigSwitchportAugment group fields with no codec root.
-var GigabitEthernetSwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// HSRRingSwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/HSR-ring/switchport-config/switchport.
-type HSRRingSwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// HSRRingSwitchportConfigSwitchportAugmentSchema describes HSRRingSwitchportConfigSwitchportAugment group fields with no codec root.
-var HSRRingSwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
 // HundredGigEAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE.
 type HundredGigEAugment struct {
 	Auto             *Auto
@@ -5903,90 +5225,6 @@ var HundredGigEAugmentSchema = &yang.Schema{
 		{Child: SrrQueueSchema, GoName: "SrrQueue", Name: "srr-queue"},
 		{Child: SwitchSchema, GoName: "Switch", Name: "switch"},
 		{Child: VLANRangeSchema, GoName: "VLANRange", List: true, Name: "vlan-range"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// HundredGigESwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/switchport.
-type HundredGigESwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// HundredGigESwitchportAugmentSchema describes HundredGigESwitchportAugment group fields with no codec root.
-var HundredGigESwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// HundredGigESwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/switchport-config/switchport.
-type HundredGigESwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// HundredGigESwitchportConfigSwitchportAugmentSchema describes HundredGigESwitchportConfigSwitchportAugment group fields with no codec root.
-var HundredGigESwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
 	},
 	Module: moduleCiscoIOSXESwitch,
 }
@@ -6041,92 +5279,6 @@ var InterfacePortChannelAugmentSchema = &yang.Schema{
 		{Child: SrrQueueSchema, GoName: "SrrQueue", Name: "srr-queue"},
 		{Child: SwitchSchema, GoName: "Switch", Name: "switch"},
 		{Child: VLANRangeSchema, GoName: "VLANRange", List: true, Name: "vlan-range"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// InterfacePortChannelSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/switchport.
-type InterfacePortChannelSwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	DeviceTracking   *SwitchportDeviceTracking
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// InterfacePortChannelSwitchportAugmentSchema describes InterfacePortChannelSwitchportAugment group fields with no codec root.
-var InterfacePortChannelSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{Child: SwitchportDeviceTrackingSchema, GoName: "DeviceTracking", Name: "device-tracking"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// InterfacePortChannelSwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/switchport-config/switchport.
-type InterfacePortChannelSwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// InterfacePortChannelSwitchportConfigSwitchportAugmentSchema describes InterfacePortChannelSwitchportConfigSwitchportAugment group fields with no codec root.
-var InterfacePortChannelSwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
 	},
 	Module: moduleCiscoIOSXESwitch,
 }
@@ -6206,47 +5358,6 @@ var NativeSystemAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESwitch,
 }
 
-// PRPChannelSwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/PRP-channel/switchport-config/switchport.
-type PRPChannelSwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// PRPChannelSwitchportConfigSwitchportAugmentSchema describes PRPChannelSwitchportConfigSwitchportAugment group fields with no codec root.
-var PRPChannelSwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
 // PortChannelSubinterfacePortChannelAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel.
 type PortChannelSubinterfacePortChannelAugment struct {
 	Auto             *Auto
@@ -6286,90 +5397,6 @@ var PortChannelSubinterfacePortChannelAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESwitch,
 }
 
-// PortChannelSubinterfacePortChannelSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel/switchport.
-type PortChannelSubinterfacePortChannelSwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// PortChannelSubinterfacePortChannelSwitchportAugmentSchema describes PortChannelSubinterfacePortChannelSwitchportAugment group fields with no codec root.
-var PortChannelSubinterfacePortChannelSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// PortChannelSubinterfacePortChannelSwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel/switchport-config/switchport.
-type PortChannelSubinterfacePortChannelSwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// PortChannelSubinterfacePortChannelSwitchportConfigSwitchportAugmentSchema describes PortChannelSubinterfacePortChannelSwitchportConfigSwitchportAugment group fields with no codec root.
-var PortChannelSubinterfacePortChannelSwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
 // SdmAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/sdm.
 type SdmAugment struct {
 	Prefer *Prefer
@@ -6405,6 +5432,135 @@ type SnoopingEntrySnoopingAugment struct {
 var SnoopingEntrySnoopingAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: SnoopingEntrySnoopingVLANSchema, GoName: "VLAN", Name: "vlan"},
+	},
+	Module: moduleCiscoIOSXESwitch,
+}
+
+// SwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/switchport.
+type SwitchportAugment struct {
+	Access           *SwitchportAccess
+	AppInterface     *bool
+	Autostate        *Autostate
+	Block            *Block
+	DeviceTracking   *SwitchportDeviceTracking
+	Host             *bool
+	Mode             *Mode
+	Nonegotiate      *bool
+	PortSecurity     *SwitchportPortSecurity
+	PortSecurityCfg  *bool
+	PortSecurityConf *PortSecurityConf
+	Priority         *Priority
+	PrivateVLAN      *SwitchportPrivateVLAN
+	Protected        *bool
+	Trunk            *SwitchportTrunk
+	Vepa             *Vepa
+	Voice            *SwitchportVoice
+}
+
+// SwitchportAugmentSchema describes SwitchportAugment group fields with no codec root.
+var SwitchportAugmentSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
+		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
+		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
+		{Child: BlockSchema, GoName: "Block", Name: "block"},
+		{Child: SwitchportDeviceTrackingSchema, GoName: "DeviceTracking", Name: "device-tracking"},
+		{GoName: "Host", Name: "host", Type: yang.TEmpty},
+		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
+		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
+		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
+		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
+		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
+		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
+		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
+		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
+		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
+		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
+		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
+	},
+	Module: moduleCiscoIOSXESwitch,
+}
+
+// SwitchportAugmentXbc577b is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/Ethernet-Internal/switchport.
+type SwitchportAugmentXbc577b struct {
+	Access           *SwitchportAccess
+	AppInterface     *bool
+	Autostate        *Autostate
+	Block            *Block
+	Host             *bool
+	Mode             *Mode
+	Nonegotiate      *bool
+	PortSecurity     *SwitchportPortSecurity
+	PortSecurityCfg  *bool
+	PortSecurityConf *PortSecurityConf
+	Priority         *Priority
+	PrivateVLAN      *SwitchportPrivateVLAN
+	Protected        *bool
+	Trunk            *SwitchportTrunk
+	Vepa             *Vepa
+	Voice            *SwitchportVoice
+}
+
+// SwitchportAugmentSchemaX19338e describes SwitchportAugmentXbc577b group fields with no codec root.
+var SwitchportAugmentSchemaX19338e = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
+		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
+		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
+		{Child: BlockSchema, GoName: "Block", Name: "block"},
+		{GoName: "Host", Name: "host", Type: yang.TEmpty},
+		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
+		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
+		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
+		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
+		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
+		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
+		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
+		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
+		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
+		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
+		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
+	},
+	Module: moduleCiscoIOSXESwitch,
+}
+
+// SwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/switchport-config/switchport.
+type SwitchportConfigSwitchportAugment struct {
+	Access             *SwitchportConfigSwitchportAccess
+	AppInterface       *bool
+	Autostate          *Autostate
+	Block              *Block
+	Host               *bool
+	Mode               *Mode
+	Nonegotiate        *bool
+	PortSecurityConf   *bool
+	PortSecurityConfig *PortSecurityConfig
+	Priority           *Priority
+	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
+	Protected          *bool
+	Trunk              *SwitchportConfigSwitchportTrunk
+	Vepa               *Vepa
+	Voice              *SwitchportVoice
+}
+
+// SwitchportConfigSwitchportAugmentSchema describes SwitchportConfigSwitchportAugment group fields with no codec root.
+var SwitchportConfigSwitchportAugmentSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
+		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
+		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
+		{Child: BlockSchema, GoName: "Block", Name: "block"},
+		{GoName: "Host", Name: "host", Type: yang.TEmpty},
+		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
+		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
+		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
+		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
+		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
+		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
+		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
+		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
+		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
+		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
 	},
 	Module: moduleCiscoIOSXESwitch,
 }
@@ -6450,92 +5606,6 @@ var TenGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESwitch,
 }
 
-// TenGigabitEthernetSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/switchport.
-type TenGigabitEthernetSwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	DeviceTracking   *SwitchportDeviceTracking
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// TenGigabitEthernetSwitchportAugmentSchema describes TenGigabitEthernetSwitchportAugment group fields with no codec root.
-var TenGigabitEthernetSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{Child: SwitchportDeviceTrackingSchema, GoName: "DeviceTracking", Name: "device-tracking"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// TenGigabitEthernetSwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/switchport-config/switchport.
-type TenGigabitEthernetSwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// TenGigabitEthernetSwitchportConfigSwitchportAugmentSchema describes TenGigabitEthernetSwitchportConfigSwitchportAugment group fields with no codec root.
-var TenGigabitEthernetSwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
 // TwentyFiveGigEAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE.
 type TwentyFiveGigEAugment struct {
 	Auto             *Auto
@@ -6577,90 +5647,6 @@ var TwentyFiveGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESwitch,
 }
 
-// TwentyFiveGigESwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/switchport.
-type TwentyFiveGigESwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// TwentyFiveGigESwitchportAugmentSchema describes TwentyFiveGigESwitchportAugment group fields with no codec root.
-var TwentyFiveGigESwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// TwentyFiveGigESwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/switchport-config/switchport.
-type TwentyFiveGigESwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// TwentyFiveGigESwitchportConfigSwitchportAugmentSchema describes TwentyFiveGigESwitchportConfigSwitchportAugment group fields with no codec root.
-var TwentyFiveGigESwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
 // TwentyFiveGigabitEthernetAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigabitEthernet.
 type TwentyFiveGigabitEthernetAugment struct {
 	Auto             *Auto
@@ -6696,49 +5682,6 @@ var TwentyFiveGigabitEthernetAugmentSchema = &yang.Schema{
 		{Child: SrrQueueSchema, GoName: "SrrQueue", Name: "srr-queue"},
 		{Child: SwitchSchema, GoName: "Switch", Name: "switch"},
 		{Child: VLANRangeSchema, GoName: "VLANRange", List: true, Name: "vlan-range"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// TwentyFiveGigabitEthernetSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigabitEthernet/switchport.
-type TwentyFiveGigabitEthernetSwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// TwentyFiveGigabitEthernetSwitchportAugmentSchema describes TwentyFiveGigabitEthernetSwitchportAugment group fields with no codec root.
-var TwentyFiveGigabitEthernetSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
 	},
 	Module: moduleCiscoIOSXESwitch,
 }
@@ -6784,92 +5727,6 @@ var TwoGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESwitch,
 }
 
-// TwoGigabitEthernetSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/switchport.
-type TwoGigabitEthernetSwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	DeviceTracking   *SwitchportDeviceTracking
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// TwoGigabitEthernetSwitchportAugmentSchema describes TwoGigabitEthernetSwitchportAugment group fields with no codec root.
-var TwoGigabitEthernetSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{Child: SwitchportDeviceTrackingSchema, GoName: "DeviceTracking", Name: "device-tracking"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// TwoGigabitEthernetSwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/switchport-config/switchport.
-type TwoGigabitEthernetSwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// TwoGigabitEthernetSwitchportConfigSwitchportAugmentSchema describes TwoGigabitEthernetSwitchportConfigSwitchportAugment group fields with no codec root.
-var TwoGigabitEthernetSwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
 // TwoHundredGigEAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/TwoHundredGigE.
 type TwoHundredGigEAugment struct {
 	Auto             *Auto
@@ -6911,131 +5768,6 @@ var TwoHundredGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESwitch,
 }
 
-// TwoHundredGigESwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/TwoHundredGigE/switchport-config/switchport.
-type TwoHundredGigESwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// TwoHundredGigESwitchportConfigSwitchportAugmentSchema describes TwoHundredGigESwitchportConfigSwitchportAugment group fields with no codec root.
-var TwoHundredGigESwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// UcseSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/ucse/switchport.
-type UcseSwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// UcseSwitchportAugmentSchema describes UcseSwitchportAugment group fields with no codec root.
-var UcseSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// UcseSwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/ucse/switchport-config/switchport.
-type UcseSwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// UcseSwitchportConfigSwitchportAugmentSchema describes UcseSwitchportConfigSwitchportAugment group fields with no codec root.
-var UcseSwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
 // VLANAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/Vlan.
 type VLANAugment struct {
 	Auto             *Auto
@@ -7071,90 +5803,6 @@ var VLANAugmentSchema = &yang.Schema{
 		{Child: SrrQueueSchema, GoName: "SrrQueue", Name: "srr-queue"},
 		{Child: SwitchSchema, GoName: "Switch", Name: "switch"},
 		{Child: VLANRangeSchema, GoName: "VLANRange", List: true, Name: "vlan-range"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// WlanGigabitEthernetSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/Wlan-GigabitEthernet/switchport.
-type WlanGigabitEthernetSwitchportAugment struct {
-	Access           *SwitchportAccess
-	AppInterface     *bool
-	Autostate        *Autostate
-	Block            *Block
-	Host             *bool
-	Mode             *Mode
-	Nonegotiate      *bool
-	PortSecurity     *SwitchportPortSecurity
-	PortSecurityCfg  *bool
-	PortSecurityConf *PortSecurityConf
-	Priority         *Priority
-	PrivateVLAN      *SwitchportPrivateVLAN
-	Protected        *bool
-	Trunk            *SwitchportTrunk
-	Vepa             *Vepa
-	Voice            *SwitchportVoice
-}
-
-// WlanGigabitEthernetSwitchportAugmentSchema describes WlanGigabitEthernetSwitchportAugment group fields with no codec root.
-var WlanGigabitEthernetSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{Child: SwitchportPortSecuritySchema, GoName: "PortSecurity", Name: "port-security"},
-		{GoName: "PortSecurityCfg", Name: "port-security-cfg", Type: yang.TEmpty},
-		{Child: PortSecurityConfSchema, GoName: "PortSecurityConf", Name: "port-security-conf"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
-	},
-	Module: moduleCiscoIOSXESwitch,
-}
-
-// WlanGigabitEthernetSwitchportConfigSwitchportAugment is the Cisco-IOS-XE-switch augment group at /Cisco-IOS-XE-native:native/interface/Wlan-GigabitEthernet/switchport-config/switchport.
-type WlanGigabitEthernetSwitchportConfigSwitchportAugment struct {
-	Access             *SwitchportConfigSwitchportAccess
-	AppInterface       *bool
-	Autostate          *Autostate
-	Block              *Block
-	Host               *bool
-	Mode               *Mode
-	Nonegotiate        *bool
-	PortSecurityConf   *bool
-	PortSecurityConfig *PortSecurityConfig
-	Priority           *Priority
-	PrivateVLAN        *SwitchportConfigSwitchportPrivateVLAN
-	Protected          *bool
-	Trunk              *SwitchportConfigSwitchportTrunk
-	Vepa               *Vepa
-	Voice              *SwitchportVoice
-}
-
-// WlanGigabitEthernetSwitchportConfigSwitchportAugmentSchema describes WlanGigabitEthernetSwitchportConfigSwitchportAugment group fields with no codec root.
-var WlanGigabitEthernetSwitchportConfigSwitchportAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SwitchportConfigSwitchportAccessSchema, GoName: "Access", Name: "access"},
-		{GoName: "AppInterface", Name: "app-interface", Type: yang.TEmpty},
-		{Child: AutostateSchema, GoName: "Autostate", Name: "autostate"},
-		{Child: BlockSchema, GoName: "Block", Name: "block"},
-		{GoName: "Host", Name: "host", Type: yang.TEmpty},
-		{Child: ModeSchema, GoName: "Mode", Name: "mode"},
-		{GoName: "Nonegotiate", Name: "nonegotiate", Type: yang.TEmpty},
-		{GoName: "PortSecurityConf", Name: "port-security-conf", Type: yang.TEmpty},
-		{Child: PortSecurityConfigSchema, GoName: "PortSecurityConfig", Name: "port-security-config"},
-		{Child: PrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: SwitchportConfigSwitchportPrivateVLANSchema, GoName: "PrivateVLAN", Name: "private-vlan"},
-		{GoName: "Protected", Name: "protected", Type: yang.TEmpty},
-		{Child: SwitchportConfigSwitchportTrunkSchema, GoName: "Trunk", Name: "trunk"},
-		{Child: VepaSchema, GoName: "Vepa", Name: "vepa"},
-		{Child: SwitchportVoiceSchema, GoName: "Voice", Name: "voice"},
 	},
 	Module: moduleCiscoIOSXESwitch,
 }
