@@ -165,22 +165,3 @@ func Emit(sets []*VendorSet, outDir string) error {
 	}
 	return nil
 }
-
-// emitOne renders one package through a complete vendor emission plan. The
-// import base names the generated module containing sibling binding packages.
-func emitOne(vs *VendorSet, m *LoadedModule, importBase string) (string, error) {
-	plan, err := buildEmissionPlan(vs, importBase)
-	if err != nil {
-		return "", err
-	}
-	packagePlan := plan.packages[m.Name]
-	files, err := emitModuleFiles(plan, packagePlan)
-	if err != nil {
-		return "", err
-	}
-	var b strings.Builder
-	for _, name := range sortedKeys(files) {
-		b.Write(files[name])
-	}
-	return b.String(), nil
-}

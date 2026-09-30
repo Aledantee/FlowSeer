@@ -24,12 +24,28 @@ var updateGolden = flag.Bool("update-golden", false, "rewrite testdata/golden/* 
 
 const fixtureGoldenImportBase = "go.aledante.io/FlowSeer/src/protocol/yang/cmd/yanggen/testdata/golden/fixture"
 
+func emitOne(vs *VendorSet, m *LoadedModule) (string, error) {
+	plan, err := buildEmissionPlan(vs, fixtureGoldenImportBase)
+	if err != nil {
+		return "", err
+	}
+	files, err := emitModuleFiles(plan, plan.packages[m.Name])
+	if err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	for _, name := range sortedKeys(files) {
+		b.Write(files[name])
+	}
+	return b.String(), nil
+}
+
 // TestEmitFixtureGolden renders every fixture module and compares
 // byte-for-byte against the committed goldens.
 func TestEmitFixtureGolden(t *testing.T) {
 	vs := fixtureVendor(t)
 	for _, m := range vs.Modules {
-		got, err := emitOne(vs, m, fixtureGoldenImportBase)
+		got, err := emitOne(vs, m)
 		if err != nil {
 			t.Fatalf("emit %s: %v", m.Name, err)
 		}
@@ -61,7 +77,7 @@ func TestEmitFixtureGolden(t *testing.T) {
 func TestEmitFixtureParses(t *testing.T) {
 	vs := fixtureVendor(t)
 	for _, m := range vs.Modules {
-		got, err := emitOne(vs, m, fixtureGoldenImportBase)
+		got, err := emitOne(vs, m)
 		if err != nil {
 			t.Fatalf("emit %s: %v", m.Name, err)
 		}
@@ -77,7 +93,7 @@ func TestEmitFixtureParses(t *testing.T) {
 func TestEmitFixtureSurface(t *testing.T) {
 	vs := fixtureVendor(t)
 	main := moduleByName(t, vs, "fixture-main")
-	src, err := emitOne(vs, main, fixtureGoldenImportBase)
+	src, err := emitOne(vs, main)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +159,7 @@ func TestEmitFixtureSurface(t *testing.T) {
 // package-owned group and that the target package references that group.
 func TestEmitAugmentModule(t *testing.T) {
 	vs := fixtureVendor(t)
-	mainSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-main"), fixtureGoldenImportBase)
+	mainSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-main"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +173,7 @@ func TestEmitAugmentModule(t *testing.T) {
 		t.Error("plain fields still carry foreign-module qualification")
 	}
 
-	typesSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-types"), fixtureGoldenImportBase)
+	typesSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-types"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +188,7 @@ func TestEmitAugmentModule(t *testing.T) {
 // a grouping in another module take the instantiating module's name.
 func TestEmitGroupingInstantiatingModule(t *testing.T) {
 	vs := fixtureVendor(t)
-	mainSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-main"), fixtureGoldenImportBase)
+	mainSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-main"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +208,7 @@ func TestEmitGroupingInstantiatingModule(t *testing.T) {
 // two containers of fixture-main generates one struct for the two instances.
 func TestEmitGroupingSharedShape(t *testing.T) {
 	vs := fixtureVendor(t)
-	mainSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-main"), fixtureGoldenImportBase)
+	mainSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-main"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +234,7 @@ func TestEmitGroupingSharedShape(t *testing.T) {
 // for nodes that decode differently would lose data at one of its paths.
 func TestEmitShapeKeySeparatesDifferingNodes(t *testing.T) {
 	vs := fixtureVendor(t)
-	src, err := emitOne(vs, moduleByName(t, vs, "fixture-main"), fixtureGoldenImportBase)
+	src, err := emitOne(vs, moduleByName(t, vs, "fixture-main"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +342,7 @@ func TestEmitModuleOrderIndependent(t *testing.T) {
 		}
 		out := make(map[string]string, len(mods))
 		for _, m := range mods {
-			src, err := emitOne(vs, m, fixtureGoldenImportBase)
+			src, err := emitOne(vs, m)
 			if err != nil {
 				t.Fatalf("emit %s: %v", m.Name, err)
 			}
@@ -357,7 +373,7 @@ func TestEmitFixtureRepeatedLoadsDeterministic(t *testing.T) {
 		if survivor != "fixture-aug" && survivor != "fixture-aug2" {
 			t.Fatalf("owner survivor module = %q, want one of the augmenting modules", survivor)
 		}
-		got, err := emitOne(vs, main, fixtureGoldenImportBase)
+		got, err := emitOne(vs, main)
 		if err != nil {
 			t.Fatalf("emit fixture-main: %v", err)
 		}

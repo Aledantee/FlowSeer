@@ -269,15 +269,16 @@ func (em *moduleEmitter) emitGroups() {
 		for _, child := range group.group.children {
 			goName := fieldNames[child]
 			childSchema, childType, leafList, list, lt := em.childReferences(child)
-			if childSchema != nil {
+			switch {
+			case childSchema != nil:
 				if list {
 					structFields = append(structFields, jen.Id(goName).Index().Add(childType))
 				} else {
 					structFields = append(structFields, jen.Id(goName).Op("*").Add(childType))
 				}
-			} else if leafList {
+			case leafList:
 				structFields = append(structFields, jen.Id(goName).Index().Add(lt.goType()))
-			} else {
+			default:
 				fieldType := lt.goType()
 				if lt.pointer {
 					fieldType = jen.Op("*").Add(fieldType)
@@ -318,15 +319,16 @@ func (em *moduleEmitter) fieldsForNode(node *dataNodeView) ([]jen.Code, []jen.Co
 	for _, child := range node.children {
 		goName := fieldNames[child]
 		childSchema, childType, leafList, list, lt := em.childReferences(child)
-		if childSchema != nil {
+		switch {
+		case childSchema != nil:
 			if list {
 				structFields = append(structFields, jen.Id(goName).Index().Add(childType))
 			} else {
 				structFields = append(structFields, jen.Id(goName).Op("*").Add(childType))
 			}
-		} else if leafList {
+		case leafList:
 			structFields = append(structFields, jen.Id(goName).Index().Add(lt.goType()))
-		} else {
+		default:
 			fieldType := lt.goType()
 			if lt.pointer {
 				fieldType = jen.Op("*").Add(fieldType)

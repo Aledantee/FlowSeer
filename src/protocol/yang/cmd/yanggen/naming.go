@@ -410,10 +410,9 @@ type nodeShape struct {
 
 // shapeInstance records one concrete schema path where a shape appears.
 type shapeInstance struct {
-	node      *dataNodeView
-	path      []pathSeg
-	ancestors []ancestorList
-	segments  []string
+	node     *dataNodeView
+	path     []pathSeg
+	segments []string
 }
 
 // listInstance records one list data node that emits Key, Descriptor, and
@@ -580,18 +579,4 @@ func (p *packagePlan) structName(shapeKey string) string {
 
 func (p *packagePlan) schemaName(shapeKey string) string {
 	return p.scope.byPath["schema:"+shapeKey]
-}
-
-func (p *packagePlan) groupFor(group *dataGroupView) *groupShape {
-	for _, shape := range p.groups {
-		if shape.group == group {
-			return shape
-		}
-	}
-	return nil
-}
-
-func (p *packagePlan) groupFieldName(parent *dataNodeView, group *dataGroupView) string {
-	_, names := nodeFieldNames(parent)
-	return names[group]
 }
