@@ -21,6 +21,12 @@ import option "buf/validate/validate.proto";
 
 // One bounded slice of a session's packets, in delivery order.
 message CapturePacketChunk {
+  option (buf.validate.message).cel = {
+    id: "capture_packet_chunk.final_has_stop_reason"
+    message: "a final capture chunk names its stop reason and a non-final chunk does not"
+    expression: "this.final == has(this.stop_reason)"
+  };
+
   // The session this chunk belongs to. Must be present.
   CaptureSessionGlobalRef session = 1 [(buf.validate.field).required = true];
   // The sequence of the first packet in this chunk. Must be present.
@@ -33,6 +39,15 @@ message CapturePacketChunk {
   // Whether this is the last chunk of the stream. Unset means more chunks
   // follow.
   bool final = 5;
+  // Why the capture stopped. Must be present only on the final chunk.
+  // Failures end the stream without a final chunk.
+  CaptureStopReason stop_reason = 6 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [
+      0,
+      5
+    ]
+  }];
 }
 
 // One bounded slice of a session's stored pcapng artifact.

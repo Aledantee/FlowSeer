@@ -638,16 +638,23 @@ func (s *EdgeService) UploadCapture(
 				return nil, connectErr(err)
 			}
 
+			disagreed := false
 			_, err = s.store.MutateSession(ctx, sessionID, func(r *modelcapturev1.CaptureSessionRecord) error {
+				disagreed = false
 				r.GetState().SetCounters(chunk.GetCounters())
 				r.GetState().SetEndedAt(timestamppb.New(s.clock()))
 				r.GetState().SetArtifact(artifact)
-				if r.GetState().GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED {
-					r.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
-					if r.GetState().GetStopReason() == modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_UNSPECIFIED {
-						r.GetState().SetStopReason(deriveStopReason(r.GetConfig().GetBudget(), chunk.GetCounters()))
-					}
+				if r.GetState().GetLifecycle() == modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED {
+					disagreed = chunk.GetStopReason() != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR
+					r.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR)
+					return nil
 				}
+				if chunk.GetStopReason() == modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
+					r.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED)
+				} else {
+					r.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
+				}
+				r.GetState().SetStopReason(chunk.GetStopReason())
 				return nil
 			})
 			if err != nil {
@@ -655,6 +662,11 @@ func (s *EdgeService) UploadCapture(
 				// nothing will ever reach those bytes again.
 				s.store.DiscardArtifact(sessionID)
 				return nil, connectErr(err)
+			}
+			if disagreed {
+				s.log.WarnContext(ctx, "capture stop reason disagrees with operator cancellation",
+					slog.String("flowseer.capture.session.id", sessionID),
+					slog.String("flowseer.capture.stop.reported_reason", chunk.GetStopReason().String()))
 			}
 
 			finalized = true
@@ -779,20 +791,4 @@ func captureIsOver(state *modelcapturev1.CaptureSessionState) bool {
 	}
 	return state.GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED &&
 		lifecycleIsTerminal(state.GetLifecycle())
-}
-
-func deriveStopReason(budget *modelcapturev1.CaptureBudget, counters *netcapturev1.CaptureCounters) modelcapturev1.CaptureStopReason {
-	if budget == nil {
-		return modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT
-	}
-	if budget.HasMaxPackets() && counters != nil && counters.GetAcceptedPackets() >= budget.GetMaxPackets() {
-		return modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT
-	}
-	if budget.HasMaxDuration() {
-		return modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_DURATION
-	}
-	if budget.HasMaxBytes() {
-		return modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_BYTE_COUNT
-	}
-	return modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT
 }

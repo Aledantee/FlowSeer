@@ -262,6 +262,9 @@ func (e *Engine) run(p *pump.Pump[Batch]) {
 
 		counters := buildCounters()
 		b := Batch{FirstSequence: batchFirstSeq, Records: batch, Counters: counters, Final: final}
+		if final {
+			b.StopReason = stopReason
+		}
 		delivered, dropped := p.TrySendDropOldest(b)
 		applyDropAccounting(&pumpFIFO, &pendingTransportDrops, delivered, dropped, len(batch))
 

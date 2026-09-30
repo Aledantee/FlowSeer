@@ -186,6 +186,9 @@ func (h *Handler) runSession(sessionCtx context.Context, engineCtx context.Conte
 					Final:         proto.Bool(batch.Final),
 				}.Build(),
 			}.Build()
+			if batch.Final {
+				chunkMsg.GetChunk().SetStopReason(batch.StopReason)
+			}
 
 			if err := stream.Send(chunkMsg); err != nil {
 				log.WarnContext(sessionCtx, "upload chunk failed",

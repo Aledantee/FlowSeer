@@ -21,19 +21,20 @@ When central assigns a capture session to this edge:
    pump.
 5. While uploading, the runner sends fresh `SignedEdgeAssertion` frames every
    30 seconds, well within central's 60-second assertion window.
-6. When a session reaches its budget, the engine marks the trailing batch as
-   final; the runner uploads the chunk with `final: true`, closes the stream,
-   and unregisters the session. The engine marks no batch final for a run its
-   source killed off, so a capture that died mid-stream leaves the same trace
-   as one that timed out.
+6. When a session stops on a budget or an operator request, the engine puts
+   its exact stop reason on the final batch. The runner uploads that reason on
+   the final chunk, closes the stream, and unregisters the session. Non-final
+   chunks carry no reason. The engine marks no batch final for a run its source
+   killed off, so a capture that died mid-stream leaves the same trace as one
+   that timed out.
 
 ## A capture that did not finish must not send a final chunk
 
-The final chunk is the whole of what central has to go on. On one it finalizes
-the artifact, sets `COMPLETED`, and derives a stop reason from the budget —
-and `deriveStopReason` falls back to `PACKET_COUNT` when nothing else fits, so
-an empty capture reported as final becomes a completed capture that reached
-its packet budget. Without one, `failStream` marks the session `FAILED` with
+The final chunk reports why the engine stopped. Central finalizes the artifact
+and records that reason. A budget reason gives `COMPLETED`. `OPERATOR` gives
+`CANCELED`. When the operator has already canceled the session, central keeps
+`OPERATOR` even if the edge reports a budget reason, and logs the disagreement.
+Without a final chunk, `failStream` marks a running session `FAILED` with
 `CAPTURE_STOP_REASON_ERROR`.
 
 Two things end a session short, and neither sends one:
@@ -56,9 +57,9 @@ When an operator cancels an in-flight capture, central delivers a `Stop`
 assignment on the assignment stream. `Handler` looks up the active session and
 cancels the engine's context. The engine halts packet intake, flushes buffered
 packets into the pump marked with `Final: true`, and signals completion. The
-runner transmits this final batch to central, which records lifecycle
-`CANCELED` with stop reason `OPERATOR` and preserves the recorded pcapng
-artifact.
+runner transmits this final batch with `OPERATOR` to central. Central records
+lifecycle `CANCELED` with stop reason `OPERATOR` and preserves the recorded
+pcapng artifact.
 
 ## Telemetry privacy
 

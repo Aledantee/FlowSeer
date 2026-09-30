@@ -316,7 +316,8 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 				ReceivedPackets: proto.Uint64(2),
 				AcceptedPackets: proto.Uint64(2),
 			}.Build(),
-			Final: proto.Bool(true),
+			Final:      proto.Bool(true),
+			StopReason: modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT.Enum(),
 		}.Build(),
 	}.Build()
 
