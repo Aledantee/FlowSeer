@@ -276,6 +276,50 @@ func TestGroupedStructJSONRoundTrip(t *testing.T) {
 	}
 }
 
+func TestGroupedStructJSONBareMembers(t *testing.T) {
+	s := parentSchema()
+
+	var grouped Parent
+	if err := yang.UnmarshalJSON7951Struct(s, []byte(`{"y":"v"}`), &grouped); err != nil {
+		t.Fatalf("UnmarshalJSON7951Struct bare grouped member: %v", err)
+	}
+	if grouped.B == nil || grouped.B.Y == nil || *grouped.B.Y != "v" {
+		t.Errorf("bare grouped member = %+v, want B.Y=v", grouped)
+	}
+	if grouped.C != nil {
+		t.Errorf("bare grouped member allocated unrelated C: %+v", grouped.C)
+	}
+
+	var plain Parent
+	if err := yang.UnmarshalJSON7951Struct(s, []byte(`{"x":0}`), &plain); err != nil {
+		t.Fatalf("UnmarshalJSON7951Struct bare plain member: %v", err)
+	}
+	if plain.X == nil || *plain.X != 0 {
+		t.Errorf("bare plain member = %+v, want X=0", plain.X)
+	}
+	if plain.B != nil || plain.C != nil {
+		t.Errorf("bare plain member allocated grouped fields: %+v", plain)
+	}
+}
+
+func TestGroupedStructJSONBareMemberAmbiguity(t *testing.T) {
+	s := parentSchema()
+	s.Fields[0].Name = "other"
+	s.Fields[1].Child.Fields[0].Name = "z"
+	s.Fields[2].Child.Fields[0].Name = "z"
+
+	var got Parent
+	err := yang.UnmarshalJSON7951Struct(s, []byte(`{"z":1}`), &got)
+	if err == nil {
+		t.Fatal("UnmarshalJSON7951Struct accepted ambiguous bare grouped member")
+	}
+	for _, module := range []string{"b", "c"} {
+		if !strings.Contains(err.Error(), module) {
+			t.Errorf("error %q does not name module %q", err, module)
+		}
+	}
+}
+
 func TestGroupedStructXMLNameCollisions(t *testing.T) {
 	s := parentSchema()
 	wantValue := Parent{

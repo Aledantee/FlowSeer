@@ -308,7 +308,10 @@ func findJSONDescendant(level, next *Schema, obj map[string]json.RawMessage) (js
 		if foundOK {
 			return nil
 		}
-		raw, ok := lookupJSONField(obj, f, owner, group)
+		raw, ok, err := lookupJSONField(obj, level, f, owner, group)
+		if err != nil {
+			return err
+		}
 		if !ok {
 			return nil
 		}

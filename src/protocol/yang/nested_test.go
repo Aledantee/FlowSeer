@@ -2,6 +2,7 @@ package yang_test
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -279,7 +280,7 @@ func TestDecodeNestedListThroughGroupContainer(t *testing.T) {
 	}
 }
 
-func TestDecodeJSONNestedDoesNotMatchBareGroupedContainer(t *testing.T) {
+func TestDecodeJSONNestedMatchesBareGroupedContainer(t *testing.T) {
 	type row struct{ ID *string }
 	type group struct{ Container *struct{ Rows []row } }
 	type outer struct {
@@ -314,16 +315,62 @@ func TestDecodeJSONNestedDoesNotMatchBareGroupedContainer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeJSONNested: %v", err)
 	}
-	if len(rows) != 0 {
-		t.Fatalf("DecodeJSONNested returned %d rows for bare grouped container, want 0", len(rows))
+	if len(rows) != 1 || rows[0].Entry.ID == nil || *rows[0].Entry.ID != "B" {
+		t.Fatalf("DecodeJSONNested rows = %+v, want one row from bare grouped container", rows)
 	}
 
 	var got outer
 	if err := yang.UnmarshalJSON7951Struct(outerSchema, []byte(`{"id":"o","c":{"row":[{"id":"B"}]}}`), &got); err != nil {
 		t.Fatalf("UnmarshalJSON7951Struct: %v", err)
 	}
-	if got.B != nil {
-		t.Fatalf("UnmarshalJSON7951Struct allocated bare grouped container: %+v", got.B)
+	if got.B == nil || got.B.Container == nil || len(got.B.Container.Rows) != 1 {
+		t.Fatalf("UnmarshalJSON7951Struct bare grouped container = %+v, want one row", got.B)
+	}
+	if got.B.Container.Rows[0].ID == nil || *got.B.Container.Rows[0].ID != "B" {
+		t.Fatalf("UnmarshalJSON7951Struct bare grouped row = %+v, want B", got.B.Container.Rows[0])
+	}
+}
+
+func TestDecodeJSONNestedRejectsAmbiguousBareGroupedContainer(t *testing.T) {
+	type row struct{ ID *string }
+	rowB := &yang.Schema{
+		Module: modB,
+		Name:   "row",
+		Fields: []yang.Field{{GoName: "ID", Name: "id", Type: yang.TString}},
+	}
+	containerB := &yang.Schema{
+		Module: modB,
+		Name:   "c",
+		Fields: []yang.Field{{GoName: "Rows", Child: rowB, List: true}},
+	}
+	containerC := &yang.Schema{
+		Module: modC,
+		Name:   "c",
+		Fields: []yang.Field{{GoName: "Rows", Child: rowB, List: true}},
+	}
+	outerSchema := &yang.Schema{
+		Module: modA,
+		Name:   "outer",
+		Fields: []yang.Field{
+			{GoName: "B", Group: true, Child: &yang.Schema{
+				Module: modB,
+				Fields: []yang.Field{{GoName: "Container", Child: containerB}},
+			}},
+			{GoName: "C", Group: true, Child: &yang.Schema{
+				Module: modC,
+				Fields: []yang.Field{{GoName: "Container", Child: containerC}},
+			}},
+		},
+	}
+
+	_, err := yang.DecodeJSONNested[row]([]*yang.Schema{outerSchema, rowB}, []byte(`{"a:outer":[{"c":{"row":[{"id":"B"}]}}]}`))
+	if err == nil {
+		t.Fatal("DecodeJSONNested accepted ambiguous bare grouped container")
+	}
+	for _, module := range []string{"b", "c"} {
+		if !strings.Contains(err.Error(), module) {
+			t.Errorf("error %q does not name module %q", err, module)
+		}
 	}
 }
 
