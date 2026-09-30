@@ -4,12 +4,14 @@ type: docs
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: docs
 amends: docs/architecture/2026-09-30-operator-authorization-direction.md
 ---
 
 # Operator Authorization Reconciliation - Plan
+
+> Implemented. U1, U2, and U3 passed focused verification on 2026-09-30.
 
 ## Goal
 
@@ -246,10 +248,10 @@ U1 needs Docker (colima) and runs both engines in one session.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] Requirements 1 to 4 hold by their acceptance checks.
-- [ ] This plan's `status` set with an outcome note under its title.
-- [ ] No plan labels in the records, the research note, or the READMEs.
+- [x] Verifier green for every changed path.
+- [x] Requirements 1 to 4 hold by their acceptance checks.
+- [x] This plan's `status` set with an outcome note under its title.
+- [x] No plan labels in the records, the research note, or the READMEs.
 
 ## Open questions
 

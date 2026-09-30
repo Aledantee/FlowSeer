@@ -182,7 +182,7 @@ decision auditable and the restraint that keeps the data from spreading:
 - an artifact is served only to a caller authorized for that session, and a
   download is itself an event.
 
-The [operator authorization direction record](2026-09-28-operator-authorization-direction.md)
+The [operator authorization direction record](2026-09-30-operator-authorization-direction.md)
 decides authorization for capture operations. Capture uses three relations from
 that record's relation table:
 
@@ -328,7 +328,7 @@ before the change still decodes, with no requester. `OperatorRef` lives in the
 `{model/edge, model/identity, net/capture} ← model/capture` now.
 
 Authorization for capture defers to the
-[operator authorization record](2026-09-28-operator-authorization-direction.md),
+[operator authorization record](2026-09-30-operator-authorization-direction.md),
 and the relation table under "Every capture is bounded and authorized" points
 at it for capture, download, and full-payload permissions. Until that record's authentication lands, the caller writes
 `requested_by` and `CaptureService` checks nothing about the caller; the

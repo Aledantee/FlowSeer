@@ -92,4 +92,4 @@ The batch is atomic within one JetStream stream. It does not make a write to a
 different stream or a filesystem transactional. A physical file-store failure
 between the batch's two stores, clustered wrong-sequence responses, malformed
 records, and retry exhaustion remain separate test boundaries
-([operator authorization record, 2026-09-30 amendment](../../architecture/2026-09-28-operator-authorization-direction.md#2026-09-30--tenancy-as-built)).
+([operator authorization record, 2026-09-30 amendment](../../architecture/2026-09-30-operator-authorization-direction.md#tenants-as-landed)).

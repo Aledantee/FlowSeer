@@ -163,7 +163,7 @@ middleware too, and carries its own per-message bound instead.
 
 This gap is accepted for now rather than overlooked. Authorization for the
 operator and admin surfaces is a named follow-up in the
-[operator authorization record](../../../docs/architecture/2026-09-28-operator-authorization-direction.md),
+[operator authorization record](../../../docs/architecture/2026-09-30-operator-authorization-direction.md),
 which decides how the gap closes. Until the enforcement that record decides
 lands, the deployment's network boundary is the only thing in front of
 `DeviceService`, `EdgeAdminService`, and `CaptureService`. Do not expose the API
@@ -175,7 +175,7 @@ an edge, minted or revoked a setup key, or retired one. Minting a setup key
 is the most privileged action here, and after an incident there is no way to
 answer who minted which key for which edge. The audit stream is
 device-scoped by design and is not that trail; the operator authorization
-record's [Actions leave a trail](../../../docs/architecture/2026-09-28-operator-authorization-direction.md#actions-leave-a-trail)
+record's [Actions leave a trail](../../../docs/architecture/2026-09-30-operator-authorization-direction.md#the-operator-action-trail-ships-with-authorization)
 section decides the trail that closes this gap.
 
 Operator calls run as `dev_tenant` (or `default` when unset) through
