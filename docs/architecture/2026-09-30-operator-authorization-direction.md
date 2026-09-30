@@ -3,7 +3,7 @@ title: Operator Authorization - Direction
 type: direction
 date: 2026-09-30
 topic: operator-authorization
-status: proposed-direction
+status: accepted-direction
 ---
 
 # Operator Authorization - Direction
@@ -17,15 +17,15 @@ The [capture record](2026-09-09-remote-packet-capture-direction.md#every-capture
 lists the relations capture needs and defers the model to this record.
 
 This record describes how a caller becomes a principal and a tenant, how every
-RPC is authorized, and who owns the relationships. It keeps the engine choice
-open until a person reads both measured spikes. The measurements are in the
+RPC is authorized, and who owns the relationships. Its engine is OpenFGA, chosen after a person read both measured spikes. The
+measurements are in the
 [OpenFGA note](../research/2026-09-30-openfga-authorization-spike.md) and the
 [SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md).
 
 This record takes over operator authorization from the
 `2026-09-28-operator-authorization-direction.md` record. The earlier record
 remains useful as history, including the identity and tenancy foundation that
-landed under it. This record binds once a person accepts it.
+landed under it. The user accepted this record on 2026-09-30.
 
 ## A request, end to end
 
@@ -55,16 +55,20 @@ sequenceDiagram
 
 ## Decisions
 
-### The engine remains a user decision
+### OpenFGA is the engine
 
 The SpiceDB note measures both engines on one generated fixture and host.
 Its dimensions match the OpenFGA note, but that note's individual fixture
 list is absent. Grant distribution and stored-grant reference shape differ.
-The OpenFGA note's client language is unknown. This record does not recommend
-one engine. A person chooses after reading both notes, then amends this section
-and changes its status.
+The OpenFGA note's client language is unknown. Neither note ranks the engines on latency or
+throughput, and both keep revocation exact in their consistent modes. OpenFGA
+was chosen: the rest of this record is written for its contextual tuples,
+shared store, and check rules, and its consistency holds with the check cache
+off or `HIGHER_CONSISTENCY`. SpiceDB would keep revocation exact with caching
+on through ZedTokens. The triggers below say when that justifies a switch.
+(decided by the user, 2026-09-30)
 
-#### OpenFGA evidence
+#### Why OpenFGA
 
 OpenFGA is Apache-2.0, self-hostable, and a CNCF incubating project, which
 satisfies the rule that infrastructure must be open and run in the EU under
@@ -128,7 +132,7 @@ endpoint. See the
 [OpenFGA spike](../research/2026-09-30-openfga-authorization-spike.md) for the
 measurements and configuration.
 
-#### SpiceDB evidence
+#### SpiceDB, the measured alternative
 
 SpiceDB is Apache-2.0
 ([LICENSE](https://github.com/authzed/spicedb/blob/main/LICENSE)), a single Go
@@ -168,7 +172,7 @@ spreads and unexplained contradictions of the OpenFGA note.
 
 ### A separate engine deployment next to its own Postgres
 
-The selected engine runs as its own service, never embedded in a FlowSeer
+OpenFGA runs as its own service, never embedded in a FlowSeer
 host, backed by a Postgres datastore external from the first deployment. The
 engine and its datastore can then move or scale without redeploying a FlowSeer
 host. OpenFGA starts with `Authn.Method: none` and plaintext gRPC by default.
@@ -177,16 +181,16 @@ and runs its schema migration as its own job.
 
 ### Consistency is explicit at the adapter boundary
 
-If OpenFGA is selected, check caching stays off initially. If caching is
+OpenFGA's check caching stays off initially. If caching is
 enabled later, calls that hand out full payload, device credentials, or admin
-grants use its higher-consistency option. If SpiceDB is selected, the adapter
+grants use its higher-consistency option. Should SpiceDB replace it, the adapter
 chooses among `minimize_latency`, `at_least_as_fresh` with the relevant
 ZedToken, and `fully_consistent` for the same policy points. The
 engine-specific defaults and measurements stay in the two research notes.
 
 ### The service boundary names no engine
 
-FlowSeer reaches the selected engine through a Go interface for checks, bulk
+FlowSeer reaches OpenFGA through a Go interface for checks, bulk
 checks, resource lookup, and relationship writes and deletes. An in-memory
 fake implements the same interface for tests. The model configuration belongs
 to the service adapter. Nothing under `spec/proto/` names an engine, stores an
@@ -372,7 +376,7 @@ reports its cursor-paged `LookupResources` equivalent.
 
 ### FlowSeer's records own every relationship
 
-The selected engine holds a projection. Each relationship derives from a
+OpenFGA holds a projection. Each relationship derives from a
 FlowSeer record: an edge's tenant, a session's edge and requester, a member's
 enrollment, a role, or a grant. A projector writes relationships as records
 change and repairs drift. A removal that revokes access (a member, a grant,
@@ -431,9 +435,9 @@ rather than the device-scoped audit stream.
   gate and resource check separately, with the complete p50 and p99 tables in
   the research notes. The adapter keeps those checks behind one service
   contract.
-- The operator API is unusable without an OIDC issuer and a selected engine
-  deployment. The lab deployment gains both after the engine decision.
+- The operator API is unusable without an OIDC issuer and an OpenFGA
+  deployment. The lab deployment gains both in this record's second phase.
 - `OperatorRef` names an issuer and a subject, and handlers stamp it from
   the authenticated principal instead of trusting the payload.
 - Site and Tag grants and the preview wait for the inventory service. The
-  selected engine's model reserves their types.
+  OpenFGA model reserves their types.

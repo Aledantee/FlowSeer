@@ -60,6 +60,10 @@ that record's choices the user made or are local to the work.
   consistency token from documentation, the 09-30 record chose OpenFGA from
   measurements, and the two never ran on the same workload.
   This replaces the earlier decision that named OpenFGA as the engine.
+- OpenFGA is the engine, chosen after reading the SpiceDB spike beside the
+  OpenFGA spike. Why: neither ranks on speed, both keep revocation exact in
+  their consistent modes, and this plan's design is written for OpenFGA.
+  (decided by the user, 2026-09-30)
 - OpenFGA runs as its own service on a Postgres that is external from the
   first deployment, never embedded in a FlowSeer host. Why: each can move
   and scale alone. (decided by the user, 2026-09-30)
@@ -271,8 +275,6 @@ service.
 
 ## Open questions
 
-- Which engine does the user choose after the SpiceDB spike and before phase 2
-  is re-planned?
 - How one tenant with several issuers maps to organization claims.
   `TenantConfig` binds one issuer, so multiple issuers for one tenant need an
   answered pattern before phase 2 writes the configuration.
