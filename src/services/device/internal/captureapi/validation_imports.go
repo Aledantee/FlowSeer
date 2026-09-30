@@ -1,7 +1,8 @@
 package captureapi
 
 import (
-	// This package validates messages whose fields carry net/key and net/switching predefined rules, and the global registry resolves them only when the generated packages are linked.
-	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
+	// Uploaded chunks carry net/switching VLAN rules in their mirror fields.
+	// The schema imports those rules as an option, so protovalidate needs the
+	// generated package linked to register the rule extension before validation.
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 )
