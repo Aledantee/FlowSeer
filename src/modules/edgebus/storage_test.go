@@ -56,7 +56,7 @@ func TestAttachEdgeRefusedPastStoreCeilingAfterFailedAttach(t *testing.T) {
 		t.Fatal("first edge attach succeeded with a stream larger than its account budget")
 	}
 
-	secondCtx, cancel := context.WithTimeout(ctx, 11*time.Second)
+	secondCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	err = hub.AttachEdge(secondCtx, "0192e6a0-0000-7000-8000-000000000002")
 	if err == nil {

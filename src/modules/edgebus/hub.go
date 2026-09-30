@@ -298,6 +298,7 @@ func (h *Hub) connectAccount(srv *server.Server, account nkeys.KeyPair, accountJ
 // server provisioning a just-fetched account.
 func waitForJetStream(ctx context.Context, js jetstream.JetStream) error {
 	deadline := time.Now().Add(10 * time.Second)
+	var lastErr error
 	for {
 		infoCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		_, err := js.AccountInfo(infoCtx)
@@ -305,12 +306,13 @@ func waitForJetStream(ctx context.Context, js jetstream.JetStream) error {
 		if err == nil {
 			return nil
 		}
+		lastErr = err
 		if time.Now().After(deadline) {
-			return err
+			return lastErr
 		}
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.Join(ctx.Err(), lastErr)
 		case <-time.After(200 * time.Millisecond):
 		}
 	}
@@ -447,6 +449,9 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccoun
 				// that count so a failed stream setup still contributes its
 				// account budget to the next refusal diagnostic. The current
 				// refused account is not in the server count, hence the +1.
+				// The count includes CENTRAL because js.accounts holds CENTRAL plus enabled
+				// edges, while nats-server v2.14.6 refuses JetStream on the system account
+				// (server/jetstream.go:1177), so subtract one to count attached edges.
 				// nats-server v2.14.6 inserts accounts after sufficientResources
 				// passes and JetStreamNumAccounts reports that map's length
 				// (server/jetstream.go:1209-1238 and 1134-1143).
