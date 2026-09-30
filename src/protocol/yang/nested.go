@@ -298,8 +298,9 @@ func jsonLevelKeys(level *Schema, obj map[string]json.RawMessage) ([]KeyValue, e
 	return keys, nil
 }
 
-// findJSONDescendant locates the next list at any depth within an ancestor
-// entry, using the same member qualification rule as the struct decoder.
+// findJSONDescendant locates the first matching next list at any depth within
+// an ancestor entry in schema order. It stops at list boundaries and uses the
+// same member qualification rule as the struct decoder.
 func findJSONDescendant(level, next *Schema, obj map[string]json.RawMessage) (json.RawMessage, bool, error) {
 	var found json.RawMessage
 	foundOK := false

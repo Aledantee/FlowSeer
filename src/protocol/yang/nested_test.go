@@ -8,29 +8,26 @@ import (
 	"go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-type collisionRow struct {
+type propertyRow struct {
 	ID *string
 }
 
-type collisionContainer struct {
-	Rows []collisionRow
+type propertyContainer struct {
+	Rows []propertyRow
 }
 
-type collisionGroup struct {
-	C    *collisionContainer
-	Rows []collisionRow
+type propertyGroup struct {
+	C *propertyContainer
 }
 
-type collisionOuter struct {
-	ID   *string
-	C    *collisionContainer
-	B    *collisionGroup
-	Rows []collisionRow
+type propertyOuter struct {
+	ID *string
+	C  *propertyContainer
+	B  *propertyGroup
 }
 
-// collisionJSONSchemas builds the two-module schema used by nested JSON
-// lookup tests. Module a owns the plain paths and module b owns the group.
-func collisionJSONSchemas() (outer, rowA, rowB *yang.Schema) {
+// propertyJSONSchemas builds one-node container paths for nested JSON tests.
+func propertyJSONSchemas() (outer, rowA, rowB *yang.Schema) {
 	rowA = &yang.Schema{
 		Module: modA,
 		Name:   "row",
@@ -60,15 +57,89 @@ func collisionJSONSchemas() (outer, rowA, rowB *yang.Schema) {
 			{GoName: "C", Child: plainContainer},
 			{GoName: "B", Group: true, Child: &yang.Schema{
 				Module: modB,
-				Fields: []yang.Field{
-					{GoName: "C", Child: groupedContainer},
-					{GoName: "Rows", Child: rowB, List: true},
-				},
+				Fields: []yang.Field{{GoName: "C", Child: groupedContainer}},
 			}},
-			{GoName: "Rows", Child: rowA, List: true},
 		},
 	}
 	return outer, rowA, rowB
+}
+
+type directRow struct {
+	ID *string
+}
+
+type directGroup struct {
+	Rows []directRow
+}
+
+type directOuter struct {
+	ID   *string
+	Rows []directRow
+	B    *directGroup
+}
+
+// directJSONSchemas builds the module-distinct direct-list collision fixture.
+func directJSONSchemas() (outer, rowA, rowB *yang.Schema) {
+	rowA = &yang.Schema{
+		Module: modA,
+		Name:   "row",
+		Fields: []yang.Field{{GoName: "ID", Name: "id", Type: yang.TString}},
+	}
+	rowB = &yang.Schema{
+		Module: modB,
+		Name:   "row",
+		Fields: []yang.Field{{GoName: "ID", Name: "id", Type: yang.TString}},
+	}
+	outer = &yang.Schema{
+		Module: modA,
+		Name:   "outer",
+		Keys:   []string{"id"},
+		Fields: []yang.Field{
+			{GoName: "ID", Name: "id", Type: yang.TString},
+			{GoName: "Rows", Child: rowA, List: true},
+			{GoName: "B", Group: true, Child: &yang.Schema{
+				Module: modB,
+				Fields: []yang.Field{{GoName: "Rows", Child: rowB, List: true}},
+			}},
+		},
+	}
+	return outer, rowA, rowB
+}
+
+type overrideRow struct {
+	ID *string
+}
+
+type overrideContainer struct {
+	Rows []overrideRow
+}
+
+type overrideOuter struct {
+	ID *string
+	C  *overrideContainer
+}
+
+// overrideJSONSchemas builds a non-grouped container with a module override.
+func overrideJSONSchemas() (outer, row *yang.Schema) {
+	row = &yang.Schema{
+		Module: modA,
+		Name:   "row",
+		Fields: []yang.Field{{GoName: "ID", Name: "id", Type: yang.TString}},
+	}
+	outer = &yang.Schema{
+		Module: modA,
+		Name:   "outer",
+		Keys:   []string{"id"},
+		Fields: []yang.Field{
+			{GoName: "ID", Name: "id", Type: yang.TString},
+			{GoName: "C", Module: modB, Child: &yang.Schema{
+				Module: modA,
+				Name:   "c",
+				Fields: []yang.Field{{GoName: "Rows", Child: row, List: true}},
+			}},
+		},
+	}
+	return outer, row
 }
 
 func TestNestedAncestorKeysCanonical(t *testing.T) {
@@ -338,32 +409,37 @@ func TestDecodeXMLNestedIgnoresForeignAncestorKey(t *testing.T) {
 }
 
 func TestDecodeJSONNestedRejectsCrossModuleBareRows(t *testing.T) {
-	outer, rowA, rowB := collisionJSONSchemas()
+	propertyOuterSchema, propertyRowA, propertyRowB := propertyJSONSchemas()
+	directOuterSchema, _, directRowBSchema := directJSONSchemas()
 	tests := []struct {
-		name string
-		data string
-		next *yang.Schema
+		name  string
+		outer *yang.Schema
+		data  string
+		next  *yang.Schema
 	}{
 		{
-			name: "plain container cannot satisfy grouped target",
-			data: `{"id":"o","c":{"row":[{"id":"A"}]}}`,
-			next: rowB,
+			name:  "plain container cannot satisfy grouped target",
+			outer: propertyOuterSchema,
+			data:  `{"id":"o","c":{"row":[{"id":"A"}]}}`,
+			next:  propertyRowB,
 		},
 		{
-			name: "grouped container cannot satisfy plain target",
-			data: `{"id":"o","b:c":{"row":[{"id":"B"}]}}`,
-			next: rowA,
+			name:  "grouped container cannot satisfy plain target",
+			outer: propertyOuterSchema,
+			data:  `{"id":"o","b:c":{"row":[{"id":"B"}]}}`,
+			next:  propertyRowA,
 		},
 		{
-			name: "plain direct list cannot satisfy grouped target",
-			data: `{"id":"o","row":[{"id":"A"}]}`,
-			next: rowB,
+			name:  "plain direct list cannot satisfy grouped target",
+			outer: directOuterSchema,
+			data:  `{"id":"o","row":[{"id":"A"}]}`,
+			next:  directRowBSchema,
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			data := []byte(`{"a:outer":[` + tc.data + `]}`)
-			rows, err := yang.DecodeJSONNested[collisionRow]([]*yang.Schema{outer, tc.next}, data)
+			rows, err := yang.DecodeJSONNested[propertyRow]([]*yang.Schema{tc.outer, tc.next}, data)
 			if err != nil {
 				t.Fatalf("DecodeJSONNested: %v", err)
 			}
@@ -374,8 +450,12 @@ func TestDecodeJSONNestedRejectsCrossModuleBareRows(t *testing.T) {
 	}
 }
 
+// TestDecodeJSONNestedMatchesStructDecoder checks that a chain whose target
+// reaches one schema node returns the same entries that the struct decoder
+// stores in that node's field. Two nodes with the same name and module under
+// one ancestor entry are outside what the nested decoder can distinguish.
 func TestDecodeJSONNestedMatchesStructDecoder(t *testing.T) {
-	outer, rowA, rowB := collisionJSONSchemas()
+	outer, rowA, rowB := propertyJSONSchemas()
 	tests := []struct {
 		name  string
 		entry string
@@ -386,26 +466,34 @@ func TestDecodeJSONNestedMatchesStructDecoder(t *testing.T) {
 		{name: "grouped container qualified row", entry: `{"id":"o","b:c":{"b:row":[{"id":"B"}]}}`},
 		{name: "both containers", entry: `{"id":"o","c":{"row":[{"id":"A"}]},"b:c":{"row":[{"id":"B"}]}}`},
 		{name: "neither container", entry: `{"id":"o"}`},
-		{name: "direct lists bare", entry: `{"id":"o","row":[{"id":"A"}],"b:row":[{"id":"B"}]}`},
-		{name: "direct lists qualified", entry: `{"id":"o","a:row":[{"id":"A"}],"b:row":[{"id":"B"}]}`},
+		{name: "plain empty container", entry: `{"id":"o","c":{}}`},
+		{name: "grouped empty container", entry: `{"id":"o","b:c":{}}`},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var decoded collisionOuter
+			var decoded propertyOuter
 			if err := yang.UnmarshalJSON7951Struct(outer, []byte(tc.entry), &decoded); err != nil {
 				t.Fatalf("UnmarshalJSON7951Struct: %v", err)
+			}
+			var wantA []propertyRow
+			if decoded.C != nil {
+				wantA = decoded.C.Rows
+			}
+			var wantB []propertyRow
+			if decoded.B != nil && decoded.B.C != nil {
+				wantB = decoded.B.C.Rows
 			}
 			data := []byte(`{"a:outer":[` + tc.entry + `]}`)
 			for _, target := range []struct {
 				name   string
 				schema *yang.Schema
-				want   []collisionRow
+				want   []propertyRow
 			}{
-				{name: "module a", schema: rowA, want: collisionRows(decoded, "a")},
-				{name: "module b", schema: rowB, want: collisionRows(decoded, "b")},
+				{name: "module a", schema: rowA, want: wantA},
+				{name: "module b", schema: rowB, want: wantB},
 			} {
 				t.Run(target.name, func(t *testing.T) {
-					rows, err := yang.DecodeJSONNested[collisionRow]([]*yang.Schema{outer, target.schema}, data)
+					rows, err := yang.DecodeJSONNested[propertyRow]([]*yang.Schema{outer, target.schema}, data)
 					if err != nil {
 						t.Fatalf("DecodeJSONNested: %v", err)
 					}
@@ -423,25 +511,96 @@ func TestDecodeJSONNestedMatchesStructDecoder(t *testing.T) {
 	}
 }
 
-// collisionRows returns the rows the struct decoder stores for one module.
-func collisionRows(value collisionOuter, module string) []collisionRow {
-	if module == "a" {
-		if value.C != nil {
-			return value.C.Rows
-		}
-		return value.Rows
+func TestDecodeJSONNestedDirectListsMatchStructDecoder(t *testing.T) {
+	outer, rowA, rowB := directJSONSchemas()
+	for _, tc := range []struct {
+		name  string
+		entry string
+	}{
+		{name: "bare", entry: `{"id":"o","row":[{"id":"A"}],"b:row":[{"id":"B"}]}`},
+		{name: "qualified", entry: `{"id":"o","a:row":[{"id":"A"}],"b:row":[{"id":"B"}]}`},
+		{name: "neither", entry: `{"id":"o"}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var decoded directOuter
+			if err := yang.UnmarshalJSON7951Struct(outer, []byte(tc.entry), &decoded); err != nil {
+				t.Fatalf("UnmarshalJSON7951Struct: %v", err)
+			}
+			var wantB []directRow
+			if decoded.B != nil {
+				wantB = decoded.B.Rows
+			}
+			data := []byte(`{"a:outer":[` + tc.entry + `]}`)
+			for _, target := range []struct {
+				name   string
+				schema *yang.Schema
+				want   []directRow
+			}{
+				{name: "module a", schema: rowA, want: decoded.Rows},
+				{name: "module b", schema: rowB, want: wantB},
+			} {
+				t.Run(target.name, func(t *testing.T) {
+					rows, err := yang.DecodeJSONNested[directRow]([]*yang.Schema{outer, target.schema}, data)
+					if err != nil {
+						t.Fatalf("DecodeJSONNested: %v", err)
+					}
+					if len(rows) != len(target.want) {
+						t.Fatalf("got %d rows %+v, want %d rows %+v", len(rows), rows, len(target.want), target.want)
+					}
+					for i := range target.want {
+						if rows[i].Entry.ID == nil || target.want[i].ID == nil || *rows[i].Entry.ID != *target.want[i].ID {
+							t.Errorf("row %d = %+v, want %+v", i, rows[i].Entry, target.want[i])
+						}
+					}
+				})
+			}
+		})
 	}
-	if value.B == nil {
-		return nil
+}
+
+func TestDecodeJSONNestedModuleOverrideContainerMatch(t *testing.T) {
+	outer, row := overrideJSONSchemas()
+	for _, tc := range []struct {
+		name   string
+		entry  string
+		wantID string
+	}{
+		{name: "bare", entry: `{"id":"o","c":{"row":[{"id":"A"}]}}`, wantID: "A"},
+		{name: "qualified", entry: `{"id":"o","b:c":{"row":[{"id":"A"}]}}`, wantID: "A"},
+		{name: "bare empty", entry: `{"id":"o","c":{}}`},
+		{name: "qualified empty", entry: `{"id":"o","b:c":{}}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var decoded overrideOuter
+			if err := yang.UnmarshalJSON7951Struct(outer, []byte(tc.entry), &decoded); err != nil {
+				t.Fatalf("UnmarshalJSON7951Struct: %v", err)
+			}
+			var want []overrideRow
+			if decoded.C != nil {
+				want = decoded.C.Rows
+			}
+			data := []byte(`{"a:outer":[` + tc.entry + `]}`)
+			rows, err := yang.DecodeJSONNested[overrideRow]([]*yang.Schema{outer, row}, data)
+			if err != nil {
+				t.Fatalf("DecodeJSONNested: %v", err)
+			}
+			if len(rows) != len(want) {
+				t.Fatalf("got %d rows %+v, want %d rows %+v", len(rows), rows, len(want), want)
+			}
+			if tc.wantID != "" && (len(rows) != 1 || rows[0].Entry.ID == nil || *rows[0].Entry.ID != tc.wantID) {
+				t.Fatalf("got rows %+v, want one row with id %q", rows, tc.wantID)
+			}
+			for i := range want {
+				if rows[i].Entry.ID == nil || want[i].ID == nil || *rows[i].Entry.ID != *want[i].ID {
+					t.Errorf("row %d = %+v, want %+v", i, rows[i].Entry, want[i])
+				}
+			}
+		})
 	}
-	if value.B.C != nil {
-		return value.B.C.Rows
-	}
-	return value.B.Rows
 }
 
 func TestUnmarshalJSON7951StructRejectsGroupedNonArray(t *testing.T) {
-	outer, _, _ := collisionJSONSchemas()
+	outer, _, _ := directJSONSchemas()
 	for _, data := range []string{`{"b:row":"x"}`, `{"b:row":null}`} {
 		t.Run(data, func(t *testing.T) {
 			defer func() {
@@ -449,7 +608,7 @@ func TestUnmarshalJSON7951StructRejectsGroupedNonArray(t *testing.T) {
 					t.Fatalf("UnmarshalJSON7951Struct panicked: %v", recovered)
 				}
 			}()
-			var got collisionOuter
+			var got directOuter
 			if err := yang.UnmarshalJSON7951Struct(outer, []byte(data), &got); err == nil {
 				t.Fatalf("UnmarshalJSON7951Struct(%s) succeeded, want error", data)
 			}
