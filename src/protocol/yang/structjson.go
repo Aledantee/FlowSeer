@@ -206,6 +206,21 @@ func lookupMember(obj map[string]json.RawMessage, module, name string) (json.Raw
 	return raw, ok
 }
 
+// lookupJSONField finds a field's JSON member using the struct decoder's
+// qualification rule. Grouped fields require their module-qualified name.
+func lookupJSONField(obj map[string]json.RawMessage, f *Field, owner *Schema, group *Field) (json.RawMessage, bool) {
+	name := f.Name
+	if f.Child != nil {
+		name = f.Child.Name
+	}
+	module := f.qualifiedModule(owner)
+	if group != nil {
+		raw, ok := obj[module+":"+name]
+		return raw, ok
+	}
+	return lookupMember(obj, module, name)
+}
+
 // decodeJSONObject populates rv from obj per s.
 func decodeJSONObject(s *Schema, obj map[string]json.RawMessage, rv reflect.Value) error {
 	return walkFields(s, func(f *Field, owner *Schema, group *Field) error {
@@ -213,14 +228,7 @@ func decodeJSONObject(s *Schema, obj map[string]json.RawMessage, rv reflect.Valu
 		if f.Child != nil {
 			name = f.Child.Name
 		}
-		var raw json.RawMessage
-		var ok bool
-		module := f.qualifiedModule(owner)
-		if group != nil {
-			raw, ok = obj[module+":"+name]
-		} else {
-			raw, ok = lookupMember(obj, module, name)
-		}
+		raw, ok := lookupJSONField(obj, f, owner, group)
 		if !ok {
 			return nil
 		}
