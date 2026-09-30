@@ -116,7 +116,7 @@ Requirements 1 (`OperatorRef` part) and 8.
 
 Files: `docs/plans/2026-09-28-2029-feat-operator-authorization-phase2-plan.md`
 After: U1
-Landed: `2088ca38..6a2f7d04`
+Landed: `2088ca38..b0eafd4b`
 
 Requirements 1 (tenant part) and 4.
 

@@ -4,7 +4,7 @@ type: feat
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: partially-implemented
+status: implemented
 review: rework
 execution: mixed
 amends: docs/architecture/2026-09-28-operator-authorization-direction.md
@@ -13,7 +13,7 @@ parent: docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md
 
 # Operator Authorization Phase 2, Tenant Entity and Partitioned Stores - Plan
 
-> Partially implemented. U1–U10 landed 2026-09-28T20:08:45Z to 2026-09-29T21:10:37Z. Follow-up units U11–U13 are open.
+> Implemented. 13 units, 2026-09-28T20:08:45Z to 2026-09-30T08:51:51Z.
 
 This plan is phase 2 of the operator authorization parent plan, following
 phase 1 (`docs/plans/2026-09-28-2029-feat-operator-authorization-phase1-plan.md`,
@@ -1358,13 +1358,13 @@ sections "2. Work the units", step 2, and "3. Finish", step 4). A `--full` run a
 - [x] Capture artifact path documentation reflects per-tenant directory layout.
 - [x] This plan's `status` set with an outcome note under its title.
 - [x] No plan labels in code.
-- [ ] Verifier green for every changed path across follow-up units U11–U13.
-- [ ] `KV_tenants` allows atomic publish after every hub start (Requirement 4).
-- [ ] `tenantstore.Create` writes a record and its `org_` index in one atomic batch, and nothing in the package deletes, rolls back, or takes over a key (Requirements 5, 6, and 7).
-- [ ] `claim_internal_test.go` replaces `ownership_test.go`.
-- [ ] The tenancy docs and low findings U13 names are fixed, and the amended partition rule reads as the user accepted it on 2026-09-30 in `docs/architecture/2026-09-28-operator-authorization-direction.md`.
-- [ ] This plan's `status` set to `implemented` with an outcome note under its title.
-- [ ] No plan labels in code after U11–U13.
+- [x] Verifier green for every changed path across follow-up units U11–U13.
+- [x] `KV_tenants` allows atomic publish after every hub start (Requirement 4).
+- [x] `tenantstore.Create` writes a record and its `org_` index in one atomic batch, and nothing in the package deletes, rolls back, or takes over a key (Requirements 5, 6, and 7).
+- [x] `claim_internal_test.go` replaces `ownership_test.go`.
+- [x] The tenancy docs and low findings U13 names are fixed, and the amended partition rule reads as the user accepted it on 2026-09-30 in `docs/architecture/2026-09-28-operator-authorization-direction.md`.
+- [x] This plan's `status` set to `implemented` with an outcome note under its title.
+- [x] No plan labels in code after U11–U13.
 
 ## Review
 
