@@ -729,6 +729,46 @@ func TestRestartedHubReattachesEdgeUnderPersistedTenant(t *testing.T) {
 	}
 }
 
+func TestTenantBucketAllowsAtomicPublishAcrossRestart(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+
+	first := startHub(t, dir, 0)
+	tenantStream, err := first.JetStream().Stream(ctx, "KV_"+edgebus.TenantBucket)
+	if err != nil {
+		t.Fatalf("load tenant stream: %v", err)
+	}
+	if !tenantStream.CachedInfo().Config.AllowAtomicPublish {
+		t.Fatal("first hub tenant stream AllowAtomicPublish = false, want true")
+	}
+	first.Close()
+
+	second, err := edgebus.StartHub(ctx, edgebus.HubConfig{
+		StateDir:    dir,
+		FsyncPolicy: service.BusFsyncPeriodic,
+	})
+	if err != nil {
+		t.Fatalf("restart hub: %v", err)
+	}
+	t.Cleanup(second.Close)
+
+	tenantStream, err = second.JetStream().Stream(ctx, "KV_"+edgebus.TenantBucket)
+	if err != nil {
+		t.Fatalf("load tenant stream after restart: %v", err)
+	}
+	if !tenantStream.CachedInfo().Config.AllowAtomicPublish {
+		t.Fatal("restarted hub tenant stream AllowAtomicPublish = false, want true")
+	}
+
+	laneStream, err := second.JetStream().Stream(ctx, "KV_"+edgebus.LaneBucket)
+	if err != nil {
+		t.Fatalf("load lane stream after restart: %v", err)
+	}
+	if laneStream.CachedInfo().Config.AllowAtomicPublish {
+		t.Fatal("lane stream AllowAtomicPublish = true, want false")
+	}
+}
+
 func TestAttachEdgeRejectsInvalidTenant(t *testing.T) {
 	ctx := context.Background()
 	hub := startHub(t, t.TempDir(), 0)

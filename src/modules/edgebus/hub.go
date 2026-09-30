@@ -333,6 +333,18 @@ func (h *Hub) createStores(ctx context.Context) error {
 			return errs.From(err).Code(ErrCodeHub).Attr("bucket", bucket).Msg("create key-value bucket")
 		}
 	}
+	// KeyValueConfig has no AllowAtomicPublish field, and each
+	// CreateOrUpdateKeyValue clears the stream flag, so restore it on every start.
+	tenantStream, err := h.centralJS.Stream(ctx, "KV_"+TenantBucket)
+	if err != nil {
+		return errs.From(err).Code(ErrCodeHub).Attr("bucket", TenantBucket).Msg("load key-value stream")
+	}
+	tenantConfig := tenantStream.CachedInfo().Config
+	tenantConfig.AllowAtomicPublish = true
+	if _, err := h.centralJS.UpdateStream(ctx, tenantConfig); err != nil {
+		return errs.From(err).Code(ErrCodeHub).Attr("bucket", TenantBucket).Msg("update key-value stream")
+	}
+
 	window := h.cfg.AuditDuplicateWindow
 	if window == 0 {
 		window = defaultAuditDedupeWindow
