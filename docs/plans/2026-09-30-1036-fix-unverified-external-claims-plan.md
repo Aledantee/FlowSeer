@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/architecture-patterns/per-account-jetstream-disk-budgets-reserve-against-the-server-store-ceiling.md
 execution: mixed
 ---
 
@@ -14,6 +15,9 @@ execution: mixed
 > Implemented. 9 units, 2026-09-30T09:32:43Z to 2026-09-30T15:23:16Z. U8
 > now serializes account enablement with `Hub.Close` through the JetStream
 > flag read and covers the race with a deterministic test.
+>
+> Compound: refreshed the JetStream budget solution, captured the streaming
+> validation and lock-hook conventions, and logged five workflow observations.
 
 ## Goal
 

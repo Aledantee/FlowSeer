@@ -26,3 +26,56 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-09-30 steer: Bash test assertions are not fail-fast
+Skill or agent: `tools/hooks/tests/run.sh`, the bare `[[ ]]` assertions around
+lines 70-107.
+What happened: the assertions rely on `set -e`, but the host's `/usr/bin/env
+bash` is GNU bash 3.2.57 on arm64-apple-darwin25. A direct check,
+`bash -c 'set -euo pipefail; [[ a == b ]]; echo reached'`, prints `reached`
+and exits 0. A failing check can therefore report success.
+Suggested change: route each assertion through an explicit `if` or status
+check, and add a regression case for a deliberately false assertion.
+
+## 2026-09-30 implement: passed-unit commits were not verified against the worker base
+Skill or agent: `.claude/skills/implement/SKILL.md`, the unit completion step
+that records a passed unit's `HEAD` after verification.
+What happened: U8 and U9 were recorded with `139391fe` and `b64fc806`, yet
+those commits are earlier ancestors in the current history and contain the
+unit changes from an earlier review round. No unit commit represented the
+worker's completed pass. The implement guidance says to record `HEAD`, while
+the tree check had to detect that the recorded commits predated the relevant
+work.
+Suggested change: require a passed-unit commit to be reachable from the
+worker base and the worker's new `HEAD`, then reject an ancestor reused from
+an earlier round.
+
+## 2026-09-30 implement: independent units halted behind a blocked prerequisite
+Skill or agent: `.claude/skills/implement/SKILL.md`, the wave grouping and unit
+progress steps.
+What happened: U5 has `After: none` in
+`docs/plans/2026-09-30-1036-fix-unverified-external-claims-plan.md`, but it was
+halted when U1 was blocked. Work with satisfied prerequisites should have
+continued independently.
+Suggested change: keep blocked units in their own state and dispatch every
+other unit whose `After` prerequisites are satisfied.
+
+## 2026-09-30 implement: plan-deviations rejects unquoted Files lines
+Skill or agent: `.claude/skills/implement/scripts/plan-deviations.py`, its
+`QUOTED` parser and `no unit with a Files field` guard.
+What happened: the helper only collects backtick-quoted paths, while this
+plan writes paths after unquoted `Files:` fields. Running it against the plan
+returns `no unit with a Files field in docs/plans/2026-09-30-1036-fix-unverified-external-claims-plan.md` with status 2.
+Suggested change: parse both backtick-quoted and unquoted comma-separated
+paths, while retaining the existing symbol and directory handling.
+
+## 2026-09-30 implement: commit bodies contain literal backslash-n text
+Skill or agent: `.claude/skills/implement/SKILL.md`, the unit commit step and
+its requirement for one line per test failure.
+What happened: the bodies of `39ef5aa6`, `07473cae`, and `eee9557b` contain
+literal `\\n` sequences where commit paragraphs should contain newlines. The
+history therefore records escaped formatting instead of readable test
+evidence.
+Suggested change: make the commit helper pass separate message paragraphs or
+write the body through standard input, then reject a body containing literal
+`\\n` before accepting the unit.

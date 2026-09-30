@@ -1,6 +1,7 @@
 ---
 title: A Per-Account JetStream Disk Budget Is a Reservation Against the Server's Store Ceiling
 date: 2026-09-10
+last_verified: 2026-09-30
 category: architecture-patterns
 module: src/modules/edgebus
 problem_type: architecture_pattern
