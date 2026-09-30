@@ -64,6 +64,9 @@
 // may reference an overriding [*Module] for augmented nodes or nil to
 // inherit the schema's module. Packages share one [*Module] value per
 // module across all schema nodes, avoiding string duplication.
+// A group [Field] has no wire element of its own. Its child fields are
+// encoded at the parent level under the group's module namespace, and its
+// Go value is a pointer so an absent group carries no data.
 //
 // # Concurrency
 //

@@ -6,6 +6,54 @@ import (
 	"go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
+var (
+	modA = &yang.Module{Name: "a", Namespace: "urn:a"}
+	modB = &yang.Module{Name: "b", Namespace: "urn:b"}
+	modC = &yang.Module{Name: "c", Namespace: "urn:c"}
+)
+
+type Parent struct {
+	X *int32
+	B *ParentB
+	C *ParentC
+}
+
+type ParentB struct {
+	X *int32
+	Y *string
+}
+
+type ParentC struct {
+	X *bool
+}
+
+func parentSchema() *yang.Schema {
+	parentB := &yang.Schema{
+		Module: modB,
+		Fields: []yang.Field{
+			{GoName: "X", Name: "x", Type: yang.TInt32},
+			{GoName: "Y", Name: "y", Type: yang.TString},
+		},
+	}
+	parentC := &yang.Schema{
+		Module: modC,
+		Fields: []yang.Field{{GoName: "X", Name: "x", Type: yang.TBool}},
+	}
+	return &yang.Schema{
+		Module: modA,
+		Name:   "parent",
+		Fields: []yang.Field{
+			{GoName: "X", Name: "x", Type: yang.TInt32},
+			{GoName: "B", Group: true, Child: parentB},
+			{GoName: "C", Group: true, Child: parentC},
+		},
+	}
+}
+
+func ptr[T any](value T) *T {
+	return &value
+}
+
 func TestSchemaModuleResolution(t *testing.T) {
 	type container struct {
 		Leaf *string
