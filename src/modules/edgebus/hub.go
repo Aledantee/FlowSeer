@@ -3,7 +3,6 @@ package edgebus
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -298,7 +297,6 @@ func (h *Hub) connectAccount(srv *server.Server, account nkeys.KeyPair, accountJ
 // server provisioning a just-fetched account.
 func waitForJetStream(ctx context.Context, js jetstream.JetStream) error {
 	deadline := time.Now().Add(10 * time.Second)
-	var lastErr error
 	for {
 		infoCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		_, err := js.AccountInfo(infoCtx)
@@ -306,13 +304,12 @@ func waitForJetStream(ctx context.Context, js jetstream.JetStream) error {
 		if err == nil {
 			return nil
 		}
-		lastErr = err
 		if time.Now().After(deadline) {
-			return lastErr
+			return err
 		}
 		select {
 		case <-ctx.Done():
-			return errors.Join(ctx.Err(), lastErr)
+			return err
 		case <-time.After(200 * time.Millisecond):
 		}
 	}
@@ -441,20 +438,17 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccoun
 	// first connection; wait for it to answer before creating the stream.
 	if err := waitForJetStream(ctx, js); err != nil {
 		conn.Close()
-		if srv != nil && (errors.Is(err, jetstream.ErrJetStreamNotEnabled) || errors.Is(err, jetstream.ErrJetStreamNotEnabledForAccount)) {
+		if srv != nil {
 			if jsc := srv.JetStreamConfig(); jsc != nil {
 				ceiling := jsc.MaxStore
-				// The server counts an edge account as soon as it enables
-				// JetStream, before this function creates the edge stream. Use
-				// that count so a failed stream setup still contributes its
-				// account budget to the next refusal diagnostic. The current
-				// refused account is not in the server count, hence the +1.
-				// The count includes CENTRAL because js.accounts holds CENTRAL plus enabled
-				// edges, while nats-server v2.14.6 refuses JetStream on the system account
-				// (server/jetstream.go:1177), so subtract one to count attached edges.
-				// nats-server v2.14.6 inserts accounts after sufficientResources
-				// passes and JetStreamNumAccounts reports that map's length
-				// (server/jetstream.go:1209-1238 and 1134-1143).
+				// The server counts an edge account as soon as it enables JetStream,
+				// before this function creates the edge stream. Use that count so a
+				// failed stream setup still contributes to the next refusal diagnostic.
+				// The refused account is not in the count, hence the +1. CENTRAL is
+				// in the count, while nats-server v2.14.6 refuses JetStream on the
+				// system account (server/jetstream.go:1177), so subtract one to count
+				// attached edges. JetStreamNumAccounts reports the enabled-account map
+				// after the resource check (server/jetstream.go:1209-1238,1134-1143).
 				attached := srv.JetStreamNumAccounts() - 1
 				if attached < 0 {
 					attached = 0

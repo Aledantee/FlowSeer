@@ -48,8 +48,8 @@ if diskBytes > 0 {
 ```
 
 The server-wide ceiling is set once, from `HubConfig.MaxStoreBytes`
-(`src/modules/edgebus/hub.go:43-49`), and `StartHub` records how account budgets
-reserve against it (`src/modules/edgebus/hub.go:148-153`):
+(`src/modules/edgebus/hub.go:42-48`), and `StartHub` records how account budgets
+reserve against it (`src/modules/edgebus/hub.go:147-152`):
 
 ```go
 // JetStreamMaxStore is the server store ceiling. Zero is finalized once
@@ -98,14 +98,17 @@ account `incomplete = true` (`server/accounts.go:3912-3917`). The account
 exists and authenticates, but any JetStream request inside it returns
 `jetstream not enabled` (error code 10076).
 
-In edgebus, `ensureEdgeAccount` detects this failure when `waitForJetStream`
-returns the server's JetStream refusal. It reads `srv.JetStreamConfig().MaxStore`
+In edgebus, `ensureEdgeAccount` runs this diagnostic after any
+`waitForJetStream` failure. It reads `srv.JetStreamConfig().MaxStore`
 (`server/jetstream.go:1114`). It counts enabled JetStream accounts through
 `srv.JetStreamNumAccounts`, which includes an edge whose stream setup failed
-before `h.edges` was updated (`src/modules/edgebus/hub.go:440-471`). If the
+before `h.edges` was updated (`src/modules/edgebus/hub.go:439-480`). If the
 central budget plus the edge budget times the enabled edge accounts plus the
 refused account exceeds that ceiling, it returns `ErrCodeHub` with a message
-naming storage, the ceiling, and the budgets:
+naming storage, the ceiling, and the budgets. The pinned server's account-budget
+check makes the storage refusal certain when this arithmetic exceeds the
+ceiling, so caller cancellation cannot hide the storage cause. `errs.From(err)`
+keeps the wait error in the returned chain.
 
 ```go
 storage limit exceeded: central budget <central> B plus <N> edge budgets of <edge> B exceeds store ceiling <ceiling> B
@@ -114,16 +117,18 @@ storage limit exceeded: central budget <central> B plus <N> edge budgets of <edg
 The hub does not pre-check the budget sum before attempting to attach. The
 server owns the authoritative account-budget sum, including reservations that
 `h.edges` does not yet contain. The hub therefore lets the server refuse the
-account, then translates that refusal using the server's account count
-(`src/modules/edgebus/hub.go:447-460`). The server inserts an enabled account
-after its resource check and `JetStreamNumAccounts` reports that account map
+account, then translates the refusal using the server's account count
+(`src/modules/edgebus/hub.go:441-463`). The same arithmetic runs when the wait
+loop returns a caller error, so the storage diagnostic does not depend on which
+error the loop returns. The server inserts an enabled account after its resource
+check and `JetStreamNumAccounts` reports that account map
 (`server/jetstream.go:1209-1238,1134-1143`). `maxStorePending` is not the
 reason for this order. In the pinned
 server it is set only while dynamic startup initializes the ceiling
 (`server/jetstream.go:2760-2765`) and is cleared before JetStream marks itself
 started (`server/jetstream.go:546-564,537-540`). `StartHub` waits for server
 readiness before it connects the central account or re-attaches persisted edges
-(`src/modules/edgebus/hub.go:239-257`).
+(`src/modules/edgebus/hub.go:238-256`).
 
 ### The frozen ceiling and restart caveat
 
@@ -157,16 +162,17 @@ largest edge count the deployment expects.
 
 **The failure lands on the newest account, not the largest one.** Whichever
 account is enabled last is the one refused, regardless of which account's budget
-made the sum too large. A failed stream setup is not in `hub.AttachedEdges()`
-but its enabled account still contributes to the server's account count
-(`src/modules/edgebus/hub.go:473-484`). The server reports that count from its
+made the sum too large. A failed stream setup is not inserted into `h.edges`
+(`src/modules/edgebus/hub.go:439-480`), and `hub.AttachedEdges()` lists only
+that map (`src/modules/edgebus/hub.go:548-557`). Its enabled account still
+contributes to the server's account count, which the server reports from its
 enabled-account map (`server/jetstream.go:1134-1143`).
 
 **A single-edge test cannot find it.** One edge plus central fits under almost
 any ceiling. The condition requires at least two edges attached to the same hub.
-`src/modules/edgebus/storage_test.go:13-37` verifies this boundary with a
+`src/modules/edgebus/storage_test.go:12-37` verifies this boundary with a
 hermetic 640 MiB configuration. The failed-attach reservation case is covered
-at `src/modules/edgebus/storage_test.go:40-68`.
+at `src/modules/edgebus/storage_test.go:39-67`.
 
 ## Why This Matters
 
@@ -186,7 +192,7 @@ is captured by `quietLogger` and forwarded to `HubConfig.Logger`
   ceiling the deployment sets.
 - Diagnosing `jetstream not enabled` or storage limit errors on a hub account:
   check `hub.AttachedEdges()`, recent attach failures, and the budget sum before
-  looking at keys or the account resolver (`src/modules/edgebus/hub.go:473-484`).
+  looking at keys or the account resolver (`src/modules/edgebus/hub.go:439-467`).
 - Adding a JetStream-enabled account to the hub: its budget joins the same sum
   and can push subsequent accounts over the ceiling.
 - Capacity planning: a hub with a store ceiling holds
@@ -198,7 +204,7 @@ is captured by `quietLogger` and forwarded to `HubConfig.Logger`
 
 ## Examples
 
-The behavior is verified in `src/modules/edgebus/storage_test.go:13-37` with a hub whose ceiling equals
+The behavior is verified in `src/modules/edgebus/storage_test.go:12-37` with a hub whose ceiling equals
 central's budget plus one edge's budget:
 
 ```go

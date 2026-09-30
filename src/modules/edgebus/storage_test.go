@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 	"testing"
-	"time"
 
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
@@ -56,8 +55,8 @@ func TestAttachEdgeRefusedPastStoreCeilingAfterFailedAttach(t *testing.T) {
 		t.Fatal("first edge attach succeeded with a stream larger than its account budget")
 	}
 
-	secondCtx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
+	secondCtx, cancel := context.WithCancel(ctx)
+	cancel()
 	err = hub.AttachEdge(secondCtx, "0192e6a0-0000-7000-8000-000000000002")
 	if err == nil {
 		t.Fatal("second edge attach succeeded past store ceiling")
