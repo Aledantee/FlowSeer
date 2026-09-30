@@ -59,7 +59,7 @@ that record's choices the user made or are local to the work.
   and not a paper comparison: the 09-28 record chose SpiceDB for its
   consistency token from documentation, the 09-30 record chose OpenFGA from
   measurements, and the two never ran on the same workload.
-This replaces the earlier decision that named OpenFGA as the engine.
+  This replaces the earlier decision that named OpenFGA as the engine.
 - OpenFGA runs as its own service on a Postgres that is external from the
   first deployment, never embedded in a FlowSeer host. Why: each can move
   and scale alone. (decided by the user, 2026-09-30)
