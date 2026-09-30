@@ -26,3 +26,15 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-09-30 review: fix loop exceeded its three-round stop point
+Skill or agent: `.claude/skills/review/references/fix-loop.md`, "When to stop".
+What happened: The phase review ended with `accept after fixes` after four fix
+rounds. The fourth round (`df4bb8a5`) fixed staging permission, stale-directory
+recovery, and rollback-preservation defects after earlier rounds had already
+changed the emission mechanism. The stop rule does not say how to handle an
+extra round when the final round is needed to reach acceptance. The verdict and
+round count are recorded by `c13d291b`.
+Suggested change: make the stop condition explicit for mixed or cross-lane
+rounds, and require a fresh plan or a maintainer override when the aggregate
+round count exceeds three.
