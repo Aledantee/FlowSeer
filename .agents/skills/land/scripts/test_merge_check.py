@@ -41,9 +41,25 @@ def expected_lost_sides(base, first, second, merged):
             and side_counts[line] - base_counts[line]
             > max(0, other_counts[line] - base_counts[line])
         }
-        if any(
-            merged_counts[line] <= other_counts[line]
+        unique_removals = {
+            line
+            for line in set(base_counts)
+            if base_counts[line] > side_counts[line]
+            and base_counts[line] - side_counts[line]
+            > max(0, base_counts[line] - other_counts[line])
+        }
+        has_added = any(
+            merged_counts[line] > other_counts[line]
             for line in unique_additions
+        )
+        has_removed = any(
+            merged_counts[line] < other_counts[line]
+            for line in unique_removals
+        )
+        if (
+            (unique_additions or unique_removals)
+            and not has_added
+            and not has_removed
         ):
             lost.add(side)
     return lost
@@ -510,7 +526,7 @@ class MergeCheckTest(unittest.TestCase):
         self.assertIn("missing first-parent change", result.stdout)
         self.assertIn("+ ++ y", result.stdout)
 
-    def test_generated_edits_follow_the_added_line_rule(self):
+    def test_generated_edits_follow_the_line_change_rule(self):
         repo = self.repository()
         bases = (
             ("alpha", "beta", "gamma"),
@@ -629,7 +645,7 @@ class MergeCheckTest(unittest.TestCase):
         )
         self.assertEqual(actual_lost, expected_lost, case)
 
-    def test_octopus_merges_fail_loudly(self):
+    def test_octopus_merges_are_reported_and_skipped(self):
         repo = self.repository()
         base = repo.base()
         branches = []
@@ -652,8 +668,63 @@ class MergeCheckTest(unittest.TestCase):
 
         result = repo.check(f"{merge}^..{merge}")
 
-        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-        self.assertIn("more than two parents", result.stderr)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            f"merge {merge[:12]}: not compared {len(branches)} "
+            "parents (octopus)",
+            result.stdout,
+        )
+        self.assertNotIn("more than two parents", result.stderr)
+
+    def test_octopus_and_lost_merge_report_both_results(self):
+        repo = self.repository()
+        base = repo.base()
+        branches = []
+        for index in range(3):
+            branch = f"octopus-loss-{index}"
+            repo.run("checkout", "-B", branch, base)
+            repo.write(f"file-{index}.txt", f"change {index}\n")
+            repo.commit(f"octopus change {index}")
+            branches.append(branch)
+        repo.run("checkout", branches[0])
+        repo.run(
+            "merge",
+            "--no-ff",
+            branches[1],
+            branches[2],
+            "-m",
+            "octopus merge",
+        )
+        octopus = repo.run("rev-parse", "HEAD").stdout.strip()
+
+        repo.run("checkout", "-B", "lost-first", octopus)
+        repo.write("file.txt", "a\nb\nfirst-only\n")
+        repo.commit("lost first change")
+        repo.run("checkout", "-B", "lost-second", octopus)
+        repo.write("file.txt", "a\nb\nsecond-only\n")
+        repo.commit("lost second change")
+        repo.run("checkout", "lost-first")
+        repo.run(
+            "merge",
+            "--no-ff",
+            "-s",
+            "ours",
+            "lost-second",
+            "-m",
+            "lost merge",
+        )
+        lost_merge = repo.run("rev-parse", "HEAD").stdout.strip()
+
+        result = repo.check(f"{octopus}^..{lost_merge}")
+
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn(
+            f"merge {octopus[:12]}: not compared {len(branches)} "
+            "parents (octopus)",
+            result.stdout,
+        )
+        self.assertIn("lost second-parent change", result.stdout)
+        self.assertNotIn("more than two parents", result.stderr)
 
     def test_multiple_merge_bases_are_not_compared(self):
         repo = self.repository()

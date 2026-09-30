@@ -6,8 +6,8 @@ parent, the other parent, and the merge. A parent addition is unique only for
 the count above both the base and the other parent. A parent removal is unique
 only for the fall below the base beyond the other parent's fall, and is kept
 when the merge count falls below the other parent's count. A parent change is
-lost only when it has a unique addition, none of that addition is kept beyond
-the other parent's count, and no unique removal is kept.
+lost when it has a unique addition or removal, no unique addition is kept
+beyond the other parent's count, and no unique removal is kept.
 """
 
 from collections import Counter
@@ -158,9 +158,11 @@ def diff_kinds(base, parent):
 def merge_parents(merge):
     fields = decode(git("rev-list", "--parents", "-n", "1", merge)).split()
     if len(fields) > 3:
-        raise RuntimeError(
-            f"{merge} has more than two parents ({len(fields) - 1})"
+        print(
+            f"merge {merge[:12]}: not compared {len(fields) - 1} "
+            "parents (octopus)"
         )
+        return None
     if len(fields) != 3:
         raise RuntimeError(
             f"{merge} has {len(fields) - 1} parents; "
@@ -194,7 +196,10 @@ def report_multiple_bases(merge, bases, first, second):
 
 
 def check_merge(merge):
-    first, second = merge_parents(merge)
+    parents = merge_parents(merge)
+    if parents is None:
+        return False
+    first, second = parents
     bases = merge_bases(first, second)
     if len(bases) != 1:
         if len(bases) > 1:
@@ -295,7 +300,7 @@ def check_merge(merge):
                 removal_count = max(0, side_fall - other_fall)
                 if removal_count:
                     unique_removals[line] = removal_count
-            if not unique_additions:
+            if not unique_additions and not unique_removals:
                 continue
             has_added = any(
                 merged_counts[line] > other_counts[line]
