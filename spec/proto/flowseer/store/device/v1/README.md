@@ -26,9 +26,11 @@ Deliberately absent:
   here that can carry one is `ServiceTelemetry.headers`, which says so, and a
   deployment that puts a token there is choosing to treat the configuration
   file as a secret.
-- A tenant field on stored lane and edge records. Their tenant is derived from
-  the `<tenant_id>.` prefix of the record key. `DeviceServiceConfig.dev_tenant`
-  is deployment configuration, not stored-record scope.
+- A tenant field on stored lane and edge records. Lane records are partitioned
+  by the `<tenant_id>.` prefix of their key. Edge lookup resolves the tenant
+  through the `edge_<edgeID>` index, then reads the tenant-prefixed record key.
+  `DeviceServiceConfig.dev_tenant` is deployment configuration, not
+  stored-record scope.
 
 ## The lane record
 
