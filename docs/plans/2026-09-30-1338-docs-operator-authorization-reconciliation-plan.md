@@ -55,8 +55,10 @@ decision below would then constrain the engine rather than sit beside it.
   organization) pair to one tenant in one atomic batch
   (`src/services/device/internal/tenantstore/store.go`). The 09-30 plan
   left "how a provider's organization identifiers map to FlowSeer tenant
-  ids" as an open question for its phase 2. This is the answer, and a
-  tenant id is never assumed equal to an organization id. Why: the index
+  ids" as an open question for its phase 2. This answers the one-issuer case.
+  The several-issuer case remains open in the 09-30 parent plan's open questions
+  (`docs/plans/2026-09-30-1139-feat-operator-authorization-plan.md`). A tenant id
+  is never assumed equal to an organization id. Why: the index
   exists, is tested against every applicable read and publish fault, and is
   exactly the lookup the interceptor needs to turn a token's organization
   claims into tenants. No landed code changes: nothing reads the index on a request
@@ -102,7 +104,7 @@ decision below would then constrain the engine rather than sit beside it.
    prints only the 09-28 record, the 09-30 record, and
    `docs/architecture/README.md`.
 3. Nothing landed is lost. Acceptance: every bullet of the 09-28 record's
-   "2026-09-30 — tenancy as built" amendment, and its partition rule with
+   `2026-09-30 — tenancy as built` amendment, and its partition rule with
    the lookup-index exception, appears in the 09-30 record.
 4. The plans point one way. Acceptance: the 09-28 parent and its phase 3
    to 6 plans read `status: superseded` with `superseded_by` naming the

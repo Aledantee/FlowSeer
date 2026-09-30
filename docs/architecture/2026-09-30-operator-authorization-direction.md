@@ -60,9 +60,10 @@ sequenceDiagram
 
 The SpiceDB note measures both engines on one generated fixture and host.
 Its dimensions match the OpenFGA note, but that note's individual fixture
-list is absent. Grant distribution, stored-grant reference shape, and client
-language differ. This record does not recommend one engine. A person chooses
-after reading both notes, then amends this section and changes its status.
+list is absent. Grant distribution and stored-grant reference shape differ.
+The OpenFGA note's client language is unknown. This record does not recommend
+one engine. A person chooses after reading both notes, then amends this section
+and changes its status.
 
 #### OpenFGA evidence
 
@@ -99,8 +100,8 @@ The [OpenFGA note](../research/2026-09-30-openfga-authorization-spike.md#cache-s
 measured 1.509-9.019 s of stale allows across two instances on one datastore,
 with the check cache and cache controller enabled at ten-second defaults.
 The [SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md#revocation-and-cache-staleness)
-re-measured OpenFGA over gRPC on its 292,238-relationship union plus temporary
-grant probes. Continuous polling and positive grant controls observed stale
+re-measured OpenFGA over gRPC on its paired model with 292,238 relationships
+plus temporary grant probes. Continuous polling and positive grant controls observed stale
 allows, with last allows 1.924-8.743 s after the delete response. These
 seconds-long windows agree. If caching is turned on later, calls that hand
 out full payload, device credentials, or admin grants pass
@@ -113,11 +114,12 @@ measured `and member from tenant` inside resource permissions on 336,249
 relationships. At a 60-second deadline, it returned 11 of 1,104
 Tag edges and zero platform-admin edges. The
 [SpiceDB note's direct-tenant re-measurement](../research/2026-09-30-spicedb-authorization-spike.md#membership-aware-resource-lookup)
-uses 336,245 relationships and the same deadline. OpenFGA returned all 1,104
+uses the paired model with 336,245 relationships and the same deadline. OpenFGA returned all 1,104
 Tag edges in 905.764 ms, but zero platform-admin edges at 60 s. The Tag
 lookup disagreement is unexplained. The fixtures and stored-grant reference
 shape differ. On the 292,238-relationship union, the OpenFGA note measured
-9 ms for Tag and 148 ms for admin. The SpiceDB note re-measured OpenFGA at
+9 ms for Tag and 148 ms for admin. The SpiceDB note re-measured OpenFGA on the
+paired model at
 12.960 ms and 82.658 ms over gRPC. Because `ListObjects` caps results at
 `listObjectsMaxResults` (1000 by default) and can return partial results at
 its deadline without an indicator
@@ -329,7 +331,7 @@ re-measured that placement on 336,245 relationships over gRPC. OpenFGA
 returned 1,104 Tag edges in 905.764 ms and zero platform-admin edges at 60 s.
 The Tag disagreement is unexplained, with different fixtures and stored-grant
 reference shapes. The OpenFGA note's 292,238-relationship union returned the
-Tag and admin sets in 9 ms and 148 ms. The SpiceDB note's OpenFGA union
+Tag and admin sets in 9 ms and 148 ms. The SpiceDB note's paired-model OpenFGA
 counterparts took 12.960 ms and 82.658 ms. These observations apply to the
 models and fixtures measured.
 
@@ -338,7 +340,7 @@ OpenFGA model, every object check also asks whether the object's `tenant`
 relation names the admitted tenant, and FlowSeer's grant API writes grants
 only to members of the granting tenant. A capture session's permissions
 derive from the edge stored with it, never from the edge a request names: the
-capture store reads a session by its id alone (`Store.Session` in
+capture store reads a session by tenant and session id (`Store.Session` in
 `src/services/device/internal/captureapi/store.go`).
 
 ### Every RPC declares its rule

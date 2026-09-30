@@ -12,10 +12,14 @@ record](../architecture/2026-09-30-operator-authorization-direction.md).
 
 The harness and service containers lived outside the repository, under
 `$TMPDIR`. The host was `Mac16,8`, with 12 CPUs and 51,539,607,552 bytes (48
-GiB) of memory. Colima had six CPUs and 8 GiB. PostgreSQL 17 backed both
-engines. SpiceDB A and B shared one database. OpenFGA A and B shared another
-database on a separate Postgres container. The disposable SpiceDB rebuild used
-a third Postgres container.
+GiB) of memory. Colima had six CPUs and 8 GiB. The harness created three
+PostgreSQL 17 containers. The main SpiceDB Postgres held the `spice` database,
+and later the `exclusion` and `membership` databases. The OpenFGA Postgres held
+the `fga` database. The third Postgres held the SpiceDB rebuild database.
+SpiceDB A and B used the main SpiceDB database. OpenFGA A and B used the main
+OpenFGA database. Revocation ran on those main SpiceDB and OpenFGA instances.
+The OpenFGA rebuild created a fresh store on the main OpenFGA instance. The
+SpiceDB rebuild used a separate SpiceDB instance backed by the third Postgres.
 
 SpiceDB used the default enabled dispatch cache, five-second revision
 quantization, 0.1 maximum staleness percentage, and revision heartbeat. Lookup
@@ -25,17 +29,17 @@ gRPC, including checks, writes, `ListObjects`, and `ListUsers`. Schema and
 dataset setup outside the timed rebuild also used HTTP. Ordinary measurements
 disabled the OpenFGA query and iterator caches. Revocation enabled the check
 query cache and cache controller with their default ten-second TTLs. Iterator
-caches were off for that comparison. `ListObjects` had a 50,000-object cap, a
-60-second server deadline, and a 65-second request timeout.
+caches were off for that comparison. The main OpenFGA instances used
+`--listObjects-max-results 50000`, `--listObjects-deadline 60s`, and
+`--request-timeout 65s`. SpiceDB lookup used a client-side 60-second deadline
+across all pages.
 
-The revocation and disposable-rebuild Postgres containers used their default
-connection settings. The main SpiceDB Postgres allowed 400 connections for the
-union and membership pools. The other Postgres containers kept their
-connection defaults. For check, lookup, and membership measurements, the two
-main databases used `max_wal_size=64MB` and `min_wal_size=32MB` to fit
-the local disk. Revocation and the disposable rebuild used the default WAL
-settings. All engines shared the Colima VM. Other work ran on the host. These
-are laptop measurements, not capacity figures.
+The main SpiceDB Postgres used its default connection settings until the
+harness set `max_connections` to 400 after revocation for the remaining
+measurements. The other Postgres containers kept their default connection
+settings. WAL settings are not recorded. All engines shared the Colima VM.
+Other work ran on the host. These are laptop measurements, not capacity
+figures.
 
 Before each latency and throughput execution, the harness read `sysctl -n
 hw.model hw.ncpu hw.memsize`, `cpu` and `memory` from
@@ -60,6 +64,11 @@ capture grant on `tag:t0-r0`. There are no role grants on Tags. Of tenant 0's
 edges, 406 carry a Tag in the 13-Tag `tag:t0-r0-b0` subtree and 1,104 carry a
 Tag under `tag:t0-r0`.
 
+Tag assignment is deterministic in every tenant. For edge index
+`site*40+edge`, indices below 406 cycle through the 13 Tags in the `r0-b0`
+subtree plus root `r1`, indices 406 through 1,103 use `r0-b1` plus root `r1`,
+and all later indices use root `r1` plus root `r2`.
+
 The OpenFGA note preserves the dimensions and aggregate relationship counts,
 but not its generated fixture list. Equal dimensions do not make these
 individual grants identical. The result differences below follow from this
@@ -74,19 +83,50 @@ dedicated Tag-user fixture.
 | Rebuild | Union, tenant 0 plus its platform grant | 14,615 |
 | Membership checks and lookup | Intersections inside resource permissions | 336,245 |
 
-The complete SpiceDB union schema as measured follows. OpenFGA permits stored
-and computed grants under one relation name. SpiceDB splits those into
-`direct_*` relations and computed permissions. Each definition maps to [the
-union model](2026-09-30-openfga-authorization-spike.md#the-union-model): `+`
-maps to `or` and `->` maps to `from`. The paired OpenFGA model also uses
-`direct_*` stored relations with computed references. The baseline OpenFGA
-model combines stored and computed grants under one name. That extra reference
-hop is a model-shape difference, despite equal permission semantics.
+The paired OpenFGA model uses `direct_*` stored relations with computed
+references. The baseline OpenFGA model combines stored and computed grants
+under one relation name. That extra reference hop is a model-shape difference,
+despite equal permission semantics. The paired OpenFGA DSL for the types whose
+permissions differ is:
 
-The paired OpenFGA DSL for the changed `tenant`, `site`, and `tag` types is not
-shown in this note. The note describes its difference as `direct_*` stored
-relations with computed references, while the baseline model combines stored
-and computed grants under one relation name.
+```
+type tenant
+  relations
+    define platform: [platform]
+    define direct_admin: [user, role#assignee]
+    define direct_capturer: [user, role#assignee]
+    define direct_viewer: [user, role#assignee]
+    define direct_full_payload: [user, role#assignee]
+    define admin: direct_admin or admin from platform
+    define capturer: direct_capturer or admin
+    define viewer: direct_viewer or capturer or admin
+    define full_payload: direct_full_payload
+type site
+  relations
+    define tenant: [tenant]
+    define direct_capturer: [user, role#assignee]
+    define direct_viewer: [user, role#assignee]
+    define capturer: direct_capturer or capturer from tenant
+    define viewer: direct_viewer or capturer or viewer from tenant
+type tag
+  relations
+    define tenant: [tenant]
+    define parent: [tag]
+    define direct_capturer: [user, role#assignee]
+    define direct_viewer: [user, role#assignee]
+    define capturer: direct_capturer or capturer from parent
+    define viewer: direct_viewer or capturer or viewer from parent
+type edge
+  relations
+    define site: [site]
+    define tag: [tag]
+    define capture: capturer from site or capturer from tag
+    define view: capture or viewer from site or viewer from tag
+```
+
+The complete SpiceDB union schema as measured follows. Each definition maps to
+[the union model](2026-09-30-openfga-authorization-spike.md#the-union-model):
+`+` maps to `or` and `->` maps to `from`.
 
 ```zed
 definition user {}
@@ -141,9 +181,7 @@ Cells are the median percentile across five executions, followed by the
 minimum and maximum of that percentile in brackets. Units are milliseconds.
 The timer includes Python request construction, serialization, the gRPC round
 trip, and response decoding. The OpenFGA note does not state its client
-language. Its embedded figures have no SpiceDB counterpart because SpiceDB
-does not
-offer an embedded deployment.
+language. The embedded rows were not measured for SpiceDB.
 
 SpiceDB's dispatch cache was enabled and OpenFGA's query and iterator caches
 were disabled for these tables. Each latency row repeats one pair for 1,000
@@ -209,8 +247,8 @@ execution in the SpiceDB spread.
 The OpenFGA note measured about 1,430 checks/s against its container and
 1,030 embedded. These executions use 1,600 seeded random edge/user pairs, the
 tenant-scoped roles above, and Python callers on a shared host. The throughput
-difference from 1,430 checks/s is unexplained. The embedded throughput row
-does not apply to SpiceDB.
+difference from 1,430 checks/s is unexplained. The embedded rows were not
+measured for SpiceDB.
 
 The min-max throughput spreads overlap, so their ordering is not resolved.
 
@@ -270,10 +308,11 @@ The union lookup is slower than the membership-intersection lookup on the same
 sets: 1,104 took 372.686 ms versus 65.802 ms, and 40,000 took 4,196.138 ms
 versus 1,773.847 ms. This inversion is unexplained.
 
-With `listObjectsMaxResults=1000`, the same Tag query returned 1,000 objects
-in 18.216 ms. It contained no cursor or partial-result marker. The OpenFGA
-note's cap probe expected 1,144 objects, whereas this fixture expects 1,104.
-Both probes truncate at 1,000.
+For this probe, the harness started a separate OpenFGA instance on the same
+OpenFGA Postgres with `--listObjects-max-results 1000`. The same Tag query
+returned 1,000 objects in 18.216 ms. It contained no cursor or partial-result
+marker. The OpenFGA note's cap probe expected 1,144 objects, whereas this
+fixture expects 1,104. Both probes truncate at 1,000.
 
 ## Revocation and cache staleness
 
@@ -396,9 +435,9 @@ maximum staleness. This explains why first deny does not mark convergence in
 this topology. It does not establish a bound for other datastores or
 deployments.
 
-The configured bound is 0.1 × 5 s = 500 ms. In these trials, the last allow
-ran 303 to 412 ms past each five-second boundary. The last allow minus first
-deny was 229 to 438 ms.
+The configured bound is 0.1 × 5 s = 500 ms. In these trials, the 303 to 412 ms
+last-allow figure is measured from the scheduled revoke time. The last allow
+minus first deny was 229 to 438 ms.
 
 The OpenFGA note measured 1.509-9.019 s with check caching and the cache
 controller enabled across two replicas. The default-cache trials above observe
@@ -432,8 +471,8 @@ This table is one execution per row and has no load reading.
 
 | Engine | Relationships | Schema/model and load ms | Apply ms | All-user diff ms | Pairs / edges losing |
 | --- | --- | --- | --- | --- | --- |
-| spice | 14615 | 544.766 | 38.017 | 3204.364 | 406/406 |
-| fga | 14615 | 1489.714 | 56.711 | 1793.662 | 406/406 |
+| SpiceDB | 14615 | 544.766 | 38.017 | 3204.364 | 406/406 |
+| OpenFGA | 14615 | 1489.714 | 56.711 | 1793.662 | 406/406 |
 
 The OpenFGA note rebuilt 14,629 relationships in 0.55 s, applied the change in
 0.10 s, and diffed 406 edges with `ListUsers` in 2.54 s. This scope contains
@@ -442,10 +481,11 @@ platform grant. The exact relationship-list difference from 14,629 is
 unexplained because that fixture list is absent. Both measurements include
 sessions. The OpenFGA re-measurement here took 1,489.714 ms to load versus
 0.55 s in the OpenFGA spike, 56.711 ms to apply versus 0.10 s, and 1,793.662 ms
-to diff versus 2.54 s. Each difference is unexplained. The all-user diff here
-produces 406 pairs from the dedicated Tag user, while the note reports 291
-pairs. The fixture relationship counts, grant distributions, and host load
-differ. The client language is unknown.
+to diff versus 2.54 s. Each timing difference is unexplained. The all-user diff
+here produces 406 pairs from the dedicated Tag user, while the note reports 291
+pairs. The count difference follows from the fixture's relationship counts and
+grant distribution. The client language is unknown and host load differs, so
+their separate contributions to the timing differences remain unexplained.
 
 ## Tenant membership
 
@@ -545,8 +585,8 @@ the dispatch cache. That possibility was not checked.
 
 The OpenFGA note's membership tenant checks had container p50 0.63-0.96 ms and
 p99 1.27-1.91 ms. Its resource checks had embedded p50 1.05-2.94 ms. The
-resource table above supplies the service-backed counterpart. An embedded
-SpiceDB row does not apply. This model has direct edge-to-tenant membership
+resource table above supplies the service-backed counterpart. The embedded rows
+were not measured for SpiceDB. This model has direct edge-to-tenant membership
 intersections. The separate effects of fixture differences and host load on
 latency are unexplained.
 
@@ -560,8 +600,8 @@ edge capture.
 
 ### Membership-aware resource lookup
 
-Both engines use a 60-second deadline. The provider user is an enrolled admin
-of tenant 0, with a claim for tenant 0 and partner links from tenants 1 and 2,
+The provider user is an enrolled admin of tenant 0, with a claim for tenant 0
+and partner links from tenants 1 and 2,
 plus explicit capture grants on those two customer tenants. It also inherits
 capture on its own tenant's 2,000 edges. Its expected lookup set is 6,000
 edges, of which 4,000 are customer edges.
