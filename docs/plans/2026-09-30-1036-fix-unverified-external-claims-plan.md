@@ -164,6 +164,14 @@ reproduce main byte for byte first.
   `rpc.method` (`src/protocol/gnmi/session.go:209-211`), so it gains a
   separate method-name parameter and the span name stays `gnmi.Get`.
 
+- **Requirement 2 covers instructions to run buf, not prose that names
+  it.** A hit that names the tool or its output as a noun ("`buf
+  generate` output", "every `buf breaking` category") stays as written.
+  Every hit that tells a reader or agent to run buf names the pinned
+  command, including `AGENTS.md:44` and
+  `.agents/skills/delegate/SKILL.md:227`, which join U1. U1 may edit that
+  one `AGENTS.md` line. (decided by the user, 2026-09-30)
+
 ## Requirements
 
 1. The pinned buf's `generate` on a clean checkout of this branch leaves
@@ -172,7 +180,8 @@ reproduce main byte for byte first.
 2. No file outside `tools/hooks/` tells a person or agent to run a bare
    `buf`, and the verifier runs only the pinned one. Example:
    `git grep -nE '(^|[^-/.a-z])buf (generate|lint|format|breaking)' -- ':!tools/hooks' ':!docs/plans' ':!generated'`
-   finds only the pinned form.
+   finds the pinned form, or buf named as a noun rather than as a
+   command to run.
 3. The root `go.mod` requirements do not change. Example:
    `go list -m all` before and after U1 print the same lines.
 4. A gNMI Get span carries `rpc.method = "gnmi.gNMI/Get"` and the span
@@ -225,7 +234,7 @@ reproduce main byte for byte first.
 
 ### U1. Pin the buf CLI and the remote plugins
 
-Files: tools/buf/go.mod, tools/buf/go.sum, buf.gen.yaml, .agents/skills/verify-change/scripts/verify-change.sh, .agents/skills/implement/SKILL.md, .agents/skills/delegate/references/hookless-merge.md, .agents/skills/delegate/references/orca-sandbox.md, README.md, CONTRIBUTING.md, spec/proto/ruckus/README.md, docs/code-style-proto.md, docs/code-style.md, docs/solutions/conventions/unpinned-buf-remote-plugins-drift-the-whole-generated-tree.md (renamed to the-buf-cli-version-decides-one-option-byte-in-every-generated-descriptor.md), docs/solutions/README.md
+Files: tools/buf/go.mod, tools/buf/go.sum, buf.gen.yaml, .agents/skills/verify-change/scripts/verify-change.sh, .agents/skills/implement/SKILL.md, .agents/skills/delegate/SKILL.md, AGENTS.md (line 44 only), .agents/skills/delegate/references/hookless-merge.md, .agents/skills/delegate/references/orca-sandbox.md, README.md, CONTRIBUTING.md, spec/proto/ruckus/README.md, docs/code-style-proto.md, docs/code-style.md, docs/solutions/conventions/unpinned-buf-remote-plugins-drift-the-whole-generated-tree.md (renamed to the-buf-cli-version-decides-one-option-byte-in-every-generated-descriptor.md), docs/solutions/README.md
 After: none
 Change: `tools/buf/go.mod` is a module that holds only
 `tool github.com/bufbuild/buf/cmd/buf` at v1.73.0. `buf.gen.yaml` names
@@ -241,8 +250,8 @@ its "How to apply" names the pin, and its verifier cite points at the
 current generate line. `docs/solutions/README.md` links the new name.
 Tests: the verifier's generate gate over `spec/proto/` reports no drift.
 `go list -m all` in the root module prints the same lines before and
-after. The Requirement 2 grep finds only the pinned form.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- tools/buf/ buf.gen.yaml .agents/skills/ README.md CONTRIBUTING.md spec/proto/ruckus/README.md docs/code-style-proto.md docs/code-style.md docs/solutions/`
+after. Every Requirement 2 grep hit that tells a reader to run buf names the pinned form.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- tools/buf/ buf.gen.yaml .agents/skills/ AGENTS.md README.md CONTRIBUTING.md spec/proto/ruckus/README.md docs/code-style-proto.md docs/code-style.md docs/solutions/`
 
 ### U2. Correct the MIB, parser, BPF, and semconv claims
 
@@ -396,15 +405,3 @@ generated/` holds only the files U2, U3, and U4 changed.
 - If `buf.build/connectrpc/go:v1.20.0` is not a published plugin tag, pin
   the tag that regenerates the current `*.connect.go` files byte for byte,
   and record the tag in U1's commit.
-- Parked by drive: U1 is blocked on Requirement 2. Its grep example also
-  matches prose that only names the tool ("`buf generate` output", "every
-  `buf breaking` category"), and two lines outside U1's files tell an
-  agent to run a bare `buf lint`: `AGENTS.md:44` and
-  `.agents/skills/delegate/SKILL.md:227`. Options: keep the requirement,
-  tighten the grep to run instructions, and add both lines to U1 (fixes
-  every instruction, but `AGENTS.md` is a policy surface a person must
-  review) | same, but leave `AGENTS.md:44` as it is, since it names the
-  enforcement tool rather than a command to run (no policy edit, one bare
-  mention stays) | drop the grep example and judge Requirement 2 in
-  review (no file changes, weaker check). Recommended: the first, because
-  the requirement is about instructions and both lines are instructions.
