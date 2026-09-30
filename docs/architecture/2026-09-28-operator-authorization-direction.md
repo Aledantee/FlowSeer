@@ -272,6 +272,8 @@ multi-tenancy from the first deployment.
 - The operator surfaces get the request-body limit that today wraps only
   the edge-facing handlers.
 
+## Amendments
+
 ### 2026-09-30 — a competing proposal
 
 [`2026-09-30-operator-authorization-direction.md`](2026-09-30-operator-authorization-direction.md),
