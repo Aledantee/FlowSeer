@@ -225,3 +225,268 @@ func TestRecoverIgnoresRPCInput(t *testing.T) {
 		t.Errorf("recovery targets = %d, want 0", got)
 	}
 }
+
+func parseRecoveryModules(t *testing.T, sources map[string]string) *yang.Modules {
+	t.Helper()
+	dir := t.TempDir()
+	for name, source := range sources {
+		if err := os.WriteFile(filepath.Join(dir, name+".yang"), []byte(source), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	v := &Vendor{Name: "recovery", Paths: []string{dir}}
+	files, err := discoverSources(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := rawParse(v.Name, files, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ms, _, err := parseModules(v, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ms
+}
+
+func TestRecoverRejectsPathThroughExplicitCaseCollision(t *testing.T) {
+	_, err := recoveryVendor(t, map[string]string{
+		"t": `module t {
+          yang-version 1.1;
+          namespace "urn:t";
+          prefix t;
+          container c {
+            choice ch {
+              case cs {
+                container k { leaf base { type string; } }
+              }
+            }
+          }
+        }`,
+		"b": `module b {
+          namespace "urn:b";
+          prefix b;
+          import t { prefix t; }
+          augment "/t:c/t:ch/t:cs" {
+            container k { leaf own { type string; } }
+          }
+        }`,
+		"d": `module d {
+          namespace "urn:d";
+          prefix d;
+          import t { prefix t; }
+          import b { prefix b; }
+          augment "/t:c/t:ch/t:cs/b:k" {
+            leaf z { type string; }
+          }
+        }`,
+	})
+	requireRecoveryError(t, err, "/t:c/t:ch/t:cs/b:k", "b.yang", "t.yang")
+}
+
+func TestRecoverRejectsPathThroughShorthandCaseCollision(t *testing.T) {
+	_, err := recoveryVendor(t, map[string]string{
+		"t": `module t {
+          yang-version 1.1;
+          namespace "urn:t";
+          prefix t;
+          container c {
+            choice ch {
+              container k {
+                container sub { leaf base { type string; } }
+              }
+            }
+          }
+        }`,
+		"b": `module b {
+          namespace "urn:b";
+          prefix b;
+          import t { prefix t; }
+          augment "/t:c/t:ch/t:k/t:k" {
+            container sub { leaf own { type string; } }
+          }
+        }`,
+		"d": `module d {
+          namespace "urn:d";
+          prefix d;
+          import t { prefix t; }
+          import b { prefix b; }
+          augment "/t:c/t:ch/t:k/t:k/b:sub" {
+            leaf z { type string; }
+          }
+        }`,
+	})
+	requireRecoveryError(t, err, "/t:c/t:ch/t:k/t:k/b:sub", "b.yang", "t.yang")
+}
+
+func TestRecoverAllowsPathThroughCaseOwnSurvivor(t *testing.T) {
+	vs, err := recoveryVendor(t, map[string]string{
+		"t": `module t {
+          yang-version 1.1;
+          namespace "urn:t";
+          prefix t;
+          container c {
+            choice ch {
+              case cs {
+                container k { leaf base { type string; } }
+              }
+            }
+          }
+        }`,
+		"b": `module b {
+          namespace "urn:b";
+          prefix b;
+          import t { prefix t; }
+          augment "/t:c/t:ch/t:cs" {
+            container k { leaf own { type string; } }
+          }
+        }`,
+		"d": `module d {
+          namespace "urn:d";
+          prefix d;
+          import t { prefix t; }
+          augment "/t:c/t:ch/t:cs/t:k" {
+            leaf y { type string; }
+          }
+        }`,
+	})
+	if err != nil {
+		t.Fatalf("LoadVendor: %v", err)
+	}
+	parent := moduleByName(t, vs, "t").Entry.Dir["c"]
+	cs := parent.Dir["ch"].Dir["cs"]
+	if got := len(vs.Recovered[cs]); got != 1 {
+		t.Fatalf("recovered = %d, want 1", got)
+	}
+	if cs.Dir["k"].Dir["y"] == nil {
+		t.Fatal("own survivor lost its nested augment")
+	}
+}
+
+func TestRecoverDeviatedAwayAugment(t *testing.T) {
+	vs, err := recoveryVendor(t, map[string]string{
+		"t": `module t { namespace "urn:t"; prefix t;
+          container c { leaf name { type string; } } }`,
+		"b": `module b { namespace "urn:b"; prefix b; import t { prefix t; }
+          augment "/t:c" { leaf extra { type string; } } }`,
+		"d": `module d { namespace "urn:d"; prefix d; import t { prefix t; } import b { prefix b; }
+          deviation "/t:c/b:extra" { deviate not-supported; } }`,
+	})
+	if err != nil {
+		t.Fatalf("LoadVendor: %v", err)
+	}
+	parent := moduleByName(t, vs, "t").Entry.Dir["c"]
+	if got := len(vs.Recovered[parent]); got != 0 {
+		t.Fatalf("recovered = %d, want 0", got)
+	}
+}
+
+func TestRecoverRejectsUnexplainedAugmentCollision(t *testing.T) {
+	ms := parseRecoveryModules(t, map[string]string{
+		"t": `module t { namespace "urn:t"; prefix t;
+          container c { leaf x { type string; } } }`,
+		"b": `module b { namespace "urn:b"; prefix b; import t { prefix t; }
+          augment "/t:c" { leaf x { type uint32; } } }`,
+	})
+	target := yang.ToEntry(ms.Modules["t"]).Dir["c"]
+	target.Errors = nil
+	_, err := recoverAugments("recovery", ms)
+	requireRecoveryError(t, err, "unexplained augment collision", "/t:c", "x", "b.yang", "t.yang")
+}
+
+func TestRecoverRejectsLeafrefThroughCollision(t *testing.T) {
+	_, err := recoveryVendor(t, map[string]string{
+		"t": `module t {
+          yang-version 1.1;
+          namespace "urn:t";
+          prefix t;
+          container c {
+            container k { leaf base { type string; } }
+          }
+        }`,
+		"b": `module b { namespace "urn:b"; prefix b; import t { prefix t; }
+          augment "/t:c" {
+            container k { leaf v { type uint8; } }
+          }
+        }`,
+		"x": `module x {
+          namespace "urn:x";
+          prefix x;
+          import t { prefix t; }
+          import b { prefix b; }
+          container box {
+            leaf ref {
+              type leafref {
+                path "/t:c/b:k/b:v";
+              }
+            }
+          }
+        }`,
+	})
+	requireRecoveryError(t, err, "ref", "/t:c/b:k/b:v", "x.yang", "b.yang", "t.yang")
+}
+
+func TestRecoverRejectsRelativeLeafrefThroughCollision(t *testing.T) {
+	_, err := recoveryVendor(t, map[string]string{
+		"t": `module t {
+          yang-version 1.1;
+          namespace "urn:t";
+          prefix t;
+          container c {
+            container k { leaf base { type string; } }
+          }
+          container box {
+            leaf ref {
+              type leafref {
+                path "../../c/b:k/b:v";
+              }
+            }
+          }
+        }`,
+		"b": `module b {
+          namespace "urn:b";
+          prefix b;
+          import t { prefix t; }
+          augment "/t:c" {
+            container k { leaf v { type uint8; } }
+          }
+        }`,
+	})
+	requireRecoveryError(t, err, "ref", "../../c/b:k/b:v", "t.yang", "b.yang")
+}
+
+func TestRecoverAllowsLeafrefThroughOwnSurvivor(t *testing.T) {
+	vs, err := recoveryVendor(t, map[string]string{
+		"t": `module t {
+          yang-version 1.1;
+          namespace "urn:t";
+          prefix t;
+          container c {
+            container k { leaf base { type string; } }
+          }
+          container box {
+            leaf ref {
+              type leafref {
+                path "/t:c/t:k/t:base";
+              }
+            }
+          }
+        }`,
+		"b": `module b {
+          namespace "urn:b";
+          prefix b;
+          import t { prefix t; }
+          augment "/t:c" {
+            container k { leaf v { type uint8; } }
+          }
+        }`,
+	})
+	if err != nil {
+		t.Fatalf("LoadVendor: %v", err)
+	}
+	parent := moduleByName(t, vs, "t").Entry.Dir["c"]
+	if got := len(vs.Recovered[parent]); got != 1 {
+		t.Fatalf("recovered = %d, want 1", got)
+	}
+}
