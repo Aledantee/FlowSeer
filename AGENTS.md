@@ -41,7 +41,7 @@ Binding on humans and agents equally; each doc states its own scope.
 ## Hard boundaries
 
 - `spec/proto/` contains only `.proto` files and package-boundary `README.md`
-  files. Enforce schema rules through `buf lint`, not executable tests.
+  files. Enforce schema rules through `go tool -modfile=tools/buf/go.mod buf lint`, not executable tests.
 - Never add an exclusion, ignore, suppression, or hook exception to make your own
   artifacts pass; request the policy change explicitly and separately.
 - `AGENTS.md`, `buf.yaml`, `tools/hooks/`, `.claude/settings.json`,

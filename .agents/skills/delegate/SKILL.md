@@ -224,7 +224,7 @@ order:
    `generated/`, or `buf.lock`; no edit to a plan Decision marked
    `decided by the user` (a finding or unit that needs one changed is a
    blocker); no plan labels in code; no running a script
-   under `tools/hooks/` (it blocks on stdin; the focused tests, `buf lint`,
+   under `tools/hooks/` (it blocks on stdin; the focused tests, `go tool -modfile=tools/buf/go.mod buf lint`,
    and the verifier on the changed paths are the checks); no lint or race
    run over all of `generated/go/yang` (it exhausts host memory; lint two
    or three sample packages); no git write outside the worker's own
