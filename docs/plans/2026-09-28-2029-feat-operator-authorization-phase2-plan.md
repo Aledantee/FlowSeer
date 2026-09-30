@@ -5,7 +5,7 @@ date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: rework
+review: accept after fixes
 execution: mixed
 amends: docs/architecture/2026-09-28-operator-authorization-direction.md
 parent: docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md
@@ -171,10 +171,11 @@ The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-
      one.
   2. Read the last message on `$KV.<bucket>.org_<hash>` the same way. A live
      index that names this tenant while step 1 found its equal record means
-     the tenant is committed, and `Create` returns the stored record. Any
-     other live index returns `ErrCodeAlreadyExists`, including one that
-     names this tenant while its record is absent or a marker. `Create`
-     never writes a live index.
+     the tenant is committed, and `Create` returns the stored record. When
+     the index names this tenant but step 1 found no live record, re-read
+     the record. Return it if the new record has an equal config. Otherwise
+     return `ErrCodeAlreadyExists`. Any other live index also returns
+     `ErrCodeAlreadyExists`. `Create` never writes a live index.
   3. Publish the record, then the index, as one batch, each message with
      `Nats-Expected-Last-Subject-Sequence` set to its subject's expected
      sequence. When step 1 found an equal live record, the record message
@@ -312,7 +313,7 @@ How U12 rules out each failure the Review section lists:
 | Two concurrent same-id `Create` calls share a record revision, and a cancelled one's rollback deletes the record the other reported. | There is no rollback. Both batches expect the same sequences, the server commits one, and the other gets 10071, re-reads, finds the committed tenant with an equal config, and returns it. A cancelled call ends before or after its commit and deletes nothing. |
 | "The index names me" is a read, and a competitor holding the index's old revision takes it over after `Create` returned. | There is no takeover. `Create` writes an `org_` key only when its last message is absent or a marker, the batch's expectation enforces that at commit, and no `kv.Update` on an `org_` key remains. Once live, an index never changes, so the read in step 2 cannot go stale. |
 | `ownership_test.go` injects no `Get` or `Keys` faults, faults only the first matching call, never retries, has no same-id concurrency, and its visibility check holds by construction. | U12's claim test places a fault at every call position `Create` reaches, re-reads included, runs an unfaulted retry after every fault, runs same-id and same-organization contention, checks invariants on raw stream messages, and then checks that `Get`, `List`, and `LookupByOrg` agree with them. `Get` and `Keys` are not calls `Create` makes, so they have no fault point in the claim. |
-| Whether same-id `Create` resumes at all. | It does not: config equality decides between the stored record and `ErrCodeAlreadyExists`. The one completion it performs is of a record whose index a file-store error kept from committing, by the same batch. |
+| Whether same-id `Create` resumes at all. | It does: config equality decides between the stored record and `ErrCodeAlreadyExists`. The one completion it performs is of a record whose index a file-store error kept from committing, by the same batch. |
 
 - Lowercase UUID validation for `dev_tenant` in deployment configuration.
   Why: `tenant.Validate` (`src/common/tenant/tenant.go:41-51`) accepts only
@@ -1006,7 +1007,7 @@ Change:
     `tenant.Validate(tenantID)`.
 - `src/modules/edgebus/leaf.go:26-70, 98-208`:
   - In `StartLeaf`, validates `cfg.Tenant` using `tenant.Validate(cfg.Tenant)`.
-    If `cfg.Tenant` is empty, defaults to `DefaultTenant`.
+    If `cfg.Tenant` is empty, returns `ErrCodeConfig` before writing state.
   - The leaf creates its local buffer stream under
     `flowseer.<tenant>.edge.<edgeID>.>` and publishes OpenTelemetry signals
     under `OTelSubject(cfg.Tenant, cfg.EdgeID, signal)`.
@@ -1128,11 +1129,12 @@ Change:
   requirement. No other version in `go.mod` moves. If one does, stop: the
   Decision on the client rests on that.
 - `src/services/device/internal/tenantstore/store.go`:
-  - `Store` holds the bucket (`jetstream.KeyValue`), the `JetStream`
-    handle, the subject prefix `$KV.<bucket>.`, and two unexported
-    functions: `lastMsg`, backed by `jetstream.Stream.GetLastMsgForSubject`,
-    and `publish`, backed by `jetstreamext.PublishMsgBatch` with
-    `jetstreamext.BatchFlowControl{AckFirst: false}`.
+  - `Store` holds the bucket (`jetstream.KeyValue`), the subject prefix
+    `$KV.<bucket>.`, and two unexported functions: `lastMsg`, backed by
+    `jetstream.Stream.GetLastMsgForSubject`, and `publish`, backed by
+    `jetstreamext.PublishMsgBatch` with
+    `jetstreamext.BatchFlowControl{AckFirst: false}`. The `publish` closure
+    captures the `JetStream` handle passed to `New`.
   - `New(ctx, js, bucket) (*Store, error)` as the Decisions describe.
     `Option`, `WithRollbackTimeout`, `defaultRollbackTimeout`,
     `rollbackDelete`, and `ownsOrgIndex` are removed, and nothing in the
@@ -1186,9 +1188,9 @@ Change:
   its fault wrappers wrap `KeyValue.Create`, `Update`, and `Delete`, which
   `Create` no longer calls.
 - `src/services/device/internal/tenantstore/claim_internal_test.go` (new,
-  package `tenantstore`) holds `TestClaimProperties`, the claim's property
-  test, on a hub from `edgebus.StartHub`:
-  - Six initial states:
+  package `tenantstore`) holds `TestClaimMatrix`, the claim's state matrix,
+  on a hub from `edgebus.StartHub`:
+  - Eight initial states:
     - empty
     - the same tenant committed
     - the id committed for another organization
@@ -1197,6 +1199,7 @@ Change:
     - the same tenant's record with no index, as a file-store failure
       between the batch's two stores leaves it (seeded by a raw `kv.Create`
       of the record key)
+    - a record with no index whose organization another tenant claimed
     - a raw `org_` key naming an id with no record
   - Faults:
     - a read fails
@@ -1210,22 +1213,22 @@ Change:
       and its batch, either another id for the same organization or the same
       id for another organization
 
-    Faults are placed by call position. The test records the calls each
-    unfaulted path makes, then reruns the state once per position with that
-    call failing, so a failed re-read is its own case. The path through a
-    conflicting commit for the organization makes five calls (two reads,
-    the batch, the record re-read, the index re-read). The path through a
-    conflicting commit for the same id makes four, since the record re-read
-    already finds the other config. At most seven batches are abandoned in
-    one run, under the stream's limit of 50 in flight
-    (`server/stream.go:447-451`).
+    Five further cases place a competing commit after the first read or at
+    publish. The test pins the kind and position of every read and publish
+    call, then injects a failure at each applicable position. A different-id
+    competitor for the organization makes five calls (two reads, publish,
+    record re-read, index re-read). A different-organization competitor for
+    the same id makes four, since the record re-read finds the other config.
+    The two cases separately exercise the index and record expected-sequence
+    headers. Publish faults cover before-send, abandoned batch, and lost
+    reply where a batch can commit. The competitor cases cover before-send.
   - Each (state, fault) case runs `Create` with the fault, checks the
     invariants, runs `Create` again without faults, and checks its outcome
-    and the invariants again. Without a conflicting commit the retry
-    returns the stored record for the empty, same-tenant, deleted, and
-    record-without-index states and `ErrCodeAlreadyExists` for the other
-    three. After a conflicting commit it returns `ErrCodeAlreadyExists`
-    (Requirement 5, second half, and Requirement 6).
+    and the invariants again. An equal committed config returns the stored
+    record. A different config or organization owner returns
+    `ErrCodeAlreadyExists`, including after a conflicting commit. A
+    competitor with an equal config returns the stored record (Requirement
+    5, second half, and Requirement 6).
   - Contention without faults: eight `Create` calls with one config all
     return records with equal `created_at`, and the record subject holds
     one message. Eight with one id and eight organizations yield one success
@@ -1243,7 +1246,7 @@ Change:
     subject's last message from `GetLastMsgForSubject`. Every live record
     subject `Create` wrote has a live `org_` subject that names its id and
     matches its config's `OrgIndexKey`, and every live `org_` subject names
-    a live record. The two raw seeds are exempt only while they keep their
+    a live record. The three raw seeds are exempt only while they keep their
     seeded sequence, and the index seed always keeps it. `Create` adds no
     message with a `KV-Operation` header, a live `org_` key's value never
     changes, and a committed record's last sequence never changes
@@ -1368,92 +1371,40 @@ sections "2. Work the units", step 2, and "3. Finish", step 4). A `--full` run a
 
 ## Review
 
-Verdict: rework (2026-09-30). This was the second review, over
-`8e6994a4..edf8675d` with its weight on follow-up units U7–U10. It ran two
-rounds with one fix round (`b03b2b78`, `db0145b5`). The first review ran three rounds over `8e6994a4..2668b034`
-with fixes `9b827a82..574579ae`.
+Verdict: accept after fixes (2026-09-30). This third review examined the
+phase 2 change with focus on U11–U13 and the earlier `tenantstore.Create`
+organization-claim failure. `Store.Create` now publishes the record and
+organization index in one atomic batch, each with an expected last subject
+sequence (`src/services/device/internal/tenantstore/store.go:126-202`). It
+has no delete, rollback, or index takeover path. The committed-only reads
+still hide a record without its index. The U11 hub test verifies that the
+`tenants` stream accepts atomic batches before and after a restart.
 
-The fixes changed the landed shape in ways a re-plan starts from:
+The review fixed these findings:
 
-- An edge's tenant has one authority, the `edge_<edgeID>` index in the
-  `edges` bucket. `CreateEdge` writes it, and Enroll writes the same value.
-  Dispatch, drift, audit delivery, capture, AttachBus, and edge lane reads
-  resolve through it and refuse an edge without one. Nothing substitutes
-  the default tenant for a tenant it could not resolve: central startup
-  indexes no registry edge, `Hub.EdgeTenant` answers unknown on a zero
-  `Hub`, and `StartLeaf` refuses an empty tenant.
-- The edge agent takes its leaf tenant from the AttachBus subjects, which
-  must all name one valid tenant and the edge's own id.
-- A device lane is keyed by its hosting edge's tenant, not by the caller's.
-  A caller whose tenant is not that edge's gets `NotFound`.
-  `CreateCaptureSession` refuses an edge the caller's tenant does not own.
-- A tenant token is a lowercase canonical UUID or `default` wherever a key,
-  subject, or path is built, and `dev_tenant` must be a lowercase UUID.
-- `TenantService` is defined but not served; a host test fails if it is
-  mounted. `PlatformAdmin` carries the organization claim name. Nothing
-  reads `platform_admin` or the tenant store in production yet.
-- A tenant record counts as committed only while the `org_` index names it.
-  `Get`, `List`, and `LookupByOrg` hide any other record, and `Mutate`
-  neither creates a record nor changes its organization binding.
-- State written before this change is not read: unprefixed keys in
-  `device-lanes`, `edges`, and `captures`, capture files directly under
-  `<StateDir>/captures/`, and edge accounts without an
-  `edge-<edgeID>.tenant` file, which the hub skips on start.
+- Medium: `TestClaimMatrix` did not exercise every read and publish fault
+  position, compare returned records with the raw stream, or pin both CAS
+  headers in independent competition cases. `344c86e2`, `c9b69461`, and
+  `59eca71d` added the state matrix, raw-message invariants, retries after
+  faults, exact call paths, and separate same-id and same-organization
+  competitors. Removing either expected-sequence header now fails its own
+  case in `TestClaimMatrix`. Wrong call kinds fail the path assertion.
+- Low: tenant lookup and edge grant documentation, a host shutdown test,
+  and unused tenant store test code were corrected in `f7f8e089`,
+  `e5cf2335`, and `344c86e2`. U13 also brought the partition rule and
+  affected READMEs into agreement with the pre-tenant lookup indexes.
 
-Closed by this review: the edge leaf publishes under its assigned tenant,
-the dev tenant rejects upper case, the registry edge auto-bind and the
-zero-`Hub` default are gone, `TenantService` is unmounted and a test holds
-it there, `PlatformAdmin` has its claim name, and the capture path docs
-match the code.
-
-Open, and the reason for the verdict:
-
-- The organization claim in `tenantstore.Create` has had five review
-  rounds without a clean one: three with a time-bound claim, then two with
-  record-first and a compare-and-set index. The second of the latest two
-  found defects in the first's fix, so per the review skill the mechanism
-  goes back to `plan` instead of another patch. What the rounds established:
-  - A retried `Create` of a committed tenant resumes with the committed
-    record's revision. If the index read then fails (the caller's context
-    expiring is enough), the revision-guarded rollback deletes the
-    committed tenant (`store.go:198-205`), and the unknown-outcome
-    rollbacks after a failed reconcile read do the same.
-  - Two concurrent `Create` calls with one id share a record revision, so a
-    cancelled one's rollback deletes the record the other reported as
-    created.
-  - "The index names me" is a read, not a compare-and-set. A competitor
-    holding the index's old revision can still take it over after `Create`
-    returned success.
-  - The property test (`ownership_test.go`) injects no `Get` or `Keys`
-    faults, faults only the first matching call, never retries a failed
-    `Create`, and has no same-id concurrency. Its visibility check holds by
-    construction. A re-plan should give the claim a state space that
-    covers every KV call and fault point, retries, and same-id contention,
-    and should decide whether same-id `Create` resumes at all.
-- `spec/proto/flowseer/edge/attach/v1/bus.proto` says an empty `subjects`
-  map is valid, but the edge agent now needs the map to learn its tenant.
-  Central always sends three subjects, so nothing fails today. An explicit
-  tenant field on `AttachBusResponse` would remove the inference. That file
-  is outside this change.
-- These docs still describe the one-tenant state and are outside this
-  change: `src/modules/edgebus/README.md` (the tenant token "carries no
-  broker enforcement"; a restart "re-attaches every edge"),
-  `spec/proto/flowseer/store/device/v1/README.md` ("A tenant" listed as
-  absent), `docs/solutions/architecture-patterns/a-restarted-hub-must-re-attach-every-persisted-edge-account.md`,
-  and the capture path in
-  `docs/architecture/2026-09-09-remote-packet-capture-direction.md`.
-- Low: `src/services/device/README.md` cites `serve.go:68-76` in prose.
-  A comment in `host_test.go` narrates when authentication lands.
-  `TestStartLeafRefusesEmptyAndInvalidTenant` does not show that validation
-  runs before the state directory is written.
-  `TestStartupDoesNotIndexUnindexedRegistryEdge` does not wait for the host
-  to stop.
-- Plan text that no longer matches the code: U8 and the tenant store
-  Decision say an existing id returns `ErrCodeAlreadyExists`, but the code
-  resumes it. U10 and a Decision name `TestE2EMultiTenantPartitioning`, but
-  the test is `TestMultiTenantIsolationAndEdgeBusPartitioning`. U2 says a
-  missing tenant sidecar defaults to `default`, but the hub skips the edge.
-  Requirement 1's grep also prints two vendor protos under `spec/proto/ruckus/`.
+The final unit and seam passes found no verified correctness finding.
+`go test -race` and `go vet` passed for the tenant store package, and the
+repository verifier passed on every changed path in the fix rounds. The
+remaining testing limits are the clustered-stream 10164 response, a
+physical file-store failure between a batch's two stores, `ErrCodeDecode`,
+and retry exhaustion (`ErrCodeConflict`). `TestClaimMatrix` does not inject
+an abandoned batch into a competing publish that the server would refuse.
+The AttachBus schema permits an empty `subjects` map, although the edge
+agent needs concrete subjects to derive its tenant. Central sends three
+subjects (`spec/proto/flowseer/edge/attach/v1/bus.proto`,
+`src/edge/agent/internal/busattach/busattach.go`).
 
 ## Open questions
 
