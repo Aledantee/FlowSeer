@@ -192,11 +192,13 @@ that record's model:
 | `capture_session` | `download` | tail or download the session's packets |
 | `tenant` | `full_payload` | request `full_payload_requested: true` on a capture |
 
-The session's requester and every download are recorded as that record's
-[action trail section](2026-09-30-operator-authorization-direction.md#the-operator-action-trail-ships-with-authorization)
-decides. `CaptureService` enforces nothing until the enforcement that record's
+The session requester is stamped from the authenticated principal under the
+record's [Consequences section](2026-09-30-operator-authorization-direction.md#consequences).
+Every download is recorded in the record's [action trail
+section](2026-09-30-operator-authorization-direction.md#the-operator-action-trail-ships-with-authorization).
+`CaptureService` enforces nothing until the enforcement in that record's
 [rule section](2026-09-30-operator-authorization-direction.md#every-rpc-declares-its-rule)
-decides lands.
+lands.
 
 ## Consequences
 

@@ -9,7 +9,7 @@ superseded_by: docs/architecture/2026-09-30-operator-authorization-direction.md
 
 # Operator Authorization - Direction
 
-> `2026-09-28-operator-authorization-direction.md` is superseded by [the 2026-09-30 operator authorization direction](2026-09-30-operator-authorization-direction.md), which now decides this subject.
+> `2026-09-28-operator-authorization-direction.md` is superseded by [the 2026-09-30 operator authorization direction](2026-09-30-operator-authorization-direction.md), which takes over this subject and binds once a person accepts it.
 
 `DeviceService`, `EdgeAdminService`, and `CaptureService` authenticate no
 caller and check no permission. `src/services/device/internal/host/serve.go`

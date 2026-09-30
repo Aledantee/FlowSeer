@@ -58,6 +58,7 @@ that record's choices the user made or are local to the work.
   and not a paper comparison: the 09-28 record chose SpiceDB for its
   consistency token from documentation, the 09-30 record chose OpenFGA from
   measurements, and the two never ran on the same workload.
+This replaces the earlier decision that named OpenFGA as the engine.
 - OpenFGA runs as its own service on a Postgres that is external from the
   first deployment, never embedded in a FlowSeer host. Why: each can move
   and scale alone. (decided by the user, 2026-09-30)
@@ -74,10 +75,13 @@ that record's choices the user made or are local to the work.
   subject. Why: OIDC makes `sub` unique only within an issuer, and the
   project will not depend on one provider's claims. (decided by the user,
   2026-09-30)
-- The request names its tenant in the `X-FlowSeer-Tenant` header, and the
-  interceptor admits it only for a `tenant#member`. Why: OIDC has no
-  standard tenant claim, and Zitadel's organization scope rejects users
-  whose access comes from a grant (zitadel#11869).
+- The request names its tenant in the `X-FlowSeer-Tenant` header. The
+  interceptor admits only a `member` of the named tenant. Membership is
+  FlowSeer enrollment with a token claiming the tenant's organization, or
+  reach through `partner` or `platform`. A caller who is not a member of the
+  named tenant is `PermissionDenied`, not `Unauthenticated`. Why: OIDC has no
+  standard tenant claim, and Zitadel's organization scope rejects users whose
+  access comes from a grant (zitadel#11869).
 - Membership is `(claimed and enrolled) or active_admin from partner or
   admin from platform`: `enrolled` is owned by FlowSeer (invite, remove),
   `claimed` is sent per request from the token's organization claims.
@@ -94,10 +98,13 @@ that record's choices the user made or are local to the work.
   applicable read and publish fault, and is the lookup the interceptor needs
   to turn a token's organization claims into tenants.
 - The membership intersection is checked once per request on the tenant.
-  Resource permissions are unions with no `and` and no `but not`. Why:
+  Resource permissions are unions without `and`, and recursive Tag
+  permissions do not use `but not`. Why:
   [OpenFGA resource intersections](../research/2026-09-30-openfga-authorization-spike.md#membership-gated-by-token-claims)
-  on 336,249 relationships over gRPC returned 11 of 1,104 Tag edges at a
-  60-second deadline. The
+  on 336,249 relationships returned 11 of 1,104 Tag edges at a 60-second
+  deadline. The [OpenFGA exclusion fixture](../research/2026-09-30-openfga-authorization-spike.md#previewing-a-tag-change)
+  used `but not` on recursive Tag permissions and returned zero Tag-derived
+  objects after 60 seconds. The
   [SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md#membership-aware-resource-lookup)
   re-measured the direct-tenant placement on 336,245 relationships. OpenFGA
   returned all 1,104 Tag edges in 905.764 ms over gRPC, but still returned
