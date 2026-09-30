@@ -108,9 +108,10 @@ fails, the hub returns `ErrCodeStorage` with the `edge`,
 `ceiling_bytes` when `srv.JetStreamConfig()` is non-nil
 (`src/modules/edgebus/hub.go:453-467`). A lookup failure, an enabled account,
 or a connection failure keeps `ErrCodeHub`. The attach holds the hub's read
-lock from `connectAccount` through the flag read, and `Close` takes the write
-lock before shutdown. This prevents shutdown from clearing the flag during the
-decision. `errs.From(err)` keeps the wait error in the returned chain.
+lock from `connectAccount` through the flag read, and `Close` holds the write
+lock until the server has shut down. This prevents shutdown from clearing the
+flag during the decision. `errs.From(err)` keeps the wait error in the returned
+chain.
 
 ```go
 storage limit exceeded: edge budget <edge> B does not fit under store ceiling <ceiling> B
@@ -125,7 +126,7 @@ failure as `ErrCodeHub`, not storage. The attach's read lock prevents
 read. The wait remains after the flag read for the account API to become usable
 before stream creation.
 `StartHub` waits for server readiness before it connects the central account or
-re-attaches persisted edges (`src/modules/edgebus/hub.go:238-256`).
+re-attaches persisted edges (`src/modules/edgebus/hub.go:240-272`).
 
 ### The frozen ceiling and restart caveat
 
@@ -169,7 +170,9 @@ the 640 MiB ceiling, so a canceled attach on a fresh hub reports `ErrCodeHub`
 and a retry succeeds. The refusal boundary and the failed-attach reservation
 case are covered at `src/modules/edgebus/storage_test.go:32-100`. The fresh
 hub and retry cases are covered at `src/modules/edgebus/storage_test.go:103-149`.
-The close race is covered at `src/modules/edgebus/storage_test.go:152-196`.
+The refused-account close race is covered at
+`src/modules/edgebus/storage_test.go:152-196`. The fitting-account close race
+is covered at `src/modules/edgebus/storage_test.go:198-246`.
 
 ## Why This Matters
 
@@ -182,10 +185,11 @@ budget ceiling rather than credential or resolver issues.
 
 The server's internal refusal log ("insufficient storage resources available")
 is captured by `quietLogger` and forwarded to `HubConfig.Logger`
-(`src/modules/edgebus/hub.go:651-664`). By checking the account's enablement
+(`src/modules/edgebus/hub.go:654-668`). By checking the account's enablement
 flag, `AttachEdge` reports the storage limit only when the server refused that
-account. The attach and `Hub.Close` share the hub mutex, so shutdown cannot
-clear the flag between `connectAccount` and the lookup.
+account. The attach and `Hub.Close` share the hub mutex. `Close` holds the
+write lock until the server has shut down, so shutdown cannot clear the flag
+between `connectAccount` and the lookup.
 
 ## When to Apply
 
@@ -195,7 +199,7 @@ clear the flag between `connectAccount` and the lookup.
 - Diagnosing `jetstream not enabled` or storage limit errors on a hub account:
   check the account's enablement flag, recent attach failures, and the budget
   sum before looking at keys or the account resolver
-(`src/modules/edgebus/hub.go:447-467`).
+  (`src/modules/edgebus/hub.go:447-467`).
 - Adding a JetStream-enabled account to the hub: its budget joins the same sum
   and can push subsequent accounts over the ceiling.
 - Capacity planning: a hub with a store ceiling holds

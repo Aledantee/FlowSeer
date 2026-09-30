@@ -194,3 +194,53 @@ func TestAttachEdgeCloseRaceStillNamesStorage(t *testing.T) {
 	}
 	<-closeDone
 }
+
+func TestAttachEdgeCloseRaceFittingAccountIsNotStorage(t *testing.T) {
+	hub := startStorageTestHub(t, 0)
+
+	connected := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseHook := func() { releaseOnce.Do(func() { close(release) }) }
+	t.Cleanup(releaseHook)
+	hub.edgeAccountConnectHook = func() {
+		close(connected)
+		<-release
+	}
+
+	attachDone := make(chan error, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	spawn.Go(ctx, "test edge attach", func() {
+		attachDone <- hub.AttachEdge(ctx, "0192e6a0-0000-7000-8000-000000000001")
+	})
+	select {
+	case <-connected:
+	case <-time.After(5 * time.Second):
+		t.Fatal("edge account connect hook was not called")
+	}
+
+	closeStarted := make(chan struct{})
+	closeDone := make(chan struct{})
+	spawn.Go(context.Background(), "test hub close", func() {
+		close(closeStarted)
+		hub.Close()
+		close(closeDone)
+	})
+	<-closeStarted
+	select {
+	case <-closeDone:
+		t.Fatal("Hub.Close returned while attach held the account read lock")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	releaseHook()
+	err := <-attachDone
+	if strings.Contains(strings.ToLower(err.Error()), "storage") {
+		t.Fatalf("fitting edge attach error %q incorrectly names storage", err.Error())
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != ErrCodeHub {
+		t.Fatalf("fitting edge attach error code = %q, want %q", code, ErrCodeHub)
+	}
+	<-closeDone
+}

@@ -367,7 +367,7 @@ reproduce main byte for byte first.
 - Failing a refused attach before the wait. U8 reads the flag before the
   wait but acts on it only after the wait fails, as the 2026-09-30
   Decision frames it. Under a live context a refused account still waits
-  out the loop's 10-second deadline (`src/modules/edgebus/hub.go:299`)
+  out the loop's 10-second deadline (`src/modules/edgebus/hub.go:304`)
   before `AttachEdge` returns.
 - Mapping `edgebus/storage` to a Connect code in `AttachBus`
   (`src/services/device/internal/edgeapi/service.go:180-183`).
@@ -505,8 +505,8 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/netpe
 
 Files: src/modules/edgebus/hub.go, src/modules/edgebus/README.md, src/modules/edgebus/storage_test.go, docs/solutions/architecture-patterns/per-account-jetstream-disk-budgets-reserve-against-the-server-store-ceiling.md
 After: none
-Change: the `hub.go:42-47` field doc, the comments at `:145-151` and
-`:413-416`, and `README.md:47-50` say that account budgets are
+Change: the `hub.go:46-52` field doc, the comments at `:153-158` and
+`:419-423`, and `README.md:47-50` say that account budgets are
 reservations against the server's store ceiling. Zero sets that ceiling
 once at start to 75% of free disk, which caps edges at
 `(ceiling − central budget) / edge budget`. `AttachEdge` returns the
@@ -591,7 +591,7 @@ After: U6
 Change: `hub.go` declares `ErrCodeStorage = errs.NewCode("edgebus/storage")`
 beside `ErrCodeHub` (`:23-28`), with a doc comment saying it marks an edge
 attach the server refused because the edge account's budget does not fit
-under the store ceiling. Before `connectAccount` (`:440`),
+under the store ceiling. Before `connectAccount` (`:437`),
 `ensureEdgeAccount` takes the hub mutex for reading and holds it through
 `srv.LookupAccount(pub)` and `JetStreamEnabled()` (`:447-451`). `Close` takes
 the mutex for writing before it calls `srv.Shutdown`, so shutdown cannot clear
@@ -607,7 +607,7 @@ message starts with "storage limit exceeded" and names the edge budget
 and the ceiling, and no edge count. The `JetStreamNumAccounts` arithmetic
 and its comment go. A two-line comment at the flag read says that the server
 enables the account during CONNECT, so a false flag is a refusal. The
-`waitForJetStream` doc (`:299-300`) drops the claim that JetStream is
+`waitForJetStream` doc (`:301-302`) drops the claim that JetStream is
 provisioned a beat after the first connection. The wait itself stays (Open
 questions). `README.md:53-59` adds that an attach the server
 refuses returns `edgebus/storage`. In the solution doc:
@@ -622,7 +622,7 @@ refuses returns `edgebus/storage`. In the solution doc:
   explains in "Why This Matters" that the hub asks the server
 - every `hub.go`, `keys.go`, and `storage_test.go` line cite is re-read
   after the change: the budget constants are at `hub.go:126-127`,
-  `quietLogger.record` is at `hub.go:651-664`, and the account JWT snippet
+  `quietLogger.record` is at `hub.go:654-668`, and the account JWT snippet
   is at `keys.go:244-251`
 Tests: in `storage_test.go`, each case on a hub with `MaxStoreBytes`
 640 MiB, `CentralBudgetBytes` 512 MiB, and `EdgeBudgetBytes` 128 MiB:
@@ -644,10 +644,12 @@ Tests: in `storage_test.go`, each case on a hub with `MaxStoreBytes`
   A retry of A under a canceled context returns `ErrCodeHub` without
   "storage". Before the change it names storage.
 The lock added by the "No exception to the storage rule" Decision gets a
-test at `storage_test.go:152-196`: `Close` starts while an attach holds the
-read lock, blocks until the flag read completes, and the refused attach still
-returns `edgebus/storage`. A server that stops on its own stays outside the
-rule.
+refused-account test at `storage_test.go:152-196`: `Close` starts while an
+attach holds the read lock, blocks until the flag read completes, and the
+refused attach still returns `edgebus/storage`. A fitting-account test at
+`storage_test.go:198-246` asserts the same ordering while the account fits,
+then requires `ErrCodeHub` without "storage". A server that stops on its own
+stays outside the rule.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/edgebus/ docs/solutions/architecture-patterns/per-account-jetstream-disk-budgets-reserve-against-the-server-store-ceiling.md`
 
 ### U9. Link only the rule package capture validation reaches
@@ -712,7 +714,7 @@ For U7 to U9:
   the verifier format with one version? It is a policy surface. Stage it
   for a person's review and do not edit it inside U1.
 - Settled by U1: `buf.gen.yaml:23` pins `buf.build/connectrpc/go:v1.20.0`.
-- Does anything still need the wait at `src/modules/edgebus/hub.go:439`?
+- Does anything still need the wait at `src/modules/edgebus/hub.go:453`?
   Enablement and the JetStream API imports complete inside CONNECT
   (Decisions), so the lag its comments name does not exist. Whether
   something else lags after connect is unverified. U8 corrects the
