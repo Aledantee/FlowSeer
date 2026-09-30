@@ -58,7 +58,6 @@ func OrgIndexKey(issuer, orgClaimValue string) string {
 // Safe for concurrent use.
 type Store struct {
 	kv      jetstream.KeyValue
-	js      jetstream.JetStream
 	subject string
 	lastMsg func(context.Context, string) (*jetstream.RawStreamMsg, error)
 	publish func(context.Context, []*nats.Msg) (*jetstreamext.BatchAck, error)
@@ -82,7 +81,6 @@ func New(ctx context.Context, js jetstream.JetStream, bucket string) (*Store, er
 
 	s := &Store{
 		kv:      kv,
-		js:      js,
 		subject: "$KV." + bucket + ".",
 		lastMsg: stream.GetLastMsgForSubject,
 	}
