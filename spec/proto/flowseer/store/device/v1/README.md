@@ -26,8 +26,9 @@ Deliberately absent:
   here that can carry one is `ServiceTelemetry.headers`, which says so, and a
   deployment that puts a token there is choosing to treat the configuration
   file as a secret.
-- A tenant field. Scope is ambient, and the tenant is the `<tenant_id>.` prefix
-  of the lane record's key.
+- A tenant field on stored lane and edge records. Their tenant is derived from
+  the `<tenant_id>.` prefix of the record key. `DeviceServiceConfig.dev_tenant`
+  is deployment configuration, not stored-record scope.
 
 ## The lane record
 

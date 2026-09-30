@@ -118,9 +118,9 @@ its credential to
 file.
 
 The tenant token is enforced at both ends of the link. An edge user publishes
-only under `flowseer.<tenant>.edge.<edge-id>.>` (`edgePermissions`,
-`keys.go:357-367`), and the forwarder refuses a record whose subject names
-another tenant or edge (`belongsToEdge`, `forwarder.go:226`).
+only under `flowseer.<tenant>.edge.<edge-id>.>` through `edgePermissions`, and
+the forwarder refuses a record whose subject names another tenant or edge with
+`belongsToEdge`.
 
 ## What a compromised edge can and cannot do
 
