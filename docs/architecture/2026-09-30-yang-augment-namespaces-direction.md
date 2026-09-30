@@ -3,7 +3,7 @@ title: YANG Augment Namespaces - Direction
 type: direction
 date: 2026-09-30
 topic: yang-augment-namespaces
-status: proposed-direction
+status: accepted-direction
 ---
 
 # YANG Augment Namespaces - Direction
