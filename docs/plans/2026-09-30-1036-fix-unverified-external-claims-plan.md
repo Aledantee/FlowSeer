@@ -12,7 +12,10 @@ execution: mixed
 # Unverified External Claims - Plan
 
 > Partially implemented. U1 to U6, U8, and U9 are implemented and verified.
-> U7 is staged for guardrail review and remains in progress.
+> U7 is staged for guardrail review and remains in progress. Requirement 12
+> states an exception, a `Hub.Close` that starts during an attach, that the
+> 2026-09-30 Decision on the edge-bus storage error does not admit. It waits
+> on a user decision.
 
 ## Goal
 
