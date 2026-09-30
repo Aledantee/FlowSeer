@@ -739,9 +739,11 @@ func TestUploadCapture_ReportedReasonControlsLifecycle(t *testing.T) {
 		canceled      bool
 		wantLifecycle modelcapturev1.CaptureLifecycle
 		wantReason    modelcapturev1.CaptureStopReason
+		wantDisagree  bool
 	}{
-		{"operator on running", modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR, false, modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED, modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR},
-		{"packet count after cancellation", modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT, true, modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED, modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR},
+		{"operator on running", modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR, false, modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED, modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR, false},
+		{"packet count after cancellation", modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT, true, modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED, modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR, true},
+		{"operator after cancellation", modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR, true, modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED, modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR, false},
 	}
 
 	for _, tc := range cases {
@@ -797,8 +799,73 @@ func TestUploadCapture_ReportedReasonControlsLifecycle(t *testing.T) {
 			if got := rec.GetState().GetStopReason(); got != tc.wantReason {
 				t.Errorf("stop reason = %v, want %v", got, tc.wantReason)
 			}
-			if got := strings.Contains(logs.String(), "capture stop reason disagrees with operator cancellation"); got != tc.canceled {
-				t.Errorf("disagreement logged = %v, want %v", got, tc.canceled)
+			if got := strings.Contains(logs.String(), "capture stop reason disagrees with operator cancellation"); got != tc.wantDisagree {
+				t.Errorf("disagreement logged = %v, want %v", got, tc.wantDisagree)
+			}
+		})
+	}
+}
+
+func TestUploadCapture_RejectsInvalidChunkAndFailsSession(t *testing.T) {
+	cases := []struct {
+		name   string
+		final  bool
+		reason *modelcapturev1.CaptureStopReason
+	}{
+		{"final without reason", true, nil},
+		{"final with error", true, modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR.Enum()},
+		{"non-final with duration", false, modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_DURATION.Enum()},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			h := newTestHarness(t)
+			sessID := "0192e6a0-0000-7000-8000-0000000000d0"
+			cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
+			if _, err := h.store.CreateSession(ctx, cfg); err != nil {
+				t.Fatalf("create session: %v", err)
+			}
+
+			stream := newUploadServer(t, captureapi.NewEdgeService(h.store, h.newVerifier(), h.broadcaster, captureapi.EdgeServiceConfig{})).UploadCapture(ctx)
+			if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{
+				Assertion: h.signAssertion(t, testEdge1ID, h.privKey1),
+			}.Build()); err != nil {
+				t.Fatalf("send assertion: %v", err)
+			}
+			if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{
+				Chunk: modelcapturev1.CapturePacketChunk_builder{
+					Session:       cfg.GetRef(),
+					FirstSequence: proto.Uint64(0),
+					Final:         proto.Bool(false),
+				}.Build(),
+			}.Build()); err != nil {
+				t.Fatalf("send initial chunk: %v", err)
+			}
+
+			badChunk := modelcapturev1.CapturePacketChunk_builder{
+				Session:       cfg.GetRef(),
+				FirstSequence: proto.Uint64(0),
+				Final:         proto.Bool(tc.final),
+				StopReason:    tc.reason,
+			}.Build()
+			if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{Chunk: badChunk}.Build()); err != nil {
+				t.Fatalf("send invalid chunk: %v", err)
+			}
+			_, err := stream.CloseAndReceive()
+			if got := connect.CodeOf(err); got != connect.CodeInvalidArgument {
+				t.Fatalf("code = %v, want CodeInvalidArgument (error: %v)", got, err)
+			}
+
+			rec, _, err := h.store.Session(ctx, sessID)
+			if err != nil {
+				t.Fatalf("get session: %v", err)
+			}
+			if got := rec.GetState().GetLifecycle(); got != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED {
+				t.Fatalf("lifecycle = %v, want FAILED", got)
+			}
+			if got := rec.GetState().GetStopReason(); got != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR {
+				t.Fatalf("stop reason = %v, want ERROR", got)
 			}
 		})
 	}

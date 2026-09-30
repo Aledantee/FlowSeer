@@ -440,7 +440,13 @@ func TestEngine_ContextCancelIsOperatorAndCanceled(t *testing.T) {
 
 	cancel()
 	<-src.closed
-	_ = drainAll(p)
+	batches := drainAll(p)
+	if len(batches) == 0 {
+		t.Fatal("drainAll returned no batches, want the final operator-stop batch")
+	}
+	if got := batches[len(batches)-1].StopReason; got != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
+		t.Errorf("final batch stop reason = %v, want OPERATOR", got)
+	}
 
 	final := e.State()
 	if final.StopReason != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
@@ -583,12 +589,9 @@ func TestNewWithSource(t *testing.T) {
 	}
 }
 
-// TestEngine_FailedRunDeliversNoFinalBatch proves a run the source killed
-// off leaves Final unset on every batch it delivered. A host uploading these
-// batches turns Final into "the capture finished"; a receiver reads a final
-// chunk as a completed session, so
-// marking the trailing batch of a failed run Final would record a capture
-// that died on its first packet as one that completed its hundred.
+// TestEngine_FailedRunDeliversNoFinalBatch proves a failed run has no final
+// batch. A final batch tells the receiver the capture ended on its own terms
+// with a budget or operator reason, and a failed run has neither.
 func TestEngine_FailedRunDeliversNoFinalBatch(t *testing.T) {
 	src := newFakeSource(4)
 	src.frames <- testFrame(0xaa)
