@@ -33,7 +33,7 @@ in `phases()` and `open_plans()`.
 What happened: The script treats any plan with a `### U*` unit whose `Files:`
 contains a `docs/plans/*-plan.md` path as a parent. The reconciliation plan's
 U3 lists the old parent and its phase plans in `Files:`
-(`docs/plans/2026-09-30-1338-docs-operator-authorization-reconciliation-plan.md:220-228`).
+(the operator authorization reconciliation plan, landed 2026-09-30; its text is in git history).
 The resulting state reports U3 as `implement` even though this plan is
 implemented. The drive had to override that classification.
 Suggested change: distinguish phase children from a docs-only plan's
