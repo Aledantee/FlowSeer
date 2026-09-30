@@ -22,6 +22,13 @@
 // names grow by one ancestor segment together until they are unique,
 // and a clash that runs out of segments resolves to X plus six hex
 // digits of the shape key or path.
+
+// A child recovered from a duplicate augment is emitted behind one
+// group field per augmenting module. The group struct and schema live
+// in the augmenting package, and a group schema has no codec root.
+// Descriptors and companion key types for lists inside a group live in
+// the package of the tree's top-level module, while their row structs
+// remain in the package that owns the list.
 //
 // Module descriptors are emitted as package-level *yang.Module variables
 // and shared by all schemas and fields in the package. Schemas format
@@ -44,9 +51,10 @@
 // writes; the indirect requirements belong to tidy and are not
 // compared.
 //
-// Output is not yet deterministic. goyang applies augments in map
-// order, so when two modules augment one node with a same-named child,
-// each run can pick a different winner.
+// Duplicate augment children are recovered from goyang's augment
+// entries and sorted by module and name before emission. The view and
+// its qualified paths keep generated output stable when goyang chooses
+// a different survivor.
 //
 // Flags: -config, -out, -verify (load-only), -check (drift gate),
 // -update. Exit codes: 0 success, 1 load/check/runtime failure, 2
