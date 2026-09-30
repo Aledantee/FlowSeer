@@ -9,6 +9,7 @@
 # orca-worker.sh read   SLUG [--lines N]
 # orca-worker.sh keys   SLUG TEXT                # raw text into the terminal, no Enter; 200 characters at most
 # orca-worker.sh tell   SLUG FILE                # a message longer than keys takes, delivered like the brief
+# orca-worker.sh check  SLUG                    # verify the Claude lane's recorded model
 # orca-worker.sh status
 # orca-worker.sh grade  SLUG --outcome accepted|amended|rejected|blocked --verify pass|fail|none [--note TEXT]
 # orca-worker.sh stop   SLUG [--stalled]         # --stalled: after wait printed stalled
@@ -66,6 +67,21 @@ deliver() {
     sleep 2
   done
   return 1
+}
+
+model_check_lane() {
+  local lane=$1 cli run_id start_data model at path
+  cli=$(field "$lane" cli); path=$(field "$lane" path); run_id=$(field "$lane" run)
+  [[ -n $cli && -n $path && -n $run_id ]] || die "lane $lane has incomplete state"
+  if [[ $cli != claude ]]; then
+    echo "not checked: $cli"
+    return 0
+  fi
+  start_data=$(python3 -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import runlog; events = [event for event in runlog.read() if event.get("event") == "start" and event.get("run") == sys.argv[2]]; event = events[-1] if events else {}; print("\t".join((event.get("model", ""), event.get("at", ""))))' "$script_dir" "$run_id") \
+    || die "cannot read start event for lane $lane"
+  IFS=$'\t' read -r model at <<<"$start_data"
+  [[ -n $model && -n $at ]] || die "lane $lane has no start model and time"
+  python3 "$script_dir/model_check.py" "$path" "$model" "$at"
 }
 
 cmd=${1:-}; shift || true
@@ -310,7 +326,7 @@ case "$cmd" in
     [[ -f $file ]] || die "file $file not found"
     deliver "$term" "$path" "$file" "$note_name" || die "message not on $name's screen after two submissions: $(screen "$term" | tail -8)"
     ;;
-  status)
+status)
     shopt -s nullglob; files=("$state_dir"/*.json)
     ((${#files[@]})) || { echo "no live lanes"; exit 0; }
     for f in "${files[@]}"; do
@@ -323,6 +339,12 @@ case "$cmd" in
       if working "$s"; then st=working; else st=idle; fi
       echo "$n $(field "$n" cli) $st $(field "$n" path)"
     done
+    ;;
+  check)
+    name=${1:-}
+    [[ -n $name ]] || die "check SLUG"
+    [[ -f "$state_dir/$name.json" ]] || die "no lane named $name; status lists them"
+    model_check_lane "$name"
     ;;
   grade)
     name=${1:-}; shift || true
@@ -341,6 +363,10 @@ case "$cmd" in
     [[ -f "$state_dir/$name.json" ]] || die "no lane named $name; status lists them"
     run_id=$(field "$name" run)
     [[ -n $run_id ]] || die "lane $name has no run"
+    if [[ $outcome == accepted || $outcome == amended ]]; then
+      check_output=$(model_check_lane "$name" 2>&1) || die "$check_output"
+      [[ -z $check_output ]] || echo "$check_output"
+    fi
     grade_args=(
       grade
       --run "$run_id"

@@ -465,6 +465,58 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
         self.assertEqual(events[1]["verify"], "fail")
         self.assertEqual(events[1]["note"], "adjusted test")
 
+    def claude_lane_without_session(self):
+        lane_path = self.root / "claude-lane"
+        lane_path.mkdir(exist_ok=True)
+        self.config = self.root / "claude-config"
+        self.env["CLAUDE_CONFIG_DIR"] = str(self.config)
+        state_file = self.state_dir / "l1.json"
+        state_file.write_text(json.dumps({
+            "name": "l1", "cli": "claude", "terminal": "term-1",
+            "worktree": "wt-1", "path": str(lane_path), "branch": "main",
+            "run": "run-l1",
+        }))
+        self.runlog.write_text(json.dumps({
+            "v": 1, "event": "start", "run": "run-l1",
+            "at": "2026-09-30T10:00:00Z", "lane": "l1", "cli": "claude",
+            "model": "claude-opus-5-5", "role": "execute", "worktree": "wt-1",
+            "branch": "main", "base": "base-sha",
+        }) + "\n")
+
+    def test_grade_refuses_accepted_and_amended_when_model_check_fails(self):
+        for outcome in ("accepted", "amended"):
+            with self.subTest(outcome=outcome):
+                self.claude_lane_without_session()
+                result = self.command("grade", "l1", "--outcome", outcome, "--verify", "pass")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("no qualifying session file", result.stderr)
+                events = [json.loads(line) for line in self.runlog.read_text().splitlines()]
+                self.assertEqual([event["event"] for event in events], ["start"])
+
+    def test_grade_writes_rejected_and_blocked_when_model_check_fails(self):
+        for outcome in ("rejected", "blocked"):
+            with self.subTest(outcome=outcome):
+                self.claude_lane_without_session()
+                result = self.command("grade", "l1", "--outcome", outcome, "--verify", "none")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                events = [json.loads(line) for line in self.runlog.read_text().splitlines()]
+                self.assertEqual([event["event"] for event in events], ["start", "grade"])
+                self.assertEqual(events[-1]["outcome"], outcome)
+
+    def test_check_reports_non_claude_lanes_as_not_checked(self):
+        child_path = self.root / "child-l1"
+        child_path.mkdir()
+        (self.state_dir / "l1.json").write_text(json.dumps({
+            "name": "l1", "cli": "codex", "terminal": "term-1",
+            "worktree": "wt-1", "path": str(child_path), "branch": "main",
+            "run": "run-l1",
+        }))
+
+        result = self.command("check", "l1")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "not checked: codex")
+
     def graded_lane(self):
         subprocess.run(["git", "checkout", "-b", "branch-l1"], cwd=self.repo, check=True, capture_output=True)
         (self.repo / "work.txt").write_text("lane output")

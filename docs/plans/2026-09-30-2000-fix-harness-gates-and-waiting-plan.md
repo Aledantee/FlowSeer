@@ -87,7 +87,7 @@ claims:
 ### U1. Correctness gates
 Files: `docs/plans/2026-09-30-2000-fix-harness-gates-and-waiting-phase1-plan.md`
 After: none
-Landed:
+Landed: `ea366104..69b9117c`
 
 ### U2. Hook assertions and input
 Files: `docs/plans/2026-09-30-2000-fix-harness-gates-and-waiting-phase2-plan.md`

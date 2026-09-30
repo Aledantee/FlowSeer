@@ -4,12 +4,14 @@ type: fix
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-30-2000-fix-harness-gates-and-waiting-plan.md
 ---
 
 # Harness Gates and Waiting Phase 1, Correctness Gates - Plan
+
+> Implemented. 3 units, 2026-09-30T18:44:28Z to 2026-09-30T18:55:37Z.
 
 ## Goal
 
@@ -194,13 +196,17 @@ The second command should exit 1 and name files under `.claude/skills/`.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] Skill prose updated in the same change.
-- [ ] Parent's `Landed:` line for this phase filled.
-- [ ] No plan labels in code or commit messages.
+- [x] Verifier green for every changed path.
+- [x] Skill prose updated in the same change.
+- [x] Parent's `Landed:` line for this phase filled.
+- [x] No plan labels in code or commit messages.
 
 ## Open questions
 
-- Whether `merge-check.py` names the seven files the solution lists for
-  `f5be45ac`. Unverified until U2 runs. A different set means the line
-  rule needs another look before U3 wires it in.
+- `merge-check.py f5be45ac^..f5be45ac` exits 1 and reports six lost
+  first-parent changes: five under `.claude/skills/` and one under
+  `.claude/models/`. The deleted model evidence and the `close` to `land`
+  rename are listed as not compared. The other two files in the solution's
+  seven-file skill diff retain all first-parent additions, so they have no
+  missing block. The unique-line comparison catches the reset and still
+  passes a change already present on the other parent.

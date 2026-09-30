@@ -57,6 +57,12 @@ Full handoff.
   for `--stall` seconds (default 1200) prints `stalled`; a terminal that
   cannot be read prints `exited`. With `--timeout` it prints `timeout`,
   and the worker is still at work.
+- `check` reads the lane's `cli` from state and the `model` and `at` values
+  from its `start` event. On a Claude lane it checks the session files for
+  another model or a refusal fallback. Other lanes print `not checked: <cli>`
+  and succeed. `grade --outcome accepted` and `amended` repeats the same
+  check before writing the grade. A failed check is graded `rejected`, left
+  unmerged, and dispatched again under the model-switch rule.
 - `keys` sends at most 200 characters without Enter, for dialog answers;
   longer text arrives with only its tail. `tell` copies a file into the
   checkout as `.orca-note.md` and submits a pointer to it, as `start` does

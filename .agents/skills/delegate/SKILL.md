@@ -178,13 +178,29 @@ orchestration run or a full handoff.
 ### Reading a worker's report
 
 A worker runs its package's focused tests and commits; it does not run the
-verifier. Before reading the report as fact, check the tree:
+verifier. Before reading the report as fact or merging its branch, run the
+lane check:
+
+```bash
+.claude/skills/delegate/scripts/orca-worker.sh check <slug>
+```
+
+A non-zero check stops the merge. Grade the lane `rejected`, leave it
+unmerged, and dispatch it again through the model-switch rule. Then check the
+tree:
 `git -C <child> log --oneline -1` shows the commit the report names,
 `git -C <child> status --porcelain` is empty, and the two or three changes
 most expensive to get wrong are what the report says. An idle lane whose
 child has changes but no new commit stopped short: `tell` it to commit.
-Merge the branch here and run the verifier once, sandbox disabled, on the
-union of changed paths; for a worker on `agy` or `omp`, load
+Merge the branch here. Right after each merge, run:
+
+```bash
+python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD
+```
+
+A non-zero result stops the merge step. Carry every `missing` block in the
+report, then run the verifier once, sandbox disabled, on the union of changed
+paths; for a worker on `agy` or `omp`, load
 `references/hookless-merge.md` after the merge, before the verifier. A child whose branch did not land stays,
 and the report names it with the reason. Never remove a child with a dirty
 tree; say what is there.
@@ -232,6 +248,10 @@ order:
    under the worker's own `$TMPDIR` (a literal `/tmp` path prompts or is
    denied) or into a temporary commit, never `git stash`, whose stack every
    worktree and session shares.
+   A fix worker that needs a file outside the named files and the classes
+   allowed by `fix-loop.md` step 1 reports a blocker naming the file and
+   reason. A comment, skipped or weakened test, or partial change is not a
+   fix.
 7. For every runtime: no questions; state a blocker and stop. A requirement
    the worker believes the code cannot satisfy is a blocker, even when a
    weaker one is within reach. Editing subagents need worktree isolation,
