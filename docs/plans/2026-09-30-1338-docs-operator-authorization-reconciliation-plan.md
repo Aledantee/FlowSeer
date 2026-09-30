@@ -64,10 +64,11 @@ decision below would then constrain the engine rather than sit beside it.
   under `spec/proto/` names an engine. Why: both hold whichever engine the
   spike favors, and the 09-30 record does not state them.
 - The 09-28 rule "a person who works for two tenants holds two tokens" is
-  withdrawn, and "a token that maps to no tenant is `PermissionDenied`"
-  becomes "a request whose named tenant the token does not claim, or whose
-  caller is not enrolled, is `PermissionDenied`". Why: follows from the
-  first decision.
+  withdrawn. The request interceptor admits only a `member` of the named
+  tenant. Membership is FlowSeer enrollment with a token claiming the
+  tenant's organization, or reach through `partner` or `platform`. A caller
+  who is not a member of the named tenant is `PermissionDenied`, not
+  `Unauthenticated`. Why: follows from the first decision.
 - The SpiceDB spike's harness stays out of the tree, as the OpenFGA
   spike's did, and the note says so. Why: it is a one-off comparison, and
   the benchmark the 09-30 plan adds under

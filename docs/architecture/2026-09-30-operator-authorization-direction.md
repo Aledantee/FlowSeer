@@ -17,16 +17,16 @@ The [capture record's 2026-09-28
 amendment](2026-09-09-remote-packet-capture-direction.md#2026-09-28--operator-identity-and-capture-authorization)
 lists the relations capture needs and defers the model to this record.
 
-This record decides how a caller becomes a principal and a tenant, how every
+This record describes how a caller becomes a principal and a tenant, how every
 RPC is authorized, and who owns the relationships. It keeps the engine choice
 open until a person reads both measured spikes. The measurements are in the
 [OpenFGA note](../research/2026-09-30-openfga-authorization-spike.md) and the
 [SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md).
 
-This record now decides operator authorization. The earlier
-`2026-09-28-operator-authorization-direction.md` remains useful as history,
-including the identity and tenancy foundation that landed under it, but its
-direction is superseded here.
+This record takes over operator authorization from the
+`2026-09-28-operator-authorization-direction.md` record. The earlier record
+remains useful as history, including the identity and tenancy foundation that
+landed under it. This record binds once a person accepts it.
 
 ## A request, end to end
 
@@ -110,7 +110,7 @@ even when a secondary datastore is configured
 
 The [OpenFGA membership note](../research/2026-09-30-openfga-authorization-spike.md#membership-gated-by-token-claims)
 measured `and member from tenant` inside resource permissions on 336,249
-relationships over gRPC. At a 60-second deadline, it returned 11 of 1,104
+relationships. At a 60-second deadline, it returned 11 of 1,104
 Tag edges and zero platform-admin edges. The
 [SpiceDB note's direct-tenant re-measurement](../research/2026-09-30-spicedb-authorization-spike.md#membership-aware-resource-lookup)
 uses 336,245 relationships and the same deadline. OpenFGA returned all 1,104
@@ -273,11 +273,11 @@ provider. The principal is the issuer and the subject together, because
 OIDC makes `sub` unique only within one issuer.
 
 OIDC has no standard tenant claim. A request names the tenant it acts in in
-a header, and the authorization interceptor admits it only when the
-principal is an enrolled `member` of that tenant and the token claims the
-tenant's configured organization. The tenant binding resolves the token's
-issuer and organization claim to a FlowSeer tenant id. A request whose named
-tenant is not claimed by the token, or whose caller is not enrolled, is
+a header, and the authorization interceptor admits only a `member` of the
+named tenant. Membership is FlowSeer enrollment with a token claiming the
+tenant's configured organization, or reach through `partner` or `platform`.
+The tenant binding resolves the token's issuer and organization claim to a
+FlowSeer tenant id. A caller who is not a member of the named tenant is
 `PermissionDenied`, not `Unauthenticated`. Selecting the tenant through a
 provider's organization scope was rejected because providers spell it
 differently, and Zitadel's `urn:zitadel:iam:org:id` scope rejects users
@@ -323,7 +323,7 @@ The membership check runs once per request, on the tenant object. Resource
 permissions (`edge#capture`, `capture_session#download`) are plain unions
 over stored relationships in the initial OpenFGA model, with no intersection.
 The [OpenFGA note](../research/2026-09-30-openfga-authorization-spike.md#membership-gated-by-token-claims)
-measured the direct-tenant intersection on 336,249 relationships over gRPC:
+measured the direct-tenant intersection on 336,249 relationships:
 11 of 1,104 Tag edges and zero platform-admin edges at a 60-second deadline.
 The [SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md#membership-aware-resource-lookup)
 re-measured that placement on 336,245 relationships over gRPC. OpenFGA
@@ -397,8 +397,8 @@ service. Its shape is decided here:
   disposable datastore, the change is applied there, and the same per-edge
   diff runs against the live store. The
   [OpenFGA note](../research/2026-09-30-openfga-authorization-spike.md#previewing-a-tag-change)
-  rebuilt a 14,629-relationship union tenant, including sessions, in 0.55 s
-  over gRPC. Apply took 0.10 s and the all-user `ListUsers` diff of 406
+  rebuilt a 14,629-relationship union tenant, including sessions, in 0.55 s.
+  Apply took 0.10 s and the all-user `ListUsers` diff of 406
   edges took 2.54 s, with 291 lost pairs. The
   [SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md#disposable-rebuild)
   re-measured a 14,615-relationship union tenant including sessions. OpenFGA
@@ -409,7 +409,7 @@ service. Its shape is decided here:
 
 The rejection of recursive Tag exclusion (`but not blocked`) applies to
 the [OpenFGA note's exclusion fixture](../research/2026-09-30-openfga-authorization-spike.md#previewing-a-tag-change):
-372,239 relationships, exclusion on recursive Tag permissions, gRPC, and a
+372,239 relationships, exclusion on recursive Tag permissions, and a
 60-second deadline. It previewed losses exactly but returned zero Tag-derived
 objects with both ListObjects algorithms. The
 [SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md#tag-exclusion-and-preview)

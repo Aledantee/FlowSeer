@@ -28,9 +28,11 @@ query cache and cache controller with their default ten-second TTLs. Iterator
 caches were off for that comparison. `ListObjects` had a 50,000-object cap, a
 60-second server deadline, and a 65-second request timeout.
 
-Revocation kept the Postgres connection defaults. The main SpiceDB Postgres
-then allowed 400 connections for the union, exclusion, and membership pools. The other Postgres containers kept their
-connection defaults. For check, lookup, preview, and membership measurements,
+The revocation and disposable-rebuild Postgres containers used their default
+connection settings. The main SpiceDB Postgres allowed 400 connections for the
+union, exclusion, and membership pools. The other Postgres containers kept
+their connection defaults. For check, lookup, preview, and membership
+measurements,
 the two main databases used `max_wal_size=64MB` and `min_wal_size=32MB` to fit
 the local disk. Revocation and the disposable rebuild used the default WAL
 settings. All engines shared the Colima VM. Other work ran on the host. These
@@ -53,11 +55,11 @@ with branching factor three and depth four including the root. There are
 
 The generated union has 6,455 role assignments and one role-capture grant per
 tenant. Role ids are scoped to their tenant. User `u-t0-0000` is both a
-platform admin and an assignee of tenant role `t0-r0`. User `u-t0-0002` has
-the direct site grant. The dedicated Tag user `u-t0-0001` has a direct capture
-grant on `t0-r0`. There are no role grants on Tags except the explicit
-role-gain lookup probe. Of tenant 0's edges, 406 carry a Tag in the 13-Tag
-`t0-r0-b0` subtree and 1,104 carry a Tag under `t0-r0`.
+platform admin and an assignee of tenant role `role:t0-r0`. User `u-t0-0002`
+has the direct site grant. The dedicated Tag user `u-t0-0001` has a direct
+capture grant on `tag:t0-r0`. There are no role grants on Tags except the
+explicit role-gain lookup probe. Of tenant 0's edges, 406 carry a Tag in the
+13-Tag `tag:t0-r0-b0` subtree and 1,104 carry a Tag under `tag:t0-r0`.
 
 The OpenFGA note preserves the dimensions and aggregate relationship counts,
 but not its generated fixture list. Equal dimensions do not make these
@@ -88,6 +90,11 @@ maps to `or` and `->` maps to `from`. The paired OpenFGA model also uses
 `direct_*` stored relations with computed references. The baseline OpenFGA
 model combines stored and computed grants under one name. That extra reference
 hop is a model-shape difference, despite equal permission semantics.
+
+The paired OpenFGA DSL for the changed `tenant`, `site`, and `tag` types is not
+shown in this note. The note describes its difference as `direct_*` stored
+relations with computed references, while the baseline model combines stored
+and computed grants under one relation name.
 
 ```zed
 definition user {}
@@ -141,9 +148,15 @@ definition capture_session {
 Cells are the median percentile across five executions, followed by the
 minimum and maximum of that percentile in brackets. Units are milliseconds.
 The timer includes Python request construction, serialization, the gRPC round
-trip, and response decoding. The OpenFGA note's container used gRPC from Go.
-Its embedded figures have no SpiceDB counterpart because SpiceDB does not
+trip, and response decoding. The OpenFGA note does not state its client
+language. Its embedded figures have no SpiceDB counterpart because SpiceDB
+does not
 offer an embedded deployment.
+
+SpiceDB's dispatch cache was enabled and OpenFGA's query and iterator caches
+were disabled for these tables. Each latency row repeats one pair for 1,000
+sequential calls per execution. Repeated SpiceDB calls may have been served
+from the dispatch cache. That possibility was not checked.
 
 ### p50
 
@@ -171,14 +184,13 @@ offer an embedded deployment.
 
 Each batch call contains 50 capture-session checks. Both engines returned 27
 allows and 23 denies on every call. Batch percentiles come from 1,000 batch
-calls in each of five executions, rather than one timed batch.
+calls in each of five executions.
 
 The OpenFGA note's container p50/p99 values were 1.14/2.67 ms for global
 admin, 0.93/2.15 for tenant capture, 0.66/1.09 for site capture, 1.14/1.97 for
 a recursive Tag grant, 1.41/2.78 for deny, 0.55/1.55 for payload deny, and
-31.97/53.93 for the 50-session batch. The fixture details, client language,
-and host load differ. The separate contribution of each to any latency
-difference is unexplained.
+31.97/53.93 for the 50-session batch. The fixture details and host load differ.
+The separate contribution of each to any latency difference is unexplained.
 
 Ordering is not resolved where the spreads overlap:
 
@@ -198,7 +210,11 @@ Ordering is not resolved where the spreads overlap:
 | SpiceDB fully consistent | 1651.738 [1399.355, 5366.107] | 0.969 [0.298, 1.143] |
 | OpenFGA cache off | 1541.428 [1446.756, 1593.354] | 1.038 [1.004, 1.106] |
 
-The OpenFGA note measured about 1,430 checks/s against its gRPC container and
+SpiceDB's dispatch cache was enabled and OpenFGA's query and iterator caches
+were disabled for this table. The 5,366.107 checks/s value is an unexplained
+execution in the SpiceDB spread.
+
+The OpenFGA note measured about 1,430 checks/s against its container and
 1,030 embedded. These executions use 1,600 seeded random edge/user pairs, the
 tenant-scoped roles above, and Python callers on a shared host. The throughput
 difference from 1,430 checks/s is unexplained. The embedded throughput row
@@ -236,10 +252,12 @@ summarize the `uptime` readings taken before every execution.
 
 ## Resource lookup
 
+This table is one execution per row and has no load reading.
+
 | Subject | SpiceDB raw/distinct | Pages | Total ms | Last nonempty page ms | OpenFGA objects | OpenFGA total ms |
 | --- | --- | --- | --- | --- | --- | --- |
-| u-t0-0001 | 1104/1104 | 2 | 372.686 | 23.577 | 1104 | 12.960 |
-| u-t0-0000 | 42000/40000 | 42 | 4196.138 | 56.012 | 40000 | 82.658 |
+| Tag user | 1104/1104 | 2 | 372.686 | 23.577 | 1104 | 12.960 |
+| Global admin | 42000/40000 | 42 | 4196.138 | 56.012 | 40000 | 82.658 |
 
 The global admin's duplicate rows come from two site paths:
 `site->tenant->direct_capturer->role#assignee` and
@@ -255,6 +273,10 @@ multiple of 1,000.
 The OpenFGA note measured 9 ms for the 1,104-edge Tag grant and 148 ms for the
 40,000-edge admin grant. The paired gRPC measurements above use those result
 sizes. The difference in their times is unexplained.
+
+The union lookup is slower than the membership-intersection lookup on the same
+sets: 1,104 took 372.686 ms versus 65.802 ms, and 40,000 took 4,196.138 ms
+versus 1,773.847 ms. This inversion is unexplained.
 
 With `listObjectsMaxResults=1000`, the same Tag query returned 1,000 objects
 in 18.216 ms. It contained no cursor or partial-result marker. The OpenFGA
@@ -275,12 +297,6 @@ mode has five accepted trials.
 A grant control begins with a continuously polled deny, writes a grant through
 B, and measures the first allow. The row may report revocation staleness only
 if that engine/mode observed a stale control deny and a stale revoke allow.
-One preliminary higher-consistency trial failed the sampled two-second
-post-polling assertion. It was retained as invalid and repeated with an
-assertion on a completed poll beyond two seconds. Ten additional OpenFGA
-trials with the iterator cache enabled are a separate configuration and are
-excluded from the default-cache comparison below.
-
 ```mermaid
 flowchart LR
     deny["A polls deny for a full interval"] --> grant["B grants"]
@@ -388,9 +404,15 @@ maximum staleness. This explains why first deny does not mark convergence in
 this topology. It does not establish a bound for other datastores or
 deployments.
 
+The configured bound is 0.1 × 5 s = 500 ms. In these trials, the last allow
+ran 303 to 412 ms past each five-second boundary. The last allow minus first
+deny was 229 to 438 ms.
+
 The OpenFGA note measured 1.509-9.019 s with check caching and the cache
 controller enabled across two replicas. The default-cache trials above observe
-seconds of stale allows as well. Offsets relative to each cache's age differ,
+seconds of stale allows as well. The re-measured OpenFGA trials measured
+1.924-8.743 s, which falls inside the OpenFGA spike's 1.509-9.019 s. Offsets
+relative to each cache's age differ,
 so individual trials need not match. The controller reads changes at most once
 per its TTL ([`DetermineInvalidationTime`,
 v1.21.0](https://github.com/openfga/openfga/blob/v1.21.0/internal/cachecontroller/cache_controller.go)).
@@ -437,28 +459,29 @@ permission view = tag->viewer - blocked
 
 OpenFGA translates these operators to `or`, `from`, and `but not` at the same
 respective placements. Lookup has a 60-second deadline in both engines. The
-role-gain probe adds `t0-r1#assignee` to `t0-r0#capturer` and asks for
-`u-t0-0011`, then removes that grant.
+role-gain probe adds `role:t0-r1#assignee` to
+`tag:t0-r0#direct_capturer` and asks for `u-t0-0011`, then removes that grant.
+
+This table is one execution per row and has no load reading.
 
 | Placement | Subject | Engine | Distinct edges | Total ms | Completion |
 | --- | --- | --- | --- | --- | --- |
-| recursive | tag | spice | 1104 | 500.535 | complete |
-| recursive | tag | fga | 1104 | 1372.051 | response |
-| recursive | role_gain | spice | 1104 | 333.575 | complete |
-| recursive | role_gain | fga | 1104 | 1859.479 | response |
-| assignment | tag | spice | 1104 | 151.962 | complete |
-| assignment | tag | fga | 1104 | 18.417 | response |
-| assignment | role_gain | spice | 1104 | 131.720 | complete |
-| assignment | role_gain | fga | 1104 | 14.804 | response |
+| recursive | tag | spice | 1104 | 500.535 | complete (count matches expected) |
+| recursive | tag | fga | 0 | 1372.051 | deadline, 0 of 1,104 expected |
+| recursive | role_gain | spice | 1104 | 333.575 | complete (count matches expected) |
+| recursive | role_gain | fga | 4 | 1859.479 | deadline, 4 of 1,110 expected |
+| assignment | tag | spice | 1104 | 151.962 | complete (count matches expected) |
+| assignment | tag | fga | 1104 | 18.417 | complete (count matches expected) |
+| assignment | role_gain | spice | 1104 | 131.720 | complete (count matches expected) |
+| assignment | role_gain | fga | 1104 | 14.804 | complete (count matches expected) |
 
 The OpenFGA note's recursive placement returned zero Tag-derived objects after
 60 s with both ListObjects algorithms, and 4 of 1,110 for a role gain. The
 recursive placement above uses the default pipeline algorithm and 372,238
 stored relationships. The dedicated user's expected set is 1,104 in both
-probes. The model placement and deadline now match. The fixture, stored-grant
-reference shape, and expected role-gain count differ. Any remaining lookup
-disagreement is unexplained. The assignment placement is a separate model
-variant.
+probes. The fixture, stored-grant reference shape, and expected role-gain count
+differ. Any remaining lookup disagreement is unexplained. The assignment
+placement is a separate model variant.
 
 ### All users losing access
 
@@ -481,6 +504,8 @@ SpiceDB preview time includes blocker writes, all-user enumeration, and
 blocker removal. OpenFGA preview time includes contextual all-user queries.
 Delete-and-enumerate time stops before restoring the removed relationships.
 
+This table is one execution per row and has no load reading.
+
 | Placement | Engine | Scope | Users losing | Pairs losing | Edges losing | Preview ms | Delete and enumerate ms |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | recursive | spice | one | 1 | 1 | 1 | 16.319 | 50.227 |
@@ -497,7 +522,8 @@ across 291 of 406 affected edges for its subtree, with a 1.79-second preview.
 Here only the dedicated Tag user depends on these Tag grants, so one user
 loses on one edge and 406 pairs across 406 edges. Other users retain site or
 tenant grants. That grant distribution explains the count difference. The
-effect of client language and host load on preview timing is unexplained.
+client language is unknown. Its effect with host load on preview timing is
+unexplained.
 
 ### Disposable rebuild
 
@@ -509,6 +535,8 @@ Apply deletes the 406 subtree edge-to-Tag relationships. The diff queries
 every user's capture access on those edges in the original and disposable
 stores.
 
+This table is one execution per row and has no load reading.
+
 | Engine | Relationships | Schema/model and load ms | Apply ms | All-user diff ms | Pairs / edges losing |
 | --- | --- | --- | --- | --- | --- |
 | spice | 14615 | 544.766 | 38.017 | 3204.364 | 406/406 |
@@ -519,10 +547,12 @@ The OpenFGA note rebuilt 14,629 relationships in 0.55 s, applied the change in
 14,615 relationships. It includes all tenant 0 role assignments and the
 platform grant. The exact relationship-list difference from 14,629 is
 unexplained because that fixture list is absent. Both measurements include
-sessions. The all-user diff here produces 406 pairs from the dedicated Tag
-user, rather than the note's 291 pairs. Differences in operation count, grant
-distribution, client language, and host load prevent attributing the time
-difference to the engine alone.
+sessions. The OpenFGA re-measurement here took 1,489.714 ms to load versus
+0.55 s in the OpenFGA spike, 56.711 ms to apply versus 0.10 s, and 1,793.662 ms
+to diff versus 2.54 s. Each difference is unexplained. The all-user diff here
+produces 406 pairs from the dedicated Tag user, while the note reports 291
+pairs. The fixture relationship counts, grant distributions, and host load
+differ. The client language is unknown.
 
 ## Tenant membership
 
@@ -577,7 +607,10 @@ platform-admin inheritance.
 
 Cells have the same median [min, max] convention as the check tables above.
 Each row has five executions of 1,000 calls per engine. SpiceDB uses
-`fully_consistent` and OpenFGA has caches off.
+`fully_consistent` and OpenFGA has caches off. SpiceDB's dispatch cache was
+enabled and OpenFGA's query and iterator caches were disabled. Each execution
+repeats one pair 1,000 times. Repeated SpiceDB calls may have been served from
+the dispatch cache. That possibility was not checked.
 
 | Case | SpiceDB p50 ms | OpenFGA p50 ms |
 | --- | --- | --- |
@@ -621,9 +654,16 @@ The OpenFGA note's membership tenant checks had container p50 0.63-0.96 ms and
 p99 1.27-1.91 ms. Its resource checks had embedded p50 1.05-2.94 ms. The
 resource table above supplies the service-backed counterpart. An embedded
 SpiceDB row does not apply. This model has direct edge-to-tenant membership
-intersections rather than the site-mediated edge membership variant. The
-separate effects of fixture differences and host load on latency are
-unexplained. Overlapping spreads do not resolve an ordering.
+intersections. The separate effects of fixture differences and host load on
+latency are unexplained.
+
+Against OpenFGA cache off, tenant p50 spreads overlap for Member with claim and
+Member without claim. Against OpenFGA cache off, tenant p99 spreads overlap
+for Member with claim, Member without claim, Enrollment decayed, Partner admin
+with provider claim, and Global admin with platform claim. Against OpenFGA cache
+off, no resource p50 spread overlaps. Against OpenFGA cache off, resource p99
+spreads overlap for Site capturer edge capture, No grant, and Expired enrollment
+edge capture.
 
 ### Membership-aware resource lookup
 
@@ -633,36 +673,37 @@ plus explicit capture grants on those two customer tenants. It also inherits
 capture on its own tenant's 2,000 edges. Its expected lookup set is 6,000
 edges, of which 4,000 are customer edges.
 
+This table is one execution per row and has no load reading.
+
 | Subject | SpiceDB raw/distinct | Pages | Total ms | Last nonempty page ms | SpiceDB completion | OpenFGA objects | OpenFGA total ms | OpenFGA status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Tag user | 1104/1104 | 2 | 65.802 | 12.055 | complete | 1104 | 905.764 | response |
-| Global admin | 42000/40000 | 42 | 1773.847 | 32.824 | complete | 0 | 60019.708 | response |
-| Partner admin | 6000/6000 | 6 | 244.898 | 34.700 | complete | 0 | 60007.095 | response |
+| Tag user | 1104/1104 | 2 | 65.802 | 12.055 | complete (count matches expected) | 1104 | 905.764 | complete (count matches expected) |
+| Global admin | 42000/40000 | 42 | 1773.847 | 32.824 | complete (count matches expected) | 0 | 60019.708 | deadline, 0 of 40,000 expected |
+| Partner admin | 6000/6000 | 6 | 244.898 | 34.700 | complete (count matches expected) | 0 | 60007.095 | deadline, 0 of 6,000 expected |
 
 The OpenFGA note's direct-tenant placement returned 11 of 1,104 Tag edges and
 zero global-admin edges after 60 s. The partner returned all 4,000 in 11.18 s.
 This fixture has 6,000 eligible partner edges because the provider admin can
 also capture its own tenant's 2,000 edges. SpiceDB returned the 4,000 customer
 edges within that 6,000-edge result. OpenFGA returned zero before the deadline
-even though its point check on a customer edge allowed. The table now uses
-that placement and deadline, rather than a three-second deadline or membership
-reached through the site. Counts and times that differ despite this matching
-placement remain unexplained. The four-relationship fixture difference,
-stored-grant reference shape, and client language are known limits on the
-comparison. No per-type-only placement is claimed as a counterpart to this
-table.
+even though its point check on a customer edge allowed. The table uses direct
+tenant membership placement and a 60-second deadline. Counts and times that
+differ despite this placement remain unexplained. The four-relationship
+fixture difference and stored-grant reference shape limit the comparison. The
+client language is unknown. No per-type-only placement is claimed as a
+counterpart to this table.
 
 ## Findings
 
-| Area | Measured result |
-| --- | --- |
-| Point and batch checks | Both engines gave the expected answers. Five executions expose load spread. Overlapping percentile spreads do not resolve ordering. |
-| Throughput | Five alternating executions measure the stated 16-caller workload. Overlapping spreads do not resolve ordering. |
-| Union lookup | Both engines returned the expected distinct sets. SpiceDB raw output includes repeated permission paths and requires cursor draining and de-duplication. |
-| Revocation | Cached-mode grant controls and revoke trials observed stale reads. Token-based and fully consistent SpiceDB calls, and higher-consistency OpenFGA calls, have no staleness estimate. |
-| Preview | All-user pair differences matched actual deletion for this fixture. SpiceDB blockers were stored, so this exclusion preview has side effects. |
-| Rebuild | Schema/model load, apply, and all-user diff were timed separately for the stated one-tenant scope. |
-| Membership lookup | The table uses direct tenant intersections and a 60-second deadline, with the partner row included. Remaining disagreement with the OpenFGA note is unexplained. |
+| Area | SpiceDB | OpenFGA | Notes |
+| --- | --- | --- | --- |
+| Point and batch checks | p50/p99, fully consistent, path order from the check tables: 0.676 [0.634, 0.695] / 1.029 [0.917, 4.241], 0.673 [0.637, 0.720] / 1.381 [0.945, 2.712], 0.613 [0.585, 0.665] / 1.106 [0.883, 1.648], 0.694 [0.678, 0.752] / 2.021 [1.445, 5.403], 0.679 [0.665, 0.720] / 1.242 [0.942, 2.226], 0.653 [0.582, 1.108] / 1.017 [0.792, 4.031], 2.459 [2.290, 2.894] / 6.609 [5.141, 9.386] ms. Minimize latency: 0.524 [0.494, 0.575] / 0.763 [0.756, 2.262], 0.506 [0.490, 0.551] / 0.811 [0.656, 1.157], 0.513 [0.500, 0.528] / 0.832 [0.639, 4.824], 0.511 [0.495, 0.533] / 0.949 [0.730, 1.602], 0.523 [0.497, 0.564] / 0.768 [0.711, 1.296], 0.466 [0.448, 0.548] / 0.843 [0.677, 4.945], 2.317 [2.122, 4.496] / 5.003 [4.353, 39.225] ms. | p50/p99, cache off, same path order: 1.393 [1.156, 1.503] / 4.486 [2.292, 6.603], 1.385 [1.320, 1.459] / 3.673 [3.190, 5.729], 0.784 [0.741, 0.878] / 2.575 [1.328, 3.066], 1.524 [1.485, 1.826] / 2.914 [2.810, 7.490], 1.344 [1.252, 1.411] / 3.601 [2.739, 4.443], 0.680 [0.614, 0.958] / 2.539 [1.016, 5.635], 22.799 [20.870, 26.655] / 46.557 [36.279, 242.340] ms. | Each cell is p50 / p99 with the row's [min, max]. Overlapping spreads are not resolved. |
+| Throughput | 1,651.738 [1,399.355, 5,366.107] checks/s. 0.969 [0.298, 1.143] s. | 1,541.428 [1,446.756, 1,593.354] checks/s. 1.038 [1.004, 1.106] s. | The 5,366.107 checks/s SpiceDB execution is unexplained. |
+| Union lookup | Tag user: 1,104 distinct in 372.686 ms. Global admin: 40,000 distinct in 4,196.138 ms. Both complete. | Tag user: 1,104 objects in 12.960 ms. Global admin: 40,000 objects in 82.658 ms. | SpiceDB raw counts are 1,104 and 42,000. |
+| Revocation | `minimize_latency`: last allow 885.853-4,870.421 ms after delete response. `at_least_as_fresh` and `fully_consistent`: none observed. | `UNSPECIFIED`: last allow 1,924.493-8,743.093 ms after delete response. `HIGHER_CONSISTENCY`: none observed. | Five trials per mode. |
+| Preview | Recursive one/subtree: 16.319 / 2,710.318 ms preview and 50.227 / 1,778.588 ms delete and enumerate. Assignment one/subtree: 10.285 / 1,993.579 ms and 7.931 / 1,008.623 ms. | Recursive one/subtree: 3.458 / 900.785 ms preview and 7.388 / 785.225 ms delete and enumerate. Assignment one/subtree: 2.410 / 1,294.906 ms and 4.402 / 836.761 ms. | Each subtree has 406 pairs and 406 edges. |
+| Rebuild | Load 544.766 ms, apply 38.017 ms, all-user diff 3,204.364 ms. | Load 1,489.714 ms, apply 56.711 ms, all-user diff 1,793.662 ms. | One execution per row with no load reading. Each OpenFGA difference from the OpenFGA spike is unexplained. |
+| Membership lookup | Tag user: 1,104 of 1,104 complete. Global admin: 40,000 of 40,000 complete. Partner admin: 6,000 of 6,000 complete. | Tag user: 1,104 of 1,104 complete. Global admin: deadline, 0 of 40,000 expected. Partner admin: deadline, 0 of 6,000 expected. | Direct tenant intersections. The deadline is 60 seconds. |
 
 ## Sources
 

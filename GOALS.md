@@ -31,7 +31,7 @@ reason in the commit message.
 - The operator and admin API surfaces are authenticated with OIDC tokens and
   authorized through a Zanzibar-style relationship engine, for more than one
   tenant.
-  [`operator-authorization-direction`](docs/architecture/2026-09-30-operator-authorization-direction.md#any-oidc-provider-and-a-tenant-the-request-names)
+  [`operator-authorization-direction`](docs/architecture/2026-09-30-operator-authorization-direction.md#any-oidc-provider-and-a-tenant-the-request-names), proposed.
 - Operator-defined roles are granted at the tenant or a site, and a grant on
   a Tag covers everything tagged with it or its descendants. Adding or
   removing a Tag that changes access previews who gains or loses what, and
