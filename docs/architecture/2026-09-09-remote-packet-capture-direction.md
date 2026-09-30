@@ -182,9 +182,9 @@ decision auditable and the restraint that keeps the data from spreading:
 - an artifact is served only to a caller authorized for that session, and a
   download is itself an event.
 
-The [operator authorization direction record](2026-09-30-operator-authorization-direction.md)
+The [operator authorization direction record](2026-09-30-operator-authorization-direction.md#membership-owned-by-flowseer-confirmed-by-the-token)
 decides authorization for capture operations. Capture uses three relations from
-that record's relation table:
+that record's model:
 
 | Object type | Relation | What it grants |
 | --- | --- | --- |
@@ -192,9 +192,11 @@ that record's relation table:
 | `capture_session` | `download` | tail or download the session's packets |
 | `tenant` | `full_payload` | request `full_payload_requested: true` on a capture |
 
-The session's requester and every download are recorded as that record decides.
-`CaptureService` enforces nothing until the enforcement that record decides
-lands.
+The session's requester and every download are recorded as that record's
+[action trail section](2026-09-30-operator-authorization-direction.md#the-operator-action-trail-ships-with-authorization)
+decides. `CaptureService` enforces nothing until the enforcement that record's
+[rule section](2026-09-30-operator-authorization-direction.md#every-rpc-declares-its-rule)
+decides lands.
 
 ## Consequences
 
@@ -328,7 +330,7 @@ before the change still decodes, with no requester. `OperatorRef` lives in the
 `{model/edge, model/identity, net/capture} ← model/capture` now.
 
 Authorization for capture defers to the
-[operator authorization record](2026-09-30-operator-authorization-direction.md),
+[operator authorization record](2026-09-30-operator-authorization-direction.md#membership-owned-by-flowseer-confirmed-by-the-token),
 and the relation table under "Every capture is bounded and authorized" points
 at it for capture, download, and full-payload permissions. Until that record's authentication lands, the caller writes
 `requested_by` and `CaptureService` checks nothing about the caller; the

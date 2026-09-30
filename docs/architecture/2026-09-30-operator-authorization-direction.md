@@ -11,10 +11,10 @@ status: proposed-direction
 `DeviceService`, `EdgeAdminService`, and `CaptureService` accept any caller
 that reaches the API port. Nothing authenticates the caller, and a capture's
 `requested_by` is whatever the caller writes about itself
-(`src/services/device/README.md`, "What a deployment has to put in front of
-it"). `GOALS.md` names OpenFGA for these surfaces and says no record decides
-its shape. The [capture record's 2026-09-28
-amendment](2026-09-09-remote-packet-capture-direction.md#2026-09-28--operator-identity-and-the-relations-capture-needs)
+(`src/services/device/README.md`, "Deployment"). `GOALS.md` names a
+Zanzibar-style relationship engine for these surfaces and links this record.
+The [capture record's 2026-09-28
+amendment](2026-09-09-remote-packet-capture-direction.md#2026-09-28--operator-identity-and-capture-authorization)
 lists the relations capture needs and defers the model to this record.
 
 This record decides how a caller becomes a principal and a tenant, how every
@@ -64,27 +64,89 @@ then amends this section and changes the record status.
 
 #### OpenFGA evidence
 
-The OpenFGA spike measured a self-hosted Apache-2.0 service with one shared
-store. Its store boundary makes cross-tenant relationships straightforward,
-so connected tenants such as a provider and its customer stay in one store.
-Its cache-off mode gives the service a simple consistency rule. The
-spike also found that recursive membership intersections made `ListObjects`
-unreliable for filtered listings, so the direction lists FlowSeer records and
-checks each parent rather than depending on that endpoint. See the
-[OpenFGA spike](../research/2026-09-30-openfga-authorization-spike.md) for
-the measurements and the OpenFGA-specific store and cache settings.
+OpenFGA is Apache-2.0, self-hostable, and a CNCF incubating project, which
+satisfies the rule that infrastructure must be open and run in the EU under
+our control.
+
+The case for OpenFGA is that SpiceDB's advantages matter only under load
+FlowSeer does not have: ZedTokens pay off when checks must be cached and
+still see revocations at once, and cursored `LookupResources` pays off when
+filtered listings run far past a page. Audit logging and Materialize sit in
+SpiceDB's commercial builds. Under this argument, SpiceDB is worth revisiting
+when any of these holds:
+
+- authorization moves onto a hot path (per event, per assistant fan-out)
+  where uncached checks cost too much,
+- reads go to Postgres replicas or several regions while caching is on,
+- a filtered listing must return far more than 1000 objects and cannot be
+  paged against our own records,
+- another system needs a push stream of access changes.
+
+All tenants share one store. A store is OpenFGA's isolation boundary for
+models and relationships, and a relationship cannot cross stores. Connected
+tenants (a service provider's admins operating in a customer tenant) are a
+relationship between two tenant objects, so they need one store.
+
+Place OpenFGA close to its Postgres: one check makes several datastore round
+trips and only one client round trip, and the spike measured the standalone
+container faster than an embedded server that crossed a port forward to its
+database.
+
+Check caching stays off initially, so every read is strongly consistent. With
+several OpenFGA replicas each holds its own cache, and the spike measured a
+revoked grant still allowed for 1.5 s to 9.0 s on the other replica, bounded
+by `cacheController.ttl` (10 s by default). If caching is turned on later,
+calls that hand out full payload, device credentials, or admin grants pass
+`HIGHER_CONSISTENCY`. That preference skips the cache and reads the primary
+even when a secondary datastore is configured
+(`pkg/storage/postgres/postgres.go`, `getPgxPool`, OpenFGA v1.21.0).
+
+The spike also measured why resource permissions are plain unions with no
+intersection: an `and member from tenant` inside every resource permission
+kept checks correct but made `ListObjects` return 11 of 1104 edges after 60 s
+for a Tag-derived grant, and 0 for a platform admin. The same query on the
+union model took 9 ms and 148 ms. Because `ListObjects` caps results at
+`listObjectsMaxResults` (1000 by default) and can return partial results at
+its deadline without an indicator
+([openfga/openfga#2828](https://github.com/openfga/openfga/issues/2828)),
+lists check per parent against FlowSeer records rather than depending on that
+endpoint. See the
+[OpenFGA spike](../research/2026-09-30-openfga-authorization-spike.md) for the
+measurements and configuration.
 
 #### SpiceDB evidence
 
-The SpiceDB spike measured v1.56.2 on PostgreSQL 17 beside OpenFGA v1.21.0
-on its own PostgreSQL 17 datastore. In that session SpiceDB reached 2,158.3
-checks per second versus OpenFGA's 1,218.2 with caches off. Both returned
-complete 1,104-edge and 40,000-edge lookups. Both previewed the Tag deletion
-with 698 remaining resources and agreed on every membership result. SpiceDB
-also supplied `fully_consistent`, `at_least_as_fresh`, and
-`minimize_latency` checks with a ZedToken for the freshness-sensitive cases.
-See the [SpiceDB spike](../research/2026-09-30-spicedb-authorization-spike.md)
-for the complete tables.
+SpiceDB is Apache-2.0
+([LICENSE](https://github.com/authzed/spicedb/blob/main/LICENSE)), a single Go
+binary, and self-hosted on PostgreSQL
+([datastores](https://authzed.com/docs/spicedb/concepts/datastores)).
+
+The case for SpiceDB rests on four properties:
+
+- **The tuple shape.** Its relationship API is already structured fields:
+  `Relationship{resource: ObjectReference{object_type, object_id}, relation,
+  subject: SubjectReference{object, optional_relation}}`
+  ([authzed/api `core.proto`](https://raw.githubusercontent.com/authzed/api/main/authzed/api/v1/core.proto)).
+- **Consistency.** It ships Zanzibar's consistency token as an opaque
+  ZedToken ([ZedTokens](https://authzed.com/docs/spicedb/concepts/zedtokens)).
+  That closes the new-enemy problem: when an operator's access is revoked, a
+  download a moment later is not served from old state. It provides
+  `fully_consistent`, `at_least_as_fresh` with a ZedToken, and
+  `minimize_latency` for freshness-sensitive paths.
+- **Engine features an adapter cannot add.** Caveats
+  ([Caveats](https://authzed.com/docs/spicedb/concepts/caveats)) and a Watch
+  stream are engine features. Per-tenant isolation is not: FlowSeer supplies
+  it with the tenant relation, the key prefix, and the handler check.
+- **The vendor rule.** It is open source and self-hostable in our own
+  environment without external cloud dependencies.
+
+The [SpiceDB spike](../research/2026-09-30-spicedb-authorization-spike.md)
+measures v1.56.2 on PostgreSQL 17 beside OpenFGA v1.21.0 on the same workload:
+check latency across consistency modes (`fully_consistent`,
+`at_least_as_fresh`, `minimize_latency`), throughput under concurrent callers,
+cursor-paged `LookupResources` for Tag grants and platform admins, revocation
+propagation across replicas with ZedTokens, Tag deletion preview using
+exclusion (`-`), and caveat-gated membership.
 
 ### A separate engine deployment next to its own Postgres
 
@@ -97,13 +159,12 @@ FlowSeer and runs its schema migration as its own job. The OpenFGA spike used
 
 ### Consistency is explicit at the adapter boundary
 
-The initial deployment keeps OpenFGA's check caches off. If that engine is
-selected and caching is enabled later, calls that hand out full payload,
-device credentials, or admin grants use its higher-consistency option. If
-SpiceDB is selected, the adapter chooses among `minimize_latency`,
-`at_least_as_fresh` with the relevant ZedToken, and `fully_consistent` for the
-same policy points. The engine-specific defaults and measurements stay in the
-two research notes.
+If OpenFGA is selected, check caching stays off initially. If caching is
+enabled later, calls that hand out full payload, device credentials, or admin
+grants use its higher-consistency option. If SpiceDB is selected, the adapter
+chooses among `minimize_latency`, `at_least_as_fresh` with the relevant
+ZedToken, and `fully_consistent` for the same policy points. The
+engine-specific defaults and measurements stay in the two research notes.
 
 ### The service boundary names no engine
 
@@ -125,36 +186,62 @@ The tenant is a UUID-identified entity in `flowseer.model.identity.v1`, beside
 State, and Event triad
 ([tenant.proto](../../spec/proto/flowseer/model/identity/v1/tenant.proto)).
 Its Config binds an issuer, an organization claim name, and an organization
-value. The tenant store resolves an issuer and organization through its
-`org_` index in one conditional batch
-([tenantstore/store.go](../../src/services/device/internal/tenantstore/store.go)).
+value.
 
-Tenant ids are canonical lowercase UUIDs in store keys, bus subjects, and
-capture paths. The bus carries the id in tenant subjects and central audit
-streams use a wildcard in the tenant position
-([edgebus/subjects.go](../../src/modules/edgebus/subjects.go),
-[edgebus/hub.go](../../src/modules/edgebus/hub.go)). Central stores partition
-their keys by tenant. Lookup indexes are the exception because they resolve
-an id before the tenant is known. Edge lookup uses `edge_<edge_id>`, setup-key
-lookup uses `setupkey_<key_id>`, and tenant lookup uses `org_<hash>`
-([edgestore/store.go](../../src/services/device/internal/edgestore/store.go),
-[tenantstore/store.go](../../src/services/device/internal/tenantstore/store.go)).
-Capture artifacts live under `<StateDir>/captures/<tenant_id>`
-([captureapi/store.go](../../src/services/device/internal/captureapi/store.go)).
+The tenant store resolves an issuer and organization via `LookupByOrg` through
+its `org_` index
+(`src/services/device/internal/tenantstore/store.go:280`). `Create` stores a
+tenant's record and its organization index together in one atomic batch on the
+`tenants` bucket (`:113`, `:189`), so one organization binds at most one tenant
+and a record without its index cannot exist (`:265`). Untested so far: a
+physical file-store failure between the batch's stores, clustered
+wrong-sequence responses, malformed records, and retry exhaustion.
+
+Tenant ids are canonical lowercase UUIDs for tenant entities, in store keys,
+bus subjects, and capture paths. `src/common/tenant/tenant.go` also accepts
+`DefaultTenant = "default"`, and operator calls run as `default` when
+`dev_tenant` is unset (`src/services/device/README.md:181`). The bus carries the
+id in tenant subjects and central audit streams use a wildcard in the tenant
+position ([edgebus/subjects.go](../../src/modules/edgebus/subjects.go),
+[edgebus/hub.go](../../src/modules/edgebus/hub.go)).
+
+Central's stores are partitioned by tenant: every key in the `device-lanes`,
+`edges`, and `captures` buckets, and every key a later store adds, starts with
+the tenant id. Lookup indexes are the exception because they resolve an
+identifier before the tenant is known: `edge_<edge_id>` and `setupkey_<key_id>`
+in `edges`, and `org_<hash>` in `tenants`
+(`src/services/device/internal/edgestore/store.go:46-48`,
+`src/services/device/internal/tenantstore/store.go:37-43`).
+Stored bytes on disk, such as capture artifacts, live under
+`<StateDir>/captures/<tenant_id>/`
+(`src/services/device/internal/captureapi/store.go:39`).
+A handler reads the tenant from the context and never from the request, so a
+request cannot reach another tenant's keys.
+
+An edge's tenant has one authority, its `edge_<edge_id>` index in `edges`
+(`src/services/device/internal/edgestore/store.go:180`).
+A device lane is keyed by its hosting edge's tenant
+(`src/services/device/internal/journal/journal.go:100`,
+`src/services/device/internal/host/serve.go:245`), and a
+caller of another tenant gets `NotFound`
+(`src/services/device/internal/deviceapi/service.go:157`,
+`src/services/device/internal/deviceapi/errors.go:27`).
+Nothing substitutes a default tenant for one it could not resolve
+(`src/services/device/internal/host/host.go:265`).
 
 The platform admin configuration names its issuer, organization claim name and
 value, and subject. The host validates those fields before it serves the
 operator APIs
-([config.go](../../src/services/device/internal/host/config.go)). The
+(`src/services/device/internal/host/config.go:61-75`). The
 identity tenant entity replaces the unused keyless inventory tenant shape, so
 the tenant store is the source of existence and organization ownership.
 
 `TenantService` is defined but not served until callers are authenticated.
 Tests and development create tenants through the tenant store, so an
 unauthenticated caller cannot create a tenant or claim an organization. State
-written before the tenant change is not read: unprefixed keys, unscoped
-capture files, and edge accounts without a persisted tenant are not migration
-inputs.
+written before the tenant change is not read: unprefixed keys, capture files
+directly under `<StateDir>/captures/`, and edge accounts without a persisted
+tenant are not migration inputs.
 
 ### Any OIDC provider, and a tenant the request names
 
@@ -220,7 +307,7 @@ The same query on the union model took 9 ms and 148 ms. The
 [OpenFGA spike](../research/2026-09-30-openfga-authorization-spike.md)
 records the engine-specific failure. The
 [SpiceDB spike](../research/2026-09-30-spicedb-authorization-spike.md)
-reports the corresponding caveat-gated resource model and lookup.
+measures the caveat-gated resource model and its lookup behavior.
 
 Because resource permissions carry no membership term in the initial
 OpenFGA model, every object check also asks whether the object's `tenant`
@@ -267,8 +354,8 @@ change and repairs drift. A removal that revokes access (a member, a grant,
 a role assignment) also deletes its relationships before the RPC returns,
 so revocation never waits on the projector. Keeping the source in FlowSeer's
 records means any tenant's relationships can be rebuilt from them. That is
-needed for the loss preview, and avoids depending on OpenFGA's shared-store
-`Read` semantics when OpenFGA is selected.
+needed for the loss preview, and avoids depending on engine-specific
+relationship reads to select a single tenant's relationships.
 
 ### Previews of an access change
 
@@ -283,24 +370,27 @@ service. Its shape is decided here:
 - **Losses**: the tenant's relationships are rebuilt into an isolated
   disposable datastore, the change is applied there, and the same per-edge
   diff runs against the live store. The OpenFGA spike rebuilt a
-  14,629-relationship tenant in 0.55 s. The SpiceDB spike measured the same
-  shape with 406 affected edges and 698 surviving resources. Both notes hold
-  the engine-specific operations and timings.
+  14,629-relationship tenant in 0.55 s. The
+  [SpiceDB spike](../research/2026-09-30-spicedb-authorization-spike.md)
+  measures the corresponding disposable datastore rebuild and diff.
 
 An exclusion (`but not blocked`) on the recursive Tag relation was rejected
 for the OpenFGA request path. It previewed losses exactly, but `ListObjects`
 returned no results after 60 s for any grant that reaches an edge through a
-Tag, with both of OpenFGA's ListObjects algorithms. The SpiceDB equivalent
-and its `LookupResources` result are recorded in the
-[SpiceDB spike](../research/2026-09-30-spicedb-authorization-spike.md).
+Tag, with both of OpenFGA's ListObjects algorithms. The
+[SpiceDB spike](../research/2026-09-30-spicedb-authorization-spike.md)
+measures Tag loss preview with SpiceDB's exclusion operator (`-`) and the
+resulting `LookupResources` behavior.
 
 ### The operator action trail ships with authorization
 
 Nothing records today who created an edge or minted a setup key
 (`src/services/device/README.md`). Authorization adds global admins and
-cross-tenant grants, so each admin-surface change and each full-payload
-grant is recorded with its principal in the same change that turns
-authorization on.
+cross-tenant grants, so each admin-surface change, each full-payload
+grant, and every capture download is recorded with its authenticated
+`OperatorRef`, tenant, object, action, and outcome in the same change that
+turns authorization on. That event goes to a per-tenant operator stream
+rather than the device-scoped audit stream.
 
 ## Consequences
 
