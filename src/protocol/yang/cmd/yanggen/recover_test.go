@@ -538,6 +538,9 @@ func TestRecoverAllowsSubmoduleLeafrefThroughOwnSurvivor(t *testing.T) {
           augment "/p:c" {
             leaf ref { type leafref { path "../k/base"; } }
           }
+          augment "/p:c/p:k" {
+            leaf nested { type string; }
+          }
         }`,
 		"q": `module q { namespace "urn:q"; prefix q; container q; }`,
 		"r": `module r { namespace "urn:r"; prefix r; container r; }`,
@@ -568,7 +571,7 @@ func TestRecoverRejectsSubmodulePathThroughCollision(t *testing.T) {
           belongs-to p { prefix p; }
           import r { prefix q; }
           import b { prefix b; }
-          augment "/p:c/b:k" { leaf z { type string; } }
+          augment "/p:c/q:k" { leaf z { type string; } }
         }`,
 		"q": `module q { namespace "urn:q"; prefix q; container q; }`,
 		"r": `module r { namespace "urn:r"; prefix r; container r; }`,
@@ -579,7 +582,7 @@ func TestRecoverRejectsSubmodulePathThroughCollision(t *testing.T) {
           augment "/p:c" { container k { leaf own { type string; } } }
         }`,
 	})
-	requireRecoveryError(t, err, "/p:c/b:k", "b.yang", "p.yang")
+	requireRecoveryError(t, err, "/p:c/q:k", "b.yang", "p.yang")
 }
 
 func TestRecoverIgnoresLeafrefPredicates(t *testing.T) {
@@ -614,7 +617,7 @@ func TestRecoverIgnoresLeafrefPredicates(t *testing.T) {
 	augment := ms.Modules["b"].Augment[0]
 	target := yang.ToEntry(augment).Find(augment.Name)
 	ref := yang.ToEntry(ms.Modules["x"]).Dir["box"].Dir["ref"]
-	if _, _, err := checkPath("recovery", ref.Node, ref, ref.Type.Path, map[*yang.Entry][]*yang.Entry{
+	if _, err := checkPath("recovery", ref.Node, ref, ref.Type.Path, map[*yang.Entry][]*yang.Entry{
 		target: {yang.ToEntry(augment).Dir["k"]},
 	}); err != nil {
 		t.Fatalf("checkPath: %v", err)
@@ -651,8 +654,63 @@ func TestRecoverIgnoresPredicatesWhenCheckingRecoveredLeafrefs(t *testing.T) {
 	}
 }
 
+func recoveryPropertyVendor(t *testing.T) *VendorSet {
+	t.Helper()
+	vs, err := recoveryVendor(t, map[string]string{
+		"g": `module g {
+          namespace "urn:g";
+          prefix g;
+          grouping refs {
+            leaf grouping-ref {
+              type leafref { path "../kept/value"; }
+            }
+          }
+        }`,
+		"p": `module p {
+          namespace "urn:p";
+          prefix p;
+          import g { prefix g; }
+          include s;
+          container root {
+            container kept { leaf value { type string; } }
+            uses g:refs;
+            leaf union-ref {
+              type union {
+                type string;
+                type leafref { path "/p:root/p:kept/p:value"; }
+              }
+            }
+          }
+        }`,
+		"s": `submodule s {
+          belongs-to p { prefix p; }
+          augment "/p:root" {
+            leaf submodule-ref {
+              type leafref { path "/p:root/p:kept/p:value"; }
+            }
+          }
+        }`,
+		"b": `module b {
+          namespace "urn:b";
+          prefix b;
+          import p { prefix p; }
+          augment "/p:root" {
+            container kept {
+              leaf recovered-ref {
+                type leafref { path "/p:root/p:kept/p:value"; }
+              }
+            }
+          }
+        }`,
+	})
+	if err != nil {
+		t.Fatalf("LoadVendor: %v", err)
+	}
+	return vs
+}
+
 func TestCheckPathMatchesEntryFind(t *testing.T) {
-	sets := []*VendorSet{fixtureVendor(t)}
+	sets := []*VendorSet{fixtureVendor(t), recoveryPropertyVendor(t)}
 	if !testing.Short() {
 		cfg, err := LoadConfig("yanggen.yaml")
 		if err != nil {
@@ -666,14 +724,19 @@ func TestCheckPathMatchesEntryFind(t *testing.T) {
 	}
 
 	for _, vs := range sets {
+		compared := 0
 		for _, module := range vs.Modules {
-			assertLeafrefPathsMatch(t, vs.Vendor, module.Entry, vs.Recovered)
+			compared += assertLeafrefPathsMatch(t, vs.Vendor, module.Entry, vs.Recovered)
+		}
+		if compared == 0 {
+			t.Errorf("%s: compared leafref paths = 0", vs.Vendor)
 		}
 	}
 }
 
-func assertLeafrefPathsMatch(t *testing.T, vendor string, root *yang.Entry, recovered map[*yang.Entry][]*yang.Entry) {
+func assertLeafrefPathsMatch(t *testing.T, vendor string, root *yang.Entry, recovered map[*yang.Entry][]*yang.Entry) int {
 	t.Helper()
+	compared := 0
 	visited := make(map[*yang.Entry]bool)
 	var visit func(*yang.Entry)
 	visit = func(e *yang.Entry) {
@@ -683,13 +746,14 @@ func assertLeafrefPathsMatch(t *testing.T, vendor string, root *yang.Entry, reco
 		visited[e] = true
 		for _, path := range leafrefPaths(e.Type) {
 			want := e.Find(stripPredicates(path))
-			got, collided, err := checkPath(vendor, e.Node, e, path, recovered)
+			got, err := checkPath(vendor, e.Node, e, path, recovered)
 			if err != nil {
 				t.Errorf("%s: checkPath(%q) from %s: %v", vendor, path, e.Path(), err)
 				continue
 			}
-			if !collided && want != nil && got != want {
-				t.Errorf("%s: checkPath(%q) from %s = %s, Entry.Find = %s", vendor, path, e.Path(), got.Path(), want.Path())
+			compared++
+			if got != want {
+				t.Errorf("%s: checkPath(%q) from %s = %s, Entry.Find = %s", vendor, path, e.Path(), entryPath(got), entryPath(want))
 			}
 		}
 		for _, name := range sortedKeys(e.Dir) {
@@ -700,4 +764,12 @@ func assertLeafrefPathsMatch(t *testing.T, vendor string, root *yang.Entry, reco
 		}
 	}
 	visit(root)
+	return compared
+}
+
+func entryPath(e *yang.Entry) string {
+	if e == nil {
+		return "<nil>"
+	}
+	return e.Path()
 }
