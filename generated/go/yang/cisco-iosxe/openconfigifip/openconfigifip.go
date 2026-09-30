@@ -17,12 +17,6 @@ var moduleOpenconfigIfIP = &yang.Module{
 	Namespace: "http://openconfig.net/yang/interfaces/ip",
 }
 
-// moduleOpenconfigIfIPExt identifies the openconfig-if-ip-ext YANG module.
-var moduleOpenconfigIfIPExt = &yang.Module{
-	Name:      "openconfig-if-ip-ext",
-	Namespace: "http://openconfig.net/yang/interfaces/ip-ext",
-}
-
 // AddressConfig is the openconfig-if-ip node shape instantiated at 4 schema paths, such as /openconfig-interfaces:interfaces/interface/openconfig-vlan:routed-vlan/openconfig-if-ip:ipv4/addresses/address/config.
 type AddressConfig struct {
 	IP           *string

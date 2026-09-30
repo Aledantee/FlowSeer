@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCISCOOSPFMIB identifies the CISCO-OSPF-MIB YANG module.
-var moduleCISCOOSPFMIB = &yang.Module{
-	Name:      "CISCO-OSPF-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:CISCO-OSPF-MIB",
-}
-
 // moduleOSPFMIB identifies the OSPF-MIB YANG module.
 var moduleOSPFMIB = &yang.Module{
 	Name:      "OSPF-MIB",

@@ -17,24 +17,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCiscoXeOpenconfigInterfacesExt identifies the cisco-xe-openconfig-interfaces-ext YANG module.
-var moduleCiscoXeOpenconfigInterfacesExt = &yang.Module{
-	Name:      "cisco-xe-openconfig-interfaces-ext",
-	Namespace: "http://cisco.com/ns/yang/cisco-xe-openconfig-interfaces-ext",
-}
-
-// moduleOpenconfigIfAggregate identifies the openconfig-if-aggregate YANG module.
-var moduleOpenconfigIfAggregate = &yang.Module{
-	Name:      "openconfig-if-aggregate",
-	Namespace: "http://openconfig.net/yang/interfaces/aggregate",
-}
-
-// moduleOpenconfigIfEthernet identifies the openconfig-if-ethernet YANG module.
-var moduleOpenconfigIfEthernet = &yang.Module{
-	Name:      "openconfig-if-ethernet",
-	Namespace: "http://openconfig.net/yang/interfaces/ethernet",
-}
-
 // moduleOpenconfigIfIP identifies the openconfig-if-ip YANG module.
 var moduleOpenconfigIfIP = &yang.Module{
 	Name:      "openconfig-if-ip",
@@ -45,18 +27,6 @@ var moduleOpenconfigIfIP = &yang.Module{
 var moduleOpenconfigInterfaces = &yang.Module{
 	Name:      "openconfig-interfaces",
 	Namespace: "http://openconfig.net/yang/interfaces",
-}
-
-// moduleOpenconfigPlatformPort identifies the openconfig-platform-port YANG module.
-var moduleOpenconfigPlatformPort = &yang.Module{
-	Name:      "openconfig-platform-port",
-	Namespace: "http://openconfig.net/yang/platform/port",
-}
-
-// moduleOpenconfigPlatformTransceiver identifies the openconfig-platform-transceiver YANG module.
-var moduleOpenconfigPlatformTransceiver = &yang.Module{
-	Name:      "openconfig-platform-transceiver",
-	Namespace: "http://openconfig.net/yang/platform/transceiver",
 }
 
 // moduleOpenconfigVLAN identifies the openconfig-vlan YANG module.

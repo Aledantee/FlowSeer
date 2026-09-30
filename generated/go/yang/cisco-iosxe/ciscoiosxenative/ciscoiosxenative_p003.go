@@ -37,6281 +37,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// FiveGigabitEthernetSourceTemplateTemplateNameFlatRow flattens one TemplateName entry with its ancestor list keys.
-type FiveGigabitEthernetSourceTemplateTemplateNameFlatRow struct {
-	FiveGigabitEthernetName string
-	Entry                   TemplateName
-}
-
-// FiveGigabitEthernetSourceTemplateTemplateNameDescriptor is the flattened-row descriptor for the nested list TemplateName.
-func FiveGigabitEthernetSourceTemplateTemplateNameDescriptor() yang.ListDescriptor[FiveGigabitEthernetSourceTemplateTemplateNameFlatRow, FiveGigabitEthernetSourceTemplateTemplateNameKey] {
-	return yang.ListDescriptor[FiveGigabitEthernetSourceTemplateTemplateNameFlatRow, FiveGigabitEthernetSourceTemplateTemplateNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FiveGigabitEthernetSchema, TemplateNameSchema}, func(anc [][]yang.KeyValue, e TemplateName) FiveGigabitEthernetSourceTemplateTemplateNameFlatRow {
-			return FiveGigabitEthernetSourceTemplateTemplateNameFlatRow{
-				Entry:                   e,
-				FiveGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FiveGigabitEthernetSourceTemplateTemplateNameFlatRow) *TemplateName {
-			return &r.Entry
-		}, func(r *FiveGigabitEthernetSourceTemplateTemplateNameFlatRow) FiveGigabitEthernetSourceTemplateTemplateNameKey {
-			var k FiveGigabitEthernetSourceTemplateTemplateNameKey
-			k.FiveGigabitEthernetName = r.FiveGigabitEthernetName
-			if r.Entry.TemplateName != nil {
-				k.TemplateName = *r.Entry.TemplateName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FiveGigabitEthernet", "source", "template", "template-name")),
-	}
-}
-
-// FiveGigabitEthernetStandbyStandbyListKey is StandbyStandbyList's row identity (ancestor keys in canonical form).
-type FiveGigabitEthernetStandbyStandbyListKey struct {
-	FiveGigabitEthernetName string
-	GroupNumber             uint16
-}
-
-// FiveGigabitEthernetStandbyStandbyListFlatRow flattens one StandbyStandbyList entry with its ancestor list keys.
-type FiveGigabitEthernetStandbyStandbyListFlatRow struct {
-	FiveGigabitEthernetName string
-	Entry                   StandbyStandbyList
-}
-
-// FiveGigabitEthernetStandbyStandbyListDescriptor is the flattened-row descriptor for the nested list StandbyStandbyList.
-func FiveGigabitEthernetStandbyStandbyListDescriptor() yang.ListDescriptor[FiveGigabitEthernetStandbyStandbyListFlatRow, FiveGigabitEthernetStandbyStandbyListKey] {
-	return yang.ListDescriptor[FiveGigabitEthernetStandbyStandbyListFlatRow, FiveGigabitEthernetStandbyStandbyListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FiveGigabitEthernetSchema, StandbyStandbyListSchema}, func(anc [][]yang.KeyValue, e StandbyStandbyList) FiveGigabitEthernetStandbyStandbyListFlatRow {
-			return FiveGigabitEthernetStandbyStandbyListFlatRow{
-				Entry:                   e,
-				FiveGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FiveGigabitEthernetStandbyStandbyListFlatRow) *StandbyStandbyList {
-			return &r.Entry
-		}, func(r *FiveGigabitEthernetStandbyStandbyListFlatRow) FiveGigabitEthernetStandbyStandbyListKey {
-			var k FiveGigabitEthernetStandbyStandbyListKey
-			k.FiveGigabitEthernetName = r.FiveGigabitEthernetName
-			if r.Entry.GroupNumber != nil {
-				k.GroupNumber = *r.Entry.GroupNumber
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FiveGigabitEthernet", "standby", "standby-list")),
-	}
-}
-
-// FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressKey is SecondaryAddress's row identity (ancestor keys in canonical form).
-type FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressKey struct {
-	FiveGigabitEthernetName string
-	StandbyListGroupNumber  string
-	Address                 string
-}
-
-// FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressFlatRow flattens one SecondaryAddress entry with its ancestor list keys.
-type FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressFlatRow struct {
-	FiveGigabitEthernetName string
-	StandbyListGroupNumber  string
-	Entry                   SecondaryAddress
-}
-
-// FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressDescriptor is the flattened-row descriptor for the nested list SecondaryAddress.
-func FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressDescriptor() yang.ListDescriptor[FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressFlatRow, FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressKey] {
-	return yang.ListDescriptor[FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressFlatRow, FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FiveGigabitEthernetSchema, StandbyStandbyListSchema, SecondaryAddressSchema}, func(anc [][]yang.KeyValue, e SecondaryAddress) FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressFlatRow {
-			return FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressFlatRow{
-				Entry:                   e,
-				FiveGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				StandbyListGroupNumber:  yang.AncestorKey(anc, 1, "group-number"),
-			}
-		}, func(r *FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressFlatRow) *SecondaryAddress {
-			return &r.Entry
-		}, func(r *FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressFlatRow) FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressKey {
-			var k FiveGigabitEthernetStandbyStandbyListIPConfigSecondaryAddressKey
-			k.FiveGigabitEthernetName = r.FiveGigabitEthernetName
-			k.StandbyListGroupNumber = r.StandbyListGroupNumber
-			if r.Entry.Address != nil {
-				k.Address = *r.Entry.Address
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FiveGigabitEthernet", "standby", "standby-list", "ip-config", "secondary-address")),
-	}
-}
-
-// FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixKey is IPv6ConfigIPv6Prefix's row identity (ancestor keys in canonical form).
-type FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixKey struct {
-	FiveGigabitEthernetName string
-	StandbyListGroupNumber  string
-	Prefix                  string
-}
-
-// FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow flattens one IPv6ConfigIPv6Prefix entry with its ancestor list keys.
-type FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow struct {
-	FiveGigabitEthernetName string
-	StandbyListGroupNumber  string
-	Entry                   IPv6ConfigIPv6Prefix
-}
-
-// FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixDescriptor is the flattened-row descriptor for the nested list IPv6ConfigIPv6Prefix.
-func FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixDescriptor() yang.ListDescriptor[FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow, FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixKey] {
-	return yang.ListDescriptor[FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow, FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FiveGigabitEthernetSchema, StandbyStandbyListSchema, IPv6ConfigIPv6PrefixSchema}, func(anc [][]yang.KeyValue, e IPv6ConfigIPv6Prefix) FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow {
-			return FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow{
-				Entry:                   e,
-				FiveGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				StandbyListGroupNumber:  yang.AncestorKey(anc, 1, "group-number"),
-			}
-		}, func(r *FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow) *IPv6ConfigIPv6Prefix {
-			return &r.Entry
-		}, func(r *FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow) FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixKey {
-			var k FiveGigabitEthernetStandbyStandbyListIPv6ConfigIPv6PrefixKey
-			k.FiveGigabitEthernetName = r.FiveGigabitEthernetName
-			k.StandbyListGroupNumber = r.StandbyListGroupNumber
-			if r.Entry.Prefix != nil {
-				k.Prefix = *r.Entry.Prefix
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FiveGigabitEthernet", "standby", "standby-list", "ipv6-config", "ipv6_prefix")),
-	}
-}
-
-// FiveGigabitEthernetStandbyStandbyListTrackKey is StandbyStandbyListTrack's row identity (ancestor keys in canonical form).
-type FiveGigabitEthernetStandbyStandbyListTrackKey struct {
-	FiveGigabitEthernetName string
-	StandbyListGroupNumber  string
-	Number                  uint16
-}
-
-// FiveGigabitEthernetStandbyStandbyListTrackFlatRow flattens one StandbyStandbyListTrack entry with its ancestor list keys.
-type FiveGigabitEthernetStandbyStandbyListTrackFlatRow struct {
-	FiveGigabitEthernetName string
-	StandbyListGroupNumber  string
-	Entry                   StandbyStandbyListTrack
-}
-
-// FiveGigabitEthernetStandbyStandbyListTrackDescriptor is the flattened-row descriptor for the nested list StandbyStandbyListTrack.
-func FiveGigabitEthernetStandbyStandbyListTrackDescriptor() yang.ListDescriptor[FiveGigabitEthernetStandbyStandbyListTrackFlatRow, FiveGigabitEthernetStandbyStandbyListTrackKey] {
-	return yang.ListDescriptor[FiveGigabitEthernetStandbyStandbyListTrackFlatRow, FiveGigabitEthernetStandbyStandbyListTrackKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FiveGigabitEthernetSchema, StandbyStandbyListSchema, StandbyStandbyListTrackSchema}, func(anc [][]yang.KeyValue, e StandbyStandbyListTrack) FiveGigabitEthernetStandbyStandbyListTrackFlatRow {
-			return FiveGigabitEthernetStandbyStandbyListTrackFlatRow{
-				Entry:                   e,
-				FiveGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				StandbyListGroupNumber:  yang.AncestorKey(anc, 1, "group-number"),
-			}
-		}, func(r *FiveGigabitEthernetStandbyStandbyListTrackFlatRow) *StandbyStandbyListTrack {
-			return &r.Entry
-		}, func(r *FiveGigabitEthernetStandbyStandbyListTrackFlatRow) FiveGigabitEthernetStandbyStandbyListTrackKey {
-			var k FiveGigabitEthernetStandbyStandbyListTrackKey
-			k.FiveGigabitEthernetName = r.FiveGigabitEthernetName
-			k.StandbyListGroupNumber = r.StandbyListGroupNumber
-			if r.Entry.Number != nil {
-				k.Number = *r.Entry.Number
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FiveGigabitEthernet", "standby", "standby-list", "track")),
-	}
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfKey is MACAddressConf's row identity (ancestor keys in canonical form).
-type FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfKey struct {
-	FiveGigabitEthernetName string
-	HwAddress               string
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow flattens one MACAddressConf entry with its ancestor list keys.
-type FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow struct {
-	FiveGigabitEthernetName string
-	Entry                   ciscoiosxeswitch.MACAddressConf
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfDescriptor is the flattened-row descriptor for the nested list MACAddressConf.
-func FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfDescriptor() yang.ListDescriptor[FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow, FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfKey] {
-	return yang.ListDescriptor[FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow, FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FiveGigabitEthernetSchema, ciscoiosxeswitch.MACAddressConfSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.MACAddressConf) FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow {
-			return FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow{
-				Entry:                   e,
-				FiveGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow) *ciscoiosxeswitch.MACAddressConf {
-			return &r.Entry
-		}, func(r *FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow) FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfKey {
-			var k FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfKey
-			k.FiveGigabitEthernetName = r.FiveGigabitEthernetName
-			if r.Entry.HwAddress != nil {
-				k.HwAddress = *r.Entry.HwAddress
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FiveGigabitEthernet", "switchport-config", "switchport"), yang.In(moduleCiscoIOSXESwitch, "port-security-config", "port-security", "allowlist-config", "allowlist", "mac-address", "mac-address-conf")),
-	}
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessKey is HwAddressAccess's row identity (ancestor keys in canonical form).
-type FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessKey struct {
-	FiveGigabitEthernetName string
-	HwAddress               string
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow flattens one HwAddressAccess entry with its ancestor list keys.
-type FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow struct {
-	FiveGigabitEthernetName string
-	Entry                   ciscoiosxeswitch.HwAddressAccess
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessDescriptor is the flattened-row descriptor for the nested list HwAddressAccess.
-func FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessDescriptor() yang.ListDescriptor[FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow, FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessKey] {
-	return yang.ListDescriptor[FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow, FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FiveGigabitEthernetSchema, ciscoiosxeswitch.HwAddressAccessSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.HwAddressAccess) FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow {
-			return FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow{
-				Entry:                   e,
-				FiveGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow) *ciscoiosxeswitch.HwAddressAccess {
-			return &r.Entry
-		}, func(r *FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow) FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessKey {
-			var k FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessKey
-			k.FiveGigabitEthernetName = r.FiveGigabitEthernetName
-			if r.Entry.HwAddress != nil {
-				k.HwAddress = *r.Entry.HwAddress
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FiveGigabitEthernet", "switchport-config", "switchport"), yang.In(moduleCiscoIOSXESwitch, "port-security-config", "port-security", "mac-address-config", "mac-address", "hw-address-access")),
-	}
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkKey is HwAddressTrunk's row identity (ancestor keys in canonical form).
-type FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkKey struct {
-	FiveGigabitEthernetName string
-	HwAddress               string
-	VLAN                    uint16
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow flattens one HwAddressTrunk entry with its ancestor list keys.
-type FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow struct {
-	FiveGigabitEthernetName string
-	Entry                   ciscoiosxeswitch.HwAddressTrunk
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkDescriptor is the flattened-row descriptor for the nested list HwAddressTrunk.
-func FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkDescriptor() yang.ListDescriptor[FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow, FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkKey] {
-	return yang.ListDescriptor[FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow, FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FiveGigabitEthernetSchema, ciscoiosxeswitch.HwAddressTrunkSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.HwAddressTrunk) FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow {
-			return FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow{
-				Entry:                   e,
-				FiveGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow) *ciscoiosxeswitch.HwAddressTrunk {
-			return &r.Entry
-		}, func(r *FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow) FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkKey {
-			var k FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkKey
-			k.FiveGigabitEthernetName = r.FiveGigabitEthernetName
-			if r.Entry.HwAddress != nil {
-				k.HwAddress = *r.Entry.HwAddress
-			}
-			if r.Entry.VLAN != nil {
-				k.VLAN = *r.Entry.VLAN
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FiveGigabitEthernet", "switchport-config", "switchport"), yang.In(moduleCiscoIOSXESwitch, "port-security-config", "port-security", "mac-address-config", "mac-address", "hw-address-trunk")),
-	}
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceKey is HwAddressVoice's row identity (ancestor keys in canonical form).
-type FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceKey struct {
-	FiveGigabitEthernetName string
-	HwAddress               string
-	VLAN                    string
-	Voice                   string
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow flattens one HwAddressVoice entry with its ancestor list keys.
-type FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow struct {
-	FiveGigabitEthernetName string
-	Entry                   ciscoiosxeswitch.HwAddressVoice
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceDescriptor is the flattened-row descriptor for the nested list HwAddressVoice.
-func FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceDescriptor() yang.ListDescriptor[FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow, FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceKey] {
-	return yang.ListDescriptor[FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow, FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FiveGigabitEthernetSchema, ciscoiosxeswitch.HwAddressVoiceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.HwAddressVoice) FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow {
-			return FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow{
-				Entry:                   e,
-				FiveGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow) *ciscoiosxeswitch.HwAddressVoice {
-			return &r.Entry
-		}, func(r *FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow) FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceKey {
-			var k FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceKey
-			k.FiveGigabitEthernetName = r.FiveGigabitEthernetName
-			if r.Entry.HwAddress != nil {
-				k.HwAddress = *r.Entry.HwAddress
-			}
-			if r.Entry.VLAN != nil {
-				k.VLAN = *r.Entry.VLAN
-			}
-			if r.Entry.Voice != nil {
-				k.Voice = *r.Entry.Voice
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FiveGigabitEthernet", "switchport-config", "switchport"), yang.In(moduleCiscoIOSXESwitch, "port-security-config", "port-security", "mac-address-config", "mac-address", "hw-address-voice")),
-	}
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountKey is Maxcount's row identity (ancestor keys in canonical form).
-type FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountKey struct {
-	FiveGigabitEthernetName string
-	MaxAddresses            uint16
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow flattens one Maxcount entry with its ancestor list keys.
-type FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow struct {
-	FiveGigabitEthernetName string
-	Entry                   ciscoiosxeswitch.Maxcount
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountDescriptor is the flattened-row descriptor for the nested list Maxcount.
-func FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountDescriptor() yang.ListDescriptor[FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow, FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountKey] {
-	return yang.ListDescriptor[FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow, FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FiveGigabitEthernetSchema, ciscoiosxeswitch.MaxcountSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.Maxcount) FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow {
-			return FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow{
-				Entry:                   e,
-				FiveGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow) *ciscoiosxeswitch.Maxcount {
-			return &r.Entry
-		}, func(r *FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow) FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountKey {
-			var k FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountKey
-			k.FiveGigabitEthernetName = r.FiveGigabitEthernetName
-			if r.Entry.MaxAddresses != nil {
-				k.MaxAddresses = *r.Entry.MaxAddresses
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FiveGigabitEthernet", "switchport-config", "switchport"), yang.In(moduleCiscoIOSXESwitch, "port-security-config", "port-security", "maxcount")),
-	}
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkKey is MaximumVLANTrunk's row identity (ancestor keys in canonical form).
-type FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkKey struct {
-	FiveGigabitEthernetName string
-	Maximum                 uint16
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow flattens one MaximumVLANTrunk entry with its ancestor list keys.
-type FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow struct {
-	FiveGigabitEthernetName string
-	Entry                   ciscoiosxeswitch.MaximumVLANTrunk
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkDescriptor is the flattened-row descriptor for the nested list MaximumVLANTrunk.
-func FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkDescriptor() yang.ListDescriptor[FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow, FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkKey] {
-	return yang.ListDescriptor[FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow, FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FiveGigabitEthernetSchema, ciscoiosxeswitch.MaximumVLANTrunkSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.MaximumVLANTrunk) FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow {
-			return FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow{
-				Entry:                   e,
-				FiveGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow) *ciscoiosxeswitch.MaximumVLANTrunk {
-			return &r.Entry
-		}, func(r *FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow) FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkKey {
-			var k FiveGigabitEthernetSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkKey
-			k.FiveGigabitEthernetName = r.FiveGigabitEthernetName
-			if r.Entry.Maximum != nil {
-				k.Maximum = *r.Entry.Maximum
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FiveGigabitEthernet", "switchport-config", "switchport"), yang.In(moduleCiscoIOSXESwitch, "port-security-config", "port-security", "maximum-address-config", "maximum-vlan-trunk")),
-	}
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddKey is Add's row identity (ancestor keys in canonical form).
-type FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddKey struct {
-	FiveGigabitEthernetName string
-	Vlans                   string
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow flattens one Add entry with its ancestor list keys.
-type FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow struct {
-	FiveGigabitEthernetName string
-	Entry                   ciscoiosxeswitch.Add
-}
-
-// FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddDescriptor is the flattened-row descriptor for the nested list Add.
-func FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddDescriptor() yang.ListDescriptor[FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow, FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddKey] {
-	return yang.ListDescriptor[FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow, FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FiveGigabitEthernetSchema, ciscoiosxeswitch.AddSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.Add) FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow {
-			return FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow{
-				Entry:                   e,
-				FiveGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow) *ciscoiosxeswitch.Add {
-			return &r.Entry
-		}, func(r *FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow) FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddKey {
-			var k FiveGigabitEthernetSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddKey
-			k.FiveGigabitEthernetName = r.FiveGigabitEthernetName
-			if r.Entry.Vlans != nil {
-				k.Vlans = *r.Entry.Vlans
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FiveGigabitEthernet", "switchport-config", "switchport"), yang.In(moduleCiscoIOSXESwitch, "trunk", "allowed", "vlan-v2", "add-vlans", "add")),
-	}
-}
-
-// FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountKey is Maxcount's row identity (ancestor keys in canonical form).
-type FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountKey struct {
-	FiveGigabitEthernetName string
-	MaxAddresses            uint16
-}
-
-// FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountFlatRow flattens one Maxcount entry with its ancestor list keys.
-type FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountFlatRow struct {
-	FiveGigabitEthernetName string
-	Entry                   ciscoiosxeswitch.Maxcount
-}
-
-// FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountDescriptor is the flattened-row descriptor for the nested list Maxcount.
-func FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountDescriptor() yang.ListDescriptor[FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountFlatRow, FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountKey] {
-	return yang.ListDescriptor[FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountFlatRow, FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FiveGigabitEthernetSchema, ciscoiosxeswitch.MaxcountSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.Maxcount) FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountFlatRow {
-			return FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountFlatRow{
-				Entry:                   e,
-				FiveGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountFlatRow) *ciscoiosxeswitch.Maxcount {
-			return &r.Entry
-		}, func(r *FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountFlatRow) FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountKey {
-			var k FiveGigabitEthernetSwitchportPortSecurityConfPortSecurityMaxcountKey
-			k.FiveGigabitEthernetName = r.FiveGigabitEthernetName
-			if r.Entry.MaxAddresses != nil {
-				k.MaxAddresses = *r.Entry.MaxAddresses
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FiveGigabitEthernet", "switchport"), yang.In(moduleCiscoIOSXESwitch, "port-security-conf", "port-security", "maxcount")),
-	}
-}
-
-// InterfaceFortyGigabitEthernetKey is FortyGigabitEthernet's row identity (ancestor keys in canonical form).
-type InterfaceFortyGigabitEthernetKey struct {
-	Name string
-}
-
-// InterfaceFortyGigabitEthernetDescriptor is the list descriptor callers hand to a protocol library.
-func InterfaceFortyGigabitEthernetDescriptor() yang.ListDescriptor[FortyGigabitEthernet, InterfaceFortyGigabitEthernetKey] {
-	return yang.ListDescriptor[FortyGigabitEthernet, InterfaceFortyGigabitEthernetKey]{
-		Codec: yang.StructRowCodec(FortyGigabitEthernetSchema, func(r *FortyGigabitEthernet) InterfaceFortyGigabitEthernetKey {
-			var k InterfaceFortyGigabitEthernetKey
-			if r.Name != nil {
-				k.Name = *r.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet")),
-	}
-}
-
-// FortyGigabitEthernetCtsManualSapPmkKey is SapPmk's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetCtsManualSapPmkKey struct {
-	FortyGigabitEthernetName string
-	Word                     string
-}
-
-// FortyGigabitEthernetCtsManualSapPmkFlatRow flattens one SapPmk entry with its ancestor list keys.
-type FortyGigabitEthernetCtsManualSapPmkFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxects.SapPmk
-}
-
-// FortyGigabitEthernetCtsManualSapPmkDescriptor is the flattened-row descriptor for the nested list SapPmk.
-func FortyGigabitEthernetCtsManualSapPmkDescriptor() yang.ListDescriptor[FortyGigabitEthernetCtsManualSapPmkFlatRow, FortyGigabitEthernetCtsManualSapPmkKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetCtsManualSapPmkFlatRow, FortyGigabitEthernetCtsManualSapPmkKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxects.SapPmkSchema}, func(anc [][]yang.KeyValue, e ciscoiosxects.SapPmk) FortyGigabitEthernetCtsManualSapPmkFlatRow {
-			return FortyGigabitEthernetCtsManualSapPmkFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetCtsManualSapPmkFlatRow) *ciscoiosxects.SapPmk {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetCtsManualSapPmkFlatRow) FortyGigabitEthernetCtsManualSapPmkKey {
-			var k FortyGigabitEthernetCtsManualSapPmkKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Word != nil {
-				k.Word = *r.Entry.Word
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXECts, "cts", "manual", "sap", "pmk")),
-	}
-}
-
-// FortyGigabitEthernetCtsRoleBasedSgtMapVlanidKey is Vlanid's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetCtsRoleBasedSgtMapVlanidKey struct {
-	FortyGigabitEthernetName string
-	ID                       uint16
-}
-
-// FortyGigabitEthernetCtsRoleBasedSgtMapVlanidFlatRow flattens one Vlanid entry with its ancestor list keys.
-type FortyGigabitEthernetCtsRoleBasedSgtMapVlanidFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxects.Vlanid
-}
-
-// FortyGigabitEthernetCtsRoleBasedSgtMapVlanidDescriptor is the flattened-row descriptor for the nested list Vlanid.
-func FortyGigabitEthernetCtsRoleBasedSgtMapVlanidDescriptor() yang.ListDescriptor[FortyGigabitEthernetCtsRoleBasedSgtMapVlanidFlatRow, FortyGigabitEthernetCtsRoleBasedSgtMapVlanidKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetCtsRoleBasedSgtMapVlanidFlatRow, FortyGigabitEthernetCtsRoleBasedSgtMapVlanidKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxects.VlanidSchema}, func(anc [][]yang.KeyValue, e ciscoiosxects.Vlanid) FortyGigabitEthernetCtsRoleBasedSgtMapVlanidFlatRow {
-			return FortyGigabitEthernetCtsRoleBasedSgtMapVlanidFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetCtsRoleBasedSgtMapVlanidFlatRow) *ciscoiosxects.Vlanid {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetCtsRoleBasedSgtMapVlanidFlatRow) FortyGigabitEthernetCtsRoleBasedSgtMapVlanidKey {
-			var k FortyGigabitEthernetCtsRoleBasedSgtMapVlanidKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXECts, "cts", "role-based", "sgt-map", "vlanid")),
-	}
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainKey is MepDomain's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEthernetCfmMepDomainKey struct {
-	FortyGigabitEthernetName string
-	Name                     string
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainFlatRow flattens one MepDomain entry with its ancestor list keys.
-type FortyGigabitEthernetEthernetCfmMepDomainFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeethernet.MepDomain
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainDescriptor is the flattened-row descriptor for the nested list MepDomain.
-func FortyGigabitEthernetEthernetCfmMepDomainDescriptor() yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainFlatRow, FortyGigabitEthernetEthernetCfmMepDomainKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainFlatRow, FortyGigabitEthernetEthernetCfmMepDomainKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.MepDomainSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.MepDomain) FortyGigabitEthernetEthernetCfmMepDomainFlatRow {
-			return FortyGigabitEthernetEthernetCfmMepDomainFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainFlatRow) *ciscoiosxeethernet.MepDomain {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainFlatRow) FortyGigabitEthernetEthernetCfmMepDomainKey {
-			var k FortyGigabitEthernetEthernetCfmMepDomainKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain")),
-	}
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidKey is Mpid's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEthernetCfmMepDomainMpidKey struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidNumber               uint16
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidFlatRow flattens one Mpid entry with its ancestor list keys.
-type FortyGigabitEthernetEthernetCfmMepDomainMpidFlatRow struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	Entry                    ciscoiosxeethernet.Mpid
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidDescriptor is the flattened-row descriptor for the nested list Mpid.
-func FortyGigabitEthernetEthernetCfmMepDomainMpidDescriptor() yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Mpid) FortyGigabitEthernetEthernetCfmMepDomainMpidFlatRow {
-			return FortyGigabitEthernetEthernetCfmMepDomainMpidFlatRow{
-				DomainName:               yang.AncestorKey(anc, 1, "name"),
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidFlatRow) *ciscoiosxeethernet.Mpid {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidFlatRow) FortyGigabitEthernetEthernetCfmMepDomainMpidKey {
-			var k FortyGigabitEthernetEthernetCfmMepDomainMpidKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.DomainName = r.DomainName
-			if r.Entry.MpidNumber != nil {
-				k.MpidNumber = *r.Entry.MpidNumber
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid")),
-	}
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccKey is Icc's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccKey struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	Code                     string
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccFlatRow flattens one Icc entry with its ancestor list keys.
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccFlatRow struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	Entry                    ciscoiosxeethernet.Icc
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccDescriptor is the flattened-row descriptor for the nested list Icc.
-func FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccDescriptor() yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.IccSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Icc) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccFlatRow {
-			return FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccFlatRow{
-				DomainName:               yang.AncestorKey(anc, 1, "name"),
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				MpidMpidNumber:           yang.AncestorKey(anc, 2, "mpid-number"),
-			}
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccFlatRow) *ciscoiosxeethernet.Icc {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccFlatRow) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccKey {
-			var k FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.DomainName = r.DomainName
-			k.MpidMpidNumber = r.MpidMpidNumber
-			if r.Entry.Code != nil {
-				k.Code = *r.Entry.Code
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "icc")),
-	}
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepKey is RmepXe5cd23's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepKey struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	IccCode                  string
-	ID                       uint16
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepFlatRow flattens one RmepXe5cd23 entry with its ancestor list keys.
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepFlatRow struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	IccCode                  string
-	Entry                    ciscoiosxeethernet.RmepXe5cd23
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepDescriptor is the flattened-row descriptor for the nested list RmepXe5cd23.
-func FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepDescriptor() yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.IccSchema, ciscoiosxeethernet.RmepSchemaX3bb0ec}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.RmepXe5cd23) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepFlatRow {
-			return FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepFlatRow{
-				DomainName:               yang.AncestorKey(anc, 1, "name"),
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				IccCode:                  yang.AncestorKey(anc, 3, "code"),
-				MpidMpidNumber:           yang.AncestorKey(anc, 2, "mpid-number"),
-			}
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepFlatRow) *ciscoiosxeethernet.RmepXe5cd23 {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepFlatRow) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepKey {
-			var k FortyGigabitEthernetEthernetCfmMepDomainMpidServiceIccRmepKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.DomainName = r.DomainName
-			k.MpidMpidNumber = r.MpidMpidNumber
-			k.IccCode = r.IccCode
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "icc", "rmep")),
-	}
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceKey is NamedService's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceKey struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	ServiceName              string
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceFlatRow flattens one NamedService entry with its ancestor list keys.
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceFlatRow struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	Entry                    ciscoiosxeethernet.NamedService
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceDescriptor is the flattened-row descriptor for the nested list NamedService.
-func FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceDescriptor() yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.NamedServiceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.NamedService) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceFlatRow {
-			return FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceFlatRow{
-				DomainName:               yang.AncestorKey(anc, 1, "name"),
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				MpidMpidNumber:           yang.AncestorKey(anc, 2, "mpid-number"),
-			}
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceFlatRow) *ciscoiosxeethernet.NamedService {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceFlatRow) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceKey {
-			var k FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.DomainName = r.DomainName
-			k.MpidMpidNumber = r.MpidMpidNumber
-			if r.Entry.ServiceName != nil {
-				k.ServiceName = *r.Entry.ServiceName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "named-service")),
-	}
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepKey is RmepXe5cd23's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepKey struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	NamedServiceServiceName  string
-	ID                       uint16
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow flattens one RmepXe5cd23 entry with its ancestor list keys.
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	NamedServiceServiceName  string
-	Entry                    ciscoiosxeethernet.RmepXe5cd23
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepDescriptor is the flattened-row descriptor for the nested list RmepXe5cd23.
-func FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepDescriptor() yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.NamedServiceSchema, ciscoiosxeethernet.RmepSchemaX3bb0ec}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.RmepXe5cd23) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow {
-			return FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow{
-				DomainName:               yang.AncestorKey(anc, 1, "name"),
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				MpidMpidNumber:           yang.AncestorKey(anc, 2, "mpid-number"),
-				NamedServiceServiceName:  yang.AncestorKey(anc, 3, "service-name"),
-			}
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow) *ciscoiosxeethernet.RmepXe5cd23 {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepKey {
-			var k FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNamedServiceRmepKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.DomainName = r.DomainName
-			k.MpidMpidNumber = r.MpidMpidNumber
-			k.NamedServiceServiceName = r.NamedServiceServiceName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "named-service", "rmep")),
-	}
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberKey is Number's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberKey struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	MaNum                    uint16
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberFlatRow flattens one Number entry with its ancestor list keys.
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberFlatRow struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	Entry                    ciscoiosxeethernet.Number
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberDescriptor is the flattened-row descriptor for the nested list Number.
-func FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberDescriptor() yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.NumberSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Number) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberFlatRow {
-			return FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberFlatRow{
-				DomainName:               yang.AncestorKey(anc, 1, "name"),
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				MpidMpidNumber:           yang.AncestorKey(anc, 2, "mpid-number"),
-			}
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberFlatRow) *ciscoiosxeethernet.Number {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberFlatRow) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberKey {
-			var k FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.DomainName = r.DomainName
-			k.MpidMpidNumber = r.MpidMpidNumber
-			if r.Entry.MaNum != nil {
-				k.MaNum = *r.Entry.MaNum
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "number")),
-	}
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepKey is RmepXe5cd23's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepKey struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	NumberMaNum              string
-	ID                       uint16
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepFlatRow flattens one RmepXe5cd23 entry with its ancestor list keys.
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepFlatRow struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	NumberMaNum              string
-	Entry                    ciscoiosxeethernet.RmepXe5cd23
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepDescriptor is the flattened-row descriptor for the nested list RmepXe5cd23.
-func FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepDescriptor() yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.NumberSchema, ciscoiosxeethernet.RmepSchemaX3bb0ec}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.RmepXe5cd23) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepFlatRow {
-			return FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepFlatRow{
-				DomainName:               yang.AncestorKey(anc, 1, "name"),
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				MpidMpidNumber:           yang.AncestorKey(anc, 2, "mpid-number"),
-				NumberMaNum:              yang.AncestorKey(anc, 3, "ma-num"),
-			}
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepFlatRow) *ciscoiosxeethernet.RmepXe5cd23 {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepFlatRow) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepKey {
-			var k FortyGigabitEthernetEthernetCfmMepDomainMpidServiceNumberRmepKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.DomainName = r.DomainName
-			k.MpidMpidNumber = r.MpidMpidNumber
-			k.NumberMaNum = r.NumberMaNum
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "number", "rmep")),
-	}
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDKey is VLANID's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDKey struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	VLANNum                  uint16
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDFlatRow flattens one VLANID entry with its ancestor list keys.
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDFlatRow struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	Entry                    ciscoiosxeethernet.VLANID
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDDescriptor is the flattened-row descriptor for the nested list VLANID.
-func FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDDescriptor() yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.VLANIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.VLANID) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDFlatRow {
-			return FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDFlatRow{
-				DomainName:               yang.AncestorKey(anc, 1, "name"),
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				MpidMpidNumber:           yang.AncestorKey(anc, 2, "mpid-number"),
-			}
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDFlatRow) *ciscoiosxeethernet.VLANID {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDFlatRow) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDKey {
-			var k FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.DomainName = r.DomainName
-			k.MpidMpidNumber = r.MpidMpidNumber
-			if r.Entry.VLANNum != nil {
-				k.VLANNum = *r.Entry.VLANNum
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "vlan-id")),
-	}
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepKey is RmepXe5cd23's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepKey struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	VLANIDVLANNum            string
-	ID                       uint16
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow flattens one RmepXe5cd23 entry with its ancestor list keys.
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	VLANIDVLANNum            string
-	Entry                    ciscoiosxeethernet.RmepXe5cd23
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepDescriptor is the flattened-row descriptor for the nested list RmepXe5cd23.
-func FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepDescriptor() yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.VLANIDSchema, ciscoiosxeethernet.RmepSchemaX3bb0ec}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.RmepXe5cd23) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow {
-			return FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow{
-				DomainName:               yang.AncestorKey(anc, 1, "name"),
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				MpidMpidNumber:           yang.AncestorKey(anc, 2, "mpid-number"),
-				VLANIDVLANNum:            yang.AncestorKey(anc, 3, "vlan-num"),
-			}
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow) *ciscoiosxeethernet.RmepXe5cd23 {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepKey {
-			var k FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVLANIDRmepKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.DomainName = r.DomainName
-			k.MpidMpidNumber = r.MpidMpidNumber
-			k.VLANIDVLANNum = r.VLANIDVLANNum
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "vlan-id", "rmep")),
-	}
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDKey is VpnID's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDKey struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	Vpn                      uint16
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDFlatRow flattens one VpnID entry with its ancestor list keys.
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDFlatRow struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	Entry                    ciscoiosxeethernet.VpnID
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDDescriptor is the flattened-row descriptor for the nested list VpnID.
-func FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDDescriptor() yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.VpnIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.VpnID) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDFlatRow {
-			return FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDFlatRow{
-				DomainName:               yang.AncestorKey(anc, 1, "name"),
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				MpidMpidNumber:           yang.AncestorKey(anc, 2, "mpid-number"),
-			}
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDFlatRow) *ciscoiosxeethernet.VpnID {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDFlatRow) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDKey {
-			var k FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.DomainName = r.DomainName
-			k.MpidMpidNumber = r.MpidMpidNumber
-			if r.Entry.Vpn != nil {
-				k.Vpn = *r.Entry.Vpn
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "vpn-id")),
-	}
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepKey is RmepXe5cd23's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepKey struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	VpnIDVpn                 string
-	ID                       uint16
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow flattens one RmepXe5cd23 entry with its ancestor list keys.
-type FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow struct {
-	FortyGigabitEthernetName string
-	DomainName               string
-	MpidMpidNumber           string
-	VpnIDVpn                 string
-	Entry                    ciscoiosxeethernet.RmepXe5cd23
-}
-
-// FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepDescriptor is the flattened-row descriptor for the nested list RmepXe5cd23.
-func FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepDescriptor() yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow, FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.VpnIDSchema, ciscoiosxeethernet.RmepSchemaX3bb0ec}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.RmepXe5cd23) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow {
-			return FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow{
-				DomainName:               yang.AncestorKey(anc, 1, "name"),
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				MpidMpidNumber:           yang.AncestorKey(anc, 2, "mpid-number"),
-				VpnIDVpn:                 yang.AncestorKey(anc, 3, "vpn"),
-			}
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow) *ciscoiosxeethernet.RmepXe5cd23 {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow) FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepKey {
-			var k FortyGigabitEthernetEthernetCfmMepDomainMpidServiceVpnIDRmepKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.DomainName = r.DomainName
-			k.MpidMpidNumber = r.MpidMpidNumber
-			k.VpnIDVpn = r.VpnIDVpn
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "vpn-id", "rmep")),
-	}
-}
-
-// FortyGigabitEthernetEthernetCfmMipLevelKey is CfmMipLevel's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEthernetCfmMipLevelKey struct {
-	FortyGigabitEthernetName string
-	LevelNumber              uint8
-}
-
-// FortyGigabitEthernetEthernetCfmMipLevelFlatRow flattens one CfmMipLevel entry with its ancestor list keys.
-type FortyGigabitEthernetEthernetCfmMipLevelFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeethernet.CfmMipLevel
-}
-
-// FortyGigabitEthernetEthernetCfmMipLevelDescriptor is the flattened-row descriptor for the nested list CfmMipLevel.
-func FortyGigabitEthernetEthernetCfmMipLevelDescriptor() yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMipLevelFlatRow, FortyGigabitEthernetEthernetCfmMipLevelKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEthernetCfmMipLevelFlatRow, FortyGigabitEthernetEthernetCfmMipLevelKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.CfmMipLevelSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.CfmMipLevel) FortyGigabitEthernetEthernetCfmMipLevelFlatRow {
-			return FortyGigabitEthernetEthernetCfmMipLevelFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetEthernetCfmMipLevelFlatRow) *ciscoiosxeethernet.CfmMipLevel {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEthernetCfmMipLevelFlatRow) FortyGigabitEthernetEthernetCfmMipLevelKey {
-			var k FortyGigabitEthernetEthernetCfmMipLevelKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.LevelNumber != nil {
-				k.LevelNumber = *r.Entry.LevelNumber
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mip", "level")),
-	}
-}
-
-// FortyGigabitEthernetPppoeClientDialPoolNumberListKey is DialPoolNumberList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetPppoeClientDialPoolNumberListKey struct {
-	FortyGigabitEthernetName string
-	Number                   uint32
-}
-
-// FortyGigabitEthernetPppoeClientDialPoolNumberListFlatRow flattens one DialPoolNumberList entry with its ancestor list keys.
-type FortyGigabitEthernetPppoeClientDialPoolNumberListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeethernet.DialPoolNumberList
-}
-
-// FortyGigabitEthernetPppoeClientDialPoolNumberListDescriptor is the flattened-row descriptor for the nested list DialPoolNumberList.
-func FortyGigabitEthernetPppoeClientDialPoolNumberListDescriptor() yang.ListDescriptor[FortyGigabitEthernetPppoeClientDialPoolNumberListFlatRow, FortyGigabitEthernetPppoeClientDialPoolNumberListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetPppoeClientDialPoolNumberListFlatRow, FortyGigabitEthernetPppoeClientDialPoolNumberListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.DialPoolNumberListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.DialPoolNumberList) FortyGigabitEthernetPppoeClientDialPoolNumberListFlatRow {
-			return FortyGigabitEthernetPppoeClientDialPoolNumberListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetPppoeClientDialPoolNumberListFlatRow) *ciscoiosxeethernet.DialPoolNumberList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetPppoeClientDialPoolNumberListFlatRow) FortyGigabitEthernetPppoeClientDialPoolNumberListKey {
-			var k FortyGigabitEthernetPppoeClientDialPoolNumberListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Number != nil {
-				k.Number = *r.Entry.Number
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "pppoe-client", "dial-pool-number-list")),
-	}
-}
-
-// FortyGigabitEthernetServiceInstanceKey is FortyGigabitEthernetServiceInstance's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetServiceInstanceKey struct {
-	FortyGigabitEthernetName string
-	ID                       uint32
-}
-
-// FortyGigabitEthernetServiceInstanceFlatRow flattens one FortyGigabitEthernetServiceInstance entry with its ancestor list keys.
-type FortyGigabitEthernetServiceInstanceFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeethernet.FortyGigabitEthernetServiceInstance
-}
-
-// FortyGigabitEthernetServiceInstanceDescriptor is the flattened-row descriptor for the nested list FortyGigabitEthernetServiceInstance.
-func FortyGigabitEthernetServiceInstanceDescriptor() yang.ListDescriptor[FortyGigabitEthernetServiceInstanceFlatRow, FortyGigabitEthernetServiceInstanceKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetServiceInstanceFlatRow, FortyGigabitEthernetServiceInstanceKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.FortyGigabitEthernetServiceInstanceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.FortyGigabitEthernetServiceInstance) FortyGigabitEthernetServiceInstanceFlatRow {
-			return FortyGigabitEthernetServiceInstanceFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetServiceInstanceFlatRow) *ciscoiosxeethernet.FortyGigabitEthernetServiceInstance {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetServiceInstanceFlatRow) FortyGigabitEthernetServiceInstanceKey {
-			var k FortyGigabitEthernetServiceInstanceKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance")),
-	}
-}
-
-// FortyGigabitEthernetServiceInstanceCfmMepListDomainKey is MepListDomain's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetServiceInstanceCfmMepListDomainKey struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	Name                     string
-}
-
-// FortyGigabitEthernetServiceInstanceCfmMepListDomainFlatRow flattens one MepListDomain entry with its ancestor list keys.
-type FortyGigabitEthernetServiceInstanceCfmMepListDomainFlatRow struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	Entry                    ciscoiosxeethernet.MepListDomain
-}
-
-// FortyGigabitEthernetServiceInstanceCfmMepListDomainDescriptor is the flattened-row descriptor for the nested list MepListDomain.
-func FortyGigabitEthernetServiceInstanceCfmMepListDomainDescriptor() yang.ListDescriptor[FortyGigabitEthernetServiceInstanceCfmMepListDomainFlatRow, FortyGigabitEthernetServiceInstanceCfmMepListDomainKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetServiceInstanceCfmMepListDomainFlatRow, FortyGigabitEthernetServiceInstanceCfmMepListDomainKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.FortyGigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.MepListDomainSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.MepListDomain) FortyGigabitEthernetServiceInstanceCfmMepListDomainFlatRow {
-			return FortyGigabitEthernetServiceInstanceCfmMepListDomainFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				InstanceID:               yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetServiceInstanceCfmMepListDomainFlatRow) *ciscoiosxeethernet.MepListDomain {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetServiceInstanceCfmMepListDomainFlatRow) FortyGigabitEthernetServiceInstanceCfmMepListDomainKey {
-			var k FortyGigabitEthernetServiceInstanceCfmMepListDomainKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.InstanceID = r.InstanceID
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "cfm", "mep-list", "domain")),
-	}
-}
-
-// FortyGigabitEthernetServiceInstanceIPAccessGroupListKey is IPAccessGroupList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetServiceInstanceIPAccessGroupListKey struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	Direction                string
-}
-
-// FortyGigabitEthernetServiceInstanceIPAccessGroupListFlatRow flattens one IPAccessGroupList entry with its ancestor list keys.
-type FortyGigabitEthernetServiceInstanceIPAccessGroupListFlatRow struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	Entry                    ciscoiosxeethernet.IPAccessGroupList
-}
-
-// FortyGigabitEthernetServiceInstanceIPAccessGroupListDescriptor is the flattened-row descriptor for the nested list IPAccessGroupList.
-func FortyGigabitEthernetServiceInstanceIPAccessGroupListDescriptor() yang.ListDescriptor[FortyGigabitEthernetServiceInstanceIPAccessGroupListFlatRow, FortyGigabitEthernetServiceInstanceIPAccessGroupListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetServiceInstanceIPAccessGroupListFlatRow, FortyGigabitEthernetServiceInstanceIPAccessGroupListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.FortyGigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.IPAccessGroupListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.IPAccessGroupList) FortyGigabitEthernetServiceInstanceIPAccessGroupListFlatRow {
-			return FortyGigabitEthernetServiceInstanceIPAccessGroupListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				InstanceID:               yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetServiceInstanceIPAccessGroupListFlatRow) *ciscoiosxeethernet.IPAccessGroupList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetServiceInstanceIPAccessGroupListFlatRow) FortyGigabitEthernetServiceInstanceIPAccessGroupListKey {
-			var k FortyGigabitEthernetServiceInstanceIPAccessGroupListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.InstanceID = r.InstanceID
-			if r.Entry.Direction != nil {
-				k.Direction = *r.Entry.Direction
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "ip", "access-group-list")),
-	}
-}
-
-// FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListKey is TrafficFilterList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListKey struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	Direction                string
-}
-
-// FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListFlatRow flattens one TrafficFilterList entry with its ancestor list keys.
-type FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListFlatRow struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	Entry                    ciscoiosxeethernet.TrafficFilterList
-}
-
-// FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListDescriptor is the flattened-row descriptor for the nested list TrafficFilterList.
-func FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListDescriptor() yang.ListDescriptor[FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListFlatRow, FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListFlatRow, FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.FortyGigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.TrafficFilterListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.TrafficFilterList) FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListFlatRow {
-			return FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				InstanceID:               yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListFlatRow) *ciscoiosxeethernet.TrafficFilterList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListFlatRow) FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListKey {
-			var k FortyGigabitEthernetServiceInstanceIPv6TrafficFilterListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.InstanceID = r.InstanceID
-			if r.Entry.Direction != nil {
-				k.Direction = *r.Entry.Direction
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "ipv6", "traffic-filter-list")),
-	}
-}
-
-// FortyGigabitEthernetServiceInstanceMACAccessGroupKey is AccessGroup's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetServiceInstanceMACAccessGroupKey struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	ACLName                  string
-}
-
-// FortyGigabitEthernetServiceInstanceMACAccessGroupFlatRow flattens one AccessGroup entry with its ancestor list keys.
-type FortyGigabitEthernetServiceInstanceMACAccessGroupFlatRow struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	Entry                    ciscoiosxeethernet.AccessGroup
-}
-
-// FortyGigabitEthernetServiceInstanceMACAccessGroupDescriptor is the flattened-row descriptor for the nested list AccessGroup.
-func FortyGigabitEthernetServiceInstanceMACAccessGroupDescriptor() yang.ListDescriptor[FortyGigabitEthernetServiceInstanceMACAccessGroupFlatRow, FortyGigabitEthernetServiceInstanceMACAccessGroupKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetServiceInstanceMACAccessGroupFlatRow, FortyGigabitEthernetServiceInstanceMACAccessGroupKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.FortyGigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.AccessGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.AccessGroup) FortyGigabitEthernetServiceInstanceMACAccessGroupFlatRow {
-			return FortyGigabitEthernetServiceInstanceMACAccessGroupFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				InstanceID:               yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetServiceInstanceMACAccessGroupFlatRow) *ciscoiosxeethernet.AccessGroup {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetServiceInstanceMACAccessGroupFlatRow) FortyGigabitEthernetServiceInstanceMACAccessGroupKey {
-			var k FortyGigabitEthernetServiceInstanceMACAccessGroupKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.InstanceID = r.InstanceID
-			if r.Entry.ACLName != nil {
-				k.ACLName = *r.Entry.ACLName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "mac", "access-group")),
-	}
-}
-
-// FortyGigabitEthernetServiceInstanceMACAccessGroupListKey is MACAccessGroupList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetServiceInstanceMACAccessGroupListKey struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	Direction                string
-}
-
-// FortyGigabitEthernetServiceInstanceMACAccessGroupListFlatRow flattens one MACAccessGroupList entry with its ancestor list keys.
-type FortyGigabitEthernetServiceInstanceMACAccessGroupListFlatRow struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	Entry                    ciscoiosxeethernet.MACAccessGroupList
-}
-
-// FortyGigabitEthernetServiceInstanceMACAccessGroupListDescriptor is the flattened-row descriptor for the nested list MACAccessGroupList.
-func FortyGigabitEthernetServiceInstanceMACAccessGroupListDescriptor() yang.ListDescriptor[FortyGigabitEthernetServiceInstanceMACAccessGroupListFlatRow, FortyGigabitEthernetServiceInstanceMACAccessGroupListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetServiceInstanceMACAccessGroupListFlatRow, FortyGigabitEthernetServiceInstanceMACAccessGroupListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.FortyGigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.MACAccessGroupListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.MACAccessGroupList) FortyGigabitEthernetServiceInstanceMACAccessGroupListFlatRow {
-			return FortyGigabitEthernetServiceInstanceMACAccessGroupListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				InstanceID:               yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetServiceInstanceMACAccessGroupListFlatRow) *ciscoiosxeethernet.MACAccessGroupList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetServiceInstanceMACAccessGroupListFlatRow) FortyGigabitEthernetServiceInstanceMACAccessGroupListKey {
-			var k FortyGigabitEthernetServiceInstanceMACAccessGroupListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.InstanceID = r.InstanceID
-			if r.Entry.Direction != nil {
-				k.Direction = *r.Entry.Direction
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "mac", "access-group-list")),
-	}
-}
-
-// FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyKey is Deny's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyKey struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	MAC                      string
-}
-
-// FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyFlatRow flattens one Deny entry with its ancestor list keys.
-type FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyFlatRow struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	Entry                    ciscoiosxeethernet.Deny
-}
-
-// FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyDescriptor is the flattened-row descriptor for the nested list Deny.
-func FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyDescriptor() yang.ListDescriptor[FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyFlatRow, FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyFlatRow, FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.FortyGigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.DenySchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Deny) FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyFlatRow {
-			return FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				InstanceID:               yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyFlatRow) *ciscoiosxeethernet.Deny {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyFlatRow) FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyKey {
-			var k FortyGigabitEthernetServiceInstanceMACSecurityAddressDenyKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.InstanceID = r.InstanceID
-			if r.Entry.MAC != nil {
-				k.MAC = *r.Entry.MAC
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "mac", "security", "address", "deny")),
-	}
-}
-
-// FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitKey is AddressPermit's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitKey struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	MAC                      string
-}
-
-// FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitFlatRow flattens one AddressPermit entry with its ancestor list keys.
-type FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitFlatRow struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	Entry                    ciscoiosxeethernet.AddressPermit
-}
-
-// FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitDescriptor is the flattened-row descriptor for the nested list AddressPermit.
-func FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitDescriptor() yang.ListDescriptor[FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitFlatRow, FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitFlatRow, FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.FortyGigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.AddressPermitSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.AddressPermit) FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitFlatRow {
-			return FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				InstanceID:               yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitFlatRow) *ciscoiosxeethernet.AddressPermit {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitFlatRow) FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitKey {
-			var k FortyGigabitEthernetServiceInstanceMACSecurityAddressPermitKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.InstanceID = r.InstanceID
-			if r.Entry.MAC != nil {
-				k.MAC = *r.Entry.MAC
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "mac", "security", "address", "permit")),
-	}
-}
-
-// FortyGigabitEthernetServiceInstanceServicePolicyInputKey is ServicePolicyInput's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetServiceInstanceServicePolicyInputKey struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	Name                     string
-}
-
-// FortyGigabitEthernetServiceInstanceServicePolicyInputFlatRow flattens one ServicePolicyInput entry with its ancestor list keys.
-type FortyGigabitEthernetServiceInstanceServicePolicyInputFlatRow struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	Entry                    ciscoiosxeethernet.ServicePolicyInput
-}
-
-// FortyGigabitEthernetServiceInstanceServicePolicyInputDescriptor is the flattened-row descriptor for the nested list ServicePolicyInput.
-func FortyGigabitEthernetServiceInstanceServicePolicyInputDescriptor() yang.ListDescriptor[FortyGigabitEthernetServiceInstanceServicePolicyInputFlatRow, FortyGigabitEthernetServiceInstanceServicePolicyInputKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetServiceInstanceServicePolicyInputFlatRow, FortyGigabitEthernetServiceInstanceServicePolicyInputKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.FortyGigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.ServicePolicyInputSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.ServicePolicyInput) FortyGigabitEthernetServiceInstanceServicePolicyInputFlatRow {
-			return FortyGigabitEthernetServiceInstanceServicePolicyInputFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				InstanceID:               yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetServiceInstanceServicePolicyInputFlatRow) *ciscoiosxeethernet.ServicePolicyInput {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetServiceInstanceServicePolicyInputFlatRow) FortyGigabitEthernetServiceInstanceServicePolicyInputKey {
-			var k FortyGigabitEthernetServiceInstanceServicePolicyInputKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.InstanceID = r.InstanceID
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "service-policy", "input")),
-	}
-}
-
-// FortyGigabitEthernetServiceInstanceServicePolicyOutputKey is Output's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetServiceInstanceServicePolicyOutputKey struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	Name                     string
-}
-
-// FortyGigabitEthernetServiceInstanceServicePolicyOutputFlatRow flattens one Output entry with its ancestor list keys.
-type FortyGigabitEthernetServiceInstanceServicePolicyOutputFlatRow struct {
-	FortyGigabitEthernetName string
-	InstanceID               string
-	Entry                    ciscoiosxeethernet.Output
-}
-
-// FortyGigabitEthernetServiceInstanceServicePolicyOutputDescriptor is the flattened-row descriptor for the nested list Output.
-func FortyGigabitEthernetServiceInstanceServicePolicyOutputDescriptor() yang.ListDescriptor[FortyGigabitEthernetServiceInstanceServicePolicyOutputFlatRow, FortyGigabitEthernetServiceInstanceServicePolicyOutputKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetServiceInstanceServicePolicyOutputFlatRow, FortyGigabitEthernetServiceInstanceServicePolicyOutputKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeethernet.FortyGigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.OutputSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Output) FortyGigabitEthernetServiceInstanceServicePolicyOutputFlatRow {
-			return FortyGigabitEthernetServiceInstanceServicePolicyOutputFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				InstanceID:               yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetServiceInstanceServicePolicyOutputFlatRow) *ciscoiosxeethernet.Output {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetServiceInstanceServicePolicyOutputFlatRow) FortyGigabitEthernetServiceInstanceServicePolicyOutputKey {
-			var k FortyGigabitEthernetServiceInstanceServicePolicyOutputKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.InstanceID = r.InstanceID
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "service-policy", "output")),
-	}
-}
-
-// FortyGigabitEthernetPerformanceMonitorContextConfigKey is ContextConfig's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetPerformanceMonitorContextConfigKey struct {
-	FortyGigabitEthernetName string
-	Name                     string
-}
-
-// FortyGigabitEthernetPerformanceMonitorContextConfigFlatRow flattens one ContextConfig entry with its ancestor list keys.
-type FortyGigabitEthernetPerformanceMonitorContextConfigFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeezpm.ContextConfig
-}
-
-// FortyGigabitEthernetPerformanceMonitorContextConfigDescriptor is the flattened-row descriptor for the nested list ContextConfig.
-func FortyGigabitEthernetPerformanceMonitorContextConfigDescriptor() yang.ListDescriptor[FortyGigabitEthernetPerformanceMonitorContextConfigFlatRow, FortyGigabitEthernetPerformanceMonitorContextConfigKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetPerformanceMonitorContextConfigFlatRow, FortyGigabitEthernetPerformanceMonitorContextConfigKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeezpm.ContextConfigSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeezpm.ContextConfig) FortyGigabitEthernetPerformanceMonitorContextConfigFlatRow {
-			return FortyGigabitEthernetPerformanceMonitorContextConfigFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetPerformanceMonitorContextConfigFlatRow) *ciscoiosxeezpm.ContextConfig {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetPerformanceMonitorContextConfigFlatRow) FortyGigabitEthernetPerformanceMonitorContextConfigKey {
-			var k FortyGigabitEthernetPerformanceMonitorContextConfigKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEEzpm, "performance", "monitor", "context-config")),
-	}
-}
-
-// FortyGigabitEthernetFabricDomainIwanFabricWordKey is IwanFabricWord's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetFabricDomainIwanFabricWordKey struct {
-	FortyGigabitEthernetName string
-	Word                     string
-}
-
-// FortyGigabitEthernetFabricDomainIwanFabricWordFlatRow flattens one IwanFabricWord entry with its ancestor list keys.
-type FortyGigabitEthernetFabricDomainIwanFabricWordFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeiwanfabric.IwanFabricWord
-}
-
-// FortyGigabitEthernetFabricDomainIwanFabricWordDescriptor is the flattened-row descriptor for the nested list IwanFabricWord.
-func FortyGigabitEthernetFabricDomainIwanFabricWordDescriptor() yang.ListDescriptor[FortyGigabitEthernetFabricDomainIwanFabricWordFlatRow, FortyGigabitEthernetFabricDomainIwanFabricWordKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetFabricDomainIwanFabricWordFlatRow, FortyGigabitEthernetFabricDomainIwanFabricWordKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeiwanfabric.IwanFabricWordSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeiwanfabric.IwanFabricWord) FortyGigabitEthernetFabricDomainIwanFabricWordFlatRow {
-			return FortyGigabitEthernetFabricDomainIwanFabricWordFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetFabricDomainIwanFabricWordFlatRow) *ciscoiosxeiwanfabric.IwanFabricWord {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetFabricDomainIwanFabricWordFlatRow) FortyGigabitEthernetFabricDomainIwanFabricWordKey {
-			var k FortyGigabitEthernetFabricDomainIwanFabricWordKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Word != nil {
-				k.Word = *r.Entry.Word
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEIwanfabric, "fabric-domain", "iwan-fabric", "word")),
-	}
-}
-
-// FortyGigabitEthernetEvpnEthernetSegmentKey is EthernetSegment's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEvpnEthernetSegmentKey struct {
-	FortyGigabitEthernetName string
-	EsValue                  uint16
-}
-
-// FortyGigabitEthernetEvpnEthernetSegmentFlatRow flattens one EthernetSegment entry with its ancestor list keys.
-type FortyGigabitEthernetEvpnEthernetSegmentFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxel2vpn.EthernetSegment
-}
-
-// FortyGigabitEthernetEvpnEthernetSegmentDescriptor is the flattened-row descriptor for the nested list EthernetSegment.
-func FortyGigabitEthernetEvpnEthernetSegmentDescriptor() yang.ListDescriptor[FortyGigabitEthernetEvpnEthernetSegmentFlatRow, FortyGigabitEthernetEvpnEthernetSegmentKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEvpnEthernetSegmentFlatRow, FortyGigabitEthernetEvpnEthernetSegmentKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxel2vpn.EthernetSegmentSchema}, func(anc [][]yang.KeyValue, e ciscoiosxel2vpn.EthernetSegment) FortyGigabitEthernetEvpnEthernetSegmentFlatRow {
-			return FortyGigabitEthernetEvpnEthernetSegmentFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetEvpnEthernetSegmentFlatRow) *ciscoiosxel2vpn.EthernetSegment {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEvpnEthernetSegmentFlatRow) FortyGigabitEthernetEvpnEthernetSegmentKey {
-			var k FortyGigabitEthernetEvpnEthernetSegmentKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.EsValue != nil {
-				k.EsValue = *r.Entry.EsValue
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEL2vpn, "evpn", "ethernet-segment")),
-	}
-}
-
-// FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeKey is IdentifierType's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeKey struct {
-	FortyGigabitEthernetName string
-	EthernetSegmentEsValue   string
-	IdentifierType           uint8
-}
-
-// FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeFlatRow flattens one IdentifierType entry with its ancestor list keys.
-type FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeFlatRow struct {
-	FortyGigabitEthernetName string
-	EthernetSegmentEsValue   string
-	Entry                    ciscoiosxel2vpn.IdentifierType
-}
-
-// FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeDescriptor is the flattened-row descriptor for the nested list IdentifierType.
-func FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeDescriptor() yang.ListDescriptor[FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeFlatRow, FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeFlatRow, FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxel2vpn.EthernetSegmentSchema, ciscoiosxel2vpn.IdentifierTypeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxel2vpn.IdentifierType) FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeFlatRow {
-			return FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeFlatRow{
-				Entry:                    e,
-				EthernetSegmentEsValue:   yang.AncestorKey(anc, 1, "es-value"),
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeFlatRow) *ciscoiosxel2vpn.IdentifierType {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeFlatRow) FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeKey {
-			var k FortyGigabitEthernetEvpnEthernetSegmentIdentifierTypeKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.EthernetSegmentEsValue = r.EthernetSegmentEsValue
-			if r.Entry.IdentifierType != nil {
-				k.IdentifierType = *r.Entry.IdentifierType
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEL2vpn, "evpn", "ethernet-segment", "identifier", "type")),
-	}
-}
-
-// FortyGigabitEthernetLispMobilityDynamicEidKey is MobilityDynamicEid's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetLispMobilityDynamicEidKey struct {
-	FortyGigabitEthernetName string
-	DynamicEidName           string
-}
-
-// FortyGigabitEthernetLispMobilityDynamicEidFlatRow flattens one MobilityDynamicEid entry with its ancestor list keys.
-type FortyGigabitEthernetLispMobilityDynamicEidFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxelisp.MobilityDynamicEid
-}
-
-// FortyGigabitEthernetLispMobilityDynamicEidDescriptor is the flattened-row descriptor for the nested list MobilityDynamicEid.
-func FortyGigabitEthernetLispMobilityDynamicEidDescriptor() yang.ListDescriptor[FortyGigabitEthernetLispMobilityDynamicEidFlatRow, FortyGigabitEthernetLispMobilityDynamicEidKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetLispMobilityDynamicEidFlatRow, FortyGigabitEthernetLispMobilityDynamicEidKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxelisp.MobilityDynamicEidSchema}, func(anc [][]yang.KeyValue, e ciscoiosxelisp.MobilityDynamicEid) FortyGigabitEthernetLispMobilityDynamicEidFlatRow {
-			return FortyGigabitEthernetLispMobilityDynamicEidFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetLispMobilityDynamicEidFlatRow) *ciscoiosxelisp.MobilityDynamicEid {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetLispMobilityDynamicEidFlatRow) FortyGigabitEthernetLispMobilityDynamicEidKey {
-			var k FortyGigabitEthernetLispMobilityDynamicEidKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.DynamicEidName != nil {
-				k.DynamicEidName = *r.Entry.DynamicEidName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXELisp, "lisp", "mobility", "dynamic-eid")),
-	}
-}
-
-// FortyGigabitEthernetNtpMulticastKey is Multicast's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetNtpMulticastKey struct {
-	FortyGigabitEthernetName string
-	IPv6                     string
-}
-
-// FortyGigabitEthernetNtpMulticastFlatRow flattens one Multicast entry with its ancestor list keys.
-type FortyGigabitEthernetNtpMulticastFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxentp.Multicast
-}
-
-// FortyGigabitEthernetNtpMulticastDescriptor is the flattened-row descriptor for the nested list Multicast.
-func FortyGigabitEthernetNtpMulticastDescriptor() yang.ListDescriptor[FortyGigabitEthernetNtpMulticastFlatRow, FortyGigabitEthernetNtpMulticastKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetNtpMulticastFlatRow, FortyGigabitEthernetNtpMulticastKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxentp.MulticastSchema}, func(anc [][]yang.KeyValue, e ciscoiosxentp.Multicast) FortyGigabitEthernetNtpMulticastFlatRow {
-			return FortyGigabitEthernetNtpMulticastFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetNtpMulticastFlatRow) *ciscoiosxentp.Multicast {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetNtpMulticastFlatRow) FortyGigabitEthernetNtpMulticastKey {
-			var k FortyGigabitEthernetNtpMulticastKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.IPv6 != nil {
-				k.IPv6 = *r.Entry.IPv6
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXENtp, "ntp", "multicast")),
-	}
-}
-
-// FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDKey is Ospfv3MultiAreaConfigMultiAreaID's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDKey struct {
-	FortyGigabitEthernetName string
-	AreaID                   string
-}
-
-// FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDFlatRow flattens one Ospfv3MultiAreaConfigMultiAreaID entry with its ancestor list keys.
-type FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeospfv3.Ospfv3MultiAreaConfigMultiAreaID
-}
-
-// FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDDescriptor is the flattened-row descriptor for the nested list Ospfv3MultiAreaConfigMultiAreaID.
-func FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDDescriptor() yang.ListDescriptor[FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDFlatRow, FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDFlatRow, FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.Ospfv3MultiAreaConfigMultiAreaIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Ospfv3MultiAreaConfigMultiAreaID) FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDFlatRow {
-			return FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDFlatRow) *ciscoiosxeospfv3.Ospfv3MultiAreaConfigMultiAreaID {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDFlatRow) FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDKey {
-			var k FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.AreaID != nil {
-				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "multi-area-config", "multi-area-id")),
-	}
-}
-
-// FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostKey is MultiAreaIDCost's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostKey struct {
-	FortyGigabitEthernetName string
-	AreaID                   string
-}
-
-// FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostFlatRow flattens one MultiAreaIDCost entry with its ancestor list keys.
-type FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeospfv3.MultiAreaIDCost
-}
-
-// FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostDescriptor is the flattened-row descriptor for the nested list MultiAreaIDCost.
-func FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostDescriptor() yang.ListDescriptor[FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostFlatRow, FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostFlatRow, FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.MultiAreaIDCostSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.MultiAreaIDCost) FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostFlatRow {
-			return FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostFlatRow) *ciscoiosxeospfv3.MultiAreaIDCost {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostFlatRow) FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostKey {
-			var k FortyGigabitEthernetOspfv3MultiAreaConfigMultiAreaIDCostKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.AreaID != nil {
-				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "multi-area-config", "multi-area-id-cost")),
-	}
-}
-
-// FortyGigabitEthernetOspfv3NeighborKey is Neighbor's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetOspfv3NeighborKey struct {
-	FortyGigabitEthernetName string
-	ID                       string
-}
-
-// FortyGigabitEthernetOspfv3NeighborFlatRow flattens one Neighbor entry with its ancestor list keys.
-type FortyGigabitEthernetOspfv3NeighborFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeospfv3.Neighbor
-}
-
-// FortyGigabitEthernetOspfv3NeighborDescriptor is the flattened-row descriptor for the nested list Neighbor.
-func FortyGigabitEthernetOspfv3NeighborDescriptor() yang.ListDescriptor[FortyGigabitEthernetOspfv3NeighborFlatRow, FortyGigabitEthernetOspfv3NeighborKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetOspfv3NeighborFlatRow, FortyGigabitEthernetOspfv3NeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.NeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Neighbor) FortyGigabitEthernetOspfv3NeighborFlatRow {
-			return FortyGigabitEthernetOspfv3NeighborFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetOspfv3NeighborFlatRow) *ciscoiosxeospfv3.Neighbor {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetOspfv3NeighborFlatRow) FortyGigabitEthernetOspfv3NeighborKey {
-			var k FortyGigabitEthernetOspfv3NeighborKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "neighbor")),
-	}
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDKey is Ospfv3ProcessID's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetOspfv3ProcessIDKey struct {
-	FortyGigabitEthernetName string
-	ID                       uint16
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDFlatRow flattens one Ospfv3ProcessID entry with its ancestor list keys.
-type FortyGigabitEthernetOspfv3ProcessIDFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeospfv3.Ospfv3ProcessID
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDDescriptor is the flattened-row descriptor for the nested list Ospfv3ProcessID.
-func FortyGigabitEthernetOspfv3ProcessIDDescriptor() yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDFlatRow, FortyGigabitEthernetOspfv3ProcessIDKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDFlatRow, FortyGigabitEthernetOspfv3ProcessIDKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Ospfv3ProcessID) FortyGigabitEthernetOspfv3ProcessIDFlatRow {
-			return FortyGigabitEthernetOspfv3ProcessIDFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDFlatRow) *ciscoiosxeospfv3.Ospfv3ProcessID {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDFlatRow) FortyGigabitEthernetOspfv3ProcessIDKey {
-			var k FortyGigabitEthernetOspfv3ProcessIDKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id")),
-	}
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv4AreaKey is Area's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetOspfv3ProcessIDIPv4AreaKey struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	ID                       string
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv4AreaFlatRow flattens one Area entry with its ancestor list keys.
-type FortyGigabitEthernetOspfv3ProcessIDIPv4AreaFlatRow struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	Entry                    ciscoiosxeospfv3.Area
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv4AreaDescriptor is the flattened-row descriptor for the nested list Area.
-func FortyGigabitEthernetOspfv3ProcessIDIPv4AreaDescriptor() yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv4AreaFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv4AreaKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv4AreaFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv4AreaKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.AreaSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Area) FortyGigabitEthernetOspfv3ProcessIDIPv4AreaFlatRow {
-			return FortyGigabitEthernetOspfv3ProcessIDIPv4AreaFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				ProcessIDID:              yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv4AreaFlatRow) *ciscoiosxeospfv3.Area {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv4AreaFlatRow) FortyGigabitEthernetOspfv3ProcessIDIPv4AreaKey {
-			var k FortyGigabitEthernetOspfv3ProcessIDIPv4AreaKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.ProcessIDID = r.ProcessIDID
-			if r.Entry.ID != nil {
-				k.ID = yang.CanonicalKey(r.Entry.ID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv4", "area")),
-	}
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDKey is MultiAreaConfigMultiAreaID's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDKey struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	AreaID                   string
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow flattens one MultiAreaConfigMultiAreaID entry with its ancestor list keys.
-type FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	Entry                    ciscoiosxeospfv3.MultiAreaConfigMultiAreaID
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDDescriptor is the flattened-row descriptor for the nested list MultiAreaConfigMultiAreaID.
-func FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDDescriptor() yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.MultiAreaConfigMultiAreaIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.MultiAreaConfigMultiAreaID) FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow {
-			return FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				ProcessIDID:              yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow) *ciscoiosxeospfv3.MultiAreaConfigMultiAreaID {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow) FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDKey {
-			var k FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.ProcessIDID = r.ProcessIDID
-			if r.Entry.AreaID != nil {
-				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv4", "multi-area-config", "multi-area-id")),
-	}
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostKey is MultiAreaIDCost's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostKey struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	AreaID                   string
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow flattens one MultiAreaIDCost entry with its ancestor list keys.
-type FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	Entry                    ciscoiosxeospfv3.MultiAreaIDCost
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostDescriptor is the flattened-row descriptor for the nested list MultiAreaIDCost.
-func FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostDescriptor() yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.MultiAreaIDCostSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.MultiAreaIDCost) FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow {
-			return FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				ProcessIDID:              yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow) *ciscoiosxeospfv3.MultiAreaIDCost {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow) FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostKey {
-			var k FortyGigabitEthernetOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.ProcessIDID = r.ProcessIDID
-			if r.Entry.AreaID != nil {
-				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv4", "multi-area-config", "multi-area-id-cost")),
-	}
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborKey is Neighbor's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborKey struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	ID                       string
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborFlatRow flattens one Neighbor entry with its ancestor list keys.
-type FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborFlatRow struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	Entry                    ciscoiosxeospfv3.Neighbor
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborDescriptor is the flattened-row descriptor for the nested list Neighbor.
-func FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborDescriptor() yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.NeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Neighbor) FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborFlatRow {
-			return FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				ProcessIDID:              yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborFlatRow) *ciscoiosxeospfv3.Neighbor {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborFlatRow) FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborKey {
-			var k FortyGigabitEthernetOspfv3ProcessIDIPv4NeighborKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.ProcessIDID = r.ProcessIDID
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv4", "neighbor")),
-	}
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv6AreaKey is Area's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetOspfv3ProcessIDIPv6AreaKey struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	ID                       string
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv6AreaFlatRow flattens one Area entry with its ancestor list keys.
-type FortyGigabitEthernetOspfv3ProcessIDIPv6AreaFlatRow struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	Entry                    ciscoiosxeospfv3.Area
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv6AreaDescriptor is the flattened-row descriptor for the nested list Area.
-func FortyGigabitEthernetOspfv3ProcessIDIPv6AreaDescriptor() yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv6AreaFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv6AreaKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv6AreaFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv6AreaKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.AreaSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Area) FortyGigabitEthernetOspfv3ProcessIDIPv6AreaFlatRow {
-			return FortyGigabitEthernetOspfv3ProcessIDIPv6AreaFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				ProcessIDID:              yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv6AreaFlatRow) *ciscoiosxeospfv3.Area {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv6AreaFlatRow) FortyGigabitEthernetOspfv3ProcessIDIPv6AreaKey {
-			var k FortyGigabitEthernetOspfv3ProcessIDIPv6AreaKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.ProcessIDID = r.ProcessIDID
-			if r.Entry.ID != nil {
-				k.ID = yang.CanonicalKey(r.Entry.ID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv6", "area")),
-	}
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDKey is MultiAreaConfigMultiAreaID's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDKey struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	AreaID                   string
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow flattens one MultiAreaConfigMultiAreaID entry with its ancestor list keys.
-type FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	Entry                    ciscoiosxeospfv3.MultiAreaConfigMultiAreaID
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDDescriptor is the flattened-row descriptor for the nested list MultiAreaConfigMultiAreaID.
-func FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDDescriptor() yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.MultiAreaConfigMultiAreaIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.MultiAreaConfigMultiAreaID) FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow {
-			return FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				ProcessIDID:              yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow) *ciscoiosxeospfv3.MultiAreaConfigMultiAreaID {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow) FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDKey {
-			var k FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.ProcessIDID = r.ProcessIDID
-			if r.Entry.AreaID != nil {
-				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv6", "multi-area-config", "multi-area-id")),
-	}
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostKey is MultiAreaIDCost's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostKey struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	AreaID                   string
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow flattens one MultiAreaIDCost entry with its ancestor list keys.
-type FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	Entry                    ciscoiosxeospfv3.MultiAreaIDCost
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostDescriptor is the flattened-row descriptor for the nested list MultiAreaIDCost.
-func FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostDescriptor() yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.MultiAreaIDCostSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.MultiAreaIDCost) FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow {
-			return FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				ProcessIDID:              yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow) *ciscoiosxeospfv3.MultiAreaIDCost {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow) FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostKey {
-			var k FortyGigabitEthernetOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.ProcessIDID = r.ProcessIDID
-			if r.Entry.AreaID != nil {
-				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv6", "multi-area-config", "multi-area-id-cost")),
-	}
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborKey is Neighbor's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborKey struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	ID                       string
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborFlatRow flattens one Neighbor entry with its ancestor list keys.
-type FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborFlatRow struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	Entry                    ciscoiosxeospfv3.Neighbor
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborDescriptor is the flattened-row descriptor for the nested list Neighbor.
-func FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborDescriptor() yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborFlatRow, FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.NeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Neighbor) FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborFlatRow {
-			return FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				ProcessIDID:              yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborFlatRow) *ciscoiosxeospfv3.Neighbor {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborFlatRow) FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborKey {
-			var k FortyGigabitEthernetOspfv3ProcessIDIPv6NeighborKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.ProcessIDID = r.ProcessIDID
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv6", "neighbor")),
-	}
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDKey is MultiAreaConfigMultiAreaID's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDKey struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	AreaID                   string
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow flattens one MultiAreaConfigMultiAreaID entry with its ancestor list keys.
-type FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	Entry                    ciscoiosxeospfv3.MultiAreaConfigMultiAreaID
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDDescriptor is the flattened-row descriptor for the nested list MultiAreaConfigMultiAreaID.
-func FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDDescriptor() yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow, FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow, FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.MultiAreaConfigMultiAreaIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.MultiAreaConfigMultiAreaID) FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow {
-			return FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				ProcessIDID:              yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow) *ciscoiosxeospfv3.MultiAreaConfigMultiAreaID {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow) FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDKey {
-			var k FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.ProcessIDID = r.ProcessIDID
-			if r.Entry.AreaID != nil {
-				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "multi-area-config", "multi-area-id")),
-	}
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostKey is MultiAreaIDCost's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostKey struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	AreaID                   string
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow flattens one MultiAreaIDCost entry with its ancestor list keys.
-type FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	Entry                    ciscoiosxeospfv3.MultiAreaIDCost
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostDescriptor is the flattened-row descriptor for the nested list MultiAreaIDCost.
-func FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostDescriptor() yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow, FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow, FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.MultiAreaIDCostSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.MultiAreaIDCost) FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow {
-			return FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				ProcessIDID:              yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow) *ciscoiosxeospfv3.MultiAreaIDCost {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow) FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostKey {
-			var k FortyGigabitEthernetOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.ProcessIDID = r.ProcessIDID
-			if r.Entry.AreaID != nil {
-				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "multi-area-config", "multi-area-id-cost")),
-	}
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDNeighborKey is Neighbor's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetOspfv3ProcessIDNeighborKey struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	ID                       string
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDNeighborFlatRow flattens one Neighbor entry with its ancestor list keys.
-type FortyGigabitEthernetOspfv3ProcessIDNeighborFlatRow struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	Entry                    ciscoiosxeospfv3.Neighbor
-}
-
-// FortyGigabitEthernetOspfv3ProcessIDNeighborDescriptor is the flattened-row descriptor for the nested list Neighbor.
-func FortyGigabitEthernetOspfv3ProcessIDNeighborDescriptor() yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDNeighborFlatRow, FortyGigabitEthernetOspfv3ProcessIDNeighborKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetOspfv3ProcessIDNeighborFlatRow, FortyGigabitEthernetOspfv3ProcessIDNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.NeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Neighbor) FortyGigabitEthernetOspfv3ProcessIDNeighborFlatRow {
-			return FortyGigabitEthernetOspfv3ProcessIDNeighborFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				ProcessIDID:              yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDNeighborFlatRow) *ciscoiosxeospfv3.Neighbor {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetOspfv3ProcessIDNeighborFlatRow) FortyGigabitEthernetOspfv3ProcessIDNeighborKey {
-			var k FortyGigabitEthernetOspfv3ProcessIDNeighborKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.ProcessIDID = r.ProcessIDID
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "neighbor")),
-	}
-}
-
-// FortyGigabitEthernetSpanningTreeMstMstInstanceKey is MstInstance's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetSpanningTreeMstMstInstanceKey struct {
-	FortyGigabitEthernetName string
-	Instance                 string
-}
-
-// FortyGigabitEthernetSpanningTreeMstMstInstanceFlatRow flattens one MstInstance entry with its ancestor list keys.
-type FortyGigabitEthernetSpanningTreeMstMstInstanceFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxespanningtree.MstInstance
-}
-
-// FortyGigabitEthernetSpanningTreeMstMstInstanceDescriptor is the flattened-row descriptor for the nested list MstInstance.
-func FortyGigabitEthernetSpanningTreeMstMstInstanceDescriptor() yang.ListDescriptor[FortyGigabitEthernetSpanningTreeMstMstInstanceFlatRow, FortyGigabitEthernetSpanningTreeMstMstInstanceKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetSpanningTreeMstMstInstanceFlatRow, FortyGigabitEthernetSpanningTreeMstMstInstanceKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxespanningtree.MstInstanceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxespanningtree.MstInstance) FortyGigabitEthernetSpanningTreeMstMstInstanceFlatRow {
-			return FortyGigabitEthernetSpanningTreeMstMstInstanceFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetSpanningTreeMstMstInstanceFlatRow) *ciscoiosxespanningtree.MstInstance {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetSpanningTreeMstMstInstanceFlatRow) FortyGigabitEthernetSpanningTreeMstMstInstanceKey {
-			var k FortyGigabitEthernetSpanningTreeMstMstInstanceKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Instance != nil {
-				k.Instance = *r.Entry.Instance
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXESpanningTree, "spanning-tree", "mst", "mst-instance")),
-	}
-}
-
-// FortyGigabitEthernetSpanningTreeVLANKey is SpanningTreeVLAN's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetSpanningTreeVLANKey struct {
-	FortyGigabitEthernetName string
-	VLANIds                  string
-}
-
-// FortyGigabitEthernetSpanningTreeVLANFlatRow flattens one SpanningTreeVLAN entry with its ancestor list keys.
-type FortyGigabitEthernetSpanningTreeVLANFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxespanningtree.SpanningTreeVLAN
-}
-
-// FortyGigabitEthernetSpanningTreeVLANDescriptor is the flattened-row descriptor for the nested list SpanningTreeVLAN.
-func FortyGigabitEthernetSpanningTreeVLANDescriptor() yang.ListDescriptor[FortyGigabitEthernetSpanningTreeVLANFlatRow, FortyGigabitEthernetSpanningTreeVLANKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetSpanningTreeVLANFlatRow, FortyGigabitEthernetSpanningTreeVLANKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxespanningtree.SpanningTreeVLANSchema}, func(anc [][]yang.KeyValue, e ciscoiosxespanningtree.SpanningTreeVLAN) FortyGigabitEthernetSpanningTreeVLANFlatRow {
-			return FortyGigabitEthernetSpanningTreeVLANFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetSpanningTreeVLANFlatRow) *ciscoiosxespanningtree.SpanningTreeVLAN {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetSpanningTreeVLANFlatRow) FortyGigabitEthernetSpanningTreeVLANKey {
-			var k FortyGigabitEthernetSpanningTreeVLANKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.VLANIds != nil {
-				k.VLANIds = *r.Entry.VLANIds
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXESpanningTree, "spanning-tree", "vlan")),
-	}
-}
-
-// FortyGigabitEthernetDatalinkFlowMonitorNewKey is MonitorNew's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetDatalinkFlowMonitorNewKey struct {
-	FortyGigabitEthernetName string
-	Name                     string
-	Direction                string
-}
-
-// FortyGigabitEthernetDatalinkFlowMonitorNewFlatRow flattens one MonitorNew entry with its ancestor list keys.
-type FortyGigabitEthernetDatalinkFlowMonitorNewFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeswitch.MonitorNew
-}
-
-// FortyGigabitEthernetDatalinkFlowMonitorNewDescriptor is the flattened-row descriptor for the nested list MonitorNew.
-func FortyGigabitEthernetDatalinkFlowMonitorNewDescriptor() yang.ListDescriptor[FortyGigabitEthernetDatalinkFlowMonitorNewFlatRow, FortyGigabitEthernetDatalinkFlowMonitorNewKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetDatalinkFlowMonitorNewFlatRow, FortyGigabitEthernetDatalinkFlowMonitorNewKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeswitch.MonitorNewSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.MonitorNew) FortyGigabitEthernetDatalinkFlowMonitorNewFlatRow {
-			return FortyGigabitEthernetDatalinkFlowMonitorNewFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetDatalinkFlowMonitorNewFlatRow) *ciscoiosxeswitch.MonitorNew {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetDatalinkFlowMonitorNewFlatRow) FortyGigabitEthernetDatalinkFlowMonitorNewKey {
-			var k FortyGigabitEthernetDatalinkFlowMonitorNewKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			if r.Entry.Direction != nil {
-				k.Direction = *r.Entry.Direction
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXESwitch, "datalink", "flow", "monitor-new")),
-	}
-}
-
-// FortyGigabitEthernetDeviceTrackingAttachedPoliciesKey is AttachedPolicies's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetDeviceTrackingAttachedPoliciesKey struct {
-	FortyGigabitEthernetName string
-	AttachPolicy             string
-}
-
-// FortyGigabitEthernetDeviceTrackingAttachedPoliciesFlatRow flattens one AttachedPolicies entry with its ancestor list keys.
-type FortyGigabitEthernetDeviceTrackingAttachedPoliciesFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeswitch.AttachedPolicies
-}
-
-// FortyGigabitEthernetDeviceTrackingAttachedPoliciesDescriptor is the flattened-row descriptor for the nested list AttachedPolicies.
-func FortyGigabitEthernetDeviceTrackingAttachedPoliciesDescriptor() yang.ListDescriptor[FortyGigabitEthernetDeviceTrackingAttachedPoliciesFlatRow, FortyGigabitEthernetDeviceTrackingAttachedPoliciesKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetDeviceTrackingAttachedPoliciesFlatRow, FortyGigabitEthernetDeviceTrackingAttachedPoliciesKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeswitch.AttachedPoliciesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.AttachedPolicies) FortyGigabitEthernetDeviceTrackingAttachedPoliciesFlatRow {
-			return FortyGigabitEthernetDeviceTrackingAttachedPoliciesFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetDeviceTrackingAttachedPoliciesFlatRow) *ciscoiosxeswitch.AttachedPolicies {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetDeviceTrackingAttachedPoliciesFlatRow) FortyGigabitEthernetDeviceTrackingAttachedPoliciesKey {
-			var k FortyGigabitEthernetDeviceTrackingAttachedPoliciesKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.AttachPolicy != nil {
-				k.AttachPolicy = *r.Entry.AttachPolicy
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXESwitch, "device-tracking", "attached-policies")),
-	}
-}
-
-// FortyGigabitEthernetEnergywiseLevelKey is Level's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEnergywiseLevelKey struct {
-	FortyGigabitEthernetName string
-	Range                    uint8
-}
-
-// FortyGigabitEthernetEnergywiseLevelFlatRow flattens one Level entry with its ancestor list keys.
-type FortyGigabitEthernetEnergywiseLevelFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeswitch.Level
-}
-
-// FortyGigabitEthernetEnergywiseLevelDescriptor is the flattened-row descriptor for the nested list Level.
-func FortyGigabitEthernetEnergywiseLevelDescriptor() yang.ListDescriptor[FortyGigabitEthernetEnergywiseLevelFlatRow, FortyGigabitEthernetEnergywiseLevelKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEnergywiseLevelFlatRow, FortyGigabitEthernetEnergywiseLevelKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeswitch.LevelSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.Level) FortyGigabitEthernetEnergywiseLevelFlatRow {
-			return FortyGigabitEthernetEnergywiseLevelFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetEnergywiseLevelFlatRow) *ciscoiosxeswitch.Level {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEnergywiseLevelFlatRow) FortyGigabitEthernetEnergywiseLevelKey {
-			var k FortyGigabitEthernetEnergywiseLevelKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXESwitch, "energywise", "level")),
-	}
-}
-
-// FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceKey is Importance's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceKey struct {
-	FortyGigabitEthernetName string
-	LevelRange               string
-	Range                    uint16
-}
-
-// FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceFlatRow flattens one Importance entry with its ancestor list keys.
-type FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceFlatRow struct {
-	FortyGigabitEthernetName string
-	LevelRange               string
-	Entry                    ciscoiosxeswitch.Importance
-}
-
-// FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceDescriptor is the flattened-row descriptor for the nested list Importance.
-func FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceDescriptor() yang.ListDescriptor[FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceFlatRow, FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceFlatRow, FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeswitch.LevelSchema, ciscoiosxeswitch.ImportanceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.Importance) FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceFlatRow {
-			return FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				LevelRange:               yang.AncestorKey(anc, 1, "range"),
-			}
-		}, func(r *FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceFlatRow) *ciscoiosxeswitch.Importance {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceFlatRow) FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceKey {
-			var k FortyGigabitEthernetEnergywiseLevelRecurrenceImportanceKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.LevelRange = r.LevelRange
-			if r.Entry.Range != nil {
-				k.Range = *r.Entry.Range
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXESwitch, "energywise", "level", "recurrence", "importance")),
-	}
-}
-
-// FortyGigabitEthernetMACAccessGroupKey is AccessGroup's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetMACAccessGroupKey struct {
-	FortyGigabitEthernetName string
-	Direction                string
-}
-
-// FortyGigabitEthernetMACAccessGroupFlatRow flattens one AccessGroup entry with its ancestor list keys.
-type FortyGigabitEthernetMACAccessGroupFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeswitch.AccessGroup
-}
-
-// FortyGigabitEthernetMACAccessGroupDescriptor is the flattened-row descriptor for the nested list AccessGroup.
-func FortyGigabitEthernetMACAccessGroupDescriptor() yang.ListDescriptor[FortyGigabitEthernetMACAccessGroupFlatRow, FortyGigabitEthernetMACAccessGroupKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetMACAccessGroupFlatRow, FortyGigabitEthernetMACAccessGroupKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeswitch.AccessGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.AccessGroup) FortyGigabitEthernetMACAccessGroupFlatRow {
-			return FortyGigabitEthernetMACAccessGroupFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetMACAccessGroupFlatRow) *ciscoiosxeswitch.AccessGroup {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetMACAccessGroupFlatRow) FortyGigabitEthernetMACAccessGroupKey {
-			var k FortyGigabitEthernetMACAccessGroupKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Direction != nil {
-				k.Direction = *r.Entry.Direction
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXESwitch, "mac", "access-group")),
-	}
-}
-
-// FortyGigabitEthernetVLANRangeKey is VLANRange's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetVLANRangeKey struct {
-	FortyGigabitEthernetName string
-	ID                       string
-}
-
-// FortyGigabitEthernetVLANRangeFlatRow flattens one VLANRange entry with its ancestor list keys.
-type FortyGigabitEthernetVLANRangeFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeswitch.VLANRange
-}
-
-// FortyGigabitEthernetVLANRangeDescriptor is the flattened-row descriptor for the nested list VLANRange.
-func FortyGigabitEthernetVLANRangeDescriptor() yang.ListDescriptor[FortyGigabitEthernetVLANRangeFlatRow, FortyGigabitEthernetVLANRangeKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetVLANRangeFlatRow, FortyGigabitEthernetVLANRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeswitch.VLANRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.VLANRange) FortyGigabitEthernetVLANRangeFlatRow {
-			return FortyGigabitEthernetVLANRangeFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetVLANRangeFlatRow) *ciscoiosxeswitch.VLANRange {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetVLANRangeFlatRow) FortyGigabitEthernetVLANRangeKey {
-			var k FortyGigabitEthernetVLANRangeKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = yang.CanonicalKey(r.Entry.ID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXESwitch, "vlan-range")),
-	}
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupKey is VrrpGroup's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetVrrpVrrpGroupKey struct {
-	FortyGigabitEthernetName string
-	GroupID                  uint8
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupFlatRow flattens one VrrpGroup entry with its ancestor list keys.
-type FortyGigabitEthernetVrrpVrrpGroupFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxevrrp.VrrpGroup
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupDescriptor is the flattened-row descriptor for the nested list VrrpGroup.
-func FortyGigabitEthernetVrrpVrrpGroupDescriptor() yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupFlatRow, FortyGigabitEthernetVrrpVrrpGroupKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupFlatRow, FortyGigabitEthernetVrrpVrrpGroupKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxevrrp.VrrpGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.VrrpGroup) FortyGigabitEthernetVrrpVrrpGroupFlatRow {
-			return FortyGigabitEthernetVrrpVrrpGroupFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupFlatRow) *ciscoiosxevrrp.VrrpGroup {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupFlatRow) FortyGigabitEthernetVrrpVrrpGroupKey {
-			var k FortyGigabitEthernetVrrpVrrpGroupKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.GroupID != nil {
-				k.GroupID = *r.Entry.GroupID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group")),
-	}
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupV2Key is VrrpGroupV2's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetVrrpVrrpGroupV2Key struct {
-	FortyGigabitEthernetName string
-	GroupID                  uint8
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupV2FlatRow flattens one VrrpGroupV2 entry with its ancestor list keys.
-type FortyGigabitEthernetVrrpVrrpGroupV2FlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxevrrp.VrrpGroupV2
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupV2Descriptor is the flattened-row descriptor for the nested list VrrpGroupV2.
-func FortyGigabitEthernetVrrpVrrpGroupV2Descriptor() yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupV2FlatRow, FortyGigabitEthernetVrrpVrrpGroupV2Key] {
-	return yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupV2FlatRow, FortyGigabitEthernetVrrpVrrpGroupV2Key]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxevrrp.VrrpGroupV2Schema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.VrrpGroupV2) FortyGigabitEthernetVrrpVrrpGroupV2FlatRow {
-			return FortyGigabitEthernetVrrpVrrpGroupV2FlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupV2FlatRow) *ciscoiosxevrrp.VrrpGroupV2 {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupV2FlatRow) FortyGigabitEthernetVrrpVrrpGroupV2Key {
-			var k FortyGigabitEthernetVrrpVrrpGroupV2Key
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.GroupID != nil {
-				k.GroupID = *r.Entry.GroupID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group-v2")),
-	}
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryKey is Secondary's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryKey struct {
-	FortyGigabitEthernetName string
-	VrrpGroupV2GroupID       string
-	Address                  string
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryFlatRow flattens one Secondary entry with its ancestor list keys.
-type FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryFlatRow struct {
-	FortyGigabitEthernetName string
-	VrrpGroupV2GroupID       string
-	Entry                    ciscoiosxevrrp.Secondary
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryDescriptor is the flattened-row descriptor for the nested list Secondary.
-func FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryDescriptor() yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryFlatRow, FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryFlatRow, FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxevrrp.VrrpGroupV2Schema, ciscoiosxevrrp.SecondarySchema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.Secondary) FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryFlatRow {
-			return FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				VrrpGroupV2GroupID:       yang.AncestorKey(anc, 1, "group-id"),
-			}
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryFlatRow) *ciscoiosxevrrp.Secondary {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryFlatRow) FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryKey {
-			var k FortyGigabitEthernetVrrpVrrpGroupV2IPSecondaryKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.VrrpGroupV2GroupID = r.VrrpGroupV2GroupID
-			if r.Entry.Address != nil {
-				k.Address = *r.Entry.Address
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group-v2", "ip", "secondary")),
-	}
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupV2TrackEventKey is VrrpGroupV2TrackEvent's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetVrrpVrrpGroupV2TrackEventKey struct {
-	FortyGigabitEthernetName string
-	VrrpGroupV2GroupID       string
-	ObjectID                 uint16
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupV2TrackEventFlatRow flattens one VrrpGroupV2TrackEvent entry with its ancestor list keys.
-type FortyGigabitEthernetVrrpVrrpGroupV2TrackEventFlatRow struct {
-	FortyGigabitEthernetName string
-	VrrpGroupV2GroupID       string
-	Entry                    ciscoiosxevrrp.VrrpGroupV2TrackEvent
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupV2TrackEventDescriptor is the flattened-row descriptor for the nested list VrrpGroupV2TrackEvent.
-func FortyGigabitEthernetVrrpVrrpGroupV2TrackEventDescriptor() yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupV2TrackEventFlatRow, FortyGigabitEthernetVrrpVrrpGroupV2TrackEventKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupV2TrackEventFlatRow, FortyGigabitEthernetVrrpVrrpGroupV2TrackEventKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxevrrp.VrrpGroupV2Schema, ciscoiosxevrrp.VrrpGroupV2TrackEventSchema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.VrrpGroupV2TrackEvent) FortyGigabitEthernetVrrpVrrpGroupV2TrackEventFlatRow {
-			return FortyGigabitEthernetVrrpVrrpGroupV2TrackEventFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				VrrpGroupV2GroupID:       yang.AncestorKey(anc, 1, "group-id"),
-			}
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupV2TrackEventFlatRow) *ciscoiosxevrrp.VrrpGroupV2TrackEvent {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupV2TrackEventFlatRow) FortyGigabitEthernetVrrpVrrpGroupV2TrackEventKey {
-			var k FortyGigabitEthernetVrrpVrrpGroupV2TrackEventKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.VrrpGroupV2GroupID = r.VrrpGroupV2GroupID
-			if r.Entry.ObjectID != nil {
-				k.ObjectID = *r.Entry.ObjectID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group-v2", "track", "event")),
-	}
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryKey is Secondary's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryKey struct {
-	FortyGigabitEthernetName string
-	VrrpGroupGroupID         string
-	Address                  string
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow flattens one Secondary entry with its ancestor list keys.
-type FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow struct {
-	FortyGigabitEthernetName string
-	VrrpGroupGroupID         string
-	Entry                    ciscoiosxevrrp.Secondary
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryDescriptor is the flattened-row descriptor for the nested list Secondary.
-func FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryDescriptor() yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow, FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow, FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxevrrp.VrrpGroupSchema, ciscoiosxevrrp.SecondarySchema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.Secondary) FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow {
-			return FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				VrrpGroupGroupID:         yang.AncestorKey(anc, 1, "group-id"),
-			}
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow) *ciscoiosxevrrp.Secondary {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow) FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryKey {
-			var k FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.VrrpGroupGroupID = r.VrrpGroupGroupID
-			if r.Entry.Address != nil {
-				k.Address = *r.Entry.Address
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group", "address-family", "ipv4", "address", "secondary")),
-	}
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventKey is TrackEvent's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventKey struct {
-	FortyGigabitEthernetName string
-	VrrpGroupGroupID         string
-	ObjectID                 string
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow flattens one TrackEvent entry with its ancestor list keys.
-type FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow struct {
-	FortyGigabitEthernetName string
-	VrrpGroupGroupID         string
-	Entry                    ciscoiosxevrrp.TrackEvent
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventDescriptor is the flattened-row descriptor for the nested list TrackEvent.
-func FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventDescriptor() yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow, FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow, FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxevrrp.VrrpGroupSchema, ciscoiosxevrrp.TrackEventSchema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.TrackEvent) FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow {
-			return FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				VrrpGroupGroupID:         yang.AncestorKey(anc, 1, "group-id"),
-			}
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow) *ciscoiosxevrrp.TrackEvent {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow) FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventKey {
-			var k FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv4TrackEventKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.VrrpGroupGroupID = r.VrrpGroupGroupID
-			if r.Entry.ObjectID != nil {
-				k.ObjectID = yang.CanonicalKey(r.Entry.ObjectID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group", "address-family", "ipv4", "track", "event")),
-	}
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixKey is IPv6Prefix's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixKey struct {
-	FortyGigabitEthernetName string
-	VrrpGroupGroupID         string
-	Prefix                   string
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow flattens one IPv6Prefix entry with its ancestor list keys.
-type FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow struct {
-	FortyGigabitEthernetName string
-	VrrpGroupGroupID         string
-	Entry                    ciscoiosxevrrp.IPv6Prefix
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixDescriptor is the flattened-row descriptor for the nested list IPv6Prefix.
-func FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixDescriptor() yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow, FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow, FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxevrrp.VrrpGroupSchema, ciscoiosxevrrp.IPv6PrefixSchema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.IPv6Prefix) FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow {
-			return FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				VrrpGroupGroupID:         yang.AncestorKey(anc, 1, "group-id"),
-			}
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow) *ciscoiosxevrrp.IPv6Prefix {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow) FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixKey {
-			var k FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.VrrpGroupGroupID = r.VrrpGroupGroupID
-			if r.Entry.Prefix != nil {
-				k.Prefix = *r.Entry.Prefix
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group", "address-family", "ipv6", "address", "ipv6-prefix")),
-	}
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventKey is TrackEvent's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventKey struct {
-	FortyGigabitEthernetName string
-	VrrpGroupGroupID         string
-	ObjectID                 string
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow flattens one TrackEvent entry with its ancestor list keys.
-type FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow struct {
-	FortyGigabitEthernetName string
-	VrrpGroupGroupID         string
-	Entry                    ciscoiosxevrrp.TrackEvent
-}
-
-// FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventDescriptor is the flattened-row descriptor for the nested list TrackEvent.
-func FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventDescriptor() yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow, FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow, FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxevrrp.VrrpGroupSchema, ciscoiosxevrrp.TrackEventSchema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.TrackEvent) FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow {
-			return FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				VrrpGroupGroupID:         yang.AncestorKey(anc, 1, "group-id"),
-			}
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow) *ciscoiosxevrrp.TrackEvent {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow) FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventKey {
-			var k FortyGigabitEthernetVrrpVrrpGroupAddressFamilyIPv6TrackEventKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.VrrpGroupGroupID = r.VrrpGroupGroupID
-			if r.Entry.ObjectID != nil {
-				k.ObjectID = yang.CanonicalKey(r.Entry.ObjectID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group", "address-family", "ipv6", "track", "event")),
-	}
-}
-
-// FortyGigabitEthernetHoldQueueKey is HoldQueue's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetHoldQueueKey struct {
-	FortyGigabitEthernetName string
-	Direction                string
-}
-
-// FortyGigabitEthernetHoldQueueFlatRow flattens one HoldQueue entry with its ancestor list keys.
-type FortyGigabitEthernetHoldQueueFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    HoldQueue
-}
-
-// FortyGigabitEthernetHoldQueueDescriptor is the flattened-row descriptor for the nested list HoldQueue.
-func FortyGigabitEthernetHoldQueueDescriptor() yang.ListDescriptor[FortyGigabitEthernetHoldQueueFlatRow, FortyGigabitEthernetHoldQueueKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetHoldQueueFlatRow, FortyGigabitEthernetHoldQueueKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, HoldQueueSchema}, func(anc [][]yang.KeyValue, e HoldQueue) FortyGigabitEthernetHoldQueueFlatRow {
-			return FortyGigabitEthernetHoldQueueFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetHoldQueueFlatRow) *HoldQueue {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetHoldQueueFlatRow) FortyGigabitEthernetHoldQueueKey {
-			var k FortyGigabitEthernetHoldQueueKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Direction != nil {
-				k.Direction = *r.Entry.Direction
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "hold-queue")),
-	}
-}
-
-// FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainKey is KeyChain's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainKey struct {
-	FortyGigabitEthernetName string
-	Eigrp                    uint16
-}
-
-// FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainFlatRow flattens one KeyChain entry with its ancestor list keys.
-type FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeeigrp.KeyChain
-}
-
-// FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainDescriptor is the flattened-row descriptor for the nested list KeyChain.
-func FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainFlatRow, FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainFlatRow, FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeeigrp.KeyChainSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.KeyChain) FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainFlatRow {
-			return FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainFlatRow) *ciscoiosxeeigrp.KeyChain {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainFlatRow) FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainKey {
-			var k FortyGigabitEthernetIPAuthenticationEigrpAuthenticationKeyChainKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Eigrp != nil {
-				k.Eigrp = *r.Entry.Eigrp
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEEigrp, "authentication-eigrp", "authentication", "key-chain")),
-	}
-}
-
-// FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeKey is AuthenticationEigrpAuthenticationMode's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeKey struct {
-	FortyGigabitEthernetName string
-	Eigrp                    uint16
-}
-
-// FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeFlatRow flattens one AuthenticationEigrpAuthenticationMode entry with its ancestor list keys.
-type FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeeigrp.AuthenticationEigrpAuthenticationMode
-}
-
-// FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeDescriptor is the flattened-row descriptor for the nested list AuthenticationEigrpAuthenticationMode.
-func FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeFlatRow, FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeFlatRow, FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeeigrp.AuthenticationEigrpAuthenticationModeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.AuthenticationEigrpAuthenticationMode) FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeFlatRow {
-			return FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeFlatRow) *ciscoiosxeeigrp.AuthenticationEigrpAuthenticationMode {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeFlatRow) FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeKey {
-			var k FortyGigabitEthernetIPAuthenticationEigrpAuthenticationModeKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Eigrp != nil {
-				k.Eigrp = *r.Entry.Eigrp
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEEigrp, "authentication-eigrp", "authentication", "mode")),
-	}
-}
-
-// FortyGigabitEthernetIPBandwidthPercentKey is BandwidthPercent's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPBandwidthPercentKey struct {
-	FortyGigabitEthernetName string
-	Eigrp                    uint16
-}
-
-// FortyGigabitEthernetIPBandwidthPercentFlatRow flattens one BandwidthPercent entry with its ancestor list keys.
-type FortyGigabitEthernetIPBandwidthPercentFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeeigrp.BandwidthPercent
-}
-
-// FortyGigabitEthernetIPBandwidthPercentDescriptor is the flattened-row descriptor for the nested list BandwidthPercent.
-func FortyGigabitEthernetIPBandwidthPercentDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPBandwidthPercentFlatRow, FortyGigabitEthernetIPBandwidthPercentKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPBandwidthPercentFlatRow, FortyGigabitEthernetIPBandwidthPercentKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeeigrp.BandwidthPercentSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.BandwidthPercent) FortyGigabitEthernetIPBandwidthPercentFlatRow {
-			return FortyGigabitEthernetIPBandwidthPercentFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPBandwidthPercentFlatRow) *ciscoiosxeeigrp.BandwidthPercent {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPBandwidthPercentFlatRow) FortyGigabitEthernetIPBandwidthPercentKey {
-			var k FortyGigabitEthernetIPBandwidthPercentKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Eigrp != nil {
-				k.Eigrp = *r.Entry.Eigrp
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEEigrp, "bandwidth-percent")),
-	}
-}
-
-// FortyGigabitEthernetIPDampeningChangeKey is DampeningChange's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPDampeningChangeKey struct {
-	FortyGigabitEthernetName string
-	Eigrp                    uint16
-}
-
-// FortyGigabitEthernetIPDampeningChangeFlatRow flattens one DampeningChange entry with its ancestor list keys.
-type FortyGigabitEthernetIPDampeningChangeFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeeigrp.DampeningChange
-}
-
-// FortyGigabitEthernetIPDampeningChangeDescriptor is the flattened-row descriptor for the nested list DampeningChange.
-func FortyGigabitEthernetIPDampeningChangeDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPDampeningChangeFlatRow, FortyGigabitEthernetIPDampeningChangeKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPDampeningChangeFlatRow, FortyGigabitEthernetIPDampeningChangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeeigrp.DampeningChangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DampeningChange) FortyGigabitEthernetIPDampeningChangeFlatRow {
-			return FortyGigabitEthernetIPDampeningChangeFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPDampeningChangeFlatRow) *ciscoiosxeeigrp.DampeningChange {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPDampeningChangeFlatRow) FortyGigabitEthernetIPDampeningChangeKey {
-			var k FortyGigabitEthernetIPDampeningChangeKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Eigrp != nil {
-				k.Eigrp = *r.Entry.Eigrp
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEEigrp, "dampening-change")),
-	}
-}
-
-// FortyGigabitEthernetIPDampeningIntervalKey is DampeningInterval's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPDampeningIntervalKey struct {
-	FortyGigabitEthernetName string
-	Eigrp                    uint16
-}
-
-// FortyGigabitEthernetIPDampeningIntervalFlatRow flattens one DampeningInterval entry with its ancestor list keys.
-type FortyGigabitEthernetIPDampeningIntervalFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeeigrp.DampeningInterval
-}
-
-// FortyGigabitEthernetIPDampeningIntervalDescriptor is the flattened-row descriptor for the nested list DampeningInterval.
-func FortyGigabitEthernetIPDampeningIntervalDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPDampeningIntervalFlatRow, FortyGigabitEthernetIPDampeningIntervalKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPDampeningIntervalFlatRow, FortyGigabitEthernetIPDampeningIntervalKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeeigrp.DampeningIntervalSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DampeningInterval) FortyGigabitEthernetIPDampeningIntervalFlatRow {
-			return FortyGigabitEthernetIPDampeningIntervalFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPDampeningIntervalFlatRow) *ciscoiosxeeigrp.DampeningInterval {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPDampeningIntervalFlatRow) FortyGigabitEthernetIPDampeningIntervalKey {
-			var k FortyGigabitEthernetIPDampeningIntervalKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Eigrp != nil {
-				k.Eigrp = *r.Entry.Eigrp
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEEigrp, "dampening-interval")),
-	}
-}
-
-// FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalKey is HelloInterval's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalKey struct {
-	FortyGigabitEthernetName string
-	Eigrp                    uint16
-}
-
-// FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalFlatRow flattens one HelloInterval entry with its ancestor list keys.
-type FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeeigrp.HelloInterval
-}
-
-// FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalDescriptor is the flattened-row descriptor for the nested list HelloInterval.
-func FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalFlatRow, FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalFlatRow, FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeeigrp.HelloIntervalSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.HelloInterval) FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalFlatRow {
-			return FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalFlatRow) *ciscoiosxeeigrp.HelloInterval {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalFlatRow) FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalKey {
-			var k FortyGigabitEthernetIPHelloIntervalEigrpHelloIntervalKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Eigrp != nil {
-				k.Eigrp = *r.Entry.Eigrp
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEEigrp, "hello-interval-eigrp", "hello-interval")),
-	}
-}
-
-// FortyGigabitEthernetIPHoldTimeEigrpHoldTimeKey is HoldTime's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPHoldTimeEigrpHoldTimeKey struct {
-	FortyGigabitEthernetName string
-	Eigrp                    uint16
-}
-
-// FortyGigabitEthernetIPHoldTimeEigrpHoldTimeFlatRow flattens one HoldTime entry with its ancestor list keys.
-type FortyGigabitEthernetIPHoldTimeEigrpHoldTimeFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeeigrp.HoldTime
-}
-
-// FortyGigabitEthernetIPHoldTimeEigrpHoldTimeDescriptor is the flattened-row descriptor for the nested list HoldTime.
-func FortyGigabitEthernetIPHoldTimeEigrpHoldTimeDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPHoldTimeEigrpHoldTimeFlatRow, FortyGigabitEthernetIPHoldTimeEigrpHoldTimeKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPHoldTimeEigrpHoldTimeFlatRow, FortyGigabitEthernetIPHoldTimeEigrpHoldTimeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeeigrp.HoldTimeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.HoldTime) FortyGigabitEthernetIPHoldTimeEigrpHoldTimeFlatRow {
-			return FortyGigabitEthernetIPHoldTimeEigrpHoldTimeFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPHoldTimeEigrpHoldTimeFlatRow) *ciscoiosxeeigrp.HoldTime {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPHoldTimeEigrpHoldTimeFlatRow) FortyGigabitEthernetIPHoldTimeEigrpHoldTimeKey {
-			var k FortyGigabitEthernetIPHoldTimeEigrpHoldTimeKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Eigrp != nil {
-				k.Eigrp = *r.Entry.Eigrp
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEEigrp, "hold-time-eigrp", "hold-time")),
-	}
-}
-
-// FortyGigabitEthernetIPFlowMonitorKey is FlowMonitorXc8f9c0's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPFlowMonitorKey struct {
-	FortyGigabitEthernetName string
-	Name                     string
-}
-
-// FortyGigabitEthernetIPFlowMonitorFlatRow flattens one FlowMonitorXc8f9c0 entry with its ancestor list keys.
-type FortyGigabitEthernetIPFlowMonitorFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeflow.FlowMonitorXc8f9c0
-}
-
-// FortyGigabitEthernetIPFlowMonitorDescriptor is the flattened-row descriptor for the nested list FlowMonitorXc8f9c0.
-func FortyGigabitEthernetIPFlowMonitorDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPFlowMonitorFlatRow, FortyGigabitEthernetIPFlowMonitorKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPFlowMonitorFlatRow, FortyGigabitEthernetIPFlowMonitorKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeflow.FlowMonitorSchemaX975c36}, func(anc [][]yang.KeyValue, e ciscoiosxeflow.FlowMonitorXc8f9c0) FortyGigabitEthernetIPFlowMonitorFlatRow {
-			return FortyGigabitEthernetIPFlowMonitorFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPFlowMonitorFlatRow) *ciscoiosxeflow.FlowMonitorXc8f9c0 {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPFlowMonitorFlatRow) FortyGigabitEthernetIPFlowMonitorKey {
-			var k FortyGigabitEthernetIPFlowMonitorKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEFlow, "flow", "monitor")),
-	}
-}
-
-// FortyGigabitEthernetIPFlowMonitorNewKey is MonitorNew's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPFlowMonitorNewKey struct {
-	FortyGigabitEthernetName string
-	Name                     string
-	Direction                string
-}
-
-// FortyGigabitEthernetIPFlowMonitorNewFlatRow flattens one MonitorNew entry with its ancestor list keys.
-type FortyGigabitEthernetIPFlowMonitorNewFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeflow.MonitorNew
-}
-
-// FortyGigabitEthernetIPFlowMonitorNewDescriptor is the flattened-row descriptor for the nested list MonitorNew.
-func FortyGigabitEthernetIPFlowMonitorNewDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPFlowMonitorNewFlatRow, FortyGigabitEthernetIPFlowMonitorNewKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPFlowMonitorNewFlatRow, FortyGigabitEthernetIPFlowMonitorNewKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeflow.MonitorNewSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeflow.MonitorNew) FortyGigabitEthernetIPFlowMonitorNewFlatRow {
-			return FortyGigabitEthernetIPFlowMonitorNewFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPFlowMonitorNewFlatRow) *ciscoiosxeflow.MonitorNew {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPFlowMonitorNewFlatRow) FortyGigabitEthernetIPFlowMonitorNewKey {
-			var k FortyGigabitEthernetIPFlowMonitorNewKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			if r.Entry.Direction != nil {
-				k.Direction = *r.Entry.Direction
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEFlow, "flow", "monitor-new")),
-	}
-}
-
-// FortyGigabitEthernetIPFlowMonitorSamplerKey is MonitorSampler's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPFlowMonitorSamplerKey struct {
-	FortyGigabitEthernetName string
-	MonitorName              string
-	Direction                string
-}
-
-// FortyGigabitEthernetIPFlowMonitorSamplerFlatRow flattens one MonitorSampler entry with its ancestor list keys.
-type FortyGigabitEthernetIPFlowMonitorSamplerFlatRow struct {
-	FortyGigabitEthernetName string
-	MonitorName              string
-	Entry                    ciscoiosxeflow.MonitorSampler
-}
-
-// FortyGigabitEthernetIPFlowMonitorSamplerDescriptor is the flattened-row descriptor for the nested list MonitorSampler.
-func FortyGigabitEthernetIPFlowMonitorSamplerDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPFlowMonitorSamplerFlatRow, FortyGigabitEthernetIPFlowMonitorSamplerKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPFlowMonitorSamplerFlatRow, FortyGigabitEthernetIPFlowMonitorSamplerKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeflow.FlowMonitorSchemaX975c36, ciscoiosxeflow.MonitorSamplerSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeflow.MonitorSampler) FortyGigabitEthernetIPFlowMonitorSamplerFlatRow {
-			return FortyGigabitEthernetIPFlowMonitorSamplerFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				MonitorName:              yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPFlowMonitorSamplerFlatRow) *ciscoiosxeflow.MonitorSampler {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPFlowMonitorSamplerFlatRow) FortyGigabitEthernetIPFlowMonitorSamplerKey {
-			var k FortyGigabitEthernetIPFlowMonitorSamplerKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.MonitorName = r.MonitorName
-			if r.Entry.Direction != nil {
-				k.Direction = *r.Entry.Direction
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEFlow, "flow", "monitor", "sampler")),
-	}
-}
-
-// FortyGigabitEthernetIPIgmpIgmpJoinGroupKey is IgmpJoinGroup's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPIgmpIgmpJoinGroupKey struct {
-	FortyGigabitEthernetName string
-	JoinGroup                string
-}
-
-// FortyGigabitEthernetIPIgmpIgmpJoinGroupFlatRow flattens one IgmpJoinGroup entry with its ancestor list keys.
-type FortyGigabitEthernetIPIgmpIgmpJoinGroupFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeigmp.IgmpJoinGroup
-}
-
-// FortyGigabitEthernetIPIgmpIgmpJoinGroupDescriptor is the flattened-row descriptor for the nested list IgmpJoinGroup.
-func FortyGigabitEthernetIPIgmpIgmpJoinGroupDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPIgmpIgmpJoinGroupFlatRow, FortyGigabitEthernetIPIgmpIgmpJoinGroupKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPIgmpIgmpJoinGroupFlatRow, FortyGigabitEthernetIPIgmpIgmpJoinGroupKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeigmp.IgmpJoinGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeigmp.IgmpJoinGroup) FortyGigabitEthernetIPIgmpIgmpJoinGroupFlatRow {
-			return FortyGigabitEthernetIPIgmpIgmpJoinGroupFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPIgmpIgmpJoinGroupFlatRow) *ciscoiosxeigmp.IgmpJoinGroup {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPIgmpIgmpJoinGroupFlatRow) FortyGigabitEthernetIPIgmpIgmpJoinGroupKey {
-			var k FortyGigabitEthernetIPIgmpIgmpJoinGroupKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.JoinGroup != nil {
-				k.JoinGroup = *r.Entry.JoinGroup
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEIgmp, "igmp", "igmp-join-group")),
-	}
-}
-
-// FortyGigabitEthernetIPIgmpIgmpv3JoinGroupKey is Igmpv3JoinGroup's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPIgmpIgmpv3JoinGroupKey struct {
-	FortyGigabitEthernetName string
-	IPGroupAddress           string
-	Source                   string
-}
-
-// FortyGigabitEthernetIPIgmpIgmpv3JoinGroupFlatRow flattens one Igmpv3JoinGroup entry with its ancestor list keys.
-type FortyGigabitEthernetIPIgmpIgmpv3JoinGroupFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeigmp.Igmpv3JoinGroup
-}
-
-// FortyGigabitEthernetIPIgmpIgmpv3JoinGroupDescriptor is the flattened-row descriptor for the nested list Igmpv3JoinGroup.
-func FortyGigabitEthernetIPIgmpIgmpv3JoinGroupDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPIgmpIgmpv3JoinGroupFlatRow, FortyGigabitEthernetIPIgmpIgmpv3JoinGroupKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPIgmpIgmpv3JoinGroupFlatRow, FortyGigabitEthernetIPIgmpIgmpv3JoinGroupKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeigmp.Igmpv3JoinGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeigmp.Igmpv3JoinGroup) FortyGigabitEthernetIPIgmpIgmpv3JoinGroupFlatRow {
-			return FortyGigabitEthernetIPIgmpIgmpv3JoinGroupFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPIgmpIgmpv3JoinGroupFlatRow) *ciscoiosxeigmp.Igmpv3JoinGroup {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPIgmpIgmpv3JoinGroupFlatRow) FortyGigabitEthernetIPIgmpIgmpv3JoinGroupKey {
-			var k FortyGigabitEthernetIPIgmpIgmpv3JoinGroupKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.IPGroupAddress != nil {
-				k.IPGroupAddress = *r.Entry.IPGroupAddress
-			}
-			if r.Entry.Source != nil {
-				k.Source = *r.Entry.Source
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEIgmp, "igmp", "igmpv3-join-group")),
-	}
-}
-
-// FortyGigabitEthernetIPIgmpJoinGroupKey is JoinGroup's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPIgmpJoinGroupKey struct {
-	FortyGigabitEthernetName string
-	IPGroupAddress           string
-}
-
-// FortyGigabitEthernetIPIgmpJoinGroupFlatRow flattens one JoinGroup entry with its ancestor list keys.
-type FortyGigabitEthernetIPIgmpJoinGroupFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeigmp.JoinGroup
-}
-
-// FortyGigabitEthernetIPIgmpJoinGroupDescriptor is the flattened-row descriptor for the nested list JoinGroup.
-func FortyGigabitEthernetIPIgmpJoinGroupDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPIgmpJoinGroupFlatRow, FortyGigabitEthernetIPIgmpJoinGroupKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPIgmpJoinGroupFlatRow, FortyGigabitEthernetIPIgmpJoinGroupKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeigmp.JoinGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeigmp.JoinGroup) FortyGigabitEthernetIPIgmpJoinGroupFlatRow {
-			return FortyGigabitEthernetIPIgmpJoinGroupFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPIgmpJoinGroupFlatRow) *ciscoiosxeigmp.JoinGroup {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPIgmpJoinGroupFlatRow) FortyGigabitEthernetIPIgmpJoinGroupKey {
-			var k FortyGigabitEthernetIPIgmpJoinGroupKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.IPGroupAddress != nil {
-				k.IPGroupAddress = *r.Entry.IPGroupAddress
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEIgmp, "igmp", "join-group")),
-	}
-}
-
-// FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsKey is WithSourceGroups's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsKey struct {
-	FortyGigabitEthernetName string
-	Name                     string
-	Source                   string
-}
-
-// FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsFlatRow flattens one WithSourceGroups entry with its ancestor list keys.
-type FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeigmp.WithSourceGroups
-}
-
-// FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsDescriptor is the flattened-row descriptor for the nested list WithSourceGroups.
-func FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsFlatRow, FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsFlatRow, FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeigmp.WithSourceGroupsSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeigmp.WithSourceGroups) FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsFlatRow {
-			return FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsFlatRow) *ciscoiosxeigmp.WithSourceGroups {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsFlatRow) FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsKey {
-			var k FortyGigabitEthernetIPIgmpStaticGroupWithSourceGroupsKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Name != nil {
-				k.Name = yang.CanonicalKey(r.Entry.Name)
-			}
-			if r.Entry.Source != nil {
-				k.Source = yang.CanonicalKey(r.Entry.Source)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEIgmp, "igmp", "static-group", "with-source-groups")),
-	}
-}
-
-// FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsKey is WithoutSourceGroups's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsKey struct {
-	FortyGigabitEthernetName string
-	Name                     string
-}
-
-// FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsFlatRow flattens one WithoutSourceGroups entry with its ancestor list keys.
-type FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeigmp.WithoutSourceGroups
-}
-
-// FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsDescriptor is the flattened-row descriptor for the nested list WithoutSourceGroups.
-func FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsFlatRow, FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsFlatRow, FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeigmp.WithoutSourceGroupsSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeigmp.WithoutSourceGroups) FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsFlatRow {
-			return FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsFlatRow) *ciscoiosxeigmp.WithoutSourceGroups {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsFlatRow) FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsKey {
-			var k FortyGigabitEthernetIPIgmpStaticGroupWithoutSourceGroupsKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Name != nil {
-				k.Name = yang.CanonicalKey(r.Entry.Name)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEIgmp, "igmp", "static-group", "without-source-groups")),
-	}
-}
-
-// FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutKey is FilterTypeInOut's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutKey struct {
-	FortyGigabitEthernetName string
-	FilterType               string
-}
-
-// FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutFlatRow flattens one FilterTypeInOut entry with its ancestor list keys.
-type FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxemulticast.FilterTypeInOut
-}
-
-// FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutDescriptor is the flattened-row descriptor for the nested list FilterTypeInOut.
-func FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutFlatRow, FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutFlatRow, FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxemulticast.FilterTypeInOutSchema}, func(anc [][]yang.KeyValue, e ciscoiosxemulticast.FilterTypeInOut) FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutFlatRow {
-			return FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutFlatRow) *ciscoiosxemulticast.FilterTypeInOut {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutFlatRow) FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutKey {
-			var k FortyGigabitEthernetIPMulticastBoundaryFilterTypeInOutKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.FilterType != nil {
-				k.FilterType = *r.Entry.FilterType
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEMulticast, "multicast", "boundary", "filter-type-in-out")),
-	}
-}
-
-// FortyGigabitEthernetIPMulticastLimitAccessListKey is AccessList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPMulticastLimitAccessListKey struct {
-	FortyGigabitEthernetName string
-	AccessList               string
-}
-
-// FortyGigabitEthernetIPMulticastLimitAccessListFlatRow flattens one AccessList entry with its ancestor list keys.
-type FortyGigabitEthernetIPMulticastLimitAccessListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxemulticast.AccessList
-}
-
-// FortyGigabitEthernetIPMulticastLimitAccessListDescriptor is the flattened-row descriptor for the nested list AccessList.
-func FortyGigabitEthernetIPMulticastLimitAccessListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPMulticastLimitAccessListFlatRow, FortyGigabitEthernetIPMulticastLimitAccessListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPMulticastLimitAccessListFlatRow, FortyGigabitEthernetIPMulticastLimitAccessListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxemulticast.AccessListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxemulticast.AccessList) FortyGigabitEthernetIPMulticastLimitAccessListFlatRow {
-			return FortyGigabitEthernetIPMulticastLimitAccessListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPMulticastLimitAccessListFlatRow) *ciscoiosxemulticast.AccessList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPMulticastLimitAccessListFlatRow) FortyGigabitEthernetIPMulticastLimitAccessListKey {
-			var k FortyGigabitEthernetIPMulticastLimitAccessListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.AccessList != nil {
-				k.AccessList = yang.CanonicalKey(r.Entry.AccessList)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEMulticast, "multicast", "limit", "access-list")),
-	}
-}
-
-// FortyGigabitEthernetIPMulticastLimitConnectedAccessListKey is AccessList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPMulticastLimitConnectedAccessListKey struct {
-	FortyGigabitEthernetName string
-	AccessList               string
-}
-
-// FortyGigabitEthernetIPMulticastLimitConnectedAccessListFlatRow flattens one AccessList entry with its ancestor list keys.
-type FortyGigabitEthernetIPMulticastLimitConnectedAccessListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxemulticast.AccessList
-}
-
-// FortyGigabitEthernetIPMulticastLimitConnectedAccessListDescriptor is the flattened-row descriptor for the nested list AccessList.
-func FortyGigabitEthernetIPMulticastLimitConnectedAccessListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPMulticastLimitConnectedAccessListFlatRow, FortyGigabitEthernetIPMulticastLimitConnectedAccessListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPMulticastLimitConnectedAccessListFlatRow, FortyGigabitEthernetIPMulticastLimitConnectedAccessListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxemulticast.AccessListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxemulticast.AccessList) FortyGigabitEthernetIPMulticastLimitConnectedAccessListFlatRow {
-			return FortyGigabitEthernetIPMulticastLimitConnectedAccessListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPMulticastLimitConnectedAccessListFlatRow) *ciscoiosxemulticast.AccessList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPMulticastLimitConnectedAccessListFlatRow) FortyGigabitEthernetIPMulticastLimitConnectedAccessListKey {
-			var k FortyGigabitEthernetIPMulticastLimitConnectedAccessListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.AccessList != nil {
-				k.AccessList = yang.CanonicalKey(r.Entry.AccessList)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEMulticast, "multicast", "limit", "connected", "access-list")),
-	}
-}
-
-// FortyGigabitEthernetIPMulticastLimitOutAccessListKey is AccessList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPMulticastLimitOutAccessListKey struct {
-	FortyGigabitEthernetName string
-	AccessList               string
-}
-
-// FortyGigabitEthernetIPMulticastLimitOutAccessListFlatRow flattens one AccessList entry with its ancestor list keys.
-type FortyGigabitEthernetIPMulticastLimitOutAccessListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxemulticast.AccessList
-}
-
-// FortyGigabitEthernetIPMulticastLimitOutAccessListDescriptor is the flattened-row descriptor for the nested list AccessList.
-func FortyGigabitEthernetIPMulticastLimitOutAccessListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPMulticastLimitOutAccessListFlatRow, FortyGigabitEthernetIPMulticastLimitOutAccessListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPMulticastLimitOutAccessListFlatRow, FortyGigabitEthernetIPMulticastLimitOutAccessListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxemulticast.AccessListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxemulticast.AccessList) FortyGigabitEthernetIPMulticastLimitOutAccessListFlatRow {
-			return FortyGigabitEthernetIPMulticastLimitOutAccessListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPMulticastLimitOutAccessListFlatRow) *ciscoiosxemulticast.AccessList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPMulticastLimitOutAccessListFlatRow) FortyGigabitEthernetIPMulticastLimitOutAccessListKey {
-			var k FortyGigabitEthernetIPMulticastLimitOutAccessListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.AccessList != nil {
-				k.AccessList = yang.CanonicalKey(r.Entry.AccessList)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEMulticast, "multicast", "limit", "out", "access-list")),
-	}
-}
-
-// FortyGigabitEthernetIPMulticastLimitRpfAccessListKey is AccessList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPMulticastLimitRpfAccessListKey struct {
-	FortyGigabitEthernetName string
-	AccessList               string
-}
-
-// FortyGigabitEthernetIPMulticastLimitRpfAccessListFlatRow flattens one AccessList entry with its ancestor list keys.
-type FortyGigabitEthernetIPMulticastLimitRpfAccessListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxemulticast.AccessList
-}
-
-// FortyGigabitEthernetIPMulticastLimitRpfAccessListDescriptor is the flattened-row descriptor for the nested list AccessList.
-func FortyGigabitEthernetIPMulticastLimitRpfAccessListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPMulticastLimitRpfAccessListFlatRow, FortyGigabitEthernetIPMulticastLimitRpfAccessListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPMulticastLimitRpfAccessListFlatRow, FortyGigabitEthernetIPMulticastLimitRpfAccessListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxemulticast.AccessListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxemulticast.AccessList) FortyGigabitEthernetIPMulticastLimitRpfAccessListFlatRow {
-			return FortyGigabitEthernetIPMulticastLimitRpfAccessListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPMulticastLimitRpfAccessListFlatRow) *ciscoiosxemulticast.AccessList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPMulticastLimitRpfAccessListFlatRow) FortyGigabitEthernetIPMulticastLimitRpfAccessListKey {
-			var k FortyGigabitEthernetIPMulticastLimitRpfAccessListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.AccessList != nil {
-				k.AccessList = yang.CanonicalKey(r.Entry.AccessList)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEMulticast, "multicast", "limit", "rpf", "access-list")),
-	}
-}
-
-// FortyGigabitEthernetIPOSPFMessageDigestKeyKey is MessageDigestKey's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPOSPFMessageDigestKeyKey struct {
-	FortyGigabitEthernetName string
-	ID                       uint8
-}
-
-// FortyGigabitEthernetIPOSPFMessageDigestKeyFlatRow flattens one MessageDigestKey entry with its ancestor list keys.
-type FortyGigabitEthernetIPOSPFMessageDigestKeyFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeospf.MessageDigestKey
-}
-
-// FortyGigabitEthernetIPOSPFMessageDigestKeyDescriptor is the flattened-row descriptor for the nested list MessageDigestKey.
-func FortyGigabitEthernetIPOSPFMessageDigestKeyDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPOSPFMessageDigestKeyFlatRow, FortyGigabitEthernetIPOSPFMessageDigestKeyKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPOSPFMessageDigestKeyFlatRow, FortyGigabitEthernetIPOSPFMessageDigestKeyKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospf.MessageDigestKeySchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.MessageDigestKey) FortyGigabitEthernetIPOSPFMessageDigestKeyFlatRow {
-			return FortyGigabitEthernetIPOSPFMessageDigestKeyFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPOSPFMessageDigestKeyFlatRow) *ciscoiosxeospf.MessageDigestKey {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPOSPFMessageDigestKeyFlatRow) FortyGigabitEthernetIPOSPFMessageDigestKeyKey {
-			var k FortyGigabitEthernetIPOSPFMessageDigestKeyKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEOSPF, "ospf", "message-digest-key")),
-	}
-}
-
-// FortyGigabitEthernetIPOSPFProcessIDKey is IPOSPFProcessID's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPOSPFProcessIDKey struct {
-	FortyGigabitEthernetName string
-	ID                       uint16
-}
-
-// FortyGigabitEthernetIPOSPFProcessIDFlatRow flattens one IPOSPFProcessID entry with its ancestor list keys.
-type FortyGigabitEthernetIPOSPFProcessIDFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeospf.IPOSPFProcessID
-}
-
-// FortyGigabitEthernetIPOSPFProcessIDDescriptor is the flattened-row descriptor for the nested list IPOSPFProcessID.
-func FortyGigabitEthernetIPOSPFProcessIDDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPOSPFProcessIDFlatRow, FortyGigabitEthernetIPOSPFProcessIDKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPOSPFProcessIDFlatRow, FortyGigabitEthernetIPOSPFProcessIDKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospf.IPOSPFProcessIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.IPOSPFProcessID) FortyGigabitEthernetIPOSPFProcessIDFlatRow {
-			return FortyGigabitEthernetIPOSPFProcessIDFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPOSPFProcessIDFlatRow) *ciscoiosxeospf.IPOSPFProcessID {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPOSPFProcessIDFlatRow) FortyGigabitEthernetIPOSPFProcessIDKey {
-			var k FortyGigabitEthernetIPOSPFProcessIDKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEOSPF, "ospf", "process-id")),
-	}
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyKey is MessageDigestKey's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyKey struct {
-	FortyGigabitEthernetName string
-	ID                       uint8
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyFlatRow flattens one MessageDigestKey entry with its ancestor list keys.
-type FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeospf.MessageDigestKey
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyDescriptor is the flattened-row descriptor for the nested list MessageDigestKey.
-func FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyFlatRow, FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyFlatRow, FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospf.MessageDigestKeySchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.MessageDigestKey) FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyFlatRow {
-			return FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyFlatRow) *ciscoiosxeospf.MessageDigestKey {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyFlatRow) FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyKey {
-			var k FortyGigabitEthernetIPRouterOSPFOSPFMessageDigestKeyKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEOSPF, "router-ospf", "ospf", "message-digest-key")),
-	}
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDKey is MultiAreaID's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDKey struct {
-	FortyGigabitEthernetName string
-	AreaID                   string
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow flattens one MultiAreaID entry with its ancestor list keys.
-type FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeospf.MultiAreaID
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDescriptor is the flattened-row descriptor for the nested list MultiAreaID.
-func FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow, FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow, FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospf.MultiAreaIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.MultiAreaID) FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow {
-			return FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow) *ciscoiosxeospf.MultiAreaID {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow) FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDKey {
-			var k FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.AreaID != nil {
-				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEOSPF, "router-ospf", "ospf", "multi-area", "multi-area-id")),
-	}
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostKey is MultiAreaIDCost's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostKey struct {
-	FortyGigabitEthernetName string
-	AreaID                   string
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow flattens one MultiAreaIDCost entry with its ancestor list keys.
-type FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeospf.MultiAreaIDCost
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostDescriptor is the flattened-row descriptor for the nested list MultiAreaIDCost.
-func FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow, FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow, FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospf.MultiAreaIDCostSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.MultiAreaIDCost) FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow {
-			return FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow) *ciscoiosxeospf.MultiAreaIDCost {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow) FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostKey {
-			var k FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDCostKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.AreaID != nil {
-				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEOSPF, "router-ospf", "ospf", "multi-area", "multi-area-id-cost")),
-	}
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayKey is MultiAreaIDDelay's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayKey struct {
-	FortyGigabitEthernetName string
-	AreaID                   string
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow flattens one MultiAreaIDDelay entry with its ancestor list keys.
-type FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeospf.MultiAreaIDDelay
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayDescriptor is the flattened-row descriptor for the nested list MultiAreaIDDelay.
-func FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow, FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow, FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospf.MultiAreaIDDelaySchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.MultiAreaIDDelay) FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow {
-			return FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow) *ciscoiosxeospf.MultiAreaIDDelay {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow) FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayKey {
-			var k FortyGigabitEthernetIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.AreaID != nil {
-				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEOSPF, "router-ospf", "ospf", "multi-area", "multi-area-id-delay")),
-	}
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFProcessIDKey is IPRouterOSPFOSPFProcessID's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPRouterOSPFOSPFProcessIDKey struct {
-	FortyGigabitEthernetName string
-	ID                       uint16
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFProcessIDFlatRow flattens one IPRouterOSPFOSPFProcessID entry with its ancestor list keys.
-type FortyGigabitEthernetIPRouterOSPFOSPFProcessIDFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeospf.IPRouterOSPFOSPFProcessID
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFProcessIDDescriptor is the flattened-row descriptor for the nested list IPRouterOSPFOSPFProcessID.
-func FortyGigabitEthernetIPRouterOSPFOSPFProcessIDDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPRouterOSPFOSPFProcessIDFlatRow, FortyGigabitEthernetIPRouterOSPFOSPFProcessIDKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPRouterOSPFOSPFProcessIDFlatRow, FortyGigabitEthernetIPRouterOSPFOSPFProcessIDKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospf.IPRouterOSPFOSPFProcessIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.IPRouterOSPFOSPFProcessID) FortyGigabitEthernetIPRouterOSPFOSPFProcessIDFlatRow {
-			return FortyGigabitEthernetIPRouterOSPFOSPFProcessIDFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPRouterOSPFOSPFProcessIDFlatRow) *ciscoiosxeospf.IPRouterOSPFOSPFProcessID {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPRouterOSPFOSPFProcessIDFlatRow) FortyGigabitEthernetIPRouterOSPFOSPFProcessIDKey {
-			var k FortyGigabitEthernetIPRouterOSPFOSPFProcessIDKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEOSPF, "router-ospf", "ospf", "process-id")),
-	}
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaKey is ProcessIDArea's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaKey struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	AreaID                   string
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaFlatRow flattens one ProcessIDArea entry with its ancestor list keys.
-type FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaFlatRow struct {
-	FortyGigabitEthernetName string
-	ProcessIDID              string
-	Entry                    ciscoiosxeospf.ProcessIDArea
-}
-
-// FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaDescriptor is the flattened-row descriptor for the nested list ProcessIDArea.
-func FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaFlatRow, FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaFlatRow, FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospf.IPRouterOSPFOSPFProcessIDSchema, ciscoiosxeospf.ProcessIDAreaSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.ProcessIDArea) FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaFlatRow {
-			return FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				ProcessIDID:              yang.AncestorKey(anc, 1, "id"),
-			}
-		}, func(r *FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaFlatRow) *ciscoiosxeospf.ProcessIDArea {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaFlatRow) FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaKey {
-			var k FortyGigabitEthernetIPRouterOSPFOSPFProcessIDAreaKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.ProcessIDID = r.ProcessIDID
-			if r.Entry.AreaID != nil {
-				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEOSPF, "router-ospf", "ospf", "process-id", "area")),
-	}
-}
-
-// FortyGigabitEthernetIPWccpOverlayVRFKey is OverlayVRFX713de1's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPWccpOverlayVRFKey struct {
-	FortyGigabitEthernetName string
-	Name                     string
-}
-
-// FortyGigabitEthernetIPWccpOverlayVRFFlatRow flattens one OverlayVRFX713de1 entry with its ancestor list keys.
-type FortyGigabitEthernetIPWccpOverlayVRFFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxewccp.OverlayVRFX713de1
-}
-
-// FortyGigabitEthernetIPWccpOverlayVRFDescriptor is the flattened-row descriptor for the nested list OverlayVRFX713de1.
-func FortyGigabitEthernetIPWccpOverlayVRFDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPWccpOverlayVRFFlatRow, FortyGigabitEthernetIPWccpOverlayVRFKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPWccpOverlayVRFFlatRow, FortyGigabitEthernetIPWccpOverlayVRFKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxewccp.OverlayVRFSchemaXdaae42}, func(anc [][]yang.KeyValue, e ciscoiosxewccp.OverlayVRFX713de1) FortyGigabitEthernetIPWccpOverlayVRFFlatRow {
-			return FortyGigabitEthernetIPWccpOverlayVRFFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPWccpOverlayVRFFlatRow) *ciscoiosxewccp.OverlayVRFX713de1 {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPWccpOverlayVRFFlatRow) FortyGigabitEthernetIPWccpOverlayVRFKey {
-			var k FortyGigabitEthernetIPWccpOverlayVRFKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEWccp, "wccp", "overlay-vrf")),
-	}
-}
-
-// FortyGigabitEthernetIPWccpOverlayVRFWccpListKey is WccpListXb35c85's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPWccpOverlayVRFWccpListKey struct {
-	FortyGigabitEthernetName string
-	OverlayVRFName           string
-	ID                       uint8
-}
-
-// FortyGigabitEthernetIPWccpOverlayVRFWccpListFlatRow flattens one WccpListXb35c85 entry with its ancestor list keys.
-type FortyGigabitEthernetIPWccpOverlayVRFWccpListFlatRow struct {
-	FortyGigabitEthernetName string
-	OverlayVRFName           string
-	Entry                    ciscoiosxewccp.WccpListXb35c85
-}
-
-// FortyGigabitEthernetIPWccpOverlayVRFWccpListDescriptor is the flattened-row descriptor for the nested list WccpListXb35c85.
-func FortyGigabitEthernetIPWccpOverlayVRFWccpListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPWccpOverlayVRFWccpListFlatRow, FortyGigabitEthernetIPWccpOverlayVRFWccpListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPWccpOverlayVRFWccpListFlatRow, FortyGigabitEthernetIPWccpOverlayVRFWccpListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxewccp.OverlayVRFSchemaXdaae42, ciscoiosxewccp.WccpListSchemaXce7e03}, func(anc [][]yang.KeyValue, e ciscoiosxewccp.WccpListXb35c85) FortyGigabitEthernetIPWccpOverlayVRFWccpListFlatRow {
-			return FortyGigabitEthernetIPWccpOverlayVRFWccpListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				OverlayVRFName:           yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPWccpOverlayVRFWccpListFlatRow) *ciscoiosxewccp.WccpListXb35c85 {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPWccpOverlayVRFWccpListFlatRow) FortyGigabitEthernetIPWccpOverlayVRFWccpListKey {
-			var k FortyGigabitEthernetIPWccpOverlayVRFWccpListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.OverlayVRFName = r.OverlayVRFName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEWccp, "wccp", "overlay-vrf", "wccp-list")),
-	}
-}
-
-// FortyGigabitEthernetIPWccpVRFKey is IPWccpVRF's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPWccpVRFKey struct {
-	FortyGigabitEthernetName string
-	Name                     string
-}
-
-// FortyGigabitEthernetIPWccpVRFFlatRow flattens one IPWccpVRF entry with its ancestor list keys.
-type FortyGigabitEthernetIPWccpVRFFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxewccp.IPWccpVRF
-}
-
-// FortyGigabitEthernetIPWccpVRFDescriptor is the flattened-row descriptor for the nested list IPWccpVRF.
-func FortyGigabitEthernetIPWccpVRFDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPWccpVRFFlatRow, FortyGigabitEthernetIPWccpVRFKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPWccpVRFFlatRow, FortyGigabitEthernetIPWccpVRFKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxewccp.IPWccpVRFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxewccp.IPWccpVRF) FortyGigabitEthernetIPWccpVRFFlatRow {
-			return FortyGigabitEthernetIPWccpVRFFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPWccpVRFFlatRow) *ciscoiosxewccp.IPWccpVRF {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPWccpVRFFlatRow) FortyGigabitEthernetIPWccpVRFKey {
-			var k FortyGigabitEthernetIPWccpVRFKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEWccp, "wccp", "vrf")),
-	}
-}
-
-// FortyGigabitEthernetIPWccpVRFOverlayVRFKey is OverlayVRFX713de1's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPWccpVRFOverlayVRFKey struct {
-	FortyGigabitEthernetName string
-	VRFName                  string
-	Name                     string
-}
-
-// FortyGigabitEthernetIPWccpVRFOverlayVRFFlatRow flattens one OverlayVRFX713de1 entry with its ancestor list keys.
-type FortyGigabitEthernetIPWccpVRFOverlayVRFFlatRow struct {
-	FortyGigabitEthernetName string
-	VRFName                  string
-	Entry                    ciscoiosxewccp.OverlayVRFX713de1
-}
-
-// FortyGigabitEthernetIPWccpVRFOverlayVRFDescriptor is the flattened-row descriptor for the nested list OverlayVRFX713de1.
-func FortyGigabitEthernetIPWccpVRFOverlayVRFDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPWccpVRFOverlayVRFFlatRow, FortyGigabitEthernetIPWccpVRFOverlayVRFKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPWccpVRFOverlayVRFFlatRow, FortyGigabitEthernetIPWccpVRFOverlayVRFKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxewccp.IPWccpVRFSchema, ciscoiosxewccp.OverlayVRFSchemaXdaae42}, func(anc [][]yang.KeyValue, e ciscoiosxewccp.OverlayVRFX713de1) FortyGigabitEthernetIPWccpVRFOverlayVRFFlatRow {
-			return FortyGigabitEthernetIPWccpVRFOverlayVRFFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				VRFName:                  yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPWccpVRFOverlayVRFFlatRow) *ciscoiosxewccp.OverlayVRFX713de1 {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPWccpVRFOverlayVRFFlatRow) FortyGigabitEthernetIPWccpVRFOverlayVRFKey {
-			var k FortyGigabitEthernetIPWccpVRFOverlayVRFKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.VRFName = r.VRFName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEWccp, "wccp", "vrf", "overlay-vrf")),
-	}
-}
-
-// FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListKey is WccpListXb35c85's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListKey struct {
-	FortyGigabitEthernetName string
-	VRFName                  string
-	OverlayVRFName           string
-	ID                       uint8
-}
-
-// FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListFlatRow flattens one WccpListXb35c85 entry with its ancestor list keys.
-type FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListFlatRow struct {
-	FortyGigabitEthernetName string
-	VRFName                  string
-	OverlayVRFName           string
-	Entry                    ciscoiosxewccp.WccpListXb35c85
-}
-
-// FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListDescriptor is the flattened-row descriptor for the nested list WccpListXb35c85.
-func FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListFlatRow, FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListFlatRow, FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxewccp.IPWccpVRFSchema, ciscoiosxewccp.OverlayVRFSchemaXdaae42, ciscoiosxewccp.WccpListSchemaXce7e03}, func(anc [][]yang.KeyValue, e ciscoiosxewccp.WccpListXb35c85) FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListFlatRow {
-			return FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				OverlayVRFName:           yang.AncestorKey(anc, 2, "name"),
-				VRFName:                  yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListFlatRow) *ciscoiosxewccp.WccpListXb35c85 {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListFlatRow) FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListKey {
-			var k FortyGigabitEthernetIPWccpVRFOverlayVRFWccpListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.VRFName = r.VRFName
-			k.OverlayVRFName = r.OverlayVRFName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEWccp, "wccp", "vrf", "overlay-vrf", "wccp-list")),
-	}
-}
-
-// FortyGigabitEthernetIPWccpVRFWccpListKey is WccpListXb35c85's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPWccpVRFWccpListKey struct {
-	FortyGigabitEthernetName string
-	VRFName                  string
-	ID                       uint8
-}
-
-// FortyGigabitEthernetIPWccpVRFWccpListFlatRow flattens one WccpListXb35c85 entry with its ancestor list keys.
-type FortyGigabitEthernetIPWccpVRFWccpListFlatRow struct {
-	FortyGigabitEthernetName string
-	VRFName                  string
-	Entry                    ciscoiosxewccp.WccpListXb35c85
-}
-
-// FortyGigabitEthernetIPWccpVRFWccpListDescriptor is the flattened-row descriptor for the nested list WccpListXb35c85.
-func FortyGigabitEthernetIPWccpVRFWccpListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPWccpVRFWccpListFlatRow, FortyGigabitEthernetIPWccpVRFWccpListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPWccpVRFWccpListFlatRow, FortyGigabitEthernetIPWccpVRFWccpListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxewccp.IPWccpVRFSchema, ciscoiosxewccp.WccpListSchemaXce7e03}, func(anc [][]yang.KeyValue, e ciscoiosxewccp.WccpListXb35c85) FortyGigabitEthernetIPWccpVRFWccpListFlatRow {
-			return FortyGigabitEthernetIPWccpVRFWccpListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				VRFName:                  yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPWccpVRFWccpListFlatRow) *ciscoiosxewccp.WccpListXb35c85 {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPWccpVRFWccpListFlatRow) FortyGigabitEthernetIPWccpVRFWccpListKey {
-			var k FortyGigabitEthernetIPWccpVRFWccpListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.VRFName = r.VRFName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEWccp, "wccp", "vrf", "wccp-list")),
-	}
-}
-
-// FortyGigabitEthernetIPWccpWccpListKey is WccpListXb35c85's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPWccpWccpListKey struct {
-	FortyGigabitEthernetName string
-	ID                       uint8
-}
-
-// FortyGigabitEthernetIPWccpWccpListFlatRow flattens one WccpListXb35c85 entry with its ancestor list keys.
-type FortyGigabitEthernetIPWccpWccpListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxewccp.WccpListXb35c85
-}
-
-// FortyGigabitEthernetIPWccpWccpListDescriptor is the flattened-row descriptor for the nested list WccpListXb35c85.
-func FortyGigabitEthernetIPWccpWccpListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPWccpWccpListFlatRow, FortyGigabitEthernetIPWccpWccpListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPWccpWccpListFlatRow, FortyGigabitEthernetIPWccpWccpListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxewccp.WccpListSchemaXce7e03}, func(anc [][]yang.KeyValue, e ciscoiosxewccp.WccpListXb35c85) FortyGigabitEthernetIPWccpWccpListFlatRow {
-			return FortyGigabitEthernetIPWccpWccpListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPWccpWccpListFlatRow) *ciscoiosxewccp.WccpListXb35c85 {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPWccpWccpListFlatRow) FortyGigabitEthernetIPWccpWccpListKey {
-			var k FortyGigabitEthernetIPWccpWccpListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip"), yang.In(moduleCiscoIOSXEWccp, "wccp", "wccp-list")),
-	}
-}
-
-// FortyGigabitEthernetIPAddressSecondaryKey is Secondary's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPAddressSecondaryKey struct {
-	FortyGigabitEthernetName string
-	Address                  string
-}
-
-// FortyGigabitEthernetIPAddressSecondaryFlatRow flattens one Secondary entry with its ancestor list keys.
-type FortyGigabitEthernetIPAddressSecondaryFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    Secondary
-}
-
-// FortyGigabitEthernetIPAddressSecondaryDescriptor is the flattened-row descriptor for the nested list Secondary.
-func FortyGigabitEthernetIPAddressSecondaryDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPAddressSecondaryFlatRow, FortyGigabitEthernetIPAddressSecondaryKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPAddressSecondaryFlatRow, FortyGigabitEthernetIPAddressSecondaryKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, SecondarySchema}, func(anc [][]yang.KeyValue, e Secondary) FortyGigabitEthernetIPAddressSecondaryFlatRow {
-			return FortyGigabitEthernetIPAddressSecondaryFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPAddressSecondaryFlatRow) *Secondary {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPAddressSecondaryFlatRow) FortyGigabitEthernetIPAddressSecondaryKey {
-			var k FortyGigabitEthernetIPAddressSecondaryKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Address != nil {
-				k.Address = *r.Entry.Address
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip", "address", "secondary")),
-	}
-}
-
-// FortyGigabitEthernetIPDhcpClientOptionOptionRangeKey is ClientOptionOptionRange's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPDhcpClientOptionOptionRangeKey struct {
-	FortyGigabitEthernetName string
-	OptionRange              uint8
-}
-
-// FortyGigabitEthernetIPDhcpClientOptionOptionRangeFlatRow flattens one ClientOptionOptionRange entry with its ancestor list keys.
-type FortyGigabitEthernetIPDhcpClientOptionOptionRangeFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxedhcp.ClientOptionOptionRange
-}
-
-// FortyGigabitEthernetIPDhcpClientOptionOptionRangeDescriptor is the flattened-row descriptor for the nested list ClientOptionOptionRange.
-func FortyGigabitEthernetIPDhcpClientOptionOptionRangeDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPDhcpClientOptionOptionRangeFlatRow, FortyGigabitEthernetIPDhcpClientOptionOptionRangeKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPDhcpClientOptionOptionRangeFlatRow, FortyGigabitEthernetIPDhcpClientOptionOptionRangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxedhcp.ClientOptionOptionRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxedhcp.ClientOptionOptionRange) FortyGigabitEthernetIPDhcpClientOptionOptionRangeFlatRow {
-			return FortyGigabitEthernetIPDhcpClientOptionOptionRangeFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPDhcpClientOptionOptionRangeFlatRow) *ciscoiosxedhcp.ClientOptionOptionRange {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPDhcpClientOptionOptionRangeFlatRow) FortyGigabitEthernetIPDhcpClientOptionOptionRangeKey {
-			var k FortyGigabitEthernetIPDhcpClientOptionOptionRangeKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.OptionRange != nil {
-				k.OptionRange = *r.Entry.OptionRange
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip", "dhcp"), yang.In(moduleCiscoIOSXEDhcp, "client", "option", "option-range")),
-	}
-}
-
-// FortyGigabitEthernetIPDhcpSnoopingVLANKey is DhcpSnoopingVLAN's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPDhcpSnoopingVLANKey struct {
-	FortyGigabitEthernetName string
-	ID                       uint16
-}
-
-// FortyGigabitEthernetIPDhcpSnoopingVLANFlatRow flattens one DhcpSnoopingVLAN entry with its ancestor list keys.
-type FortyGigabitEthernetIPDhcpSnoopingVLANFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxedhcp.DhcpSnoopingVLAN
-}
-
-// FortyGigabitEthernetIPDhcpSnoopingVLANDescriptor is the flattened-row descriptor for the nested list DhcpSnoopingVLAN.
-func FortyGigabitEthernetIPDhcpSnoopingVLANDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPDhcpSnoopingVLANFlatRow, FortyGigabitEthernetIPDhcpSnoopingVLANKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPDhcpSnoopingVLANFlatRow, FortyGigabitEthernetIPDhcpSnoopingVLANKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxedhcp.DhcpSnoopingVLANSchema}, func(anc [][]yang.KeyValue, e ciscoiosxedhcp.DhcpSnoopingVLAN) FortyGigabitEthernetIPDhcpSnoopingVLANFlatRow {
-			return FortyGigabitEthernetIPDhcpSnoopingVLANFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPDhcpSnoopingVLANFlatRow) *ciscoiosxedhcp.DhcpSnoopingVLAN {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPDhcpSnoopingVLANFlatRow) FortyGigabitEthernetIPDhcpSnoopingVLANKey {
-			var k FortyGigabitEthernetIPDhcpSnoopingVLANKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip", "dhcp"), yang.In(moduleCiscoIOSXEDhcp, "snooping", "vlan")),
-	}
-}
-
-// FortyGigabitEthernetIPHelperAddressKey is IPHelperAddress's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPHelperAddressKey struct {
-	FortyGigabitEthernetName string
-	Address                  string
-}
-
-// FortyGigabitEthernetIPHelperAddressFlatRow flattens one IPHelperAddress entry with its ancestor list keys.
-type FortyGigabitEthernetIPHelperAddressFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    IPHelperAddress
-}
-
-// FortyGigabitEthernetIPHelperAddressDescriptor is the flattened-row descriptor for the nested list IPHelperAddress.
-func FortyGigabitEthernetIPHelperAddressDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPHelperAddressFlatRow, FortyGigabitEthernetIPHelperAddressKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPHelperAddressFlatRow, FortyGigabitEthernetIPHelperAddressKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, IPHelperAddressSchema}, func(anc [][]yang.KeyValue, e IPHelperAddress) FortyGigabitEthernetIPHelperAddressFlatRow {
-			return FortyGigabitEthernetIPHelperAddressFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPHelperAddressFlatRow) *IPHelperAddress {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPHelperAddressFlatRow) FortyGigabitEthernetIPHelperAddressKey {
-			var k FortyGigabitEthernetIPHelperAddressKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Address != nil {
-				k.Address = *r.Entry.Address
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip", "helper-address")),
-	}
-}
-
-// FortyGigabitEthernetIPHelperAddressAddressHelperAddressKey is HelperAddressAddressHelperAddress's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPHelperAddressAddressHelperAddressKey struct {
-	FortyGigabitEthernetName string
-	Address                  string
-}
-
-// FortyGigabitEthernetIPHelperAddressAddressHelperAddressFlatRow flattens one HelperAddressAddressHelperAddress entry with its ancestor list keys.
-type FortyGigabitEthernetIPHelperAddressAddressHelperAddressFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    HelperAddressAddressHelperAddress
-}
-
-// FortyGigabitEthernetIPHelperAddressAddressHelperAddressDescriptor is the flattened-row descriptor for the nested list HelperAddressAddressHelperAddress.
-func FortyGigabitEthernetIPHelperAddressAddressHelperAddressDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPHelperAddressAddressHelperAddressFlatRow, FortyGigabitEthernetIPHelperAddressAddressHelperAddressKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPHelperAddressAddressHelperAddressFlatRow, FortyGigabitEthernetIPHelperAddressAddressHelperAddressKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, HelperAddressAddressHelperAddressSchema}, func(anc [][]yang.KeyValue, e HelperAddressAddressHelperAddress) FortyGigabitEthernetIPHelperAddressAddressHelperAddressFlatRow {
-			return FortyGigabitEthernetIPHelperAddressAddressHelperAddressFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPHelperAddressAddressHelperAddressFlatRow) *HelperAddressAddressHelperAddress {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPHelperAddressAddressHelperAddressFlatRow) FortyGigabitEthernetIPHelperAddressAddressHelperAddressKey {
-			var k FortyGigabitEthernetIPHelperAddressAddressHelperAddressKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Address != nil {
-				k.Address = *r.Entry.Address
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip", "helper-address-address", "helper-address")),
-	}
-}
-
-// FortyGigabitEthernetIPHelperAddressGlobalHelperAddressKey is HelperAddressGlobalHelperAddress's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPHelperAddressGlobalHelperAddressKey struct {
-	FortyGigabitEthernetName string
-	Address                  string
-}
-
-// FortyGigabitEthernetIPHelperAddressGlobalHelperAddressFlatRow flattens one HelperAddressGlobalHelperAddress entry with its ancestor list keys.
-type FortyGigabitEthernetIPHelperAddressGlobalHelperAddressFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    HelperAddressGlobalHelperAddress
-}
-
-// FortyGigabitEthernetIPHelperAddressGlobalHelperAddressDescriptor is the flattened-row descriptor for the nested list HelperAddressGlobalHelperAddress.
-func FortyGigabitEthernetIPHelperAddressGlobalHelperAddressDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPHelperAddressGlobalHelperAddressFlatRow, FortyGigabitEthernetIPHelperAddressGlobalHelperAddressKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPHelperAddressGlobalHelperAddressFlatRow, FortyGigabitEthernetIPHelperAddressGlobalHelperAddressKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, HelperAddressGlobalHelperAddressSchema}, func(anc [][]yang.KeyValue, e HelperAddressGlobalHelperAddress) FortyGigabitEthernetIPHelperAddressGlobalHelperAddressFlatRow {
-			return FortyGigabitEthernetIPHelperAddressGlobalHelperAddressFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPHelperAddressGlobalHelperAddressFlatRow) *HelperAddressGlobalHelperAddress {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPHelperAddressGlobalHelperAddressFlatRow) FortyGigabitEthernetIPHelperAddressGlobalHelperAddressKey {
-			var k FortyGigabitEthernetIPHelperAddressGlobalHelperAddressKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Address != nil {
-				k.Address = *r.Entry.Address
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip", "helper-address-global", "helper-address")),
-	}
-}
-
-// FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFKey is HelperAddressVRFHelperAddressVRF's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFKey struct {
-	FortyGigabitEthernetName string
-	VRF                      string
-	Address                  string
-}
-
-// FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFFlatRow flattens one HelperAddressVRFHelperAddressVRF entry with its ancestor list keys.
-type FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    HelperAddressVRFHelperAddressVRF
-}
-
-// FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFDescriptor is the flattened-row descriptor for the nested list HelperAddressVRFHelperAddressVRF.
-func FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFFlatRow, FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFFlatRow, FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, HelperAddressVRFHelperAddressVRFSchema}, func(anc [][]yang.KeyValue, e HelperAddressVRFHelperAddressVRF) FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFFlatRow {
-			return FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFFlatRow) *HelperAddressVRFHelperAddressVRF {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFFlatRow) FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFKey {
-			var k FortyGigabitEthernetIPHelperAddressVRFHelperAddressVRFKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.VRF != nil {
-				k.VRF = *r.Entry.VRF
-			}
-			if r.Entry.Address != nil {
-				k.Address = *r.Entry.Address
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip", "helper-address-vrf", "helper-address", "vrf")),
-	}
-}
-
-// FortyGigabitEthernetIPPimRedundancyKey is PimRedundancy's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPPimRedundancyKey struct {
-	FortyGigabitEthernetName string
-	GroupName                string
-}
-
-// FortyGigabitEthernetIPPimRedundancyFlatRow flattens one PimRedundancy entry with its ancestor list keys.
-type FortyGigabitEthernetIPPimRedundancyFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxemulticast.PimRedundancy
-}
-
-// FortyGigabitEthernetIPPimRedundancyDescriptor is the flattened-row descriptor for the nested list PimRedundancy.
-func FortyGigabitEthernetIPPimRedundancyDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPPimRedundancyFlatRow, FortyGigabitEthernetIPPimRedundancyKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPPimRedundancyFlatRow, FortyGigabitEthernetIPPimRedundancyKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxemulticast.PimRedundancySchema}, func(anc [][]yang.KeyValue, e ciscoiosxemulticast.PimRedundancy) FortyGigabitEthernetIPPimRedundancyFlatRow {
-			return FortyGigabitEthernetIPPimRedundancyFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPPimRedundancyFlatRow) *ciscoiosxemulticast.PimRedundancy {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPPimRedundancyFlatRow) FortyGigabitEthernetIPPimRedundancyKey {
-			var k FortyGigabitEthernetIPPimRedundancyKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.GroupName != nil {
-				k.GroupName = *r.Entry.GroupName
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip", "pim"), yang.In(moduleCiscoIOSXEMulticast, "redundancy")),
-	}
-}
-
-// NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpKey is SummaryAddressEigrp's row identity (ancestor keys in canonical form).
-type NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpKey struct {
-	FortyGigabitEthernetName string
-	AsNumber                 uint16
-	IPAddress                string
-	IPMask                   string
-}
-
-// NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRow flattens one SummaryAddressEigrp entry with its ancestor list keys.
-type NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeeigrp.SummaryAddressEigrp
-}
-
-// NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpDescriptor is the flattened-row descriptor for the nested list SummaryAddressEigrp.
-func NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpDescriptor() yang.ListDescriptor[NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRow, NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpKey] {
-	return yang.ListDescriptor[NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRow, NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeeigrp.SummaryAddressEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.SummaryAddressEigrp) NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRow {
-			return NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRow) *ciscoiosxeeigrp.SummaryAddressEigrp {
-			return &r.Entry
-		}, func(r *NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRow) NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpKey {
-			var k NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.AsNumber != nil {
-				k.AsNumber = *r.Entry.AsNumber
-			}
-			if r.Entry.IPAddress != nil {
-				k.IPAddress = *r.Entry.IPAddress
-			}
-			if r.Entry.IPMask != nil {
-				k.IPMask = *r.Entry.IPMask
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip", "summary-address"), yang.In(moduleCiscoIOSXEEigrp, "eigrp")),
-	}
-}
-
-// NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpKeyX6811b6 is SummaryAddressEigrp's row identity (ancestor keys in canonical form).
-type NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpKeyX6811b6 struct {
-	FortyGigabitEthernetName string
-	ID                       string
-}
-
-// NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRowX3c4395 flattens one SummaryAddressEigrp entry with its ancestor list keys.
-type NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRowX3c4395 struct {
-	FortyGigabitEthernetName string
-	Entry                    SummaryAddressEigrp
-}
-
-// NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpDescriptorXf14288 is the flattened-row descriptor for the nested list SummaryAddressEigrp.
-func NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpDescriptorXf14288() yang.ListDescriptor[NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRowX3c4395, NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpKeyX6811b6] {
-	return yang.ListDescriptor[NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRowX3c4395, NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpKeyX6811b6]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, SummaryAddressEigrpSchema}, func(anc [][]yang.KeyValue, e SummaryAddressEigrp) NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRowX3c4395 {
-			return NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRowX3c4395{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRowX3c4395) *SummaryAddressEigrp {
-			return &r.Entry
-		}, func(r *NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpFlatRowX3c4395) NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpKeyX6811b6 {
-			var k NativeInterfaceFortyGigabitEthernetIPSummaryAddressEigrpKeyX6811b6
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ip", "summary-address", "eigrp")),
-	}
-}
-
-// FortyGigabitEthernetIPv6BandwidthPercentKey is BandwidthPercent's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6BandwidthPercentKey struct {
-	FortyGigabitEthernetName string
-	Eigrp                    uint16
-}
-
-// FortyGigabitEthernetIPv6BandwidthPercentFlatRow flattens one BandwidthPercent entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6BandwidthPercentFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeeigrp.BandwidthPercent
-}
-
-// FortyGigabitEthernetIPv6BandwidthPercentDescriptor is the flattened-row descriptor for the nested list BandwidthPercent.
-func FortyGigabitEthernetIPv6BandwidthPercentDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6BandwidthPercentFlatRow, FortyGigabitEthernetIPv6BandwidthPercentKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6BandwidthPercentFlatRow, FortyGigabitEthernetIPv6BandwidthPercentKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeeigrp.BandwidthPercentSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.BandwidthPercent) FortyGigabitEthernetIPv6BandwidthPercentFlatRow {
-			return FortyGigabitEthernetIPv6BandwidthPercentFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6BandwidthPercentFlatRow) *ciscoiosxeeigrp.BandwidthPercent {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6BandwidthPercentFlatRow) FortyGigabitEthernetIPv6BandwidthPercentKey {
-			var k FortyGigabitEthernetIPv6BandwidthPercentKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Eigrp != nil {
-				k.Eigrp = *r.Entry.Eigrp
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6"), yang.In(moduleCiscoIOSXEEigrp, "bandwidth-percent")),
-	}
-}
-
-// FortyGigabitEthernetIPv6DampeningChangeKey is DampeningChange's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6DampeningChangeKey struct {
-	FortyGigabitEthernetName string
-	Eigrp                    uint16
-}
-
-// FortyGigabitEthernetIPv6DampeningChangeFlatRow flattens one DampeningChange entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6DampeningChangeFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeeigrp.DampeningChange
-}
-
-// FortyGigabitEthernetIPv6DampeningChangeDescriptor is the flattened-row descriptor for the nested list DampeningChange.
-func FortyGigabitEthernetIPv6DampeningChangeDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6DampeningChangeFlatRow, FortyGigabitEthernetIPv6DampeningChangeKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6DampeningChangeFlatRow, FortyGigabitEthernetIPv6DampeningChangeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeeigrp.DampeningChangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DampeningChange) FortyGigabitEthernetIPv6DampeningChangeFlatRow {
-			return FortyGigabitEthernetIPv6DampeningChangeFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6DampeningChangeFlatRow) *ciscoiosxeeigrp.DampeningChange {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6DampeningChangeFlatRow) FortyGigabitEthernetIPv6DampeningChangeKey {
-			var k FortyGigabitEthernetIPv6DampeningChangeKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Eigrp != nil {
-				k.Eigrp = *r.Entry.Eigrp
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6"), yang.In(moduleCiscoIOSXEEigrp, "dampening-change")),
-	}
-}
-
-// FortyGigabitEthernetIPv6DampeningIntervalKey is DampeningInterval's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6DampeningIntervalKey struct {
-	FortyGigabitEthernetName string
-	Eigrp                    uint16
-}
-
-// FortyGigabitEthernetIPv6DampeningIntervalFlatRow flattens one DampeningInterval entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6DampeningIntervalFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeeigrp.DampeningInterval
-}
-
-// FortyGigabitEthernetIPv6DampeningIntervalDescriptor is the flattened-row descriptor for the nested list DampeningInterval.
-func FortyGigabitEthernetIPv6DampeningIntervalDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6DampeningIntervalFlatRow, FortyGigabitEthernetIPv6DampeningIntervalKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6DampeningIntervalFlatRow, FortyGigabitEthernetIPv6DampeningIntervalKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeeigrp.DampeningIntervalSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DampeningInterval) FortyGigabitEthernetIPv6DampeningIntervalFlatRow {
-			return FortyGigabitEthernetIPv6DampeningIntervalFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6DampeningIntervalFlatRow) *ciscoiosxeeigrp.DampeningInterval {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6DampeningIntervalFlatRow) FortyGigabitEthernetIPv6DampeningIntervalKey {
-			var k FortyGigabitEthernetIPv6DampeningIntervalKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Eigrp != nil {
-				k.Eigrp = *r.Entry.Eigrp
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6"), yang.In(moduleCiscoIOSXEEigrp, "dampening-interval")),
-	}
-}
-
-// FortyGigabitEthernetIPv6HelloIntervalKey is HelloInterval's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6HelloIntervalKey struct {
-	FortyGigabitEthernetName string
-	Eigrp                    uint16
-}
-
-// FortyGigabitEthernetIPv6HelloIntervalFlatRow flattens one HelloInterval entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6HelloIntervalFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeeigrp.HelloInterval
-}
-
-// FortyGigabitEthernetIPv6HelloIntervalDescriptor is the flattened-row descriptor for the nested list HelloInterval.
-func FortyGigabitEthernetIPv6HelloIntervalDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6HelloIntervalFlatRow, FortyGigabitEthernetIPv6HelloIntervalKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6HelloIntervalFlatRow, FortyGigabitEthernetIPv6HelloIntervalKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeeigrp.HelloIntervalSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.HelloInterval) FortyGigabitEthernetIPv6HelloIntervalFlatRow {
-			return FortyGigabitEthernetIPv6HelloIntervalFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6HelloIntervalFlatRow) *ciscoiosxeeigrp.HelloInterval {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6HelloIntervalFlatRow) FortyGigabitEthernetIPv6HelloIntervalKey {
-			var k FortyGigabitEthernetIPv6HelloIntervalKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Eigrp != nil {
-				k.Eigrp = *r.Entry.Eigrp
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6"), yang.In(moduleCiscoIOSXEEigrp, "hello-interval")),
-	}
-}
-
-// FortyGigabitEthernetIPv6HoldTimeKey is HoldTime's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6HoldTimeKey struct {
-	FortyGigabitEthernetName string
-	Eigrp                    uint16
-}
-
-// FortyGigabitEthernetIPv6HoldTimeFlatRow flattens one HoldTime entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6HoldTimeFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeeigrp.HoldTime
-}
-
-// FortyGigabitEthernetIPv6HoldTimeDescriptor is the flattened-row descriptor for the nested list HoldTime.
-func FortyGigabitEthernetIPv6HoldTimeDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6HoldTimeFlatRow, FortyGigabitEthernetIPv6HoldTimeKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6HoldTimeFlatRow, FortyGigabitEthernetIPv6HoldTimeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeeigrp.HoldTimeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.HoldTime) FortyGigabitEthernetIPv6HoldTimeFlatRow {
-			return FortyGigabitEthernetIPv6HoldTimeFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6HoldTimeFlatRow) *ciscoiosxeeigrp.HoldTime {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6HoldTimeFlatRow) FortyGigabitEthernetIPv6HoldTimeKey {
-			var k FortyGigabitEthernetIPv6HoldTimeKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Eigrp != nil {
-				k.Eigrp = *r.Entry.Eigrp
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6"), yang.In(moduleCiscoIOSXEEigrp, "hold-time")),
-	}
-}
-
-// FortyGigabitEthernetIPv6RouterEigrpEigrpKey is IPv6RouterEigrpEigrp's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6RouterEigrpEigrpKey struct {
-	FortyGigabitEthernetName string
-	AsNumber                 uint16
-}
-
-// FortyGigabitEthernetIPv6RouterEigrpEigrpFlatRow flattens one IPv6RouterEigrpEigrp entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6RouterEigrpEigrpFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeeigrp.IPv6RouterEigrpEigrp
-}
-
-// FortyGigabitEthernetIPv6RouterEigrpEigrpDescriptor is the flattened-row descriptor for the nested list IPv6RouterEigrpEigrp.
-func FortyGigabitEthernetIPv6RouterEigrpEigrpDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6RouterEigrpEigrpFlatRow, FortyGigabitEthernetIPv6RouterEigrpEigrpKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6RouterEigrpEigrpFlatRow, FortyGigabitEthernetIPv6RouterEigrpEigrpKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeeigrp.IPv6RouterEigrpEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.IPv6RouterEigrpEigrp) FortyGigabitEthernetIPv6RouterEigrpEigrpFlatRow {
-			return FortyGigabitEthernetIPv6RouterEigrpEigrpFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6RouterEigrpEigrpFlatRow) *ciscoiosxeeigrp.IPv6RouterEigrpEigrp {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6RouterEigrpEigrpFlatRow) FortyGigabitEthernetIPv6RouterEigrpEigrpKey {
-			var k FortyGigabitEthernetIPv6RouterEigrpEigrpKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.AsNumber != nil {
-				k.AsNumber = *r.Entry.AsNumber
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6"), yang.In(moduleCiscoIOSXEEigrp, "router-eigrp", "eigrp")),
-	}
-}
-
-// FortyGigabitEthernetIPv6FlowMonitorKey is FlowMonitorXc8f9c0's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6FlowMonitorKey struct {
-	FortyGigabitEthernetName string
-	Name                     string
-}
-
-// FortyGigabitEthernetIPv6FlowMonitorFlatRow flattens one FlowMonitorXc8f9c0 entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6FlowMonitorFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeflow.FlowMonitorXc8f9c0
-}
-
-// FortyGigabitEthernetIPv6FlowMonitorDescriptor is the flattened-row descriptor for the nested list FlowMonitorXc8f9c0.
-func FortyGigabitEthernetIPv6FlowMonitorDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6FlowMonitorFlatRow, FortyGigabitEthernetIPv6FlowMonitorKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6FlowMonitorFlatRow, FortyGigabitEthernetIPv6FlowMonitorKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeflow.FlowMonitorSchemaX975c36}, func(anc [][]yang.KeyValue, e ciscoiosxeflow.FlowMonitorXc8f9c0) FortyGigabitEthernetIPv6FlowMonitorFlatRow {
-			return FortyGigabitEthernetIPv6FlowMonitorFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6FlowMonitorFlatRow) *ciscoiosxeflow.FlowMonitorXc8f9c0 {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6FlowMonitorFlatRow) FortyGigabitEthernetIPv6FlowMonitorKey {
-			var k FortyGigabitEthernetIPv6FlowMonitorKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6"), yang.In(moduleCiscoIOSXEFlow, "flow", "monitor")),
-	}
-}
-
-// FortyGigabitEthernetIPv6FlowMonitorNewKey is MonitorNew's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6FlowMonitorNewKey struct {
-	FortyGigabitEthernetName string
-	Name                     string
-	Direction                string
-}
-
-// FortyGigabitEthernetIPv6FlowMonitorNewFlatRow flattens one MonitorNew entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6FlowMonitorNewFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeflow.MonitorNew
-}
-
-// FortyGigabitEthernetIPv6FlowMonitorNewDescriptor is the flattened-row descriptor for the nested list MonitorNew.
-func FortyGigabitEthernetIPv6FlowMonitorNewDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6FlowMonitorNewFlatRow, FortyGigabitEthernetIPv6FlowMonitorNewKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6FlowMonitorNewFlatRow, FortyGigabitEthernetIPv6FlowMonitorNewKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeflow.MonitorNewSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeflow.MonitorNew) FortyGigabitEthernetIPv6FlowMonitorNewFlatRow {
-			return FortyGigabitEthernetIPv6FlowMonitorNewFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6FlowMonitorNewFlatRow) *ciscoiosxeflow.MonitorNew {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6FlowMonitorNewFlatRow) FortyGigabitEthernetIPv6FlowMonitorNewKey {
-			var k FortyGigabitEthernetIPv6FlowMonitorNewKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			if r.Entry.Direction != nil {
-				k.Direction = *r.Entry.Direction
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6"), yang.In(moduleCiscoIOSXEFlow, "flow", "monitor-new")),
-	}
-}
-
-// FortyGigabitEthernetIPv6FlowMonitorSamplerKey is MonitorSampler's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6FlowMonitorSamplerKey struct {
-	FortyGigabitEthernetName string
-	MonitorName              string
-	Direction                string
-}
-
-// FortyGigabitEthernetIPv6FlowMonitorSamplerFlatRow flattens one MonitorSampler entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6FlowMonitorSamplerFlatRow struct {
-	FortyGigabitEthernetName string
-	MonitorName              string
-	Entry                    ciscoiosxeflow.MonitorSampler
-}
-
-// FortyGigabitEthernetIPv6FlowMonitorSamplerDescriptor is the flattened-row descriptor for the nested list MonitorSampler.
-func FortyGigabitEthernetIPv6FlowMonitorSamplerDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6FlowMonitorSamplerFlatRow, FortyGigabitEthernetIPv6FlowMonitorSamplerKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6FlowMonitorSamplerFlatRow, FortyGigabitEthernetIPv6FlowMonitorSamplerKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeflow.FlowMonitorSchemaX975c36, ciscoiosxeflow.MonitorSamplerSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeflow.MonitorSampler) FortyGigabitEthernetIPv6FlowMonitorSamplerFlatRow {
-			return FortyGigabitEthernetIPv6FlowMonitorSamplerFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				MonitorName:              yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6FlowMonitorSamplerFlatRow) *ciscoiosxeflow.MonitorSampler {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6FlowMonitorSamplerFlatRow) FortyGigabitEthernetIPv6FlowMonitorSamplerKey {
-			var k FortyGigabitEthernetIPv6FlowMonitorSamplerKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.MonitorName = r.MonitorName
-			if r.Entry.Direction != nil {
-				k.Direction = *r.Entry.Direction
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6"), yang.In(moduleCiscoIOSXEFlow, "flow", "monitor", "sampler")),
-	}
-}
-
-// FortyGigabitEthernetIPv6MldStaticGroupKey is StaticGroup's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6MldStaticGroupKey struct {
-	FortyGigabitEthernetName string
-	Gaddr                    string
-}
-
-// FortyGigabitEthernetIPv6MldStaticGroupFlatRow flattens one StaticGroup entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6MldStaticGroupFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxemld.StaticGroup
-}
-
-// FortyGigabitEthernetIPv6MldStaticGroupDescriptor is the flattened-row descriptor for the nested list StaticGroup.
-func FortyGigabitEthernetIPv6MldStaticGroupDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6MldStaticGroupFlatRow, FortyGigabitEthernetIPv6MldStaticGroupKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6MldStaticGroupFlatRow, FortyGigabitEthernetIPv6MldStaticGroupKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxemld.StaticGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxemld.StaticGroup) FortyGigabitEthernetIPv6MldStaticGroupFlatRow {
-			return FortyGigabitEthernetIPv6MldStaticGroupFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6MldStaticGroupFlatRow) *ciscoiosxemld.StaticGroup {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6MldStaticGroupFlatRow) FortyGigabitEthernetIPv6MldStaticGroupKey {
-			var k FortyGigabitEthernetIPv6MldStaticGroupKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Gaddr != nil {
-				k.Gaddr = *r.Entry.Gaddr
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6"), yang.In(moduleCiscoIOSXEMld, "mld", "static-group")),
-	}
-}
-
-// NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborKey is IPv6OSPFNeighbor's row identity (ancestor keys in canonical form).
-type NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborKey struct {
-	FortyGigabitEthernetName string
-	ID                       string
-}
-
-// NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRow flattens one IPv6OSPFNeighbor entry with its ancestor list keys.
-type NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeospf.IPv6OSPFNeighbor
-}
-
-// NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborDescriptor is the flattened-row descriptor for the nested list IPv6OSPFNeighbor.
-func NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborDescriptor() yang.ListDescriptor[NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRow, NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborKey] {
-	return yang.ListDescriptor[NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRow, NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospf.IPv6OSPFNeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.IPv6OSPFNeighbor) NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRow {
-			return NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRow) *ciscoiosxeospf.IPv6OSPFNeighbor {
-			return &r.Entry
-		}, func(r *NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRow) NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborKey {
-			var k NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6"), yang.In(moduleCiscoIOSXEOSPF, "ospf", "neighbor")),
-	}
-}
-
-// FortyGigabitEthernetIPv6OSPFProcessKey is Process's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6OSPFProcessKey struct {
-	FortyGigabitEthernetName string
-	ID                       uint16
-}
-
-// FortyGigabitEthernetIPv6OSPFProcessFlatRow flattens one Process entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6OSPFProcessFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeospf.Process
-}
-
-// FortyGigabitEthernetIPv6OSPFProcessDescriptor is the flattened-row descriptor for the nested list Process.
-func FortyGigabitEthernetIPv6OSPFProcessDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6OSPFProcessFlatRow, FortyGigabitEthernetIPv6OSPFProcessKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6OSPFProcessFlatRow, FortyGigabitEthernetIPv6OSPFProcessKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospf.ProcessSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.Process) FortyGigabitEthernetIPv6OSPFProcessFlatRow {
-			return FortyGigabitEthernetIPv6OSPFProcessFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6OSPFProcessFlatRow) *ciscoiosxeospf.Process {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6OSPFProcessFlatRow) FortyGigabitEthernetIPv6OSPFProcessKey {
-			var k FortyGigabitEthernetIPv6OSPFProcessKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6"), yang.In(moduleCiscoIOSXEOSPF, "ospf", "process")),
-	}
-}
-
-// NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborKeyXd3d60a is Neighbor's row identity (ancestor keys in canonical form).
-type NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborKeyXd3d60a struct {
-	FortyGigabitEthernetName string
-	ID                       string
-}
-
-// NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRowX36af77 flattens one Neighbor entry with its ancestor list keys.
-type NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRowX36af77 struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeospfv3.Neighbor
-}
-
-// NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborDescriptorXa708a2 is the flattened-row descriptor for the nested list Neighbor.
-func NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborDescriptorXa708a2() yang.ListDescriptor[NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRowX36af77, NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborKeyXd3d60a] {
-	return yang.ListDescriptor[NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRowX36af77, NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborKeyXd3d60a]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeospfv3.NeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Neighbor) NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRowX36af77 {
-			return NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRowX36af77{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRowX36af77) *ciscoiosxeospfv3.Neighbor {
-			return &r.Entry
-		}, func(r *NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborFlatRowX36af77) NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborKeyXd3d60a {
-			var k NativeInterfaceFortyGigabitEthernetIPv6OSPFNeighborKeyXd3d60a
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6"), yang.In(moduleCiscoIOSXEOspfv3, "ospf", "neighbor")),
-	}
-}
-
-// FortyGigabitEthernetIPv6RipKey is IPv6Rip's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6RipKey struct {
-	FortyGigabitEthernetName string
-	ID                       string
-}
-
-// FortyGigabitEthernetIPv6RipFlatRow flattens one IPv6Rip entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6RipFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxerip.IPv6Rip
-}
-
-// FortyGigabitEthernetIPv6RipDescriptor is the flattened-row descriptor for the nested list IPv6Rip.
-func FortyGigabitEthernetIPv6RipDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6RipFlatRow, FortyGigabitEthernetIPv6RipKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6RipFlatRow, FortyGigabitEthernetIPv6RipKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxerip.IPv6RipSchema}, func(anc [][]yang.KeyValue, e ciscoiosxerip.IPv6Rip) FortyGigabitEthernetIPv6RipFlatRow {
-			return FortyGigabitEthernetIPv6RipFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6RipFlatRow) *ciscoiosxerip.IPv6Rip {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6RipFlatRow) FortyGigabitEthernetIPv6RipKey {
-			var k FortyGigabitEthernetIPv6RipKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.ID != nil {
-				k.ID = *r.Entry.ID
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6"), yang.In(moduleCiscoIOSXERip, "rip")),
-	}
-}
-
-// FortyGigabitEthernetIPv6AddressLinkLocalAddressKey is LinkLocalAddress's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6AddressLinkLocalAddressKey struct {
-	FortyGigabitEthernetName string
-	Address                  string
-}
-
-// FortyGigabitEthernetIPv6AddressLinkLocalAddressFlatRow flattens one LinkLocalAddress entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6AddressLinkLocalAddressFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    LinkLocalAddress
-}
-
-// FortyGigabitEthernetIPv6AddressLinkLocalAddressDescriptor is the flattened-row descriptor for the nested list LinkLocalAddress.
-func FortyGigabitEthernetIPv6AddressLinkLocalAddressDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6AddressLinkLocalAddressFlatRow, FortyGigabitEthernetIPv6AddressLinkLocalAddressKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6AddressLinkLocalAddressFlatRow, FortyGigabitEthernetIPv6AddressLinkLocalAddressKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, LinkLocalAddressSchema}, func(anc [][]yang.KeyValue, e LinkLocalAddress) FortyGigabitEthernetIPv6AddressLinkLocalAddressFlatRow {
-			return FortyGigabitEthernetIPv6AddressLinkLocalAddressFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6AddressLinkLocalAddressFlatRow) *LinkLocalAddress {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6AddressLinkLocalAddressFlatRow) FortyGigabitEthernetIPv6AddressLinkLocalAddressKey {
-			var k FortyGigabitEthernetIPv6AddressLinkLocalAddressKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Address != nil {
-				k.Address = *r.Entry.Address
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6", "address", "link-local-address")),
-	}
-}
-
-// FortyGigabitEthernetIPv6AddressPrefixListKey is AddressPrefixList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6AddressPrefixListKey struct {
-	FortyGigabitEthernetName string
-	Prefix                   string
-}
-
-// FortyGigabitEthernetIPv6AddressPrefixListFlatRow flattens one AddressPrefixList entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6AddressPrefixListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    AddressPrefixList
-}
-
-// FortyGigabitEthernetIPv6AddressPrefixListDescriptor is the flattened-row descriptor for the nested list AddressPrefixList.
-func FortyGigabitEthernetIPv6AddressPrefixListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6AddressPrefixListFlatRow, FortyGigabitEthernetIPv6AddressPrefixListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6AddressPrefixListFlatRow, FortyGigabitEthernetIPv6AddressPrefixListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, AddressPrefixListSchema}, func(anc [][]yang.KeyValue, e AddressPrefixList) FortyGigabitEthernetIPv6AddressPrefixListFlatRow {
-			return FortyGigabitEthernetIPv6AddressPrefixListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6AddressPrefixListFlatRow) *AddressPrefixList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6AddressPrefixListFlatRow) FortyGigabitEthernetIPv6AddressPrefixListKey {
-			var k FortyGigabitEthernetIPv6AddressPrefixListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Prefix != nil {
-				k.Prefix = *r.Entry.Prefix
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6", "address", "prefix-list")),
-	}
-}
-
-// FortyGigabitEthernetIPv6AddressPrefixNameKey is PrefixName's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6AddressPrefixNameKey struct {
-	FortyGigabitEthernetName string
-	Name                     string
-}
-
-// FortyGigabitEthernetIPv6AddressPrefixNameFlatRow flattens one PrefixName entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6AddressPrefixNameFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    PrefixName
-}
-
-// FortyGigabitEthernetIPv6AddressPrefixNameDescriptor is the flattened-row descriptor for the nested list PrefixName.
-func FortyGigabitEthernetIPv6AddressPrefixNameDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6AddressPrefixNameFlatRow, FortyGigabitEthernetIPv6AddressPrefixNameKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6AddressPrefixNameFlatRow, FortyGigabitEthernetIPv6AddressPrefixNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, PrefixNameSchema}, func(anc [][]yang.KeyValue, e PrefixName) FortyGigabitEthernetIPv6AddressPrefixNameFlatRow {
-			return FortyGigabitEthernetIPv6AddressPrefixNameFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6AddressPrefixNameFlatRow) *PrefixName {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6AddressPrefixNameFlatRow) FortyGigabitEthernetIPv6AddressPrefixNameKey {
-			var k FortyGigabitEthernetIPv6AddressPrefixNameKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6", "address", "prefix-name")),
-	}
-}
-
-// FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey is PrefixOptionsIPv6Prefix's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey struct {
-	FortyGigabitEthernetName string
-	PrefixNameName           string
-	Prefix                   string
-}
-
-// FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow flattens one PrefixOptionsIPv6Prefix entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow struct {
-	FortyGigabitEthernetName string
-	PrefixNameName           string
-	Entry                    PrefixOptionsIPv6Prefix
-}
-
-// FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixDescriptor is the flattened-row descriptor for the nested list PrefixOptionsIPv6Prefix.
-func FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow, FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow, FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, PrefixNameSchema, PrefixOptionsIPv6PrefixSchema}, func(anc [][]yang.KeyValue, e PrefixOptionsIPv6Prefix) FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow {
-			return FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-				PrefixNameName:           yang.AncestorKey(anc, 1, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow) *PrefixOptionsIPv6Prefix {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow) FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey {
-			var k FortyGigabitEthernetIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			k.PrefixNameName = r.PrefixNameName
-			if r.Entry.Prefix != nil {
-				k.Prefix = *r.Entry.Prefix
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6", "address", "prefix-name", "prefix-options", "ipv6-prefix")),
-	}
-}
-
-// FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesKey is AttachedPolicies's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesKey struct {
-	FortyGigabitEthernetName string
-	AttachPolicy             string
-}
-
-// FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesFlatRow flattens one AttachedPolicies entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxedhcp.AttachedPolicies
-}
-
-// FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesDescriptor is the flattened-row descriptor for the nested list AttachedPolicies.
-func FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesFlatRow, FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesFlatRow, FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxedhcp.AttachedPoliciesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxedhcp.AttachedPolicies) FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesFlatRow {
-			return FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesFlatRow) *ciscoiosxedhcp.AttachedPolicies {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesFlatRow) FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesKey {
-			var k FortyGigabitEthernetIPv6DhcpGuardAttachedPoliciesKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.AttachPolicy != nil {
-				k.AttachPolicy = *r.Entry.AttachPolicy
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6", "dhcp"), yang.In(moduleCiscoIOSXEDhcp, "guard", "attached-policies")),
-	}
-}
-
-// FortyGigabitEthernetIPv6DhcpRelayDestinationAddressKey is DestinationAddress's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6DhcpRelayDestinationAddressKey struct {
-	FortyGigabitEthernetName string
-	IPv6Address              string
-}
-
-// FortyGigabitEthernetIPv6DhcpRelayDestinationAddressFlatRow flattens one DestinationAddress entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6DhcpRelayDestinationAddressFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxedhcp.DestinationAddress
-}
-
-// FortyGigabitEthernetIPv6DhcpRelayDestinationAddressDescriptor is the flattened-row descriptor for the nested list DestinationAddress.
-func FortyGigabitEthernetIPv6DhcpRelayDestinationAddressDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6DhcpRelayDestinationAddressFlatRow, FortyGigabitEthernetIPv6DhcpRelayDestinationAddressKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6DhcpRelayDestinationAddressFlatRow, FortyGigabitEthernetIPv6DhcpRelayDestinationAddressKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxedhcp.DestinationAddressSchema}, func(anc [][]yang.KeyValue, e ciscoiosxedhcp.DestinationAddress) FortyGigabitEthernetIPv6DhcpRelayDestinationAddressFlatRow {
-			return FortyGigabitEthernetIPv6DhcpRelayDestinationAddressFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6DhcpRelayDestinationAddressFlatRow) *ciscoiosxedhcp.DestinationAddress {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6DhcpRelayDestinationAddressFlatRow) FortyGigabitEthernetIPv6DhcpRelayDestinationAddressKey {
-			var k FortyGigabitEthernetIPv6DhcpRelayDestinationAddressKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.IPv6Address != nil {
-				k.IPv6Address = *r.Entry.IPv6Address
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6", "dhcp"), yang.In(moduleCiscoIOSXEDhcp, "relay", "destination", "address")),
-	}
-}
-
-// FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalKey is Global's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalKey struct {
-	FortyGigabitEthernetName string
-	RelayAddress             string
-}
-
-// FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalFlatRow flattens one Global entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxedhcp.Global
-}
-
-// FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalDescriptor is the flattened-row descriptor for the nested list Global.
-func FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalFlatRow, FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalFlatRow, FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxedhcp.GlobalSchema}, func(anc [][]yang.KeyValue, e ciscoiosxedhcp.Global) FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalFlatRow {
-			return FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalFlatRow) *ciscoiosxedhcp.Global {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalFlatRow) FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalKey {
-			var k FortyGigabitEthernetIPv6DhcpRelayDestinationGlobalKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.RelayAddress != nil {
-				k.RelayAddress = *r.Entry.RelayAddress
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6", "dhcp"), yang.In(moduleCiscoIOSXEDhcp, "relay", "destination", "global")),
-	}
-}
-
-// FortyGigabitEthernetIPv6DhcpRelayDestinationVRFKey is DestinationVRF's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6DhcpRelayDestinationVRFKey struct {
-	FortyGigabitEthernetName string
-	VRFName                  string
-	RelayAddress             string
-}
-
-// FortyGigabitEthernetIPv6DhcpRelayDestinationVRFFlatRow flattens one DestinationVRF entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6DhcpRelayDestinationVRFFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxedhcp.DestinationVRF
-}
-
-// FortyGigabitEthernetIPv6DhcpRelayDestinationVRFDescriptor is the flattened-row descriptor for the nested list DestinationVRF.
-func FortyGigabitEthernetIPv6DhcpRelayDestinationVRFDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6DhcpRelayDestinationVRFFlatRow, FortyGigabitEthernetIPv6DhcpRelayDestinationVRFKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6DhcpRelayDestinationVRFFlatRow, FortyGigabitEthernetIPv6DhcpRelayDestinationVRFKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxedhcp.DestinationVRFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxedhcp.DestinationVRF) FortyGigabitEthernetIPv6DhcpRelayDestinationVRFFlatRow {
-			return FortyGigabitEthernetIPv6DhcpRelayDestinationVRFFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6DhcpRelayDestinationVRFFlatRow) *ciscoiosxedhcp.DestinationVRF {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6DhcpRelayDestinationVRFFlatRow) FortyGigabitEthernetIPv6DhcpRelayDestinationVRFKey {
-			var k FortyGigabitEthernetIPv6DhcpRelayDestinationVRFKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.VRFName != nil {
-				k.VRFName = *r.Entry.VRFName
-			}
-			if r.Entry.RelayAddress != nil {
-				k.RelayAddress = *r.Entry.RelayAddress
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6", "dhcp"), yang.In(moduleCiscoIOSXEDhcp, "relay", "destination", "vrf")),
-	}
-}
-
-// FortyGigabitEthernetIPv6DhcpServerKey is IPv6DhcpServer's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6DhcpServerKey struct {
-	FortyGigabitEthernetName string
-	Word                     string
-}
-
-// FortyGigabitEthernetIPv6DhcpServerFlatRow flattens one IPv6DhcpServer entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6DhcpServerFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxedhcp.IPv6DhcpServer
-}
-
-// FortyGigabitEthernetIPv6DhcpServerDescriptor is the flattened-row descriptor for the nested list IPv6DhcpServer.
-func FortyGigabitEthernetIPv6DhcpServerDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6DhcpServerFlatRow, FortyGigabitEthernetIPv6DhcpServerKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6DhcpServerFlatRow, FortyGigabitEthernetIPv6DhcpServerKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxedhcp.IPv6DhcpServerSchema}, func(anc [][]yang.KeyValue, e ciscoiosxedhcp.IPv6DhcpServer) FortyGigabitEthernetIPv6DhcpServerFlatRow {
-			return FortyGigabitEthernetIPv6DhcpServerFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6DhcpServerFlatRow) *ciscoiosxedhcp.IPv6DhcpServer {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6DhcpServerFlatRow) FortyGigabitEthernetIPv6DhcpServerKey {
-			var k FortyGigabitEthernetIPv6DhcpServerKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Word != nil {
-				k.Word = *r.Entry.Word
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6", "dhcp"), yang.In(moduleCiscoIOSXEDhcp, "server")),
-	}
-}
-
-// FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListKey is IPv6PrefixList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListKey struct {
-	FortyGigabitEthernetName string
-	IPv6Prefix               string
-}
-
-// FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListFlatRow flattens one IPv6PrefixList entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxend.IPv6PrefixList
-}
-
-// FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListDescriptor is the flattened-row descriptor for the nested list IPv6PrefixList.
-func FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListFlatRow, FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListFlatRow, FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxend.IPv6PrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxend.IPv6PrefixList) FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListFlatRow {
-			return FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListFlatRow) *ciscoiosxend.IPv6PrefixList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListFlatRow) FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListKey {
-			var k FortyGigabitEthernetIPv6NdPrefixIPv6PrefixListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.IPv6Prefix != nil {
-				k.IPv6Prefix = *r.Entry.IPv6Prefix
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6", "nd"), yang.In(moduleCiscoIOSXENd, "prefix", "ipv6-prefix-list")),
-	}
-}
-
-// FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesKey is AttachedPolicies's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesKey struct {
-	FortyGigabitEthernetName string
-	AttachPolicy             string
-}
-
-// FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesFlatRow flattens one AttachedPolicies entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxend.AttachedPolicies
-}
-
-// FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesDescriptor is the flattened-row descriptor for the nested list AttachedPolicies.
-func FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesFlatRow, FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesFlatRow, FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxend.AttachedPoliciesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxend.AttachedPolicies) FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesFlatRow {
-			return FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesFlatRow) *ciscoiosxend.AttachedPolicies {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesFlatRow) FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesKey {
-			var k FortyGigabitEthernetIPv6NdRaThrottlerAttachedPoliciesKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.AttachPolicy != nil {
-				k.AttachPolicy = *r.Entry.AttachPolicy
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6", "nd"), yang.In(moduleCiscoIOSXENd, "ra-throttler", "attached-policies")),
-	}
-}
-
-// FortyGigabitEthernetIPv6NdRaSpecificRouteKey is SpecificRoute's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6NdRaSpecificRouteKey struct {
-	FortyGigabitEthernetName string
-	SpecificRoute            string
-}
-
-// FortyGigabitEthernetIPv6NdRaSpecificRouteFlatRow flattens one SpecificRoute entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6NdRaSpecificRouteFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxend.SpecificRoute
-}
-
-// FortyGigabitEthernetIPv6NdRaSpecificRouteDescriptor is the flattened-row descriptor for the nested list SpecificRoute.
-func FortyGigabitEthernetIPv6NdRaSpecificRouteDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6NdRaSpecificRouteFlatRow, FortyGigabitEthernetIPv6NdRaSpecificRouteKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6NdRaSpecificRouteFlatRow, FortyGigabitEthernetIPv6NdRaSpecificRouteKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxend.SpecificRouteSchema}, func(anc [][]yang.KeyValue, e ciscoiosxend.SpecificRoute) FortyGigabitEthernetIPv6NdRaSpecificRouteFlatRow {
-			return FortyGigabitEthernetIPv6NdRaSpecificRouteFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6NdRaSpecificRouteFlatRow) *ciscoiosxend.SpecificRoute {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6NdRaSpecificRouteFlatRow) FortyGigabitEthernetIPv6NdRaSpecificRouteKey {
-			var k FortyGigabitEthernetIPv6NdRaSpecificRouteKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.SpecificRoute != nil {
-				k.SpecificRoute = *r.Entry.SpecificRoute
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6", "nd"), yang.In(moduleCiscoIOSXENd, "ra", "specific-route")),
-	}
-}
-
-// FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesKey is AttachedPolicies's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesKey struct {
-	FortyGigabitEthernetName string
-	AttachPolicy             string
-}
-
-// FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesFlatRow flattens one AttachedPolicies entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxend.AttachedPolicies
-}
-
-// FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesDescriptor is the flattened-row descriptor for the nested list AttachedPolicies.
-func FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesFlatRow, FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesFlatRow, FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxend.AttachedPoliciesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxend.AttachedPolicies) FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesFlatRow {
-			return FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesFlatRow) *ciscoiosxend.AttachedPolicies {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesFlatRow) FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesKey {
-			var k FortyGigabitEthernetIPv6NdRaguardAttachedPoliciesKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.AttachPolicy != nil {
-				k.AttachPolicy = *r.Entry.AttachPolicy
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6", "nd"), yang.In(moduleCiscoIOSXENd, "raguard", "attached-policies")),
-	}
-}
-
-// FortyGigabitEthernetIPv6TrafficFilterKey is IPv6TrafficFilter's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIPv6TrafficFilterKey struct {
-	FortyGigabitEthernetName string
-	Direction                string
-}
-
-// FortyGigabitEthernetIPv6TrafficFilterFlatRow flattens one IPv6TrafficFilter entry with its ancestor list keys.
-type FortyGigabitEthernetIPv6TrafficFilterFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    IPv6TrafficFilter
-}
-
-// FortyGigabitEthernetIPv6TrafficFilterDescriptor is the flattened-row descriptor for the nested list IPv6TrafficFilter.
-func FortyGigabitEthernetIPv6TrafficFilterDescriptor() yang.ListDescriptor[FortyGigabitEthernetIPv6TrafficFilterFlatRow, FortyGigabitEthernetIPv6TrafficFilterKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIPv6TrafficFilterFlatRow, FortyGigabitEthernetIPv6TrafficFilterKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, IPv6TrafficFilterSchema}, func(anc [][]yang.KeyValue, e IPv6TrafficFilter) FortyGigabitEthernetIPv6TrafficFilterFlatRow {
-			return FortyGigabitEthernetIPv6TrafficFilterFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIPv6TrafficFilterFlatRow) *IPv6TrafficFilter {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIPv6TrafficFilterFlatRow) FortyGigabitEthernetIPv6TrafficFilterKey {
-			var k FortyGigabitEthernetIPv6TrafficFilterKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Direction != nil {
-				k.Direction = *r.Entry.Direction
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "ipv6", "traffic-filter")),
-	}
-}
-
-// FortyGigabitEthernetIsisAffinityFlexAlgoNameKey is Name's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisAffinityFlexAlgoNameKey struct {
-	FortyGigabitEthernetName string
-	Name                     string
-}
-
-// FortyGigabitEthernetIsisAffinityFlexAlgoNameFlatRow flattens one Name entry with its ancestor list keys.
-type FortyGigabitEthernetIsisAffinityFlexAlgoNameFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.Name
-}
-
-// FortyGigabitEthernetIsisAffinityFlexAlgoNameDescriptor is the flattened-row descriptor for the nested list Name.
-func FortyGigabitEthernetIsisAffinityFlexAlgoNameDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisAffinityFlexAlgoNameFlatRow, FortyGigabitEthernetIsisAffinityFlexAlgoNameKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisAffinityFlexAlgoNameFlatRow, FortyGigabitEthernetIsisAffinityFlexAlgoNameKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.NameSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.Name) FortyGigabitEthernetIsisAffinityFlexAlgoNameFlatRow {
-			return FortyGigabitEthernetIsisAffinityFlexAlgoNameFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisAffinityFlexAlgoNameFlatRow) *ciscoiosxeisis.Name {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisAffinityFlexAlgoNameFlatRow) FortyGigabitEthernetIsisAffinityFlexAlgoNameKey {
-			var k FortyGigabitEthernetIsisAffinityFlexAlgoNameKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Name != nil {
-				k.Name = *r.Entry.Name
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "affinity", "flex-algo", "name")),
-	}
-}
-
-// FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListKey is CsnpIntervalList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListFlatRow flattens one CsnpIntervalList entry with its ancestor list keys.
-type FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.CsnpIntervalList
-}
-
-// FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListDescriptor is the flattened-row descriptor for the nested list CsnpIntervalList.
-func FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListFlatRow, FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListFlatRow, FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.CsnpIntervalListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.CsnpIntervalList) FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListFlatRow {
-			return FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListFlatRow) *ciscoiosxeisis.CsnpIntervalList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListFlatRow) FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListKey {
-			var k FortyGigabitEthernetIsisCsnpIntervalCsnpIntervalListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "csnp-interval", "csnp-interval-list")),
-	}
-}
-
-// FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListKey is FastRerouteCandidateList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListFlatRow flattens one FastRerouteCandidateList entry with its ancestor list keys.
-type FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.FastRerouteCandidateList
-}
-
-// FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListDescriptor is the flattened-row descriptor for the nested list FastRerouteCandidateList.
-func FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListFlatRow, FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListFlatRow, FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.FastRerouteCandidateListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.FastRerouteCandidateList) FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListFlatRow {
-			return FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListFlatRow) *ciscoiosxeisis.FastRerouteCandidateList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListFlatRow) FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListKey {
-			var k FortyGigabitEthernetIsisFastRerouteCandidateFastRerouteCandidateListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "fast-reroute", "candidate", "fast-reroute-candidate-list")),
-	}
-}
-
-// FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListKey is FastRerouteExcludeList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListFlatRow flattens one FastRerouteExcludeList entry with its ancestor list keys.
-type FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.FastRerouteExcludeList
-}
-
-// FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListDescriptor is the flattened-row descriptor for the nested list FastRerouteExcludeList.
-func FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListFlatRow, FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListFlatRow, FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.FastRerouteExcludeListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.FastRerouteExcludeList) FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListFlatRow {
-			return FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListFlatRow) *ciscoiosxeisis.FastRerouteExcludeList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListFlatRow) FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListKey {
-			var k FortyGigabitEthernetIsisFastRerouteExcludeFastRerouteExcludeListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "fast-reroute", "exclude", "fast-reroute-exclude-list")),
-	}
-}
-
-// FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListKey is FastRerouteProtectionList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListFlatRow flattens one FastRerouteProtectionList entry with its ancestor list keys.
-type FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.FastRerouteProtectionList
-}
-
-// FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListDescriptor is the flattened-row descriptor for the nested list FastRerouteProtectionList.
-func FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListFlatRow, FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListFlatRow, FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.FastRerouteProtectionListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.FastRerouteProtectionList) FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListFlatRow {
-			return FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListFlatRow) *ciscoiosxeisis.FastRerouteProtectionList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListFlatRow) FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListKey {
-			var k FortyGigabitEthernetIsisFastRerouteProtectionFastRerouteProtectionListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "fast-reroute", "protection", "fast-reroute-protection-list")),
-	}
-}
-
-// FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListKey is FastRerouteRemoteLfaList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListFlatRow flattens one FastRerouteRemoteLfaList entry with its ancestor list keys.
-type FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.FastRerouteRemoteLfaList
-}
-
-// FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListDescriptor is the flattened-row descriptor for the nested list FastRerouteRemoteLfaList.
-func FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListFlatRow, FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListFlatRow, FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.FastRerouteRemoteLfaListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.FastRerouteRemoteLfaList) FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListFlatRow {
-			return FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListFlatRow) *ciscoiosxeisis.FastRerouteRemoteLfaList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListFlatRow) FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListKey {
-			var k FortyGigabitEthernetIsisFastRerouteRemoteLfaProtectionFastRerouteRemoteLfaListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "fast-reroute", "remote-lfa", "protection", "fast-reroute-remote-lfa-list")),
-	}
-}
-
-// FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListKey is FastRerouteTiLfaProtectionFastRerouteTilfaList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow flattens one FastRerouteTiLfaProtectionFastRerouteTilfaList entry with its ancestor list keys.
-type FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.FastRerouteTiLfaProtectionFastRerouteTilfaList
-}
-
-// FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListDescriptor is the flattened-row descriptor for the nested list FastRerouteTiLfaProtectionFastRerouteTilfaList.
-func FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow, FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow, FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.FastRerouteTiLfaProtectionFastRerouteTilfaListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.FastRerouteTiLfaProtectionFastRerouteTilfaList) FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow {
-			return FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow) *ciscoiosxeisis.FastRerouteTiLfaProtectionFastRerouteTilfaList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow) FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListKey {
-			var k FortyGigabitEthernetIsisFastRerouteTiLfaProtectionFastRerouteTilfaListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "fast-reroute", "ti-lfa", "protection", "fast-reroute-tilfa-list")),
-	}
-}
-
-// FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListKey is FastRerouteTieBreakFastRerouteTieBreakList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListFlatRow flattens one FastRerouteTieBreakFastRerouteTieBreakList entry with its ancestor list keys.
-type FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.FastRerouteTieBreakFastRerouteTieBreakList
-}
-
-// FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListDescriptor is the flattened-row descriptor for the nested list FastRerouteTieBreakFastRerouteTieBreakList.
-func FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListFlatRow, FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListFlatRow, FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.FastRerouteTieBreakFastRerouteTieBreakListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.FastRerouteTieBreakFastRerouteTieBreakList) FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListFlatRow {
-			return FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListFlatRow) *ciscoiosxeisis.FastRerouteTieBreakFastRerouteTieBreakList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListFlatRow) FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListKey {
-			var k FortyGigabitEthernetIsisFastRerouteTieBreakFastRerouteTieBreakListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "fast-reroute", "tie-break", "fast-reroute-tie-break-list")),
-	}
-}
-
-// FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListKey is FastRerouteCandidateList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListFlatRow flattens one FastRerouteCandidateList entry with its ancestor list keys.
-type FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.FastRerouteCandidateList
-}
-
-// FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListDescriptor is the flattened-row descriptor for the nested list FastRerouteCandidateList.
-func FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListFlatRow, FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListFlatRow, FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.FastRerouteCandidateListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.FastRerouteCandidateList) FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListFlatRow {
-			return FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListFlatRow) *ciscoiosxeisis.FastRerouteCandidateList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListFlatRow) FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListKey {
-			var k FortyGigabitEthernetIsisIPv6FastRerouteCandidateFastRerouteCandidateListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "ipv6", "fast-reroute", "candidate", "fast-reroute-candidate-list")),
-	}
-}
-
-// FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListKey is FastRerouteExcludeList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListFlatRow flattens one FastRerouteExcludeList entry with its ancestor list keys.
-type FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.FastRerouteExcludeList
-}
-
-// FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListDescriptor is the flattened-row descriptor for the nested list FastRerouteExcludeList.
-func FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListFlatRow, FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListFlatRow, FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.FastRerouteExcludeListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.FastRerouteExcludeList) FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListFlatRow {
-			return FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListFlatRow) *ciscoiosxeisis.FastRerouteExcludeList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListFlatRow) FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListKey {
-			var k FortyGigabitEthernetIsisIPv6FastRerouteExcludeFastRerouteExcludeListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "ipv6", "fast-reroute", "exclude", "fast-reroute-exclude-list")),
-	}
-}
-
-// FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListKey is FastRerouteProtectionList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListFlatRow flattens one FastRerouteProtectionList entry with its ancestor list keys.
-type FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.FastRerouteProtectionList
-}
-
-// FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListDescriptor is the flattened-row descriptor for the nested list FastRerouteProtectionList.
-func FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListFlatRow, FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListFlatRow, FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.FastRerouteProtectionListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.FastRerouteProtectionList) FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListFlatRow {
-			return FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListFlatRow) *ciscoiosxeisis.FastRerouteProtectionList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListFlatRow) FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListKey {
-			var k FortyGigabitEthernetIsisIPv6FastRerouteProtectionFastRerouteProtectionListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "ipv6", "fast-reroute", "protection", "fast-reroute-protection-list")),
-	}
-}
-
-// FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListKey is FastRerouteTiLfaProtectionFastRerouteTilfaList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow flattens one FastRerouteTiLfaProtectionFastRerouteTilfaList entry with its ancestor list keys.
-type FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.FastRerouteTiLfaProtectionFastRerouteTilfaList
-}
-
-// FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListDescriptor is the flattened-row descriptor for the nested list FastRerouteTiLfaProtectionFastRerouteTilfaList.
-func FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow, FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow, FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.FastRerouteTiLfaProtectionFastRerouteTilfaListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.FastRerouteTiLfaProtectionFastRerouteTilfaList) FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow {
-			return FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow) *ciscoiosxeisis.FastRerouteTiLfaProtectionFastRerouteTilfaList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListFlatRow) FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListKey {
-			var k FortyGigabitEthernetIsisIPv6FastRerouteTiLfaProtectionFastRerouteTilfaListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "ipv6", "fast-reroute", "ti-lfa", "protection", "fast-reroute-tilfa-list")),
-	}
-}
-
-// FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListKey is FastRerouteTieBreakFastRerouteTieBreakList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListFlatRow flattens one FastRerouteTieBreakFastRerouteTieBreakList entry with its ancestor list keys.
-type FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.FastRerouteTieBreakFastRerouteTieBreakList
-}
-
-// FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListDescriptor is the flattened-row descriptor for the nested list FastRerouteTieBreakFastRerouteTieBreakList.
-func FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListFlatRow, FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListFlatRow, FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.FastRerouteTieBreakFastRerouteTieBreakListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.FastRerouteTieBreakFastRerouteTieBreakList) FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListFlatRow {
-			return FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListFlatRow) *ciscoiosxeisis.FastRerouteTieBreakFastRerouteTieBreakList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListFlatRow) FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListKey {
-			var k FortyGigabitEthernetIsisIPv6FastRerouteTieBreakFastRerouteTieBreakListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "ipv6", "fast-reroute", "tie-break", "fast-reroute-tie-break-list")),
-	}
-}
-
-// FortyGigabitEthernetIsisIPv6MetricMetricListKey is MetricList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisIPv6MetricMetricListKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisIPv6MetricMetricListFlatRow flattens one MetricList entry with its ancestor list keys.
-type FortyGigabitEthernetIsisIPv6MetricMetricListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.MetricList
-}
-
-// FortyGigabitEthernetIsisIPv6MetricMetricListDescriptor is the flattened-row descriptor for the nested list MetricList.
-func FortyGigabitEthernetIsisIPv6MetricMetricListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisIPv6MetricMetricListFlatRow, FortyGigabitEthernetIsisIPv6MetricMetricListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisIPv6MetricMetricListFlatRow, FortyGigabitEthernetIsisIPv6MetricMetricListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.MetricListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.MetricList) FortyGigabitEthernetIsisIPv6MetricMetricListFlatRow {
-			return FortyGigabitEthernetIsisIPv6MetricMetricListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisIPv6MetricMetricListFlatRow) *ciscoiosxeisis.MetricList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisIPv6MetricMetricListFlatRow) FortyGigabitEthernetIsisIPv6MetricMetricListKey {
-			var k FortyGigabitEthernetIsisIPv6MetricMetricListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "ipv6", "metric", "metric-list")),
-	}
-}
-
-// FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainKey is AuthenticationLanAuthenticationKeyChain's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainFlatRow flattens one AuthenticationLanAuthenticationKeyChain entry with its ancestor list keys.
-type FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.AuthenticationLanAuthenticationKeyChain
-}
-
-// FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainDescriptor is the flattened-row descriptor for the nested list AuthenticationLanAuthenticationKeyChain.
-func FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainFlatRow, FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainFlatRow, FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.AuthenticationLanAuthenticationKeyChainSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.AuthenticationLanAuthenticationKeyChain) FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainFlatRow {
-			return FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainFlatRow) *ciscoiosxeisis.AuthenticationLanAuthenticationKeyChain {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainFlatRow) FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainKey {
-			var k FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationKeyChainKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "isis-lan", "authentication-lan", "authentication", "key-chain")),
-	}
-}
-
-// FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeKey is AuthenticationLanAuthenticationMode's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeFlatRow flattens one AuthenticationLanAuthenticationMode entry with its ancestor list keys.
-type FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.AuthenticationLanAuthenticationMode
-}
-
-// FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeDescriptor is the flattened-row descriptor for the nested list AuthenticationLanAuthenticationMode.
-func FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeFlatRow, FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeFlatRow, FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.AuthenticationLanAuthenticationModeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.AuthenticationLanAuthenticationMode) FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeFlatRow {
-			return FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeFlatRow) *ciscoiosxeisis.AuthenticationLanAuthenticationMode {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeFlatRow) FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeKey {
-			var k FortyGigabitEthernetIsisIsisLanAuthenticationLanAuthenticationModeKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "isis-lan", "authentication-lan", "authentication", "mode")),
-	}
-}
-
-// FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalKey is HelloInterval's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalFlatRow flattens one HelloInterval entry with its ancestor list keys.
-type FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.HelloInterval
-}
-
-// FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalDescriptor is the flattened-row descriptor for the nested list HelloInterval.
-func FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalFlatRow, FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalFlatRow, FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.HelloIntervalSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.HelloInterval) FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalFlatRow {
-			return FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalFlatRow) *ciscoiosxeisis.HelloInterval {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalFlatRow) FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalKey {
-			var k FortyGigabitEthernetIsisIsisLanHelloIntervalLanHelloIntervalKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "isis-lan", "hello-interval-lan", "hello-interval")),
-	}
-}
-
-// FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierKey is HelloMultiplier's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierFlatRow flattens one HelloMultiplier entry with its ancestor list keys.
-type FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.HelloMultiplier
-}
-
-// FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierDescriptor is the flattened-row descriptor for the nested list HelloMultiplier.
-func FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierFlatRow, FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierFlatRow, FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.HelloMultiplierSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.HelloMultiplier) FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierFlatRow {
-			return FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierFlatRow) *ciscoiosxeisis.HelloMultiplier {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierFlatRow) FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierKey {
-			var k FortyGigabitEthernetIsisIsisLanHelloMultiplierLanHelloMultiplierKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "isis-lan", "hello-multiplier-lan", "hello-multiplier")),
-	}
-}
-
-// FortyGigabitEthernetIsisIsisLanPasswordLanPasswordKey is PasswordLanPassword's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisIsisLanPasswordLanPasswordKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisIsisLanPasswordLanPasswordFlatRow flattens one PasswordLanPassword entry with its ancestor list keys.
-type FortyGigabitEthernetIsisIsisLanPasswordLanPasswordFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.PasswordLanPassword
-}
-
-// FortyGigabitEthernetIsisIsisLanPasswordLanPasswordDescriptor is the flattened-row descriptor for the nested list PasswordLanPassword.
-func FortyGigabitEthernetIsisIsisLanPasswordLanPasswordDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisIsisLanPasswordLanPasswordFlatRow, FortyGigabitEthernetIsisIsisLanPasswordLanPasswordKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisIsisLanPasswordLanPasswordFlatRow, FortyGigabitEthernetIsisIsisLanPasswordLanPasswordKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.PasswordLanPasswordSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.PasswordLanPassword) FortyGigabitEthernetIsisIsisLanPasswordLanPasswordFlatRow {
-			return FortyGigabitEthernetIsisIsisLanPasswordLanPasswordFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisIsisLanPasswordLanPasswordFlatRow) *ciscoiosxeisis.PasswordLanPassword {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisIsisLanPasswordLanPasswordFlatRow) FortyGigabitEthernetIsisIsisLanPasswordLanPasswordKey {
-			var k FortyGigabitEthernetIsisIsisLanPasswordLanPasswordKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "isis-lan", "password-lan", "password")),
-	}
-}
-
-// FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteKey is AdjSidListAbsolute's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteKey struct {
-	FortyGigabitEthernetName string
-	SidValue                 uint32
-}
-
-// FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteFlatRow flattens one AdjSidListAbsolute entry with its ancestor list keys.
-type FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.AdjSidListAbsolute
-}
-
-// FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteDescriptor is the flattened-row descriptor for the nested list AdjSidListAbsolute.
-func FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteFlatRow, FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteFlatRow, FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.AdjSidListAbsoluteSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.AdjSidListAbsolute) FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteFlatRow {
-			return FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteFlatRow) *ciscoiosxeisis.AdjSidListAbsolute {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteFlatRow) FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteKey {
-			var k FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListAbsoluteKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.SidValue != nil {
-				k.SidValue = *r.Entry.SidValue
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "isis-serial", "adjacency-sid", "adj-sid-list-absolute")),
-	}
-}
-
-// FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexKey is AdjSidListIndex's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexKey struct {
-	FortyGigabitEthernetName string
-	SidValue                 uint32
-}
-
-// FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexFlatRow flattens one AdjSidListIndex entry with its ancestor list keys.
-type FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.AdjSidListIndex
-}
-
-// FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexDescriptor is the flattened-row descriptor for the nested list AdjSidListIndex.
-func FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexFlatRow, FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexFlatRow, FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.AdjSidListIndexSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.AdjSidListIndex) FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexFlatRow {
-			return FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexFlatRow) *ciscoiosxeisis.AdjSidListIndex {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexFlatRow) FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexKey {
-			var k FortyGigabitEthernetIsisIsisSerialAdjacencySidAdjSidListIndexKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.SidValue != nil {
-				k.SidValue = *r.Entry.SidValue
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "isis-serial", "adjacency-sid", "adj-sid-list-index")),
-	}
-}
-
-// FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyKey is FallbackAnomaly's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyFlatRow flattens one FallbackAnomaly entry with its ancestor list keys.
-type FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.FallbackAnomaly
-}
-
-// FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyDescriptor is the flattened-row descriptor for the nested list FallbackAnomaly.
-func FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyFlatRow, FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyFlatRow, FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.FallbackAnomalySchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.FallbackAnomaly) FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyFlatRow {
-			return FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyFlatRow) *ciscoiosxeisis.FallbackAnomaly {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyFlatRow) FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyKey {
-			var k FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "metric-fallback", "metric", "fallback", "anomaly")),
-	}
-}
-
-// FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyKey is AnomalyTeAnomaly's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyFlatRow flattens one AnomalyTeAnomaly entry with its ancestor list keys.
-type FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.AnomalyTeAnomaly
-}
-
-// FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyDescriptor is the flattened-row descriptor for the nested list AnomalyTeAnomaly.
-func FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyFlatRow, FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyFlatRow, FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.AnomalyTeAnomalySchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.AnomalyTeAnomaly) FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyFlatRow {
-			return FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyFlatRow) *ciscoiosxeisis.AnomalyTeAnomaly {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyFlatRow) FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyKey {
-			var k FortyGigabitEthernetIsisMetricFallbackMetricFallbackAnomalyTeAnomalyKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "metric-fallback", "metric", "fallback", "anomaly-te", "anomaly")),
-	}
-}
-
-// FortyGigabitEthernetIsisMetricMetricListKey is MetricList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisMetricMetricListKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisMetricMetricListFlatRow flattens one MetricList entry with its ancestor list keys.
-type FortyGigabitEthernetIsisMetricMetricListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.MetricList
-}
-
-// FortyGigabitEthernetIsisMetricMetricListDescriptor is the flattened-row descriptor for the nested list MetricList.
-func FortyGigabitEthernetIsisMetricMetricListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisMetricMetricListFlatRow, FortyGigabitEthernetIsisMetricMetricListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisMetricMetricListFlatRow, FortyGigabitEthernetIsisMetricMetricListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.MetricListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.MetricList) FortyGigabitEthernetIsisMetricMetricListFlatRow {
-			return FortyGigabitEthernetIsisMetricMetricListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisMetricMetricListFlatRow) *ciscoiosxeisis.MetricList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisMetricMetricListFlatRow) FortyGigabitEthernetIsisMetricMetricListKey {
-			var k FortyGigabitEthernetIsisMetricMetricListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "metric", "metric-list")),
-	}
-}
-
-// FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListKey is PrefixAttributesList's row identity (ancestor keys in canonical form).
-type FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListKey struct {
-	FortyGigabitEthernetName string
-	Levels                   string
-}
-
-// FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListFlatRow flattens one PrefixAttributesList entry with its ancestor list keys.
-type FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListFlatRow struct {
-	FortyGigabitEthernetName string
-	Entry                    ciscoiosxeisis.PrefixAttributesList
-}
-
-// FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListDescriptor is the flattened-row descriptor for the nested list PrefixAttributesList.
-func FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListDescriptor() yang.ListDescriptor[FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListFlatRow, FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListKey] {
-	return yang.ListDescriptor[FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListFlatRow, FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{FortyGigabitEthernetSchema, ciscoiosxeisis.PrefixAttributesListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeisis.PrefixAttributesList) FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListFlatRow {
-			return FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListFlatRow{
-				Entry:                    e,
-				FortyGigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
-			}
-		}, func(r *FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListFlatRow) *ciscoiosxeisis.PrefixAttributesList {
-			return &r.Entry
-		}, func(r *FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListFlatRow) FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListKey {
-			var k FortyGigabitEthernetIsisPrefixAttributesPrefixAttributesListKey
-			k.FortyGigabitEthernetName = r.FortyGigabitEthernetName
-			if r.Entry.Levels != nil {
-				k.Levels = *r.Entry.Levels
-			}
-			return k
-		}),
-		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "FortyGigabitEthernet", "isis"), yang.In(moduleCiscoIOSXEIsis, "prefix-attributes", "prefix-attributes-list")),
-	}
-}
-
 // FortyGigabitEthernetIsisPriorityPriorityListKey is PriorityList's row identity (ancestor keys in canonical form).
 type FortyGigabitEthernetIsisPriorityPriorityListKey struct {
 	FortyGigabitEthernetName string
@@ -10185,27 +3910,27 @@ func GigabitEthernetPppoeClientDialPoolNumberListDescriptor() yang.ListDescripto
 	}
 }
 
-// GigabitEthernetServiceInstanceKey is GigabitEthernetServiceInstance's row identity (ancestor keys in canonical form).
+// GigabitEthernetServiceInstanceKey is ServiceInstance's row identity (ancestor keys in canonical form).
 type GigabitEthernetServiceInstanceKey struct {
 	GigabitEthernetName string
 	ID                  uint32
 }
 
-// GigabitEthernetServiceInstanceFlatRow flattens one GigabitEthernetServiceInstance entry with its ancestor list keys.
+// GigabitEthernetServiceInstanceFlatRow flattens one ServiceInstance entry with its ancestor list keys.
 type GigabitEthernetServiceInstanceFlatRow struct {
 	GigabitEthernetName string
-	Entry               ciscoiosxeethernet.GigabitEthernetServiceInstance
+	Entry               ciscoiosxeethernet.ServiceInstance
 }
 
-// GigabitEthernetServiceInstanceDescriptor is the flattened-row descriptor for the nested list GigabitEthernetServiceInstance.
+// GigabitEthernetServiceInstanceDescriptor is the flattened-row descriptor for the nested list ServiceInstance.
 func GigabitEthernetServiceInstanceDescriptor() yang.ListDescriptor[GigabitEthernetServiceInstanceFlatRow, GigabitEthernetServiceInstanceKey] {
 	return yang.ListDescriptor[GigabitEthernetServiceInstanceFlatRow, GigabitEthernetServiceInstanceKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.GigabitEthernetServiceInstanceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.GigabitEthernetServiceInstance) GigabitEthernetServiceInstanceFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.ServiceInstanceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.ServiceInstance) GigabitEthernetServiceInstanceFlatRow {
 			return GigabitEthernetServiceInstanceFlatRow{
 				Entry:               e,
 				GigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
 			}
-		}, func(r *GigabitEthernetServiceInstanceFlatRow) *ciscoiosxeethernet.GigabitEthernetServiceInstance {
+		}, func(r *GigabitEthernetServiceInstanceFlatRow) *ciscoiosxeethernet.ServiceInstance {
 			return &r.Entry
 		}, func(r *GigabitEthernetServiceInstanceFlatRow) GigabitEthernetServiceInstanceKey {
 			var k GigabitEthernetServiceInstanceKey
@@ -10236,7 +3961,7 @@ type GigabitEthernetServiceInstanceCfmMepListDomainFlatRow struct {
 // GigabitEthernetServiceInstanceCfmMepListDomainDescriptor is the flattened-row descriptor for the nested list MepListDomain.
 func GigabitEthernetServiceInstanceCfmMepListDomainDescriptor() yang.ListDescriptor[GigabitEthernetServiceInstanceCfmMepListDomainFlatRow, GigabitEthernetServiceInstanceCfmMepListDomainKey] {
 	return yang.ListDescriptor[GigabitEthernetServiceInstanceCfmMepListDomainFlatRow, GigabitEthernetServiceInstanceCfmMepListDomainKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.GigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.MepListDomainSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.MepListDomain) GigabitEthernetServiceInstanceCfmMepListDomainFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.MepListDomainSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.MepListDomain) GigabitEthernetServiceInstanceCfmMepListDomainFlatRow {
 			return GigabitEthernetServiceInstanceCfmMepListDomainFlatRow{
 				Entry:               e,
 				GigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
@@ -10274,7 +3999,7 @@ type GigabitEthernetServiceInstanceIPAccessGroupListFlatRow struct {
 // GigabitEthernetServiceInstanceIPAccessGroupListDescriptor is the flattened-row descriptor for the nested list IPAccessGroupList.
 func GigabitEthernetServiceInstanceIPAccessGroupListDescriptor() yang.ListDescriptor[GigabitEthernetServiceInstanceIPAccessGroupListFlatRow, GigabitEthernetServiceInstanceIPAccessGroupListKey] {
 	return yang.ListDescriptor[GigabitEthernetServiceInstanceIPAccessGroupListFlatRow, GigabitEthernetServiceInstanceIPAccessGroupListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.GigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.IPAccessGroupListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.IPAccessGroupList) GigabitEthernetServiceInstanceIPAccessGroupListFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.IPAccessGroupListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.IPAccessGroupList) GigabitEthernetServiceInstanceIPAccessGroupListFlatRow {
 			return GigabitEthernetServiceInstanceIPAccessGroupListFlatRow{
 				Entry:               e,
 				GigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
@@ -10312,7 +4037,7 @@ type GigabitEthernetServiceInstanceIPv6TrafficFilterListFlatRow struct {
 // GigabitEthernetServiceInstanceIPv6TrafficFilterListDescriptor is the flattened-row descriptor for the nested list TrafficFilterList.
 func GigabitEthernetServiceInstanceIPv6TrafficFilterListDescriptor() yang.ListDescriptor[GigabitEthernetServiceInstanceIPv6TrafficFilterListFlatRow, GigabitEthernetServiceInstanceIPv6TrafficFilterListKey] {
 	return yang.ListDescriptor[GigabitEthernetServiceInstanceIPv6TrafficFilterListFlatRow, GigabitEthernetServiceInstanceIPv6TrafficFilterListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.GigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.TrafficFilterListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.TrafficFilterList) GigabitEthernetServiceInstanceIPv6TrafficFilterListFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.TrafficFilterListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.TrafficFilterList) GigabitEthernetServiceInstanceIPv6TrafficFilterListFlatRow {
 			return GigabitEthernetServiceInstanceIPv6TrafficFilterListFlatRow{
 				Entry:               e,
 				GigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
@@ -10350,7 +4075,7 @@ type GigabitEthernetServiceInstanceMACAccessGroupFlatRow struct {
 // GigabitEthernetServiceInstanceMACAccessGroupDescriptor is the flattened-row descriptor for the nested list AccessGroup.
 func GigabitEthernetServiceInstanceMACAccessGroupDescriptor() yang.ListDescriptor[GigabitEthernetServiceInstanceMACAccessGroupFlatRow, GigabitEthernetServiceInstanceMACAccessGroupKey] {
 	return yang.ListDescriptor[GigabitEthernetServiceInstanceMACAccessGroupFlatRow, GigabitEthernetServiceInstanceMACAccessGroupKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.GigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.AccessGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.AccessGroup) GigabitEthernetServiceInstanceMACAccessGroupFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.AccessGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.AccessGroup) GigabitEthernetServiceInstanceMACAccessGroupFlatRow {
 			return GigabitEthernetServiceInstanceMACAccessGroupFlatRow{
 				Entry:               e,
 				GigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
@@ -10388,7 +4113,7 @@ type GigabitEthernetServiceInstanceMACAccessGroupListFlatRow struct {
 // GigabitEthernetServiceInstanceMACAccessGroupListDescriptor is the flattened-row descriptor for the nested list MACAccessGroupList.
 func GigabitEthernetServiceInstanceMACAccessGroupListDescriptor() yang.ListDescriptor[GigabitEthernetServiceInstanceMACAccessGroupListFlatRow, GigabitEthernetServiceInstanceMACAccessGroupListKey] {
 	return yang.ListDescriptor[GigabitEthernetServiceInstanceMACAccessGroupListFlatRow, GigabitEthernetServiceInstanceMACAccessGroupListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.GigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.MACAccessGroupListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.MACAccessGroupList) GigabitEthernetServiceInstanceMACAccessGroupListFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.MACAccessGroupListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.MACAccessGroupList) GigabitEthernetServiceInstanceMACAccessGroupListFlatRow {
 			return GigabitEthernetServiceInstanceMACAccessGroupListFlatRow{
 				Entry:               e,
 				GigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
@@ -10426,7 +4151,7 @@ type GigabitEthernetServiceInstanceMACSecurityAddressDenyFlatRow struct {
 // GigabitEthernetServiceInstanceMACSecurityAddressDenyDescriptor is the flattened-row descriptor for the nested list Deny.
 func GigabitEthernetServiceInstanceMACSecurityAddressDenyDescriptor() yang.ListDescriptor[GigabitEthernetServiceInstanceMACSecurityAddressDenyFlatRow, GigabitEthernetServiceInstanceMACSecurityAddressDenyKey] {
 	return yang.ListDescriptor[GigabitEthernetServiceInstanceMACSecurityAddressDenyFlatRow, GigabitEthernetServiceInstanceMACSecurityAddressDenyKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.GigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.DenySchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Deny) GigabitEthernetServiceInstanceMACSecurityAddressDenyFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.DenySchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Deny) GigabitEthernetServiceInstanceMACSecurityAddressDenyFlatRow {
 			return GigabitEthernetServiceInstanceMACSecurityAddressDenyFlatRow{
 				Entry:               e,
 				GigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
@@ -10464,7 +4189,7 @@ type GigabitEthernetServiceInstanceMACSecurityAddressPermitFlatRow struct {
 // GigabitEthernetServiceInstanceMACSecurityAddressPermitDescriptor is the flattened-row descriptor for the nested list AddressPermit.
 func GigabitEthernetServiceInstanceMACSecurityAddressPermitDescriptor() yang.ListDescriptor[GigabitEthernetServiceInstanceMACSecurityAddressPermitFlatRow, GigabitEthernetServiceInstanceMACSecurityAddressPermitKey] {
 	return yang.ListDescriptor[GigabitEthernetServiceInstanceMACSecurityAddressPermitFlatRow, GigabitEthernetServiceInstanceMACSecurityAddressPermitKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.GigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.AddressPermitSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.AddressPermit) GigabitEthernetServiceInstanceMACSecurityAddressPermitFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.AddressPermitSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.AddressPermit) GigabitEthernetServiceInstanceMACSecurityAddressPermitFlatRow {
 			return GigabitEthernetServiceInstanceMACSecurityAddressPermitFlatRow{
 				Entry:               e,
 				GigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
@@ -10502,7 +4227,7 @@ type GigabitEthernetServiceInstanceServicePolicyInputFlatRow struct {
 // GigabitEthernetServiceInstanceServicePolicyInputDescriptor is the flattened-row descriptor for the nested list ServicePolicyInput.
 func GigabitEthernetServiceInstanceServicePolicyInputDescriptor() yang.ListDescriptor[GigabitEthernetServiceInstanceServicePolicyInputFlatRow, GigabitEthernetServiceInstanceServicePolicyInputKey] {
 	return yang.ListDescriptor[GigabitEthernetServiceInstanceServicePolicyInputFlatRow, GigabitEthernetServiceInstanceServicePolicyInputKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.GigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.ServicePolicyInputSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.ServicePolicyInput) GigabitEthernetServiceInstanceServicePolicyInputFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.ServicePolicyInputSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.ServicePolicyInput) GigabitEthernetServiceInstanceServicePolicyInputFlatRow {
 			return GigabitEthernetServiceInstanceServicePolicyInputFlatRow{
 				Entry:               e,
 				GigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
@@ -10540,7 +4265,7 @@ type GigabitEthernetServiceInstanceServicePolicyOutputFlatRow struct {
 // GigabitEthernetServiceInstanceServicePolicyOutputDescriptor is the flattened-row descriptor for the nested list Output.
 func GigabitEthernetServiceInstanceServicePolicyOutputDescriptor() yang.ListDescriptor[GigabitEthernetServiceInstanceServicePolicyOutputFlatRow, GigabitEthernetServiceInstanceServicePolicyOutputKey] {
 	return yang.ListDescriptor[GigabitEthernetServiceInstanceServicePolicyOutputFlatRow, GigabitEthernetServiceInstanceServicePolicyOutputKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.GigabitEthernetServiceInstanceSchema, ciscoiosxeethernet.OutputSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Output) GigabitEthernetServiceInstanceServicePolicyOutputFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{GigabitEthernetSchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.OutputSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Output) GigabitEthernetServiceInstanceServicePolicyOutputFlatRow {
 			return GigabitEthernetServiceInstanceServicePolicyOutputFlatRow{
 				Entry:               e,
 				GigabitEthernetName: yang.AncestorKey(anc, 0, "name"),
@@ -19028,27 +12753,27 @@ func HundredGigEPppoeClientDialPoolNumberListDescriptor() yang.ListDescriptor[Hu
 	}
 }
 
-// HundredGigEServiceInstanceKey is HundredGigEServiceInstance's row identity (ancestor keys in canonical form).
+// HundredGigEServiceInstanceKey is ServiceInstance's row identity (ancestor keys in canonical form).
 type HundredGigEServiceInstanceKey struct {
 	HundredGigEName string
 	ID              uint32
 }
 
-// HundredGigEServiceInstanceFlatRow flattens one HundredGigEServiceInstance entry with its ancestor list keys.
+// HundredGigEServiceInstanceFlatRow flattens one ServiceInstance entry with its ancestor list keys.
 type HundredGigEServiceInstanceFlatRow struct {
 	HundredGigEName string
-	Entry           ciscoiosxeethernet.HundredGigEServiceInstance
+	Entry           ciscoiosxeethernet.ServiceInstance
 }
 
-// HundredGigEServiceInstanceDescriptor is the flattened-row descriptor for the nested list HundredGigEServiceInstance.
+// HundredGigEServiceInstanceDescriptor is the flattened-row descriptor for the nested list ServiceInstance.
 func HundredGigEServiceInstanceDescriptor() yang.ListDescriptor[HundredGigEServiceInstanceFlatRow, HundredGigEServiceInstanceKey] {
 	return yang.ListDescriptor[HundredGigEServiceInstanceFlatRow, HundredGigEServiceInstanceKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.HundredGigEServiceInstanceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.HundredGigEServiceInstance) HundredGigEServiceInstanceFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.ServiceInstanceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.ServiceInstance) HundredGigEServiceInstanceFlatRow {
 			return HundredGigEServiceInstanceFlatRow{
 				Entry:           e,
 				HundredGigEName: yang.AncestorKey(anc, 0, "name"),
 			}
-		}, func(r *HundredGigEServiceInstanceFlatRow) *ciscoiosxeethernet.HundredGigEServiceInstance {
+		}, func(r *HundredGigEServiceInstanceFlatRow) *ciscoiosxeethernet.ServiceInstance {
 			return &r.Entry
 		}, func(r *HundredGigEServiceInstanceFlatRow) HundredGigEServiceInstanceKey {
 			var k HundredGigEServiceInstanceKey
@@ -19079,7 +12804,7 @@ type HundredGigEServiceInstanceCfmMepListDomainFlatRow struct {
 // HundredGigEServiceInstanceCfmMepListDomainDescriptor is the flattened-row descriptor for the nested list MepListDomain.
 func HundredGigEServiceInstanceCfmMepListDomainDescriptor() yang.ListDescriptor[HundredGigEServiceInstanceCfmMepListDomainFlatRow, HundredGigEServiceInstanceCfmMepListDomainKey] {
 	return yang.ListDescriptor[HundredGigEServiceInstanceCfmMepListDomainFlatRow, HundredGigEServiceInstanceCfmMepListDomainKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.HundredGigEServiceInstanceSchema, ciscoiosxeethernet.MepListDomainSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.MepListDomain) HundredGigEServiceInstanceCfmMepListDomainFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.MepListDomainSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.MepListDomain) HundredGigEServiceInstanceCfmMepListDomainFlatRow {
 			return HundredGigEServiceInstanceCfmMepListDomainFlatRow{
 				Entry:           e,
 				HundredGigEName: yang.AncestorKey(anc, 0, "name"),
@@ -19117,7 +12842,7 @@ type HundredGigEServiceInstanceIPAccessGroupListFlatRow struct {
 // HundredGigEServiceInstanceIPAccessGroupListDescriptor is the flattened-row descriptor for the nested list IPAccessGroupList.
 func HundredGigEServiceInstanceIPAccessGroupListDescriptor() yang.ListDescriptor[HundredGigEServiceInstanceIPAccessGroupListFlatRow, HundredGigEServiceInstanceIPAccessGroupListKey] {
 	return yang.ListDescriptor[HundredGigEServiceInstanceIPAccessGroupListFlatRow, HundredGigEServiceInstanceIPAccessGroupListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.HundredGigEServiceInstanceSchema, ciscoiosxeethernet.IPAccessGroupListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.IPAccessGroupList) HundredGigEServiceInstanceIPAccessGroupListFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.IPAccessGroupListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.IPAccessGroupList) HundredGigEServiceInstanceIPAccessGroupListFlatRow {
 			return HundredGigEServiceInstanceIPAccessGroupListFlatRow{
 				Entry:           e,
 				HundredGigEName: yang.AncestorKey(anc, 0, "name"),
@@ -19155,7 +12880,7 @@ type HundredGigEServiceInstanceIPv6TrafficFilterListFlatRow struct {
 // HundredGigEServiceInstanceIPv6TrafficFilterListDescriptor is the flattened-row descriptor for the nested list TrafficFilterList.
 func HundredGigEServiceInstanceIPv6TrafficFilterListDescriptor() yang.ListDescriptor[HundredGigEServiceInstanceIPv6TrafficFilterListFlatRow, HundredGigEServiceInstanceIPv6TrafficFilterListKey] {
 	return yang.ListDescriptor[HundredGigEServiceInstanceIPv6TrafficFilterListFlatRow, HundredGigEServiceInstanceIPv6TrafficFilterListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.HundredGigEServiceInstanceSchema, ciscoiosxeethernet.TrafficFilterListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.TrafficFilterList) HundredGigEServiceInstanceIPv6TrafficFilterListFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.TrafficFilterListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.TrafficFilterList) HundredGigEServiceInstanceIPv6TrafficFilterListFlatRow {
 			return HundredGigEServiceInstanceIPv6TrafficFilterListFlatRow{
 				Entry:           e,
 				HundredGigEName: yang.AncestorKey(anc, 0, "name"),
@@ -19193,7 +12918,7 @@ type HundredGigEServiceInstanceMACAccessGroupFlatRow struct {
 // HundredGigEServiceInstanceMACAccessGroupDescriptor is the flattened-row descriptor for the nested list AccessGroup.
 func HundredGigEServiceInstanceMACAccessGroupDescriptor() yang.ListDescriptor[HundredGigEServiceInstanceMACAccessGroupFlatRow, HundredGigEServiceInstanceMACAccessGroupKey] {
 	return yang.ListDescriptor[HundredGigEServiceInstanceMACAccessGroupFlatRow, HundredGigEServiceInstanceMACAccessGroupKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.HundredGigEServiceInstanceSchema, ciscoiosxeethernet.AccessGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.AccessGroup) HundredGigEServiceInstanceMACAccessGroupFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.AccessGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.AccessGroup) HundredGigEServiceInstanceMACAccessGroupFlatRow {
 			return HundredGigEServiceInstanceMACAccessGroupFlatRow{
 				Entry:           e,
 				HundredGigEName: yang.AncestorKey(anc, 0, "name"),
@@ -19231,7 +12956,7 @@ type HundredGigEServiceInstanceMACAccessGroupListFlatRow struct {
 // HundredGigEServiceInstanceMACAccessGroupListDescriptor is the flattened-row descriptor for the nested list MACAccessGroupList.
 func HundredGigEServiceInstanceMACAccessGroupListDescriptor() yang.ListDescriptor[HundredGigEServiceInstanceMACAccessGroupListFlatRow, HundredGigEServiceInstanceMACAccessGroupListKey] {
 	return yang.ListDescriptor[HundredGigEServiceInstanceMACAccessGroupListFlatRow, HundredGigEServiceInstanceMACAccessGroupListKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.HundredGigEServiceInstanceSchema, ciscoiosxeethernet.MACAccessGroupListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.MACAccessGroupList) HundredGigEServiceInstanceMACAccessGroupListFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.MACAccessGroupListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.MACAccessGroupList) HundredGigEServiceInstanceMACAccessGroupListFlatRow {
 			return HundredGigEServiceInstanceMACAccessGroupListFlatRow{
 				Entry:           e,
 				HundredGigEName: yang.AncestorKey(anc, 0, "name"),
@@ -19269,7 +12994,7 @@ type HundredGigEServiceInstanceMACSecurityAddressDenyFlatRow struct {
 // HundredGigEServiceInstanceMACSecurityAddressDenyDescriptor is the flattened-row descriptor for the nested list Deny.
 func HundredGigEServiceInstanceMACSecurityAddressDenyDescriptor() yang.ListDescriptor[HundredGigEServiceInstanceMACSecurityAddressDenyFlatRow, HundredGigEServiceInstanceMACSecurityAddressDenyKey] {
 	return yang.ListDescriptor[HundredGigEServiceInstanceMACSecurityAddressDenyFlatRow, HundredGigEServiceInstanceMACSecurityAddressDenyKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.HundredGigEServiceInstanceSchema, ciscoiosxeethernet.DenySchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Deny) HundredGigEServiceInstanceMACSecurityAddressDenyFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.DenySchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Deny) HundredGigEServiceInstanceMACSecurityAddressDenyFlatRow {
 			return HundredGigEServiceInstanceMACSecurityAddressDenyFlatRow{
 				Entry:           e,
 				HundredGigEName: yang.AncestorKey(anc, 0, "name"),
@@ -19307,7 +13032,7 @@ type HundredGigEServiceInstanceMACSecurityAddressPermitFlatRow struct {
 // HundredGigEServiceInstanceMACSecurityAddressPermitDescriptor is the flattened-row descriptor for the nested list AddressPermit.
 func HundredGigEServiceInstanceMACSecurityAddressPermitDescriptor() yang.ListDescriptor[HundredGigEServiceInstanceMACSecurityAddressPermitFlatRow, HundredGigEServiceInstanceMACSecurityAddressPermitKey] {
 	return yang.ListDescriptor[HundredGigEServiceInstanceMACSecurityAddressPermitFlatRow, HundredGigEServiceInstanceMACSecurityAddressPermitKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.HundredGigEServiceInstanceSchema, ciscoiosxeethernet.AddressPermitSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.AddressPermit) HundredGigEServiceInstanceMACSecurityAddressPermitFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.AddressPermitSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.AddressPermit) HundredGigEServiceInstanceMACSecurityAddressPermitFlatRow {
 			return HundredGigEServiceInstanceMACSecurityAddressPermitFlatRow{
 				Entry:           e,
 				HundredGigEName: yang.AncestorKey(anc, 0, "name"),
@@ -19345,7 +13070,7 @@ type HundredGigEServiceInstanceServicePolicyInputFlatRow struct {
 // HundredGigEServiceInstanceServicePolicyInputDescriptor is the flattened-row descriptor for the nested list ServicePolicyInput.
 func HundredGigEServiceInstanceServicePolicyInputDescriptor() yang.ListDescriptor[HundredGigEServiceInstanceServicePolicyInputFlatRow, HundredGigEServiceInstanceServicePolicyInputKey] {
 	return yang.ListDescriptor[HundredGigEServiceInstanceServicePolicyInputFlatRow, HundredGigEServiceInstanceServicePolicyInputKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.HundredGigEServiceInstanceSchema, ciscoiosxeethernet.ServicePolicyInputSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.ServicePolicyInput) HundredGigEServiceInstanceServicePolicyInputFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.ServicePolicyInputSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.ServicePolicyInput) HundredGigEServiceInstanceServicePolicyInputFlatRow {
 			return HundredGigEServiceInstanceServicePolicyInputFlatRow{
 				Entry:           e,
 				HundredGigEName: yang.AncestorKey(anc, 0, "name"),
@@ -19383,7 +13108,7 @@ type HundredGigEServiceInstanceServicePolicyOutputFlatRow struct {
 // HundredGigEServiceInstanceServicePolicyOutputDescriptor is the flattened-row descriptor for the nested list Output.
 func HundredGigEServiceInstanceServicePolicyOutputDescriptor() yang.ListDescriptor[HundredGigEServiceInstanceServicePolicyOutputFlatRow, HundredGigEServiceInstanceServicePolicyOutputKey] {
 	return yang.ListDescriptor[HundredGigEServiceInstanceServicePolicyOutputFlatRow, HundredGigEServiceInstanceServicePolicyOutputKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.HundredGigEServiceInstanceSchema, ciscoiosxeethernet.OutputSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Output) HundredGigEServiceInstanceServicePolicyOutputFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{HundredGigESchema, ciscoiosxeethernet.ServiceInstanceSchema, ciscoiosxeethernet.OutputSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Output) HundredGigEServiceInstanceServicePolicyOutputFlatRow {
 			return HundredGigEServiceInstanceServicePolicyOutputFlatRow{
 				Entry:           e,
 				HundredGigEName: yang.AncestorKey(anc, 0, "name"),
@@ -38237,4 +31962,6444 @@ func MultilinkIPPimRedundancyDescriptor() yang.ListDescriptor[MultilinkIPPimRedu
 type MultilinkIPSummaryAddressEigrpKey struct {
 	MultilinkName string
 	ID            string
+}
+
+// MultilinkIPSummaryAddressEigrpFlatRow flattens one SummaryAddressEigrp entry with its ancestor list keys.
+type MultilinkIPSummaryAddressEigrpFlatRow struct {
+	MultilinkName string
+	Entry         SummaryAddressEigrp
+}
+
+// MultilinkIPSummaryAddressEigrpDescriptor is the flattened-row descriptor for the nested list SummaryAddressEigrp.
+func MultilinkIPSummaryAddressEigrpDescriptor() yang.ListDescriptor[MultilinkIPSummaryAddressEigrpFlatRow, MultilinkIPSummaryAddressEigrpKey] {
+	return yang.ListDescriptor[MultilinkIPSummaryAddressEigrpFlatRow, MultilinkIPSummaryAddressEigrpKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, SummaryAddressEigrpSchema}, func(anc [][]yang.KeyValue, e SummaryAddressEigrp) MultilinkIPSummaryAddressEigrpFlatRow {
+			return MultilinkIPSummaryAddressEigrpFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkIPSummaryAddressEigrpFlatRow) *SummaryAddressEigrp {
+			return &r.Entry
+		}, func(r *MultilinkIPSummaryAddressEigrpFlatRow) MultilinkIPSummaryAddressEigrpKey {
+			var k MultilinkIPSummaryAddressEigrpKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "ip", "summary-address", "eigrp")),
+	}
+}
+
+// MultilinkIPv6FlowMonitorKey is FlowMonitorXc8f9c0's row identity (ancestor keys in canonical form).
+type MultilinkIPv6FlowMonitorKey struct {
+	MultilinkName string
+	Name          string
+}
+
+// MultilinkIPv6FlowMonitorFlatRow flattens one FlowMonitorXc8f9c0 entry with its ancestor list keys.
+type MultilinkIPv6FlowMonitorFlatRow struct {
+	MultilinkName string
+	Entry         ciscoiosxeflow.FlowMonitorXc8f9c0
+}
+
+// MultilinkIPv6FlowMonitorDescriptor is the flattened-row descriptor for the nested list FlowMonitorXc8f9c0.
+func MultilinkIPv6FlowMonitorDescriptor() yang.ListDescriptor[MultilinkIPv6FlowMonitorFlatRow, MultilinkIPv6FlowMonitorKey] {
+	return yang.ListDescriptor[MultilinkIPv6FlowMonitorFlatRow, MultilinkIPv6FlowMonitorKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, ciscoiosxeflow.FlowMonitorSchemaX975c36}, func(anc [][]yang.KeyValue, e ciscoiosxeflow.FlowMonitorXc8f9c0) MultilinkIPv6FlowMonitorFlatRow {
+			return MultilinkIPv6FlowMonitorFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkIPv6FlowMonitorFlatRow) *ciscoiosxeflow.FlowMonitorXc8f9c0 {
+			return &r.Entry
+		}, func(r *MultilinkIPv6FlowMonitorFlatRow) MultilinkIPv6FlowMonitorKey {
+			var k MultilinkIPv6FlowMonitorKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "ipv6"), yang.In(moduleCiscoIOSXEFlow, "flow", "monitor")),
+	}
+}
+
+// MultilinkIPv6FlowMonitorNewKey is MonitorNew's row identity (ancestor keys in canonical form).
+type MultilinkIPv6FlowMonitorNewKey struct {
+	MultilinkName string
+	Name          string
+	Direction     string
+}
+
+// MultilinkIPv6FlowMonitorNewFlatRow flattens one MonitorNew entry with its ancestor list keys.
+type MultilinkIPv6FlowMonitorNewFlatRow struct {
+	MultilinkName string
+	Entry         ciscoiosxeflow.MonitorNew
+}
+
+// MultilinkIPv6FlowMonitorNewDescriptor is the flattened-row descriptor for the nested list MonitorNew.
+func MultilinkIPv6FlowMonitorNewDescriptor() yang.ListDescriptor[MultilinkIPv6FlowMonitorNewFlatRow, MultilinkIPv6FlowMonitorNewKey] {
+	return yang.ListDescriptor[MultilinkIPv6FlowMonitorNewFlatRow, MultilinkIPv6FlowMonitorNewKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, ciscoiosxeflow.MonitorNewSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeflow.MonitorNew) MultilinkIPv6FlowMonitorNewFlatRow {
+			return MultilinkIPv6FlowMonitorNewFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkIPv6FlowMonitorNewFlatRow) *ciscoiosxeflow.MonitorNew {
+			return &r.Entry
+		}, func(r *MultilinkIPv6FlowMonitorNewFlatRow) MultilinkIPv6FlowMonitorNewKey {
+			var k MultilinkIPv6FlowMonitorNewKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			if r.Entry.Direction != nil {
+				k.Direction = *r.Entry.Direction
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "ipv6"), yang.In(moduleCiscoIOSXEFlow, "flow", "monitor-new")),
+	}
+}
+
+// MultilinkIPv6FlowMonitorSamplerKey is MonitorSampler's row identity (ancestor keys in canonical form).
+type MultilinkIPv6FlowMonitorSamplerKey struct {
+	MultilinkName string
+	MonitorName   string
+	Direction     string
+}
+
+// MultilinkIPv6FlowMonitorSamplerFlatRow flattens one MonitorSampler entry with its ancestor list keys.
+type MultilinkIPv6FlowMonitorSamplerFlatRow struct {
+	MultilinkName string
+	MonitorName   string
+	Entry         ciscoiosxeflow.MonitorSampler
+}
+
+// MultilinkIPv6FlowMonitorSamplerDescriptor is the flattened-row descriptor for the nested list MonitorSampler.
+func MultilinkIPv6FlowMonitorSamplerDescriptor() yang.ListDescriptor[MultilinkIPv6FlowMonitorSamplerFlatRow, MultilinkIPv6FlowMonitorSamplerKey] {
+	return yang.ListDescriptor[MultilinkIPv6FlowMonitorSamplerFlatRow, MultilinkIPv6FlowMonitorSamplerKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, ciscoiosxeflow.FlowMonitorSchemaX975c36, ciscoiosxeflow.MonitorSamplerSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeflow.MonitorSampler) MultilinkIPv6FlowMonitorSamplerFlatRow {
+			return MultilinkIPv6FlowMonitorSamplerFlatRow{
+				Entry:         e,
+				MonitorName:   yang.AncestorKey(anc, 1, "name"),
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkIPv6FlowMonitorSamplerFlatRow) *ciscoiosxeflow.MonitorSampler {
+			return &r.Entry
+		}, func(r *MultilinkIPv6FlowMonitorSamplerFlatRow) MultilinkIPv6FlowMonitorSamplerKey {
+			var k MultilinkIPv6FlowMonitorSamplerKey
+			k.MultilinkName = r.MultilinkName
+			k.MonitorName = r.MonitorName
+			if r.Entry.Direction != nil {
+				k.Direction = *r.Entry.Direction
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "ipv6"), yang.In(moduleCiscoIOSXEFlow, "flow", "monitor", "sampler")),
+	}
+}
+
+// MultilinkIPv6MldStaticGroupKey is StaticGroup's row identity (ancestor keys in canonical form).
+type MultilinkIPv6MldStaticGroupKey struct {
+	MultilinkName string
+	Gaddr         string
+}
+
+// MultilinkIPv6MldStaticGroupFlatRow flattens one StaticGroup entry with its ancestor list keys.
+type MultilinkIPv6MldStaticGroupFlatRow struct {
+	MultilinkName string
+	Entry         ciscoiosxemld.StaticGroup
+}
+
+// MultilinkIPv6MldStaticGroupDescriptor is the flattened-row descriptor for the nested list StaticGroup.
+func MultilinkIPv6MldStaticGroupDescriptor() yang.ListDescriptor[MultilinkIPv6MldStaticGroupFlatRow, MultilinkIPv6MldStaticGroupKey] {
+	return yang.ListDescriptor[MultilinkIPv6MldStaticGroupFlatRow, MultilinkIPv6MldStaticGroupKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, ciscoiosxemld.StaticGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxemld.StaticGroup) MultilinkIPv6MldStaticGroupFlatRow {
+			return MultilinkIPv6MldStaticGroupFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkIPv6MldStaticGroupFlatRow) *ciscoiosxemld.StaticGroup {
+			return &r.Entry
+		}, func(r *MultilinkIPv6MldStaticGroupFlatRow) MultilinkIPv6MldStaticGroupKey {
+			var k MultilinkIPv6MldStaticGroupKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.Gaddr != nil {
+				k.Gaddr = *r.Entry.Gaddr
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "ipv6"), yang.In(moduleCiscoIOSXEMld, "mld", "static-group")),
+	}
+}
+
+// MultilinkIPv6AddressLinkLocalAddressKey is LinkLocalAddress's row identity (ancestor keys in canonical form).
+type MultilinkIPv6AddressLinkLocalAddressKey struct {
+	MultilinkName string
+	Address       string
+}
+
+// MultilinkIPv6AddressLinkLocalAddressFlatRow flattens one LinkLocalAddress entry with its ancestor list keys.
+type MultilinkIPv6AddressLinkLocalAddressFlatRow struct {
+	MultilinkName string
+	Entry         LinkLocalAddress
+}
+
+// MultilinkIPv6AddressLinkLocalAddressDescriptor is the flattened-row descriptor for the nested list LinkLocalAddress.
+func MultilinkIPv6AddressLinkLocalAddressDescriptor() yang.ListDescriptor[MultilinkIPv6AddressLinkLocalAddressFlatRow, MultilinkIPv6AddressLinkLocalAddressKey] {
+	return yang.ListDescriptor[MultilinkIPv6AddressLinkLocalAddressFlatRow, MultilinkIPv6AddressLinkLocalAddressKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, LinkLocalAddressSchema}, func(anc [][]yang.KeyValue, e LinkLocalAddress) MultilinkIPv6AddressLinkLocalAddressFlatRow {
+			return MultilinkIPv6AddressLinkLocalAddressFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkIPv6AddressLinkLocalAddressFlatRow) *LinkLocalAddress {
+			return &r.Entry
+		}, func(r *MultilinkIPv6AddressLinkLocalAddressFlatRow) MultilinkIPv6AddressLinkLocalAddressKey {
+			var k MultilinkIPv6AddressLinkLocalAddressKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "ipv6", "address", "link-local-address")),
+	}
+}
+
+// MultilinkIPv6AddressPrefixListKey is AddressPrefixList's row identity (ancestor keys in canonical form).
+type MultilinkIPv6AddressPrefixListKey struct {
+	MultilinkName string
+	Prefix        string
+}
+
+// MultilinkIPv6AddressPrefixListFlatRow flattens one AddressPrefixList entry with its ancestor list keys.
+type MultilinkIPv6AddressPrefixListFlatRow struct {
+	MultilinkName string
+	Entry         AddressPrefixList
+}
+
+// MultilinkIPv6AddressPrefixListDescriptor is the flattened-row descriptor for the nested list AddressPrefixList.
+func MultilinkIPv6AddressPrefixListDescriptor() yang.ListDescriptor[MultilinkIPv6AddressPrefixListFlatRow, MultilinkIPv6AddressPrefixListKey] {
+	return yang.ListDescriptor[MultilinkIPv6AddressPrefixListFlatRow, MultilinkIPv6AddressPrefixListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, AddressPrefixListSchema}, func(anc [][]yang.KeyValue, e AddressPrefixList) MultilinkIPv6AddressPrefixListFlatRow {
+			return MultilinkIPv6AddressPrefixListFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkIPv6AddressPrefixListFlatRow) *AddressPrefixList {
+			return &r.Entry
+		}, func(r *MultilinkIPv6AddressPrefixListFlatRow) MultilinkIPv6AddressPrefixListKey {
+			var k MultilinkIPv6AddressPrefixListKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.Prefix != nil {
+				k.Prefix = *r.Entry.Prefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "ipv6", "address", "prefix-list")),
+	}
+}
+
+// MultilinkIPv6AddressPrefixNameKey is PrefixName's row identity (ancestor keys in canonical form).
+type MultilinkIPv6AddressPrefixNameKey struct {
+	MultilinkName string
+	Name          string
+}
+
+// MultilinkIPv6AddressPrefixNameFlatRow flattens one PrefixName entry with its ancestor list keys.
+type MultilinkIPv6AddressPrefixNameFlatRow struct {
+	MultilinkName string
+	Entry         PrefixName
+}
+
+// MultilinkIPv6AddressPrefixNameDescriptor is the flattened-row descriptor for the nested list PrefixName.
+func MultilinkIPv6AddressPrefixNameDescriptor() yang.ListDescriptor[MultilinkIPv6AddressPrefixNameFlatRow, MultilinkIPv6AddressPrefixNameKey] {
+	return yang.ListDescriptor[MultilinkIPv6AddressPrefixNameFlatRow, MultilinkIPv6AddressPrefixNameKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, PrefixNameSchema}, func(anc [][]yang.KeyValue, e PrefixName) MultilinkIPv6AddressPrefixNameFlatRow {
+			return MultilinkIPv6AddressPrefixNameFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkIPv6AddressPrefixNameFlatRow) *PrefixName {
+			return &r.Entry
+		}, func(r *MultilinkIPv6AddressPrefixNameFlatRow) MultilinkIPv6AddressPrefixNameKey {
+			var k MultilinkIPv6AddressPrefixNameKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "ipv6", "address", "prefix-name")),
+	}
+}
+
+// MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey is PrefixOptionsIPv6Prefix's row identity (ancestor keys in canonical form).
+type MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey struct {
+	MultilinkName  string
+	PrefixNameName string
+	Prefix         string
+}
+
+// MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow flattens one PrefixOptionsIPv6Prefix entry with its ancestor list keys.
+type MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow struct {
+	MultilinkName  string
+	PrefixNameName string
+	Entry          PrefixOptionsIPv6Prefix
+}
+
+// MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixDescriptor is the flattened-row descriptor for the nested list PrefixOptionsIPv6Prefix.
+func MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixDescriptor() yang.ListDescriptor[MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow, MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey] {
+	return yang.ListDescriptor[MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow, MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, PrefixNameSchema, PrefixOptionsIPv6PrefixSchema}, func(anc [][]yang.KeyValue, e PrefixOptionsIPv6Prefix) MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow {
+			return MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow{
+				Entry:          e,
+				MultilinkName:  yang.AncestorKey(anc, 0, "name"),
+				PrefixNameName: yang.AncestorKey(anc, 1, "name"),
+			}
+		}, func(r *MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow) *PrefixOptionsIPv6Prefix {
+			return &r.Entry
+		}, func(r *MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow) MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey {
+			var k MultilinkIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey
+			k.MultilinkName = r.MultilinkName
+			k.PrefixNameName = r.PrefixNameName
+			if r.Entry.Prefix != nil {
+				k.Prefix = *r.Entry.Prefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "ipv6", "address", "prefix-name", "prefix-options", "ipv6-prefix")),
+	}
+}
+
+// MultilinkIPv6NdPrefixIPv6PrefixListKey is IPv6PrefixList's row identity (ancestor keys in canonical form).
+type MultilinkIPv6NdPrefixIPv6PrefixListKey struct {
+	MultilinkName string
+	IPv6Prefix    string
+}
+
+// MultilinkIPv6NdPrefixIPv6PrefixListFlatRow flattens one IPv6PrefixList entry with its ancestor list keys.
+type MultilinkIPv6NdPrefixIPv6PrefixListFlatRow struct {
+	MultilinkName string
+	Entry         ciscoiosxend.IPv6PrefixList
+}
+
+// MultilinkIPv6NdPrefixIPv6PrefixListDescriptor is the flattened-row descriptor for the nested list IPv6PrefixList.
+func MultilinkIPv6NdPrefixIPv6PrefixListDescriptor() yang.ListDescriptor[MultilinkIPv6NdPrefixIPv6PrefixListFlatRow, MultilinkIPv6NdPrefixIPv6PrefixListKey] {
+	return yang.ListDescriptor[MultilinkIPv6NdPrefixIPv6PrefixListFlatRow, MultilinkIPv6NdPrefixIPv6PrefixListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, ciscoiosxend.IPv6PrefixListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxend.IPv6PrefixList) MultilinkIPv6NdPrefixIPv6PrefixListFlatRow {
+			return MultilinkIPv6NdPrefixIPv6PrefixListFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkIPv6NdPrefixIPv6PrefixListFlatRow) *ciscoiosxend.IPv6PrefixList {
+			return &r.Entry
+		}, func(r *MultilinkIPv6NdPrefixIPv6PrefixListFlatRow) MultilinkIPv6NdPrefixIPv6PrefixListKey {
+			var k MultilinkIPv6NdPrefixIPv6PrefixListKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.IPv6Prefix != nil {
+				k.IPv6Prefix = *r.Entry.IPv6Prefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "ipv6", "nd"), yang.In(moduleCiscoIOSXENd, "prefix", "ipv6-prefix-list")),
+	}
+}
+
+// MultilinkIPv6NdRaThrottlerAttachedPoliciesKey is AttachedPolicies's row identity (ancestor keys in canonical form).
+type MultilinkIPv6NdRaThrottlerAttachedPoliciesKey struct {
+	MultilinkName string
+	AttachPolicy  string
+}
+
+// MultilinkIPv6NdRaThrottlerAttachedPoliciesFlatRow flattens one AttachedPolicies entry with its ancestor list keys.
+type MultilinkIPv6NdRaThrottlerAttachedPoliciesFlatRow struct {
+	MultilinkName string
+	Entry         ciscoiosxend.AttachedPolicies
+}
+
+// MultilinkIPv6NdRaThrottlerAttachedPoliciesDescriptor is the flattened-row descriptor for the nested list AttachedPolicies.
+func MultilinkIPv6NdRaThrottlerAttachedPoliciesDescriptor() yang.ListDescriptor[MultilinkIPv6NdRaThrottlerAttachedPoliciesFlatRow, MultilinkIPv6NdRaThrottlerAttachedPoliciesKey] {
+	return yang.ListDescriptor[MultilinkIPv6NdRaThrottlerAttachedPoliciesFlatRow, MultilinkIPv6NdRaThrottlerAttachedPoliciesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, ciscoiosxend.AttachedPoliciesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxend.AttachedPolicies) MultilinkIPv6NdRaThrottlerAttachedPoliciesFlatRow {
+			return MultilinkIPv6NdRaThrottlerAttachedPoliciesFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkIPv6NdRaThrottlerAttachedPoliciesFlatRow) *ciscoiosxend.AttachedPolicies {
+			return &r.Entry
+		}, func(r *MultilinkIPv6NdRaThrottlerAttachedPoliciesFlatRow) MultilinkIPv6NdRaThrottlerAttachedPoliciesKey {
+			var k MultilinkIPv6NdRaThrottlerAttachedPoliciesKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.AttachPolicy != nil {
+				k.AttachPolicy = *r.Entry.AttachPolicy
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "ipv6", "nd"), yang.In(moduleCiscoIOSXENd, "ra-throttler", "attached-policies")),
+	}
+}
+
+// MultilinkIPv6NdRaSpecificRouteKey is SpecificRoute's row identity (ancestor keys in canonical form).
+type MultilinkIPv6NdRaSpecificRouteKey struct {
+	MultilinkName string
+	SpecificRoute string
+}
+
+// MultilinkIPv6NdRaSpecificRouteFlatRow flattens one SpecificRoute entry with its ancestor list keys.
+type MultilinkIPv6NdRaSpecificRouteFlatRow struct {
+	MultilinkName string
+	Entry         ciscoiosxend.SpecificRoute
+}
+
+// MultilinkIPv6NdRaSpecificRouteDescriptor is the flattened-row descriptor for the nested list SpecificRoute.
+func MultilinkIPv6NdRaSpecificRouteDescriptor() yang.ListDescriptor[MultilinkIPv6NdRaSpecificRouteFlatRow, MultilinkIPv6NdRaSpecificRouteKey] {
+	return yang.ListDescriptor[MultilinkIPv6NdRaSpecificRouteFlatRow, MultilinkIPv6NdRaSpecificRouteKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, ciscoiosxend.SpecificRouteSchema}, func(anc [][]yang.KeyValue, e ciscoiosxend.SpecificRoute) MultilinkIPv6NdRaSpecificRouteFlatRow {
+			return MultilinkIPv6NdRaSpecificRouteFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkIPv6NdRaSpecificRouteFlatRow) *ciscoiosxend.SpecificRoute {
+			return &r.Entry
+		}, func(r *MultilinkIPv6NdRaSpecificRouteFlatRow) MultilinkIPv6NdRaSpecificRouteKey {
+			var k MultilinkIPv6NdRaSpecificRouteKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.SpecificRoute != nil {
+				k.SpecificRoute = *r.Entry.SpecificRoute
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "ipv6", "nd"), yang.In(moduleCiscoIOSXENd, "ra", "specific-route")),
+	}
+}
+
+// MultilinkIPv6NdRaguardAttachedPoliciesKey is AttachedPolicies's row identity (ancestor keys in canonical form).
+type MultilinkIPv6NdRaguardAttachedPoliciesKey struct {
+	MultilinkName string
+	AttachPolicy  string
+}
+
+// MultilinkIPv6NdRaguardAttachedPoliciesFlatRow flattens one AttachedPolicies entry with its ancestor list keys.
+type MultilinkIPv6NdRaguardAttachedPoliciesFlatRow struct {
+	MultilinkName string
+	Entry         ciscoiosxend.AttachedPolicies
+}
+
+// MultilinkIPv6NdRaguardAttachedPoliciesDescriptor is the flattened-row descriptor for the nested list AttachedPolicies.
+func MultilinkIPv6NdRaguardAttachedPoliciesDescriptor() yang.ListDescriptor[MultilinkIPv6NdRaguardAttachedPoliciesFlatRow, MultilinkIPv6NdRaguardAttachedPoliciesKey] {
+	return yang.ListDescriptor[MultilinkIPv6NdRaguardAttachedPoliciesFlatRow, MultilinkIPv6NdRaguardAttachedPoliciesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, ciscoiosxend.AttachedPoliciesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxend.AttachedPolicies) MultilinkIPv6NdRaguardAttachedPoliciesFlatRow {
+			return MultilinkIPv6NdRaguardAttachedPoliciesFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkIPv6NdRaguardAttachedPoliciesFlatRow) *ciscoiosxend.AttachedPolicies {
+			return &r.Entry
+		}, func(r *MultilinkIPv6NdRaguardAttachedPoliciesFlatRow) MultilinkIPv6NdRaguardAttachedPoliciesKey {
+			var k MultilinkIPv6NdRaguardAttachedPoliciesKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.AttachPolicy != nil {
+				k.AttachPolicy = *r.Entry.AttachPolicy
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "ipv6", "nd"), yang.In(moduleCiscoIOSXENd, "raguard", "attached-policies")),
+	}
+}
+
+// MultilinkIPv6TrafficFilterKey is IPv6TrafficFilter's row identity (ancestor keys in canonical form).
+type MultilinkIPv6TrafficFilterKey struct {
+	MultilinkName string
+	Direction     string
+}
+
+// MultilinkIPv6TrafficFilterFlatRow flattens one IPv6TrafficFilter entry with its ancestor list keys.
+type MultilinkIPv6TrafficFilterFlatRow struct {
+	MultilinkName string
+	Entry         IPv6TrafficFilter
+}
+
+// MultilinkIPv6TrafficFilterDescriptor is the flattened-row descriptor for the nested list IPv6TrafficFilter.
+func MultilinkIPv6TrafficFilterDescriptor() yang.ListDescriptor[MultilinkIPv6TrafficFilterFlatRow, MultilinkIPv6TrafficFilterKey] {
+	return yang.ListDescriptor[MultilinkIPv6TrafficFilterFlatRow, MultilinkIPv6TrafficFilterKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, IPv6TrafficFilterSchema}, func(anc [][]yang.KeyValue, e IPv6TrafficFilter) MultilinkIPv6TrafficFilterFlatRow {
+			return MultilinkIPv6TrafficFilterFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkIPv6TrafficFilterFlatRow) *IPv6TrafficFilter {
+			return &r.Entry
+		}, func(r *MultilinkIPv6TrafficFilterFlatRow) MultilinkIPv6TrafficFilterKey {
+			var k MultilinkIPv6TrafficFilterKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.Direction != nil {
+				k.Direction = *r.Entry.Direction
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "ipv6", "traffic-filter")),
+	}
+}
+
+// MultilinkL2protocolForwardDropThresholdThresholdListKey is ThresholdList's row identity (ancestor keys in canonical form).
+type MultilinkL2protocolForwardDropThresholdThresholdListKey struct {
+	MultilinkName string
+	ProtoType     string
+}
+
+// MultilinkL2protocolForwardDropThresholdThresholdListFlatRow flattens one ThresholdList entry with its ancestor list keys.
+type MultilinkL2protocolForwardDropThresholdThresholdListFlatRow struct {
+	MultilinkName string
+	Entry         ThresholdList
+}
+
+// MultilinkL2protocolForwardDropThresholdThresholdListDescriptor is the flattened-row descriptor for the nested list ThresholdList.
+func MultilinkL2protocolForwardDropThresholdThresholdListDescriptor() yang.ListDescriptor[MultilinkL2protocolForwardDropThresholdThresholdListFlatRow, MultilinkL2protocolForwardDropThresholdThresholdListKey] {
+	return yang.ListDescriptor[MultilinkL2protocolForwardDropThresholdThresholdListFlatRow, MultilinkL2protocolForwardDropThresholdThresholdListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, ThresholdListSchema}, func(anc [][]yang.KeyValue, e ThresholdList) MultilinkL2protocolForwardDropThresholdThresholdListFlatRow {
+			return MultilinkL2protocolForwardDropThresholdThresholdListFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkL2protocolForwardDropThresholdThresholdListFlatRow) *ThresholdList {
+			return &r.Entry
+		}, func(r *MultilinkL2protocolForwardDropThresholdThresholdListFlatRow) MultilinkL2protocolForwardDropThresholdThresholdListKey {
+			var k MultilinkL2protocolForwardDropThresholdThresholdListKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.ProtoType != nil {
+				k.ProtoType = *r.Entry.ProtoType
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "l2protocol", "forward", "drop-threshold", "threshold-list")),
+	}
+}
+
+// MultilinkL2protocolForwardShutdownThresholdThresholdListKey is ThresholdList's row identity (ancestor keys in canonical form).
+type MultilinkL2protocolForwardShutdownThresholdThresholdListKey struct {
+	MultilinkName string
+	ProtoType     string
+}
+
+// MultilinkL2protocolForwardShutdownThresholdThresholdListFlatRow flattens one ThresholdList entry with its ancestor list keys.
+type MultilinkL2protocolForwardShutdownThresholdThresholdListFlatRow struct {
+	MultilinkName string
+	Entry         ThresholdList
+}
+
+// MultilinkL2protocolForwardShutdownThresholdThresholdListDescriptor is the flattened-row descriptor for the nested list ThresholdList.
+func MultilinkL2protocolForwardShutdownThresholdThresholdListDescriptor() yang.ListDescriptor[MultilinkL2protocolForwardShutdownThresholdThresholdListFlatRow, MultilinkL2protocolForwardShutdownThresholdThresholdListKey] {
+	return yang.ListDescriptor[MultilinkL2protocolForwardShutdownThresholdThresholdListFlatRow, MultilinkL2protocolForwardShutdownThresholdThresholdListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, ThresholdListSchema}, func(anc [][]yang.KeyValue, e ThresholdList) MultilinkL2protocolForwardShutdownThresholdThresholdListFlatRow {
+			return MultilinkL2protocolForwardShutdownThresholdThresholdListFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkL2protocolForwardShutdownThresholdThresholdListFlatRow) *ThresholdList {
+			return &r.Entry
+		}, func(r *MultilinkL2protocolForwardShutdownThresholdThresholdListFlatRow) MultilinkL2protocolForwardShutdownThresholdThresholdListKey {
+			var k MultilinkL2protocolForwardShutdownThresholdThresholdListKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.ProtoType != nil {
+				k.ProtoType = *r.Entry.ProtoType
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "l2protocol", "forward", "shutdown-threshold", "threshold-list")),
+	}
+}
+
+// MultilinkPuntControlCauseKey is PuntControlCause's row identity (ancestor keys in canonical form).
+type MultilinkPuntControlCauseKey struct {
+	MultilinkName string
+	Name          string
+}
+
+// MultilinkPuntControlCauseFlatRow flattens one PuntControlCause entry with its ancestor list keys.
+type MultilinkPuntControlCauseFlatRow struct {
+	MultilinkName string
+	Entry         PuntControlCause
+}
+
+// MultilinkPuntControlCauseDescriptor is the flattened-row descriptor for the nested list PuntControlCause.
+func MultilinkPuntControlCauseDescriptor() yang.ListDescriptor[MultilinkPuntControlCauseFlatRow, MultilinkPuntControlCauseKey] {
+	return yang.ListDescriptor[MultilinkPuntControlCauseFlatRow, MultilinkPuntControlCauseKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, PuntControlCauseSchema}, func(anc [][]yang.KeyValue, e PuntControlCause) MultilinkPuntControlCauseFlatRow {
+			return MultilinkPuntControlCauseFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkPuntControlCauseFlatRow) *PuntControlCause {
+			return &r.Entry
+		}, func(r *MultilinkPuntControlCauseFlatRow) MultilinkPuntControlCauseKey {
+			var k MultilinkPuntControlCauseKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "punt-control", "cause")),
+	}
+}
+
+// MultilinkRcvQueueCosMapKey is RcvQueueCosMap's row identity (ancestor keys in canonical form).
+type MultilinkRcvQueueCosMapKey struct {
+	MultilinkName string
+	QueueID       uint8
+	ThresholdID   uint8
+}
+
+// MultilinkRcvQueueCosMapFlatRow flattens one RcvQueueCosMap entry with its ancestor list keys.
+type MultilinkRcvQueueCosMapFlatRow struct {
+	MultilinkName string
+	Entry         RcvQueueCosMap
+}
+
+// MultilinkRcvQueueCosMapDescriptor is the flattened-row descriptor for the nested list RcvQueueCosMap.
+func MultilinkRcvQueueCosMapDescriptor() yang.ListDescriptor[MultilinkRcvQueueCosMapFlatRow, MultilinkRcvQueueCosMapKey] {
+	return yang.ListDescriptor[MultilinkRcvQueueCosMapFlatRow, MultilinkRcvQueueCosMapKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, RcvQueueCosMapSchema}, func(anc [][]yang.KeyValue, e RcvQueueCosMap) MultilinkRcvQueueCosMapFlatRow {
+			return MultilinkRcvQueueCosMapFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkRcvQueueCosMapFlatRow) *RcvQueueCosMap {
+			return &r.Entry
+		}, func(r *MultilinkRcvQueueCosMapFlatRow) MultilinkRcvQueueCosMapKey {
+			var k MultilinkRcvQueueCosMapKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.QueueID != nil {
+				k.QueueID = *r.Entry.QueueID
+			}
+			if r.Entry.ThresholdID != nil {
+				k.ThresholdID = *r.Entry.ThresholdID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "rcv-queue", "cos-map")),
+	}
+}
+
+// MultilinkRedundancyGratuitousArpGroupKey is GratuitousArpGroup's row identity (ancestor keys in canonical form).
+type MultilinkRedundancyGratuitousArpGroupKey struct {
+	MultilinkName string
+	ID            uint8
+}
+
+// MultilinkRedundancyGratuitousArpGroupFlatRow flattens one GratuitousArpGroup entry with its ancestor list keys.
+type MultilinkRedundancyGratuitousArpGroupFlatRow struct {
+	MultilinkName string
+	Entry         GratuitousArpGroup
+}
+
+// MultilinkRedundancyGratuitousArpGroupDescriptor is the flattened-row descriptor for the nested list GratuitousArpGroup.
+func MultilinkRedundancyGratuitousArpGroupDescriptor() yang.ListDescriptor[MultilinkRedundancyGratuitousArpGroupFlatRow, MultilinkRedundancyGratuitousArpGroupKey] {
+	return yang.ListDescriptor[MultilinkRedundancyGratuitousArpGroupFlatRow, MultilinkRedundancyGratuitousArpGroupKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, GratuitousArpGroupSchema}, func(anc [][]yang.KeyValue, e GratuitousArpGroup) MultilinkRedundancyGratuitousArpGroupFlatRow {
+			return MultilinkRedundancyGratuitousArpGroupFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkRedundancyGratuitousArpGroupFlatRow) *GratuitousArpGroup {
+			return &r.Entry
+		}, func(r *MultilinkRedundancyGratuitousArpGroupFlatRow) MultilinkRedundancyGratuitousArpGroupKey {
+			var k MultilinkRedundancyGratuitousArpGroupKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "redundancy", "gratuitous-arp", "group")),
+	}
+}
+
+// MultilinkRedundancyGroupKey is RedundancyGroup's row identity (ancestor keys in canonical form).
+type MultilinkRedundancyGroupKey struct {
+	MultilinkName string
+	ID            uint8
+}
+
+// MultilinkRedundancyGroupFlatRow flattens one RedundancyGroup entry with its ancestor list keys.
+type MultilinkRedundancyGroupFlatRow struct {
+	MultilinkName string
+	Entry         RedundancyGroup
+}
+
+// MultilinkRedundancyGroupDescriptor is the flattened-row descriptor for the nested list RedundancyGroup.
+func MultilinkRedundancyGroupDescriptor() yang.ListDescriptor[MultilinkRedundancyGroupFlatRow, MultilinkRedundancyGroupKey] {
+	return yang.ListDescriptor[MultilinkRedundancyGroupFlatRow, MultilinkRedundancyGroupKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, RedundancyGroupSchema}, func(anc [][]yang.KeyValue, e RedundancyGroup) MultilinkRedundancyGroupFlatRow {
+			return MultilinkRedundancyGroupFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkRedundancyGroupFlatRow) *RedundancyGroup {
+			return &r.Entry
+		}, func(r *MultilinkRedundancyGroupFlatRow) MultilinkRedundancyGroupKey {
+			var k MultilinkRedundancyGroupKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "redundancy", "group")),
+	}
+}
+
+// MultilinkRedundancyGroupVirtualIPKey is VirtualIP's row identity (ancestor keys in canonical form).
+type MultilinkRedundancyGroupVirtualIPKey struct {
+	MultilinkName string
+	GroupID       string
+	IPFamily      string
+}
+
+// MultilinkRedundancyGroupVirtualIPFlatRow flattens one VirtualIP entry with its ancestor list keys.
+type MultilinkRedundancyGroupVirtualIPFlatRow struct {
+	MultilinkName string
+	GroupID       string
+	Entry         VirtualIP
+}
+
+// MultilinkRedundancyGroupVirtualIPDescriptor is the flattened-row descriptor for the nested list VirtualIP.
+func MultilinkRedundancyGroupVirtualIPDescriptor() yang.ListDescriptor[MultilinkRedundancyGroupVirtualIPFlatRow, MultilinkRedundancyGroupVirtualIPKey] {
+	return yang.ListDescriptor[MultilinkRedundancyGroupVirtualIPFlatRow, MultilinkRedundancyGroupVirtualIPKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, RedundancyGroupSchema, VirtualIPSchema}, func(anc [][]yang.KeyValue, e VirtualIP) MultilinkRedundancyGroupVirtualIPFlatRow {
+			return MultilinkRedundancyGroupVirtualIPFlatRow{
+				Entry:         e,
+				GroupID:       yang.AncestorKey(anc, 1, "id"),
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkRedundancyGroupVirtualIPFlatRow) *VirtualIP {
+			return &r.Entry
+		}, func(r *MultilinkRedundancyGroupVirtualIPFlatRow) MultilinkRedundancyGroupVirtualIPKey {
+			var k MultilinkRedundancyGroupVirtualIPKey
+			k.MultilinkName = r.MultilinkName
+			k.GroupID = r.GroupID
+			if r.Entry.IPFamily != nil {
+				k.IPFamily = *r.Entry.IPFamily
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "redundancy", "group", "virtual-ip")),
+	}
+}
+
+// MultilinkSourceTemplateTemplateNameKey is TemplateName's row identity (ancestor keys in canonical form).
+type MultilinkSourceTemplateTemplateNameKey struct {
+	MultilinkName string
+	TemplateName  string
+}
+
+// MultilinkSourceTemplateTemplateNameFlatRow flattens one TemplateName entry with its ancestor list keys.
+type MultilinkSourceTemplateTemplateNameFlatRow struct {
+	MultilinkName string
+	Entry         TemplateName
+}
+
+// MultilinkSourceTemplateTemplateNameDescriptor is the flattened-row descriptor for the nested list TemplateName.
+func MultilinkSourceTemplateTemplateNameDescriptor() yang.ListDescriptor[MultilinkSourceTemplateTemplateNameFlatRow, MultilinkSourceTemplateTemplateNameKey] {
+	return yang.ListDescriptor[MultilinkSourceTemplateTemplateNameFlatRow, MultilinkSourceTemplateTemplateNameKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, TemplateNameSchema}, func(anc [][]yang.KeyValue, e TemplateName) MultilinkSourceTemplateTemplateNameFlatRow {
+			return MultilinkSourceTemplateTemplateNameFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkSourceTemplateTemplateNameFlatRow) *TemplateName {
+			return &r.Entry
+		}, func(r *MultilinkSourceTemplateTemplateNameFlatRow) MultilinkSourceTemplateTemplateNameKey {
+			var k MultilinkSourceTemplateTemplateNameKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.TemplateName != nil {
+				k.TemplateName = *r.Entry.TemplateName
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "source", "template", "template-name")),
+	}
+}
+
+// MultilinkStandbyStandbyListKey is StandbyStandbyList's row identity (ancestor keys in canonical form).
+type MultilinkStandbyStandbyListKey struct {
+	MultilinkName string
+	GroupNumber   uint16
+}
+
+// MultilinkStandbyStandbyListFlatRow flattens one StandbyStandbyList entry with its ancestor list keys.
+type MultilinkStandbyStandbyListFlatRow struct {
+	MultilinkName string
+	Entry         StandbyStandbyList
+}
+
+// MultilinkStandbyStandbyListDescriptor is the flattened-row descriptor for the nested list StandbyStandbyList.
+func MultilinkStandbyStandbyListDescriptor() yang.ListDescriptor[MultilinkStandbyStandbyListFlatRow, MultilinkStandbyStandbyListKey] {
+	return yang.ListDescriptor[MultilinkStandbyStandbyListFlatRow, MultilinkStandbyStandbyListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, StandbyStandbyListSchema}, func(anc [][]yang.KeyValue, e StandbyStandbyList) MultilinkStandbyStandbyListFlatRow {
+			return MultilinkStandbyStandbyListFlatRow{
+				Entry:         e,
+				MultilinkName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *MultilinkStandbyStandbyListFlatRow) *StandbyStandbyList {
+			return &r.Entry
+		}, func(r *MultilinkStandbyStandbyListFlatRow) MultilinkStandbyStandbyListKey {
+			var k MultilinkStandbyStandbyListKey
+			k.MultilinkName = r.MultilinkName
+			if r.Entry.GroupNumber != nil {
+				k.GroupNumber = *r.Entry.GroupNumber
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "standby", "standby-list")),
+	}
+}
+
+// MultilinkStandbyStandbyListIPConfigSecondaryAddressKey is SecondaryAddress's row identity (ancestor keys in canonical form).
+type MultilinkStandbyStandbyListIPConfigSecondaryAddressKey struct {
+	MultilinkName          string
+	StandbyListGroupNumber string
+	Address                string
+}
+
+// MultilinkStandbyStandbyListIPConfigSecondaryAddressFlatRow flattens one SecondaryAddress entry with its ancestor list keys.
+type MultilinkStandbyStandbyListIPConfigSecondaryAddressFlatRow struct {
+	MultilinkName          string
+	StandbyListGroupNumber string
+	Entry                  SecondaryAddress
+}
+
+// MultilinkStandbyStandbyListIPConfigSecondaryAddressDescriptor is the flattened-row descriptor for the nested list SecondaryAddress.
+func MultilinkStandbyStandbyListIPConfigSecondaryAddressDescriptor() yang.ListDescriptor[MultilinkStandbyStandbyListIPConfigSecondaryAddressFlatRow, MultilinkStandbyStandbyListIPConfigSecondaryAddressKey] {
+	return yang.ListDescriptor[MultilinkStandbyStandbyListIPConfigSecondaryAddressFlatRow, MultilinkStandbyStandbyListIPConfigSecondaryAddressKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, StandbyStandbyListSchema, SecondaryAddressSchema}, func(anc [][]yang.KeyValue, e SecondaryAddress) MultilinkStandbyStandbyListIPConfigSecondaryAddressFlatRow {
+			return MultilinkStandbyStandbyListIPConfigSecondaryAddressFlatRow{
+				Entry:                  e,
+				MultilinkName:          yang.AncestorKey(anc, 0, "name"),
+				StandbyListGroupNumber: yang.AncestorKey(anc, 1, "group-number"),
+			}
+		}, func(r *MultilinkStandbyStandbyListIPConfigSecondaryAddressFlatRow) *SecondaryAddress {
+			return &r.Entry
+		}, func(r *MultilinkStandbyStandbyListIPConfigSecondaryAddressFlatRow) MultilinkStandbyStandbyListIPConfigSecondaryAddressKey {
+			var k MultilinkStandbyStandbyListIPConfigSecondaryAddressKey
+			k.MultilinkName = r.MultilinkName
+			k.StandbyListGroupNumber = r.StandbyListGroupNumber
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "standby", "standby-list", "ip-config", "secondary-address")),
+	}
+}
+
+// MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixKey is IPv6ConfigIPv6Prefix's row identity (ancestor keys in canonical form).
+type MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixKey struct {
+	MultilinkName          string
+	StandbyListGroupNumber string
+	Prefix                 string
+}
+
+// MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow flattens one IPv6ConfigIPv6Prefix entry with its ancestor list keys.
+type MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow struct {
+	MultilinkName          string
+	StandbyListGroupNumber string
+	Entry                  IPv6ConfigIPv6Prefix
+}
+
+// MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixDescriptor is the flattened-row descriptor for the nested list IPv6ConfigIPv6Prefix.
+func MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixDescriptor() yang.ListDescriptor[MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow, MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixKey] {
+	return yang.ListDescriptor[MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow, MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, StandbyStandbyListSchema, IPv6ConfigIPv6PrefixSchema}, func(anc [][]yang.KeyValue, e IPv6ConfigIPv6Prefix) MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow {
+			return MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow{
+				Entry:                  e,
+				MultilinkName:          yang.AncestorKey(anc, 0, "name"),
+				StandbyListGroupNumber: yang.AncestorKey(anc, 1, "group-number"),
+			}
+		}, func(r *MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow) *IPv6ConfigIPv6Prefix {
+			return &r.Entry
+		}, func(r *MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow) MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixKey {
+			var k MultilinkStandbyStandbyListIPv6ConfigIPv6PrefixKey
+			k.MultilinkName = r.MultilinkName
+			k.StandbyListGroupNumber = r.StandbyListGroupNumber
+			if r.Entry.Prefix != nil {
+				k.Prefix = *r.Entry.Prefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "standby", "standby-list", "ipv6-config", "ipv6_prefix")),
+	}
+}
+
+// MultilinkStandbyStandbyListTrackKey is StandbyStandbyListTrack's row identity (ancestor keys in canonical form).
+type MultilinkStandbyStandbyListTrackKey struct {
+	MultilinkName          string
+	StandbyListGroupNumber string
+	Number                 uint16
+}
+
+// MultilinkStandbyStandbyListTrackFlatRow flattens one StandbyStandbyListTrack entry with its ancestor list keys.
+type MultilinkStandbyStandbyListTrackFlatRow struct {
+	MultilinkName          string
+	StandbyListGroupNumber string
+	Entry                  StandbyStandbyListTrack
+}
+
+// MultilinkStandbyStandbyListTrackDescriptor is the flattened-row descriptor for the nested list StandbyStandbyListTrack.
+func MultilinkStandbyStandbyListTrackDescriptor() yang.ListDescriptor[MultilinkStandbyStandbyListTrackFlatRow, MultilinkStandbyStandbyListTrackKey] {
+	return yang.ListDescriptor[MultilinkStandbyStandbyListTrackFlatRow, MultilinkStandbyStandbyListTrackKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{InterfaceMultilinkSchema, StandbyStandbyListSchema, StandbyStandbyListTrackSchema}, func(anc [][]yang.KeyValue, e StandbyStandbyListTrack) MultilinkStandbyStandbyListTrackFlatRow {
+			return MultilinkStandbyStandbyListTrackFlatRow{
+				Entry:                  e,
+				MultilinkName:          yang.AncestorKey(anc, 0, "name"),
+				StandbyListGroupNumber: yang.AncestorKey(anc, 1, "group-number"),
+			}
+		}, func(r *MultilinkStandbyStandbyListTrackFlatRow) *StandbyStandbyListTrack {
+			return &r.Entry
+		}, func(r *MultilinkStandbyStandbyListTrackFlatRow) MultilinkStandbyStandbyListTrackKey {
+			var k MultilinkStandbyStandbyListTrackKey
+			k.MultilinkName = r.MultilinkName
+			k.StandbyListGroupNumber = r.StandbyListGroupNumber
+			if r.Entry.Number != nil {
+				k.Number = *r.Entry.Number
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Multilink", "standby", "standby-list", "track")),
+	}
+}
+
+// InterfacePRPChannelKey is PRPChannel's row identity (ancestor keys in canonical form).
+type InterfacePRPChannelKey struct {
+	Name uint8
+}
+
+// InterfacePRPChannelDescriptor is the list descriptor callers hand to a protocol library.
+func InterfacePRPChannelDescriptor() yang.ListDescriptor[PRPChannel, InterfacePRPChannelKey] {
+	return yang.ListDescriptor[PRPChannel, InterfacePRPChannelKey]{
+		Codec: yang.StructRowCodec(PRPChannelSchema, func(r *PRPChannel) InterfacePRPChannelKey {
+			var k InterfacePRPChannelKey
+			if r.Name != nil {
+				k.Name = *r.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel")),
+	}
+}
+
+// PRPChannelDlrRingKey is DlrRing's row identity (ancestor keys in canonical form).
+type PRPChannelDlrRingKey struct {
+	PRPChannelName string
+	ID             string
+}
+
+// PRPChannelDlrRingFlatRow flattens one DlrRing entry with its ancestor list keys.
+type PRPChannelDlrRingFlatRow struct {
+	PRPChannelName string
+	Entry          ciscoiosxedlr.DlrRing
+}
+
+// PRPChannelDlrRingDescriptor is the flattened-row descriptor for the nested list DlrRing.
+func PRPChannelDlrRingDescriptor() yang.ListDescriptor[PRPChannelDlrRingFlatRow, PRPChannelDlrRingKey] {
+	return yang.ListDescriptor[PRPChannelDlrRingFlatRow, PRPChannelDlrRingKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, ciscoiosxedlr.DlrRingSchema}, func(anc [][]yang.KeyValue, e ciscoiosxedlr.DlrRing) PRPChannelDlrRingFlatRow {
+			return PRPChannelDlrRingFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelDlrRingFlatRow) *ciscoiosxedlr.DlrRing {
+			return &r.Entry
+		}, func(r *PRPChannelDlrRingFlatRow) PRPChannelDlrRingKey {
+			var k PRPChannelDlrRingKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel"), yang.In(moduleCiscoIOSXEDlr, "dlr", "ring")),
+	}
+}
+
+// PRPChannelSpanningTreeMstMstInstanceKey is MstInstance's row identity (ancestor keys in canonical form).
+type PRPChannelSpanningTreeMstMstInstanceKey struct {
+	PRPChannelName string
+	Instance       string
+}
+
+// PRPChannelSpanningTreeMstMstInstanceFlatRow flattens one MstInstance entry with its ancestor list keys.
+type PRPChannelSpanningTreeMstMstInstanceFlatRow struct {
+	PRPChannelName string
+	Entry          ciscoiosxespanningtree.MstInstance
+}
+
+// PRPChannelSpanningTreeMstMstInstanceDescriptor is the flattened-row descriptor for the nested list MstInstance.
+func PRPChannelSpanningTreeMstMstInstanceDescriptor() yang.ListDescriptor[PRPChannelSpanningTreeMstMstInstanceFlatRow, PRPChannelSpanningTreeMstMstInstanceKey] {
+	return yang.ListDescriptor[PRPChannelSpanningTreeMstMstInstanceFlatRow, PRPChannelSpanningTreeMstMstInstanceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, ciscoiosxespanningtree.MstInstanceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxespanningtree.MstInstance) PRPChannelSpanningTreeMstMstInstanceFlatRow {
+			return PRPChannelSpanningTreeMstMstInstanceFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelSpanningTreeMstMstInstanceFlatRow) *ciscoiosxespanningtree.MstInstance {
+			return &r.Entry
+		}, func(r *PRPChannelSpanningTreeMstMstInstanceFlatRow) PRPChannelSpanningTreeMstMstInstanceKey {
+			var k PRPChannelSpanningTreeMstMstInstanceKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.Instance != nil {
+				k.Instance = *r.Entry.Instance
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel"), yang.In(moduleCiscoIOSXESpanningTree, "spanning-tree", "mst", "mst-instance")),
+	}
+}
+
+// PRPChannelSpanningTreeVLANKey is SpanningTreeVLAN's row identity (ancestor keys in canonical form).
+type PRPChannelSpanningTreeVLANKey struct {
+	PRPChannelName string
+	VLANIds        string
+}
+
+// PRPChannelSpanningTreeVLANFlatRow flattens one SpanningTreeVLAN entry with its ancestor list keys.
+type PRPChannelSpanningTreeVLANFlatRow struct {
+	PRPChannelName string
+	Entry          ciscoiosxespanningtree.SpanningTreeVLAN
+}
+
+// PRPChannelSpanningTreeVLANDescriptor is the flattened-row descriptor for the nested list SpanningTreeVLAN.
+func PRPChannelSpanningTreeVLANDescriptor() yang.ListDescriptor[PRPChannelSpanningTreeVLANFlatRow, PRPChannelSpanningTreeVLANKey] {
+	return yang.ListDescriptor[PRPChannelSpanningTreeVLANFlatRow, PRPChannelSpanningTreeVLANKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, ciscoiosxespanningtree.SpanningTreeVLANSchema}, func(anc [][]yang.KeyValue, e ciscoiosxespanningtree.SpanningTreeVLAN) PRPChannelSpanningTreeVLANFlatRow {
+			return PRPChannelSpanningTreeVLANFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelSpanningTreeVLANFlatRow) *ciscoiosxespanningtree.SpanningTreeVLAN {
+			return &r.Entry
+		}, func(r *PRPChannelSpanningTreeVLANFlatRow) PRPChannelSpanningTreeVLANKey {
+			var k PRPChannelSpanningTreeVLANKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.VLANIds != nil {
+				k.VLANIds = *r.Entry.VLANIds
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel"), yang.In(moduleCiscoIOSXESpanningTree, "spanning-tree", "vlan")),
+	}
+}
+
+// PRPChannelHoldQueueKey is HoldQueue's row identity (ancestor keys in canonical form).
+type PRPChannelHoldQueueKey struct {
+	PRPChannelName string
+	Direction      string
+}
+
+// PRPChannelHoldQueueFlatRow flattens one HoldQueue entry with its ancestor list keys.
+type PRPChannelHoldQueueFlatRow struct {
+	PRPChannelName string
+	Entry          HoldQueue
+}
+
+// PRPChannelHoldQueueDescriptor is the flattened-row descriptor for the nested list HoldQueue.
+func PRPChannelHoldQueueDescriptor() yang.ListDescriptor[PRPChannelHoldQueueFlatRow, PRPChannelHoldQueueKey] {
+	return yang.ListDescriptor[PRPChannelHoldQueueFlatRow, PRPChannelHoldQueueKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, HoldQueueSchema}, func(anc [][]yang.KeyValue, e HoldQueue) PRPChannelHoldQueueFlatRow {
+			return PRPChannelHoldQueueFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelHoldQueueFlatRow) *HoldQueue {
+			return &r.Entry
+		}, func(r *PRPChannelHoldQueueFlatRow) PRPChannelHoldQueueKey {
+			var k PRPChannelHoldQueueKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.Direction != nil {
+				k.Direction = *r.Entry.Direction
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "hold-queue")),
+	}
+}
+
+// PRPChannelIPAddressSecondaryKey is Secondary's row identity (ancestor keys in canonical form).
+type PRPChannelIPAddressSecondaryKey struct {
+	PRPChannelName string
+	Address        string
+}
+
+// PRPChannelIPAddressSecondaryFlatRow flattens one Secondary entry with its ancestor list keys.
+type PRPChannelIPAddressSecondaryFlatRow struct {
+	PRPChannelName string
+	Entry          Secondary
+}
+
+// PRPChannelIPAddressSecondaryDescriptor is the flattened-row descriptor for the nested list Secondary.
+func PRPChannelIPAddressSecondaryDescriptor() yang.ListDescriptor[PRPChannelIPAddressSecondaryFlatRow, PRPChannelIPAddressSecondaryKey] {
+	return yang.ListDescriptor[PRPChannelIPAddressSecondaryFlatRow, PRPChannelIPAddressSecondaryKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, SecondarySchema}, func(anc [][]yang.KeyValue, e Secondary) PRPChannelIPAddressSecondaryFlatRow {
+			return PRPChannelIPAddressSecondaryFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelIPAddressSecondaryFlatRow) *Secondary {
+			return &r.Entry
+		}, func(r *PRPChannelIPAddressSecondaryFlatRow) PRPChannelIPAddressSecondaryKey {
+			var k PRPChannelIPAddressSecondaryKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "ip", "address", "secondary")),
+	}
+}
+
+// PRPChannelIPHelperAddressKey is IPHelperAddress's row identity (ancestor keys in canonical form).
+type PRPChannelIPHelperAddressKey struct {
+	PRPChannelName string
+	Address        string
+}
+
+// PRPChannelIPHelperAddressFlatRow flattens one IPHelperAddress entry with its ancestor list keys.
+type PRPChannelIPHelperAddressFlatRow struct {
+	PRPChannelName string
+	Entry          IPHelperAddress
+}
+
+// PRPChannelIPHelperAddressDescriptor is the flattened-row descriptor for the nested list IPHelperAddress.
+func PRPChannelIPHelperAddressDescriptor() yang.ListDescriptor[PRPChannelIPHelperAddressFlatRow, PRPChannelIPHelperAddressKey] {
+	return yang.ListDescriptor[PRPChannelIPHelperAddressFlatRow, PRPChannelIPHelperAddressKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, IPHelperAddressSchema}, func(anc [][]yang.KeyValue, e IPHelperAddress) PRPChannelIPHelperAddressFlatRow {
+			return PRPChannelIPHelperAddressFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelIPHelperAddressFlatRow) *IPHelperAddress {
+			return &r.Entry
+		}, func(r *PRPChannelIPHelperAddressFlatRow) PRPChannelIPHelperAddressKey {
+			var k PRPChannelIPHelperAddressKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "ip", "helper-address")),
+	}
+}
+
+// PRPChannelIPHelperAddressAddressHelperAddressKey is HelperAddressAddressHelperAddress's row identity (ancestor keys in canonical form).
+type PRPChannelIPHelperAddressAddressHelperAddressKey struct {
+	PRPChannelName string
+	Address        string
+}
+
+// PRPChannelIPHelperAddressAddressHelperAddressFlatRow flattens one HelperAddressAddressHelperAddress entry with its ancestor list keys.
+type PRPChannelIPHelperAddressAddressHelperAddressFlatRow struct {
+	PRPChannelName string
+	Entry          HelperAddressAddressHelperAddress
+}
+
+// PRPChannelIPHelperAddressAddressHelperAddressDescriptor is the flattened-row descriptor for the nested list HelperAddressAddressHelperAddress.
+func PRPChannelIPHelperAddressAddressHelperAddressDescriptor() yang.ListDescriptor[PRPChannelIPHelperAddressAddressHelperAddressFlatRow, PRPChannelIPHelperAddressAddressHelperAddressKey] {
+	return yang.ListDescriptor[PRPChannelIPHelperAddressAddressHelperAddressFlatRow, PRPChannelIPHelperAddressAddressHelperAddressKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, HelperAddressAddressHelperAddressSchema}, func(anc [][]yang.KeyValue, e HelperAddressAddressHelperAddress) PRPChannelIPHelperAddressAddressHelperAddressFlatRow {
+			return PRPChannelIPHelperAddressAddressHelperAddressFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelIPHelperAddressAddressHelperAddressFlatRow) *HelperAddressAddressHelperAddress {
+			return &r.Entry
+		}, func(r *PRPChannelIPHelperAddressAddressHelperAddressFlatRow) PRPChannelIPHelperAddressAddressHelperAddressKey {
+			var k PRPChannelIPHelperAddressAddressHelperAddressKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "ip", "helper-address-address", "helper-address")),
+	}
+}
+
+// PRPChannelIPHelperAddressGlobalHelperAddressKey is HelperAddressGlobalHelperAddress's row identity (ancestor keys in canonical form).
+type PRPChannelIPHelperAddressGlobalHelperAddressKey struct {
+	PRPChannelName string
+	Address        string
+}
+
+// PRPChannelIPHelperAddressGlobalHelperAddressFlatRow flattens one HelperAddressGlobalHelperAddress entry with its ancestor list keys.
+type PRPChannelIPHelperAddressGlobalHelperAddressFlatRow struct {
+	PRPChannelName string
+	Entry          HelperAddressGlobalHelperAddress
+}
+
+// PRPChannelIPHelperAddressGlobalHelperAddressDescriptor is the flattened-row descriptor for the nested list HelperAddressGlobalHelperAddress.
+func PRPChannelIPHelperAddressGlobalHelperAddressDescriptor() yang.ListDescriptor[PRPChannelIPHelperAddressGlobalHelperAddressFlatRow, PRPChannelIPHelperAddressGlobalHelperAddressKey] {
+	return yang.ListDescriptor[PRPChannelIPHelperAddressGlobalHelperAddressFlatRow, PRPChannelIPHelperAddressGlobalHelperAddressKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, HelperAddressGlobalHelperAddressSchema}, func(anc [][]yang.KeyValue, e HelperAddressGlobalHelperAddress) PRPChannelIPHelperAddressGlobalHelperAddressFlatRow {
+			return PRPChannelIPHelperAddressGlobalHelperAddressFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelIPHelperAddressGlobalHelperAddressFlatRow) *HelperAddressGlobalHelperAddress {
+			return &r.Entry
+		}, func(r *PRPChannelIPHelperAddressGlobalHelperAddressFlatRow) PRPChannelIPHelperAddressGlobalHelperAddressKey {
+			var k PRPChannelIPHelperAddressGlobalHelperAddressKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "ip", "helper-address-global", "helper-address")),
+	}
+}
+
+// PRPChannelIPHelperAddressVRFHelperAddressVRFKey is HelperAddressVRFHelperAddressVRF's row identity (ancestor keys in canonical form).
+type PRPChannelIPHelperAddressVRFHelperAddressVRFKey struct {
+	PRPChannelName string
+	VRF            string
+	Address        string
+}
+
+// PRPChannelIPHelperAddressVRFHelperAddressVRFFlatRow flattens one HelperAddressVRFHelperAddressVRF entry with its ancestor list keys.
+type PRPChannelIPHelperAddressVRFHelperAddressVRFFlatRow struct {
+	PRPChannelName string
+	Entry          HelperAddressVRFHelperAddressVRF
+}
+
+// PRPChannelIPHelperAddressVRFHelperAddressVRFDescriptor is the flattened-row descriptor for the nested list HelperAddressVRFHelperAddressVRF.
+func PRPChannelIPHelperAddressVRFHelperAddressVRFDescriptor() yang.ListDescriptor[PRPChannelIPHelperAddressVRFHelperAddressVRFFlatRow, PRPChannelIPHelperAddressVRFHelperAddressVRFKey] {
+	return yang.ListDescriptor[PRPChannelIPHelperAddressVRFHelperAddressVRFFlatRow, PRPChannelIPHelperAddressVRFHelperAddressVRFKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, HelperAddressVRFHelperAddressVRFSchema}, func(anc [][]yang.KeyValue, e HelperAddressVRFHelperAddressVRF) PRPChannelIPHelperAddressVRFHelperAddressVRFFlatRow {
+			return PRPChannelIPHelperAddressVRFHelperAddressVRFFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelIPHelperAddressVRFHelperAddressVRFFlatRow) *HelperAddressVRFHelperAddressVRF {
+			return &r.Entry
+		}, func(r *PRPChannelIPHelperAddressVRFHelperAddressVRFFlatRow) PRPChannelIPHelperAddressVRFHelperAddressVRFKey {
+			var k PRPChannelIPHelperAddressVRFHelperAddressVRFKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.VRF != nil {
+				k.VRF = *r.Entry.VRF
+			}
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "ip", "helper-address-vrf", "helper-address", "vrf")),
+	}
+}
+
+// PRPChannelIPSummaryAddressEigrpKey is SummaryAddressEigrp's row identity (ancestor keys in canonical form).
+type PRPChannelIPSummaryAddressEigrpKey struct {
+	PRPChannelName string
+	ID             string
+}
+
+// PRPChannelIPSummaryAddressEigrpFlatRow flattens one SummaryAddressEigrp entry with its ancestor list keys.
+type PRPChannelIPSummaryAddressEigrpFlatRow struct {
+	PRPChannelName string
+	Entry          SummaryAddressEigrp
+}
+
+// PRPChannelIPSummaryAddressEigrpDescriptor is the flattened-row descriptor for the nested list SummaryAddressEigrp.
+func PRPChannelIPSummaryAddressEigrpDescriptor() yang.ListDescriptor[PRPChannelIPSummaryAddressEigrpFlatRow, PRPChannelIPSummaryAddressEigrpKey] {
+	return yang.ListDescriptor[PRPChannelIPSummaryAddressEigrpFlatRow, PRPChannelIPSummaryAddressEigrpKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, SummaryAddressEigrpSchema}, func(anc [][]yang.KeyValue, e SummaryAddressEigrp) PRPChannelIPSummaryAddressEigrpFlatRow {
+			return PRPChannelIPSummaryAddressEigrpFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelIPSummaryAddressEigrpFlatRow) *SummaryAddressEigrp {
+			return &r.Entry
+		}, func(r *PRPChannelIPSummaryAddressEigrpFlatRow) PRPChannelIPSummaryAddressEigrpKey {
+			var k PRPChannelIPSummaryAddressEigrpKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "ip", "summary-address", "eigrp")),
+	}
+}
+
+// PRPChannelIPv6AddressLinkLocalAddressKey is LinkLocalAddress's row identity (ancestor keys in canonical form).
+type PRPChannelIPv6AddressLinkLocalAddressKey struct {
+	PRPChannelName string
+	Address        string
+}
+
+// PRPChannelIPv6AddressLinkLocalAddressFlatRow flattens one LinkLocalAddress entry with its ancestor list keys.
+type PRPChannelIPv6AddressLinkLocalAddressFlatRow struct {
+	PRPChannelName string
+	Entry          LinkLocalAddress
+}
+
+// PRPChannelIPv6AddressLinkLocalAddressDescriptor is the flattened-row descriptor for the nested list LinkLocalAddress.
+func PRPChannelIPv6AddressLinkLocalAddressDescriptor() yang.ListDescriptor[PRPChannelIPv6AddressLinkLocalAddressFlatRow, PRPChannelIPv6AddressLinkLocalAddressKey] {
+	return yang.ListDescriptor[PRPChannelIPv6AddressLinkLocalAddressFlatRow, PRPChannelIPv6AddressLinkLocalAddressKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, LinkLocalAddressSchema}, func(anc [][]yang.KeyValue, e LinkLocalAddress) PRPChannelIPv6AddressLinkLocalAddressFlatRow {
+			return PRPChannelIPv6AddressLinkLocalAddressFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelIPv6AddressLinkLocalAddressFlatRow) *LinkLocalAddress {
+			return &r.Entry
+		}, func(r *PRPChannelIPv6AddressLinkLocalAddressFlatRow) PRPChannelIPv6AddressLinkLocalAddressKey {
+			var k PRPChannelIPv6AddressLinkLocalAddressKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "ipv6", "address", "link-local-address")),
+	}
+}
+
+// PRPChannelIPv6AddressPrefixListKey is AddressPrefixList's row identity (ancestor keys in canonical form).
+type PRPChannelIPv6AddressPrefixListKey struct {
+	PRPChannelName string
+	Prefix         string
+}
+
+// PRPChannelIPv6AddressPrefixListFlatRow flattens one AddressPrefixList entry with its ancestor list keys.
+type PRPChannelIPv6AddressPrefixListFlatRow struct {
+	PRPChannelName string
+	Entry          AddressPrefixList
+}
+
+// PRPChannelIPv6AddressPrefixListDescriptor is the flattened-row descriptor for the nested list AddressPrefixList.
+func PRPChannelIPv6AddressPrefixListDescriptor() yang.ListDescriptor[PRPChannelIPv6AddressPrefixListFlatRow, PRPChannelIPv6AddressPrefixListKey] {
+	return yang.ListDescriptor[PRPChannelIPv6AddressPrefixListFlatRow, PRPChannelIPv6AddressPrefixListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, AddressPrefixListSchema}, func(anc [][]yang.KeyValue, e AddressPrefixList) PRPChannelIPv6AddressPrefixListFlatRow {
+			return PRPChannelIPv6AddressPrefixListFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelIPv6AddressPrefixListFlatRow) *AddressPrefixList {
+			return &r.Entry
+		}, func(r *PRPChannelIPv6AddressPrefixListFlatRow) PRPChannelIPv6AddressPrefixListKey {
+			var k PRPChannelIPv6AddressPrefixListKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.Prefix != nil {
+				k.Prefix = *r.Entry.Prefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "ipv6", "address", "prefix-list")),
+	}
+}
+
+// PRPChannelIPv6AddressPrefixNameKey is PrefixName's row identity (ancestor keys in canonical form).
+type PRPChannelIPv6AddressPrefixNameKey struct {
+	PRPChannelName string
+	Name           string
+}
+
+// PRPChannelIPv6AddressPrefixNameFlatRow flattens one PrefixName entry with its ancestor list keys.
+type PRPChannelIPv6AddressPrefixNameFlatRow struct {
+	PRPChannelName string
+	Entry          PrefixName
+}
+
+// PRPChannelIPv6AddressPrefixNameDescriptor is the flattened-row descriptor for the nested list PrefixName.
+func PRPChannelIPv6AddressPrefixNameDescriptor() yang.ListDescriptor[PRPChannelIPv6AddressPrefixNameFlatRow, PRPChannelIPv6AddressPrefixNameKey] {
+	return yang.ListDescriptor[PRPChannelIPv6AddressPrefixNameFlatRow, PRPChannelIPv6AddressPrefixNameKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, PrefixNameSchema}, func(anc [][]yang.KeyValue, e PrefixName) PRPChannelIPv6AddressPrefixNameFlatRow {
+			return PRPChannelIPv6AddressPrefixNameFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelIPv6AddressPrefixNameFlatRow) *PrefixName {
+			return &r.Entry
+		}, func(r *PRPChannelIPv6AddressPrefixNameFlatRow) PRPChannelIPv6AddressPrefixNameKey {
+			var k PRPChannelIPv6AddressPrefixNameKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "ipv6", "address", "prefix-name")),
+	}
+}
+
+// PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey is PrefixOptionsIPv6Prefix's row identity (ancestor keys in canonical form).
+type PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey struct {
+	PRPChannelName string
+	PrefixNameName string
+	Prefix         string
+}
+
+// PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow flattens one PrefixOptionsIPv6Prefix entry with its ancestor list keys.
+type PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow struct {
+	PRPChannelName string
+	PrefixNameName string
+	Entry          PrefixOptionsIPv6Prefix
+}
+
+// PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixDescriptor is the flattened-row descriptor for the nested list PrefixOptionsIPv6Prefix.
+func PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixDescriptor() yang.ListDescriptor[PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow, PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey] {
+	return yang.ListDescriptor[PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow, PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, PrefixNameSchema, PrefixOptionsIPv6PrefixSchema}, func(anc [][]yang.KeyValue, e PrefixOptionsIPv6Prefix) PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow {
+			return PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+				PrefixNameName: yang.AncestorKey(anc, 1, "name"),
+			}
+		}, func(r *PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow) *PrefixOptionsIPv6Prefix {
+			return &r.Entry
+		}, func(r *PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow) PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey {
+			var k PRPChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey
+			k.PRPChannelName = r.PRPChannelName
+			k.PrefixNameName = r.PrefixNameName
+			if r.Entry.Prefix != nil {
+				k.Prefix = *r.Entry.Prefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "ipv6", "address", "prefix-name", "prefix-options", "ipv6-prefix")),
+	}
+}
+
+// PRPChannelIPv6TrafficFilterKey is IPv6TrafficFilter's row identity (ancestor keys in canonical form).
+type PRPChannelIPv6TrafficFilterKey struct {
+	PRPChannelName string
+	Direction      string
+}
+
+// PRPChannelIPv6TrafficFilterFlatRow flattens one IPv6TrafficFilter entry with its ancestor list keys.
+type PRPChannelIPv6TrafficFilterFlatRow struct {
+	PRPChannelName string
+	Entry          IPv6TrafficFilter
+}
+
+// PRPChannelIPv6TrafficFilterDescriptor is the flattened-row descriptor for the nested list IPv6TrafficFilter.
+func PRPChannelIPv6TrafficFilterDescriptor() yang.ListDescriptor[PRPChannelIPv6TrafficFilterFlatRow, PRPChannelIPv6TrafficFilterKey] {
+	return yang.ListDescriptor[PRPChannelIPv6TrafficFilterFlatRow, PRPChannelIPv6TrafficFilterKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, IPv6TrafficFilterSchema}, func(anc [][]yang.KeyValue, e IPv6TrafficFilter) PRPChannelIPv6TrafficFilterFlatRow {
+			return PRPChannelIPv6TrafficFilterFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelIPv6TrafficFilterFlatRow) *IPv6TrafficFilter {
+			return &r.Entry
+		}, func(r *PRPChannelIPv6TrafficFilterFlatRow) PRPChannelIPv6TrafficFilterKey {
+			var k PRPChannelIPv6TrafficFilterKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.Direction != nil {
+				k.Direction = *r.Entry.Direction
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "ipv6", "traffic-filter")),
+	}
+}
+
+// PRPChannelL2protocolForwardDropThresholdThresholdListKey is ThresholdList's row identity (ancestor keys in canonical form).
+type PRPChannelL2protocolForwardDropThresholdThresholdListKey struct {
+	PRPChannelName string
+	ProtoType      string
+}
+
+// PRPChannelL2protocolForwardDropThresholdThresholdListFlatRow flattens one ThresholdList entry with its ancestor list keys.
+type PRPChannelL2protocolForwardDropThresholdThresholdListFlatRow struct {
+	PRPChannelName string
+	Entry          ThresholdList
+}
+
+// PRPChannelL2protocolForwardDropThresholdThresholdListDescriptor is the flattened-row descriptor for the nested list ThresholdList.
+func PRPChannelL2protocolForwardDropThresholdThresholdListDescriptor() yang.ListDescriptor[PRPChannelL2protocolForwardDropThresholdThresholdListFlatRow, PRPChannelL2protocolForwardDropThresholdThresholdListKey] {
+	return yang.ListDescriptor[PRPChannelL2protocolForwardDropThresholdThresholdListFlatRow, PRPChannelL2protocolForwardDropThresholdThresholdListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, ThresholdListSchema}, func(anc [][]yang.KeyValue, e ThresholdList) PRPChannelL2protocolForwardDropThresholdThresholdListFlatRow {
+			return PRPChannelL2protocolForwardDropThresholdThresholdListFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelL2protocolForwardDropThresholdThresholdListFlatRow) *ThresholdList {
+			return &r.Entry
+		}, func(r *PRPChannelL2protocolForwardDropThresholdThresholdListFlatRow) PRPChannelL2protocolForwardDropThresholdThresholdListKey {
+			var k PRPChannelL2protocolForwardDropThresholdThresholdListKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.ProtoType != nil {
+				k.ProtoType = *r.Entry.ProtoType
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "l2protocol", "forward", "drop-threshold", "threshold-list")),
+	}
+}
+
+// PRPChannelL2protocolForwardShutdownThresholdThresholdListKey is ThresholdList's row identity (ancestor keys in canonical form).
+type PRPChannelL2protocolForwardShutdownThresholdThresholdListKey struct {
+	PRPChannelName string
+	ProtoType      string
+}
+
+// PRPChannelL2protocolForwardShutdownThresholdThresholdListFlatRow flattens one ThresholdList entry with its ancestor list keys.
+type PRPChannelL2protocolForwardShutdownThresholdThresholdListFlatRow struct {
+	PRPChannelName string
+	Entry          ThresholdList
+}
+
+// PRPChannelL2protocolForwardShutdownThresholdThresholdListDescriptor is the flattened-row descriptor for the nested list ThresholdList.
+func PRPChannelL2protocolForwardShutdownThresholdThresholdListDescriptor() yang.ListDescriptor[PRPChannelL2protocolForwardShutdownThresholdThresholdListFlatRow, PRPChannelL2protocolForwardShutdownThresholdThresholdListKey] {
+	return yang.ListDescriptor[PRPChannelL2protocolForwardShutdownThresholdThresholdListFlatRow, PRPChannelL2protocolForwardShutdownThresholdThresholdListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, ThresholdListSchema}, func(anc [][]yang.KeyValue, e ThresholdList) PRPChannelL2protocolForwardShutdownThresholdThresholdListFlatRow {
+			return PRPChannelL2protocolForwardShutdownThresholdThresholdListFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelL2protocolForwardShutdownThresholdThresholdListFlatRow) *ThresholdList {
+			return &r.Entry
+		}, func(r *PRPChannelL2protocolForwardShutdownThresholdThresholdListFlatRow) PRPChannelL2protocolForwardShutdownThresholdThresholdListKey {
+			var k PRPChannelL2protocolForwardShutdownThresholdThresholdListKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.ProtoType != nil {
+				k.ProtoType = *r.Entry.ProtoType
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "l2protocol", "forward", "shutdown-threshold", "threshold-list")),
+	}
+}
+
+// PRPChannelPuntControlCauseKey is PuntControlCause's row identity (ancestor keys in canonical form).
+type PRPChannelPuntControlCauseKey struct {
+	PRPChannelName string
+	Name           string
+}
+
+// PRPChannelPuntControlCauseFlatRow flattens one PuntControlCause entry with its ancestor list keys.
+type PRPChannelPuntControlCauseFlatRow struct {
+	PRPChannelName string
+	Entry          PuntControlCause
+}
+
+// PRPChannelPuntControlCauseDescriptor is the flattened-row descriptor for the nested list PuntControlCause.
+func PRPChannelPuntControlCauseDescriptor() yang.ListDescriptor[PRPChannelPuntControlCauseFlatRow, PRPChannelPuntControlCauseKey] {
+	return yang.ListDescriptor[PRPChannelPuntControlCauseFlatRow, PRPChannelPuntControlCauseKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, PuntControlCauseSchema}, func(anc [][]yang.KeyValue, e PuntControlCause) PRPChannelPuntControlCauseFlatRow {
+			return PRPChannelPuntControlCauseFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelPuntControlCauseFlatRow) *PuntControlCause {
+			return &r.Entry
+		}, func(r *PRPChannelPuntControlCauseFlatRow) PRPChannelPuntControlCauseKey {
+			var k PRPChannelPuntControlCauseKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "punt-control", "cause")),
+	}
+}
+
+// PRPChannelRcvQueueCosMapKey is RcvQueueCosMap's row identity (ancestor keys in canonical form).
+type PRPChannelRcvQueueCosMapKey struct {
+	PRPChannelName string
+	QueueID        uint8
+	ThresholdID    uint8
+}
+
+// PRPChannelRcvQueueCosMapFlatRow flattens one RcvQueueCosMap entry with its ancestor list keys.
+type PRPChannelRcvQueueCosMapFlatRow struct {
+	PRPChannelName string
+	Entry          RcvQueueCosMap
+}
+
+// PRPChannelRcvQueueCosMapDescriptor is the flattened-row descriptor for the nested list RcvQueueCosMap.
+func PRPChannelRcvQueueCosMapDescriptor() yang.ListDescriptor[PRPChannelRcvQueueCosMapFlatRow, PRPChannelRcvQueueCosMapKey] {
+	return yang.ListDescriptor[PRPChannelRcvQueueCosMapFlatRow, PRPChannelRcvQueueCosMapKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, RcvQueueCosMapSchema}, func(anc [][]yang.KeyValue, e RcvQueueCosMap) PRPChannelRcvQueueCosMapFlatRow {
+			return PRPChannelRcvQueueCosMapFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelRcvQueueCosMapFlatRow) *RcvQueueCosMap {
+			return &r.Entry
+		}, func(r *PRPChannelRcvQueueCosMapFlatRow) PRPChannelRcvQueueCosMapKey {
+			var k PRPChannelRcvQueueCosMapKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.QueueID != nil {
+				k.QueueID = *r.Entry.QueueID
+			}
+			if r.Entry.ThresholdID != nil {
+				k.ThresholdID = *r.Entry.ThresholdID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "rcv-queue", "cos-map")),
+	}
+}
+
+// PRPChannelRedundancyGratuitousArpGroupKey is GratuitousArpGroup's row identity (ancestor keys in canonical form).
+type PRPChannelRedundancyGratuitousArpGroupKey struct {
+	PRPChannelName string
+	ID             uint8
+}
+
+// PRPChannelRedundancyGratuitousArpGroupFlatRow flattens one GratuitousArpGroup entry with its ancestor list keys.
+type PRPChannelRedundancyGratuitousArpGroupFlatRow struct {
+	PRPChannelName string
+	Entry          GratuitousArpGroup
+}
+
+// PRPChannelRedundancyGratuitousArpGroupDescriptor is the flattened-row descriptor for the nested list GratuitousArpGroup.
+func PRPChannelRedundancyGratuitousArpGroupDescriptor() yang.ListDescriptor[PRPChannelRedundancyGratuitousArpGroupFlatRow, PRPChannelRedundancyGratuitousArpGroupKey] {
+	return yang.ListDescriptor[PRPChannelRedundancyGratuitousArpGroupFlatRow, PRPChannelRedundancyGratuitousArpGroupKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, GratuitousArpGroupSchema}, func(anc [][]yang.KeyValue, e GratuitousArpGroup) PRPChannelRedundancyGratuitousArpGroupFlatRow {
+			return PRPChannelRedundancyGratuitousArpGroupFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelRedundancyGratuitousArpGroupFlatRow) *GratuitousArpGroup {
+			return &r.Entry
+		}, func(r *PRPChannelRedundancyGratuitousArpGroupFlatRow) PRPChannelRedundancyGratuitousArpGroupKey {
+			var k PRPChannelRedundancyGratuitousArpGroupKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "redundancy", "gratuitous-arp", "group")),
+	}
+}
+
+// PRPChannelRedundancyGroupKey is RedundancyGroup's row identity (ancestor keys in canonical form).
+type PRPChannelRedundancyGroupKey struct {
+	PRPChannelName string
+	ID             uint8
+}
+
+// PRPChannelRedundancyGroupFlatRow flattens one RedundancyGroup entry with its ancestor list keys.
+type PRPChannelRedundancyGroupFlatRow struct {
+	PRPChannelName string
+	Entry          RedundancyGroup
+}
+
+// PRPChannelRedundancyGroupDescriptor is the flattened-row descriptor for the nested list RedundancyGroup.
+func PRPChannelRedundancyGroupDescriptor() yang.ListDescriptor[PRPChannelRedundancyGroupFlatRow, PRPChannelRedundancyGroupKey] {
+	return yang.ListDescriptor[PRPChannelRedundancyGroupFlatRow, PRPChannelRedundancyGroupKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, RedundancyGroupSchema}, func(anc [][]yang.KeyValue, e RedundancyGroup) PRPChannelRedundancyGroupFlatRow {
+			return PRPChannelRedundancyGroupFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelRedundancyGroupFlatRow) *RedundancyGroup {
+			return &r.Entry
+		}, func(r *PRPChannelRedundancyGroupFlatRow) PRPChannelRedundancyGroupKey {
+			var k PRPChannelRedundancyGroupKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "redundancy", "group")),
+	}
+}
+
+// PRPChannelRedundancyGroupVirtualIPKey is VirtualIP's row identity (ancestor keys in canonical form).
+type PRPChannelRedundancyGroupVirtualIPKey struct {
+	PRPChannelName string
+	GroupID        string
+	IPFamily       string
+}
+
+// PRPChannelRedundancyGroupVirtualIPFlatRow flattens one VirtualIP entry with its ancestor list keys.
+type PRPChannelRedundancyGroupVirtualIPFlatRow struct {
+	PRPChannelName string
+	GroupID        string
+	Entry          VirtualIP
+}
+
+// PRPChannelRedundancyGroupVirtualIPDescriptor is the flattened-row descriptor for the nested list VirtualIP.
+func PRPChannelRedundancyGroupVirtualIPDescriptor() yang.ListDescriptor[PRPChannelRedundancyGroupVirtualIPFlatRow, PRPChannelRedundancyGroupVirtualIPKey] {
+	return yang.ListDescriptor[PRPChannelRedundancyGroupVirtualIPFlatRow, PRPChannelRedundancyGroupVirtualIPKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, RedundancyGroupSchema, VirtualIPSchema}, func(anc [][]yang.KeyValue, e VirtualIP) PRPChannelRedundancyGroupVirtualIPFlatRow {
+			return PRPChannelRedundancyGroupVirtualIPFlatRow{
+				Entry:          e,
+				GroupID:        yang.AncestorKey(anc, 1, "id"),
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelRedundancyGroupVirtualIPFlatRow) *VirtualIP {
+			return &r.Entry
+		}, func(r *PRPChannelRedundancyGroupVirtualIPFlatRow) PRPChannelRedundancyGroupVirtualIPKey {
+			var k PRPChannelRedundancyGroupVirtualIPKey
+			k.PRPChannelName = r.PRPChannelName
+			k.GroupID = r.GroupID
+			if r.Entry.IPFamily != nil {
+				k.IPFamily = *r.Entry.IPFamily
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "redundancy", "group", "virtual-ip")),
+	}
+}
+
+// PRPChannelSourceTemplateTemplateNameKey is TemplateName's row identity (ancestor keys in canonical form).
+type PRPChannelSourceTemplateTemplateNameKey struct {
+	PRPChannelName string
+	TemplateName   string
+}
+
+// PRPChannelSourceTemplateTemplateNameFlatRow flattens one TemplateName entry with its ancestor list keys.
+type PRPChannelSourceTemplateTemplateNameFlatRow struct {
+	PRPChannelName string
+	Entry          TemplateName
+}
+
+// PRPChannelSourceTemplateTemplateNameDescriptor is the flattened-row descriptor for the nested list TemplateName.
+func PRPChannelSourceTemplateTemplateNameDescriptor() yang.ListDescriptor[PRPChannelSourceTemplateTemplateNameFlatRow, PRPChannelSourceTemplateTemplateNameKey] {
+	return yang.ListDescriptor[PRPChannelSourceTemplateTemplateNameFlatRow, PRPChannelSourceTemplateTemplateNameKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, TemplateNameSchema}, func(anc [][]yang.KeyValue, e TemplateName) PRPChannelSourceTemplateTemplateNameFlatRow {
+			return PRPChannelSourceTemplateTemplateNameFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelSourceTemplateTemplateNameFlatRow) *TemplateName {
+			return &r.Entry
+		}, func(r *PRPChannelSourceTemplateTemplateNameFlatRow) PRPChannelSourceTemplateTemplateNameKey {
+			var k PRPChannelSourceTemplateTemplateNameKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.TemplateName != nil {
+				k.TemplateName = *r.Entry.TemplateName
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "source", "template", "template-name")),
+	}
+}
+
+// PRPChannelStandbyStandbyListKey is StandbyStandbyList's row identity (ancestor keys in canonical form).
+type PRPChannelStandbyStandbyListKey struct {
+	PRPChannelName string
+	GroupNumber    uint16
+}
+
+// PRPChannelStandbyStandbyListFlatRow flattens one StandbyStandbyList entry with its ancestor list keys.
+type PRPChannelStandbyStandbyListFlatRow struct {
+	PRPChannelName string
+	Entry          StandbyStandbyList
+}
+
+// PRPChannelStandbyStandbyListDescriptor is the flattened-row descriptor for the nested list StandbyStandbyList.
+func PRPChannelStandbyStandbyListDescriptor() yang.ListDescriptor[PRPChannelStandbyStandbyListFlatRow, PRPChannelStandbyStandbyListKey] {
+	return yang.ListDescriptor[PRPChannelStandbyStandbyListFlatRow, PRPChannelStandbyStandbyListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, StandbyStandbyListSchema}, func(anc [][]yang.KeyValue, e StandbyStandbyList) PRPChannelStandbyStandbyListFlatRow {
+			return PRPChannelStandbyStandbyListFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelStandbyStandbyListFlatRow) *StandbyStandbyList {
+			return &r.Entry
+		}, func(r *PRPChannelStandbyStandbyListFlatRow) PRPChannelStandbyStandbyListKey {
+			var k PRPChannelStandbyStandbyListKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.GroupNumber != nil {
+				k.GroupNumber = *r.Entry.GroupNumber
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "standby", "standby-list")),
+	}
+}
+
+// PRPChannelStandbyStandbyListIPConfigSecondaryAddressKey is SecondaryAddress's row identity (ancestor keys in canonical form).
+type PRPChannelStandbyStandbyListIPConfigSecondaryAddressKey struct {
+	PRPChannelName         string
+	StandbyListGroupNumber string
+	Address                string
+}
+
+// PRPChannelStandbyStandbyListIPConfigSecondaryAddressFlatRow flattens one SecondaryAddress entry with its ancestor list keys.
+type PRPChannelStandbyStandbyListIPConfigSecondaryAddressFlatRow struct {
+	PRPChannelName         string
+	StandbyListGroupNumber string
+	Entry                  SecondaryAddress
+}
+
+// PRPChannelStandbyStandbyListIPConfigSecondaryAddressDescriptor is the flattened-row descriptor for the nested list SecondaryAddress.
+func PRPChannelStandbyStandbyListIPConfigSecondaryAddressDescriptor() yang.ListDescriptor[PRPChannelStandbyStandbyListIPConfigSecondaryAddressFlatRow, PRPChannelStandbyStandbyListIPConfigSecondaryAddressKey] {
+	return yang.ListDescriptor[PRPChannelStandbyStandbyListIPConfigSecondaryAddressFlatRow, PRPChannelStandbyStandbyListIPConfigSecondaryAddressKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, StandbyStandbyListSchema, SecondaryAddressSchema}, func(anc [][]yang.KeyValue, e SecondaryAddress) PRPChannelStandbyStandbyListIPConfigSecondaryAddressFlatRow {
+			return PRPChannelStandbyStandbyListIPConfigSecondaryAddressFlatRow{
+				Entry:                  e,
+				PRPChannelName:         yang.AncestorKey(anc, 0, "name"),
+				StandbyListGroupNumber: yang.AncestorKey(anc, 1, "group-number"),
+			}
+		}, func(r *PRPChannelStandbyStandbyListIPConfigSecondaryAddressFlatRow) *SecondaryAddress {
+			return &r.Entry
+		}, func(r *PRPChannelStandbyStandbyListIPConfigSecondaryAddressFlatRow) PRPChannelStandbyStandbyListIPConfigSecondaryAddressKey {
+			var k PRPChannelStandbyStandbyListIPConfigSecondaryAddressKey
+			k.PRPChannelName = r.PRPChannelName
+			k.StandbyListGroupNumber = r.StandbyListGroupNumber
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "standby", "standby-list", "ip-config", "secondary-address")),
+	}
+}
+
+// PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixKey is IPv6ConfigIPv6Prefix's row identity (ancestor keys in canonical form).
+type PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixKey struct {
+	PRPChannelName         string
+	StandbyListGroupNumber string
+	Prefix                 string
+}
+
+// PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow flattens one IPv6ConfigIPv6Prefix entry with its ancestor list keys.
+type PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow struct {
+	PRPChannelName         string
+	StandbyListGroupNumber string
+	Entry                  IPv6ConfigIPv6Prefix
+}
+
+// PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixDescriptor is the flattened-row descriptor for the nested list IPv6ConfigIPv6Prefix.
+func PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixDescriptor() yang.ListDescriptor[PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow, PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixKey] {
+	return yang.ListDescriptor[PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow, PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, StandbyStandbyListSchema, IPv6ConfigIPv6PrefixSchema}, func(anc [][]yang.KeyValue, e IPv6ConfigIPv6Prefix) PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow {
+			return PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow{
+				Entry:                  e,
+				PRPChannelName:         yang.AncestorKey(anc, 0, "name"),
+				StandbyListGroupNumber: yang.AncestorKey(anc, 1, "group-number"),
+			}
+		}, func(r *PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow) *IPv6ConfigIPv6Prefix {
+			return &r.Entry
+		}, func(r *PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixFlatRow) PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixKey {
+			var k PRPChannelStandbyStandbyListIPv6ConfigIPv6PrefixKey
+			k.PRPChannelName = r.PRPChannelName
+			k.StandbyListGroupNumber = r.StandbyListGroupNumber
+			if r.Entry.Prefix != nil {
+				k.Prefix = *r.Entry.Prefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "standby", "standby-list", "ipv6-config", "ipv6_prefix")),
+	}
+}
+
+// PRPChannelStandbyStandbyListTrackKey is StandbyStandbyListTrack's row identity (ancestor keys in canonical form).
+type PRPChannelStandbyStandbyListTrackKey struct {
+	PRPChannelName         string
+	StandbyListGroupNumber string
+	Number                 uint16
+}
+
+// PRPChannelStandbyStandbyListTrackFlatRow flattens one StandbyStandbyListTrack entry with its ancestor list keys.
+type PRPChannelStandbyStandbyListTrackFlatRow struct {
+	PRPChannelName         string
+	StandbyListGroupNumber string
+	Entry                  StandbyStandbyListTrack
+}
+
+// PRPChannelStandbyStandbyListTrackDescriptor is the flattened-row descriptor for the nested list StandbyStandbyListTrack.
+func PRPChannelStandbyStandbyListTrackDescriptor() yang.ListDescriptor[PRPChannelStandbyStandbyListTrackFlatRow, PRPChannelStandbyStandbyListTrackKey] {
+	return yang.ListDescriptor[PRPChannelStandbyStandbyListTrackFlatRow, PRPChannelStandbyStandbyListTrackKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, StandbyStandbyListSchema, StandbyStandbyListTrackSchema}, func(anc [][]yang.KeyValue, e StandbyStandbyListTrack) PRPChannelStandbyStandbyListTrackFlatRow {
+			return PRPChannelStandbyStandbyListTrackFlatRow{
+				Entry:                  e,
+				PRPChannelName:         yang.AncestorKey(anc, 0, "name"),
+				StandbyListGroupNumber: yang.AncestorKey(anc, 1, "group-number"),
+			}
+		}, func(r *PRPChannelStandbyStandbyListTrackFlatRow) *StandbyStandbyListTrack {
+			return &r.Entry
+		}, func(r *PRPChannelStandbyStandbyListTrackFlatRow) PRPChannelStandbyStandbyListTrackKey {
+			var k PRPChannelStandbyStandbyListTrackKey
+			k.PRPChannelName = r.PRPChannelName
+			k.StandbyListGroupNumber = r.StandbyListGroupNumber
+			if r.Entry.Number != nil {
+				k.Number = *r.Entry.Number
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "standby", "standby-list", "track")),
+	}
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfKey is MACAddressConf's row identity (ancestor keys in canonical form).
+type PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfKey struct {
+	PRPChannelName string
+	HwAddress      string
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow flattens one MACAddressConf entry with its ancestor list keys.
+type PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow struct {
+	PRPChannelName string
+	Entry          ciscoiosxeswitch.MACAddressConf
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfDescriptor is the flattened-row descriptor for the nested list MACAddressConf.
+func PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfDescriptor() yang.ListDescriptor[PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow, PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfKey] {
+	return yang.ListDescriptor[PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow, PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, ciscoiosxeswitch.MACAddressConfSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.MACAddressConf) PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow {
+			return PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow) *ciscoiosxeswitch.MACAddressConf {
+			return &r.Entry
+		}, func(r *PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfFlatRow) PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfKey {
+			var k PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityAllowlistConfigAllowlistMACAddressMACAddressConfKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.HwAddress != nil {
+				k.HwAddress = *r.Entry.HwAddress
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "switchport-config", "switchport"), yang.In(moduleCiscoIOSXESwitch, "port-security-config", "port-security", "allowlist-config", "allowlist", "mac-address", "mac-address-conf")),
+	}
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessKey is HwAddressAccess's row identity (ancestor keys in canonical form).
+type PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessKey struct {
+	PRPChannelName string
+	HwAddress      string
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow flattens one HwAddressAccess entry with its ancestor list keys.
+type PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow struct {
+	PRPChannelName string
+	Entry          ciscoiosxeswitch.HwAddressAccess
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessDescriptor is the flattened-row descriptor for the nested list HwAddressAccess.
+func PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessDescriptor() yang.ListDescriptor[PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow, PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessKey] {
+	return yang.ListDescriptor[PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow, PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, ciscoiosxeswitch.HwAddressAccessSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.HwAddressAccess) PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow {
+			return PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow) *ciscoiosxeswitch.HwAddressAccess {
+			return &r.Entry
+		}, func(r *PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessFlatRow) PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessKey {
+			var k PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressAccessKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.HwAddress != nil {
+				k.HwAddress = *r.Entry.HwAddress
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "switchport-config", "switchport"), yang.In(moduleCiscoIOSXESwitch, "port-security-config", "port-security", "mac-address-config", "mac-address", "hw-address-access")),
+	}
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkKey is HwAddressTrunk's row identity (ancestor keys in canonical form).
+type PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkKey struct {
+	PRPChannelName string
+	HwAddress      string
+	VLAN           uint16
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow flattens one HwAddressTrunk entry with its ancestor list keys.
+type PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow struct {
+	PRPChannelName string
+	Entry          ciscoiosxeswitch.HwAddressTrunk
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkDescriptor is the flattened-row descriptor for the nested list HwAddressTrunk.
+func PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkDescriptor() yang.ListDescriptor[PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow, PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkKey] {
+	return yang.ListDescriptor[PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow, PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, ciscoiosxeswitch.HwAddressTrunkSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.HwAddressTrunk) PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow {
+			return PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow) *ciscoiosxeswitch.HwAddressTrunk {
+			return &r.Entry
+		}, func(r *PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkFlatRow) PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkKey {
+			var k PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressTrunkKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.HwAddress != nil {
+				k.HwAddress = *r.Entry.HwAddress
+			}
+			if r.Entry.VLAN != nil {
+				k.VLAN = *r.Entry.VLAN
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "switchport-config", "switchport"), yang.In(moduleCiscoIOSXESwitch, "port-security-config", "port-security", "mac-address-config", "mac-address", "hw-address-trunk")),
+	}
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceKey is HwAddressVoice's row identity (ancestor keys in canonical form).
+type PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceKey struct {
+	PRPChannelName string
+	HwAddress      string
+	VLAN           string
+	Voice          string
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow flattens one HwAddressVoice entry with its ancestor list keys.
+type PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow struct {
+	PRPChannelName string
+	Entry          ciscoiosxeswitch.HwAddressVoice
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceDescriptor is the flattened-row descriptor for the nested list HwAddressVoice.
+func PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceDescriptor() yang.ListDescriptor[PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow, PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceKey] {
+	return yang.ListDescriptor[PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow, PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, ciscoiosxeswitch.HwAddressVoiceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.HwAddressVoice) PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow {
+			return PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow) *ciscoiosxeswitch.HwAddressVoice {
+			return &r.Entry
+		}, func(r *PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceFlatRow) PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceKey {
+			var k PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMACAddressConfigMACAddressHwAddressVoiceKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.HwAddress != nil {
+				k.HwAddress = *r.Entry.HwAddress
+			}
+			if r.Entry.VLAN != nil {
+				k.VLAN = *r.Entry.VLAN
+			}
+			if r.Entry.Voice != nil {
+				k.Voice = *r.Entry.Voice
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "switchport-config", "switchport"), yang.In(moduleCiscoIOSXESwitch, "port-security-config", "port-security", "mac-address-config", "mac-address", "hw-address-voice")),
+	}
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountKey is Maxcount's row identity (ancestor keys in canonical form).
+type PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountKey struct {
+	PRPChannelName string
+	MaxAddresses   uint16
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow flattens one Maxcount entry with its ancestor list keys.
+type PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow struct {
+	PRPChannelName string
+	Entry          ciscoiosxeswitch.Maxcount
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountDescriptor is the flattened-row descriptor for the nested list Maxcount.
+func PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountDescriptor() yang.ListDescriptor[PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow, PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountKey] {
+	return yang.ListDescriptor[PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow, PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, ciscoiosxeswitch.MaxcountSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.Maxcount) PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow {
+			return PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow) *ciscoiosxeswitch.Maxcount {
+			return &r.Entry
+		}, func(r *PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountFlatRow) PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountKey {
+			var k PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaxcountKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.MaxAddresses != nil {
+				k.MaxAddresses = *r.Entry.MaxAddresses
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "switchport-config", "switchport"), yang.In(moduleCiscoIOSXESwitch, "port-security-config", "port-security", "maxcount")),
+	}
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkKey is MaximumVLANTrunk's row identity (ancestor keys in canonical form).
+type PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkKey struct {
+	PRPChannelName string
+	Maximum        uint16
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow flattens one MaximumVLANTrunk entry with its ancestor list keys.
+type PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow struct {
+	PRPChannelName string
+	Entry          ciscoiosxeswitch.MaximumVLANTrunk
+}
+
+// PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkDescriptor is the flattened-row descriptor for the nested list MaximumVLANTrunk.
+func PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkDescriptor() yang.ListDescriptor[PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow, PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkKey] {
+	return yang.ListDescriptor[PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow, PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, ciscoiosxeswitch.MaximumVLANTrunkSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.MaximumVLANTrunk) PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow {
+			return PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow) *ciscoiosxeswitch.MaximumVLANTrunk {
+			return &r.Entry
+		}, func(r *PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkFlatRow) PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkKey {
+			var k PRPChannelSwitchportConfigSwitchportPortSecurityConfigPortSecurityMaximumAddressConfigMaximumVLANTrunkKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.Maximum != nil {
+				k.Maximum = *r.Entry.Maximum
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "switchport-config", "switchport"), yang.In(moduleCiscoIOSXESwitch, "port-security-config", "port-security", "maximum-address-config", "maximum-vlan-trunk")),
+	}
+}
+
+// PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddKey is Add's row identity (ancestor keys in canonical form).
+type PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddKey struct {
+	PRPChannelName string
+	Vlans          string
+}
+
+// PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow flattens one Add entry with its ancestor list keys.
+type PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow struct {
+	PRPChannelName string
+	Entry          ciscoiosxeswitch.Add
+}
+
+// PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddDescriptor is the flattened-row descriptor for the nested list Add.
+func PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddDescriptor() yang.ListDescriptor[PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow, PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddKey] {
+	return yang.ListDescriptor[PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow, PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PRPChannelSchema, ciscoiosxeswitch.AddSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.Add) PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow {
+			return PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow{
+				Entry:          e,
+				PRPChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow) *ciscoiosxeswitch.Add {
+			return &r.Entry
+		}, func(r *PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddFlatRow) PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddKey {
+			var k PRPChannelSwitchportConfigSwitchportTrunkAllowedVLANV2AddVlansAddKey
+			k.PRPChannelName = r.PRPChannelName
+			if r.Entry.Vlans != nil {
+				k.Vlans = *r.Entry.Vlans
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "PRP-channel", "switchport-config", "switchport"), yang.In(moduleCiscoIOSXESwitch, "trunk", "allowed", "vlan-v2", "add-vlans", "add")),
+	}
+}
+
+// InterfacePortChannelKey is InterfacePortChannel's row identity (ancestor keys in canonical form).
+type InterfacePortChannelKey struct {
+	Name uint32
+}
+
+// InterfacePortChannelDescriptor is the list descriptor callers hand to a protocol library.
+func InterfacePortChannelDescriptor() yang.ListDescriptor[InterfacePortChannel, InterfacePortChannelKey] {
+	return yang.ListDescriptor[InterfacePortChannel, InterfacePortChannelKey]{
+		Codec: yang.StructRowCodec(InterfacePortChannelSchema, func(r *InterfacePortChannel) InterfacePortChannelKey {
+			var k InterfacePortChannelKey
+			if r.Name != nil {
+				k.Name = *r.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel")),
+	}
+}
+
+// PortChannelSubinterfaceNtpMulticastKey is Multicast's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfaceNtpMulticastKey struct {
+	IPv6 string
+}
+
+// PortChannelSubinterfaceNtpMulticastDescriptor is the list descriptor callers hand to a protocol library.
+func PortChannelSubinterfaceNtpMulticastDescriptor() yang.ListDescriptor[ciscoiosxentp.Multicast, PortChannelSubinterfaceNtpMulticastKey] {
+	return yang.ListDescriptor[ciscoiosxentp.Multicast, PortChannelSubinterfaceNtpMulticastKey]{
+		Codec: yang.StructRowCodec(ciscoiosxentp.MulticastSchema, func(r *ciscoiosxentp.Multicast) PortChannelSubinterfaceNtpMulticastKey {
+			var k PortChannelSubinterfaceNtpMulticastKey
+			if r.IPv6 != nil {
+				k.IPv6 = *r.IPv6
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface"), yang.In(moduleCiscoIOSXENtp, "ntp", "multicast")),
+	}
+}
+
+// PortChannelSubinterfaceOspfv3NeighborKey is Neighbor's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfaceOspfv3NeighborKey struct {
+	ID string
+}
+
+// PortChannelSubinterfaceOspfv3NeighborDescriptor is the list descriptor callers hand to a protocol library.
+func PortChannelSubinterfaceOspfv3NeighborDescriptor() yang.ListDescriptor[ciscoiosxeospfv3.Neighbor, PortChannelSubinterfaceOspfv3NeighborKey] {
+	return yang.ListDescriptor[ciscoiosxeospfv3.Neighbor, PortChannelSubinterfaceOspfv3NeighborKey]{
+		Codec: yang.StructRowCodec(ciscoiosxeospfv3.NeighborSchema, func(r *ciscoiosxeospfv3.Neighbor) PortChannelSubinterfaceOspfv3NeighborKey {
+			var k PortChannelSubinterfaceOspfv3NeighborKey
+			if r.ID != nil {
+				k.ID = *r.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "neighbor")),
+	}
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDKey is PortChannelSubinterfaceOspfv3ProcessID's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfaceOspfv3ProcessIDKey struct {
+	ID uint16
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDDescriptor is the list descriptor callers hand to a protocol library.
+func PortChannelSubinterfaceOspfv3ProcessIDDescriptor() yang.ListDescriptor[ciscoiosxeospfv3.PortChannelSubinterfaceOspfv3ProcessID, PortChannelSubinterfaceOspfv3ProcessIDKey] {
+	return yang.ListDescriptor[ciscoiosxeospfv3.PortChannelSubinterfaceOspfv3ProcessID, PortChannelSubinterfaceOspfv3ProcessIDKey]{
+		Codec: yang.StructRowCodec(ciscoiosxeospfv3.PortChannelSubinterfaceOspfv3ProcessIDSchema, func(r *ciscoiosxeospfv3.PortChannelSubinterfaceOspfv3ProcessID) PortChannelSubinterfaceOspfv3ProcessIDKey {
+			var k PortChannelSubinterfaceOspfv3ProcessIDKey
+			if r.ID != nil {
+				k.ID = *r.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id")),
+	}
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaKey is Area's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaKey struct {
+	ProcessIDID string
+	ID          string
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaFlatRow flattens one Area entry with its ancestor list keys.
+type PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaFlatRow struct {
+	ProcessIDID string
+	Entry       ciscoiosxeospfv3.Area
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaDescriptor is the flattened-row descriptor for the nested list Area.
+func PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaDescriptor() yang.ListDescriptor[PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaFlatRow, PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaKey] {
+	return yang.ListDescriptor[PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaFlatRow, PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeospfv3.PortChannelSubinterfaceOspfv3ProcessIDSchema, ciscoiosxeospfv3.AreaSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Area) PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaFlatRow {
+			return PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaFlatRow{
+				Entry:       e,
+				ProcessIDID: yang.AncestorKey(anc, 0, "id"),
+			}
+		}, func(r *PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaFlatRow) *ciscoiosxeospfv3.Area {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaFlatRow) PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaKey {
+			var k PortChannelSubinterfaceOspfv3ProcessIDIPv4AreaKey
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.ID != nil {
+				k.ID = yang.CanonicalKey(r.Entry.ID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv4", "area")),
+	}
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborKey is Neighbor's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborKey struct {
+	ProcessIDID string
+	ID          string
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborFlatRow flattens one Neighbor entry with its ancestor list keys.
+type PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborFlatRow struct {
+	ProcessIDID string
+	Entry       ciscoiosxeospfv3.Neighbor
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborDescriptor is the flattened-row descriptor for the nested list Neighbor.
+func PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborDescriptor() yang.ListDescriptor[PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborFlatRow, PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborKey] {
+	return yang.ListDescriptor[PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborFlatRow, PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeospfv3.PortChannelSubinterfaceOspfv3ProcessIDSchema, ciscoiosxeospfv3.NeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Neighbor) PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborFlatRow {
+			return PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborFlatRow{
+				Entry:       e,
+				ProcessIDID: yang.AncestorKey(anc, 0, "id"),
+			}
+		}, func(r *PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborFlatRow) *ciscoiosxeospfv3.Neighbor {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborFlatRow) PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborKey {
+			var k PortChannelSubinterfaceOspfv3ProcessIDIPv4NeighborKey
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv4", "neighbor")),
+	}
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaKey is Area's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaKey struct {
+	ProcessIDID string
+	ID          string
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaFlatRow flattens one Area entry with its ancestor list keys.
+type PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaFlatRow struct {
+	ProcessIDID string
+	Entry       ciscoiosxeospfv3.Area
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaDescriptor is the flattened-row descriptor for the nested list Area.
+func PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaDescriptor() yang.ListDescriptor[PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaFlatRow, PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaKey] {
+	return yang.ListDescriptor[PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaFlatRow, PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeospfv3.PortChannelSubinterfaceOspfv3ProcessIDSchema, ciscoiosxeospfv3.AreaSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Area) PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaFlatRow {
+			return PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaFlatRow{
+				Entry:       e,
+				ProcessIDID: yang.AncestorKey(anc, 0, "id"),
+			}
+		}, func(r *PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaFlatRow) *ciscoiosxeospfv3.Area {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaFlatRow) PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaKey {
+			var k PortChannelSubinterfaceOspfv3ProcessIDIPv6AreaKey
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.ID != nil {
+				k.ID = yang.CanonicalKey(r.Entry.ID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv6", "area")),
+	}
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborKey is Neighbor's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborKey struct {
+	ProcessIDID string
+	ID          string
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborFlatRow flattens one Neighbor entry with its ancestor list keys.
+type PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborFlatRow struct {
+	ProcessIDID string
+	Entry       ciscoiosxeospfv3.Neighbor
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborDescriptor is the flattened-row descriptor for the nested list Neighbor.
+func PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborDescriptor() yang.ListDescriptor[PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborFlatRow, PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborKey] {
+	return yang.ListDescriptor[PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborFlatRow, PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeospfv3.PortChannelSubinterfaceOspfv3ProcessIDSchema, ciscoiosxeospfv3.NeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Neighbor) PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborFlatRow {
+			return PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborFlatRow{
+				Entry:       e,
+				ProcessIDID: yang.AncestorKey(anc, 0, "id"),
+			}
+		}, func(r *PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborFlatRow) *ciscoiosxeospfv3.Neighbor {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborFlatRow) PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborKey {
+			var k PortChannelSubinterfaceOspfv3ProcessIDIPv6NeighborKey
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv6", "neighbor")),
+	}
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDNeighborKey is Neighbor's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfaceOspfv3ProcessIDNeighborKey struct {
+	ProcessIDID string
+	ID          string
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDNeighborFlatRow flattens one Neighbor entry with its ancestor list keys.
+type PortChannelSubinterfaceOspfv3ProcessIDNeighborFlatRow struct {
+	ProcessIDID string
+	Entry       ciscoiosxeospfv3.Neighbor
+}
+
+// PortChannelSubinterfaceOspfv3ProcessIDNeighborDescriptor is the flattened-row descriptor for the nested list Neighbor.
+func PortChannelSubinterfaceOspfv3ProcessIDNeighborDescriptor() yang.ListDescriptor[PortChannelSubinterfaceOspfv3ProcessIDNeighborFlatRow, PortChannelSubinterfaceOspfv3ProcessIDNeighborKey] {
+	return yang.ListDescriptor[PortChannelSubinterfaceOspfv3ProcessIDNeighborFlatRow, PortChannelSubinterfaceOspfv3ProcessIDNeighborKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{ciscoiosxeospfv3.PortChannelSubinterfaceOspfv3ProcessIDSchema, ciscoiosxeospfv3.NeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Neighbor) PortChannelSubinterfaceOspfv3ProcessIDNeighborFlatRow {
+			return PortChannelSubinterfaceOspfv3ProcessIDNeighborFlatRow{
+				Entry:       e,
+				ProcessIDID: yang.AncestorKey(anc, 0, "id"),
+			}
+		}, func(r *PortChannelSubinterfaceOspfv3ProcessIDNeighborFlatRow) *ciscoiosxeospfv3.Neighbor {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfaceOspfv3ProcessIDNeighborFlatRow) PortChannelSubinterfaceOspfv3ProcessIDNeighborKey {
+			var k PortChannelSubinterfaceOspfv3ProcessIDNeighborKey
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "neighbor")),
+	}
+}
+
+// InterfacePortChannelSubinterfacePortChannelKey is PortChannelSubinterfacePortChannel's row identity (ancestor keys in canonical form).
+type InterfacePortChannelSubinterfacePortChannelKey struct {
+	Name string
+}
+
+// InterfacePortChannelSubinterfacePortChannelDescriptor is the list descriptor callers hand to a protocol library.
+func InterfacePortChannelSubinterfacePortChannelDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannel, InterfacePortChannelSubinterfacePortChannelKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannel, InterfacePortChannelSubinterfacePortChannelKey]{
+		Codec: yang.StructRowCodec(PortChannelSubinterfacePortChannelSchema, func(r *PortChannelSubinterfacePortChannel) InterfacePortChannelSubinterfacePortChannelKey {
+			var k InterfacePortChannelSubinterfacePortChannelKey
+			if r.Name != nil {
+				k.Name = *r.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainKey is MepDomain's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainKey struct {
+	PortChannelName string
+	Name            string
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainFlatRow flattens one MepDomain entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeethernet.MepDomain
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainDescriptor is the flattened-row descriptor for the nested list MepDomain.
+func PortChannelSubinterfacePortChannelEthernetCfmMepDomainDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.MepDomainSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.MepDomain) PortChannelSubinterfacePortChannelEthernetCfmMepDomainFlatRow {
+			return PortChannelSubinterfacePortChannelEthernetCfmMepDomainFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainFlatRow) *ciscoiosxeethernet.MepDomain {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainFlatRow) PortChannelSubinterfacePortChannelEthernetCfmMepDomainKey {
+			var k PortChannelSubinterfacePortChannelEthernetCfmMepDomainKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidKey is Mpid's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidKey struct {
+	PortChannelName string
+	DomainName      string
+	MpidNumber      uint16
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidFlatRow flattens one Mpid entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidFlatRow struct {
+	PortChannelName string
+	DomainName      string
+	Entry           ciscoiosxeethernet.Mpid
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidDescriptor is the flattened-row descriptor for the nested list Mpid.
+func PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Mpid) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidFlatRow {
+			return PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidFlatRow{
+				DomainName:      yang.AncestorKey(anc, 1, "name"),
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidFlatRow) *ciscoiosxeethernet.Mpid {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidFlatRow) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidKey {
+			var k PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidKey
+			k.PortChannelName = r.PortChannelName
+			k.DomainName = r.DomainName
+			if r.Entry.MpidNumber != nil {
+				k.MpidNumber = *r.Entry.MpidNumber
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccKey is Icc's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccKey struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	Code            string
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccFlatRow flattens one Icc entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccFlatRow struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	Entry           ciscoiosxeethernet.Icc
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccDescriptor is the flattened-row descriptor for the nested list Icc.
+func PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.IccSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Icc) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccFlatRow {
+			return PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccFlatRow{
+				DomainName:      yang.AncestorKey(anc, 1, "name"),
+				Entry:           e,
+				MpidMpidNumber:  yang.AncestorKey(anc, 2, "mpid-number"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccFlatRow) *ciscoiosxeethernet.Icc {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccFlatRow) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccKey {
+			var k PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccKey
+			k.PortChannelName = r.PortChannelName
+			k.DomainName = r.DomainName
+			k.MpidMpidNumber = r.MpidMpidNumber
+			if r.Entry.Code != nil {
+				k.Code = *r.Entry.Code
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "icc")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepKey is RmepXe5cd23's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepKey struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	IccCode         string
+	ID              uint16
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepFlatRow flattens one RmepXe5cd23 entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepFlatRow struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	IccCode         string
+	Entry           ciscoiosxeethernet.RmepXe5cd23
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepDescriptor is the flattened-row descriptor for the nested list RmepXe5cd23.
+func PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.IccSchema, ciscoiosxeethernet.RmepSchemaX3bb0ec}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.RmepXe5cd23) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepFlatRow {
+			return PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepFlatRow{
+				DomainName:      yang.AncestorKey(anc, 1, "name"),
+				Entry:           e,
+				IccCode:         yang.AncestorKey(anc, 3, "code"),
+				MpidMpidNumber:  yang.AncestorKey(anc, 2, "mpid-number"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepFlatRow) *ciscoiosxeethernet.RmepXe5cd23 {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepFlatRow) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepKey {
+			var k PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceIccRmepKey
+			k.PortChannelName = r.PortChannelName
+			k.DomainName = r.DomainName
+			k.MpidMpidNumber = r.MpidMpidNumber
+			k.IccCode = r.IccCode
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "icc", "rmep")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceKey is NamedService's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceKey struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	ServiceName     string
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceFlatRow flattens one NamedService entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceFlatRow struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	Entry           ciscoiosxeethernet.NamedService
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceDescriptor is the flattened-row descriptor for the nested list NamedService.
+func PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.NamedServiceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.NamedService) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceFlatRow {
+			return PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceFlatRow{
+				DomainName:      yang.AncestorKey(anc, 1, "name"),
+				Entry:           e,
+				MpidMpidNumber:  yang.AncestorKey(anc, 2, "mpid-number"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceFlatRow) *ciscoiosxeethernet.NamedService {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceFlatRow) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceKey {
+			var k PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceKey
+			k.PortChannelName = r.PortChannelName
+			k.DomainName = r.DomainName
+			k.MpidMpidNumber = r.MpidMpidNumber
+			if r.Entry.ServiceName != nil {
+				k.ServiceName = *r.Entry.ServiceName
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "named-service")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepKey is RmepXe5cd23's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepKey struct {
+	PortChannelName         string
+	DomainName              string
+	MpidMpidNumber          string
+	NamedServiceServiceName string
+	ID                      uint16
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow flattens one RmepXe5cd23 entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow struct {
+	PortChannelName         string
+	DomainName              string
+	MpidMpidNumber          string
+	NamedServiceServiceName string
+	Entry                   ciscoiosxeethernet.RmepXe5cd23
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepDescriptor is the flattened-row descriptor for the nested list RmepXe5cd23.
+func PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.NamedServiceSchema, ciscoiosxeethernet.RmepSchemaX3bb0ec}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.RmepXe5cd23) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow {
+			return PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow{
+				DomainName:              yang.AncestorKey(anc, 1, "name"),
+				Entry:                   e,
+				MpidMpidNumber:          yang.AncestorKey(anc, 2, "mpid-number"),
+				NamedServiceServiceName: yang.AncestorKey(anc, 3, "service-name"),
+				PortChannelName:         yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow) *ciscoiosxeethernet.RmepXe5cd23 {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepFlatRow) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepKey {
+			var k PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNamedServiceRmepKey
+			k.PortChannelName = r.PortChannelName
+			k.DomainName = r.DomainName
+			k.MpidMpidNumber = r.MpidMpidNumber
+			k.NamedServiceServiceName = r.NamedServiceServiceName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "named-service", "rmep")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberKey is Number's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberKey struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	MaNum           uint16
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberFlatRow flattens one Number entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberFlatRow struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	Entry           ciscoiosxeethernet.Number
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberDescriptor is the flattened-row descriptor for the nested list Number.
+func PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.NumberSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Number) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberFlatRow {
+			return PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberFlatRow{
+				DomainName:      yang.AncestorKey(anc, 1, "name"),
+				Entry:           e,
+				MpidMpidNumber:  yang.AncestorKey(anc, 2, "mpid-number"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberFlatRow) *ciscoiosxeethernet.Number {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberFlatRow) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberKey {
+			var k PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberKey
+			k.PortChannelName = r.PortChannelName
+			k.DomainName = r.DomainName
+			k.MpidMpidNumber = r.MpidMpidNumber
+			if r.Entry.MaNum != nil {
+				k.MaNum = *r.Entry.MaNum
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "number")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepKey is RmepXe5cd23's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepKey struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	NumberMaNum     string
+	ID              uint16
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepFlatRow flattens one RmepXe5cd23 entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepFlatRow struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	NumberMaNum     string
+	Entry           ciscoiosxeethernet.RmepXe5cd23
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepDescriptor is the flattened-row descriptor for the nested list RmepXe5cd23.
+func PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.NumberSchema, ciscoiosxeethernet.RmepSchemaX3bb0ec}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.RmepXe5cd23) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepFlatRow {
+			return PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepFlatRow{
+				DomainName:      yang.AncestorKey(anc, 1, "name"),
+				Entry:           e,
+				MpidMpidNumber:  yang.AncestorKey(anc, 2, "mpid-number"),
+				NumberMaNum:     yang.AncestorKey(anc, 3, "ma-num"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepFlatRow) *ciscoiosxeethernet.RmepXe5cd23 {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepFlatRow) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepKey {
+			var k PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceNumberRmepKey
+			k.PortChannelName = r.PortChannelName
+			k.DomainName = r.DomainName
+			k.MpidMpidNumber = r.MpidMpidNumber
+			k.NumberMaNum = r.NumberMaNum
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "number", "rmep")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDKey is VLANID's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDKey struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	VLANNum         uint16
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDFlatRow flattens one VLANID entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDFlatRow struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	Entry           ciscoiosxeethernet.VLANID
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDDescriptor is the flattened-row descriptor for the nested list VLANID.
+func PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.VLANIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.VLANID) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDFlatRow {
+			return PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDFlatRow{
+				DomainName:      yang.AncestorKey(anc, 1, "name"),
+				Entry:           e,
+				MpidMpidNumber:  yang.AncestorKey(anc, 2, "mpid-number"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDFlatRow) *ciscoiosxeethernet.VLANID {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDFlatRow) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDKey {
+			var k PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDKey
+			k.PortChannelName = r.PortChannelName
+			k.DomainName = r.DomainName
+			k.MpidMpidNumber = r.MpidMpidNumber
+			if r.Entry.VLANNum != nil {
+				k.VLANNum = *r.Entry.VLANNum
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "vlan-id")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepKey is RmepXe5cd23's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepKey struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	VLANIDVLANNum   string
+	ID              uint16
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow flattens one RmepXe5cd23 entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	VLANIDVLANNum   string
+	Entry           ciscoiosxeethernet.RmepXe5cd23
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepDescriptor is the flattened-row descriptor for the nested list RmepXe5cd23.
+func PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.VLANIDSchema, ciscoiosxeethernet.RmepSchemaX3bb0ec}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.RmepXe5cd23) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow {
+			return PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow{
+				DomainName:      yang.AncestorKey(anc, 1, "name"),
+				Entry:           e,
+				MpidMpidNumber:  yang.AncestorKey(anc, 2, "mpid-number"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+				VLANIDVLANNum:   yang.AncestorKey(anc, 3, "vlan-num"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow) *ciscoiosxeethernet.RmepXe5cd23 {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepFlatRow) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepKey {
+			var k PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVLANIDRmepKey
+			k.PortChannelName = r.PortChannelName
+			k.DomainName = r.DomainName
+			k.MpidMpidNumber = r.MpidMpidNumber
+			k.VLANIDVLANNum = r.VLANIDVLANNum
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "vlan-id", "rmep")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDKey is VpnID's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDKey struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	Vpn             uint16
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDFlatRow flattens one VpnID entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDFlatRow struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	Entry           ciscoiosxeethernet.VpnID
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDDescriptor is the flattened-row descriptor for the nested list VpnID.
+func PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.VpnIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.VpnID) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDFlatRow {
+			return PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDFlatRow{
+				DomainName:      yang.AncestorKey(anc, 1, "name"),
+				Entry:           e,
+				MpidMpidNumber:  yang.AncestorKey(anc, 2, "mpid-number"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDFlatRow) *ciscoiosxeethernet.VpnID {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDFlatRow) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDKey {
+			var k PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDKey
+			k.PortChannelName = r.PortChannelName
+			k.DomainName = r.DomainName
+			k.MpidMpidNumber = r.MpidMpidNumber
+			if r.Entry.Vpn != nil {
+				k.Vpn = *r.Entry.Vpn
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "vpn-id")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepKey is RmepXe5cd23's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepKey struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	VpnIDVpn        string
+	ID              uint16
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow flattens one RmepXe5cd23 entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow struct {
+	PortChannelName string
+	DomainName      string
+	MpidMpidNumber  string
+	VpnIDVpn        string
+	Entry           ciscoiosxeethernet.RmepXe5cd23
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepDescriptor is the flattened-row descriptor for the nested list RmepXe5cd23.
+func PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.MepDomainSchema, ciscoiosxeethernet.MpidSchema, ciscoiosxeethernet.VpnIDSchema, ciscoiosxeethernet.RmepSchemaX3bb0ec}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.RmepXe5cd23) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow {
+			return PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow{
+				DomainName:      yang.AncestorKey(anc, 1, "name"),
+				Entry:           e,
+				MpidMpidNumber:  yang.AncestorKey(anc, 2, "mpid-number"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+				VpnIDVpn:        yang.AncestorKey(anc, 3, "vpn"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow) *ciscoiosxeethernet.RmepXe5cd23 {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepFlatRow) PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepKey {
+			var k PortChannelSubinterfacePortChannelEthernetCfmMepDomainMpidServiceVpnIDRmepKey
+			k.PortChannelName = r.PortChannelName
+			k.DomainName = r.DomainName
+			k.MpidMpidNumber = r.MpidMpidNumber
+			k.VpnIDVpn = r.VpnIDVpn
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mep", "domain", "mpid", "service", "vpn-id", "rmep")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMipLevelKey is CfmMipLevel's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelEthernetCfmMipLevelKey struct {
+	PortChannelName string
+	LevelNumber     uint8
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMipLevelFlatRow flattens one CfmMipLevel entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelEthernetCfmMipLevelFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeethernet.CfmMipLevel
+}
+
+// PortChannelSubinterfacePortChannelEthernetCfmMipLevelDescriptor is the flattened-row descriptor for the nested list CfmMipLevel.
+func PortChannelSubinterfacePortChannelEthernetCfmMipLevelDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMipLevelFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMipLevelKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelEthernetCfmMipLevelFlatRow, PortChannelSubinterfacePortChannelEthernetCfmMipLevelKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.CfmMipLevelSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.CfmMipLevel) PortChannelSubinterfacePortChannelEthernetCfmMipLevelFlatRow {
+			return PortChannelSubinterfacePortChannelEthernetCfmMipLevelFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMipLevelFlatRow) *ciscoiosxeethernet.CfmMipLevel {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelEthernetCfmMipLevelFlatRow) PortChannelSubinterfacePortChannelEthernetCfmMipLevelKey {
+			var k PortChannelSubinterfacePortChannelEthernetCfmMipLevelKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.LevelNumber != nil {
+				k.LevelNumber = *r.Entry.LevelNumber
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "ethernet", "cfm", "mip", "level")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListKey is DialPoolNumberList's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListKey struct {
+	PortChannelName string
+	Number          uint32
+}
+
+// PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListFlatRow flattens one DialPoolNumberList entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeethernet.DialPoolNumberList
+}
+
+// PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListDescriptor is the flattened-row descriptor for the nested list DialPoolNumberList.
+func PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListFlatRow, PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListFlatRow, PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.DialPoolNumberListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.DialPoolNumberList) PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListFlatRow {
+			return PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListFlatRow) *ciscoiosxeethernet.DialPoolNumberList {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListFlatRow) PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListKey {
+			var k PortChannelSubinterfacePortChannelPppoeClientDialPoolNumberListKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Number != nil {
+				k.Number = *r.Entry.Number
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "pppoe-client", "dial-pool-number-list")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceKey is ServiceInstanceXfdc39f's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelServiceInstanceKey struct {
+	PortChannelName string
+	ID              uint32
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceFlatRow flattens one ServiceInstanceXfdc39f entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelServiceInstanceFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeethernet.ServiceInstanceXfdc39f
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceDescriptor is the flattened-row descriptor for the nested list ServiceInstanceXfdc39f.
+func PortChannelSubinterfacePortChannelServiceInstanceDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceFlatRow, PortChannelSubinterfacePortChannelServiceInstanceKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceFlatRow, PortChannelSubinterfacePortChannelServiceInstanceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.ServiceInstanceSchemaX62fbec}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.ServiceInstanceXfdc39f) PortChannelSubinterfacePortChannelServiceInstanceFlatRow {
+			return PortChannelSubinterfacePortChannelServiceInstanceFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceFlatRow) *ciscoiosxeethernet.ServiceInstanceXfdc39f {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceFlatRow) PortChannelSubinterfacePortChannelServiceInstanceKey {
+			var k PortChannelSubinterfacePortChannelServiceInstanceKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainKey is MepListDomain's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainKey struct {
+	PortChannelName string
+	InstanceID      string
+	Name            string
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainFlatRow flattens one MepListDomain entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainFlatRow struct {
+	PortChannelName string
+	InstanceID      string
+	Entry           ciscoiosxeethernet.MepListDomain
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainDescriptor is the flattened-row descriptor for the nested list MepListDomain.
+func PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainFlatRow, PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainFlatRow, PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.ServiceInstanceSchemaX62fbec, ciscoiosxeethernet.MepListDomainSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.MepListDomain) PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainFlatRow {
+			return PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainFlatRow{
+				Entry:           e,
+				InstanceID:      yang.AncestorKey(anc, 1, "id"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainFlatRow) *ciscoiosxeethernet.MepListDomain {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainFlatRow) PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainKey {
+			var k PortChannelSubinterfacePortChannelServiceInstanceCfmMepListDomainKey
+			k.PortChannelName = r.PortChannelName
+			k.InstanceID = r.InstanceID
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "cfm", "mep-list", "domain")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListKey is IPAccessGroupList's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListKey struct {
+	PortChannelName string
+	InstanceID      string
+	Direction       string
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListFlatRow flattens one IPAccessGroupList entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListFlatRow struct {
+	PortChannelName string
+	InstanceID      string
+	Entry           ciscoiosxeethernet.IPAccessGroupList
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListDescriptor is the flattened-row descriptor for the nested list IPAccessGroupList.
+func PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListFlatRow, PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListFlatRow, PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.ServiceInstanceSchemaX62fbec, ciscoiosxeethernet.IPAccessGroupListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.IPAccessGroupList) PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListFlatRow {
+			return PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListFlatRow{
+				Entry:           e,
+				InstanceID:      yang.AncestorKey(anc, 1, "id"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListFlatRow) *ciscoiosxeethernet.IPAccessGroupList {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListFlatRow) PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListKey {
+			var k PortChannelSubinterfacePortChannelServiceInstanceIPAccessGroupListKey
+			k.PortChannelName = r.PortChannelName
+			k.InstanceID = r.InstanceID
+			if r.Entry.Direction != nil {
+				k.Direction = *r.Entry.Direction
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "ip", "access-group-list")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListKey is TrafficFilterList's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListKey struct {
+	PortChannelName string
+	InstanceID      string
+	Direction       string
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListFlatRow flattens one TrafficFilterList entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListFlatRow struct {
+	PortChannelName string
+	InstanceID      string
+	Entry           ciscoiosxeethernet.TrafficFilterList
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListDescriptor is the flattened-row descriptor for the nested list TrafficFilterList.
+func PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListFlatRow, PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListFlatRow, PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.ServiceInstanceSchemaX62fbec, ciscoiosxeethernet.TrafficFilterListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.TrafficFilterList) PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListFlatRow {
+			return PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListFlatRow{
+				Entry:           e,
+				InstanceID:      yang.AncestorKey(anc, 1, "id"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListFlatRow) *ciscoiosxeethernet.TrafficFilterList {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListFlatRow) PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListKey {
+			var k PortChannelSubinterfacePortChannelServiceInstanceIPv6TrafficFilterListKey
+			k.PortChannelName = r.PortChannelName
+			k.InstanceID = r.InstanceID
+			if r.Entry.Direction != nil {
+				k.Direction = *r.Entry.Direction
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "ipv6", "traffic-filter-list")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupKey is AccessGroup's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupKey struct {
+	PortChannelName string
+	InstanceID      string
+	ACLName         string
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupFlatRow flattens one AccessGroup entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupFlatRow struct {
+	PortChannelName string
+	InstanceID      string
+	Entry           ciscoiosxeethernet.AccessGroup
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupDescriptor is the flattened-row descriptor for the nested list AccessGroup.
+func PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupFlatRow, PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupFlatRow, PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.ServiceInstanceSchemaX62fbec, ciscoiosxeethernet.AccessGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.AccessGroup) PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupFlatRow {
+			return PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupFlatRow{
+				Entry:           e,
+				InstanceID:      yang.AncestorKey(anc, 1, "id"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupFlatRow) *ciscoiosxeethernet.AccessGroup {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupFlatRow) PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupKey {
+			var k PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupKey
+			k.PortChannelName = r.PortChannelName
+			k.InstanceID = r.InstanceID
+			if r.Entry.ACLName != nil {
+				k.ACLName = *r.Entry.ACLName
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "mac", "access-group")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListKey is MACAccessGroupList's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListKey struct {
+	PortChannelName string
+	InstanceID      string
+	Direction       string
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListFlatRow flattens one MACAccessGroupList entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListFlatRow struct {
+	PortChannelName string
+	InstanceID      string
+	Entry           ciscoiosxeethernet.MACAccessGroupList
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListDescriptor is the flattened-row descriptor for the nested list MACAccessGroupList.
+func PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListFlatRow, PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListFlatRow, PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.ServiceInstanceSchemaX62fbec, ciscoiosxeethernet.MACAccessGroupListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.MACAccessGroupList) PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListFlatRow {
+			return PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListFlatRow{
+				Entry:           e,
+				InstanceID:      yang.AncestorKey(anc, 1, "id"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListFlatRow) *ciscoiosxeethernet.MACAccessGroupList {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListFlatRow) PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListKey {
+			var k PortChannelSubinterfacePortChannelServiceInstanceMACAccessGroupListKey
+			k.PortChannelName = r.PortChannelName
+			k.InstanceID = r.InstanceID
+			if r.Entry.Direction != nil {
+				k.Direction = *r.Entry.Direction
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "mac", "access-group-list")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyKey is Deny's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyKey struct {
+	PortChannelName string
+	InstanceID      string
+	MAC             string
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyFlatRow flattens one Deny entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyFlatRow struct {
+	PortChannelName string
+	InstanceID      string
+	Entry           ciscoiosxeethernet.Deny
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyDescriptor is the flattened-row descriptor for the nested list Deny.
+func PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyFlatRow, PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyFlatRow, PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.ServiceInstanceSchemaX62fbec, ciscoiosxeethernet.DenySchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Deny) PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyFlatRow {
+			return PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyFlatRow{
+				Entry:           e,
+				InstanceID:      yang.AncestorKey(anc, 1, "id"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyFlatRow) *ciscoiosxeethernet.Deny {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyFlatRow) PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyKey {
+			var k PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressDenyKey
+			k.PortChannelName = r.PortChannelName
+			k.InstanceID = r.InstanceID
+			if r.Entry.MAC != nil {
+				k.MAC = *r.Entry.MAC
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "mac", "security", "address", "deny")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitKey is AddressPermit's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitKey struct {
+	PortChannelName string
+	InstanceID      string
+	MAC             string
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitFlatRow flattens one AddressPermit entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitFlatRow struct {
+	PortChannelName string
+	InstanceID      string
+	Entry           ciscoiosxeethernet.AddressPermit
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitDescriptor is the flattened-row descriptor for the nested list AddressPermit.
+func PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitFlatRow, PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitFlatRow, PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.ServiceInstanceSchemaX62fbec, ciscoiosxeethernet.AddressPermitSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.AddressPermit) PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitFlatRow {
+			return PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitFlatRow{
+				Entry:           e,
+				InstanceID:      yang.AncestorKey(anc, 1, "id"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitFlatRow) *ciscoiosxeethernet.AddressPermit {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitFlatRow) PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitKey {
+			var k PortChannelSubinterfacePortChannelServiceInstanceMACSecurityAddressPermitKey
+			k.PortChannelName = r.PortChannelName
+			k.InstanceID = r.InstanceID
+			if r.Entry.MAC != nil {
+				k.MAC = *r.Entry.MAC
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "mac", "security", "address", "permit")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputKey is ServicePolicyInput's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputKey struct {
+	PortChannelName string
+	InstanceID      string
+	Name            string
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputFlatRow flattens one ServicePolicyInput entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputFlatRow struct {
+	PortChannelName string
+	InstanceID      string
+	Entry           ciscoiosxeethernet.ServicePolicyInput
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputDescriptor is the flattened-row descriptor for the nested list ServicePolicyInput.
+func PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputFlatRow, PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputFlatRow, PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.ServiceInstanceSchemaX62fbec, ciscoiosxeethernet.ServicePolicyInputSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.ServicePolicyInput) PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputFlatRow {
+			return PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputFlatRow{
+				Entry:           e,
+				InstanceID:      yang.AncestorKey(anc, 1, "id"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputFlatRow) *ciscoiosxeethernet.ServicePolicyInput {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputFlatRow) PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputKey {
+			var k PortChannelSubinterfacePortChannelServiceInstanceServicePolicyInputKey
+			k.PortChannelName = r.PortChannelName
+			k.InstanceID = r.InstanceID
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "service-policy", "input")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputKey is Output's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputKey struct {
+	PortChannelName string
+	InstanceID      string
+	Name            string
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputFlatRow flattens one Output entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputFlatRow struct {
+	PortChannelName string
+	InstanceID      string
+	Entry           ciscoiosxeethernet.Output
+}
+
+// PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputDescriptor is the flattened-row descriptor for the nested list Output.
+func PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputFlatRow, PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputFlatRow, PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeethernet.ServiceInstanceSchemaX62fbec, ciscoiosxeethernet.OutputSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeethernet.Output) PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputFlatRow {
+			return PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputFlatRow{
+				Entry:           e,
+				InstanceID:      yang.AncestorKey(anc, 1, "id"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputFlatRow) *ciscoiosxeethernet.Output {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputFlatRow) PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputKey {
+			var k PortChannelSubinterfacePortChannelServiceInstanceServicePolicyOutputKey
+			k.PortChannelName = r.PortChannelName
+			k.InstanceID = r.InstanceID
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEthernet, "service", "instance", "service-policy", "output")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigKey is ContextConfig's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigKey struct {
+	PortChannelName string
+	Name            string
+}
+
+// PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigFlatRow flattens one ContextConfig entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeezpm.ContextConfig
+}
+
+// PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigDescriptor is the flattened-row descriptor for the nested list ContextConfig.
+func PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigFlatRow, PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigFlatRow, PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeezpm.ContextConfigSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeezpm.ContextConfig) PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigFlatRow {
+			return PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigFlatRow) *ciscoiosxeezpm.ContextConfig {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigFlatRow) PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigKey {
+			var k PortChannelSubinterfacePortChannelPerformanceMonitorContextConfigKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEEzpm, "performance", "monitor", "context-config")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDKey is Ospfv3MultiAreaConfigMultiAreaID's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDKey struct {
+	PortChannelName string
+	AreaID          string
+}
+
+// PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDFlatRow flattens one Ospfv3MultiAreaConfigMultiAreaID entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeospfv3.Ospfv3MultiAreaConfigMultiAreaID
+}
+
+// PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDDescriptor is the flattened-row descriptor for the nested list Ospfv3MultiAreaConfigMultiAreaID.
+func PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDFlatRow, PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDFlatRow, PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.Ospfv3MultiAreaConfigMultiAreaIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Ospfv3MultiAreaConfigMultiAreaID) PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDFlatRow {
+			return PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDFlatRow) *ciscoiosxeospfv3.Ospfv3MultiAreaConfigMultiAreaID {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDFlatRow) PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDKey {
+			var k PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.AreaID != nil {
+				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "multi-area-config", "multi-area-id")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostKey is MultiAreaIDCost's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostKey struct {
+	PortChannelName string
+	AreaID          string
+}
+
+// PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostFlatRow flattens one MultiAreaIDCost entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeospfv3.MultiAreaIDCost
+}
+
+// PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostDescriptor is the flattened-row descriptor for the nested list MultiAreaIDCost.
+func PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostFlatRow, PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostFlatRow, PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.MultiAreaIDCostSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.MultiAreaIDCost) PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostFlatRow {
+			return PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostFlatRow) *ciscoiosxeospfv3.MultiAreaIDCost {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostFlatRow) PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostKey {
+			var k PortChannelSubinterfacePortChannelOspfv3MultiAreaConfigMultiAreaIDCostKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.AreaID != nil {
+				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "multi-area-config", "multi-area-id-cost")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelOspfv3NeighborKey is Neighbor's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelOspfv3NeighborKey struct {
+	PortChannelName string
+	ID              string
+}
+
+// PortChannelSubinterfacePortChannelOspfv3NeighborFlatRow flattens one Neighbor entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelOspfv3NeighborFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeospfv3.Neighbor
+}
+
+// PortChannelSubinterfacePortChannelOspfv3NeighborDescriptor is the flattened-row descriptor for the nested list Neighbor.
+func PortChannelSubinterfacePortChannelOspfv3NeighborDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3NeighborFlatRow, PortChannelSubinterfacePortChannelOspfv3NeighborKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3NeighborFlatRow, PortChannelSubinterfacePortChannelOspfv3NeighborKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.NeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Neighbor) PortChannelSubinterfacePortChannelOspfv3NeighborFlatRow {
+			return PortChannelSubinterfacePortChannelOspfv3NeighborFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3NeighborFlatRow) *ciscoiosxeospfv3.Neighbor {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3NeighborFlatRow) PortChannelSubinterfacePortChannelOspfv3NeighborKey {
+			var k PortChannelSubinterfacePortChannelOspfv3NeighborKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "neighbor")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDKey is Ospfv3ProcessID's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDKey struct {
+	PortChannelName string
+	ID              uint16
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDFlatRow flattens one Ospfv3ProcessID entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeospfv3.Ospfv3ProcessID
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDDescriptor is the flattened-row descriptor for the nested list Ospfv3ProcessID.
+func PortChannelSubinterfacePortChannelOspfv3ProcessIDDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Ospfv3ProcessID) PortChannelSubinterfacePortChannelOspfv3ProcessIDFlatRow {
+			return PortChannelSubinterfacePortChannelOspfv3ProcessIDFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDFlatRow) *ciscoiosxeospfv3.Ospfv3ProcessID {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDFlatRow) PortChannelSubinterfacePortChannelOspfv3ProcessIDKey {
+			var k PortChannelSubinterfacePortChannelOspfv3ProcessIDKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaKey is Area's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaKey struct {
+	PortChannelName string
+	ProcessIDID     string
+	ID              string
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaFlatRow flattens one Area entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaFlatRow struct {
+	PortChannelName string
+	ProcessIDID     string
+	Entry           ciscoiosxeospfv3.Area
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaDescriptor is the flattened-row descriptor for the nested list Area.
+func PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.AreaSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Area) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaFlatRow {
+			return PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+				ProcessIDID:     yang.AncestorKey(anc, 1, "id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaFlatRow) *ciscoiosxeospfv3.Area {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaFlatRow) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaKey {
+			var k PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4AreaKey
+			k.PortChannelName = r.PortChannelName
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.ID != nil {
+				k.ID = yang.CanonicalKey(r.Entry.ID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv4", "area")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDKey is MultiAreaConfigMultiAreaID's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDKey struct {
+	PortChannelName string
+	ProcessIDID     string
+	AreaID          string
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow flattens one MultiAreaConfigMultiAreaID entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow struct {
+	PortChannelName string
+	ProcessIDID     string
+	Entry           ciscoiosxeospfv3.MultiAreaConfigMultiAreaID
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDDescriptor is the flattened-row descriptor for the nested list MultiAreaConfigMultiAreaID.
+func PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.MultiAreaConfigMultiAreaIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.MultiAreaConfigMultiAreaID) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow {
+			return PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+				ProcessIDID:     yang.AncestorKey(anc, 1, "id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow) *ciscoiosxeospfv3.MultiAreaConfigMultiAreaID {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDFlatRow) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDKey {
+			var k PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDKey
+			k.PortChannelName = r.PortChannelName
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.AreaID != nil {
+				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv4", "multi-area-config", "multi-area-id")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostKey is MultiAreaIDCost's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostKey struct {
+	PortChannelName string
+	ProcessIDID     string
+	AreaID          string
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow flattens one MultiAreaIDCost entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow struct {
+	PortChannelName string
+	ProcessIDID     string
+	Entry           ciscoiosxeospfv3.MultiAreaIDCost
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostDescriptor is the flattened-row descriptor for the nested list MultiAreaIDCost.
+func PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.MultiAreaIDCostSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.MultiAreaIDCost) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow {
+			return PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+				ProcessIDID:     yang.AncestorKey(anc, 1, "id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow) *ciscoiosxeospfv3.MultiAreaIDCost {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostFlatRow) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostKey {
+			var k PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4MultiAreaConfigMultiAreaIDCostKey
+			k.PortChannelName = r.PortChannelName
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.AreaID != nil {
+				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv4", "multi-area-config", "multi-area-id-cost")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborKey is Neighbor's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborKey struct {
+	PortChannelName string
+	ProcessIDID     string
+	ID              string
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborFlatRow flattens one Neighbor entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborFlatRow struct {
+	PortChannelName string
+	ProcessIDID     string
+	Entry           ciscoiosxeospfv3.Neighbor
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborDescriptor is the flattened-row descriptor for the nested list Neighbor.
+func PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.NeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Neighbor) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborFlatRow {
+			return PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+				ProcessIDID:     yang.AncestorKey(anc, 1, "id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborFlatRow) *ciscoiosxeospfv3.Neighbor {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborFlatRow) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborKey {
+			var k PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv4NeighborKey
+			k.PortChannelName = r.PortChannelName
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv4", "neighbor")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaKey is Area's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaKey struct {
+	PortChannelName string
+	ProcessIDID     string
+	ID              string
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaFlatRow flattens one Area entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaFlatRow struct {
+	PortChannelName string
+	ProcessIDID     string
+	Entry           ciscoiosxeospfv3.Area
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaDescriptor is the flattened-row descriptor for the nested list Area.
+func PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.AreaSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Area) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaFlatRow {
+			return PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+				ProcessIDID:     yang.AncestorKey(anc, 1, "id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaFlatRow) *ciscoiosxeospfv3.Area {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaFlatRow) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaKey {
+			var k PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6AreaKey
+			k.PortChannelName = r.PortChannelName
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.ID != nil {
+				k.ID = yang.CanonicalKey(r.Entry.ID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv6", "area")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDKey is MultiAreaConfigMultiAreaID's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDKey struct {
+	PortChannelName string
+	ProcessIDID     string
+	AreaID          string
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow flattens one MultiAreaConfigMultiAreaID entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow struct {
+	PortChannelName string
+	ProcessIDID     string
+	Entry           ciscoiosxeospfv3.MultiAreaConfigMultiAreaID
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDDescriptor is the flattened-row descriptor for the nested list MultiAreaConfigMultiAreaID.
+func PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.MultiAreaConfigMultiAreaIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.MultiAreaConfigMultiAreaID) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow {
+			return PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+				ProcessIDID:     yang.AncestorKey(anc, 1, "id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow) *ciscoiosxeospfv3.MultiAreaConfigMultiAreaID {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDFlatRow) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDKey {
+			var k PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDKey
+			k.PortChannelName = r.PortChannelName
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.AreaID != nil {
+				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv6", "multi-area-config", "multi-area-id")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostKey is MultiAreaIDCost's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostKey struct {
+	PortChannelName string
+	ProcessIDID     string
+	AreaID          string
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow flattens one MultiAreaIDCost entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow struct {
+	PortChannelName string
+	ProcessIDID     string
+	Entry           ciscoiosxeospfv3.MultiAreaIDCost
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostDescriptor is the flattened-row descriptor for the nested list MultiAreaIDCost.
+func PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.MultiAreaIDCostSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.MultiAreaIDCost) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow {
+			return PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+				ProcessIDID:     yang.AncestorKey(anc, 1, "id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow) *ciscoiosxeospfv3.MultiAreaIDCost {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostFlatRow) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostKey {
+			var k PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6MultiAreaConfigMultiAreaIDCostKey
+			k.PortChannelName = r.PortChannelName
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.AreaID != nil {
+				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv6", "multi-area-config", "multi-area-id-cost")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborKey is Neighbor's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborKey struct {
+	PortChannelName string
+	ProcessIDID     string
+	ID              string
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborFlatRow flattens one Neighbor entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborFlatRow struct {
+	PortChannelName string
+	ProcessIDID     string
+	Entry           ciscoiosxeospfv3.Neighbor
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborDescriptor is the flattened-row descriptor for the nested list Neighbor.
+func PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.NeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Neighbor) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborFlatRow {
+			return PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+				ProcessIDID:     yang.AncestorKey(anc, 1, "id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborFlatRow) *ciscoiosxeospfv3.Neighbor {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborFlatRow) PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborKey {
+			var k PortChannelSubinterfacePortChannelOspfv3ProcessIDIPv6NeighborKey
+			k.PortChannelName = r.PortChannelName
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "ipv6", "neighbor")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDKey is MultiAreaConfigMultiAreaID's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDKey struct {
+	PortChannelName string
+	ProcessIDID     string
+	AreaID          string
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow flattens one MultiAreaConfigMultiAreaID entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow struct {
+	PortChannelName string
+	ProcessIDID     string
+	Entry           ciscoiosxeospfv3.MultiAreaConfigMultiAreaID
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDDescriptor is the flattened-row descriptor for the nested list MultiAreaConfigMultiAreaID.
+func PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.MultiAreaConfigMultiAreaIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.MultiAreaConfigMultiAreaID) PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow {
+			return PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+				ProcessIDID:     yang.AncestorKey(anc, 1, "id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow) *ciscoiosxeospfv3.MultiAreaConfigMultiAreaID {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDFlatRow) PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDKey {
+			var k PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDKey
+			k.PortChannelName = r.PortChannelName
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.AreaID != nil {
+				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "multi-area-config", "multi-area-id")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostKey is MultiAreaIDCost's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostKey struct {
+	PortChannelName string
+	ProcessIDID     string
+	AreaID          string
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow flattens one MultiAreaIDCost entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow struct {
+	PortChannelName string
+	ProcessIDID     string
+	Entry           ciscoiosxeospfv3.MultiAreaIDCost
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostDescriptor is the flattened-row descriptor for the nested list MultiAreaIDCost.
+func PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.MultiAreaIDCostSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.MultiAreaIDCost) PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow {
+			return PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+				ProcessIDID:     yang.AncestorKey(anc, 1, "id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow) *ciscoiosxeospfv3.MultiAreaIDCost {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostFlatRow) PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostKey {
+			var k PortChannelSubinterfacePortChannelOspfv3ProcessIDMultiAreaConfigMultiAreaIDCostKey
+			k.PortChannelName = r.PortChannelName
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.AreaID != nil {
+				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "multi-area-config", "multi-area-id-cost")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborKey is Neighbor's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborKey struct {
+	PortChannelName string
+	ProcessIDID     string
+	ID              string
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborFlatRow flattens one Neighbor entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborFlatRow struct {
+	PortChannelName string
+	ProcessIDID     string
+	Entry           ciscoiosxeospfv3.Neighbor
+}
+
+// PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborDescriptor is the flattened-row descriptor for the nested list Neighbor.
+func PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborFlatRow, PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.Ospfv3ProcessIDSchema, ciscoiosxeospfv3.NeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Neighbor) PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborFlatRow {
+			return PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+				ProcessIDID:     yang.AncestorKey(anc, 1, "id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborFlatRow) *ciscoiosxeospfv3.Neighbor {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborFlatRow) PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborKey {
+			var k PortChannelSubinterfacePortChannelOspfv3ProcessIDNeighborKey
+			k.PortChannelName = r.PortChannelName
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEOspfv3, "ospfv3", "process-id", "neighbor")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewKey is MonitorNew's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewKey struct {
+	PortChannelName string
+	Name            string
+	Direction       string
+}
+
+// PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewFlatRow flattens one MonitorNew entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeswitch.MonitorNew
+}
+
+// PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewDescriptor is the flattened-row descriptor for the nested list MonitorNew.
+func PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewFlatRow, PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewFlatRow, PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeswitch.MonitorNewSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.MonitorNew) PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewFlatRow {
+			return PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewFlatRow) *ciscoiosxeswitch.MonitorNew {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewFlatRow) PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewKey {
+			var k PortChannelSubinterfacePortChannelDatalinkFlowMonitorNewKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			if r.Entry.Direction != nil {
+				k.Direction = *r.Entry.Direction
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXESwitch, "datalink", "flow", "monitor-new")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelEnergywiseLevelKey is Level's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelEnergywiseLevelKey struct {
+	PortChannelName string
+	Range           uint8
+}
+
+// PortChannelSubinterfacePortChannelEnergywiseLevelFlatRow flattens one Level entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelEnergywiseLevelFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeswitch.Level
+}
+
+// PortChannelSubinterfacePortChannelEnergywiseLevelDescriptor is the flattened-row descriptor for the nested list Level.
+func PortChannelSubinterfacePortChannelEnergywiseLevelDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelEnergywiseLevelFlatRow, PortChannelSubinterfacePortChannelEnergywiseLevelKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelEnergywiseLevelFlatRow, PortChannelSubinterfacePortChannelEnergywiseLevelKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeswitch.LevelSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.Level) PortChannelSubinterfacePortChannelEnergywiseLevelFlatRow {
+			return PortChannelSubinterfacePortChannelEnergywiseLevelFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelEnergywiseLevelFlatRow) *ciscoiosxeswitch.Level {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelEnergywiseLevelFlatRow) PortChannelSubinterfacePortChannelEnergywiseLevelKey {
+			var k PortChannelSubinterfacePortChannelEnergywiseLevelKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Range != nil {
+				k.Range = *r.Entry.Range
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXESwitch, "energywise", "level")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceKey is Importance's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceKey struct {
+	PortChannelName string
+	LevelRange      string
+	Range           uint16
+}
+
+// PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceFlatRow flattens one Importance entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceFlatRow struct {
+	PortChannelName string
+	LevelRange      string
+	Entry           ciscoiosxeswitch.Importance
+}
+
+// PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceDescriptor is the flattened-row descriptor for the nested list Importance.
+func PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceFlatRow, PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceFlatRow, PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeswitch.LevelSchema, ciscoiosxeswitch.ImportanceSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.Importance) PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceFlatRow {
+			return PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceFlatRow{
+				Entry:           e,
+				LevelRange:      yang.AncestorKey(anc, 1, "range"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceFlatRow) *ciscoiosxeswitch.Importance {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceFlatRow) PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceKey {
+			var k PortChannelSubinterfacePortChannelEnergywiseLevelRecurrenceImportanceKey
+			k.PortChannelName = r.PortChannelName
+			k.LevelRange = r.LevelRange
+			if r.Entry.Range != nil {
+				k.Range = *r.Entry.Range
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXESwitch, "energywise", "level", "recurrence", "importance")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelMACAccessGroupKey is AccessGroup's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelMACAccessGroupKey struct {
+	PortChannelName string
+	Direction       string
+}
+
+// PortChannelSubinterfacePortChannelMACAccessGroupFlatRow flattens one AccessGroup entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelMACAccessGroupFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeswitch.AccessGroup
+}
+
+// PortChannelSubinterfacePortChannelMACAccessGroupDescriptor is the flattened-row descriptor for the nested list AccessGroup.
+func PortChannelSubinterfacePortChannelMACAccessGroupDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelMACAccessGroupFlatRow, PortChannelSubinterfacePortChannelMACAccessGroupKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelMACAccessGroupFlatRow, PortChannelSubinterfacePortChannelMACAccessGroupKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeswitch.AccessGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.AccessGroup) PortChannelSubinterfacePortChannelMACAccessGroupFlatRow {
+			return PortChannelSubinterfacePortChannelMACAccessGroupFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelMACAccessGroupFlatRow) *ciscoiosxeswitch.AccessGroup {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelMACAccessGroupFlatRow) PortChannelSubinterfacePortChannelMACAccessGroupKey {
+			var k PortChannelSubinterfacePortChannelMACAccessGroupKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Direction != nil {
+				k.Direction = *r.Entry.Direction
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXESwitch, "mac", "access-group")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelVLANRangeKey is VLANRange's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelVLANRangeKey struct {
+	PortChannelName string
+	ID              string
+}
+
+// PortChannelSubinterfacePortChannelVLANRangeFlatRow flattens one VLANRange entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelVLANRangeFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeswitch.VLANRange
+}
+
+// PortChannelSubinterfacePortChannelVLANRangeDescriptor is the flattened-row descriptor for the nested list VLANRange.
+func PortChannelSubinterfacePortChannelVLANRangeDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelVLANRangeFlatRow, PortChannelSubinterfacePortChannelVLANRangeKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelVLANRangeFlatRow, PortChannelSubinterfacePortChannelVLANRangeKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeswitch.VLANRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeswitch.VLANRange) PortChannelSubinterfacePortChannelVLANRangeFlatRow {
+			return PortChannelSubinterfacePortChannelVLANRangeFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelVLANRangeFlatRow) *ciscoiosxeswitch.VLANRange {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelVLANRangeFlatRow) PortChannelSubinterfacePortChannelVLANRangeKey {
+			var k PortChannelSubinterfacePortChannelVLANRangeKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.ID != nil {
+				k.ID = yang.CanonicalKey(r.Entry.ID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXESwitch, "vlan-range")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupKey is VrrpGroup's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupKey struct {
+	PortChannelName string
+	GroupID         uint8
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupFlatRow flattens one VrrpGroup entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxevrrp.VrrpGroup
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupDescriptor is the flattened-row descriptor for the nested list VrrpGroup.
+func PortChannelSubinterfacePortChannelVrrpVrrpGroupDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupFlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupFlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxevrrp.VrrpGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.VrrpGroup) PortChannelSubinterfacePortChannelVrrpVrrpGroupFlatRow {
+			return PortChannelSubinterfacePortChannelVrrpVrrpGroupFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupFlatRow) *ciscoiosxevrrp.VrrpGroup {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupFlatRow) PortChannelSubinterfacePortChannelVrrpVrrpGroupKey {
+			var k PortChannelSubinterfacePortChannelVrrpVrrpGroupKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.GroupID != nil {
+				k.GroupID = *r.Entry.GroupID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupV2Key is VrrpGroupV2's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupV2Key struct {
+	PortChannelName string
+	GroupID         uint8
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupV2FlatRow flattens one VrrpGroupV2 entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupV2FlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxevrrp.VrrpGroupV2
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupV2Descriptor is the flattened-row descriptor for the nested list VrrpGroupV2.
+func PortChannelSubinterfacePortChannelVrrpVrrpGroupV2Descriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupV2FlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupV2Key] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupV2FlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupV2Key]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxevrrp.VrrpGroupV2Schema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.VrrpGroupV2) PortChannelSubinterfacePortChannelVrrpVrrpGroupV2FlatRow {
+			return PortChannelSubinterfacePortChannelVrrpVrrpGroupV2FlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupV2FlatRow) *ciscoiosxevrrp.VrrpGroupV2 {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupV2FlatRow) PortChannelSubinterfacePortChannelVrrpVrrpGroupV2Key {
+			var k PortChannelSubinterfacePortChannelVrrpVrrpGroupV2Key
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.GroupID != nil {
+				k.GroupID = *r.Entry.GroupID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group-v2")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryKey is Secondary's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryKey struct {
+	PortChannelName    string
+	VrrpGroupV2GroupID string
+	Address            string
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryFlatRow flattens one Secondary entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryFlatRow struct {
+	PortChannelName    string
+	VrrpGroupV2GroupID string
+	Entry              ciscoiosxevrrp.Secondary
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryDescriptor is the flattened-row descriptor for the nested list Secondary.
+func PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryFlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryFlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxevrrp.VrrpGroupV2Schema, ciscoiosxevrrp.SecondarySchema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.Secondary) PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryFlatRow {
+			return PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryFlatRow{
+				Entry:              e,
+				PortChannelName:    yang.AncestorKey(anc, 0, "name"),
+				VrrpGroupV2GroupID: yang.AncestorKey(anc, 1, "group-id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryFlatRow) *ciscoiosxevrrp.Secondary {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryFlatRow) PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryKey {
+			var k PortChannelSubinterfacePortChannelVrrpVrrpGroupV2IPSecondaryKey
+			k.PortChannelName = r.PortChannelName
+			k.VrrpGroupV2GroupID = r.VrrpGroupV2GroupID
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group-v2", "ip", "secondary")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventKey is VrrpGroupV2TrackEvent's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventKey struct {
+	PortChannelName    string
+	VrrpGroupV2GroupID string
+	ObjectID           uint16
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventFlatRow flattens one VrrpGroupV2TrackEvent entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventFlatRow struct {
+	PortChannelName    string
+	VrrpGroupV2GroupID string
+	Entry              ciscoiosxevrrp.VrrpGroupV2TrackEvent
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventDescriptor is the flattened-row descriptor for the nested list VrrpGroupV2TrackEvent.
+func PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventFlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventFlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxevrrp.VrrpGroupV2Schema, ciscoiosxevrrp.VrrpGroupV2TrackEventSchema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.VrrpGroupV2TrackEvent) PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventFlatRow {
+			return PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventFlatRow{
+				Entry:              e,
+				PortChannelName:    yang.AncestorKey(anc, 0, "name"),
+				VrrpGroupV2GroupID: yang.AncestorKey(anc, 1, "group-id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventFlatRow) *ciscoiosxevrrp.VrrpGroupV2TrackEvent {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventFlatRow) PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventKey {
+			var k PortChannelSubinterfacePortChannelVrrpVrrpGroupV2TrackEventKey
+			k.PortChannelName = r.PortChannelName
+			k.VrrpGroupV2GroupID = r.VrrpGroupV2GroupID
+			if r.Entry.ObjectID != nil {
+				k.ObjectID = *r.Entry.ObjectID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group-v2", "track", "event")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryKey is Secondary's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryKey struct {
+	PortChannelName  string
+	VrrpGroupGroupID string
+	Address          string
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow flattens one Secondary entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow struct {
+	PortChannelName  string
+	VrrpGroupGroupID string
+	Entry            ciscoiosxevrrp.Secondary
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryDescriptor is the flattened-row descriptor for the nested list Secondary.
+func PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxevrrp.VrrpGroupSchema, ciscoiosxevrrp.SecondarySchema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.Secondary) PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow {
+			return PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow{
+				Entry:            e,
+				PortChannelName:  yang.AncestorKey(anc, 0, "name"),
+				VrrpGroupGroupID: yang.AncestorKey(anc, 1, "group-id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow) *ciscoiosxevrrp.Secondary {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryFlatRow) PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryKey {
+			var k PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4AddressSecondaryKey
+			k.PortChannelName = r.PortChannelName
+			k.VrrpGroupGroupID = r.VrrpGroupGroupID
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group", "address-family", "ipv4", "address", "secondary")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventKey is TrackEvent's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventKey struct {
+	PortChannelName  string
+	VrrpGroupGroupID string
+	ObjectID         string
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow flattens one TrackEvent entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow struct {
+	PortChannelName  string
+	VrrpGroupGroupID string
+	Entry            ciscoiosxevrrp.TrackEvent
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventDescriptor is the flattened-row descriptor for the nested list TrackEvent.
+func PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxevrrp.VrrpGroupSchema, ciscoiosxevrrp.TrackEventSchema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.TrackEvent) PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow {
+			return PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow{
+				Entry:            e,
+				PortChannelName:  yang.AncestorKey(anc, 0, "name"),
+				VrrpGroupGroupID: yang.AncestorKey(anc, 1, "group-id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow) *ciscoiosxevrrp.TrackEvent {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventFlatRow) PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventKey {
+			var k PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv4TrackEventKey
+			k.PortChannelName = r.PortChannelName
+			k.VrrpGroupGroupID = r.VrrpGroupGroupID
+			if r.Entry.ObjectID != nil {
+				k.ObjectID = yang.CanonicalKey(r.Entry.ObjectID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group", "address-family", "ipv4", "track", "event")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixKey is IPv6Prefix's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixKey struct {
+	PortChannelName  string
+	VrrpGroupGroupID string
+	Prefix           string
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow flattens one IPv6Prefix entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow struct {
+	PortChannelName  string
+	VrrpGroupGroupID string
+	Entry            ciscoiosxevrrp.IPv6Prefix
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixDescriptor is the flattened-row descriptor for the nested list IPv6Prefix.
+func PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxevrrp.VrrpGroupSchema, ciscoiosxevrrp.IPv6PrefixSchema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.IPv6Prefix) PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow {
+			return PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow{
+				Entry:            e,
+				PortChannelName:  yang.AncestorKey(anc, 0, "name"),
+				VrrpGroupGroupID: yang.AncestorKey(anc, 1, "group-id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow) *ciscoiosxevrrp.IPv6Prefix {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixFlatRow) PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixKey {
+			var k PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6AddressIPv6PrefixKey
+			k.PortChannelName = r.PortChannelName
+			k.VrrpGroupGroupID = r.VrrpGroupGroupID
+			if r.Entry.Prefix != nil {
+				k.Prefix = *r.Entry.Prefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group", "address-family", "ipv6", "address", "ipv6-prefix")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventKey is TrackEvent's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventKey struct {
+	PortChannelName  string
+	VrrpGroupGroupID string
+	ObjectID         string
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow flattens one TrackEvent entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow struct {
+	PortChannelName  string
+	VrrpGroupGroupID string
+	Entry            ciscoiosxevrrp.TrackEvent
+}
+
+// PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventDescriptor is the flattened-row descriptor for the nested list TrackEvent.
+func PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow, PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxevrrp.VrrpGroupSchema, ciscoiosxevrrp.TrackEventSchema}, func(anc [][]yang.KeyValue, e ciscoiosxevrrp.TrackEvent) PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow {
+			return PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow{
+				Entry:            e,
+				PortChannelName:  yang.AncestorKey(anc, 0, "name"),
+				VrrpGroupGroupID: yang.AncestorKey(anc, 1, "group-id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow) *ciscoiosxevrrp.TrackEvent {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventFlatRow) PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventKey {
+			var k PortChannelSubinterfacePortChannelVrrpVrrpGroupAddressFamilyIPv6TrackEventKey
+			k.PortChannelName = r.PortChannelName
+			k.VrrpGroupGroupID = r.VrrpGroupGroupID
+			if r.Entry.ObjectID != nil {
+				k.ObjectID = yang.CanonicalKey(r.Entry.ObjectID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel"), yang.In(moduleCiscoIOSXEVrrp, "vrrp", "vrrp-group", "address-family", "ipv6", "track", "event")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelHoldQueueKey is HoldQueue's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelHoldQueueKey struct {
+	PortChannelName string
+	Direction       string
+}
+
+// PortChannelSubinterfacePortChannelHoldQueueFlatRow flattens one HoldQueue entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelHoldQueueFlatRow struct {
+	PortChannelName string
+	Entry           HoldQueue
+}
+
+// PortChannelSubinterfacePortChannelHoldQueueDescriptor is the flattened-row descriptor for the nested list HoldQueue.
+func PortChannelSubinterfacePortChannelHoldQueueDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelHoldQueueFlatRow, PortChannelSubinterfacePortChannelHoldQueueKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelHoldQueueFlatRow, PortChannelSubinterfacePortChannelHoldQueueKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, HoldQueueSchema}, func(anc [][]yang.KeyValue, e HoldQueue) PortChannelSubinterfacePortChannelHoldQueueFlatRow {
+			return PortChannelSubinterfacePortChannelHoldQueueFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelHoldQueueFlatRow) *HoldQueue {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelHoldQueueFlatRow) PortChannelSubinterfacePortChannelHoldQueueKey {
+			var k PortChannelSubinterfacePortChannelHoldQueueKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Direction != nil {
+				k.Direction = *r.Entry.Direction
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "hold-queue")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainKey is KeyChain's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainKey struct {
+	PortChannelName string
+	Eigrp           uint16
+}
+
+// PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainFlatRow flattens one KeyChain entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeeigrp.KeyChain
+}
+
+// PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainDescriptor is the flattened-row descriptor for the nested list KeyChain.
+func PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainFlatRow, PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainFlatRow, PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeeigrp.KeyChainSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.KeyChain) PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainFlatRow {
+			return PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainFlatRow) *ciscoiosxeeigrp.KeyChain {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainFlatRow) PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainKey {
+			var k PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationKeyChainKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Eigrp != nil {
+				k.Eigrp = *r.Entry.Eigrp
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEEigrp, "authentication-eigrp", "authentication", "key-chain")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeKey is AuthenticationEigrpAuthenticationMode's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeKey struct {
+	PortChannelName string
+	Eigrp           uint16
+}
+
+// PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeFlatRow flattens one AuthenticationEigrpAuthenticationMode entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeeigrp.AuthenticationEigrpAuthenticationMode
+}
+
+// PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeDescriptor is the flattened-row descriptor for the nested list AuthenticationEigrpAuthenticationMode.
+func PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeFlatRow, PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeFlatRow, PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeeigrp.AuthenticationEigrpAuthenticationModeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.AuthenticationEigrpAuthenticationMode) PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeFlatRow {
+			return PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeFlatRow) *ciscoiosxeeigrp.AuthenticationEigrpAuthenticationMode {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeFlatRow) PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeKey {
+			var k PortChannelSubinterfacePortChannelIPAuthenticationEigrpAuthenticationModeKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Eigrp != nil {
+				k.Eigrp = *r.Entry.Eigrp
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEEigrp, "authentication-eigrp", "authentication", "mode")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPBandwidthPercentKey is BandwidthPercent's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPBandwidthPercentKey struct {
+	PortChannelName string
+	Eigrp           uint16
+}
+
+// PortChannelSubinterfacePortChannelIPBandwidthPercentFlatRow flattens one BandwidthPercent entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPBandwidthPercentFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeeigrp.BandwidthPercent
+}
+
+// PortChannelSubinterfacePortChannelIPBandwidthPercentDescriptor is the flattened-row descriptor for the nested list BandwidthPercent.
+func PortChannelSubinterfacePortChannelIPBandwidthPercentDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPBandwidthPercentFlatRow, PortChannelSubinterfacePortChannelIPBandwidthPercentKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPBandwidthPercentFlatRow, PortChannelSubinterfacePortChannelIPBandwidthPercentKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeeigrp.BandwidthPercentSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.BandwidthPercent) PortChannelSubinterfacePortChannelIPBandwidthPercentFlatRow {
+			return PortChannelSubinterfacePortChannelIPBandwidthPercentFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPBandwidthPercentFlatRow) *ciscoiosxeeigrp.BandwidthPercent {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPBandwidthPercentFlatRow) PortChannelSubinterfacePortChannelIPBandwidthPercentKey {
+			var k PortChannelSubinterfacePortChannelIPBandwidthPercentKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Eigrp != nil {
+				k.Eigrp = *r.Entry.Eigrp
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEEigrp, "bandwidth-percent")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPDampeningChangeKey is DampeningChange's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPDampeningChangeKey struct {
+	PortChannelName string
+	Eigrp           uint16
+}
+
+// PortChannelSubinterfacePortChannelIPDampeningChangeFlatRow flattens one DampeningChange entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPDampeningChangeFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeeigrp.DampeningChange
+}
+
+// PortChannelSubinterfacePortChannelIPDampeningChangeDescriptor is the flattened-row descriptor for the nested list DampeningChange.
+func PortChannelSubinterfacePortChannelIPDampeningChangeDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPDampeningChangeFlatRow, PortChannelSubinterfacePortChannelIPDampeningChangeKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPDampeningChangeFlatRow, PortChannelSubinterfacePortChannelIPDampeningChangeKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeeigrp.DampeningChangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DampeningChange) PortChannelSubinterfacePortChannelIPDampeningChangeFlatRow {
+			return PortChannelSubinterfacePortChannelIPDampeningChangeFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPDampeningChangeFlatRow) *ciscoiosxeeigrp.DampeningChange {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPDampeningChangeFlatRow) PortChannelSubinterfacePortChannelIPDampeningChangeKey {
+			var k PortChannelSubinterfacePortChannelIPDampeningChangeKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Eigrp != nil {
+				k.Eigrp = *r.Entry.Eigrp
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEEigrp, "dampening-change")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPDampeningIntervalKey is DampeningInterval's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPDampeningIntervalKey struct {
+	PortChannelName string
+	Eigrp           uint16
+}
+
+// PortChannelSubinterfacePortChannelIPDampeningIntervalFlatRow flattens one DampeningInterval entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPDampeningIntervalFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeeigrp.DampeningInterval
+}
+
+// PortChannelSubinterfacePortChannelIPDampeningIntervalDescriptor is the flattened-row descriptor for the nested list DampeningInterval.
+func PortChannelSubinterfacePortChannelIPDampeningIntervalDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPDampeningIntervalFlatRow, PortChannelSubinterfacePortChannelIPDampeningIntervalKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPDampeningIntervalFlatRow, PortChannelSubinterfacePortChannelIPDampeningIntervalKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeeigrp.DampeningIntervalSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DampeningInterval) PortChannelSubinterfacePortChannelIPDampeningIntervalFlatRow {
+			return PortChannelSubinterfacePortChannelIPDampeningIntervalFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPDampeningIntervalFlatRow) *ciscoiosxeeigrp.DampeningInterval {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPDampeningIntervalFlatRow) PortChannelSubinterfacePortChannelIPDampeningIntervalKey {
+			var k PortChannelSubinterfacePortChannelIPDampeningIntervalKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Eigrp != nil {
+				k.Eigrp = *r.Entry.Eigrp
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEEigrp, "dampening-interval")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalKey is HelloInterval's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalKey struct {
+	PortChannelName string
+	Eigrp           uint16
+}
+
+// PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalFlatRow flattens one HelloInterval entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeeigrp.HelloInterval
+}
+
+// PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalDescriptor is the flattened-row descriptor for the nested list HelloInterval.
+func PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalFlatRow, PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalFlatRow, PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeeigrp.HelloIntervalSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.HelloInterval) PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalFlatRow {
+			return PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalFlatRow) *ciscoiosxeeigrp.HelloInterval {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalFlatRow) PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalKey {
+			var k PortChannelSubinterfacePortChannelIPHelloIntervalEigrpHelloIntervalKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Eigrp != nil {
+				k.Eigrp = *r.Entry.Eigrp
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEEigrp, "hello-interval-eigrp", "hello-interval")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeKey is HoldTime's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeKey struct {
+	PortChannelName string
+	Eigrp           uint16
+}
+
+// PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeFlatRow flattens one HoldTime entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeeigrp.HoldTime
+}
+
+// PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeDescriptor is the flattened-row descriptor for the nested list HoldTime.
+func PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeFlatRow, PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeFlatRow, PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeeigrp.HoldTimeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.HoldTime) PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeFlatRow {
+			return PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeFlatRow) *ciscoiosxeeigrp.HoldTime {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeFlatRow) PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeKey {
+			var k PortChannelSubinterfacePortChannelIPHoldTimeEigrpHoldTimeKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Eigrp != nil {
+				k.Eigrp = *r.Entry.Eigrp
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEEigrp, "hold-time-eigrp", "hold-time")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPFlowMonitorKey is FlowMonitorXc8f9c0's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPFlowMonitorKey struct {
+	PortChannelName string
+	Name            string
+}
+
+// PortChannelSubinterfacePortChannelIPFlowMonitorFlatRow flattens one FlowMonitorXc8f9c0 entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPFlowMonitorFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeflow.FlowMonitorXc8f9c0
+}
+
+// PortChannelSubinterfacePortChannelIPFlowMonitorDescriptor is the flattened-row descriptor for the nested list FlowMonitorXc8f9c0.
+func PortChannelSubinterfacePortChannelIPFlowMonitorDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPFlowMonitorFlatRow, PortChannelSubinterfacePortChannelIPFlowMonitorKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPFlowMonitorFlatRow, PortChannelSubinterfacePortChannelIPFlowMonitorKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeflow.FlowMonitorSchemaX975c36}, func(anc [][]yang.KeyValue, e ciscoiosxeflow.FlowMonitorXc8f9c0) PortChannelSubinterfacePortChannelIPFlowMonitorFlatRow {
+			return PortChannelSubinterfacePortChannelIPFlowMonitorFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPFlowMonitorFlatRow) *ciscoiosxeflow.FlowMonitorXc8f9c0 {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPFlowMonitorFlatRow) PortChannelSubinterfacePortChannelIPFlowMonitorKey {
+			var k PortChannelSubinterfacePortChannelIPFlowMonitorKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEFlow, "flow", "monitor")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPFlowMonitorNewKey is MonitorNew's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPFlowMonitorNewKey struct {
+	PortChannelName string
+	Name            string
+	Direction       string
+}
+
+// PortChannelSubinterfacePortChannelIPFlowMonitorNewFlatRow flattens one MonitorNew entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPFlowMonitorNewFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeflow.MonitorNew
+}
+
+// PortChannelSubinterfacePortChannelIPFlowMonitorNewDescriptor is the flattened-row descriptor for the nested list MonitorNew.
+func PortChannelSubinterfacePortChannelIPFlowMonitorNewDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPFlowMonitorNewFlatRow, PortChannelSubinterfacePortChannelIPFlowMonitorNewKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPFlowMonitorNewFlatRow, PortChannelSubinterfacePortChannelIPFlowMonitorNewKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeflow.MonitorNewSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeflow.MonitorNew) PortChannelSubinterfacePortChannelIPFlowMonitorNewFlatRow {
+			return PortChannelSubinterfacePortChannelIPFlowMonitorNewFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPFlowMonitorNewFlatRow) *ciscoiosxeflow.MonitorNew {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPFlowMonitorNewFlatRow) PortChannelSubinterfacePortChannelIPFlowMonitorNewKey {
+			var k PortChannelSubinterfacePortChannelIPFlowMonitorNewKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			if r.Entry.Direction != nil {
+				k.Direction = *r.Entry.Direction
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEFlow, "flow", "monitor-new")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPFlowMonitorSamplerKey is MonitorSampler's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPFlowMonitorSamplerKey struct {
+	PortChannelName string
+	MonitorName     string
+	Direction       string
+}
+
+// PortChannelSubinterfacePortChannelIPFlowMonitorSamplerFlatRow flattens one MonitorSampler entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPFlowMonitorSamplerFlatRow struct {
+	PortChannelName string
+	MonitorName     string
+	Entry           ciscoiosxeflow.MonitorSampler
+}
+
+// PortChannelSubinterfacePortChannelIPFlowMonitorSamplerDescriptor is the flattened-row descriptor for the nested list MonitorSampler.
+func PortChannelSubinterfacePortChannelIPFlowMonitorSamplerDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPFlowMonitorSamplerFlatRow, PortChannelSubinterfacePortChannelIPFlowMonitorSamplerKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPFlowMonitorSamplerFlatRow, PortChannelSubinterfacePortChannelIPFlowMonitorSamplerKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeflow.FlowMonitorSchemaX975c36, ciscoiosxeflow.MonitorSamplerSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeflow.MonitorSampler) PortChannelSubinterfacePortChannelIPFlowMonitorSamplerFlatRow {
+			return PortChannelSubinterfacePortChannelIPFlowMonitorSamplerFlatRow{
+				Entry:           e,
+				MonitorName:     yang.AncestorKey(anc, 1, "name"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPFlowMonitorSamplerFlatRow) *ciscoiosxeflow.MonitorSampler {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPFlowMonitorSamplerFlatRow) PortChannelSubinterfacePortChannelIPFlowMonitorSamplerKey {
+			var k PortChannelSubinterfacePortChannelIPFlowMonitorSamplerKey
+			k.PortChannelName = r.PortChannelName
+			k.MonitorName = r.MonitorName
+			if r.Entry.Direction != nil {
+				k.Direction = *r.Entry.Direction
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEFlow, "flow", "monitor", "sampler")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupKey is IgmpJoinGroup's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupKey struct {
+	PortChannelName string
+	JoinGroup       string
+}
+
+// PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupFlatRow flattens one IgmpJoinGroup entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeigmp.IgmpJoinGroup
+}
+
+// PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupDescriptor is the flattened-row descriptor for the nested list IgmpJoinGroup.
+func PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupFlatRow, PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupFlatRow, PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeigmp.IgmpJoinGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeigmp.IgmpJoinGroup) PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupFlatRow {
+			return PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupFlatRow) *ciscoiosxeigmp.IgmpJoinGroup {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupFlatRow) PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupKey {
+			var k PortChannelSubinterfacePortChannelIPIgmpIgmpJoinGroupKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.JoinGroup != nil {
+				k.JoinGroup = *r.Entry.JoinGroup
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEIgmp, "igmp", "igmp-join-group")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupKey is Igmpv3JoinGroup's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupKey struct {
+	PortChannelName string
+	IPGroupAddress  string
+	Source          string
+}
+
+// PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupFlatRow flattens one Igmpv3JoinGroup entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeigmp.Igmpv3JoinGroup
+}
+
+// PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupDescriptor is the flattened-row descriptor for the nested list Igmpv3JoinGroup.
+func PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupFlatRow, PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupFlatRow, PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeigmp.Igmpv3JoinGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeigmp.Igmpv3JoinGroup) PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupFlatRow {
+			return PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupFlatRow) *ciscoiosxeigmp.Igmpv3JoinGroup {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupFlatRow) PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupKey {
+			var k PortChannelSubinterfacePortChannelIPIgmpIgmpv3JoinGroupKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.IPGroupAddress != nil {
+				k.IPGroupAddress = *r.Entry.IPGroupAddress
+			}
+			if r.Entry.Source != nil {
+				k.Source = *r.Entry.Source
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEIgmp, "igmp", "igmpv3-join-group")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPIgmpJoinGroupKey is JoinGroup's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPIgmpJoinGroupKey struct {
+	PortChannelName string
+	IPGroupAddress  string
+}
+
+// PortChannelSubinterfacePortChannelIPIgmpJoinGroupFlatRow flattens one JoinGroup entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPIgmpJoinGroupFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeigmp.JoinGroup
+}
+
+// PortChannelSubinterfacePortChannelIPIgmpJoinGroupDescriptor is the flattened-row descriptor for the nested list JoinGroup.
+func PortChannelSubinterfacePortChannelIPIgmpJoinGroupDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPIgmpJoinGroupFlatRow, PortChannelSubinterfacePortChannelIPIgmpJoinGroupKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPIgmpJoinGroupFlatRow, PortChannelSubinterfacePortChannelIPIgmpJoinGroupKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeigmp.JoinGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeigmp.JoinGroup) PortChannelSubinterfacePortChannelIPIgmpJoinGroupFlatRow {
+			return PortChannelSubinterfacePortChannelIPIgmpJoinGroupFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPIgmpJoinGroupFlatRow) *ciscoiosxeigmp.JoinGroup {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPIgmpJoinGroupFlatRow) PortChannelSubinterfacePortChannelIPIgmpJoinGroupKey {
+			var k PortChannelSubinterfacePortChannelIPIgmpJoinGroupKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.IPGroupAddress != nil {
+				k.IPGroupAddress = *r.Entry.IPGroupAddress
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEIgmp, "igmp", "join-group")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsKey is WithSourceGroups's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsKey struct {
+	PortChannelName string
+	Name            string
+	Source          string
+}
+
+// PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsFlatRow flattens one WithSourceGroups entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeigmp.WithSourceGroups
+}
+
+// PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsDescriptor is the flattened-row descriptor for the nested list WithSourceGroups.
+func PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsFlatRow, PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsFlatRow, PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeigmp.WithSourceGroupsSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeigmp.WithSourceGroups) PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsFlatRow {
+			return PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsFlatRow) *ciscoiosxeigmp.WithSourceGroups {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsFlatRow) PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsKey {
+			var k PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithSourceGroupsKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Name != nil {
+				k.Name = yang.CanonicalKey(r.Entry.Name)
+			}
+			if r.Entry.Source != nil {
+				k.Source = yang.CanonicalKey(r.Entry.Source)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEIgmp, "igmp", "static-group", "with-source-groups")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsKey is WithoutSourceGroups's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsKey struct {
+	PortChannelName string
+	Name            string
+}
+
+// PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsFlatRow flattens one WithoutSourceGroups entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeigmp.WithoutSourceGroups
+}
+
+// PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsDescriptor is the flattened-row descriptor for the nested list WithoutSourceGroups.
+func PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsFlatRow, PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsFlatRow, PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeigmp.WithoutSourceGroupsSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeigmp.WithoutSourceGroups) PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsFlatRow {
+			return PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsFlatRow) *ciscoiosxeigmp.WithoutSourceGroups {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsFlatRow) PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsKey {
+			var k PortChannelSubinterfacePortChannelIPIgmpStaticGroupWithoutSourceGroupsKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Name != nil {
+				k.Name = yang.CanonicalKey(r.Entry.Name)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEIgmp, "igmp", "static-group", "without-source-groups")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutKey is FilterTypeInOut's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutKey struct {
+	PortChannelName string
+	FilterType      string
+}
+
+// PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutFlatRow flattens one FilterTypeInOut entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxemulticast.FilterTypeInOut
+}
+
+// PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutDescriptor is the flattened-row descriptor for the nested list FilterTypeInOut.
+func PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutFlatRow, PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutFlatRow, PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxemulticast.FilterTypeInOutSchema}, func(anc [][]yang.KeyValue, e ciscoiosxemulticast.FilterTypeInOut) PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutFlatRow {
+			return PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutFlatRow) *ciscoiosxemulticast.FilterTypeInOut {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutFlatRow) PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutKey {
+			var k PortChannelSubinterfacePortChannelIPMulticastBoundaryFilterTypeInOutKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.FilterType != nil {
+				k.FilterType = *r.Entry.FilterType
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEMulticast, "multicast", "boundary", "filter-type-in-out")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPMulticastLimitAccessListKey is AccessList's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPMulticastLimitAccessListKey struct {
+	PortChannelName string
+	AccessList      string
+}
+
+// PortChannelSubinterfacePortChannelIPMulticastLimitAccessListFlatRow flattens one AccessList entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPMulticastLimitAccessListFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxemulticast.AccessList
+}
+
+// PortChannelSubinterfacePortChannelIPMulticastLimitAccessListDescriptor is the flattened-row descriptor for the nested list AccessList.
+func PortChannelSubinterfacePortChannelIPMulticastLimitAccessListDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPMulticastLimitAccessListFlatRow, PortChannelSubinterfacePortChannelIPMulticastLimitAccessListKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPMulticastLimitAccessListFlatRow, PortChannelSubinterfacePortChannelIPMulticastLimitAccessListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxemulticast.AccessListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxemulticast.AccessList) PortChannelSubinterfacePortChannelIPMulticastLimitAccessListFlatRow {
+			return PortChannelSubinterfacePortChannelIPMulticastLimitAccessListFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPMulticastLimitAccessListFlatRow) *ciscoiosxemulticast.AccessList {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPMulticastLimitAccessListFlatRow) PortChannelSubinterfacePortChannelIPMulticastLimitAccessListKey {
+			var k PortChannelSubinterfacePortChannelIPMulticastLimitAccessListKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.AccessList != nil {
+				k.AccessList = yang.CanonicalKey(r.Entry.AccessList)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEMulticast, "multicast", "limit", "access-list")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListKey is AccessList's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListKey struct {
+	PortChannelName string
+	AccessList      string
+}
+
+// PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListFlatRow flattens one AccessList entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxemulticast.AccessList
+}
+
+// PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListDescriptor is the flattened-row descriptor for the nested list AccessList.
+func PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListFlatRow, PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListFlatRow, PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxemulticast.AccessListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxemulticast.AccessList) PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListFlatRow {
+			return PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListFlatRow) *ciscoiosxemulticast.AccessList {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListFlatRow) PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListKey {
+			var k PortChannelSubinterfacePortChannelIPMulticastLimitConnectedAccessListKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.AccessList != nil {
+				k.AccessList = yang.CanonicalKey(r.Entry.AccessList)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEMulticast, "multicast", "limit", "connected", "access-list")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListKey is AccessList's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListKey struct {
+	PortChannelName string
+	AccessList      string
+}
+
+// PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListFlatRow flattens one AccessList entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxemulticast.AccessList
+}
+
+// PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListDescriptor is the flattened-row descriptor for the nested list AccessList.
+func PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListFlatRow, PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListFlatRow, PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxemulticast.AccessListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxemulticast.AccessList) PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListFlatRow {
+			return PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListFlatRow) *ciscoiosxemulticast.AccessList {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListFlatRow) PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListKey {
+			var k PortChannelSubinterfacePortChannelIPMulticastLimitOutAccessListKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.AccessList != nil {
+				k.AccessList = yang.CanonicalKey(r.Entry.AccessList)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEMulticast, "multicast", "limit", "out", "access-list")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListKey is AccessList's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListKey struct {
+	PortChannelName string
+	AccessList      string
+}
+
+// PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListFlatRow flattens one AccessList entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxemulticast.AccessList
+}
+
+// PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListDescriptor is the flattened-row descriptor for the nested list AccessList.
+func PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListFlatRow, PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListFlatRow, PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxemulticast.AccessListSchema}, func(anc [][]yang.KeyValue, e ciscoiosxemulticast.AccessList) PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListFlatRow {
+			return PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListFlatRow) *ciscoiosxemulticast.AccessList {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListFlatRow) PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListKey {
+			var k PortChannelSubinterfacePortChannelIPMulticastLimitRpfAccessListKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.AccessList != nil {
+				k.AccessList = yang.CanonicalKey(r.Entry.AccessList)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEMulticast, "multicast", "limit", "rpf", "access-list")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyKey is MessageDigestKey's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyKey struct {
+	PortChannelName string
+	ID              uint8
+}
+
+// PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyFlatRow flattens one MessageDigestKey entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeospf.MessageDigestKey
+}
+
+// PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyDescriptor is the flattened-row descriptor for the nested list MessageDigestKey.
+func PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyFlatRow, PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyFlatRow, PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospf.MessageDigestKeySchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.MessageDigestKey) PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyFlatRow {
+			return PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyFlatRow) *ciscoiosxeospf.MessageDigestKey {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyFlatRow) PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyKey {
+			var k PortChannelSubinterfacePortChannelIPOSPFMessageDigestKeyKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEOSPF, "ospf", "message-digest-key")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPOSPFProcessIDKey is IPOSPFProcessID's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPOSPFProcessIDKey struct {
+	PortChannelName string
+	ID              uint16
+}
+
+// PortChannelSubinterfacePortChannelIPOSPFProcessIDFlatRow flattens one IPOSPFProcessID entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPOSPFProcessIDFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeospf.IPOSPFProcessID
+}
+
+// PortChannelSubinterfacePortChannelIPOSPFProcessIDDescriptor is the flattened-row descriptor for the nested list IPOSPFProcessID.
+func PortChannelSubinterfacePortChannelIPOSPFProcessIDDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPOSPFProcessIDFlatRow, PortChannelSubinterfacePortChannelIPOSPFProcessIDKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPOSPFProcessIDFlatRow, PortChannelSubinterfacePortChannelIPOSPFProcessIDKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospf.IPOSPFProcessIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.IPOSPFProcessID) PortChannelSubinterfacePortChannelIPOSPFProcessIDFlatRow {
+			return PortChannelSubinterfacePortChannelIPOSPFProcessIDFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPOSPFProcessIDFlatRow) *ciscoiosxeospf.IPOSPFProcessID {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPOSPFProcessIDFlatRow) PortChannelSubinterfacePortChannelIPOSPFProcessIDKey {
+			var k PortChannelSubinterfacePortChannelIPOSPFProcessIDKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEOSPF, "ospf", "process-id")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyKey is MessageDigestKey's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyKey struct {
+	PortChannelName string
+	ID              uint8
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyFlatRow flattens one MessageDigestKey entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeospf.MessageDigestKey
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyDescriptor is the flattened-row descriptor for the nested list MessageDigestKey.
+func PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyFlatRow, PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyFlatRow, PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospf.MessageDigestKeySchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.MessageDigestKey) PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyFlatRow {
+			return PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyFlatRow) *ciscoiosxeospf.MessageDigestKey {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyFlatRow) PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyKey {
+			var k PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMessageDigestKeyKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEOSPF, "router-ospf", "ospf", "message-digest-key")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDKey is MultiAreaID's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDKey struct {
+	PortChannelName string
+	AreaID          string
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow flattens one MultiAreaID entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeospf.MultiAreaID
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDescriptor is the flattened-row descriptor for the nested list MultiAreaID.
+func PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow, PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow, PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospf.MultiAreaIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.MultiAreaID) PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow {
+			return PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow) *ciscoiosxeospf.MultiAreaID {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDFlatRow) PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDKey {
+			var k PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.AreaID != nil {
+				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEOSPF, "router-ospf", "ospf", "multi-area", "multi-area-id")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostKey is MultiAreaIDCost's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostKey struct {
+	PortChannelName string
+	AreaID          string
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow flattens one MultiAreaIDCost entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeospf.MultiAreaIDCost
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostDescriptor is the flattened-row descriptor for the nested list MultiAreaIDCost.
+func PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow, PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow, PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospf.MultiAreaIDCostSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.MultiAreaIDCost) PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow {
+			return PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow) *ciscoiosxeospf.MultiAreaIDCost {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostFlatRow) PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostKey {
+			var k PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDCostKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.AreaID != nil {
+				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEOSPF, "router-ospf", "ospf", "multi-area", "multi-area-id-cost")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayKey is MultiAreaIDDelay's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayKey struct {
+	PortChannelName string
+	AreaID          string
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow flattens one MultiAreaIDDelay entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeospf.MultiAreaIDDelay
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayDescriptor is the flattened-row descriptor for the nested list MultiAreaIDDelay.
+func PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow, PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow, PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospf.MultiAreaIDDelaySchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.MultiAreaIDDelay) PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow {
+			return PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow) *ciscoiosxeospf.MultiAreaIDDelay {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayFlatRow) PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayKey {
+			var k PortChannelSubinterfacePortChannelIPRouterOSPFOSPFMultiAreaMultiAreaIDDelayKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.AreaID != nil {
+				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEOSPF, "router-ospf", "ospf", "multi-area", "multi-area-id-delay")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDKey is IPRouterOSPFOSPFProcessID's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDKey struct {
+	PortChannelName string
+	ID              uint16
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDFlatRow flattens one IPRouterOSPFOSPFProcessID entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeospf.IPRouterOSPFOSPFProcessID
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDDescriptor is the flattened-row descriptor for the nested list IPRouterOSPFOSPFProcessID.
+func PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDFlatRow, PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDFlatRow, PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospf.IPRouterOSPFOSPFProcessIDSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.IPRouterOSPFOSPFProcessID) PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDFlatRow {
+			return PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDFlatRow) *ciscoiosxeospf.IPRouterOSPFOSPFProcessID {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDFlatRow) PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDKey {
+			var k PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEOSPF, "router-ospf", "ospf", "process-id")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaKey is ProcessIDArea's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaKey struct {
+	PortChannelName string
+	ProcessIDID     string
+	AreaID          string
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaFlatRow flattens one ProcessIDArea entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaFlatRow struct {
+	PortChannelName string
+	ProcessIDID     string
+	Entry           ciscoiosxeospf.ProcessIDArea
+}
+
+// PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaDescriptor is the flattened-row descriptor for the nested list ProcessIDArea.
+func PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaFlatRow, PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaFlatRow, PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospf.IPRouterOSPFOSPFProcessIDSchema, ciscoiosxeospf.ProcessIDAreaSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospf.ProcessIDArea) PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaFlatRow {
+			return PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+				ProcessIDID:     yang.AncestorKey(anc, 1, "id"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaFlatRow) *ciscoiosxeospf.ProcessIDArea {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaFlatRow) PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaKey {
+			var k PortChannelSubinterfacePortChannelIPRouterOSPFOSPFProcessIDAreaKey
+			k.PortChannelName = r.PortChannelName
+			k.ProcessIDID = r.ProcessIDID
+			if r.Entry.AreaID != nil {
+				k.AreaID = yang.CanonicalKey(r.Entry.AreaID)
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip"), yang.In(moduleCiscoIOSXEOSPF, "router-ospf", "ospf", "process-id", "area")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPAddressSecondaryKey is Secondary's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPAddressSecondaryKey struct {
+	PortChannelName string
+	Address         string
+}
+
+// PortChannelSubinterfacePortChannelIPAddressSecondaryFlatRow flattens one Secondary entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPAddressSecondaryFlatRow struct {
+	PortChannelName string
+	Entry           Secondary
+}
+
+// PortChannelSubinterfacePortChannelIPAddressSecondaryDescriptor is the flattened-row descriptor for the nested list Secondary.
+func PortChannelSubinterfacePortChannelIPAddressSecondaryDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPAddressSecondaryFlatRow, PortChannelSubinterfacePortChannelIPAddressSecondaryKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPAddressSecondaryFlatRow, PortChannelSubinterfacePortChannelIPAddressSecondaryKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, SecondarySchema}, func(anc [][]yang.KeyValue, e Secondary) PortChannelSubinterfacePortChannelIPAddressSecondaryFlatRow {
+			return PortChannelSubinterfacePortChannelIPAddressSecondaryFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPAddressSecondaryFlatRow) *Secondary {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPAddressSecondaryFlatRow) PortChannelSubinterfacePortChannelIPAddressSecondaryKey {
+			var k PortChannelSubinterfacePortChannelIPAddressSecondaryKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip", "address", "secondary")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeKey is ClientOptionOptionRange's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeKey struct {
+	PortChannelName string
+	OptionRange     uint8
+}
+
+// PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeFlatRow flattens one ClientOptionOptionRange entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxedhcp.ClientOptionOptionRange
+}
+
+// PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeDescriptor is the flattened-row descriptor for the nested list ClientOptionOptionRange.
+func PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeFlatRow, PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeFlatRow, PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxedhcp.ClientOptionOptionRangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxedhcp.ClientOptionOptionRange) PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeFlatRow {
+			return PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeFlatRow) *ciscoiosxedhcp.ClientOptionOptionRange {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeFlatRow) PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeKey {
+			var k PortChannelSubinterfacePortChannelIPDhcpClientOptionOptionRangeKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.OptionRange != nil {
+				k.OptionRange = *r.Entry.OptionRange
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip", "dhcp"), yang.In(moduleCiscoIOSXEDhcp, "client", "option", "option-range")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANKey is DhcpSnoopingVLAN's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANKey struct {
+	PortChannelName string
+	ID              uint16
+}
+
+// PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANFlatRow flattens one DhcpSnoopingVLAN entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxedhcp.DhcpSnoopingVLAN
+}
+
+// PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANDescriptor is the flattened-row descriptor for the nested list DhcpSnoopingVLAN.
+func PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANFlatRow, PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANFlatRow, PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxedhcp.DhcpSnoopingVLANSchema}, func(anc [][]yang.KeyValue, e ciscoiosxedhcp.DhcpSnoopingVLAN) PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANFlatRow {
+			return PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANFlatRow) *ciscoiosxedhcp.DhcpSnoopingVLAN {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANFlatRow) PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANKey {
+			var k PortChannelSubinterfacePortChannelIPDhcpSnoopingVLANKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip", "dhcp"), yang.In(moduleCiscoIOSXEDhcp, "snooping", "vlan")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPHelperAddressKey is IPHelperAddress's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPHelperAddressKey struct {
+	PortChannelName string
+	Address         string
+}
+
+// PortChannelSubinterfacePortChannelIPHelperAddressFlatRow flattens one IPHelperAddress entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPHelperAddressFlatRow struct {
+	PortChannelName string
+	Entry           IPHelperAddress
+}
+
+// PortChannelSubinterfacePortChannelIPHelperAddressDescriptor is the flattened-row descriptor for the nested list IPHelperAddress.
+func PortChannelSubinterfacePortChannelIPHelperAddressDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPHelperAddressFlatRow, PortChannelSubinterfacePortChannelIPHelperAddressKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPHelperAddressFlatRow, PortChannelSubinterfacePortChannelIPHelperAddressKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, IPHelperAddressSchema}, func(anc [][]yang.KeyValue, e IPHelperAddress) PortChannelSubinterfacePortChannelIPHelperAddressFlatRow {
+			return PortChannelSubinterfacePortChannelIPHelperAddressFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPHelperAddressFlatRow) *IPHelperAddress {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPHelperAddressFlatRow) PortChannelSubinterfacePortChannelIPHelperAddressKey {
+			var k PortChannelSubinterfacePortChannelIPHelperAddressKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip", "helper-address")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressKey is HelperAddressAddressHelperAddress's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressKey struct {
+	PortChannelName string
+	Address         string
+}
+
+// PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressFlatRow flattens one HelperAddressAddressHelperAddress entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressFlatRow struct {
+	PortChannelName string
+	Entry           HelperAddressAddressHelperAddress
+}
+
+// PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressDescriptor is the flattened-row descriptor for the nested list HelperAddressAddressHelperAddress.
+func PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressFlatRow, PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressFlatRow, PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, HelperAddressAddressHelperAddressSchema}, func(anc [][]yang.KeyValue, e HelperAddressAddressHelperAddress) PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressFlatRow {
+			return PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressFlatRow) *HelperAddressAddressHelperAddress {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressFlatRow) PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressKey {
+			var k PortChannelSubinterfacePortChannelIPHelperAddressAddressHelperAddressKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip", "helper-address-address", "helper-address")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressKey is HelperAddressGlobalHelperAddress's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressKey struct {
+	PortChannelName string
+	Address         string
+}
+
+// PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressFlatRow flattens one HelperAddressGlobalHelperAddress entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressFlatRow struct {
+	PortChannelName string
+	Entry           HelperAddressGlobalHelperAddress
+}
+
+// PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressDescriptor is the flattened-row descriptor for the nested list HelperAddressGlobalHelperAddress.
+func PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressFlatRow, PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressFlatRow, PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, HelperAddressGlobalHelperAddressSchema}, func(anc [][]yang.KeyValue, e HelperAddressGlobalHelperAddress) PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressFlatRow {
+			return PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressFlatRow) *HelperAddressGlobalHelperAddress {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressFlatRow) PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressKey {
+			var k PortChannelSubinterfacePortChannelIPHelperAddressGlobalHelperAddressKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip", "helper-address-global", "helper-address")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFKey is HelperAddressVRFHelperAddressVRF's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFKey struct {
+	PortChannelName string
+	VRF             string
+	Address         string
+}
+
+// PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFFlatRow flattens one HelperAddressVRFHelperAddressVRF entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFFlatRow struct {
+	PortChannelName string
+	Entry           HelperAddressVRFHelperAddressVRF
+}
+
+// PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFDescriptor is the flattened-row descriptor for the nested list HelperAddressVRFHelperAddressVRF.
+func PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFFlatRow, PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFFlatRow, PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, HelperAddressVRFHelperAddressVRFSchema}, func(anc [][]yang.KeyValue, e HelperAddressVRFHelperAddressVRF) PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFFlatRow {
+			return PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFFlatRow) *HelperAddressVRFHelperAddressVRF {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFFlatRow) PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFKey {
+			var k PortChannelSubinterfacePortChannelIPHelperAddressVRFHelperAddressVRFKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.VRF != nil {
+				k.VRF = *r.Entry.VRF
+			}
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip", "helper-address-vrf", "helper-address", "vrf")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPPimRedundancyKey is PimRedundancy's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPPimRedundancyKey struct {
+	PortChannelName string
+	GroupName       string
+}
+
+// PortChannelSubinterfacePortChannelIPPimRedundancyFlatRow flattens one PimRedundancy entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPPimRedundancyFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxemulticast.PimRedundancy
+}
+
+// PortChannelSubinterfacePortChannelIPPimRedundancyDescriptor is the flattened-row descriptor for the nested list PimRedundancy.
+func PortChannelSubinterfacePortChannelIPPimRedundancyDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPPimRedundancyFlatRow, PortChannelSubinterfacePortChannelIPPimRedundancyKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPPimRedundancyFlatRow, PortChannelSubinterfacePortChannelIPPimRedundancyKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxemulticast.PimRedundancySchema}, func(anc [][]yang.KeyValue, e ciscoiosxemulticast.PimRedundancy) PortChannelSubinterfacePortChannelIPPimRedundancyFlatRow {
+			return PortChannelSubinterfacePortChannelIPPimRedundancyFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPPimRedundancyFlatRow) *ciscoiosxemulticast.PimRedundancy {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPPimRedundancyFlatRow) PortChannelSubinterfacePortChannelIPPimRedundancyKey {
+			var k PortChannelSubinterfacePortChannelIPPimRedundancyKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.GroupName != nil {
+				k.GroupName = *r.Entry.GroupName
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip", "pim"), yang.In(moduleCiscoIOSXEMulticast, "redundancy")),
+	}
+}
+
+// NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpKey is SummaryAddressEigrp's row identity (ancestor keys in canonical form).
+type NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpKey struct {
+	PortChannelName string
+	AsNumber        uint16
+	IPAddress       string
+	IPMask          string
+}
+
+// NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRow flattens one SummaryAddressEigrp entry with its ancestor list keys.
+type NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeeigrp.SummaryAddressEigrp
+}
+
+// NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpDescriptor is the flattened-row descriptor for the nested list SummaryAddressEigrp.
+func NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpDescriptor() yang.ListDescriptor[NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRow, NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpKey] {
+	return yang.ListDescriptor[NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRow, NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeeigrp.SummaryAddressEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.SummaryAddressEigrp) NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRow {
+			return NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRow) *ciscoiosxeeigrp.SummaryAddressEigrp {
+			return &r.Entry
+		}, func(r *NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRow) NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpKey {
+			var k NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.AsNumber != nil {
+				k.AsNumber = *r.Entry.AsNumber
+			}
+			if r.Entry.IPAddress != nil {
+				k.IPAddress = *r.Entry.IPAddress
+			}
+			if r.Entry.IPMask != nil {
+				k.IPMask = *r.Entry.IPMask
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip", "summary-address"), yang.In(moduleCiscoIOSXEEigrp, "eigrp")),
+	}
+}
+
+// NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpKeyX7bc833 is SummaryAddressEigrp's row identity (ancestor keys in canonical form).
+type NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpKeyX7bc833 struct {
+	PortChannelName string
+	ID              string
+}
+
+// NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRowX4da210 flattens one SummaryAddressEigrp entry with its ancestor list keys.
+type NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRowX4da210 struct {
+	PortChannelName string
+	Entry           SummaryAddressEigrp
+}
+
+// NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpDescriptorXa5091f is the flattened-row descriptor for the nested list SummaryAddressEigrp.
+func NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpDescriptorXa5091f() yang.ListDescriptor[NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRowX4da210, NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpKeyX7bc833] {
+	return yang.ListDescriptor[NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRowX4da210, NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpKeyX7bc833]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, SummaryAddressEigrpSchema}, func(anc [][]yang.KeyValue, e SummaryAddressEigrp) NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRowX4da210 {
+			return NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRowX4da210{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRowX4da210) *SummaryAddressEigrp {
+			return &r.Entry
+		}, func(r *NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpFlatRowX4da210) NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpKeyX7bc833 {
+			var k NativeInterfacePortChannelSubinterfacePortChannelIPSummaryAddressEigrpKeyX7bc833
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ip", "summary-address", "eigrp")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6BandwidthPercentKey is BandwidthPercent's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6BandwidthPercentKey struct {
+	PortChannelName string
+	Eigrp           uint16
+}
+
+// PortChannelSubinterfacePortChannelIPv6BandwidthPercentFlatRow flattens one BandwidthPercent entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6BandwidthPercentFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeeigrp.BandwidthPercent
+}
+
+// PortChannelSubinterfacePortChannelIPv6BandwidthPercentDescriptor is the flattened-row descriptor for the nested list BandwidthPercent.
+func PortChannelSubinterfacePortChannelIPv6BandwidthPercentDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6BandwidthPercentFlatRow, PortChannelSubinterfacePortChannelIPv6BandwidthPercentKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6BandwidthPercentFlatRow, PortChannelSubinterfacePortChannelIPv6BandwidthPercentKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeeigrp.BandwidthPercentSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.BandwidthPercent) PortChannelSubinterfacePortChannelIPv6BandwidthPercentFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6BandwidthPercentFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6BandwidthPercentFlatRow) *ciscoiosxeeigrp.BandwidthPercent {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6BandwidthPercentFlatRow) PortChannelSubinterfacePortChannelIPv6BandwidthPercentKey {
+			var k PortChannelSubinterfacePortChannelIPv6BandwidthPercentKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Eigrp != nil {
+				k.Eigrp = *r.Entry.Eigrp
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6"), yang.In(moduleCiscoIOSXEEigrp, "bandwidth-percent")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6DampeningChangeKey is DampeningChange's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6DampeningChangeKey struct {
+	PortChannelName string
+	Eigrp           uint16
+}
+
+// PortChannelSubinterfacePortChannelIPv6DampeningChangeFlatRow flattens one DampeningChange entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6DampeningChangeFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeeigrp.DampeningChange
+}
+
+// PortChannelSubinterfacePortChannelIPv6DampeningChangeDescriptor is the flattened-row descriptor for the nested list DampeningChange.
+func PortChannelSubinterfacePortChannelIPv6DampeningChangeDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6DampeningChangeFlatRow, PortChannelSubinterfacePortChannelIPv6DampeningChangeKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6DampeningChangeFlatRow, PortChannelSubinterfacePortChannelIPv6DampeningChangeKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeeigrp.DampeningChangeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DampeningChange) PortChannelSubinterfacePortChannelIPv6DampeningChangeFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6DampeningChangeFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6DampeningChangeFlatRow) *ciscoiosxeeigrp.DampeningChange {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6DampeningChangeFlatRow) PortChannelSubinterfacePortChannelIPv6DampeningChangeKey {
+			var k PortChannelSubinterfacePortChannelIPv6DampeningChangeKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Eigrp != nil {
+				k.Eigrp = *r.Entry.Eigrp
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6"), yang.In(moduleCiscoIOSXEEigrp, "dampening-change")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6DampeningIntervalKey is DampeningInterval's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6DampeningIntervalKey struct {
+	PortChannelName string
+	Eigrp           uint16
+}
+
+// PortChannelSubinterfacePortChannelIPv6DampeningIntervalFlatRow flattens one DampeningInterval entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6DampeningIntervalFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeeigrp.DampeningInterval
+}
+
+// PortChannelSubinterfacePortChannelIPv6DampeningIntervalDescriptor is the flattened-row descriptor for the nested list DampeningInterval.
+func PortChannelSubinterfacePortChannelIPv6DampeningIntervalDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6DampeningIntervalFlatRow, PortChannelSubinterfacePortChannelIPv6DampeningIntervalKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6DampeningIntervalFlatRow, PortChannelSubinterfacePortChannelIPv6DampeningIntervalKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeeigrp.DampeningIntervalSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.DampeningInterval) PortChannelSubinterfacePortChannelIPv6DampeningIntervalFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6DampeningIntervalFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6DampeningIntervalFlatRow) *ciscoiosxeeigrp.DampeningInterval {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6DampeningIntervalFlatRow) PortChannelSubinterfacePortChannelIPv6DampeningIntervalKey {
+			var k PortChannelSubinterfacePortChannelIPv6DampeningIntervalKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Eigrp != nil {
+				k.Eigrp = *r.Entry.Eigrp
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6"), yang.In(moduleCiscoIOSXEEigrp, "dampening-interval")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6HelloIntervalKey is HelloInterval's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6HelloIntervalKey struct {
+	PortChannelName string
+	Eigrp           uint16
+}
+
+// PortChannelSubinterfacePortChannelIPv6HelloIntervalFlatRow flattens one HelloInterval entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6HelloIntervalFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeeigrp.HelloInterval
+}
+
+// PortChannelSubinterfacePortChannelIPv6HelloIntervalDescriptor is the flattened-row descriptor for the nested list HelloInterval.
+func PortChannelSubinterfacePortChannelIPv6HelloIntervalDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6HelloIntervalFlatRow, PortChannelSubinterfacePortChannelIPv6HelloIntervalKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6HelloIntervalFlatRow, PortChannelSubinterfacePortChannelIPv6HelloIntervalKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeeigrp.HelloIntervalSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.HelloInterval) PortChannelSubinterfacePortChannelIPv6HelloIntervalFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6HelloIntervalFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6HelloIntervalFlatRow) *ciscoiosxeeigrp.HelloInterval {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6HelloIntervalFlatRow) PortChannelSubinterfacePortChannelIPv6HelloIntervalKey {
+			var k PortChannelSubinterfacePortChannelIPv6HelloIntervalKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Eigrp != nil {
+				k.Eigrp = *r.Entry.Eigrp
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6"), yang.In(moduleCiscoIOSXEEigrp, "hello-interval")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6HoldTimeKey is HoldTime's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6HoldTimeKey struct {
+	PortChannelName string
+	Eigrp           uint16
+}
+
+// PortChannelSubinterfacePortChannelIPv6HoldTimeFlatRow flattens one HoldTime entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6HoldTimeFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeeigrp.HoldTime
+}
+
+// PortChannelSubinterfacePortChannelIPv6HoldTimeDescriptor is the flattened-row descriptor for the nested list HoldTime.
+func PortChannelSubinterfacePortChannelIPv6HoldTimeDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6HoldTimeFlatRow, PortChannelSubinterfacePortChannelIPv6HoldTimeKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6HoldTimeFlatRow, PortChannelSubinterfacePortChannelIPv6HoldTimeKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeeigrp.HoldTimeSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.HoldTime) PortChannelSubinterfacePortChannelIPv6HoldTimeFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6HoldTimeFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6HoldTimeFlatRow) *ciscoiosxeeigrp.HoldTime {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6HoldTimeFlatRow) PortChannelSubinterfacePortChannelIPv6HoldTimeKey {
+			var k PortChannelSubinterfacePortChannelIPv6HoldTimeKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Eigrp != nil {
+				k.Eigrp = *r.Entry.Eigrp
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6"), yang.In(moduleCiscoIOSXEEigrp, "hold-time")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpKey is IPv6RouterEigrpEigrp's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpKey struct {
+	PortChannelName string
+	AsNumber        uint16
+}
+
+// PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpFlatRow flattens one IPv6RouterEigrpEigrp entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeeigrp.IPv6RouterEigrpEigrp
+}
+
+// PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpDescriptor is the flattened-row descriptor for the nested list IPv6RouterEigrpEigrp.
+func PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpFlatRow, PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpFlatRow, PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeeigrp.IPv6RouterEigrpEigrpSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeeigrp.IPv6RouterEigrpEigrp) PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpFlatRow) *ciscoiosxeeigrp.IPv6RouterEigrpEigrp {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpFlatRow) PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpKey {
+			var k PortChannelSubinterfacePortChannelIPv6RouterEigrpEigrpKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.AsNumber != nil {
+				k.AsNumber = *r.Entry.AsNumber
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6"), yang.In(moduleCiscoIOSXEEigrp, "router-eigrp", "eigrp")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6FlowMonitorKey is FlowMonitorXc8f9c0's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6FlowMonitorKey struct {
+	PortChannelName string
+	Name            string
+}
+
+// PortChannelSubinterfacePortChannelIPv6FlowMonitorFlatRow flattens one FlowMonitorXc8f9c0 entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6FlowMonitorFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeflow.FlowMonitorXc8f9c0
+}
+
+// PortChannelSubinterfacePortChannelIPv6FlowMonitorDescriptor is the flattened-row descriptor for the nested list FlowMonitorXc8f9c0.
+func PortChannelSubinterfacePortChannelIPv6FlowMonitorDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6FlowMonitorFlatRow, PortChannelSubinterfacePortChannelIPv6FlowMonitorKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6FlowMonitorFlatRow, PortChannelSubinterfacePortChannelIPv6FlowMonitorKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeflow.FlowMonitorSchemaX975c36}, func(anc [][]yang.KeyValue, e ciscoiosxeflow.FlowMonitorXc8f9c0) PortChannelSubinterfacePortChannelIPv6FlowMonitorFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6FlowMonitorFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6FlowMonitorFlatRow) *ciscoiosxeflow.FlowMonitorXc8f9c0 {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6FlowMonitorFlatRow) PortChannelSubinterfacePortChannelIPv6FlowMonitorKey {
+			var k PortChannelSubinterfacePortChannelIPv6FlowMonitorKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6"), yang.In(moduleCiscoIOSXEFlow, "flow", "monitor")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6FlowMonitorNewKey is MonitorNew's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6FlowMonitorNewKey struct {
+	PortChannelName string
+	Name            string
+	Direction       string
+}
+
+// PortChannelSubinterfacePortChannelIPv6FlowMonitorNewFlatRow flattens one MonitorNew entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6FlowMonitorNewFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeflow.MonitorNew
+}
+
+// PortChannelSubinterfacePortChannelIPv6FlowMonitorNewDescriptor is the flattened-row descriptor for the nested list MonitorNew.
+func PortChannelSubinterfacePortChannelIPv6FlowMonitorNewDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6FlowMonitorNewFlatRow, PortChannelSubinterfacePortChannelIPv6FlowMonitorNewKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6FlowMonitorNewFlatRow, PortChannelSubinterfacePortChannelIPv6FlowMonitorNewKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeflow.MonitorNewSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeflow.MonitorNew) PortChannelSubinterfacePortChannelIPv6FlowMonitorNewFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6FlowMonitorNewFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6FlowMonitorNewFlatRow) *ciscoiosxeflow.MonitorNew {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6FlowMonitorNewFlatRow) PortChannelSubinterfacePortChannelIPv6FlowMonitorNewKey {
+			var k PortChannelSubinterfacePortChannelIPv6FlowMonitorNewKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			if r.Entry.Direction != nil {
+				k.Direction = *r.Entry.Direction
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6"), yang.In(moduleCiscoIOSXEFlow, "flow", "monitor-new")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerKey is MonitorSampler's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerKey struct {
+	PortChannelName string
+	MonitorName     string
+	Direction       string
+}
+
+// PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerFlatRow flattens one MonitorSampler entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerFlatRow struct {
+	PortChannelName string
+	MonitorName     string
+	Entry           ciscoiosxeflow.MonitorSampler
+}
+
+// PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerDescriptor is the flattened-row descriptor for the nested list MonitorSampler.
+func PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerFlatRow, PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerFlatRow, PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeflow.FlowMonitorSchemaX975c36, ciscoiosxeflow.MonitorSamplerSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeflow.MonitorSampler) PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerFlatRow{
+				Entry:           e,
+				MonitorName:     yang.AncestorKey(anc, 1, "name"),
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerFlatRow) *ciscoiosxeflow.MonitorSampler {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerFlatRow) PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerKey {
+			var k PortChannelSubinterfacePortChannelIPv6FlowMonitorSamplerKey
+			k.PortChannelName = r.PortChannelName
+			k.MonitorName = r.MonitorName
+			if r.Entry.Direction != nil {
+				k.Direction = *r.Entry.Direction
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6"), yang.In(moduleCiscoIOSXEFlow, "flow", "monitor", "sampler")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6MldStaticGroupKey is StaticGroup's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6MldStaticGroupKey struct {
+	PortChannelName string
+	Gaddr           string
+}
+
+// PortChannelSubinterfacePortChannelIPv6MldStaticGroupFlatRow flattens one StaticGroup entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6MldStaticGroupFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxemld.StaticGroup
+}
+
+// PortChannelSubinterfacePortChannelIPv6MldStaticGroupDescriptor is the flattened-row descriptor for the nested list StaticGroup.
+func PortChannelSubinterfacePortChannelIPv6MldStaticGroupDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6MldStaticGroupFlatRow, PortChannelSubinterfacePortChannelIPv6MldStaticGroupKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6MldStaticGroupFlatRow, PortChannelSubinterfacePortChannelIPv6MldStaticGroupKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxemld.StaticGroupSchema}, func(anc [][]yang.KeyValue, e ciscoiosxemld.StaticGroup) PortChannelSubinterfacePortChannelIPv6MldStaticGroupFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6MldStaticGroupFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6MldStaticGroupFlatRow) *ciscoiosxemld.StaticGroup {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6MldStaticGroupFlatRow) PortChannelSubinterfacePortChannelIPv6MldStaticGroupKey {
+			var k PortChannelSubinterfacePortChannelIPv6MldStaticGroupKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Gaddr != nil {
+				k.Gaddr = *r.Entry.Gaddr
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6"), yang.In(moduleCiscoIOSXEMld, "mld", "static-group")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6OSPFNeighborKey is Neighbor's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6OSPFNeighborKey struct {
+	PortChannelName string
+	ID              string
+}
+
+// PortChannelSubinterfacePortChannelIPv6OSPFNeighborFlatRow flattens one Neighbor entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6OSPFNeighborFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxeospfv3.Neighbor
+}
+
+// PortChannelSubinterfacePortChannelIPv6OSPFNeighborDescriptor is the flattened-row descriptor for the nested list Neighbor.
+func PortChannelSubinterfacePortChannelIPv6OSPFNeighborDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6OSPFNeighborFlatRow, PortChannelSubinterfacePortChannelIPv6OSPFNeighborKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6OSPFNeighborFlatRow, PortChannelSubinterfacePortChannelIPv6OSPFNeighborKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxeospfv3.NeighborSchema}, func(anc [][]yang.KeyValue, e ciscoiosxeospfv3.Neighbor) PortChannelSubinterfacePortChannelIPv6OSPFNeighborFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6OSPFNeighborFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6OSPFNeighborFlatRow) *ciscoiosxeospfv3.Neighbor {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6OSPFNeighborFlatRow) PortChannelSubinterfacePortChannelIPv6OSPFNeighborKey {
+			var k PortChannelSubinterfacePortChannelIPv6OSPFNeighborKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.ID != nil {
+				k.ID = *r.Entry.ID
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6"), yang.In(moduleCiscoIOSXEOspfv3, "ospf", "neighbor")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressKey is LinkLocalAddress's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressKey struct {
+	PortChannelName string
+	Address         string
+}
+
+// PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressFlatRow flattens one LinkLocalAddress entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressFlatRow struct {
+	PortChannelName string
+	Entry           LinkLocalAddress
+}
+
+// PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressDescriptor is the flattened-row descriptor for the nested list LinkLocalAddress.
+func PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressFlatRow, PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressFlatRow, PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, LinkLocalAddressSchema}, func(anc [][]yang.KeyValue, e LinkLocalAddress) PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressFlatRow) *LinkLocalAddress {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressFlatRow) PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressKey {
+			var k PortChannelSubinterfacePortChannelIPv6AddressLinkLocalAddressKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Address != nil {
+				k.Address = *r.Entry.Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6", "address", "link-local-address")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6AddressPrefixListKey is AddressPrefixList's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6AddressPrefixListKey struct {
+	PortChannelName string
+	Prefix          string
+}
+
+// PortChannelSubinterfacePortChannelIPv6AddressPrefixListFlatRow flattens one AddressPrefixList entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6AddressPrefixListFlatRow struct {
+	PortChannelName string
+	Entry           AddressPrefixList
+}
+
+// PortChannelSubinterfacePortChannelIPv6AddressPrefixListDescriptor is the flattened-row descriptor for the nested list AddressPrefixList.
+func PortChannelSubinterfacePortChannelIPv6AddressPrefixListDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6AddressPrefixListFlatRow, PortChannelSubinterfacePortChannelIPv6AddressPrefixListKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6AddressPrefixListFlatRow, PortChannelSubinterfacePortChannelIPv6AddressPrefixListKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, AddressPrefixListSchema}, func(anc [][]yang.KeyValue, e AddressPrefixList) PortChannelSubinterfacePortChannelIPv6AddressPrefixListFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6AddressPrefixListFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6AddressPrefixListFlatRow) *AddressPrefixList {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6AddressPrefixListFlatRow) PortChannelSubinterfacePortChannelIPv6AddressPrefixListKey {
+			var k PortChannelSubinterfacePortChannelIPv6AddressPrefixListKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Prefix != nil {
+				k.Prefix = *r.Entry.Prefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6", "address", "prefix-list")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6AddressPrefixNameKey is PrefixName's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6AddressPrefixNameKey struct {
+	PortChannelName string
+	Name            string
+}
+
+// PortChannelSubinterfacePortChannelIPv6AddressPrefixNameFlatRow flattens one PrefixName entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6AddressPrefixNameFlatRow struct {
+	PortChannelName string
+	Entry           PrefixName
+}
+
+// PortChannelSubinterfacePortChannelIPv6AddressPrefixNameDescriptor is the flattened-row descriptor for the nested list PrefixName.
+func PortChannelSubinterfacePortChannelIPv6AddressPrefixNameDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6AddressPrefixNameFlatRow, PortChannelSubinterfacePortChannelIPv6AddressPrefixNameKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6AddressPrefixNameFlatRow, PortChannelSubinterfacePortChannelIPv6AddressPrefixNameKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, PrefixNameSchema}, func(anc [][]yang.KeyValue, e PrefixName) PortChannelSubinterfacePortChannelIPv6AddressPrefixNameFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6AddressPrefixNameFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6AddressPrefixNameFlatRow) *PrefixName {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6AddressPrefixNameFlatRow) PortChannelSubinterfacePortChannelIPv6AddressPrefixNameKey {
+			var k PortChannelSubinterfacePortChannelIPv6AddressPrefixNameKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.Name != nil {
+				k.Name = *r.Entry.Name
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6", "address", "prefix-name")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey is PrefixOptionsIPv6Prefix's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey struct {
+	PortChannelName string
+	PrefixNameName  string
+	Prefix          string
+}
+
+// PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow flattens one PrefixOptionsIPv6Prefix entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow struct {
+	PortChannelName string
+	PrefixNameName  string
+	Entry           PrefixOptionsIPv6Prefix
+}
+
+// PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixDescriptor is the flattened-row descriptor for the nested list PrefixOptionsIPv6Prefix.
+func PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow, PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow, PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, PrefixNameSchema, PrefixOptionsIPv6PrefixSchema}, func(anc [][]yang.KeyValue, e PrefixOptionsIPv6Prefix) PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+				PrefixNameName:  yang.AncestorKey(anc, 1, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow) *PrefixOptionsIPv6Prefix {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixFlatRow) PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey {
+			var k PortChannelSubinterfacePortChannelIPv6AddressPrefixNamePrefixOptionsIPv6PrefixKey
+			k.PortChannelName = r.PortChannelName
+			k.PrefixNameName = r.PrefixNameName
+			if r.Entry.Prefix != nil {
+				k.Prefix = *r.Entry.Prefix
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6", "address", "prefix-name", "prefix-options", "ipv6-prefix")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesKey is AttachedPolicies's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesKey struct {
+	PortChannelName string
+	AttachPolicy    string
+}
+
+// PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesFlatRow flattens one AttachedPolicies entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxedhcp.AttachedPolicies
+}
+
+// PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesDescriptor is the flattened-row descriptor for the nested list AttachedPolicies.
+func PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesFlatRow, PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesFlatRow, PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxedhcp.AttachedPoliciesSchema}, func(anc [][]yang.KeyValue, e ciscoiosxedhcp.AttachedPolicies) PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesFlatRow) *ciscoiosxedhcp.AttachedPolicies {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesFlatRow) PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesKey {
+			var k PortChannelSubinterfacePortChannelIPv6DhcpGuardAttachedPoliciesKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.AttachPolicy != nil {
+				k.AttachPolicy = *r.Entry.AttachPolicy
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6", "dhcp"), yang.In(moduleCiscoIOSXEDhcp, "guard", "attached-policies")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressKey is DestinationAddress's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressKey struct {
+	PortChannelName string
+	IPv6Address     string
+}
+
+// PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressFlatRow flattens one DestinationAddress entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxedhcp.DestinationAddress
+}
+
+// PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressDescriptor is the flattened-row descriptor for the nested list DestinationAddress.
+func PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressFlatRow, PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressFlatRow, PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxedhcp.DestinationAddressSchema}, func(anc [][]yang.KeyValue, e ciscoiosxedhcp.DestinationAddress) PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressFlatRow) *ciscoiosxedhcp.DestinationAddress {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressFlatRow) PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressKey {
+			var k PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationAddressKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.IPv6Address != nil {
+				k.IPv6Address = *r.Entry.IPv6Address
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6", "dhcp"), yang.In(moduleCiscoIOSXEDhcp, "relay", "destination", "address")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalKey is Global's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalKey struct {
+	PortChannelName string
+	RelayAddress    string
+}
+
+// PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalFlatRow flattens one Global entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxedhcp.Global
+}
+
+// PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalDescriptor is the flattened-row descriptor for the nested list Global.
+func PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalFlatRow, PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalFlatRow, PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxedhcp.GlobalSchema}, func(anc [][]yang.KeyValue, e ciscoiosxedhcp.Global) PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalFlatRow) *ciscoiosxedhcp.Global {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalFlatRow) PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalKey {
+			var k PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationGlobalKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.RelayAddress != nil {
+				k.RelayAddress = *r.Entry.RelayAddress
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6", "dhcp"), yang.In(moduleCiscoIOSXEDhcp, "relay", "destination", "global")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFKey is DestinationVRF's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFKey struct {
+	PortChannelName string
+	VRFName         string
+	RelayAddress    string
+}
+
+// PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFFlatRow flattens one DestinationVRF entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxedhcp.DestinationVRF
+}
+
+// PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFDescriptor is the flattened-row descriptor for the nested list DestinationVRF.
+func PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFDescriptor() yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFFlatRow, PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFKey] {
+	return yang.ListDescriptor[PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFFlatRow, PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFKey]{
+		Codec: yang.NestedRowCodec([]*yang.Schema{PortChannelSubinterfacePortChannelSchema, ciscoiosxedhcp.DestinationVRFSchema}, func(anc [][]yang.KeyValue, e ciscoiosxedhcp.DestinationVRF) PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFFlatRow {
+			return PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFFlatRow{
+				Entry:           e,
+				PortChannelName: yang.AncestorKey(anc, 0, "name"),
+			}
+		}, func(r *PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFFlatRow) *ciscoiosxedhcp.DestinationVRF {
+			return &r.Entry
+		}, func(r *PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFFlatRow) PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFKey {
+			var k PortChannelSubinterfacePortChannelIPv6DhcpRelayDestinationVRFKey
+			k.PortChannelName = r.PortChannelName
+			if r.Entry.VRFName != nil {
+				k.VRFName = *r.Entry.VRFName
+			}
+			if r.Entry.RelayAddress != nil {
+				k.RelayAddress = *r.Entry.RelayAddress
+			}
+			return k
+		}),
+		Path: yang.JoinPath(yang.In(moduleCiscoIOSXENative, "native", "interface", "Port-channel-subinterface", "Port-channel", "ipv6", "dhcp"), yang.In(moduleCiscoIOSXEDhcp, "relay", "destination", "vrf")),
+	}
+}
+
+// PortChannelSubinterfacePortChannelIPv6DhcpServerKey is IPv6DhcpServer's row identity (ancestor keys in canonical form).
+type PortChannelSubinterfacePortChannelIPv6DhcpServerKey struct {
+	PortChannelName string
+	Word            string
+}
+
+// PortChannelSubinterfacePortChannelIPv6DhcpServerFlatRow flattens one IPv6DhcpServer entry with its ancestor list keys.
+type PortChannelSubinterfacePortChannelIPv6DhcpServerFlatRow struct {
+	PortChannelName string
+	Entry           ciscoiosxedhcp.IPv6DhcpServer
 }

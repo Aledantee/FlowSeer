@@ -3616,57 +3616,15 @@ var WirelessSchema = &yang.Schema{
 	Name:   "wireless",
 }
 
-// ATMSubinterfaceATMAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/ATM-subinterface/ATM.
-type ATMSubinterfaceATMAugment struct {
+// ATMAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/ATM.
+type ATMAugment struct {
 	DhcpServerTracking *DhcpServerTracking
 }
 
-// ATMSubinterfaceATMAugmentSchema describes ATMSubinterfaceATMAugment group fields with no codec root.
-var ATMSubinterfaceATMAugmentSchema = &yang.Schema{
+// ATMAugmentSchema describes ATMAugment group fields with no codec root.
+var ATMAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: DhcpServerTrackingSchema, GoName: "DhcpServerTracking", Name: "dhcp-server-tracking"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// ATMSubinterfaceATMIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/ATM-subinterface/ATM/ip/dhcp.
-type ATMSubinterfaceATMIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// ATMSubinterfaceATMIPDhcpAugmentSchema describes ATMSubinterfaceATMIPDhcpAugment group fields with no codec root.
-var ATMSubinterfaceATMIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// ATMSubinterfaceATMIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/ATM-subinterface/ATM/ipv6/dhcp.
-type ATMSubinterfaceATMIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// ATMSubinterfaceATMIPv6DhcpAugmentSchema describes ATMSubinterfaceATMIPv6DhcpAugment group fields with no codec root.
-var ATMSubinterfaceATMIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
 	},
 	Module: moduleCiscoIOSXEDhcp,
 }
@@ -3684,48 +3642,6 @@ var AppGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEDhcp,
 }
 
-// AppGigabitEthernetIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ip/dhcp.
-type AppGigabitEthernetIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// AppGigabitEthernetIPDhcpAugmentSchema describes AppGigabitEthernetIPDhcpAugment group fields with no codec root.
-var AppGigabitEthernetIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// AppGigabitEthernetIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ipv6/dhcp.
-type AppGigabitEthernetIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// AppGigabitEthernetIPv6DhcpAugmentSchema describes AppGigabitEthernetIPv6DhcpAugment group fields with no codec root.
-var AppGigabitEthernetIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
 // CellularAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Cellular.
 type CellularAugment struct {
 	DhcpServerTracking *DhcpServerTracking
@@ -3735,27 +3651,6 @@ type CellularAugment struct {
 var CellularAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: DhcpServerTrackingSchema, GoName: "DhcpServerTracking", Name: "dhcp-server-tracking"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// CellularIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Cellular/ipv6/dhcp.
-type CellularIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// CellularIPv6DhcpAugmentSchema describes CellularIPv6DhcpAugment group fields with no codec root.
-var CellularIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
 	},
 	Module: moduleCiscoIOSXEDhcp,
 }
@@ -3801,48 +3696,6 @@ var DialerAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEDhcp,
 }
 
-// DialerIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Dialer/ip/dhcp.
-type DialerIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// DialerIPDhcpAugmentSchema describes DialerIPDhcpAugment group fields with no codec root.
-var DialerIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// DialerIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Dialer/ipv6/dhcp.
-type DialerIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// DialerIPv6DhcpAugmentSchema describes DialerIPv6DhcpAugment group fields with no codec root.
-var DialerIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
 // EthernetAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Ethernet.
 type EthernetAugment struct {
 	DhcpServerTracking *DhcpServerTracking
@@ -3852,48 +3705,6 @@ type EthernetAugment struct {
 var EthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: DhcpServerTrackingSchema, GoName: "DhcpServerTracking", Name: "dhcp-server-tracking"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// EthernetIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Ethernet/ip/dhcp.
-type EthernetIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// EthernetIPDhcpAugmentSchema describes EthernetIPDhcpAugment group fields with no codec root.
-var EthernetIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// EthernetIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Ethernet/ipv6/dhcp.
-type EthernetIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// EthernetIPv6DhcpAugmentSchema describes EthernetIPv6DhcpAugment group fields with no codec root.
-var EthernetIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
 	},
 	Module: moduleCiscoIOSXEDhcp,
 }
@@ -3911,48 +3722,6 @@ var FastEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEDhcp,
 }
 
-// FastEthernetIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/ip/dhcp.
-type FastEthernetIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// FastEthernetIPDhcpAugmentSchema describes FastEthernetIPDhcpAugment group fields with no codec root.
-var FastEthernetIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// FastEthernetIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/ipv6/dhcp.
-type FastEthernetIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// FastEthernetIPv6DhcpAugmentSchema describes FastEthernetIPv6DhcpAugment group fields with no codec root.
-var FastEthernetIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
 // FiftyGigabitEthernetAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet.
 type FiftyGigabitEthernetAugment struct {
 	DhcpServerTracking *DhcpServerTracking
@@ -3962,48 +3731,6 @@ type FiftyGigabitEthernetAugment struct {
 var FiftyGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: DhcpServerTrackingSchema, GoName: "DhcpServerTracking", Name: "dhcp-server-tracking"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// FiftyGigabitEthernetIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/ip/dhcp.
-type FiftyGigabitEthernetIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// FiftyGigabitEthernetIPDhcpAugmentSchema describes FiftyGigabitEthernetIPDhcpAugment group fields with no codec root.
-var FiftyGigabitEthernetIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// FiftyGigabitEthernetIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/ipv6/dhcp.
-type FiftyGigabitEthernetIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// FiftyGigabitEthernetIPv6DhcpAugmentSchema describes FiftyGigabitEthernetIPv6DhcpAugment group fields with no codec root.
-var FiftyGigabitEthernetIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
 	},
 	Module: moduleCiscoIOSXEDhcp,
 }
@@ -4021,48 +3748,6 @@ var FiveGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEDhcp,
 }
 
-// FiveGigabitEthernetIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/ip/dhcp.
-type FiveGigabitEthernetIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// FiveGigabitEthernetIPDhcpAugmentSchema describes FiveGigabitEthernetIPDhcpAugment group fields with no codec root.
-var FiveGigabitEthernetIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// FiveGigabitEthernetIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/ipv6/dhcp.
-type FiveGigabitEthernetIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// FiveGigabitEthernetIPv6DhcpAugmentSchema describes FiveGigabitEthernetIPv6DhcpAugment group fields with no codec root.
-var FiveGigabitEthernetIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
 // FortyGigabitEthernetAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet.
 type FortyGigabitEthernetAugment struct {
 	DhcpServerTracking *DhcpServerTracking
@@ -4072,48 +3757,6 @@ type FortyGigabitEthernetAugment struct {
 var FortyGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: DhcpServerTrackingSchema, GoName: "DhcpServerTracking", Name: "dhcp-server-tracking"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// FortyGigabitEthernetIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/ip/dhcp.
-type FortyGigabitEthernetIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// FortyGigabitEthernetIPDhcpAugmentSchema describes FortyGigabitEthernetIPDhcpAugment group fields with no codec root.
-var FortyGigabitEthernetIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// FortyGigabitEthernetIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/ipv6/dhcp.
-type FortyGigabitEthernetIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// FortyGigabitEthernetIPv6DhcpAugmentSchema describes FortyGigabitEthernetIPv6DhcpAugment group fields with no codec root.
-var FortyGigabitEthernetIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
 	},
 	Module: moduleCiscoIOSXEDhcp,
 }
@@ -4131,48 +3774,6 @@ var GigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEDhcp,
 }
 
-// GigabitEthernetIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/ip/dhcp.
-type GigabitEthernetIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// GigabitEthernetIPDhcpAugmentSchema describes GigabitEthernetIPDhcpAugment group fields with no codec root.
-var GigabitEthernetIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// GigabitEthernetIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/ipv6/dhcp.
-type GigabitEthernetIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// GigabitEthernetIPv6DhcpAugmentSchema describes GigabitEthernetIPv6DhcpAugment group fields with no codec root.
-var GigabitEthernetIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
 // HundredGigEAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE.
 type HundredGigEAugment struct {
 	DhcpServerTracking *DhcpServerTracking
@@ -4186,8 +3787,8 @@ var HundredGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEDhcp,
 }
 
-// HundredGigEIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/ip/dhcp.
-type HundredGigEIPDhcpAugment struct {
+// IPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/ATM/ip/dhcp.
+type IPDhcpAugment struct {
 	Client          *IPDhcpClient
 	Relay           *IPDhcpRelay
 	RestrictNextHop *string
@@ -4195,35 +3796,14 @@ type HundredGigEIPDhcpAugment struct {
 	Snooping        *DhcpSnooping
 }
 
-// HundredGigEIPDhcpAugmentSchema describes HundredGigEIPDhcpAugment group fields with no codec root.
-var HundredGigEIPDhcpAugmentSchema = &yang.Schema{
+// IPDhcpAugmentSchema describes IPDhcpAugment group fields with no codec root.
+var IPDhcpAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
 		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
 		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
 		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
 		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// HundredGigEIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/ipv6/dhcp.
-type HundredGigEIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// HundredGigEIPv6DhcpAugmentSchema describes HundredGigEIPv6DhcpAugment group fields with no codec root.
-var HundredGigEIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
 	},
 	Module: moduleCiscoIOSXEDhcp,
 }
@@ -4239,6 +3819,27 @@ var IPDhcpRelayAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{GoName: "ShortLease", Name: "short-lease", Type: yang.TUint16},
 		{Child: SourceInterfaceSchema, GoName: "SourceInterface", Name: "source-interface"},
+	},
+	Module: moduleCiscoIOSXEDhcp,
+}
+
+// IPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/ATM/ipv6/dhcp.
+type IPv6DhcpAugment struct {
+	Client *IPv6DhcpClient
+	Framed *Framed
+	Guard  *IPv6DhcpGuard
+	Relay  *IPv6DhcpRelay
+	Server []IPv6DhcpServer
+}
+
+// IPv6DhcpAugmentSchema describes IPv6DhcpAugment group fields with no codec root.
+var IPv6DhcpAugmentSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
+		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
+		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
+		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
+		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
 	},
 	Module: moduleCiscoIOSXEDhcp,
 }
@@ -4264,103 +3865,6 @@ var IPv6DhcpRelayAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEDhcp,
 }
 
-// InterfaceATMAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/ATM.
-type InterfaceATMAugment struct {
-	DhcpServerTracking *DhcpServerTracking
-}
-
-// InterfaceATMAugmentSchema describes InterfaceATMAugment group fields with no codec root.
-var InterfaceATMAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: DhcpServerTrackingSchema, GoName: "DhcpServerTracking", Name: "dhcp-server-tracking"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// InterfaceATMIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/ATM/ip/dhcp.
-type InterfaceATMIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// InterfaceATMIPDhcpAugmentSchema describes InterfaceATMIPDhcpAugment group fields with no codec root.
-var InterfaceATMIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// InterfaceATMIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/ATM/ipv6/dhcp.
-type InterfaceATMIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// InterfaceATMIPv6DhcpAugmentSchema describes InterfaceATMIPv6DhcpAugment group fields with no codec root.
-var InterfaceATMIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// InterfacePortChannelIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/ip/dhcp.
-type InterfacePortChannelIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// InterfacePortChannelIPDhcpAugmentSchema describes InterfacePortChannelIPDhcpAugment group fields with no codec root.
-var InterfacePortChannelIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// InterfacePortChannelIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/ipv6/dhcp.
-type InterfacePortChannelIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// InterfacePortChannelIPv6DhcpAugmentSchema describes InterfacePortChannelIPv6DhcpAugment group fields with no codec root.
-var InterfacePortChannelIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
 // LoopbackAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Loopback.
 type LoopbackAugment struct {
 	DhcpServerTracking *DhcpServerTracking
@@ -4370,48 +3874,6 @@ type LoopbackAugment struct {
 var LoopbackAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: DhcpServerTrackingSchema, GoName: "DhcpServerTracking", Name: "dhcp-server-tracking"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// LoopbackIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Loopback/ip/dhcp.
-type LoopbackIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// LoopbackIPDhcpAugmentSchema describes LoopbackIPDhcpAugment group fields with no codec root.
-var LoopbackIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// LoopbackIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Loopback/ipv6/dhcp.
-type LoopbackIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// LoopbackIPv6DhcpAugmentSchema describes LoopbackIPv6DhcpAugment group fields with no codec root.
-var LoopbackIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
 	},
 	Module: moduleCiscoIOSXEDhcp,
 }
@@ -4509,48 +3971,6 @@ var PortChannelAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEDhcp,
 }
 
-// PortChannelSubinterfacePortChannelIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel/ip/dhcp.
-type PortChannelSubinterfacePortChannelIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// PortChannelSubinterfacePortChannelIPDhcpAugmentSchema describes PortChannelSubinterfacePortChannelIPDhcpAugment group fields with no codec root.
-var PortChannelSubinterfacePortChannelIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// PortChannelSubinterfacePortChannelIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel/ipv6/dhcp.
-type PortChannelSubinterfacePortChannelIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// PortChannelSubinterfacePortChannelIPv6DhcpAugmentSchema describes PortChannelSubinterfacePortChannelIPv6DhcpAugment group fields with no codec root.
-var PortChannelSubinterfacePortChannelIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
 // TenGigabitEthernetAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet.
 type TenGigabitEthernetAugment struct {
 	DhcpServerTracking *DhcpServerTracking
@@ -4560,48 +3980,6 @@ type TenGigabitEthernetAugment struct {
 var TenGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: DhcpServerTrackingSchema, GoName: "DhcpServerTracking", Name: "dhcp-server-tracking"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// TenGigabitEthernetIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/ip/dhcp.
-type TenGigabitEthernetIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// TenGigabitEthernetIPDhcpAugmentSchema describes TenGigabitEthernetIPDhcpAugment group fields with no codec root.
-var TenGigabitEthernetIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// TenGigabitEthernetIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/ipv6/dhcp.
-type TenGigabitEthernetIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// TenGigabitEthernetIPv6DhcpAugmentSchema describes TenGigabitEthernetIPv6DhcpAugment group fields with no codec root.
-var TenGigabitEthernetIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
 	},
 	Module: moduleCiscoIOSXEDhcp,
 }
@@ -4619,48 +3997,6 @@ var TunnelAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEDhcp,
 }
 
-// TunnelIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ip/dhcp.
-type TunnelIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// TunnelIPDhcpAugmentSchema describes TunnelIPDhcpAugment group fields with no codec root.
-var TunnelIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// TunnelIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ipv6/dhcp.
-type TunnelIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// TunnelIPv6DhcpAugmentSchema describes TunnelIPv6DhcpAugment group fields with no codec root.
-var TunnelIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
 // TwentyFiveGigEAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE.
 type TwentyFiveGigEAugment struct {
 	DhcpServerTracking *DhcpServerTracking
@@ -4670,48 +4006,6 @@ type TwentyFiveGigEAugment struct {
 var TwentyFiveGigEAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: DhcpServerTrackingSchema, GoName: "DhcpServerTracking", Name: "dhcp-server-tracking"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// TwentyFiveGigEIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/ip/dhcp.
-type TwentyFiveGigEIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// TwentyFiveGigEIPDhcpAugmentSchema describes TwentyFiveGigEIPDhcpAugment group fields with no codec root.
-var TwentyFiveGigEIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// TwentyFiveGigEIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/ipv6/dhcp.
-type TwentyFiveGigEIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// TwentyFiveGigEIPv6DhcpAugmentSchema describes TwentyFiveGigEIPv6DhcpAugment group fields with no codec root.
-var TwentyFiveGigEIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
 	},
 	Module: moduleCiscoIOSXEDhcp,
 }
@@ -4729,48 +4023,6 @@ var TwoGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEDhcp,
 }
 
-// TwoGigabitEthernetIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/ip/dhcp.
-type TwoGigabitEthernetIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// TwoGigabitEthernetIPDhcpAugmentSchema describes TwoGigabitEthernetIPDhcpAugment group fields with no codec root.
-var TwoGigabitEthernetIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// TwoGigabitEthernetIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/ipv6/dhcp.
-type TwoGigabitEthernetIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// TwoGigabitEthernetIPv6DhcpAugmentSchema describes TwoGigabitEthernetIPv6DhcpAugment group fields with no codec root.
-var TwoGigabitEthernetIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
 // VLANAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Vlan.
 type VLANAugment struct {
 	DhcpServerTracking *DhcpServerTracking
@@ -4780,48 +4032,6 @@ type VLANAugment struct {
 var VLANAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: DhcpServerTrackingSchema, GoName: "DhcpServerTracking", Name: "dhcp-server-tracking"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// VLANIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Vlan/ip/dhcp.
-type VLANIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// VLANIPDhcpAugmentSchema describes VLANIPDhcpAugment group fields with no codec root.
-var VLANIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// VLANIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/Vlan/ipv6/dhcp.
-type VLANIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// VLANIPv6DhcpAugmentSchema describes VLANIPv6DhcpAugment group fields with no codec root.
-var VLANIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
 	},
 	Module: moduleCiscoIOSXEDhcp,
 }
@@ -4839,48 +4049,6 @@ var VasileftAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEDhcp,
 }
 
-// VasileftIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/vasileft/ip/dhcp.
-type VasileftIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// VasileftIPDhcpAugmentSchema describes VasileftIPDhcpAugment group fields with no codec root.
-var VasileftIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// VasileftIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/vasileft/ipv6/dhcp.
-type VasileftIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// VasileftIPv6DhcpAugmentSchema describes VasileftIPv6DhcpAugment group fields with no codec root.
-var VasileftIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
 // VasirightAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/vasiright.
 type VasirightAugment struct {
 	DhcpServerTracking *DhcpServerTracking
@@ -4890,48 +4058,6 @@ type VasirightAugment struct {
 var VasirightAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: DhcpServerTrackingSchema, GoName: "DhcpServerTracking", Name: "dhcp-server-tracking"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// VasirightIPDhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/vasiright/ip/dhcp.
-type VasirightIPDhcpAugment struct {
-	Client          *IPDhcpClient
-	Relay           *IPDhcpRelay
-	RestrictNextHop *string
-	Server          *IPDhcpServer
-	Snooping        *DhcpSnooping
-}
-
-// VasirightIPDhcpAugmentSchema describes VasirightIPDhcpAugment group fields with no codec root.
-var VasirightIPDhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPDhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: IPDhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{GoName: "RestrictNextHop", Name: "restrict-next-hop", Type: yang.TEnum},
-		{Child: IPDhcpServerSchema, GoName: "Server", Name: "server"},
-		{Child: DhcpSnoopingSchema, GoName: "Snooping", Name: "snooping"},
-	},
-	Module: moduleCiscoIOSXEDhcp,
-}
-
-// VasirightIPv6DhcpAugment is the Cisco-IOS-XE-dhcp augment group at /Cisco-IOS-XE-native:native/interface/vasiright/ipv6/dhcp.
-type VasirightIPv6DhcpAugment struct {
-	Client *IPv6DhcpClient
-	Framed *Framed
-	Guard  *IPv6DhcpGuard
-	Relay  *IPv6DhcpRelay
-	Server []IPv6DhcpServer
-}
-
-// VasirightIPv6DhcpAugmentSchema describes VasirightIPv6DhcpAugment group fields with no codec root.
-var VasirightIPv6DhcpAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6DhcpClientSchema, GoName: "Client", Name: "client"},
-		{Child: FramedSchema, GoName: "Framed", Name: "framed"},
-		{Child: IPv6DhcpGuardSchema, GoName: "Guard", Name: "guard"},
-		{Child: IPv6DhcpRelaySchema, GoName: "Relay", Name: "relay"},
-		{Child: IPv6DhcpServerSchema, GoName: "Server", List: true, Name: "server"},
 	},
 	Module: moduleCiscoIOSXEDhcp,
 }

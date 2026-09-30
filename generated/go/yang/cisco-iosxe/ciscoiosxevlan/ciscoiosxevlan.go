@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCiscoIOSXEMdnsGateway identifies the Cisco-IOS-XE-mdns-gateway YANG module.
-var moduleCiscoIOSXEMdnsGateway = &yang.Module{
-	Name:      "Cisco-IOS-XE-mdns-gateway",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-mdns-gateway",
-}
-
 // moduleCiscoIOSXEVLAN identifies the Cisco-IOS-XE-vlan YANG module.
 var moduleCiscoIOSXEVLAN = &yang.Module{
 	Name:      "Cisco-IOS-XE-vlan",

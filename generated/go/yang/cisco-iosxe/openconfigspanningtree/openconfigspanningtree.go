@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCiscoXeOpenconfigSpanningTreeExt identifies the cisco-xe-openconfig-spanning-tree-ext YANG module.
-var moduleCiscoXeOpenconfigSpanningTreeExt = &yang.Module{
-	Name:      "cisco-xe-openconfig-spanning-tree-ext",
-	Namespace: "http://cisco.com/ns/yang/cisco-xe-openconfig-spanning-tree-ext",
-}
-
 // moduleOpenconfigSpanningTree identifies the openconfig-spanning-tree YANG module.
 var moduleOpenconfigSpanningTree = &yang.Module{
 	Name:      "openconfig-spanning-tree",

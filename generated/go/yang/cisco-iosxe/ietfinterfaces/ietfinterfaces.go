@@ -17,18 +17,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCiscoEthernet identifies the cisco-ethernet YANG module.
-var moduleCiscoEthernet = &yang.Module{
-	Name:      "cisco-ethernet",
-	Namespace: "urn:cisco:params:xml:ns:yang:cisco-ethernet",
-}
-
-// moduleCiscoPw identifies the cisco-pw YANG module.
-var moduleCiscoPw = &yang.Module{
-	Name:      "cisco-pw",
-	Namespace: "urn:cisco:params:xml:ns:yang:pw",
-}
-
 // moduleIetfDiffservTarget identifies the ietf-diffserv-target YANG module.
 var moduleIetfDiffservTarget = &yang.Module{
 	Name:      "ietf-diffserv-target",
@@ -41,12 +29,6 @@ var moduleIetfInterfaces = &yang.Module{
 	Namespace: "urn:ietf:params:xml:ns:yang:ietf-interfaces",
 }
 
-// moduleIetfInterfacesExt identifies the ietf-interfaces-ext YANG module.
-var moduleIetfInterfacesExt = &yang.Module{
-	Name:      "ietf-interfaces-ext",
-	Namespace: "urn:ietf:params:xml:ns:yang:ietf-interfaces-ext",
-}
-
 // moduleIetfIP identifies the ietf-ip YANG module.
 var moduleIetfIP = &yang.Module{
 	Name:      "ietf-ip",
@@ -57,12 +39,6 @@ var moduleIetfIP = &yang.Module{
 var moduleIetfIPv6UnicastRouting = &yang.Module{
 	Name:      "ietf-ipv6-unicast-routing",
 	Namespace: "urn:ietf:params:xml:ns:yang:ietf-ipv6-unicast-routing",
-}
-
-// moduleIetfRouting identifies the ietf-routing YANG module.
-var moduleIetfRouting = &yang.Module{
-	Name:      "ietf-routing",
-	Namespace: "urn:ietf:params:xml:ns:yang:ietf-routing",
 }
 
 // IdentityInterfaceType is the ietf-interfaces identity "interface-type".

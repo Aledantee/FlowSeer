@@ -21,36 +21,6 @@ var moduleATMMIB = &yang.Module{
 	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:ATM-MIB",
 }
 
-// moduleCISCOAAL5MIB identifies the CISCO-AAL5-MIB YANG module.
-var moduleCISCOAAL5MIB = &yang.Module{
-	Name:      "CISCO-AAL5-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:CISCO-AAL5-MIB",
-}
-
-// moduleCISCOATMEXTMIB identifies the CISCO-ATM-EXT-MIB YANG module.
-var moduleCISCOATMEXTMIB = &yang.Module{
-	Name:      "CISCO-ATM-EXT-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:CISCO-ATM-EXT-MIB",
-}
-
-// moduleCISCOATMPVCTRAPEXTNMIB identifies the CISCO-ATM-PVCTRAP-EXTN-MIB YANG module.
-var moduleCISCOATMPVCTRAPEXTNMIB = &yang.Module{
-	Name:      "CISCO-ATM-PVCTRAP-EXTN-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:CISCO-ATM-PVCTRAP-EXTN-MIB",
-}
-
-// moduleCISCOIETFATM2PVCTRAPMIB identifies the CISCO-IETF-ATM2-PVCTRAP-MIB YANG module.
-var moduleCISCOIETFATM2PVCTRAPMIB = &yang.Module{
-	Name:      "CISCO-IETF-ATM2-PVCTRAP-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:CISCO-IETF-ATM2-PVCTRAP-MIB",
-}
-
-// moduleCISCOIETFATM2PVCTRAPMIBEXTN identifies the CISCO-IETF-ATM2-PVCTRAP-MIB-EXTN YANG module.
-var moduleCISCOIETFATM2PVCTRAPMIBEXTN = &yang.Module{
-	Name:      "CISCO-IETF-ATM2-PVCTRAP-MIB-EXTN",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:CISCO-IETF-ATM2-PVCTRAP-MIB-EXTN",
-}
-
 // ATMMIB is the ATM-MIB node /ATM-MIB:ATM-MIB.
 type ATMMIB struct {
 	Aal5VccTable              *Aal5VccTable

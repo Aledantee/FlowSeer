@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCiscoIOSXEIsg identifies the Cisco-IOS-XE-isg YANG module.
-var moduleCiscoIOSXEIsg = &yang.Module{
-	Name:      "Cisco-IOS-XE-isg",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isg",
-}
-
 // moduleCiscoIOSXEPolicy identifies the Cisco-IOS-XE-policy YANG module.
 var moduleCiscoIOSXEPolicy = &yang.Module{
 	Name:      "Cisco-IOS-XE-policy",
@@ -9536,26 +9530,13 @@ var ZoneMismatchSchema = &yang.Schema{
 	Name:   "zone-mismatch",
 }
 
-// ATMSubinterfaceATMAugment is the Cisco-IOS-XE-policy augment group at /Cisco-IOS-XE-native:native/interface/ATM-subinterface/ATM.
-type ATMSubinterfaceATMAugment struct {
+// ATMAugment is the Cisco-IOS-XE-policy augment group at /Cisco-IOS-XE-native:native/interface/ATM.
+type ATMAugment struct {
 	ServicePolicy *ServicePolicyXd6459d
 }
 
-// ATMSubinterfaceATMAugmentSchema describes ATMSubinterfaceATMAugment group fields with no codec root.
-var ATMSubinterfaceATMAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: ServicePolicySchemaX96726e, GoName: "ServicePolicy", Name: "service-policy"},
-	},
-	Module: moduleCiscoIOSXEPolicy,
-}
-
-// ATMSubinterfaceATMPvcAugment is the Cisco-IOS-XE-policy augment group at /Cisco-IOS-XE-native:native/interface/ATM-subinterface/ATM/Cisco-IOS-XE-atm:pvc.
-type ATMSubinterfaceATMPvcAugment struct {
-	ServicePolicy *ServicePolicyXd6459d
-}
-
-// ATMSubinterfaceATMPvcAugmentSchema describes ATMSubinterfaceATMPvcAugment group fields with no codec root.
-var ATMSubinterfaceATMPvcAugmentSchema = &yang.Schema{
+// ATMAugmentSchema describes ATMAugment group fields with no codec root.
+var ATMAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: ServicePolicySchemaX96726e, GoName: "ServicePolicy", Name: "service-policy"},
 	},
@@ -9747,32 +9728,6 @@ var HundredGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEPolicy,
 }
 
-// InterfaceATMAugment is the Cisco-IOS-XE-policy augment group at /Cisco-IOS-XE-native:native/interface/ATM.
-type InterfaceATMAugment struct {
-	ServicePolicy *ServicePolicyXd6459d
-}
-
-// InterfaceATMAugmentSchema describes InterfaceATMAugment group fields with no codec root.
-var InterfaceATMAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: ServicePolicySchemaX96726e, GoName: "ServicePolicy", Name: "service-policy"},
-	},
-	Module: moduleCiscoIOSXEPolicy,
-}
-
-// InterfaceATMPvcAugment is the Cisco-IOS-XE-policy augment group at /Cisco-IOS-XE-native:native/interface/ATM/Cisco-IOS-XE-atm:pvc.
-type InterfaceATMPvcAugment struct {
-	ServicePolicy *ServicePolicyXd6459d
-}
-
-// InterfaceATMPvcAugmentSchema describes InterfaceATMPvcAugment group fields with no codec root.
-var InterfaceATMPvcAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: ServicePolicySchemaX96726e, GoName: "ServicePolicy", Name: "service-policy"},
-	},
-	Module: moduleCiscoIOSXEPolicy,
-}
-
 // InterfacePortChannelAugment is the Cisco-IOS-XE-policy augment group at /Cisco-IOS-XE-native:native/interface/Port-channel.
 type InterfacePortChannelAugment struct {
 	ServicePolicy *ServicePolicyXd6459d
@@ -9876,6 +9831,19 @@ type PortChannelSubinterfacePortChannelAugment struct {
 var PortChannelSubinterfacePortChannelAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{GoName: "Group", Name: "group", Type: yang.TUint16},
+		{Child: ServicePolicySchemaX96726e, GoName: "ServicePolicy", Name: "service-policy"},
+	},
+	Module: moduleCiscoIOSXEPolicy,
+}
+
+// PvcAugment is the Cisco-IOS-XE-policy augment group at /Cisco-IOS-XE-native:native/interface/ATM/Cisco-IOS-XE-atm:pvc.
+type PvcAugment struct {
+	ServicePolicy *ServicePolicyXd6459d
+}
+
+// PvcAugmentSchema describes PvcAugment group fields with no codec root.
+var PvcAugmentSchema = &yang.Schema{
+	Fields: []yang.Field{
 		{Child: ServicePolicySchemaX96726e, GoName: "ServicePolicy", Name: "service-policy"},
 	},
 	Module: moduleCiscoIOSXEPolicy,

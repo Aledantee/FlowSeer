@@ -17,12 +17,6 @@ var moduleCiscoIOSXEEthernet = &yang.Module{
 	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet",
 }
 
-// moduleCiscoIOSXEL2vpn identifies the Cisco-IOS-XE-l2vpn YANG module.
-var moduleCiscoIOSXEL2vpn = &yang.Module{
-	Name:      "Cisco-IOS-XE-l2vpn",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-l2vpn",
-}
-
 // ACL is the Cisco-IOS-XE-ethernet node shape instantiated at 17 schema paths, such as /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance/ip/acl.
 type ACL struct {
 	AccessGroup *yang.Value
@@ -226,85 +220,6 @@ var AllSchema = &yang.Schema{
 	},
 	Module: moduleCiscoIOSXEEthernet,
 	Name:   "all",
-}
-
-// AppGigabitEthernetService is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/Cisco-IOS-XE-ethernet:service.
-type AppGigabitEthernetService struct {
-	Instance []AppGigabitEthernetServiceInstance
-}
-
-// AppGigabitEthernetServiceSchema describes AppGigabitEthernetService for the generic codecs.
-var AppGigabitEthernetServiceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AppGigabitEthernetServiceInstanceSchema, GoName: "Instance", List: true, Name: "instance"},
-	},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "service",
-}
-
-// AppGigabitEthernetServiceInstance is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type AppGigabitEthernetServiceInstance struct {
-	GigabitEthernet   *bool
-	BridgeDomain      *BridgeDomain
-	Cfm               *InstanceCfm
-	Description       *string
-	Eapol             *InstanceEapol
-	Encapsulation     *InstanceEncapsulation
-	Errdisable        *Errdisable
-	Ethernet          *bool
-	EthernetContainer *EthernetContainer
-	EthernetEvcName   *string
-	EvcName           *string
-	Group             *uint32
-	ID                *uint32
-	IP                *InstanceIP
-	IPv6              *InstanceIPv6
-	L2protocol        *L2protocol
-	LLDP              *LLDP
-	MAC               *InstanceMAC
-	Rewrite           *Rewrite
-	ServicePolicy     *ServicePolicy
-	Shutdown          *bool
-	SNMP              *SNMP
-	StormControl      *StormControl
-	Track             *uint16
-	Trunk             *bool
-	CiscoIOSXEL2vpn   *ciscoiosxel2vpn.AppGigabitEthernetServiceInstanceAugment
-}
-
-// AppGigabitEthernetServiceInstanceSchema describes AppGigabitEthernetServiceInstance for the generic codecs.
-var AppGigabitEthernetServiceInstanceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "GigabitEthernet", Name: "GigabitEthernet", Type: yang.TEmpty},
-		{Child: BridgeDomainSchema, GoName: "BridgeDomain", Name: "bridge-domain"},
-		{Child: InstanceCfmSchema, GoName: "Cfm", Name: "cfm"},
-		{GoName: "Description", Name: "description", Type: yang.TString},
-		{Child: InstanceEapolSchema, GoName: "Eapol", Name: "eapol"},
-		{Child: InstanceEncapsulationSchema, GoName: "Encapsulation", Name: "encapsulation"},
-		{Child: ErrdisableSchema, GoName: "Errdisable", Name: "errdisable"},
-		{GoName: "Ethernet", Name: "ethernet", Type: yang.TEmpty},
-		{Child: EthernetContainerSchema, GoName: "EthernetContainer", Name: "ethernet-container"},
-		{GoName: "EthernetEvcName", Name: "ethernet-evc-name", Type: yang.TString},
-		{GoName: "EvcName", Name: "evc-name", Type: yang.TString},
-		{GoName: "Group", Name: "group", Type: yang.TUint32},
-		{GoName: "ID", Name: "id", Type: yang.TUint32},
-		{Child: InstanceIPSchema, GoName: "IP", Name: "ip"},
-		{Child: InstanceIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: L2protocolSchema, GoName: "L2protocol", Name: "l2protocol"},
-		{Child: LLDPSchema, GoName: "LLDP", Name: "lldp"},
-		{Child: InstanceMACSchema, GoName: "MAC", Name: "mac"},
-		{Child: RewriteSchema, GoName: "Rewrite", Name: "rewrite"},
-		{Child: ServicePolicySchema, GoName: "ServicePolicy", Name: "service-policy"},
-		{GoName: "Shutdown", Name: "shutdown", Type: yang.TEmpty},
-		{Child: SNMPSchema, GoName: "SNMP", Name: "snmp"},
-		{Child: StormControlSchema, GoName: "StormControl", Name: "storm-control"},
-		{GoName: "Track", Name: "track", Type: yang.TUint16},
-		{GoName: "Trunk", Name: "trunk", Type: yang.TEmpty},
-		{Child: ciscoiosxel2vpn.AppGigabitEthernetServiceInstanceAugmentSchema, GoName: "CiscoIOSXEL2vpn", Group: true},
-	},
-	Keys:   []string{"id"},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "instance",
 }
 
 // AutoCreateLevel is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/ethernet/Cisco-IOS-XE-ethernet:cfm/mip/auto-create/level.
@@ -1668,85 +1583,6 @@ var ExtendedSchema = &yang.Schema{
 	Presence: true,
 }
 
-// FastEthernetService is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/FastEthernet/Cisco-IOS-XE-ethernet:service.
-type FastEthernetService struct {
-	Instance []FastEthernetServiceInstance
-}
-
-// FastEthernetServiceSchema describes FastEthernetService for the generic codecs.
-var FastEthernetServiceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: FastEthernetServiceInstanceSchema, GoName: "Instance", List: true, Name: "instance"},
-	},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "service",
-}
-
-// FastEthernetServiceInstance is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/FastEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type FastEthernetServiceInstance struct {
-	GigabitEthernet   *bool
-	BridgeDomain      *BridgeDomain
-	Cfm               *InstanceCfm
-	Description       *string
-	Eapol             *InstanceEapol
-	Encapsulation     *InstanceEncapsulation
-	Errdisable        *Errdisable
-	Ethernet          *bool
-	EthernetContainer *EthernetContainer
-	EthernetEvcName   *string
-	EvcName           *string
-	Group             *uint32
-	ID                *uint32
-	IP                *InstanceIP
-	IPv6              *InstanceIPv6
-	L2protocol        *L2protocol
-	LLDP              *LLDP
-	MAC               *InstanceMAC
-	Rewrite           *Rewrite
-	ServicePolicy     *ServicePolicy
-	Shutdown          *bool
-	SNMP              *SNMP
-	StormControl      *StormControl
-	Track             *uint16
-	Trunk             *bool
-	CiscoIOSXEL2vpn   *ciscoiosxel2vpn.FastEthernetServiceInstanceAugment
-}
-
-// FastEthernetServiceInstanceSchema describes FastEthernetServiceInstance for the generic codecs.
-var FastEthernetServiceInstanceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "GigabitEthernet", Name: "GigabitEthernet", Type: yang.TEmpty},
-		{Child: BridgeDomainSchema, GoName: "BridgeDomain", Name: "bridge-domain"},
-		{Child: InstanceCfmSchema, GoName: "Cfm", Name: "cfm"},
-		{GoName: "Description", Name: "description", Type: yang.TString},
-		{Child: InstanceEapolSchema, GoName: "Eapol", Name: "eapol"},
-		{Child: InstanceEncapsulationSchema, GoName: "Encapsulation", Name: "encapsulation"},
-		{Child: ErrdisableSchema, GoName: "Errdisable", Name: "errdisable"},
-		{GoName: "Ethernet", Name: "ethernet", Type: yang.TEmpty},
-		{Child: EthernetContainerSchema, GoName: "EthernetContainer", Name: "ethernet-container"},
-		{GoName: "EthernetEvcName", Name: "ethernet-evc-name", Type: yang.TString},
-		{GoName: "EvcName", Name: "evc-name", Type: yang.TString},
-		{GoName: "Group", Name: "group", Type: yang.TUint32},
-		{GoName: "ID", Name: "id", Type: yang.TUint32},
-		{Child: InstanceIPSchema, GoName: "IP", Name: "ip"},
-		{Child: InstanceIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: L2protocolSchema, GoName: "L2protocol", Name: "l2protocol"},
-		{Child: LLDPSchema, GoName: "LLDP", Name: "lldp"},
-		{Child: InstanceMACSchema, GoName: "MAC", Name: "mac"},
-		{Child: RewriteSchema, GoName: "Rewrite", Name: "rewrite"},
-		{Child: ServicePolicySchema, GoName: "ServicePolicy", Name: "service-policy"},
-		{GoName: "Shutdown", Name: "shutdown", Type: yang.TEmpty},
-		{Child: SNMPSchema, GoName: "SNMP", Name: "snmp"},
-		{Child: StormControlSchema, GoName: "StormControl", Name: "storm-control"},
-		{GoName: "Track", Name: "track", Type: yang.TUint16},
-		{GoName: "Trunk", Name: "trunk", Type: yang.TEmpty},
-		{Child: ciscoiosxel2vpn.FastEthernetServiceInstanceAugmentSchema, GoName: "CiscoIOSXEL2vpn", Group: true},
-	},
-	Keys:   []string{"id"},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "instance",
-}
-
 // FecCheck is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/Cisco-IOS-XE-ethernet:fec_check.
 type FecCheck struct{}
 
@@ -1755,85 +1591,6 @@ var FecCheckSchema = &yang.Schema{
 	Fields: []yang.Field{},
 	Module: moduleCiscoIOSXEEthernet,
 	Name:   "fec_check",
-}
-
-// FiftyGigabitEthernetService is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/Cisco-IOS-XE-ethernet:service.
-type FiftyGigabitEthernetService struct {
-	Instance []FiftyGigabitEthernetServiceInstance
-}
-
-// FiftyGigabitEthernetServiceSchema describes FiftyGigabitEthernetService for the generic codecs.
-var FiftyGigabitEthernetServiceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: FiftyGigabitEthernetServiceInstanceSchema, GoName: "Instance", List: true, Name: "instance"},
-	},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "service",
-}
-
-// FiftyGigabitEthernetServiceInstance is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type FiftyGigabitEthernetServiceInstance struct {
-	GigabitEthernet   *bool
-	BridgeDomain      *BridgeDomain
-	Cfm               *InstanceCfm
-	Description       *string
-	Eapol             *InstanceEapol
-	Encapsulation     *InstanceEncapsulation
-	Errdisable        *Errdisable
-	Ethernet          *bool
-	EthernetContainer *EthernetContainer
-	EthernetEvcName   *string
-	EvcName           *string
-	Group             *uint32
-	ID                *uint32
-	IP                *InstanceIP
-	IPv6              *InstanceIPv6
-	L2protocol        *L2protocol
-	LLDP              *LLDP
-	MAC               *InstanceMAC
-	Rewrite           *Rewrite
-	ServicePolicy     *ServicePolicy
-	Shutdown          *bool
-	SNMP              *SNMP
-	StormControl      *StormControl
-	Track             *uint16
-	Trunk             *bool
-	CiscoIOSXEL2vpn   *ciscoiosxel2vpn.FiftyGigabitEthernetServiceInstanceAugment
-}
-
-// FiftyGigabitEthernetServiceInstanceSchema describes FiftyGigabitEthernetServiceInstance for the generic codecs.
-var FiftyGigabitEthernetServiceInstanceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "GigabitEthernet", Name: "GigabitEthernet", Type: yang.TEmpty},
-		{Child: BridgeDomainSchema, GoName: "BridgeDomain", Name: "bridge-domain"},
-		{Child: InstanceCfmSchema, GoName: "Cfm", Name: "cfm"},
-		{GoName: "Description", Name: "description", Type: yang.TString},
-		{Child: InstanceEapolSchema, GoName: "Eapol", Name: "eapol"},
-		{Child: InstanceEncapsulationSchema, GoName: "Encapsulation", Name: "encapsulation"},
-		{Child: ErrdisableSchema, GoName: "Errdisable", Name: "errdisable"},
-		{GoName: "Ethernet", Name: "ethernet", Type: yang.TEmpty},
-		{Child: EthernetContainerSchema, GoName: "EthernetContainer", Name: "ethernet-container"},
-		{GoName: "EthernetEvcName", Name: "ethernet-evc-name", Type: yang.TString},
-		{GoName: "EvcName", Name: "evc-name", Type: yang.TString},
-		{GoName: "Group", Name: "group", Type: yang.TUint32},
-		{GoName: "ID", Name: "id", Type: yang.TUint32},
-		{Child: InstanceIPSchema, GoName: "IP", Name: "ip"},
-		{Child: InstanceIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: L2protocolSchema, GoName: "L2protocol", Name: "l2protocol"},
-		{Child: LLDPSchema, GoName: "LLDP", Name: "lldp"},
-		{Child: InstanceMACSchema, GoName: "MAC", Name: "mac"},
-		{Child: RewriteSchema, GoName: "Rewrite", Name: "rewrite"},
-		{Child: ServicePolicySchema, GoName: "ServicePolicy", Name: "service-policy"},
-		{GoName: "Shutdown", Name: "shutdown", Type: yang.TEmpty},
-		{Child: SNMPSchema, GoName: "SNMP", Name: "snmp"},
-		{Child: StormControlSchema, GoName: "StormControl", Name: "storm-control"},
-		{GoName: "Track", Name: "track", Type: yang.TUint16},
-		{GoName: "Trunk", Name: "trunk", Type: yang.TEmpty},
-		{Child: ciscoiosxel2vpn.FiftyGigabitEthernetServiceInstanceAugmentSchema, GoName: "CiscoIOSXEL2vpn", Group: true},
-	},
-	Keys:   []string{"id"},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "instance",
 }
 
 // Filter is the Cisco-IOS-XE-ethernet node shape instantiated at 18 schema paths, such as /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/Cisco-IOS-XE-ethernet:plim/ethernet/vlan/filter.
@@ -1848,164 +1605,6 @@ var FilterSchema = &yang.Schema{
 	},
 	Module: moduleCiscoIOSXEEthernet,
 	Name:   "filter",
-}
-
-// FiveGigabitEthernetService is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/Cisco-IOS-XE-ethernet:service.
-type FiveGigabitEthernetService struct {
-	Instance []FiveGigabitEthernetServiceInstance
-}
-
-// FiveGigabitEthernetServiceSchema describes FiveGigabitEthernetService for the generic codecs.
-var FiveGigabitEthernetServiceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: FiveGigabitEthernetServiceInstanceSchema, GoName: "Instance", List: true, Name: "instance"},
-	},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "service",
-}
-
-// FiveGigabitEthernetServiceInstance is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type FiveGigabitEthernetServiceInstance struct {
-	GigabitEthernet   *bool
-	BridgeDomain      *BridgeDomain
-	Cfm               *InstanceCfm
-	Description       *string
-	Eapol             *InstanceEapol
-	Encapsulation     *InstanceEncapsulation
-	Errdisable        *Errdisable
-	Ethernet          *bool
-	EthernetContainer *EthernetContainer
-	EthernetEvcName   *string
-	EvcName           *string
-	Group             *uint32
-	ID                *uint32
-	IP                *InstanceIP
-	IPv6              *InstanceIPv6
-	L2protocol        *L2protocol
-	LLDP              *LLDP
-	MAC               *InstanceMAC
-	Rewrite           *Rewrite
-	ServicePolicy     *ServicePolicy
-	Shutdown          *bool
-	SNMP              *SNMP
-	StormControl      *StormControl
-	Track             *uint16
-	Trunk             *bool
-	CiscoIOSXEL2vpn   *ciscoiosxel2vpn.FiveGigabitEthernetServiceInstanceAugment
-}
-
-// FiveGigabitEthernetServiceInstanceSchema describes FiveGigabitEthernetServiceInstance for the generic codecs.
-var FiveGigabitEthernetServiceInstanceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "GigabitEthernet", Name: "GigabitEthernet", Type: yang.TEmpty},
-		{Child: BridgeDomainSchema, GoName: "BridgeDomain", Name: "bridge-domain"},
-		{Child: InstanceCfmSchema, GoName: "Cfm", Name: "cfm"},
-		{GoName: "Description", Name: "description", Type: yang.TString},
-		{Child: InstanceEapolSchema, GoName: "Eapol", Name: "eapol"},
-		{Child: InstanceEncapsulationSchema, GoName: "Encapsulation", Name: "encapsulation"},
-		{Child: ErrdisableSchema, GoName: "Errdisable", Name: "errdisable"},
-		{GoName: "Ethernet", Name: "ethernet", Type: yang.TEmpty},
-		{Child: EthernetContainerSchema, GoName: "EthernetContainer", Name: "ethernet-container"},
-		{GoName: "EthernetEvcName", Name: "ethernet-evc-name", Type: yang.TString},
-		{GoName: "EvcName", Name: "evc-name", Type: yang.TString},
-		{GoName: "Group", Name: "group", Type: yang.TUint32},
-		{GoName: "ID", Name: "id", Type: yang.TUint32},
-		{Child: InstanceIPSchema, GoName: "IP", Name: "ip"},
-		{Child: InstanceIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: L2protocolSchema, GoName: "L2protocol", Name: "l2protocol"},
-		{Child: LLDPSchema, GoName: "LLDP", Name: "lldp"},
-		{Child: InstanceMACSchema, GoName: "MAC", Name: "mac"},
-		{Child: RewriteSchema, GoName: "Rewrite", Name: "rewrite"},
-		{Child: ServicePolicySchema, GoName: "ServicePolicy", Name: "service-policy"},
-		{GoName: "Shutdown", Name: "shutdown", Type: yang.TEmpty},
-		{Child: SNMPSchema, GoName: "SNMP", Name: "snmp"},
-		{Child: StormControlSchema, GoName: "StormControl", Name: "storm-control"},
-		{GoName: "Track", Name: "track", Type: yang.TUint16},
-		{GoName: "Trunk", Name: "trunk", Type: yang.TEmpty},
-		{Child: ciscoiosxel2vpn.FiveGigabitEthernetServiceInstanceAugmentSchema, GoName: "CiscoIOSXEL2vpn", Group: true},
-	},
-	Keys:   []string{"id"},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "instance",
-}
-
-// FortyGigabitEthernetService is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/Cisco-IOS-XE-ethernet:service.
-type FortyGigabitEthernetService struct {
-	Instance []FortyGigabitEthernetServiceInstance
-}
-
-// FortyGigabitEthernetServiceSchema describes FortyGigabitEthernetService for the generic codecs.
-var FortyGigabitEthernetServiceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: FortyGigabitEthernetServiceInstanceSchema, GoName: "Instance", List: true, Name: "instance"},
-	},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "service",
-}
-
-// FortyGigabitEthernetServiceInstance is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type FortyGigabitEthernetServiceInstance struct {
-	GigabitEthernet   *bool
-	BridgeDomain      *BridgeDomain
-	Cfm               *InstanceCfm
-	Description       *string
-	Eapol             *InstanceEapol
-	Encapsulation     *InstanceEncapsulation
-	Errdisable        *Errdisable
-	Ethernet          *bool
-	EthernetContainer *EthernetContainer
-	EthernetEvcName   *string
-	EvcName           *string
-	Group             *uint32
-	ID                *uint32
-	IP                *InstanceIP
-	IPv6              *InstanceIPv6
-	L2protocol        *L2protocol
-	LLDP              *LLDP
-	MAC               *InstanceMAC
-	Rewrite           *Rewrite
-	ServicePolicy     *ServicePolicy
-	Shutdown          *bool
-	SNMP              *SNMP
-	StormControl      *StormControl
-	Track             *uint16
-	Trunk             *bool
-	CiscoIOSXEL2vpn   *ciscoiosxel2vpn.FortyGigabitEthernetServiceInstanceAugment
-}
-
-// FortyGigabitEthernetServiceInstanceSchema describes FortyGigabitEthernetServiceInstance for the generic codecs.
-var FortyGigabitEthernetServiceInstanceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "GigabitEthernet", Name: "GigabitEthernet", Type: yang.TEmpty},
-		{Child: BridgeDomainSchema, GoName: "BridgeDomain", Name: "bridge-domain"},
-		{Child: InstanceCfmSchema, GoName: "Cfm", Name: "cfm"},
-		{GoName: "Description", Name: "description", Type: yang.TString},
-		{Child: InstanceEapolSchema, GoName: "Eapol", Name: "eapol"},
-		{Child: InstanceEncapsulationSchema, GoName: "Encapsulation", Name: "encapsulation"},
-		{Child: ErrdisableSchema, GoName: "Errdisable", Name: "errdisable"},
-		{GoName: "Ethernet", Name: "ethernet", Type: yang.TEmpty},
-		{Child: EthernetContainerSchema, GoName: "EthernetContainer", Name: "ethernet-container"},
-		{GoName: "EthernetEvcName", Name: "ethernet-evc-name", Type: yang.TString},
-		{GoName: "EvcName", Name: "evc-name", Type: yang.TString},
-		{GoName: "Group", Name: "group", Type: yang.TUint32},
-		{GoName: "ID", Name: "id", Type: yang.TUint32},
-		{Child: InstanceIPSchema, GoName: "IP", Name: "ip"},
-		{Child: InstanceIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: L2protocolSchema, GoName: "L2protocol", Name: "l2protocol"},
-		{Child: LLDPSchema, GoName: "LLDP", Name: "lldp"},
-		{Child: InstanceMACSchema, GoName: "MAC", Name: "mac"},
-		{Child: RewriteSchema, GoName: "Rewrite", Name: "rewrite"},
-		{Child: ServicePolicySchema, GoName: "ServicePolicy", Name: "service-policy"},
-		{GoName: "Shutdown", Name: "shutdown", Type: yang.TEmpty},
-		{Child: SNMPSchema, GoName: "SNMP", Name: "snmp"},
-		{Child: StormControlSchema, GoName: "StormControl", Name: "storm-control"},
-		{GoName: "Track", Name: "track", Type: yang.TUint16},
-		{GoName: "Trunk", Name: "trunk", Type: yang.TEmpty},
-		{Child: ciscoiosxel2vpn.FortyGigabitEthernetServiceInstanceAugmentSchema, GoName: "CiscoIOSXEL2vpn", Group: true},
-	},
-	Keys:   []string{"id"},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "instance",
 }
 
 // Forward is the Cisco-IOS-XE-ethernet node shape instantiated at 17 schema paths, such as /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance/l2protocol/forward.
@@ -2173,85 +1772,6 @@ var FrameThresholdHighSchema = &yang.Schema{
 	Name:   "high",
 }
 
-// GigabitEthernetService is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/GigabitEthernet/Cisco-IOS-XE-ethernet:service.
-type GigabitEthernetService struct {
-	Instance []GigabitEthernetServiceInstance
-}
-
-// GigabitEthernetServiceSchema describes GigabitEthernetService for the generic codecs.
-var GigabitEthernetServiceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: GigabitEthernetServiceInstanceSchema, GoName: "Instance", List: true, Name: "instance"},
-	},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "service",
-}
-
-// GigabitEthernetServiceInstance is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/GigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type GigabitEthernetServiceInstance struct {
-	GigabitEthernet   *bool
-	BridgeDomain      *BridgeDomain
-	Cfm               *InstanceCfm
-	Description       *string
-	Eapol             *InstanceEapol
-	Encapsulation     *InstanceEncapsulation
-	Errdisable        *Errdisable
-	Ethernet          *bool
-	EthernetContainer *EthernetContainer
-	EthernetEvcName   *string
-	EvcName           *string
-	Group             *uint32
-	ID                *uint32
-	IP                *InstanceIP
-	IPv6              *InstanceIPv6
-	L2protocol        *L2protocol
-	LLDP              *LLDP
-	MAC               *InstanceMAC
-	Rewrite           *Rewrite
-	ServicePolicy     *ServicePolicy
-	Shutdown          *bool
-	SNMP              *SNMP
-	StormControl      *StormControl
-	Track             *uint16
-	Trunk             *bool
-	CiscoIOSXEL2vpn   *ciscoiosxel2vpn.GigabitEthernetServiceInstanceAugment
-}
-
-// GigabitEthernetServiceInstanceSchema describes GigabitEthernetServiceInstance for the generic codecs.
-var GigabitEthernetServiceInstanceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "GigabitEthernet", Name: "GigabitEthernet", Type: yang.TEmpty},
-		{Child: BridgeDomainSchema, GoName: "BridgeDomain", Name: "bridge-domain"},
-		{Child: InstanceCfmSchema, GoName: "Cfm", Name: "cfm"},
-		{GoName: "Description", Name: "description", Type: yang.TString},
-		{Child: InstanceEapolSchema, GoName: "Eapol", Name: "eapol"},
-		{Child: InstanceEncapsulationSchema, GoName: "Encapsulation", Name: "encapsulation"},
-		{Child: ErrdisableSchema, GoName: "Errdisable", Name: "errdisable"},
-		{GoName: "Ethernet", Name: "ethernet", Type: yang.TEmpty},
-		{Child: EthernetContainerSchema, GoName: "EthernetContainer", Name: "ethernet-container"},
-		{GoName: "EthernetEvcName", Name: "ethernet-evc-name", Type: yang.TString},
-		{GoName: "EvcName", Name: "evc-name", Type: yang.TString},
-		{GoName: "Group", Name: "group", Type: yang.TUint32},
-		{GoName: "ID", Name: "id", Type: yang.TUint32},
-		{Child: InstanceIPSchema, GoName: "IP", Name: "ip"},
-		{Child: InstanceIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: L2protocolSchema, GoName: "L2protocol", Name: "l2protocol"},
-		{Child: LLDPSchema, GoName: "LLDP", Name: "lldp"},
-		{Child: InstanceMACSchema, GoName: "MAC", Name: "mac"},
-		{Child: RewriteSchema, GoName: "Rewrite", Name: "rewrite"},
-		{Child: ServicePolicySchema, GoName: "ServicePolicy", Name: "service-policy"},
-		{GoName: "Shutdown", Name: "shutdown", Type: yang.TEmpty},
-		{Child: SNMPSchema, GoName: "SNMP", Name: "snmp"},
-		{Child: StormControlSchema, GoName: "StormControl", Name: "storm-control"},
-		{GoName: "Track", Name: "track", Type: yang.TUint16},
-		{GoName: "Trunk", Name: "trunk", Type: yang.TEmpty},
-		{Child: ciscoiosxel2vpn.GigabitEthernetServiceInstanceAugmentSchema, GoName: "CiscoIOSXEL2vpn", Group: true},
-	},
-	Keys:   []string{"id"},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "instance",
-}
-
 // HighFrames is the Cisco-IOS-XE-ethernet node shape instantiated at 68 schema paths, such as /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/Cisco-IOS-XE-ethernet:ethernet/oam/link-monitor/frame-period/threshold/high-frames.
 type HighFrames struct {
 	None  *bool
@@ -2296,85 +1816,6 @@ var HighThresholdSchema = &yang.Schema{
 	},
 	Module: moduleCiscoIOSXEEthernet,
 	Name:   "high-threshold",
-}
-
-// HundredGigEService is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/HundredGigE/Cisco-IOS-XE-ethernet:service.
-type HundredGigEService struct {
-	Instance []HundredGigEServiceInstance
-}
-
-// HundredGigEServiceSchema describes HundredGigEService for the generic codecs.
-var HundredGigEServiceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: HundredGigEServiceInstanceSchema, GoName: "Instance", List: true, Name: "instance"},
-	},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "service",
-}
-
-// HundredGigEServiceInstance is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/HundredGigE/Cisco-IOS-XE-ethernet:service/instance.
-type HundredGigEServiceInstance struct {
-	GigabitEthernet   *bool
-	BridgeDomain      *BridgeDomain
-	Cfm               *InstanceCfm
-	Description       *string
-	Eapol             *InstanceEapol
-	Encapsulation     *InstanceEncapsulation
-	Errdisable        *Errdisable
-	Ethernet          *bool
-	EthernetContainer *EthernetContainer
-	EthernetEvcName   *string
-	EvcName           *string
-	Group             *uint32
-	ID                *uint32
-	IP                *InstanceIP
-	IPv6              *InstanceIPv6
-	L2protocol        *L2protocol
-	LLDP              *LLDP
-	MAC               *InstanceMAC
-	Rewrite           *Rewrite
-	ServicePolicy     *ServicePolicy
-	Shutdown          *bool
-	SNMP              *SNMP
-	StormControl      *StormControl
-	Track             *uint16
-	Trunk             *bool
-	CiscoIOSXEL2vpn   *ciscoiosxel2vpn.HundredGigEServiceInstanceAugment
-}
-
-// HundredGigEServiceInstanceSchema describes HundredGigEServiceInstance for the generic codecs.
-var HundredGigEServiceInstanceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "GigabitEthernet", Name: "GigabitEthernet", Type: yang.TEmpty},
-		{Child: BridgeDomainSchema, GoName: "BridgeDomain", Name: "bridge-domain"},
-		{Child: InstanceCfmSchema, GoName: "Cfm", Name: "cfm"},
-		{GoName: "Description", Name: "description", Type: yang.TString},
-		{Child: InstanceEapolSchema, GoName: "Eapol", Name: "eapol"},
-		{Child: InstanceEncapsulationSchema, GoName: "Encapsulation", Name: "encapsulation"},
-		{Child: ErrdisableSchema, GoName: "Errdisable", Name: "errdisable"},
-		{GoName: "Ethernet", Name: "ethernet", Type: yang.TEmpty},
-		{Child: EthernetContainerSchema, GoName: "EthernetContainer", Name: "ethernet-container"},
-		{GoName: "EthernetEvcName", Name: "ethernet-evc-name", Type: yang.TString},
-		{GoName: "EvcName", Name: "evc-name", Type: yang.TString},
-		{GoName: "Group", Name: "group", Type: yang.TUint32},
-		{GoName: "ID", Name: "id", Type: yang.TUint32},
-		{Child: InstanceIPSchema, GoName: "IP", Name: "ip"},
-		{Child: InstanceIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: L2protocolSchema, GoName: "L2protocol", Name: "l2protocol"},
-		{Child: LLDPSchema, GoName: "LLDP", Name: "lldp"},
-		{Child: InstanceMACSchema, GoName: "MAC", Name: "mac"},
-		{Child: RewriteSchema, GoName: "Rewrite", Name: "rewrite"},
-		{Child: ServicePolicySchema, GoName: "ServicePolicy", Name: "service-policy"},
-		{GoName: "Shutdown", Name: "shutdown", Type: yang.TEmpty},
-		{Child: SNMPSchema, GoName: "SNMP", Name: "snmp"},
-		{Child: StormControlSchema, GoName: "StormControl", Name: "storm-control"},
-		{GoName: "Track", Name: "track", Type: yang.TUint16},
-		{GoName: "Trunk", Name: "trunk", Type: yang.TEmpty},
-		{Child: ciscoiosxel2vpn.HundredGigEServiceInstanceAugmentSchema, GoName: "CiscoIOSXEL2vpn", Group: true},
-	},
-	Keys:   []string{"id"},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "instance",
 }
 
 // ID is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/ethernet/Cisco-IOS-XE-ethernet:cfm/domain/id.
@@ -4116,85 +3557,6 @@ var PortChannelLoadBalanceSchema = &yang.Schema{
 	Name:   "load-balance",
 }
 
-// PortChannelService is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/Port-channel/Cisco-IOS-XE-ethernet:service.
-type PortChannelService struct {
-	Instance []PortChannelServiceInstance
-}
-
-// PortChannelServiceSchema describes PortChannelService for the generic codecs.
-var PortChannelServiceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: PortChannelServiceInstanceSchema, GoName: "Instance", List: true, Name: "instance"},
-	},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "service",
-}
-
-// PortChannelServiceInstance is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/Port-channel/Cisco-IOS-XE-ethernet:service/instance.
-type PortChannelServiceInstance struct {
-	GigabitEthernet   *bool
-	BridgeDomain      *BridgeDomain
-	Cfm               *InstanceCfm
-	Description       *string
-	Eapol             *InstanceEapol
-	Encapsulation     *InstanceEncapsulation
-	Errdisable        *Errdisable
-	Ethernet          *bool
-	EthernetContainer *EthernetContainer
-	EthernetEvcName   *string
-	EvcName           *string
-	Group             *uint32
-	ID                *uint32
-	IP                *InstanceIP
-	IPv6              *InstanceIPv6
-	L2protocol        *L2protocol
-	LLDP              *LLDP
-	MAC               *InstanceMAC
-	Rewrite           *Rewrite
-	ServicePolicy     *ServicePolicy
-	Shutdown          *bool
-	SNMP              *SNMP
-	StormControl      *StormControl
-	Track             *uint16
-	Trunk             *bool
-	CiscoIOSXEL2vpn   *ciscoiosxel2vpn.PortChannelServiceInstanceAugment
-}
-
-// PortChannelServiceInstanceSchema describes PortChannelServiceInstance for the generic codecs.
-var PortChannelServiceInstanceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "GigabitEthernet", Name: "GigabitEthernet", Type: yang.TEmpty},
-		{Child: BridgeDomainSchema, GoName: "BridgeDomain", Name: "bridge-domain"},
-		{Child: InstanceCfmSchema, GoName: "Cfm", Name: "cfm"},
-		{GoName: "Description", Name: "description", Type: yang.TString},
-		{Child: InstanceEapolSchema, GoName: "Eapol", Name: "eapol"},
-		{Child: InstanceEncapsulationSchema, GoName: "Encapsulation", Name: "encapsulation"},
-		{Child: ErrdisableSchema, GoName: "Errdisable", Name: "errdisable"},
-		{GoName: "Ethernet", Name: "ethernet", Type: yang.TEmpty},
-		{Child: EthernetContainerSchema, GoName: "EthernetContainer", Name: "ethernet-container"},
-		{GoName: "EthernetEvcName", Name: "ethernet-evc-name", Type: yang.TString},
-		{GoName: "EvcName", Name: "evc-name", Type: yang.TString},
-		{GoName: "Group", Name: "group", Type: yang.TUint32},
-		{GoName: "ID", Name: "id", Type: yang.TUint32},
-		{Child: InstanceIPSchema, GoName: "IP", Name: "ip"},
-		{Child: InstanceIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: L2protocolSchema, GoName: "L2protocol", Name: "l2protocol"},
-		{Child: LLDPSchema, GoName: "LLDP", Name: "lldp"},
-		{Child: InstanceMACSchema, GoName: "MAC", Name: "mac"},
-		{Child: RewriteSchema, GoName: "Rewrite", Name: "rewrite"},
-		{Child: ServicePolicySchema, GoName: "ServicePolicy", Name: "service-policy"},
-		{GoName: "Shutdown", Name: "shutdown", Type: yang.TEmpty},
-		{Child: SNMPSchema, GoName: "SNMP", Name: "snmp"},
-		{Child: StormControlSchema, GoName: "StormControl", Name: "storm-control"},
-		{GoName: "Track", Name: "track", Type: yang.TUint16},
-		{GoName: "Trunk", Name: "trunk", Type: yang.TEmpty},
-		{Child: ciscoiosxel2vpn.PortChannelServiceInstanceAugmentSchema, GoName: "CiscoIOSXEL2vpn", Group: true},
-	},
-	Keys:   []string{"id"},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "instance",
-}
-
 // PortSettings is the Cisco-IOS-XE-ethernet node shape instantiated at 18 schema paths, such as /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/Cisco-IOS-XE-ethernet:port-settings.
 type PortSettings struct {
 	AutoNegotiation *string
@@ -4771,7 +4133,7 @@ var SecurityMaximumSchema = &yang.Schema{
 	Name:   "maximum",
 }
 
-// Service is the Cisco-IOS-XE-ethernet node shape instantiated at 6 schema paths, such as /Cisco-IOS-XE-native:native/interface/BDI/Cisco-IOS-XE-ethernet:service.
+// Service is the Cisco-IOS-XE-ethernet node shape instantiated at 11 schema paths, such as /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/Cisco-IOS-XE-ethernet:service.
 type Service struct {
 	Instance []ServiceInstance
 }
@@ -4834,8 +4196,73 @@ var ServiceIccServiceIccSchema = &yang.Schema{
 	Name:   "service-icc",
 }
 
-// ServiceInstance is the Cisco-IOS-XE-ethernet node shape instantiated at 6 schema paths, such as /Cisco-IOS-XE-native:native/interface/BDI/Cisco-IOS-XE-ethernet:service/instance.
+// ServiceInstance is the Cisco-IOS-XE-ethernet node shape instantiated at 11 schema paths, such as /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
 type ServiceInstance struct {
+	GigabitEthernet   *bool
+	BridgeDomain      *BridgeDomain
+	Cfm               *InstanceCfm
+	Description       *string
+	Eapol             *InstanceEapol
+	Encapsulation     *InstanceEncapsulation
+	Errdisable        *Errdisable
+	Ethernet          *bool
+	EthernetContainer *EthernetContainer
+	EthernetEvcName   *string
+	EvcName           *string
+	Group             *uint32
+	ID                *uint32
+	IP                *InstanceIP
+	IPv6              *InstanceIPv6
+	L2protocol        *L2protocol
+	LLDP              *LLDP
+	MAC               *InstanceMAC
+	Rewrite           *Rewrite
+	ServicePolicy     *ServicePolicy
+	Shutdown          *bool
+	SNMP              *SNMP
+	StormControl      *StormControl
+	Track             *uint16
+	Trunk             *bool
+	CiscoIOSXEL2vpn   *ciscoiosxel2vpn.InstanceAugment
+}
+
+// ServiceInstanceSchema describes ServiceInstance for the generic codecs.
+var ServiceInstanceSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{GoName: "GigabitEthernet", Name: "GigabitEthernet", Type: yang.TEmpty},
+		{Child: BridgeDomainSchema, GoName: "BridgeDomain", Name: "bridge-domain"},
+		{Child: InstanceCfmSchema, GoName: "Cfm", Name: "cfm"},
+		{GoName: "Description", Name: "description", Type: yang.TString},
+		{Child: InstanceEapolSchema, GoName: "Eapol", Name: "eapol"},
+		{Child: InstanceEncapsulationSchema, GoName: "Encapsulation", Name: "encapsulation"},
+		{Child: ErrdisableSchema, GoName: "Errdisable", Name: "errdisable"},
+		{GoName: "Ethernet", Name: "ethernet", Type: yang.TEmpty},
+		{Child: EthernetContainerSchema, GoName: "EthernetContainer", Name: "ethernet-container"},
+		{GoName: "EthernetEvcName", Name: "ethernet-evc-name", Type: yang.TString},
+		{GoName: "EvcName", Name: "evc-name", Type: yang.TString},
+		{GoName: "Group", Name: "group", Type: yang.TUint32},
+		{GoName: "ID", Name: "id", Type: yang.TUint32},
+		{Child: InstanceIPSchema, GoName: "IP", Name: "ip"},
+		{Child: InstanceIPv6Schema, GoName: "IPv6", Name: "ipv6"},
+		{Child: L2protocolSchema, GoName: "L2protocol", Name: "l2protocol"},
+		{Child: LLDPSchema, GoName: "LLDP", Name: "lldp"},
+		{Child: InstanceMACSchema, GoName: "MAC", Name: "mac"},
+		{Child: RewriteSchema, GoName: "Rewrite", Name: "rewrite"},
+		{Child: ServicePolicySchema, GoName: "ServicePolicy", Name: "service-policy"},
+		{GoName: "Shutdown", Name: "shutdown", Type: yang.TEmpty},
+		{Child: SNMPSchema, GoName: "SNMP", Name: "snmp"},
+		{Child: StormControlSchema, GoName: "StormControl", Name: "storm-control"},
+		{GoName: "Track", Name: "track", Type: yang.TUint16},
+		{GoName: "Trunk", Name: "trunk", Type: yang.TEmpty},
+		{Child: ciscoiosxel2vpn.InstanceAugmentSchema, GoName: "CiscoIOSXEL2vpn", Group: true},
+	},
+	Keys:   []string{"id"},
+	Module: moduleCiscoIOSXEEthernet,
+	Name:   "instance",
+}
+
+// ServiceInstanceXfdc39f is the Cisco-IOS-XE-ethernet node shape instantiated at 6 schema paths, such as /Cisco-IOS-XE-native:native/interface/BDI/Cisco-IOS-XE-ethernet:service/instance.
+type ServiceInstanceXfdc39f struct {
 	GigabitEthernet   *bool
 	BridgeDomain      *BridgeDomain
 	Cfm               *InstanceCfm
@@ -4863,8 +4290,8 @@ type ServiceInstance struct {
 	Trunk             *bool
 }
 
-// ServiceInstanceSchema describes ServiceInstance for the generic codecs.
-var ServiceInstanceSchema = &yang.Schema{
+// ServiceInstanceSchemaX62fbec describes ServiceInstanceXfdc39f for the generic codecs.
+var ServiceInstanceSchemaX62fbec = &yang.Schema{
 	Fields: []yang.Field{
 		{GoName: "GigabitEthernet", Name: "GigabitEthernet", Type: yang.TEmpty},
 		{Child: BridgeDomainSchema, GoName: "BridgeDomain", Name: "bridge-domain"},
@@ -5134,6 +4561,20 @@ var ServiceVpnServiceVpnSchema = &yang.Schema{
 	Name:   "service-vpn",
 }
 
+// ServiceX799c2d is the Cisco-IOS-XE-ethernet node shape instantiated at 6 schema paths, such as /Cisco-IOS-XE-native:native/interface/BDI/Cisco-IOS-XE-ethernet:service.
+type ServiceX799c2d struct {
+	Instance []ServiceInstanceXfdc39f
+}
+
+// ServiceSchemaXbe037a describes ServiceX799c2d for the generic codecs.
+var ServiceSchemaXbe037a = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: ServiceInstanceSchemaX62fbec, GoName: "Instance", List: true, Name: "instance"},
+	},
+	Module: moduleCiscoIOSXEEthernet,
+	Name:   "service",
+}
+
 // Slm is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/ethernet/Cisco-IOS-XE-ethernet:cfm/slm.
 type Slm struct {
 	Max     *Max
@@ -5389,85 +4830,6 @@ var TagConfigSchema = &yang.Schema{
 	},
 	Module: moduleCiscoIOSXEEthernet,
 	Name:   "tag-config",
-}
-
-// TenGigabitEthernetService is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/Cisco-IOS-XE-ethernet:service.
-type TenGigabitEthernetService struct {
-	Instance []TenGigabitEthernetServiceInstance
-}
-
-// TenGigabitEthernetServiceSchema describes TenGigabitEthernetService for the generic codecs.
-var TenGigabitEthernetServiceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: TenGigabitEthernetServiceInstanceSchema, GoName: "Instance", List: true, Name: "instance"},
-	},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "service",
-}
-
-// TenGigabitEthernetServiceInstance is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type TenGigabitEthernetServiceInstance struct {
-	GigabitEthernet   *bool
-	BridgeDomain      *BridgeDomain
-	Cfm               *InstanceCfm
-	Description       *string
-	Eapol             *InstanceEapol
-	Encapsulation     *InstanceEncapsulation
-	Errdisable        *Errdisable
-	Ethernet          *bool
-	EthernetContainer *EthernetContainer
-	EthernetEvcName   *string
-	EvcName           *string
-	Group             *uint32
-	ID                *uint32
-	IP                *InstanceIP
-	IPv6              *InstanceIPv6
-	L2protocol        *L2protocol
-	LLDP              *LLDP
-	MAC               *InstanceMAC
-	Rewrite           *Rewrite
-	ServicePolicy     *ServicePolicy
-	Shutdown          *bool
-	SNMP              *SNMP
-	StormControl      *StormControl
-	Track             *uint16
-	Trunk             *bool
-	CiscoIOSXEL2vpn   *ciscoiosxel2vpn.TenGigabitEthernetServiceInstanceAugment
-}
-
-// TenGigabitEthernetServiceInstanceSchema describes TenGigabitEthernetServiceInstance for the generic codecs.
-var TenGigabitEthernetServiceInstanceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "GigabitEthernet", Name: "GigabitEthernet", Type: yang.TEmpty},
-		{Child: BridgeDomainSchema, GoName: "BridgeDomain", Name: "bridge-domain"},
-		{Child: InstanceCfmSchema, GoName: "Cfm", Name: "cfm"},
-		{GoName: "Description", Name: "description", Type: yang.TString},
-		{Child: InstanceEapolSchema, GoName: "Eapol", Name: "eapol"},
-		{Child: InstanceEncapsulationSchema, GoName: "Encapsulation", Name: "encapsulation"},
-		{Child: ErrdisableSchema, GoName: "Errdisable", Name: "errdisable"},
-		{GoName: "Ethernet", Name: "ethernet", Type: yang.TEmpty},
-		{Child: EthernetContainerSchema, GoName: "EthernetContainer", Name: "ethernet-container"},
-		{GoName: "EthernetEvcName", Name: "ethernet-evc-name", Type: yang.TString},
-		{GoName: "EvcName", Name: "evc-name", Type: yang.TString},
-		{GoName: "Group", Name: "group", Type: yang.TUint32},
-		{GoName: "ID", Name: "id", Type: yang.TUint32},
-		{Child: InstanceIPSchema, GoName: "IP", Name: "ip"},
-		{Child: InstanceIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: L2protocolSchema, GoName: "L2protocol", Name: "l2protocol"},
-		{Child: LLDPSchema, GoName: "LLDP", Name: "lldp"},
-		{Child: InstanceMACSchema, GoName: "MAC", Name: "mac"},
-		{Child: RewriteSchema, GoName: "Rewrite", Name: "rewrite"},
-		{Child: ServicePolicySchema, GoName: "ServicePolicy", Name: "service-policy"},
-		{GoName: "Shutdown", Name: "shutdown", Type: yang.TEmpty},
-		{Child: SNMPSchema, GoName: "SNMP", Name: "snmp"},
-		{Child: StormControlSchema, GoName: "StormControl", Name: "storm-control"},
-		{GoName: "Track", Name: "track", Type: yang.TUint16},
-		{GoName: "Trunk", Name: "trunk", Type: yang.TEmpty},
-		{Child: ciscoiosxel2vpn.TenGigabitEthernetServiceInstanceAugmentSchema, GoName: "CiscoIOSXEL2vpn", Group: true},
-	},
-	Keys:   []string{"id"},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "instance",
 }
 
 // Time is the Cisco-IOS-XE-ethernet node shape instantiated at 17 schema paths, such as /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance/mac/security/aging/time.
@@ -5738,164 +5100,6 @@ var TunnelSchema = &yang.Schema{
 	Presence: true,
 }
 
-// TwentyFiveGigEService is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/Cisco-IOS-XE-ethernet:service.
-type TwentyFiveGigEService struct {
-	Instance []TwentyFiveGigEServiceInstance
-}
-
-// TwentyFiveGigEServiceSchema describes TwentyFiveGigEService for the generic codecs.
-var TwentyFiveGigEServiceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: TwentyFiveGigEServiceInstanceSchema, GoName: "Instance", List: true, Name: "instance"},
-	},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "service",
-}
-
-// TwentyFiveGigEServiceInstance is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/Cisco-IOS-XE-ethernet:service/instance.
-type TwentyFiveGigEServiceInstance struct {
-	GigabitEthernet   *bool
-	BridgeDomain      *BridgeDomain
-	Cfm               *InstanceCfm
-	Description       *string
-	Eapol             *InstanceEapol
-	Encapsulation     *InstanceEncapsulation
-	Errdisable        *Errdisable
-	Ethernet          *bool
-	EthernetContainer *EthernetContainer
-	EthernetEvcName   *string
-	EvcName           *string
-	Group             *uint32
-	ID                *uint32
-	IP                *InstanceIP
-	IPv6              *InstanceIPv6
-	L2protocol        *L2protocol
-	LLDP              *LLDP
-	MAC               *InstanceMAC
-	Rewrite           *Rewrite
-	ServicePolicy     *ServicePolicy
-	Shutdown          *bool
-	SNMP              *SNMP
-	StormControl      *StormControl
-	Track             *uint16
-	Trunk             *bool
-	CiscoIOSXEL2vpn   *ciscoiosxel2vpn.TwentyFiveGigEServiceInstanceAugment
-}
-
-// TwentyFiveGigEServiceInstanceSchema describes TwentyFiveGigEServiceInstance for the generic codecs.
-var TwentyFiveGigEServiceInstanceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "GigabitEthernet", Name: "GigabitEthernet", Type: yang.TEmpty},
-		{Child: BridgeDomainSchema, GoName: "BridgeDomain", Name: "bridge-domain"},
-		{Child: InstanceCfmSchema, GoName: "Cfm", Name: "cfm"},
-		{GoName: "Description", Name: "description", Type: yang.TString},
-		{Child: InstanceEapolSchema, GoName: "Eapol", Name: "eapol"},
-		{Child: InstanceEncapsulationSchema, GoName: "Encapsulation", Name: "encapsulation"},
-		{Child: ErrdisableSchema, GoName: "Errdisable", Name: "errdisable"},
-		{GoName: "Ethernet", Name: "ethernet", Type: yang.TEmpty},
-		{Child: EthernetContainerSchema, GoName: "EthernetContainer", Name: "ethernet-container"},
-		{GoName: "EthernetEvcName", Name: "ethernet-evc-name", Type: yang.TString},
-		{GoName: "EvcName", Name: "evc-name", Type: yang.TString},
-		{GoName: "Group", Name: "group", Type: yang.TUint32},
-		{GoName: "ID", Name: "id", Type: yang.TUint32},
-		{Child: InstanceIPSchema, GoName: "IP", Name: "ip"},
-		{Child: InstanceIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: L2protocolSchema, GoName: "L2protocol", Name: "l2protocol"},
-		{Child: LLDPSchema, GoName: "LLDP", Name: "lldp"},
-		{Child: InstanceMACSchema, GoName: "MAC", Name: "mac"},
-		{Child: RewriteSchema, GoName: "Rewrite", Name: "rewrite"},
-		{Child: ServicePolicySchema, GoName: "ServicePolicy", Name: "service-policy"},
-		{GoName: "Shutdown", Name: "shutdown", Type: yang.TEmpty},
-		{Child: SNMPSchema, GoName: "SNMP", Name: "snmp"},
-		{Child: StormControlSchema, GoName: "StormControl", Name: "storm-control"},
-		{GoName: "Track", Name: "track", Type: yang.TUint16},
-		{GoName: "Trunk", Name: "trunk", Type: yang.TEmpty},
-		{Child: ciscoiosxel2vpn.TwentyFiveGigEServiceInstanceAugmentSchema, GoName: "CiscoIOSXEL2vpn", Group: true},
-	},
-	Keys:   []string{"id"},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "instance",
-}
-
-// TwoGigabitEthernetService is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/Cisco-IOS-XE-ethernet:service.
-type TwoGigabitEthernetService struct {
-	Instance []TwoGigabitEthernetServiceInstance
-}
-
-// TwoGigabitEthernetServiceSchema describes TwoGigabitEthernetService for the generic codecs.
-var TwoGigabitEthernetServiceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: TwoGigabitEthernetServiceInstanceSchema, GoName: "Instance", List: true, Name: "instance"},
-	},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "service",
-}
-
-// TwoGigabitEthernetServiceInstance is the Cisco-IOS-XE-ethernet node /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type TwoGigabitEthernetServiceInstance struct {
-	GigabitEthernet   *bool
-	BridgeDomain      *BridgeDomain
-	Cfm               *InstanceCfm
-	Description       *string
-	Eapol             *InstanceEapol
-	Encapsulation     *InstanceEncapsulation
-	Errdisable        *Errdisable
-	Ethernet          *bool
-	EthernetContainer *EthernetContainer
-	EthernetEvcName   *string
-	EvcName           *string
-	Group             *uint32
-	ID                *uint32
-	IP                *InstanceIP
-	IPv6              *InstanceIPv6
-	L2protocol        *L2protocol
-	LLDP              *LLDP
-	MAC               *InstanceMAC
-	Rewrite           *Rewrite
-	ServicePolicy     *ServicePolicy
-	Shutdown          *bool
-	SNMP              *SNMP
-	StormControl      *StormControl
-	Track             *uint16
-	Trunk             *bool
-	CiscoIOSXEL2vpn   *ciscoiosxel2vpn.TwoGigabitEthernetServiceInstanceAugment
-}
-
-// TwoGigabitEthernetServiceInstanceSchema describes TwoGigabitEthernetServiceInstance for the generic codecs.
-var TwoGigabitEthernetServiceInstanceSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "GigabitEthernet", Name: "GigabitEthernet", Type: yang.TEmpty},
-		{Child: BridgeDomainSchema, GoName: "BridgeDomain", Name: "bridge-domain"},
-		{Child: InstanceCfmSchema, GoName: "Cfm", Name: "cfm"},
-		{GoName: "Description", Name: "description", Type: yang.TString},
-		{Child: InstanceEapolSchema, GoName: "Eapol", Name: "eapol"},
-		{Child: InstanceEncapsulationSchema, GoName: "Encapsulation", Name: "encapsulation"},
-		{Child: ErrdisableSchema, GoName: "Errdisable", Name: "errdisable"},
-		{GoName: "Ethernet", Name: "ethernet", Type: yang.TEmpty},
-		{Child: EthernetContainerSchema, GoName: "EthernetContainer", Name: "ethernet-container"},
-		{GoName: "EthernetEvcName", Name: "ethernet-evc-name", Type: yang.TString},
-		{GoName: "EvcName", Name: "evc-name", Type: yang.TString},
-		{GoName: "Group", Name: "group", Type: yang.TUint32},
-		{GoName: "ID", Name: "id", Type: yang.TUint32},
-		{Child: InstanceIPSchema, GoName: "IP", Name: "ip"},
-		{Child: InstanceIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: L2protocolSchema, GoName: "L2protocol", Name: "l2protocol"},
-		{Child: LLDPSchema, GoName: "LLDP", Name: "lldp"},
-		{Child: InstanceMACSchema, GoName: "MAC", Name: "mac"},
-		{Child: RewriteSchema, GoName: "Rewrite", Name: "rewrite"},
-		{Child: ServicePolicySchema, GoName: "ServicePolicy", Name: "service-policy"},
-		{GoName: "Shutdown", Name: "shutdown", Type: yang.TEmpty},
-		{Child: SNMPSchema, GoName: "SNMP", Name: "snmp"},
-		{Child: StormControlSchema, GoName: "StormControl", Name: "storm-control"},
-		{GoName: "Track", Name: "track", Type: yang.TUint16},
-		{GoName: "Trunk", Name: "trunk", Type: yang.TEmpty},
-		{Child: ciscoiosxel2vpn.TwoGigabitEthernetServiceInstanceAugmentSchema, GoName: "CiscoIOSXEL2vpn", Group: true},
-	},
-	Keys:   []string{"id"},
-	Module: moduleCiscoIOSXEEthernet,
-	Name:   "instance",
-}
-
 // Unicast is the Cisco-IOS-XE-ethernet node shape instantiated at 17 schema paths, such as /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance/storm-control/unicast.
 type Unicast struct {
 	Cir *uint32
@@ -6138,7 +5342,7 @@ type AppGigabitEthernetAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *AppGigabitEthernetService
+	Service         *Service
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -6162,7 +5366,7 @@ var AppGigabitEthernetAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: AppGigabitEthernetServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchema, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -6184,7 +5388,7 @@ type BDIAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *Service
+	Service         *ServiceX799c2d
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -6205,7 +5409,7 @@ var BDIAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: ServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchemaXbe037a, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -6284,7 +5488,7 @@ type FastEthernetAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *FastEthernetService
+	Service         *Service
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -6308,7 +5512,7 @@ var FastEthernetAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: FastEthernetServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchema, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -6333,7 +5537,7 @@ type FiftyGigabitEthernetAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *FiftyGigabitEthernetService
+	Service         *Service
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -6357,7 +5561,7 @@ var FiftyGigabitEthernetAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: FiftyGigabitEthernetServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchema, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -6382,7 +5586,7 @@ type FiveGigabitEthernetAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *FiveGigabitEthernetService
+	Service         *Service
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -6406,7 +5610,7 @@ var FiveGigabitEthernetAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: FiveGigabitEthernetServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchema, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -6431,7 +5635,7 @@ type FortyGigabitEthernetAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *FortyGigabitEthernetService
+	Service         *Service
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -6455,7 +5659,7 @@ var FortyGigabitEthernetAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: FortyGigabitEthernetServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchema, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -6481,7 +5685,7 @@ type GigabitEthernetAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *GigabitEthernetService
+	Service         *Service
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -6506,7 +5710,7 @@ var GigabitEthernetAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: GigabitEthernetServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchema, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -6531,7 +5735,7 @@ type HundredGigEAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *HundredGigEService
+	Service         *Service
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -6555,7 +5759,7 @@ var HundredGigEAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: HundredGigEServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchema, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -6592,7 +5796,7 @@ type InterfacePortChannelAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *PortChannelService
+	Service         *Service
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -6615,7 +5819,7 @@ var InterfacePortChannelAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: PortChannelServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchema, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -6707,7 +5911,7 @@ type PortChannelSubinterfacePortChannelAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *Service
+	Service         *ServiceX799c2d
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -6728,7 +5932,7 @@ var PortChannelSubinterfacePortChannelAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: ServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchemaXbe037a, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -6753,7 +5957,7 @@ type TenGigabitEthernetAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *TenGigabitEthernetService
+	Service         *Service
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -6777,7 +5981,7 @@ var TenGigabitEthernetAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: TenGigabitEthernetServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchema, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -6803,7 +6007,7 @@ type TwentyFiveGigEAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *TwentyFiveGigEService
+	Service         *Service
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -6828,7 +6032,7 @@ var TwentyFiveGigEAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: TwentyFiveGigEServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchema, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -6853,7 +6057,7 @@ type TwoGigabitEthernetAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *TwoGigabitEthernetService
+	Service         *Service
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -6877,7 +6081,7 @@ var TwoGigabitEthernetAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: TwoGigabitEthernetServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchema, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -6898,7 +6102,7 @@ type UcseAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *Service
+	Service         *ServiceX799c2d
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -6918,7 +6122,7 @@ var UcseAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: ServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchemaXbe037a, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -6940,7 +6144,7 @@ type VLANAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *Service
+	Service         *ServiceX799c2d
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -6961,7 +6165,7 @@ var VLANAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: ServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchemaXbe037a, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -6984,7 +6188,7 @@ type VirtualPortGroupAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *Service
+	Service         *ServiceX799c2d
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -7006,7 +6210,7 @@ var VirtualPortGroupAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: ServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchemaXbe037a, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},
@@ -7029,7 +6233,7 @@ type VirtualTemplateAugment struct {
 	Pppoe           *Pppoe
 	PppoeClient     *PppoeClient
 	PppoeSession    *PppoeSession
-	Service         *Service
+	Service         *ServiceX799c2d
 	Speed           *Speed
 	Synchronous     *Synchronous
 }
@@ -7051,7 +6255,7 @@ var VirtualTemplateAugmentSchema = &yang.Schema{
 		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
 		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: ServiceSchema, GoName: "Service", Name: "service"},
+		{Child: ServiceSchemaXbe037a, GoName: "Service", Name: "service"},
 		{Child: SpeedSchema, GoName: "Speed", Name: "speed"},
 		{Child: SynchronousSchema, GoName: "Synchronous", Name: "synchronous"},
 	},

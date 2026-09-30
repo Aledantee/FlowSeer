@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCiscoOSPF identifies the cisco-ospf YANG module.
-var moduleCiscoOSPF = &yang.Module{
-	Name:      "cisco-ospf",
-	Namespace: "urn:ietf:params:xml:ns:yang:cisco-ospf",
-}
-
 // moduleIetfOSPF identifies the ietf-ospf YANG module.
 var moduleIetfOSPF = &yang.Module{
 	Name:      "ietf-ospf",

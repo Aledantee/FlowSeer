@@ -24,46 +24,10 @@ var moduleCiscoXeOpenconfigPlatformExt = &yang.Module{
 	Namespace: "http://cisco.com/ns/yang/cisco-xe-openconfig-platform-ext",
 }
 
-// moduleOpenconfigAlarms identifies the openconfig-alarms YANG module.
-var moduleOpenconfigAlarms = &yang.Module{
-	Name:      "openconfig-alarms",
-	Namespace: "http://openconfig.net/yang/alarms",
-}
-
 // moduleOpenconfigPlatform identifies the openconfig-platform YANG module.
 var moduleOpenconfigPlatform = &yang.Module{
 	Name:      "openconfig-platform",
 	Namespace: "http://openconfig.net/yang/platform",
-}
-
-// moduleOpenconfigPlatformCPU identifies the openconfig-platform-cpu YANG module.
-var moduleOpenconfigPlatformCPU = &yang.Module{
-	Name:      "openconfig-platform-cpu",
-	Namespace: "http://openconfig.net/yang/platform/cpu",
-}
-
-// moduleOpenconfigPlatformFan identifies the openconfig-platform-fan YANG module.
-var moduleOpenconfigPlatformFan = &yang.Module{
-	Name:      "openconfig-platform-fan",
-	Namespace: "http://openconfig.net/yang/platform/fan",
-}
-
-// moduleOpenconfigPlatformLinecard identifies the openconfig-platform-linecard YANG module.
-var moduleOpenconfigPlatformLinecard = &yang.Module{
-	Name:      "openconfig-platform-linecard",
-	Namespace: "http://openconfig.net/yang/platform/linecard",
-}
-
-// moduleOpenconfigPlatformPort identifies the openconfig-platform-port YANG module.
-var moduleOpenconfigPlatformPort = &yang.Module{
-	Name:      "openconfig-platform-port",
-	Namespace: "http://openconfig.net/yang/platform/port",
-}
-
-// moduleOpenconfigPlatformPsu identifies the openconfig-platform-psu YANG module.
-var moduleOpenconfigPlatformPsu = &yang.Module{
-	Name:      "openconfig-platform-psu",
-	Namespace: "http://openconfig.net/yang/platform/psu",
 }
 
 // moduleOpenconfigPlatformTransceiver identifies the openconfig-platform-transceiver YANG module.

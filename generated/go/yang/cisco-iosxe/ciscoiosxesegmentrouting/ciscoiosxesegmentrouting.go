@@ -1848,52 +1848,26 @@ var ValueSchema = &yang.Schema{
 	Name:   "value",
 }
 
-// IsisContainerIsisAddressFamilyIPv6Augment is the Cisco-IOS-XE-segment-routing augment group at /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis-container/isis/address-family/ipv6.
-type IsisContainerIsisAddressFamilyIPv6Augment struct {
+// IPv6Augment is the Cisco-IOS-XE-segment-routing augment group at /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis/address-family/ipv6.
+type IPv6Augment struct {
 	SegmentRouting *IPv6SegmentRouting
 }
 
-// IsisContainerIsisAddressFamilyIPv6AugmentSchema describes IsisContainerIsisAddressFamilyIPv6Augment group fields with no codec root.
-var IsisContainerIsisAddressFamilyIPv6AugmentSchema = &yang.Schema{
+// IPv6AugmentSchema describes IPv6Augment group fields with no codec root.
+var IPv6AugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: IPv6SegmentRoutingSchema, GoName: "SegmentRouting", Name: "segment-routing"},
 	},
 	Module: moduleCiscoIOSXESegmentRouting,
 }
 
-// IsisContainerIsisAugment is the Cisco-IOS-XE-segment-routing augment group at /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis-container/isis.
-type IsisContainerIsisAugment struct {
+// IsisAugment is the Cisco-IOS-XE-segment-routing augment group at /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis.
+type IsisAugment struct {
 	SegmentRouting *IsisSegmentRouting
 }
 
-// IsisContainerIsisAugmentSchema describes IsisContainerIsisAugment group fields with no codec root.
-var IsisContainerIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IsisSegmentRoutingSchema, GoName: "SegmentRouting", Name: "segment-routing"},
-	},
-	Module: moduleCiscoIOSXESegmentRouting,
-}
-
-// RouterIsisAddressFamilyIPv6Augment is the Cisco-IOS-XE-segment-routing augment group at /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis/address-family/ipv6.
-type RouterIsisAddressFamilyIPv6Augment struct {
-	SegmentRouting *IPv6SegmentRouting
-}
-
-// RouterIsisAddressFamilyIPv6AugmentSchema describes RouterIsisAddressFamilyIPv6Augment group fields with no codec root.
-var RouterIsisAddressFamilyIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6SegmentRoutingSchema, GoName: "SegmentRouting", Name: "segment-routing"},
-	},
-	Module: moduleCiscoIOSXESegmentRouting,
-}
-
-// RouterIsisAugment is the Cisco-IOS-XE-segment-routing augment group at /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis.
-type RouterIsisAugment struct {
-	SegmentRouting *IsisSegmentRouting
-}
-
-// RouterIsisAugmentSchema describes RouterIsisAugment group fields with no codec root.
-var RouterIsisAugmentSchema = &yang.Schema{
+// IsisAugmentSchema describes IsisAugment group fields with no codec root.
+var IsisAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: IsisSegmentRoutingSchema, GoName: "SegmentRouting", Name: "segment-routing"},
 	},

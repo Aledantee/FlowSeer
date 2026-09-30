@@ -17,12 +17,6 @@ var moduleCiscoIOSXEArp = &yang.Module{
 	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-arp",
 }
 
-// moduleCiscoIOSXESwitch identifies the Cisco-IOS-XE-switch YANG module.
-var moduleCiscoIOSXESwitch = &yang.Module{
-	Name:      "Cisco-IOS-XE-switch",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-switch",
-}
-
 // Arp is the Cisco-IOS-XE-arp node /Cisco-IOS-XE-native:native/Cisco-IOS-XE-arp:arp.
 type Arp struct {
 	ArpEntry         []ArpEntry

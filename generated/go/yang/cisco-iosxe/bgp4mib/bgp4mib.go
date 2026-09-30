@@ -17,12 +17,6 @@ var moduleBGP4MIB = &yang.Module{
 	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:BGP4-MIB",
 }
 
-// moduleCISCOBGP4MIB identifies the CISCO-BGP4-MIB YANG module.
-var moduleCISCOBGP4MIB = &yang.Module{
-	Name:      "CISCO-BGP4-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:CISCO-BGP4-MIB",
-}
-
 // BGP is the BGP4-MIB node /BGP4-MIB:BGP4-MIB/bgp.
 type BGP struct {
 	BGPIdentifier *string

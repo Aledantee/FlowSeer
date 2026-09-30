@@ -14,32 +14,6 @@ var moduleOpenconfigAftNetworkInstance = &yang.Module{
 	Namespace: "http://openconfig.net/yang/aft/ni",
 }
 
-// IPv4EntryStateAugment is the openconfig-aft-network-instance augment group at /openconfig-network-instance:network-instances/network-instance/afts/ipv4-unicast/ipv4-entry/state.
-type IPv4EntryStateAugment struct {
-	OriginNetworkInstance *string
-}
-
-// IPv4EntryStateAugmentSchema describes IPv4EntryStateAugment group fields with no codec root.
-var IPv4EntryStateAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "OriginNetworkInstance", Name: "origin-network-instance", Type: yang.TString},
-	},
-	Module: moduleOpenconfigAftNetworkInstance,
-}
-
-// IPv6EntryStateAugment is the openconfig-aft-network-instance augment group at /openconfig-network-instance:network-instances/network-instance/afts/ipv6-unicast/ipv6-entry/state.
-type IPv6EntryStateAugment struct {
-	OriginNetworkInstance *string
-}
-
-// IPv6EntryStateAugmentSchema describes IPv6EntryStateAugment group fields with no codec root.
-var IPv6EntryStateAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "OriginNetworkInstance", Name: "origin-network-instance", Type: yang.TString},
-	},
-	Module: moduleOpenconfigAftNetworkInstance,
-}
-
 // NextHopStateAugment is the openconfig-aft-network-instance augment group at /openconfig-network-instance:network-instances/network-instance/afts/next-hops/next-hop/state.
 type NextHopStateAugment struct {
 	NetworkInstance *string
@@ -49,6 +23,19 @@ type NextHopStateAugment struct {
 var NextHopStateAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{GoName: "NetworkInstance", Name: "network-instance", Type: yang.TString},
+	},
+	Module: moduleOpenconfigAftNetworkInstance,
+}
+
+// StateAugment is the openconfig-aft-network-instance augment group at /openconfig-network-instance:network-instances/network-instance/afts/ipv4-unicast/ipv4-entry/state.
+type StateAugment struct {
+	OriginNetworkInstance *string
+}
+
+// StateAugmentSchema describes StateAugment group fields with no codec root.
+var StateAugmentSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{GoName: "OriginNetworkInstance", Name: "origin-network-instance", Type: yang.TString},
 	},
 	Module: moduleOpenconfigAftNetworkInstance,
 }

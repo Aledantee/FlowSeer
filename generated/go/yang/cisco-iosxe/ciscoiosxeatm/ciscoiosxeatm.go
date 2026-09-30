@@ -18,20 +18,8 @@ var moduleCiscoIOSXEAtm = &yang.Module{
 	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-atm",
 }
 
-// moduleCiscoIOSXEPolicy identifies the Cisco-IOS-XE-policy YANG module.
-var moduleCiscoIOSXEPolicy = &yang.Module{
-	Name:      "Cisco-IOS-XE-policy",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-policy",
-}
-
-// moduleCiscoIOSXESiteManager identifies the Cisco-IOS-XE-site-manager YANG module.
-var moduleCiscoIOSXESiteManager = &yang.Module{
-	Name:      "Cisco-IOS-XE-site-manager",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-site-manager",
-}
-
-// ATMSubinterfaceATMPvc is the Cisco-IOS-XE-atm node /Cisco-IOS-XE-native:native/interface/ATM-subinterface/ATM/Cisco-IOS-XE-atm:pvc.
-type ATMSubinterfaceATMPvc struct {
+// ATMPvc is the Cisco-IOS-XE-atm node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/interface/ATM-subinterface/ATM/Cisco-IOS-XE-atm:pvc.
+type ATMPvc struct {
 	BridgeDot1q           *BridgeDot1q
 	Cbr                   *uint32
 	Dialer                *Dialer
@@ -53,12 +41,12 @@ type ATMSubinterfaceATMPvc struct {
 	VbrRt                 *VbrRt
 	Xconnect              *Xconnect
 	XconnectPwClass       *XconnectPwClass
-	CiscoIOSXEPolicy      *ciscoiosxepolicy.ATMSubinterfaceATMPvcAugment
-	CiscoIOSXESiteManager *ciscoiosxesitemanager.ATMSubinterfaceATMPvcAugment
+	CiscoIOSXEPolicy      *ciscoiosxepolicy.PvcAugment
+	CiscoIOSXESiteManager *ciscoiosxesitemanager.PvcAugment
 }
 
-// ATMSubinterfaceATMPvcSchema describes ATMSubinterfaceATMPvc for the generic codecs.
-var ATMSubinterfaceATMPvcSchema = &yang.Schema{
+// ATMPvcSchema describes ATMPvc for the generic codecs.
+var ATMPvcSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: BridgeDot1qSchema, GoName: "BridgeDot1q", Name: "bridge-dot1q"},
 		{GoName: "Cbr", Name: "cbr", Type: yang.TUint32},
@@ -81,8 +69,8 @@ var ATMSubinterfaceATMPvcSchema = &yang.Schema{
 		{Child: VbrRtSchema, GoName: "VbrRt", Name: "vbr-rt"},
 		{Child: XconnectSchema, GoName: "Xconnect", Name: "xconnect"},
 		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
-		{Child: ciscoiosxepolicy.ATMSubinterfaceATMPvcAugmentSchema, GoName: "CiscoIOSXEPolicy", Group: true},
-		{Child: ciscoiosxesitemanager.ATMSubinterfaceATMPvcAugmentSchema, GoName: "CiscoIOSXESiteManager", Group: true},
+		{Child: ciscoiosxepolicy.PvcAugmentSchema, GoName: "CiscoIOSXEPolicy", Group: true},
+		{Child: ciscoiosxesitemanager.PvcAugmentSchema, GoName: "CiscoIOSXESiteManager", Group: true},
 	},
 	Keys:   []string{"local-vpi-vci"},
 	Module: moduleCiscoIOSXEAtm,
@@ -382,65 +370,6 @@ var IPSchema = &yang.Schema{
 	},
 	Module: moduleCiscoIOSXEAtm,
 	Name:   "ip",
-}
-
-// InterfaceATMPvc is the Cisco-IOS-XE-atm node /Cisco-IOS-XE-native:native/interface/ATM/Cisco-IOS-XE-atm:pvc.
-type InterfaceATMPvc struct {
-	BridgeDot1q           *BridgeDot1q
-	Cbr                   *uint32
-	Dialer                *Dialer
-	Encapsulation         *Encapsulation
-	EncapsulationPvc      *EncapsulationPvc
-	L2transport           *bool
-	LocalVpiVci           *string
-	Oam                   *Oam
-	OamPvc                *OamPvc
-	Pppoe                 *Pppoe
-	PppoeClient           *PppoeClient
-	Protocol              *Protocol
-	PvcEncapsulation      *PvcEncapsulation
-	RemoteVpiVci          *string
-	Ubr                   *uint32
-	Ubrplus               *Ubrplus
-	Vbr                   *uint32
-	VbrNrt                *VbrNrt
-	VbrRt                 *VbrRt
-	Xconnect              *Xconnect
-	XconnectPwClass       *XconnectPwClass
-	CiscoIOSXEPolicy      *ciscoiosxepolicy.InterfaceATMPvcAugment
-	CiscoIOSXESiteManager *ciscoiosxesitemanager.InterfaceATMPvcAugment
-}
-
-// InterfaceATMPvcSchema describes InterfaceATMPvc for the generic codecs.
-var InterfaceATMPvcSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: BridgeDot1qSchema, GoName: "BridgeDot1q", Name: "bridge-dot1q"},
-		{GoName: "Cbr", Name: "cbr", Type: yang.TUint32},
-		{Child: DialerSchema, GoName: "Dialer", Name: "dialer"},
-		{Child: EncapsulationSchema, GoName: "Encapsulation", Name: "encapsulation"},
-		{Child: EncapsulationPvcSchema, GoName: "EncapsulationPvc", Name: "encapsulation-pvc"},
-		{GoName: "L2transport", Name: "l2transport", Type: yang.TEmpty},
-		{GoName: "LocalVpiVci", Name: "local-vpi-vci", Type: yang.TString},
-		{Child: OamSchema, GoName: "Oam", Name: "oam"},
-		{Child: OamPvcSchema, GoName: "OamPvc", Name: "oam-pvc"},
-		{Child: PppoeSchema, GoName: "Pppoe", Name: "pppoe"},
-		{Child: PppoeClientSchema, GoName: "PppoeClient", Name: "pppoe-client"},
-		{Child: ProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: PvcEncapsulationSchema, GoName: "PvcEncapsulation", Name: "pvc-encapsulation"},
-		{GoName: "RemoteVpiVci", Name: "remote-vpi-vci", Type: yang.TString},
-		{GoName: "Ubr", Name: "ubr", Type: yang.TUint32},
-		{Child: UbrplusSchema, GoName: "Ubrplus", Name: "ubrplus"},
-		{GoName: "Vbr", Name: "vbr", Type: yang.TUint32},
-		{Child: VbrNrtSchema, GoName: "VbrNrt", Name: "vbr-nrt"},
-		{Child: VbrRtSchema, GoName: "VbrRt", Name: "vbr-rt"},
-		{Child: XconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
-		{Child: ciscoiosxepolicy.InterfaceATMPvcAugmentSchema, GoName: "CiscoIOSXEPolicy", Group: true},
-		{Child: ciscoiosxesitemanager.InterfaceATMPvcAugmentSchema, GoName: "CiscoIOSXESiteManager", Group: true},
-	},
-	Keys:   []string{"local-vpi-vci"},
-	Module: moduleCiscoIOSXEAtm,
-	Name:   "pvc",
 }
 
 // Manage is the Cisco-IOS-XE-atm node shape instantiated at 6 schema paths, such as /Cisco-IOS-XE-native:native/interface/ATM-ACR/Cisco-IOS-XE-atm:pvc/oam-pvc/manage.
@@ -884,8 +813,8 @@ var XconnectPwClassXconnectSchema = &yang.Schema{
 	Name:   "xconnect",
 }
 
-// ATMACRsubinterfaceATMACRAugment is the Cisco-IOS-XE-atm augment group at /Cisco-IOS-XE-native:native/interface/ATM-ACRsubinterface/ATM-ACR.
-type ATMACRsubinterfaceATMACRAugment struct {
+// ATMACRAugment is the Cisco-IOS-XE-atm augment group at /Cisco-IOS-XE-native:native/interface/ATM-ACR.
+type ATMACRAugment struct {
 	Atm             *Atm
 	Cdp             *string
 	Cem             []Cem
@@ -897,8 +826,8 @@ type ATMACRsubinterfaceATMACRAugment struct {
 	XconnectPwClass *XconnectPwClass
 }
 
-// ATMACRsubinterfaceATMACRAugmentSchema describes ATMACRsubinterfaceATMACRAugment group fields with no codec root.
-var ATMACRsubinterfaceATMACRAugmentSchema = &yang.Schema{
+// ATMACRAugmentSchema describes ATMACRAugment group fields with no codec root.
+var ATMACRAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: AtmSchema, GoName: "Atm", Name: "atm"},
 		{GoName: "Cdp", Name: "cdp", Type: yang.TEnum},
@@ -913,21 +842,21 @@ var ATMACRsubinterfaceATMACRAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEAtm,
 }
 
-// ATMSubinterfaceATMAugment is the Cisco-IOS-XE-atm augment group at /Cisco-IOS-XE-native:native/interface/ATM-subinterface/ATM.
-type ATMSubinterfaceATMAugment struct {
+// ATMAugment is the Cisco-IOS-XE-atm augment group at /Cisco-IOS-XE-native:native/interface/ATM.
+type ATMAugment struct {
 	Atm             *Atm
 	Cdp             *string
 	Cem             []Cem
 	IP              *IP
 	LoadInterval    *uint32
 	PppoeSession    *PppoeSession
-	Pvc             []ATMSubinterfaceATMPvc
+	Pvc             []ATMPvc
 	Xconnect        *Xconnect
 	XconnectPwClass *XconnectPwClass
 }
 
-// ATMSubinterfaceATMAugmentSchema describes ATMSubinterfaceATMAugment group fields with no codec root.
-var ATMSubinterfaceATMAugmentSchema = &yang.Schema{
+// ATMAugmentSchema describes ATMAugment group fields with no codec root.
+var ATMAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: AtmSchema, GoName: "Atm", Name: "atm"},
 		{GoName: "Cdp", Name: "cdp", Type: yang.TEnum},
@@ -935,7 +864,7 @@ var ATMSubinterfaceATMAugmentSchema = &yang.Schema{
 		{Child: IPSchema, GoName: "IP", Name: "ip"},
 		{GoName: "LoadInterval", Name: "load-interval", Type: yang.TUint32},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: ATMSubinterfaceATMPvcSchema, GoName: "Pvc", List: true, Name: "pvc"},
+		{Child: ATMPvcSchema, GoName: "Pvc", List: true, Name: "pvc"},
 		{Child: XconnectSchema, GoName: "Xconnect", Name: "xconnect"},
 		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
 	},
@@ -994,64 +923,6 @@ var CEMAugmentSchema = &yang.Schema{
 		{GoName: "LoadInterval", Name: "load-interval", Type: yang.TUint32},
 		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
 		{Child: PvcSchema, GoName: "Pvc", List: true, Name: "pvc"},
-		{Child: XconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
-	},
-	Module: moduleCiscoIOSXEAtm,
-}
-
-// InterfaceATMACRAugment is the Cisco-IOS-XE-atm augment group at /Cisco-IOS-XE-native:native/interface/ATM-ACR.
-type InterfaceATMACRAugment struct {
-	Atm             *Atm
-	Cdp             *string
-	Cem             []Cem
-	IP              *IP
-	LoadInterval    *uint32
-	PppoeSession    *PppoeSession
-	Pvc             []Pvc
-	Xconnect        *Xconnect
-	XconnectPwClass *XconnectPwClass
-}
-
-// InterfaceATMACRAugmentSchema describes InterfaceATMACRAugment group fields with no codec root.
-var InterfaceATMACRAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AtmSchema, GoName: "Atm", Name: "atm"},
-		{GoName: "Cdp", Name: "cdp", Type: yang.TEnum},
-		{Child: CemSchema, GoName: "Cem", List: true, Name: "cem"},
-		{Child: IPSchema, GoName: "IP", Name: "ip"},
-		{GoName: "LoadInterval", Name: "load-interval", Type: yang.TUint32},
-		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: PvcSchema, GoName: "Pvc", List: true, Name: "pvc"},
-		{Child: XconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
-	},
-	Module: moduleCiscoIOSXEAtm,
-}
-
-// InterfaceATMAugment is the Cisco-IOS-XE-atm augment group at /Cisco-IOS-XE-native:native/interface/ATM.
-type InterfaceATMAugment struct {
-	Atm             *Atm
-	Cdp             *string
-	Cem             []Cem
-	IP              *IP
-	LoadInterval    *uint32
-	PppoeSession    *PppoeSession
-	Pvc             []InterfaceATMPvc
-	Xconnect        *Xconnect
-	XconnectPwClass *XconnectPwClass
-}
-
-// InterfaceATMAugmentSchema describes InterfaceATMAugment group fields with no codec root.
-var InterfaceATMAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AtmSchema, GoName: "Atm", Name: "atm"},
-		{GoName: "Cdp", Name: "cdp", Type: yang.TEnum},
-		{Child: CemSchema, GoName: "Cem", List: true, Name: "cem"},
-		{Child: IPSchema, GoName: "IP", Name: "ip"},
-		{GoName: "LoadInterval", Name: "load-interval", Type: yang.TUint32},
-		{Child: PppoeSessionSchema, GoName: "PppoeSession", Name: "pppoe-session"},
-		{Child: InterfaceATMPvcSchema, GoName: "Pvc", List: true, Name: "pvc"},
 		{Child: XconnectSchema, GoName: "Xconnect", Name: "xconnect"},
 		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
 	},

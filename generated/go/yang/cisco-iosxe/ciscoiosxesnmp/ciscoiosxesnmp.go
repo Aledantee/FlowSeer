@@ -16,42 +16,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCiscoIOSXEBGP identifies the Cisco-IOS-XE-bgp YANG module.
-var moduleCiscoIOSXEBGP = &yang.Module{
-	Name:      "Cisco-IOS-XE-bgp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
-// moduleCiscoIOSXECrypto identifies the Cisco-IOS-XE-crypto YANG module.
-var moduleCiscoIOSXECrypto = &yang.Module{
-	Name:      "Cisco-IOS-XE-crypto",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-crypto",
-}
-
-// moduleCiscoIOSXEMulticast identifies the Cisco-IOS-XE-multicast YANG module.
-var moduleCiscoIOSXEMulticast = &yang.Module{
-	Name:      "Cisco-IOS-XE-multicast",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-multicast",
-}
-
-// moduleCiscoIOSXENhrp identifies the Cisco-IOS-XE-nhrp YANG module.
-var moduleCiscoIOSXENhrp = &yang.Module{
-	Name:      "Cisco-IOS-XE-nhrp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-nhrp",
-}
-
-// moduleCiscoIOSXEOSPF identifies the Cisco-IOS-XE-ospf YANG module.
-var moduleCiscoIOSXEOSPF = &yang.Module{
-	Name:      "Cisco-IOS-XE-ospf",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospf",
-}
-
-// moduleCiscoIOSXEOspfv3 identifies the Cisco-IOS-XE-ospfv3 YANG module.
-var moduleCiscoIOSXEOspfv3 = &yang.Module{
-	Name:      "Cisco-IOS-XE-ospfv3",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-ospfv3",
-}
-
 // moduleCiscoIOSXESNMP identifies the Cisco-IOS-XE-snmp YANG module.
 var moduleCiscoIOSXESNMP = &yang.Module{
 	Name:      "Cisco-IOS-XE-snmp",

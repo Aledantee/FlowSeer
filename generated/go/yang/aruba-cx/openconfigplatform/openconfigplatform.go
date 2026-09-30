@@ -14,34 +14,10 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleOpenconfigAlarms identifies the openconfig-alarms YANG module.
-var moduleOpenconfigAlarms = &yang.Module{
-	Name:      "openconfig-alarms",
-	Namespace: "http://openconfig.net/yang/alarms",
-}
-
 // moduleOpenconfigPlatform identifies the openconfig-platform YANG module.
 var moduleOpenconfigPlatform = &yang.Module{
 	Name:      "openconfig-platform",
 	Namespace: "http://openconfig.net/yang/platform",
-}
-
-// moduleOpenconfigPlatformCPU identifies the openconfig-platform-cpu YANG module.
-var moduleOpenconfigPlatformCPU = &yang.Module{
-	Name:      "openconfig-platform-cpu",
-	Namespace: "http://openconfig.net/yang/platform/cpu",
-}
-
-// moduleOpenconfigPlatformFan identifies the openconfig-platform-fan YANG module.
-var moduleOpenconfigPlatformFan = &yang.Module{
-	Name:      "openconfig-platform-fan",
-	Namespace: "http://openconfig.net/yang/platform/fan",
-}
-
-// moduleOpenconfigPlatformPsu identifies the openconfig-platform-psu YANG module.
-var moduleOpenconfigPlatformPsu = &yang.Module{
-	Name:      "openconfig-platform-psu",
-	Namespace: "http://openconfig.net/yang/platform/psu",
 }
 
 // Backplane is the openconfig-platform node /openconfig-platform:components/component/backplane.

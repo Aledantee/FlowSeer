@@ -17,12 +17,6 @@ var moduleOpenconfigIfAggregate = &yang.Module{
 	Namespace: "http://openconfig.net/yang/interfaces/aggregate",
 }
 
-// moduleOpenconfigVLAN identifies the openconfig-vlan YANG module.
-var moduleOpenconfigVLAN = &yang.Module{
-	Name:      "openconfig-vlan",
-	Namespace: "http://openconfig.net/yang/vlan",
-}
-
 // Aggregation is the openconfig-if-aggregate node /openconfig-interfaces:interfaces/interface/openconfig-if-aggregate:aggregation.
 type Aggregation struct {
 	Config         *Config

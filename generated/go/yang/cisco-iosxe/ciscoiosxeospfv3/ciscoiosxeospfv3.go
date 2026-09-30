@@ -6532,19 +6532,6 @@ var AppGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEOspfv3,
 }
 
-// AppGigabitEthernetIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ipv6.
-type AppGigabitEthernetIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// AppGigabitEthernetIPv6AugmentSchema describes AppGigabitEthernetIPv6Augment group fields with no codec root.
-var AppGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
 // BDIAugment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/BDI.
 type BDIAugment struct {
 	Ospfv3 *Ospfv3
@@ -6554,19 +6541,6 @@ type BDIAugment struct {
 var BDIAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: Ospfv3Schema, GoName: "Ospfv3", Name: "ospfv3"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
-// BDIIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/BDI/ipv6.
-type BDIIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// BDIIPv6AugmentSchema describes BDIIPv6Augment group fields with no codec root.
-var BDIIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
 	},
 	Module: moduleCiscoIOSXEOspfv3,
 }
@@ -6584,19 +6558,6 @@ var BDVIFAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEOspfv3,
 }
 
-// BDVIFIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/BD-VIF/ipv6.
-type BDVIFIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// BDVIFIPv6AugmentSchema describes BDVIFIPv6Augment group fields with no codec root.
-var BDVIFIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
 // DialerAugment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/Dialer.
 type DialerAugment struct {
 	Ospfv3 *Ospfv3
@@ -6606,19 +6567,6 @@ type DialerAugment struct {
 var DialerAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: Ospfv3Schema, GoName: "Ospfv3", Name: "ospfv3"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
-// DialerIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/Dialer/ipv6.
-type DialerIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// DialerIPv6AugmentSchema describes DialerIPv6Augment group fields with no codec root.
-var DialerIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
 	},
 	Module: moduleCiscoIOSXEOspfv3,
 }
@@ -6636,19 +6584,6 @@ var EthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEOspfv3,
 }
 
-// EthernetIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/Ethernet/ipv6.
-type EthernetIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// EthernetIPv6AugmentSchema describes EthernetIPv6Augment group fields with no codec root.
-var EthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
 // FastEthernetAugment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet.
 type FastEthernetAugment struct {
 	Ospfv3 *Ospfv3
@@ -6658,19 +6593,6 @@ type FastEthernetAugment struct {
 var FastEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: Ospfv3Schema, GoName: "Ospfv3", Name: "ospfv3"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
-// FastEthernetIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/ipv6.
-type FastEthernetIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// FastEthernetIPv6AugmentSchema describes FastEthernetIPv6Augment group fields with no codec root.
-var FastEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
 	},
 	Module: moduleCiscoIOSXEOspfv3,
 }
@@ -6688,19 +6610,6 @@ var FiftyGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEOspfv3,
 }
 
-// FiftyGigabitEthernetIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/ipv6.
-type FiftyGigabitEthernetIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// FiftyGigabitEthernetIPv6AugmentSchema describes FiftyGigabitEthernetIPv6Augment group fields with no codec root.
-var FiftyGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
 // FiveGigabitEthernetAugment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet.
 type FiveGigabitEthernetAugment struct {
 	Ospfv3 *Ospfv3
@@ -6710,19 +6619,6 @@ type FiveGigabitEthernetAugment struct {
 var FiveGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: Ospfv3Schema, GoName: "Ospfv3", Name: "ospfv3"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
-// FiveGigabitEthernetIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/ipv6.
-type FiveGigabitEthernetIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// FiveGigabitEthernetIPv6AugmentSchema describes FiveGigabitEthernetIPv6Augment group fields with no codec root.
-var FiveGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
 	},
 	Module: moduleCiscoIOSXEOspfv3,
 }
@@ -6740,19 +6636,6 @@ var FortyGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEOspfv3,
 }
 
-// FortyGigabitEthernetIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/ipv6.
-type FortyGigabitEthernetIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// FortyGigabitEthernetIPv6AugmentSchema describes FortyGigabitEthernetIPv6Augment group fields with no codec root.
-var FortyGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
 // GigabitEthernetAugment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet.
 type GigabitEthernetAugment struct {
 	Ospfv3 *Ospfv3
@@ -6762,19 +6645,6 @@ type GigabitEthernetAugment struct {
 var GigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: Ospfv3Schema, GoName: "Ospfv3", Name: "ospfv3"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
-// GigabitEthernetIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/ipv6.
-type GigabitEthernetIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// GigabitEthernetIPv6AugmentSchema describes GigabitEthernetIPv6Augment group fields with no codec root.
-var GigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
 	},
 	Module: moduleCiscoIOSXEOspfv3,
 }
@@ -6792,39 +6662,13 @@ var HundredGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEOspfv3,
 }
 
-// HundredGigEIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/ipv6.
-type HundredGigEIPv6Augment struct {
+// IPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ipv6.
+type IPv6Augment struct {
 	OSPF *IPv6OSPF
 }
 
-// HundredGigEIPv6AugmentSchema describes HundredGigEIPv6Augment group fields with no codec root.
-var HundredGigEIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
-// InterfacePortChannelAugment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/Port-channel.
-type InterfacePortChannelAugment struct {
-	Ospfv3 *Ospfv3
-}
-
-// InterfacePortChannelAugmentSchema describes InterfacePortChannelAugment group fields with no codec root.
-var InterfacePortChannelAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: Ospfv3Schema, GoName: "Ospfv3", Name: "ospfv3"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
-// InterfacePortChannelIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/ipv6.
-type InterfacePortChannelIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// InterfacePortChannelIPv6AugmentSchema describes InterfacePortChannelIPv6Augment group fields with no codec root.
-var InterfacePortChannelIPv6AugmentSchema = &yang.Schema{
+// IPv6AugmentSchema describes IPv6Augment group fields with no codec root.
+var IPv6AugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
 	},
@@ -6844,19 +6688,6 @@ var LoopbackAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEOspfv3,
 }
 
-// LoopbackIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/Loopback/ipv6.
-type LoopbackIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// LoopbackIPv6AugmentSchema describes LoopbackIPv6Augment group fields with no codec root.
-var LoopbackIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
 // OSPFAugment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/ipv6/router/ospf.
 type OSPFAugment struct {
 	GracefulRestart *GracefulRestart
@@ -6872,6 +6703,19 @@ var OSPFAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEOspfv3,
 }
 
+// PortChannelAugment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/Port-channel.
+type PortChannelAugment struct {
+	Ospfv3 *Ospfv3
+}
+
+// PortChannelAugmentSchema describes PortChannelAugment group fields with no codec root.
+var PortChannelAugmentSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: Ospfv3Schema, GoName: "Ospfv3", Name: "ospfv3"},
+	},
+	Module: moduleCiscoIOSXEOspfv3,
+}
+
 // PortChannelSubinterfaceAugment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface.
 type PortChannelSubinterfaceAugment struct {
 	Ospfv3 *PortChannelSubinterfaceOspfv3
@@ -6881,32 +6725,6 @@ type PortChannelSubinterfaceAugment struct {
 var PortChannelSubinterfaceAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: PortChannelSubinterfaceOspfv3Schema, GoName: "Ospfv3", Name: "ospfv3"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
-// PortChannelSubinterfacePortChannelAugment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel.
-type PortChannelSubinterfacePortChannelAugment struct {
-	Ospfv3 *Ospfv3
-}
-
-// PortChannelSubinterfacePortChannelAugmentSchema describes PortChannelSubinterfacePortChannelAugment group fields with no codec root.
-var PortChannelSubinterfacePortChannelAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: Ospfv3Schema, GoName: "Ospfv3", Name: "ospfv3"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
-// PortChannelSubinterfacePortChannelIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel/ipv6.
-type PortChannelSubinterfacePortChannelIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// PortChannelSubinterfacePortChannelIPv6AugmentSchema describes PortChannelSubinterfacePortChannelIPv6Augment group fields with no codec root.
-var PortChannelSubinterfacePortChannelIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
 	},
 	Module: moduleCiscoIOSXEOspfv3,
 }
@@ -6937,19 +6755,6 @@ var TenGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEOspfv3,
 }
 
-// TenGigabitEthernetIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/ipv6.
-type TenGigabitEthernetIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// TenGigabitEthernetIPv6AugmentSchema describes TenGigabitEthernetIPv6Augment group fields with no codec root.
-var TenGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
 // TrapsAugment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/snmp-server/Cisco-IOS-XE-snmp:enable/enable-choice/traps.
 type TrapsAugment struct {
 	Ospfv3Config *Ospfv3Config
@@ -6976,19 +6781,6 @@ var TunnelAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEOspfv3,
 }
 
-// TunnelIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ipv6.
-type TunnelIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// TunnelIPv6AugmentSchema describes TunnelIPv6Augment group fields with no codec root.
-var TunnelIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
 // TwentyFiveGigEAugment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE.
 type TwentyFiveGigEAugment struct {
 	Ospfv3 *Ospfv3
@@ -6998,19 +6790,6 @@ type TwentyFiveGigEAugment struct {
 var TwentyFiveGigEAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: Ospfv3Schema, GoName: "Ospfv3", Name: "ospfv3"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
-// TwentyFiveGigEIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/ipv6.
-type TwentyFiveGigEIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// TwentyFiveGigEIPv6AugmentSchema describes TwentyFiveGigEIPv6Augment group fields with no codec root.
-var TwentyFiveGigEIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
 	},
 	Module: moduleCiscoIOSXEOspfv3,
 }
@@ -7028,19 +6807,6 @@ var TwoGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEOspfv3,
 }
 
-// TwoGigabitEthernetIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/ipv6.
-type TwoGigabitEthernetIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// TwoGigabitEthernetIPv6AugmentSchema describes TwoGigabitEthernetIPv6Augment group fields with no codec root.
-var TwoGigabitEthernetIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
 // VLANAugment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/Vlan.
 type VLANAugment struct {
 	Ospfv3 *Ospfv3
@@ -7050,19 +6816,6 @@ type VLANAugment struct {
 var VLANAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: Ospfv3Schema, GoName: "Ospfv3", Name: "ospfv3"},
-	},
-	Module: moduleCiscoIOSXEOspfv3,
-}
-
-// VLANIPv6Augment is the Cisco-IOS-XE-ospfv3 augment group at /Cisco-IOS-XE-native:native/interface/Vlan/ipv6.
-type VLANIPv6Augment struct {
-	OSPF *IPv6OSPF
-}
-
-// VLANIPv6AugmentSchema describes VLANIPv6Augment group fields with no codec root.
-var VLANIPv6AugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6OSPFSchema, GoName: "OSPF", Name: "ospf"},
 	},
 	Module: moduleCiscoIOSXEOspfv3,
 }

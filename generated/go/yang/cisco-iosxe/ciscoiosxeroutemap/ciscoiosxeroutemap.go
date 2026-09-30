@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCiscoIOSXEBGP identifies the Cisco-IOS-XE-bgp YANG module.
-var moduleCiscoIOSXEBGP = &yang.Module{
-	Name:      "Cisco-IOS-XE-bgp",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-bgp",
-}
-
 // moduleCiscoIOSXERouteMap identifies the Cisco-IOS-XE-route-map YANG module.
 var moduleCiscoIOSXERouteMap = &yang.Module{
 	Name:      "Cisco-IOS-XE-route-map",
@@ -1320,6 +1314,64 @@ var LocalPreferenceSchema = &yang.Schema{
 	Name:   "local-preference",
 }
 
+// Match is the Cisco-IOS-XE-route-map node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-seq/match.
+type Match struct {
+	AdditionalPaths *AdditionalPaths
+	AsPath          *MatchAsPath
+	Clns            *MatchClns
+	Community       *MatchCommunity
+	Extcommunity    *MatchExtcommunity
+	Interface       *MatchInterface
+	IP              *MatchIP
+	IPv6            *MatchIPv6
+	LargeCommunity  *MatchLargeCommunity
+	Length          *Length
+	LocalPreference *LocalPreference
+	MdtGroup        *MdtGroup
+	Metric          *MatchMetric
+	MplsLabel       *bool
+	OmpTag          *uint32
+	PolicyList      *PolicyList
+	RouteType       *RouteType
+	Rpki            *Rpki
+	SourceProtocol  *SourceProtocol
+	Tag             *MatchTag
+	Track           *uint16
+	TrafficSteering *TrafficSteering
+	CiscoIOSXEBGP   *ciscoiosxebgp.MatchAugment
+}
+
+// MatchSchema describes Match for the generic codecs.
+var MatchSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: AdditionalPathsSchema, GoName: "AdditionalPaths", Name: "additional-paths"},
+		{Child: MatchAsPathSchema, GoName: "AsPath", Name: "as-path"},
+		{Child: MatchClnsSchema, GoName: "Clns", Name: "clns"},
+		{Child: MatchCommunitySchema, GoName: "Community", Name: "community"},
+		{Child: MatchExtcommunitySchema, GoName: "Extcommunity", Name: "extcommunity"},
+		{Child: MatchInterfaceSchema, GoName: "Interface", Name: "interface"},
+		{Child: MatchIPSchema, GoName: "IP", Name: "ip"},
+		{Child: MatchIPv6Schema, GoName: "IPv6", Name: "ipv6"},
+		{Child: MatchLargeCommunitySchema, GoName: "LargeCommunity", Name: "large-community"},
+		{Child: LengthSchema, GoName: "Length", Name: "length"},
+		{Child: LocalPreferenceSchema, GoName: "LocalPreference", Name: "local-preference"},
+		{Child: MdtGroupSchema, GoName: "MdtGroup", Name: "mdt-group"},
+		{Child: MatchMetricSchema, GoName: "Metric", Name: "metric"},
+		{GoName: "MplsLabel", Name: "mpls-label", Type: yang.TEmpty},
+		{GoName: "OmpTag", Name: "omp-tag", Type: yang.TUint32},
+		{Child: PolicyListSchema, GoName: "PolicyList", Name: "policy-list"},
+		{Child: RouteTypeSchema, GoName: "RouteType", Name: "route-type"},
+		{Child: RpkiSchema, GoName: "Rpki", Name: "rpki"},
+		{Child: SourceProtocolSchema, GoName: "SourceProtocol", Name: "source-protocol"},
+		{Child: MatchTagSchema, GoName: "Tag", Name: "tag"},
+		{GoName: "Track", Name: "track", Type: yang.TUint16},
+		{Child: TrafficSteeringSchema, GoName: "TrafficSteering", Name: "traffic-steering"},
+		{Child: ciscoiosxebgp.MatchAugmentSchema, GoName: "CiscoIOSXEBGP", Group: true},
+	},
+	Module: moduleCiscoIOSXERouteMap,
+	Name:   "match",
+}
+
 // MatchAsPath is the Cisco-IOS-XE-route-map node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-seq/match/as-path.
 type MatchAsPath struct {
 	AccessList []uint16
@@ -2050,11 +2102,11 @@ type RouteMapSeq struct {
 	Continue     *Continue
 	Description  *string
 	Descriptions []Descriptions
-	Match        *RouteMapSeqMatch
+	Match        *Match
 	Operation    *string
 	OrderingSeq  *string
 	Sequence     *uint16
-	Set          *RouteMapSeqSet
+	Set          *Set
 }
 
 // RouteMapSeqSchema describes RouteMapSeq for the generic codecs.
@@ -2063,154 +2115,15 @@ var RouteMapSeqSchema = &yang.Schema{
 		{Child: ContinueSchema, GoName: "Continue", Name: "continue"},
 		{GoName: "Description", Name: "description", Type: yang.TString},
 		{Child: DescriptionsSchema, GoName: "Descriptions", List: true, Name: "descriptions"},
-		{Child: RouteMapSeqMatchSchema, GoName: "Match", Name: "match"},
+		{Child: MatchSchema, GoName: "Match", Name: "match"},
 		{GoName: "Operation", Name: "operation", Type: yang.TEnum},
 		{GoName: "OrderingSeq", Name: "ordering-seq", Type: yang.TString},
 		{GoName: "Sequence", Name: "sequence", Type: yang.TUint16},
-		{Child: RouteMapSeqSetSchema, GoName: "Set", Name: "set"},
+		{Child: SetSchema, GoName: "Set", Name: "set"},
 	},
 	Keys:   []string{"ordering-seq"},
 	Module: moduleCiscoIOSXERouteMap,
 	Name:   "route-map-seq",
-}
-
-// RouteMapSeqMatch is the Cisco-IOS-XE-route-map node /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-seq/match.
-type RouteMapSeqMatch struct {
-	AdditionalPaths *AdditionalPaths
-	AsPath          *MatchAsPath
-	Clns            *MatchClns
-	Community       *MatchCommunity
-	Extcommunity    *MatchExtcommunity
-	Interface       *MatchInterface
-	IP              *MatchIP
-	IPv6            *MatchIPv6
-	LargeCommunity  *MatchLargeCommunity
-	Length          *Length
-	LocalPreference *LocalPreference
-	MdtGroup        *MdtGroup
-	Metric          *MatchMetric
-	MplsLabel       *bool
-	OmpTag          *uint32
-	PolicyList      *PolicyList
-	RouteType       *RouteType
-	Rpki            *Rpki
-	SourceProtocol  *SourceProtocol
-	Tag             *MatchTag
-	Track           *uint16
-	TrafficSteering *TrafficSteering
-	CiscoIOSXEBGP   *ciscoiosxebgp.RouteMapSeqMatchAugment
-}
-
-// RouteMapSeqMatchSchema describes RouteMapSeqMatch for the generic codecs.
-var RouteMapSeqMatchSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdditionalPathsSchema, GoName: "AdditionalPaths", Name: "additional-paths"},
-		{Child: MatchAsPathSchema, GoName: "AsPath", Name: "as-path"},
-		{Child: MatchClnsSchema, GoName: "Clns", Name: "clns"},
-		{Child: MatchCommunitySchema, GoName: "Community", Name: "community"},
-		{Child: MatchExtcommunitySchema, GoName: "Extcommunity", Name: "extcommunity"},
-		{Child: MatchInterfaceSchema, GoName: "Interface", Name: "interface"},
-		{Child: MatchIPSchema, GoName: "IP", Name: "ip"},
-		{Child: MatchIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: MatchLargeCommunitySchema, GoName: "LargeCommunity", Name: "large-community"},
-		{Child: LengthSchema, GoName: "Length", Name: "length"},
-		{Child: LocalPreferenceSchema, GoName: "LocalPreference", Name: "local-preference"},
-		{Child: MdtGroupSchema, GoName: "MdtGroup", Name: "mdt-group"},
-		{Child: MatchMetricSchema, GoName: "Metric", Name: "metric"},
-		{GoName: "MplsLabel", Name: "mpls-label", Type: yang.TEmpty},
-		{GoName: "OmpTag", Name: "omp-tag", Type: yang.TUint32},
-		{Child: PolicyListSchema, GoName: "PolicyList", Name: "policy-list"},
-		{Child: RouteTypeSchema, GoName: "RouteType", Name: "route-type"},
-		{Child: RpkiSchema, GoName: "Rpki", Name: "rpki"},
-		{Child: SourceProtocolSchema, GoName: "SourceProtocol", Name: "source-protocol"},
-		{Child: MatchTagSchema, GoName: "Tag", Name: "tag"},
-		{GoName: "Track", Name: "track", Type: yang.TUint16},
-		{Child: TrafficSteeringSchema, GoName: "TrafficSteering", Name: "traffic-steering"},
-		{Child: ciscoiosxebgp.RouteMapSeqMatchAugmentSchema, GoName: "CiscoIOSXEBGP", Group: true},
-	},
-	Module: moduleCiscoIOSXERouteMap,
-	Name:   "match",
-}
-
-// RouteMapSeqSet is the Cisco-IOS-XE-route-map node /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-seq/set.
-type RouteMapSeqSet struct {
-	AigpMetric      *AigpMetric
-	AsPath          *SetAsPath
-	AttributeSet    *string
-	AutomaticTag    *bool
-	Clns            *SetClns
-	CommList        *CommList
-	Community       *SetCommunity
-	Dampening       *Dampening
-	Default         *SetDefault
-	ExtcommList     *ExtcommList
-	Extcommunity    *SetExtcommunity
-	Global          *bool
-	Interface       *Interface
-	InterfaceList   []string
-	IP              *SetIP
-	IPv6            *SetIPv6
-	LargeCommunity  *SetLargeCommunity
-	LargecommList   *LargecommList
-	Level           *Level
-	Lisp            *Lisp
-	LocalPreference *uint32
-	Metric          *SetMetric
-	MetricType      *string
-	MplsLabel       *bool
-	Nlri            *Nlri
-	OmpTag          *uint32
-	Origin          *Origin
-	Tag             *SetTag
-	TagVal          *yang.Value
-	TrafficIndex    *uint8
-	VRF             *string
-	Weight          *uint32
-	CiscoIOSXEBGP   *ciscoiosxebgp.RouteMapSeqSetAugment
-}
-
-// RouteMapSeqSetSchema describes RouteMapSeqSet for the generic codecs.
-var RouteMapSeqSetSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AigpMetricSchema, GoName: "AigpMetric", Name: "aigp-metric"},
-		{Child: SetAsPathSchema, GoName: "AsPath", Name: "as-path"},
-		{GoName: "AttributeSet", Name: "attribute-set", Type: yang.TString},
-		{GoName: "AutomaticTag", Name: "automatic-tag", Type: yang.TEmpty},
-		{Child: SetClnsSchema, GoName: "Clns", Name: "clns"},
-		{Child: CommListSchema, GoName: "CommList", Name: "comm-list"},
-		{Child: SetCommunitySchema, GoName: "Community", Name: "community"},
-		{Child: DampeningSchema, GoName: "Dampening", Name: "dampening"},
-		{Child: SetDefaultSchema, GoName: "Default", Name: "default"},
-		{Child: ExtcommListSchema, GoName: "ExtcommList", Name: "extcomm-list"},
-		{Child: SetExtcommunitySchema, GoName: "Extcommunity", Name: "extcommunity"},
-		{GoName: "Global", Name: "global", Type: yang.TEmpty},
-		{Child: InterfaceSchema, GoName: "Interface", Name: "interface"},
-		{GoName: "InterfaceList", LeafList: true, Name: "interface-list", Type: yang.TString},
-		{Child: SetIPSchema, GoName: "IP", Name: "ip"},
-		{Child: SetIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: SetLargeCommunitySchema, GoName: "LargeCommunity", Name: "large-community"},
-		{Child: LargecommListSchema, GoName: "LargecommList", Name: "largecomm-list"},
-		{Child: LevelSchema, GoName: "Level", Name: "level"},
-		{Child: LispSchema, GoName: "Lisp", Name: "lisp"},
-		{GoName: "LocalPreference", Name: "local-preference", Type: yang.TUint32},
-		{Child: SetMetricSchema, GoName: "Metric", Name: "metric"},
-		{GoName: "MetricType", Name: "metric-type", Type: yang.TEnum},
-		{GoName: "MplsLabel", Name: "mpls-label", Type: yang.TEmpty},
-		{Child: NlriSchema, GoName: "Nlri", Name: "nlri"},
-		{GoName: "OmpTag", Name: "omp-tag", Type: yang.TUint32},
-		{Child: OriginSchema, GoName: "Origin", Name: "origin"},
-		{Child: SetTagSchema, GoName: "Tag", Name: "tag"},
-		{GoName: "TagVal", Name: "tag-val", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeString}},
-		}},
-		{GoName: "TrafficIndex", Name: "traffic-index", Type: yang.TUint8},
-		{GoName: "VRF", Name: "vrf", Type: yang.TString},
-		{GoName: "Weight", Name: "weight", Type: yang.TUint32},
-		{Child: ciscoiosxebgp.RouteMapSeqSetAugmentSchema, GoName: "CiscoIOSXEBGP", Group: true},
-	},
-	Module: moduleCiscoIOSXERouteMap,
-	Name:   "set",
 }
 
 // RouteMapWithoutOrderSeq is the Cisco-IOS-XE-route-map node /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-without-order-seq.
@@ -2218,10 +2131,10 @@ type RouteMapWithoutOrderSeq struct {
 	Continue     *Continue
 	Description  *string
 	Descriptions []Descriptions
-	Match        *RouteMapWithoutOrderSeqMatch
+	Match        *Match
 	Operation    *string
 	SeqNo        *uint16
-	Set          *RouteMapWithoutOrderSeqSet
+	Set          *Set
 }
 
 // RouteMapWithoutOrderSeqSchema describes RouteMapWithoutOrderSeq for the generic codecs.
@@ -2230,153 +2143,14 @@ var RouteMapWithoutOrderSeqSchema = &yang.Schema{
 		{Child: ContinueSchema, GoName: "Continue", Name: "continue"},
 		{GoName: "Description", Name: "description", Type: yang.TString},
 		{Child: DescriptionsSchema, GoName: "Descriptions", List: true, Name: "descriptions"},
-		{Child: RouteMapWithoutOrderSeqMatchSchema, GoName: "Match", Name: "match"},
+		{Child: MatchSchema, GoName: "Match", Name: "match"},
 		{GoName: "Operation", Name: "operation", Type: yang.TEnum},
 		{GoName: "SeqNo", Name: "seq_no", Type: yang.TUint16},
-		{Child: RouteMapWithoutOrderSeqSetSchema, GoName: "Set", Name: "set"},
+		{Child: SetSchema, GoName: "Set", Name: "set"},
 	},
 	Keys:   []string{"seq_no"},
 	Module: moduleCiscoIOSXERouteMap,
 	Name:   "route-map-without-order-seq",
-}
-
-// RouteMapWithoutOrderSeqMatch is the Cisco-IOS-XE-route-map node /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-without-order-seq/match.
-type RouteMapWithoutOrderSeqMatch struct {
-	AdditionalPaths *AdditionalPaths
-	AsPath          *MatchAsPath
-	Clns            *MatchClns
-	Community       *MatchCommunity
-	Extcommunity    *MatchExtcommunity
-	Interface       *MatchInterface
-	IP              *MatchIP
-	IPv6            *MatchIPv6
-	LargeCommunity  *MatchLargeCommunity
-	Length          *Length
-	LocalPreference *LocalPreference
-	MdtGroup        *MdtGroup
-	Metric          *MatchMetric
-	MplsLabel       *bool
-	OmpTag          *uint32
-	PolicyList      *PolicyList
-	RouteType       *RouteType
-	Rpki            *Rpki
-	SourceProtocol  *SourceProtocol
-	Tag             *MatchTag
-	Track           *uint16
-	TrafficSteering *TrafficSteering
-	CiscoIOSXEBGP   *ciscoiosxebgp.RouteMapWithoutOrderSeqMatchAugment
-}
-
-// RouteMapWithoutOrderSeqMatchSchema describes RouteMapWithoutOrderSeqMatch for the generic codecs.
-var RouteMapWithoutOrderSeqMatchSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdditionalPathsSchema, GoName: "AdditionalPaths", Name: "additional-paths"},
-		{Child: MatchAsPathSchema, GoName: "AsPath", Name: "as-path"},
-		{Child: MatchClnsSchema, GoName: "Clns", Name: "clns"},
-		{Child: MatchCommunitySchema, GoName: "Community", Name: "community"},
-		{Child: MatchExtcommunitySchema, GoName: "Extcommunity", Name: "extcommunity"},
-		{Child: MatchInterfaceSchema, GoName: "Interface", Name: "interface"},
-		{Child: MatchIPSchema, GoName: "IP", Name: "ip"},
-		{Child: MatchIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: MatchLargeCommunitySchema, GoName: "LargeCommunity", Name: "large-community"},
-		{Child: LengthSchema, GoName: "Length", Name: "length"},
-		{Child: LocalPreferenceSchema, GoName: "LocalPreference", Name: "local-preference"},
-		{Child: MdtGroupSchema, GoName: "MdtGroup", Name: "mdt-group"},
-		{Child: MatchMetricSchema, GoName: "Metric", Name: "metric"},
-		{GoName: "MplsLabel", Name: "mpls-label", Type: yang.TEmpty},
-		{GoName: "OmpTag", Name: "omp-tag", Type: yang.TUint32},
-		{Child: PolicyListSchema, GoName: "PolicyList", Name: "policy-list"},
-		{Child: RouteTypeSchema, GoName: "RouteType", Name: "route-type"},
-		{Child: RpkiSchema, GoName: "Rpki", Name: "rpki"},
-		{Child: SourceProtocolSchema, GoName: "SourceProtocol", Name: "source-protocol"},
-		{Child: MatchTagSchema, GoName: "Tag", Name: "tag"},
-		{GoName: "Track", Name: "track", Type: yang.TUint16},
-		{Child: TrafficSteeringSchema, GoName: "TrafficSteering", Name: "traffic-steering"},
-		{Child: ciscoiosxebgp.RouteMapWithoutOrderSeqMatchAugmentSchema, GoName: "CiscoIOSXEBGP", Group: true},
-	},
-	Module: moduleCiscoIOSXERouteMap,
-	Name:   "match",
-}
-
-// RouteMapWithoutOrderSeqSet is the Cisco-IOS-XE-route-map node /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-without-order-seq/set.
-type RouteMapWithoutOrderSeqSet struct {
-	AigpMetric      *AigpMetric
-	AsPath          *SetAsPath
-	AttributeSet    *string
-	AutomaticTag    *bool
-	Clns            *SetClns
-	CommList        *CommList
-	Community       *SetCommunity
-	Dampening       *Dampening
-	Default         *SetDefault
-	ExtcommList     *ExtcommList
-	Extcommunity    *SetExtcommunity
-	Global          *bool
-	Interface       *Interface
-	InterfaceList   []string
-	IP              *SetIP
-	IPv6            *SetIPv6
-	LargeCommunity  *SetLargeCommunity
-	LargecommList   *LargecommList
-	Level           *Level
-	Lisp            *Lisp
-	LocalPreference *uint32
-	Metric          *SetMetric
-	MetricType      *string
-	MplsLabel       *bool
-	Nlri            *Nlri
-	OmpTag          *uint32
-	Origin          *Origin
-	Tag             *SetTag
-	TagVal          *yang.Value
-	TrafficIndex    *uint8
-	VRF             *string
-	Weight          *uint32
-	CiscoIOSXEBGP   *ciscoiosxebgp.RouteMapWithoutOrderSeqSetAugment
-}
-
-// RouteMapWithoutOrderSeqSetSchema describes RouteMapWithoutOrderSeqSet for the generic codecs.
-var RouteMapWithoutOrderSeqSetSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AigpMetricSchema, GoName: "AigpMetric", Name: "aigp-metric"},
-		{Child: SetAsPathSchema, GoName: "AsPath", Name: "as-path"},
-		{GoName: "AttributeSet", Name: "attribute-set", Type: yang.TString},
-		{GoName: "AutomaticTag", Name: "automatic-tag", Type: yang.TEmpty},
-		{Child: SetClnsSchema, GoName: "Clns", Name: "clns"},
-		{Child: CommListSchema, GoName: "CommList", Name: "comm-list"},
-		{Child: SetCommunitySchema, GoName: "Community", Name: "community"},
-		{Child: DampeningSchema, GoName: "Dampening", Name: "dampening"},
-		{Child: SetDefaultSchema, GoName: "Default", Name: "default"},
-		{Child: ExtcommListSchema, GoName: "ExtcommList", Name: "extcomm-list"},
-		{Child: SetExtcommunitySchema, GoName: "Extcommunity", Name: "extcommunity"},
-		{GoName: "Global", Name: "global", Type: yang.TEmpty},
-		{Child: InterfaceSchema, GoName: "Interface", Name: "interface"},
-		{GoName: "InterfaceList", LeafList: true, Name: "interface-list", Type: yang.TString},
-		{Child: SetIPSchema, GoName: "IP", Name: "ip"},
-		{Child: SetIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: SetLargeCommunitySchema, GoName: "LargeCommunity", Name: "large-community"},
-		{Child: LargecommListSchema, GoName: "LargecommList", Name: "largecomm-list"},
-		{Child: LevelSchema, GoName: "Level", Name: "level"},
-		{Child: LispSchema, GoName: "Lisp", Name: "lisp"},
-		{GoName: "LocalPreference", Name: "local-preference", Type: yang.TUint32},
-		{Child: SetMetricSchema, GoName: "Metric", Name: "metric"},
-		{GoName: "MetricType", Name: "metric-type", Type: yang.TEnum},
-		{GoName: "MplsLabel", Name: "mpls-label", Type: yang.TEmpty},
-		{Child: NlriSchema, GoName: "Nlri", Name: "nlri"},
-		{GoName: "OmpTag", Name: "omp-tag", Type: yang.TUint32},
-		{Child: OriginSchema, GoName: "Origin", Name: "origin"},
-		{Child: SetTagSchema, GoName: "Tag", Name: "tag"},
-		{GoName: "TagVal", Name: "tag-val", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeString}},
-		}},
-		{GoName: "TrafficIndex", Name: "traffic-index", Type: yang.TUint8},
-		{GoName: "VRF", Name: "vrf", Type: yang.TString},
-		{GoName: "Weight", Name: "weight", Type: yang.TUint32},
-		{Child: ciscoiosxebgp.RouteMapWithoutOrderSeqSetAugmentSchema, GoName: "CiscoIOSXEBGP", Group: true},
-	},
-	Module: moduleCiscoIOSXERouteMap,
-	Name:   "set",
 }
 
 // RouteType is the Cisco-IOS-XE-route-map node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-seq/match/route-type.
@@ -2457,6 +2231,87 @@ var SequenceIDSchema = &yang.Schema{
 	Keys:   []string{"seq-id"},
 	Module: moduleCiscoIOSXERouteMap,
 	Name:   "sequence-id",
+}
+
+// Set is the Cisco-IOS-XE-route-map node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-seq/set.
+type Set struct {
+	AigpMetric      *AigpMetric
+	AsPath          *SetAsPath
+	AttributeSet    *string
+	AutomaticTag    *bool
+	Clns            *SetClns
+	CommList        *CommList
+	Community       *SetCommunity
+	Dampening       *Dampening
+	Default         *SetDefault
+	ExtcommList     *ExtcommList
+	Extcommunity    *SetExtcommunity
+	Global          *bool
+	Interface       *Interface
+	InterfaceList   []string
+	IP              *SetIP
+	IPv6            *SetIPv6
+	LargeCommunity  *SetLargeCommunity
+	LargecommList   *LargecommList
+	Level           *Level
+	Lisp            *Lisp
+	LocalPreference *uint32
+	Metric          *SetMetric
+	MetricType      *string
+	MplsLabel       *bool
+	Nlri            *Nlri
+	OmpTag          *uint32
+	Origin          *Origin
+	Tag             *SetTag
+	TagVal          *yang.Value
+	TrafficIndex    *uint8
+	VRF             *string
+	Weight          *uint32
+	CiscoIOSXEBGP   *ciscoiosxebgp.SetAugment
+}
+
+// SetSchema describes Set for the generic codecs.
+var SetSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: AigpMetricSchema, GoName: "AigpMetric", Name: "aigp-metric"},
+		{Child: SetAsPathSchema, GoName: "AsPath", Name: "as-path"},
+		{GoName: "AttributeSet", Name: "attribute-set", Type: yang.TString},
+		{GoName: "AutomaticTag", Name: "automatic-tag", Type: yang.TEmpty},
+		{Child: SetClnsSchema, GoName: "Clns", Name: "clns"},
+		{Child: CommListSchema, GoName: "CommList", Name: "comm-list"},
+		{Child: SetCommunitySchema, GoName: "Community", Name: "community"},
+		{Child: DampeningSchema, GoName: "Dampening", Name: "dampening"},
+		{Child: SetDefaultSchema, GoName: "Default", Name: "default"},
+		{Child: ExtcommListSchema, GoName: "ExtcommList", Name: "extcomm-list"},
+		{Child: SetExtcommunitySchema, GoName: "Extcommunity", Name: "extcommunity"},
+		{GoName: "Global", Name: "global", Type: yang.TEmpty},
+		{Child: InterfaceSchema, GoName: "Interface", Name: "interface"},
+		{GoName: "InterfaceList", LeafList: true, Name: "interface-list", Type: yang.TString},
+		{Child: SetIPSchema, GoName: "IP", Name: "ip"},
+		{Child: SetIPv6Schema, GoName: "IPv6", Name: "ipv6"},
+		{Child: SetLargeCommunitySchema, GoName: "LargeCommunity", Name: "large-community"},
+		{Child: LargecommListSchema, GoName: "LargecommList", Name: "largecomm-list"},
+		{Child: LevelSchema, GoName: "Level", Name: "level"},
+		{Child: LispSchema, GoName: "Lisp", Name: "lisp"},
+		{GoName: "LocalPreference", Name: "local-preference", Type: yang.TUint32},
+		{Child: SetMetricSchema, GoName: "Metric", Name: "metric"},
+		{GoName: "MetricType", Name: "metric-type", Type: yang.TEnum},
+		{GoName: "MplsLabel", Name: "mpls-label", Type: yang.TEmpty},
+		{Child: NlriSchema, GoName: "Nlri", Name: "nlri"},
+		{GoName: "OmpTag", Name: "omp-tag", Type: yang.TUint32},
+		{Child: OriginSchema, GoName: "Origin", Name: "origin"},
+		{Child: SetTagSchema, GoName: "Tag", Name: "tag"},
+		{GoName: "TagVal", Name: "tag-val", Type: &yang.Type{
+			Kind:    yang.TypeUnion,
+			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeString}},
+		}},
+		{GoName: "TrafficIndex", Name: "traffic-index", Type: yang.TUint8},
+		{GoName: "VRF", Name: "vrf", Type: yang.TString},
+		{GoName: "Weight", Name: "weight", Type: yang.TUint32},
+		{Child: ciscoiosxebgp.SetAugmentSchema, GoName: "CiscoIOSXEBGP", Group: true},
+	},
+	Module: moduleCiscoIOSXERouteMap,
+	Name:   "set",
 }
 
 // SetAsPath is the Cisco-IOS-XE-route-map node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/route-map/Cisco-IOS-XE-route-map:route-map-seq/set/as-path.

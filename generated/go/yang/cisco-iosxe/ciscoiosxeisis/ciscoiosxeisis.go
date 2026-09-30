@@ -17,12 +17,6 @@ var moduleCiscoIOSXEIsis = &yang.Module{
 	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-isis",
 }
 
-// moduleCiscoIOSXESegmentRouting identifies the Cisco-IOS-XE-segment-routing YANG module.
-var moduleCiscoIOSXESegmentRouting = &yang.Module{
-	Name:      "Cisco-IOS-XE-segment-routing",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-segment-routing",
-}
-
 // ACL is the Cisco-IOS-XE-isis node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis-container/isis/distribute-list/acl.
 type ACL struct {
 	ACLName *yang.Value
@@ -81,6 +75,85 @@ var AccessConfigSchema = &yang.Schema{
 	},
 	Module: moduleCiscoIOSXEIsis,
 	Name:   "access-config",
+}
+
+// AddressFamily is the Cisco-IOS-XE-isis node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis-container/isis/address-family.
+type AddressFamily struct {
+	IPv4 []IPv4
+	IPv6 []AddressFamilyIPv6
+}
+
+// AddressFamilySchema describes AddressFamily for the generic codecs.
+var AddressFamilySchema = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: IPv4Schema, GoName: "IPv4", List: true, Name: "ipv4"},
+		{Child: AddressFamilyIPv6Schema, GoName: "IPv6", List: true, Name: "ipv6"},
+	},
+	Module: moduleCiscoIOSXEIsis,
+	Name:   "address-family",
+}
+
+// AddressFamilyIPv6 is the Cisco-IOS-XE-isis node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis-container/isis/address-family/ipv6.
+type AddressFamilyIPv6 struct {
+	Adjacency                *Adjacency
+	AdjacencyCheck           *bool
+	Advertise                *Advertise
+	Bfd                      *IPv6Bfd
+	DefaultInformation       *DefaultInformation
+	Distance                 *uint32
+	DistributeList           *IPv6DistributeList
+	FastReroute              *AddressFamilyIPv6FastReroute
+	IPv6                     *IPv6IPv6
+	MaximumPaths             *uint32
+	Metric                   *MetricX53c965
+	MultiTopology            *MultiTopology
+	PrcInterval              *PrcInterval
+	Receive                  *Receive
+	Redistribute             *IPv6Redistribute
+	RouterID                 *string
+	SetAttachedBit           *SetAttachedBit
+	SetOverloadBit           *SetOverloadBit
+	SpfInterval              *SpfInterval
+	SummaryPrefix            []SummaryPrefix
+	Ucmp                     *Ucmp
+	UloopAvoidance           *IPv6UloopAvoidance
+	UloopRibupdate           *UloopRibupdate
+	V6AddressFamilyTypes     *string
+	CiscoIOSXESegmentRouting *ciscoiosxesegmentrouting.IPv6Augment
+}
+
+// AddressFamilyIPv6Schema describes AddressFamilyIPv6 for the generic codecs.
+var AddressFamilyIPv6Schema = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: AdjacencySchema, GoName: "Adjacency", Name: "adjacency"},
+		{GoName: "AdjacencyCheck", Name: "adjacency-check", Type: yang.TEmpty},
+		{Child: AdvertiseSchema, GoName: "Advertise", Name: "advertise"},
+		{Child: IPv6BfdSchema, GoName: "Bfd", Name: "bfd"},
+		{Child: DefaultInformationSchema, GoName: "DefaultInformation", Name: "default-information"},
+		{GoName: "Distance", Name: "distance", Type: yang.TUint32},
+		{Child: IPv6DistributeListSchema, GoName: "DistributeList", Name: "distribute-list"},
+		{Child: AddressFamilyIPv6FastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
+		{Child: IPv6IPv6Schema, GoName: "IPv6", Name: "ipv6"},
+		{GoName: "MaximumPaths", Name: "maximum-paths", Type: yang.TUint32},
+		{Child: MetricSchemaX599f53, GoName: "Metric", Name: "metric"},
+		{Child: MultiTopologySchema, GoName: "MultiTopology", Name: "multi-topology"},
+		{Child: PrcIntervalSchema, GoName: "PrcInterval", Name: "prc-interval"},
+		{Child: ReceiveSchema, GoName: "Receive", Name: "receive"},
+		{Child: IPv6RedistributeSchema, GoName: "Redistribute", Name: "redistribute"},
+		{GoName: "RouterID", Name: "router-id", Type: yang.TString},
+		{Child: SetAttachedBitSchema, GoName: "SetAttachedBit", Name: "set-attached-bit"},
+		{Child: SetOverloadBitSchema, GoName: "SetOverloadBit", Name: "set-overload-bit"},
+		{Child: SpfIntervalSchema, GoName: "SpfInterval", Name: "spf-interval"},
+		{Child: SummaryPrefixSchema, GoName: "SummaryPrefix", List: true, Name: "summary-prefix"},
+		{Child: UcmpSchema, GoName: "Ucmp", Name: "ucmp"},
+		{Child: IPv6UloopAvoidanceSchema, GoName: "UloopAvoidance", Name: "uloop-avoidance"},
+		{Child: UloopRibupdateSchema, GoName: "UloopRibupdate", Name: "uloop-ribupdate"},
+		{GoName: "V6AddressFamilyTypes", Name: "v6-address-family-types", Type: yang.TEnum},
+		{Child: ciscoiosxesegmentrouting.IPv6AugmentSchema, GoName: "CiscoIOSXESegmentRouting", Group: true},
+	},
+	Keys:   []string{"v6-address-family-types"},
+	Module: moduleCiscoIOSXEIsis,
+	Name:   "ipv6",
 }
 
 // AddressFamilyIPv6FastReroute is the Cisco-IOS-XE-isis node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis-container/isis/address-family/ipv6/fast-reroute.
@@ -2309,7 +2382,7 @@ var IsisContainerSchema = &yang.Schema{
 
 // IsisContainerIsis is the Cisco-IOS-XE-isis node /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis-container/isis.
 type IsisContainerIsis struct {
-	AddressFamily            *IsisContainerIsisAddressFamily
+	AddressFamily            *AddressFamily
 	Adjacency                *Adjacency
 	AdjacencyCheck           *bool
 	Advertise                *Advertise
@@ -2371,13 +2444,13 @@ type IsisContainerIsis struct {
 	UpdateQueueDepth         *uint32
 	Use                      *Use
 	VRF                      *string
-	CiscoIOSXESegmentRouting *ciscoiosxesegmentrouting.IsisContainerIsisAugment
+	CiscoIOSXESegmentRouting *ciscoiosxesegmentrouting.IsisAugment
 }
 
 // IsisContainerIsisSchema describes IsisContainerIsis for the generic codecs.
 var IsisContainerIsisSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{Child: IsisContainerIsisAddressFamilySchema, GoName: "AddressFamily", Name: "address-family"},
+		{Child: AddressFamilySchema, GoName: "AddressFamily", Name: "address-family"},
 		{Child: AdjacencySchema, GoName: "Adjacency", Name: "adjacency"},
 		{GoName: "AdjacencyCheck", Name: "adjacency-check", Type: yang.TEmpty},
 		{Child: AdvertiseSchema, GoName: "Advertise", Name: "advertise"},
@@ -2439,90 +2512,11 @@ var IsisContainerIsisSchema = &yang.Schema{
 		{GoName: "UpdateQueueDepth", Name: "update-queue-depth", Type: yang.TUint32},
 		{Child: UseSchema, GoName: "Use", Name: "use"},
 		{GoName: "VRF", Name: "vrf", Type: yang.TString},
-		{Child: ciscoiosxesegmentrouting.IsisContainerIsisAugmentSchema, GoName: "CiscoIOSXESegmentRouting", Group: true},
+		{Child: ciscoiosxesegmentrouting.IsisAugmentSchema, GoName: "CiscoIOSXESegmentRouting", Group: true},
 	},
 	Keys:   []string{"area-tag"},
 	Module: moduleCiscoIOSXEIsis,
 	Name:   "isis",
-}
-
-// IsisContainerIsisAddressFamily is the Cisco-IOS-XE-isis node /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis-container/isis/address-family.
-type IsisContainerIsisAddressFamily struct {
-	IPv4 []IPv4
-	IPv6 []IsisContainerIsisAddressFamilyIPv6
-}
-
-// IsisContainerIsisAddressFamilySchema describes IsisContainerIsisAddressFamily for the generic codecs.
-var IsisContainerIsisAddressFamilySchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv4Schema, GoName: "IPv4", List: true, Name: "ipv4"},
-		{Child: IsisContainerIsisAddressFamilyIPv6Schema, GoName: "IPv6", List: true, Name: "ipv6"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-	Name:   "address-family",
-}
-
-// IsisContainerIsisAddressFamilyIPv6 is the Cisco-IOS-XE-isis node /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis-container/isis/address-family/ipv6.
-type IsisContainerIsisAddressFamilyIPv6 struct {
-	Adjacency                *Adjacency
-	AdjacencyCheck           *bool
-	Advertise                *Advertise
-	Bfd                      *IPv6Bfd
-	DefaultInformation       *DefaultInformation
-	Distance                 *uint32
-	DistributeList           *IPv6DistributeList
-	FastReroute              *AddressFamilyIPv6FastReroute
-	IPv6                     *IPv6IPv6
-	MaximumPaths             *uint32
-	Metric                   *MetricX53c965
-	MultiTopology            *MultiTopology
-	PrcInterval              *PrcInterval
-	Receive                  *Receive
-	Redistribute             *IPv6Redistribute
-	RouterID                 *string
-	SetAttachedBit           *SetAttachedBit
-	SetOverloadBit           *SetOverloadBit
-	SpfInterval              *SpfInterval
-	SummaryPrefix            []SummaryPrefix
-	Ucmp                     *Ucmp
-	UloopAvoidance           *IPv6UloopAvoidance
-	UloopRibupdate           *UloopRibupdate
-	V6AddressFamilyTypes     *string
-	CiscoIOSXESegmentRouting *ciscoiosxesegmentrouting.IsisContainerIsisAddressFamilyIPv6Augment
-}
-
-// IsisContainerIsisAddressFamilyIPv6Schema describes IsisContainerIsisAddressFamilyIPv6 for the generic codecs.
-var IsisContainerIsisAddressFamilyIPv6Schema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencySchema, GoName: "Adjacency", Name: "adjacency"},
-		{GoName: "AdjacencyCheck", Name: "adjacency-check", Type: yang.TEmpty},
-		{Child: AdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IPv6BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: DefaultInformationSchema, GoName: "DefaultInformation", Name: "default-information"},
-		{GoName: "Distance", Name: "distance", Type: yang.TUint32},
-		{Child: IPv6DistributeListSchema, GoName: "DistributeList", Name: "distribute-list"},
-		{Child: AddressFamilyIPv6FastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IPv6IPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{GoName: "MaximumPaths", Name: "maximum-paths", Type: yang.TUint32},
-		{Child: MetricSchemaX599f53, GoName: "Metric", Name: "metric"},
-		{Child: MultiTopologySchema, GoName: "MultiTopology", Name: "multi-topology"},
-		{Child: PrcIntervalSchema, GoName: "PrcInterval", Name: "prc-interval"},
-		{Child: ReceiveSchema, GoName: "Receive", Name: "receive"},
-		{Child: IPv6RedistributeSchema, GoName: "Redistribute", Name: "redistribute"},
-		{GoName: "RouterID", Name: "router-id", Type: yang.TString},
-		{Child: SetAttachedBitSchema, GoName: "SetAttachedBit", Name: "set-attached-bit"},
-		{Child: SetOverloadBitSchema, GoName: "SetOverloadBit", Name: "set-overload-bit"},
-		{Child: SpfIntervalSchema, GoName: "SpfInterval", Name: "spf-interval"},
-		{Child: SummaryPrefixSchema, GoName: "SummaryPrefix", List: true, Name: "summary-prefix"},
-		{Child: UcmpSchema, GoName: "Ucmp", Name: "ucmp"},
-		{Child: IPv6UloopAvoidanceSchema, GoName: "UloopAvoidance", Name: "uloop-avoidance"},
-		{Child: UloopRibupdateSchema, GoName: "UloopRibupdate", Name: "uloop-ribupdate"},
-		{GoName: "V6AddressFamilyTypes", Name: "v6-address-family-types", Type: yang.TEnum},
-		{Child: ciscoiosxesegmentrouting.IsisContainerIsisAddressFamilyIPv6AugmentSchema, GoName: "CiscoIOSXESegmentRouting", Group: true},
-	},
-	Keys:   []string{"v6-address-family-types"},
-	Module: moduleCiscoIOSXEIsis,
-	Name:   "ipv6",
 }
 
 // IsisDelay is the Cisco-IOS-XE-isis node shape instantiated at 18 schema paths, such as /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/isis/Cisco-IOS-XE-isis:delay.
@@ -3889,7 +3883,7 @@ var NatRouteSchema = &yang.Schema{
 
 // NativeRouterIsis is the Cisco-IOS-XE-isis node /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis.
 type NativeRouterIsis struct {
-	AddressFamily            *RouterIsisAddressFamily
+	AddressFamily            *AddressFamily
 	Adjacency                *Adjacency
 	AdjacencyCheck           *bool
 	Advertise                *Advertise
@@ -3950,13 +3944,13 @@ type NativeRouterIsis struct {
 	UpdateQueueDepth         *uint32
 	Use                      *Use
 	VRF                      *string
-	CiscoIOSXESegmentRouting *ciscoiosxesegmentrouting.RouterIsisAugment
+	CiscoIOSXESegmentRouting *ciscoiosxesegmentrouting.IsisAugment
 }
 
 // NativeRouterIsisSchema describes NativeRouterIsis for the generic codecs.
 var NativeRouterIsisSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{Child: RouterIsisAddressFamilySchema, GoName: "AddressFamily", Name: "address-family"},
+		{Child: AddressFamilySchema, GoName: "AddressFamily", Name: "address-family"},
 		{Child: AdjacencySchema, GoName: "Adjacency", Name: "adjacency"},
 		{GoName: "AdjacencyCheck", Name: "adjacency-check", Type: yang.TEmpty},
 		{Child: AdvertiseSchema, GoName: "Advertise", Name: "advertise"},
@@ -4017,7 +4011,7 @@ var NativeRouterIsisSchema = &yang.Schema{
 		{GoName: "UpdateQueueDepth", Name: "update-queue-depth", Type: yang.TUint32},
 		{Child: UseSchema, GoName: "Use", Name: "use"},
 		{GoName: "VRF", Name: "vrf", Type: yang.TString},
-		{Child: ciscoiosxesegmentrouting.RouterIsisAugmentSchema, GoName: "CiscoIOSXESegmentRouting", Group: true},
+		{Child: ciscoiosxesegmentrouting.IsisAugmentSchema, GoName: "CiscoIOSXESegmentRouting", Group: true},
 	},
 	Module:   moduleCiscoIOSXEIsis,
 	Name:     "isis",
@@ -5111,85 +5105,6 @@ var RouterIsisSchema = &yang.Schema{
 	Presence: true,
 }
 
-// RouterIsisAddressFamily is the Cisco-IOS-XE-isis node /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis/address-family.
-type RouterIsisAddressFamily struct {
-	IPv4 []IPv4
-	IPv6 []RouterIsisAddressFamilyIPv6
-}
-
-// RouterIsisAddressFamilySchema describes RouterIsisAddressFamily for the generic codecs.
-var RouterIsisAddressFamilySchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv4Schema, GoName: "IPv4", List: true, Name: "ipv4"},
-		{Child: RouterIsisAddressFamilyIPv6Schema, GoName: "IPv6", List: true, Name: "ipv6"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-	Name:   "address-family",
-}
-
-// RouterIsisAddressFamilyIPv6 is the Cisco-IOS-XE-isis node /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis/address-family/ipv6.
-type RouterIsisAddressFamilyIPv6 struct {
-	Adjacency                *Adjacency
-	AdjacencyCheck           *bool
-	Advertise                *Advertise
-	Bfd                      *IPv6Bfd
-	DefaultInformation       *DefaultInformation
-	Distance                 *uint32
-	DistributeList           *IPv6DistributeList
-	FastReroute              *AddressFamilyIPv6FastReroute
-	IPv6                     *IPv6IPv6
-	MaximumPaths             *uint32
-	Metric                   *MetricX53c965
-	MultiTopology            *MultiTopology
-	PrcInterval              *PrcInterval
-	Receive                  *Receive
-	Redistribute             *IPv6Redistribute
-	RouterID                 *string
-	SetAttachedBit           *SetAttachedBit
-	SetOverloadBit           *SetOverloadBit
-	SpfInterval              *SpfInterval
-	SummaryPrefix            []SummaryPrefix
-	Ucmp                     *Ucmp
-	UloopAvoidance           *IPv6UloopAvoidance
-	UloopRibupdate           *UloopRibupdate
-	V6AddressFamilyTypes     *string
-	CiscoIOSXESegmentRouting *ciscoiosxesegmentrouting.RouterIsisAddressFamilyIPv6Augment
-}
-
-// RouterIsisAddressFamilyIPv6Schema describes RouterIsisAddressFamilyIPv6 for the generic codecs.
-var RouterIsisAddressFamilyIPv6Schema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencySchema, GoName: "Adjacency", Name: "adjacency"},
-		{GoName: "AdjacencyCheck", Name: "adjacency-check", Type: yang.TEmpty},
-		{Child: AdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IPv6BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: DefaultInformationSchema, GoName: "DefaultInformation", Name: "default-information"},
-		{GoName: "Distance", Name: "distance", Type: yang.TUint32},
-		{Child: IPv6DistributeListSchema, GoName: "DistributeList", Name: "distribute-list"},
-		{Child: AddressFamilyIPv6FastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IPv6IPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{GoName: "MaximumPaths", Name: "maximum-paths", Type: yang.TUint32},
-		{Child: MetricSchemaX599f53, GoName: "Metric", Name: "metric"},
-		{Child: MultiTopologySchema, GoName: "MultiTopology", Name: "multi-topology"},
-		{Child: PrcIntervalSchema, GoName: "PrcInterval", Name: "prc-interval"},
-		{Child: ReceiveSchema, GoName: "Receive", Name: "receive"},
-		{Child: IPv6RedistributeSchema, GoName: "Redistribute", Name: "redistribute"},
-		{GoName: "RouterID", Name: "router-id", Type: yang.TString},
-		{Child: SetAttachedBitSchema, GoName: "SetAttachedBit", Name: "set-attached-bit"},
-		{Child: SetOverloadBitSchema, GoName: "SetOverloadBit", Name: "set-overload-bit"},
-		{Child: SpfIntervalSchema, GoName: "SpfInterval", Name: "spf-interval"},
-		{Child: SummaryPrefixSchema, GoName: "SummaryPrefix", List: true, Name: "summary-prefix"},
-		{Child: UcmpSchema, GoName: "Ucmp", Name: "ucmp"},
-		{Child: IPv6UloopAvoidanceSchema, GoName: "UloopAvoidance", Name: "uloop-avoidance"},
-		{Child: UloopRibupdateSchema, GoName: "UloopRibupdate", Name: "uloop-ribupdate"},
-		{GoName: "V6AddressFamilyTypes", Name: "v6-address-family-types", Type: yang.TEnum},
-		{Child: ciscoiosxesegmentrouting.RouterIsisAddressFamilyIPv6AugmentSchema, GoName: "CiscoIOSXESegmentRouting", Group: true},
-	},
-	Keys:   []string{"v6-address-family-types"},
-	Module: moduleCiscoIOSXEIsis,
-	Name:   "ipv6",
-}
-
 // SNMP is the Cisco-IOS-XE-isis node shape instantiated at 6 schema paths, such as /Cisco-IOS-XE-native:native/router/Cisco-IOS-XE-isis:isis-container/isis/address-family/ipv4/snmp.
 type SNMP struct {
 	Context []Context
@@ -6061,350 +5976,15 @@ var WideSchema = &yang.Schema{
 	Presence: true,
 }
 
-// AppGigabitEthernetClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/clns.
-type AppGigabitEthernetClnsAugment struct {
+// ClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/clns.
+type ClnsAugment struct {
 	MTU *int64
 }
 
-// AppGigabitEthernetClnsAugmentSchema describes AppGigabitEthernetClnsAugment group fields with no codec root.
-var AppGigabitEthernetClnsAugmentSchema = &yang.Schema{
+// ClnsAugmentSchema describes ClnsAugment group fields with no codec root.
+var ClnsAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// AppGigabitEthernetIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ip/router.
-type AppGigabitEthernetIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// AppGigabitEthernetIPRouterAugmentSchema describes AppGigabitEthernetIPRouterAugment group fields with no codec root.
-var AppGigabitEthernetIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// AppGigabitEthernetIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ipv6/router.
-type AppGigabitEthernetIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// AppGigabitEthernetIPv6RouterAugmentSchema describes AppGigabitEthernetIPv6RouterAugment group fields with no codec root.
-var AppGigabitEthernetIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// AppGigabitEthernetIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/isis.
-type AppGigabitEthernetIsisAugment struct {
-	AdjacencyFilter            *AdjacencyFilter
-	Advertise                  *IsisAdvertise
-	Affinity                   *IsisAffinity
-	Bfd                        *Bfd
-	CircuitType                *CircuitType
-	CsnpInterval               *CsnpInterval
-	Delay                      *IsisDelay
-	FastReroute                *IsisFastReroute
-	Hello                      *IsisHello
-	IPv6                       *IsisIPv6
-	IsisLan                    *IsisLan
-	IsisSerial                 *IsisSerial
-	LspInterval                *uint32
-	MeshGroup                  *yang.Value
-	Metric                     *Metric
-	MetricFallback             *MetricFallback
-	Network                    *Network
-	PrefixAttributes           *PrefixAttributes
-	Priority                   *IsisPriority
-	Protocol                   *IsisProtocol
-	RemotePsnpDelay            *RemotePsnpDelay
-	RetransmitInterval         *uint16
-	RetransmitThrottleInterval *uint16
-	Tag                        *uint32
-	TeMetric                   *TeMetric
-}
-
-// AppGigabitEthernetIsisAugmentSchema describes AppGigabitEthernetIsisAugment group fields with no codec root.
-var AppGigabitEthernetIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
-		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IsisAffinitySchema, GoName: "Affinity", Name: "affinity"},
-		{Child: BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: CircuitTypeSchema, GoName: "CircuitType", Name: "circuit-type"},
-		{Child: CsnpIntervalSchema, GoName: "CsnpInterval", Name: "csnp-interval"},
-		{Child: IsisDelaySchema, GoName: "Delay", Name: "delay"},
-		{Child: IsisFastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IsisHelloSchema, GoName: "Hello", Name: "hello"},
-		{Child: IsisIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: IsisLanSchema, GoName: "IsisLan", Name: "isis-lan"},
-		{Child: IsisSerialSchema, GoName: "IsisSerial", Name: "isis-serial"},
-		{GoName: "LspInterval", Name: "lsp-interval", Type: yang.TUint32},
-		{GoName: "MeshGroup", Name: "mesh-group", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		}},
-		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
-		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
-		{Child: NetworkSchema, GoName: "Network", Name: "network"},
-		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
-		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: RemotePsnpDelaySchema, GoName: "RemotePsnpDelay", Name: "remote-psnp-delay"},
-		{GoName: "RetransmitInterval", Name: "retransmit-interval", Type: yang.TUint16},
-		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
-		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
-		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// BDIClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/BDI/clns.
-type BDIClnsAugment struct {
-	MTU *int64
-}
-
-// BDIClnsAugmentSchema describes BDIClnsAugment group fields with no codec root.
-var BDIClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// BDIIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/BDI/ip/router.
-type BDIIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// BDIIPRouterAugmentSchema describes BDIIPRouterAugment group fields with no codec root.
-var BDIIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// BDIIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/BDI/ipv6/router.
-type BDIIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// BDIIPv6RouterAugmentSchema describes BDIIPv6RouterAugment group fields with no codec root.
-var BDIIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// BDIIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/BDI/isis.
-type BDIIsisAugment struct {
-	AdjacencyFilter            *AdjacencyFilter
-	Advertise                  *IsisAdvertise
-	Affinity                   *IsisAffinity
-	Bfd                        *Bfd
-	CircuitType                *CircuitType
-	CsnpInterval               *CsnpInterval
-	Delay                      *IsisDelay
-	FastReroute                *IsisFastReroute
-	Hello                      *IsisHello
-	IPv6                       *IsisIPv6
-	IsisLan                    *IsisLan
-	IsisSerial                 *IsisSerial
-	LspInterval                *uint32
-	MeshGroup                  *yang.Value
-	Metric                     *Metric
-	MetricFallback             *MetricFallback
-	Network                    *Network
-	PrefixAttributes           *PrefixAttributes
-	Priority                   *IsisPriority
-	Protocol                   *IsisProtocol
-	RemotePsnpDelay            *RemotePsnpDelay
-	RetransmitInterval         *uint16
-	RetransmitThrottleInterval *uint16
-	Tag                        *uint32
-	TeMetric                   *TeMetric
-}
-
-// BDIIsisAugmentSchema describes BDIIsisAugment group fields with no codec root.
-var BDIIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
-		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IsisAffinitySchema, GoName: "Affinity", Name: "affinity"},
-		{Child: BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: CircuitTypeSchema, GoName: "CircuitType", Name: "circuit-type"},
-		{Child: CsnpIntervalSchema, GoName: "CsnpInterval", Name: "csnp-interval"},
-		{Child: IsisDelaySchema, GoName: "Delay", Name: "delay"},
-		{Child: IsisFastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IsisHelloSchema, GoName: "Hello", Name: "hello"},
-		{Child: IsisIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: IsisLanSchema, GoName: "IsisLan", Name: "isis-lan"},
-		{Child: IsisSerialSchema, GoName: "IsisSerial", Name: "isis-serial"},
-		{GoName: "LspInterval", Name: "lsp-interval", Type: yang.TUint32},
-		{GoName: "MeshGroup", Name: "mesh-group", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		}},
-		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
-		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
-		{Child: NetworkSchema, GoName: "Network", Name: "network"},
-		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
-		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: RemotePsnpDelaySchema, GoName: "RemotePsnpDelay", Name: "remote-psnp-delay"},
-		{GoName: "RetransmitInterval", Name: "retransmit-interval", Type: yang.TUint16},
-		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
-		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
-		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// BDVIFClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/BD-VIF/clns.
-type BDVIFClnsAugment struct {
-	MTU *int64
-}
-
-// BDVIFClnsAugmentSchema describes BDVIFClnsAugment group fields with no codec root.
-var BDVIFClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// BDVIFIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/BD-VIF/ip/router.
-type BDVIFIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// BDVIFIPRouterAugmentSchema describes BDVIFIPRouterAugment group fields with no codec root.
-var BDVIFIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// BDVIFIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/BD-VIF/ipv6/router.
-type BDVIFIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// BDVIFIPv6RouterAugmentSchema describes BDVIFIPv6RouterAugment group fields with no codec root.
-var BDVIFIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// EthernetClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Ethernet/clns.
-type EthernetClnsAugment struct {
-	MTU *int64
-}
-
-// EthernetClnsAugmentSchema describes EthernetClnsAugment group fields with no codec root.
-var EthernetClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// EthernetIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Ethernet/ip/router.
-type EthernetIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// EthernetIPRouterAugmentSchema describes EthernetIPRouterAugment group fields with no codec root.
-var EthernetIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// EthernetIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Ethernet/ipv6/router.
-type EthernetIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// EthernetIPv6RouterAugmentSchema describes EthernetIPv6RouterAugment group fields with no codec root.
-var EthernetIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// EthernetIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Ethernet/isis.
-type EthernetIsisAugment struct {
-	AdjacencyFilter            *AdjacencyFilter
-	Advertise                  *IsisAdvertise
-	Affinity                   *IsisAffinity
-	Bfd                        *Bfd
-	CircuitType                *CircuitType
-	CsnpInterval               *CsnpInterval
-	Delay                      *IsisDelay
-	FastReroute                *IsisFastReroute
-	Hello                      *IsisHello
-	IPv6                       *IsisIPv6
-	IsisLan                    *IsisLan
-	IsisSerial                 *IsisSerial
-	LspInterval                *uint32
-	MeshGroup                  *yang.Value
-	Metric                     *Metric
-	MetricFallback             *MetricFallback
-	Network                    *Network
-	PrefixAttributes           *PrefixAttributes
-	Priority                   *IsisPriority
-	Protocol                   *IsisProtocol
-	RemotePsnpDelay            *RemotePsnpDelay
-	RetransmitInterval         *uint16
-	RetransmitThrottleInterval *uint16
-	Tag                        *uint32
-	TeMetric                   *TeMetric
-}
-
-// EthernetIsisAugmentSchema describes EthernetIsisAugment group fields with no codec root.
-var EthernetIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
-		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IsisAffinitySchema, GoName: "Affinity", Name: "affinity"},
-		{Child: BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: CircuitTypeSchema, GoName: "CircuitType", Name: "circuit-type"},
-		{Child: CsnpIntervalSchema, GoName: "CsnpInterval", Name: "csnp-interval"},
-		{Child: IsisDelaySchema, GoName: "Delay", Name: "delay"},
-		{Child: IsisFastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IsisHelloSchema, GoName: "Hello", Name: "hello"},
-		{Child: IsisIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: IsisLanSchema, GoName: "IsisLan", Name: "isis-lan"},
-		{Child: IsisSerialSchema, GoName: "IsisSerial", Name: "isis-serial"},
-		{GoName: "LspInterval", Name: "lsp-interval", Type: yang.TUint32},
-		{GoName: "MeshGroup", Name: "mesh-group", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		}},
-		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
-		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
-		{Child: NetworkSchema, GoName: "Network", Name: "network"},
-		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
-		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: RemotePsnpDelaySchema, GoName: "RemotePsnpDelay", Name: "remote-psnp-delay"},
-		{GoName: "RetransmitInterval", Name: "retransmit-interval", Type: yang.TUint16},
-		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
-		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
-		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
 	},
 	Module: moduleCiscoIOSXEIsis,
 }
@@ -6422,47 +6002,8 @@ var EventTraceAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEIsis,
 }
 
-// FastEthernetClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/clns.
-type FastEthernetClnsAugment struct {
-	MTU *int64
-}
-
-// FastEthernetClnsAugmentSchema describes FastEthernetClnsAugment group fields with no codec root.
-var FastEthernetClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// FastEthernetIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/ip/router.
-type FastEthernetIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// FastEthernetIPRouterAugmentSchema describes FastEthernetIPRouterAugment group fields with no codec root.
-var FastEthernetIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// FastEthernetIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/ipv6/router.
-type FastEthernetIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// FastEthernetIPv6RouterAugmentSchema describes FastEthernetIPv6RouterAugment group fields with no codec root.
-var FastEthernetIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// FastEthernetIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/isis.
-type FastEthernetIsisAugment struct {
+// IsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/isis.
+type IsisAugment struct {
 	AdjacencyFilter            *AdjacencyFilter
 	Advertise                  *IsisAdvertise
 	Affinity                   *IsisAffinity
@@ -6490,8 +6031,8 @@ type FastEthernetIsisAugment struct {
 	TeMetric                   *TeMetric
 }
 
-// FastEthernetIsisAugmentSchema describes FastEthernetIsisAugment group fields with no codec root.
-var FastEthernetIsisAugmentSchema = &yang.Schema{
+// IsisAugmentSchema describes IsisAugment group fields with no codec root.
+var IsisAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
 		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
@@ -6525,665 +6066,8 @@ var FastEthernetIsisAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEIsis,
 }
 
-// FiftyGigabitEthernetClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/clns.
-type FiftyGigabitEthernetClnsAugment struct {
-	MTU *int64
-}
-
-// FiftyGigabitEthernetClnsAugmentSchema describes FiftyGigabitEthernetClnsAugment group fields with no codec root.
-var FiftyGigabitEthernetClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// FiftyGigabitEthernetIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/ip/router.
-type FiftyGigabitEthernetIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// FiftyGigabitEthernetIPRouterAugmentSchema describes FiftyGigabitEthernetIPRouterAugment group fields with no codec root.
-var FiftyGigabitEthernetIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// FiftyGigabitEthernetIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/ipv6/router.
-type FiftyGigabitEthernetIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// FiftyGigabitEthernetIPv6RouterAugmentSchema describes FiftyGigabitEthernetIPv6RouterAugment group fields with no codec root.
-var FiftyGigabitEthernetIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// FiftyGigabitEthernetIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/isis.
-type FiftyGigabitEthernetIsisAugment struct {
-	AdjacencyFilter            *AdjacencyFilter
-	Advertise                  *IsisAdvertise
-	Affinity                   *IsisAffinity
-	Bfd                        *Bfd
-	CircuitType                *CircuitType
-	CsnpInterval               *CsnpInterval
-	Delay                      *IsisDelay
-	FastReroute                *IsisFastReroute
-	Hello                      *IsisHello
-	IPv6                       *IsisIPv6
-	IsisLan                    *IsisLan
-	IsisSerial                 *IsisSerial
-	LspInterval                *uint32
-	MeshGroup                  *yang.Value
-	Metric                     *Metric
-	MetricFallback             *MetricFallback
-	Network                    *Network
-	PrefixAttributes           *PrefixAttributes
-	Priority                   *IsisPriority
-	Protocol                   *IsisProtocol
-	RemotePsnpDelay            *RemotePsnpDelay
-	RetransmitInterval         *uint16
-	RetransmitThrottleInterval *uint16
-	Tag                        *uint32
-	TeMetric                   *TeMetric
-}
-
-// FiftyGigabitEthernetIsisAugmentSchema describes FiftyGigabitEthernetIsisAugment group fields with no codec root.
-var FiftyGigabitEthernetIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
-		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IsisAffinitySchema, GoName: "Affinity", Name: "affinity"},
-		{Child: BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: CircuitTypeSchema, GoName: "CircuitType", Name: "circuit-type"},
-		{Child: CsnpIntervalSchema, GoName: "CsnpInterval", Name: "csnp-interval"},
-		{Child: IsisDelaySchema, GoName: "Delay", Name: "delay"},
-		{Child: IsisFastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IsisHelloSchema, GoName: "Hello", Name: "hello"},
-		{Child: IsisIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: IsisLanSchema, GoName: "IsisLan", Name: "isis-lan"},
-		{Child: IsisSerialSchema, GoName: "IsisSerial", Name: "isis-serial"},
-		{GoName: "LspInterval", Name: "lsp-interval", Type: yang.TUint32},
-		{GoName: "MeshGroup", Name: "mesh-group", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		}},
-		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
-		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
-		{Child: NetworkSchema, GoName: "Network", Name: "network"},
-		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
-		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: RemotePsnpDelaySchema, GoName: "RemotePsnpDelay", Name: "remote-psnp-delay"},
-		{GoName: "RetransmitInterval", Name: "retransmit-interval", Type: yang.TUint16},
-		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
-		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
-		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// FiveGigabitEthernetClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/clns.
-type FiveGigabitEthernetClnsAugment struct {
-	MTU *int64
-}
-
-// FiveGigabitEthernetClnsAugmentSchema describes FiveGigabitEthernetClnsAugment group fields with no codec root.
-var FiveGigabitEthernetClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// FiveGigabitEthernetIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/ip/router.
-type FiveGigabitEthernetIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// FiveGigabitEthernetIPRouterAugmentSchema describes FiveGigabitEthernetIPRouterAugment group fields with no codec root.
-var FiveGigabitEthernetIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// FiveGigabitEthernetIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/ipv6/router.
-type FiveGigabitEthernetIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// FiveGigabitEthernetIPv6RouterAugmentSchema describes FiveGigabitEthernetIPv6RouterAugment group fields with no codec root.
-var FiveGigabitEthernetIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// FiveGigabitEthernetIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/isis.
-type FiveGigabitEthernetIsisAugment struct {
-	AdjacencyFilter            *AdjacencyFilter
-	Advertise                  *IsisAdvertise
-	Affinity                   *IsisAffinity
-	Bfd                        *Bfd
-	CircuitType                *CircuitType
-	CsnpInterval               *CsnpInterval
-	Delay                      *IsisDelay
-	FastReroute                *IsisFastReroute
-	Hello                      *IsisHello
-	IPv6                       *IsisIPv6
-	IsisLan                    *IsisLan
-	IsisSerial                 *IsisSerial
-	LspInterval                *uint32
-	MeshGroup                  *yang.Value
-	Metric                     *Metric
-	MetricFallback             *MetricFallback
-	Network                    *Network
-	PrefixAttributes           *PrefixAttributes
-	Priority                   *IsisPriority
-	Protocol                   *IsisProtocol
-	RemotePsnpDelay            *RemotePsnpDelay
-	RetransmitInterval         *uint16
-	RetransmitThrottleInterval *uint16
-	Tag                        *uint32
-	TeMetric                   *TeMetric
-}
-
-// FiveGigabitEthernetIsisAugmentSchema describes FiveGigabitEthernetIsisAugment group fields with no codec root.
-var FiveGigabitEthernetIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
-		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IsisAffinitySchema, GoName: "Affinity", Name: "affinity"},
-		{Child: BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: CircuitTypeSchema, GoName: "CircuitType", Name: "circuit-type"},
-		{Child: CsnpIntervalSchema, GoName: "CsnpInterval", Name: "csnp-interval"},
-		{Child: IsisDelaySchema, GoName: "Delay", Name: "delay"},
-		{Child: IsisFastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IsisHelloSchema, GoName: "Hello", Name: "hello"},
-		{Child: IsisIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: IsisLanSchema, GoName: "IsisLan", Name: "isis-lan"},
-		{Child: IsisSerialSchema, GoName: "IsisSerial", Name: "isis-serial"},
-		{GoName: "LspInterval", Name: "lsp-interval", Type: yang.TUint32},
-		{GoName: "MeshGroup", Name: "mesh-group", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		}},
-		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
-		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
-		{Child: NetworkSchema, GoName: "Network", Name: "network"},
-		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
-		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: RemotePsnpDelaySchema, GoName: "RemotePsnpDelay", Name: "remote-psnp-delay"},
-		{GoName: "RetransmitInterval", Name: "retransmit-interval", Type: yang.TUint16},
-		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
-		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
-		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// FortyGigabitEthernetClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/clns.
-type FortyGigabitEthernetClnsAugment struct {
-	MTU *int64
-}
-
-// FortyGigabitEthernetClnsAugmentSchema describes FortyGigabitEthernetClnsAugment group fields with no codec root.
-var FortyGigabitEthernetClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// FortyGigabitEthernetIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/ip/router.
-type FortyGigabitEthernetIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// FortyGigabitEthernetIPRouterAugmentSchema describes FortyGigabitEthernetIPRouterAugment group fields with no codec root.
-var FortyGigabitEthernetIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// FortyGigabitEthernetIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/ipv6/router.
-type FortyGigabitEthernetIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// FortyGigabitEthernetIPv6RouterAugmentSchema describes FortyGigabitEthernetIPv6RouterAugment group fields with no codec root.
-var FortyGigabitEthernetIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// FortyGigabitEthernetIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/isis.
-type FortyGigabitEthernetIsisAugment struct {
-	AdjacencyFilter            *AdjacencyFilter
-	Advertise                  *IsisAdvertise
-	Affinity                   *IsisAffinity
-	Bfd                        *Bfd
-	CircuitType                *CircuitType
-	CsnpInterval               *CsnpInterval
-	Delay                      *IsisDelay
-	FastReroute                *IsisFastReroute
-	Hello                      *IsisHello
-	IPv6                       *IsisIPv6
-	IsisLan                    *IsisLan
-	IsisSerial                 *IsisSerial
-	LspInterval                *uint32
-	MeshGroup                  *yang.Value
-	Metric                     *Metric
-	MetricFallback             *MetricFallback
-	Network                    *Network
-	PrefixAttributes           *PrefixAttributes
-	Priority                   *IsisPriority
-	Protocol                   *IsisProtocol
-	RemotePsnpDelay            *RemotePsnpDelay
-	RetransmitInterval         *uint16
-	RetransmitThrottleInterval *uint16
-	Tag                        *uint32
-	TeMetric                   *TeMetric
-}
-
-// FortyGigabitEthernetIsisAugmentSchema describes FortyGigabitEthernetIsisAugment group fields with no codec root.
-var FortyGigabitEthernetIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
-		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IsisAffinitySchema, GoName: "Affinity", Name: "affinity"},
-		{Child: BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: CircuitTypeSchema, GoName: "CircuitType", Name: "circuit-type"},
-		{Child: CsnpIntervalSchema, GoName: "CsnpInterval", Name: "csnp-interval"},
-		{Child: IsisDelaySchema, GoName: "Delay", Name: "delay"},
-		{Child: IsisFastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IsisHelloSchema, GoName: "Hello", Name: "hello"},
-		{Child: IsisIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: IsisLanSchema, GoName: "IsisLan", Name: "isis-lan"},
-		{Child: IsisSerialSchema, GoName: "IsisSerial", Name: "isis-serial"},
-		{GoName: "LspInterval", Name: "lsp-interval", Type: yang.TUint32},
-		{GoName: "MeshGroup", Name: "mesh-group", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		}},
-		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
-		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
-		{Child: NetworkSchema, GoName: "Network", Name: "network"},
-		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
-		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: RemotePsnpDelaySchema, GoName: "RemotePsnpDelay", Name: "remote-psnp-delay"},
-		{GoName: "RetransmitInterval", Name: "retransmit-interval", Type: yang.TUint16},
-		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
-		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
-		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// GigabitEthernetClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/clns.
-type GigabitEthernetClnsAugment struct {
-	MTU *int64
-}
-
-// GigabitEthernetClnsAugmentSchema describes GigabitEthernetClnsAugment group fields with no codec root.
-var GigabitEthernetClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// GigabitEthernetIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/ip/router.
-type GigabitEthernetIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// GigabitEthernetIPRouterAugmentSchema describes GigabitEthernetIPRouterAugment group fields with no codec root.
-var GigabitEthernetIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// GigabitEthernetIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/ipv6/router.
-type GigabitEthernetIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// GigabitEthernetIPv6RouterAugmentSchema describes GigabitEthernetIPv6RouterAugment group fields with no codec root.
-var GigabitEthernetIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// GigabitEthernetIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/isis.
-type GigabitEthernetIsisAugment struct {
-	AdjacencyFilter            *AdjacencyFilter
-	Advertise                  *IsisAdvertise
-	Affinity                   *IsisAffinity
-	Bfd                        *Bfd
-	CircuitType                *CircuitType
-	CsnpInterval               *CsnpInterval
-	Delay                      *IsisDelay
-	FastReroute                *IsisFastReroute
-	Hello                      *IsisHello
-	IPv6                       *IsisIPv6
-	IsisLan                    *IsisLan
-	IsisSerial                 *IsisSerial
-	LspInterval                *uint32
-	MeshGroup                  *yang.Value
-	Metric                     *Metric
-	MetricFallback             *MetricFallback
-	Network                    *Network
-	PrefixAttributes           *PrefixAttributes
-	Priority                   *IsisPriority
-	Protocol                   *IsisProtocol
-	RemotePsnpDelay            *RemotePsnpDelay
-	RetransmitInterval         *uint16
-	RetransmitThrottleInterval *uint16
-	Tag                        *uint32
-	TeMetric                   *TeMetric
-}
-
-// GigabitEthernetIsisAugmentSchema describes GigabitEthernetIsisAugment group fields with no codec root.
-var GigabitEthernetIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
-		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IsisAffinitySchema, GoName: "Affinity", Name: "affinity"},
-		{Child: BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: CircuitTypeSchema, GoName: "CircuitType", Name: "circuit-type"},
-		{Child: CsnpIntervalSchema, GoName: "CsnpInterval", Name: "csnp-interval"},
-		{Child: IsisDelaySchema, GoName: "Delay", Name: "delay"},
-		{Child: IsisFastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IsisHelloSchema, GoName: "Hello", Name: "hello"},
-		{Child: IsisIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: IsisLanSchema, GoName: "IsisLan", Name: "isis-lan"},
-		{Child: IsisSerialSchema, GoName: "IsisSerial", Name: "isis-serial"},
-		{GoName: "LspInterval", Name: "lsp-interval", Type: yang.TUint32},
-		{GoName: "MeshGroup", Name: "mesh-group", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		}},
-		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
-		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
-		{Child: NetworkSchema, GoName: "Network", Name: "network"},
-		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
-		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: RemotePsnpDelaySchema, GoName: "RemotePsnpDelay", Name: "remote-psnp-delay"},
-		{GoName: "RetransmitInterval", Name: "retransmit-interval", Type: yang.TUint16},
-		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
-		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
-		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// HundredGigEClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/clns.
-type HundredGigEClnsAugment struct {
-	MTU *int64
-}
-
-// HundredGigEClnsAugmentSchema describes HundredGigEClnsAugment group fields with no codec root.
-var HundredGigEClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// HundredGigEIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/ip/router.
-type HundredGigEIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// HundredGigEIPRouterAugmentSchema describes HundredGigEIPRouterAugment group fields with no codec root.
-var HundredGigEIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// HundredGigEIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/ipv6/router.
-type HundredGigEIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// HundredGigEIPv6RouterAugmentSchema describes HundredGigEIPv6RouterAugment group fields with no codec root.
-var HundredGigEIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// HundredGigEIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/isis.
-type HundredGigEIsisAugment struct {
-	AdjacencyFilter            *AdjacencyFilter
-	Advertise                  *IsisAdvertise
-	Affinity                   *IsisAffinity
-	Bfd                        *Bfd
-	CircuitType                *CircuitType
-	CsnpInterval               *CsnpInterval
-	Delay                      *IsisDelay
-	FastReroute                *IsisFastReroute
-	Hello                      *IsisHello
-	IPv6                       *IsisIPv6
-	IsisLan                    *IsisLan
-	IsisSerial                 *IsisSerial
-	LspInterval                *uint32
-	MeshGroup                  *yang.Value
-	Metric                     *Metric
-	MetricFallback             *MetricFallback
-	Network                    *Network
-	PrefixAttributes           *PrefixAttributes
-	Priority                   *IsisPriority
-	Protocol                   *IsisProtocol
-	RemotePsnpDelay            *RemotePsnpDelay
-	RetransmitInterval         *uint16
-	RetransmitThrottleInterval *uint16
-	Tag                        *uint32
-	TeMetric                   *TeMetric
-}
-
-// HundredGigEIsisAugmentSchema describes HundredGigEIsisAugment group fields with no codec root.
-var HundredGigEIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
-		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IsisAffinitySchema, GoName: "Affinity", Name: "affinity"},
-		{Child: BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: CircuitTypeSchema, GoName: "CircuitType", Name: "circuit-type"},
-		{Child: CsnpIntervalSchema, GoName: "CsnpInterval", Name: "csnp-interval"},
-		{Child: IsisDelaySchema, GoName: "Delay", Name: "delay"},
-		{Child: IsisFastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IsisHelloSchema, GoName: "Hello", Name: "hello"},
-		{Child: IsisIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: IsisLanSchema, GoName: "IsisLan", Name: "isis-lan"},
-		{Child: IsisSerialSchema, GoName: "IsisSerial", Name: "isis-serial"},
-		{GoName: "LspInterval", Name: "lsp-interval", Type: yang.TUint32},
-		{GoName: "MeshGroup", Name: "mesh-group", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		}},
-		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
-		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
-		{Child: NetworkSchema, GoName: "Network", Name: "network"},
-		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
-		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: RemotePsnpDelaySchema, GoName: "RemotePsnpDelay", Name: "remote-psnp-delay"},
-		{GoName: "RetransmitInterval", Name: "retransmit-interval", Type: yang.TUint16},
-		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
-		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
-		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// InterfacePortChannelClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/clns.
-type InterfacePortChannelClnsAugment struct {
-	MTU *int64
-}
-
-// InterfacePortChannelClnsAugmentSchema describes InterfacePortChannelClnsAugment group fields with no codec root.
-var InterfacePortChannelClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// InterfacePortChannelIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/ip/router.
-type InterfacePortChannelIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// InterfacePortChannelIPRouterAugmentSchema describes InterfacePortChannelIPRouterAugment group fields with no codec root.
-var InterfacePortChannelIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// InterfacePortChannelIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/ipv6/router.
-type InterfacePortChannelIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// InterfacePortChannelIPv6RouterAugmentSchema describes InterfacePortChannelIPv6RouterAugment group fields with no codec root.
-var InterfacePortChannelIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// InterfacePortChannelIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/isis.
-type InterfacePortChannelIsisAugment struct {
-	AdjacencyFilter            *AdjacencyFilter
-	Advertise                  *IsisAdvertise
-	Affinity                   *IsisAffinity
-	Bfd                        *Bfd
-	CircuitType                *CircuitType
-	CsnpInterval               *CsnpInterval
-	Delay                      *IsisDelay
-	FastReroute                *IsisFastReroute
-	Hello                      *IsisHello
-	IPv6                       *IsisIPv6
-	IsisLan                    *IsisLan
-	IsisSerial                 *IsisSerial
-	LspInterval                *uint32
-	MeshGroup                  *yang.Value
-	Metric                     *Metric
-	MetricFallback             *MetricFallback
-	Network                    *Network
-	PrefixAttributes           *PrefixAttributes
-	Priority                   *IsisPriority
-	Protocol                   *IsisProtocol
-	RemotePsnpDelay            *RemotePsnpDelay
-	RetransmitInterval         *uint16
-	RetransmitThrottleInterval *uint16
-	Tag                        *uint32
-	TeMetric                   *TeMetric
-}
-
-// InterfacePortChannelIsisAugmentSchema describes InterfacePortChannelIsisAugment group fields with no codec root.
-var InterfacePortChannelIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
-		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IsisAffinitySchema, GoName: "Affinity", Name: "affinity"},
-		{Child: BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: CircuitTypeSchema, GoName: "CircuitType", Name: "circuit-type"},
-		{Child: CsnpIntervalSchema, GoName: "CsnpInterval", Name: "csnp-interval"},
-		{Child: IsisDelaySchema, GoName: "Delay", Name: "delay"},
-		{Child: IsisFastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IsisHelloSchema, GoName: "Hello", Name: "hello"},
-		{Child: IsisIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: IsisLanSchema, GoName: "IsisLan", Name: "isis-lan"},
-		{Child: IsisSerialSchema, GoName: "IsisSerial", Name: "isis-serial"},
-		{GoName: "LspInterval", Name: "lsp-interval", Type: yang.TUint32},
-		{GoName: "MeshGroup", Name: "mesh-group", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		}},
-		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
-		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
-		{Child: NetworkSchema, GoName: "Network", Name: "network"},
-		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
-		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: RemotePsnpDelaySchema, GoName: "RemotePsnpDelay", Name: "remote-psnp-delay"},
-		{GoName: "RetransmitInterval", Name: "retransmit-interval", Type: yang.TUint16},
-		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
-		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
-		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// LISPClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/LISP/clns.
-type LISPClnsAugment struct {
-	MTU *int64
-}
-
-// LISPClnsAugmentSchema describes LISPClnsAugment group fields with no codec root.
-var LISPClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// LISPIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/LISP/ip/router.
-type LISPIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// LISPIPRouterAugmentSchema describes LISPIPRouterAugment group fields with no codec root.
-var LISPIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// LISPIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/LISP/ipv6/router.
-type LISPIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// LISPIPv6RouterAugmentSchema describes LISPIPv6RouterAugment group fields with no codec root.
-var LISPIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// LISPIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/LISP/isis.
-type LISPIsisAugment struct {
+// IsisAugmentXc9ae4e is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/LISP/isis.
+type IsisAugmentXc9ae4e struct {
 	AdjacencyFilter            *AdjacencyFilter
 	Advertise                  *IsisAdvertise
 	Affinity                   *IsisAffinity
@@ -7212,8 +6096,8 @@ type LISPIsisAugment struct {
 	TeMetric                   *TeMetric
 }
 
-// LISPIsisAugmentSchema describes LISPIsisAugment group fields with no codec root.
-var LISPIsisAugmentSchema = &yang.Schema{
+// IsisAugmentSchemaX80464b describes IsisAugmentXc9ae4e group fields with no codec root.
+var IsisAugmentSchemaX80464b = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
 		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
@@ -7244,45 +6128,6 @@ var LISPIsisAugmentSchema = &yang.Schema{
 		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
 		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
 		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// LoopbackClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Loopback/clns.
-type LoopbackClnsAugment struct {
-	MTU *int64
-}
-
-// LoopbackClnsAugmentSchema describes LoopbackClnsAugment group fields with no codec root.
-var LoopbackClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// LoopbackIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Loopback/ip/router.
-type LoopbackIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// LoopbackIPRouterAugmentSchema describes LoopbackIPRouterAugment group fields with no codec root.
-var LoopbackIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// LoopbackIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Loopback/ipv6/router.
-type LoopbackIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// LoopbackIPv6RouterAugmentSchema describes LoopbackIPv6RouterAugment group fields with no codec root.
-var LoopbackIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
 	},
 	Module: moduleCiscoIOSXEIsis,
 }
@@ -7358,245 +6203,13 @@ var NativeRouterAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEIsis,
 }
 
-// PortChannelSubinterfacePortChannelClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel/clns.
-type PortChannelSubinterfacePortChannelClnsAugment struct {
-	MTU *int64
-}
-
-// PortChannelSubinterfacePortChannelClnsAugmentSchema describes PortChannelSubinterfacePortChannelClnsAugment group fields with no codec root.
-var PortChannelSubinterfacePortChannelClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// PortChannelSubinterfacePortChannelIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel/ip/router.
-type PortChannelSubinterfacePortChannelIPRouterAugment struct {
+// RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ip/router.
+type RouterAugment struct {
 	Isis *RouterIsis
 }
 
-// PortChannelSubinterfacePortChannelIPRouterAugmentSchema describes PortChannelSubinterfacePortChannelIPRouterAugment group fields with no codec root.
-var PortChannelSubinterfacePortChannelIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// PortChannelSubinterfacePortChannelIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel/ipv6/router.
-type PortChannelSubinterfacePortChannelIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// PortChannelSubinterfacePortChannelIPv6RouterAugmentSchema describes PortChannelSubinterfacePortChannelIPv6RouterAugment group fields with no codec root.
-var PortChannelSubinterfacePortChannelIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// PortChannelSubinterfacePortChannelIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel/isis.
-type PortChannelSubinterfacePortChannelIsisAugment struct {
-	AdjacencyFilter            *AdjacencyFilter
-	Advertise                  *IsisAdvertise
-	Affinity                   *IsisAffinity
-	Bfd                        *Bfd
-	CircuitType                *CircuitType
-	CsnpInterval               *CsnpInterval
-	Delay                      *IsisDelay
-	FastReroute                *IsisFastReroute
-	Hello                      *IsisHello
-	IPv6                       *IsisIPv6
-	IsisLan                    *IsisLan
-	IsisSerial                 *IsisSerial
-	LspInterval                *uint32
-	MeshGroup                  *yang.Value
-	Metric                     *Metric
-	MetricFallback             *MetricFallback
-	Network                    *Network
-	PrefixAttributes           *PrefixAttributes
-	Priority                   *IsisPriority
-	Protocol                   *IsisProtocol
-	RemotePsnpDelay            *RemotePsnpDelay
-	RetransmitInterval         *uint16
-	RetransmitThrottleInterval *uint16
-	Tag                        *uint32
-	TeMetric                   *TeMetric
-}
-
-// PortChannelSubinterfacePortChannelIsisAugmentSchema describes PortChannelSubinterfacePortChannelIsisAugment group fields with no codec root.
-var PortChannelSubinterfacePortChannelIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
-		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IsisAffinitySchema, GoName: "Affinity", Name: "affinity"},
-		{Child: BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: CircuitTypeSchema, GoName: "CircuitType", Name: "circuit-type"},
-		{Child: CsnpIntervalSchema, GoName: "CsnpInterval", Name: "csnp-interval"},
-		{Child: IsisDelaySchema, GoName: "Delay", Name: "delay"},
-		{Child: IsisFastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IsisHelloSchema, GoName: "Hello", Name: "hello"},
-		{Child: IsisIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: IsisLanSchema, GoName: "IsisLan", Name: "isis-lan"},
-		{Child: IsisSerialSchema, GoName: "IsisSerial", Name: "isis-serial"},
-		{GoName: "LspInterval", Name: "lsp-interval", Type: yang.TUint32},
-		{GoName: "MeshGroup", Name: "mesh-group", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		}},
-		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
-		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
-		{Child: NetworkSchema, GoName: "Network", Name: "network"},
-		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
-		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: RemotePsnpDelaySchema, GoName: "RemotePsnpDelay", Name: "remote-psnp-delay"},
-		{GoName: "RetransmitInterval", Name: "retransmit-interval", Type: yang.TUint16},
-		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
-		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
-		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// TenGigabitEthernetClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/clns.
-type TenGigabitEthernetClnsAugment struct {
-	MTU *int64
-}
-
-// TenGigabitEthernetClnsAugmentSchema describes TenGigabitEthernetClnsAugment group fields with no codec root.
-var TenGigabitEthernetClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// TenGigabitEthernetIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/ip/router.
-type TenGigabitEthernetIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// TenGigabitEthernetIPRouterAugmentSchema describes TenGigabitEthernetIPRouterAugment group fields with no codec root.
-var TenGigabitEthernetIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// TenGigabitEthernetIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/ipv6/router.
-type TenGigabitEthernetIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// TenGigabitEthernetIPv6RouterAugmentSchema describes TenGigabitEthernetIPv6RouterAugment group fields with no codec root.
-var TenGigabitEthernetIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// TenGigabitEthernetIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/isis.
-type TenGigabitEthernetIsisAugment struct {
-	AdjacencyFilter            *AdjacencyFilter
-	Advertise                  *IsisAdvertise
-	Affinity                   *IsisAffinity
-	Bfd                        *Bfd
-	CircuitType                *CircuitType
-	CsnpInterval               *CsnpInterval
-	Delay                      *IsisDelay
-	FastReroute                *IsisFastReroute
-	Hello                      *IsisHello
-	IPv6                       *IsisIPv6
-	IsisLan                    *IsisLan
-	IsisSerial                 *IsisSerial
-	LspInterval                *uint32
-	MeshGroup                  *yang.Value
-	Metric                     *Metric
-	MetricFallback             *MetricFallback
-	Network                    *Network
-	PrefixAttributes           *PrefixAttributes
-	Priority                   *IsisPriority
-	Protocol                   *IsisProtocol
-	RemotePsnpDelay            *RemotePsnpDelay
-	RetransmitInterval         *uint16
-	RetransmitThrottleInterval *uint16
-	Tag                        *uint32
-	TeMetric                   *TeMetric
-}
-
-// TenGigabitEthernetIsisAugmentSchema describes TenGigabitEthernetIsisAugment group fields with no codec root.
-var TenGigabitEthernetIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
-		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IsisAffinitySchema, GoName: "Affinity", Name: "affinity"},
-		{Child: BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: CircuitTypeSchema, GoName: "CircuitType", Name: "circuit-type"},
-		{Child: CsnpIntervalSchema, GoName: "CsnpInterval", Name: "csnp-interval"},
-		{Child: IsisDelaySchema, GoName: "Delay", Name: "delay"},
-		{Child: IsisFastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IsisHelloSchema, GoName: "Hello", Name: "hello"},
-		{Child: IsisIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: IsisLanSchema, GoName: "IsisLan", Name: "isis-lan"},
-		{Child: IsisSerialSchema, GoName: "IsisSerial", Name: "isis-serial"},
-		{GoName: "LspInterval", Name: "lsp-interval", Type: yang.TUint32},
-		{GoName: "MeshGroup", Name: "mesh-group", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		}},
-		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
-		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
-		{Child: NetworkSchema, GoName: "Network", Name: "network"},
-		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
-		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: RemotePsnpDelaySchema, GoName: "RemotePsnpDelay", Name: "remote-psnp-delay"},
-		{GoName: "RetransmitInterval", Name: "retransmit-interval", Type: yang.TUint16},
-		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
-		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
-		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// TunnelClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/clns.
-type TunnelClnsAugment struct {
-	MTU *int64
-}
-
-// TunnelClnsAugmentSchema describes TunnelClnsAugment group fields with no codec root.
-var TunnelClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// TunnelIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ip/router.
-type TunnelIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// TunnelIPRouterAugmentSchema describes TunnelIPRouterAugment group fields with no codec root.
-var TunnelIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// TunnelIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ipv6/router.
-type TunnelIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// TunnelIPv6RouterAugmentSchema describes TunnelIPv6RouterAugment group fields with no codec root.
-var TunnelIPv6RouterAugmentSchema = &yang.Schema{
+// RouterAugmentSchema describes RouterAugment group fields with no codec root.
+var RouterAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
 	},
@@ -7659,420 +6272,6 @@ var TunnelIsisAugmentSchema = &yang.Schema{
 		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
 		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
 		{Child: IsisPasswordLanSchema, GoName: "PasswordLan", Name: "password-lan"},
-		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
-		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: RemotePsnpDelaySchema, GoName: "RemotePsnpDelay", Name: "remote-psnp-delay"},
-		{GoName: "RetransmitInterval", Name: "retransmit-interval", Type: yang.TUint16},
-		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
-		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
-		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// TwentyFiveGigEClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/clns.
-type TwentyFiveGigEClnsAugment struct {
-	MTU *int64
-}
-
-// TwentyFiveGigEClnsAugmentSchema describes TwentyFiveGigEClnsAugment group fields with no codec root.
-var TwentyFiveGigEClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// TwentyFiveGigEIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/ip/router.
-type TwentyFiveGigEIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// TwentyFiveGigEIPRouterAugmentSchema describes TwentyFiveGigEIPRouterAugment group fields with no codec root.
-var TwentyFiveGigEIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// TwentyFiveGigEIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/ipv6/router.
-type TwentyFiveGigEIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// TwentyFiveGigEIPv6RouterAugmentSchema describes TwentyFiveGigEIPv6RouterAugment group fields with no codec root.
-var TwentyFiveGigEIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// TwentyFiveGigEIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/isis.
-type TwentyFiveGigEIsisAugment struct {
-	AdjacencyFilter            *AdjacencyFilter
-	Advertise                  *IsisAdvertise
-	Affinity                   *IsisAffinity
-	Bfd                        *Bfd
-	CircuitType                *CircuitType
-	CsnpInterval               *CsnpInterval
-	Delay                      *IsisDelay
-	FastReroute                *IsisFastReroute
-	Hello                      *IsisHello
-	IPv6                       *IsisIPv6
-	IsisLan                    *IsisLan
-	IsisSerial                 *IsisSerial
-	LspInterval                *uint32
-	MeshGroup                  *yang.Value
-	Metric                     *Metric
-	MetricFallback             *MetricFallback
-	Network                    *Network
-	PrefixAttributes           *PrefixAttributes
-	Priority                   *IsisPriority
-	Protocol                   *IsisProtocol
-	RemotePsnpDelay            *RemotePsnpDelay
-	RetransmitInterval         *uint16
-	RetransmitThrottleInterval *uint16
-	Tag                        *uint32
-	TeMetric                   *TeMetric
-}
-
-// TwentyFiveGigEIsisAugmentSchema describes TwentyFiveGigEIsisAugment group fields with no codec root.
-var TwentyFiveGigEIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
-		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IsisAffinitySchema, GoName: "Affinity", Name: "affinity"},
-		{Child: BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: CircuitTypeSchema, GoName: "CircuitType", Name: "circuit-type"},
-		{Child: CsnpIntervalSchema, GoName: "CsnpInterval", Name: "csnp-interval"},
-		{Child: IsisDelaySchema, GoName: "Delay", Name: "delay"},
-		{Child: IsisFastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IsisHelloSchema, GoName: "Hello", Name: "hello"},
-		{Child: IsisIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: IsisLanSchema, GoName: "IsisLan", Name: "isis-lan"},
-		{Child: IsisSerialSchema, GoName: "IsisSerial", Name: "isis-serial"},
-		{GoName: "LspInterval", Name: "lsp-interval", Type: yang.TUint32},
-		{GoName: "MeshGroup", Name: "mesh-group", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		}},
-		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
-		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
-		{Child: NetworkSchema, GoName: "Network", Name: "network"},
-		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
-		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: RemotePsnpDelaySchema, GoName: "RemotePsnpDelay", Name: "remote-psnp-delay"},
-		{GoName: "RetransmitInterval", Name: "retransmit-interval", Type: yang.TUint16},
-		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
-		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
-		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// TwoGigabitEthernetClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/clns.
-type TwoGigabitEthernetClnsAugment struct {
-	MTU *int64
-}
-
-// TwoGigabitEthernetClnsAugmentSchema describes TwoGigabitEthernetClnsAugment group fields with no codec root.
-var TwoGigabitEthernetClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// TwoGigabitEthernetIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/ip/router.
-type TwoGigabitEthernetIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// TwoGigabitEthernetIPRouterAugmentSchema describes TwoGigabitEthernetIPRouterAugment group fields with no codec root.
-var TwoGigabitEthernetIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// TwoGigabitEthernetIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/ipv6/router.
-type TwoGigabitEthernetIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// TwoGigabitEthernetIPv6RouterAugmentSchema describes TwoGigabitEthernetIPv6RouterAugment group fields with no codec root.
-var TwoGigabitEthernetIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// TwoGigabitEthernetIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/isis.
-type TwoGigabitEthernetIsisAugment struct {
-	AdjacencyFilter            *AdjacencyFilter
-	Advertise                  *IsisAdvertise
-	Affinity                   *IsisAffinity
-	Bfd                        *Bfd
-	CircuitType                *CircuitType
-	CsnpInterval               *CsnpInterval
-	Delay                      *IsisDelay
-	FastReroute                *IsisFastReroute
-	Hello                      *IsisHello
-	IPv6                       *IsisIPv6
-	IsisLan                    *IsisLan
-	IsisSerial                 *IsisSerial
-	LspInterval                *uint32
-	MeshGroup                  *yang.Value
-	Metric                     *Metric
-	MetricFallback             *MetricFallback
-	Network                    *Network
-	PrefixAttributes           *PrefixAttributes
-	Priority                   *IsisPriority
-	Protocol                   *IsisProtocol
-	RemotePsnpDelay            *RemotePsnpDelay
-	RetransmitInterval         *uint16
-	RetransmitThrottleInterval *uint16
-	Tag                        *uint32
-	TeMetric                   *TeMetric
-}
-
-// TwoGigabitEthernetIsisAugmentSchema describes TwoGigabitEthernetIsisAugment group fields with no codec root.
-var TwoGigabitEthernetIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
-		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IsisAffinitySchema, GoName: "Affinity", Name: "affinity"},
-		{Child: BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: CircuitTypeSchema, GoName: "CircuitType", Name: "circuit-type"},
-		{Child: CsnpIntervalSchema, GoName: "CsnpInterval", Name: "csnp-interval"},
-		{Child: IsisDelaySchema, GoName: "Delay", Name: "delay"},
-		{Child: IsisFastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IsisHelloSchema, GoName: "Hello", Name: "hello"},
-		{Child: IsisIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: IsisLanSchema, GoName: "IsisLan", Name: "isis-lan"},
-		{Child: IsisSerialSchema, GoName: "IsisSerial", Name: "isis-serial"},
-		{GoName: "LspInterval", Name: "lsp-interval", Type: yang.TUint32},
-		{GoName: "MeshGroup", Name: "mesh-group", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		}},
-		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
-		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
-		{Child: NetworkSchema, GoName: "Network", Name: "network"},
-		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
-		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: RemotePsnpDelaySchema, GoName: "RemotePsnpDelay", Name: "remote-psnp-delay"},
-		{GoName: "RetransmitInterval", Name: "retransmit-interval", Type: yang.TUint16},
-		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
-		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
-		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// VLANClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Vlan/clns.
-type VLANClnsAugment struct {
-	MTU *int64
-}
-
-// VLANClnsAugmentSchema describes VLANClnsAugment group fields with no codec root.
-var VLANClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// VLANIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Vlan/ip/router.
-type VLANIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// VLANIPRouterAugmentSchema describes VLANIPRouterAugment group fields with no codec root.
-var VLANIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// VLANIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Vlan/ipv6/router.
-type VLANIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// VLANIPv6RouterAugmentSchema describes VLANIPv6RouterAugment group fields with no codec root.
-var VLANIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// VLANIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Vlan/isis.
-type VLANIsisAugment struct {
-	AdjacencyFilter            *AdjacencyFilter
-	Advertise                  *IsisAdvertise
-	Affinity                   *IsisAffinity
-	Bfd                        *Bfd
-	CircuitType                *CircuitType
-	CsnpInterval               *CsnpInterval
-	Delay                      *IsisDelay
-	FastReroute                *IsisFastReroute
-	Hello                      *IsisHello
-	IPv6                       *IsisIPv6
-	IsisLan                    *IsisLan
-	IsisSerial                 *IsisSerial
-	LspInterval                *uint32
-	MeshGroup                  *yang.Value
-	Metric                     *Metric
-	MetricFallback             *MetricFallback
-	Network                    *Network
-	PrefixAttributes           *PrefixAttributes
-	Priority                   *IsisPriority
-	Protocol                   *IsisProtocol
-	RemotePsnpDelay            *RemotePsnpDelay
-	RetransmitInterval         *uint16
-	RetransmitThrottleInterval *uint16
-	Tag                        *uint32
-	TeMetric                   *TeMetric
-}
-
-// VLANIsisAugmentSchema describes VLANIsisAugment group fields with no codec root.
-var VLANIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
-		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IsisAffinitySchema, GoName: "Affinity", Name: "affinity"},
-		{Child: BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: CircuitTypeSchema, GoName: "CircuitType", Name: "circuit-type"},
-		{Child: CsnpIntervalSchema, GoName: "CsnpInterval", Name: "csnp-interval"},
-		{Child: IsisDelaySchema, GoName: "Delay", Name: "delay"},
-		{Child: IsisFastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IsisHelloSchema, GoName: "Hello", Name: "hello"},
-		{Child: IsisIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{Child: IsisLanSchema, GoName: "IsisLan", Name: "isis-lan"},
-		{Child: IsisSerialSchema, GoName: "IsisSerial", Name: "isis-serial"},
-		{GoName: "LspInterval", Name: "lsp-interval", Type: yang.TUint32},
-		{GoName: "MeshGroup", Name: "mesh-group", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		}},
-		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
-		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
-		{Child: NetworkSchema, GoName: "Network", Name: "network"},
-		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
-		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
-		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},
-		{Child: RemotePsnpDelaySchema, GoName: "RemotePsnpDelay", Name: "remote-psnp-delay"},
-		{GoName: "RetransmitInterval", Name: "retransmit-interval", Type: yang.TUint16},
-		{GoName: "RetransmitThrottleInterval", Name: "retransmit-throttle-interval", Type: yang.TUint16},
-		{GoName: "Tag", Name: "tag", Type: yang.TUint32},
-		{Child: TeMetricSchema, GoName: "TeMetric", Name: "te-metric"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// VirtualTemplateClnsAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Virtual-Template/clns.
-type VirtualTemplateClnsAugment struct {
-	MTU *int64
-}
-
-// VirtualTemplateClnsAugmentSchema describes VirtualTemplateClnsAugment group fields with no codec root.
-var VirtualTemplateClnsAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "MTU", Name: "mtu", Type: yang.TInt64},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// VirtualTemplateIPRouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Virtual-Template/ip/router.
-type VirtualTemplateIPRouterAugment struct {
-	Isis *RouterIsis
-}
-
-// VirtualTemplateIPRouterAugmentSchema describes VirtualTemplateIPRouterAugment group fields with no codec root.
-var VirtualTemplateIPRouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// VirtualTemplateIPv6RouterAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Virtual-Template/ipv6/router.
-type VirtualTemplateIPv6RouterAugment struct {
-	Isis *RouterIsis
-}
-
-// VirtualTemplateIPv6RouterAugmentSchema describes VirtualTemplateIPv6RouterAugment group fields with no codec root.
-var VirtualTemplateIPv6RouterAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: RouterIsisSchema, GoName: "Isis", Name: "isis"},
-	},
-	Module: moduleCiscoIOSXEIsis,
-}
-
-// VirtualTemplateIsisAugment is the Cisco-IOS-XE-isis augment group at /Cisco-IOS-XE-native:native/interface/Virtual-Template/isis.
-type VirtualTemplateIsisAugment struct {
-	AdjacencyFilter            *AdjacencyFilter
-	Advertise                  *IsisAdvertise
-	Affinity                   *IsisAffinity
-	AuthenticationLan          *AuthenticationLan
-	Bfd                        *Bfd
-	CircuitType                *CircuitType
-	CsnpInterval               *CsnpInterval
-	Delay                      *IsisDelay
-	FastReroute                *IsisFastReroute
-	Hello                      *IsisHello
-	HelloIntervalLan           *HelloIntervalLan
-	HelloMultiplierLan         *HelloMultiplierLan
-	IPv6                       *IsisIPv6
-	LspInterval                *uint32
-	MeshGroup                  *yang.Value
-	Metric                     *Metric
-	MetricFallback             *MetricFallback
-	PasswordLan                *PasswordLan
-	PrefixAttributes           *PrefixAttributes
-	Priority                   *IsisPriority
-	Protocol                   *IsisProtocol
-	RemotePsnpDelay            *RemotePsnpDelay
-	RetransmitInterval         *uint16
-	RetransmitThrottleInterval *uint16
-	Tag                        *uint32
-	TeMetric                   *TeMetric
-}
-
-// VirtualTemplateIsisAugmentSchema describes VirtualTemplateIsisAugment group fields with no codec root.
-var VirtualTemplateIsisAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AdjacencyFilterSchema, GoName: "AdjacencyFilter", Name: "adjacency-filter"},
-		{Child: IsisAdvertiseSchema, GoName: "Advertise", Name: "advertise"},
-		{Child: IsisAffinitySchema, GoName: "Affinity", Name: "affinity"},
-		{Child: AuthenticationLanSchema, GoName: "AuthenticationLan", Name: "authentication-lan"},
-		{Child: BfdSchema, GoName: "Bfd", Name: "bfd"},
-		{Child: CircuitTypeSchema, GoName: "CircuitType", Name: "circuit-type"},
-		{Child: CsnpIntervalSchema, GoName: "CsnpInterval", Name: "csnp-interval"},
-		{Child: IsisDelaySchema, GoName: "Delay", Name: "delay"},
-		{Child: IsisFastRerouteSchema, GoName: "FastReroute", Name: "fast-reroute"},
-		{Child: IsisHelloSchema, GoName: "Hello", Name: "hello"},
-		{Child: HelloIntervalLanSchema, GoName: "HelloIntervalLan", Name: "hello-interval-lan"},
-		{Child: HelloMultiplierLanSchema, GoName: "HelloMultiplierLan", Name: "hello-multiplier-lan"},
-		{Child: IsisIPv6Schema, GoName: "IPv6", Name: "ipv6"},
-		{GoName: "LspInterval", Name: "lsp-interval", Type: yang.TUint32},
-		{GoName: "MeshGroup", Name: "mesh-group", Type: &yang.Type{
-			Kind:    yang.TypeUnion,
-			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
-		}},
-		{Child: MetricSchema, GoName: "Metric", Name: "metric"},
-		{Child: MetricFallbackSchema, GoName: "MetricFallback", Name: "metric-fallback"},
-		{Child: PasswordLanSchema, GoName: "PasswordLan", Name: "password-lan"},
 		{Child: PrefixAttributesSchema, GoName: "PrefixAttributes", Name: "prefix-attributes"},
 		{Child: IsisPrioritySchema, GoName: "Priority", Name: "priority"},
 		{Child: IsisProtocolSchema, GoName: "Protocol", Name: "protocol"},

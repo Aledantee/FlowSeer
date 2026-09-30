@@ -14,70 +14,6 @@ var moduleOpenconfigAftNetworkInstance = &yang.Module{
 	Namespace: "http://openconfig.net/yang/aft/ni",
 }
 
-// IPv4EntryStateAugment is the openconfig-aft-network-instance augment group at /openconfig-network-instance:network-instances/network-instance/afts/ipv4-unicast/ipv4-entry/state.
-type IPv4EntryStateAugment struct {
-	NextHopGroup                *uint64
-	NextHopGroupNetworkInstance *string
-	OriginNetworkInstance       *string
-}
-
-// IPv4EntryStateAugmentSchema describes IPv4EntryStateAugment group fields with no codec root.
-var IPv4EntryStateAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "NextHopGroup", Name: "next-hop-group", Type: yang.TUint64},
-		{GoName: "NextHopGroupNetworkInstance", Name: "next-hop-group-network-instance", Type: yang.TString},
-		{GoName: "OriginNetworkInstance", Name: "origin-network-instance", Type: yang.TString},
-	},
-	Module: moduleOpenconfigAftNetworkInstance,
-}
-
-// IPv6EntryStateAugment is the openconfig-aft-network-instance augment group at /openconfig-network-instance:network-instances/network-instance/afts/ipv6-unicast/ipv6-entry/state.
-type IPv6EntryStateAugment struct {
-	NextHopGroup                *uint64
-	NextHopGroupNetworkInstance *string
-	OriginNetworkInstance       *string
-}
-
-// IPv6EntryStateAugmentSchema describes IPv6EntryStateAugment group fields with no codec root.
-var IPv6EntryStateAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "NextHopGroup", Name: "next-hop-group", Type: yang.TUint64},
-		{GoName: "NextHopGroupNetworkInstance", Name: "next-hop-group-network-instance", Type: yang.TString},
-		{GoName: "OriginNetworkInstance", Name: "origin-network-instance", Type: yang.TString},
-	},
-	Module: moduleOpenconfigAftNetworkInstance,
-}
-
-// LabelEntryStateAugment is the openconfig-aft-network-instance augment group at /openconfig-network-instance:network-instances/network-instance/afts/mpls/label-entry/state.
-type LabelEntryStateAugment struct {
-	NextHopGroup                *uint64
-	NextHopGroupNetworkInstance *string
-}
-
-// LabelEntryStateAugmentSchema describes LabelEntryStateAugment group fields with no codec root.
-var LabelEntryStateAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "NextHopGroup", Name: "next-hop-group", Type: yang.TUint64},
-		{GoName: "NextHopGroupNetworkInstance", Name: "next-hop-group-network-instance", Type: yang.TString},
-	},
-	Module: moduleOpenconfigAftNetworkInstance,
-}
-
-// MACEntryStateAugment is the openconfig-aft-network-instance augment group at /openconfig-network-instance:network-instances/network-instance/afts/ethernet/mac-entry/state.
-type MACEntryStateAugment struct {
-	NextHopGroup                *uint64
-	NextHopGroupNetworkInstance *string
-}
-
-// MACEntryStateAugmentSchema describes MACEntryStateAugment group fields with no codec root.
-var MACEntryStateAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "NextHopGroup", Name: "next-hop-group", Type: yang.TUint64},
-		{GoName: "NextHopGroupNetworkInstance", Name: "next-hop-group-network-instance", Type: yang.TString},
-	},
-	Module: moduleOpenconfigAftNetworkInstance,
-}
-
 // NextHopStateAugment is the openconfig-aft-network-instance augment group at /openconfig-network-instance:network-instances/network-instance/afts/next-hops/next-hop/state.
 type NextHopStateAugment struct {
 	NetworkInstance *string
@@ -91,17 +27,34 @@ var NextHopStateAugmentSchema = &yang.Schema{
 	Module: moduleOpenconfigAftNetworkInstance,
 }
 
-// PolicyForwardingEntryStateAugment is the openconfig-aft-network-instance augment group at /openconfig-network-instance:network-instances/network-instance/afts/policy-forwarding/policy-forwarding-entry/state.
-type PolicyForwardingEntryStateAugment struct {
+// StateAugment is the openconfig-aft-network-instance augment group at /openconfig-network-instance:network-instances/network-instance/afts/ethernet/mac-entry/state.
+type StateAugment struct {
 	NextHopGroup                *uint64
 	NextHopGroupNetworkInstance *string
 }
 
-// PolicyForwardingEntryStateAugmentSchema describes PolicyForwardingEntryStateAugment group fields with no codec root.
-var PolicyForwardingEntryStateAugmentSchema = &yang.Schema{
+// StateAugmentSchema describes StateAugment group fields with no codec root.
+var StateAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{GoName: "NextHopGroup", Name: "next-hop-group", Type: yang.TUint64},
 		{GoName: "NextHopGroupNetworkInstance", Name: "next-hop-group-network-instance", Type: yang.TString},
+	},
+	Module: moduleOpenconfigAftNetworkInstance,
+}
+
+// StateAugmentXbdd2f1 is the openconfig-aft-network-instance augment group at /openconfig-network-instance:network-instances/network-instance/afts/ipv4-unicast/ipv4-entry/state.
+type StateAugmentXbdd2f1 struct {
+	NextHopGroup                *uint64
+	NextHopGroupNetworkInstance *string
+	OriginNetworkInstance       *string
+}
+
+// StateAugmentSchemaX8f59f5 describes StateAugmentXbdd2f1 group fields with no codec root.
+var StateAugmentSchemaX8f59f5 = &yang.Schema{
+	Fields: []yang.Field{
+		{GoName: "NextHopGroup", Name: "next-hop-group", Type: yang.TUint64},
+		{GoName: "NextHopGroupNetworkInstance", Name: "next-hop-group-network-instance", Type: yang.TString},
+		{GoName: "OriginNetworkInstance", Name: "origin-network-instance", Type: yang.TString},
 	},
 	Module: moduleOpenconfigAftNetworkInstance,
 }

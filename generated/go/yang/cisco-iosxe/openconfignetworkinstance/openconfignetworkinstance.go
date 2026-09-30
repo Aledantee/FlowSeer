@@ -22,12 +22,6 @@ var moduleCiscoXeOpenconfigRibBGPExt = &yang.Module{
 	Namespace: "http://cisco.com/ns/yang/cisco-xe-openconfig-rib-bgp-ext",
 }
 
-// moduleOpenconfigAftNetworkInstance identifies the openconfig-aft-network-instance YANG module.
-var moduleOpenconfigAftNetworkInstance = &yang.Module{
-	Name:      "openconfig-aft-network-instance",
-	Namespace: "http://openconfig.net/yang/aft/ni",
-}
-
 // moduleOpenconfigNetworkInstance identifies the openconfig-network-instance YANG module.
 var moduleOpenconfigNetworkInstance = &yang.Module{
 	Name:      "openconfig-network-instance",
@@ -44,12 +38,6 @@ var moduleOpenconfigPfSrte = &yang.Module{
 var moduleOpenconfigProgrammingErrors = &yang.Module{
 	Name:      "openconfig-programming-errors",
 	Namespace: "http://openconfig.net/yang/programming-errors",
-}
-
-// moduleOpenconfigRibBGPExt identifies the openconfig-rib-bgp-ext YANG module.
-var moduleOpenconfigRibBGPExt = &yang.Module{
-	Name:      "openconfig-rib-bgp-ext",
-	Namespace: "http://openconfig.net/yang/rib/bgp-ext",
 }
 
 // moduleOpenconfigRouteSummary identifies the openconfig-route-summary YANG module.
@@ -1175,14 +1163,14 @@ var AggregatorStateSchema = &yang.Schema{
 // AnycastSourceInterface is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/evpn/evpn-instances/evpn-instance/vxlan/anycast-source-interface.
 type AnycastSourceInterface struct {
 	Config *Config
-	State  *State
+	State  *StateX7f4584
 }
 
 // AnycastSourceInterfaceSchema describes AnycastSourceInterface for the generic codecs.
 var AnycastSourceInterfaceSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: ConfigSchema, GoName: "Config", Name: "config"},
-		{Child: StateSchema, GoName: "State", Name: "state"},
+		{Child: StateSchemaXe6ceba, GoName: "State", Name: "state"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "anycast-source-interface",
@@ -5663,42 +5651,18 @@ var IPv4ConfigSchema = &yang.Schema{
 // IPv4Entry is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/afts/ipv4-unicast/ipv4-entry.
 type IPv4Entry struct {
 	Prefix *string
-	State  *IPv4EntryState
+	State  *State
 }
 
 // IPv4EntrySchema describes IPv4Entry for the generic codecs.
 var IPv4EntrySchema = &yang.Schema{
 	Fields: []yang.Field{
 		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: IPv4EntryStateSchema, GoName: "State", Name: "state"},
+		{Child: StateSchema, GoName: "State", Name: "state"},
 	},
 	Keys:   []string{"prefix"},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "ipv4-entry",
-}
-
-// IPv4EntryState is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/afts/ipv4-unicast/ipv4-entry/state.
-type IPv4EntryState struct {
-	Counters                     *StateCounters
-	DecapsulateHeader            *string
-	EntryMetadata                []byte
-	OriginProtocol               *yang.Identity
-	Prefix                       *string
-	OpenconfigAftNetworkInstance *openconfigaftnetworkinstance.IPv4EntryStateAugment
-}
-
-// IPv4EntryStateSchema describes IPv4EntryState for the generic codecs.
-var IPv4EntryStateSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: StateCountersSchema, GoName: "Counters", Name: "counters"},
-		{GoName: "DecapsulateHeader", Name: "decapsulate-header", Type: yang.TEnum},
-		{GoName: "EntryMetadata", Name: "entry-metadata", Type: yang.TBinary},
-		{GoName: "OriginProtocol", Name: "origin-protocol", Type: yang.TIdentity},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: openconfigaftnetworkinstance.IPv4EntryStateAugmentSchema, GoName: "OpenconfigAftNetworkInstance", Group: true},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "state",
 }
 
 // IPv4ExternalReachability is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/isis/levels/level/link-state-database/lsp/tlvs/tlv/ipv4-external-reachability.
@@ -6010,103 +5974,6 @@ var IPv4UnicastConfigSchema = &yang.Schema{
 	Name:   "config",
 }
 
-// IPv4UnicastLocRib is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/loc-rib.
-type IPv4UnicastLocRib struct {
-	Routes *IPv4UnicastLocRibRoutes
-	State  *StateX98efa1
-}
-
-// IPv4UnicastLocRibSchema describes IPv4UnicastLocRib for the generic codecs.
-var IPv4UnicastLocRibSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv4UnicastLocRibRoutesSchema, GoName: "Routes", Name: "routes"},
-		{Child: StateSchemaXec6b4e, GoName: "State", Name: "state"},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "loc-rib",
-}
-
-// IPv4UnicastLocRibRoutes is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/loc-rib/routes.
-type IPv4UnicastLocRibRoutes struct {
-	Route []IPv4UnicastLocRibRoutesRoute
-}
-
-// IPv4UnicastLocRibRoutesSchema describes IPv4UnicastLocRibRoutes for the generic codecs.
-var IPv4UnicastLocRibRoutesSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv4UnicastLocRibRoutesRouteSchema, GoName: "Route", List: true, Name: "route"},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "routes",
-}
-
-// IPv4UnicastLocRibRoutesRoute is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/loc-rib/routes/route.
-type IPv4UnicastLocRibRoutesRoute struct {
-	Origin            *yang.Value
-	PathID            *uint32
-	Prefix            *string
-	State             *IPv4UnicastLocRibRoutesRouteState
-	UnknownAttributes *UnknownAttributes
-}
-
-// IPv4UnicastLocRibRoutesRouteSchema describes IPv4UnicastLocRibRoutesRoute for the generic codecs.
-var IPv4UnicastLocRibRoutesRouteSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Origin", Name: "origin", Type: &yang.Type{
-			Kind: yang.TypeUnion,
-			Members: []yang.Type{{
-				Kind:    yang.TypeUnion,
-				Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
-			}, {Kind: yang.TypeIdentityRef}},
-		}},
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: IPv4UnicastLocRibRoutesRouteStateSchema, GoName: "State", Name: "state"},
-		{Child: UnknownAttributesSchema, GoName: "UnknownAttributes", Name: "unknown-attributes"},
-	},
-	Keys:   []string{"prefix", "origin", "path-id"},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "route",
-}
-
-// IPv4UnicastLocRibRoutesRouteState is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/loc-rib/routes/route/state.
-type IPv4UnicastLocRibRoutesRouteState struct {
-	AttrIndex           *uint64
-	CommunityIndex      *uint64
-	ExtCommunityIndex   *uint64
-	InvalidReason       *yang.Identity
-	LastModified        *uint64
-	Origin              *yang.Value
-	PathID              *uint32
-	Prefix              *string
-	ValidRoute          *bool
-	OpenconfigRibBGPExt *openconfigribbgpext.IPv4UnicastLocRibRoutesRouteStateAugment
-}
-
-// IPv4UnicastLocRibRoutesRouteStateSchema describes IPv4UnicastLocRibRoutesRouteState for the generic codecs.
-var IPv4UnicastLocRibRoutesRouteStateSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "AttrIndex", Name: "attr-index", Type: yang.TUint64},
-		{GoName: "CommunityIndex", Name: "community-index", Type: yang.TUint64},
-		{GoName: "ExtCommunityIndex", Name: "ext-community-index", Type: yang.TUint64},
-		{GoName: "InvalidReason", Name: "invalid-reason", Type: yang.TIdentity},
-		{GoName: "LastModified", Name: "last-modified", Type: yang.TUint64},
-		{GoName: "Origin", Name: "origin", Type: &yang.Type{
-			Kind: yang.TypeUnion,
-			Members: []yang.Type{{
-				Kind:    yang.TypeUnion,
-				Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
-			}, {Kind: yang.TypeIdentityRef}},
-		}},
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{GoName: "ValidRoute", Name: "valid-route", Type: yang.TBool},
-		{Child: openconfigribbgpext.IPv4UnicastLocRibRoutesRouteStateAugmentSchema, GoName: "OpenconfigRibBGPExt", Group: true},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "state",
-}
-
 // IPv4UnicastNeighbors is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors.
 type IPv4UnicastNeighbors struct {
 	Neighbor []IPv4UnicastNeighborsNeighbor
@@ -6151,328 +6018,66 @@ var IPv4UnicastNeighborsNeighborSchema = &yang.Schema{
 
 // IPv4UnicastNeighborsNeighborAdjRibInPost is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-in-post.
 type IPv4UnicastNeighborsNeighborAdjRibInPost struct {
-	Routes *IPv4UnicastNeighborsNeighborAdjRibInPostRoutes
+	Routes *NeighborsNeighborAdjRibInPostRoutesXa9f79a
 	State  *StateX98efa1
 }
 
 // IPv4UnicastNeighborsNeighborAdjRibInPostSchema describes IPv4UnicastNeighborsNeighborAdjRibInPost for the generic codecs.
 var IPv4UnicastNeighborsNeighborAdjRibInPostSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{Child: IPv4UnicastNeighborsNeighborAdjRibInPostRoutesSchema, GoName: "Routes", Name: "routes"},
+		{Child: NeighborsNeighborAdjRibInPostRoutesSchemaX1dd098, GoName: "Routes", Name: "routes"},
 		{Child: StateSchemaXec6b4e, GoName: "State", Name: "state"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "adj-rib-in-post",
 }
 
-// IPv4UnicastNeighborsNeighborAdjRibInPostRoutes is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-in-post/routes.
-type IPv4UnicastNeighborsNeighborAdjRibInPostRoutes struct {
-	Route []IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRoute
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibInPostRoutesSchema describes IPv4UnicastNeighborsNeighborAdjRibInPostRoutes for the generic codecs.
-var IPv4UnicastNeighborsNeighborAdjRibInPostRoutesSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteSchema, GoName: "Route", List: true, Name: "route"},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "routes",
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRoute is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-in-post/routes/route.
-type IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRoute struct {
-	PathID            *uint32
-	Prefix            *string
-	State             *IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteState
-	UnknownAttributes *UnknownAttributes
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteSchema describes IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRoute for the generic codecs.
-var IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteStateSchema, GoName: "State", Name: "state"},
-		{Child: UnknownAttributesSchema, GoName: "UnknownAttributes", Name: "unknown-attributes"},
-	},
-	Keys:   []string{"prefix", "path-id"},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "route",
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteState is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-in-post/routes/route/state.
-type IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteState struct {
-	AttrIndex           *uint64
-	BestPath            *bool
-	CommunityIndex      *uint64
-	ExtCommunityIndex   *uint64
-	InvalidReason       *yang.Identity
-	LastModified        *uint64
-	PathID              *uint32
-	Prefix              *string
-	ValidRoute          *bool
-	OpenconfigRibBGPExt *openconfigribbgpext.IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteStateAugment
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteStateSchema describes IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteState for the generic codecs.
-var IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteStateSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "AttrIndex", Name: "attr-index", Type: yang.TUint64},
-		{GoName: "BestPath", Name: "best-path", Type: yang.TBool},
-		{GoName: "CommunityIndex", Name: "community-index", Type: yang.TUint64},
-		{GoName: "ExtCommunityIndex", Name: "ext-community-index", Type: yang.TUint64},
-		{GoName: "InvalidReason", Name: "invalid-reason", Type: yang.TIdentity},
-		{GoName: "LastModified", Name: "last-modified", Type: yang.TUint64},
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{GoName: "ValidRoute", Name: "valid-route", Type: yang.TBool},
-		{Child: openconfigribbgpext.IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteStateAugmentSchema, GoName: "OpenconfigRibBGPExt", Group: true},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "state",
-}
-
 // IPv4UnicastNeighborsNeighborAdjRibInPre is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-in-pre.
 type IPv4UnicastNeighborsNeighborAdjRibInPre struct {
-	Routes *IPv4UnicastNeighborsNeighborAdjRibInPreRoutes
+	Routes *RoutesXa83b56
 	State  *StateX98efa1
 }
 
 // IPv4UnicastNeighborsNeighborAdjRibInPreSchema describes IPv4UnicastNeighborsNeighborAdjRibInPre for the generic codecs.
 var IPv4UnicastNeighborsNeighborAdjRibInPreSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{Child: IPv4UnicastNeighborsNeighborAdjRibInPreRoutesSchema, GoName: "Routes", Name: "routes"},
+		{Child: RoutesSchemaX0115a9, GoName: "Routes", Name: "routes"},
 		{Child: StateSchemaXec6b4e, GoName: "State", Name: "state"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "adj-rib-in-pre",
 }
 
-// IPv4UnicastNeighborsNeighborAdjRibInPreRoutes is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-in-pre/routes.
-type IPv4UnicastNeighborsNeighborAdjRibInPreRoutes struct {
-	Route []IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRoute
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibInPreRoutesSchema describes IPv4UnicastNeighborsNeighborAdjRibInPreRoutes for the generic codecs.
-var IPv4UnicastNeighborsNeighborAdjRibInPreRoutesSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteSchema, GoName: "Route", List: true, Name: "route"},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "routes",
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRoute is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-in-pre/routes/route.
-type IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRoute struct {
-	PathID            *uint32
-	Prefix            *string
-	State             *IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteState
-	UnknownAttributes *UnknownAttributes
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteSchema describes IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRoute for the generic codecs.
-var IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteStateSchema, GoName: "State", Name: "state"},
-		{Child: UnknownAttributesSchema, GoName: "UnknownAttributes", Name: "unknown-attributes"},
-	},
-	Keys:   []string{"prefix", "path-id"},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "route",
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteState is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-in-pre/routes/route/state.
-type IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteState struct {
-	AttrIndex           *uint64
-	CommunityIndex      *uint64
-	ExtCommunityIndex   *uint64
-	InvalidReason       *yang.Identity
-	LastModified        *uint64
-	PathID              *uint32
-	Prefix              *string
-	ValidRoute          *bool
-	OpenconfigRibBGPExt *openconfigribbgpext.IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteStateAugment
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteStateSchema describes IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteState for the generic codecs.
-var IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteStateSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "AttrIndex", Name: "attr-index", Type: yang.TUint64},
-		{GoName: "CommunityIndex", Name: "community-index", Type: yang.TUint64},
-		{GoName: "ExtCommunityIndex", Name: "ext-community-index", Type: yang.TUint64},
-		{GoName: "InvalidReason", Name: "invalid-reason", Type: yang.TIdentity},
-		{GoName: "LastModified", Name: "last-modified", Type: yang.TUint64},
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{GoName: "ValidRoute", Name: "valid-route", Type: yang.TBool},
-		{Child: openconfigribbgpext.IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteStateAugmentSchema, GoName: "OpenconfigRibBGPExt", Group: true},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "state",
-}
-
 // IPv4UnicastNeighborsNeighborAdjRibOutPost is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-out-post.
 type IPv4UnicastNeighborsNeighborAdjRibOutPost struct {
-	Routes *IPv4UnicastNeighborsNeighborAdjRibOutPostRoutes
+	Routes *RoutesXa83b56
 	State  *StateX98efa1
 }
 
 // IPv4UnicastNeighborsNeighborAdjRibOutPostSchema describes IPv4UnicastNeighborsNeighborAdjRibOutPost for the generic codecs.
 var IPv4UnicastNeighborsNeighborAdjRibOutPostSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{Child: IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesSchema, GoName: "Routes", Name: "routes"},
+		{Child: RoutesSchemaX0115a9, GoName: "Routes", Name: "routes"},
 		{Child: StateSchemaXec6b4e, GoName: "State", Name: "state"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "adj-rib-out-post",
 }
 
-// IPv4UnicastNeighborsNeighborAdjRibOutPostRoutes is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-out-post/routes.
-type IPv4UnicastNeighborsNeighborAdjRibOutPostRoutes struct {
-	Route []IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRoute
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesSchema describes IPv4UnicastNeighborsNeighborAdjRibOutPostRoutes for the generic codecs.
-var IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteSchema, GoName: "Route", List: true, Name: "route"},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "routes",
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRoute is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-out-post/routes/route.
-type IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRoute struct {
-	PathID            *uint32
-	Prefix            *string
-	State             *IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteState
-	UnknownAttributes *UnknownAttributes
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteSchema describes IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRoute for the generic codecs.
-var IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteStateSchema, GoName: "State", Name: "state"},
-		{Child: UnknownAttributesSchema, GoName: "UnknownAttributes", Name: "unknown-attributes"},
-	},
-	Keys:   []string{"prefix", "path-id"},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "route",
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteState is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-out-post/routes/route/state.
-type IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteState struct {
-	AttrIndex           *uint64
-	CommunityIndex      *uint64
-	ExtCommunityIndex   *uint64
-	InvalidReason       *yang.Identity
-	LastModified        *uint64
-	PathID              *uint32
-	Prefix              *string
-	ValidRoute          *bool
-	OpenconfigRibBGPExt *openconfigribbgpext.IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteStateAugment
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteStateSchema describes IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteState for the generic codecs.
-var IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteStateSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "AttrIndex", Name: "attr-index", Type: yang.TUint64},
-		{GoName: "CommunityIndex", Name: "community-index", Type: yang.TUint64},
-		{GoName: "ExtCommunityIndex", Name: "ext-community-index", Type: yang.TUint64},
-		{GoName: "InvalidReason", Name: "invalid-reason", Type: yang.TIdentity},
-		{GoName: "LastModified", Name: "last-modified", Type: yang.TUint64},
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{GoName: "ValidRoute", Name: "valid-route", Type: yang.TBool},
-		{Child: openconfigribbgpext.IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteStateAugmentSchema, GoName: "OpenconfigRibBGPExt", Group: true},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "state",
-}
-
 // IPv4UnicastNeighborsNeighborAdjRibOutPre is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-out-pre.
 type IPv4UnicastNeighborsNeighborAdjRibOutPre struct {
-	Routes *IPv4UnicastNeighborsNeighborAdjRibOutPreRoutes
+	Routes *RoutesXa83b56
 	State  *StateX98efa1
 }
 
 // IPv4UnicastNeighborsNeighborAdjRibOutPreSchema describes IPv4UnicastNeighborsNeighborAdjRibOutPre for the generic codecs.
 var IPv4UnicastNeighborsNeighborAdjRibOutPreSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{Child: IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesSchema, GoName: "Routes", Name: "routes"},
+		{Child: RoutesSchemaX0115a9, GoName: "Routes", Name: "routes"},
 		{Child: StateSchemaXec6b4e, GoName: "State", Name: "state"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "adj-rib-out-pre",
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibOutPreRoutes is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-out-pre/routes.
-type IPv4UnicastNeighborsNeighborAdjRibOutPreRoutes struct {
-	Route []IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRoute
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesSchema describes IPv4UnicastNeighborsNeighborAdjRibOutPreRoutes for the generic codecs.
-var IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteSchema, GoName: "Route", List: true, Name: "route"},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "routes",
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRoute is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-out-pre/routes/route.
-type IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRoute struct {
-	PathID            *uint32
-	Prefix            *string
-	State             *IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteState
-	UnknownAttributes *UnknownAttributes
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteSchema describes IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRoute for the generic codecs.
-var IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteStateSchema, GoName: "State", Name: "state"},
-		{Child: UnknownAttributesSchema, GoName: "UnknownAttributes", Name: "unknown-attributes"},
-	},
-	Keys:   []string{"prefix", "path-id"},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "route",
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteState is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-out-pre/routes/route/state.
-type IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteState struct {
-	AttrIndex           *uint64
-	CommunityIndex      *uint64
-	ExtCommunityIndex   *uint64
-	InvalidReason       *yang.Identity
-	LastModified        *uint64
-	PathID              *uint32
-	Prefix              *string
-	ValidRoute          *bool
-	OpenconfigRibBGPExt *openconfigribbgpext.IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteStateAugment
-}
-
-// IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteStateSchema describes IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteState for the generic codecs.
-var IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteStateSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "AttrIndex", Name: "attr-index", Type: yang.TUint64},
-		{GoName: "CommunityIndex", Name: "community-index", Type: yang.TUint64},
-		{GoName: "ExtCommunityIndex", Name: "ext-community-index", Type: yang.TUint64},
-		{GoName: "InvalidReason", Name: "invalid-reason", Type: yang.TIdentity},
-		{GoName: "LastModified", Name: "last-modified", Type: yang.TUint64},
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{GoName: "ValidRoute", Name: "valid-route", Type: yang.TBool},
-		{Child: openconfigribbgpext.IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteStateAugmentSchema, GoName: "OpenconfigRibBGPExt", Group: true},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "state",
 }
 
 // IPv4UnicastState is the openconfig-network-instance node shape instantiated at 3 schema paths, such as /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/global/afi-safis/afi-safi/ipv4-unicast/state.
@@ -6523,42 +6128,18 @@ var IPv6ConfigSchema = &yang.Schema{
 // IPv6Entry is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/afts/ipv6-unicast/ipv6-entry.
 type IPv6Entry struct {
 	Prefix *string
-	State  *IPv6EntryState
+	State  *State
 }
 
 // IPv6EntrySchema describes IPv6Entry for the generic codecs.
 var IPv6EntrySchema = &yang.Schema{
 	Fields: []yang.Field{
 		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: IPv6EntryStateSchema, GoName: "State", Name: "state"},
+		{Child: StateSchema, GoName: "State", Name: "state"},
 	},
 	Keys:   []string{"prefix"},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "ipv6-entry",
-}
-
-// IPv6EntryState is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/afts/ipv6-unicast/ipv6-entry/state.
-type IPv6EntryState struct {
-	Counters                     *StateCounters
-	DecapsulateHeader            *string
-	EntryMetadata                []byte
-	OriginProtocol               *yang.Identity
-	Prefix                       *string
-	OpenconfigAftNetworkInstance *openconfigaftnetworkinstance.IPv6EntryStateAugment
-}
-
-// IPv6EntryStateSchema describes IPv6EntryState for the generic codecs.
-var IPv6EntryStateSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: StateCountersSchema, GoName: "Counters", Name: "counters"},
-		{GoName: "DecapsulateHeader", Name: "decapsulate-header", Type: yang.TEnum},
-		{GoName: "EntryMetadata", Name: "entry-metadata", Type: yang.TBinary},
-		{GoName: "OriginProtocol", Name: "origin-protocol", Type: yang.TIdentity},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: openconfigaftnetworkinstance.IPv6EntryStateAugmentSchema, GoName: "OpenconfigAftNetworkInstance", Group: true},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "state",
 }
 
 // IPv6InterfaceAddress is the openconfig-network-instance node shape instantiated at 4 schema paths, such as /openconfig-network-instance:network-instances/network-instance/protocols/protocol/isis/levels/level/link-state-database/lsp/tlvs/tlv/extended-is-reachability/neighbors/neighbors/subTLVs/subTLVs/ipv6-interface-address.
@@ -6874,103 +6455,6 @@ var IPv6UnicastConfigSchema = &yang.Schema{
 	Name:   "config",
 }
 
-// IPv6UnicastLocRib is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/loc-rib.
-type IPv6UnicastLocRib struct {
-	Routes *IPv6UnicastLocRibRoutes
-	State  *StateX98efa1
-}
-
-// IPv6UnicastLocRibSchema describes IPv6UnicastLocRib for the generic codecs.
-var IPv6UnicastLocRibSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6UnicastLocRibRoutesSchema, GoName: "Routes", Name: "routes"},
-		{Child: StateSchemaXec6b4e, GoName: "State", Name: "state"},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "loc-rib",
-}
-
-// IPv6UnicastLocRibRoutes is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/loc-rib/routes.
-type IPv6UnicastLocRibRoutes struct {
-	Route []IPv6UnicastLocRibRoutesRoute
-}
-
-// IPv6UnicastLocRibRoutesSchema describes IPv6UnicastLocRibRoutes for the generic codecs.
-var IPv6UnicastLocRibRoutesSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6UnicastLocRibRoutesRouteSchema, GoName: "Route", List: true, Name: "route"},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "routes",
-}
-
-// IPv6UnicastLocRibRoutesRoute is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/loc-rib/routes/route.
-type IPv6UnicastLocRibRoutesRoute struct {
-	Origin            *yang.Value
-	PathID            *uint32
-	Prefix            *string
-	State             *IPv6UnicastLocRibRoutesRouteState
-	UnknownAttributes *UnknownAttributes
-}
-
-// IPv6UnicastLocRibRoutesRouteSchema describes IPv6UnicastLocRibRoutesRoute for the generic codecs.
-var IPv6UnicastLocRibRoutesRouteSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "Origin", Name: "origin", Type: &yang.Type{
-			Kind: yang.TypeUnion,
-			Members: []yang.Type{{
-				Kind:    yang.TypeUnion,
-				Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
-			}, {Kind: yang.TypeIdentityRef}},
-		}},
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: IPv6UnicastLocRibRoutesRouteStateSchema, GoName: "State", Name: "state"},
-		{Child: UnknownAttributesSchema, GoName: "UnknownAttributes", Name: "unknown-attributes"},
-	},
-	Keys:   []string{"prefix", "origin", "path-id"},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "route",
-}
-
-// IPv6UnicastLocRibRoutesRouteState is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/loc-rib/routes/route/state.
-type IPv6UnicastLocRibRoutesRouteState struct {
-	AttrIndex           *uint64
-	CommunityIndex      *uint64
-	ExtCommunityIndex   *uint64
-	InvalidReason       *yang.Identity
-	LastModified        *uint64
-	Origin              *yang.Value
-	PathID              *uint32
-	Prefix              *string
-	ValidRoute          *bool
-	OpenconfigRibBGPExt *openconfigribbgpext.IPv6UnicastLocRibRoutesRouteStateAugment
-}
-
-// IPv6UnicastLocRibRoutesRouteStateSchema describes IPv6UnicastLocRibRoutesRouteState for the generic codecs.
-var IPv6UnicastLocRibRoutesRouteStateSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "AttrIndex", Name: "attr-index", Type: yang.TUint64},
-		{GoName: "CommunityIndex", Name: "community-index", Type: yang.TUint64},
-		{GoName: "ExtCommunityIndex", Name: "ext-community-index", Type: yang.TUint64},
-		{GoName: "InvalidReason", Name: "invalid-reason", Type: yang.TIdentity},
-		{GoName: "LastModified", Name: "last-modified", Type: yang.TUint64},
-		{GoName: "Origin", Name: "origin", Type: &yang.Type{
-			Kind: yang.TypeUnion,
-			Members: []yang.Type{{
-				Kind:    yang.TypeUnion,
-				Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
-			}, {Kind: yang.TypeIdentityRef}},
-		}},
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{GoName: "ValidRoute", Name: "valid-route", Type: yang.TBool},
-		{Child: openconfigribbgpext.IPv6UnicastLocRibRoutesRouteStateAugmentSchema, GoName: "OpenconfigRibBGPExt", Group: true},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "state",
-}
-
 // IPv6UnicastNeighbors is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors.
 type IPv6UnicastNeighbors struct {
 	Neighbor []IPv6UnicastNeighborsNeighbor
@@ -7015,320 +6499,58 @@ var IPv6UnicastNeighborsNeighborSchema = &yang.Schema{
 
 // IPv6UnicastNeighborsNeighborAdjRibInPost is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-in-post.
 type IPv6UnicastNeighborsNeighborAdjRibInPost struct {
-	Routes *IPv6UnicastNeighborsNeighborAdjRibInPostRoutes
+	Routes *NeighborsNeighborAdjRibInPostRoutesXa9f79a
 }
 
 // IPv6UnicastNeighborsNeighborAdjRibInPostSchema describes IPv6UnicastNeighborsNeighborAdjRibInPost for the generic codecs.
 var IPv6UnicastNeighborsNeighborAdjRibInPostSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{Child: IPv6UnicastNeighborsNeighborAdjRibInPostRoutesSchema, GoName: "Routes", Name: "routes"},
+		{Child: NeighborsNeighborAdjRibInPostRoutesSchemaX1dd098, GoName: "Routes", Name: "routes"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "adj-rib-in-post",
 }
 
-// IPv6UnicastNeighborsNeighborAdjRibInPostRoutes is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-in-post/routes.
-type IPv6UnicastNeighborsNeighborAdjRibInPostRoutes struct {
-	Route []IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRoute
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibInPostRoutesSchema describes IPv6UnicastNeighborsNeighborAdjRibInPostRoutes for the generic codecs.
-var IPv6UnicastNeighborsNeighborAdjRibInPostRoutesSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteSchema, GoName: "Route", List: true, Name: "route"},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "routes",
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRoute is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-in-post/routes/route.
-type IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRoute struct {
-	PathID            *uint32
-	Prefix            *string
-	State             *IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteState
-	UnknownAttributes *UnknownAttributes
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteSchema describes IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRoute for the generic codecs.
-var IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteStateSchema, GoName: "State", Name: "state"},
-		{Child: UnknownAttributesSchema, GoName: "UnknownAttributes", Name: "unknown-attributes"},
-	},
-	Keys:   []string{"prefix", "path-id"},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "route",
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteState is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-in-post/routes/route/state.
-type IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteState struct {
-	AttrIndex           *uint64
-	BestPath            *bool
-	CommunityIndex      *uint64
-	ExtCommunityIndex   *uint64
-	InvalidReason       *yang.Identity
-	LastModified        *uint64
-	PathID              *uint32
-	Prefix              *string
-	ValidRoute          *bool
-	OpenconfigRibBGPExt *openconfigribbgpext.IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteStateAugment
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteStateSchema describes IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteState for the generic codecs.
-var IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteStateSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "AttrIndex", Name: "attr-index", Type: yang.TUint64},
-		{GoName: "BestPath", Name: "best-path", Type: yang.TBool},
-		{GoName: "CommunityIndex", Name: "community-index", Type: yang.TUint64},
-		{GoName: "ExtCommunityIndex", Name: "ext-community-index", Type: yang.TUint64},
-		{GoName: "InvalidReason", Name: "invalid-reason", Type: yang.TIdentity},
-		{GoName: "LastModified", Name: "last-modified", Type: yang.TUint64},
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{GoName: "ValidRoute", Name: "valid-route", Type: yang.TBool},
-		{Child: openconfigribbgpext.IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteStateAugmentSchema, GoName: "OpenconfigRibBGPExt", Group: true},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "state",
-}
-
 // IPv6UnicastNeighborsNeighborAdjRibInPre is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-in-pre.
 type IPv6UnicastNeighborsNeighborAdjRibInPre struct {
-	Routes *IPv6UnicastNeighborsNeighborAdjRibInPreRoutes
+	Routes *RoutesXa83b56
 }
 
 // IPv6UnicastNeighborsNeighborAdjRibInPreSchema describes IPv6UnicastNeighborsNeighborAdjRibInPre for the generic codecs.
 var IPv6UnicastNeighborsNeighborAdjRibInPreSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{Child: IPv6UnicastNeighborsNeighborAdjRibInPreRoutesSchema, GoName: "Routes", Name: "routes"},
+		{Child: RoutesSchemaX0115a9, GoName: "Routes", Name: "routes"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "adj-rib-in-pre",
 }
 
-// IPv6UnicastNeighborsNeighborAdjRibInPreRoutes is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-in-pre/routes.
-type IPv6UnicastNeighborsNeighborAdjRibInPreRoutes struct {
-	Route []IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRoute
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibInPreRoutesSchema describes IPv6UnicastNeighborsNeighborAdjRibInPreRoutes for the generic codecs.
-var IPv6UnicastNeighborsNeighborAdjRibInPreRoutesSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteSchema, GoName: "Route", List: true, Name: "route"},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "routes",
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRoute is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-in-pre/routes/route.
-type IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRoute struct {
-	PathID            *uint32
-	Prefix            *string
-	State             *IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteState
-	UnknownAttributes *UnknownAttributes
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteSchema describes IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRoute for the generic codecs.
-var IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteStateSchema, GoName: "State", Name: "state"},
-		{Child: UnknownAttributesSchema, GoName: "UnknownAttributes", Name: "unknown-attributes"},
-	},
-	Keys:   []string{"prefix", "path-id"},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "route",
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteState is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-in-pre/routes/route/state.
-type IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteState struct {
-	AttrIndex           *uint64
-	CommunityIndex      *uint64
-	ExtCommunityIndex   *uint64
-	InvalidReason       *yang.Identity
-	LastModified        *uint64
-	PathID              *uint32
-	Prefix              *string
-	ValidRoute          *bool
-	OpenconfigRibBGPExt *openconfigribbgpext.IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteStateAugment
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteStateSchema describes IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteState for the generic codecs.
-var IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteStateSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "AttrIndex", Name: "attr-index", Type: yang.TUint64},
-		{GoName: "CommunityIndex", Name: "community-index", Type: yang.TUint64},
-		{GoName: "ExtCommunityIndex", Name: "ext-community-index", Type: yang.TUint64},
-		{GoName: "InvalidReason", Name: "invalid-reason", Type: yang.TIdentity},
-		{GoName: "LastModified", Name: "last-modified", Type: yang.TUint64},
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{GoName: "ValidRoute", Name: "valid-route", Type: yang.TBool},
-		{Child: openconfigribbgpext.IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteStateAugmentSchema, GoName: "OpenconfigRibBGPExt", Group: true},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "state",
-}
-
 // IPv6UnicastNeighborsNeighborAdjRibOutPost is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-out-post.
 type IPv6UnicastNeighborsNeighborAdjRibOutPost struct {
-	Routes *IPv6UnicastNeighborsNeighborAdjRibOutPostRoutes
+	Routes *RoutesXa83b56
 }
 
 // IPv6UnicastNeighborsNeighborAdjRibOutPostSchema describes IPv6UnicastNeighborsNeighborAdjRibOutPost for the generic codecs.
 var IPv6UnicastNeighborsNeighborAdjRibOutPostSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{Child: IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesSchema, GoName: "Routes", Name: "routes"},
+		{Child: RoutesSchemaX0115a9, GoName: "Routes", Name: "routes"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "adj-rib-out-post",
 }
 
-// IPv6UnicastNeighborsNeighborAdjRibOutPostRoutes is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-out-post/routes.
-type IPv6UnicastNeighborsNeighborAdjRibOutPostRoutes struct {
-	Route []IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRoute
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesSchema describes IPv6UnicastNeighborsNeighborAdjRibOutPostRoutes for the generic codecs.
-var IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteSchema, GoName: "Route", List: true, Name: "route"},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "routes",
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRoute is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-out-post/routes/route.
-type IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRoute struct {
-	PathID            *uint32
-	Prefix            *string
-	State             *IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteState
-	UnknownAttributes *UnknownAttributes
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteSchema describes IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRoute for the generic codecs.
-var IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteStateSchema, GoName: "State", Name: "state"},
-		{Child: UnknownAttributesSchema, GoName: "UnknownAttributes", Name: "unknown-attributes"},
-	},
-	Keys:   []string{"prefix", "path-id"},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "route",
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteState is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-out-post/routes/route/state.
-type IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteState struct {
-	AttrIndex           *uint64
-	CommunityIndex      *uint64
-	ExtCommunityIndex   *uint64
-	InvalidReason       *yang.Identity
-	LastModified        *uint64
-	PathID              *uint32
-	Prefix              *string
-	ValidRoute          *bool
-	OpenconfigRibBGPExt *openconfigribbgpext.IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteStateAugment
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteStateSchema describes IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteState for the generic codecs.
-var IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteStateSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "AttrIndex", Name: "attr-index", Type: yang.TUint64},
-		{GoName: "CommunityIndex", Name: "community-index", Type: yang.TUint64},
-		{GoName: "ExtCommunityIndex", Name: "ext-community-index", Type: yang.TUint64},
-		{GoName: "InvalidReason", Name: "invalid-reason", Type: yang.TIdentity},
-		{GoName: "LastModified", Name: "last-modified", Type: yang.TUint64},
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{GoName: "ValidRoute", Name: "valid-route", Type: yang.TBool},
-		{Child: openconfigribbgpext.IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteStateAugmentSchema, GoName: "OpenconfigRibBGPExt", Group: true},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "state",
-}
-
 // IPv6UnicastNeighborsNeighborAdjRibOutPre is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-out-pre.
 type IPv6UnicastNeighborsNeighborAdjRibOutPre struct {
-	Routes *IPv6UnicastNeighborsNeighborAdjRibOutPreRoutes
+	Routes *RoutesXa83b56
 }
 
 // IPv6UnicastNeighborsNeighborAdjRibOutPreSchema describes IPv6UnicastNeighborsNeighborAdjRibOutPre for the generic codecs.
 var IPv6UnicastNeighborsNeighborAdjRibOutPreSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{Child: IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesSchema, GoName: "Routes", Name: "routes"},
+		{Child: RoutesSchemaX0115a9, GoName: "Routes", Name: "routes"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "adj-rib-out-pre",
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibOutPreRoutes is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-out-pre/routes.
-type IPv6UnicastNeighborsNeighborAdjRibOutPreRoutes struct {
-	Route []IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRoute
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesSchema describes IPv6UnicastNeighborsNeighborAdjRibOutPreRoutes for the generic codecs.
-var IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteSchema, GoName: "Route", List: true, Name: "route"},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "routes",
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRoute is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-out-pre/routes/route.
-type IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRoute struct {
-	PathID            *uint32
-	Prefix            *string
-	State             *IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteState
-	UnknownAttributes *UnknownAttributes
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteSchema describes IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRoute for the generic codecs.
-var IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{Child: IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteStateSchema, GoName: "State", Name: "state"},
-		{Child: UnknownAttributesSchema, GoName: "UnknownAttributes", Name: "unknown-attributes"},
-	},
-	Keys:   []string{"prefix", "path-id"},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "route",
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteState is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast/neighbors/neighbor/adj-rib-out-pre/routes/route/state.
-type IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteState struct {
-	AttrIndex           *uint64
-	CommunityIndex      *uint64
-	ExtCommunityIndex   *uint64
-	InvalidReason       *yang.Identity
-	LastModified        *uint64
-	PathID              *uint32
-	Prefix              *string
-	ValidRoute          *bool
-	OpenconfigRibBGPExt *openconfigribbgpext.IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteStateAugment
-}
-
-// IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteStateSchema describes IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteState for the generic codecs.
-var IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteStateSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "AttrIndex", Name: "attr-index", Type: yang.TUint64},
-		{GoName: "CommunityIndex", Name: "community-index", Type: yang.TUint64},
-		{GoName: "ExtCommunityIndex", Name: "ext-community-index", Type: yang.TUint64},
-		{GoName: "InvalidReason", Name: "invalid-reason", Type: yang.TIdentity},
-		{GoName: "LastModified", Name: "last-modified", Type: yang.TUint64},
-		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
-		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
-		{GoName: "ValidRoute", Name: "valid-route", Type: yang.TBool},
-		{Child: openconfigribbgpext.IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteStateAugmentSchema, GoName: "OpenconfigRibBGPExt", Group: true},
-	},
-	Module: moduleOpenconfigNetworkInstance,
-	Name:   "state",
 }
 
 // IPv6UnicastState is the openconfig-network-instance node shape instantiated at 3 schema paths, such as /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/global/afi-safis/afi-safi/ipv6-unicast/state.
@@ -8267,14 +7489,14 @@ var InterfaceNeighborsNeighborConfigSchema = &yang.Schema{
 // InterfaceRef is the openconfig-network-instance node shape instantiated at 11 schema paths, such as /openconfig-network-instance:network-instances/network-instance/fdb/mac-table/entries/entry/interface/interface-ref.
 type InterfaceRef struct {
 	Config *Config
-	State  *State
+	State  *StateX7f4584
 }
 
 // InterfaceRefSchema describes InterfaceRef for the generic codecs.
 var InterfaceRefSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: ConfigSchema, GoName: "Config", Name: "config"},
-		{Child: StateSchema, GoName: "State", Name: "state"},
+		{Child: StateSchemaXe6ceba, GoName: "State", Name: "state"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "interface-ref",
@@ -9337,7 +8559,7 @@ type LabelEntryState struct {
 	EntryMetadata                []byte
 	Label                        *yang.Value
 	PoppedMplsLabelStack         []yang.Value
-	OpenconfigAftNetworkInstance *openconfigaftnetworkinstance.LabelEntryStateAugment
+	OpenconfigAftNetworkInstance *openconfigaftnetworkinstance.StateAugment
 }
 
 // LabelEntryStateSchema describes LabelEntryState for the generic codecs.
@@ -9353,7 +8575,7 @@ var LabelEntryStateSchema = &yang.Schema{
 			Kind:    yang.TypeUnion,
 			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
 		}},
-		{Child: openconfigaftnetworkinstance.LabelEntryStateAugmentSchema, GoName: "OpenconfigAftNetworkInstance", Group: true},
+		{Child: openconfigaftnetworkinstance.StateAugmentSchema, GoName: "OpenconfigAftNetworkInstance", Group: true},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "state",
@@ -9909,6 +9131,103 @@ type LocRib struct {
 var LocRibSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: RoutesSchema, GoName: "Routes", Name: "routes"},
+	},
+	Module: moduleOpenconfigNetworkInstance,
+	Name:   "loc-rib",
+}
+
+// LocRibRoutes is the openconfig-network-instance node shape instantiated at 2 schema paths, such as /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/loc-rib/routes.
+type LocRibRoutes struct {
+	Route []LocRibRoutesRoute
+}
+
+// LocRibRoutesSchema describes LocRibRoutes for the generic codecs.
+var LocRibRoutesSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: LocRibRoutesRouteSchema, GoName: "Route", List: true, Name: "route"},
+	},
+	Module: moduleOpenconfigNetworkInstance,
+	Name:   "routes",
+}
+
+// LocRibRoutesRoute is the openconfig-network-instance node shape instantiated at 2 schema paths, such as /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/loc-rib/routes/route.
+type LocRibRoutesRoute struct {
+	Origin            *yang.Value
+	PathID            *uint32
+	Prefix            *string
+	State             *LocRibRoutesRouteState
+	UnknownAttributes *UnknownAttributes
+}
+
+// LocRibRoutesRouteSchema describes LocRibRoutesRoute for the generic codecs.
+var LocRibRoutesRouteSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{GoName: "Origin", Name: "origin", Type: &yang.Type{
+			Kind: yang.TypeUnion,
+			Members: []yang.Type{{
+				Kind:    yang.TypeUnion,
+				Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
+			}, {Kind: yang.TypeIdentityRef}},
+		}},
+		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
+		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
+		{Child: LocRibRoutesRouteStateSchema, GoName: "State", Name: "state"},
+		{Child: UnknownAttributesSchema, GoName: "UnknownAttributes", Name: "unknown-attributes"},
+	},
+	Keys:   []string{"prefix", "origin", "path-id"},
+	Module: moduleOpenconfigNetworkInstance,
+	Name:   "route",
+}
+
+// LocRibRoutesRouteState is the openconfig-network-instance node shape instantiated at 2 schema paths, such as /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/loc-rib/routes/route/state.
+type LocRibRoutesRouteState struct {
+	AttrIndex           *uint64
+	CommunityIndex      *uint64
+	ExtCommunityIndex   *uint64
+	InvalidReason       *yang.Identity
+	LastModified        *uint64
+	Origin              *yang.Value
+	PathID              *uint32
+	Prefix              *string
+	ValidRoute          *bool
+	OpenconfigRibBGPExt *openconfigribbgpext.StateAugment
+}
+
+// LocRibRoutesRouteStateSchema describes LocRibRoutesRouteState for the generic codecs.
+var LocRibRoutesRouteStateSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{GoName: "AttrIndex", Name: "attr-index", Type: yang.TUint64},
+		{GoName: "CommunityIndex", Name: "community-index", Type: yang.TUint64},
+		{GoName: "ExtCommunityIndex", Name: "ext-community-index", Type: yang.TUint64},
+		{GoName: "InvalidReason", Name: "invalid-reason", Type: yang.TIdentity},
+		{GoName: "LastModified", Name: "last-modified", Type: yang.TUint64},
+		{GoName: "Origin", Name: "origin", Type: &yang.Type{
+			Kind: yang.TypeUnion,
+			Members: []yang.Type{{
+				Kind:    yang.TypeUnion,
+				Members: []yang.Type{{Kind: yang.TypeString}, {Kind: yang.TypeString}},
+			}, {Kind: yang.TypeIdentityRef}},
+		}},
+		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
+		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
+		{GoName: "ValidRoute", Name: "valid-route", Type: yang.TBool},
+		{Child: openconfigribbgpext.StateAugmentSchema, GoName: "OpenconfigRibBGPExt", Group: true},
+	},
+	Module: moduleOpenconfigNetworkInstance,
+	Name:   "state",
+}
+
+// LocRibXa65e1c is the openconfig-network-instance node shape instantiated at 2 schema paths, such as /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/loc-rib.
+type LocRibXa65e1c struct {
+	Routes *LocRibRoutes
+	State  *StateX98efa1
+}
+
+// LocRibSchemaX536f2b describes LocRibXa65e1c for the generic codecs.
+var LocRibSchemaX536f2b = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: LocRibRoutesSchema, GoName: "Routes", Name: "routes"},
+		{Child: StateSchemaXec6b4e, GoName: "State", Name: "state"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "loc-rib",
@@ -10520,7 +9839,7 @@ type MACEntryState struct {
 	Counters                     *StateCounters
 	EntryMetadata                []byte
 	MACAddress                   *string
-	OpenconfigAftNetworkInstance *openconfigaftnetworkinstance.MACEntryStateAugment
+	OpenconfigAftNetworkInstance *openconfigaftnetworkinstance.StateAugment
 }
 
 // MACEntryStateSchema describes MACEntryState for the generic codecs.
@@ -10529,7 +9848,7 @@ var MACEntryStateSchema = &yang.Schema{
 		{Child: StateCountersSchema, GoName: "Counters", Name: "counters"},
 		{GoName: "EntryMetadata", Name: "entry-metadata", Type: yang.TBinary},
 		{GoName: "MACAddress", Name: "mac-address", Type: yang.TString},
-		{Child: openconfigaftnetworkinstance.MACEntryStateAugmentSchema, GoName: "OpenconfigAftNetworkInstance", Group: true},
+		{Child: openconfigaftnetworkinstance.StateAugmentSchema, GoName: "OpenconfigAftNetworkInstance", Group: true},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "state",
@@ -12018,6 +11337,73 @@ var NeighborsNeighborAdjRibInPostRoutesRouteStateSchema = &yang.Schema{
 	Name:   "state",
 }
 
+// NeighborsNeighborAdjRibInPostRoutesRouteStateX826236 is the openconfig-network-instance node shape instantiated at 2 schema paths, such as /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-in-post/routes/route/state.
+type NeighborsNeighborAdjRibInPostRoutesRouteStateX826236 struct {
+	AttrIndex           *uint64
+	BestPath            *bool
+	CommunityIndex      *uint64
+	ExtCommunityIndex   *uint64
+	InvalidReason       *yang.Identity
+	LastModified        *uint64
+	PathID              *uint32
+	Prefix              *string
+	ValidRoute          *bool
+	OpenconfigRibBGPExt *openconfigribbgpext.StateAugment
+}
+
+// NeighborsNeighborAdjRibInPostRoutesRouteStateSchemaX7442f2 describes NeighborsNeighborAdjRibInPostRoutesRouteStateX826236 for the generic codecs.
+var NeighborsNeighborAdjRibInPostRoutesRouteStateSchemaX7442f2 = &yang.Schema{
+	Fields: []yang.Field{
+		{GoName: "AttrIndex", Name: "attr-index", Type: yang.TUint64},
+		{GoName: "BestPath", Name: "best-path", Type: yang.TBool},
+		{GoName: "CommunityIndex", Name: "community-index", Type: yang.TUint64},
+		{GoName: "ExtCommunityIndex", Name: "ext-community-index", Type: yang.TUint64},
+		{GoName: "InvalidReason", Name: "invalid-reason", Type: yang.TIdentity},
+		{GoName: "LastModified", Name: "last-modified", Type: yang.TUint64},
+		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
+		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
+		{GoName: "ValidRoute", Name: "valid-route", Type: yang.TBool},
+		{Child: openconfigribbgpext.StateAugmentSchema, GoName: "OpenconfigRibBGPExt", Group: true},
+	},
+	Module: moduleOpenconfigNetworkInstance,
+	Name:   "state",
+}
+
+// NeighborsNeighborAdjRibInPostRoutesRouteXb880cc is the openconfig-network-instance node shape instantiated at 2 schema paths, such as /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-in-post/routes/route.
+type NeighborsNeighborAdjRibInPostRoutesRouteXb880cc struct {
+	PathID            *uint32
+	Prefix            *string
+	State             *NeighborsNeighborAdjRibInPostRoutesRouteStateX826236
+	UnknownAttributes *UnknownAttributes
+}
+
+// NeighborsNeighborAdjRibInPostRoutesRouteSchemaX115d10 describes NeighborsNeighborAdjRibInPostRoutesRouteXb880cc for the generic codecs.
+var NeighborsNeighborAdjRibInPostRoutesRouteSchemaX115d10 = &yang.Schema{
+	Fields: []yang.Field{
+		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
+		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
+		{Child: NeighborsNeighborAdjRibInPostRoutesRouteStateSchemaX7442f2, GoName: "State", Name: "state"},
+		{Child: UnknownAttributesSchema, GoName: "UnknownAttributes", Name: "unknown-attributes"},
+	},
+	Keys:   []string{"prefix", "path-id"},
+	Module: moduleOpenconfigNetworkInstance,
+	Name:   "route",
+}
+
+// NeighborsNeighborAdjRibInPostRoutesXa9f79a is the openconfig-network-instance node shape instantiated at 2 schema paths, such as /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-in-post/routes.
+type NeighborsNeighborAdjRibInPostRoutesXa9f79a struct {
+	Route []NeighborsNeighborAdjRibInPostRoutesRouteXb880cc
+}
+
+// NeighborsNeighborAdjRibInPostRoutesSchemaX1dd098 describes NeighborsNeighborAdjRibInPostRoutesXa9f79a for the generic codecs.
+var NeighborsNeighborAdjRibInPostRoutesSchemaX1dd098 = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: NeighborsNeighborAdjRibInPostRoutesRouteSchemaX115d10, GoName: "Route", List: true, Name: "route"},
+	},
+	Module: moduleOpenconfigNetworkInstance,
+	Name:   "routes",
+}
+
 // NeighborsNeighborAdjRibInPre is the openconfig-network-instance node shape instantiated at 2 schema paths, such as /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-srte-policy/neighbors/neighbor/adj-rib-in-pre.
 type NeighborsNeighborAdjRibInPre struct {
 	Routes *Routes
@@ -12551,13 +11937,13 @@ var NextHopGroupsNextHopGroupStateSchema = &yang.Schema{
 
 // NextHopInterfaceRef is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/afts/next-hops/next-hop/interface-ref.
 type NextHopInterfaceRef struct {
-	State *State
+	State *StateX7f4584
 }
 
 // NextHopInterfaceRefSchema describes NextHopInterfaceRef for the generic codecs.
 var NextHopInterfaceRefSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{Child: StateSchema, GoName: "State", Name: "state"},
+		{Child: StateSchemaXe6ceba, GoName: "State", Name: "state"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "interface-ref",
@@ -14397,7 +13783,7 @@ type PolicyForwardingEntryState struct {
 	MACAddress                   *string
 	MplsLabel                    *yang.Value
 	MplsTc                       *uint8
-	OpenconfigAftNetworkInstance *openconfigaftnetworkinstance.PolicyForwardingEntryStateAugment
+	OpenconfigAftNetworkInstance *openconfigaftnetworkinstance.StateAugment
 }
 
 // PolicyForwardingEntryStateSchema describes PolicyForwardingEntryState for the generic codecs.
@@ -14423,7 +13809,7 @@ var PolicyForwardingEntryStateSchema = &yang.Schema{
 			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeEnum}},
 		}},
 		{GoName: "MplsTc", Name: "mpls-tc", Type: yang.TUint8},
-		{Child: openconfigaftnetworkinstance.PolicyForwardingEntryStateAugmentSchema, GoName: "OpenconfigAftNetworkInstance", Group: true},
+		{Child: openconfigaftnetworkinstance.StateAugmentSchema, GoName: "OpenconfigAftNetworkInstance", Group: true},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "state",
@@ -15523,14 +14909,14 @@ var RibAfiSafisAfiSafiSchema = &yang.Schema{
 
 // RibAfiSafisAfiSafiIPv4Unicast is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast.
 type RibAfiSafisAfiSafiIPv4Unicast struct {
-	LocRib    *IPv4UnicastLocRib
+	LocRib    *LocRibXa65e1c
 	Neighbors *IPv4UnicastNeighbors
 }
 
 // RibAfiSafisAfiSafiIPv4UnicastSchema describes RibAfiSafisAfiSafiIPv4Unicast for the generic codecs.
 var RibAfiSafisAfiSafiIPv4UnicastSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{Child: IPv4UnicastLocRibSchema, GoName: "LocRib", Name: "loc-rib"},
+		{Child: LocRibSchemaX536f2b, GoName: "LocRib", Name: "loc-rib"},
 		{Child: IPv4UnicastNeighborsSchema, GoName: "Neighbors", Name: "neighbors"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
@@ -15539,14 +14925,14 @@ var RibAfiSafisAfiSafiIPv4UnicastSchema = &yang.Schema{
 
 // RibAfiSafisAfiSafiIPv6Unicast is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv6-unicast.
 type RibAfiSafisAfiSafiIPv6Unicast struct {
-	LocRib    *IPv6UnicastLocRib
+	LocRib    *LocRibXa65e1c
 	Neighbors *IPv6UnicastNeighbors
 }
 
 // RibAfiSafisAfiSafiIPv6UnicastSchema describes RibAfiSafisAfiSafiIPv6Unicast for the generic codecs.
 var RibAfiSafisAfiSafiIPv6UnicastSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{Child: IPv6UnicastLocRibSchema, GoName: "LocRib", Name: "loc-rib"},
+		{Child: LocRibSchemaX536f2b, GoName: "LocRib", Name: "loc-rib"},
 		{Child: IPv6UnicastNeighborsSchema, GoName: "Neighbors", Name: "neighbors"},
 	},
 	Module: moduleOpenconfigNetworkInstance,
@@ -16134,6 +15520,71 @@ var RoutesRouteStateSchema = &yang.Schema{
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "state",
+}
+
+// RoutesRouteStateX5bc393 is the openconfig-network-instance node shape instantiated at 6 schema paths, such as /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-in-pre/routes/route/state.
+type RoutesRouteStateX5bc393 struct {
+	AttrIndex           *uint64
+	CommunityIndex      *uint64
+	ExtCommunityIndex   *uint64
+	InvalidReason       *yang.Identity
+	LastModified        *uint64
+	PathID              *uint32
+	Prefix              *string
+	ValidRoute          *bool
+	OpenconfigRibBGPExt *openconfigribbgpext.StateAugment
+}
+
+// RoutesRouteStateSchemaX8fad18 describes RoutesRouteStateX5bc393 for the generic codecs.
+var RoutesRouteStateSchemaX8fad18 = &yang.Schema{
+	Fields: []yang.Field{
+		{GoName: "AttrIndex", Name: "attr-index", Type: yang.TUint64},
+		{GoName: "CommunityIndex", Name: "community-index", Type: yang.TUint64},
+		{GoName: "ExtCommunityIndex", Name: "ext-community-index", Type: yang.TUint64},
+		{GoName: "InvalidReason", Name: "invalid-reason", Type: yang.TIdentity},
+		{GoName: "LastModified", Name: "last-modified", Type: yang.TUint64},
+		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
+		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
+		{GoName: "ValidRoute", Name: "valid-route", Type: yang.TBool},
+		{Child: openconfigribbgpext.StateAugmentSchema, GoName: "OpenconfigRibBGPExt", Group: true},
+	},
+	Module: moduleOpenconfigNetworkInstance,
+	Name:   "state",
+}
+
+// RoutesRouteX49f922 is the openconfig-network-instance node shape instantiated at 6 schema paths, such as /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-in-pre/routes/route.
+type RoutesRouteX49f922 struct {
+	PathID            *uint32
+	Prefix            *string
+	State             *RoutesRouteStateX5bc393
+	UnknownAttributes *UnknownAttributes
+}
+
+// RoutesRouteSchemaXa21716 describes RoutesRouteX49f922 for the generic codecs.
+var RoutesRouteSchemaXa21716 = &yang.Schema{
+	Fields: []yang.Field{
+		{GoName: "PathID", Name: "path-id", Type: yang.TUint32},
+		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
+		{Child: RoutesRouteStateSchemaX8fad18, GoName: "State", Name: "state"},
+		{Child: UnknownAttributesSchema, GoName: "UnknownAttributes", Name: "unknown-attributes"},
+	},
+	Keys:   []string{"prefix", "path-id"},
+	Module: moduleOpenconfigNetworkInstance,
+	Name:   "route",
+}
+
+// RoutesXa83b56 is the openconfig-network-instance node shape instantiated at 6 schema paths, such as /openconfig-network-instance:network-instances/network-instance/protocols/protocol/bgp/rib/afi-safis/afi-safi/ipv4-unicast/neighbors/neighbor/adj-rib-in-pre/routes.
+type RoutesXa83b56 struct {
+	Route []RoutesRouteX49f922
+}
+
+// RoutesSchemaX0115a9 describes RoutesXa83b56 for the generic codecs.
+var RoutesSchemaX0115a9 = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: RoutesRouteSchemaXa21716, GoName: "Route", List: true, Name: "route"},
+	},
+	Module: moduleOpenconfigNetworkInstance,
+	Name:   "routes",
 }
 
 // RsvpTe is the openconfig-network-instance node /openconfig-network-instance:network-instances/network-instance/mpls/signaling-protocols/rsvp-te.
@@ -17522,17 +16973,25 @@ var SsmStateSchema = &yang.Schema{
 	Name:   "state",
 }
 
-// State is the openconfig-network-instance node shape instantiated at 13 schema paths, such as /openconfig-network-instance:network-instances/network-instance/afts/next-hops/next-hop/interface-ref/state.
+// State is the openconfig-network-instance node shape instantiated at 2 schema paths, such as /openconfig-network-instance:network-instances/network-instance/afts/ipv4-unicast/ipv4-entry/state.
 type State struct {
-	Interface    *string
-	Subinterface *string
+	Counters                     *StateCounters
+	DecapsulateHeader            *string
+	EntryMetadata                []byte
+	OriginProtocol               *yang.Identity
+	Prefix                       *string
+	OpenconfigAftNetworkInstance *openconfigaftnetworkinstance.StateAugmentXbdd2f1
 }
 
 // StateSchema describes State for the generic codecs.
 var StateSchema = &yang.Schema{
 	Fields: []yang.Field{
-		{GoName: "Interface", Name: "interface", Type: yang.TString},
-		{GoName: "Subinterface", Name: "subinterface", Type: yang.TString},
+		{Child: StateCountersSchema, GoName: "Counters", Name: "counters"},
+		{GoName: "DecapsulateHeader", Name: "decapsulate-header", Type: yang.TEnum},
+		{GoName: "EntryMetadata", Name: "entry-metadata", Type: yang.TBinary},
+		{GoName: "OriginProtocol", Name: "origin-protocol", Type: yang.TIdentity},
+		{GoName: "Prefix", Name: "prefix", Type: yang.TString},
+		{Child: openconfigaftnetworkinstance.StateAugmentSchemaX8f59f5, GoName: "OpenconfigAftNetworkInstance", Group: true},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "state",
@@ -17828,6 +17287,22 @@ var StateSchemaX54340a = &yang.Schema{
 			Kind:    yang.TypeUnion,
 			Members: []yang.Type{{Kind: yang.TypeUint32}, {Kind: yang.TypeString}},
 		}},
+	},
+	Module: moduleOpenconfigNetworkInstance,
+	Name:   "state",
+}
+
+// StateX7f4584 is the openconfig-network-instance node shape instantiated at 13 schema paths, such as /openconfig-network-instance:network-instances/network-instance/afts/next-hops/next-hop/interface-ref/state.
+type StateX7f4584 struct {
+	Interface    *string
+	Subinterface *string
+}
+
+// StateSchemaXe6ceba describes StateX7f4584 for the generic codecs.
+var StateSchemaXe6ceba = &yang.Schema{
+	Fields: []yang.Field{
+		{GoName: "Interface", Name: "interface", Type: yang.TString},
+		{GoName: "Subinterface", Name: "subinterface", Type: yang.TString},
 	},
 	Module: moduleOpenconfigNetworkInstance,
 	Name:   "state",
@@ -24394,7 +23869,7 @@ func IPv4SrtePolicyNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnkn
 	}
 }
 
-// RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteKey is IPv4UnicastLocRibRoutesRoute's row identity (ancestor keys in canonical form).
+// RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteKey is LocRibRoutesRoute's row identity (ancestor keys in canonical form).
 type RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteKey struct {
 	NetworkInstanceName string
 	ProtocolIdentifier  string
@@ -24405,19 +23880,19 @@ type RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteKey struct {
 	PathID              uint32
 }
 
-// RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteFlatRow flattens one IPv4UnicastLocRibRoutesRoute entry with its ancestor list keys.
+// RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteFlatRow flattens one LocRibRoutesRoute entry with its ancestor list keys.
 type RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteFlatRow struct {
 	NetworkInstanceName string
 	ProtocolIdentifier  string
 	ProtocolName        string
 	AfiSafiAfiSafiName  string
-	Entry               IPv4UnicastLocRibRoutesRoute
+	Entry               LocRibRoutesRoute
 }
 
-// RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteDescriptor is the flattened-row descriptor for the nested list IPv4UnicastLocRibRoutesRoute.
+// RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteDescriptor is the flattened-row descriptor for the nested list LocRibRoutesRoute.
 func RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteDescriptor() yang.ListDescriptor[RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteKey] {
 	return yang.ListDescriptor[RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastLocRibRoutesRouteSchema}, func(anc [][]yang.KeyValue, e IPv4UnicastLocRibRoutesRoute) RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, LocRibRoutesRouteSchema}, func(anc [][]yang.KeyValue, e LocRibRoutesRoute) RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteFlatRow {
 			return RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteFlatRow{
 				AfiSafiAfiSafiName:  yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:               e,
@@ -24425,7 +23900,7 @@ func RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteDescriptor() yang.ListDescrip
 				ProtocolIdentifier:  yang.AncestorKey(anc, 1, "identifier"),
 				ProtocolName:        yang.AncestorKey(anc, 1, "name"),
 			}
-		}, func(r *RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteFlatRow) *IPv4UnicastLocRibRoutesRoute {
+		}, func(r *RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteFlatRow) *LocRibRoutesRoute {
 			return &r.Entry
 		}, func(r *RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteFlatRow) RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteKey {
 			var k RibAfiSafisAfiSafiIPv4UnicastLocRibRoutesRouteKey
@@ -24475,7 +23950,7 @@ type IPv4UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeFlatRow struct
 // IPv4UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeDescriptor is the flattened-row descriptor for the nested list UnknownAttribute.
 func IPv4UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeDescriptor() yang.ListDescriptor[IPv4UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv4UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeKey] {
 	return yang.ListDescriptor[IPv4UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv4UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastLocRibRoutesRouteSchema, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv4UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, LocRibRoutesRouteSchema, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv4UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
 			return IPv4UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeFlatRow{
 				AfiSafiAfiSafiName:  yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:               e,
@@ -24552,7 +24027,7 @@ func RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborDescriptor() yang.ListDescrip
 	}
 }
 
-// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey is IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRoute's row identity (ancestor keys in canonical form).
+// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey is NeighborsNeighborAdjRibInPostRoutesRouteXb880cc's row identity (ancestor keys in canonical form).
 type RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
@@ -24563,20 +24038,20 @@ type RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey st
 	PathID                  uint32
 }
 
-// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow flattens one IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRoute entry with its ancestor list keys.
+// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow flattens one NeighborsNeighborAdjRibInPostRoutesRouteXb880cc entry with its ancestor list keys.
 type RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
 	ProtocolName            string
 	AfiSafiAfiSafiName      string
 	NeighborNeighborAddress string
-	Entry                   IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRoute
+	Entry                   NeighborsNeighborAdjRibInPostRoutesRouteXb880cc
 }
 
-// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteDescriptor is the flattened-row descriptor for the nested list IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRoute.
+// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteDescriptor is the flattened-row descriptor for the nested list NeighborsNeighborAdjRibInPostRoutesRouteXb880cc.
 func RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteDescriptor() yang.ListDescriptor[RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey] {
 	return yang.ListDescriptor[RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteSchema}, func(anc [][]yang.KeyValue, e IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRoute) RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, NeighborsNeighborAdjRibInPostRoutesRouteSchemaX115d10}, func(anc [][]yang.KeyValue, e NeighborsNeighborAdjRibInPostRoutesRouteXb880cc) RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow {
 			return RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,
@@ -24585,7 +24060,7 @@ func RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteDescri
 				ProtocolIdentifier:      yang.AncestorKey(anc, 1, "identifier"),
 				ProtocolName:            yang.AncestorKey(anc, 1, "name"),
 			}
-		}, func(r *RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow) *IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRoute {
+		}, func(r *RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow) *NeighborsNeighborAdjRibInPostRoutesRouteXb880cc {
 			return &r.Entry
 		}, func(r *RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow) RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey {
 			var k RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey
@@ -24633,7 +24108,7 @@ type IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknown
 // IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeDescriptor is the flattened-row descriptor for the nested list UnknownAttribute.
 func IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeDescriptor() yang.ListDescriptor[IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeKey] {
 	return yang.ListDescriptor[IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteSchema, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, NeighborsNeighborAdjRibInPostRoutesRouteSchemaX115d10, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
 			return IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,
@@ -24664,7 +24139,7 @@ func IPv4UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknown
 	}
 }
 
-// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey is IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRoute's row identity (ancestor keys in canonical form).
+// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey is RoutesRouteX49f922's row identity (ancestor keys in canonical form).
 type RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
@@ -24675,20 +24150,20 @@ type RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey str
 	PathID                  uint32
 }
 
-// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow flattens one IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRoute entry with its ancestor list keys.
+// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow flattens one RoutesRouteX49f922 entry with its ancestor list keys.
 type RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
 	ProtocolName            string
 	AfiSafiAfiSafiName      string
 	NeighborNeighborAddress string
-	Entry                   IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRoute
+	Entry                   RoutesRouteX49f922
 }
 
-// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteDescriptor is the flattened-row descriptor for the nested list IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRoute.
+// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteDescriptor is the flattened-row descriptor for the nested list RoutesRouteX49f922.
 func RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteDescriptor() yang.ListDescriptor[RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey] {
 	return yang.ListDescriptor[RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteSchema}, func(anc [][]yang.KeyValue, e IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRoute) RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, RoutesRouteSchemaXa21716}, func(anc [][]yang.KeyValue, e RoutesRouteX49f922) RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow {
 			return RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,
@@ -24697,7 +24172,7 @@ func RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteDescrip
 				ProtocolIdentifier:      yang.AncestorKey(anc, 1, "identifier"),
 				ProtocolName:            yang.AncestorKey(anc, 1, "name"),
 			}
-		}, func(r *RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow) *IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRoute {
+		}, func(r *RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow) *RoutesRouteX49f922 {
 			return &r.Entry
 		}, func(r *RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow) RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey {
 			var k RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey
@@ -24745,7 +24220,7 @@ type IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownA
 // IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeDescriptor is the flattened-row descriptor for the nested list UnknownAttribute.
 func IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeDescriptor() yang.ListDescriptor[IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeKey] {
 	return yang.ListDescriptor[IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteSchema, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, RoutesRouteSchemaXa21716, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
 			return IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,
@@ -24776,7 +24251,7 @@ func IPv4UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownA
 	}
 }
 
-// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey is IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRoute's row identity (ancestor keys in canonical form).
+// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey is RoutesRouteX49f922's row identity (ancestor keys in canonical form).
 type RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
@@ -24787,20 +24262,20 @@ type RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey s
 	PathID                  uint32
 }
 
-// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow flattens one IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRoute entry with its ancestor list keys.
+// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow flattens one RoutesRouteX49f922 entry with its ancestor list keys.
 type RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
 	ProtocolName            string
 	AfiSafiAfiSafiName      string
 	NeighborNeighborAddress string
-	Entry                   IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRoute
+	Entry                   RoutesRouteX49f922
 }
 
-// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteDescriptor is the flattened-row descriptor for the nested list IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRoute.
+// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteDescriptor is the flattened-row descriptor for the nested list RoutesRouteX49f922.
 func RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteDescriptor() yang.ListDescriptor[RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey] {
 	return yang.ListDescriptor[RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteSchema}, func(anc [][]yang.KeyValue, e IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRoute) RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, RoutesRouteSchemaXa21716}, func(anc [][]yang.KeyValue, e RoutesRouteX49f922) RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow {
 			return RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,
@@ -24809,7 +24284,7 @@ func RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteDescr
 				ProtocolIdentifier:      yang.AncestorKey(anc, 1, "identifier"),
 				ProtocolName:            yang.AncestorKey(anc, 1, "name"),
 			}
-		}, func(r *RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow) *IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRoute {
+		}, func(r *RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow) *RoutesRouteX49f922 {
 			return &r.Entry
 		}, func(r *RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow) RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey {
 			var k RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey
@@ -24857,7 +24332,7 @@ type IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknow
 // IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeDescriptor is the flattened-row descriptor for the nested list UnknownAttribute.
 func IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeDescriptor() yang.ListDescriptor[IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeKey] {
 	return yang.ListDescriptor[IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteSchema, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, RoutesRouteSchemaXa21716, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
 			return IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,
@@ -24888,7 +24363,7 @@ func IPv4UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknow
 	}
 }
 
-// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey is IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRoute's row identity (ancestor keys in canonical form).
+// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey is RoutesRouteX49f922's row identity (ancestor keys in canonical form).
 type RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
@@ -24899,20 +24374,20 @@ type RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey st
 	PathID                  uint32
 }
 
-// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow flattens one IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRoute entry with its ancestor list keys.
+// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow flattens one RoutesRouteX49f922 entry with its ancestor list keys.
 type RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
 	ProtocolName            string
 	AfiSafiAfiSafiName      string
 	NeighborNeighborAddress string
-	Entry                   IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRoute
+	Entry                   RoutesRouteX49f922
 }
 
-// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteDescriptor is the flattened-row descriptor for the nested list IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRoute.
+// RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteDescriptor is the flattened-row descriptor for the nested list RoutesRouteX49f922.
 func RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteDescriptor() yang.ListDescriptor[RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey] {
 	return yang.ListDescriptor[RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteSchema}, func(anc [][]yang.KeyValue, e IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRoute) RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, RoutesRouteSchemaXa21716}, func(anc [][]yang.KeyValue, e RoutesRouteX49f922) RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow {
 			return RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,
@@ -24921,7 +24396,7 @@ func RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteDescri
 				ProtocolIdentifier:      yang.AncestorKey(anc, 1, "identifier"),
 				ProtocolName:            yang.AncestorKey(anc, 1, "name"),
 			}
-		}, func(r *RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow) *IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRoute {
+		}, func(r *RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow) *RoutesRouteX49f922 {
 			return &r.Entry
 		}, func(r *RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow) RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey {
 			var k RibAfiSafisAfiSafiIPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey
@@ -24969,7 +24444,7 @@ type IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknown
 // IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeDescriptor is the flattened-row descriptor for the nested list UnknownAttribute.
 func IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeDescriptor() yang.ListDescriptor[IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeKey] {
 	return yang.ListDescriptor[IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteSchema, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv4UnicastNeighborsNeighborSchema, RoutesRouteSchemaXa21716, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
 			return IPv4UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,
@@ -25638,7 +25113,7 @@ func IPv6SrtePolicyNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnkn
 	}
 }
 
-// RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteKey is IPv6UnicastLocRibRoutesRoute's row identity (ancestor keys in canonical form).
+// RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteKey is LocRibRoutesRoute's row identity (ancestor keys in canonical form).
 type RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteKey struct {
 	NetworkInstanceName string
 	ProtocolIdentifier  string
@@ -25649,19 +25124,19 @@ type RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteKey struct {
 	PathID              uint32
 }
 
-// RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteFlatRow flattens one IPv6UnicastLocRibRoutesRoute entry with its ancestor list keys.
+// RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteFlatRow flattens one LocRibRoutesRoute entry with its ancestor list keys.
 type RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteFlatRow struct {
 	NetworkInstanceName string
 	ProtocolIdentifier  string
 	ProtocolName        string
 	AfiSafiAfiSafiName  string
-	Entry               IPv6UnicastLocRibRoutesRoute
+	Entry               LocRibRoutesRoute
 }
 
-// RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteDescriptor is the flattened-row descriptor for the nested list IPv6UnicastLocRibRoutesRoute.
+// RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteDescriptor is the flattened-row descriptor for the nested list LocRibRoutesRoute.
 func RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteDescriptor() yang.ListDescriptor[RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteKey] {
 	return yang.ListDescriptor[RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastLocRibRoutesRouteSchema}, func(anc [][]yang.KeyValue, e IPv6UnicastLocRibRoutesRoute) RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, LocRibRoutesRouteSchema}, func(anc [][]yang.KeyValue, e LocRibRoutesRoute) RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteFlatRow {
 			return RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteFlatRow{
 				AfiSafiAfiSafiName:  yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:               e,
@@ -25669,7 +25144,7 @@ func RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteDescriptor() yang.ListDescrip
 				ProtocolIdentifier:  yang.AncestorKey(anc, 1, "identifier"),
 				ProtocolName:        yang.AncestorKey(anc, 1, "name"),
 			}
-		}, func(r *RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteFlatRow) *IPv6UnicastLocRibRoutesRoute {
+		}, func(r *RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteFlatRow) *LocRibRoutesRoute {
 			return &r.Entry
 		}, func(r *RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteFlatRow) RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteKey {
 			var k RibAfiSafisAfiSafiIPv6UnicastLocRibRoutesRouteKey
@@ -25719,7 +25194,7 @@ type IPv6UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeFlatRow struct
 // IPv6UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeDescriptor is the flattened-row descriptor for the nested list UnknownAttribute.
 func IPv6UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeDescriptor() yang.ListDescriptor[IPv6UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv6UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeKey] {
 	return yang.ListDescriptor[IPv6UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv6UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastLocRibRoutesRouteSchema, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv6UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, LocRibRoutesRouteSchema, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv6UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
 			return IPv6UnicastLocRibRoutesRouteUnknownAttributesUnknownAttributeFlatRow{
 				AfiSafiAfiSafiName:  yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:               e,
@@ -25796,7 +25271,7 @@ func RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborDescriptor() yang.ListDescrip
 	}
 }
 
-// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey is IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRoute's row identity (ancestor keys in canonical form).
+// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey is NeighborsNeighborAdjRibInPostRoutesRouteXb880cc's row identity (ancestor keys in canonical form).
 type RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
@@ -25807,20 +25282,20 @@ type RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey st
 	PathID                  uint32
 }
 
-// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow flattens one IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRoute entry with its ancestor list keys.
+// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow flattens one NeighborsNeighborAdjRibInPostRoutesRouteXb880cc entry with its ancestor list keys.
 type RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
 	ProtocolName            string
 	AfiSafiAfiSafiName      string
 	NeighborNeighborAddress string
-	Entry                   IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRoute
+	Entry                   NeighborsNeighborAdjRibInPostRoutesRouteXb880cc
 }
 
-// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteDescriptor is the flattened-row descriptor for the nested list IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRoute.
+// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteDescriptor is the flattened-row descriptor for the nested list NeighborsNeighborAdjRibInPostRoutesRouteXb880cc.
 func RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteDescriptor() yang.ListDescriptor[RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey] {
 	return yang.ListDescriptor[RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteSchema}, func(anc [][]yang.KeyValue, e IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRoute) RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, NeighborsNeighborAdjRibInPostRoutesRouteSchemaX115d10}, func(anc [][]yang.KeyValue, e NeighborsNeighborAdjRibInPostRoutesRouteXb880cc) RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow {
 			return RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,
@@ -25829,7 +25304,7 @@ func RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteDescri
 				ProtocolIdentifier:      yang.AncestorKey(anc, 1, "identifier"),
 				ProtocolName:            yang.AncestorKey(anc, 1, "name"),
 			}
-		}, func(r *RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow) *IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRoute {
+		}, func(r *RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow) *NeighborsNeighborAdjRibInPostRoutesRouteXb880cc {
 			return &r.Entry
 		}, func(r *RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteFlatRow) RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey {
 			var k RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteKey
@@ -25877,7 +25352,7 @@ type IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknown
 // IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeDescriptor is the flattened-row descriptor for the nested list UnknownAttribute.
 func IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeDescriptor() yang.ListDescriptor[IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeKey] {
 	return yang.ListDescriptor[IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteSchema, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, NeighborsNeighborAdjRibInPostRoutesRouteSchemaX115d10, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
 			return IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,
@@ -25908,7 +25383,7 @@ func IPv6UnicastNeighborsNeighborAdjRibInPostRoutesRouteUnknownAttributesUnknown
 	}
 }
 
-// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey is IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRoute's row identity (ancestor keys in canonical form).
+// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey is RoutesRouteX49f922's row identity (ancestor keys in canonical form).
 type RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
@@ -25919,20 +25394,20 @@ type RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey str
 	PathID                  uint32
 }
 
-// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow flattens one IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRoute entry with its ancestor list keys.
+// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow flattens one RoutesRouteX49f922 entry with its ancestor list keys.
 type RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
 	ProtocolName            string
 	AfiSafiAfiSafiName      string
 	NeighborNeighborAddress string
-	Entry                   IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRoute
+	Entry                   RoutesRouteX49f922
 }
 
-// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteDescriptor is the flattened-row descriptor for the nested list IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRoute.
+// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteDescriptor is the flattened-row descriptor for the nested list RoutesRouteX49f922.
 func RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteDescriptor() yang.ListDescriptor[RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey] {
 	return yang.ListDescriptor[RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteSchema}, func(anc [][]yang.KeyValue, e IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRoute) RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, RoutesRouteSchemaXa21716}, func(anc [][]yang.KeyValue, e RoutesRouteX49f922) RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow {
 			return RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,
@@ -25941,7 +25416,7 @@ func RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteDescrip
 				ProtocolIdentifier:      yang.AncestorKey(anc, 1, "identifier"),
 				ProtocolName:            yang.AncestorKey(anc, 1, "name"),
 			}
-		}, func(r *RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow) *IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRoute {
+		}, func(r *RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow) *RoutesRouteX49f922 {
 			return &r.Entry
 		}, func(r *RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteFlatRow) RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey {
 			var k RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteKey
@@ -25989,7 +25464,7 @@ type IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownA
 // IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeDescriptor is the flattened-row descriptor for the nested list UnknownAttribute.
 func IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeDescriptor() yang.ListDescriptor[IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeKey] {
 	return yang.ListDescriptor[IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteSchema, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, RoutesRouteSchemaXa21716, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
 			return IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,
@@ -26020,7 +25495,7 @@ func IPv6UnicastNeighborsNeighborAdjRibInPreRoutesRouteUnknownAttributesUnknownA
 	}
 }
 
-// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey is IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRoute's row identity (ancestor keys in canonical form).
+// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey is RoutesRouteX49f922's row identity (ancestor keys in canonical form).
 type RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
@@ -26031,20 +25506,20 @@ type RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey s
 	PathID                  uint32
 }
 
-// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow flattens one IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRoute entry with its ancestor list keys.
+// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow flattens one RoutesRouteX49f922 entry with its ancestor list keys.
 type RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
 	ProtocolName            string
 	AfiSafiAfiSafiName      string
 	NeighborNeighborAddress string
-	Entry                   IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRoute
+	Entry                   RoutesRouteX49f922
 }
 
-// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteDescriptor is the flattened-row descriptor for the nested list IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRoute.
+// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteDescriptor is the flattened-row descriptor for the nested list RoutesRouteX49f922.
 func RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteDescriptor() yang.ListDescriptor[RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey] {
 	return yang.ListDescriptor[RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteSchema}, func(anc [][]yang.KeyValue, e IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRoute) RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, RoutesRouteSchemaXa21716}, func(anc [][]yang.KeyValue, e RoutesRouteX49f922) RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow {
 			return RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,
@@ -26053,7 +25528,7 @@ func RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteDescr
 				ProtocolIdentifier:      yang.AncestorKey(anc, 1, "identifier"),
 				ProtocolName:            yang.AncestorKey(anc, 1, "name"),
 			}
-		}, func(r *RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow) *IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRoute {
+		}, func(r *RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow) *RoutesRouteX49f922 {
 			return &r.Entry
 		}, func(r *RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteFlatRow) RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey {
 			var k RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteKey
@@ -26101,7 +25576,7 @@ type IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknow
 // IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeDescriptor is the flattened-row descriptor for the nested list UnknownAttribute.
 func IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeDescriptor() yang.ListDescriptor[IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeKey] {
 	return yang.ListDescriptor[IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteSchema, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, RoutesRouteSchemaXa21716, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
 			return IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknownAttributeFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,
@@ -26132,7 +25607,7 @@ func IPv6UnicastNeighborsNeighborAdjRibOutPostRoutesRouteUnknownAttributesUnknow
 	}
 }
 
-// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey is IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRoute's row identity (ancestor keys in canonical form).
+// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey is RoutesRouteX49f922's row identity (ancestor keys in canonical form).
 type RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
@@ -26143,20 +25618,20 @@ type RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey st
 	PathID                  uint32
 }
 
-// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow flattens one IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRoute entry with its ancestor list keys.
+// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow flattens one RoutesRouteX49f922 entry with its ancestor list keys.
 type RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow struct {
 	NetworkInstanceName     string
 	ProtocolIdentifier      string
 	ProtocolName            string
 	AfiSafiAfiSafiName      string
 	NeighborNeighborAddress string
-	Entry                   IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRoute
+	Entry                   RoutesRouteX49f922
 }
 
-// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteDescriptor is the flattened-row descriptor for the nested list IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRoute.
+// RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteDescriptor is the flattened-row descriptor for the nested list RoutesRouteX49f922.
 func RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteDescriptor() yang.ListDescriptor[RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey] {
 	return yang.ListDescriptor[RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow, RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteSchema}, func(anc [][]yang.KeyValue, e IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRoute) RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, RoutesRouteSchemaXa21716}, func(anc [][]yang.KeyValue, e RoutesRouteX49f922) RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow {
 			return RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,
@@ -26165,7 +25640,7 @@ func RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteDescri
 				ProtocolIdentifier:      yang.AncestorKey(anc, 1, "identifier"),
 				ProtocolName:            yang.AncestorKey(anc, 1, "name"),
 			}
-		}, func(r *RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow) *IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRoute {
+		}, func(r *RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow) *RoutesRouteX49f922 {
 			return &r.Entry
 		}, func(r *RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteFlatRow) RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey {
 			var k RibAfiSafisAfiSafiIPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteKey
@@ -26213,7 +25688,7 @@ type IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknown
 // IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeDescriptor is the flattened-row descriptor for the nested list UnknownAttribute.
 func IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeDescriptor() yang.ListDescriptor[IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeKey] {
 	return yang.ListDescriptor[IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow, IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteSchema, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{NetworkInstanceSchema, ProtocolSchema, RibAfiSafisAfiSafiSchema, IPv6UnicastNeighborsNeighborSchema, RoutesRouteSchemaXa21716, UnknownAttributeSchema}, func(anc [][]yang.KeyValue, e UnknownAttribute) IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow {
 			return IPv6UnicastNeighborsNeighborAdjRibOutPreRoutesRouteUnknownAttributesUnknownAttributeFlatRow{
 				AfiSafiAfiSafiName:      yang.AncestorKey(anc, 2, "afi-safi-name"),
 				Entry:                   e,

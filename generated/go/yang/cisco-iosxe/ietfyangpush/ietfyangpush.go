@@ -51,8 +51,8 @@ var FilterAugmentSchema = &yang.Schema{
 	Module: moduleIetfYangPush,
 }
 
-// SubscriptionConfigSubscriptionAugment is the ietf-yang-push augment group at /ietf-event-notifications:subscription-config/subscription.
-type SubscriptionConfigSubscriptionAugment struct {
+// SubscriptionAugment is the ietf-yang-push augment group at /ietf-event-notifications:subscription-config/subscription.
+type SubscriptionAugment struct {
 	AnchorTime             *string
 	DampeningPeriod        *uint32
 	Dscp                   *uint8
@@ -64,37 +64,8 @@ type SubscriptionConfigSubscriptionAugment struct {
 	XpathFilter            *string
 }
 
-// SubscriptionConfigSubscriptionAugmentSchema describes SubscriptionConfigSubscriptionAugment group fields with no codec root.
-var SubscriptionConfigSubscriptionAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "AnchorTime", Name: "anchor-time", Type: yang.TString},
-		{GoName: "DampeningPeriod", Name: "dampening-period", Type: yang.TUint32},
-		{GoName: "Dscp", Name: "dscp", Type: yang.TUint8},
-		{GoName: "ExcludedChange", LeafList: true, Name: "excluded-change", Type: yang.TEnum},
-		{GoName: "NoSynchOnStart", Name: "no-synch-on-start", Type: yang.TEmpty},
-		{GoName: "Period", Name: "period", Type: yang.TUint32},
-		{GoName: "SubscriptionDependency", Name: "subscription-dependency", Type: yang.TString},
-		{GoName: "SubscriptionPriority", Name: "subscription-priority", Type: yang.TUint8},
-		{GoName: "XpathFilter", Name: "xpath-filter", Type: yang.TString},
-	},
-	Module: moduleIetfYangPush,
-}
-
-// SubscriptionsSubscriptionAugment is the ietf-yang-push augment group at /ietf-event-notifications:subscriptions/subscription.
-type SubscriptionsSubscriptionAugment struct {
-	AnchorTime             *string
-	DampeningPeriod        *uint32
-	Dscp                   *uint8
-	ExcludedChange         []string
-	NoSynchOnStart         *bool
-	Period                 *uint32
-	SubscriptionDependency *string
-	SubscriptionPriority   *uint8
-	XpathFilter            *string
-}
-
-// SubscriptionsSubscriptionAugmentSchema describes SubscriptionsSubscriptionAugment group fields with no codec root.
-var SubscriptionsSubscriptionAugmentSchema = &yang.Schema{
+// SubscriptionAugmentSchema describes SubscriptionAugment group fields with no codec root.
+var SubscriptionAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{GoName: "AnchorTime", Name: "anchor-time", Type: yang.TString},
 		{GoName: "DampeningPeriod", Name: "dampening-period", Type: yang.TUint32},

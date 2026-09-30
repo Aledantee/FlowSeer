@@ -14,34 +14,10 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCiscoXeOpenconfigIfEthernetExt identifies the cisco-xe-openconfig-if-ethernet-ext YANG module.
-var moduleCiscoXeOpenconfigIfEthernetExt = &yang.Module{
-	Name:      "cisco-xe-openconfig-if-ethernet-ext",
-	Namespace: "http://cisco.com/ns/yang/cisco-xe-openconfig-if-ethernet-ext",
-}
-
-// moduleOpenconfigIfAggregate identifies the openconfig-if-aggregate YANG module.
-var moduleOpenconfigIfAggregate = &yang.Module{
-	Name:      "openconfig-if-aggregate",
-	Namespace: "http://openconfig.net/yang/interfaces/aggregate",
-}
-
 // moduleOpenconfigIfEthernet identifies the openconfig-if-ethernet YANG module.
 var moduleOpenconfigIfEthernet = &yang.Module{
 	Name:      "openconfig-if-ethernet",
 	Namespace: "http://openconfig.net/yang/interfaces/ethernet",
-}
-
-// moduleOpenconfigIfPoe identifies the openconfig-if-poe YANG module.
-var moduleOpenconfigIfPoe = &yang.Module{
-	Name:      "openconfig-if-poe",
-	Namespace: "http://openconfig.net/yang/poe",
-}
-
-// moduleOpenconfigVLAN identifies the openconfig-vlan YANG module.
-var moduleOpenconfigVLAN = &yang.Module{
-	Name:      "openconfig-vlan",
-	Namespace: "http://openconfig.net/yang/vlan",
 }
 
 // IdentityETHERNETSPEED is the openconfig-if-ethernet identity "ETHERNET_SPEED".

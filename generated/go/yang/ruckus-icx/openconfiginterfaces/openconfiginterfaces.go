@@ -14,18 +14,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleOpenconfigIfAggregate identifies the openconfig-if-aggregate YANG module.
-var moduleOpenconfigIfAggregate = &yang.Module{
-	Name:      "openconfig-if-aggregate",
-	Namespace: "http://openconfig.net/yang/interfaces/aggregate",
-}
-
-// moduleOpenconfigIfEthernet identifies the openconfig-if-ethernet YANG module.
-var moduleOpenconfigIfEthernet = &yang.Module{
-	Name:      "openconfig-if-ethernet",
-	Namespace: "http://openconfig.net/yang/interfaces/ethernet",
-}
-
 // moduleOpenconfigIfIP identifies the openconfig-if-ip YANG module.
 var moduleOpenconfigIfIP = &yang.Module{
 	Name:      "openconfig-if-ip",
