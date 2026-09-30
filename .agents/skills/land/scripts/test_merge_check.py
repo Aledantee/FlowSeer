@@ -94,6 +94,22 @@ class MergeCheckTest(unittest.TestCase):
         self.assertIn("file.txt", result.stdout)
         self.assertIn(merge[:12], result.stdout)
 
+    def test_lost_unique_side_lines_fail_when_other_parent_shares_some_lines(self):
+        repo = self.repository()
+        repo.base()
+        merge, revision_range = repo.merge(
+            "a\nb\nshared\nx01\n",
+            "a\nb\nshared\ny01\n",
+            "a\nb\nshared\ny01\n",
+        )
+
+        result = repo.check(revision_range)
+
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("lost first-parent change", result.stdout)
+        self.assertIn("file.txt", result.stdout)
+        self.assertIn(merge[:12], result.stdout)
+
     def test_lost_side_fails_when_other_side_is_unchanged(self):
         repo = self.repository()
         repo.base()

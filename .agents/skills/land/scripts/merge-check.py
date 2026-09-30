@@ -136,17 +136,22 @@ def check_merge(merge):
             if path not in comparable[side]:
                 continue
             added, removed = changed_lines(base, parents[side], path)
+            other = parents["second" if side == "first" else "first"]
+            other_lines = file_lines(other, path)
+            added -= other_lines
+            removed &= other_lines
             if not added and not removed:
                 continue
             has_added = bool(added & merged_lines)
-            if not has_added and removed <= merged_lines:
+            has_removed = bool(removed - merged_lines)
+            if not has_added and not has_removed:
                 print(
                     f"merge {merge[:12]}: lost {side}-parent change in {path}"
                 )
                 lost = True
                 continue
             missing = sorted(added - merged_lines)
-            if missing and (has_added or bool(removed - merged_lines)):
+            if missing and (has_added or has_removed):
                 print(f"merge {merge[:12]}: missing {side}-parent change in {path}:")
                 for line in missing:
                     print(f"  + {line}")
