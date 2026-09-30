@@ -91,13 +91,18 @@ After each stage:
    (step 4).
    `cat "$(git -C <child> rev-parse --git-dir)/flowseer-plan-status.json"`
 3. Merge the worker's branch here. First check whether the worker merged it
-   itself against its brief, with `$base` for this lane's `run` and
-   `$branch` the `branch` from its `start` line. On `self-merged`, name it in
-   the report and grade the lane with a `--note` saying so; items 4 to 7
-   still run.
+   itself against its brief, with `$base` from this lane's `start` event and
+   `$branch` the `branch` from that event. On `self-merged`, name it in the
+   report and grade the lane with a `--note` saying so; items 4 to 7 still
+   run.
    `[ "$(git rev-list --count "$base..$branch")" -gt 0 ] && git merge-base --is-ancestor "$branch" HEAD && echo self-merged`
-   Right after each merge, run
+   When the worker was not self-merged, after the merge commit exists,
+   including a resolved conflict, run
    `python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
+   A self-merged lane ran no coordinator `git merge`, so `ORIG_HEAD` may be
+   stale. Run `python3 .claude/skills/land/scripts/merge-check.py "$base..HEAD"`
+   for that case, using `$base` from the lane's `start` event or the base the
+   item already records.
    A non-zero result stops the drive. Carry every `missing` block in the
    report.
 4. Run the verifier once on the union of the changed paths, sandbox
@@ -112,8 +117,9 @@ After each stage:
    question; do not run it again.
 
 End a turn only while waiting on a started lane, at a parked question, or
-when step 1 or step 5 stops the drive; a turn that ends right after
-announcing the next stage leaves nothing to wake it. Run each stage once:
+when a failed lane check in step 1 or a failed merge-check in step 3 stops the
+drive. A turn that ends right after announcing the next stage leaves nothing
+to wake it. Run each stage once:
 the skills' own caps (three verifier rounds on a unit, three review rounds
 on a mechanism) decide when patching stops, and a parked question is what
 sends a plan back.

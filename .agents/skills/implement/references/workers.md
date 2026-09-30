@@ -31,7 +31,8 @@ run `.claude/skills/delegate/scripts/orca-worker.sh check <slug>` before the
 merge:
 the commit it names exists, its tree is clean, and the two or three
 changes most expensive to get wrong are what the report says. Merge the
-worker's branch here, then run
+worker's branch here. After the merge commit exists, including a resolved
+conflict, run
 `python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
 A non-zero result stops the wave. Carry every `missing` block in the report,
 then run the focused tests of the merged packages, and

@@ -192,7 +192,8 @@ tree:
 `git -C <child> status --porcelain` is empty, and the two or three changes
 most expensive to get wrong are what the report says. An idle lane whose
 child has changes but no new commit stopped short: `tell` it to commit.
-Merge the branch here. Right after each merge, run:
+Merge the branch here. After the merge commit exists, including a resolved
+conflict, run:
 
 ```bash
 python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD

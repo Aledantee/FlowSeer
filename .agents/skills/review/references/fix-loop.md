@@ -21,7 +21,8 @@ The coordinating session runs the rounds; no skill runs them on its own, and
    The coordinating session does not make the fixes itself.
 2. Before each merge, run
    `.claude/skills/delegate/scripts/orca-worker.sh check <slug>`. A non-zero
-   result stops the round. Merge each worker's branch, then run
+   result stops the round. Merge each worker's branch. After the merge commit
+   exists, including a resolved conflict, run
    `python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
    A non-zero result also stops the round. Carry every `missing` block in the
    report, then run the verifier once on the union of the changed paths,
