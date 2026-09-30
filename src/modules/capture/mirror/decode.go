@@ -19,6 +19,7 @@ const (
 	greProtoERSPANTypeIOrII = 0x88be
 	greProtoERSPANTypeIII   = 0x22eb
 	ethPTypeTEB             = 0x6558
+	maxVlanTagVID           = 4094
 )
 
 // greHeader is the base GRE header (RFC 2784) plus the optional words RFC
@@ -163,6 +164,14 @@ func nilIfEmpty(b []byte) []byte {
 	return b
 }
 
+func parseErspanVLAN(w0 uint32) (uint32, error) {
+	vlan := (w0 >> 16) & 0xFFF
+	if vlan > maxVlanTagVID {
+		return 0, errs.Msgf("ERSPAN VLAN %d exceeds vlan_tag_vid maximum %d", vlan, maxVlanTagVID)
+	}
+	return vlan, nil
+}
+
 // ParseErspanTypeII parses an ERSPAN Type II header
 // (draft-foschiano-erspan-03) from the start of b and returns the decoded
 // fields plus whatever follows the header.
@@ -176,9 +185,13 @@ func ParseErspanTypeII(b []byte) (*capturev1.ErspanTypeIiFields, []byte, error) 
 	if ver := (w0 >> 28) & 0xF; ver != 1 {
 		return nil, nil, errs.Msgf("ERSPAN Type II header has Ver %d, want 1", ver)
 	}
+	vlan, err := parseErspanVLAN(w0)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	f := &capturev1.ErspanTypeIiFields{}
-	f.SetVlan((w0 >> 16) & 0xFFF)
+	f.SetVlan(vlan)
 	f.SetCos((w0 >> 13) & 0x7)
 	f.SetEncapsulationType(capturev1.ErspanEncapsulationType((w0 >> 11) & 0x3))
 	f.SetTruncated((w0>>10)&0x1 != 0)
@@ -204,9 +217,13 @@ func ParseErspanTypeIII(b []byte) (*capturev1.ErspanTypeIiiFields, []byte, error
 	if ver := (w0 >> 28) & 0xF; ver != 2 {
 		return nil, nil, errs.Msgf("ERSPAN Type III header has Ver %d, want 2", ver)
 	}
+	vlan, err := parseErspanVLAN(w0)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	f := &capturev1.ErspanTypeIiiFields{}
-	f.SetVlan((w0 >> 16) & 0xFFF)
+	f.SetVlan(vlan)
 	f.SetCos((w0 >> 13) & 0x7)
 	f.SetBadFrame(capturev1.ErspanBadFrame((w0 >> 11) & 0x3))
 	f.SetTruncated((w0>>10)&0x1 != 0)

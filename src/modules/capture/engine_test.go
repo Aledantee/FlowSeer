@@ -590,8 +590,8 @@ func TestNewWithSource(t *testing.T) {
 }
 
 // TestEngine_FailedRunDeliversNoFinalBatch proves a failed run has no final
-// batch. A final batch tells the receiver the capture ended on its own terms
-// with a budget or operator reason, and a failed run has neither.
+// batch. A final batch tells the receiver the capture ended with a budget or
+// operator reason rather than a failure.
 func TestEngine_FailedRunDeliversNoFinalBatch(t *testing.T) {
 	src := newFakeSource(4)
 	src.frames <- testFrame(0xaa)
