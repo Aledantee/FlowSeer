@@ -1,7 +1,7 @@
 // Package tenantstore is central's durable record of every tenant in the
-// tenants key-value bucket. Primary records are keyed by tenant ID (UUID),
-// alongside secondary index keys mapping (issuer, organization claim) to
-// tenant ID.
+// tenants key-value bucket. A tenant's record and its organization index are
+// written together by one atomic batch. A record counts as committed only while
+// its organization index names it.
 package tenantstore
 
 import (
@@ -10,11 +10,13 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
-	"time"
 
 	"buf.build/go/protovalidate"
+	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"github.com/synadia-io/orbit.go/jetstreamext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -39,9 +41,8 @@ var (
 )
 
 const (
-	casRetries             = 8
-	orgIndexPrefix         = "org_"
-	defaultRollbackTimeout = 5 * time.Second
+	casRetries     = 8
+	orgIndexPrefix = "org_"
 )
 
 // ErrSkip is a Mutate fn's signal that no write is needed.
@@ -56,39 +57,39 @@ func OrgIndexKey(issuer, orgClaimValue string) string {
 // Store is central's per-tenant record store over the tenants KV bucket.
 // Safe for concurrent use.
 type Store struct {
-	kv              jetstream.KeyValue
-	rollbackTimeout time.Duration
+	kv      jetstream.KeyValue
+	js      jetstream.JetStream
+	subject string
+	lastMsg func(context.Context, string) (*jetstream.RawStreamMsg, error)
+	publish func(context.Context, []*nats.Msg) (*jetstreamext.BatchAck, error)
 }
 
-// Option configures Store behavior.
-type Option func(*Store)
-
-// WithRollbackTimeout bounds record writes and recovery after an ambiguous write.
-func WithRollbackTimeout(d time.Duration) Option {
-	return func(s *Store) {
-		s.rollbackTimeout = d
+// New constructs a Store over bucket after confirming its stream accepts
+// atomic publish batches. The returned store is safe for concurrent use.
+func New(ctx context.Context, js jetstream.JetStream, bucket string) (*Store, error) {
+	kv, err := js.KeyValue(ctx, bucket)
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeStore).Attr("bucket", bucket).Msg("open tenant bucket")
 	}
-}
+	stream, err := js.Stream(ctx, "KV_"+bucket)
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeStore).Attr("bucket", bucket).Msg("open tenant bucket stream")
+	}
+	info := stream.CachedInfo()
+	if info == nil || !info.Config.AllowAtomicPublish {
+		return nil, errs.New().Code(ErrCodeStore).Attr("bucket", bucket).Msg("tenant bucket stream does not allow atomic publish")
+	}
 
-// New constructs a Store over the tenants bucket.
-func New(kv jetstream.KeyValue, opts ...Option) *Store {
 	s := &Store{
-		kv:              kv,
-		rollbackTimeout: defaultRollbackTimeout,
+		kv:      kv,
+		js:      js,
+		subject: "$KV." + bucket + ".",
+		lastMsg: stream.GetLastMsgForSubject,
 	}
-	for _, opt := range opts {
-		opt(s)
+	s.publish = func(ctx context.Context, messages []*nats.Msg) (*jetstreamext.BatchAck, error) {
+		return jetstreamext.PublishMsgBatch(ctx, js, messages, jetstreamext.BatchFlowControl{AckFirst: false})
 	}
-	return s
-}
-
-func (s *Store) rollbackDelete(ctx context.Context, key string, claimRev uint64) error {
-	delCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.rollbackTimeout)
-	defer cancel()
-	if err := s.kv.Delete(delCtx, key, jetstream.LastRevision(claimRev)); err != nil && !errors.Is(err, jetstream.ErrKeyNotFound) {
-		return errs.From(err).Code(ErrCodeStore).Attr("key", key).Msg("rollback delete failed")
-	}
-	return nil
+	return s, nil
 }
 
 func (s *Store) getRawWithRevision(ctx context.Context, tenantID string) (*identityv1.TenantRecord, uint64, error) {
@@ -106,23 +107,11 @@ func (s *Store) getRawWithRevision(ctx context.Context, tenantID string) (*ident
 	return rec, entry.Revision(), nil
 }
 
-func (s *Store) ownsOrgIndex(ctx context.Context, orgKey, tenantID string) (bool, error) {
-	checkCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.rollbackTimeout)
-	defer cancel()
-	entry, err := s.kv.Get(checkCtx, orgKey)
-	if errors.Is(err, jetstream.ErrKeyNotFound) {
-		return false, nil
-	}
-	if err != nil {
-		return false, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("reconcile organization index")
-	}
-	return string(entry.Value()) == tenantID, nil
-}
-
-// Create stores a new tenant and commits its organization secondary index. A
-// retry with the same ID and configuration resumes an incomplete write. Create
-// returns ErrCodeAlreadyExists if the ID has different configuration or another
-// tenant owns the organization.
+// Create stores a new tenant and its organization index in one atomic batch. A
+// retry with an equal committed configuration returns the stored record. Any
+// other stored configuration or claimed organization returns
+// ErrCodeAlreadyExists. ErrCodeStore means the outcome is unknown until the
+// same call is retried.
 func (s *Store) Create(ctx context.Context, config *identityv1.TenantConfig) (*identityv1.TenantRecord, error) {
 	if err := protovalidate.Validate(config); err != nil {
 		return nil, errs.From(err).Code(ErrCodeInvalidConfig).Msg("invalid tenant config")
@@ -136,112 +125,108 @@ func (s *Store) Create(ctx context.Context, config *identityv1.TenantConfig) (*i
 		CreatedAt: timestamppb.Now(),
 	}.Build()
 
-	record := identityv1.TenantRecord_builder{
+	newRecord := identityv1.TenantRecord_builder{
 		Config: config,
 		State:  state,
 	}.Build()
 
-	data, err := proto.Marshal(record)
+	data, err := proto.Marshal(newRecord)
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("encode tenant record")
 	}
 
-	recCtx, recCancel := context.WithTimeout(context.WithoutCancel(ctx), s.rollbackTimeout)
-	defer recCancel()
-
-	recRev, err := s.kv.Create(recCtx, tenantID, data)
-	if err != nil {
-		writeErr := errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("write tenant record")
-		existing, existingRev, getErr := s.getRawWithRevision(recCtx, tenantID)
-		if getErr != nil {
-			return nil, errors.Join(writeErr, getErr)
-		}
-		if existing == nil {
-			return nil, writeErr
-		}
-		if !proto.Equal(existing.GetConfig(), config) {
-			if !errors.Is(err, jetstream.ErrKeyExists) {
-				return nil, writeErr
-			}
-			return nil, errs.New().Code(ErrCodeAlreadyExists).Attr("tenant", tenantID).Msg("tenant already exists")
-		}
-		record = existing
-		recRev = existingRev
-	}
-
 	orgKey := OrgIndexKey(config.GetIssuer(), config.GetOrganizationClaimValue())
-	for {
-		if ctx.Err() != nil {
-			owns, reconcileErr := s.ownsOrgIndex(ctx, orgKey, tenantID)
-			if owns {
+	for attempt := 0; attempt < casRetries; attempt++ {
+		var record *identityv1.TenantRecord
+		recordData := data
+
+		recordMsg, recordSeq, err := s.readLast(ctx, tenantID)
+		if err != nil {
+			return nil, err
+		}
+		if recordMsg != nil && !isMarker(recordMsg) {
+			record = &identityv1.TenantRecord{}
+			if err := proto.Unmarshal(recordMsg.Data, record); err != nil {
+				return nil, errs.From(err).Code(ErrCodeDecode).Attr("tenant", tenantID).Msg("decode tenant record")
+			}
+			if !proto.Equal(record.GetConfig(), config) {
+				return nil, errs.New().Code(ErrCodeAlreadyExists).Attr("tenant", tenantID).Msg("tenant already exists")
+			}
+			recordData = recordMsg.Data
+			recordSeq = recordMsg.Sequence
+		}
+
+		indexMsg, indexSeq, err := s.readLast(ctx, orgKey)
+		if err != nil {
+			return nil, err
+		}
+		if indexMsg != nil && !isMarker(indexMsg) {
+			if record != nil && string(indexMsg.Data) == tenantID {
 				return record, nil
 			}
-			rbErr := s.rollbackDelete(ctx, tenantID, recRev)
-			retErr := errs.From(ctx.Err()).Code(ErrCodeStore).Msg("context deadline exceeded committing index")
-			return nil, errors.Join(retErr, reconcileErr, rbErr)
-		}
-
-		_, err := s.kv.Create(ctx, orgKey, []byte(tenantID))
-		if err == nil {
-			return record, nil
-		}
-		if !errors.Is(err, jetstream.ErrKeyExists) {
-			owns, reconcileErr := s.ownsOrgIndex(ctx, orgKey, tenantID)
-			if owns {
-				return record, nil
-			}
-			rbErr := s.rollbackDelete(ctx, tenantID, recRev)
-			retErr := errs.From(err).Code(ErrCodeStore).Msg("write organization index")
-			return nil, errors.Join(retErr, reconcileErr, rbErr)
-		}
-
-		entry, getErr := s.kv.Get(ctx, orgKey)
-		if getErr != nil {
-			if errors.Is(getErr, jetstream.ErrKeyNotFound) {
-				continue
-			}
-			rbErr := s.rollbackDelete(ctx, tenantID, recRev)
-			retErr := errs.From(getErr).Code(ErrCodeStore).Msg("read organization index")
-			return nil, errors.Join(retErr, rbErr)
-		}
-
-		existingTenantID := string(entry.Value())
-		if existingTenantID == tenantID {
-			return record, nil
-		}
-		existingRec, _, getRecErr := s.getRawWithRevision(ctx, existingTenantID)
-		if getRecErr != nil {
-			rbErr := s.rollbackDelete(ctx, tenantID, recRev)
-			return nil, errors.Join(getRecErr, rbErr)
-		}
-
-		hasValidRecord := existingRec != nil &&
-			existingRec.GetConfig().GetIssuer() == config.GetIssuer() &&
-			existingRec.GetConfig().GetOrganizationClaimValue() == config.GetOrganizationClaimValue()
-		if hasValidRecord {
-			rbErr := s.rollbackDelete(ctx, tenantID, recRev)
-			retErr := errs.New().Code(ErrCodeAlreadyExists).
+			return nil, errs.New().Code(ErrCodeAlreadyExists).
 				Attr("issuer", config.GetIssuer()).
 				Attr("organization", config.GetOrganizationClaimValue()).
 				Msg("tenant with organization already exists")
-			return nil, errors.Join(retErr, rbErr)
 		}
 
-		_, updateErr := s.kv.Update(ctx, orgKey, []byte(tenantID), entry.Revision())
-		if updateErr == nil {
-			return record, nil
+		if record == nil {
+			record = newRecord
 		}
-		if errors.Is(updateErr, jetstream.ErrKeyNotFound) || errors.Is(updateErr, jetstream.ErrKeyRevisionMismatch) {
-			continue
+
+		messages := []*nats.Msg{
+			batchMessage(s.subject+tenantID, recordData, recordSeq),
+			batchMessage(s.subject+orgKey, []byte(tenantID), indexSeq),
 		}
-		owns, reconcileErr := s.ownsOrgIndex(ctx, orgKey, tenantID)
-		if owns {
-			return record, nil
+		if _, err := s.publish(ctx, messages); err != nil {
+			if isCASConflict(err) {
+				continue
+			}
+			return nil, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Msg("publish tenant claim batch")
 		}
-		rbErr := s.rollbackDelete(ctx, tenantID, recRev)
-		retErr := errs.From(updateErr).Code(ErrCodeStore).Msg("take over organization index")
-		return nil, errors.Join(retErr, reconcileErr, rbErr)
+		return record, nil
 	}
+	return nil, errs.New().Code(ErrCodeConflict).Attr("tenant", tenantID).Msg("tenant claim did not settle")
+}
+
+func (s *Store) readLast(ctx context.Context, key string) (*jetstream.RawStreamMsg, uint64, error) {
+	msg, err := s.lastMsg(ctx, s.subject+key)
+	if errors.Is(err, jetstream.ErrMsgNotFound) {
+		return nil, 0, nil
+	}
+	if err != nil {
+		return nil, 0, errs.From(err).Code(ErrCodeStore).Attr("key", key).Msg("read tenant store subject")
+	}
+	return msg, msg.Sequence, nil
+}
+
+func batchMessage(subject string, data []byte, expected uint64) *nats.Msg {
+	msg := nats.NewMsg(subject)
+	msg.Data = data
+	msg.Header.Set(jetstream.ExpectedLastSubjSeqHeader, strconv.FormatUint(expected, 10))
+	return msg
+}
+
+func isMarker(msg *jetstream.RawStreamMsg) bool {
+	operation := msg.Header.Get("KV-Operation")
+	if operation == "DEL" || operation == "PURGE" {
+		return true
+	}
+	switch msg.Header.Get(jetstream.MarkerReasonHeader) {
+	case "MaxAge", "Purge", "Remove":
+		return true
+	default:
+		return false
+	}
+}
+
+func isCASConflict(err error) bool {
+	var apiErr *jetstream.APIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	return apiErr.ErrorCode == jetstream.JSErrCodeStreamWrongLastSequence ||
+		apiErr.ErrorCode == jetstream.JSErrCodeStreamWrongLastSequenceConstant
 }
 
 // Get returns the committed tenant record for tenantID, or nil if no record is
