@@ -260,3 +260,20 @@ U1 needs Docker (colima) and runs both engines in one session.
 - The engine. The user chooses after reading the SpiceDB note beside the
   OpenFGA spike. The choice amends the 09-30 record's engine section and
   sets the record `accepted-direction`, in a change of its own.
+- Parked by drive: how is the SpiceDB note's Tag exclusion section fixed,
+  after the review found OpenFGA-spike results mixed into its re-measured
+  rows? Options: drop the exclusion-model lookup rows and say the variant
+  was not measured comparably, keeping the throwaway rebuild both engines
+  completed, since both records preview through the rebuild and not through
+  exclusion (one short fix and re-review) | re-measure the exclusion
+  section on a fixture that matches the OpenFGA spike's grant distribution
+  (complete evidence, another spike session and review). Recommended: drop
+  the rows, because no design under consideration previews through the
+  exclusion model.
+- Parked by drive: the reviewer read decision 1's "admitted when FlowSeer
+  has enrolled them and their token claims the tenant's organization" as a
+  sufficient condition, so partner and platform admins also get in, as the
+  records now say. Options: sufficient condition, as the records read |
+  the only way in, which removes partner and platform admission from the
+  records. Recommended: sufficient condition, because the partner relation
+  is the reason the user chose this model.
