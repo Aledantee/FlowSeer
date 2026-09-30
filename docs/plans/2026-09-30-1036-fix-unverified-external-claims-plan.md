@@ -189,7 +189,7 @@ reproduce main byte for byte first.
   `MemoryStorage: jwt.NoLimit`, and `sufficientResources` sums only
   positive limits, `jetstream.go:2637-2649`), so the memory checks
   (`:2654`, `:2676`) cannot refuse them. Every edge JWT carries a disk
-  budget (`hub.go:424-425`), so its claims never take the disable branch
+  budget (`hub.go:433-434`), so its claims never take the disable branch
   (`jetstream.go:854-857`). What remains is a server that is shutting
   down (`jetstream.go:1181-1207`), and shutdown clears every account's
   JetStream (`jetstream.go:1072-1074`, reached from `server.go:2611`).
@@ -646,7 +646,7 @@ Tests: in `storage_test.go`, each case on a hub with `MaxStoreBytes`
 The lock added by the "No exception to the storage rule" Decision gets two
 stages in each close-race test. A before-connect hook and an after-flag-read
 hook both assert that `h.mu.TryLock()` is false. The after-flag-read hook
-blocks while `Close` waits for the read lock. The refused-account test at
+blocks while `Close` waits for the write lock. The refused-account test at
 `storage_test.go:152-225` still returns `edgebus/storage`. The fitting-account
 test at `storage_test.go:227-303` requires `ErrCodeHub` without "storage".
 A server that stops on its own stays outside the rule.

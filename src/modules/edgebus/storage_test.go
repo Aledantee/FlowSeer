@@ -161,7 +161,7 @@ func TestAttachEdgeCloseRaceStillNamesStorage(t *testing.T) {
 	var releaseOnce sync.Once
 	releaseHook := func() { releaseOnce.Do(func() { close(release) }) }
 	t.Cleanup(releaseHook)
-	lockFailures := make(chan edgeAccountAttachStage, 2)
+	lockFailures := make(chan edgeAccountAttachStage, 3)
 	hub.edgeAccountAttachHook = func(stage edgeAccountAttachStage) {
 		if hub.mu.TryLock() {
 			hub.mu.Unlock()
@@ -171,6 +171,11 @@ func TestAttachEdgeCloseRaceStillNamesStorage(t *testing.T) {
 		case edgeAccountBeforeConnect:
 			close(beforeConnect)
 		case edgeAccountAfterFlagRead:
+			// The attach still holds the read lock, so Close cannot have
+			// marked the hub closed yet.
+			if hub.closed {
+				lockFailures <- stage
+			}
 			close(flagRead)
 			<-release
 		}
@@ -233,7 +238,7 @@ func TestAttachEdgeCloseRaceFittingAccountIsNotStorage(t *testing.T) {
 	var releaseOnce sync.Once
 	releaseHook := func() { releaseOnce.Do(func() { close(release) }) }
 	t.Cleanup(releaseHook)
-	lockFailures := make(chan edgeAccountAttachStage, 2)
+	lockFailures := make(chan edgeAccountAttachStage, 3)
 	hub.edgeAccountAttachHook = func(stage edgeAccountAttachStage) {
 		if hub.mu.TryLock() {
 			hub.mu.Unlock()
@@ -243,6 +248,11 @@ func TestAttachEdgeCloseRaceFittingAccountIsNotStorage(t *testing.T) {
 		case edgeAccountBeforeConnect:
 			close(beforeConnect)
 		case edgeAccountAfterFlagRead:
+			// The attach still holds the read lock, so Close cannot have
+			// marked the hub closed yet.
+			if hub.closed {
+				lockFailures <- stage
+			}
 			close(flagRead)
 			<-release
 		}
