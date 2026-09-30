@@ -11,8 +11,8 @@ execution: mixed
 
 # Unverified External Claims - Plan
 
-> Partially implemented. U1 to U6, U8, and U9 are verified. U7 is staged for
-> guardrail review and remains in progress.
+> Partially implemented. U1 to U6, U8, and U9 are implemented and verified.
+> U7 is staged for guardrail review and remains in progress.
 
 ## Goal
 
