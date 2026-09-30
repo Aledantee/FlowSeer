@@ -76,6 +76,16 @@ decision below would then constrain the engine rather than sit beside it.
   `src/services/device/test/integration/` becomes the reproducible check
   for whichever engine wins.
 
+- The SpiceDB note drops its exclusion-model lookup rows, which mixed in
+  the OpenFGA spike's results, and says that variant was not measured
+  comparably. It keeps the throwaway rebuild both engines completed. Why: no
+  design under consideration previews an access change through the
+  exclusion model. (decided by the user, 2026-09-30)
+- Enrollment plus a claimed organization is one way into a tenant, not the
+  only one: partner admins and platform admins are admitted too, as the
+  records say. Why: the partner relation is the reason for the membership
+  model. (decided by the user, 2026-09-30)
+
 ## Requirements
 
 1. The SpiceDB spike answers every question the OpenFGA spike answered.
@@ -260,20 +270,3 @@ U1 needs Docker (colima) and runs both engines in one session.
 - The engine. The user chooses after reading the SpiceDB note beside the
   OpenFGA spike. The choice amends the 09-30 record's engine section and
   sets the record `accepted-direction`, in a change of its own.
-- Parked by drive: how is the SpiceDB note's Tag exclusion section fixed,
-  after the review found OpenFGA-spike results mixed into its re-measured
-  rows? Options: drop the exclusion-model lookup rows and say the variant
-  was not measured comparably, keeping the throwaway rebuild both engines
-  completed, since both records preview through the rebuild and not through
-  exclusion (one short fix and re-review) | re-measure the exclusion
-  section on a fixture that matches the OpenFGA spike's grant distribution
-  (complete evidence, another spike session and review). Recommended: drop
-  the rows, because no design under consideration previews through the
-  exclusion model.
-- Parked by drive: the reviewer read decision 1's "admitted when FlowSeer
-  has enrolled them and their token claims the tenant's organization" as a
-  sufficient condition, so partner and platform admins also get in, as the
-  records now say. Options: sufficient condition, as the records read |
-  the only way in, which removes partner and platform admission from the
-  records. Recommended: sufficient condition, because the partner relation
-  is the reason the user chose this model.
