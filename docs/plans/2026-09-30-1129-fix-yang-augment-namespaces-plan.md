@@ -4,11 +4,13 @@ type: fix
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 ---
 
 # YANG Augment Namespaces - Plan
+
+> Implemented. Phase 2 regenerated 1,067 bindings. The cold build took 51.32 s wall time and 11,819,909,120 bytes peak RSS before regeneration, then 34.53 s wall time and 10,748,739,584 bytes peak RSS after regeneration.
 
 ## Goal
 
@@ -83,7 +85,7 @@ Landed: `d8cb4540..cca18ef1`
 ### U2. Generator recovery and group emission
 Files: docs/plans/2026-09-30-1129-fix-yang-augment-namespaces-phase2-plan.md
 After: U1
-Landed:
+Landed: `ddda63e6..c5caafff`
 
 Waves: U1 | U2
 
@@ -104,5 +106,6 @@ diff, and `go run ./src/protocol/yang/cmd/yanggen -check` passes.
 ## Open questions
 
 - Whether the compile cost of importing `ciscoiosxenative` (147
-  augmenting packages) is acceptable. Phase 2 measures it before and
-  after.
+  augmenting packages) is acceptable. The cold build took 51.32 s wall time
+  and 11,819,909,120 bytes peak RSS before regeneration, then 34.53 s wall
+  time and 10,748,739,584 bytes peak RSS after regeneration.

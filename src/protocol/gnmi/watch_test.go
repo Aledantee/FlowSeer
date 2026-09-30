@@ -76,7 +76,7 @@ func TestStreamWatcherColdStartAndBatches(t *testing.T) {
 			_ = srv.Send(syncResp())
 			// One post-sync batch touching two leaves of row a: one
 			// Modified expected.
-			_ = srv.Send(notif(leafUpdate("a", "port", `9`), leafUpdate("a", "owner", `"ops"`)))
+			_ = srv.Send(notif(leafUpdate("a", "port", `9`), leafUpdate("a", "name", `"a"`)))
 			// Row b appears, then row a is deleted at row level.
 			_ = srv.Send(notif(leafUpdate("b", "name", `"b"`)))
 			_ = srv.Send(&gpb.SubscribeResponse{Response: &gpb.SubscribeResponse_Update{Update: &gpb.Notification{
@@ -108,7 +108,7 @@ func TestStreamWatcherColdStartAndBatches(t *testing.T) {
 	if ev.Kind != yang.Modified || ev.Key.Name != "a" {
 		t.Fatalf("event = %+v, want one Modified for a", ev)
 	}
-	if *ev.Row.Port != 9 || ev.Row.Owner == nil || *ev.Row.Owner != "ops" {
+	if *ev.Row.Port != 9 || ev.Row.Name == nil || *ev.Row.Name != "a" {
 		t.Errorf("modified row = %+v", ev.Row)
 	}
 
@@ -359,7 +359,7 @@ func TestWatchDecodesLeafListIntoRow(t *testing.T) {
 		if ev.Kind != yang.Added {
 			continue
 		}
-		got := ev.Row.Aggregation.State.Member
+		got := ev.Row.OpenconfigIfAggregate.Aggregation.State.Member
 		if len(got) != 2 || got[0] != "GigabitEthernet1" || got[1] != "GigabitEthernet2" {
 			t.Fatalf("Member = %+v, want the two leaf-list elements in wire order", got)
 		}
@@ -399,7 +399,7 @@ func TestWatchDecodesEmptyLeafListIntoRow(t *testing.T) {
 		// An empty leaf-list must render as [] and decode to an empty
 		// slice; rendering it as null instead fails the row decode
 		// outright.
-		if got := ev.Row.Aggregation.State.Member; len(got) != 0 {
+		if got := ev.Row.OpenconfigIfAggregate.Aggregation.State.Member; len(got) != 0 {
 			t.Fatalf("Member = %+v, want empty", got)
 		}
 		return

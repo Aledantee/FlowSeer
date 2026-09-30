@@ -22,12 +22,39 @@ import (
 // after intentional emitter changes and audit the diff.
 var updateGolden = flag.Bool("update-golden", false, "rewrite testdata/golden/* with the current emitter output")
 
+const fixtureGoldenImportBase = "go.aledante.io/FlowSeer/src/protocol/yang/cmd/yanggen/testdata/golden/fixture"
+
+func emitOne(vs *VendorSet, m *LoadedModule) (string, error) {
+	plan, err := buildEmissionPlan(vs, fixtureGoldenImportBase)
+	if err != nil {
+		return "", err
+	}
+	files, err := emitModuleFiles(plan, plan.packages[m.Name])
+	if err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	for _, name := range sortedKeys(files) {
+		b.Write(files[name])
+	}
+	return b.String(), nil
+}
+
+func TestContainsIdentifierIgnoresComments(t *testing.T) {
+	if containsIdentifier("// /native:pim.\n", "pim") {
+		t.Fatal("comment text was treated as a package reference")
+	}
+	if !containsIdentifier("// comment\nvar _ = pim.Schema\n", "pim") {
+		t.Fatal("package reference was not detected")
+	}
+}
+
 // TestEmitFixtureGolden renders every fixture module and compares
 // byte-for-byte against the committed goldens.
 func TestEmitFixtureGolden(t *testing.T) {
 	vs := fixtureVendor(t)
 	for _, m := range vs.Modules {
-		got, err := emitOne(m)
+		got, err := emitOne(vs, m)
 		if err != nil {
 			t.Fatalf("emit %s: %v", m.Name, err)
 		}
@@ -59,7 +86,7 @@ func TestEmitFixtureGolden(t *testing.T) {
 func TestEmitFixtureParses(t *testing.T) {
 	vs := fixtureVendor(t)
 	for _, m := range vs.Modules {
-		got, err := emitOne(m)
+		got, err := emitOne(vs, m)
 		if err != nil {
 			t.Fatalf("emit %s: %v", m.Name, err)
 		}
@@ -75,7 +102,7 @@ func TestEmitFixtureParses(t *testing.T) {
 func TestEmitFixtureSurface(t *testing.T) {
 	vs := fixtureVendor(t)
 	main := moduleByName(t, vs, "fixture-main")
-	src, err := emitOne(main)
+	src, err := emitOne(vs, main)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,23 +164,25 @@ func TestEmitFixtureSurface(t *testing.T) {
 	}
 }
 
-// TestEmitAugmentModule asserts the augmenting module's own emission
-// and that its augmented-in nodes live in the target module's package
-// with foreign-module qualification.
+// TestEmitAugmentModule asserts that augmenting nodes are emitted in a
+// package-owned group and that the target package references that group.
 func TestEmitAugmentModule(t *testing.T) {
 	vs := fixtureVendor(t)
-	mainSrc, err := emitOne(moduleByName(t, vs, "fixture-main"))
+	mainSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-main"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !regexp.MustCompile(`Module:\s+moduleFixtureAug`).MatchString(mainSrc) {
-		t.Error("augmented-in owner leaf lost its defining-module qualification")
+	if !strings.Contains(mainSrc, "FixtureAug  *fixtureaug.ServerAugment") {
+		t.Error("fixture-main server is missing the fixture-aug group field")
 	}
-	if !regexp.MustCompile(`Owner\s+\*string`).MatchString(mainSrc) {
-		t.Error("augmented-in owner leaf missing from the target struct")
+	if !strings.Contains(mainSrc, "FixtureAug2 *fixtureaug2.ServerAugment") {
+		t.Error("fixture-main server is missing the fixture-aug2 group field")
+	}
+	if regexp.MustCompile(`Module:\s+moduleFixtureAug`).MatchString(mainSrc) {
+		t.Error("plain fields still carry foreign-module qualification")
 	}
 
-	typesSrc, err := emitOne(moduleByName(t, vs, "fixture-types"))
+	typesSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-types"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +197,7 @@ func TestEmitAugmentModule(t *testing.T) {
 // a grouping in another module take the instantiating module's name.
 func TestEmitGroupingInstantiatingModule(t *testing.T) {
 	vs := fixtureVendor(t)
-	mainSrc, err := emitOne(moduleByName(t, vs, "fixture-main"))
+	mainSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-main"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +217,7 @@ func TestEmitGroupingInstantiatingModule(t *testing.T) {
 // two containers of fixture-main generates one struct for the two instances.
 func TestEmitGroupingSharedShape(t *testing.T) {
 	vs := fixtureVendor(t)
-	mainSrc, err := emitOne(moduleByName(t, vs, "fixture-main"))
+	mainSrc, err := emitOne(vs, moduleByName(t, vs, "fixture-main"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +228,7 @@ func TestEmitGroupingSharedShape(t *testing.T) {
 	if strings.Contains(mainSrc, "PrimaryGroupItem") || strings.Contains(mainSrc, "SecondaryGroupItem") {
 		t.Error("emitted separate structs for grouping instances instead of shared Item")
 	}
-	wantComment := "Item is the fixture-main node shape instantiated at 2 schema paths, such as /fixture-main/primary-group/item."
+	wantComment := "Item is the fixture-main node shape instantiated at 2 schema paths, such as /fixture-main:primary-group/item."
 	if !strings.Contains(mainSrc, wantComment) {
 		t.Errorf("emitted fixture-main missing doc comment %q", wantComment)
 	}
@@ -214,7 +243,7 @@ func TestEmitGroupingSharedShape(t *testing.T) {
 // for nodes that decode differently would lose data at one of its paths.
 func TestEmitShapeKeySeparatesDifferingNodes(t *testing.T) {
 	vs := fixtureVendor(t)
-	src, err := emitOne(moduleByName(t, vs, "fixture-main"))
+	src, err := emitOne(vs, moduleByName(t, vs, "fixture-main"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +292,6 @@ func TestEmitShapeKeySeparatesDifferingNodes(t *testing.T) {
 		{"leaf type", "ByTypeA", "ByTypeB", "Setting"},
 		{"presence", "ByPresenceA", "ByPresenceB", "Marker"},
 		{"child module", "ByModuleA", "ByModuleB", "Slot"},
-		{"node module", "ByOwnerA", "ByOwnerB", "Flag"},
 	} {
 		ta, tb := fieldTypes[pair.a][pair.field], fieldTypes[pair.b][pair.field]
 		if ta == "" || tb == "" {
@@ -274,6 +302,9 @@ func TestEmitShapeKeySeparatesDifferingNodes(t *testing.T) {
 			t.Errorf("%s: %s.%s and %s.%s share type %s; nodes that differ in %s must not share a type",
 				pair.property, pair.a, pair.field, pair.b, pair.field, ta, pair.property)
 		}
+	}
+	if got := fieldTypes["ByOwnerB"]["FixtureAug"]; !strings.Contains(got, "fixtureaug.ByOwnerBAugment") {
+		t.Errorf("ByOwnerB.FixtureAug = %q, want fixtureaug.ByOwnerBAugment", got)
 	}
 
 	if got, want := fieldTypes["PrimaryGroup"]["Peer"], "[]Peer"; got != want {
@@ -320,7 +351,7 @@ func TestEmitModuleOrderIndependent(t *testing.T) {
 		}
 		out := make(map[string]string, len(mods))
 		for _, m := range mods {
-			src, err := emitOne(m)
+			src, err := emitOne(vs, m)
 			if err != nil {
 				t.Fatalf("emit %s: %v", m.Name, err)
 			}
@@ -332,6 +363,35 @@ func TestEmitModuleOrderIndependent(t *testing.T) {
 	for name, src := range forward {
 		if reversed[name] != src {
 			t.Errorf("%s differs when the module list is reversed", name)
+		}
+	}
+}
+
+// TestEmitFixtureRepeatedLoadsDeterministic proves that goyang's augment
+// survivor does not affect the emitted package bytes.
+func TestEmitFixtureRepeatedLoadsDeterministic(t *testing.T) {
+	var want string
+	for i := 0; i < 20; i++ {
+		vs := fixtureVendor(t)
+		main := moduleByName(t, vs, "fixture-main")
+		server := main.Entry.Dir["servers"].Dir["server"]
+		survivor, err := server.Dir["owner"].InstantiatingModule()
+		if err != nil {
+			t.Fatalf("owner survivor module: %v", err)
+		}
+		if survivor != "fixture-aug" && survivor != "fixture-aug2" {
+			t.Fatalf("owner survivor module = %q, want one of the augmenting modules", survivor)
+		}
+		got, err := emitOne(vs, main)
+		if err != nil {
+			t.Fatalf("emit fixture-main: %v", err)
+		}
+		if i == 0 {
+			want = got
+			continue
+		}
+		if got != want {
+			t.Fatalf("fixture-main output changed on load %d", i)
 		}
 	}
 }
