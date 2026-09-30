@@ -178,8 +178,8 @@ device-scoped by design and is not that trail; the operator authorization
 record's [Actions leave a trail](../../../docs/architecture/2026-09-28-operator-authorization-direction.md#actions-leave-a-trail)
 section decides the trail that closes this gap.
 
-Operator calls run as `dev_tenant` (or `default` when unset,
-`internal/host/serve.go`).
+Operator calls run as `dev_tenant` (or `default` when unset) through
+`TenantInterceptor` in `internal/host/interceptor.go`.
 An edge belongs to the tenant that created it (the `edge_<id>` index). Restarting
 central with a different `dev_tenant` makes existing edges, capture sessions,
 and lanes `NotFound` to operators, while drift and dispatch continue under each

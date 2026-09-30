@@ -489,25 +489,46 @@ edges {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
+	done := make(chan error, 1)
 	var runErr error
+	var waitOnce sync.Once
+	var timedOut bool
+	var earlyExit bool
+	waitStopped := func() error {
+		waitOnce.Do(func() {
+			select {
+			case runErr = <-done:
+			case <-time.After(30 * time.Second):
+				timedOut = true
+			}
+		})
+		return runErr
+	}
 	t.Cleanup(func() {
 		cancel()
-		<-done
-		if runErr != nil {
+		err := waitStopped()
+		if earlyExit {
+			return
+		}
+		if timedOut {
+			t.Error("the service did not stop within thirty seconds of cancellation")
+		}
+		if err != nil {
 			t.Errorf("the service stopped with %v, want a clean shutdown", runErr)
 		}
 	})
 	go func() {
-		runErr = host.Run(ctx, cfg, "test", options)
-		close(done)
+		done <- host.Run(ctx, cfg, "test", options)
 	}()
 
 	select {
 	case <-apiBound:
-	case <-done:
-		t.Fatalf("the service stopped before it bound its API listener: %v", runErr)
+	case err := <-done:
+		earlyExit = true
+		waitOnce.Do(func() { runErr = err })
+		t.Fatalf("the service stopped before it bound its API listener: %v", err)
 	case <-time.After(30 * time.Second):
+		earlyExit = true
 		t.Fatal("the service did not report a bound API address within thirty seconds")
 	}
 
