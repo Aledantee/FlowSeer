@@ -4,11 +4,13 @@ type: fix
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: partially-implemented
 execution: mixed
 ---
 
 # Unverified External Claims - Plan
+
+> Partially implemented: U6. Requirement 2 needs changes outside U1's allowed files.
 
 ## Goal
 

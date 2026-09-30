@@ -40,10 +40,11 @@ type HubConfig struct {
 	// WebSocket, allowed only on a loopback host for tests and a lab.
 	TLS *tls.Config
 	// MaxStoreBytes is a server-wide ceiling on the whole JetStream store.
-	// Zero lets the server size it against the available disk, which is the
-	// normal setting; a deployment that pins it must leave room for central
-	// plus every edge budget at once, since each is a reservation taken
-	// against this number when the account is enabled.
+	// Zero is finalized once at server start as 75% of free disk; account
+	// budgets reserve against the server store ceiling, and the resulting
+	// edge count is capped by (ceiling - central budget) / edge budget.
+	// A deployment that pins it must leave room for central plus every edge
+	// budget at once.
 	MaxStoreBytes int64
 	// EdgeBudgetBytes and CentralBudgetBytes are the per-account disk
 	// ceilings. Zero means 128 MiB per edge account and 512 MiB for
@@ -79,13 +80,14 @@ type HubConfig struct {
 // credential lives in the edge account and cannot address a central stream
 // even through a server-reflected publish. A Hub is safe for concurrent use.
 type Hub struct {
-	log        *quietLogger
-	cfg        HubConfig
-	keys       *hubKeys
-	opts       *server.Options
-	server     *server.Server
-	resolver   *server.MemAccResolver
-	edgeBudget int64
+	log           *quietLogger
+	cfg           HubConfig
+	keys          *hubKeys
+	opts          *server.Options
+	server        *server.Server
+	resolver      *server.MemAccResolver
+	centralBudget int64
+	edgeBudget    int64
 
 	central   *nats.Conn
 	centralJS jetstream.JetStream
@@ -142,13 +144,12 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 		return nil, err
 	}
 
-	// JetStreamMaxStore is a server-wide backstop; zero lets the server size
-	// it against the available disk. The per-account disk budgets below are
-	// the real guard: each account is limited to its own budget, so no
-	// number of edges can consume the store the journal writes into. A
-	// reserved MaxStoreBytes would have to exceed central plus every edge's
-	// budget at once, which an unbounded edge count cannot promise, so it
-	// stays a backstop rather than a reservation.
+	// JetStreamMaxStore is the server store ceiling. Zero is finalized once
+	// at server start as 75% of free disk. Account budgets reserve against
+	// this ceiling when each account is enabled, so the edge count is
+	// capped by (ceiling - central budget) / edge budget. Each account is
+	// limited to its own budget so telemetry in an edge account cannot
+	// consume the store the journal writes into.
 	centralBudget := cfg.CentralBudgetBytes
 	if centralBudget <= 0 {
 		centralBudget = defaultCentralBudget
@@ -223,7 +224,7 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 	logger := newQuietLogger(hostLog)
 	srv.SetLoggerV2(logger, false, false, false)
 	srv.Start()
-	hub := &Hub{cfg: cfg, keys: keys, opts: opts, server: srv, log: logger, resolver: resolver, edgeBudget: edgeBudget, edges: map[string]*edgeAccount{}}
+	hub := &Hub{cfg: cfg, keys: keys, opts: opts, server: srv, log: logger, resolver: resolver, centralBudget: centralBudget, edgeBudget: edgeBudget, edges: map[string]*edgeAccount{}}
 	defer func() {
 		if err != nil {
 			hub.Close()
@@ -411,9 +412,10 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccoun
 		return nil, err
 	}
 	// The edge account holds one bounded source stream, so its disk budget
-	// is that stream's ceiling plus margin; it is independent of the
-	// central budget, so no number of edges can consume the journal's
-	// store.
+	// is that stream's ceiling plus margin. Account budgets reserve against
+	// the server store ceiling, so total edges are capped by
+	// (ceiling - central budget) / edge budget, and the edge budget cannot
+	// starve the central journal's store within that capacity.
 	budget := h.edgeBudget
 	accountJWT, err := h.keys.accountJWT(key, "EDGE_"+edgeID, budget)
 	if err != nil {
@@ -436,6 +438,23 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccoun
 	// first connection; wait for it to answer before creating the stream.
 	if err := waitForJetStream(ctx, js); err != nil {
 		conn.Close()
+		if srv != nil {
+			if jsc := srv.JetStreamConfig(); jsc != nil {
+				ceiling := jsc.MaxStore
+				h.mu.Lock()
+				attached := len(h.edges)
+				h.mu.Unlock()
+				if ceiling > 0 && h.centralBudget+h.edgeBudget*int64(attached+1) > ceiling {
+					return nil, errs.From(err).Code(ErrCodeHub).
+						Attr("edge", edgeID).
+						Attr("ceiling_bytes", ceiling).
+						Attr("central_budget_bytes", h.centralBudget).
+						Attr("edge_budget_bytes", h.edgeBudget).
+						Msgf("storage limit exceeded: central budget %d B plus %d edge budgets of %d B exceeds store ceiling %d B",
+							h.centralBudget, attached+1, h.edgeBudget, ceiling)
+				}
+			}
+		}
 		return nil, errs.From(err).Code(ErrCodeHub).Attr("edge", edgeID).Msg("wait for the edge account JetStream")
 	}
 	if err := h.createEdgeStream(ctx, js, edgeID); err != nil {
