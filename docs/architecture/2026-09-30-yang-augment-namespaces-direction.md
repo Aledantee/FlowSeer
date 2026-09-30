@@ -72,7 +72,8 @@ record requires the full vendored surface, which dropped nodes break.
   own. The XML, JSON, and path codecs encode a group's children at the
   parent's level, qualified by the group's module.
 - JSON decoding also accepts a group's child under its bare name when no
-  other field of the parent has that name. gNMI path elements carry no
+  other field of the parent has that name, and fails with an error when
+  two groups hold the name and the parent does not. gNMI path elements carry no
   module (`src/protocol/gnmi/session.go:463-466`), and the gNMI row store
   builds its row JSON from them (`src/protocol/gnmi/rows.go:12-20`).
 

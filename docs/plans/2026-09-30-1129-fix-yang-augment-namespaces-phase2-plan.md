@@ -17,7 +17,8 @@ parent: docs/plans/2026-09-30-1129-fix-yang-augment-namespaces-plan.md
 own augment entry and emits the nodes each module augments into a parent
 as that module's group, typed in its package, using phase 1's group field.
 The runtime decodes a bare JSON member into a group when no other field of
-the parent has that name, so gNMI rows keep decoding augmented nodes. The
+the parent has that name and fails on an ambiguous one, so gNMI rows keep
+decoding augmented nodes and a collision never drops a value silently. The
 bindings are regenerated, and the doc calling the duplicate-augment diff
 noise is removed. Stop condition: a dropped child whose augment entry does
 not hold it, which leaves no source to recover it from.
@@ -69,15 +70,15 @@ not hold it, which leaves no source to recover it from.
   depends on which contender goyang kept.
 - Group field: Go name `camel(module)` (`CiscoIOSXESwitch`), literal
   `{Child: <pkg>.<Name>AugmentSchema, GoName: ..., Group: true}`
-  (unconfirmed). Why: the direction record's example uses it, and module
+  (decided by the user, 2026-09-30). Why: the direction record's example uses it, and module
   names are unique in a vendor. A clash falls to `nameScope`'s suffix.
 - Group struct: the shortest unique suffix of the target's path plus
   `Augment` (`ciscoiosxeswitch.GigabitEthernetAugment`), its shape key
-  hashing the target's name, the module, and the children (unconfirmed).
+  hashing the target's name, the module, and the children (decided by the user, 2026-09-30).
   Why: name candidates come from a suffix every instance shares
   (`naming.go:428-440`), which a shared target name guarantees.
 - Group schemas are exported, with no runtime root guard, and documented
-  as no codec root (unconfirmed). Why: the target package names them.
+  as no codec root (decided by the user, 2026-09-30). Why: the target package names them.
 - Key, FlatRow, and Descriptor for a list inside a group stay in the
   package of the tree's top-level module. Why: a descriptor names every
   schema on its path, and the augmenting package cannot import the target
@@ -95,7 +96,9 @@ not hold it, which leaves no source to recover it from.
   hash is unchanged. Why: an augmenting module imports what its bindings
   reference, and reverse edges (`load.go:437-446`) reach every augmenter.
 - JSON decode also matches a grouped member by its bare name when no plain
-  field and no other group of the parent has that name (unconfirmed). This
+  field and no other group of the parent has that name. A bare name that
+  two or more groups hold, with no plain field of that name, fails decoding
+  with an error naming the candidates (decided by the user, 2026-09-30). This
   reverses phase 1's qualified-only rule. Why: gNMI path elements carry no
   module (`src/protocol/gnmi/session.go:463-466`), the row store builds its
   JSON from them (`src/protocol/gnmi/rows.go:12-20`), and
@@ -103,7 +106,7 @@ not hold it, which leaves no source to recover it from.
   took bare augmented members before groups
   (`src/protocol/yang/structcodec_test.go:207-216`).
 - Recovery runs in `LoadVendor` after `parseModules` and sorts each
-  target's recovered children by module, then name (unconfirmed). Why:
+  target's recovered children by module, then name (decided by the user, 2026-09-30). Why:
   `-verify` and `-check` then run the same checks as `-update`.
 
 ## Requirements
@@ -137,7 +140,9 @@ not hold it, which leaves no source to recover it from.
 7. A bare JSON member decodes into a group when its name is unique among
    the parent's fields. Example: with the phase 1 fixture
    (`src/protocol/yang/schema_test.go:30-50`), `{"y":"v"}` sets `B.Y`,
-   `{"x":0}` sets `X` and leaves `B` and `C` nil.
+   `{"x":0}` sets `X` and leaves `B` and `C` nil. With groups `B` and `C`
+   both holding `z` and no plain `z`, `{"z":1}` fails with an error naming
+   both modules.
 8. A relative leafref that climbs out of a contender from a module other
    than the parent's fails generation, since `Entry.Find` would resolve it
    against the augment entry and fall back to string (`emit_type.go:59-62`).
@@ -145,8 +150,7 @@ not hold it, which leaves no source to recover it from.
 ## Out of scope
 
 - A runtime error for a group schema passed as a codec root.
-- gNMI path elements carrying a `module:` prefix, and ambiguous bare
-  members, which decode into no field.
+- gNMI path elements carrying a `module:` prefix.
 - RPC, action, and notification nodes, which `yanggen` does not emit.
 - `yanggen` reads trusted vendored trees under `spec/yang/`. The runtime
   decoder reads untrusted device payloads, and U1 changes only which field
@@ -163,10 +167,10 @@ and `findJSONDescendant` (`src/protocol/yang/nested.go:301-340`) keep
 sharing it. The solution doc states the new rule and quotes the new code.
 Tests: `structcodec_test.go` covers requirement 7 with the shared
 fixture, plus groups `B` and `C` both holding `z` with no plain `z`:
-`{"z":1}` sets neither. `nested_test.go` renames
+`{"z":1}` returns the ambiguity error. `nested_test.go` renames
 `TestDecodeJSONNestedDoesNotMatchBareGroupedContainer` to assert that the
 bare `c` now yields the row and allocates `B`. It adds an ambiguous case
-returning no rows. `TestDecodeJSONNestedRejectsCrossModuleBareRows` stays
+returning the ambiguity error. `TestDecodeJSONNestedRejectsCrossModuleBareRows` stays
 green unchanged.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/yang/structjson.go src/protocol/yang/nested.go src/protocol/yang/structcodec_test.go src/protocol/yang/nested_test.go docs/solutions/conventions/nested-json-row-lookup-must-match-struct-decoding.md`
 
@@ -288,24 +292,7 @@ group schemas in `ciscoiosxeswitch` (`macsec` typed `yang.TEmpty`) and
 
 ## Open questions
 
-- Unconfirmed: the group field's Go name is `camel(module)`.
-- Unconfirmed: group structs are `<suffix>Augment`, one per target name.
-- Unconfirmed: group schemas are exported, with no runtime root guard.
-- Unconfirmed: a bare JSON member decodes into a uniquely named group
-  member, reversing phase 1's qualified-only rule.
-- Unconfirmed: recovery runs in `LoadVendor` after `parseModules`.
 - Requirement 1 is read as the data tree. `Process` also drops children
   augmented into RPC input and output (`ietf-ipv4-unicast-routing` and
   `ietf-ipv6-unicast-routing` under `ietf-routing` `fib-route`), which
   `yanggen` never emits.
-- Parked by drive: how a bare JSON member reaches a grouped node, given
-  that gNMI rows carry no module. Options: bare match when unique, and a
-  decode error when the name is ambiguous (gNMI keeps working and a
-  collision fails loudly) | bare match when unique, and an ambiguous name
-  decodes into neither field (the plan as written, but a collision is lost
-  silently) | keep phase 1's qualified-only rule and make the gNMI row
-  store qualify each member from the schema (strict, one more unit in
-  `src/protocol/gnmi`, and a colliding name stays unresolvable when the
-  device sends unqualified path elements). Recommended: the first,
-  because it keeps gNMI rows decoding and never drops a value without an
-  error.
