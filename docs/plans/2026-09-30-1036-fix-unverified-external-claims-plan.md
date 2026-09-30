@@ -3,8 +3,8 @@ title: Unverified External Claims - Plan
 type: fix
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: implemented
+artifact_readiness: needs-decisions
+status: partially-implemented
 review: rework
 execution: mixed
 ---
@@ -172,6 +172,25 @@ reproduce main byte for byte first.
   command, including `AGENTS.md:44` and
   `.agents/skills/delegate/SKILL.md:227`, which join U1. U1 may edit that
   one `AGENTS.md` line. (decided by the user, 2026-09-30)
+
+- **The verifier routes `tools/buf/*` to the proto gates, not the Go
+  module gates.** A change under `tools/buf/` runs format, lint, breaking,
+  and the generate drift check through the pinned buf, plus `go mod
+  verify` for that module. The `add_module` skip added in `5c8b1a7c`
+  goes. The diff to `verify-change.sh` is merge-gate configuration and is
+  staged for a person's guardrail review before `land`. (decided by the
+  user, 2026-09-30)
+- **The edge-bus storage error is re-planned in this plan.** `AttachEdge`
+  names the storage limit if and only if the server refused this edge
+  account's JetStream enablement for its storage reservation, whatever
+  error the wait loop returns and whatever the caller's context. A
+  deterministic test covers each direction: a refused account names
+  storage under a canceled or short context, and an enabled account whose
+  wait fails for another reason (canceled context on a fresh hub, retry
+  after a failed stream setup) does not. The Decision on computing the
+  error from the ceiling is replaced, since its `maxStorePending` reason
+  does not hold after startup in nats-server v2.14.6. Implement and
+  review re-run for the new units only. (decided by the user, 2026-09-30)
 
 ## Requirements
 
@@ -406,30 +425,3 @@ generated/` holds only the files U2, U3, and U4 changed.
 - If `buf.build/connectrpc/go:v1.20.0` is not a published plugin tag, pin
   the tag that regenerates the current `*.connect.go` files byte for byte,
   and record the tag in U1's commit.
-- Parked by drive: review verdict `rework`, blocker F1.
-  `.agents/skills/verify-change/scripts/verify-change.sh:214-216` skips
-  module `tools/buf`, an exclusion added in the change it lets pass, so a
-  pin bump in `tools/buf/go.mod` selects no gate and never runs the
-  generate drift check. Options: route `tools/buf/*` to the proto gates
-  (format, lint, breaking, generate drift through the pin) plus
-  `go mod verify` for that module (the pin bump gets checked, but this
-  changes a merge gate and needs guardrail review) | keep the skip and
-  record it as an approved policy exception (no work, pin bumps stay
-  unchecked). Recommended: the first, because a buf version bump is the
-  change the renamed solution doc says drifts every generated descriptor.
-- Parked by drive: review verdict `rework`, blocker F2. The edge-bus
-  storage diagnostic (`src/modules/edgebus/hub.go:441-464`) had a new
-  defect in each of four review rounds and now names storage for an
-  account the server enabled (a canceled context on a fresh hub). The
-  Decision at `:153` rests on `maxStorePending`, which nats-server
-  v2.14.6 clears before startup completes (`server/jetstream.go:526`,
-  `:546-565`). The property to plan: `AttachEdge` names the storage limit
-  if and only if the server refused this account's JetStream enablement,
-  whatever the wait error or context, with a deterministic test each way.
-  Options: re-plan the diagnostic in this plan around a server-side check
-  (`LookupAccount` then `JetStreamEnabled`, unchecked) and re-run
-  implement and review for it only (keeps one plan, one more loop) |
-  revert the diagnostic to a plain wrapped error, correct the prose, and
-  plan the storage-naming error separately (lands the rest sooner, and
-  Requirement 10 moves to the new plan). Recommended: the first, because
-  Requirement 10 is this plan's and the property is now stated.
