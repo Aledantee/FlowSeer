@@ -12,10 +12,21 @@ func TestT2PendingSuperset(t *testing.T) {
 		t.Skip("live lab tier disabled in short mode; seven superset attacks remain pending")
 	}
 
-	supersets := []string{"eigrp", "wpad", "etherchannel", "mld", "raflood", "lldpspoof", "glbp"}
+	supersets := []struct {
+		name        string
+		expectation string
+	}{
+		{name: "eigrp", expectation: "live assertion not implemented"},
+		{name: "wpad", expectation: "live assertion not implemented"},
+		{name: "etherchannel", expectation: "live assertion not implemented"},
+		{name: "mld", expectation: "live assertion not implemented"},
+		{name: "raflood", expectation: "live assertion not implemented"},
+		{name: "lldpspoof", expectation: "live assertion not implemented"},
+		{name: "glbp", expectation: "packet-glbp.c 12-byte header and one-byte TLV layout, live peer assertion not implemented"},
+	}
 	for _, attack := range supersets {
-		t.Run(attack, func(t *testing.T) {
-			t.Logf("t2 %s against %s: pending (live assertion not implemented)", attack, t2Config.TargetHost)
+		t.Run(attack.name, func(t *testing.T) {
+			t.Logf("t2 %s against %s: pending (%s)", attack.name, t2Config.TargetHost, attack.expectation)
 		})
 	}
 }

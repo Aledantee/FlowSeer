@@ -7,7 +7,7 @@
 package layers
 
 import (
-	"encoding/binary"
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"net"
@@ -107,35 +107,36 @@ func TestGLBPDecodeAndRoundTrip(t *testing.T) {
 			if glbp.Version != uint8(frame["version"].(float64)) {
 				t.Errorf("version: got %d, want %d", glbp.Version, uint8(frame["version"].(float64)))
 			}
-			if glbp.Opcode != GLBPOpcode(frame["opcode"].(float64)) {
-				t.Errorf("opcode: got %d, want %d", glbp.Opcode, GLBPOpcode(frame["opcode"].(float64)))
-			}
 			if glbp.Group != uint16(frame["group"].(float64)) {
 				t.Errorf("group: got %d, want %d", glbp.Group, uint16(frame["group"].(float64)))
 			}
-			if glbp.HelloTime != uint16(frame["hello_time"].(float64)) {
-				t.Errorf("hello_time: got %d, want %d", glbp.HelloTime, uint16(frame["hello_time"].(float64)))
-			}
-			if glbp.HoldTime != uint16(frame["hold_time"].(float64)) {
-				t.Errorf("hold_time: got %d, want %d", glbp.HoldTime, uint16(frame["hold_time"].(float64)))
-			}
-			if glbp.Priority != uint8(frame["priority"].(float64)) {
-				t.Errorf("priority: got %d, want %d", glbp.Priority, uint8(frame["priority"].(float64)))
-			}
-			if glbp.State != GLBPState(frame["state"].(float64)) {
-				t.Errorf("state: got %d, want %d", glbp.State, GLBPState(frame["state"].(float64)))
-			}
-			wantVMAC, _ := net.ParseMAC(frame["virtual_mac"].(string))
-			if !hardwareAddrEqual(glbp.VirtualMAC, wantVMAC) {
-				t.Errorf("virtual_mac: got %x, want %x", glbp.VirtualMAC, wantVMAC)
+			wantOwnerMAC, _ := net.ParseMAC(frame["owner_mac"].(string))
+			if !hardwareAddrEqual(glbp.OwnerMAC, wantOwnerMAC) {
+				t.Errorf("owner_mac: got %x, want %x", glbp.OwnerMAC, wantOwnerMAC)
 			}
 
-			// Verify TLV was decoded.
 			if len(glbp.TLVs) != 1 {
 				t.Fatalf("TLV count: got %d, want 1", len(glbp.TLVs))
 			}
-			if glbp.TLVs[0].Type != 1 {
-				t.Errorf("TLV type: got %d, want 1 (timer)", glbp.TLVs[0].Type)
+			hello := glbp.TLVs[0].Hello
+			if hello == nil {
+				t.Fatal("Hello TLV: got nil")
+			}
+			if hello.HelloTime != uint32(frame["hello_time"].(float64)) {
+				t.Errorf("hello_time: got %d, want %d", hello.HelloTime, uint32(frame["hello_time"].(float64)))
+			}
+			if hello.HoldTime != uint32(frame["hold_time"].(float64)) {
+				t.Errorf("hold_time: got %d, want %d", hello.HoldTime, uint32(frame["hold_time"].(float64)))
+			}
+			if hello.Priority != uint8(frame["priority"].(float64)) {
+				t.Errorf("priority: got %d, want %d", hello.Priority, uint8(frame["priority"].(float64)))
+			}
+			if hello.State != GLBPState(frame["state"].(float64)) {
+				t.Errorf("state: got %d, want %d", hello.State, GLBPState(frame["state"].(float64)))
+			}
+			wantAddress := net.ParseIP(frame["virtual_address"].(string))
+			if !net.IP(hello.VirtualAddress).Equal(wantAddress) {
+				t.Errorf("virtual_address: got %s, want %s", net.IP(hello.VirtualAddress), wantAddress)
 			}
 
 			// Round-trip.
@@ -152,7 +153,7 @@ func TestGLBPDecodeAndRoundTrip(t *testing.T) {
 }
 
 func TestGLBPTruncated(t *testing.T) {
-	body := []byte{0x01, 0x00, 0x01, 0x00, 0x01, 0x0b, 0xb8, 0x27, 0x10, 0x00, 0x07, 0xb4, 0x00, 0x01, 0x01, 0x64, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00} // 22 bytes, need 23
+	body := []byte{0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x11, 0x22, 0x33, 0x44} // 11 bytes, need 12
 	g := &GLBP{}
 	err := g.DecodeFromBytes(body, &testDecodeFeedback{})
 	if err == nil {
@@ -163,37 +164,138 @@ func TestGLBPTruncated(t *testing.T) {
 	}
 }
 
+func TestGLBPKnownBytesWiresharkLayout(t *testing.T) {
+	// packet-glbp.c at 1dbb8baf9c5bb2e9501b15cce98cea6a3c0f41a3,
+	// lines 137-218 and 289-365, is independent of this codec.
+	known := []byte{
+		0x01, 0x00, 0x00, 0x01, 0x00, 0x00,
+		0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+		0x01, 0x1c, 0x00, 0x20, 0x00, 0xff, 0x00, 0x00,
+		0x00, 0x00, 0x0b, 0xb8, 0x00, 0x00, 0x27, 0x10,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x04,
+		0x0a, 0x00, 0x00, 0x01,
+	}
+
+	glbp := &GLBP{}
+	if err := glbp.DecodeFromBytes(known, &testDecodeFeedback{}); err != nil {
+		t.Fatalf("DecodeFromBytes: %v", err)
+	}
+	if glbp.Version != 1 {
+		t.Errorf("version: got %d, want 1", glbp.Version)
+	}
+	if glbp.Unknown1 != 0 {
+		t.Errorf("unknown1: got %d, want 0", glbp.Unknown1)
+	}
+	if glbp.Group != 1 {
+		t.Errorf("group: got %d, want 1", glbp.Group)
+	}
+	if glbp.Unknown2 != 0 {
+		t.Errorf("unknown2: got %d, want 0", glbp.Unknown2)
+	}
+	wantOwnerMAC := []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	if !bytes.Equal(glbp.OwnerMAC, wantOwnerMAC) {
+		t.Errorf("owner MAC: got %x, want %x", glbp.OwnerMAC, wantOwnerMAC)
+	}
+	if len(glbp.TLVs) != 1 {
+		t.Fatalf("TLV count: got %d, want 1", len(glbp.TLVs))
+	}
+	tlv := glbp.TLVs[0]
+	if tlv.Type != 1 {
+		t.Errorf("TLV type: got %d, want 1", tlv.Type)
+	}
+	if tlv.Length != 28 {
+		t.Errorf("TLV length: got %d, want 28", tlv.Length)
+	}
+	if tlv.Hello == nil {
+		t.Fatal("Hello TLV: got nil")
+	}
+	hello := tlv.Hello
+	if hello.Unknown10 != 0 {
+		t.Errorf("Hello unknown10: got %d, want 0", hello.Unknown10)
+	}
+	if hello.State != GLBPStateActive {
+		t.Errorf("Hello state: got %d, want %d", hello.State, GLBPStateActive)
+	}
+	if hello.Unknown11 != 0 {
+		t.Errorf("Hello unknown11: got %d, want 0", hello.Unknown11)
+	}
+	if hello.Priority != 255 {
+		t.Errorf("Hello priority: got %d, want 255", hello.Priority)
+	}
+	if hello.Unknown12 != 0 {
+		t.Errorf("Hello unknown12: got %d, want 0", hello.Unknown12)
+	}
+	if hello.HelloTime != 3000 {
+		t.Errorf("Hello interval: got %d, want 3000", hello.HelloTime)
+	}
+	if hello.HoldTime != 10000 {
+		t.Errorf("Hold interval: got %d, want 10000", hello.HoldTime)
+	}
+	if hello.RedirectTime != 0 {
+		t.Errorf("Redirect time: got %d, want 0", hello.RedirectTime)
+	}
+	if hello.Timeout != 0 {
+		t.Errorf("Timeout: got %d, want 0", hello.Timeout)
+	}
+	if hello.Unknown13 != 0 {
+		t.Errorf("Hello unknown13: got %d, want 0", hello.Unknown13)
+	}
+	if hello.AddressType != 1 {
+		t.Errorf("Address type: got %d, want 1", hello.AddressType)
+	}
+	if hello.AddressLength != 4 {
+		t.Errorf("Address length: got %d, want 4", hello.AddressLength)
+	}
+	wantAddress := []byte{10, 0, 0, 1}
+	if !bytes.Equal(hello.VirtualAddress, wantAddress) {
+		t.Errorf("Virtual address: got %v, want %v", hello.VirtualAddress, wantAddress)
+	}
+
+	buf := gopacket.NewSerializeBuffer()
+	if err := glbp.SerializeTo(buf, gopacket.SerializeOptions{}); err != nil {
+		t.Fatalf("SerializeTo: %v", err)
+	}
+	if !bytes.Equal(buf.Bytes(), known) {
+		t.Errorf("encoded bytes:\n  got  %x\n  want %x", buf.Bytes(), known)
+	}
+}
+
+func TestGLBPRejectsTLVLengthBelowHeader(t *testing.T) {
+	body := []byte{
+		0x01, 0x00, 0x00, 0x01, 0x00, 0x00,
+		0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+		0x01, 0x01,
+	}
+
+	glbp := &GLBP{}
+	err := glbp.DecodeFromBytes(body, &testDecodeFeedback{})
+	if err == nil {
+		t.Fatal("DecodeFromBytes: got nil, want malformed TLV length error")
+	}
+	if !strings.Contains(err.Error(), "length 1 < 2") {
+		t.Errorf("DecodeFromBytes error: got %q, want TLV length below 2", err)
+	}
+}
+
 func TestGLBPUnknownTLVPassThrough(t *testing.T) {
-	// Craft a GLBP body with a known TLV and an unknown TLV type.
-	header := make([]byte, glbpTLVOff)
-	header[0] = 1                             // version
-	header[2] = 1                             // opcode
-	binary.BigEndian.PutUint16(header[3:], 1) // group
-
-	// Known TLV (type 1, timer): type(2) + length(2) + helloTime(2) + holdTime(2) = 8
-	knownTlv := make([]byte, 8)
-	binary.BigEndian.PutUint16(knownTlv[0:], 1)
-	binary.BigEndian.PutUint16(knownTlv[2:], 8) // total length including header
-	binary.BigEndian.PutUint16(knownTlv[4:], 3000)
-	binary.BigEndian.PutUint16(knownTlv[6:], 10000)
-
-	// Unknown TLV (type 0xFFFF): type(2) + length(2) + value(2) = 6
-	unknownTlv := make([]byte, 6)
-	binary.BigEndian.PutUint16(unknownTlv[0:], 0xFFFF)
-	binary.BigEndian.PutUint16(unknownTlv[2:], 6) // total length including header
-	binary.BigEndian.PutUint16(unknownTlv[4:], 0)
-
-	body := append(append(header, knownTlv...), unknownTlv...)
+	body := []byte{
+		0x01, 0x00, 0x00, 0x01, 0x00, 0x00,
+		0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+		0xff, 0x04, 0xaa, 0x55,
+	}
 
 	g := &GLBP{}
 	if err := g.DecodeFromBytes(body, &testDecodeFeedback{}); err != nil {
 		t.Fatalf("DecodeFromBytes with unknown TLV: %v", err)
 	}
-	if len(g.TLVs) != 2 {
-		t.Fatalf("TLV count: got %d, want 2", len(g.TLVs))
+	if len(g.TLVs) != 1 {
+		t.Fatalf("TLV count: got %d, want 1", len(g.TLVs))
 	}
-	if g.TLVs[1].Type != 0xFFFF {
-		t.Errorf("unknown TLV type: got 0x%04x, want 0xFFFF", g.TLVs[1].Type)
+	if g.TLVs[0].Type != 0xff {
+		t.Errorf("unknown TLV type: got 0x%02x, want 0xff", g.TLVs[0].Type)
+	}
+	if !bytes.Equal(g.TLVs[0].Value, []byte{0xaa, 0x55}) {
+		t.Errorf("unknown TLV value: got %x, want aa55", g.TLVs[0].Value)
 	}
 }
 
@@ -588,8 +690,11 @@ func TestL3EndToEndDispatch(t *testing.T) {
 		if p.Layer(layers.LayerTypeUDP) == nil {
 			t.Error("UDP layer missing")
 		}
-		if glbp.Opcode != GLBPOpcodeHello {
-			t.Errorf("opcode: got %d, want %d (hello)", glbp.Opcode, GLBPOpcodeHello)
+		if len(glbp.TLVs) != 1 || glbp.TLVs[0].Hello == nil {
+			t.Fatalf("Hello TLV: got %#v", glbp.TLVs)
+		}
+		if glbp.TLVs[0].Hello.State != GLBPStateActive {
+			t.Errorf("state: got %d, want %d", glbp.TLVs[0].Hello.State, GLBPStateActive)
 		}
 	})
 

@@ -6,9 +6,10 @@
 
 Reproduces the exact frame bytes l2l3-audit crafts for DTP, VTP, MVRP, HSRP,
  LLMNR, and NBT-NS (its byte construction is the source of truth per KTD14),
-and authors LACP, PAgP, GLBP, and EIGRP from the published wire spec
-(IEEE 802.1AX / Cisco / RFC 7868 / RFC 7868) since the baseline has no
-EtherChannel or GLBP/EIGRP attack — they are new per R4.
+and authors LACP, PAgP, GLBP, and EIGRP from their wire sources: IEEE
+802.1AX, Cisco/Wireshark packet-pagp.c, Wireshark packet-glbp.c at commit
+1dbb8baf9c5bb2e9501b15cce98cea6a3c0f41a3, and RFC 7868 for EIGRP. The
+baseline has no EtherChannel or GLBP/EIGRP attack.
 
 LLC-encapsulated protocols use Dot3 so the 802.3 length field is correct and
 gopacket dispatches Ethernet → LLC → SNAP → protocol; the LLC+SNAP+body
@@ -552,40 +553,33 @@ GLBP_PRIORITY = 100
 
 
 def glbp_hello_frame(src: str, group: int = GLBP_GROUP) -> bytes:
-    # GLBP per RFC 7868. Hello packet (opcode 1).
-    # Fixed header (23 bytes):
-    #   Version(1) Reserved(1) Opcode(1) Group(2)
-    #   HelloTime(2) HoldTime(2) VirtualMAC(6)
-    #   Priority(1) State(1) AddressFamily(1) Unknown(1)
-    #   AuthData(2) Reserved(2)
-    # Then variable-length TLVs (type 2 bytes, length 2 bytes, value).
-    vmac = b"\x00\x07\xb4\x00\x01\x01"  # GLBP virtual MAC OUI 00-07-b4
-    header = struct.pack(
-        "!BBBHHH",
-        1,  # version
-        0,  # reserved
-        1,  # opcode = hello
-        group,
-        3000,  # hello time (ms)
-        10000,  # hold time (ms)
+    # packet-glbp.c at 1dbb8baf9c5bb2e9501b15cce98cea6a3c0f41a3,
+    # lines 137-218 and 289-365.
+    owner_id = bytes(int(octet, 16) for octet in src.split(":"))
+    header = struct.pack("!BBHH6s", 1, 0, group, 0, owner_id)
+    virtual_address = ipaddress.IPv4Address("10.0.0.1").packed
+    hello_value = struct.pack(
+        "!BBBBHIIHHHBB4s",
+        0,
+        0x20,
+        0,
+        GLBP_PRIORITY,
+        0,
+        3000,
+        10000,
+        0,
+        0,
+        0,
+        1,
+        len(virtual_address),
+        virtual_address,
     )
-    header += vmac
-    header += struct.pack(
-        "!BBBBHH",
-        GLBP_PRIORITY,  # priority
-        1,  # state = active
-        1,  # address family = IPv4
-        0,  # unknown
-        0,  # auth data (2 bytes)
-        0,  # reserved
-    )
-    # Timer TLV (type 1): helloTime(2) holdTime(2)
-    timer_tlv = struct.pack("!HH", 1, 8) + struct.pack("!HH", 3000, 10000)
+    hello_tlv = struct.pack("!BB", 1, 2 + len(hello_value)) + hello_value
     return (
         Ether(dst="01:00:5e:00:00:66", src=src)
         / IP(src="10.0.0.2", dst=GLBP_DST)
         / UDP(sport=3222, dport=3222)
-        / Raw(header + timer_tlv)
+        / Raw(header + hello_tlv)
     )
 
 
@@ -602,13 +596,13 @@ def harvest_glbp() -> None:
             {
                 "name": "hello",
                 "version": 1,
-                "opcode": 1,
                 "group": GLBP_GROUP,
+                "owner_mac": SRC_MAC,
                 "hello_time": 3000,
                 "hold_time": 10000,
                 "priority": GLBP_PRIORITY,
-                "state": 1,
-                "virtual_mac": "00:07:b4:00:01:01",
+                "state": 0x20,
+                "virtual_address": "10.0.0.1",
             },
         ],
     }
