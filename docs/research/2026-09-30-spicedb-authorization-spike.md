@@ -30,10 +30,9 @@ caches were off for that comparison. `ListObjects` had a 50,000-object cap, a
 
 The revocation and disposable-rebuild Postgres containers used their default
 connection settings. The main SpiceDB Postgres allowed 400 connections for the
-union, exclusion, and membership pools. The other Postgres containers kept
-their connection defaults. For check, lookup, preview, and membership
-measurements,
-the two main databases used `max_wal_size=64MB` and `min_wal_size=32MB` to fit
+union and membership pools. The other Postgres containers kept their
+connection defaults. For check, lookup, and membership measurements, the two
+main databases used `max_wal_size=64MB` and `min_wal_size=32MB` to fit
 the local disk. Revocation and the disposable rebuild used the default WAL
 settings. All engines shared the Colima VM. Other work ran on the host. These
 are laptop measurements, not capacity figures.
@@ -57,13 +56,13 @@ The generated union has 6,455 role assignments and one role-capture grant per
 tenant. Role ids are scoped to their tenant. User `u-t0-0000` is both a
 platform admin and an assignee of tenant role `role:t0-r0`. User `u-t0-0002`
 has the direct site grant. The dedicated Tag user `u-t0-0001` has a direct
-capture grant on `tag:t0-r0`. There are no role grants on Tags except the
-explicit role-gain lookup probe. Of tenant 0's edges, 406 carry a Tag in the
-13-Tag `tag:t0-r0-b0` subtree and 1,104 carry a Tag under `tag:t0-r0`.
+capture grant on `tag:t0-r0`. There are no role grants on Tags. Of tenant 0's
+edges, 406 carry a Tag in the 13-Tag `tag:t0-r0-b0` subtree and 1,104 carry a
+Tag under `tag:t0-r0`.
 
 The OpenFGA note preserves the dimensions and aggregate relationship counts,
 but not its generated fixture list. Equal dimensions do not make these
-individual grants identical. The preview differences below follow from this
+individual grants identical. The result differences below follow from this
 dedicated Tag-user fixture.
 
 ## Schema and relationship counts
@@ -72,15 +71,8 @@ dedicated Tag-user fixture.
 | --- | --- | --- |
 | Check, batch, throughput, union lookup | Union | 292,238 |
 | Revocation | Union | 292,238 plus temporary trial grants |
-| Exclusion and preview | Assignment objects, recursive or assignment exclusion | 372,238 plus temporary blockers or role probe |
 | Rebuild | Union, tenant 0 plus its platform grant | 14,615 |
 | Membership checks and lookup | Intersections inside resource permissions | 336,245 |
-
-Replacing 80,000 `edge#tag` relationships with an edge-to-assignment and an
-assignment-to-Tag relationship adds 80,000 relationships. Assignment objects
-have no stored back-link to the edge. The OpenFGA exclusion fixture had
-372,239 relationships, one more than this fixture. The extra relationship's
-identity is unexplained.
 
 The complete SpiceDB union schema as measured follows. OpenFGA permits stored
 and computed grants under one relation name. SpiceDB splits those into
@@ -422,108 +414,9 @@ latency alone.
 
 ## Tag exclusion and preview
 
-Both variants use assignment objects. In the recursive variant, exclusion is
-on the Tag permissions, as in the OpenFGA note:
-
-```zed
-definition tag {
-    relation tenant: tenant
-    relation parent: tag
-    relation direct_capturer: user | role#assignee
-    relation direct_viewer: user | role#assignee
-    relation blocked: user | user:*
-    permission capturer = (direct_capturer + parent->capturer) - blocked
-    permission viewer = (direct_viewer + capturer + parent->viewer) - blocked
-}
-definition tag_assignment {
-    relation tag: tag
-    relation blocked: user | user:*
-    permission capture = tag->capturer
-    permission view = tag->viewer
-}
-definition edge {
-    relation site: site
-    relation tag_assignment: tag_assignment
-    permission capture = site->capturer + tag_assignment->capture
-    permission view = capture + site->viewer + tag_assignment->view
-}
-```
-
-The second variant keeps the union Tag definition and puts exclusion on the
-non-recursive assignment:
-
-```zed
-permission capture = tag->capturer - blocked
-permission view = tag->viewer - blocked
-```
-
-OpenFGA translates these operators to `or`, `from`, and `but not` at the same
-respective placements. Lookup has a 60-second deadline in both engines. The
-role-gain probe adds `role:t0-r1#assignee` to
-`tag:t0-r0#direct_capturer` and asks for `u-t0-0011`, then removes that grant.
-
-This table is one execution per row and has no load reading.
-
-| Placement | Subject | Engine | Distinct edges | Total ms | Completion |
-| --- | --- | --- | --- | --- | --- |
-| recursive | tag | spice | 1104 | 500.535 | complete (count matches expected) |
-| recursive | tag | fga | 0 | 1372.051 | deadline, 0 of 1,104 expected |
-| recursive | role_gain | spice | 1104 | 333.575 | complete (count matches expected) |
-| recursive | role_gain | fga | 4 | 1859.479 | deadline, 4 of 1,110 expected |
-| assignment | tag | spice | 1104 | 151.962 | complete (count matches expected) |
-| assignment | tag | fga | 1104 | 18.417 | complete (count matches expected) |
-| assignment | role_gain | spice | 1104 | 131.720 | complete (count matches expected) |
-| assignment | role_gain | fga | 1104 | 14.804 | complete (count matches expected) |
-
-The OpenFGA note's recursive placement returned zero Tag-derived objects after
-60 s with both ListObjects algorithms, and 4 of 1,110 for a role gain. The
-recursive placement above uses the default pipeline algorithm and 372,238
-stored relationships. The dedicated user's expected set is 1,104 in both
-probes. The fixture, stored-grant reference shape, and expected role-gain count
-differ. Any remaining lookup disagreement is unexplained. The assignment
-placement is a separate model variant.
-
-### All users losing access
-
-`LookupSubjects` and `ListUsers` enumerate every user with capture access on
-each affected edge. A single-assignment loss compares one edge. A subtree loss
-compares all 406 edges carrying any of its 13 Tags. The set difference is over
-`(edge, user)` pairs, rather than one user's edge set. Each preview was
-compared with actual removal of the corresponding edge-to-assignment
-relationships and returned the same pairs.
-
-SpiceDB has no request-scoped relationships. Its preview wrote wildcard
-`blocked` relationships into the active experimental exclusion database,
-queried it with `fully_consistent`, and removed the blockers in a `finally`
-block. This preview is not side-effect-free. OpenFGA supplied the blockers as
-contextual tuples to `ListUsers` without storing them. SpiceDB's single Tag
-blocker affects that Tag globally, so only the named edge was queried for the
-single-assignment comparison.
-
-SpiceDB preview time includes blocker writes, all-user enumeration, and
-blocker removal. OpenFGA preview time includes contextual all-user queries.
-Delete-and-enumerate time stops before restoring the removed relationships.
-
-This table is one execution per row and has no load reading.
-
-| Placement | Engine | Scope | Users losing | Pairs losing | Edges losing | Preview ms | Delete and enumerate ms |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| recursive | spice | one | 1 | 1 | 1 | 16.319 | 50.227 |
-| recursive | spice | subtree | 1 | 406 | 406 | 2710.318 | 1778.588 |
-| recursive | fga | one | 1 | 1 | 1 | 3.458 | 7.388 |
-| recursive | fga | subtree | 1 | 406 | 406 | 900.785 | 785.225 |
-| assignment | spice | one | 1 | 1 | 1 | 10.285 | 7.931 |
-| assignment | spice | subtree | 1 | 406 | 406 | 1993.579 | 1008.623 |
-| assignment | fga | one | 1 | 1 | 1 | 2.410 | 4.402 |
-| assignment | fga | subtree | 1 | 406 | 406 | 1294.906 | 836.761 |
-
-The OpenFGA note found 22 users losing access on one edge, and 291 pairs
-across 291 of 406 affected edges for its subtree, with a 1.79-second preview.
-Here only the dedicated Tag user depends on these Tag grants, so one user
-loses on one edge and 406 pairs across 406 edges. Other users retain site or
-tenant grants. That grant distribution explains the count difference. The
-client language is unknown. Its effect with host load on preview timing is
-unexplained.
+The exclusion variant was not measured comparably to the OpenFGA note. No
+design under consideration previews an access change through the exclusion
+model.
 
 ### Disposable rebuild
 
@@ -701,7 +594,6 @@ counterpart to this table.
 | Throughput | 1,651.738 [1,399.355, 5,366.107] checks/s. 0.969 [0.298, 1.143] s. | 1,541.428 [1,446.756, 1,593.354] checks/s. 1.038 [1.004, 1.106] s. | The 5,366.107 checks/s SpiceDB execution is unexplained. |
 | Union lookup | Tag user: 1,104 distinct in 372.686 ms. Global admin: 40,000 distinct in 4,196.138 ms. Both complete. | Tag user: 1,104 objects in 12.960 ms. Global admin: 40,000 objects in 82.658 ms. | SpiceDB raw counts are 1,104 and 42,000. |
 | Revocation | `minimize_latency`: last allow 885.853-4,870.421 ms after delete response. `at_least_as_fresh` and `fully_consistent`: none observed. | `UNSPECIFIED`: last allow 1,924.493-8,743.093 ms after delete response. `HIGHER_CONSISTENCY`: none observed. | Five trials per mode. |
-| Preview | Recursive one/subtree: 16.319 / 2,710.318 ms preview and 50.227 / 1,778.588 ms delete and enumerate. Assignment one/subtree: 10.285 / 1,993.579 ms and 7.931 / 1,008.623 ms. | Recursive one/subtree: 3.458 / 900.785 ms preview and 7.388 / 785.225 ms delete and enumerate. Assignment one/subtree: 2.410 / 1,294.906 ms and 4.402 / 836.761 ms. | Each subtree has 406 pairs and 406 edges. |
 | Rebuild | Load 544.766 ms, apply 38.017 ms, all-user diff 3,204.364 ms. | Load 1,489.714 ms, apply 56.711 ms, all-user diff 1,793.662 ms. | One execution per row with no load reading. Each OpenFGA difference from the OpenFGA spike is unexplained. |
 | Membership lookup | Tag user: 1,104 of 1,104 complete. Global admin: 40,000 of 40,000 complete. Partner admin: 6,000 of 6,000 complete. | Tag user: 1,104 of 1,104 complete. Global admin: deadline, 0 of 40,000 expected. Partner admin: deadline, 0 of 6,000 expected. | Direct tenant intersections. The deadline is 60 seconds. |
 

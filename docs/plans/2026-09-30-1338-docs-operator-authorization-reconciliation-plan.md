@@ -34,8 +34,9 @@ decision below would then constrain the engine rather than sit beside it.
 - A request's tenant is named per request and admitted by membership, as
   the 09-30 record decides: the `X-FlowSeer-Tenant` header names it, and
   the caller is admitted when FlowSeer has enrolled them and their token
-  claims the tenant's organization. Why: one token can act in several
-  tenants, and a service provider's admins reach customer tenants through
+  claims the tenant's organization. Partner admins through `partner` and
+  global admins through `platform` are also admitted. Why: one token can act
+  in several tenants, and a service provider's admins reach customer tenants through
   the `partner` relation, which a token-bound tenant cannot model. (decided
   by the user, 2026-09-30)
 - The 09-30 record absorbs the 09-28 record, and the 09-30 parent plan

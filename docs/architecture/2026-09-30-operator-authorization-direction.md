@@ -161,9 +161,8 @@ measures v1.56.2 on PostgreSQL 17 beside OpenFGA v1.21.0 over gRPC. Its tables
 cover repeated point and batch latency (`fully_consistent` and
 `minimize_latency`), throughput, cursor-paged resource lookup with last-page
 timing, and continuously polled revocation with positive controls for all
-three SpiceDB consistency modes. It also measures recursive and assignment
-exclusion, all-user loss previews, disposable rebuild/apply/diff, and
-caveat-gated tenant and resource checks and lookup. It reports overlapping
+three SpiceDB consistency modes. It also measures disposable rebuild/apply/diff,
+and caveat-gated tenant and resource checks and lookup. It reports overlapping
 spreads and unexplained contradictions of the OpenFGA note.
 
 ### A separate engine deployment next to its own Postgres
@@ -411,15 +410,9 @@ The rejection of recursive Tag exclusion (`but not blocked`) applies to
 the [OpenFGA note's exclusion fixture](../research/2026-09-30-openfga-authorization-spike.md#previewing-a-tag-change):
 372,239 relationships, exclusion on recursive Tag permissions, and a
 60-second deadline. It previewed losses exactly but returned zero Tag-derived
-objects with both ListObjects algorithms. The
-[SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md#tag-exclusion-and-preview)
-re-measured recursive placement on 372,238 relationships. OpenFGA's default
-pipeline returned all 1,104 Tag edges in 1,372.051 ms, and SpiceDB returned
-all 1,104 in 500.535 ms. The OpenFGA disagreement is unexplained. This does
-not reject exclusion on a non-recursive assignment. Both placements' all-user
-previews matched deletion for the dedicated Tag-user fixture. SpiceDB wrote
-and removed blockers in its active experimental database, so that exclusion
-preview has side effects and is separate from the isolated preview above.
+objects with both ListObjects algorithms.
+The [SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md#tag-exclusion-and-preview)
+did not measure the exclusion variant comparably.
 
 ### The operator action trail ships with authorization
 
