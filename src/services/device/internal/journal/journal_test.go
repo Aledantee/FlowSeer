@@ -9,6 +9,7 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"buf.build/go/protovalidate"
 
@@ -752,29 +753,64 @@ func TestAReadPastItsDeadlineIsNotJoined(t *testing.T) {
 	}
 }
 
-// DeviceLaneRecord validates under edition 2024 explicit presence with
-// high_watermark and dispatched unset, and with them explicitly set to zero
-// and false, matching the pre-change validation outcome.
+// TestDeviceLaneRecordPresencePreservesValidation validates absent and explicit
+// zero presence fields and checks mutation sequences against the high watermark.
 func TestDeviceLaneRecordPresencePreservesValidation(t *testing.T) {
 	unsetRecord := storev1.DeviceLaneRecord_builder{
-		Device: deviceRef(),
+		Device:              deviceRef(),
+		DispatchConfirmed:   proto.Bool(false),
+		CheckpointConfirmed: proto.Bool(false),
 	}.Build()
-	if unsetRecord.HasHighWatermark() || unsetRecord.HasDispatched() {
-		t.Fatalf("unset record has presence: watermark=%v dispatched=%v", unsetRecord.HasHighWatermark(), unsetRecord.HasDispatched())
+	if unsetRecord.HasHighWatermark() || unsetRecord.HasDispatched() || !unsetRecord.HasDispatchConfirmed() || !unsetRecord.HasCheckpointConfirmed() {
+		t.Fatalf("unexpected presence: watermark=%v dispatched=%v dispatch_confirmed=%v checkpoint_confirmed=%v", unsetRecord.HasHighWatermark(), unsetRecord.HasDispatched(), unsetRecord.HasDispatchConfirmed(), unsetRecord.HasCheckpointConfirmed())
 	}
 	if err := protovalidate.Validate(unsetRecord); err != nil {
 		t.Fatalf("unset high_watermark and dispatched: validate failed: %v", err)
 	}
 
 	explicitZeroRecord := storev1.DeviceLaneRecord_builder{
-		Device:        deviceRef(),
-		HighWatermark: proto.Uint64(0),
-		Dispatched:    proto.Bool(false),
+		Device:              deviceRef(),
+		HighWatermark:       proto.Uint64(0),
+		Dispatched:          proto.Bool(false),
+		DispatchConfirmed:   proto.Bool(false),
+		CheckpointConfirmed: proto.Bool(false),
 	}.Build()
-	if !explicitZeroRecord.HasHighWatermark() || !explicitZeroRecord.HasDispatched() {
-		t.Fatalf("explicit zero record missing presence: watermark=%v dispatched=%v", explicitZeroRecord.HasHighWatermark(), explicitZeroRecord.HasDispatched())
+	if !explicitZeroRecord.HasHighWatermark() || !explicitZeroRecord.HasDispatched() || !explicitZeroRecord.HasDispatchConfirmed() || !explicitZeroRecord.HasCheckpointConfirmed() {
+		t.Fatalf("explicit zero record missing presence: watermark=%v dispatched=%v dispatch_confirmed=%v checkpoint_confirmed=%v", explicitZeroRecord.HasHighWatermark(), explicitZeroRecord.HasDispatched(), explicitZeroRecord.HasDispatchConfirmed(), explicitZeroRecord.HasCheckpointConfirmed())
 	}
 	if err := protovalidate.Validate(explicitZeroRecord); err != nil {
 		t.Fatalf("explicit zero high_watermark and false dispatched: validate failed: %v", err)
+	}
+
+	mutation := accessv1.MutationState_builder{
+		Intent:          mutationIntent("0192e6a0-0000-7000-8000-00000000d001"),
+		Sequence:        proto.Uint64(1),
+		Phase:           accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED.Enum(),
+		ResponsibleEdge: edgeRef(),
+	}.Build()
+	for _, test := range []struct {
+		name          string
+		highWatermark *uint64
+		wantValid     bool
+	}{
+		{name: "unset", highWatermark: nil, wantValid: false},
+		{name: "zero", highWatermark: proto.Uint64(0), wantValid: false},
+		{name: "covers", highWatermark: proto.Uint64(1), wantValid: true},
+	} {
+		t.Run("open mutation with "+test.name+" high_watermark", func(t *testing.T) {
+			record := storev1.DeviceLaneRecord_builder{
+				Device:        deviceRef(),
+				HighWatermark: test.highWatermark,
+				Mutation:      mutation,
+				AdmittedAt:    timestamppb.New(time.Unix(0, 0)),
+			}.Build()
+			err := protovalidate.Validate(record)
+			if test.wantValid && err != nil {
+				t.Fatalf("validate failed: %v", err)
+			}
+			if !test.wantValid && err == nil {
+				t.Fatal("validate succeeded")
+			}
+		})
 	}
 }

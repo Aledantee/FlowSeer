@@ -49,7 +49,7 @@ for i, instruction := range raw {
 
 The pinned `bpf.NewVM` implementation checks the last interface value with a
 type switch. Its accepted return types are `RetA` and `RetConstant`
-(`golang.org/x/net@v0.58.0/bpf/vm.go:18-18,65-69`). A `RawInstruction` value
+(`golang.org/x/net@v0.58.0/bpf/vm.go:18,65-69`). A `RawInstruction` value
 does not match either case, even when its opcode encodes a return instruction.
 The VM's execution dispatch also switches on high-level instruction types, so
 the raw value cannot run after construction.
