@@ -50,6 +50,11 @@ resulting edge count is capped by `(ceiling - central budget) / edge budget`.
 Within that capacity, telemetry volume in an edge account cannot exhaust the
 store the journal writes into.
 
+If the server refuses an edge account because its budget does not fit under
+the store ceiling, `AttachEdge` returns an `edgebus/storage` error naming the
+edge budget and the ceiling. Other wait and stream-setup failures retain
+`edgebus/hub`.
+
 ## Subjects and streams
 
 ```

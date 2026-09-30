@@ -23,6 +23,10 @@ import (
 // ErrCodeHub identifies a failure starting or operating the hub.
 var ErrCodeHub = errs.NewCode("edgebus/hub")
 
+// ErrCodeStorage identifies an edge attach refused because its budget exceeds
+// the server's JetStream store ceiling.
+var ErrCodeStorage = errs.NewCode("edgebus/storage")
+
 // HubConfig declares the hub central embeds. Construct with keyed fields.
 type HubConfig struct {
 	// StateDir holds the keys and the JetStream store. Must be absolute.
@@ -293,8 +297,7 @@ func (h *Hub) connectAccount(srv *server.Server, account nkeys.KeyPair, accountJ
 }
 
 // waitForJetStream blocks until the account's JetStream answers an account
-// info request or the context ends, so a stream create does not race the
-// server provisioning a just-fetched account.
+// info request or the context ends, so stream creation sees a live API.
 func waitForJetStream(ctx context.Context, js jetstream.JetStream) error {
 	deadline := time.Now().Add(10 * time.Second)
 	for {
@@ -434,35 +437,29 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccoun
 	}
 	ea := &edgeAccount{conn: conn, js: js, accountJWT: accountJWT, key: key}
 
-	// A newly fetched account's JetStream is provisioned a beat after the
-	// first connection; wait for it to answer before creating the stream.
+	refused := false
+	account, lookupErr := srv.LookupAccount(pub)
+	if lookupErr == nil && !account.JetStreamEnabled() {
+		// CONNECT enables JetStream for the authenticated account before it
+		// returns. A disabled account on an open hub was refused by the server.
+		h.mu.Lock()
+		refused = !h.closed
+		h.mu.Unlock()
+	}
+
 	if err := waitForJetStream(ctx, js); err != nil {
 		conn.Close()
-		if srv != nil {
+		if refused {
+			storageErr := errs.From(err).Code(ErrCodeStorage).
+				Attr("edge", edgeID).
+				Attr("central_budget_bytes", h.centralBudget).
+				Attr("edge_budget_bytes", h.edgeBudget)
 			if jsc := srv.JetStreamConfig(); jsc != nil {
-				ceiling := jsc.MaxStore
-				// The server counts an edge account as soon as it enables JetStream,
-				// before this function creates the edge stream. Use that count so a
-				// failed stream setup still contributes to the next refusal diagnostic.
-				// The refused account is not in the count, hence the +1. CENTRAL is
-				// in the count, while nats-server v2.14.6 refuses JetStream on the
-				// system account (server/jetstream.go:1177), so subtract one to count
-				// attached edges. JetStreamNumAccounts reports the enabled-account map
-				// after the resource check (server/jetstream.go:1209-1238,1134-1143).
-				attached := srv.JetStreamNumAccounts() - 1
-				if attached < 0 {
-					attached = 0
-				}
-				if ceiling > 0 && h.centralBudget+h.edgeBudget*int64(attached+1) > ceiling {
-					return nil, errs.From(err).Code(ErrCodeHub).
-						Attr("edge", edgeID).
-						Attr("ceiling_bytes", ceiling).
-						Attr("central_budget_bytes", h.centralBudget).
-						Attr("edge_budget_bytes", h.edgeBudget).
-						Msgf("storage limit exceeded: central budget %d B plus %d edge budgets of %d B exceeds store ceiling %d B",
-							h.centralBudget, attached+1, h.edgeBudget, ceiling)
-				}
+				return nil, storageErr.Attr("ceiling_bytes", jsc.MaxStore).
+					Msgf("storage limit exceeded: edge budget %d B exceeds store ceiling %d B",
+						h.edgeBudget, jsc.MaxStore)
 			}
+			return nil, storageErr.Msgf("storage limit exceeded: edge budget %d B exceeds the server store ceiling", h.edgeBudget)
 		}
 		return nil, errs.From(err).Code(ErrCodeHub).Attr("edge", edgeID).Msg("wait for the edge account JetStream")
 	}
