@@ -490,3 +490,214 @@ func TestRecoverAllowsLeafrefThroughOwnSurvivor(t *testing.T) {
 		t.Fatalf("recovered = %d, want 1", got)
 	}
 }
+
+func TestRecoverAllowsGroupingLeafrefThroughOwnSurvivor(t *testing.T) {
+	_, err := recoveryVendor(t, map[string]string{
+		"g": `module g {
+          namespace "urn:g";
+          prefix g;
+          grouping gr {
+            leaf ref { type leafref { path "../k/base"; } }
+          }
+        }`,
+		"t": `module t {
+          namespace "urn:t";
+          prefix t;
+          import g { prefix g; }
+          container c {
+            container k { leaf base { type string; } }
+            uses g:gr;
+          }
+        }`,
+		"b": `module b {
+          namespace "urn:b";
+          prefix b;
+          import t { prefix t; }
+          augment "/t:c" { container k { leaf own { type string; } } }
+        }`,
+	})
+	if err != nil {
+		t.Fatalf("LoadVendor: %v", err)
+	}
+}
+
+func TestRecoverAllowsSubmoduleLeafrefThroughOwnSurvivor(t *testing.T) {
+	_, err := recoveryVendor(t, map[string]string{
+		"p": `module p {
+          namespace "urn:p";
+          prefix p;
+          import q { prefix q; }
+          include s;
+          container c {
+            container k { leaf base { type string; } }
+          }
+        }`,
+		"s": `submodule s {
+          belongs-to p { prefix p; }
+          import r { prefix q; }
+          augment "/p:c" {
+            leaf ref { type leafref { path "../k/base"; } }
+          }
+        }`,
+		"q": `module q { namespace "urn:q"; prefix q; container q; }`,
+		"r": `module r { namespace "urn:r"; prefix r; container r; }`,
+		"b": `module b {
+          namespace "urn:b";
+          prefix b;
+          import p { prefix p; }
+          augment "/p:c" { container k { leaf own { type string; } } }
+        }`,
+	})
+	if err != nil {
+		t.Fatalf("LoadVendor: %v", err)
+	}
+}
+
+func TestRecoverRejectsSubmodulePathThroughCollision(t *testing.T) {
+	_, err := recoveryVendor(t, map[string]string{
+		"p": `module p {
+          namespace "urn:p";
+          prefix p;
+          import q { prefix q; }
+          include s;
+          container c {
+            container k { leaf base { type string; } }
+          }
+        }`,
+		"s": `submodule s {
+          belongs-to p { prefix p; }
+          import r { prefix q; }
+          import b { prefix b; }
+          augment "/p:c/b:k" { leaf z { type string; } }
+        }`,
+		"q": `module q { namespace "urn:q"; prefix q; container q; }`,
+		"r": `module r { namespace "urn:r"; prefix r; container r; }`,
+		"b": `module b {
+          namespace "urn:b";
+          prefix b;
+          import p { prefix p; }
+          augment "/p:c" { container k { leaf own { type string; } } }
+        }`,
+	})
+	requireRecoveryError(t, err, "/p:c/b:k", "b.yang", "p.yang")
+}
+
+func TestRecoverIgnoresLeafrefPredicates(t *testing.T) {
+	ms := parseRecoveryModules(t, map[string]string{
+		"t": `module t {
+          namespace "urn:t";
+          prefix t;
+          container c {
+            list l { key "id"; leaf id { type string; } }
+			}
+		}`,
+		"b": `module b {
+          namespace "urn:b";
+          prefix b;
+          import t { prefix t; }
+          augment "/t:c" { container k { leaf v { type string; } } }
+        }`,
+		"x": `module x {
+          namespace "urn:x";
+          prefix x;
+          import t { prefix t; }
+          import b { prefix b; }
+          container box {
+            leaf ref {
+              type leafref {
+                path "/t:c/t:l[t:id = current()/../../t:c/b:k/b:v]/t:id";
+              }
+            }
+			}
+		}`,
+	})
+	augment := ms.Modules["b"].Augment[0]
+	target := yang.ToEntry(augment).Find(augment.Name)
+	ref := yang.ToEntry(ms.Modules["x"]).Dir["box"].Dir["ref"]
+	if _, _, err := checkPath("recovery", ref.Node, ref, ref.Type.Path, map[*yang.Entry][]*yang.Entry{
+		target: {yang.ToEntry(augment).Dir["k"]},
+	}); err != nil {
+		t.Fatalf("checkPath: %v", err)
+	}
+}
+
+func TestRecoverIgnoresPredicatesWhenCheckingRecoveredLeafrefs(t *testing.T) {
+	_, err := recoveryVendor(t, map[string]string{
+		"t": `module t {
+          namespace "urn:t";
+          prefix t;
+          container c {
+            container box { leaf own { type string; } }
+          }
+        }`,
+		"b": `module b {
+          namespace "urn:b";
+          prefix b;
+          import t { prefix t; }
+          augment "/t:c" {
+            container box {
+              container target { leaf value { type string; } }
+              leaf ref {
+                type leafref {
+                  path "../target[current()/../../../../../../b:k]/value";
+                }
+              }
+            }
+          }
+        }`,
+	})
+	if err != nil {
+		t.Fatalf("LoadVendor: %v", err)
+	}
+}
+
+func TestCheckPathMatchesEntryFind(t *testing.T) {
+	sets := []*VendorSet{fixtureVendor(t)}
+	if !testing.Short() {
+		cfg, err := LoadConfig("yanggen.yaml")
+		if err != nil {
+			t.Fatalf("LoadConfig: %v", err)
+		}
+		vendors, err := LoadVendors(cfg)
+		if err != nil {
+			t.Fatalf("LoadVendors: %v", err)
+		}
+		sets = append(sets, vendors...)
+	}
+
+	for _, vs := range sets {
+		for _, module := range vs.Modules {
+			assertLeafrefPathsMatch(t, vs.Vendor, module.Entry, vs.Recovered)
+		}
+	}
+}
+
+func assertLeafrefPathsMatch(t *testing.T, vendor string, root *yang.Entry, recovered map[*yang.Entry][]*yang.Entry) {
+	t.Helper()
+	visited := make(map[*yang.Entry]bool)
+	var visit func(*yang.Entry)
+	visit = func(e *yang.Entry) {
+		if e == nil || visited[e] || !dataEntry(e) {
+			return
+		}
+		visited[e] = true
+		for _, path := range leafrefPaths(e.Type) {
+			want := e.Find(stripPredicates(path))
+			got, collided, err := checkPath(vendor, e.Node, e, path, recovered)
+			if err != nil {
+				t.Errorf("%s: checkPath(%q) from %s: %v", vendor, path, e.Path(), err)
+				continue
+			}
+			if !collided && want != nil && got != want {
+				t.Errorf("%s: checkPath(%q) from %s = %s, Entry.Find = %s", vendor, path, e.Path(), got.Path(), want.Path())
+			}
+		}
+		for _, name := range sortedKeys(e.Dir) {
+			visit(e.Dir[name])
+		}
+		for _, child := range recovered[e] {
+			visit(child)
+		}
+	}
+	visit(root)
+}
