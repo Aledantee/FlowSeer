@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"buf.build/go/protovalidate"
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -534,6 +535,14 @@ func (s *EdgeService) UploadCapture(
 		chunk := msg.GetChunk()
 		if chunk == nil {
 			continue
+		}
+		if err := protovalidate.Validate(chunk); err != nil {
+			s.failStream(ctx, sessionID, "capture chunk fails its schema rules")
+			return nil, connecterr.WrapAs(
+				connect.CodeInvalidArgument,
+				"the capture chunk does not satisfy its schema rules",
+				errs.From(err).Msg("capture chunk fails its schema rules"),
+			)
 		}
 
 		chunkEdgeID := chunk.GetSession().GetEdge().GetEdge().GetId()
