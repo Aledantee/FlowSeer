@@ -13,8 +13,7 @@ that reaches the API port. Nothing authenticates the caller, and a capture's
 `requested_by` is whatever the caller writes about itself
 (`src/services/device/README.md`, "Deployment"). `GOALS.md` names a
 Zanzibar-style relationship engine for these surfaces and links this record.
-The [capture record's 2026-09-28
-amendment](2026-09-09-remote-packet-capture-direction.md#2026-09-28--operator-identity-and-capture-authorization)
+The [capture record](2026-09-09-remote-packet-capture-direction.md#every-capture-is-bounded-and-authorized)
 lists the relations capture needs and defers the model to this record.
 
 This record describes how a caller becomes a principal and a tenant, how every
@@ -172,9 +171,9 @@ spreads and unexplained contradictions of the OpenFGA note.
 The selected engine runs as its own service, never embedded in a FlowSeer
 host, backed by a Postgres datastore external from the first deployment. The
 engine and its datastore can then move or scale without redeploying a FlowSeer
-host. Each deployment enables authentication and TLS before it serves
-FlowSeer and runs its schema migration as its own job. The OpenFGA spike used
-`Authn.Method: none` and plaintext gRPC only for its local benchmark.
+host. OpenFGA starts with `Authn.Method: none` and plaintext gRPC by default.
+Each deployment enables authentication and TLS before it serves FlowSeer
+and runs its schema migration as its own job.
 
 ### Consistency is explicit at the adapter boundary
 
@@ -388,7 +387,7 @@ relationship reads to select a single tenant's relationships.
 Adding or removing a Tag that changes access previews who gains or loses
 what before an admin signs it off (`GOALS.md`). Sites and Tags have schemas
 but no inventory service stores them yet, so the preview lands with that
-service. Its shape is decided here:
+service. Its shape is described here:
 
 - **Gains**: OpenFGA can supply candidate relationships as contextual tuples,
   and a per-edge comparison gives who gains. SpiceDB has no request-scoped
