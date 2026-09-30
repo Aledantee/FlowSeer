@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/architecture-patterns/a-multi-key-uniqueness-claim-needs-one-conditional-batch.md
 execution: mixed
 amends: docs/architecture/2026-09-28-operator-authorization-direction.md
 parent: docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md
