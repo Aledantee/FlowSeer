@@ -8,6 +8,7 @@ status: implemented
 review: accept after fixes
 execution: code
 parent: docs/plans/2026-09-30-1129-fix-yang-augment-namespaces-plan.md
+compound: docs/solutions/conventions/nested-json-row-lookup-must-match-struct-decoding.md
 ---
 
 # YANG Augment Namespaces, Phase 1 - Runtime Group Field Kind - Plan
