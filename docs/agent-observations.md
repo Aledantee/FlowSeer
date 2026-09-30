@@ -54,7 +54,7 @@ an earlier round.
 Skill or agent: `.claude/skills/implement/SKILL.md`, the wave grouping and unit
 progress steps.
 What happened: U5 has `After: none` in
-`docs/plans/2026-09-30-1036-fix-unverified-external-claims-plan.md`, but it was
+the 2026-09-30 plan that fixed unverified external claims, but it was
 halted when U1 was blocked. Work with satisfied prerequisites should have
 continued independently.
 Suggested change: keep blocked units in their own state and dispatch every
@@ -65,7 +65,7 @@ Skill or agent: `.claude/skills/implement/scripts/plan-deviations.py`, its
 `QUOTED` parser and `no unit with a Files field` guard.
 What happened: the helper only collects backtick-quoted paths, while this
 plan writes paths after unquoted `Files:` fields. Running it against the plan
-returns `no unit with a Files field in docs/plans/2026-09-30-1036-fix-unverified-external-claims-plan.md` with status 2.
+returned `no unit with a Files field` with status 2 on the 2026-09-30 plan that fixed unverified external claims.
 Suggested change: parse both backtick-quoted and unquoted comma-separated
 paths, while retaining the existing symbol and directory handling.
 
