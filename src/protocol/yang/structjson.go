@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"reflect"
+	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
@@ -207,18 +208,52 @@ func lookupMember(obj map[string]json.RawMessage, module, name string) (json.Raw
 }
 
 // lookupJSONField finds a field's JSON member using the struct decoder's
-// qualification rule. Grouped fields require their module-qualified name.
-func lookupJSONField(obj map[string]json.RawMessage, f *Field, owner *Schema, group *Field) (json.RawMessage, bool) {
+// qualification rule. A bare grouped member is accepted only when its name
+// is unique among the parent's fields.
+func lookupJSONField(obj map[string]json.RawMessage, parent *Schema, f *Field, owner *Schema, group *Field) (json.RawMessage, bool, error) {
 	name := f.Name
 	if f.Child != nil {
 		name = f.Child.Name
 	}
 	module := f.qualifiedModule(owner)
-	if group != nil {
-		raw, ok := obj[module+":"+name]
-		return raw, ok
+	if group == nil {
+		raw, ok := lookupMember(obj, module, name)
+		return raw, ok, nil
 	}
-	return lookupMember(obj, module, name)
+	if raw, ok := obj[module+":"+name]; ok {
+		return raw, true, nil
+	}
+	raw, ok := obj[name]
+	if !ok {
+		return nil, false, nil
+	}
+
+	var candidates []string
+	plain := false
+	if err := walkFields(parent, func(candidate *Field, candidateOwner *Schema, candidateGroup *Field) error {
+		candidateName := candidate.Name
+		if candidate.Child != nil {
+			candidateName = candidate.Child.Name
+		}
+		if candidateName != name {
+			return nil
+		}
+		if candidateGroup == nil {
+			plain = true
+			return nil
+		}
+		candidates = append(candidates, candidate.qualifiedModule(candidateOwner))
+		return nil
+	}); err != nil {
+		return nil, false, err
+	}
+	if plain {
+		return nil, false, nil
+	}
+	if len(candidates) == 1 {
+		return raw, true, nil
+	}
+	return nil, false, errs.Msgf("ambiguous bare JSON member %q matches grouped fields from modules %s", name, strings.Join(candidates, ", "))
 }
 
 // decodeJSONObject populates rv from obj per s.
@@ -228,7 +263,10 @@ func decodeJSONObject(s *Schema, obj map[string]json.RawMessage, rv reflect.Valu
 		if f.Child != nil {
 			name = f.Child.Name
 		}
-		raw, ok := lookupJSONField(obj, f, owner, group)
+		raw, ok, err := lookupJSONField(obj, s, f, owner, group)
+		if err != nil {
+			return err
+		}
 		if !ok {
 			return nil
 		}
