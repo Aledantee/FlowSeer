@@ -51,7 +51,7 @@ func laneRecord(sequence uint64, phase accessv1.OperationPhase, admittedAt time.
 	}
 	return storev1.DeviceLaneRecord_builder{
 		Device:        inventoryv1.DeviceGlobalRef_builder{Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(testDeviceID)}.Build()}.Build(),
-		HighWatermark: sequence,
+		HighWatermark: proto.Uint64(sequence),
 		Mutation:      state,
 		AdmittedAt:    timestamppb.New(admittedAt),
 	}.Build()
@@ -210,7 +210,7 @@ func TestSubmissionRevokesWithAPulseAndEndsWithAReason(t *testing.T) {
 		{"released", laneRecord(42, accessv1.OperationPhase_OPERATION_PHASE_RELEASED, testClock)},
 		{"lane freed", storev1.DeviceLaneRecord_builder{
 			Device:        inventoryv1.DeviceGlobalRef_builder{Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(testDeviceID)}.Build()}.Build(),
-			HighWatermark: 42,
+			HighWatermark: proto.Uint64(42),
 		}.Build()},
 		{"another mutation", laneRecord(43, accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED, testClock)},
 	} {

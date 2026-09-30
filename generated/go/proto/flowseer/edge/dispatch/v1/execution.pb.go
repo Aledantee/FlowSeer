@@ -144,6 +144,7 @@ func (x *ExecuteRequest) SetIdempotencyKey(v string) {
 
 func (x *ExecuteRequest) SetResume(v bool) {
 	x.xxx_hidden_Resume = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
 }
 
 func (x *ExecuteRequest) SetAdmittedAt(v *timestamppb.Timestamp) {
@@ -185,6 +186,13 @@ func (x *ExecuteRequest) HasIdempotencyKey() bool {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *ExecuteRequest) HasResume() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
 func (x *ExecuteRequest) HasAdmittedAt() bool {
@@ -229,6 +237,11 @@ func (x *ExecuteRequest) ClearDeadline() {
 func (x *ExecuteRequest) ClearIdempotencyKey() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
 	x.xxx_hidden_IdempotencyKey = nil
+}
+
+func (x *ExecuteRequest) ClearResume() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_Resume = false
 }
 
 func (x *ExecuteRequest) ClearAdmittedAt() {
@@ -282,9 +295,9 @@ type ExecuteRequest_builder struct {
 	IdempotencyKey *string
 	// Central has already recorded that the command may have reached the
 	// device: the edge admits the mutation straight into recovery and
-	// observes before any retry, never submitting first. Unset means false,
-	// the ordinary path. Implicit presence: false and unset are one state.
-	Resume bool
+	// observes before any retry, never submitting first. False means the
+	// ordinary path without recovery.
+	Resume *bool
 	// When central admitted the mutation. A resumed mutation measures its
 	// delayed-apply horizon from here, since the moment the command was
 	// handed to the device is lost with the edge that held it; the horizon
@@ -312,7 +325,10 @@ func (b0 ExecuteRequest_builder) Build() *ExecuteRequest {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
 		x.xxx_hidden_IdempotencyKey = b.IdempotencyKey
 	}
-	x.xxx_hidden_Resume = b.Resume
+	if b.Resume != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
+		x.xxx_hidden_Resume = *b.Resume
+	}
 	x.xxx_hidden_AdmittedAt = b.AdmittedAt
 	if b.Mutation != nil {
 		x.xxx_hidden_Operation = &executeRequest_Mutation{b.Mutation}
@@ -449,6 +465,7 @@ func (x *ExecuteResult) SetPhaseReached(v v1.OperationPhase) {
 
 func (x *ExecuteResult) SetSubmitted(v bool) {
 	x.xxx_hidden_Submitted = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
 }
 
 func (x *ExecuteResult) SetObservation(v *v1.InterfaceObservation) {
@@ -487,6 +504,13 @@ func (x *ExecuteResult) HasPhaseReached() bool {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ExecuteResult) HasSubmitted() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
 func (x *ExecuteResult) HasOutcome() bool {
@@ -528,6 +552,11 @@ func (x *ExecuteResult) ClearSequence() {
 func (x *ExecuteResult) ClearPhaseReached() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
 	x.xxx_hidden_PhaseReached = v1.OperationPhase_OPERATION_PHASE_UNSPECIFIED
+}
+
+func (x *ExecuteResult) ClearSubmitted() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Submitted = false
 }
 
 func (x *ExecuteResult) ClearOutcome() {
@@ -583,9 +612,9 @@ type ExecuteResult_builder struct {
 	PhaseReached *v1.OperationPhase
 	// Whether the command was handed to the device before this report.
 	// False on a report from before submission, so central may dispose the
-	// mutation as rejected; true afterwards, so it may not. Implicit
-	// presence: false and unset are one state.
-	Submitted bool
+	// mutation as rejected; true afterwards, so it may not. False means the
+	// command has not been handed to the device.
+	Submitted *bool
 	// Exactly one outcome.
 
 	// Fields of oneof xxx_hidden_Outcome:
@@ -608,7 +637,10 @@ func (b0 ExecuteResult_builder) Build() *ExecuteResult {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
 		x.xxx_hidden_PhaseReached = *b.PhaseReached
 	}
-	x.xxx_hidden_Submitted = b.Submitted
+	if b.Submitted != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		x.xxx_hidden_Submitted = *b.Submitted
+	}
 	if b.Observation != nil {
 		x.xxx_hidden_Outcome = &executeResult_Observation{b.Observation}
 	}
@@ -1129,13 +1161,13 @@ var File_flowseer_edge_dispatch_v1_execution_proto protoreflect.FileDescriptor
 
 const file_flowseer_edge_dispatch_v1_execution_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/edge/dispatch/v1/execution.proto\x12\x19flowseer.edge.dispatch.v1\x1a\x1cflowseer/errs/v1/error.proto\x1a(flowseer/model/access/v1/interface.proto\x1a(flowseer/model/access/v1/operation.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc5\x05\n" +
+	")flowseer/edge/dispatch/v1/execution.proto\x12\x19flowseer.edge.dispatch.v1\x1a\x1cflowseer/errs/v1/error.proto\x1a(flowseer/model/access/v1/interface.proto\x1a(flowseer/model/access/v1/operation.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbe\x05\n" +
 	"\x0eExecuteRequest\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12>\n" +
 	"\bdeadline\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\x124\n" +
-	"\x0fidempotency_key\x18\x03 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x12\x1d\n" +
-	"\x06resume\x18\x04 \x01(\bB\x05\xaa\x01\x02\b\x02R\x06resume\x12;\n" +
+	"\x0fidempotency_key\x18\x03 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x12\x16\n" +
+	"\x06resume\x18\x04 \x01(\bR\x06resume\x12;\n" +
 	"\vadmitted_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"admittedAt\x12F\n" +
 	"\bmutation\x18\n" +
@@ -1143,13 +1175,13 @@ const file_flowseer_edge_dispatch_v1_execution_proto_rawDesc = "" +
 	"\x04read\x18\v \x01(\v2#.flowseer.model.access.v1.TypedReadH\x00R\x04read:\xa1\x02\xbaH\x9d\x02\x1a\xa2\x01\n" +
 	"$execute_request.resume_is_a_mutation\x12;resume applies to a mutation and carries its admission time\x1a=!this.resume || (has(this.mutation) && has(this.admitted_at))\x1av\n" +
 	"(execute_request.admitted_at_needs_resume\x12#admitted_at is set only with resume\x1a%!has(this.admitted_at) || this.resumeB\x12\n" +
-	"\toperation\x12\x05\xbaH\x02\b\x01\"\x9b\x03\n" +
+	"\toperation\x12\x05\xbaH\x02\b\x01\"\x94\x03\n" +
 	"\rExecuteResult\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12\\\n" +
 	"\rphase_reached\x18\x02 \x01(\x0e2(.flowseer.model.access.v1.OperationPhaseB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\fphaseReached\x12#\n" +
-	"\tsubmitted\x18\x03 \x01(\bB\x05\xaa\x01\x02\b\x02R\tsubmitted\x12R\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\fphaseReached\x12\x1c\n" +
+	"\tsubmitted\x18\x03 \x01(\bR\tsubmitted\x12R\n" +
 	"\vobservation\x18\n" +
 	" \x01(\v2..flowseer.model.access.v1.InterfaceObservationH\x00R\vobservation\x126\n" +
 	"\x05error\x18\v \x01(\v2\x1e.flowseer.errs.v1.ErrorPayloadH\x00R\x05error\x12A\n" +
