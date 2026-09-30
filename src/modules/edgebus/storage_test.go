@@ -155,14 +155,25 @@ func TestAttachEdgeCloseRaceStillNamesStorage(t *testing.T) {
 		t.Fatalf("first edge attach: %v", err)
 	}
 
-	connected := make(chan struct{})
+	beforeConnect := make(chan struct{})
+	flagRead := make(chan struct{})
 	release := make(chan struct{})
 	var releaseOnce sync.Once
 	releaseHook := func() { releaseOnce.Do(func() { close(release) }) }
 	t.Cleanup(releaseHook)
-	hub.edgeAccountConnectHook = func() {
-		close(connected)
-		<-release
+	lockFailures := make(chan edgeAccountAttachStage, 2)
+	hub.edgeAccountAttachHook = func(stage edgeAccountAttachStage) {
+		if hub.mu.TryLock() {
+			hub.mu.Unlock()
+			lockFailures <- stage
+		}
+		switch stage {
+		case edgeAccountBeforeConnect:
+			close(beforeConnect)
+		case edgeAccountAfterFlagRead:
+			close(flagRead)
+			<-release
+		}
 	}
 
 	attachDone := make(chan error, 1)
@@ -171,51 +182,10 @@ func TestAttachEdgeCloseRaceStillNamesStorage(t *testing.T) {
 	spawn.Go(ctx, "test edge attach", func() {
 		attachDone <- hub.AttachEdge(ctx, "0192e6a0-0000-7000-8000-000000000002")
 	})
-	<-connected
-
-	closeStarted := make(chan struct{})
-	closeDone := make(chan struct{})
-	spawn.Go(context.Background(), "test hub close", func() {
-		close(closeStarted)
-		hub.Close()
-		close(closeDone)
-	})
-	<-closeStarted
 	select {
-	case <-closeDone:
-		t.Fatal("Hub.Close returned while attach held the account read lock")
-	case <-time.After(100 * time.Millisecond):
-	}
-
-	releaseHook()
-	err := <-attachDone
-	if code, ok := errs.CodeOf(err); !ok || code != ErrCodeStorage {
-		t.Fatalf("racing attach error code = %q, want %q", code, ErrCodeStorage)
-	}
-	<-closeDone
-}
-
-func TestAttachEdgeCloseRaceFittingAccountIsNotStorage(t *testing.T) {
-	hub := startStorageTestHub(t, 0)
-
-	connected := make(chan struct{})
-	release := make(chan struct{})
-	var releaseOnce sync.Once
-	releaseHook := func() { releaseOnce.Do(func() { close(release) }) }
-	t.Cleanup(releaseHook)
-	hub.edgeAccountConnectHook = func() {
-		close(connected)
-		<-release
-	}
-
-	attachDone := make(chan error, 1)
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	spawn.Go(ctx, "test edge attach", func() {
-		attachDone <- hub.AttachEdge(ctx, "0192e6a0-0000-7000-8000-000000000001")
-	})
-	select {
-	case <-connected:
+	case err := <-attachDone:
+		t.Fatalf("edge attach failed before connect hook: %v", err)
+	case <-beforeConnect:
 	case <-time.After(5 * time.Second):
 		t.Fatal("edge account connect hook was not called")
 	}
@@ -229,6 +199,13 @@ func TestAttachEdgeCloseRaceFittingAccountIsNotStorage(t *testing.T) {
 	})
 	<-closeStarted
 	select {
+	case err := <-attachDone:
+		t.Fatalf("edge attach returned before flag-read hook: %v", err)
+	case <-flagRead:
+	case <-time.After(5 * time.Second):
+		t.Fatal("edge account flag-read hook was not called")
+	}
+	select {
 	case <-closeDone:
 		t.Fatal("Hub.Close returned while attach held the account read lock")
 	case <-time.After(100 * time.Millisecond):
@@ -236,6 +213,86 @@ func TestAttachEdgeCloseRaceFittingAccountIsNotStorage(t *testing.T) {
 
 	releaseHook()
 	err := <-attachDone
+	select {
+	case stage := <-lockFailures:
+		t.Fatalf("hub mutex was available during attach hook stage %d", stage)
+	default:
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != ErrCodeStorage {
+		t.Fatalf("racing attach error code = %q, want %q", code, ErrCodeStorage)
+	}
+	<-closeDone
+}
+
+func TestAttachEdgeCloseRaceFittingAccountIsNotStorage(t *testing.T) {
+	hub := startStorageTestHub(t, 0)
+
+	beforeConnect := make(chan struct{})
+	flagRead := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseHook := func() { releaseOnce.Do(func() { close(release) }) }
+	t.Cleanup(releaseHook)
+	lockFailures := make(chan edgeAccountAttachStage, 2)
+	hub.edgeAccountAttachHook = func(stage edgeAccountAttachStage) {
+		if hub.mu.TryLock() {
+			hub.mu.Unlock()
+			lockFailures <- stage
+		}
+		switch stage {
+		case edgeAccountBeforeConnect:
+			close(beforeConnect)
+		case edgeAccountAfterFlagRead:
+			close(flagRead)
+			<-release
+		}
+	}
+
+	attachDone := make(chan error, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	spawn.Go(ctx, "test edge attach", func() {
+		attachDone <- hub.AttachEdge(ctx, "0192e6a0-0000-7000-8000-000000000001")
+	})
+	select {
+	case err := <-attachDone:
+		t.Fatalf("edge attach failed before connect hook: %v", err)
+	case <-beforeConnect:
+	case <-time.After(5 * time.Second):
+		t.Fatal("edge account connect hook was not called")
+	}
+
+	closeStarted := make(chan struct{})
+	closeDone := make(chan struct{})
+	spawn.Go(context.Background(), "test hub close", func() {
+		close(closeStarted)
+		hub.Close()
+		close(closeDone)
+	})
+	<-closeStarted
+	select {
+	case err := <-attachDone:
+		t.Fatalf("edge attach returned before flag-read hook: %v", err)
+	case <-flagRead:
+	case <-time.After(5 * time.Second):
+		t.Fatal("edge account flag-read hook was not called")
+	}
+	select {
+	case <-closeDone:
+		t.Fatal("Hub.Close returned while attach held the account read lock")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	releaseHook()
+	err := <-attachDone
+	select {
+	case stage := <-lockFailures:
+		t.Fatalf("hub mutex was available during attach hook stage %d", stage)
+	default:
+	}
+	if err == nil {
+		t.Fatal("fitting edge attach succeeded")
+	}
 	if strings.Contains(strings.ToLower(err.Error()), "storage") {
 		t.Fatalf("fitting edge attach error %q incorrectly names storage", err.Error())
 	}

@@ -98,11 +98,20 @@ type Hub struct {
 
 	mu       sync.RWMutex // guards edges and closed, and serializes account enablement with shutdown
 	attachMu sync.Mutex   // serializes edge-account construction
-	// edgeAccountConnectHook pauses the account flag read in package tests.
-	edgeAccountConnectHook func()
-	edges                  map[string]*edgeAccount
-	closed                 bool
+	// edgeAccountAttachHook is called under h.mu's read lock immediately before
+	// connecting the edge account and immediately after reading its JetStream flag.
+	// It is nil outside package tests.
+	edgeAccountAttachHook func(edgeAccountAttachStage)
+	edges                 map[string]*edgeAccount
+	closed                bool
 }
+
+type edgeAccountAttachStage uint8
+
+const (
+	edgeAccountBeforeConnect edgeAccountAttachStage = iota
+	edgeAccountAfterFlagRead
+)
 
 // edgeAccount is central's own handle on one edge's account: the connection
 // the forwarder reads its source stream through, and the account JWT
@@ -434,13 +443,13 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccoun
 		return nil, errs.From(err).Code(ErrCodeHub).Attr("edge", edgeID).Msg("store edge account claims")
 	}
 	h.mu.RLock()
+	if h.edgeAccountAttachHook != nil {
+		h.edgeAccountAttachHook(edgeAccountBeforeConnect)
+	}
 	conn, js, err := h.connectAccount(srv, key, accountJWT, "edge-"+edgeID)
 	if err != nil {
 		h.mu.RUnlock()
 		return nil, err
-	}
-	if h.edgeAccountConnectHook != nil {
-		h.edgeAccountConnectHook()
 	}
 	ea := &edgeAccount{conn: conn, js: js, accountJWT: accountJWT, key: key}
 
@@ -448,6 +457,9 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccoun
 	// CONNECT enables JetStream for the authenticated account before it
 	// returns. A disabled account here was refused by the server.
 	refused := lookupErr == nil && !account.JetStreamEnabled()
+	if h.edgeAccountAttachHook != nil {
+		h.edgeAccountAttachHook(edgeAccountAfterFlagRead)
+	}
 	h.mu.RUnlock()
 
 	if err := waitForJetStream(ctx, js); err != nil {
@@ -583,7 +595,8 @@ func (h *Hub) LeafCount() int {
 }
 
 // Close closes central's connections and stops the server. It holds the write
-// lock until the server has shut down, so attaches and hub reads wait for it.
+// lock until the server has shut down, so attaches and calls to AttachedEdges,
+// EdgeStream, and LeafCount wait for it.
 // Safe to call more than once.
 func (h *Hub) Close() {
 	h.mu.Lock()
