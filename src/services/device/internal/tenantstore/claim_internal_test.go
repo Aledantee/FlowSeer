@@ -251,17 +251,20 @@ type claimFault struct {
 }
 
 type claimCase struct {
-	name            string
-	config          *identityv1.TenantConfig
-	expectedOK      bool
-	path            []claimCallKind
-	expectedCalls   int
-	setup           func(*testing.T, *claimFixture)
-	orphanKeys      []string
-	preserveRecord  bool
-	publishFaults   bool
-	competitor      *identityv1.TenantConfig
-	competitorPoint claimSeedPoint
+	name                  string
+	config                *identityv1.TenantConfig
+	expectedOK            bool
+	path                  []claimCallKind
+	expectedCalls         int
+	setup                 func(*testing.T, *claimFixture)
+	orphanKeys            []string
+	preserveRecord        bool
+	requireNoTargetRecord bool
+	requireTargetRecord   *identityv1.TenantConfig
+	publishFaults         bool
+	publishBeforeSend     bool
+	competitor            *identityv1.TenantConfig
+	competitorPoint       claimSeedPoint
 }
 
 func claimCases() []claimCase {
@@ -386,6 +389,26 @@ func claimCases() []claimCase {
 			competitorPoint: claimAtPublish,
 		},
 		{
+			name:                  "competitor different id same organization at publish",
+			config:                claimConfig("0192e6a0-0000-7000-8000-000000001013", "org-index-header"),
+			path:                  []claimCallKind{claimReadCall, claimReadCall, claimPublishCall, claimReadCall, claimReadCall},
+			expectedCalls:         5,
+			requireNoTargetRecord: true,
+			publishBeforeSend:     true,
+			competitor:            claimConfig("0192e6a0-0000-7000-8000-000000001014", "org-index-header"),
+			competitorPoint:       claimAtPublish,
+		},
+		{
+			name:                "competitor same id different organization at publish",
+			config:              claimConfig("0192e6a0-0000-7000-8000-000000001015", "org-record-header"),
+			path:                []claimCallKind{claimReadCall, claimReadCall, claimPublishCall, claimReadCall},
+			expectedCalls:       4,
+			requireTargetRecord: claimConfig("0192e6a0-0000-7000-8000-000000001015", "org-other-header"),
+			publishBeforeSend:   true,
+			competitor:          claimConfig("0192e6a0-0000-7000-8000-000000001015", "org-other-header"),
+			competitorPoint:     claimAtPublish,
+		},
+		{
 			name:            "same id and organization with different name",
 			config:          claimConfigWithName("0192e6a0-0000-7000-8000-000000001012", "org-reread-different", "requested"),
 			path:            []claimCallKind{claimReadCall, claimReadCall, claimReadCall},
@@ -446,6 +469,30 @@ func assertSeededRecordPreserved(t *testing.T, fixture *claimFixture, before map
 	}
 	if !proto.Equal(returned, seededRecord) {
 		t.Fatalf("completed Create returned a record different from the seeded record")
+	}
+}
+
+func assertTargetRecordAbsent(t *testing.T, fixture *claimFixture, config *identityv1.TenantConfig) {
+	t.Helper()
+	id := config.GetRef().GetTenant().GetId()
+	if message := rawLast(t, fixture.stream, id); message != nil {
+		t.Fatalf("target record %s has a message, want no message", id)
+	}
+}
+
+func assertTargetRecordConfig(t *testing.T, fixture *claimFixture, config *identityv1.TenantConfig) {
+	t.Helper()
+	id := config.GetRef().GetTenant().GetId()
+	message := rawLast(t, fixture.stream, id)
+	if message == nil || isMarker(message) {
+		t.Fatalf("target record %s is missing", id)
+	}
+	record := &identityv1.TenantRecord{}
+	if err := proto.Unmarshal(message.Data, record); err != nil {
+		t.Fatalf("decode target record %s: %v", id, err)
+	}
+	if !proto.Equal(record.GetConfig(), config) {
+		t.Fatalf("target record %s was overwritten: got %v, want %v", id, record.GetConfig(), config)
 	}
 }
 
@@ -604,6 +651,27 @@ func runClaimCase(t *testing.T, c claimCase, fault *claimFault) {
 		failAt = fault.position
 		mode = fault.mode
 	}
+	actualPath := make([]claimCallKind, 0, c.expectedCalls)
+	recordCall := func(kind claimCallKind) {
+		calls++
+		actualPath = append(actualPath, kind)
+		if calls > len(c.path) {
+			t.Fatalf("case %s call %d kind %s exceeds pinned path %v", c.name, calls, kind, c.path)
+		}
+		want := c.path[calls-1]
+		if kind != want {
+			t.Fatalf("case %s call %d kind = %s, want %s (path %v)", c.name, calls, kind, want, c.path)
+		}
+		if calls == failAt {
+			faultKind := claimReadCall
+			if mode != claimReadFault {
+				faultKind = claimPublishCall
+			}
+			if kind != faultKind {
+				t.Fatalf("case %s fault %q scheduled at call %d, reached %s, want %s", c.name, mode, calls, kind, faultKind)
+			}
+		}
+	}
 	realLastMsg := fixture.store.lastMsg
 	realPublish := fixture.store.publish
 	var publisher jetstreamext.BatchPublisher
@@ -615,7 +683,7 @@ func runClaimCase(t *testing.T, c claimCase, fault *claimFault) {
 		}
 	}
 	fixture.store.lastMsg = func(ctx context.Context, subject string) (*jetstream.RawStreamMsg, error) {
-		calls++
+		recordCall(claimReadCall)
 		if calls == failAt {
 			seed()
 			return nil, errors.New("injected claim read failure")
@@ -627,7 +695,7 @@ func runClaimCase(t *testing.T, c claimCase, fault *claimFault) {
 		return msg, err
 	}
 	fixture.store.publish = func(ctx context.Context, messages []*nats.Msg) (*jetstreamext.BatchAck, error) {
-		calls++
+		recordCall(claimPublishCall)
 		if c.competitorPoint == claimAtPublish {
 			seed()
 		}
@@ -655,7 +723,16 @@ func runClaimCase(t *testing.T, c claimCase, fault *claimFault) {
 		if calls != c.expectedCalls {
 			t.Fatalf("unfaulted calls = %d, want %d (%v)", calls, c.expectedCalls, c.path)
 		}
+		if !slices.Equal(actualPath, c.path) {
+			t.Fatalf("unfaulted call path = %v, want %v", actualPath, c.path)
+		}
 		assertCreateOutcome(t, fixture, c.config, record, err, c.expectedOK)
+		if c.requireNoTargetRecord {
+			assertTargetRecordAbsent(t, fixture, c.config)
+		}
+		if c.requireTargetRecord != nil {
+			assertTargetRecordConfig(t, fixture, c.requireTargetRecord)
+		}
 		assertClaimCallPreservesState(t, fixture, before, beforeSequence)
 		assertClaimInvariant(t, fixture, claimInvariantOptions{
 			target:          c.config,
@@ -670,10 +747,19 @@ func runClaimCase(t *testing.T, c claimCase, fault *claimFault) {
 	if calls != failAt {
 		t.Fatalf("fault at call %d reached call %d", failAt, calls)
 	}
+	if !slices.Equal(actualPath, c.path[:failAt]) {
+		t.Fatalf("faulted call path = %v, want %v", actualPath, c.path[:failAt])
+	}
 	assertStoreFault(t, record, err)
 	fixture.store.lastMsg = realLastMsg
 	fixture.store.publish = realPublish
 	assertClaimCallPreservesState(t, fixture, before, beforeSequence)
+	if c.requireNoTargetRecord {
+		assertTargetRecordAbsent(t, fixture, c.config)
+	}
+	if c.requireTargetRecord != nil {
+		assertTargetRecordConfig(t, fixture, c.requireTargetRecord)
+	}
 	assertClaimInvariant(t, fixture, claimInvariantOptions{
 		target:         c.config,
 		allowedOrphans: claimSeededOrphans(t, before, c.orphanKeys),
@@ -682,6 +768,12 @@ func runClaimCase(t *testing.T, c claimCase, fault *claimFault) {
 	afterFaultSequence := claimStreamLastSequence(t, fixture)
 	retry, retryErr := fixture.store.Create(context.Background(), c.config)
 	assertCreateOutcome(t, fixture, c.config, retry, retryErr, c.expectedOK)
+	if c.requireNoTargetRecord {
+		assertTargetRecordAbsent(t, fixture, c.config)
+	}
+	if c.requireTargetRecord != nil {
+		assertTargetRecordConfig(t, fixture, c.requireTargetRecord)
+	}
 	assertClaimCallPreservesState(t, fixture, afterFault, afterFaultSequence)
 	assertClaimInvariant(t, fixture, claimInvariantOptions{
 		target:          c.config,
@@ -706,7 +798,7 @@ func validateClaimCase(t *testing.T, c claimCase) (publishAt int) {
 			publishAt = position + 1
 		}
 	}
-	if c.publishFaults && publishAt == 0 {
+	if (c.publishFaults || c.publishBeforeSend) && publishAt == 0 {
 		t.Fatalf("case %s enables publish faults without a publish call", c.name)
 	}
 	return publishAt
@@ -727,10 +819,14 @@ func TestClaimMatrix(t *testing.T) {
 					runClaimCase(t, c, &claimFault{position: position, mode: claimReadFault})
 				})
 			}
-			if !c.publishFaults {
+			if !c.publishFaults && !c.publishBeforeSend {
 				return
 			}
-			for _, mode := range []claimFaultMode{claimBeforeSend, claimAbandonBatch, claimLoseReply} {
+			modes := []claimFaultMode{claimBeforeSend}
+			if c.publishFaults {
+				modes = append(modes, claimAbandonBatch, claimLoseReply)
+			}
+			for _, mode := range modes {
 				mode := mode
 				t.Run("fault P "+string(mode), func(t *testing.T) {
 					runClaimCase(t, c, &claimFault{position: publishAt, mode: mode})
