@@ -283,3 +283,29 @@ FlowSeer-owned membership, instead of binding it to the token's
 organization. This record's identity leaf, tenant entity, and partitioned
 stores landed first. The two are reconciled before the engine or caller
 authentication is planned.
+
+### 2026-09-30 — tenancy as built
+
+The identity leaf, the tenant entity, and tenant-partitioned stores landed
+2026-09-30. What they settled beyond the sections above:
+
+- `TenantService` is defined but not served until callers are
+  authenticated. Tests and development create tenants through the tenant
+  store, so no unauthenticated caller can create a tenant or claim an
+  organization. The platform admin names its issuer, organization claim
+  name and value, and subject.
+- A tenant id is a canonical lowercase UUID wherever it builds a key, a bus
+  subject, or a path. Capture artifacts live under
+  `<StateDir>/captures/<tenant_id>/`.
+- A tenant's record and its organization index commit together in one
+  atomic batch on the `tenants` bucket, so one organization binds at most
+  one tenant and a record without its index cannot exist. Untested so far:
+  a physical file-store failure between the batch's stores, clustered
+  wrong-sequence responses, malformed records, and retry exhaustion.
+- An edge's tenant has one authority, its `edge_<edge_id>` index in
+  `edges`. A device lane is keyed by its hosting edge's tenant, and a caller
+  of another tenant gets `NotFound`. Nothing substitutes a default tenant
+  for one it could not resolve.
+- State written before this change is not read: unprefixed keys, capture
+  files directly under `<StateDir>/captures/`, and edge accounts without a
+  persisted tenant.

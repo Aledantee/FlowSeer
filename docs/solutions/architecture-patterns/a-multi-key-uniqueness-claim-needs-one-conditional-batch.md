@@ -68,9 +68,9 @@ organization index are written together by one atomic batch”
 subjects, builds two messages, and publishes them through one call
 (`src/services/device/internal/tenantstore/store.go:136-199`). Each message
 carries its own expected sequence (`src/services/device/internal/tenantstore/store.go:215-219`).
-The plan records the server-side guarantee that a mismatch on either
+ADR-50 specifies the server-side guarantee that a mismatch on either
 expectation rejects the whole batch before storage
-(`docs/plans/2026-09-28-2029-feat-operator-authorization-phase2-plan.md:158-200`).
+([ADR-50](https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-50.md)).
 
 The state matrix injects every applicable read and publish fault, retries the
 same call, and checks the raw stream invariant after each result
@@ -92,4 +92,4 @@ The batch is atomic within one JetStream stream. It does not make a write to a
 different stream or a filesystem transactional. A physical file-store failure
 between the batch's two stores, clustered wrong-sequence responses, malformed
 records, and retry exhaustion remain separate test boundaries
-(`docs/plans/2026-09-28-2029-feat-operator-authorization-phase2-plan.md:1397-1403`).
+([operator authorization record, 2026-09-30 amendment](../../architecture/2026-09-28-operator-authorization-direction.md#2026-09-30--tenancy-as-built)).
