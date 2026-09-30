@@ -10,7 +10,7 @@ execution: code
 
 # YANG Augment Namespaces - Plan
 
-> Implemented. Phase 2 regenerated 1,067 bindings. The cold build took 51.32 s wall time and 11,819,909,120 bytes peak RSS before regeneration, then 34.53 s wall time and 10,748,739,584 bytes peak RSS after regeneration.
+> Implemented. Phase 2 regenerated 1,067 bindings. The cold build took 51.32 s wall time and 11,819,909,120 bytes peak RSS before regeneration, then 34.53 s wall time and 10,748,739,584 bytes peak RSS after regeneration. Reproduce it with `cd generated/go/yang && GOCACHE=$(mktemp -d) /usr/bin/time -l go build ./cisco-iosxe/ciscoiosxenative`.
 
 ## Goal
 
@@ -97,11 +97,11 @@ diff, and `go run ./src/protocol/yang/cmd/yanggen -check` passes.
 
 ## Definition of done
 
-- [ ] Both phases read `implemented` with their `Landed:` ranges filled.
+- [x] Both phases read `implemented` with their `Landed:` ranges filled.
 - [ ] The direction record is accepted, or amended to what landed.
-- [ ] `docs/solutions/conventions/yanggen-output-depends-on-goyang-augment-order.md`
+- [x] `docs/solutions/conventions/yanggen-output-depends-on-goyang-augment-order.md`
       and its row in `docs/solutions/README.md` are removed.
-- [ ] No plan labels in code.
+- [x] No plan labels in code.
 
 ## Open questions
 

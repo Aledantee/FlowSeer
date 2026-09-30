@@ -40,6 +40,7 @@ type groupShape struct {
 	module     *LoadedModule
 	target     *dataNodeView
 	group      *dataGroupView
+	targets    []*dataNodeView
 	candidates []string
 	name       string
 	schemaName string
@@ -307,7 +308,7 @@ func viewPathSegments(path []pathSeg) []string {
 	return segments
 }
 
-func computeGroupShapeKey(g *dataGroupView, nodeMemo map[*dataNodeView]string, groupMemo map[*dataGroupView]string) string {
+func computeGroupShapeKey(g *dataGroupView, target *dataNodeView, nodeMemo map[*dataNodeView]string, groupMemo map[*dataGroupView]string) string {
 	if key, ok := groupMemo[g]; ok {
 		return key
 	}
@@ -327,22 +328,11 @@ func computeGroupShapeKey(g *dataGroupView, nodeMemo map[*dataNodeView]string, g
 			children = append(children, fmt.Sprintf("leaf:%s:%s:%s", child.entry.Name, goName, leafTypeSignature(resolveLeafref(child.entry, child.entry.Type, 0))))
 		}
 	}
-	raw := fmt.Sprintf("group=%s:%s;target=%s;children=[%s]", g.module.Name, g.module.Package, g.childrenPath(), strings.Join(children, "|"))
+	raw := fmt.Sprintf("group=%s:%s;target=%s:%s;children=[%s]", g.module.Name, g.module.Package, target.module.Name, target.entry.Name, strings.Join(children, "|"))
 	sum := sha256.Sum256([]byte(raw))
 	key := hex.EncodeToString(sum[:])
 	groupMemo[g] = key
 	return key
-}
-
-func (g *dataGroupView) childrenPath() string {
-	if len(g.children) == 0 {
-		return ""
-	}
-	paths := make([]string, 0, len(g.children))
-	for _, child := range g.children {
-		paths = append(paths, child.dataPath)
-	}
-	return strings.Join(paths, ",")
 }
 
 func computeViewShapeKey(n *dataNodeView, nodeMemo map[*dataNodeView]string, groupMemo map[*dataGroupView]string) string {
@@ -366,7 +356,7 @@ func computeViewShapeKey(n *dataNodeView, nodeMemo map[*dataNodeView]string, gro
 		}
 	}
 	for _, group := range n.groups {
-		children = append(children, fmt.Sprintf("group:%s:%s:%s", group.module.Name, groupNames[group], computeGroupShapeKey(group, nodeMemo, groupMemo)))
+		children = append(children, fmt.Sprintf("group:%s:%s:%s", group.module.Name, groupNames[group], computeGroupShapeKey(group, n, nodeMemo, groupMemo)))
 	}
 	kind := "container"
 	if n.entry.IsList() {
@@ -448,7 +438,7 @@ type ancestorList struct {
 	keys      []string
 }
 
-func resolvePackageNaming(p *packagePlan, groupMemo map[*dataGroupView]string) {
+func resolvePackageNaming(p *packagePlan, groupMemo map[*dataGroupView]string) map[*dataGroupView]*groupShape {
 	orderedNodes := slices.Clone(p.nodes)
 	slices.SortFunc(orderedNodes, func(a, b *dataNodeView) int { return strings.Compare(a.dataPath, b.dataPath) })
 	nodeMemo := make(map[*dataNodeView]string)
@@ -489,13 +479,36 @@ func resolvePackageNaming(p *packagePlan, groupMemo map[*dataGroupView]string) {
 	}
 	slices.SortFunc(p.shapes, func(a, b *nodeShape) int { return strings.Compare(a.key, b.key) })
 
+	groupShapes := make(map[string]*groupShape, len(p.groups))
+	groupByView := make(map[*dataGroupView]*groupShape, len(p.groups))
 	for _, group := range p.groups {
-		group.key = computeGroupShapeKey(group.group, nodeMemo, groupMemo)
-		segments := viewPathSegments(group.target.path)
-		group.candidates = candidateSuffixes(segments)
-		for i := range group.candidates {
-			group.candidates[i] += "Augment"
+		key := computeGroupShapeKey(group.group, group.target, nodeMemo, groupMemo)
+		shape := groupShapes[key]
+		if shape == nil {
+			shape = &groupShape{
+				key:    key,
+				module: group.module,
+				target: group.target,
+				group:  group.group,
+				owner:  group.owner,
+			}
+			groupShapes[key] = shape
 		}
+		shape.targets = append(shape.targets, group.target)
+		groupByView[group.group] = shape
+	}
+	p.groups = p.groups[:0]
+	for _, shape := range groupShapes {
+		slices.SortFunc(shape.targets, func(a, b *dataNodeView) int { return strings.Compare(a.dataPath, b.dataPath) })
+		var paths [][]string
+		for _, target := range shape.targets {
+			paths = append(paths, viewPathSegments(target.path))
+		}
+		shape.candidates = candidateSuffixes(longestCommonSuffix(paths))
+		for i := range shape.candidates {
+			shape.candidates[i] += "Augment"
+		}
+		p.groups = append(p.groups, shape)
 	}
 	slices.SortFunc(p.groups, func(a, b *groupShape) int {
 		if c := strings.Compare(a.target.dataPath, b.target.dataPath); c != 0 {
@@ -571,6 +584,11 @@ func resolvePackageNaming(p *packagePlan, groupMemo map[*dataGroupView]string) {
 		group.name = p.scope.byPath["group:"+group.key]
 		group.schemaName = p.scope.byPath["group-schema:"+group.key]
 	}
+	for _, group := range groupByView {
+		group.name = p.scope.byPath["group:"+group.key]
+		group.schemaName = p.scope.byPath["group-schema:"+group.key]
+	}
+	return groupByView
 }
 
 func (p *packagePlan) structName(shapeKey string) string {

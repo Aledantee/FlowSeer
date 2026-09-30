@@ -46,7 +46,7 @@ func sampleGenServer() fixturemain.ServersServer {
 
 func TestGeneratedXMLRoundTrip(t *testing.T) {
 	in := sampleGenServer()
-	data, err := yang.MarshalXMLStruct(fixturemain.ServersServerSchemaX24fddd, in)
+	data, err := yang.MarshalXMLStruct(fixturemain.ServersServerSchemaX431a4c, in)
 	if err != nil {
 		t.Fatalf("MarshalXMLStruct: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestGeneratedXMLRoundTrip(t *testing.T) {
 		}
 	}
 	var out fixturemain.ServersServer
-	if err := yang.UnmarshalXMLStruct(fixturemain.ServersServerSchemaX24fddd, data, &out); err != nil {
+	if err := yang.UnmarshalXMLStruct(fixturemain.ServersServerSchemaX431a4c, data, &out); err != nil {
 		t.Fatalf("UnmarshalXMLStruct: %v", err)
 	}
 	if !yang.EqualStructs(in, out) {
@@ -75,7 +75,7 @@ func TestGeneratedXMLRoundTrip(t *testing.T) {
 
 func TestGeneratedJSONRoundTrip(t *testing.T) {
 	in := sampleGenServer()
-	data, err := yang.MarshalJSON7951Struct(fixturemain.ServersServerSchemaX24fddd, in)
+	data, err := yang.MarshalJSON7951Struct(fixturemain.ServersServerSchemaX431a4c, in)
 	if err != nil {
 		t.Fatalf("MarshalJSON7951Struct: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestGeneratedJSONRoundTrip(t *testing.T) {
 		}
 	}
 	var out fixturemain.ServersServer
-	if err := yang.UnmarshalJSON7951Struct(fixturemain.ServersServerSchemaX24fddd, data, &out); err != nil {
+	if err := yang.UnmarshalJSON7951Struct(fixturemain.ServersServerSchemaX431a4c, data, &out); err != nil {
 		t.Fatalf("UnmarshalJSON7951Struct: %v", err)
 	}
 	if !yang.EqualStructs(in, out) {
@@ -201,7 +201,7 @@ func TestGeneratedDescriptorPaths(t *testing.T) {
 func TestGeneratedVisitLeaves(t *testing.T) {
 	v := sampleGenServer()
 	var leaves []string
-	err := yang.VisitStructLeaves(fixturemain.ServersServerSchemaX24fddd, v, func(p yang.Path, val yang.Value) bool {
+	err := yang.VisitStructLeaves(fixturemain.ServersServerSchemaX431a4c, v, func(p yang.Path, val yang.Value) bool {
 		canon, cerr := val.Canonical()
 		if cerr != nil {
 			t.Fatal(cerr)
@@ -218,10 +218,24 @@ func TestGeneratedVisitLeaves(t *testing.T) {
 		"/fixture-main:endpoint[address=10.0.0.1][port=443]/address=10.0.0.1",
 		"/fixture-main:tls/min-version=tls13",
 		"/fixture-main:proto=fixture-types:tcp",
+		"/fixture-aug2:owner=7",
 	} {
 		if !strings.Contains(joined, frag) {
 			t.Errorf("leaves missing %q:\n%s", frag, joined)
 		}
+	}
+}
+
+func TestGeneratedAugmentListDescriptor(t *testing.T) {
+	if got := fixturemain.MirrorDescriptor().Path.String(); got != "/fixture-main:servers/fixture-aug2:mirror" {
+		t.Fatalf("mirror descriptor path = %q", got)
+	}
+	rows, err := fixturemain.MirrorDescriptor().Codec.DecodeJSON([]byte(`{"fixture-aug2:mirror":[{"id":"m1"}]}`))
+	if err != nil {
+		t.Fatalf("mirror DecodeJSON: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID == nil || *rows[0].ID != "m1" {
+		t.Fatalf("mirror rows = %+v, want one row m1", rows)
 	}
 }
 

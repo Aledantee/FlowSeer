@@ -2,6 +2,9 @@ package main
 
 import (
 	"bytes"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -42,6 +45,39 @@ func TestRunMissingConfigExitOne(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"-config", "testdata/no-such.yaml", "-verify"}, &stdout, &stderr); code != 1 {
 		t.Fatalf("run with missing config = %d, want 1", code)
+	}
+}
+
+func TestRunVerifyRejectsImportPackageCycle(t *testing.T) {
+	dir := t.TempDir()
+	writeYangModule(t, dir, "cyc-a.yang", `module cyc-a {
+  yang-version 1.1;
+  namespace "urn:flowseer:cyc-a";
+  prefix a;
+  import cyc-b { prefix b; }
+  container a-root;
+  augment "/b:b-root" { container from-a; }
+}`)
+	writeYangModule(t, dir, "cyc-b.yang", `module cyc-b {
+  yang-version 1.1;
+  namespace "urn:flowseer:cyc-b";
+  prefix b;
+  import cyc-a { prefix a; }
+  container b-root;
+  augment "/a:a-root" { container from-b; }
+}`)
+	config := filepath.Join(t.TempDir(), "cycle.yaml")
+	source := fmt.Sprintf("vendors:\n  - name: cycle\n    paths:\n      - %q\n", dir)
+	if err := os.WriteFile(config, []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"-config", config, "-verify"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("run -verify on cyclic tree = %d, stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "cyca -> cycb -> cyca") {
+		t.Errorf("stderr = %q, want the package cycle", stderr.String())
 	}
 }
 

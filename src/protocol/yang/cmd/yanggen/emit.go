@@ -69,7 +69,6 @@ func buildEmissionPlan(vs *VendorSet, importBase string) (*emissionPlan, error) 
 				group:  group,
 				owner:  groupOwner,
 			}
-			plan.groups[group] = shape
 			groupOwner.groups = append(groupOwner.groups, shape)
 			for _, child := range group.children {
 				visit(child, topOwner, nextAncestors)
@@ -98,7 +97,9 @@ func buildEmissionPlan(vs *VendorSet, importBase string) (*emissionPlan, error) 
 	slices.Sort(packageNames)
 	for _, name := range packageNames {
 		packagePlan := plan.packages[name]
-		resolvePackageNaming(packagePlan, groupMemo)
+		for group, shape := range resolvePackageNaming(packagePlan, groupMemo) {
+			plan.groups[group] = shape
+		}
 		for _, shape := range packagePlan.shapes {
 			for _, instance := range shape.instances {
 				plan.nodeShapes[instance.node] = shape
@@ -132,15 +133,20 @@ func Emit(sets []*VendorSet, outDir string) error {
 	if err != nil {
 		return err
 	}
-	for _, vs := range sets {
-		vendorDir := filepath.Join(outDir, vs.Vendor)
-		if err := os.RemoveAll(vendorDir); err != nil {
-			return errs.Wrapf(err, "clear vendor output %s", vendorDir)
-		}
+	plans := make([]*emissionPlan, len(sets))
+	for i, vs := range sets {
 		plan, err := buildEmissionPlan(vs, output.Path+"/"+vs.Vendor)
 		if err != nil {
 			return err
 		}
+		plans[i] = plan
+	}
+	for i, vs := range sets {
+		vendorDir := filepath.Join(outDir, vs.Vendor)
+		if err := os.RemoveAll(vendorDir); err != nil {
+			return errs.Wrapf(err, "clear vendor output %s", vendorDir)
+		}
+		plan := plans[i]
 		packageNames := make([]string, 0, len(plan.packages))
 		for name := range plan.packages {
 			packageNames = append(packageNames, name)

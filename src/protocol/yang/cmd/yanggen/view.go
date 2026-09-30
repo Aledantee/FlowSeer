@@ -171,17 +171,13 @@ func (b *dataViewBuilder) children(parent *goyang.Entry) []*goyang.Entry {
 	var out []*goyang.Entry
 	var collect func(*goyang.Entry)
 	collect = func(entry *goyang.Entry) {
+		children := make([]*goyang.Entry, 0, len(entry.Dir)+len(b.recovered[entry]))
 		for _, name := range sortedKeys(entry.Dir) {
-			child := entry.Dir[name]
-			if child.IsChoice() || child.IsCase() {
-				collect(child)
-				continue
-			}
-			if isViewData(child) {
-				out = append(out, child)
-			}
+			children = append(children, entry.Dir[name])
 		}
-		for _, child := range b.recovered[entry] {
+		children = append(children, b.recovered[entry]...)
+		slices.SortFunc(children, compareEntries)
+		for _, child := range children {
 			if child.IsChoice() || child.IsCase() {
 				collect(child)
 				continue
