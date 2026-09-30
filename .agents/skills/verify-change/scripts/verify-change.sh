@@ -211,6 +211,9 @@ web=false
 add_module() {
   local candidate=$1
   local existing
+  # The pinned Buf CLI module is a tool dependency, not a Go package module.
+  # Protobuf gates invoke it through buf_cmd below.
+  [[ $candidate == tools/buf ]] && return
   for existing in "${modules[@]:-}"; do
     [[ $existing == "$candidate" ]] && return
   done
