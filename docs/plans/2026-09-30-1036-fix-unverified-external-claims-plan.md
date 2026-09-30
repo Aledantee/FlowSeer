@@ -11,11 +11,9 @@ execution: mixed
 
 # Unverified External Claims - Plan
 
-> Partially implemented. U1 to U6, U8, and U9 are implemented and verified.
-> U7 is staged for guardrail review and remains in progress. Requirement 12
-> states an exception, a `Hub.Close` that starts during an attach, that the
-> 2026-09-30 Decision on the edge-bus storage error does not admit. It waits
-> on a user decision.
+> Partially implemented. U1 to U7 and U9 are implemented and verified; U7
+> passed guardrail review (5f19ebeb). U8 reopens for the lock that removes
+> the `Hub.Close` exception from Requirement 12.
 
 ## Goal
 
@@ -197,12 +195,17 @@ reproduce main byte for byte first.
   JetStream (`jetstream.go:1072-1074`, reached from `server.go:2611`).
   `Close` sets `h.closed` before it calls `srv.Shutdown`
   (`hub.go:593,606`), so the hub reads `closed` after the flag. An open
-  hub at that read means a false flag was a refusal. A closed one leaves
-  the flag ambiguous, and the attach returns the wait error. That is the
-  one case where a refusal does not name storage: a `Close` that starts
-  between the connect and the flag read. A failed lookup would be a
-  second, but a live server keeps every authenticated account registered
-  (`server.go:2217`).
+  hub at that read means a false flag was a refusal. A failed lookup
+  cannot happen either, since a live server keeps every authenticated
+  account registered (`server.go:2217`).
+- **No exception to the storage rule: the attach holds off `Close` from
+  the connect through the flag read.** The attach holds a read lock on a
+  hub mutex from before the connect until after the flag read, and
+  `Close` takes that lock for writing before `srv.Shutdown`. Shutdown can
+  then never clear an account's JetStream between the connect and the
+  read, so a false flag on a hub that was open at the connect is always a
+  refusal. `Close` waits only for that short section, never for the
+  10-second wait. (decided by the user, 2026-09-30)
 - **The refusal carries its own code, `edgebus/storage`.** Why: a text
   match cannot tell it from a failed stream setup, because a stream whose
   `MaxBytes` exceeds the account budget fails with the server's own
@@ -335,9 +338,8 @@ reproduce main byte for byte first.
     that starts with `module=`. `verify-change.sh -- tools/buf/go.mod` logs
     `go -C tools/buf mod verify` before the first buf command and passes.
 12. `AttachEdge` returns `edgebus/storage` if and only if the server
-    refused the edge account's JetStream, with one stated exception: a
-    `Hub.Close` that starts between the connect and the flag read leaves
-    the flag ambiguous, and the attach returns `edgebus/hub` (Decisions).
+    refused the edge account's JetStream, including when a `Hub.Close`
+    races the attach (Decisions).
     Example: on the 640 MiB hub of
     Requirement 10, edge B attached under a canceled context returns an
     error for which `errs.CodeOf` gives `edgebus/storage`. On a fresh hub
@@ -644,10 +646,11 @@ Tests: in `storage_test.go`, each case on a hub with `MaxStoreBytes`
   stream setup after its wait succeeded (`hub.go:439,469`).
   A retry of A under a canceled context returns `ErrCodeHub` without
   "storage". Before the change it names storage.
-No test covers a `Hub.Close` between the connect and the flag read, since
-no test can place one there deterministically. The `closed` read rests on
-the order under Decisions and covers only `Hub.Close`, not a server that
-stops on its own.
+The lock added by the "No exception to the storage rule" Decision gets a
+test: `Close` started while an attach holds the read lock blocks until the
+flag read completes (a test hook or a held lock makes the order
+deterministic), and a refused attach in that window still returns
+`edgebus/storage`. A server that stops on its own stays outside the rule.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/edgebus/ docs/solutions/architecture-patterns/per-account-jetstream-disk-budgets-reserve-against-the-server-store-ceiling.md`
 
 ### U9. Link only the rule package capture validation reaches
