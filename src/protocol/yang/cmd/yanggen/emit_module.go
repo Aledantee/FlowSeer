@@ -135,18 +135,25 @@ func (em *moduleEmitter) chunkImports(body string) []generatedImport {
 var identifierBoundary = regexp.MustCompile(`[A-Za-z0-9_]`)
 
 func containsIdentifier(body, identifier string) bool {
-	start := 0
-	for {
-		index := strings.Index(body[start:], identifier+".")
-		if index < 0 {
-			return false
+	for _, line := range strings.Split(body, "\n") {
+		if comment := strings.Index(line, "//"); comment >= 0 {
+			line = line[:comment]
 		}
-		index += start
-		if index == 0 || !identifierBoundary.MatchString(body[index-1:index]) {
-			return true
+
+		start := 0
+		for {
+			index := strings.Index(line[start:], identifier+".")
+			if index < 0 {
+				break
+			}
+			index += start
+			if index == 0 || !identifierBoundary.MatchString(line[index-1:index]) {
+				return true
+			}
+			start = index + len(identifier) + 1
 		}
-		start = index + len(identifier) + 1
 	}
+	return false
 }
 
 // emitModuleVars renders package-level *yang.Module variables for every

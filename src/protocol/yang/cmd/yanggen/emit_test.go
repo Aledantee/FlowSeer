@@ -40,6 +40,15 @@ func emitOne(vs *VendorSet, m *LoadedModule) (string, error) {
 	return b.String(), nil
 }
 
+func TestContainsIdentifierIgnoresComments(t *testing.T) {
+	if containsIdentifier("// /native:pim.\n", "pim") {
+		t.Fatal("comment text was treated as a package reference")
+	}
+	if !containsIdentifier("// comment\nvar _ = pim.Schema\n", "pim") {
+		t.Fatal("package reference was not detected")
+	}
+}
+
 // TestEmitFixtureGolden renders every fixture module and compares
 // byte-for-byte against the committed goldens.
 func TestEmitFixtureGolden(t *testing.T) {
