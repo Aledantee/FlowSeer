@@ -396,3 +396,15 @@ generated/` holds only the files U2, U3, and U4 changed.
 - If `buf.build/connectrpc/go:v1.20.0` is not a published plugin tag, pin
   the tag that regenerates the current `*.connect.go` files byte for byte,
   and record the tag in U1's commit.
+- Parked by drive: U1 is blocked on Requirement 2. Its grep example also
+  matches prose that only names the tool ("`buf generate` output", "every
+  `buf breaking` category"), and two lines outside U1's files tell an
+  agent to run a bare `buf lint`: `AGENTS.md:44` and
+  `.agents/skills/delegate/SKILL.md:227`. Options: keep the requirement,
+  tighten the grep to run instructions, and add both lines to U1 (fixes
+  every instruction, but `AGENTS.md` is a policy surface a person must
+  review) | same, but leave `AGENTS.md:44` as it is, since it names the
+  enforcement tool rather than a command to run (no policy edit, one bare
+  mention stays) | drop the grep example and judge Requirement 2 in
+  review (no file changes, weaker check). Recommended: the first, because
+  the requirement is about instructions and both lines are instructions.
