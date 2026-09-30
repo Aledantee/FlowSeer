@@ -15,9 +15,9 @@ package accessv1
 
 import (
 	v13 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
-	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -1081,12 +1081,12 @@ var File_flowseer_model_access_v1_operation_proto protoreflect.FileDescriptor
 
 const file_flowseer_model_access_v1_operation_proto_rawDesc = "" +
 	"\n" +
-	"(flowseer/model/access/v1/operation.proto\x12\x18flowseer.model.access.v1\x1a(flowseer/model/access/v1/interface.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a*flowseer/model/principal/v1/operator.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\\\n" +
+	"(flowseer/model/access/v1/operation.proto\x12\x18flowseer.model.access.v1\x1a(flowseer/model/access/v1/interface.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a)flowseer/model/identity/v1/operator.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\\\n" +
 	"\vSystemActor\x12M\n" +
 	"\x06reason\x18\x01 \x01(\x0e2&.flowseer.model.access.v1.SystemReasonB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x06reason\"\xa4\x01\n" +
-	"\x05Actor\x12F\n" +
-	"\boperator\x18\x01 \x01(\v2(.flowseer.model.principal.v1.OperatorRefH\x00R\boperator\x12?\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x06reason\"\xa3\x01\n" +
+	"\x05Actor\x12E\n" +
+	"\boperator\x18\x01 \x01(\v2'.flowseer.model.identity.v1.OperatorRefH\x00R\boperator\x12?\n" +
 	"\x06system\x18\x02 \x01(\v2%.flowseer.model.access.v1.SystemActorH\x00R\x06systemB\x12\n" +
 	"\tprincipal\x12\x05\xbaH\x02\b\x01\"\xff\x03\n" +
 	"\x0eMutationIntent\x12L\n" +
@@ -1154,7 +1154,7 @@ var file_flowseer_model_access_v1_operation_proto_goTypes = []any{
 	(*Actor)(nil),                      // 5: flowseer.model.access.v1.Actor
 	(*MutationIntent)(nil),             // 6: flowseer.model.access.v1.MutationIntent
 	(*MutationState)(nil),              // 7: flowseer.model.access.v1.MutationState
-	(*v1.OperatorRef)(nil),             // 8: flowseer.model.principal.v1.OperatorRef
+	(*v1.OperatorRef)(nil),             // 8: flowseer.model.identity.v1.OperatorRef
 	(*v11.DeviceGlobalRef)(nil),        // 9: flowseer.model.inventory.v1.DeviceGlobalRef
 	(*v12.AccessPolicyHandle)(nil),     // 10: flowseer.model.policy.v1.AccessPolicyHandle
 	(*InterfaceDescriptionChange)(nil), // 11: flowseer.model.access.v1.InterfaceDescriptionChange
@@ -1163,7 +1163,7 @@ var file_flowseer_model_access_v1_operation_proto_goTypes = []any{
 }
 var file_flowseer_model_access_v1_operation_proto_depIdxs = []int32{
 	3,  // 0: flowseer.model.access.v1.SystemActor.reason:type_name -> flowseer.model.access.v1.SystemReason
-	8,  // 1: flowseer.model.access.v1.Actor.operator:type_name -> flowseer.model.principal.v1.OperatorRef
+	8,  // 1: flowseer.model.access.v1.Actor.operator:type_name -> flowseer.model.identity.v1.OperatorRef
 	4,  // 2: flowseer.model.access.v1.Actor.system:type_name -> flowseer.model.access.v1.SystemActor
 	9,  // 3: flowseer.model.access.v1.MutationIntent.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
 	5,  // 4: flowseer.model.access.v1.MutationIntent.actor:type_name -> flowseer.model.access.v1.Actor

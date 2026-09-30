@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,7 +18,7 @@ import (
 
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
-	principalv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
@@ -29,6 +30,7 @@ import (
 )
 
 const (
+	testTenantID  = "0192e6a0-8888-7000-8000-000000000088"
 	testEdgeID    = "0192e6a0-0000-7000-8000-0000000000ed"
 	testSessionID = "0192e6a0-1111-7000-8000-000000000001"
 )
@@ -97,7 +99,7 @@ func newSessionConfig(t *testing.T, sessionID string) *modelcapturev1.CaptureSes
 			MaxPackets: proto.Uint64(100),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          principalv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
 			Reason:               proto.String("investigating drop"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),
@@ -161,7 +163,7 @@ func TestCreateAndGetSession(t *testing.T) {
 	ctx := context.Background()
 
 	cfg := newSessionConfig(t, testSessionID)
-	rec, err := s.CreateSession(ctx, cfg)
+	rec, err := s.CreateSession(ctx, testTenantID, cfg)
 	if err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
@@ -171,13 +173,13 @@ func TestCreateAndGetSession(t *testing.T) {
 	}
 
 	// Duplicate create must fail with ErrCodeConflict.
-	_, err = s.CreateSession(ctx, cfg)
+	_, err = s.CreateSession(ctx, testTenantID, cfg)
 	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeConflict {
 		t.Fatalf("got err %v, want ErrCodeConflict", err)
 	}
 
 	// Get session.
-	got, rev, err := s.Session(ctx, testSessionID)
+	got, rev, err := s.Session(ctx, testTenantID, testSessionID)
 	if err != nil {
 		t.Fatalf("Session: %v", err)
 	}
@@ -192,7 +194,7 @@ func TestCreateAndGetSession(t *testing.T) {
 	}
 
 	// Unknown session returns nil, 0, nil.
-	unknown, urev, err := s.Session(ctx, "0192e6a0-9999-7000-8000-000000000099")
+	unknown, urev, err := s.Session(ctx, testTenantID, "0192e6a0-9999-7000-8000-000000000099")
 	if err != nil {
 		t.Fatalf("Session unknown: %v", err)
 	}
@@ -206,12 +208,12 @@ func TestMutateSessionCAS(t *testing.T) {
 	ctx := context.Background()
 
 	cfg := newSessionConfig(t, testSessionID)
-	if _, err := s.CreateSession(ctx, cfg); err != nil {
+	if _, err := s.CreateSession(ctx, testTenantID, cfg); err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
 
 	// Mutate to RUNNING.
-	updated, err := s.MutateSession(ctx, testSessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+	updated, err := s.MutateSession(ctx, testTenantID, testSessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
 		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING)
 		rec.GetState().SetStartedAt(timestamppb.Now())
 		return nil
@@ -224,7 +226,7 @@ func TestMutateSessionCAS(t *testing.T) {
 	}
 
 	// Mutate on unknown session fails with ErrCodeNotFound.
-	_, err = s.MutateSession(ctx, "0192e6a0-9999-7000-8000-000000000099", func(_ *modelcapturev1.CaptureSessionRecord) error {
+	_, err = s.MutateSession(ctx, testTenantID, "0192e6a0-9999-7000-8000-000000000099", func(_ *modelcapturev1.CaptureSessionRecord) error {
 		return nil
 	})
 	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeNotFound {
@@ -237,7 +239,7 @@ func TestAppendPacketsAndFinalizeArtifact(t *testing.T) {
 	ctx := context.Background()
 
 	cfg := newSessionConfig(t, testSessionID)
-	if _, err := s.CreateSession(ctx, cfg); err != nil {
+	if _, err := s.CreateSession(ctx, testTenantID, cfg); err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
 
@@ -258,10 +260,10 @@ func TestAppendPacketsAndFinalizeArtifact(t *testing.T) {
 	// Append in two batches of 50 packets.
 	linkType := netcapturev1.LinkType_LINK_TYPE_ETHERNET
 	snapLen := uint32(128)
-	if err := s.AppendPackets(ctx, testSessionID, linkType, snapLen, packets[:50]); err != nil {
+	if err := s.AppendPackets(ctx, testTenantID, testSessionID, linkType, snapLen, packets[:50]); err != nil {
 		t.Fatalf("AppendPackets batch 1: %v", err)
 	}
-	if err := s.AppendPackets(ctx, testSessionID, linkType, snapLen, packets[50:]); err != nil {
+	if err := s.AppendPackets(ctx, testTenantID, testSessionID, linkType, snapLen, packets[50:]); err != nil {
 		t.Fatalf("AppendPackets batch 2: %v", err)
 	}
 
@@ -271,7 +273,7 @@ func TestAppendPacketsAndFinalizeArtifact(t *testing.T) {
 	}.Build()
 
 	expiresAt := time.Now().Add(24 * time.Hour)
-	artifact, err := s.FinalizeArtifact(ctx, testSessionID, linkType, snapLen, counters, expiresAt)
+	artifact, err := s.FinalizeArtifact(ctx, testTenantID, testSessionID, linkType, snapLen, counters, expiresAt)
 	if err != nil {
 		t.Fatalf("FinalizeArtifact: %v", err)
 	}
@@ -284,12 +286,12 @@ func TestAppendPacketsAndFinalizeArtifact(t *testing.T) {
 	}
 
 	// Verify file on disk.
-	if !s.ArtifactExists(testSessionID) {
+	if !s.ArtifactExists(testTenantID, testSessionID) {
 		t.Fatal("ArtifactExists returned false after finalization")
 	}
 
 	var data []byte
-	err = s.ReadArtifact(ctx, testSessionID, func(chunk *modelcapturev1.CaptureArtifactChunk) error {
+	err = s.ReadArtifact(ctx, testTenantID, testSessionID, func(chunk *modelcapturev1.CaptureArtifactChunk) error {
 		data = append(data, chunk.GetData()...)
 		return nil
 	})
@@ -346,7 +348,7 @@ func TestReadArtifactChunked(t *testing.T) {
 	ctx := context.Background()
 
 	cfg := newSessionConfig(t, testSessionID)
-	if _, err := s.CreateSession(ctx, cfg); err != nil {
+	if _, err := s.CreateSession(ctx, testTenantID, cfg); err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
 
@@ -359,7 +361,7 @@ func TestReadArtifactChunked(t *testing.T) {
 
 	linkType := netcapturev1.LinkType_LINK_TYPE_ETHERNET
 	snapLen := uint32(2048)
-	if err := s.AppendPackets(ctx, testSessionID, linkType, snapLen, packets); err != nil {
+	if err := s.AppendPackets(ctx, testTenantID, testSessionID, linkType, snapLen, packets); err != nil {
 		t.Fatalf("AppendPackets: %v", err)
 	}
 
@@ -369,7 +371,7 @@ func TestReadArtifactChunked(t *testing.T) {
 	}.Build()
 
 	expiresAt := time.Now().Add(24 * time.Hour)
-	artifact, err := s.FinalizeArtifact(ctx, testSessionID, linkType, snapLen, counters, expiresAt)
+	artifact, err := s.FinalizeArtifact(ctx, testTenantID, testSessionID, linkType, snapLen, counters, expiresAt)
 	if err != nil {
 		t.Fatalf("FinalizeArtifact: %v", err)
 	}
@@ -379,7 +381,7 @@ func TestReadArtifactChunked(t *testing.T) {
 	}
 
 	var chunks []*modelcapturev1.CaptureArtifactChunk
-	err = s.ReadArtifact(ctx, testSessionID, func(chunk *modelcapturev1.CaptureArtifactChunk) error {
+	err = s.ReadArtifact(ctx, testTenantID, testSessionID, func(chunk *modelcapturev1.CaptureArtifactChunk) error {
 		chunks = append(chunks, chunk)
 		return nil
 	})
@@ -416,14 +418,14 @@ func TestSweepExpired(t *testing.T) {
 	ctx := context.Background()
 
 	cfg := newSessionConfig(t, testSessionID)
-	if _, err := s.CreateSession(ctx, cfg); err != nil {
+	if _, err := s.CreateSession(ctx, testTenantID, cfg); err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
 
 	linkType := netcapturev1.LinkType_LINK_TYPE_ETHERNET
 	snapLen := uint32(128)
 	packets := []*netcapturev1.PacketRecord{newPacket([]byte("test packet"))}
-	if err := s.AppendPackets(ctx, testSessionID, linkType, snapLen, packets); err != nil {
+	if err := s.AppendPackets(ctx, testTenantID, testSessionID, linkType, snapLen, packets); err != nil {
 		t.Fatalf("AppendPackets: %v", err)
 	}
 
@@ -434,13 +436,13 @@ func TestSweepExpired(t *testing.T) {
 
 	// Expired 1 hour ago.
 	expiresAt := time.Now().Add(-1 * time.Hour)
-	artifact, err := s.FinalizeArtifact(ctx, testSessionID, linkType, snapLen, counters, expiresAt)
+	artifact, err := s.FinalizeArtifact(ctx, testTenantID, testSessionID, linkType, snapLen, counters, expiresAt)
 	if err != nil {
 		t.Fatalf("FinalizeArtifact: %v", err)
 	}
 
 	// Update session with finalized artifact in state.
-	_, err = s.MutateSession(ctx, testSessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+	_, err = s.MutateSession(ctx, testTenantID, testSessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
 		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
 		rec.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT)
 		rec.GetState().SetArtifact(artifact)
@@ -451,7 +453,7 @@ func TestSweepExpired(t *testing.T) {
 		t.Fatalf("MutateSession: %v", err)
 	}
 
-	if !s.ArtifactExists(testSessionID) {
+	if !s.ArtifactExists(testTenantID, testSessionID) {
 		t.Fatal("artifact file should exist before sweep")
 	}
 
@@ -465,12 +467,12 @@ func TestSweepExpired(t *testing.T) {
 	}
 
 	// Artifact file must be gone.
-	if s.ArtifactExists(testSessionID) {
+	if s.ArtifactExists(testTenantID, testSessionID) {
 		t.Error("artifact file still exists after sweep")
 	}
 
 	// ReadArtifact should return ErrCodeArtifactNotFound.
-	err = s.ReadArtifact(ctx, testSessionID, func(_ *modelcapturev1.CaptureArtifactChunk) error {
+	err = s.ReadArtifact(ctx, testTenantID, testSessionID, func(_ *modelcapturev1.CaptureArtifactChunk) error {
 		return nil
 	})
 	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeArtifactNotFound {
@@ -478,7 +480,7 @@ func TestSweepExpired(t *testing.T) {
 	}
 
 	// Session record in KV must remain intact with metadata and counters.
-	rec, _, err := s.Session(ctx, testSessionID)
+	rec, _, err := s.Session(ctx, testTenantID, testSessionID)
 	if err != nil {
 		t.Fatalf("Session: %v", err)
 	}
@@ -498,14 +500,14 @@ func TestDeleteSession(t *testing.T) {
 	ctx := context.Background()
 
 	cfg := newSessionConfig(t, testSessionID)
-	if _, err := s.CreateSession(ctx, cfg); err != nil {
+	if _, err := s.CreateSession(ctx, testTenantID, cfg); err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
 
 	linkType := netcapturev1.LinkType_LINK_TYPE_ETHERNET
 	snapLen := uint32(128)
 	packets := []*netcapturev1.PacketRecord{newPacket([]byte("test packet"))}
-	if err := s.AppendPackets(ctx, testSessionID, linkType, snapLen, packets); err != nil {
+	if err := s.AppendPackets(ctx, testTenantID, testSessionID, linkType, snapLen, packets); err != nil {
 		t.Fatalf("AppendPackets: %v", err)
 	}
 
@@ -513,23 +515,23 @@ func TestDeleteSession(t *testing.T) {
 		ReceivedPackets: proto.Uint64(1),
 	}.Build()
 
-	if _, err := s.FinalizeArtifact(ctx, testSessionID, linkType, snapLen, counters, time.Now().Add(time.Hour)); err != nil {
+	if _, err := s.FinalizeArtifact(ctx, testTenantID, testSessionID, linkType, snapLen, counters, time.Now().Add(time.Hour)); err != nil {
 		t.Fatalf("FinalizeArtifact: %v", err)
 	}
 
-	if !s.ArtifactExists(testSessionID) {
+	if !s.ArtifactExists(testTenantID, testSessionID) {
 		t.Fatal("artifact file should exist before delete")
 	}
 
-	if err := s.DeleteSession(ctx, testSessionID); err != nil {
+	if err := s.DeleteSession(ctx, testTenantID, testSessionID); err != nil {
 		t.Fatalf("DeleteSession: %v", err)
 	}
 
-	if s.ArtifactExists(testSessionID) {
+	if s.ArtifactExists(testTenantID, testSessionID) {
 		t.Error("artifact file still exists after delete")
 	}
 
-	rec, _, err := s.Session(ctx, testSessionID)
+	rec, _, err := s.Session(ctx, testTenantID, testSessionID)
 	if err != nil {
 		t.Fatalf("Session: %v", err)
 	}
@@ -545,14 +547,14 @@ func TestListSessions(t *testing.T) {
 	id1 := "0192e6a0-0000-7000-8000-000000000001"
 	id2 := "0192e6a0-0000-7000-8000-000000000002"
 
-	if _, err := s.CreateSession(ctx, newSessionConfig(t, id2)); err != nil {
+	if _, err := s.CreateSession(ctx, testTenantID, newSessionConfig(t, id2)); err != nil {
 		t.Fatalf("create id2: %v", err)
 	}
-	if _, err := s.CreateSession(ctx, newSessionConfig(t, id1)); err != nil {
+	if _, err := s.CreateSession(ctx, testTenantID, newSessionConfig(t, id1)); err != nil {
 		t.Fatalf("create id1: %v", err)
 	}
 
-	list, err := s.ListSessions(ctx)
+	list, err := s.ListSessions(ctx, testTenantID)
 	if err != nil {
 		t.Fatalf("ListSessions: %v", err)
 	}
@@ -584,22 +586,22 @@ func TestSweepExpiredLeavesUnexpiredArtifacts(t *testing.T) {
 
 	finalize := func(sessionID string, expiresAt time.Time) {
 		t.Helper()
-		if _, err := s.CreateSession(ctx, newSessionConfig(t, sessionID)); err != nil {
+		if _, err := s.CreateSession(ctx, testTenantID, newSessionConfig(t, sessionID)); err != nil {
 			t.Fatalf("CreateSession %s: %v", sessionID, err)
 		}
 		packets := []*netcapturev1.PacketRecord{newPacket([]byte("test packet"))}
-		if err := s.AppendPackets(ctx, sessionID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128, packets); err != nil {
+		if err := s.AppendPackets(ctx, testTenantID, sessionID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128, packets); err != nil {
 			t.Fatalf("AppendPackets %s: %v", sessionID, err)
 		}
 		counters := netcapturev1.CaptureCounters_builder{
 			ReceivedPackets: proto.Uint64(1),
 			AcceptedPackets: proto.Uint64(1),
 		}.Build()
-		artifact, err := s.FinalizeArtifact(ctx, sessionID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128, counters, expiresAt)
+		artifact, err := s.FinalizeArtifact(ctx, testTenantID, sessionID, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128, counters, expiresAt)
 		if err != nil {
 			t.Fatalf("FinalizeArtifact %s: %v", sessionID, err)
 		}
-		if _, err := s.MutateSession(ctx, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+		if _, err := s.MutateSession(ctx, testTenantID, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
 			rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
 			rec.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT)
 			rec.GetState().SetArtifact(artifact)
@@ -615,10 +617,10 @@ func TestSweepExpiredLeavesUnexpiredArtifacts(t *testing.T) {
 
 	// A session still capturing has a file on disk and no artifact
 	// descriptor; nothing about it is expired yet.
-	if _, err := s.CreateSession(ctx, newSessionConfig(t, unfinishedI)); err != nil {
+	if _, err := s.CreateSession(ctx, testTenantID, newSessionConfig(t, unfinishedI)); err != nil {
 		t.Fatalf("CreateSession %s: %v", unfinishedI, err)
 	}
-	if err := s.AppendPackets(ctx, unfinishedI, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128,
+	if err := s.AppendPackets(ctx, testTenantID, unfinishedI, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128,
 		[]*netcapturev1.PacketRecord{newPacket([]byte("in flight"))}); err != nil {
 		t.Fatalf("AppendPackets %s: %v", unfinishedI, err)
 	}
@@ -630,13 +632,13 @@ func TestSweepExpiredLeavesUnexpiredArtifacts(t *testing.T) {
 	if removed != 1 {
 		t.Fatalf("got %d removed files, want only the expired one", removed)
 	}
-	if s.ArtifactExists(expiredID) {
+	if s.ArtifactExists(testTenantID, expiredID) {
 		t.Error("the expired artifact is still on disk")
 	}
-	if !s.ArtifactExists(retainedID) {
+	if !s.ArtifactExists(testTenantID, retainedID) {
 		t.Error("an artifact inside its retention window was purged")
 	}
-	if !s.ArtifactExists(unfinishedI) {
+	if !s.ArtifactExists(testTenantID, unfinishedI) {
 		t.Error("an in-flight capture's file was purged")
 	}
 }
@@ -647,38 +649,38 @@ func TestAppendPacketsRefusesToOverwriteAFinalizedArtifact(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
-	if _, err := s.CreateSession(ctx, newSessionConfig(t, testSessionID)); err != nil {
+	if _, err := s.CreateSession(ctx, testTenantID, newSessionConfig(t, testSessionID)); err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
 
 	linkType := netcapturev1.LinkType_LINK_TYPE_ETHERNET
 	packets := []*netcapturev1.PacketRecord{newPacket([]byte("first capture"))}
-	if err := s.AppendPackets(ctx, testSessionID, linkType, 128, packets); err != nil {
+	if err := s.AppendPackets(ctx, testTenantID, testSessionID, linkType, 128, packets); err != nil {
 		t.Fatalf("AppendPackets: %v", err)
 	}
 	counters := netcapturev1.CaptureCounters_builder{
 		ReceivedPackets: proto.Uint64(1),
 		AcceptedPackets: proto.Uint64(1),
 	}.Build()
-	artifact, err := s.FinalizeArtifact(ctx, testSessionID, linkType, 128, counters, time.Now().Add(time.Hour))
+	artifact, err := s.FinalizeArtifact(ctx, testTenantID, testSessionID, linkType, 128, counters, time.Now().Add(time.Hour))
 	if err != nil {
 		t.Fatalf("FinalizeArtifact: %v", err)
 	}
 
-	err = s.AppendPackets(ctx, testSessionID, linkType, 128,
+	err = s.AppendPackets(ctx, testTenantID, testSessionID, linkType, 128,
 		[]*netcapturev1.PacketRecord{newPacket([]byte("second capture"))})
 	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeArtifactExists {
 		t.Fatalf("AppendPackets after finalization got %v, want ErrCodeArtifactExists", err)
 	}
 
-	_, err = s.FinalizeArtifact(ctx, testSessionID, linkType, 128, counters, time.Now().Add(time.Hour))
+	_, err = s.FinalizeArtifact(ctx, testTenantID, testSessionID, linkType, 128, counters, time.Now().Add(time.Hour))
 	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeArtifactExists {
 		t.Fatalf("FinalizeArtifact a second time got %v, want ErrCodeArtifactExists", err)
 	}
 
 	var size int64
 	hasher := sha256.New()
-	if err := s.ReadArtifact(ctx, testSessionID, func(chunk *modelcapturev1.CaptureArtifactChunk) error {
+	if err := s.ReadArtifact(ctx, testTenantID, testSessionID, func(chunk *modelcapturev1.CaptureArtifactChunk) error {
 		size += int64(len(chunk.GetData()))
 		hasher.Write(chunk.GetData())
 		return nil
@@ -698,22 +700,22 @@ func TestArtifactPathsRefuseANonUUIDSession(t *testing.T) {
 
 	escape := "../../escaped"
 
-	if err := s.DeleteSession(ctx, escape); err == nil {
+	if err := s.DeleteSession(ctx, testTenantID, escape); err == nil {
 		t.Error("DeleteSession accepted a session id that is not a uuid")
 	}
 	// ReadArtifact would answer "not found" for an escaping path too, so the
 	// code is what discriminates: only the uuid check produces ErrCodeBadSession.
-	err := s.ReadArtifact(ctx, escape, func(_ *modelcapturev1.CaptureArtifactChunk) error {
+	err := s.ReadArtifact(ctx, testTenantID, escape, func(_ *modelcapturev1.CaptureArtifactChunk) error {
 		return nil
 	})
 	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeBadSession {
 		t.Errorf("ReadArtifact got %v, want ErrCodeBadSession", err)
 	}
-	if err := s.AppendPackets(ctx, escape, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128,
+	if err := s.AppendPackets(ctx, testTenantID, escape, netcapturev1.LinkType_LINK_TYPE_ETHERNET, 128,
 		[]*netcapturev1.PacketRecord{newPacket([]byte("x"))}); err == nil {
 		t.Error("AppendPackets accepted a session id that is not a uuid")
 	}
-	if s.ArtifactExists(escape) {
+	if s.ArtifactExists(testTenantID, escape) {
 		t.Error("ArtifactExists answered for a session id that is not a uuid")
 	}
 }
@@ -724,15 +726,19 @@ func TestReadArtifactEmitsAFinalChunkForAnEmptyArtifact(t *testing.T) {
 	s, dir := newTestStoreDir(t, time.Now)
 	ctx := context.Background()
 
-	if _, err := s.CreateSession(ctx, newSessionConfig(t, testSessionID)); err != nil {
+	if _, err := s.CreateSession(ctx, testTenantID, newSessionConfig(t, testSessionID)); err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, testSessionID+".pcapng"), nil, 0o600); err != nil {
+	tenantDir := filepath.Join(dir, testTenantID)
+	if err := os.MkdirAll(tenantDir, 0o700); err != nil {
+		t.Fatalf("mkdir tenant dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tenantDir, testSessionID+".pcapng"), nil, 0o600); err != nil {
 		t.Fatalf("write empty artifact: %v", err)
 	}
 
 	var chunks []*modelcapturev1.CaptureArtifactChunk
-	if err := s.ReadArtifact(ctx, testSessionID, func(chunk *modelcapturev1.CaptureArtifactChunk) error {
+	if err := s.ReadArtifact(ctx, testTenantID, testSessionID, func(chunk *modelcapturev1.CaptureArtifactChunk) error {
 		chunks = append(chunks, chunk)
 		return nil
 	}); err != nil {
@@ -753,36 +759,241 @@ func TestAppendPacketsRefusesADeletedSession(t *testing.T) {
 	s, dir := newTestStoreDir(t, time.Now)
 	ctx := context.Background()
 
-	if _, err := s.CreateSession(ctx, newSessionConfig(t, testSessionID)); err != nil {
+	if _, err := s.CreateSession(ctx, testTenantID, newSessionConfig(t, testSessionID)); err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
 	linkType := netcapturev1.LinkType_LINK_TYPE_ETHERNET
-	if err := s.AppendPackets(ctx, testSessionID, linkType, 128,
+	if err := s.AppendPackets(ctx, testTenantID, testSessionID, linkType, 128,
 		[]*netcapturev1.PacketRecord{newPacket([]byte("first"))}); err != nil {
 		t.Fatalf("AppendPackets: %v", err)
 	}
 
-	if err := s.DeleteSession(ctx, testSessionID); err != nil {
+	if err := s.DeleteSession(ctx, testTenantID, testSessionID); err != nil {
 		t.Fatalf("DeleteSession: %v", err)
 	}
 
-	err := s.AppendPackets(ctx, testSessionID, linkType, 128,
+	err := s.AppendPackets(ctx, testTenantID, testSessionID, linkType, 128,
 		[]*netcapturev1.PacketRecord{newPacket([]byte("after the delete"))})
 	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeNotFound {
 		t.Fatalf("AppendPackets after delete got %v, want ErrCodeNotFound", err)
 	}
 
 	counters := netcapturev1.CaptureCounters_builder{ReceivedPackets: proto.Uint64(1), AcceptedPackets: proto.Uint64(1)}.Build()
-	_, err = s.FinalizeArtifact(ctx, testSessionID, linkType, 128, counters, time.Now().Add(time.Hour))
+	_, err = s.FinalizeArtifact(ctx, testTenantID, testSessionID, linkType, 128, counters, time.Now().Add(time.Hour))
 	if code, ok := errs.CodeOf(err); !ok || code != captureapi.ErrCodeNotFound {
 		t.Fatalf("FinalizeArtifact after delete got %v, want ErrCodeNotFound", err)
 	}
 
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatalf("read captures dir: %v", err)
+	tenantDir := filepath.Join(dir, testTenantID)
+	entries, err := os.ReadDir(tenantDir)
+	if (err != nil && !errors.Is(err, os.ErrNotExist)) || len(entries) != 0 {
+		t.Fatalf("a deleted session left %d file(s) behind that no sweep can reach (err: %v)", len(entries), err)
 	}
-	if len(entries) != 0 {
-		t.Fatalf("a deleted session left %d file(s) behind that no sweep can reach", len(entries))
+}
+
+func TestCrossTenantCaptureIsolation(t *testing.T) {
+	s, dir := newTestStoreDir(t, time.Now)
+	ctx := context.Background()
+
+	tenantA := "0192e6a0-0000-7000-8000-000000000001"
+	tenantB := "0192e6a0-0000-7000-8000-000000000002"
+	sessionID := "0192e6a0-1111-7000-8000-000000000001"
+
+	cfgA := newSessionConfig(t, sessionID)
+	cfgB := newSessionConfig(t, sessionID)
+
+	if _, err := s.CreateSession(ctx, tenantA, cfgA); err != nil {
+		t.Fatalf("CreateSession tenantA: %v", err)
+	}
+	if _, err := s.CreateSession(ctx, tenantB, cfgB); err != nil {
+		t.Fatalf("CreateSession tenantB: %v", err)
+	}
+
+	linkType := netcapturev1.LinkType_LINK_TYPE_ETHERNET
+	packetsA := []*netcapturev1.PacketRecord{newPacket([]byte("tenant-a payload"))}
+	packetsB := []*netcapturev1.PacketRecord{newPacket([]byte("tenant-b payload"))}
+
+	if err := s.AppendPackets(ctx, tenantA, sessionID, linkType, 128, packetsA); err != nil {
+		t.Fatalf("AppendPackets tenantA: %v", err)
+	}
+	if err := s.AppendPackets(ctx, tenantB, sessionID, linkType, 128, packetsB); err != nil {
+		t.Fatalf("AppendPackets tenantB: %v", err)
+	}
+
+	countersA := netcapturev1.CaptureCounters_builder{
+		ReceivedPackets: proto.Uint64(1),
+		AcceptedPackets: proto.Uint64(1),
+	}.Build()
+	countersB := netcapturev1.CaptureCounters_builder{
+		ReceivedPackets: proto.Uint64(1),
+		AcceptedPackets: proto.Uint64(1),
+	}.Build()
+
+	artifactA, err := s.FinalizeArtifact(ctx, tenantA, sessionID, linkType, 128, countersA, time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("FinalizeArtifact tenantA: %v", err)
+	}
+	artifactB, err := s.FinalizeArtifact(ctx, tenantB, sessionID, linkType, 128, countersB, time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("FinalizeArtifact tenantB: %v", err)
+	}
+
+	pathA := filepath.Join(dir, tenantA, sessionID+".pcapng")
+	pathB := filepath.Join(dir, tenantB, sessionID+".pcapng")
+
+	if _, err := os.Stat(pathA); err != nil {
+		t.Errorf("artifact for tenantA not found at %s: %v", pathA, err)
+	}
+	if _, err := os.Stat(pathB); err != nil {
+		t.Errorf("artifact for tenantB not found at %s: %v", pathB, err)
+	}
+
+	if _, err := s.MutateSession(ctx, tenantA, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED)
+		rec.GetState().SetArtifact(artifactA)
+		return nil
+	}); err != nil {
+		t.Fatalf("MutateSession tenantA: %v", err)
+	}
+	if _, err := s.MutateSession(ctx, tenantB, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+		rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING)
+		rec.GetState().SetArtifact(artifactB)
+		return nil
+	}); err != nil {
+		t.Fatalf("MutateSession tenantB: %v", err)
+	}
+
+	recA, _, err := s.Session(ctx, tenantA, sessionID)
+	if err != nil || recA == nil {
+		t.Fatalf("Session tenantA: %v", err)
+	}
+	recB, _, err := s.Session(ctx, tenantB, sessionID)
+	if err != nil || recB == nil {
+		t.Fatalf("Session tenantB: %v", err)
+	}
+	if recA.GetState().GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED {
+		t.Errorf("recA lifecycle = %v, want COMPLETED", recA.GetState().GetLifecycle())
+	}
+	if recB.GetState().GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_RUNNING {
+		t.Errorf("recB lifecycle = %v, want RUNNING", recB.GetState().GetLifecycle())
+	}
+
+	listA, err := s.ListSessions(ctx, tenantA)
+	if err != nil || len(listA) != 1 {
+		t.Fatalf("ListSessions tenantA got %d, want 1", len(listA))
+	}
+	listB, err := s.ListSessions(ctx, tenantB)
+	if err != nil || len(listB) != 1 {
+		t.Fatalf("ListSessions tenantB got %d, want 1", len(listB))
+	}
+
+	if err := s.DeleteSession(ctx, tenantA, sessionID); err != nil {
+		t.Fatalf("DeleteSession tenantA: %v", err)
+	}
+	if s.ArtifactExists(tenantA, sessionID) {
+		t.Error("tenantA artifact still exists after delete")
+	}
+	if !s.ArtifactExists(tenantB, sessionID) {
+		t.Error("tenantB artifact was removed when tenantA was deleted")
+	}
+}
+
+func TestStoreRejectsInvalidTenant(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	const invalidTenant = "not-a-valid-tenant"
+
+	if _, err := s.CreateSession(ctx, invalidTenant, newSessionConfig(t, testSessionID)); err == nil {
+		t.Fatal("CreateSession accepted invalid tenant")
+	}
+	if _, _, err := s.Session(ctx, invalidTenant, testSessionID); err == nil {
+		t.Fatal("Session accepted invalid tenant")
+	}
+	if _, err := s.ListSessions(ctx, invalidTenant); err == nil {
+		t.Fatal("ListSessions accepted invalid tenant")
+	}
+	if err := s.DeleteSession(ctx, invalidTenant, testSessionID); err == nil {
+		t.Fatal("DeleteSession accepted invalid tenant")
+	}
+	if _, err := s.MutateSession(ctx, invalidTenant, testSessionID, func(*modelcapturev1.CaptureSessionRecord) error { return nil }); err == nil {
+		t.Fatal("MutateSession accepted invalid tenant")
+	}
+	if err := s.ReadArtifact(ctx, invalidTenant, testSessionID, func(*modelcapturev1.CaptureArtifactChunk) error { return nil }); err == nil {
+		t.Fatal("ReadArtifact accepted invalid tenant")
+	}
+}
+
+func TestListSessionsFiltersNonUUIDRemainder(t *testing.T) {
+	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+		StateDir:    t.TempDir(),
+		FsyncPolicy: service.BusFsyncPeriodic,
+		ListenPort:  0,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+	kv, err := hub.JetStream().KeyValue(context.Background(), edgebus.CapturesBucket)
+	if err != nil {
+		t.Fatalf("captures bucket: %v", err)
+	}
+	capturesDir := filepath.Join(t.TempDir(), "captures")
+	store, err := captureapi.NewStore(kv, capturesDir, time.Now)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	ctx := context.Background()
+
+	// Create a valid session
+	if _, err := store.CreateSession(ctx, testTenantID, newSessionConfig(t, testSessionID)); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	// Directly insert a key with non-UUID remainder
+	if _, err := kv.Put(ctx, testTenantID+".not-a-uuid", []byte("garbage")); err != nil {
+		t.Fatalf("put key: %v", err)
+	}
+
+	sessions, err := store.ListSessions(ctx, testTenantID)
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("ListSessions returned %d sessions, want 1", len(sessions))
+	}
+	if got := sessions[0].GetConfig().GetRef().GetCaptureSession().GetId(); got != testSessionID {
+		t.Fatalf("session ID = %q, want %q", got, testSessionID)
+	}
+}
+
+func TestSweepExpiredReportsUnparseableKeysAsFailures(t *testing.T) {
+	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+		StateDir:    t.TempDir(),
+		FsyncPolicy: service.BusFsyncPeriodic,
+		ListenPort:  0,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+	kv, err := hub.JetStream().KeyValue(context.Background(), edgebus.CapturesBucket)
+	if err != nil {
+		t.Fatalf("captures bucket: %v", err)
+	}
+	capturesDir := filepath.Join(t.TempDir(), "captures")
+	store, err := captureapi.NewStore(kv, capturesDir, time.Now)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	ctx := context.Background()
+
+	// Directly insert an unparseable key (single part)
+	if _, err := kv.Put(ctx, "unparseablekey", []byte("garbage")); err != nil {
+		t.Fatalf("put key: %v", err)
+	}
+
+	_, err = store.SweepExpired(ctx)
+	if err == nil {
+		t.Fatal("SweepExpired returned nil error for unparseable key, want failure")
 	}
 }

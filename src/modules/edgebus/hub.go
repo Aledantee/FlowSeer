@@ -18,6 +18,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 )
 
 // ErrCodeHub identifies a failure starting or operating the hub.
@@ -121,6 +122,7 @@ type edgeAccount struct {
 	js         jetstream.JetStream
 	accountJWT string
 	key        nkeys.KeyPair
+	tenant     string
 }
 
 const (
@@ -263,18 +265,25 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 	}
 	// Re-attach every edge whose account key persisted, so a restart
 	// restores the accounts and source streams the leaves reconnect into.
-	edgeIDs, err := keys.persistedEdgeIDs()
+	persisted, err := keys.persistedEdgeIDs()
 	if err != nil {
 		return nil, err
 	}
-	for _, edgeID := range edgeIDs {
-		if _, err := hub.ensureEdgeAccount(ctx, edgeID); err != nil {
+	for _, pe := range persisted {
+		if pe.err != nil {
+			hostLog.WarnContext(ctx, "skipping a persisted edge whose tenant could not be read",
+				slog.String("otel.event.name", "flowseer.edge.bus.tenant_read_failed"),
+				slog.String("flowseer.edge.id", pe.id),
+				slog.String("error.type", errorTypeOf(pe.err)))
+			continue
+		}
+		if _, err := hub.ensureEdgeAccount(ctx, pe.tenant, pe.id); err != nil {
 			// One edge's stored key must not stop the hub. A file that
 			// cannot be turned into an account is a fact about that edge,
 			// and refusing to start leaves every other edge unserved for it.
 			hostLog.WarnContext(ctx, "skipping a persisted edge whose account could not be restored",
 				slog.String("otel.event.name", "flowseer.edge.bus.account_skipped"),
-				slog.String("flowseer.edge.id", edgeID),
+				slog.String("flowseer.edge.id", pe.id),
 				slog.String("error.type", errorTypeOf(err)))
 			continue
 		}
@@ -330,7 +339,7 @@ func waitForJetStream(ctx context.Context, js jetstream.JetStream) error {
 }
 
 func (h *Hub) createStores(ctx context.Context) error {
-	for _, bucket := range []string{LaneBucket, EdgeBucket, CapturesBucket} {
+	for _, bucket := range []string{LaneBucket, EdgeBucket, CapturesBucket, TenantBucket} {
 		if _, err := h.centralJS.CreateOrUpdateKeyValue(ctx, jetstream.KeyValueConfig{
 			Bucket:  bucket,
 			Storage: jetstream.FileStorage,
@@ -339,6 +348,18 @@ func (h *Hub) createStores(ctx context.Context) error {
 			return errs.From(err).Code(ErrCodeHub).Attr("bucket", bucket).Msg("create key-value bucket")
 		}
 	}
+	// KeyValueConfig has no AllowAtomicPublish field, and each
+	// CreateOrUpdateKeyValue clears the stream flag, so restore it on every start.
+	tenantStream, err := h.centralJS.Stream(ctx, "KV_"+TenantBucket)
+	if err != nil {
+		return errs.From(err).Code(ErrCodeHub).Attr("bucket", TenantBucket).Msg("load key-value stream")
+	}
+	tenantConfig := tenantStream.CachedInfo().Config
+	tenantConfig.AllowAtomicPublish = true
+	if _, err := h.centralJS.UpdateStream(ctx, tenantConfig); err != nil {
+		return errs.From(err).Code(ErrCodeHub).Attr("bucket", TenantBucket).Msg("update key-value stream")
+	}
+
 	window := h.cfg.AuditDuplicateWindow
 	if window == 0 {
 		window = defaultAuditDedupeWindow
@@ -349,7 +370,7 @@ func (h *Hub) createStores(ctx context.Context) error {
 	}
 	if _, err := h.centralJS.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 		Name:       AuditStream,
-		Subjects:   []string{fmt.Sprintf("flowseer.%s.audit.device.>", DefaultTenant)},
+		Subjects:   []string{"flowseer.*.audit.device.>"},
 		Storage:    jetstream.FileStorage,
 		Retention:  jetstream.LimitsPolicy,
 		MaxBytes:   auditBytes,
@@ -368,10 +389,26 @@ func (h *Hub) JetStream() jetstream.JetStream { return h.centralJS }
 // Connection is central's own connection into the central account.
 func (h *Hub) Connection() *nats.Conn { return h.central }
 
-// Tenant is the subject-layout tenant token. Accounts are the isolation
-// boundary; the token distinguishes tenants within a subject once more than
-// one exists.
-func (h *Hub) Tenant() string { return DefaultTenant }
+// EdgeTenant returns the tenant assigned to edgeID, and whether the edge is known.
+func (h *Hub) EdgeTenant(edgeID string) (string, bool) {
+	if h == nil {
+		return "", false
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.edges != nil {
+		if ea, ok := h.edges[edgeID]; ok && ea.tenant != "" {
+			return ea.tenant, true
+		}
+	}
+	if h.keys != nil {
+		t, ok, _ := h.keys.edgeTenant(edgeID)
+		if ok && t != "" {
+			return t, true
+		}
+	}
+	return "", false
+}
 
 // ListenURL is what an edge's leaf remote dials, or empty when the listener
 // is disabled.
@@ -395,7 +432,7 @@ func (h *Hub) ListenPort() int { return h.opts.Websocket.Port }
 // it: the account is the isolation boundary, so one edge's
 // reflection can address nothing but its own subjects. Serialized against
 // concurrent attaches, with account enablement ordered against Close.
-func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccount, error) {
+func (h *Hub) ensureEdgeAccount(ctx context.Context, tenantID, edgeID string) (*edgeAccount, error) {
 	// Before anything is written or named. An id with a separator escapes
 	// the keys directory; one with a dot, a wildcard or whitespace is
 	// rejected by nats-server when the stream is created, after the seed
@@ -416,10 +453,34 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccoun
 	}
 	if ea, ok := h.edges[edgeID]; ok {
 		h.mu.Unlock()
+		if tenantID != "" && ea.tenant != tenantID {
+			return nil, errs.New().Code(ErrCodeHub).
+				Attr("edge", edgeID).
+				Attr("tenant", tenantID).
+				Attr("existing_tenant", ea.tenant).
+				Msg("edge is already attached under a different tenant")
+		}
 		return ea, nil
 	}
 	srv := h.server
 	h.mu.Unlock()
+
+	if tenantID == "" {
+		persisted, ok, err := h.keys.edgeTenant(edgeID)
+		if err != nil {
+			return nil, err
+		}
+		if !ok || persisted == "" {
+			return nil, errs.New().Code(ErrCodeHub).Attr("edge", edgeID).Msg("edge has no known tenant")
+		}
+		tenantID = persisted
+	}
+	if err := tenant.Validate(tenantID); err != nil {
+		return nil, errs.From(err).Code(ErrCodeHub).Attr("tenant", tenantID).Msg("validate edge tenant")
+	}
+	if err := h.keys.persistEdgeTenant(edgeID, tenantID); err != nil {
+		return nil, err
+	}
 
 	key, err := h.keys.edgeAccountKey(edgeID)
 	if err != nil {
@@ -451,7 +512,7 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccoun
 		h.mu.RUnlock()
 		return nil, err
 	}
-	ea := &edgeAccount{conn: conn, js: js, accountJWT: accountJWT, key: key}
+	ea := &edgeAccount{conn: conn, js: js, accountJWT: accountJWT, key: key, tenant: tenantID}
 
 	account, lookupErr := srv.LookupAccount(pub)
 	// CONNECT enables JetStream for the authenticated account before it
@@ -478,7 +539,7 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccoun
 		}
 		return nil, errs.From(err).Code(ErrCodeHub).Attr("edge", edgeID).Msg("wait for the edge account JetStream")
 	}
-	if err := h.createEdgeStream(ctx, js, edgeID); err != nil {
+	if err := h.createEdgeStream(ctx, js, tenantID, edgeID); err != nil {
 		conn.Close()
 		return nil, err
 	}
@@ -495,8 +556,8 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccoun
 }
 
 // createEdgeStream creates the edge's source stream in its own account.
-func (h *Hub) createEdgeStream(ctx context.Context, js jetstream.JetStream, edgeID string) error {
-	branch := EdgeSubtree(DefaultTenant, edgeID)
+func (h *Hub) createEdgeStream(ctx context.Context, js jetstream.JetStream, tenant, edgeID string) error {
+	branch := EdgeSubtree(tenant, edgeID)
 	maxBytes := h.cfg.EdgeStreamMaxBytes
 	if maxBytes <= 0 {
 		maxBytes = defaultEdgeStreamBytes
@@ -543,17 +604,24 @@ func (h *Hub) createEdgeStream(ctx context.Context, js jetstream.JetStream, edge
 // JetStream subjects sourcing needs. It ensures the account and its source
 // stream exist first.
 func (h *Hub) MintEdgeUser(ctx context.Context, edgeID string) (EdgeCredentials, error) {
-	ea, err := h.ensureEdgeAccount(ctx, edgeID)
+	ea, err := h.ensureEdgeAccount(ctx, "", edgeID)
 	if err != nil {
 		return EdgeCredentials{}, err
 	}
-	return h.keys.mintUser(ea.key, ea.accountJWT, "edge-"+edgeID, edgePermissions(edgeID))
+	if ea.tenant == "" {
+		return EdgeCredentials{}, errs.New().Code(ErrCodeHub).Attr("edge", edgeID).Msg("edge has no known tenant")
+	}
+	perms, err := edgePermissions(ea.tenant, edgeID)
+	if err != nil {
+		return EdgeCredentials{}, err
+	}
+	return h.keys.mintUser(ea.key, ea.accountJWT, "edge-"+edgeID, perms)
 }
 
 // AttachEdge ensures the edge's account, connection, and source stream
 // exist. Idempotent; safe against concurrent attaches.
-func (h *Hub) AttachEdge(ctx context.Context, edgeID string) error {
-	_, err := h.ensureEdgeAccount(ctx, edgeID)
+func (h *Hub) AttachEdge(ctx context.Context, tenantID, edgeID string) error {
+	_, err := h.ensureEdgeAccount(ctx, tenantID, edgeID)
 	return err
 }
 

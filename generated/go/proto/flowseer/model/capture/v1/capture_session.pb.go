@@ -14,7 +14,7 @@ package capturev1
 
 import (
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
-	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
+	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -2047,7 +2047,7 @@ var File_flowseer_model_capture_v1_capture_session_proto protoreflect.FileDescri
 
 const file_flowseer_model_capture_v1_capture_session_proto_rawDesc = "" +
 	"\n" +
-	"/flowseer/model/capture/v1/capture_session.proto\x12\x19flowseer.model.capture.v1\x1a!flowseer/model/edge/v1/edge.proto\x1a*flowseer/model/principal/v1/operator.proto\x1a.flowseer/net/capture/v1/capture_counters.proto\x1a,flowseer/net/capture/v1/capture_filter.proto\x1a'flowseer/net/capture/v1/link_type.proto\x1a$flowseer/net/capture/v1/mirror.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"5\n" +
+	"/flowseer/model/capture/v1/capture_session.proto\x12\x19flowseer.model.capture.v1\x1a!flowseer/model/edge/v1/edge.proto\x1a)flowseer/model/identity/v1/operator.proto\x1a.flowseer/net/capture/v1/capture_counters.proto\x1a,flowseer/net/capture/v1/capture_filter.proto\x1a'flowseer/net/capture/v1/link_type.proto\x1a$flowseer/net/capture/v1/mirror.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"5\n" +
 	"\x16CaptureSessionLocalRef\x12\x1b\n" +
 	"\x02id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"\xc0\x01\n" +
 	"\x17CaptureSessionGlobalRef\x12A\n" +
@@ -2071,9 +2071,9 @@ const file_flowseer_model_capture_v1_capture_session_proto_rawDesc = "" +
 	"\fmax_duration\x18\x03 \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x02*\x00R\vmaxDuration\x12,\n" +
 	"\vsnap_length\x18\x04 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03 \x00R\n" +
 	"snapLength:\xa0\x01\xbaH\x9c\x01\x1a\x99\x01\n" +
-	"\x16capture_budget.bounded\x127a capture budget must bound packets, bytes, or duration\x1aFhas(this.max_packets) || has(this.max_bytes) || has(this.max_duration)\"\xe0\x01\n" +
-	"\x14CaptureAuthorization\x12S\n" +
-	"\frequested_by\x18\x04 \x01(\v2(.flowseer.model.principal.v1.OperatorRefB\x06\xbaH\x03\xc8\x01\x01R\vrequestedBy\x12%\n" +
+	"\x16capture_budget.bounded\x127a capture budget must bound packets, bytes, or duration\x1aFhas(this.max_packets) || has(this.max_bytes) || has(this.max_duration)\"\xdf\x01\n" +
+	"\x14CaptureAuthorization\x12R\n" +
+	"\frequested_by\x18\x04 \x01(\v2'.flowseer.model.identity.v1.OperatorRefB\x06\xbaH\x03\xc8\x01\x01R\vrequestedBy\x12%\n" +
 	"\x06reason\x18\x02 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x10R\x06reason\x12<\n" +
 	"\x16full_payload_requested\x18\x03 \x01(\bB\x06\xbaH\x03\xc8\x01\x01R\x14fullPayloadRequestedJ\x04\b\x01\x10\x02R\boperator\"\xc9\x02\n" +
@@ -2156,7 +2156,7 @@ var file_flowseer_model_capture_v1_capture_session_proto_goTypes = []any{
 	(*v1.EdgeGlobalRef)(nil),        // 14: flowseer.model.edge.v1.EdgeGlobalRef
 	(v11.MirrorEncapsulation)(0),    // 15: flowseer.net.capture.v1.MirrorEncapsulation
 	(*durationpb.Duration)(nil),     // 16: google.protobuf.Duration
-	(*v12.OperatorRef)(nil),         // 17: flowseer.model.principal.v1.OperatorRef
+	(*v12.OperatorRef)(nil),         // 17: flowseer.model.identity.v1.OperatorRef
 	(v11.LinkType)(0),               // 18: flowseer.net.capture.v1.LinkType
 	(*timestamppb.Timestamp)(nil),   // 19: google.protobuf.Timestamp
 	(*v11.CaptureFilter)(nil),       // 20: flowseer.net.capture.v1.CaptureFilter
@@ -2169,7 +2169,7 @@ var file_flowseer_model_capture_v1_capture_session_proto_depIdxs = []int32{
 	4,  // 3: flowseer.model.capture.v1.CaptureSource.local_interface:type_name -> flowseer.model.capture.v1.LocalInterfaceSource
 	5,  // 4: flowseer.model.capture.v1.CaptureSource.mirror_receiver:type_name -> flowseer.model.capture.v1.MirrorReceiverSource
 	16, // 5: flowseer.model.capture.v1.CaptureBudget.max_duration:type_name -> google.protobuf.Duration
-	17, // 6: flowseer.model.capture.v1.CaptureAuthorization.requested_by:type_name -> flowseer.model.principal.v1.OperatorRef
+	17, // 6: flowseer.model.capture.v1.CaptureAuthorization.requested_by:type_name -> flowseer.model.identity.v1.OperatorRef
 	18, // 7: flowseer.model.capture.v1.CaptureArtifact.link_type:type_name -> flowseer.net.capture.v1.LinkType
 	19, // 8: flowseer.model.capture.v1.CaptureArtifact.expires_at:type_name -> google.protobuf.Timestamp
 	19, // 9: flowseer.model.capture.v1.CaptureArtifact.purged_at:type_name -> google.protobuf.Timestamp

@@ -21,6 +21,7 @@ require (
 	github.com/openconfig/gnmi v0.14.1
 	github.com/openconfig/goyang v1.6.3
 	github.com/stretchr/testify v1.12.1
+	github.com/synadia-io/orbit.go/jetstreamext v0.3.2
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/yuin/goldmark v1.8.6
 	go.aledante.io/FlowSeer/generated/go/yang v0.0.0-00010101000000-000000000000
@@ -91,6 +92,7 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20260805114148-88456608a4f6 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.8 // indirect
 	github.com/sirupsen/logrus v1.10.2 // indirect
+	github.com/synadia-io/orbit.go/natsext v0.1.3 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect

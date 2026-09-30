@@ -15,6 +15,7 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 )
@@ -125,6 +126,10 @@ func NewAdminService(store *edgestore.Store, holds LaneHolds, provisioning Provi
 // CreateEdge creates a pending edge and issues its first setup key. The key
 // string is in the response and nowhere else; central stores only its digest.
 func (s *AdminService) CreateEdge(ctx context.Context, req *connect.Request[apiedgev1.CreateEdgeRequest]) (*connect.Response[apiedgev1.CreateEdgeResponse], error) {
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return nil, connectErr(err)
+	}
 	id, err := uuid.NewV7()
 	if err != nil {
 		return nil, connectErr(errs.From(err).Code(ErrCodeRandom).Msg("draw edge identifier"))
@@ -139,7 +144,7 @@ func (s *AdminService) CreateEdge(ctx context.Context, req *connect.Request[apie
 	}
 
 	ref := edgeRef(edgeID)
-	stored, err := s.store.Mutate(ctx, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
+	stored, err := s.store.Mutate(ctx, tenantID, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
 		if current != nil {
 			return nil, errs.New().Code(ErrCodeLifecycle).Attr("edge", edgeID).Msg("edge identifier already in use")
 		}
@@ -163,7 +168,10 @@ func (s *AdminService) CreateEdge(ctx context.Context, req *connect.Request[apie
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	if err := s.store.IndexSetupKey(ctx, key.record.GetId(), edgeID); err != nil {
+	if err := s.store.IndexSetupKey(ctx, key.record.GetId(), tenantID, edgeID); err != nil {
+		return nil, connectErr(err)
+	}
+	if err := s.store.IndexEdge(ctx, edgeID, tenantID); err != nil {
 		return nil, connectErr(err)
 	}
 
@@ -178,6 +186,10 @@ func (s *AdminService) CreateEdge(ctx context.Context, req *connect.Request[apie
 // replaced key stops being accepted with the same write. An enrolled edge is
 // refused: it holds a registered key pair, and replacing that is Rekey.
 func (s *AdminService) IssueSetupKey(ctx context.Context, req *connect.Request[apiedgev1.IssueSetupKeyRequest]) (*connect.Response[apiedgev1.IssueSetupKeyResponse], error) {
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return nil, connectErr(err)
+	}
 	edgeID, err := edgeIDOf(req.Msg.GetEdge())
 	if err != nil {
 		return nil, connectErr(err)
@@ -188,7 +200,7 @@ func (s *AdminService) IssueSetupKey(ctx context.Context, req *connect.Request[a
 	}
 
 	var replaced string
-	stored, err := s.store.Mutate(ctx, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
+	stored, err := s.store.Mutate(ctx, tenantID, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
 		if current == nil {
 			return nil, notFound(edgeID)
 		}
@@ -206,7 +218,7 @@ func (s *AdminService) IssueSetupKey(ctx context.Context, req *connect.Request[a
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	if err := s.reindexSetupKey(ctx, edgeID, key.record.GetId(), replaced); err != nil {
+	if err := s.reindexSetupKey(ctx, tenantID, edgeID, key.record.GetId(), replaced); err != nil {
 		return nil, connectErr(err)
 	}
 
@@ -220,13 +232,17 @@ func (s *AdminService) IssueSetupKey(ctx context.Context, req *connect.Request[a
 // already consumed is refused, because an enrollment is undone by RetireEdge
 // and not by revoking the key it used.
 func (s *AdminService) RevokeSetupKey(ctx context.Context, req *connect.Request[apiedgev1.RevokeSetupKeyRequest]) (*connect.Response[apiedgev1.RevokeSetupKeyResponse], error) {
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return nil, connectErr(err)
+	}
 	edgeID, err := edgeIDOf(req.Msg.GetEdge())
 	if err != nil {
 		return nil, connectErr(err)
 	}
 
 	var revoked string
-	stored, err := s.store.Mutate(ctx, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
+	stored, err := s.store.Mutate(ctx, tenantID, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
 		if current == nil {
 			return nil, notFound(edgeID)
 		}
@@ -260,13 +276,17 @@ func (s *AdminService) RevokeSetupKey(ctx context.Context, req *connect.Request[
 // it through DeviceService, which is the call that ends work an edge will never
 // come back for.
 func (s *AdminService) RetireEdge(ctx context.Context, req *connect.Request[apiedgev1.RetireEdgeRequest]) (*connect.Response[apiedgev1.RetireEdgeResponse], error) {
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return nil, connectErr(err)
+	}
 	edgeID, err := edgeIDOf(req.Msg.GetEdge())
 	if err != nil {
 		return nil, connectErr(err)
 	}
 
 	var revoked string
-	stored, err := s.store.Mutate(ctx, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
+	stored, err := s.store.Mutate(ctx, tenantID, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
 		if current == nil {
 			return nil, notFound(edgeID)
 		}
@@ -369,11 +389,15 @@ func (s *AdminService) resolveLanes(ctx context.Context, edgeID string) ([]*apie
 
 // GetEdge returns one edge's record.
 func (s *AdminService) GetEdge(ctx context.Context, req *connect.Request[apiedgev1.GetEdgeRequest]) (*connect.Response[apiedgev1.GetEdgeResponse], error) {
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return nil, connectErr(err)
+	}
 	edgeID, err := edgeIDOf(req.Msg.GetEdge())
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	stored, _, err := s.store.Get(ctx, edgeID)
+	stored, _, err := s.store.Get(ctx, tenantID, edgeID)
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -387,6 +411,10 @@ func (s *AdminService) GetEdge(ctx context.Context, req *connect.Request[apiedge
 // carries the last identifier of the page before it, so a page is unaffected by
 // edges created or retired while the caller reads.
 func (s *AdminService) ListEdges(ctx context.Context, req *connect.Request[apiedgev1.ListEdgesRequest]) (*connect.Response[apiedgev1.ListEdgesResponse], error) {
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return nil, connectErr(err)
+	}
 	size := int(req.Msg.GetPageSize())
 	if size <= 0 {
 		size = defaultPageSize
@@ -399,7 +427,7 @@ func (s *AdminService) ListEdges(ctx context.Context, req *connect.Request[apied
 		return nil, connectErr(err)
 	}
 
-	keys, err := s.store.Keys(ctx)
+	keys, err := s.store.Keys(ctx, tenantID)
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -413,7 +441,7 @@ func (s *AdminService) ListEdges(ctx context.Context, req *connect.Request[apied
 
 	edges := make([]*edgev1.EdgeRecord, 0, len(keys))
 	for _, key := range keys {
-		stored, _, err := s.store.Get(ctx, key)
+		stored, _, err := s.store.Get(ctx, tenantID, key)
 		if err != nil {
 			return nil, connectErr(err)
 		}
@@ -454,8 +482,8 @@ func outstandingKeyID(state *edgev1.EdgeState) string {
 // dropping the replaced one's entry, so no window leaves both unusable. The
 // replaced entry is safe to outlive its key: the enrollment that reaches an
 // edge through it still fails the digest comparison.
-func (s *AdminService) reindexSetupKey(ctx context.Context, edgeID, issued, replaced string) error {
-	if err := s.store.IndexSetupKey(ctx, issued, edgeID); err != nil {
+func (s *AdminService) reindexSetupKey(ctx context.Context, tenantID, edgeID, issued, replaced string) error {
+	if err := s.store.IndexSetupKey(ctx, issued, tenantID, edgeID); err != nil {
 		return err
 	}
 	if replaced == "" || replaced == issued {

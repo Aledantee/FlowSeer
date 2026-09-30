@@ -17,6 +17,7 @@ import (
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
@@ -145,48 +146,54 @@ func NewBroadcaster() *Broadcaster {
 	}
 }
 
-// Subscribe registers a 128-item live tail for sessionID. The caller must call
+func broadcastKey(tenantID, sessionID string) string {
+	return tenantID + "." + sessionID
+}
+
+// Subscribe registers a 128-item live tail for sessionID under tenantID. The caller must call
 // the returned function to unsubscribe. A slow reader may lose chunks but does
 // not block the upload; the losses surface as gaps on the subscription.
-func (b *Broadcaster) Subscribe(sessionID string) (*Subscription, func()) {
+func (b *Broadcaster) Subscribe(tenantID, sessionID string) (*Subscription, func()) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	key := broadcastKey(tenantID, sessionID)
 	sub := &Subscription{
 		items:   make(chan TailItem, 128),
 		b:       b,
 		session: sessionID,
 	}
-	set, ok := b.subs[sessionID]
+	set, ok := b.subs[key]
 	if !ok {
 		set = make(map[*Subscription]struct{})
-		b.subs[sessionID] = set
+		b.subs[key] = set
 	}
 	set[sub] = struct{}{}
 
 	unsub := sync.OnceFunc(func() {
 		b.mu.Lock()
 		defer b.mu.Unlock()
-		if s, ok := b.subs[sessionID]; ok {
+		if s, ok := b.subs[key]; ok {
 			delete(s, sub)
 			if len(s) == 0 {
-				delete(b.subs, sessionID)
+				delete(b.subs, key)
 			}
 		}
 	})
 	return sub, unsub
 }
 
-// Broadcast distributes a packet chunk to all subscribers of sessionID and
+// Broadcast distributes a packet chunk to all subscribers of sessionID under tenantID and
 // returns how many were too far behind to take it. A tail that cannot keep up
 // loses chunks rather than stalling the upload it is watching, which makes the
 // live stream a subsequence of what the edge sent; each subscriber records the
 // loss as a gap it delivers in-band once its channel drains.
-func (b *Broadcaster) Broadcast(sessionID string, chunk *modelcapturev1.CapturePacketChunk) int {
+func (b *Broadcaster) Broadcast(tenantID, sessionID string, chunk *modelcapturev1.CapturePacketChunk) int {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	set, ok := b.subs[sessionID]
+	key := broadcastKey(tenantID, sessionID)
+	set, ok := b.subs[key]
 	if !ok {
 		return 0
 	}
@@ -199,27 +206,28 @@ func (b *Broadcaster) Broadcast(sessionID string, chunk *modelcapturev1.CaptureP
 	return dropped
 }
 
-// CloseSession closes every subscriber channel for sessionID and releases the
+// CloseSession closes every subscriber channel for sessionID under tenantID and releases the
 // subscriber set. A subscriber's residual gap stays on its Subscription for the
 // reader to flush through TerminalGap after it drains the channel. Repeated
 // calls are safe.
-func (b *Broadcaster) CloseSession(sessionID string) {
+func (b *Broadcaster) CloseSession(tenantID, sessionID string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if set, ok := b.subs[sessionID]; ok {
+	key := broadcastKey(tenantID, sessionID)
+	if set, ok := b.subs[key]; ok {
 		for sub := range set {
 			close(sub.items)
 		}
-		delete(b.subs, sessionID)
+		delete(b.subs, key)
 	}
 }
 
-// SubscriberCount returns the number of active subscribers for sessionID.
-func (b *Broadcaster) SubscriberCount(sessionID string) int {
+// SubscriberCount returns the number of active subscribers for sessionID under tenantID.
+func (b *Broadcaster) SubscriberCount(tenantID, sessionID string) int {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return len(b.subs[sessionID])
+	return len(b.subs[broadcastKey(tenantID, sessionID)])
 }
 
 // AssertionVerifier checks SignedEdgeAssertion envelopes.
@@ -229,19 +237,21 @@ type AssertionVerifier interface {
 
 // EdgeServiceConfig configures an [EdgeService]. Non-positive durations use
 // package defaults. Nil EdgeID reads the verified edge from the context, nil
-// Clock uses the wall clock, and nil Logger discards records.
+// EdgeTenant refuses tenant resolution with [ErrCodeStore], nil Clock uses the
+// wall clock, and nil Logger discards records.
 type EdgeServiceConfig struct {
 	AssertionWindow time.Duration
 	ResendInterval  time.Duration
 	RetentionPeriod time.Duration
 	EdgeID          func(context.Context) (string, error)
+	EdgeTenant      func(ctx context.Context, edgeID string) (string, error)
 	Clock           func() time.Time
 	Logger          *slog.Logger
 }
 
 // EdgeService serves capture assignments and uploads from authenticated edges.
 // An EdgeService is safe for concurrent use when its verifier and configured
-// EdgeID and Clock callbacks are safe for concurrent use.
+// EdgeID, EdgeTenant, and Clock callbacks are safe for concurrent use.
 type EdgeService struct {
 	store           *Store
 	verifier        AssertionVerifier
@@ -250,6 +260,7 @@ type EdgeService struct {
 	resendInterval  time.Duration
 	retentionPeriod time.Duration
 	edgeID          func(context.Context) (string, error)
+	edgeTenant      func(ctx context.Context, edgeID string) (string, error)
 	clock           func() time.Time
 	log             *slog.Logger
 
@@ -297,11 +308,26 @@ func NewEdgeService(store *Store, verifier AssertionVerifier, broadcaster *Broad
 		resendInterval:  resendInterval,
 		retentionPeriod: retentionPeriod,
 		edgeID:          edgeIDFunc,
+		edgeTenant:      cfg.EdgeTenant,
 		clock:           clock,
 		log:             logger,
 		watchers:        make(map[chan struct{}]struct{}),
 		uploads:         make(map[string]struct{}),
 	}
+}
+
+func (s *EdgeService) resolveTenant(ctx context.Context, edgeID string) (string, error) {
+	if s.edgeTenant == nil {
+		return "", errs.New().Code(ErrCodeStore).Attr("edge", edgeID).Msg("no edge tenant resolver configured")
+	}
+	tenantID, err := s.edgeTenant(ctx, edgeID)
+	if err != nil {
+		return "", errs.From(err).Code(ErrCodeStore).Attr("edge", edgeID).Msg("resolve edge tenant")
+	}
+	if err := tenant.Validate(tenantID); err != nil {
+		return "", errs.From(err).Code(ErrCodeBadSession).Attr("edge", edgeID).Attr("tenant", tenantID).Msg("validate edge tenant")
+	}
+	return tenantID, nil
 }
 
 // unauthenticated returns a Connect error with [connect.CodeUnauthenticated]
@@ -319,21 +345,22 @@ func unauthenticated(err error) error {
 // streams uploading the same session would interleave their packets into it
 // and each would discard the other's partial file on its way out. Central
 // authenticates the edge but does not trust it to open a session once.
-func (s *EdgeService) claimUpload(sessionID string) bool {
+func (s *EdgeService) claimUpload(tenantID, sessionID string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, held := s.uploads[sessionID]; held {
+	key := tenantID + "." + sessionID
+	if _, held := s.uploads[key]; held {
 		return false
 	}
-	s.uploads[sessionID] = struct{}{}
+	s.uploads[key] = struct{}{}
 	return true
 }
 
-func (s *EdgeService) releaseUpload(sessionID string) {
+func (s *EdgeService) releaseUpload(tenantID, sessionID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.uploads, sessionID)
+	delete(s.uploads, tenantID+"."+sessionID)
 }
 
 // NotifyStoreChange alerts all active assignment streams of a session state transition.
@@ -373,6 +400,10 @@ func (s *EdgeService) SubscribeCaptureAssignments(
 	if err != nil {
 		return unauthenticated(err)
 	}
+	tenantID, err := s.resolveTenant(ctx, edgeID)
+	if err != nil {
+		return connectErr(err)
+	}
 
 	notifyCh, unwatch := s.registerWatcher()
 	defer unwatch()
@@ -381,7 +412,7 @@ func (s *EdgeService) SubscribeCaptureAssignments(
 	defer ticker.Stop()
 
 	sendOwed := func() error {
-		sessions, err := s.store.ListSessions(ctx)
+		sessions, err := s.store.ListSessions(ctx, tenantID)
 		if err != nil {
 			return connectErr(err)
 		}
@@ -477,6 +508,10 @@ func (s *EdgeService) UploadCapture(
 	}
 
 	callingEdgeID := firstAssertion.GetEdge().GetEdge().GetId()
+	tenantID, err := s.resolveTenant(ctx, callingEdgeID)
+	if err != nil {
+		return nil, connectErr(err)
+	}
 	lastAssertionAt := s.clock()
 
 	var (
@@ -502,15 +537,15 @@ func (s *EdgeService) UploadCapture(
 		// where the retry is admitted, finds this stream's writer still in
 		// the map, and appends into a file this one is about to unlink.
 		if !finalized {
-			s.store.AbandonWriter(sessionID)
+			s.store.AbandonWriter(tenantID, sessionID)
 		}
-		s.releaseUpload(sessionID)
+		s.releaseUpload(tenantID, sessionID)
 	}()
 
 	for stream.Receive() {
 		now := s.clock()
 		if now.Sub(lastAssertionAt) > s.assertionWindow {
-			s.failStream(ctx, sessionID, "assertion window lapsed")
+			s.failStream(ctx, tenantID, sessionID, "assertion window lapsed")
 			return nil, unauthenticated(errs.Msg("assertion window lapsed past deadline"))
 		}
 
@@ -519,11 +554,11 @@ func (s *EdgeService) UploadCapture(
 		if signed := msg.GetAssertion(); signed != nil {
 			assertion, err := s.verifier.VerifySigned(ctx, signed, procedure, nil)
 			if err != nil {
-				s.failStream(ctx, sessionID, "mid-stream assertion did not verify")
+				s.failStream(ctx, tenantID, sessionID, "mid-stream assertion did not verify")
 				return nil, unauthenticated(err)
 			}
 			if assertion.GetEdge().GetEdge().GetId() != callingEdgeID {
-				s.failStream(ctx, sessionID, "assertion edge changed mid-stream")
+				s.failStream(ctx, tenantID, sessionID, "assertion edge changed mid-stream")
 				return nil, connect.NewError(connect.CodePermissionDenied, errs.Msg("assertion edge changed mid-stream"))
 			}
 
@@ -537,7 +572,7 @@ func (s *EdgeService) UploadCapture(
 			continue
 		}
 		if err := protovalidate.Validate(chunk); err != nil {
-			s.failStream(ctx, sessionID, "capture chunk fails its schema rules")
+			s.failStream(ctx, tenantID, sessionID, "capture chunk fails its schema rules")
 			return nil, connecterr.WrapAs(
 				connect.CodeInvalidArgument,
 				"the capture chunk does not satisfy its schema rules",
@@ -560,7 +595,7 @@ func (s *EdgeService) UploadCapture(
 			sessionRef = chunk.GetSession()
 			sessionID = sessionRef.GetCaptureSession().GetId()
 
-			rec, _, err := s.store.Session(ctx, sessionID)
+			rec, _, err := s.store.Session(ctx, tenantID, sessionID)
 			if err != nil {
 				return nil, connectErr(err)
 			}
@@ -583,7 +618,7 @@ func (s *EdgeService) UploadCapture(
 				return nil, connect.NewError(connect.CodeFailedPrecondition, errs.Msg("capture session has already stopped"))
 			}
 
-			if !s.claimUpload(sessionID) {
+			if !s.claimUpload(tenantID, sessionID) {
 				return nil, connect.NewError(connect.CodeAlreadyExists, errs.Msg("another stream is already uploading this capture session"))
 			}
 			claimed = true
@@ -606,7 +641,7 @@ func (s *EdgeService) UploadCapture(
 			// tell an edge that never started from one that had not reported
 			// yet, and the cancellation would never be delivered.
 			if !rec.GetState().HasStartedAt() {
-				_, err = s.store.MutateSession(ctx, sessionID, func(r *modelcapturev1.CaptureSessionRecord) error {
+				_, err = s.store.MutateSession(ctx, tenantID, sessionID, func(r *modelcapturev1.CaptureSessionRecord) error {
 					if !r.GetState().HasStartedAt() {
 						r.GetState().SetStartedAt(timestamppb.New(s.clock()))
 						r.GetState().SetLinkType(linkType)
@@ -625,12 +660,12 @@ func (s *EdgeService) UploadCapture(
 		}
 
 		if len(chunk.GetPackets()) > 0 {
-			if err := s.store.AppendPackets(ctx, sessionID, linkType, snapLen, chunk.GetPackets()); err != nil {
+			if err := s.store.AppendPackets(ctx, tenantID, sessionID, linkType, snapLen, chunk.GetPackets()); err != nil {
 				return nil, connectErr(err)
 			}
 		}
 
-		if dropped := s.broadcaster.Broadcast(sessionID, chunk); dropped > 0 && !droppedReported {
+		if dropped := s.broadcaster.Broadcast(tenantID, sessionID, chunk); dropped > 0 && !droppedReported {
 			// Once per stream: a tail that stalls for a whole capture drops
 			// on every chunk, and one line per chunk would bury the rest.
 			droppedReported = true
@@ -642,13 +677,13 @@ func (s *EdgeService) UploadCapture(
 
 		if chunk.GetFinal() {
 			expiresAt := s.clock().Add(s.retentionPeriod)
-			artifact, err := s.store.FinalizeArtifact(ctx, sessionID, linkType, snapLen, chunk.GetCounters(), expiresAt)
+			artifact, err := s.store.FinalizeArtifact(ctx, tenantID, sessionID, linkType, snapLen, chunk.GetCounters(), expiresAt)
 			if err != nil {
 				return nil, connectErr(err)
 			}
 
 			disagreed := false
-			_, err = s.store.MutateSession(ctx, sessionID, func(r *modelcapturev1.CaptureSessionRecord) error {
+			_, err = s.store.MutateSession(ctx, tenantID, sessionID, func(r *modelcapturev1.CaptureSessionRecord) error {
 				disagreed = false
 				r.GetState().SetCounters(chunk.GetCounters())
 				r.GetState().SetEndedAt(timestamppb.New(s.clock()))
@@ -669,7 +704,7 @@ func (s *EdgeService) UploadCapture(
 			if err != nil {
 				// The artifact exists and its record does not name it, so
 				// nothing will ever reach those bytes again.
-				s.store.DiscardArtifact(sessionID)
+				s.store.DiscardArtifact(tenantID, sessionID)
 				return nil, connectErr(err)
 			}
 			if disagreed {
@@ -679,7 +714,7 @@ func (s *EdgeService) UploadCapture(
 			}
 
 			finalized = true
-			s.broadcaster.CloseSession(sessionID)
+			s.broadcaster.CloseSession(tenantID, sessionID)
 			s.NotifyStoreChange()
 
 			resp := captureedgev1.UploadCaptureResponse_builder{
@@ -694,16 +729,16 @@ func (s *EdgeService) UploadCapture(
 	// chunk, so the session stops here either way: a session left RUNNING
 	// with no stream behind it is one nothing ever retries or reports.
 	if s.clock().Sub(lastAssertionAt) > s.assertionWindow {
-		s.failStream(ctx, sessionID, "assertion window lapsed")
+		s.failStream(ctx, tenantID, sessionID, "assertion window lapsed")
 		return nil, unauthenticated(errs.Msg("assertion window lapsed past deadline"))
 	}
 
 	if err := stream.Err(); err != nil {
-		s.failStream(ctx, sessionID, "upload stream failed")
+		s.failStream(ctx, tenantID, sessionID, "upload stream failed")
 		return nil, connecterr.WrapAs(connect.CodeUnknown, "the upload stream did not complete", err)
 	}
 
-	s.failStream(ctx, sessionID, "upload stream ended before its final chunk")
+	s.failStream(ctx, tenantID, sessionID, "upload stream ended before its final chunk")
 	return nil, connect.NewError(connect.CodeDataLoss, errs.Msg("upload stream terminated before final chunk"))
 }
 
@@ -734,7 +769,7 @@ func (s *EdgeService) deadlineExtender(ctx context.Context) func() {
 // is a no-op before the first chunk named a session, and it never overwrites a
 // session that already reached a terminal state: an operator's cancellation
 // and its recorded reason outlive the stream that was serving it.
-func (s *EdgeService) failStream(ctx context.Context, sessionID, reason string) {
+func (s *EdgeService) failStream(ctx context.Context, tenantID, sessionID, reason string) {
 	if sessionID == "" {
 		return
 	}
@@ -747,7 +782,7 @@ func (s *EdgeService) failStream(ctx context.Context, sessionID, reason string) 
 	defer cancel()
 
 	changed := false
-	if _, err := s.store.MutateSession(ctx, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+	if _, err := s.store.MutateSession(ctx, tenantID, sessionID, func(rec *modelcapturev1.CaptureSessionRecord) error {
 		if lifecycleIsTerminal(rec.GetState().GetLifecycle()) {
 			changed = false
 			return nil
@@ -773,7 +808,7 @@ func (s *EdgeService) failStream(ctx context.Context, sessionID, reason string) 
 		slog.String("flowseer.capture.stop.reason", reason))
 	// The tails watching this session end with it; only the final-chunk path
 	// closes them otherwise, and this stream will not reach it.
-	s.broadcaster.CloseSession(sessionID)
+	s.broadcaster.CloseSession(tenantID, sessionID)
 	s.NotifyStoreChange()
 }
 

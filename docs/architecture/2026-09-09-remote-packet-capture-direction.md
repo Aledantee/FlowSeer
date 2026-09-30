@@ -182,6 +182,20 @@ decision auditable and the restraint that keeps the data from spreading:
 - an artifact is served only to a caller authorized for that session, and a
   download is itself an event.
 
+The [operator authorization direction record](2026-09-28-operator-authorization-direction.md)
+decides authorization for capture operations. Capture uses three relations from
+that record's relation table:
+
+| Object type | Relation | What it grants |
+| --- | --- | --- |
+| `edge` | `capture` | create, stop, delete, get, and list capture sessions |
+| `capture_session` | `download` | tail or download the session's packets |
+| `tenant` | `full_payload` | request `full_payload_requested: true` on a capture |
+
+The session's requester and every download are recorded as that record decides.
+`CaptureService` enforces nothing until the enforcement that record decides
+lands.
+
 ## Consequences
 
 - Two new protobuf packages join the tree in the network model structure record,
@@ -276,7 +290,7 @@ declared fsync policy, and a lifecycle transition is a compare-and-set against
 the revision it read. The pcapng artifact does not. It is the one thing central
 holds that a KeyValue bucket is wrong for — tens of megabytes bounded by the
 session budget, against a 1 MB value limit and an fsync per write — so it is a
-file at `<StateDir>/captures/<session_id>.pcapng`, written as the chunks arrive
+file at `<StateDir>/captures/<tenant_id>/<session_id>.pcapng`, written as the chunks arrive
 and read back in slices for `DownloadCaptureSession`. The consequence of
 splitting them is that the two can disagree after a crash, so the digest is
 published only over bytes already synced to disk, and the file is never
@@ -300,44 +314,28 @@ loses chunks rather than stalling it, and that a tail sees nothing across a
 restart or a second central replica. Both are acceptable while the artifact on
 disk is the record of what was captured.
 
-### 2026-09-28 — operator identity and the relations capture needs
+### 2026-09-28 — operator identity and capture authorization
 
 "Every capture is bounded and authorized" above asks that a session record who
 authorized it. It did, as a free string. `CaptureAuthorization` now names the
-requester as `requested_by`, a `flowseer.model.principal.v1.OperatorRef`: the
+requester as `requested_by`, a `flowseer.model.identity.v1.OperatorRef`: the
 identity provider's stable subject, the same value a mutation intent's `Actor`
 carries. Field 1 and the name `operator` are reserved, so a record written
-before the change still decodes, with no requester. `OperatorRef` moved out of
-`model/access` into the `model/principal` leaf, because `model/capture` reaches
-the edge through `edge/capture` and must not pull the access plane with it. The
-import line the 2026-09-17 amendment gives for this package reads
-`{model/edge, model/principal, net/capture} ← model/capture` now.
+before the change still decodes, with no requester. `OperatorRef` lives in the
+`model/identity` leaf, because `model/capture` reaches the edge through
+`edge/capture` and must not pull the access plane with it. The import line the
+2026-09-17 amendment gives for this package reads
+`{model/edge, model/identity, net/capture} ← model/capture` now.
 
-The subject is still what the caller writes. `CaptureService` checks nothing
-about the caller: authorization for the operator and admin services is one
-OpenFGA record for `DeviceService`, `EdgeAdminService`, and `CaptureService`
-together, and capture carries no mechanism of its own before it. That record
-decides the model; these are the relations capture brings to it.
-
-| RPC | Relation | Object |
-| --- | --- | --- |
-| `CreateCaptureSession` | `edge#capture` | the request's `edge` |
-| `CreateCaptureSession` with `full_payload_requested` | `edge#capture` and `tenant#full_payload` | the edge, and the caller's tenant |
-| `GetCaptureSession`, `StopCaptureSession`, `DeleteCaptureSession` | `edge#capture` | the session's owning edge |
-| `ListCaptureSessions` | `edge#capture`, as a filter | each listed session's owning edge |
-| `TailCaptureSession`, `DownloadCaptureSession` | `session#download` | the session |
-
-Starting a capture is an action on an edge, and that edge is the session's one
-owning parent. Full payload gets a grant of its own at tenant scope because it
-is the most restricted data the system holds. Tenancy is ambient, so the tenant
-object's id comes from the authenticated request context, not from a field.
+Authorization for capture defers to the
+[operator authorization record](2026-09-28-operator-authorization-direction.md),
+and the relation table under "Every capture is bounded and authorized" points
+at it for capture, download, and full-payload permissions. Until that record's authentication lands, the caller writes
+`requested_by` and `CaptureService` checks nothing about the caller; the
+server then writes the requester from the authenticated token instead.
 `ListCaptureSessionsRequest` names no edge, so List is a filter over the read
 rather than one check, and a page must hold only visible sessions without the
-page token skipping or repeating one across the filter. Tail and download hand
-out the captured bytes, so they share one relation. `session#download` is
-proposed as held by the session's `requested_by` principal and by anyone with
-`edge#capture` on its owning edge, which takes a parent-edge tuple and a
-requester tuple written when the session is created.
+page token skipping or repeating one across the filter.
 
 "An artifact is served only to a caller authorized for that session, and a
 download is itself an event" lands with caller identity. The download event

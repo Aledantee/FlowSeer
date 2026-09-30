@@ -3,6 +3,9 @@ package edgebus
 import (
 	"fmt"
 	"strings"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 )
 
 // Subject names the fabric uses. Every subject an edge publishes on sits
@@ -10,9 +13,9 @@ import (
 // confines the edge by prefix; the OpenTelemetry signals take the otel
 // branch and each ingestion source will take ingest.<source>.
 const (
-	// DefaultTenant is the one account this slice runs; the tenant token
-	// carries no broker enforcement until a second account exists.
-	DefaultTenant = "default"
+	// DefaultTenant is the default tenant identifier used during development
+	// and testing when no ambient tenant is configured.
+	DefaultTenant = tenant.DefaultTenant
 
 	// EdgeBufferStream is the file-backed stream on the edge's own JetStream
 	// domain holding everything the edge has published and not yet shipped.
@@ -33,6 +36,8 @@ const (
 	// CapturesBucket is the key-value bucket the device service's capture
 	// session records live in, one key per session.
 	CapturesBucket = "captures"
+	// TenantBucket is the key-value bucket central keeps tenant records in.
+	TenantBucket = "tenants"
 	// HubDomain is the hub's JetStream domain. An edge's leaf runs its own
 	// domain; a leaf without one silently extends the hub's.
 	HubDomain = "hub"
@@ -93,6 +98,46 @@ func edgeOfHubStream(name string) (string, bool) {
 // belongsToEdge reports whether subject lies under the edge's own subtree.
 func belongsToEdge(tenant, edgeID, subject string) bool {
 	return strings.HasPrefix(subject, EdgeSubtree(tenant, edgeID)+".")
+}
+
+// TenantFromSubject parses and validates the tenant identifier from an edge subject
+// shaped flowseer.<tenant>.edge.<edgeID>... scoped to edgeID.
+func TenantFromSubject(subject, edgeID string) (string, error) {
+	parts := strings.Split(subject, ".")
+	if len(parts) < 4 || parts[0] != "flowseer" || parts[2] != "edge" || parts[3] != edgeID {
+		return "", errs.New().Code(ErrCodeConfig).Attr("subject", subject).
+			Msg("malformed edge subject: expected flowseer.<tenant>.edge.<edgeID>...")
+	}
+	tenantID := parts[1]
+	if err := tenant.Validate(tenantID); err != nil {
+		return "", err
+	}
+	return tenantID, nil
+}
+
+// TenantFromSubjects parses and validates the tenant identifier from a map of
+// edge publish subjects (e.g. returned by AttachBus), ensuring all subjects agree
+// on the tenant and are scoped to edgeID.
+func TenantFromSubjects(edgeID string, subjects map[string]string) (string, error) {
+	if len(subjects) == 0 {
+		return "", errs.New().Code(ErrCodeConfig).Msg("empty subjects map")
+	}
+	var resolved string
+	for _, subject := range subjects {
+		t, err := TenantFromSubject(subject, edgeID)
+		if err != nil {
+			return "", err
+		}
+		if resolved == "" {
+			resolved = t
+		} else if resolved != t {
+			return "", errs.New().Code(ErrCodeConfig).
+				Attr("expected", resolved).
+				Attr("actual", t).
+				Msg("mismatched tenant across subjects")
+		}
+	}
+	return resolved, nil
 }
 
 // EdgeDomain is the JetStream domain an edge's leaf node runs.

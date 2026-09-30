@@ -33,11 +33,11 @@ func TestAttachEdgeRefusedPastStoreCeiling(t *testing.T) {
 	ctx := context.Background()
 	hub := startStorageTestHub(t, 0)
 
-	if err := hub.AttachEdge(ctx, "0192e6a0-0000-7000-8000-000000000001"); err != nil {
+	if err := hub.AttachEdge(ctx, DefaultTenant, "0192e6a0-0000-7000-8000-000000000001"); err != nil {
 		t.Fatalf("first edge attach: %v", err)
 	}
 
-	err := hub.AttachEdge(ctx, "0192e6a0-0000-7000-8000-000000000002")
+	err := hub.AttachEdge(ctx, DefaultTenant, "0192e6a0-0000-7000-8000-000000000002")
 	if err == nil {
 		t.Fatal("second edge attach succeeded past store ceiling")
 	}
@@ -73,7 +73,7 @@ func TestAttachEdgeRefusedPastStoreCeilingAfterFailedAttach(t *testing.T) {
 			hub := startStorageTestHub(t, 256<<20)
 			ctx := context.Background()
 
-			firstErr := hub.AttachEdge(ctx, "0192e6a0-0000-7000-8000-000000000001")
+			firstErr := hub.AttachEdge(ctx, DefaultTenant, "0192e6a0-0000-7000-8000-000000000001")
 			if firstErr == nil {
 				t.Fatal("first edge attach succeeded with a stream larger than its account budget")
 			}
@@ -86,7 +86,7 @@ func TestAttachEdgeRefusedPastStoreCeilingAfterFailedAttach(t *testing.T) {
 
 			secondCtx, cancel := test.context(ctx)
 			defer cancel()
-			secondErr := hub.AttachEdge(secondCtx, "0192e6a0-0000-7000-8000-000000000002")
+			secondErr := hub.AttachEdge(secondCtx, DefaultTenant, "0192e6a0-0000-7000-8000-000000000002")
 			if secondErr == nil {
 				t.Fatal("second edge attach succeeded past store ceiling")
 			}
@@ -105,7 +105,7 @@ func TestAttachEdgeCanceledOnFreshHubIsNotStorage(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := hub.AttachEdge(ctx, "0192e6a0-0000-7000-8000-000000000001")
+	err := hub.AttachEdge(ctx, DefaultTenant, "0192e6a0-0000-7000-8000-000000000001")
 	if err == nil {
 		t.Fatal("canceled edge attach succeeded")
 	}
@@ -116,7 +116,7 @@ func TestAttachEdgeCanceledOnFreshHubIsNotStorage(t *testing.T) {
 		t.Fatalf("canceled edge attach error code = %q, want %q", code, ErrCodeHub)
 	}
 
-	if err := hub.AttachEdge(context.Background(), "0192e6a0-0000-7000-8000-000000000001"); err != nil {
+	if err := hub.AttachEdge(context.Background(), DefaultTenant, "0192e6a0-0000-7000-8000-000000000001"); err != nil {
 		t.Fatalf("retry edge attach: %v", err)
 	}
 }
@@ -124,7 +124,7 @@ func TestAttachEdgeCanceledOnFreshHubIsNotStorage(t *testing.T) {
 func TestAttachEdgeRetryAfterFailedStreamSetupIsNotStorage(t *testing.T) {
 	hub := startStorageTestHub(t, 256<<20)
 
-	err := hub.AttachEdge(context.Background(), "0192e6a0-0000-7000-8000-000000000001")
+	err := hub.AttachEdge(context.Background(), DefaultTenant, "0192e6a0-0000-7000-8000-000000000001")
 	if err == nil {
 		t.Fatal("edge attach succeeded with a stream larger than its account budget")
 	}
@@ -137,7 +137,7 @@ func TestAttachEdgeRetryAfterFailedStreamSetupIsNotStorage(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	err = hub.AttachEdge(ctx, "0192e6a0-0000-7000-8000-000000000001")
+	err = hub.AttachEdge(ctx, DefaultTenant, "0192e6a0-0000-7000-8000-000000000001")
 	if err == nil {
 		t.Fatal("retry edge attach succeeded")
 	}
@@ -151,7 +151,7 @@ func TestAttachEdgeRetryAfterFailedStreamSetupIsNotStorage(t *testing.T) {
 
 func TestAttachEdgeCloseRaceStillNamesStorage(t *testing.T) {
 	hub := startStorageTestHub(t, 0)
-	if err := hub.AttachEdge(context.Background(), "0192e6a0-0000-7000-8000-000000000001"); err != nil {
+	if err := hub.AttachEdge(context.Background(), DefaultTenant, "0192e6a0-0000-7000-8000-000000000001"); err != nil {
 		t.Fatalf("first edge attach: %v", err)
 	}
 
@@ -185,7 +185,7 @@ func TestAttachEdgeCloseRaceStillNamesStorage(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	spawn.Go(ctx, "test edge attach", func() {
-		attachDone <- hub.AttachEdge(ctx, "0192e6a0-0000-7000-8000-000000000002")
+		attachDone <- hub.AttachEdge(ctx, DefaultTenant, "0192e6a0-0000-7000-8000-000000000002")
 	})
 	select {
 	case err := <-attachDone:
@@ -262,7 +262,7 @@ func TestAttachEdgeCloseRaceFittingAccountIsNotStorage(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	spawn.Go(ctx, "test edge attach", func() {
-		attachDone <- hub.AttachEdge(ctx, "0192e6a0-0000-7000-8000-000000000001")
+		attachDone <- hub.AttachEdge(ctx, DefaultTenant, "0192e6a0-0000-7000-8000-000000000001")
 	})
 	select {
 	case err := <-attachDone:

@@ -1,0 +1,120 @@
+edition = "2024";
+
+// The tenant family — UUID-identified tenant entity, ref pair, and
+// Config/State/Event triad.
+package flowseer.model.identity.v1;
+
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+// The local reference to a tenant.
+message TenantLocalRef {
+  // FlowSeer-assigned tenant identifier. Must be present.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+// The global reference to a tenant.
+message TenantGlobalRef {
+  // The tenant's own key. Must be present.
+  TenantLocalRef tenant = 1 [(buf.validate.field).required = true];
+}
+
+// Where a tenant stands between creation and suspension.
+enum TenantLifecycle {
+  // No lifecycle named. State and events reject the zero value.
+  TENANT_LIFECYCLE_UNSPECIFIED = 0;
+  // Active and permitted to hold resources.
+  TENANT_LIFECYCLE_ACTIVE = 1;
+  // The tenant is suspended.
+  TENANT_LIFECYCLE_SUSPENDED = 2;
+}
+
+// The intended definition of one tenant: how its operators authenticate.
+message TenantConfig {
+  // The ref to this tenant. Must be present.
+  TenantGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The identity provider's issuer URL. Must be present.
+  string issuer = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.uri = true,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // The claim name carrying the organization identifier. Must be present.
+  string organization_claim_name = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // The organization identifier value bound to this tenant. Must be present.
+  string organization_claim_value = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 256
+  ];
+  // Operator-assigned display name. Unset means none was assigned.
+  string name = 5 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Free-text description of the tenant. Unset means none was provided.
+  string description = 6 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
+}
+
+// The observed side of one tenant: when it was created and where it stands.
+message TenantState {
+  // The ref to this tenant. Must be present.
+  TenantGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The tenant's lifecycle. Must be present; the zero value is rejected.
+  TenantLifecycle lifecycle = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // When the tenant was created. Must be present.
+  google.protobuf.Timestamp created_at = 3 [(buf.validate.field).required = true];
+}
+
+// One transition of a tenant's lifecycle.
+message TenantEvent {
+  option (buf.validate.message).cel = {
+    id: "tenant_event.lifecycle_changes"
+    message: "a tenant event must change the lifecycle"
+    expression: "!has(this.from) || this.from != this.to"
+  };
+
+  // The ref to the tenant that changed. Must be present.
+  TenantGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The lifecycle before the transition. Unset means the tenant was created.
+  // The zero value is rejected.
+  TenantLifecycle from = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // The lifecycle after the transition. Must be present; the zero value is
+  // rejected.
+  TenantLifecycle to = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+}
+
+// One tenant as the identity service returns it and the central store keeps
+// it: intent and observation together.
+message TenantRecord {
+  // Must be present.
+  TenantConfig config = 1 [(buf.validate.field).required = true];
+  // Must be present.
+  TenantState state = 2 [(buf.validate.field).required = true];
+}

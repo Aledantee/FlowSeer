@@ -9,13 +9,14 @@ import (
 	"buf.build/go/protovalidate"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go/jetstream"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
-	principalv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/service"
@@ -27,6 +28,8 @@ import (
 	// Linked so protovalidate resolves the net/key predefined rules through the global registry (structure-record convention 4).
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
 )
+
+const tTenant = "0192e6a0-0000-7000-8000-0000000000aa"
 
 var errAudit = errors.New("stream refused the publish")
 
@@ -54,6 +57,7 @@ func (r *resolver) Device(id string) (*storev1.RegistryDevice, bool) {
 func (r *resolver) EdgeID() string { return edgeID }
 
 type detection struct {
+	tenantID string
 	iface    string
 	expected string
 	observed string
@@ -80,11 +84,11 @@ func (s *signals) DriftDetected(_ context.Context, _, iface, expected, observed 
 	s.outcomes = append(s.outcomes, outcome)
 }
 
-func (r *recorder) DriftDetected(_ context.Context, _ *inventoryv1.DeviceGlobalRef, iface, expected, observed string) error {
+func (r *recorder) DriftDetected(_ context.Context, tenantID string, _ *inventoryv1.DeviceGlobalRef, iface, expected, observed string) error {
 	if r.err != nil {
 		return r.err
 	}
-	r.found = append(r.found, detection{iface: iface, expected: expected, observed: observed})
+	r.found = append(r.found, detection{tenantID: tenantID, iface: iface, expected: expected, observed: observed})
 	return nil
 }
 
@@ -134,11 +138,12 @@ func newHarness(t *testing.T, mode inventoryv1.DeviceManagementMode) *harness {
 	rec := &recorder{}
 	sig := &signals{}
 	poller, err := drift.New(drift.Config{
-		Journal:   j,
-		Resolver:  &resolver{entry: registryEntry(mode)},
-		Audit:     rec,
-		Telemetry: sig,
-		Interval:  time.Minute,
+		Journal:    j,
+		Resolver:   &resolver{entry: registryEntry(mode)},
+		EdgeTenant: func(context.Context, string) (string, error) { return tTenant, nil },
+		Audit:      rec,
+		Telemetry:  sig,
+		Interval:   time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -190,11 +195,16 @@ func observation(description string) *accessv1.InterfaceObservation {
 // device actually carries.
 func seeObserved(t *testing.T, h *harness, observed string) {
 	t.Helper()
+	seeObservedTenant(t, h.journal, tTenant, observed)
+}
+
+func seeObservedTenant(t *testing.T, j *journal.Journal, tenantID, observed string) {
+	t.Helper()
 	ctx := context.Background()
-	if err := h.journal.SetExpected(ctx, deviceID, deviceRef(), iface, expected); err != nil {
+	if err := j.SetExpected(ctx, tenantID, deviceID, deviceRef(), iface, expected); err != nil {
 		t.Fatalf("set expected: %v", err)
 	}
-	if err := h.journal.SetFingerprint(ctx, deviceID, deviceRef(), fingerprint); err != nil {
+	if err := j.SetFingerprint(ctx, tenantID, deviceID, deviceRef(), fingerprint); err != nil {
 		t.Fatalf("set fingerprint: %v", err)
 	}
 	read := &accessv1.TypedRead{}
@@ -206,11 +216,11 @@ func seeObserved(t *testing.T, h *harness, observed string) {
 	intent.SetInterfaceName(iface)
 	read.SetInterface(intent)
 
-	seq, err := h.journal.OpenRead(ctx, deviceID, deviceRef(), iface, read, uuid.NewString(), time.Now().Add(time.Minute))
+	seq, err := j.OpenRead(ctx, tenantID, deviceID, deviceRef(), iface, read, uuid.NewString(), time.Now().Add(time.Minute))
 	if err != nil {
 		t.Fatalf("open read: %v", err)
 	}
-	if err := h.journal.CloseRead(ctx, deviceID, iface, seq, observation(observed), nil); err != nil {
+	if err := j.CloseRead(ctx, tenantID, deviceID, iface, seq, observation(observed), nil); err != nil {
 		t.Fatalf("close read: %v", err)
 	}
 }
@@ -228,11 +238,11 @@ func TestDriftUnderOperatorManagedHoldsAnIntentForTheOperator(t *testing.T) {
 		t.Fatalf("recorded %d detections, want 1", len(h.recorder.found))
 	}
 	got := h.recorder.found[0]
-	if got.iface != iface || got.expected != expected || got.observed != "someone else's description" {
-		t.Errorf("recorded %+v, want the interface and both values", got)
+	if got.tenantID != tTenant || got.iface != iface || got.expected != expected || got.observed != "someone else's description" {
+		t.Errorf("recorded %+v, want tenant %q, the interface and both values", got, tTenant)
 	}
 
-	record, _ := h.journal.Record(ctx, deviceID)
+	record, _ := h.journal.Record(ctx, tTenant, deviceID)
 	m := record.GetMutation()
 	if m == nil {
 		t.Fatal("no intent was recorded for the difference")
@@ -260,7 +270,7 @@ func TestDriftUnderAuthoritativeAdmitsADispatchableIntent(t *testing.T) {
 
 	h.poller.Pass(ctx)
 
-	record, _ := h.journal.Record(ctx, deviceID)
+	record, _ := h.journal.Record(ctx, tTenant, deviceID)
 	m := record.GetMutation()
 	if m == nil {
 		t.Fatal("no reconciliation intent was admitted")
@@ -292,7 +302,7 @@ func TestAnInterfaceMatchingItsExpectationIsNotDrift(t *testing.T) {
 	if len(h.recorder.found) != 0 {
 		t.Errorf("recorded %v for an interface that matches", h.recorder.found)
 	}
-	record, _ := h.journal.Record(ctx, deviceID)
+	record, _ := h.journal.Record(ctx, tTenant, deviceID)
 	if record.HasMutation() {
 		t.Error("an interface that matches admitted an intent")
 	}
@@ -305,7 +315,7 @@ func TestDriftDoesNotEvaluateWhileAMutationHoldsTheLane(t *testing.T) {
 	ctx := context.Background()
 	h := newHarness(t, inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED)
 	seeObserved(t, h, "someone else's description")
-	if _, err := h.journal.Admit(ctx, deviceID, operatorIntent(), edgeRef()); err != nil {
+	if _, err := h.journal.Admit(ctx, tTenant, deviceID, operatorIntent(), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 
@@ -322,14 +332,14 @@ func TestDriftDoesNotEvaluateWhileAnAbandonmentIsUnresolved(t *testing.T) {
 	ctx := context.Background()
 	h := newHarness(t, inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED)
 	seeObserved(t, h, "someone else's description")
-	state, err := h.journal.Admit(ctx, deviceID, operatorIntent(), edgeRef())
+	state, err := h.journal.Admit(ctx, tTenant, deviceID, operatorIntent(), edgeRef())
 	if err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	if err := h.journal.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: state.GetSequence()}); err != nil {
+	if err := h.journal.ApplyReport(ctx, tTenant, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: state.GetSequence()}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
-	if _, err := h.journal.Dispose(ctx, deviceID, state.GetSequence()); err != nil {
+	if _, err := h.journal.Dispose(ctx, tTenant, deviceID, state.GetSequence()); err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
 
@@ -352,7 +362,7 @@ func TestAnInterfaceWithNoExpectationIsNotJudged(t *testing.T) {
 	if len(h.recorder.found) != 0 {
 		t.Errorf("recorded %v for an interface central expects nothing of", h.recorder.found)
 	}
-	record, _ := h.journal.Record(ctx, deviceID)
+	record, _ := h.journal.Record(ctx, tTenant, deviceID)
 	if _, ok := record.GetOpenReads()[iface]; !ok {
 		t.Error("the pass asked for no read; an unjudged interface is still polled")
 	}
@@ -365,11 +375,11 @@ func TestAPassOpensOneReadAndLeavesAnUnansweredOneAlone(t *testing.T) {
 	h := newHarness(t, inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED)
 
 	h.poller.Pass(ctx)
-	first, _ := h.journal.Record(ctx, deviceID)
+	first, _ := h.journal.Record(ctx, tTenant, deviceID)
 	opened := first.GetOpenReads()[iface].GetSequence()
 
 	h.poller.Pass(ctx)
-	second, _ := h.journal.Record(ctx, deviceID)
+	second, _ := h.journal.Record(ctx, tTenant, deviceID)
 
 	if got := second.GetOpenReads()[iface].GetSequence(); got != opened {
 		t.Errorf("the second pass opened read %d over the unanswered %d", got, opened)
@@ -390,7 +400,7 @@ func TestADetectionThatCannotBeRecordedAdmitsNothing(t *testing.T) {
 
 	h.poller.Pass(ctx)
 
-	record, _ := h.journal.Record(ctx, deviceID)
+	record, _ := h.journal.Record(ctx, tTenant, deviceID)
 	if record.HasMutation() {
 		t.Error("an unrecorded detection still held the lane")
 	}
@@ -403,7 +413,7 @@ func TestADetectionThatCannotBeRecordedAdmitsNothing(t *testing.T) {
 func TestDriftWithNoLearnedFirmwareEpochRecordsTheDetectionAndAdmitsNothing(t *testing.T) {
 	ctx := context.Background()
 	h := newHarness(t, inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)
-	if err := h.journal.SetExpected(ctx, deviceID, deviceRef(), iface, expected); err != nil {
+	if err := h.journal.SetExpected(ctx, tTenant, deviceID, deviceRef(), iface, expected); err != nil {
 		t.Fatalf("set expected: %v", err)
 	}
 	read := &accessv1.TypedRead{}
@@ -414,11 +424,11 @@ func TestDriftWithNoLearnedFirmwareEpochRecordsTheDetectionAndAdmitsNothing(t *t
 	intent := &accessv1.InterfaceReadIntent{}
 	intent.SetInterfaceName(iface)
 	read.SetInterface(intent)
-	seq, err := h.journal.OpenRead(ctx, deviceID, deviceRef(), iface, read, uuid.NewString(), time.Now().Add(time.Minute))
+	seq, err := h.journal.OpenRead(ctx, tTenant, deviceID, deviceRef(), iface, read, uuid.NewString(), time.Now().Add(time.Minute))
 	if err != nil {
 		t.Fatalf("open read: %v", err)
 	}
-	if err := h.journal.CloseRead(ctx, deviceID, iface, seq, observation("someone else's description"), nil); err != nil {
+	if err := h.journal.CloseRead(ctx, tTenant, deviceID, iface, seq, observation("someone else's description"), nil); err != nil {
 		t.Fatalf("close read: %v", err)
 	}
 
@@ -427,7 +437,7 @@ func TestDriftWithNoLearnedFirmwareEpochRecordsTheDetectionAndAdmitsNothing(t *t
 	if len(h.recorder.found) != 1 {
 		t.Fatalf("detections = %d, want the difference recorded", len(h.recorder.found))
 	}
-	record, err := h.journal.Record(ctx, deviceID)
+	record, err := h.journal.Record(ctx, tTenant, deviceID)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -452,7 +462,7 @@ func TestTheFirstPassOverAnUnwrittenDeviceStoresARecordNamingIt(t *testing.T) {
 
 	h.poller.Pass(ctx)
 
-	record, err := h.journal.Record(ctx, deviceID)
+	record, err := h.journal.Record(ctx, tTenant, deviceID)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -465,7 +475,7 @@ func TestTheFirstPassOverAnUnwrittenDeviceStoresARecordNamingIt(t *testing.T) {
 }
 
 func operatorIntent() *accessv1.MutationIntent {
-	operator := &principalv1.OperatorRef{}
+	operator := &identityv1.OperatorRef{}
 	operator.SetSubject("zitadel|1")
 	actor := &accessv1.Actor{}
 	actor.SetOperator(operator)
@@ -547,7 +557,7 @@ func TestASignalIsNotReportedForADetectionTheStreamRefused(t *testing.T) {
 	if len(h.signals.seen) != 0 {
 		t.Fatalf("a signal was reported for a detection nothing recorded: %+v", h.signals.seen)
 	}
-	record, err := h.journal.Record(ctx, deviceID)
+	record, err := h.journal.Record(ctx, tTenant, deviceID)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -564,10 +574,11 @@ func TestAPollWithNoTelemetryStillRecordsAndActs(t *testing.T) {
 	j := journal.New(kv, nil)
 	rec := &recorder{}
 	poller, err := drift.New(drift.Config{
-		Journal:  j,
-		Resolver: &resolver{entry: registryEntry(inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)},
-		Audit:    rec,
-		Interval: time.Minute,
+		Journal:    j,
+		Resolver:   &resolver{entry: registryEntry(inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)},
+		EdgeTenant: func(context.Context, string) (string, error) { return tTenant, nil },
+		Audit:      rec,
+		Interval:   time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -580,11 +591,123 @@ func TestAPollWithNoTelemetryStillRecordsAndActs(t *testing.T) {
 	if len(rec.found) != 1 {
 		t.Fatalf("detections = %d, want the difference recorded", len(rec.found))
 	}
-	record, err := j.Record(ctx, deviceID)
+	record, err := j.Record(ctx, tTenant, deviceID)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
 	if !record.HasMutation() {
 		t.Fatal("the poll recorded a detection and admitted nothing")
+	}
+}
+
+func TestDriftPartitionedByTenant(t *testing.T) {
+	ctx := context.Background()
+	const customTenant = "0192e6a0-0000-7000-8000-000000000088"
+	kv := newBucket(t)
+	j := journal.New(kv, nil)
+	rec := &recorder{}
+	poller, err := drift.New(drift.Config{
+		Journal:  j,
+		Resolver: &resolver{entry: registryEntry(inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)},
+		EdgeTenant: func(_ context.Context, id string) (string, error) {
+			if id == edgeID {
+				return customTenant, nil
+			}
+			return "", errors.New("unknown edge")
+		},
+		Audit:    rec,
+		Interval: time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	// Setup observation under custom tenant
+	if err := j.SetExpected(ctx, customTenant, deviceID, deviceRef(), iface, expected); err != nil {
+		t.Fatalf("set expected: %v", err)
+	}
+	if err := j.SetFingerprint(ctx, customTenant, deviceID, deviceRef(), fingerprint); err != nil {
+		t.Fatalf("set fingerprint: %v", err)
+	}
+	read := &accessv1.TypedRead{}
+	read.SetAccessPolicy(registryEntry(inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE).GetConfig().GetAccessPolicy())
+	intent := &accessv1.InterfaceReadIntent{}
+	intent.SetInterfaceName(iface)
+	read.SetInterface(intent)
+	seq, err := j.OpenRead(ctx, customTenant, deviceID, deviceRef(), iface, read, uuid.NewString(), time.Now().Add(time.Minute))
+	if err != nil {
+		t.Fatalf("open read: %v", err)
+	}
+	if err := j.CloseRead(ctx, customTenant, deviceID, iface, seq, observation("different description"), nil); err != nil {
+		t.Fatalf("close read: %v", err)
+	}
+
+	poller.Pass(ctx)
+
+	if len(rec.found) != 1 {
+		t.Fatalf("detections = %d, want 1", len(rec.found))
+	}
+	if got := rec.found[0].tenantID; got != customTenant {
+		t.Errorf("recorded tenant = %q, want %q", got, customTenant)
+	}
+	recCustom, err := j.Record(ctx, customTenant, deviceID)
+	if err != nil || !recCustom.HasMutation() {
+		t.Fatalf("custom tenant did not admit mutation: err=%v, rec=%v", err, recCustom)
+	}
+	recDefault, _ := j.Record(ctx, edgebus.DefaultTenant, deviceID)
+	if recDefault.HasMutation() {
+		t.Fatal("default tenant record had mutation admitted by custom tenant drift")
+	}
+}
+
+func TestDriftSkipsEdgeWhenTenantFails(t *testing.T) {
+	ctx := context.Background()
+	kv := newBucket(t)
+	j := journal.New(kv, nil)
+	rec := &recorder{}
+	poller, err := drift.New(drift.Config{
+		Journal:    j,
+		Resolver:   &resolver{entry: registryEntry(inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)},
+		EdgeTenant: func(context.Context, string) (string, error) { return "", errors.New("cannot resolve edge tenant") },
+		Audit:      rec,
+		Interval:   time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	h := &harness{poller: poller, journal: j, recorder: rec}
+	seeObserved(t, h, "someone else's description")
+
+	// Seed an expectation and drifted observation under default tenant too.
+	seeObservedTenant(t, j, edgebus.DefaultTenant, "someone else's description")
+
+	recBeforeT, err := j.Record(ctx, tTenant, deviceID)
+	if err != nil {
+		t.Fatalf("record before under %s: %v", tTenant, err)
+	}
+	recBeforeDef, err := j.Record(ctx, edgebus.DefaultTenant, deviceID)
+	if err != nil {
+		t.Fatalf("record before under default: %v", err)
+	}
+
+	poller.Pass(ctx)
+
+	if len(rec.found) != 0 {
+		t.Fatalf("detections = %d, want 0 when edge tenant cannot be resolved", len(rec.found))
+	}
+
+	recAfterT, err := j.Record(ctx, tTenant, deviceID)
+	if err != nil {
+		t.Fatalf("record after under %s: %v", tTenant, err)
+	}
+	if !proto.Equal(recBeforeT, recAfterT) || recAfterT.HasMutation() {
+		t.Fatalf("lane write detected under %s", tTenant)
+	}
+
+	recAfterDef, err := j.Record(ctx, edgebus.DefaultTenant, deviceID)
+	if err != nil {
+		t.Fatalf("record after under default: %v", err)
+	}
+	if !proto.Equal(recBeforeDef, recAfterDef) || recAfterDef.HasMutation() {
+		t.Fatalf("lane write detected under default tenant")
 	}
 }

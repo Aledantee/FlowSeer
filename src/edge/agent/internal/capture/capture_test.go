@@ -21,7 +21,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
-	principalv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	agentcapture "go.aledante.io/FlowSeer/src/edge/agent/internal/capture"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/subscribeloop"
 	"go.aledante.io/FlowSeer/src/modules/capture"
@@ -178,7 +178,7 @@ func testSessionConfig(sessionID string, maxPackets uint64) *modelcapturev1.Capt
 			MaxPackets: proto.Uint64(maxPackets),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          principalv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
 			Reason:               proto.String("investigation"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),

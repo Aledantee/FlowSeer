@@ -1,0 +1,88 @@
+edition = "2024";
+
+// The service an operator calls to create, retrieve, and list tenants.
+// Authorized as the platform admin; an edge or unprivileged operator never calls it.
+package flowseer.api.identity.v1;
+
+import "flowseer/model/identity/v1/tenant.proto";
+import option "buf/validate/validate.proto";
+
+service TenantService {
+  // Creates a tenant.
+  rpc CreateTenant(CreateTenantRequest) returns (CreateTenantResponse);
+  // Retrieves a tenant by reference.
+  rpc GetTenant(GetTenantRequest) returns (GetTenantResponse);
+  // Lists tenants in the system.
+  rpc ListTenants(ListTenantsRequest) returns (ListTenantsResponse);
+}
+
+message CreateTenantRequest {
+  // The identity provider's issuer URL. Must be present.
+  string issuer = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.uri = true,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // The claim name carrying the organization identifier. Must be present.
+  string organization_claim_name = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // The organization identifier value bound to this tenant. Must be present.
+  string organization_claim_value = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 256
+  ];
+  // Operator-assigned display name. Unset means none was assigned.
+  string name = 4 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Free-text description of the tenant. Unset means none was provided.
+  string description = 5 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
+}
+
+message CreateTenantResponse {
+  // The created tenant record. Must be present.
+  flowseer.model.identity.v1.TenantRecord tenant = 1 [(buf.validate.field).required = true];
+}
+
+message GetTenantRequest {
+  // The tenant to retrieve. Must be present.
+  flowseer.model.identity.v1.TenantGlobalRef tenant = 1 [(buf.validate.field).required = true];
+}
+
+message GetTenantResponse {
+  // The tenant record. Must be present.
+  flowseer.model.identity.v1.TenantRecord tenant = 1 [(buf.validate.field).required = true];
+}
+
+message ListTenantsRequest {
+  // Tenants per page. Unset means the service default; never more than 500.
+  uint32 page_size = 1 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 500
+  ];
+  // Opaque token from the previous page. Unset means the first page.
+  string page_token = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+}
+
+message ListTenantsResponse {
+  // The page of tenants in the service's stable order. Empty means the
+  // listing is exhausted.
+  repeated flowseer.model.identity.v1.TenantRecord tenants = 1;
+  // Token for the next page. Unset means this was the last page.
+  string next_page_token = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+}

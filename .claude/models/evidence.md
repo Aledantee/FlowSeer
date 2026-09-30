@@ -13,21 +13,9 @@ One line per claim the registry relies on: model, claim, source, date read.
 - GPT-6 Astra Pro — a separate id from `gpt-6-astra`, whose `openai` row on models.dev is the registry's 10/50; the Pro variant is 10/50 on OpenRouter and Kilo since 2026-09-04 with no `openai` vendor row on models.dev and no API id in OpenAI's launch note, so it stays out of the registry until it has a vendor price — https://openai.com/index/gpt-6-astra/ and OpenRouter `/api/v1/models` — 2026-09-09.
 - OpenCode Go — $10/month buys $60 of usage at list rates, metered $12 per 5 hours and $30 per week; Luna and Grok 4.5 capped at $15/month each — https://www.bitdoze.com/opencode-go-plan/ and https://llmgateway.io/blog/opencode-go-pricing — 2026-09-09.
 
-- Claude pool — a subscription metered by the session, weekly and Fable-weekly windows (host discovery, 2026-09-25), not per token. Per-token list prices on the Claude rows do not describe what a lane costs this host, so the `claude-opus-5-5` row carries `price: null` (2026-09-25).
-- Claude Opus 4.8 — effort levels low–max in Claude Code — https://code.claude.com/docs/en/model-config.md (Adjust effort level); 1M context at standard rate for Claude 4.6 and later — https://platform.claude.com/docs/en/about-claude/pricing (Long context pricing) — 2026-09-25.
-- Claude Opus 5.5 — released 2026-09-22; context 1M, 128K max output; Claude Code's default effort for it is `medium`, not `high`, and a top-level user `effortLevel` does not apply to it; effort levels low–max — https://techcrunch.com/2026/09/22/anthropic-releases-opus-5-5-with-lower-prices-and-fable-level-performance/ and https://code.claude.com/docs/en/model-config.md (Adjust effort level) — 2026-09-25.
-
 ## Refusal posture
 
 - Claude Fable 5 / 5.1 — `stop_reason: refusal` with categories `cyber`, `bio`, `frontier_llm`, `reasoning_extraction`; the cyber category fires on exploit and intrusion tooling, so authorized security work trips it; Claude Code routes a trigger to Opus 4.8 silently — https://www.developersdigest.tech/blog/fable-5-safeguards-refusal-architecture and https://kenhuangus.substack.com/p/claude-fable-5-part-8-the-refusal — 2026-09-09.
-- Claude Fable 5.1, Fable 5, Opus 5.5, Opus 5 — Claude Code re-runs a flagged request on a fallback model: cyber flags go to Opus 4.8 from all four; bio flags go to Opus 5 from Fable and Opus 5.5, and end in a refusal on Opus 5. The session then stays on the fallback model until `/model` moves it back. Needs Claude Code 2.1.219 or later; host runs 2.1.282 — https://code.claude.com/docs/en/model-config.md (Automatic model fallback) — 2026-09-25. The 2026-09-09 line above saying Fable falls back to Opus 4.8 holds for cyber only.
-- Same four models — the classifier reads workspace context as well as the prompt: a first request can flag on CLAUDE.md and git status alone, and on tool output. The docs name penetration testing, CTF work and exploit generation as frequent triggers ("expected routing for these domains, not an account flag"). Secure coding and scanning source code for vulnerabilities are allowed — https://code.claude.com/docs/en/model-config.md and https://support.claude.com/en/articles/16049681-why-claude-switched-models-in-your-conversation-with-opus-5 — 2026-09-25.
-- Opus 5.5 — new flag category `frontier_llm` (kernel work for ML accelerators) falls back to Opus 5; distillation attempts are blocked with no fallback. A separate classifier screens coding-agent actions before they run — same help-center article, and https://www.helpnetsecurity.com/2026/09/23/anthropic-claude-opus-5-5/ — 2026-09-25.
-- Claude Code `switchModelsOnFlag` — default `true` switches silently. `false` pauses an interactive session; in a `-p` run the flagged request "ends as an error" and the turn ends with a refusal, and the model is not swapped. It can go in any settings scope. User settings on this host set it `true` — https://code.claude.com/docs/en/settings-reference.md#switchmodelsonflag — 2026-09-25.
-- Session contamination — after one cyber flag, re-selecting the original model with `/model` still rerouted later turns to Opus 4.8. Trigger vocabulary in that report was benign release-engineering terms ("obfuscate", "strip symbols", "leak") found in the user's own docs — https://github.com/anthropics/claude-code/issues/93821 (links #63751, open since 2026-05-29) and https://github.com/anthropics/claude-code/issues/91948 — 2026-09-25.
-- Claude Sonnet 5 and Opus 4.8 — no content fallback. They carry the real-time cyber safeguards: prohibited use (ransomware, C2, malware, mass exfiltration) is always blocked; high-risk dual-use (vulnerability exploitation, offensive tooling) is blocked by default and lifted by the Cyber Verification Program. Anthropic recommends Opus 4.8 for restricted cyber work. Sonnet 5's gate is described as less restrictive than Fable's — https://support.claude.com/en/articles/14604842-real-time-cyber-safeguards-on-claude-opus-and-sonnet and https://www.helpnetsecurity.com/2026/07/01/anthropic-claude-sonnet-5/ — 2026-09-25.
-- Cyber Verification Program — covers Opus and Sonnet; Opus 5.5 is "not currently available" there; decision within two business days; needs identity verification; ZDR and Bedrock accounts are excluded. Whether a personal subscription qualifies is not stated — same two support articles — 2026-09-25.
-- Observed in this repository — on Opus 5.5, a response was stopped by the safety classifier right after a directory listing of the `src/edge/netpen` tree reached the context. One event, not a rate — 2026-09-25.
 - GPT-6 Astra — first OpenAI model rated Critical for cyber; refuses 91.5% on cyber jailbreak evaluations against 59% for GPT-5.6 Sol; blocks proof-of-concept exploits, allows secure code review and patching — https://deploymentsafety.openai.com/gpt-6-astra and https://app.stationx.net/articles/gpt-6-astra-security — 2026-09-09.
 - Gemini 3.8 Flash Cyber and GPT-5.6-Cyber — permissive variants gated to vetted defender teams (Fairwind, Daybreak); product and general engineering teams do not qualify — https://blog.google/innovation-and-ai/models-and-research/gemini-models/3-8-flash-and-3-8-flash-cyber/ and https://www.axios.com/2026/08/10/openai-gpt-astra-restrictions-safety-hacking-defenders — 2026-09-09.
 
@@ -43,26 +31,18 @@ One line per claim the registry relies on: model, claim, source, date read.
 - GPT-6 Astra — Terminal-Bench 4.0 57.7 against GPT-5.6 Sol 37.3 and Terminal-Bench Science 0.1 64.6 against Claude Fable 5.1 52.6, OpenAI's own runs; not Terminal-Bench 2.1, so not comparable with the `terminal_bench` column — https://openai.com/index/gpt-6-astra/ — 2026-09-09.
 - GPT-5.6 Sol — Artificial Analysis Coding Agent Index 80 — https://openai.com/index/gpt-5-6/ — 2026-09-09.
 
-## Calibration 2026-09-25 — Opus 5.5 review lane
-
-Review of Sonnet 5's `Merge` (`bench-old-sonnet`, 30c8da74 on bd9e0862; known source-error hang as ground truth), `claude -p --effort high`, 155 s, 13,402 output tokens, $0.75 as the CLI reports it (subscription-covered). `modelUsage` names only `claude-opus-5-5`, so no safeguard fallback fired on this non-sensitive unit. It found the known bug: a source error never stops the merged pump, so the consumer blocks until every sibling closes. It also found four valid extras: the variadic `sources` slice is aliased past return (it reproduced a nil-pointer SIGSEGV); a pre-cancelled context yields a nil error in 1007 of 2000 runs; a `SignalStop` plus `Cancel` close reports `context.Canceled` in 1946 of 2000 runs; and nil or duplicate sources are not rejected. It added a test-coverage note. Graded by Opus 5.5, a same-vendor grader. One run. The brief was written fresh because the 2026-09-09 review brief was not kept, so the comparison with Opus 5's 148 s run is on the same diff, not the same wording.
-
-## Calibration 2026-09-25 — Opus 4.8 execute lane
-
-`Merge` task at base bd9e0862, `claude -p --effort high`: 7/7 acceptance tests on each of three `-race` counts, its own tests pass, verifier green; 426 s, 32,472 output tokens, $1.74 as the CLI reports it (subscription-covered). `modelUsage` names only `claude-opus-4-8`. It is the first Claude lane to pass: Sonnet 5 hung on the source-error path. The task has no security content, so this lane measures execute ability and not the refusal rate on `sensitive_paths`. One run.
-
 ## Harness behaviour found by calibration
 
 - `discover-host.sh` inside the Claude Code sandbox reports `google`, `go`, and `zen` as signed out and exits 1: `opencode` cannot open its log file under `~/.local/share/opencode/log` and `agy models` fails the same way. Unsandboxed the same run reports all five pools signed in. Run it unsandboxed, as `delegate` already says for `orca` — 2026-09-09.
 
 - `opencode run` (1.18.25 and 1.18.30) never returns headless: it logs `init` and stops, with MCP disabled, in a plain directory, with `OPENCODE_CONFIG_DIR` unset, and with `--attach`. `opencode serve` plus `POST /session/{id}/message` works and reports cost and tokens per message; `bench.sh` uses that path — 2026-09-09.
 - `agy -p` returns partial output after 5 minutes by default; pass `--print-timeout` for any unit that runs longer — 2026-09-09.
-- `codex exec` needs `--skip-git-repo-check` outside a repository and reads stdin unless it is closed; the host's global compound-engineering plugin makes it read its workflow files before the first edit — 2026-09-09.
+- `codex exec` needs `--skip-git-repo-check` outside a repository and reads stdin unless it is closed; the user's global compound-engineering plugin makes it read its workflow files before the first edit — 2026-09-09.
 - `claude -p` refuses to start with `CLAUDECODE` set in the environment; `bench.sh` unsets it — 2026-09-09.
 
 ## Calibration 2026-09-09 — `Merge` task (`tune/references/calibration.md`)
 
-Execute (7 hidden acceptance tests, `-race`, verifier): Gemini 3.8 Flash high 7/7 in 201 s ($0.56 list, plan-covered); Kimi K3 on Go 7/7 in 1,235 s ($0.82 of the Go window); GPT-5.6 Sol high 7/7 on the staged files, uncommitted after 110 min because the host's global compound-engineering Codex plugin ran its own review workflow; Claude Sonnet 5 6/7 in 269 s ($0.69 list, plan-covered) with a deadlock on the source-error path that its own tests hid by hand-calling `Done`; GLM-5.3 on Go 0/7, 32K reasoning tokens then `finish: length` with no tool call (902 s, $0.17).
+Execute (7 hidden acceptance tests, `-race`, verifier): Gemini 3.8 Flash high 7/7 in 201 s ($0.56 list, plan-covered); Kimi K3 on Go 7/7 in 1,235 s ($0.82 of the Go window); GPT-5.6 Sol high 7/7 on the staged files, uncommitted after 110 min because the user's global compound-engineering Codex plugin ran its own review workflow; Claude Sonnet 5 6/7 in 269 s ($0.69 list, plan-covered) with a deadlock on the source-error path that its own tests hid by hand-calling `Done`; GLM-5.3 on Go 0/7, 32K reasoning tokens then `finish: length` with no tool call (902 s, $0.17).
 
 Review of the Sonnet diff (known deadlock as ground truth): Opus 5 found it plus one valid extra (148 s, $0.66); Sol found it plus four (530 s, ~$3.5 list); Gemini 3.8 Flash found it plus four (275 s, $0.48); Sonnet 5 missed it and asserted no forwarder can block (140 s, $0.31); Qwen3.8-Max on Go missed it, one valid medium (1,669 s, $0.63).
 
@@ -92,151 +72,92 @@ One `opencode serve` (1.18.30) in an empty directory, one session per `synthetic
 - Synthetic quota — `GET https://api.synthetic.new/v2/quotas` is documented to return `subscription.{limit, requests, renewsAt}` and not to count against the limit — https://dev.synthetic.new/docs/synthetic/quotas — 2026-09-19.
 - Synthetic quota, live reply — also returns `rollingFiveHourLimit.{remaining, max, limited, nextTickAt, tickPercent}` and `weeklyTokenLimit.{percentRemaining, maxCredits, remainingCredits, nextRegenAt}`, which the docs page does not list. After the ten probes above `subscription.requests` was still 0 of 2500 while `rollingFiveHourLimit.remaining` read 2495.78 of 2500 and weekly credits $119.86 of $120.00, so `pool-usage.sh` meters the latter two. The fractional remainder means requests are weighted; the weights and the tick interval are not measured — 2026-09-19.
 
-## Catalogue pull 2026-09-19 19:50Z
+## Refresh 2026-09-23
 
-models.dev `api.json` and OpenRouter `/api/v1/models`, read through
-`tune/scripts/catalogue.py`. Anthropic, OpenAI and Google list prices are
-unchanged since 2026-09-09; so are GLM-5.3, Kimi K3, Qwen3.8 Max, Qwen3.8
-Flash, DeepSeek V4 Pro and Grok 4.6.
+Prices and context:
 
-- models.dev carries a `synthetic` provider whose ten rows are exactly the ten `hf:` ids opencode lists, at the prices and contexts Synthetic serves rather than the upstream vendor's. Those rows are what opencode's own cost line matches: GPT-OSS-120B billed $0.0015 on ~15K tokens in the 2026-09-19 smoke test, which is Synthetic's 0.1/M and not NVIDIA's or OpenAI's free hosting. The registry takes price and context for every `pool: synthetic` model from that row — models.dev `api.json`, provider `synthetic` — 2026-09-19.
-- Synthetic truncates context: Kimi K3 524,288 against the vendor's 1,048,576, GLM-5.3-Flash and DeepSeek V4.1 Flash 524,288 against 1,000,000, GLM-4.7-Flash 196,608 against 200,000 — same source — 2026-09-19.
-- GLM-5.3-Flash — Z.ai list is 0.15/0.50 per million; the registry's 0.07/0.25 was the launch promotion, which ended at 24:00 on 2026-09-09 (UTC+8) — models.dev `zai` row and https://www.mindstudio.ai/blog/glm-5-3-flash-pricing-api — 2026-09-19.
-- GLM-5.3-FlashX — 0.37/1.25 per million, 1M context, on Z.ai's API since 2026-09-18. Not a new model: GLM-5.3-Flash's weights (320B total, 18B active) on a faster serving stack at up to 200 output tokens/s, published with no evaluation of its own. Synthetic does not serve it — https://www.orcarouter.ai/blog/glm-5-3-flashx-release and https://apimaster.ai/blog/glm-5-3-flashx-api — 2026-09-19.
-- DeepSeek V4.1 Flash — shipped 2026-09-10 as `deepseek-flash`; DeepSeek routes `deepseek-v4-pro` traffic to it from 04:00 UTC on 2026-09-14, so the V4 Pro id no longer names the weights the registry's 87.9 was measured on — https://www.mindstudio.ai/blog/deepseek-v4-1-flash-benchmarks — 2026-09-19.
-- DeepSeek V4 Flash — DeepSeek's own row is now 0.15/0.60 per million at 1M context, not the 0.14/0.28 recorded on 2026-09-09; 0.14/0.28 survives as NVIDIA's hosted copy (`nvidia` provider, `deepseek-ai/deepseek-v4-flash`) — models.dev `api.json` — 2026-09-19.
-- Vendor and broker still disagree by more than 20% on three models, and the registry keeps the vendor's: GPT-5.6 Sol 4/20 against OpenRouter 2/10, GLM-5.3 1.4/4.4 against 0.91/2.86, Kimi K3 3/15 against 1.70/8.50 — both feeds — 2026-09-19.
-- On OpenRouter in the last 60 days and not in the registry, none with a pool this host can reach: `z-ai/glm-5.3-flashx` (added), `openai/gpt-6-astra-pro` (still no vendor row, still out), `qwen/qwen3.8-max-0902`, `deepseek/deepseek-v4-flash-vision-exp`, `qwen/qwen3.8-27b`, `google/gemini-3.7-flash`, `qwen/qwen3.8-2.4t-a95b`, `deepseek/deepseek-v4-pro-0813`, `nvidia/nemotron-3.5-lightning`, `deepseek/deepseek-v4-flash-0731`, `qwen/qwen3.7-flash` — 2026-09-19.
+- All models — list prices and context re-pulled by `catalogue.py` from models.dev `api.json` and OpenRouter `/api/v1/models` — 2026-09-23. Vendor rows win; brokers differ by more than 20% on GPT-5.6 Sol (OpenRouter 2/10 against OpenAI 4/20), GLM-5.3 (0.84/2.64 against Z.ai 1.4/4.4), GLM-5.2 (0.65/2.04 against 1.4/4.4), Kimi K2.7 Code (0.71/3.30 against Moonshot 0.95/4), Qwen3.6 27B (0.32/2.70 against Alibaba 0.6/3.6), DeepSeek V4 Pro (0.96/1.91 against DeepSeek 0.435/0.87), and DeepSeek V4 Flash (0.09/0.18 against DeepSeek 0.15/0.6).
+- Claude Opus 5.5 — 4/20 per million, context 1M, released 2026-09-22 — models.dev `anthropic` row and https://www.anthropic.com/claude-opus-5-5 — 2026-09-23.
+- GPT-6 Sol 2/10 and GPT-6 Luna 0.1/0.5 per million, context 1,050,000, released 2026-09-22 — models.dev `openai` rows and https://openai.com/index/introducing-gpt-6-sol-and-luna/ — 2026-09-23. GPT-6 Sol Pro and GPT-6 Luna Pro appear on OpenRouter with no `openai` vendor row, so they stay out, as GPT-6 Astra Pro did.
+- GLM-5.3 Flash — 0.15/0.5 at Z.ai, up from 0.07/0.25 on 2026-09-09 — models.dev `zai` row — 2026-09-23.
+- DeepSeek V4 Flash — DeepSeek's row now reads 0.15/0.6, context 1M, released 2026-09-10; DeepSeek serves the `deepseek-v4-flash` name as V4.1 Flash since that date, so the V4 Flash weights are retired at the vendor — models.dev `deepseek` row, https://dataconomy.com/2026/09/11/deepseek-v4-1-flash-ultralow-token-pricing/ — 2026-09-23. The alias claim comes from deepseek.ai/pricing, which is not DeepSeek's own domain (deepseek.com); treat it as unconfirmed until api-docs.deepseek.com says so.
+- DeepSeek V4.1 Flash — 0.15/0.6 off-peak, doubled in peak hours, context 1M, open weights (MIT), launched 2026-09-10 — same sources — 2026-09-23. OpenRouter lists 0.10/0.50.
+- Kimi K2.7 Code 0.95/4 and Qwen3.6 27B 0.6/3.6 at context 262,144 (the registry had 1M for both, unsourced); GLM-5.2 1.4/4.4 at 1M; Nemotron 3 Super 0.2/0.8 at 262,144 from the `nvidia` row; gpt-oss-120b has no `openai` row, so the registry carries Synthetic's 0.1/0.1 at 131,072; GLM-4.7 Flash 0/0 at 200K from the `zai` row — models.dev `api.json` — 2026-09-23.
+- Grok 4.7 — 2/6 at xAI, context 500K, released 2026-09-21; not added, since no signed-in pool other than per-token `zen` serves it, the same standing as Grok 4.6 — models.dev `xai` row, https://www.marktechpost.com/2026/09/21/spacexai-releases-grok-4-7/ — 2026-09-23.
 
-### Benchmarks for the three models Synthetic answers for
+Pools and CLIs:
 
-None of these fills the registry's `terminal_bench` column, which holds
-Terminal-Bench 2.1 only, and none is a calibration result, so none of them
-enters a fit set on these numbers.
+- Codex CLI 0.155.1 — `codex debug models` lists gpt-6-astra, gpt-6-sol, and gpt-5.6-sol with efforts low through `ultra`, and gpt-6-luna and gpt-5.6-luna with low through `max` (the registry had Luna 5.6 at low–high) — 2026-09-23. `ultra` is described as "maximum reasoning with automatic task delegation"; no role routes at it.
+- agy 1.2.9 — `agy models` still offers gemini-3.8-flash at low, medium, high only — 2026-09-23.
+- Synthetic served list — `GET https://api.synthetic.new/openai/v1/models` lists gpt-oss-120b, GLM-5.3-Flash, DeepSeek-V4.1-Flash, Kimi-K3, Qwen3.8-27B, GLM-4.7-Flash, Nemotron-3-Super, and four `syn:` aliases; MiniMax-M3, Kimi-K2.7-Code, Qwen3.6-27B, and GLM-5.2 are absent. Kimi-K3, GLM-5.3-Flash, and DeepSeek-V4.1-Flash are served at 524,288 context, half their vendor windows — 2026-09-23.
+- Synthetic silent aliasing — the four absent ids, which answered HTTP 404 on 2026-09-19, each passed the one-request file-read probe today with no error and near-identical reported costs. A probe no longer shows whether Synthetic still serves an id; its `/openai/v1/models` list does — 2026-09-23.
+- opencode agents — `~/.config/opencode/opencode.json` was rewritten 2026-09-19 20:44 to model-named, pin-only agents (the claude, codex-model, and gemini ids on `zen`; `kimi-k3` and `glm-5.3-flash` on `synthetic`); the registry committed 7 minutes later still named the earlier role agents (`execute-open`, `research`, `critique`, `overflow-frontier`, `execute-*`), none of which exists now. The registry now names the live agents — 2026-09-23.
 
-- DeepSeek V4.1 Flash — Terminal-Bench 2.1 90.6 and Terminal-Bench 3.0 30, DeepSeek's own runs on the Minimal mode of the DeepSeek Harness at 1M context, a different harness from the 88.2/88.3/86.6 figures already in the registry; DeepSWE v1.1 74.2, not SWE-bench Verified — https://www.mindstudio.ai/blog/deepseek-v4-1-flash-benchmarks and https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash — 2026-09-19.
-- Nemotron 3 Super 120B A12B — SWE-bench Verified 60.5 on OpenHands, Terminal-Bench Core 2.0 31.0 on Harbor, NVIDIA's own runs. Terminal-Bench Core 2.0 is not Terminal-Bench 2.1 — https://research.nvidia.com/labs/nemotron/files/NVIDIA-Nemotron-3-Super-Technical-Report.pdf and https://openrouter.ai/nvidia/nemotron-3-super-120b-a12b/benchmarks — 2026-09-19.
-- GPT-OSS-120B — around 62 on SWE-bench Verified in public reports, harness unnamed; OpenAI's model card gives Codeforces, SWE-bench and tau-bench without a Terminal-Bench figure. Its 131,072-token context on Synthetic is the smallest in the registry — https://arxiv.org/pdf/2508.10925 and https://artificialanalysis.ai/models/gpt-oss-120b — 2026-09-19.
-- No refusal report found for any of the three; all are open-weight releases served without a vendor safety gateway, so `refusal_cyber: low` stands on the same reasoning as the other open-weight rows and not on a measurement — 2026-09-19.
+Refusal posture and benchmarks:
 
-## Host discovery 2026-09-19 19:49Z
+- Claude Opus 5.5 — Anthropic's cyber classifiers route a trigger to Opus 4.8 rather than refusing; the only write-up found reuses Opus 5 findings, so `medium` is carried over from Opus 5 and is not measured for 5.5 — https://neuraltrust.ai/blog/claude-opus-5-5-security-safety — 2026-09-23.
+- Claude Opus 5.5 — Terminal-Bench 4.0 66.4 at xhigh (Anthropic, harness unnamed); no Terminal-Bench 2.1 or SWE-bench Verified number found — https://www.anthropic.com/claude-opus-5-5 — 2026-09-23.
+- GPT-6 Sol — no cyber refusal figure published; OpenAI says it "closes most of the alignment gap with Astra", so it may refuse more than GPT-5.6 Sol (59%) — `refusal_cyber: null` until measured — https://thenewstack.io/gpt-sol-alignment-gaps/ — 2026-09-23.
+- GPT-6 Sol — available in Codex for most paid accounts; DeepSWE v1.1 68.8 at max effort (harness unnamed); no Terminal-Bench 2.1 or SWE-bench Verified number found — https://artificialanalysis.ai/models/gpt-6-sol — 2026-09-23.
+- GPT-6 Luna — rolling out to Codex; some users report it missing from the picker at launch (it is listed on this host); no refusal or Terminal-Bench 2.1 figures found — https://community.openai.com/t/gpt-6-luna-not-available-in-codex/1399923 — 2026-09-23.
+- Grok 4.7 — Terminal-Bench 4.0 26 (harness unnamed); no Terminal-Bench 2.1 found — https://the-decoder.com/xai-launches-grok-4-7-at-bargain-prices-but-benchmarks-reveal-a-wide-gap-to-claude-and-gpt-6/ — 2026-09-23.
 
-- CLIs: claude 2.1.278, codex 0.153.4, agy 1.2.7, opencode 1.18.31. Orca reachable, `--model` pinnable for claude, codex and cursor — `discover-host.sh` — 2026-09-19.
-- `google` is signed out: `agy -p /quota` prints an OAuth URL and exits with "authentication failed or timed out", and `agy models` answers "Please sign in to view available models". Until someone completes that login, Gemini 3.8 Flash is unreachable, and it is the only model in the `lookup` and `critique` fit sets besides one Claude and one Synthetic model — 2026-09-19.
-- `pool-usage.sh` reports `claude: signed_in: false` while the `claude` CLI is signed in on this host. The row comes from `orca account list --json`, where `claude.accounts` is empty and `rateLimits.claude` is null, because Orca has no Claude account registered. The `codex` row escapes the same fate only through its `systemDefault.hasAuth` fallback; there is no equivalent for claude, although `~/.claude/.credentials.json` exists and `~/.claude.json` shows an active Max 20x account. `delegate` drops every model whose pool row reads `signed_in: false`, so this reading takes all four Claude models out of every fit set while the coordinating session is itself running on that pool — 2026-09-19.
+## Calibration 2026-09-23 — `Merge` task, GPT-6 Sol `execute` at `xhigh`
 
-## opencode agent block 2026-09-19
+Base bd9e0862 (`d4421211^`, so the lane measures implementation), one run through `bench.sh --cli codex --model gpt-6-sol --effort xhigh` on codex-cli 0.155.1, with the user's global compound-engineering plugin disabled for the lane (`bench.sh` now passes that override on every codex lane). The model added `merge.go` (107 lines) and `merge_test.go` (282 lines) and committed them in 371 s. Graded with each of the 7 hidden acceptance tests run on its own under `-race -count=3`, then together: 7/7. The verifier on both changed paths passed. Usage 1,195,959 input tokens (1,121,920 of them cache reads), 15,799 output (9,420 reasoning); no dollar figure from the CLI, so $0.53 is estimated at list price with cache reads at a tenth of input. The codex weekly window still read 0% afterwards. One sample, same base as the 2026-09-18 Sonnet 5 runs (5/7 and 6/7 at 580–591 s, $1.39–1.58), so the two compare; GPT-5.6 Sol's 7/7 of 2026-09-09 ran on an unrecorded base with the plugin active and does not.
 
-- `~/.config/opencode/opencode.json` defines nine agents, every one named after a model id: `claude-fable-5-1`, `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`, `gpt-6-astra`, `gpt-5.6-sol`, `gemini-3.8-flash` (all pinned to `opencode/…`, the zen pool) and `kimi-k3`, `glm-5.3-flash` (pinned to `synthetic/…`). There is no `~/.config/opencode/agent/` directory, so that file is the whole set — 2026-09-19.
-- None of the five agent names in the registry's `opencode_agents` (`research`, `execute-open`, `execute-sensitive`, `critique`, `overflow-frontier`) exists in that file, and neither does any of the ten per-model `agent:` names the registry carries (`execute-glmflash`, `execute-open`, `execute-flash`, `execute-nemotron`, `execute-gptoss`, `execute-kimicode`, `execute-qwen`, `execute-glm47`, `execute-glm52`, `execute-minimax`). `orca-worker.sh` passes `--agent` through to `opencode --agent` unchanged, so a synthetic or zen lane dispatched on today's registry launches an agent opencode does not have. The claim in 0d774ceb that the ten ids were "wired in ~/.config/opencode/opencode.json" does not hold — 2026-09-19.
-- The registry also carries two incompatible pinning schemes at once: a per-model `agent:` field, which lets `delegate` choose the model and then name its agent, and the role-to-agent `opencode_agents` map, which fixes one model per role and is what `delegate`'s SKILL.md describes. Only one can decide a lane — 2026-09-19.
-- The zen pool serves eight ids, all small or free: `big-pickle`, `jev-1.13-free`, `ling-3.0-flash-fin-free`, `mimo-v2.5-free`, `muse-spark-1.2-contributor-free`, `muse-spark-1.3-contributor-free`, `nemotron-3-ultra-free`, `nemotron-3.5-lightning-free`. The seven zen-pinned agents in opencode.json point at Claude, GPT and Gemini ids the pool no longer carries, so they are dead as well. The registry has no zen model rows, and `overflow: overflow-frontier` names a frontier overflow lane the pool cannot serve — `opencode models` 1.18.31 — 2026-09-19.
+## Calibration 2026-09-23 — `Merge` task, every claude, codex, and google model
 
-## opencode agent dispatch, probed 2026-09-19 20:00-20:40Z
+Execute lanes from base bd9e0862 on `calibration/brief.md`; review lanes on commit 30c8da74 (a 2026-09-09 Claude Sonnet 5 `Merge` that deadlocks when a source fails while a sibling's producer stops without closing its data channel: the forwarder never watches the source's `Stopped()`, so `wg.Wait` never returns), with a brief that states the contract and asks for findings. Effort `xhigh` where the model lists it, `high` on Gemini, none on Haiku. Execute graded with each of the 7 hidden acceptance tests alone under `-race -count=3`, then the verifier on the changed paths for every 7/7 lane (all six passed). Each lane ran once. Cost is the CLI's figure on claude and an estimate from reported tokens at list price elsewhere ("est"). Quota is the change in the pool's own meter across the lane with the pool's lanes run one at a time; claude and codex meters report whole percents, so 0 means under one percent; this coordinating session also drew on the claude pool.
 
-The agent block was reconciled on 2026-09-19: `~/.config/opencode/opencode.json`
-gained one agent per new synthetic model, named after the model id like the
-nine already there, and the registry's `agent:` fields now name those instead
-of the invented `execute-*` set. The probes below are the first time any agent
-in that file has been exercised; the fit sets its descriptions claim were
-never evidence that dispatch works.
+- Execute 7/7 and verifier green: GPT-6 Sol 371 s ~$0.53 codex +0%; Gemini 3.8 Flash high 453 s ~$1.17 gemini 5h +0.73%; Claude Fable 5.1 524 s $3.87 claude +0%; GPT-5.6 Luna 612 s ~$0.13 codex +0%; GPT-6 Astra 782 s ~$3.25 codex weekly +1%; GPT-6 Luna 1,336 s ~$0.05 codex +0% — 2026-09-23.
+- Execute failures, all on `TestMergeAcceptSourceErrorPropagates`: Claude Opus 5.5 6/7 (552 s, $2.26), Claude Opus 5 6/7 (428 s, $2.08), Claude Haiku 4.5 6/7 (450 s, $0.51), Claude Sonnet 5 4/7 (440 s, $0.88; also fails consumer-stop and context-cancel). Every Anthropic model but Fable 5.1 wrote the deadlock the review lanes look for — 2026-09-23.
+- Review, found the deadlock: Claude Opus 5.5 218 s $0.95 +4 valid extra; GPT-6 Sol 256 s ~$0.27 +3; GPT-6 Astra 263 s ~$1.70 +3; Gemini 3.8 Flash 374 s ~$0.74 +2; Claude Fable 5.1 418 s $2.99 +1 (rated medium, unsure it breaks the contract); Claude Opus 5 608 s $2.36 +3 (rated medium); GPT-5.6 Luna 711 s ~$0.11 +2 — 2026-09-23.
+- Review, missed it: Claude Sonnet 5 555 s $1.22 (its stress test hung on the bug and it blamed its own producer); GPT-6 Luna 265 s ~$0.02 (one valid finding, lost cancellation); Claude Haiku 4.5 192 s $0.23 (one invalid finding) — 2026-09-23.
+- Not measured: GPT-5.6 Sol (dropped for time; GPT-6 Sol covers its roles at half the price). Synthetic models deferred to a later run; Kimi K3 6/7 (fails context-cancel, 383 s, $1.28 of Synthetic weekly credits), DeepSeek V4.1 Flash 7/7 (279 s, verifier green), GLM-5.3 Flash 0/7 (32K output then `finish: length`, no tool call), Nemotron 3 Super 2/7 were measured before the deferral. Synthetic quota after 09:31Z is shared with another opencode session and is not per lane.
+- Harness: seven claude and codex lanes died of SIGTERM from outside the run, in pairs within one second (09:42, 09:53, 10:20, 10:28Z); they were re-run. `bench.sh` counts only the final opencode message's tokens, so its opencode cost undercounts a multi-step lane (Kimi K3: $0.03 reported, $1.28 metered) — 2026-09-23.
+- Fit sets from this calibration, applied on the user's answers 2026-09-23: `execute` [gpt-6-sol, gemini-3.8-flash, gpt-5.6-luna, claude-opus-5-5] (Opus 5.5 as the Claude fallback by the user's preference over Fable 5.1, although Opus 5.5 scored 6/7 and Fable 7/7); `review-unit` [claude-opus-5-5, gpt-6-sol, gemini-3.8-flash]; `review-seam` [claude-opus-5-5, gpt-6-sol]. `fit` is now ordered best-first and `delegate` takes the first model whose pool has room.
+- `judge` [claude-opus-5-5, gpt-6-astra], Opus 5.5 replacing Fable 5.1 by the user's preference; no judge calibration exists — 2026-09-23.
 
-Probe: one `opencode serve` per model in a fresh directory, a fresh session per
-request, a hard `--max-time` on every call, one prompt — read `probe.txt` with
-the file tool and reply with its text, which only a tool call can produce.
+- Harness, `agy` 1.2.9 — `agy -p` run from an empty lane directory wrote one of its two output files (`review.json`) to `~/.gemini/antigravity-cli/scratch/` instead of the working directory, and reported `DONE` as if it had written it in place; the other lane's file landed in the working directory. Grade `agy` lanes by also checking that scratch directory. Found by the Lewdzifer refusal probe — 2026-09-23.
+- Harness, `bench.sh` in Lewdzifer — its `claude` branch still dropped `--effort` on 2026-09-23 (the FlowSeer fix of 2026-09-18 never reached it); fixed there the same day.
+- Harness, `agy` 1.2.9 — a prompt Google's prohibited-use filter rejects comes back as `status: SUCCESS`, exit 0, zero usage, with the refusal as the `response` text ("The prompt could not be submitted. The prompt contains sensitive words …"), in under 5 s. A caller has to read `response`; the exit code and status say nothing. The same run showed `agy` writing into `~/.gemini/antigravity-cli/scratch/` instead of the working directory in 3 of 8 file-writing lanes. Found by the Lewdzifer refusal probe — 2026-09-23.
+- Harness, `agy` 1.2.9 — a lane started in an empty scratch directory wrote its output file into the Lewdzifer PRIMARY checkout (`/Users/aledante/Projects/lewdziferio/apps/control/internal/apiconnect/services/media/tagsuggestions/vision_prompt_golden_test.go`, 14:22 on 2026-09-23), the real package its prompt named, as well as into its scratch directory. `--dir` is not an isolation boundary for `agy`: run its lanes in a disposable worktree of a repository you can reset, and check `git status` of every checkout on the machine after a run — 2026-09-23.
 
-- `glm-5.3-flash` — pass through the default agent in 8 s and through the named agent in 6 s, so a named agent is not itself the problem — 2026-09-19.
-- `nemotron-3-super` — pass through its named agent in 11 s — 2026-09-19.
-- `deepseek-v4.1-flash` — pass through its named agent in 37 s — 2026-09-19.
-- `gpt-oss-120b` — no reply through its named agent in 90 s and again in 180 s, with an assistant message recorded at zero input, zero output and zero cost in `~/.local/share/opencode/opencode.db`; the same model and prompt through the default agent passed in 7 s. Something about the agent definition (it differs from opencode's default `build` agent only by `mode: "all"` and a description) leaves this model producing nothing. `delegate` pins the synthetic pool by agent name and has no other path, so the model is unreachable for delegation and the registry gives it `pool: null` — 2026-09-19.
-- Weekly Synthetic credit read $119.86 after that day's ten probes and $114.01 before its calibration lanes, a $5.85 drop the hung probes do not account for: opencode recorded zero tokens and zero cost for all of them. Synthetic counts usage from every host on the key, so the difference is not attributable from this machine, and no cause is claimed — 2026-09-19.
+## Synthetic refresh 2026-09-23 (afternoon)
 
-## Calibration attempt 2026-09-19 — blocked on the toolchain
+- Synthetic served list, re-read 15:13Z — `GET https://api.synthetic.new/openai/v1/models` unchanged since the morning: gpt-oss-120b, GLM-5.3-Flash, DeepSeek-V4.1-Flash, Kimi-K3, Qwen3.8-27B, GLM-4.7-Flash, Nemotron-3-Super, plus `syn:large:text` (DeepSeek-V4.1-Flash), `syn:small:text` (GLM-4.7-Flash), `syn:large:vision` (Kimi-K3), `syn:small:vision` (Qwen3.8-27B). Synthetic's own prices: Kimi-K3 3/15, DeepSeek-V4.1-Flash 0.6/1.2, Qwen3.8-27B 0.45/2.2, GLM-5.3-Flash 0.15/0.5, Nemotron-3-Super 0.3/1.0, GLM-4.7-Flash 0.1/0.5, gpt-oss-120b 0.1/0.1 — 2026-09-23.
+- Synthetic reasoning levels — the same list now carries `reasoning_parameters.efforts`: Kimi-K3 and GLM-5.3-Flash low/high/max; DeepSeek-V4.1-Flash none/low/high/xhigh/max; Qwen3.8-27B low/medium/xhigh; GLM-4.7-Flash, Nemotron-3-Super, gpt-oss-120b none/low/medium/high. The registry keeps `effort: []` on the `synthetic` models because the opencode agents pin only the model and `bench.sh` refuses `--effort` on opencode, so no route applies a level — 2026-09-23.
+- Qwen3.8-27B — added. Served by Synthetic at 262,144 context, vision input, FP8; no `alibaba` vendor row on models.dev (brokers 0.10–0.87 in, 0.35–4 out; OpenRouter 0.42/3.00), so the registry carries Synthetic's 0.45/2.2, as for gpt-oss-120b. opencode 1.18.30's `synthetic/` catalogue lists `hf:Qwen/Qwen3.6-27B`, not 3.8, so an opencode agent pinning it is unverified — Synthetic `/openai/v1/models`, models.dev `api.json` — 2026-09-23.
+- Qwen3.8-27B — Apache 2.0, 27.78B dense, native 262,144 context; Terminal-Bench 2.1 73.0 (Qwen3.6-27B 63.4), harness not named, so `terminal_bench` stays empty; release date conflicts: 2026-08-03 alongside Qwen3.8-Max (kingy.ai) against 2026-08-14 on models.dev — https://huggingface.co/Qwen/Qwen3.8-27B, https://kingy.ai/blog/qwen3-8-27b-specs-benchmarks-local-hardware/, https://www.qubrid.com/blog/qwen38-27b-benchmarks-official-and-independent-results — 2026-09-23. No cyber refusal report found; `refusal_cyber: null`.
+- DeepSeek V4.1 Flash and Nemotron 3 Super — `catalogue.py` finds no vendor row under the registry key for either (models.dev has `nvidia/nemotron-3-super-120b-a12b` at 0.2/0.8 and DeepSeek serves V4.1 Flash under `deepseek-v4-flash`); prices unchanged, not marked retired, since Synthetic serves both — 2026-09-23.
 
-Four lanes were started on base `bd9e0862` (`d4421211^`, so they measure
-implementation): `glm-5.3-flash`, `kimi-k3`, `deepseek-v4.1-flash` and
-`nemotron-3-super`, each through `bench.sh --cli opencode` with the model's
-own agent. `gpt-oss-120b` was left out; it returns nothing through a named
-agent.
+Synthetic `execute` lanes of the 2026-09-23 `Merge` calibration, written to the registry now (they were recorded above under "Not measured" but never reached the model rows). Source: FlowSeer session scratch `cal/results.jsonl`; `drive.py` branched every execute lane from `EXEC_BASE="bd9e0862"`; pin-only opencode agents, so `effort: none`. Cost is the change in Synthetic weekly credits across the lane, not `bench.sh`'s figure (it counts only the last message):
 
-- No Go toolchain exists on this host: `go` is absent from PATH, from `/usr/local/go`, from every version manager directory, and there is no `~/go` or `~/.cache/go-build`. `go.mod` requires 1.27. Grading a lane means running the seven hidden acceptance tests under `-race`, so **no lane can be graded here**, and a fit set cannot move: `tune` admits a model to a role on a calibration result and on nothing else. The same gap fails the repository Stop hook, whose conformance gates shell out to `go` — 2026-09-19.
-- `bench.sh` reports success for a lane that never ran. The `kimik3` lane's `opencode serve` never bound its port (`curl: (7) Failed to connect`, empty serve log, most likely because four servers were started at once), the session was never created, and the script still wrote a result file with `"exit": 0`, `wall_s: 31` and zero usage. Nothing in that JSON distinguishes a model that did nothing from a lane that never started; only the empty `.raw` and the `.stdout` traceback do. `code=$?` there captures the `case` block, not the curl — 2026-09-19.
-- Four `opencode serve` instances at once corrupt each other's work. They share one SQLite database at `~/.local/share/opencode/opencode.db`, and running the four lanes in parallel produced exactly the failures that implies: the `kimik3` server never bound its port and its lane never started, and the `dsv41flash` lane died 202 s in with `{"name":"UnknownError"}` to the client and `level=ERROR message=process error="Failed to execute statement"` in `~/.local/share/opencode/log/opencode.log`. Every single-server probe on 2026-09-19 succeeded, five for five. Calibration lanes on the opencode CLI must run one at a time; `calibration.md` says one worktree per lane and does not say that — 2026-09-19.
-- DeepSeek V4.1 Flash had written a 105-line `merge.go` with a full contract doc comment when the database error killed its lane, and no `merge_test.go`, which the brief requires. The lane is void, not a result — 2026-09-19.
+- Kimi K3 — 6/7, fails `TestMergeAcceptContextCancelPropagates`, 383 s, $1.28 credits, committed 177add83. Replaces the registry's 7/7 of 2026-09-09 on the go pool (1,235 s, base unrecorded), kept in the note — 2026-09-23.
+- DeepSeek V4.1 Flash — 7/7, verifier green, 279 s, $0.55 credits, committed 022e4394; the fastest 7/7 of any lane in the calibration (GPT-6 Sol 371 s). From 09:31Z the Synthetic meter was shared with another opencode session, so the credit figure is an upper bound — 2026-09-23.
+- GLM-5.3 Flash — 0/7, 421 s, $0.15 credits; 32,000 output tokens then `finish: length`, no tool call, no commit — 2026-09-23.
+- Nemotron 3 Super — timed out at 3,600 s with `merge.go` and `merge_test.go` uncommitted; the uncommitted tree grades 2/7; $2.22 credits on the shared meter — 2026-09-23.
+- gpt-oss-120b and GLM-4.7 Flash — lanes were planned in `drive.py`; gpt-oss started 12:55Z and left an empty output, GLM-4.7 Flash never ran. Unmeasured — 2026-09-23.
+- Fit sets, applied on the user's approval 2026-09-23: `execute` gains `deepseek-v4.1-flash` in first place (fastest 7/7 of the calibration, 279 s; one run, pin-only so at no effort level although the role routes at `xhigh`); machine-wide `execute-sensitive` replaces `kimi-k3` (6/7 on Synthetic) with `deepseek-v4.1-flash` — Lewdzifer's project file overrides that role and is unaffected. New opencode agent `deepseek-v4.1-flash` in `~/.config/opencode/opencode.json`, pin-only; `opencode agent list` resolves it; `kimi-k3` agent now serves `critique` only.
 
-## Fixes researched and applied 2026-09-19
+## Claude Sonnet 5.5 check 2026-09-28
 
-- `OPENCODE_DB` moves opencode's SQLite database and nothing else: `OPENCODE_DB=/tmp/oc-lane1.db opencode db path` prints that path, and `opencode auth list` under the same variable still reads `~/.local/share/opencode/auth.json` and still shows Synthetic signed in. `XDG_DATA_HOME` also moves the database but takes `auth.json` with it, and `OPENCODE_DATA` does nothing. `bench.sh` now exports `OPENCODE_DB="$raw.db"` per lane. This addresses the shared-database failure that voided two lanes; four servers at once has not been re-tested since — 2026-09-19.
-- `bench.sh` now reports what a lane actually did. Replaying the 2026-09-19 raw output through the patched parser turns the three misleading result files into: `glm53flash` `finish: length` with `tool_calls: 0`; `dsv41flash` `error: UnknownError: Unexpected server error`; `kimik3` an `.err` naming the server that never accepted a session, with a non-zero exit instead of 0. `finish` and `tool_calls` matter because a model that reasons to its output cap and never calls a tool spends a normal-looking number of tokens — 2026-09-19.
-- `pool-usage.sh` now falls back to the `claude` CLI's own OAuth token (`~/.claude/.credentials.json`, `claudeAiOauth`, valid when either `expiresAt` or `refreshTokenExpiresAt` is in the future) when Orca has no registered Claude account, the way `codex` has always fallen back to `systemDefault.hasAuth`. The row reads `signed_in: true` with `windows: null` and a note saying Orca has no account for it, so `delegate` treats it as signed in with unknown headroom rather than dropping every Claude model — 2026-09-19.
-- `gpt-oss-120b` through its named agent is still unexplained. The agent is registered (`opencode agent list` shows `gpt-oss-120b (all)`), and the same `mode: all`, no-`prompt` shape works for `glm-5.3-flash`, `nemotron-3-super` and `deepseek-v4.1-flash`, so the shape alone is not the cause; the model is the smallest of the five. The untried discriminating test is a second agent for the same model with `mode: primary` and an explicit `prompt`, probed the same way. It was not run: a probe needs its own `opencode serve`, and a calibration lane was in flight on the shared database — 2026-09-19.
+- Claude Sonnet 5.5 — id `claude-sonnet-5-5`, 2/10 per million (cache read 0.2, write 2.5), context 1M, output 128K, effort low–max, released 2026-09-28; models.dev `anthropic` row and OpenRouter `anthropic/claude-sonnet-5.5` agree on price and context — https://www.anthropic.com/claude-sonnet-5-5 — 2026-09-28.
+- Claude Sonnet 5.5 — Terminal-Bench 4.0 70.6 (Sonnet 5 10.3), SWE-bench Pro 81.3 (Sonnet 5 63.2, Opus 5.5 89.9), harness unnamed; no Terminal-Bench 2.1 or SWE-bench Verified number found, so `terminal_bench` stays empty — https://www.anthropic.com/claude-sonnet-5-5, https://computingforgeeks.com/claude-sonnet-5-5-released-features-benchmarks/ — 2026-09-28.
+- Claude Sonnet 5.5 — cyber safeguards make higher-risk security tasks "visibly fall back to Sonnet 5" rather than refuse, the Opus 5.5 pattern, so `refusal_cyber: medium` as for Opus 5.5; not measured — https://www.anthropic.com/claude-sonnet-5-5 — 2026-09-28.
+- Pools — `claude-sonnet-5-5` is on the `claude` pool and in opencode's `zen` catalogue (`discover-host.sh`, 2026-09-28 21:08Z). Not calibrated, in no fit set — 2026-09-28.
 
-## opencode caps output at 32,000 tokens, 2026-09-19
+## Calibration 2026-09-28 — `Merge` task, Claude Sonnet 5.5 `execute` effort sweep
 
-Both GLM lanes that "failed" this way were cut off by the harness, not by the
-model, and one of them is the basis of a fit-set removal.
+Base bd9e0862, four lanes through `bench.sh --cli claude --model claude-sonnet-5-5 --effort <level>` on Claude Code 2.1.284 against `calibration/brief.md`. The four lanes overlapped on the claude pool, so cost is each lane's CLI figure and the pool meter was not split. Graded with each of the 7 hidden acceptance tests alone under `-race -count=3`. The full verifier on this base expands to `go test -race` over `generated/go/mib`, which the host cannot afford, so the lanes were checked with `golangci-lint run ./src/common/pump/` and `go test -race ./src/common/pump/` instead of `verify-change.sh`.
 
-- The `glm53flash` lane ended `finish: length` at exactly 32,000 output tokens with 138,725 characters of reasoning and no tool call. The reasoning is coherent throughout and ends mid-token while writing an acceptance test, having just worked out that the merged order assertion has to be per-source subsequence order plus total counts rather than global positions. It is a model working the problem, not looping — 2026-09-19.
-- The cap is opencode's, established by elimination rather than by reading its code. Synthetic itself does not cap at 32,000: the same model called directly at `POST api.synthetic.new/v1/chat/completions` with `max_tokens: 60000` returned 33,100 completion tokens and `finish_reason: stop`. opencode's own catalogue does not cap it either: `GET /config/providers` on a running server reports `limit.output` 65,536 for `hf:zai-org/GLM-5.3-Flash`. Yet the turn through opencode stopped at exactly 32,000. So opencode sends a smaller ceiling than the limit it publishes. The binary carries `var M7=32000`, but the neighbouring `maxOutputTokens:32000` entries belong to an Anthropic table (`claude-opus-4-1`) and the unknown-model fallback there is 4096, so that constant is a candidate and not a proven mechanism — measured 2026-09-19.
-- This voids the 2026-09-09 GLM-5.3 `execute` result as well: "32K reasoning tokens then `finish: length` with no tool call" is the same signature at the same cap. GLM-5.3 left the `execute` fit set on that lane, so the removal rests on a harness artifact and the question is unmeasured rather than settled. Kimi K3's 7/7 is unaffected — it finished inside the cap — but any ranking of a reasoning-heavy model against a terse one on these lanes is biased by it until the cap is raised — 2026-09-19.
-- The message POST body cannot raise it: the server's OpenAPI at `/doc` gives `UserMessage` only `agent`, `format`, `id`, `model`, `role`, `sessionID`, `summary`, `system` and `tools`, with no token field. The remaining lever is per-model config: `ProviderConfig.models.<id>.limit` takes `{context, output}`, so `~/.config/opencode/opencode.json` can override what opencode holds for a model. That override is set for GLM-5.3-Flash and is being tested by re-running its lane — 2026-09-19.
-- A short prompt does not test the cap. "Print the integers from 1 to 9000" answers in 179 tokens with `finish: stop` through opencode's agent, though the same prompt on the raw API produced 33,100: the agent's system prompt talks the model out of it. Only a real brief reproduces the ceiling — 2026-09-19.
+- medium — 7/7, 74 s, $0.32 reported (3.7K reasoning tokens), lint fails with one revive `unused-parameter` in `merge_test.go` — 2026-09-28.
+- high — 7/7, 132 s, $0.49 reported (10K reasoning tokens), lint clean — 2026-09-28.
+- xhigh — 7/7, 435 s, $0.87 reported (22K reasoning tokens), lint fails with three revive `unused-parameter` — 2026-09-28.
+- max — 7/7, 1,068 s, $3.16 reported (132K reasoning tokens), lint clean — 2026-09-28.
+- Every level passes `TestMergeAcceptSourceErrorPropagates`, the deadlock Sonnet 5 wrote in all three of its `xhigh` runs and Opus 5.5 in its one. `high` is the cheapest level that passes both the tests and lint. Each level ran once — 2026-09-28.
 
-## The agent profiles were the regression, 2026-09-19
-
-- Every synthetic model answers on opencode's default agent with the model in the request: all five ids in 8-19 s on 2026-09-19, Kimi K3 7/7 on 2026-09-09 (no profile the registry named then existed in `opencode.json`), and gpt-oss-120b in 7 s again later that day. The failures all came through a custom agent profile: gpt-oss-120b returned nothing twice, and GLM-5.3-Flash reasoned to 32,000 tokens without a tool call. A profile that only pins a model carries no `prompt`, so the model gets tools and none of the instructions that make the default agent act — 2026-09-19.
-- The profiles were never needed. `opencode` and `opencode run` both take `-m, --model provider/model` on the launch line; `orca-worker.sh` had refused `--model` for opencode on the belief that "the agent fixes the model". It now launches `opencode --model <pool_id>` on the default agent, the registry carries no `agent` fields, and `~/.config/opencode/opencode.json` is back to a bare `$schema`. The seven zen-pinned profiles that went with it named ids the zen pool no longer lists — `opencode --help`, `opencode run --help` 1.18.31 — 2026-09-19.
-- Whether the 32,000-token ceiling is also the profile's doing is being measured: the same brief on GLM-5.3-Flash with no profile is in flight, beside default-agent lanes for Kimi K3, DeepSeek V4.1 Flash and gpt-oss-120b — 2026-09-19.
-
-## Calibration 2026-09-19 — `Merge` task on the default agent, base `bd9e0862`
-
-Graded with each of the seven hidden acceptance tests run on its own under
-`-count=3`, **without `-race`**: this host has no C compiler (`cc`, `gcc`,
-`clang` all absent) and `go test -race` refuses to start without cgo. The
-`synctest` bubbles still fail on a leaked or deadlocked goroutine, so a
-pass here covers ordering, completion, stop and cancel propagation, and
-goroutine hygiene, and does not cover data races. A `race: false` field on
-each `local` result says so. Installing gcc is what a race-checked
-re-grade needs; the worktrees stay until then.
-
-- gpt-oss-120b — 6/7 in 282 s, $0.004 reported, `finish: stop`. Wrote a 99-line `merge.go` and a 175-line `merge_test.go`; its own tests pass. Fails `TestMergeAcceptContextCancelPropagates` only. Same model, same brief, returned nothing through a named agent profile twice the same day — 2026-09-19.
-- `bench.sh`'s `tool_calls` counts the parts of the final assistant message only, so a lane whose last turn is a text summary reports `tool_calls: 0` after having called tools for minutes; the worktree diff is the record of what a lane did, and that field only distinguishes "never acted" from "acted" when the turn ended `finish: length` — 2026-09-19.
-- GLM-5.3-Flash, default agent, no profile — `finish: length` at exactly 32,000 output tokens, no tool call, no file, 775 s, $0.017. Third run at the same wall: through a profile (469 s), through the profile with `provider.synthetic.models.<id>.limit.output: 65536` set (423 s), and now on the default agent. The profile is therefore not what caps GLM; opencode is, and this model reasons past 32,000 on this brief on any agent. The gpt-oss-120b contrast stands: it went from nothing through a profile to 6/7 without one — 2026-09-19.
-- Nemotron 3 Super's lane record is void for a harness reason: bash reads a script incrementally, and `bench.sh` was patched on disk while the pre-patch process was inside its 3,600 s `curl`. When the curl gave up the old process resumed at a byte offset in the new file, wrote "opencode serve never accepted a session" to its `.err`, produced no JSON, and exited 2. The model had worked the whole hour (its two files are staged in the worktree) and the reply never arrived before the ceiling. Never edit `bench.sh` while a lane is running it; the worktree diff is what remains — 2026-09-19.
-- Nemotron 3 Super — 1/7 after the full 3,600 s the harness allows, cut off mid-turn (default agent through a profile, since it started before the profiles went; profiles did not stop it acting, it wrote and rewrote both files for the hour). Its `merge.go` had shrunk from 83 lines to 61 by the end; the package compiles and passes `TestMergeAcceptZeroSourcesCompletes` only. Cost is unrecorded, see the lane-record note above — 2026-09-19.
-- Kimi K3 and DeepSeek V4.1 Flash, default agent — both killed by the OS at 17-18 messages in, with both files on disk, when the host ran low on memory during a concurrent grade of Nemotron's own 328-line test file. Mid-turn state, so both are void and re-run. Lanes and grades do not overlap from here on — 2026-09-19.
-- Kimi K3, default agent on Synthetic — 6/7 in 460 s, $0.026 reported, `finish: stop`. Wrote an 86-line `merge.go` and a 250-line `merge_test.go`; compiles, its own tests pass. Fails `TestMergeAcceptSourceErrorPropagates` only, the same source-error deadlock Sonnet 5 failed on 2026-09-09 and 2026-09-18. Its 7/7 on 2026-09-09 was the Go pool at the vendor's 1M context under `-race` in 1,235 s; the two runs differ in pool, context, race detector and base, so this is a second sample and not a regression claim — 2026-09-19.
-- Claude Code's background-task monitor killed three lanes and a grade for "running low on memory" while `free` reported over 30 GB available; each kill coincided with Go build activity (a grade; DeepSeek V4.1 Flash running `go run mvdan.cc/gofumpt` inside its lane), which fills the page cache, and `free` showed under 1 GB free with 40 GB in cache at the time. The monitor appears to read free rather than available memory. Long opencode lanes therefore run detached from the harness (`setsid nohup`, a done-marker file, polled), under `systemd-run --user --scope -p MemoryMax=16G` where a user manager exists and with `GOFLAGS=-timeout=120s` so a candidate's own deadlocking test cannot run away — 2026-09-20.
-- DeepSeek V4.1 Flash, default agent on Synthetic — 7/7 in 332 s, $0.002 reported, `finish: stop`, on the third attempt (the first two were killed by the shared-database bug and by the harness's memory monitor, not by the model). Wrote a 122-line `merge.go` and a 268-line `merge_test.go`; compiles, its own tests pass — 2026-09-20.
-
-Scoreboard for the `Merge` task on base `bd9e0862`, default agent, graded
-without `-race`, one run each unless noted:
-
-| Model | Pass | Wall | Cost |
-| --- | --- | --- | --- |
-| deepseek-v4.1-flash | 7/7 | 332 s | $0.002 |
-| kimi-k3 | 6/7 (7/7 on 2026-09-09 with `-race`, Go pool, 1M context) | 460 s | $0.026 |
-| gpt-oss-120b | 6/7 | 282 s | $0.004 |
-| nemotron-3-super | 1/7, cut off at the 3,600 s ceiling | 3,600 s | unrecorded |
-| glm-5.3-flash | void ×3, opencode's 32,000-token ceiling | 423–775 s | $0.017–0.019 |
-
-No fit set moved on these. Two changes are worth asking for: `deepseek-v4.1-flash`
-into `execute` on the only 7/7 of the day at a hundredth of Kimi's cost, and
-`kimi-k3`'s place there reconsidered once a race-checked run exists. The five
-bench worktrees under `~/Projects/worktrees/FlowSeer/` stay for that re-grade.
-- `execute` fit set — `deepseek-v4.1-flash` added on its 7/7 of 2026-09-20: one run, default agent, base `bd9e0862`, graded without `-race`. A race-checked run on the kept worktree is the follow-up that either confirms or reverses it — 2026-09-22.
-
-## Race-checked re-grade 2026-09-22
-
-`build-essential` installed (gcc 14.2.0), so the four kept worktrees were
-re-graded with each hidden test alone under `-race -count=3`, 180 s cap,
-sequentially and detached from the harness's memory monitor.
-
-- deepseek-v4.1-flash — 7/7, confirming the 2026-09-20 run; its place in `execute` now rests on a race-checked result — 2026-09-22.
-- kimi-k3 — 6/7, `TestMergeAcceptSourceErrorPropagates` again — 2026-09-22.
-- gpt-oss-120b — 5/7 in truth. No `DATA RACE` report, but `TestMergeAcceptSourceErrorPropagates` failed 1 of 3 counts ("healthy source was not told to stop after a sibling failed") and `TestMergeAcceptContextCancelPropagates` 2 of 3 ("source not stopped after merge context cancel"): stop propagation lands after the test looks. A single-count grade reads 6/7 with a different test missing each time, which is what the 2026-09-20 run showed — 2026-09-22.
-- nemotron-3-super — 1/7, unchanged — 2026-09-22.
-- The two `race: false` results that held (7/7, 6/7) held exactly; the one that moved (gpt-oss) moved because of flakiness the race detector did not cause. `-count=3` per test is what exposed it, and it stays in the grader — 2026-09-22.
 ## Fit sets and field check 2026-09-28
 
 - Field results, `field.py --since 2026-09-09` (orca source) and the run log `~/.claude/models/runs.jsonl` (2026-09-23 12:26Z to 2026-09-28 21:28Z), read by a separate read-only session. `execute`: gpt-6-sol@xhigh 25/25 accepted, 24/24 verify; gemini-3.8-flash@high 62/70; deepseek-v4.1-flash 17/22 (77%), 4 errors; gpt-5.6-sol@xhigh 9/9; claude-opus-5-5@xhigh 3/3. `review-seam`@high: claude-opus-5-5 13/13, median 2,650 s $5.79; gpt-6-sol 6/6, 1,511 s $3.08; gpt-5.6-sol 11/11, 2,413 s $11.47. `review-unit`: opus-5-5 1/5 accepted but 145/154 findings held (amended means trimmed); gemini 7/13, 43/54 held; kimi-k3 3/6, 4/7 held. Gemini lanes record no active time or cost. Median review-to-fix waves per plan, counted by hand from the run log: gemini 1 (11 plans), gpt-6-sol 2 (3), deepseek 2 (3) — 2026-09-28.
@@ -258,3 +179,86 @@ Extended the calibration ladder from one execute task (Merge) to five execute ta
 The seam review task now has its own calibration, replacing the placeholder that reused the Merge unit review. Lanes branch from 26a03756 (b44473b3^, the buggy state) and take review-brief-seam.md; the known bug is the two-pass release (pullPendingHosts drains before pullSources rather than one time-ordered loop), which lets a later-timed host frame precede an earlier stream frame and moves the simulation clock backward, plus the missing RunScenario attachment guard. A lane finds it when a finding names that path with a call sequence. Grading is by reading the findings.
 
 - All six reviewers found the known bug at effort high, so the task discriminates on valid extras and speed rather than pass or fail: claude-opus-5-5 4 extras 201 s $1.22; gemini-3.8-flash 4 extras 392 s (one a deep retention and flow parity defect the others missed); claude-sonnet-5-5 3 extras 124 s $0.60; gpt-6-sol 3 extras 248 s; gpt-5.6-sol 3 extras 333 s; kimi-k3 1 extra 382 s $0.77. gemini and kimi ran through omp/agy on prepaid pools. Source: FlowSeer session scratch /tmp/claude/cal/seam/*.findings.txt, graded by reading — 2026-09-30.
+claude-opus-5-5 — review-unit @high, base 30c8da74: found_known_bug false, 3 valid extras (low), 124 s, $0.65 reported, served_model claude-opus-5-5 only; xhigh stays the cheapest level that finds the bug — bench.sh lane opus55-review-high, ~/tmp/bench/opus55-review-high.json — 2026-09-30
+roles.research — claude-opus-5-5 pinned @xhigh (cheapest level that finds the review-unit known bug; high missed it) on the user's approval — registry.yaml local.review-unit — 2026-09-30
+
+## Effort-level sweep 2026-09-30 (user-requested: codex + synthetic + Z.ai)
+
+Sweep of the `execute` (medium Merge task, base bd9e0862) and `review-unit`
+(base 30c8da74) tasks across effort levels, plus a Z.ai `sensitive` sweep
+(base f11f0589). One run per cell, graded by copying the hidden accept file
+(execute) or by reading the report against the known deadlock (review). CLIs:
+codex (native effort), omp `--thinking` (synthetic + zai). Cost figures are
+each CLI's own report; codex cost not recorded for these lanes. Source: bench.sh
+lanes under the session scratch sweep-out/ and zai-out/, graded 2026-09-30.
+
+### omp effort remapping (measured, from pi-catalog models.json)
+omp clamps a requested `--thinking` level to the model's own vocabulary, so a
+level not in the model's list runs at a neighbour and the registry must record
+the level that actually ran:
+- deepseek-v4.1-flash, glm-5.3, glm-5.3-flash: efforts [low, high, max]; a
+  `medium` request runs at `low`. deepseek `medium` produced no reasoning and
+  scored 0/7 — it ran at `low`, recorded as such.
+- glm-4.7-flash: [minimal, low, medium, high, xhigh]; `max` runs at `xhigh`.
+- gpt-oss-120b: [low, medium, high]; `max` runs at `high`.
+- qwen3.8-27b: [minimal, low, medium, high]; `max` runs at `high`.
+- kimi-k3: effortMap {medium→high, xhigh→max, max→max}; a `medium` request runs
+  at `high`.
+Codex models accept low/medium/high/xhigh/max natively (models_cache.json); no
+remap. Codex also serves gpt-5.6-terra (not in registry).
+
+### execute (medium Merge task, base bd9e0862), pass / wall / notes
+- claude-opus-5-5: medium 7/7 149 s; high 6/7 202 s; max 7/7 1665 s. Non-monotone; medium as good as max, a tenth the time.
+- gpt-6-sol: medium 7/7 431 s (lint fail); high 7/7 642 s; max 7/7 1462 s.
+- gpt-6-luna: medium 6/7 178 s; high 7/7 417 s (lint fail); max 7/7 2003 s (lint fail).
+- gpt-6-astra: medium 7/7 272 s; high 7/7 400 s; max 7/7 867 s. Clean at every level.
+- gpt-5.6-sol: medium 7/7 515 s; high 7/7 687 s; max 7/7 716 s. Clean; flat in effort.
+- gpt-5.6-luna: medium 6/7 312 s; high 7/7 651 s; max 7/7 703 s. high is the cheapest full pass.
+- deepseek-v4.1-flash: low(=medium req) 0/7 39 s (reasoning off, gave up); high 7/7 397 s (lint fail); max 7/7 775 s.
+- kimi-k3: high(=medium req) 7/7 300 s; high 6/7 846 s; max 7/7 547 s. Run-to-run variance at high (7/7 vs 6/7).
+- gpt-oss-120b: medium 3/7 569 s (lint+pkg fail); high hangs (go test -race timed out at 600 s).
+- glm-4.7-flash: 0/7 at every level (medium/low, high, max/xhigh) — left the package uncompilable each time.
+- qwen3.8-27b: medium 7/7 2439 s (lint fail); high 6/7 2759 s. Functional but far too slow.
+
+### review-unit (base 30c8da74) — known deadlock found? / valid extras / wall
+The known bug: a forwarder never watches its source's Stopped(), so a sibling
+whose producer stops without closing its data channel blocks forever and
+wg.Wait never returns.
+- gpt-5.6-sol: medium ✓ 3 / 242 s; high ✓ 3 / 672 s; max ✓ 5 / 1721 s. Found at every level; most valid extras.
+- gpt-6-astra: medium ✓ 3 / 75 s; high ✓ 3 / 160 s; max ✓ 4 / 322 s. Found at every level.
+- gpt-6-sol: medium ✓ 2 / 135 s; high ✓ 4 / 345 s; max ✓ 4 / 766 s. Found at every level.
+- gpt-5.6-luna: medium ✓ 2 / 90 s; high ✓ 2 / 301 s; max ✓ 3 / 943 s. Found even at medium, cheaply.
+- deepseek-v4.1-flash: low(=medium req) ✗ 1 / 181 s; high ✓ 2 / 221 s; max ✓ 3 / 967 s.
+- kimi-k3: high ✓ 2 / 230 s; max ✗ 0 / 441 s (declared merge.go correct). Regressed at max.
+- claude-opus-5-5: medium ✓ 1 / 57 s; max ✗ ~6 / 545 s (found a real retained-slice bug and test gaps but declared the source-error path correct). Non-monotone; with the prior high ✗ / xhigh ✓ runs, opus-5-5 is noisy on this task — xhigh stays the safe pin.
+- gpt-6-luna: medium ✗ 2; high ✗ 2; max ✗ 2. Never found the deadlock (consistent with prior xhigh miss); finds only the zero-source cancel and goroutine-lifetime extras.
+- qwen3.8-27b: medium ✗ (backpressure variant, not the sibling hang); high ✗ 2 / 844 s.
+- glm-4.7-flash: medium ✗ 0 (misread the code); high ✗ 0; max(=xhigh) ✗ 1.
+- gpt-oss-120b: medium incomplete ("[Awaiting test results...]"); high "No findings." Never engaged.
+
+### Z.ai sensitive (netpen OSPF checksum under sensitive_paths, base f11f0589)
+Z.ai Lite added to omp 2026-09-30 (provider zai, api_key row). Purpose: fallback
+pool for security-sensitive work. All lanes served the requested model with
+refused=false and downgraded=false — no refusal, no silent reroute (unlike the
+Claude 5.x models). Every lane scored 0/1 with the same failure: the candidate
+left the routing package uncompilable ("[setup failed]"), so the accept test
+never ran and a functional pass is unconfirmed. glm-5.3: low $0.87, high $1.42,
+max $0.62. glm-5.3-flash: low $0.078-class, high $0.078. glm-5.3-flash ~10x
+cheaper. Z.ai Lite quota: 2K credits / 5 h, 10K / week; the sweep used ~10% of
+the weekly window. glm-5.3-flashx hung on probe and is likely not on Lite.
+roles.execute-sensitive — last_resort [glm-5.3-flash, glm-5.3, claude-opus-4-8] on the user's approval 2026-09-30: Z.ai as the sensitive fallback. Both glm served the requested model with refused=false, downgraded=false (unlike the Claude 5.x pool) but scored 0/1 every lane (left the routing package uncompilable), so behind the four clean-passing fit models and ahead of the Claude last resort; flash first (~10x cheaper). registry.yaml roles.execute-sensitive, local.sensitive on glm-5.3 and glm-5.3-flash — 2026-09-30
+roles.review-unit — gpt-5.6-luna added after gpt-6-sol on the user's approval 2026-09-30: the effort sweep found it names the known deadlock at every level including medium (E2, 90 s, ~$0.11 est). registry.yaml roles.review-unit, local.review-unit on gpt-5.6-luna — 2026-09-30
+pools.zai — Z.ai GLM Lite subscription added to omp 2026-09-30 as an api_key credential row (provider zai) for the security-sensitive fallback; served zai/<model> via omp --model, effort via --thinking. Lite quota 2K/5h + 10K/week via `omp usage`; discover-host.sh does not enumerate it yet. Probe: glm-5.3, glm-5.3-flash, glm-5.2, glm-5.1, glm-5-turbo, glm-4.7 answer; glm-5.3-flashx hung (likely not on Lite) — 2026-09-30
+
+### gpt-6.1-sol (landed 2026-09-30, swept same day on the user's request)
+New codex flagship. execute (medium Merge task, base bd9e0862): medium 7/7 428 s
+(lint fail, revive unused-parameter — the same low-effort noise its siblings
+show); high 7/7 1148 s clean; max 7/7 1559 s clean. review-unit (base 30c8da74):
+found the known deadlock at every level — medium 3 extras 176 s, high 4 extras
+256 s, max 4 extras 653 s. As reliable as gpt-6-sol on review, clean on execute.
+No vendor list price published yet (price null). effort [low, medium, high,
+xhigh, max, ultra], default low (codex models_cache.json). Source: bench.sh
+lanes sol61-out/, graded 2026-09-30. Not placed in a fit set pending the user's
+decision.
+gpt-6.1-sol — integration @xhigh base 26a03756: 5/5 (matches gpt-6-sol). review-seam @high base 26a03756: found the two-pass clock-reversal known bug, 2 valid extras, 406 s. bench.sh lanes sol61-out/ + sol61-integ.grade — 2026-09-30
+roles.{research,plan,review-unit,execute} — gpt-6.1-sol added ahead of gpt-6-sol on the user's approval 2026-09-30 (review-unit found at every level 3-4 extras; execute 7/7 + integration 5/5, pinned @xhigh). roles.review-seam — added AFTER gpt-6-sol instead: on the seam task it scored fewer extras and was slower, so the evidence orders it behind. registry.yaml roles — 2026-09-30

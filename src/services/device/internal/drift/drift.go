@@ -27,6 +27,7 @@ import (
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
@@ -47,7 +48,7 @@ type DeviceResolver interface {
 // the device diverged with nobody aware of it, so this is not optional in any
 // deployment an operator relies on.
 type Audit interface {
-	DriftDetected(ctx context.Context, device *inventoryv1.DeviceGlobalRef, iface, expected, observed string) error
+	DriftDetected(ctx context.Context, tenantID string, device *inventoryv1.DeviceGlobalRef, iface, expected, observed string) error
 }
 
 // Telemetry reports a detection as a signal, beside the durable record the
@@ -71,6 +72,8 @@ type Config struct {
 	Journal *journal.Journal
 	// Resolver names the devices and their managed interfaces.
 	Resolver DeviceResolver
+	// EdgeTenant resolves an edge ID to its tenant ID. Must not be nil.
+	EdgeTenant func(ctx context.Context, edgeID string) (string, error)
 	// Audit records each detection.
 	Audit Audit
 	// Telemetry reports each detection as an event and a measurement.
@@ -105,7 +108,7 @@ type Poller struct {
 	log      *slog.Logger
 }
 
-// New builds the poller. A missing journal, resolver, or audit is refused
+// New builds the poller. A missing journal, resolver, audit, or edge tenant resolver is refused
 // rather than defaulted: a poll with no audit would detect drift and record
 // nothing, which is the failure the detector exists to prevent.
 func New(cfg Config) (*Poller, error) {
@@ -116,6 +119,8 @@ func New(cfg Config) (*Poller, error) {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("drift poll needs a device resolver")
 	case cfg.Audit == nil:
 		return nil, errs.New().Code(ErrCodeConfig).Msg("drift poll needs somewhere to record what it finds")
+	case cfg.EdgeTenant == nil:
+		return nil, errs.New().Code(ErrCodeConfig).Msg("drift poll needs an edge tenant resolver")
 	}
 
 	p := &Poller{cfg: cfg, clock: cfg.Clock, interval: cfg.Interval, deadline: cfg.ReadDeadline, log: cfg.Logger}
@@ -160,9 +165,18 @@ func (p *Poller) Pass(ctx context.Context) {
 		p.log.ErrorContext(ctx, "drift poll could not name the devices to poll", slog.String("flowseer.edge.id", edgeID), slog.String("error.type", telemetry.ErrorType(err)))
 		return
 	}
+	tenantID, err := p.cfg.EdgeTenant(ctx, edgeID)
+	if err != nil {
+		p.log.WarnContext(ctx, "drift poll skipped edge with unresolvable tenant", slog.String("flowseer.edge.id", edgeID), slog.String("error.type", telemetry.ErrorType(err)))
+		return
+	}
+	if err := tenant.Validate(tenantID); err != nil {
+		p.log.WarnContext(ctx, "drift poll skipped edge with invalid tenant", slog.String("flowseer.edge.id", edgeID), slog.String("flowseer.tenant.id", tenantID), slog.String("error.type", telemetry.ErrorType(err)))
+		return
+	}
 	for _, deviceID := range devices {
-		if err := p.pollDevice(ctx, deviceID); err != nil {
-			p.log.ErrorContext(ctx, "drift poll skipped a device", slog.String("flowseer.device.id", deviceID), slog.String("error.type", telemetry.ErrorType(err)))
+		if err := p.pollDevice(ctx, tenantID, deviceID); err != nil {
+			p.log.ErrorContext(ctx, "drift poll skipped a device", slog.String("flowseer.tenant.id", tenantID), slog.String("flowseer.device.id", deviceID), slog.String("error.type", telemetry.ErrorType(err)))
 		}
 	}
 }
@@ -175,7 +189,7 @@ func (p *Poller) Pass(ctx context.Context) {
 // device carries — reporting either as drift would be central detecting
 // itself. The block clears when the operator resolves, and the next pass
 // judges the device then.
-func (p *Poller) pollDevice(ctx context.Context, deviceID string) error {
+func (p *Poller) pollDevice(ctx context.Context, tenantID, deviceID string) error {
 	entry, ok := p.cfg.Resolver.Device(deviceID)
 	if !ok {
 		return nil // no longer listed; nothing to poll
@@ -185,7 +199,7 @@ func (p *Poller) pollDevice(ctx context.Context, deviceID string) error {
 		return nil
 	}
 
-	record, err := p.cfg.Journal.Record(ctx, deviceID)
+	record, err := p.cfg.Journal.Record(ctx, tenantID, deviceID)
 	if err != nil {
 		return err
 	}
@@ -194,13 +208,13 @@ func (p *Poller) pollDevice(ctx context.Context, deviceID string) error {
 	}
 
 	for _, iface := range managed {
-		if err := p.judge(ctx, deviceID, entry, record, iface); err != nil {
+		if err := p.judge(ctx, tenantID, deviceID, entry, record, iface); err != nil {
 			return err
 		}
 		// A judgement that admitted an intent has taken the lane, so the rest
 		// of this device's interfaces wait for the next pass: one difference
 		// at a time is what the lane's one-mutation rule already means.
-		if admitted, err := p.reread(ctx, deviceID, entry, record, iface); err != nil {
+		if admitted, err := p.reread(ctx, tenantID, deviceID, entry, record, iface); err != nil {
 			return err
 		} else if admitted {
 			return nil
@@ -213,7 +227,7 @@ func (p *Poller) pollDevice(ctx context.Context, deviceID string) error {
 // An interface with no expectation is not judged: central has applied nothing
 // to it, so it has nothing to be different from, and adopting whatever the
 // first read found would be central deciding an expectation nobody asked for.
-func (p *Poller) judge(ctx context.Context, deviceID string, entry *storev1.RegistryDevice, record *storev1.DeviceLaneRecord, iface string) error {
+func (p *Poller) judge(ctx context.Context, tenantID, deviceID string, entry *storev1.RegistryDevice, record *storev1.DeviceLaneRecord, iface string) error {
 	expected, managed := record.GetExpectedDescriptions()[iface]
 	if !managed {
 		return nil
@@ -238,7 +252,7 @@ func (p *Poller) judge(ctx context.Context, deviceID string, entry *storev1.Regi
 	// no durable trace, which is the shape of an incident nobody can
 	// reconstruct. Reversing these two lines is what the test named for this
 	// ordering catches.
-	if err := p.cfg.Audit.DriftDetected(ctx, deviceRef(deviceID, record), iface, expected, observed.GetDescription()); err != nil {
+	if err := p.cfg.Audit.DriftDetected(ctx, tenantID, deviceRef(deviceID, record), iface, expected, observed.GetDescription()); err != nil {
 		return err
 	}
 
@@ -256,13 +270,14 @@ func (p *Poller) judge(ctx context.Context, deviceID string, entry *storev1.Regi
 		// the pass after that admits normally. An alarm nothing can clear
 		// would be noise; this one is cleared by the system's next action.
 		p.log.WarnContext(ctx, "drift detected but not acted on",
+			slog.String("flowseer.tenant.id", tenantID),
 			slog.String("flowseer.device.id", deviceID), slog.String("flowseer.device.interface", iface),
 			slog.String("flowseer.device.drift.outcome", string(telemetry.DriftOutcomeNoEpoch)))
 		p.report(ctx, deviceID, entry, iface, expected, observed.GetDescription(), telemetry.DriftOutcomeNoEpoch)
 		return nil
 	}
 
-	if err := p.record(ctx, deviceID, entry, record, iface, expected); err != nil {
+	if err := p.record(ctx, tenantID, deviceID, entry, record, iface, expected); err != nil {
 		return err
 	}
 	p.report(ctx, deviceID, entry, iface, expected, observed.GetDescription(), outcomeFor(entry))
@@ -274,15 +289,15 @@ func (p *Poller) judge(ctx context.Context, deviceID string, entry *storev1.Regi
 // any other and puts the expectation back; under OPERATOR_MANAGED it is held
 // DESYNCHRONIZED, which takes the lane so nothing else is admitted behind it
 // and waits for the operator to accept, restore, or replace it.
-func (p *Poller) record(ctx context.Context, deviceID string, entry *storev1.RegistryDevice, record *storev1.DeviceLaneRecord, iface, expected string) error {
+func (p *Poller) record(ctx context.Context, tenantID, deviceID string, entry *storev1.RegistryDevice, record *storev1.DeviceLaneRecord, iface, expected string) error {
 	intent := reconciliationIntent(record, entry, iface, expected)
 	edge := edgeRef(p.cfg.Resolver.EdgeID())
 
 	var err error
 	if entry.GetConfig().GetManagementMode() == inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE {
-		_, err = p.cfg.Journal.Admit(ctx, deviceID, intent, edge)
+		_, err = p.cfg.Journal.Admit(ctx, tenantID, deviceID, intent, edge)
 	} else {
-		_, err = p.cfg.Journal.AdmitBlocked(ctx, deviceID, intent, edge,
+		_, err = p.cfg.Journal.AdmitBlocked(ctx, tenantID, deviceID, intent, edge,
 			accessv1.BlockReason_BLOCK_REASON_DESYNCHRONIZED)
 	}
 	return err
@@ -320,8 +335,8 @@ func outcomeFor(entry *storev1.RegistryDevice) telemetry.DriftOutcome {
 // which it is when judge just admitted an intent, and a read must not be
 // opened behind one, since the poll's next judgement would compare a fresh
 // observation against an expectation central is already acting on.
-func (p *Poller) reread(ctx context.Context, deviceID string, entry *storev1.RegistryDevice, record *storev1.DeviceLaneRecord, iface string) (bool, error) {
-	current, err := p.cfg.Journal.Record(ctx, deviceID)
+func (p *Poller) reread(ctx context.Context, tenantID, deviceID string, entry *storev1.RegistryDevice, record *storev1.DeviceLaneRecord, iface string) (bool, error) {
+	current, err := p.cfg.Journal.Record(ctx, tenantID, deviceID)
 	if err != nil {
 		return false, err
 	}
@@ -338,7 +353,7 @@ func (p *Poller) reread(ctx context.Context, deviceID string, entry *storev1.Reg
 	intent.SetInterfaceName(iface)
 	read.SetInterface(intent)
 
-	_, err = p.cfg.Journal.OpenRead(ctx, deviceID, deviceRef(deviceID, record), iface, read,
+	_, err = p.cfg.Journal.OpenRead(ctx, tenantID, deviceID, deviceRef(deviceID, record), iface, read,
 		uuid.NewString(), p.clock().Add(p.deadline))
 	return false, err
 }

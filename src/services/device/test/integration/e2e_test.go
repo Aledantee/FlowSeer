@@ -2,7 +2,11 @@ package integration_test
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -11,15 +15,29 @@ import (
 	"time"
 
 	connect "connectrpc.com/connect"
+	jwt "github.com/nats-io/jwt/v2"
 
+	apicapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
+	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
+	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
+	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
-	principalv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
+	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
+	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
+	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
+	centralhost "go.aledante.io/FlowSeer/src/services/device/internal/host"
+	"go.aledante.io/FlowSeer/src/services/device/internal/tenantstore"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	// Linked so protovalidate resolves the net/key predefined rules through the global registry (structure-record convention 4).
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
@@ -220,7 +238,7 @@ func (d *deployment) intent(key, description, fingerprint string) *accessv1.Muta
 		Device:         deviceRef(),
 		IdempotencyKey: proto.String(key),
 		Actor: accessv1.Actor_builder{
-			Operator: principalv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
+			Operator: identityv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
 		}.Build(),
 		AccessPolicy:                policyv1.AccessPolicyHandle_builder{Key: proto.String(fixturePolicyKey), Version: proto.Uint64(1)}.Build(),
 		ExpectedFirmwareFingerprint: proto.String(fingerprint),
@@ -381,7 +399,7 @@ func (d *deployment) abandon(t *testing.T, sequence uint64) {
 			Device:   deviceRef(),
 			Sequence: proto.Uint64(sequence),
 			Actor: accessv1.Actor_builder{
-				Operator: principalv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
+				Operator: identityv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
 			}.Build(),
 		}.Build()))
 	if err != nil {
@@ -472,7 +490,7 @@ func TestAnAbandonedMutationIsResolvedByRestoringWhatCentralExpected(t *testing.
 		Device:   deviceRef(),
 		Sequence: proto.Uint64(second.GetSequence()),
 		Actor: accessv1.Actor_builder{
-			Operator: principalv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
+			Operator: identityv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
 		}.Build(),
 		Restore: &devicev1.RestoreExpectedDecision{},
 	}.Build())
@@ -846,4 +864,368 @@ func accessGoroutines() string {
 		}
 	}
 	return strings.Join(kept, "\n\n")
+}
+
+func startCentralWithDevTenant(t *testing.T, c *central, devTenant string) {
+	t.Helper()
+	body := fmt.Sprintf(`
+dev_tenant: %q
+state_dir: %q
+registry_path: %q
+credential_root: %q
+listeners {
+  api: "127.0.0.1:%d"
+  bus: "127.0.0.1:%d"
+}
+edges {
+  central_url: %q
+  assertion_audience: "flowseer-e2e"
+  cluster_urls: "ws://127.0.0.1:%d"
+}
+intervals {
+  dispatch_resend { seconds: 1 }
+  drift { seconds: 3600 }%s
+}
+platform_admin {
+  issuer: "https://auth.example.test"
+  organization: "org_admin"
+  organization_claim_name: "org_id"
+  subject: "admin_user"
+}
+`, devTenant, filepath.Join(c.dir, "central-state"), c.registry, filepath.Join(c.dir, "credentials"),
+		c.apiPort, c.busPort, c.baseURL(), c.busPort, captureSweepLine(c.captureSweep))
+
+	cfg, err := centralhost.LoadConfig(writeFile(t, filepath.Join(c.configDir, "central.textproto"), []byte(body)))
+	if err != nil {
+		t.Fatalf("central LoadConfig: %v", err)
+	}
+
+	bound := make(chan string, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- centralhost.Run(ctx, cfg, "e2e", centralhost.Options{
+			Bound: func(api string) {
+				select {
+				case bound <- api:
+				default:
+				}
+			},
+			Hub: func(hub *edgebus.Hub) {
+				c.mu.Lock()
+				c.hub = hub
+				c.mu.Unlock()
+			},
+		})
+	}()
+
+	select {
+	case api := <-bound:
+		if want := fmt.Sprintf("127.0.0.1:%d", c.apiPort); api != want {
+			t.Fatalf("central bound %q, want %q", api, want)
+		}
+	case err := <-done:
+		t.Fatalf("central stopped before it bound its listener: %v", err)
+	case <-time.After(60 * time.Second):
+		cancel()
+		t.Fatal("central did not bind its listener within a minute")
+	}
+
+	c.mu.Lock()
+	c.stop, c.stopped = cancel, done
+	c.mu.Unlock()
+}
+
+func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
+	dir := t.TempDir()
+	writeCredentials(t, filepath.Join(dir, "credentials"))
+
+	registryPath := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
+	c := newCentral(t, dir, registryPath)
+
+	tenantA := "0192e6a0-aaaa-7000-8000-0000000000aa"
+	tenantB := "0192e6a0-bbbb-7000-8000-0000000000bb"
+
+	startCentralWithDevTenant(t, c, tenantA)
+	defer c.shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	c.mu.Lock()
+	hub := c.hub
+	c.mu.Unlock()
+	if hub == nil {
+		t.Fatal("central reported nil hub")
+	}
+
+	js := hub.JetStream()
+
+	// Verify partitioned key-value buckets exist
+	for _, bucketName := range []string{edgebus.LaneBucket, edgebus.CapturesBucket, edgebus.EdgeBucket, edgebus.TenantBucket} {
+		if _, err := js.KeyValue(ctx, bucketName); err != nil {
+			t.Fatalf("bucket %s does not exist or failed to open: %v", bucketName, err)
+		}
+	}
+
+	// 1. Create tenant directly in tenant store
+	ts, err := tenantstore.New(ctx, js, edgebus.TenantBucket)
+	if err != nil {
+		t.Fatalf("open tenant store: %v", err)
+	}
+	tenantConfig := identityv1.TenantConfig_builder{
+		Ref: identityv1.TenantGlobalRef_builder{
+			Tenant: identityv1.TenantLocalRef_builder{
+				Id: proto.String(tenantA),
+			}.Build(),
+		}.Build(),
+		Issuer:                 proto.String("https://auth.example.test"),
+		OrganizationClaimName:  proto.String("org_id"),
+		OrganizationClaimValue: proto.String("org_alpha"),
+		Name:                   proto.String("Tenant Alpha"),
+	}.Build()
+	if _, err := ts.Create(ctx, tenantConfig); err != nil {
+		t.Fatalf("Create tenant in store: %v", err)
+	}
+
+	// 2. Create edge via operator API under tenant A
+	edgeResp, err := c.admin().CreateEdge(ctx, connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
+		Name: proto.String("site-edge-a"),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CreateEdge: %v", err)
+	}
+	edgeRef := edgeResp.Msg.GetEdge().GetConfig().GetRef()
+	edgeID := edgeRef.GetEdge().GetId()
+
+	// Assert edge KV key begins with A. (<tenantA>.<edgeID>)
+	kvEdges, err := js.KeyValue(ctx, edgebus.EdgeBucket)
+	if err != nil {
+		t.Fatalf("open edges KV: %v", err)
+	}
+	edgeEntry, err := kvEdges.Get(ctx, tenantA+"."+edgeID)
+	if err != nil {
+		t.Fatalf("expected edge key %s.%s in KV: %v", tenantA, edgeID, err)
+	}
+	var storedEdge storev1.StoredEdge
+	if err := proto.Unmarshal(edgeEntry.Value(), &storedEdge); err != nil {
+		t.Fatalf("unmarshal stored edge record: %v", err)
+	}
+	if storedEdge.GetRecord().GetConfig().GetRef().GetEdge().GetId() != edgeID {
+		t.Fatalf("stored edge ID = %q, want %q", storedEdge.GetRecord().GetConfig().GetRef().GetEdge().GetId(), edgeID)
+	}
+
+	// 3. Issue setup key and enroll edge via API, then assert indexed tenant and minted JWT
+	setupResp, err := c.admin().IssueSetupKey(ctx, connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{
+		Edge: edgeRef,
+	}.Build()))
+	if err != nil {
+		t.Fatalf("IssueSetupKey: %v", err)
+	}
+	setupKey := setupResp.Msg.GetProvisioning().GetSetupKey()
+
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	keyID := setupKey[len("fse1_") : len("fse1_")+26]
+	keyProofPayload := edgev1.KeyProofPayload_builder{
+		PublicKey:  pubKey,
+		SetupKeyId: proto.String(keyID),
+	}.Build()
+	payloadWire, err := proto.MarshalOptions{Deterministic: true}.Marshal(keyProofPayload)
+	if err != nil {
+		t.Fatalf("marshal key proof payload: %v", err)
+	}
+	proof := edgev1.KeyProof_builder{
+		Payload:   payloadWire,
+		Signature: ed25519.Sign(privKey, payloadWire),
+	}.Build()
+
+	edgeAttachClient := attachv1connect.NewEdgeServiceClient(c.client, c.baseURL())
+	if _, err := edgeAttachClient.Enroll(ctx, connect.NewRequest(attachv1.EnrollRequest_builder{
+		SetupKey: proto.String(setupKey),
+		Proof:    proof,
+	}.Build())); err != nil {
+		t.Fatalf("Enroll: %v", err)
+	}
+
+	edgeStore := edgestore.New(kvEdges)
+	indexedTenant, err := edgeStore.TenantForEdge(ctx, edgeID)
+	if err != nil {
+		t.Fatalf("TenantForEdge: %v", err)
+	}
+	if indexedTenant != tenantA {
+		t.Fatalf("TenantForEdge = %q, want %q", indexedTenant, tenantA)
+	}
+
+	creds, err := hub.MintEdgeUser(ctx, edgeID)
+	if err != nil {
+		t.Fatalf("MintEdgeUser: %v", err)
+	}
+	claims, err := jwt.DecodeUserClaims(creds.UserJWT.RevealString())
+	if err != nil {
+		t.Fatalf("decode claims: %v", err)
+	}
+	expectedSubtree := "flowseer." + tenantA + ".edge." + edgeID + ".>"
+	foundPubAllow := false
+	for _, sub := range claims.Pub.Allow {
+		if sub == expectedSubtree {
+			foundPubAllow = true
+			break
+		}
+	}
+	if !foundPubAllow {
+		t.Fatalf("claims.Pub.Allow %v does not contain %s", claims.Pub.Allow, expectedSubtree)
+	}
+
+	// 4. Create capture session via operator API under tenant A
+	captureResp, err := c.captures().CreateCaptureSession(ctx, connect.NewRequest(apicapturev1.CreateCaptureSessionRequest_builder{
+		Edge: edgeRef,
+		Name: proto.String("capture-a"),
+		Source: modelcapturev1.CaptureSource_builder{
+			LocalInterface: modelcapturev1.LocalInterfaceSource_builder{
+				InterfaceName: proto.String("eth0"),
+			}.Build(),
+		}.Build(),
+		Budget: modelcapturev1.CaptureBudget_builder{
+			MaxPackets: proto.Uint64(10),
+		}.Build(),
+		Authorization: modelcapturev1.CaptureAuthorization_builder{
+			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("alice")}.Build(),
+			Reason:               proto.String("test"),
+			FullPayloadRequested: proto.Bool(false),
+		}.Build(),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CreateCaptureSession: %v", err)
+	}
+	captureRef := captureResp.Msg.GetSession().GetConfig().GetRef()
+	sessionID := captureRef.GetCaptureSession().GetId()
+
+	// Assert capture session KV key begins with A. (<tenantA>.<sessionID>)
+	kvCaptures, err := js.KeyValue(ctx, edgebus.CapturesBucket)
+	if err != nil {
+		t.Fatalf("open captures KV: %v", err)
+	}
+	capEntry, err := kvCaptures.Get(ctx, tenantA+"."+sessionID)
+	if err != nil {
+		t.Fatalf("expected capture key %s.%s in KV: %v", tenantA, sessionID, err)
+	}
+	var storedSession modelcapturev1.CaptureSessionRecord
+	if err := proto.Unmarshal(capEntry.Value(), &storedSession); err != nil {
+		t.Fatalf("unmarshal stored capture record: %v", err)
+	}
+
+	// 5. Upload packets via edge UploadCapture stream and assert artifact lands under captures/A/<sessionID>.pcapng
+	signStreamAssertion := func() *edgev1.SignedEdgeAssertion {
+		nonce := make([]byte, 16)
+		if _, err := rand.Read(nonce); err != nil {
+			t.Fatalf("rand nonce: %v", err)
+		}
+		bodyHash := sha256.Sum256(nil)
+		now := time.Now()
+		assertion := edgev1.EdgeAssertion_builder{
+			Edge: edgev1.EdgeGlobalRef_builder{
+				Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(edgeID)}.Build(),
+			}.Build(),
+			Audience:   proto.String("flowseer-e2e"),
+			IssuedAt:   timestamppb.New(now),
+			ExpiresAt:  timestamppb.New(now.Add(30 * time.Second)),
+			Nonce:      nonce,
+			Procedure:  proto.String(captureedgev1connect.CaptureEdgeServiceUploadCaptureProcedure),
+			BodySha256: bodyHash[:],
+		}.Build()
+		payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(assertion)
+		if err != nil {
+			t.Fatalf("marshal stream assertion: %v", err)
+		}
+		return edgev1.SignedEdgeAssertion_builder{
+			Payload:   payload,
+			Signature: ed25519.Sign(privKey, payload),
+		}.Build()
+	}
+
+	uploadStream := c.edgeCaptures().UploadCapture(ctx)
+	if err := uploadStream.Send(captureedgev1.UploadCaptureRequest_builder{
+		Assertion: signStreamAssertion(),
+	}.Build()); err != nil {
+		t.Fatalf("upload open assertion: %v", err)
+	}
+
+	chunk := captureedgev1.UploadCaptureRequest_builder{
+		Chunk: modelcapturev1.CapturePacketChunk_builder{
+			Session:       captureRef,
+			FirstSequence: proto.Uint64(1),
+			Packets: []*netcapturev1.PacketRecord{
+				netcapturev1.PacketRecord_builder{
+					Sequence:       proto.Uint64(1),
+					CapturedAt:     timestamppb.Now(),
+					OriginalLength: proto.Uint32(64),
+					Data:           []byte("payload-test"),
+				}.Build(),
+			},
+			Counters: netcapturev1.CaptureCounters_builder{
+				ReceivedPackets: proto.Uint64(1),
+				AcceptedPackets: proto.Uint64(1),
+			}.Build(),
+			Final: proto.Bool(true),
+		}.Build(),
+	}.Build()
+	if err := uploadStream.Send(chunk); err != nil {
+		t.Fatalf("upload chunk: %v", err)
+	}
+	uploadResp, err := uploadStream.CloseAndReceive()
+	if err != nil {
+		t.Fatalf("close upload stream: %v", err)
+	}
+	if uploadResp.Msg.GetSession().GetCaptureSession().GetId() != sessionID {
+		t.Fatalf("response session id = %q, want %q", uploadResp.Msg.GetSession().GetCaptureSession().GetId(), sessionID)
+	}
+
+	capturesDir := filepath.Join(c.dir, "central-state", "captures")
+	artifactPath := filepath.Join(capturesDir, tenantA, sessionID+".pcapng")
+	if _, err := os.Stat(artifactPath); err != nil {
+		t.Fatalf("expected artifact on disk at %s: %v", artifactPath, err)
+	}
+
+	// Positive control: GetEdge and GetCaptureSession under tenant A succeed before restart
+	getEdgeResp, err := c.admin().GetEdge(ctx, connect.NewRequest(apiedgev1.GetEdgeRequest_builder{
+		Edge: edgeRef,
+	}.Build()))
+	if err != nil {
+		t.Fatalf("GetEdge under tenant A: %v", err)
+	}
+	if getEdgeResp.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId() != edgeID {
+		t.Fatalf("GetEdge returned edge ID = %q, want %q", getEdgeResp.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId(), edgeID)
+	}
+
+	getCapResp, err := c.captures().GetCaptureSession(ctx, connect.NewRequest(apicapturev1.GetCaptureSessionRequest_builder{
+		Session: captureRef,
+	}.Build()))
+	if err != nil {
+		t.Fatalf("GetCaptureSession under tenant A: %v", err)
+	}
+	if getCapResp.Msg.GetSession().GetConfig().GetRef().GetCaptureSession().GetId() != sessionID {
+		t.Fatalf("GetCaptureSession returned session ID = %q, want %q", getCapResp.Msg.GetSession().GetConfig().GetRef().GetCaptureSession().GetId(), sessionID)
+	}
+
+	// 6. Restart central with dev_tenant = UUID B over the same state dir
+	c.shutdown()
+	startCentralWithDevTenant(t, c, tenantB)
+
+	// 7. Assert GetEdge and GetCaptureSession for A's IDs return NotFound under tenant B
+	_, err = c.admin().GetEdge(ctx, connect.NewRequest(apiedgev1.GetEdgeRequest_builder{
+		Edge: edgeRef,
+	}.Build()))
+	if connect.CodeOf(err) != connect.CodeNotFound {
+		t.Fatalf("GetEdge under tenant B got code %v, want CodeNotFound", connect.CodeOf(err))
+	}
+
+	_, err = c.captures().GetCaptureSession(ctx, connect.NewRequest(apicapturev1.GetCaptureSessionRequest_builder{
+		Session: captureRef,
+	}.Build()))
+	if connect.CodeOf(err) != connect.CodeNotFound {
+		t.Fatalf("GetCaptureSession under tenant B got code %v, want CodeNotFound", connect.CodeOf(err))
+	}
 }

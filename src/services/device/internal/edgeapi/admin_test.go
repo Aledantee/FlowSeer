@@ -3,6 +3,7 @@ package edgeapi_test
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"errors"
 	"regexp"
@@ -16,10 +17,12 @@ import (
 
 	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
@@ -31,6 +34,12 @@ var _ edgev1connect.EdgeAdminServiceHandler = (*edgeapi.AdminService)(nil)
 // setupKeyPattern is the schema's own rule for the key string, repeated here
 // so a generator that drifts from it fails in this package too.
 var setupKeyPattern = regexp.MustCompile(`^fse1_[a-z2-7]{26}_[a-z2-7]{52}$`)
+
+const defaultTenantID = "01923456-789a-7def-8123-456789abcdef"
+
+func testContext() context.Context {
+	return tenant.WithTenant(context.Background(), defaultTenantID)
+}
 
 var testClock = time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
 
@@ -80,7 +89,7 @@ func newAdmin(t *testing.T) (*edgeapi.AdminService, *edgestore.Store) {
 
 func createEdge(t *testing.T, admin *edgeapi.AdminService) (*edgev1.EdgeRecord, string) {
 	t.Helper()
-	resp, err := admin.CreateEdge(context.Background(), connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
+	resp, err := admin.CreateEdge(testContext(), connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
 		Name: proto.String("site-a"),
 	}.Build()))
 	if err != nil {
@@ -98,7 +107,7 @@ func refOf(record *edgev1.EdgeRecord) *edgev1.EdgeGlobalRef {
 
 func storedEdge(t *testing.T, store *edgestore.Store, ref *edgev1.EdgeGlobalRef) *storev1.StoredEdge {
 	t.Helper()
-	stored, _, err := store.Get(context.Background(), ref.GetEdge().GetId())
+	stored, _, err := store.Get(testContext(), defaultTenantID, ref.GetEdge().GetId())
 	if err != nil {
 		t.Fatalf("read stored edge: %v", err)
 	}
@@ -149,7 +158,7 @@ func TestCreateEdgeShowsTheSetupKeyOnceAndStoresOnlyItsDigest(t *testing.T) {
 		t.Fatal("the stored record carries the setup key string")
 	}
 
-	got, err := admin.GetEdge(context.Background(), connect.NewRequest(apiedgev1.GetEdgeRequest_builder{Edge: refOf(record)}.Build()))
+	got, err := admin.GetEdge(testContext(), connect.NewRequest(apiedgev1.GetEdgeRequest_builder{Edge: refOf(record)}.Build()))
 	if err != nil {
 		t.Fatalf("GetEdge: %v", err)
 	}
@@ -180,7 +189,7 @@ func TestEveryIssuedSetupKeyIsDistinct(t *testing.T) {
 
 func TestCreateEdgeRefusesAnExpiryThatIsNotInTheFuture(t *testing.T) {
 	admin, _ := newAdmin(t)
-	_, err := admin.CreateEdge(context.Background(), connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
+	_, err := admin.CreateEdge(testContext(), connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
 		SetupKeyExpiresAt: timestamppb.New(testClock.Add(-time.Second)),
 	}.Build()))
 	wantConnectCode(t, err, connect.CodeInvalidArgument)
@@ -191,7 +200,7 @@ func TestIssueSetupKeyReplacesTheUnusedKeyAndTheOldDigestIsGone(t *testing.T) {
 	record, first := createEdge(t, admin)
 	firstDigest := sha256.Sum256([]byte(first))
 
-	resp, err := admin.IssueSetupKey(context.Background(), connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{
+	resp, err := admin.IssueSetupKey(testContext(), connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{
 		Edge: refOf(record),
 	}.Build()))
 	if err != nil {
@@ -221,11 +230,11 @@ func TestIssueSetupKeyReplacesTheUnusedKeyAndTheOldDigestIsGone(t *testing.T) {
 func TestIssueSetupKeyReturnsARetiredEdgeToPending(t *testing.T) {
 	admin, _ := newAdmin(t)
 	record, _ := createEdge(t, admin)
-	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build())); err != nil {
+	if _, err := admin.RetireEdge(testContext(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build())); err != nil {
 		t.Fatalf("RetireEdge: %v", err)
 	}
 
-	resp, err := admin.IssueSetupKey(context.Background(), connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
+	resp, err := admin.IssueSetupKey(testContext(), connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
 	if err != nil {
 		t.Fatalf("IssueSetupKey on a retired edge: %v", err)
 	}
@@ -239,7 +248,7 @@ func TestIssueSetupKeyRefusesAnEnrolledEdge(t *testing.T) {
 	record, _ := createEdge(t, admin)
 	enroll(t, store, refOf(record))
 
-	_, err := admin.IssueSetupKey(context.Background(), connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
+	_, err := admin.IssueSetupKey(testContext(), connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
 	wantConnectCode(t, err, connect.CodeFailedPrecondition)
 }
 
@@ -247,7 +256,7 @@ func TestIssueSetupKeyRefusesAnEnrolledEdge(t *testing.T) {
 // admin RPCs can be tested against a live edge before that handler exists.
 func enroll(t *testing.T, store *edgestore.Store, ref *edgev1.EdgeGlobalRef) {
 	t.Helper()
-	if _, err := store.Mutate(context.Background(), ref.GetEdge().GetId(), func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
+	if _, err := store.Mutate(testContext(), defaultTenantID, ref.GetEdge().GetId(), func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
 		state := current.GetRecord().GetState()
 		state.SetLifecycle(edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED)
 		state.SetContact(edgev1.EdgeContact_EDGE_CONTACT_ACTIVE)
@@ -264,7 +273,7 @@ func TestRevokeSetupKeyClearsTheDigestAndRecordsTheStatus(t *testing.T) {
 	admin, store := newAdmin(t)
 	record, _ := createEdge(t, admin)
 
-	resp, err := admin.RevokeSetupKey(context.Background(), connect.NewRequest(apiedgev1.RevokeSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
+	resp, err := admin.RevokeSetupKey(testContext(), connect.NewRequest(apiedgev1.RevokeSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
 	if err != nil {
 		t.Fatalf("RevokeSetupKey: %v", err)
 	}
@@ -278,7 +287,7 @@ func TestRevokeSetupKeyClearsTheDigestAndRecordsTheStatus(t *testing.T) {
 		t.Fatal("a revoked key still enrolls: its digest is still stored")
 	}
 
-	_, err = admin.RevokeSetupKey(context.Background(), connect.NewRequest(apiedgev1.RevokeSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
+	_, err = admin.RevokeSetupKey(testContext(), connect.NewRequest(apiedgev1.RevokeSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
 	wantConnectCode(t, err, connect.CodeFailedPrecondition)
 }
 
@@ -287,7 +296,7 @@ func TestRevokeSetupKeyRefusesAConsumedKey(t *testing.T) {
 	record, _ := createEdge(t, admin)
 	enroll(t, store, refOf(record))
 
-	_, err := admin.RevokeSetupKey(context.Background(), connect.NewRequest(apiedgev1.RevokeSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
+	_, err := admin.RevokeSetupKey(testContext(), connect.NewRequest(apiedgev1.RevokeSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
 	wantConnectCode(t, err, connect.CodeFailedPrecondition)
 	if got := storedEdge(t, store, refOf(record)).GetRecord().GetState().GetLifecycle(); got != edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED {
 		t.Errorf("lifecycle = %v, want the enrollment left alone", got)
@@ -298,7 +307,7 @@ func TestRetireEdgeWithdrawsTheOutstandingKeyAndIsIdempotent(t *testing.T) {
 	admin, store := newAdmin(t)
 	record, _ := createEdge(t, admin)
 
-	resp, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()))
+	resp, err := admin.RetireEdge(testContext(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()))
 	if err != nil {
 		t.Fatalf("RetireEdge: %v", err)
 	}
@@ -315,7 +324,7 @@ func TestRetireEdgeWithdrawsTheOutstandingKeyAndIsIdempotent(t *testing.T) {
 		t.Fatal("a retired edge's setup key still enrolls: its digest is still stored")
 	}
 
-	again, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()))
+	again, err := admin.RetireEdge(testContext(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()))
 	if err != nil {
 		t.Fatalf("a repeated RetireEdge failed: %v", err)
 	}
@@ -329,7 +338,7 @@ func TestUnknownEdgeIsNotFoundOnEveryOperation(t *testing.T) {
 	ref := edgev1.EdgeGlobalRef_builder{
 		Edge: edgev1.EdgeLocalRef_builder{Id: proto.String("0192e6a0-0000-7000-8000-00000000dead")}.Build(),
 	}.Build()
-	ctx := context.Background()
+	ctx := testContext()
 
 	_, err := admin.GetEdge(ctx, connect.NewRequest(apiedgev1.GetEdgeRequest_builder{Edge: ref}.Build()))
 	wantConnectCode(t, err, connect.CodeNotFound)
@@ -343,7 +352,7 @@ func TestUnknownEdgeIsNotFoundOnEveryOperation(t *testing.T) {
 
 func TestARequestNamingNoEdgeIsRefused(t *testing.T) {
 	admin, _ := newAdmin(t)
-	_, err := admin.GetEdge(context.Background(), connect.NewRequest(&apiedgev1.GetEdgeRequest{}))
+	_, err := admin.GetEdge(testContext(), connect.NewRequest(&apiedgev1.GetEdgeRequest{}))
 	wantConnectCode(t, err, connect.CodeInvalidArgument)
 }
 
@@ -362,7 +371,7 @@ func TestListEdgesPagesEveryEdgeExactlyOnce(t *testing.T) {
 		if pages > len(want) {
 			t.Fatal("listing did not terminate")
 		}
-		resp, err := admin.ListEdges(context.Background(), connect.NewRequest(apiedgev1.ListEdgesRequest_builder{
+		resp, err := admin.ListEdges(testContext(), connect.NewRequest(apiedgev1.ListEdgesRequest_builder{
 			PageSize:  proto.Uint32(3),
 			PageToken: optional(token),
 		}.Build()))
@@ -410,7 +419,7 @@ func optional(s string) *string {
 
 func TestListEdgesRefusesATokenItDidNotIssue(t *testing.T) {
 	admin, _ := newAdmin(t)
-	_, err := admin.ListEdges(context.Background(), connect.NewRequest(apiedgev1.ListEdgesRequest_builder{
+	_, err := admin.ListEdges(testContext(), connect.NewRequest(apiedgev1.ListEdgesRequest_builder{
 		PageToken: proto.String("not base64!"),
 	}.Build()))
 	wantConnectCode(t, err, connect.CodeInvalidArgument)
@@ -449,28 +458,31 @@ func TestAnIssuedSetupKeyResolvesToItsEdge(t *testing.T) {
 	admin, store := newAdmin(t)
 	record, key := createEdge(t, admin)
 
-	got, err := store.EdgeForSetupKey(context.Background(), keyIDOf(key))
+	gotTenant, gotEdge, err := store.EdgeForSetupKey(testContext(), keyIDOf(key))
 	if err != nil {
 		t.Fatalf("EdgeForSetupKey: %v", err)
 	}
-	if want := refOf(record).GetEdge().GetId(); got != want {
-		t.Fatalf("edge for setup key = %q, want %q", got, want)
+	if want := refOf(record).GetEdge().GetId(); gotEdge != want {
+		t.Fatalf("edge for setup key = %q, want %q", gotEdge, want)
+	}
+	if gotTenant != defaultTenantID {
+		t.Fatalf("tenant for setup key = %q, want %q", gotTenant, defaultTenantID)
 	}
 }
 
 func TestAnUnknownSetupKeyResolvesToNoEdge(t *testing.T) {
 	_, store := newAdmin(t)
-	got, err := store.EdgeForSetupKey(context.Background(), "aaaaaaaaaaaaaaaaaaaaaaaaaa")
+	gotTenant, gotEdge, err := store.EdgeForSetupKey(testContext(), "aaaaaaaaaaaaaaaaaaaaaaaaaa")
 	if err != nil {
 		t.Fatalf("EdgeForSetupKey: %v", err)
 	}
-	if got != "" {
-		t.Fatalf("an unissued identifier resolved to %q", got)
+	if gotEdge != "" || gotTenant != "" {
+		t.Fatalf("an unissued identifier resolved to tenant %q, edge %q", gotTenant, gotEdge)
 	}
 }
 
 func TestWithdrawingASetupKeyDropsItsIndexEntry(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	cases := []struct {
 		name     string
 		withdraw func(t *testing.T, admin *edgeapi.AdminService, ref *edgev1.EdgeGlobalRef)
@@ -493,19 +505,19 @@ func TestWithdrawingASetupKeyDropsItsIndexEntry(t *testing.T) {
 			record, key := createEdge(t, admin)
 			tc.withdraw(t, admin, refOf(record))
 
-			got, err := store.EdgeForSetupKey(ctx, keyIDOf(key))
+			_, gotEdge, err := store.EdgeForSetupKey(ctx, keyIDOf(key))
 			if err != nil {
 				t.Fatalf("EdgeForSetupKey: %v", err)
 			}
-			if got != "" {
-				t.Fatalf("a withdrawn key still resolves to %q", got)
+			if gotEdge != "" {
+				t.Fatalf("a withdrawn key still resolves to %q", gotEdge)
 			}
 		})
 	}
 }
 
 func TestReissuingMovesTheIndexToTheNewKey(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	admin, store := newAdmin(t)
 	record, first := createEdge(t, admin)
 
@@ -515,14 +527,17 @@ func TestReissuingMovesTheIndexToTheNewKey(t *testing.T) {
 	}
 	second := resp.Msg.GetProvisioning().GetSetupKey()
 
-	got, err := store.EdgeForSetupKey(ctx, keyIDOf(second))
+	gotTenant, gotEdge, err := store.EdgeForSetupKey(ctx, keyIDOf(second))
 	if err != nil {
 		t.Fatalf("EdgeForSetupKey: %v", err)
 	}
-	if want := refOf(record).GetEdge().GetId(); got != want {
-		t.Fatalf("the issued key resolves to %q, want %q", got, want)
+	if want := refOf(record).GetEdge().GetId(); gotEdge != want {
+		t.Fatalf("the issued key resolves to %q, want %q", gotEdge, want)
 	}
-	stale, err := store.EdgeForSetupKey(ctx, keyIDOf(first))
+	if gotTenant != defaultTenantID {
+		t.Fatalf("reissued key tenant = %q, want %q", gotTenant, defaultTenantID)
+	}
+	_, stale, err := store.EdgeForSetupKey(ctx, keyIDOf(first))
 	if err != nil {
 		t.Fatalf("EdgeForSetupKey: %v", err)
 	}
@@ -536,7 +551,7 @@ func TestRetiringAnEnrolledEdgeSucceedsWithNoOutstandingKey(t *testing.T) {
 	record, _ := createEdge(t, admin)
 	enroll(t, store, refOf(record))
 
-	resp, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()))
+	resp, err := admin.RetireEdge(testContext(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()))
 	if err != nil {
 		t.Fatalf("RetireEdge on an enrolled edge: %v", err)
 	}
@@ -551,7 +566,7 @@ func TestListEdgesSkipsTheSetupKeyIndexEntries(t *testing.T) {
 		createEdge(t, admin)
 	}
 
-	resp, err := admin.ListEdges(context.Background(), connect.NewRequest(&apiedgev1.ListEdgesRequest{}))
+	resp, err := admin.ListEdges(testContext(), connect.NewRequest(&apiedgev1.ListEdgesRequest{}))
 	if err != nil {
 		t.Fatalf("ListEdges: %v", err)
 	}
@@ -614,7 +629,7 @@ func TestRetireEdgeForgetsWhatItsDevicesOwedIt(t *testing.T) {
 	}
 	record, _ := createEdge(t, admin)
 
-	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
+	if _, err := admin.RetireEdge(testContext(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
 		Edge: refOf(record),
 	}.Build())); err != nil {
 		t.Fatalf("RetireEdge: %v", err)
@@ -639,7 +654,7 @@ func TestRetireEdgeEndsNoMutation(t *testing.T) {
 	}
 	record, _ := createEdge(t, admin)
 
-	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
+	if _, err := admin.RetireEdge(testContext(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
 		Edge: refOf(record),
 	}.Build())); err != nil {
 		t.Fatalf("RetireEdge: %v", err)
@@ -668,12 +683,12 @@ func TestRetireEdgeReportsAFailedDropAndFinishesOnRetry(t *testing.T) {
 	record, _ := createEdge(t, admin)
 	req := apiedgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()
 
-	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(req)); err == nil {
+	if _, err := admin.RetireEdge(testContext(), connect.NewRequest(req)); err == nil {
 		t.Fatal("a failed hold drop was swallowed")
 	}
 
 	holds.err = nil
-	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(req)); err != nil {
+	if _, err := admin.RetireEdge(testContext(), connect.NewRequest(req)); err != nil {
 		t.Fatalf("retry after a failed drop: %v", err)
 	}
 	if len(holds.dropped) != 1 {
@@ -697,7 +712,7 @@ func TestRetireEdgeSucceedsWhenTheRegistryDescribesAnotherEdge(t *testing.T) {
 	}
 	record, _ := createEdge(t, admin)
 
-	resp, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
+	resp, err := admin.RetireEdge(testContext(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
 		Edge: refOf(record),
 	}.Build()))
 	if err != nil {
@@ -730,7 +745,7 @@ func TestRetireEdgeNamesTheLanesItOrphaned(t *testing.T) {
 	}
 	record, _ := createEdge(t, admin)
 
-	resp, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
+	resp, err := admin.RetireEdge(testContext(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
 		Edge: refOf(record),
 	}.Build()))
 	if err != nil {
@@ -770,9 +785,177 @@ func TestRetireEdgeRefusesRatherThanReportingAShortOrphanList(t *testing.T) {
 	}
 	record, _ := createEdge(t, admin)
 
-	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
+	if _, err := admin.RetireEdge(testContext(), connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
 		Edge: refOf(record),
 	}.Build())); err == nil {
 		t.Fatal("an unreadable lane record was reported as no open mutation")
+	}
+}
+
+func TestCrossTenantIsolation(t *testing.T) {
+	hub := newHub(t)
+	store := newStoreOver(t, hub)
+	admin := newAdminOver(t, store, func() time.Time { return testClock })
+
+	tenantA := "0192e6a0-1111-7000-8000-000000000011"
+	tenantB := "0192e6a0-2222-7000-8000-000000000022"
+	ctxA := tenant.WithTenant(context.Background(), tenantA)
+	ctxB := tenant.WithTenant(context.Background(), tenantB)
+
+	respA, err := admin.CreateEdge(ctxA, connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
+		Name: proto.String("edge-tenant-a"),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CreateEdge(tenantA): %v", err)
+	}
+	edgeRefA := respA.Msg.GetEdge().GetConfig().GetRef()
+	edgeID := edgeRefA.GetEdge().GetId()
+	setupKey := respA.Msg.GetProvisioning().GetSetupKey()
+
+	// Assert its key in edges bucket begins with tenant A's id (<tenantA>.<edgeID>)
+	kv, err := hub.JetStream().KeyValue(context.Background(), edgebus.EdgeBucket)
+	if err != nil {
+		t.Fatalf("get kv: %v", err)
+	}
+	entry, err := kv.Get(context.Background(), tenantA+"."+edgeID)
+	if err != nil {
+		t.Fatalf("raw KV get for %s.%s: %v", tenantA, edgeID, err)
+	}
+	if len(entry.Value()) == 0 {
+		t.Fatal("stored edge record value is empty")
+	}
+
+	// Calling GetEdge with tenant B context returns NotFound
+	_, err = admin.GetEdge(ctxB, connect.NewRequest(apiedgev1.GetEdgeRequest_builder{
+		Edge: edgeRefA,
+	}.Build()))
+	wantConnectCode(t, err, connect.CodeNotFound)
+
+	// ListEdges under tenant B does not see tenant A's edge
+	listB, err := admin.ListEdges(ctxB, connect.NewRequest(&apiedgev1.ListEdgesRequest{}))
+	if err != nil {
+		t.Fatalf("ListEdges(tenantB): %v", err)
+	}
+	if len(listB.Msg.GetEdges()) != 0 {
+		t.Fatalf("tenant B saw %d edges, want 0", len(listB.Msg.GetEdges()))
+	}
+
+	// Calling IssueSetupKey with tenant B context returns NotFound
+	_, err = admin.IssueSetupKey(ctxB, connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{
+		Edge: edgeRefA,
+	}.Build()))
+	wantConnectCode(t, err, connect.CodeNotFound)
+
+	// Calling RevokeSetupKey with tenant B context returns NotFound
+	_, err = admin.RevokeSetupKey(ctxB, connect.NewRequest(apiedgev1.RevokeSetupKeyRequest_builder{
+		Edge: edgeRefA,
+	}.Build()))
+	wantConnectCode(t, err, connect.CodeNotFound)
+
+	// Calling RetireEdge with tenant B context returns NotFound
+	_, err = admin.RetireEdge(ctxB, connect.NewRequest(apiedgev1.RetireEdgeRequest_builder{
+		Edge: edgeRefA,
+	}.Build()))
+	wantConnectCode(t, err, connect.CodeNotFound)
+
+	// Enroll under the issued setup key writes edge_<id> index and attaches under tenant A.
+	edgeSvc, err := edgeapi.NewService(store, testRegistry(t, edgeID, nil), &fakeLanes{}, &fakeCredentials{material: snmpMaterial()}, hub, edgeapi.ServiceConfig{
+		Audience:      "flowseer-central",
+		TrustAnchors:  [][]byte{make([]byte, 32)},
+		ClusterURLs:   []string{"wss://central.example.test:4223"},
+		PulseInterval: 5 * time.Millisecond,
+	}, func() time.Time { return testClock }, nil)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+
+	public, private, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+
+	enrollResp, err := edgeSvc.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
+		SetupKey: proto.String(setupKey),
+		Proof:    enrollProof(t, private, public, setupKey),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("Enroll: %v", err)
+	}
+	if enrollResp.Msg.GetEdge().GetEdge().GetId() != edgeID {
+		t.Fatalf("enrolled edge ID = %q, want %q", enrollResp.Msg.GetEdge().GetEdge().GetId(), edgeID)
+	}
+
+	// Assert edge_<id> index entry exists and contains tenant A's UUID
+	indexEntry, err := kv.Get(context.Background(), "edge_"+edgeID)
+	if err != nil {
+		t.Fatalf("get edge_%s index: %v", edgeID, err)
+	}
+	if string(indexEntry.Value()) != tenantA {
+		t.Fatalf("edge index value = %q, want %q", string(indexEntry.Value()), tenantA)
+	}
+
+	// Assert hub.EdgeTenant returns tenant A
+	gotTenant, ok := hub.EdgeTenant(edgeID)
+	if !ok {
+		t.Fatalf("hub.EdgeTenant(%s) returned not found", edgeID)
+	}
+	if gotTenant != tenantA {
+		t.Fatalf("hub.EdgeTenant(%s) = %q, want %q", edgeID, gotTenant, tenantA)
+	}
+}
+
+func TestAdminRequiresTenantContext(t *testing.T) {
+	admin, _ := newAdmin(t)
+	_, err := admin.CreateEdge(context.Background(), connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
+		Name: proto.String("site-a"),
+	}.Build()))
+	wantConnectCode(t, err, connect.CodeUnauthenticated)
+}
+
+func TestCreateEdgeIndexesEdgeBeforeEnrollment(t *testing.T) {
+	hub := newHub(t)
+	store := newStoreOver(t, hub)
+	admin := newAdminOver(t, store, func() time.Time { return testClock })
+	resp, err := admin.CreateEdge(testContext(), connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
+		Name: proto.String("site-a"),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CreateEdge: %v", err)
+	}
+	edgeID := resp.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId()
+	indexedTenant, err := store.TenantForEdge(context.Background(), edgeID)
+	if err != nil {
+		t.Fatalf("TenantForEdge: %v", err)
+	}
+	if indexedTenant != defaultTenantID {
+		t.Fatalf("TenantForEdge = %q, want %q", indexedTenant, defaultTenantID)
+	}
+
+	setupKey := resp.Msg.GetProvisioning().GetSetupKey()
+	edgeSvc, err := edgeapi.NewService(store, testRegistry(t, edgeID, nil), &fakeLanes{}, &fakeCredentials{material: snmpMaterial()}, hub, edgeapi.ServiceConfig{
+		Audience:      "flowseer-central",
+		TrustAnchors:  [][]byte{make([]byte, 32)},
+		ClusterURLs:   []string{"wss://central.example.test:4223"},
+		PulseInterval: 5 * time.Millisecond,
+	}, func() time.Time { return testClock }, nil)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	public, private, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+	if _, err := edgeSvc.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
+		SetupKey: proto.String(setupKey),
+		Proof:    enrollProof(t, private, public, setupKey),
+	}.Build())); err != nil {
+		t.Fatalf("Enroll: %v", err)
+	}
+	enrolledTenant, err := store.TenantForEdge(context.Background(), edgeID)
+	if err != nil {
+		t.Fatalf("TenantForEdge after enroll: %v", err)
+	}
+	if enrolledTenant != defaultTenantID {
+		t.Fatalf("enrolled tenant = %q, want %q", enrolledTenant, defaultTenantID)
 	}
 }

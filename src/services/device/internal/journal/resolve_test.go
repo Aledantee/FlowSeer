@@ -23,7 +23,7 @@ const resolveIface = "ethernet 1/1/2"
 // what to do about the difference it found.
 func heldIntent(t *testing.T, j *journal.Journal, key string) uint64 {
 	t.Helper()
-	state, err := j.Admit(context.Background(), deviceID, mutationIntent(key), edgeRef())
+	state, err := j.Admit(context.Background(), tenantID, deviceID, mutationIntent(key), edgeRef())
 	if err != nil {
 		t.Fatalf("admit held intent: %v", err)
 	}
@@ -32,7 +32,7 @@ func heldIntent(t *testing.T, j *journal.Journal, key string) uint64 {
 
 func revisionOf(t *testing.T, kv jetstream.KeyValue) uint64 {
 	t.Helper()
-	entry, err := kv.Get(context.Background(), deviceID)
+	entry, err := kv.Get(context.Background(), tenantID+"."+deviceID)
 	if err != nil {
 		t.Fatalf("read revision: %v", err)
 	}
@@ -49,7 +49,7 @@ func TestResolveDesynchronizationRestoresInOneWrite(t *testing.T) {
 	held := heldIntent(t, j, "0192e6a0-0000-7000-8000-000000000a01")
 	before := revisionOf(t, kv)
 
-	resolved, admitted, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{
+	resolved, admitted, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{
 		Sequence: held,
 		Intent:   mutationIntent("0192e6a0-0000-7000-8000-000000000a02"),
 		Edge:     edgeRef(),
@@ -67,7 +67,7 @@ func TestResolveDesynchronizationRestoresInOneWrite(t *testing.T) {
 	if admitted.GetSequence() != held+1 {
 		t.Errorf("admitted sequence = %d, want %d", admitted.GetSequence(), held+1)
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tenantID, deviceID)
 	if rec.GetMutation().GetSequence() != admitted.GetSequence() {
 		t.Errorf("the lane holds %d, want the admitted %d", rec.GetMutation().GetSequence(), admitted.GetSequence())
 	}
@@ -86,7 +86,7 @@ func TestResolveDesynchronizationDisposesAHeldIntentRejected(t *testing.T) {
 	j := newJournal(t)
 	held := heldIntent(t, j, "0192e6a0-0000-7000-8000-000000000a03")
 
-	resolved, admitted, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{
+	resolved, admitted, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{
 		Sequence:  held,
 		Interface: resolveIface,
 		Expected:  "what the device actually carries",
@@ -107,7 +107,7 @@ func TestResolveDesynchronizationDisposesAHeldIntentRejected(t *testing.T) {
 	if err := protovalidate.Validate(resolved); err != nil {
 		t.Errorf("the disposed state fails its schema rules: %v", err)
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tenantID, deviceID)
 	if rec.HasMutation() {
 		t.Error("the resolution left the lane held")
 	}
@@ -122,24 +122,24 @@ func TestResolveDesynchronizationDisposesAHeldIntentRejected(t *testing.T) {
 func TestResolveDesynchronizationKeepsAnAbandonedDisposition(t *testing.T) {
 	ctx := context.Background()
 	j := newJournal(t)
-	state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a04"), edgeRef())
+	state, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a04"), edgeRef())
 	if err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	seq := state.GetSequence()
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
-	if _, err := j.Dispose(ctx, deviceID, seq); err != nil {
+	if _, err := j.Dispose(ctx, tenantID, deviceID, seq); err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
 	// The edge confirms the abandonment. Without this the terminal ack is
 	// still owed and the resolution is refused, which the test below covers.
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: seq}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: seq}); err != nil {
 		t.Fatalf("abandoned: %v", err)
 	}
 
-	resolved, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: seq})
+	resolved, _, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{Sequence: seq})
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
@@ -158,23 +158,23 @@ func TestResolveDesynchronizationKeepsAnAbandonedDisposition(t *testing.T) {
 func TestResolveDesynchronizationRefusesAnAbandonmentTheEdgeHasNotAcknowledged(t *testing.T) {
 	ctx := context.Background()
 	j := newJournal(t)
-	state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a14"), edgeRef())
+	state, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a14"), edgeRef())
 	if err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	seq := state.GetSequence()
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
-	if _, err := j.Dispose(ctx, deviceID, seq); err != nil {
+	if _, err := j.Dispose(ctx, tenantID, deviceID, seq); err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
 
-	_, _, err = j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: seq})
+	_, _, err = j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{Sequence: seq})
 	if code, _ := errs.CodeOf(err); code != journal.ErrCodeAckPending {
 		t.Fatalf("resolve error = %v, want code %v", err, journal.ErrCodeAckPending)
 	}
-	rec, err := j.Record(ctx, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestResolveDesynchronizationOwesOnlyTheHoldAndTheNewIntent(t *testing.T) {
 	j := newJournal(t)
 	held := heldIntent(t, j, "0192e6a0-0000-7000-8000-000000000a05")
 
-	_, admitted, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{
+	_, admitted, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{
 		Sequence: held,
 		Intent:   mutationIntent("0192e6a0-0000-7000-8000-000000000a06"),
 		Edge:     edgeRef(),
@@ -204,7 +204,7 @@ func TestResolveDesynchronizationOwesOnlyTheHoldAndTheNewIntent(t *testing.T) {
 		t.Fatalf("resolve: %v", err)
 	}
 
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tenantID, deviceID)
 	want := map[journal.OwedKind]uint64{
 		journal.OwedHoldResolved: held,
 		journal.OwedExecute:      admitted.GetSequence(),
@@ -236,27 +236,27 @@ func TestAResolutionKeyAdmittedForAnEarlierSequenceIsRefused(t *testing.T) {
 	j := newJournal(t)
 	key := "0192e6a0-0000-7000-8000-000000000a15"
 
-	earlier, err := j.Admit(ctx, deviceID, mutationIntent(key), edgeRef())
+	earlier, err := j.Admit(ctx, tenantID, deviceID, mutationIntent(key), edgeRef())
 	if err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{
 		Kind:     journal.ReportAdmitted,
 		Sequence: earlier.GetSequence(),
 	}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
-	if _, err := j.Dispose(ctx, deviceID, earlier.GetSequence()); err != nil {
+	if _, err := j.Dispose(ctx, tenantID, deviceID, earlier.GetSequence()); err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{
 		Kind:     journal.ReportAbandoned,
 		Sequence: earlier.GetSequence(),
 	}); err != nil {
 		t.Fatalf("abandoned: %v", err)
 	}
 
-	_, _, err = j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{
+	_, _, err = j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{
 		Sequence: earlier.GetSequence(),
 		Intent:   mutationIntent(key),
 		Edge:     edgeRef(),
@@ -264,7 +264,7 @@ func TestAResolutionKeyAdmittedForAnEarlierSequenceIsRefused(t *testing.T) {
 	if code, _ := errs.CodeOf(err); code != journal.ErrCodeIdempotencyMismatch {
 		t.Fatalf("resolve error = %v, want code %v", err, journal.ErrCodeIdempotencyMismatch)
 	}
-	rec, err := j.Record(ctx, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -281,7 +281,7 @@ func TestResolveDesynchronizationIsIdempotent(t *testing.T) {
 	held := heldIntent(t, j, "0192e6a0-0000-7000-8000-000000000a07")
 	intent := mutationIntent("0192e6a0-0000-7000-8000-000000000a08")
 
-	_, first, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{
+	_, first, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{
 		Sequence: held, Intent: intent, Edge: edgeRef(),
 	})
 	if err != nil {
@@ -289,7 +289,7 @@ func TestResolveDesynchronizationIsIdempotent(t *testing.T) {
 	}
 	after := revisionOf(t, kv)
 
-	_, again, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{
+	_, again, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{
 		Sequence: held, Intent: intent, Edge: edgeRef(),
 	})
 	if err != nil {
@@ -313,9 +313,9 @@ func TestResolveDesynchronizationRefusedLeavesTheRecordUntouched(t *testing.T) {
 		pendingHold(t, j, holdKey(s))
 	}
 	held := heldIntent(t, j, "0192e6a0-0000-7000-8000-000000000a09")
-	before, _ := j.Record(ctx, deviceID)
+	before, _ := j.Record(ctx, tenantID, deviceID)
 
-	_, admitted, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{
+	_, admitted, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{
 		Sequence: held,
 		Intent:   mutationIntent("0192e6a0-0000-7000-8000-000000000a10"),
 		Edge:     edgeRef(),
@@ -326,7 +326,7 @@ func TestResolveDesynchronizationRefusedLeavesTheRecordUntouched(t *testing.T) {
 	if admitted != nil {
 		t.Error("a refused resolution admitted the intent anyway")
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tenantID, deviceID)
 	if rec.GetHighWatermark() != before.GetHighWatermark() {
 		t.Errorf("high watermark moved to %d, was %d", rec.GetHighWatermark(), before.GetHighWatermark())
 	}
@@ -343,7 +343,7 @@ func TestResolveDesynchronizationRefusesASequenceNothingHolds(t *testing.T) {
 
 	// A sequence the record neither holds nor owes a hold for: resolving it
 	// would be a way to admit an intent past the lane's one-mutation rule.
-	_, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{
+	_, _, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{
 		Sequence: held + 7,
 		Intent:   mutationIntent("0192e6a0-0000-7000-8000-000000000a12"),
 		Edge:     edgeRef(),
@@ -351,7 +351,7 @@ func TestResolveDesynchronizationRefusesASequenceNothingHolds(t *testing.T) {
 	if code, _ := errs.CodeOf(err); code != journal.ErrCodeState {
 		t.Fatalf("error code = %v, want state", code)
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tenantID, deviceID)
 	if rec.GetMutation().GetSequence() != held {
 		t.Error("the refusal disturbed the held mutation")
 	}
@@ -374,7 +374,7 @@ func TestResubmissionAfterTheCloseReadsHowTheSequenceEnded(t *testing.T) {
 			name: "verified then released",
 			close: func(t *testing.T, j *journal.Journal, seq uint64) {
 				for _, kind := range []journal.ReportKind{journal.ReportAdmitted, journal.ReportVerified, journal.ReportReleased} {
-					if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: kind, Sequence: seq}); err != nil {
+					if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: kind, Sequence: seq}); err != nil {
 						t.Fatalf("report %v: %v", kind, err)
 					}
 				}
@@ -385,7 +385,7 @@ func TestResubmissionAfterTheCloseReadsHowTheSequenceEnded(t *testing.T) {
 			name: "verified then a refused terminal ack",
 			close: func(t *testing.T, j *journal.Journal, seq uint64) {
 				for _, kind := range []journal.ReportKind{journal.ReportAdmitted, journal.ReportVerified, journal.ReportRefused} {
-					if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: kind, Sequence: seq}); err != nil {
+					if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: kind, Sequence: seq}); err != nil {
 						t.Fatalf("report %v: %v", kind, err)
 					}
 				}
@@ -395,7 +395,7 @@ func TestResubmissionAfterTheCloseReadsHowTheSequenceEnded(t *testing.T) {
 		{
 			name: "abandoned before the edge reported it admitted",
 			close: func(t *testing.T, j *journal.Journal, seq uint64) {
-				if _, err := j.Dispose(ctx, deviceID, seq); err != nil {
+				if _, err := j.Dispose(ctx, tenantID, deviceID, seq); err != nil {
 					t.Fatalf("dispose: %v", err)
 				}
 			},
@@ -404,7 +404,7 @@ func TestResubmissionAfterTheCloseReadsHowTheSequenceEnded(t *testing.T) {
 		{
 			name: "refused by the edge before dispatch",
 			close: func(t *testing.T, j *journal.Journal, seq uint64) {
-				if _, err := j.RejectDispatch(ctx, deviceID, seq); err != nil {
+				if _, err := j.RejectDispatch(ctx, tenantID, deviceID, seq); err != nil {
 					t.Fatalf("reject: %v", err)
 				}
 			},
@@ -413,7 +413,7 @@ func TestResubmissionAfterTheCloseReadsHowTheSequenceEnded(t *testing.T) {
 		{
 			name: "resolved while held",
 			close: func(t *testing.T, j *journal.Journal, seq uint64) {
-				if _, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: seq}); err != nil {
+				if _, _, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{Sequence: seq}); err != nil {
 					t.Fatalf("resolve: %v", err)
 				}
 			},
@@ -425,13 +425,13 @@ func TestResubmissionAfterTheCloseReadsHowTheSequenceEnded(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			j := newJournal(t)
 			intent := mutationIntent("0192e6a0-0000-7000-8000-000000000b01")
-			state, err := j.Admit(ctx, deviceID, intent, edgeRef())
+			state, err := j.Admit(ctx, tenantID, deviceID, intent, edgeRef())
 			if err != nil {
 				t.Fatalf("admit: %v", err)
 			}
 			c.close(t, j, state.GetSequence())
 
-			again, err := j.Admit(ctx, deviceID, intent, edgeRef())
+			again, err := j.Admit(ctx, tenantID, deviceID, intent, edgeRef())
 			if err != nil {
 				t.Fatalf("resubmit: %v", err)
 			}
@@ -459,19 +459,19 @@ func TestAKeyReusedForADifferentIntentIsRefused(t *testing.T) {
 	j := newJournal(t)
 	const key = "0192e6a0-0000-7000-8000-000000000c01"
 
-	first, err := j.Admit(ctx, deviceID, mutationIntent(key), edgeRef())
+	first, err := j.Admit(ctx, tenantID, deviceID, mutationIntent(key), edgeRef())
 	if err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 
 	different := mutationIntent(key)
 	different.SetExpectedFirmwareFingerprint("fastiron-09.0.10")
-	_, err = j.Admit(ctx, deviceID, different, edgeRef())
+	_, err = j.Admit(ctx, tenantID, deviceID, different, edgeRef())
 	if code, _ := errs.CodeOf(err); code != journal.ErrCodeIdempotencyMismatch {
 		t.Fatalf("error code = %v, want an idempotency mismatch", code)
 	}
 
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tenantID, deviceID)
 	if rec.GetHighWatermark() != first.GetSequence() {
 		t.Errorf("the refused resubmission assigned a sequence: watermark %d", rec.GetHighWatermark())
 	}
@@ -487,11 +487,11 @@ func TestAKeyResubmittedWithTheSameIntentStillEchoes(t *testing.T) {
 	j := newJournal(t)
 	intent := mutationIntent("0192e6a0-0000-7000-8000-000000000c02")
 
-	first, err := j.Admit(ctx, deviceID, intent, edgeRef())
+	first, err := j.Admit(ctx, tenantID, deviceID, intent, edgeRef())
 	if err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	again, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c02"), edgeRef())
+	again, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c02"), edgeRef())
 	if err != nil {
 		t.Fatalf("resubmit: %v", err)
 	}
@@ -507,7 +507,7 @@ func TestAResolutionKeyReusedForADifferentIntentIsRefused(t *testing.T) {
 	const key = "0192e6a0-0000-7000-8000-000000000c03"
 	held := heldIntent(t, j, "0192e6a0-0000-7000-8000-000000000c04")
 
-	if _, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{
+	if _, _, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{
 		Sequence: held, Intent: mutationIntent(key), Edge: edgeRef(),
 	}); err != nil {
 		t.Fatalf("resolve: %v", err)
@@ -515,7 +515,7 @@ func TestAResolutionKeyReusedForADifferentIntentIsRefused(t *testing.T) {
 
 	different := mutationIntent(key)
 	different.SetExpectedFirmwareFingerprint("fastiron-09.0.10")
-	_, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{
+	_, _, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{
 		Sequence: held, Intent: different, Edge: edgeRef(),
 	})
 	if code, _ := errs.CodeOf(err); code != journal.ErrCodeIdempotencyMismatch {
@@ -530,24 +530,24 @@ func TestAResolutionKeyReusedForADifferentIntentIsRefused(t *testing.T) {
 func TestAVerifiedMutationLeavesTheExpectationAndTheObservationBehind(t *testing.T) {
 	ctx := context.Background()
 	j := newJournal(t)
-	state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000d01"), edgeRef())
+	state, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000d01"), edgeRef())
 	if err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	seq := state.GetSequence()
 	applied := state.GetIntent().GetInterfaceDescription()
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
 
 	proof := completeObservation(applied.GetInterfaceName(), applied.GetDescription())
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{
 		Kind: journal.ReportVerified, Sequence: seq, Observation: proof,
 	}); err != nil {
 		t.Fatalf("verified: %v", err)
 	}
 
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tenantID, deviceID)
 	if got := rec.GetExpectedDescriptions()[applied.GetInterfaceName()]; got != applied.GetDescription() {
 		t.Errorf("expected description = %q, want what the mutation applied", got)
 	}
@@ -592,20 +592,20 @@ func completeObservation(iface, description string) *accessv1.InterfaceObservati
 func TestResolveDesynchronizationRefusesAMutationTheEdgeStillHolds(t *testing.T) {
 	ctx := context.Background()
 	j := newJournal(t)
-	state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a1a"), edgeRef())
+	state, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a1a"), edgeRef())
 	if err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	seq := state.GetSequence()
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
 
-	_, _, err = j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: seq})
+	_, _, err = j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{Sequence: seq})
 	if code, _ := errs.CodeOf(err); code != journal.ErrCodeEdgeHolds {
 		t.Fatalf("resolve error = %v, want code %v", err, journal.ErrCodeEdgeHolds)
 	}
-	rec, err := j.Record(ctx, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}

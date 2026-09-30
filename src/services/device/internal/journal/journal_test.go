@@ -16,9 +16,9 @@ import (
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
-	principalv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
@@ -29,7 +29,10 @@ import (
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
 )
 
-const deviceID = "0192e6a0-0000-7000-8000-0000000000d1"
+const (
+	tenantID = "0192e6a0-0000-7000-8000-0000000000aa"
+	deviceID = "0192e6a0-0000-7000-8000-0000000000d1"
+)
 
 func newJournal(t *testing.T) *journal.Journal {
 	t.Helper()
@@ -70,7 +73,7 @@ func mutationIntent(key string) *accessv1.MutationIntent {
 		return r
 	}())
 	actor := &accessv1.Actor{}
-	op := &principalv1.OperatorRef{}
+	op := &identityv1.OperatorRef{}
 	op.SetSubject("zitadel|1")
 	actor.SetOperator(op)
 	policy := &policyv1.AccessPolicyHandle{}
@@ -122,11 +125,11 @@ func holdPending(rec *storev1.DeviceLaneRecord, sequence uint64) bool {
 func pendingHold(t *testing.T, j *journal.Journal, key string) uint64 {
 	t.Helper()
 	ctx := context.Background()
-	state, err := j.Admit(ctx, deviceID, mutationIntent(key), edgeRef())
+	state, err := j.Admit(ctx, tenantID, deviceID, mutationIntent(key), edgeRef())
 	if err != nil {
 		t.Fatalf("admit for hold: %v", err)
 	}
-	if _, err := j.Dispose(ctx, deviceID, state.GetSequence()); err != nil {
+	if _, err := j.Dispose(ctx, tenantID, deviceID, state.GetSequence()); err != nil {
 		t.Fatalf("dispose for hold: %v", err)
 	}
 	return state.GetSequence()
@@ -137,7 +140,7 @@ func TestAdmitAssignsSequencesAndDeduplicates(t *testing.T) {
 	ctx := context.Background()
 	const key = "0192e6a0-0000-7000-8000-00000000a001"
 
-	state, err := j.Admit(ctx, deviceID, mutationIntent(key), edgeRef())
+	state, err := j.Admit(ctx, tenantID, deviceID, mutationIntent(key), edgeRef())
 	if err != nil {
 		t.Fatalf("admit: %v", err)
 	}
@@ -149,7 +152,7 @@ func TestAdmitAssignsSequencesAndDeduplicates(t *testing.T) {
 	}
 
 	// The same key returns the recorded state, admitting nothing new.
-	again, err := j.Admit(ctx, deviceID, mutationIntent(key), edgeRef())
+	again, err := j.Admit(ctx, tenantID, deviceID, mutationIntent(key), edgeRef())
 	if err != nil {
 		t.Fatalf("re-admit: %v", err)
 	}
@@ -159,22 +162,22 @@ func TestAdmitAssignsSequencesAndDeduplicates(t *testing.T) {
 
 	// A second, different intent cannot be admitted while the first holds
 	// the lane; once it releases, the next admit gets the next sequence.
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-00000000a002"), edgeRef()); err == nil {
+	if _, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-00000000a002"), edgeRef()); err == nil {
 		t.Fatal("admitted a second mutation over an open one")
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("admitted report: %v", err)
 	}
-	if err := j.ConfirmCheckpoint(ctx, deviceID, 1); err != nil {
+	if err := j.ConfirmCheckpoint(ctx, tenantID, deviceID, 1); err != nil {
 		t.Fatalf("confirm checkpoint: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportVerified, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportVerified, Sequence: 1}); err != nil {
 		t.Fatalf("verified: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportReleased, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportReleased, Sequence: 1}); err != nil {
 		t.Fatalf("released: %v", err)
 	}
-	next, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-00000000a003"), edgeRef())
+	next, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-00000000a003"), edgeRef())
 	if err != nil {
 		t.Fatalf("admit after release: %v", err)
 	}
@@ -197,7 +200,7 @@ func TestConcurrentAdmitYieldsOneAdmissionAndOneRefusal(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, results[i] = j.Admit(ctx, deviceID, mutationIntent(keys[i]), edgeRef())
+			_, results[i] = j.Admit(ctx, tenantID, deviceID, mutationIntent(keys[i]), edgeRef())
 		}()
 	}
 	wg.Wait()
@@ -213,7 +216,7 @@ func TestConcurrentAdmitYieldsOneAdmissionAndOneRefusal(t *testing.T) {
 	if admitted != 1 || rejected != 1 {
 		t.Fatalf("concurrent admit: %d admitted, %d rejected, want 1 and 1", admitted, rejected)
 	}
-	rec, err := j.Record(ctx, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -225,41 +228,50 @@ func TestConcurrentAdmitYieldsOneAdmissionAndOneRefusal(t *testing.T) {
 func TestApplyReportWalksThePhasesAndClosesTheRecord(t *testing.T) {
 	j := newJournal(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-00000000c001"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-00000000c001"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 
 	// ADMITTED report moves to POSSIBLY_APPLIED and sets the dispatch
 	// confirmations in one write.
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.GetMutation().GetPhase() != accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED || !rec.GetDispatched() || !rec.GetDispatchConfirmed() {
 		t.Fatalf("after ADMITTED: phase %v dispatched %v confirmed %v", rec.GetMutation().GetPhase(), rec.GetDispatched(), rec.GetDispatchConfirmed())
 	}
 
 	// A stale duplicate ADMITTED is ignored.
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("duplicate admitted: %v", err)
 	}
 
 	// A report for another sequence is ignored, not misapplied.
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportVerified, Sequence: 99}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportVerified, Sequence: 99}); err != nil {
 		t.Fatalf("wrong-sequence report: %v", err)
 	}
-	rec, _ = j.Record(ctx, deviceID)
+	rec, err = j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.GetMutation().HasDisposition() {
 		t.Fatal("a report for another sequence set a disposition")
 	}
 
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportVerified, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportVerified, Sequence: 1}); err != nil {
 		t.Fatalf("verified: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportReleased, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportReleased, Sequence: 1}); err != nil {
 		t.Fatalf("released: %v", err)
 	}
-	rec, _ = j.Record(ctx, deviceID)
+	rec, err = j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.HasMutation() {
 		t.Fatal("RELEASED did not close the record")
 	}
@@ -268,7 +280,7 @@ func TestApplyReportWalksThePhasesAndClosesTheRecord(t *testing.T) {
 func TestApplyReportErrorBeforeSubmissionDisposesRejected(t *testing.T) {
 	j := newJournal(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-00000000d001"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-00000000d001"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	// An error before the command was submitted — a firmware-epoch block, or
@@ -276,10 +288,13 @@ func TestApplyReportErrorBeforeSubmissionDisposesRejected(t *testing.T) {
 	// sequence but nothing reached the device. Central disposes REJECTED and
 	// owes the terminal ack the edge waits for; it does not close the record
 	// and leave the edge waiting for an ack that never comes.
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportError, Sequence: 1, Submitted: false}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportError, Sequence: 1, Submitted: false}); err != nil {
 		t.Fatalf("error report: %v", err)
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	m := rec.GetMutation()
 	if m == nil {
 		t.Fatal("a pre-submission error closed the record instead of disposing REJECTED")
@@ -288,10 +303,13 @@ func TestApplyReportErrorBeforeSubmissionDisposesRejected(t *testing.T) {
 		t.Fatalf("disposition %v, dispatched %v; want REJECTED and dispatched so the ack is owed", m.GetDisposition(), rec.GetDispatched())
 	}
 	// The edge's RELEASED report then closes it through the ordinary path.
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportReleased, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportReleased, Sequence: 1}); err != nil {
 		t.Fatalf("released: %v", err)
 	}
-	rec, _ = j.Record(ctx, deviceID)
+	rec, err = j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.HasMutation() {
 		t.Fatal("RELEASED did not close the rejected mutation")
 	}
@@ -300,19 +318,19 @@ func TestApplyReportErrorBeforeSubmissionDisposesRejected(t *testing.T) {
 func TestDisposeAndResolveDesynchronization(t *testing.T) {
 	j := newJournal(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-00000000e001"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-00000000e001"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
-	if err := j.ConfirmCheckpoint(ctx, deviceID, 1); err != nil {
+	if err := j.ConfirmCheckpoint(ctx, tenantID, deviceID, 1); err != nil {
 		t.Fatalf("checkpoint: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportRecovering, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportRecovering, Sequence: 1}); err != nil {
 		t.Fatalf("recovering: %v", err)
 	}
-	state, err := j.Dispose(ctx, deviceID, 1)
+	state, err := j.Dispose(ctx, tenantID, deviceID, 1)
 	if err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
@@ -321,27 +339,36 @@ func TestDisposeAndResolveDesynchronization(t *testing.T) {
 		t.Fatalf("disposed state = %v / %v", state.GetDisposition(), state.GetBlockReason())
 	}
 	// The mutation stays held until ResolveDesynchronization clears it.
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: 1}); err != nil {
 		t.Fatalf("abandoned: %v", err)
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if !rec.HasMutation() {
 		t.Fatal("abandonment closed the record; it must stay held for resolution")
 	}
-	if _, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: 1}); err != nil {
+	if _, _, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{Sequence: 1}); err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
-	rec, _ = j.Record(ctx, deviceID)
+	rec, err = j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.HasMutation() {
 		t.Fatal("ResolveDesynchronization did not clear the held mutation")
 	}
 	if !holdPending(rec, 1) {
 		t.Fatalf("hold resolution pending = %v, want 1 present", rec.GetHoldResolutionPending())
 	}
-	if err := j.ConfirmHoldResolved(ctx, deviceID, 1); err != nil {
+	if err := j.ConfirmHoldResolved(ctx, tenantID, deviceID, 1); err != nil {
 		t.Fatalf("confirm hold: %v", err)
 	}
-	rec, _ = j.Record(ctx, deviceID)
+	rec, err = j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if holdPending(rec, 1) {
 		t.Fatal("ConfirmHoldResolved did not clear the pending row")
 	}
@@ -361,7 +388,7 @@ func TestOpenAndCloseReadShareTheCounter(t *testing.T) {
 	intent.SetInterfaceName("ethernet 1/1/1")
 	read.SetInterface(intent)
 
-	seq, err := j.OpenRead(ctx, deviceID, deviceRef(), "ethernet 1/1/1", read, "0192e6a0-0000-7000-8000-00000000f001", time.Now().Add(30*time.Second))
+	seq, err := j.OpenRead(ctx, tenantID, deviceID, deviceRef(), "ethernet 1/1/1", read, "0192e6a0-0000-7000-8000-00000000f001", time.Now().Add(30*time.Second))
 	if err != nil {
 		t.Fatalf("open read: %v", err)
 	}
@@ -369,7 +396,7 @@ func TestOpenAndCloseReadShareTheCounter(t *testing.T) {
 		t.Fatalf("read sequence = %d, want 1", seq)
 	}
 	// A second poll of the same interface while the first is open skips.
-	again, err := j.OpenRead(ctx, deviceID, deviceRef(), "ethernet 1/1/1", read, "0192e6a0-0000-7000-8000-00000000f002", time.Now().Add(30*time.Second))
+	again, err := j.OpenRead(ctx, tenantID, deviceID, deviceRef(), "ethernet 1/1/1", read, "0192e6a0-0000-7000-8000-00000000f002", time.Now().Add(30*time.Second))
 	if err != nil {
 		t.Fatalf("second open: %v", err)
 	}
@@ -378,10 +405,13 @@ func TestOpenAndCloseReadShareTheCounter(t *testing.T) {
 	}
 	obs := &accessv1.InterfaceObservation{}
 	obs.SetInterfaceName("ethernet 1/1/1")
-	if err := j.CloseRead(ctx, deviceID, "ethernet 1/1/1", seq, obs, nil); err != nil {
+	if err := j.CloseRead(ctx, tenantID, deviceID, "ethernet 1/1/1", seq, obs, nil); err != nil {
 		t.Fatalf("close read: %v", err)
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if !rec.GetOpenReads()["ethernet 1/1/1"].HasObservation() {
 		t.Fatal("CloseRead did not record the observation")
 	}
@@ -402,28 +432,34 @@ func typedRead() *accessv1.TypedRead {
 func TestReadmissionAfterOnboardedConfirmsWithoutRedispatchLoop(t *testing.T) {
 	j := newJournal(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010001"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010001"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
 	// The edge restarts: Onboarded clears the per-dispatch confirmation, so the
 	// mutation is re-dispatched with resume, but dispatched survives.
-	if err := j.MarkOnboarded(ctx, deviceID); err != nil {
+	if err := j.MarkOnboarded(ctx, tenantID, deviceID); err != nil {
 		t.Fatalf("onboarded: %v", err)
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.GetDispatchConfirmed() || !rec.GetDispatched() {
 		t.Fatalf("after Onboarded: dispatched %v confirmed %v, want true and false", rec.GetDispatched(), rec.GetDispatchConfirmed())
 	}
 	// The resume dispatch is re-admitted. This must re-confirm the dispatch and
 	// not regress POSSIBLY_APPLIED back to ADMITTED, so the execute row stops
 	// being owed rather than being re-sent on every relay pass forever.
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("re-admitted: %v", err)
 	}
-	rec, _ = j.Record(ctx, deviceID)
+	rec, err = j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if !rec.GetDispatchConfirmed() {
 		t.Fatal("re-admission after Onboarded did not re-confirm the dispatch: the execute row is owed forever")
 	}
@@ -435,22 +471,25 @@ func TestReadmissionAfterOnboardedConfirmsWithoutRedispatchLoop(t *testing.T) {
 func TestReportCannotOverwriteOperatorAbandonment(t *testing.T) {
 	j := newJournal(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010101"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010101"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
-	if _, err := j.Dispose(ctx, deviceID, 1); err != nil {
+	if _, err := j.Dispose(ctx, tenantID, deviceID, 1); err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
 	// An in-flight verified report for the same sequence lands after the
 	// operator abandoned it. It must not overwrite the abandonment with a
 	// verified disposition central would then owe a verified ack for.
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportVerified, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportVerified, Sequence: 1}); err != nil {
 		t.Fatalf("late verified: %v", err)
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.GetMutation().GetDisposition() != accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
 		t.Fatalf("late report overwrote the abandonment: disposition %v", rec.GetMutation().GetDisposition())
 	}
@@ -459,20 +498,23 @@ func TestReportCannotOverwriteOperatorAbandonment(t *testing.T) {
 func TestDisposeBeforeDispatchClosesAndOwesHoldResolved(t *testing.T) {
 	j := newJournal(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010201"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010201"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	// The operator abandons before the edge ever reported the mutation
 	// admitted. Nothing reached the device, so the lane closes and a
 	// hold-resolved row releases an edge that may already hold the dispatch.
-	state, err := j.Dispose(ctx, deviceID, 1)
+	state, err := j.Dispose(ctx, tenantID, deviceID, 1)
 	if err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
 	if state.GetDisposition() != accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
 		t.Fatalf("returned disposition %v", state.GetDisposition())
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.HasMutation() {
 		t.Fatal("abandon-before-dispatch left the mutation open: the lane holds forever")
 	}
@@ -480,7 +522,7 @@ func TestDisposeBeforeDispatchClosesAndOwesHoldResolved(t *testing.T) {
 		t.Fatalf("hold resolution pending = %v, want 1 present", rec.GetHoldResolutionPending())
 	}
 	// The lane is free for the next admission.
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010202"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010202"), edgeRef()); err != nil {
 		t.Fatalf("admit after abandon-before-dispatch: %v", err)
 	}
 }
@@ -495,18 +537,24 @@ func TestPendingHoldsAccumulateAsASet(t *testing.T) {
 	first := pendingHold(t, j, "0192e6a0-0000-7000-8000-000000000501")
 	second := pendingHold(t, j, "0192e6a0-0000-7000-8000-000000000502")
 	// Re-resolving a pending sequence is idempotent: the set does not grow.
-	if _, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: first}); err != nil {
+	if _, _, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{Sequence: first}); err != nil {
 		t.Fatalf("idempotent resolve: %v", err)
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if !holdPending(rec, first) || !holdPending(rec, second) || len(rec.GetHoldResolutionPending()) != 2 {
 		t.Fatalf("pending holds = %v, want {%d, %d}", rec.GetHoldResolutionPending(), first, second)
 	}
 	// Confirming one leaves the other owed.
-	if err := j.ConfirmHoldResolved(ctx, deviceID, first); err != nil {
+	if err := j.ConfirmHoldResolved(ctx, tenantID, deviceID, first); err != nil {
 		t.Fatalf("confirm %d: %v", first, err)
 	}
-	rec, _ = j.Record(ctx, deviceID)
+	rec, err = j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if holdPending(rec, first) || !holdPending(rec, second) {
 		t.Fatalf("pending holds = %v, want only %d", rec.GetHoldResolutionPending(), second)
 	}
@@ -517,16 +565,16 @@ func TestCloseReadIgnoresAStaleSequence(t *testing.T) {
 	ctx := context.Background()
 	const iface = "ethernet 1/1/1"
 
-	seq1, err := j.OpenRead(ctx, deviceID, deviceRef(), iface, typedRead(), "0192e6a0-0000-7000-8000-000000010301", time.Now().Add(30*time.Second))
+	seq1, err := j.OpenRead(ctx, tenantID, deviceID, deviceRef(), iface, typedRead(), "0192e6a0-0000-7000-8000-000000010301", time.Now().Add(30*time.Second))
 	if err != nil {
 		t.Fatalf("open read 1: %v", err)
 	}
 	// Close it, then open a second read on the same interface, which reuses the
 	// entry and takes the next sequence.
-	if err := j.CloseRead(ctx, deviceID, iface, seq1, &accessv1.InterfaceObservation{}, nil); err != nil {
+	if err := j.CloseRead(ctx, tenantID, deviceID, iface, seq1, &accessv1.InterfaceObservation{}, nil); err != nil {
 		t.Fatalf("close read 1: %v", err)
 	}
-	seq2, err := j.OpenRead(ctx, deviceID, deviceRef(), iface, typedRead(), "0192e6a0-0000-7000-8000-000000010302", time.Now().Add(30*time.Second))
+	seq2, err := j.OpenRead(ctx, tenantID, deviceID, deviceRef(), iface, typedRead(), "0192e6a0-0000-7000-8000-000000010302", time.Now().Add(30*time.Second))
 	if err != nil {
 		t.Fatalf("open read 2: %v", err)
 	}
@@ -536,10 +584,13 @@ func TestCloseReadIgnoresAStaleSequence(t *testing.T) {
 	// A late result for the first read must not land on the second.
 	stale := &accessv1.InterfaceObservation{}
 	stale.SetInterfaceName("stale")
-	if err := j.CloseRead(ctx, deviceID, iface, seq1, stale, nil); err != nil {
+	if err := j.CloseRead(ctx, tenantID, deviceID, iface, seq1, stale, nil); err != nil {
 		t.Fatalf("stale close: %v", err)
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if rec.GetOpenReads()[iface].HasOutcome() {
 		t.Fatal("a stale result for an earlier read closed the read that succeeded it")
 	}
@@ -554,7 +605,7 @@ func TestSweepExpiredReadsClosesExpiredAndSkipsAnswered(t *testing.T) {
 	ei := &accessv1.InterfaceReadIntent{}
 	ei.SetInterfaceName("eth-expired")
 	expired.SetInterface(ei)
-	if _, err := j.OpenRead(ctx, deviceID, deviceRef(), "eth-expired", expired, "0192e6a0-0000-7000-8000-000000010401", time.Now().Add(-time.Second)); err != nil {
+	if _, err := j.OpenRead(ctx, tenantID, deviceID, deviceRef(), "eth-expired", expired, "0192e6a0-0000-7000-8000-000000010401", time.Now().Add(-time.Second)); err != nil {
 		t.Fatalf("open expired: %v", err)
 	}
 	answered := &accessv1.TypedRead{}
@@ -562,24 +613,27 @@ func TestSweepExpiredReadsClosesExpiredAndSkipsAnswered(t *testing.T) {
 	ai := &accessv1.InterfaceReadIntent{}
 	ai.SetInterfaceName("eth-answered")
 	answered.SetInterface(ai)
-	answeredSeq, err := j.OpenRead(ctx, deviceID, deviceRef(), "eth-answered", answered, "0192e6a0-0000-7000-8000-000000010402", time.Now().Add(-time.Second))
+	answeredSeq, err := j.OpenRead(ctx, tenantID, deviceID, deviceRef(), "eth-answered", answered, "0192e6a0-0000-7000-8000-000000010402", time.Now().Add(-time.Second))
 	if err != nil {
 		t.Fatalf("open answered: %v", err)
 	}
 	// The answered read got its observation just before the sweep, though its
 	// deadline has also passed. The sweep must leave it alone.
-	if err := j.CloseRead(ctx, deviceID, "eth-answered", answeredSeq, &accessv1.InterfaceObservation{}, nil); err != nil {
+	if err := j.CloseRead(ctx, tenantID, deviceID, "eth-answered", answeredSeq, &accessv1.InterfaceObservation{}, nil); err != nil {
 		t.Fatalf("answer: %v", err)
 	}
 	errPayload := &errsv1.ErrorPayload{}
-	swept, err := j.SweepExpiredReads(ctx, deviceID, time.Now(), errPayload)
+	swept, err := j.SweepExpiredReads(ctx, tenantID, deviceID, time.Now(), errPayload)
 	if err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
 	if len(swept) != 1 || swept[0] != "eth-expired" {
 		t.Fatalf("swept %v, want [eth-expired]", swept)
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
 	if !rec.GetOpenReads()["eth-expired"].HasError() {
 		t.Fatal("the sweep did not record the deadline error")
 	}
@@ -595,23 +649,26 @@ func TestTerminatorsAreInvocable(t *testing.T) {
 	t.Run("AbandonMutation ends a recovering mutation", func(t *testing.T) {
 		j := newJournal(t)
 		ctx := context.Background()
-		if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010501"), edgeRef()); err != nil {
+		if _, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010501"), edgeRef()); err != nil {
 			t.Fatalf("admit: %v", err)
 		}
-		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+		if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 			t.Fatalf("admitted: %v", err)
 		}
-		if err := j.ConfirmCheckpoint(ctx, deviceID, 1); err != nil {
+		if err := j.ConfirmCheckpoint(ctx, tenantID, deviceID, 1); err != nil {
 			t.Fatalf("checkpoint: %v", err)
 		}
-		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportRecovering, Sequence: 1}); err != nil {
+		if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportRecovering, Sequence: 1}); err != nil {
 			t.Fatalf("recovering: %v", err)
 		}
 		// Recovering owes nothing; AbandonMutation is its terminator.
-		if _, err := j.Dispose(ctx, deviceID, 1); err != nil {
+		if _, err := j.Dispose(ctx, tenantID, deviceID, 1); err != nil {
 			t.Fatalf("dispose: %v", err)
 		}
-		rec, _ := j.Record(ctx, deviceID)
+		rec, err := j.Record(ctx, tenantID, deviceID)
+		if err != nil {
+			t.Fatalf("Record: %v", err)
+		}
 		if !rec.GetMutation().HasDisposition() {
 			t.Fatal("AbandonMutation did not terminate the recovering mutation")
 		}
@@ -619,24 +676,27 @@ func TestTerminatorsAreInvocable(t *testing.T) {
 	t.Run("ResolveDesynchronization frees a held abandonment", func(t *testing.T) {
 		j := newJournal(t)
 		ctx := context.Background()
-		if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010601"), edgeRef()); err != nil {
+		if _, err := j.Admit(ctx, tenantID, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010601"), edgeRef()); err != nil {
 			t.Fatalf("admit: %v", err)
 		}
-		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+		if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 			t.Fatalf("admitted: %v", err)
 		}
-		if _, err := j.Dispose(ctx, deviceID, 1); err != nil {
+		if _, err := j.Dispose(ctx, tenantID, deviceID, 1); err != nil {
 			t.Fatalf("dispose: %v", err)
 		}
-		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: 1}); err != nil {
+		if err := j.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: 1}); err != nil {
 			t.Fatalf("abandoned: %v", err)
 		}
 		// The held abandonment owes nothing; ResolveDesynchronization is its
 		// terminator, and it moves the record to a hold-resolved row.
-		if _, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: 1}); err != nil {
+		if _, _, err := j.ResolveDesynchronization(ctx, tenantID, deviceID, journal.Resolution{Sequence: 1}); err != nil {
 			t.Fatalf("resolve: %v", err)
 		}
-		rec, _ := j.Record(ctx, deviceID)
+		rec, err := j.Record(ctx, tenantID, deviceID)
+		if err != nil {
+			t.Fatalf("Record: %v", err)
+		}
 		if rec.HasMutation() || !holdPending(rec, 1) {
 			t.Fatal("ResolveDesynchronization did not free the held abandonment")
 		}
@@ -658,7 +718,7 @@ func TestEveryProjectedIntentFieldChangesTheDigest(t *testing.T) {
 			i.SetDevice(ref)
 		},
 		"operator subject": func(i *accessv1.MutationIntent) {
-			op := &principalv1.OperatorRef{}
+			op := &identityv1.OperatorRef{}
 			op.SetSubject("zitadel|2")
 			i.GetActor().SetOperator(op)
 		},
@@ -678,13 +738,13 @@ func TestEveryProjectedIntentFieldChangesTheDigest(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 			j := newJournal(t)
-			if _, err := j.Admit(ctx, deviceID, mutationIntent(key), edgeRef()); err != nil {
+			if _, err := j.Admit(ctx, tenantID, deviceID, mutationIntent(key), edgeRef()); err != nil {
 				t.Fatalf("admit: %v", err)
 			}
 			changed := mutationIntent(key)
 			vary(changed)
 
-			_, err := j.Admit(ctx, deviceID, changed, edgeRef())
+			_, err := j.Admit(ctx, tenantID, deviceID, changed, edgeRef())
 			if code, _ := errs.CodeOf(err); code != journal.ErrCodeIdempotencyMismatch {
 				t.Fatalf("re-admit error = %v, want code %v", err, journal.ErrCodeIdempotencyMismatch)
 			}
@@ -728,11 +788,11 @@ func TestAReadPastItsDeadlineIsNotJoined(t *testing.T) {
 	ctx := context.Background()
 	j := newJournal(t)
 
-	stale, err := j.OpenRead(ctx, deviceID, deviceRef(), readIface, typedRead(), "0192e6a0-0000-7000-8000-0000000000c8", time.Now().Add(-time.Minute))
+	stale, err := j.OpenRead(ctx, tenantID, deviceID, deviceRef(), readIface, typedRead(), "0192e6a0-0000-7000-8000-0000000000c8", time.Now().Add(-time.Minute))
 	if err != nil {
 		t.Fatalf("open expired read: %v", err)
 	}
-	fresh, err := j.OpenRead(ctx, deviceID, deviceRef(), readIface, typedRead(), "0192e6a0-0000-7000-8000-0000000000c9", time.Now().Add(time.Minute))
+	fresh, err := j.OpenRead(ctx, tenantID, deviceID, deviceRef(), readIface, typedRead(), "0192e6a0-0000-7000-8000-0000000000c9", time.Now().Add(time.Minute))
 	if err != nil {
 		t.Fatalf("open fresh read: %v", err)
 	}
@@ -740,7 +800,7 @@ func TestAReadPastItsDeadlineIsNotJoined(t *testing.T) {
 	if fresh == stale {
 		t.Fatalf("the fresh read joined the expired one at sequence %d", stale)
 	}
-	rec, err := j.Record(ctx, deviceID)
+	rec, err := j.Record(ctx, tenantID, deviceID)
 	if err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -812,5 +872,118 @@ func TestDeviceLaneRecordPresencePreservesValidation(t *testing.T) {
 				t.Fatal("validate succeeded")
 			}
 		})
+	}
+}
+
+func TestCrossTenantLanePartitioning(t *testing.T) {
+	ctx := context.Background()
+	j, kv := newJournalKV(t)
+	tenantA := "0192e6a0-0000-7000-8000-0000000000aa"
+	tenantB := "0192e6a0-0000-7000-8000-0000000000bb"
+
+	// Admit mutation on tenant A
+	stateA, err := j.Admit(ctx, tenantA, deviceID, mutationIntent("0192e6a0-0000-7000-8000-00000000aa01"), edgeRef())
+	if err != nil {
+		t.Fatalf("admit tenant A: %v", err)
+	}
+
+	// Tenant B reads the same device ID: should be empty record
+	recB, err := j.Record(ctx, tenantB, deviceID)
+	if err != nil {
+		t.Fatalf("record tenant B: %v", err)
+	}
+	if recB.HasMutation() {
+		t.Fatalf("tenant B saw tenant A mutation: %v", recB.GetMutation())
+	}
+
+	// Admit mutation on tenant B with same device ID
+	stateB, err := j.Admit(ctx, tenantB, deviceID, mutationIntent("0192e6a0-0000-7000-8000-00000000bb01"), edgeRef())
+	if err != nil {
+		t.Fatalf("admit tenant B: %v", err)
+	}
+	if stateB.GetSequence() != 1 {
+		t.Fatalf("tenant B sequence = %d, want 1", stateB.GetSequence())
+	}
+
+	// Verify both keys exist in kv
+	entryA, err := kv.Get(ctx, tenantA+"."+deviceID)
+	if err != nil {
+		t.Fatalf("kv get tenant A: %v", err)
+	}
+	if len(entryA.Value()) == 0 {
+		t.Fatal("empty value for tenant A")
+	}
+	entryB, err := kv.Get(ctx, tenantB+"."+deviceID)
+	if err != nil {
+		t.Fatalf("kv get tenant B: %v", err)
+	}
+	if len(entryB.Value()) == 0 {
+		t.Fatal("empty value for tenant B")
+	}
+
+	_ = stateA
+}
+
+func TestLaneKeyValidationAndSplit(t *testing.T) {
+	const validTenant = "0192e6a0-0000-7000-8000-0000000000aa"
+	const validDevice = "0192e6a0-0000-7000-8000-000000000001"
+
+	key, err := journal.LaneKey(validTenant, validDevice)
+	if err != nil {
+		t.Fatalf("LaneKey(%s, %s): %v", validTenant, validDevice, err)
+	}
+	wantKey := validTenant + "." + validDevice
+	if key != wantKey {
+		t.Fatalf("LaneKey = %q, want %q", key, wantKey)
+	}
+
+	gotTenant, gotDevice, ok := journal.SplitLaneKey(key)
+	if !ok || gotTenant != validTenant || gotDevice != validDevice {
+		t.Fatalf("SplitLaneKey(%q) = (%q, %q, %v), want (%q, %q, true)", key, gotTenant, gotDevice, ok, validTenant, validDevice)
+	}
+
+	defKey, err := journal.LaneKey("default", validDevice)
+	if err != nil {
+		t.Fatalf("LaneKey(default, %s): %v", validDevice, err)
+	}
+	if defTenant, defDev, ok := journal.SplitLaneKey(defKey); !ok || defTenant != "default" || defDev != validDevice {
+		t.Fatalf("SplitLaneKey(%q) = (%q, %q, %v)", defKey, defTenant, defDev, ok)
+	}
+
+	for _, badTenant := range []string{"acme.prod", "", "*", "invalid-uuid"} {
+		if _, err := journal.LaneKey(badTenant, validDevice); err == nil {
+			t.Errorf("LaneKey(%q) = nil, want error", badTenant)
+		}
+		badKey := badTenant + "." + validDevice
+		if _, _, ok := journal.SplitLaneKey(badKey); ok {
+			t.Errorf("SplitLaneKey(%q) = ok, want false", badKey)
+		}
+	}
+}
+
+func TestJournalRefusesEmptyTenantOrDevice(t *testing.T) {
+	j := newJournal(t)
+	ctx := context.Background()
+	const validTenant = "0192e6a0-0000-7000-8000-0000000000aa"
+	const validDevice = "0192e6a0-0000-7000-8000-000000000001"
+
+	// Record (which calls load) with empty tenant or device
+	_, err := j.Record(ctx, "", validDevice)
+	if code, ok := errs.CodeOf(err); !ok || code != journal.ErrCodeArgument {
+		t.Fatalf("Record with empty tenant got %v, want ErrCodeArgument", err)
+	}
+	_, err = j.Record(ctx, validTenant, "")
+	if code, ok := errs.CodeOf(err); !ok || code != journal.ErrCodeArgument {
+		t.Fatalf("Record with empty device got %v, want ErrCodeArgument", err)
+	}
+
+	// Mutate (e.g. via Dispose) with empty tenant or device
+	_, err = j.Dispose(ctx, "", validDevice, 1)
+	if code, ok := errs.CodeOf(err); !ok || code != journal.ErrCodeArgument {
+		t.Fatalf("Dispose with empty tenant got %v, want ErrCodeArgument", err)
+	}
+	_, err = j.Dispose(ctx, validTenant, "", 1)
+	if code, ok := errs.CodeOf(err); !ok || code != journal.ErrCodeArgument {
+		t.Fatalf("Dispose with empty device got %v, want ErrCodeArgument", err)
 	}
 }

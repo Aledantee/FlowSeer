@@ -75,12 +75,9 @@ Every UUID-identified Entity has exactly two ref messages, and they compose:
 
 Uniform composition is the point. A field added to a `LocalRef` reaches every
 `GlobalRef` that contains it without a second edit, and the hook can check the
-pair mechanically because the shape never varies.
-
-The deliberately partial, keyless `Tenant` sketch is the only current
-exception. Its empty `TenantRef` is content, not an identity ref and not one
-half of a `LocalRef`/`GlobalRef` pair. The ordinary pair becomes mandatory in
-the same change that gives Tenant a FlowSeer identifier.
+pair mechanically because the shape never varies. Top-level entities such as
+`TenantLocalRef`/`TenantGlobalRef`, `DeviceLocalRef`/`DeviceGlobalRef`, and
+`EdgeLocalRef`/`EdgeGlobalRef` illustrate the wrapping.
 
 **An Entity has at most one owning parent.** An Entity that relates several
 others — a `Binding` joining an integration to a device, a `Placement` joining
@@ -144,26 +141,23 @@ Three boundaries keep it from eroding the typed refs:
   that reference it, and its store can answer the existence check a
   reference-value write needs. Landing a new top-level entity includes joining
   the enum in the same change; the hook does not police `EntityRef`, so this
-  rule is the only guard. `ENTITY_TYPE_TENANT` is the one transitional
-  exception: the wire schema admits it before Tenant has an addressable
-  identity or store. An `EntityRef` carrying it is syntactically valid but
-  cannot yet resolve to an existing entity. Producers must not emit that kind
-  until the Tenant identity and store land, and the inventory service rejects
-  it during semantic existence checks in the meantime. The enum value reserves
-  the future contract; it is not permission to invent a tenant identifier.
-  The Edge in `model/edge/v1` is the opposite exception: a landed, UUID-keyed
-  entity that has not joined the enum, because the cascade and the existence
-  check need the edge store, which lands with the first host. Until it joins,
-  nothing may name an edge through an `EntityRef`. `Location`, `PatchPanel`,
-  `Cable`, and `Link` in `model/inventory/v1`, `Wlan` in
-  `model/wireless/v1`, and `Endpoint` in `model/endpoint/v1`, are the same class:
-  UUID-keyed, landed, and outside the enum until their stores answer for them. `AccessPolicyHandle`,
+  rule is the only guard. Tenant in `model/identity/v1` is the exception to
+  the cascade rule: a tenant is suspended rather than deleted so its audit
+  trail, historic records, and entity keys remain referentially intact;
+  suspension replaces the cascade. The Edge in `model/edge/v1` is an exception
+  to immediate admission: a landed, UUID-keyed entity that has not joined the
+  enum, because the cascade and the existence check need the edge store,
+  which lands with the first host. Until it joins, nothing may name an edge
+  through an `EntityRef`. `Location`, `PatchPanel`, `Cable`, and `Link` in
+  `model/inventory/v1`, `Wlan` in `model/wireless/v1`, and `Endpoint` in
+  `model/endpoint/v1`, are the same class: UUID-keyed, landed, and outside
+  the enum until their stores answer for them. `AccessPolicyHandle`,
   `CredentialHandle`, and `HostTrustHandle` in `model/policy/v1` are the
   second deliberate class of non-entity: each an opaque key and version into
   the device service's store, with no ref pair, no triad, and no place in
   the enum, because nothing else points at one and the store that would
   answer an existence check lands with that service. `OperatorRef` in
-  `model/principal/v1` is the third: a person named by the identity
+  `model/identity/v1` is the third: a person named by the identity
   provider's stable subject, with no ref pair, no triad, and no place in the
   enum, because the identity provider owns the person and nothing FlowSeer
   stores answers for one. Its leaf is not a shared refs package: it holds no
@@ -199,10 +193,10 @@ names a RADIUS or TACACS+ server by address and has no field for its secret.
 
 ## Tenancy is ambient
 
-The landed `model/inventory/v1/tenant.proto` defines a deliberately keyless
-`TenantRef` for content relationships. It carries no tenant identifier and
-never scopes a request or record. Tenancy is resolved from context at the edge
-of the system:
+`TenantLocalRef` and `TenantGlobalRef` in `model/identity/v1/tenant.proto`
+identify a tenant for tenant administration and identity binding. Domain
+messages and entity refs never carry a tenant ref to scope themselves: tenancy
+is resolved from context at the edge of the system:
 
 - **RPC** — from the authenticated request context.
 - **Events and ingestion** — from the producing integration or binding, which

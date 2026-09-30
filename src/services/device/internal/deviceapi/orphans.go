@@ -7,6 +7,10 @@ import (
 	connect "connectrpc.com/connect"
 
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
+	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
+	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 )
 
 // maxOpenMutationPage is the most rows one page carries, matching the
@@ -24,7 +28,21 @@ const maxOpenMutationPage = 1000
 // the sequence AbandonMutation takes and the phase the mutation stopped at,
 // which is what makes it something to act on rather than a count.
 func (s *Service) ListEdgeOpenMutations(ctx context.Context, req *connect.Request[devicev1.ListEdgeOpenMutationsRequest]) (*connect.Response[devicev1.ListEdgeOpenMutationsResponse], error) {
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return nil, connectErr(err)
+	}
 	edgeID := req.Msg.GetEdgeId()
+	owner, err := s.cfg.EdgeTenant(ctx, edgeID)
+	if err != nil {
+		if code, ok := errs.CodeOf(err); ok && code == edgestore.ErrCodeUnknownEdge {
+			return nil, connectErr(errs.New().Code(registry.ErrCodeUnknownEdge).Attr("edge", edgeID).Msg("unknown edge"))
+		}
+		return nil, connectErr(err)
+	}
+	if owner != tenantID {
+		return nil, connectErr(errs.New().Code(registry.ErrCodeUnknownEdge).Attr("edge", edgeID).Msg("unknown edge"))
+	}
 	devices, err := s.cfg.Resolver.Devices(ctx, edgeID)
 	if err != nil {
 		return nil, connectErr(err)
@@ -54,7 +72,7 @@ func (s *Service) ListEdgeOpenMutations(ctx context.Context, req *connect.Reques
 			nextToken = lastServed
 			break
 		}
-		record, err := s.cfg.Journal.Record(ctx, deviceID)
+		record, err := s.cfg.Journal.Record(ctx, tenantID, deviceID)
 		if err != nil {
 			// One unreadable record must not hide the rest: an operator acting
 			// on a short list would think the others were finished.

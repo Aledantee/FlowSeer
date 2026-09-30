@@ -83,7 +83,7 @@ func TestAWatchPanicIsLoggedAndStopStillWorks(t *testing.T) {
 	sink := withRecordingLogger(t)
 	w := NewKVWatcher(fakeKV{watcher: panicKeyWatcher{}})
 
-	_, stop, err := w.Watch(context.Background(), "dev-1")
+	_, stop, err := w.Watch(context.Background(), "0192e6a0-0000-7000-8000-0000000000aa", "dev-1")
 	if err != nil {
 		t.Fatalf("Watch: %v", err)
 	}
@@ -116,5 +116,35 @@ func TestAWatchPanicIsLoggedAndStopStillWorks(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		t.Fatal("stop() blocked after the watch goroutine had already panicked and exited")
+	}
+}
+
+type recordingWatcher struct {
+	fakeKV
+	watchedKey string
+}
+
+func (r *recordingWatcher) Watch(_ context.Context, key string, _ ...jetstream.WatchOpt) (jetstream.KeyWatcher, error) {
+	r.watchedKey = key
+	return fakeKeyWatcher{}, nil
+}
+
+type fakeKeyWatcher struct{}
+
+func (fakeKeyWatcher) Updates() <-chan jetstream.KeyValueEntry { return nil }
+func (fakeKeyWatcher) Stop() error                             { return nil }
+
+func TestWatchKeyIncludesTenant(t *testing.T) {
+	rec := &recordingWatcher{}
+	w := NewKVWatcher(rec)
+	tenantID := "0192e6a0-0000-7000-8000-0000000000aa"
+	_, stop, err := w.Watch(context.Background(), tenantID, "dev-xyz")
+	if err != nil {
+		t.Fatalf("Watch: %v", err)
+	}
+	defer stop()
+	wantKey := tenantID + ".dev-xyz"
+	if rec.watchedKey != wantKey {
+		t.Fatalf("watched key = %q, want %s", rec.watchedKey, wantKey)
 	}
 }
