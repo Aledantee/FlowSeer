@@ -183,7 +183,7 @@ decision auditable and the restraint that keeps the data from spreading:
   download is itself an event.
 
 The [operator authorization direction record](2026-09-30-operator-authorization-direction.md#membership-owned-by-flowseer-confirmed-by-the-token)
-decides authorization for capture operations. Capture uses three relations from
+proposes authorization for capture operations. Capture uses three relations from
 that record's model:
 
 | Object type | Relation | What it grants |

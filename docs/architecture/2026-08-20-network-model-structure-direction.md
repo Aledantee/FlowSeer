@@ -1001,8 +1001,9 @@ leaf so that `model/capture` could name a requester; that leaf is folded into
 `model/identity/v1`. `model/access` is the
 shared vocabulary for device-access boundaries. Operator identity names the
 caller in `Actor.operator` (`model/access`), and the
-[operator authorization record](2026-09-30-operator-authorization-direction.md#tenants-as-landed)
-describes where it goes next. The tenant entity that record describes sits
+[operator authorization record](2026-09-30-operator-authorization-direction.md#consequences)
+describes where it goes next. The tenant entity that record describes under
+[Tenants, as landed](2026-09-30-operator-authorization-direction.md#tenants-as-landed) sits
 beside it in `model/identity/v1`. Housing operator identity in its own leaf avoids importing device-access
 operation vocabulary into callers that only need identity. `OperatorRef` keeps
 its fields and `Actor.operator` keeps field 1, so encoded intents decode
