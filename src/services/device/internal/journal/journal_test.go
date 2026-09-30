@@ -778,4 +778,3 @@ func TestDeviceLaneRecordPresencePreservesValidation(t *testing.T) {
 		t.Fatalf("explicit zero high_watermark and false dispatched: validate failed: %v", err)
 	}
 }
-
