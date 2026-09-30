@@ -969,11 +969,10 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 	}
 
 	// 1. Create tenant directly in tenant store
-	kvTenant, err := js.KeyValue(ctx, edgebus.TenantBucket)
+	ts, err := tenantstore.New(ctx, js, edgebus.TenantBucket)
 	if err != nil {
-		t.Fatalf("open tenant bucket: %v", err)
+		t.Fatalf("open tenant store: %v", err)
 	}
-	ts := tenantstore.New(kvTenant)
 	tenantConfig := identityv1.TenantConfig_builder{
 		Ref: identityv1.TenantGlobalRef_builder{
 			Tenant: identityv1.TenantLocalRef_builder{

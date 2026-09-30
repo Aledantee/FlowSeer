@@ -20,11 +20,11 @@ import (
 
 func newStore(t *testing.T) *tenantstore.Store {
 	t.Helper()
-	s, _ := newStoreWithKV(t)
+	s, _, _ := newStoreWithKV(t)
 	return s
 }
 
-func newStoreWithKV(t *testing.T) (*tenantstore.Store, jetstream.KeyValue) {
+func newStoreWithKV(t *testing.T) (*tenantstore.Store, jetstream.KeyValue, jetstream.Stream) {
 	t.Helper()
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    t.TempDir(),
@@ -39,7 +39,15 @@ func newStoreWithKV(t *testing.T) (*tenantstore.Store, jetstream.KeyValue) {
 	if err != nil {
 		t.Fatalf("bucket: %v", err)
 	}
-	return tenantstore.New(kv), kv
+	s, err := tenantstore.New(context.Background(), hub.JetStream(), edgebus.TenantBucket)
+	if err != nil {
+		t.Fatalf("tenant store: %v", err)
+	}
+	stream, err := hub.JetStream().Stream(context.Background(), "KV_"+edgebus.TenantBucket)
+	if err != nil {
+		t.Fatalf("stream: %v", err)
+	}
+	return s, kv, stream
 }
 
 func tenantRef(id string) *identityv1.TenantGlobalRef {
@@ -211,7 +219,173 @@ func TestDuplicatePrevention(t *testing.T) {
 	const freshID = "0192e6a0-0000-7000-8000-000000000003"
 	cfgFresh := sampleTenantConfig(freshID, "org-different")
 	if _, err := s.Create(ctx, cfgFresh); err != nil {
-		t.Fatalf("Create with fresh ID after rolled back org index: %v", err)
+		t.Fatalf("Create with fresh ID after duplicate ID rejection: %v", err)
+	}
+}
+
+func TestCreateRetryReturnsStoredRecord(t *testing.T) {
+	s, _, stream := newStoreWithKV(t)
+	ctx := context.Background()
+	const id = "0192e6a0-0000-7000-8000-000000000012"
+	cfg := sampleTenantConfig(id, "org-retry")
+
+	first, err := s.Create(ctx, cfg)
+	if err != nil {
+		t.Fatalf("first Create: %v", err)
+	}
+	orgKey := tenantstore.OrgIndexKey(defaultIssuer, "org-retry")
+	recordSubject := "$KV." + edgebus.TenantBucket + "." + id
+	indexSubject := "$KV." + edgebus.TenantBucket + "." + orgKey
+	firstRecordMsg, err := stream.GetLastMsgForSubject(ctx, recordSubject)
+	if err != nil {
+		t.Fatalf("read first record message: %v", err)
+	}
+	firstIndexMsg, err := stream.GetLastMsgForSubject(ctx, indexSubject)
+	if err != nil {
+		t.Fatalf("read first index message: %v", err)
+	}
+
+	second, err := s.Create(ctx, cfg)
+	if err != nil {
+		t.Fatalf("retry Create: %v", err)
+	}
+	if !proto.Equal(first.GetState().GetCreatedAt(), second.GetState().GetCreatedAt()) {
+		t.Fatalf("retry created_at = %v, want %v", second.GetState().GetCreatedAt(), first.GetState().GetCreatedAt())
+	}
+	secondRecordMsg, err := stream.GetLastMsgForSubject(ctx, recordSubject)
+	if err != nil {
+		t.Fatalf("read retried record message: %v", err)
+	}
+	secondIndexMsg, err := stream.GetLastMsgForSubject(ctx, indexSubject)
+	if err != nil {
+		t.Fatalf("read retried index message: %v", err)
+	}
+	if secondRecordMsg.Sequence != firstRecordMsg.Sequence || secondIndexMsg.Sequence != firstIndexMsg.Sequence {
+		t.Fatalf("retry changed sequences to (%d, %d), want (%d, %d)", secondRecordMsg.Sequence, secondIndexMsg.Sequence, firstRecordMsg.Sequence, firstIndexMsg.Sequence)
+	}
+}
+
+func TestCreateAfterDeleteMarkers(t *testing.T) {
+	for _, operation := range []struct {
+		name string
+		fn   func(context.Context, jetstream.KeyValue, string) error
+	}{
+		{name: "delete", fn: func(ctx context.Context, kv jetstream.KeyValue, key string) error {
+			return kv.Delete(ctx, key)
+		}},
+		{name: "purge", fn: func(ctx context.Context, kv jetstream.KeyValue, key string) error {
+			return kv.Purge(ctx, key)
+		}},
+	} {
+		operation := operation
+		t.Run(operation.name+" same config", func(t *testing.T) {
+			s, kv, stream := newStoreWithKV(t)
+			ctx := context.Background()
+			const id = "0192e6a0-0000-7000-8000-000000000013"
+			const org = "org-marker-same"
+			cfg := sampleTenantConfig(id, org)
+			if _, err := s.Create(ctx, cfg); err != nil {
+				t.Fatalf("first Create: %v", err)
+			}
+			orgKey := tenantstore.OrgIndexKey(defaultIssuer, org)
+			if err := operation.fn(ctx, kv, id); err != nil {
+				t.Fatalf("delete record: %v", err)
+			}
+			if err := operation.fn(ctx, kv, orgKey); err != nil {
+				t.Fatalf("delete index: %v", err)
+			}
+			recordMarker, err := stream.GetLastMsgForSubject(ctx, "$KV."+edgebus.TenantBucket+"."+id)
+			if err != nil {
+				t.Fatalf("read record marker: %v", err)
+			}
+			indexMarker, err := stream.GetLastMsgForSubject(ctx, "$KV."+edgebus.TenantBucket+"."+orgKey)
+			if err != nil {
+				t.Fatalf("read index marker: %v", err)
+			}
+			if _, err := s.Create(ctx, cfg); err != nil {
+				t.Fatalf("Create after markers: %v", err)
+			}
+			recordMsg, err := stream.GetLastMsgForSubject(ctx, "$KV."+edgebus.TenantBucket+"."+id)
+			if err != nil {
+				t.Fatalf("read recreated record: %v", err)
+			}
+			indexMsg, err := stream.GetLastMsgForSubject(ctx, "$KV."+edgebus.TenantBucket+"."+orgKey)
+			if err != nil {
+				t.Fatalf("read recreated index: %v", err)
+			}
+			if recordMsg.Sequence <= recordMarker.Sequence || indexMsg.Sequence <= indexMarker.Sequence {
+				t.Fatalf("recreated sequences = (%d, %d), markers = (%d, %d)", recordMsg.Sequence, indexMsg.Sequence, recordMarker.Sequence, indexMarker.Sequence)
+			}
+		})
+
+		t.Run(operation.name+" new id", func(t *testing.T) {
+			s, kv, stream := newStoreWithKV(t)
+			ctx := context.Background()
+			const (
+				id1 = "0192e6a0-0000-7000-8000-000000000014"
+				id2 = "0192e6a0-0000-7000-8000-000000000015"
+				org = "org-marker-new"
+			)
+			if _, err := s.Create(ctx, sampleTenantConfig(id1, org)); err != nil {
+				t.Fatalf("first Create: %v", err)
+			}
+			orgKey := tenantstore.OrgIndexKey(defaultIssuer, org)
+			if err := operation.fn(ctx, kv, id1); err != nil {
+				t.Fatalf("delete record: %v", err)
+			}
+			if err := operation.fn(ctx, kv, orgKey); err != nil {
+				t.Fatalf("delete index: %v", err)
+			}
+			recordMarker, err := stream.GetLastMsgForSubject(ctx, "$KV."+edgebus.TenantBucket+"."+id2)
+			if !errors.Is(err, jetstream.ErrMsgNotFound) || recordMarker != nil {
+				if err != nil {
+					t.Fatalf("unexpected new record subject state: %v", err)
+				}
+				t.Fatal("new record subject unexpectedly has a message before Create")
+			}
+			indexMarker, err := stream.GetLastMsgForSubject(ctx, "$KV."+edgebus.TenantBucket+"."+orgKey)
+			if err != nil {
+				t.Fatalf("read index marker: %v", err)
+			}
+			if _, err := s.Create(ctx, sampleTenantConfig(id2, org)); err != nil {
+				t.Fatalf("Create new id after markers: %v", err)
+			}
+			newRecord, err := stream.GetLastMsgForSubject(ctx, "$KV."+edgebus.TenantBucket+"."+id2)
+			if err != nil {
+				t.Fatalf("read new record: %v", err)
+			}
+			newIndex, err := stream.GetLastMsgForSubject(ctx, "$KV."+edgebus.TenantBucket+"."+orgKey)
+			if err != nil {
+				t.Fatalf("read new index: %v", err)
+			}
+			if newIndex.Sequence <= indexMarker.Sequence || newRecord.Sequence == 0 {
+				t.Fatalf("new sequences = (%d, %d), index marker = %d", newRecord.Sequence, newIndex.Sequence, indexMarker.Sequence)
+			}
+		})
+	}
+}
+
+func TestNewRefusesBucketWithoutAtomicPublish(t *testing.T) {
+	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+		StateDir:    t.TempDir(),
+		FsyncPolicy: service.BusFsyncPeriodic,
+		ListenPort:  0,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+	ctx := context.Background()
+	const bucket = "not_atomic"
+	if _, err := hub.JetStream().CreateKeyValue(ctx, jetstream.KeyValueConfig{Bucket: bucket}); err != nil {
+		t.Fatalf("create non-atomic bucket: %v", err)
+	}
+	_, err = tenantstore.New(ctx, hub.JetStream(), bucket)
+	if err == nil {
+		t.Fatal("New accepted a bucket without atomic publish")
+	}
+	if code, _ := errs.CodeOf(err); code != tenantstore.ErrCodeStore {
+		t.Fatalf("New error code = %v, want %v", code, tenantstore.ErrCodeStore)
 	}
 }
 
@@ -334,7 +508,7 @@ func TestMutateRetrySettlement(t *testing.T) {
 }
 
 func TestLookupByOrgMismatch(t *testing.T) {
-	s, kv := newStoreWithKV(t)
+	s, kv, _ := newStoreWithKV(t)
 	ctx := context.Background()
 	const id = "0192e6a0-0000-7000-8000-000000000040"
 	if _, err := s.Create(ctx, sampleTenantConfig(id, "org-actual")); err != nil {
@@ -354,8 +528,8 @@ func TestLookupByOrgMismatch(t *testing.T) {
 	}
 }
 
-func TestOrphanedOrgIndexTakeover(t *testing.T) {
-	s, kv := newStoreWithKV(t)
+func TestCreateNeverTakesOverALiveIndex(t *testing.T) {
+	s, kv, stream := newStoreWithKV(t)
 	ctx := context.Background()
 	const ghostID = "0192e6a0-0000-7000-8000-000000000050"
 	const newID = "0192e6a0-0000-7000-8000-000000000051"
@@ -367,31 +541,36 @@ func TestOrphanedOrgIndexTakeover(t *testing.T) {
 		t.Fatalf("create orphaned index: %v", err)
 	}
 
-	// Create immediately with newID without waiting: should detect ghostID has no record, take over org index clock-free, and succeed
-	rec, err := s.Create(ctx, sampleTenantConfig(newID, org))
+	orgEntry, err := kv.Get(ctx, orgKey)
 	if err != nil {
-		t.Fatalf("Create with orphaned index: %v", err)
+		t.Fatalf("read seeded organization index: %v", err)
 	}
-	if rec.GetConfig().GetRef().GetTenant().GetId() != newID {
-		t.Fatalf("created tenant ID = %q, want %q", rec.GetConfig().GetRef().GetTenant().GetId(), newID)
+	_, err = s.Create(ctx, sampleTenantConfig(newID, org))
+	if err == nil {
+		t.Fatal("Create with live orphaned index succeeded, want error")
 	}
-
-	lookedUp, err := s.LookupByOrg(ctx, defaultIssuer, org)
+	if code, _ := errs.CodeOf(err); code != tenantstore.ErrCodeAlreadyExists {
+		t.Fatalf("got error code %v, want %v", code, tenantstore.ErrCodeAlreadyExists)
+	}
+	orgAfter, err := kv.Get(ctx, orgKey)
 	if err != nil {
-		t.Fatalf("LookupByOrg: %v", err)
+		t.Fatalf("read organization index after Create: %v", err)
 	}
-	if lookedUp == nil || lookedUp.GetConfig().GetRef().GetTenant().GetId() != newID {
-		t.Fatalf("LookupByOrg = %v, want tenant %s", lookedUp, newID)
+	if string(orgAfter.Value()) != ghostID || orgAfter.Revision() != orgEntry.Revision() {
+		t.Fatalf("organization index changed to (%q, %d), want (%q, %d)", orgAfter.Value(), orgAfter.Revision(), ghostID, orgEntry.Revision())
+	}
+	if _, err := stream.GetLastMsgForSubject(ctx, "$KV."+edgebus.TenantBucket+"."+newID); !errors.Is(err, jetstream.ErrMsgNotFound) {
+		t.Fatalf("new tenant subject error = %v, want ErrMsgNotFound", err)
 	}
 }
 
-func TestRollbackDeletesPrimaryRecordWhenOrgOwned(t *testing.T) {
-	s := newStore(t)
+func TestCreateForClaimedOrgWritesNothing(t *testing.T) {
+	s, _, stream := newStoreWithKV(t)
 	ctx := context.Background()
 	const (
 		id1 = "0192e6a0-0000-7000-8000-000000000055"
 		id2 = "0192e6a0-0000-7000-8000-000000000056"
-		org = "org-rollback-active"
+		org = "org-claimed-active"
 	)
 
 	// First tenant succeeds and claims the org.
@@ -409,18 +588,13 @@ func TestRollbackDeletesPrimaryRecordWhenOrgOwned(t *testing.T) {
 		t.Fatalf("got code %v, want %v", code, tenantstore.ErrCodeAlreadyExists)
 	}
 
-	// Verify rollback: second tenant's primary record was deleted from the store.
-	rec, err := s.Get(ctx, id2)
-	if err != nil {
-		t.Fatalf("Get id2: %v", err)
-	}
-	if rec != nil {
-		t.Fatalf("expected rolled-back tenant %s to be deleted, got %v", id2, rec)
+	if _, err := stream.GetLastMsgForSubject(ctx, "$KV."+edgebus.TenantBucket+"."+id2); !errors.Is(err, jetstream.ErrMsgNotFound) {
+		t.Fatalf("claimed tenant subject error = %v, want ErrMsgNotFound", err)
 	}
 }
 
 func TestConcurrentCreateOrgConflictSettlement(t *testing.T) {
-	s := newStore(t)
+	s, _, stream := newStoreWithKV(t)
 	ctx := context.Background()
 	const org = "org-concurrent-compete"
 	const concurrency = 8
@@ -481,6 +655,9 @@ func TestConcurrentCreateOrgConflictSettlement(t *testing.T) {
 			if rec != nil {
 				t.Errorf("loser %s has orphaned primary record: %v", id, rec)
 			}
+			if _, err := stream.GetLastMsgForSubject(ctx, "$KV."+edgebus.TenantBucket+"."+id); !errors.Is(err, jetstream.ErrMsgNotFound) {
+				t.Errorf("loser %s subject error = %v, want ErrMsgNotFound", id, err)
+			}
 		}
 	}
 }
@@ -522,7 +699,7 @@ func TestMutateRequiresCommittedRecord(t *testing.T) {
 	called := false
 	_, err := s.Mutate(ctx, id, func(_ *identityv1.TenantRecord) (*identityv1.TenantRecord, error) {
 		called = true
-		return sampleTenantRecord(sampleTenantConfig(id, "org-rev0")), nil
+		return nil, nil
 	})
 	if err == nil {
 		t.Fatal("Mutate missing tenant succeeded, want error")
@@ -538,6 +715,13 @@ func TestMutateRequiresCommittedRecord(t *testing.T) {
 	if got != nil {
 		t.Fatalf("Get = %v, want nil", got)
 	}
+}
+
+func tenantID(rec *identityv1.TenantRecord) string {
+	if rec == nil {
+		return ""
+	}
+	return rec.GetConfig().GetRef().GetTenant().GetId()
 }
 
 func TestMutateRejectsOrganizationBindingChange(t *testing.T) {
