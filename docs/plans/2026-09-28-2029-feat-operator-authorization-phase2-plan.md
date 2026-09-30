@@ -7,6 +7,7 @@ artifact_readiness: implementation-ready
 status: partially-implemented
 review: rework
 execution: mixed
+amends: docs/architecture/2026-09-28-operator-authorization-direction.md
 parent: docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md
 ---
 
@@ -27,9 +28,12 @@ to support multi-tenancy, and wires ambient tenancy into service handlers.
 A tenant is a UUID-identified entity in `flowseer.model.identity.v1` with
 a ref pair and the Config/State/Event triad. Its Config binds it to an
 identity provider organization (issuer URL, organization claim name and
-value). Central keeps tenants in a store of its own. Every key in the
+value). Central keeps tenants in a store of its own. Every record key in the
 `device-lanes`, `edges`, and `captures` buckets, and every capture artifact
-directory, starts with the tenant id. The edgebus tenant token is the
+directory, starts with the tenant id. The lookup indexes that find a tenant
+from an identifier presented before the tenant is known (`edge_<edgeID>`
+and `setupkey_<keyID>` in `edges`, `org_<hash>` in `tenants`) are the
+exception. The edgebus tenant token is the
 tenant id instead of `DefaultTenant`, and central's `AuditStream` (and
 any other central-account stream) subscribes with a wildcard in the tenant
 position instead of `DefaultTenant`. A platform admin, named in the
@@ -97,7 +101,8 @@ The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-
   compare-and-set `org_` index with rollback and orphan takeover
   (`src/services/device/internal/tenantstore/store.go:85-245`). The Review
   section lists what five rounds found wrong with it. The decisions from
-  here to the table below describe the replacement.
+  here to the table below describe the replacement and the partition rule
+  its index depends on.
 - The batch client is `github.com/synadia-io/orbit.go/jetstreamext` v0.3.2,
   `PublishMsgBatch`. Why: Synadia ships it as the Go client for ADR-50 (its
   `README.md` says it needs nats-server 2.12.0 or later), it is Apache-2.0,
@@ -131,7 +136,12 @@ The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-
   (`kv.go:487`). Creating `KV_tenants` by hand with a KV-shaped config lost:
   it copies `prepareKeyValueConfig` and drifts when nats.go changes that
   shape. The flag is off only between the two calls inside `StartHub`,
-  before any caller holds the bucket.
+  before any caller holds the bucket. The stream lives in the hub's own
+  in-process server (`src/modules/edgebus/hub.go:227, 285`), which restores
+  staged partial batches inside `Account.EnableJetStream`
+  (`server/jetstream.go:1168, 1585-1651`), before the stream API
+  `createStores` calls can answer, so no batch is staged or pending
+  recovery while the flag is off.
 - `tenantstore.New(ctx, js, bucket) (*Store, error)` replaces
   `New(kv, opts...)`. It opens the bucket with `js.KeyValue`, opens its
   stream with `js.Stream(ctx, "KV_"+bucket)`, and refuses a stream whose
@@ -145,22 +155,31 @@ The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-
   (`src/modules/edgebus/hub.go:278-282`), and orbit publishes each message
   on its own subject (`publishbatch.go:421, 451`). `WithRollbackTimeout`,
   `Option`, and `defaultRollbackTimeout` go with the rollback they bounded.
-- `Create` decides from the last message on each of its two subjects and
-  writes through one batch only:
+- A tenant is committed while its record is live and the `org_` key its
+  config names is live and names its id. `Create` decides from the last
+  message on each of its two subjects and writes through one batch only:
   1. Read the last message on `$KV.<bucket>.<tenantID>` with
      `Stream.GetLastMsgForSubject`. `jetstream.ErrMsgNotFound` means an
      expected sequence of 0. A marker's `Sequence` is the expected
      sequence. A marker is what `kv.get` treats as one: a `KV-Operation`
      header of `DEL` or `PURGE`, or a `Nats-Marker-Reason` header of
      `MaxAge`, `Purge`, or `Remove` (`nats.go@v1.53.1/jetstream/kv.go:962-980`).
-     Any other message is a live record: `Create` returns it when its config
-     is `proto.Equal` to the request, `ErrCodeAlreadyExists` when it is not,
-     and `ErrCodeDecode` when it does not unmarshal.
+     Any other message is a live record. A live record whose config is not
+     `proto.Equal` to the request returns `ErrCodeAlreadyExists`, and one
+     that does not unmarshal returns `ErrCodeDecode`. A live record with an
+     equal config goes on to step 2 with its own sequence as the expected
+     one.
   2. Read the last message on `$KV.<bucket>.org_<hash>` the same way. A live
-     index returns `ErrCodeAlreadyExists` whatever tenant it names.
+     index that names this tenant while step 1 found its equal record means
+     the tenant is committed, and `Create` returns the stored record. Any
+     other live index returns `ErrCodeAlreadyExists`, including one that
+     names this tenant while its record is absent or a marker. `Create`
+     never writes a live index.
   3. Publish the record, then the index, as one batch, each message with
      `Nats-Expected-Last-Subject-Sequence` set to its subject's expected
-     sequence.
+     sequence. When step 1 found an equal live record, the record message
+     carries that record's stored bytes, so the pair completes with its
+     first `created_at`.
   4. A reply of 10071 or 10164 (wrong last sequence) means another writer
      moved a subject after the reads. `Create` goes back to step 1, at most
      `casRetries` times, then returns `ErrCodeConflict`. Any other error
@@ -179,47 +198,74 @@ The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-
   expectations make acting on them safe: a write between the reads and the
   commit fails the batch. 10164 is the same refusal on a clustered stream
   (`jetstream_batching.go:763-780`), and nats.go treats both codes as a
-  wrong last sequence (`kv.go:1097-1104`).
+  wrong last sequence (`kv.go:1097-1104`). Step 1's equal-record branch
+  exists for the one state a batch can leave half written (the file-store
+  decision below): the record without its index. Completing that pair
+  rewrites a record no reader treats as committed, under an expectation on
+  its own sequence, and changes no live index.
 
   ```mermaid
   flowchart TD
-      A[read last msg on record subject] -->|live, equal config| R[return stored record]
-      A -->|live, other config| X[ErrCodeAlreadyExists]
-      A -->|absent or marker| B[read last msg on org_ subject]
-      B -->|live| X
+      A[read last msg on record subject] -->|live, other config| X[ErrCodeAlreadyExists]
+      A -->|live, equal config| B[read last msg on org_ subject]
+      A -->|absent or marker| B
+      B -->|live, names this tenant, record live and equal| R[return stored record]
+      B -->|any other live index| X
       B -->|absent or marker| C[batch: record + index, each with expected last subject sequence]
-      C -->|ack| R2[return new record]
+      C -->|ack| R2[return committed record]
       C -->|10071 or 10164| A
       C -->|other error| S[ErrCodeStore, outcome unknown]
   ```
 - A retried or repeated `Create` with the same id resumes nothing. It
-  returns the stored record when the stored config equals the request and
-  `ErrCodeAlreadyExists` otherwise, including after `Mutate` changed the
-  name or description. An error other than a wrong last sequence (a timeout,
-  a lost connection, a cancelled context, 10210 too many batches in flight)
-  leaves the outcome unknown, since the server finishes a commit whose reply
-  the client stopped waiting for (`server/stream.go:7612-7636`). `Create`
-  returns `ErrCodeStore` and does no recovery of its own. A retry of the same
-  call returns the stored record once the batch has committed. Why: a batch
-  writes both keys or neither, so there is no half-written state to resume
-  or roll back, and config equality is the retry test the user's
-  2026-09-30 ruling set. `Create` marshals the record (with its
-  `created_at`) once per call, so a retry that finds the first commit
-  returns that commit's `created_at`. A batch whose commit never arrives is
-  abandoned after 10 s without traffic and stores nothing
-  (`server/stream.go:447-451`, `server/jetstream_batching.go:77-111`).
-- `Get`, `GetWithRevision`, and `List` read the record key alone and drop
-  the `org_` index read (`store.go:256-279`). `LookupByOrg` keeps its check
-  that the record the index names carries the issuer and organization it
-  was looked up by (`store.go:283-302`). `Mutate` keeps its compare-and-set
-  on the record key, still refuses to change the tenant id, issuer, or
-  organization claim value, and still never creates a record
-  (`store.go:340-377`). Why: "committed only while the index names it"
-  hid the record the two-key protocol could write without its index, and a
-  batch cannot leave that state. The immutable binding keeps the index
-  valid for the record's lifetime. `LookupByOrg` is phase 3's
-  authentication path, and its check makes the answer rest on the record's
-  own config at no extra read.
+  returns the stored record when the tenant is committed with an equal
+  config and `ErrCodeAlreadyExists` when the stored config differs,
+  including after `Mutate` changed the name or description. An error other
+  than a wrong last sequence (a timeout, a lost connection, a cancelled
+  context, 10210 too many batches in flight) leaves the outcome unknown,
+  since the server finishes a commit whose reply the client stopped waiting
+  for (`server/stream.go:7612-7636`). `Create` returns `ErrCodeStore` and
+  does no recovery of its own. A retry of the same call returns the stored
+  record once the batch has committed. Why: a batch writes both keys or
+  neither, so there is no half-written state to roll back, and config
+  equality is the retry test the user's 2026-09-30 ruling set. `Create`
+  marshals the record (with its `created_at`) once per call, so a retry
+  that finds the first commit returns that commit's `created_at`. A batch
+  whose commit never arrives is abandoned after 10 s without traffic and
+  stores nothing (`server/stream.go:447-451`,
+  `server/jetstream_batching.go:77-111`). `Create` passes
+  `jetstreamext.BatchFlowControl{AckFirst: false}`, so the record message
+  goes out without its own acknowledgement and the one request is the
+  commit, bounded by the caller's context. With the default, orbit waits
+  for the first message's acknowledgement for the JetStream default
+  timeout and ignores the context (`publishbatch.go:388-394, 427-433`).
+- `Get`, `GetWithRevision`, and `List` keep the landed rule that a record
+  counts only while it is committed (`store.go:256-279`). `LookupByOrg`
+  keeps its check that the record the index names carries the issuer and
+  organization it was looked up by (`store.go:283-302`). `Mutate` keeps its
+  compare-and-set on the record key, still refuses to change the tenant id,
+  issuer, or organization claim value, and still never creates a record
+  (`store.go:340-377`). Why: a file-store error can leave a record without
+  its index (next decision), and the rule keeps every read agreeing with
+  `LookupByOrg`, phase 3's authentication path. The immutable binding keeps
+  the index valid for the record's lifetime.
+- On a single server a commit is all or nothing except when the file store
+  fails between the two stores of one commit (`server/stream.go:7617-7636`).
+  The record is the first message, so that failure leaves a record without
+  its index. The server logs a critical write error but, on a single
+  server, keeps taking writes afterwards (`server/stream.go:7066-7071,
+  9412-9433`). On restart it writes the rest of a partial batch only when
+  that batch's message is still the stream's last
+  (`server/jetstream.go:1598-1606, 1638-1651`), so recovery never lands over
+  a later commit. The store copes without the server: reads hide the
+  record, a retried `Create` with the same config completes the pair
+  (step 1's equal-record branch), and another tenant can claim the
+  organization, in which case the record stays hidden and its id answers
+  `ErrCodeAlreadyExists` to any other config.
+- An `org_` key without its record can come only from a write outside the
+  store, since the index is the batch's second message. `Create` refuses
+  that organization with `ErrCodeAlreadyExists` until an operator removes
+  the key. Why: the user's 2026-09-30 ruling removes stale-claim takeover,
+  and failing closed keeps the one-tenant-per-organization rule.
 - No path deletes a tenant: `Store` has no delete method, and
   `TenantService` defines only `CreateTenant`, `GetTenant`, and
   `ListTenants` (`spec/proto/flowseer/api/identity/v1/tenant_service.proto:12-16`).
@@ -229,13 +275,6 @@ The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-
   subject on a bucket that allows rollups
   (`jetstream_batching.go:921-932`). `Create` already handles the markers
   such a delete leaves (steps 1 and 2).
-- On a single server a commit is all or nothing except when the file store
-  fails between two stores of one commit (`server/stream.go:7624-7635`). The
-  server treats that failure as terminal, and on restart it writes the rest
-  of the batch from its staging store during stream recovery
-  (`server/jetstream.go:1585-1651`). The tenant store does not detect that
-  gap. It is the one path to a record without its index, and it closes on
-  the server's restart.
 - `Store` holds its stream reader and its batch publish function in
   unexported fields, and an internal test in package `tenantstore` replaces
   them with fault wrappers. Why: the claim is three calls (two reads and
@@ -249,16 +288,32 @@ The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-
   bucket flag, which U11 documents in `src/modules/edgebus/README.md`.
   Multi-key uniqueness by atomic batch is a `compound` candidate once U12
   lands.
+- U13 amends the partition rule in
+  `docs/architecture/2026-09-28-operator-authorization-direction.md`
+  (lines 85-87: "every key in the `device-lanes`, `edges`, and `captures`
+  buckets, and every key a later store adds, starts with the tenant id").
+  Record keys keep the rule. A lookup index that finds a tenant from an
+  identifier presented before the tenant is known is keyed by that
+  identifier and holds the tenant id as its value: `edge_<edgeID>` and
+  `setupkey_<keyID>` in `edges` (`src/services/device/internal/edgestore/store.go:42, 147, 169`)
+  and `org_<hash>` in `tenants`. Why: those indexes landed in U3 and U4
+  against the rule, and no key layout can satisfy both. An enrolling edge
+  presents only a setup key, a verifying edge only its id, and phase 3's
+  token only an issuer and organization, so the index cannot start with
+  the tenant it resolves. A handler still reaches records only under the
+  tenant from its context. The amendment changes an accepted record, so
+  a person re-reads it before `land`.
 
 How U12 rules out each failure the Review section lists:
 
 | Review finding | Why it cannot happen after U12 |
 | --- | --- |
 | A retried `Create` of a committed tenant deletes it when the index read fails (`store.go:198-205`), and so do the rollbacks after a failed reconcile read. | `Create` has no delete call. Its only write is the batch, whose two messages carry values, never markers. A failed read returns before any write. |
-| Two concurrent same-id `Create` calls share a record revision, and a cancelled one's rollback deletes the record the other reported. | There is no rollback. Both batches expect the same sequences, the server commits one, and the other gets 10071, re-reads, finds the equal config, and returns the stored record. A cancelled call ends before or after its commit and deletes nothing. |
-| "The index names me" is a read, and a competitor holding the index's old revision takes it over after `Create` returned. | There is no takeover. `Create` writes an `org_` key only when its last message is absent or a marker, the batch's expectation enforces that at commit, and no `kv.Update` on an `org_` key remains. |
-| `ownership_test.go` injects no `Get` or `Keys` faults, faults only the first matching call, never retries, has no same-id concurrency, and its visibility check holds by construction. | U12's claim test faults each of `Create`'s three calls, runs an unfaulted retry after every fault, runs same-id and same-organization contention, and checks invariants on raw stream messages instead of `Store` read methods. `Get` and `Keys` are not calls `Create` makes, so they have no fault point in the claim. |
-| Whether same-id `Create` resumes at all. | It does not: config equality decides between the stored record and `ErrCodeAlreadyExists`. |
+| Two concurrent same-id `Create` calls share a record revision, and a cancelled one's rollback deletes the record the other reported. | There is no rollback. Both batches expect the same sequences, the server commits one, and the other gets 10071, re-reads, finds the committed tenant with an equal config, and returns it. A cancelled call ends before or after its commit and deletes nothing. |
+| "The index names me" is a read, and a competitor holding the index's old revision takes it over after `Create` returned. | There is no takeover. `Create` writes an `org_` key only when its last message is absent or a marker, the batch's expectation enforces that at commit, and no `kv.Update` on an `org_` key remains. Once live, an index never changes, so the read in step 2 cannot go stale. |
+| `ownership_test.go` injects no `Get` or `Keys` faults, faults only the first matching call, never retries, has no same-id concurrency, and its visibility check holds by construction. | U12's claim test places a fault at every call position `Create` reaches, re-reads included, runs an unfaulted retry after every fault, runs same-id and same-organization contention, checks invariants on raw stream messages, and then checks that `Get`, `List`, and `LookupByOrg` agree with them. `Get` and `Keys` are not calls `Create` makes, so they have no fault point in the claim. |
+| Whether same-id `Create` resumes at all. | It does not: config equality decides between the stored record and `ErrCodeAlreadyExists`. The one completion it performs is of a record whose index a file-store error kept from committing, by the same batch. |
+
 - Lowercase UUID validation for `dev_tenant` in deployment configuration.
   Why: `tenant.Validate` (`src/common/tenant/tenant.go:41-51`) accepts only
   canonical lowercase UUIDs or `DefaultTenant`. In
@@ -456,19 +511,22 @@ How U12 rules out each failure the Review section lists:
    directory, `js.Stream(ctx, "KV_tenants")` reports
    `AllowAtomicPublish: true`.
 5. One tenant per organization, written all or nothing. Acceptance: with
-   tenant `a` committed for organization `o`, `Create` of tenant `b` for `o`
-   returns `ErrCodeAlreadyExists` and `$KV.tenants.b` holds no message. When
-   another writer commits `o`'s index after `Create`'s reads and before its
-   batch, `Create` returns `ErrCodeAlreadyExists` and `$KV.tenants.b` still
+   tenant `0192e6a0-0000-7000-8000-00000000000a` committed for organization
+   `org-o`, `Create` of tenant `0192e6a0-0000-7000-8000-00000000000b` for
+   `org-o` returns `ErrCodeAlreadyExists` and
+   `$KV.tenants.0192e6a0-0000-7000-8000-00000000000b` holds no message. When
+   another writer commits `org-o`'s index after `Create`'s reads and before
+   its batch, `Create` returns `ErrCodeAlreadyExists` and that subject still
    holds no message.
 6. A same-config retry succeeds without writing. Acceptance: a `Create`
    whose batch committed but whose reply was lost returns `ErrCodeStore`. A
    second `Create` with the same config returns a record whose `created_at`
    equals the first attempt's, and the last sequences of both subjects are
    the ones the first batch wrote.
-7. No `Create` deletes or overwrites. Acceptance: across the claim test's
-   fault matrix, no `Create` call adds a message carrying a `KV-Operation`
-   header, and the value of a live `org_` key never changes.
+7. No `Create` deletes a key or changes a committed tenant. Acceptance:
+   across the claim test's fault matrix, no `Create` call adds a message
+   carrying a `KV-Operation` header, the value of a live `org_` key never
+   changes, and a committed record's last sequence never changes.
 
 ## Out of scope
 
@@ -483,12 +541,19 @@ How U12 rules out each failure the Review section lists:
   and the agent refuses a map that does not name one valid tenant and its
   own edge id, so nothing infers a wrong tenant today. The field is a wire
   change to a contract outside this phase's files.
-- The capture path in the accepted
-  `docs/architecture/2026-09-09-remote-packet-capture-direction.md` and the
-  one-tenant wording in
-  `docs/solutions/architecture-patterns/a-restarted-hub-must-re-attach-every-persisted-edge-account.md`.
-  The first is an amendment to an accepted record, which a person re-reads,
-  and the second belongs to `compound`'s refresh of existing solutions.
+- The one-tenant wording in
+  `docs/solutions/architecture-patterns/a-restarted-hub-must-re-attach-every-persisted-edge-account.md`,
+  which belongs to `compound`'s refresh of existing solutions.
+- A NATS account per tenant.
+  `docs/architecture/2026-08-20-device-service-and-inventory-direction.md`
+  (line 398) decides one, and
+  `docs/architecture/2026-09-28-operator-authorization-direction.md`
+  ("Tenants are entities, and the token names one") names it by the tenant
+  id, but no phase of the parent plan delivers it. What landed is one
+  account per edge plus CENTRAL, with each edge user allowed to publish
+  only under its own tenant's subtree (`src/modules/edgebus/keys.go:357-367`).
+  Whether a later phase adds the per-tenant account is the parent plan's
+  decision.
 
 ## Units
 
@@ -1066,7 +1131,8 @@ Change:
   - `Store` holds the bucket (`jetstream.KeyValue`), the `JetStream`
     handle, the subject prefix `$KV.<bucket>.`, and two unexported
     functions: `lastMsg`, backed by `jetstream.Stream.GetLastMsgForSubject`,
-    and `publish`, backed by `jetstreamext.PublishMsgBatch`.
+    and `publish`, backed by `jetstreamext.PublishMsgBatch` with
+    `jetstreamext.BatchFlowControl{AckFirst: false}`.
   - `New(ctx, js, bucket) (*Store, error)` as the Decisions describe.
     `Option`, `WithRollbackTimeout`, `defaultRollbackTimeout`,
     `rollbackDelete`, and `ownsOrgIndex` are removed, and nothing in the
@@ -1082,12 +1148,13 @@ Change:
     `jetstream.JSErrCodeStreamWrongLastSequenceConstant`, found with
     `errors.As`, because orbit returns it unwrapped
     (`jetstreamext@v0.3.2/publishbatch.go:332-334, 461-463`).
-  - `GetWithRevision` reads the record key alone, and `Get` and `List`
-    follow it. `LookupByOrg` and `Mutate` keep their behavior.
+  - `Get`, `GetWithRevision`, `List`, `LookupByOrg`, and `Mutate` keep
+    their behavior, including the committed-only rule.
   - The package comment states the invariant: a tenant's record and its
-    `org_` index are written together by one batch. `Create`'s doc comment
-    states the retry contract: an equal stored config returns the stored
-    record, any other stored config or claimed organization returns
+    `org_` index are written together by one batch, and a record counts
+    only while its index names it. `Create`'s doc comment states the retry
+    contract: an equal committed config returns the stored record, any
+    other stored config or claimed organization returns
     `ErrCodeAlreadyExists`, and `ErrCodeStore` leaves the outcome unknown
     until a retry of the same call.
 - `src/services/device/internal/tenantstore/store_test.go`:
@@ -1127,28 +1194,38 @@ Change:
     - the id committed for another organization
     - the organization committed by another id
     - both keys of the same tenant deleted, leaving markers
+    - the same tenant's record with no index, as a file-store failure
+      between the batch's two stores leaves it (seeded by a raw `kv.Create`
+      of the record key)
     - a raw `org_` key naming an id with no record
   - Faults:
     - a read fails
     - the batch fails before it is sent
+    - the batch stages its record message through a
+      `jetstreamext.BatchPublisher` and never commits (the server abandons
+      it)
     - the batch commits and then returns `context.DeadlineExceeded` (a lost
       reply)
     - another `Store` commits a conflicting tenant between `Create`'s reads
       and its batch, either another id for the same organization or the same
       id for another organization
 
-    Faults are placed by call position: the test
-    records the calls an unfaulted run makes, then reruns the state once per
-    position with that call failing. A run with a conflicting commit makes
-    five calls (two reads, the batch, and two re-reads), so a failed re-read
-    is its own case.
+    Faults are placed by call position. The test records the calls each
+    unfaulted path makes, then reruns the state once per position with that
+    call failing, so a failed re-read is its own case. The path through a
+    conflicting commit for the organization makes five calls (two reads,
+    the batch, the record re-read, the index re-read). The path through a
+    conflicting commit for the same id makes four, since the record re-read
+    already finds the other config. At most seven batches are abandoned in
+    one run, under the stream's limit of 50 in flight
+    (`server/stream.go:447-451`).
   - Each (state, fault) case runs `Create` with the fault, checks the
     invariants, runs `Create` again without faults, and checks its outcome
     and the invariants again. Without a conflicting commit the retry
-    returns the stored record for the empty, same-tenant, and deleted
-    states and `ErrCodeAlreadyExists` for the other three. After a
-    conflicting commit it returns `ErrCodeAlreadyExists` (Requirement 5,
-    second half, and Requirement 6).
+    returns the stored record for the empty, same-tenant, deleted, and
+    record-without-index states and `ErrCodeAlreadyExists` for the other
+    three. After a conflicting commit it returns `ErrCodeAlreadyExists`
+    (Requirement 5, second half, and Requirement 6).
   - Contention without faults: eight `Create` calls with one config all
     return records with equal `created_at`, and the record subject holds
     one message. Eight with one id and eight organizations yield one success
@@ -1161,15 +1238,18 @@ Change:
     returns `ErrCodeStore` and seven return `ErrCodeAlreadyExists`. A
     fault-free retry of each returns the stored record for the one and
     `ErrCodeAlreadyExists` for the rest.
-  - The invariants read raw stream messages and never `Store` methods: the
-    subjects come from `Stream.Info` with a subject filter on
-    `$KV.tenants.>`, and each subject's last message from
-    `GetLastMsgForSubject`. Every live record subject has a live `org_`
-    subject that names its id and matches its config's `OrgIndexKey`, and
-    every live `org_` subject names a live record, except the raw key the
-    last initial state seeds. `Create` adds no message with a
-    `KV-Operation` header, and a live `org_` key's value never changes
-    (Requirement 7).
+  - The invariants read raw stream messages first: the subjects come from
+    `Stream.Info` with a subject filter on `$KV.tenants.>`, and each
+    subject's last message from `GetLastMsgForSubject`. Every live record
+    subject `Create` wrote has a live `org_` subject that names its id and
+    matches its config's `OrgIndexKey`, and every live `org_` subject names
+    a live record. The two raw seeds are exempt only while they keep their
+    seeded sequence, and the index seed always keeps it. `Create` adds no
+    message with a `KV-Operation` header, a live `org_` key's value never
+    changes, and a committed record's last sequence never changes
+    (Requirement 7). Then the `Store` view must agree with the raw one:
+    `Get` and `List` return a tenant exactly when its pair is committed,
+    and `LookupByOrg` returns it for its organization.
 - `src/services/device/test/integration/e2e_test.go`:
   `TestMultiTenantIsolationAndEdgeBusPartitioning` builds its store with
   `tenantstore.New(ctx, js, edgebus.TenantBucket)` and drops its `kvTenant`
@@ -1186,15 +1266,23 @@ Tests:
   from a test, and nothing in the store detects it.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- go.mod go.sum src/services/device/internal/tenantstore src/services/device/test/integration`
 
-### U13. Tenancy docs and the Review's low findings
+### U13. Tenancy docs, the partition rule amendment, and the Review's low findings
 
-Files: `src/modules/edgebus/README.md`,
+Files: `docs/architecture/2026-09-28-operator-authorization-direction.md`,
+`docs/architecture/2026-09-09-remote-packet-capture-direction.md`,
+`src/modules/edgebus/README.md`,
 `src/modules/edgebus/edgebus_test.go`,
 `spec/proto/flowseer/store/device/v1/README.md`,
 `src/services/device/README.md`,
 `src/services/device/internal/host/host_test.go`
 After: U11
 Change:
+- `docs/architecture/2026-09-28-operator-authorization-direction.md`
+  (lines 85-89): the partition paragraph states the lookup-index exception
+  as the Decisions word it, and names the three indexes.
+- `docs/architecture/2026-09-09-remote-packet-capture-direction.md:293`:
+  the artifact path reads `<StateDir>/captures/<tenant_id>/<session_id>.pcapng`,
+  as `src/services/device/internal/captureapi/store.go:108-112` builds it.
 - `src/modules/edgebus/README.md`:
   - The restart paragraph (line 110) says a restart re-attaches every edge
     whose account key and `edge-<edgeID>.tenant` file persisted, and skips
@@ -1209,7 +1297,7 @@ Change:
     bullet that replaces it under "What is deliberately absent" names what
     is still missing, the per-tenant NATS account that
     `docs/architecture/2026-08-20-device-service-and-inventory-direction.md`
-    draws (line 323).
+    decides (line 398).
 - `spec/proto/flowseer/store/device/v1/README.md:29-30`: the "A tenant"
   bullet says the lane record has no tenant field because the tenant is the
   `<tenant_id>.` prefix of the record's key.
@@ -1230,7 +1318,7 @@ Tests:
 - `TestStartLeafRefusesEmptyAndInvalidTenant` and
   `TestStartupDoesNotIndexUnindexedRegistryEdge` as changed above. The doc
   edits have no test beyond the verifier's prose check.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/edgebus spec/proto/flowseer/store/device/v1/README.md src/services/device/README.md src/services/device/internal/host`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/architecture/2026-09-28-operator-authorization-direction.md docs/architecture/2026-09-09-remote-packet-capture-direction.md src/modules/edgebus spec/proto/flowseer/store/device/v1/README.md src/services/device/README.md src/services/device/internal/host`
 
 Waves: U11 | U12 U13
 
@@ -1274,7 +1362,7 @@ sections "2. Work the units", step 2, and "3. Finish", step 4). A `--full` run a
 - [ ] `KV_tenants` allows atomic publish after every hub start (Requirement 4).
 - [ ] `tenantstore.Create` writes a record and its `org_` index in one atomic batch, and nothing in the package deletes, rolls back, or takes over a key (Requirements 5, 6, and 7).
 - [ ] `claim_internal_test.go` replaces `ownership_test.go`.
-- [ ] The tenancy docs and low findings U13 names are fixed.
+- [ ] The tenancy docs and low findings U13 names are fixed, and a person has re-read the amended partition rule in `docs/architecture/2026-09-28-operator-authorization-direction.md`.
 - [ ] This plan's `status` set to `implemented` with an outcome note under its title.
 - [ ] No plan labels in code after U11–U13.
 
