@@ -3,7 +3,7 @@ title: Operator Authorization Phase 1, Rule Schema and Enforcement Core - Plan
 type: feat
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
+artifact_readiness: needs-decisions
 status: planned
 execution: code
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
@@ -283,6 +283,7 @@ go test ./test/conformance/proto/ ./src/services/device/internal/authn/ ./src/se
 
 ## Open questions
 
+- Waits on the parent plan's reconciliation question.
 - Whether a nested value name inside an option literal trips buf's export
   rule for edition 2024. `buf lint` on U1's draft settles it. A top-level
   `RuleMode` enum avoids the question.

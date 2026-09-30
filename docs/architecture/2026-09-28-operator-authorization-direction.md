@@ -271,3 +271,13 @@ multi-tenancy from the first deployment.
   migrated.
 - The operator surfaces get the request-body limit that today wraps only
   the edge-facing handlers.
+
+### 2026-09-30 — a competing proposal
+
+[`2026-09-30-operator-authorization-direction.md`](2026-09-30-operator-authorization-direction.md),
+proposed without knowledge of this record, chooses OpenFGA over SpiceDB on
+spike measurements and names a request's tenant per request, admitted by
+FlowSeer-owned membership, instead of binding it to the token's
+organization. This record's identity leaf, tenant entity, and partitioned
+stores landed first. The two are reconciled before the engine or caller
+authentication is planned.

@@ -22,6 +22,12 @@ principal and a tenant, how every RPC is authorized, and who owns the
 relationships. The measurements it rests on are in
 [`docs/research/2026-09-30-openfga-authorization-spike.md`](../research/2026-09-30-openfga-authorization-spike.md).
 
+This proposal was written without
+[`2026-09-28-operator-authorization-direction.md`](2026-09-28-operator-authorization-direction.md),
+accepted two days earlier, whose first two phases have landed. The two
+disagree on the engine and on how a request's tenant is chosen, and are
+reconciled before either is extended.
+
 ## A request, end to end
 
 ```mermaid

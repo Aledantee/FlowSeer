@@ -3,7 +3,7 @@ title: Operator Authorization - Plan
 type: feat
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
+artifact_readiness: needs-decisions
 status: planned
 execution: mixed
 ---
@@ -217,6 +217,17 @@ service.
 
 ## Open questions
 
+- Reconcile with `docs/architecture/2026-09-28-operator-authorization-direction.md`,
+  accepted 2026-09-28, which landed phases 1 and 2 of its own parent plan
+  (`docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md`: the
+  `model/identity` leaf, the tenant entity bound to one issuer and
+  organization, tenant-partitioned stores, and the edgebus tenant token)
+  before this record was written. The two disagree on the engine (SpiceDB
+  behind an interface there, OpenFGA here) and on how a request's tenant is
+  chosen (bound to the token's organization there, named per request and
+  admitted by FlowSeer-owned membership here). The user decided on
+  2026-09-30 to land the 09-28 work first and reconcile before either
+  parent's next phase is planned; this plan waits on that.
 - Which OIDC issuer the lab deployment runs (Zitadel, Keycloak, or Dex).
   Phase 2 decides. Any of them passes the vendor rule.
 - How a provider's organization identifiers map to FlowSeer tenant ids
