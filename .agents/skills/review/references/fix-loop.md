@@ -5,10 +5,10 @@ The coordinating session runs the rounds; no skill runs them on its own, and
 
 1. Dispatch the fixes as `delegate` describes, one worker per file group.
    Brief each with its findings' `path:line`, failure scenario, and smallest
-   fix, and with the class `SKILL.md` step 4 named: the mechanism, and the
-   instruction to find and fix every other site that engages it and report
-   the sites it cleared. A fix worker may edit its findings' files, the file
-   in the owning layer where the fix belongs (a helper a test needs goes in
+   fix, and with the class `SKILL.md` step 4 named: the mechanism, the
+   owning-layer file, files the fix leaves stale, and every other site of the
+   class, each listed in the report. A fix worker may edit its findings' files,
+   the file in the owning layer where the fix belongs (a helper a test needs goes in
    that layer, not in the test), every file the fix leaves stale (a Taskfile
    description, a README), and the files of the other sites it finds, each
    listed in its report. It never edits a plan Decision marked
