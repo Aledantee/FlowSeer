@@ -13,7 +13,7 @@ Copy this into every orchestration worker's brief verbatim:
 > `heartbeat`, `worker_done`) must run through the Bash tool with the
 > parameter `dangerouslyDisableSandbox` set to `true`. The sandbox blocks
 > Orca's local socket, and a sandboxed call reports "Orca is not running"
-> even though it is. `buf generate` and the verifier script need the same
+> even though it is. `go tool -modfile=tools/buf/go.mod buf generate` and the verifier script need the same
 > setting. Send `worker_done` that way, once, with the injected task and
 > dispatch ids.
 

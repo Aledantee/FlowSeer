@@ -430,7 +430,7 @@ spec/          # protobuf, MIB, and YANG sources of truth
 - Code that must not be imported from outside its subtree goes under an `internal/`
   directory; the compiler then enforces the boundary.
 - Regenerate bindings with their owning generator; a hand edit under `generated/`
-  is always a bug. From the repository root, use `buf generate` for
+  is always a bug. From the repository root, use `go tool -modfile=tools/buf/go.mod buf generate` for
   `generated/go/proto/`, `go generate .` for `generated/go/mib/`, and
   `go run ./src/protocol/yang/cmd/yanggen -update` for `generated/go/yang/`,
   which is a nested module; `yanggen` also writes its `go.mod` and runs

@@ -63,7 +63,7 @@ For each unit:
    current source and tests for its files.
 2. Make the smallest change that satisfies it, through the editor tools, which
    run the format and schema hooks a Bash write skips. A Bash command that
-   changes `generated/`, a `go.mod` or `go.sum`, or `buf.lock` (`buf generate`,
+   changes `generated/`, a `go.mod` or `go.sum`, or `buf.lock` (`go tool -modfile=tools/buf/go.mod buf generate`,
    `go mod tidy`) marks the tree `<Bash mutation; verify with --full>` and
    turns Finish into a full module race run; any other Bash write is marked by
    path. Search for an existing helper first; no abstraction with a single
@@ -91,7 +91,7 @@ For each unit:
 4. In the same unit, update the package README, convention doc, solution
    citations, and any test or benchmark name the unit made false.
 5. Check, commit, verify, in that order:
-   - Run the focused checks (`go test -race ./<pkg>/...`, `buf lint`), never a
+   - Run the focused checks (`go test -race ./<pkg>/...`, `go tool -modfile=tools/buf/go.mod buf lint`), never a
      script under `tools/hooks/` (`delegate`, Write the brief, item 6). Send
      output that may carry diagnostics to a file and grep it after
      (`go test ... > "$TMPDIR/run.log" 2>&1; grep -E '^(FAIL|--- FAIL)' "$TMPDIR/run.log"`),

@@ -6,8 +6,9 @@ last_updated: 2026-09-25
 # FlowSeer — Protobuf Style
 
 Conventions for the schemas under `spec/proto/`. The [Buf style
-guide][buf-style] is the baseline; `buf lint` and `buf breaking` (configured in
-`buf.yaml`) enforce the mechanical part. This document owns the judgement rules.
+guide][buf-style] is the baseline. `go tool -modfile=tools/buf/go.mod buf lint`
+and `go tool -modfile=tools/buf/go.mod buf breaking` (configured in `buf.yaml`)
+enforce the mechanical part. This document owns the judgement rules.
 
 FlowSeer-owned schemas are written in **Protobuf Edition 2024** — not `syntax =
 "proto3"`. Editions replace the two hardcoded dialects with one file format whose
@@ -80,7 +81,7 @@ package flowseer.device.v1;
   forbidden here. `weak` imports no longer exist at all. Use `import option` for a
   file imported solely to bring custom options into scope.
 - Never hand-edit anything under `generated/`. Protobuf bindings under
-  `generated/go/proto/` are regenerated from these sources with `buf generate`.
+  `generated/go/proto/` are regenerated from these sources with `go tool -modfile=tools/buf/go.mod buf generate`.
 - Do not set file-level feature overrides casually. A feature set at file scope
   silently retunes every field below it; when a single field needs different
   behaviour, override on that field.
@@ -201,13 +202,14 @@ That covers casing. The rules the compiler does not check still stand:
 - **A feature change is a schema change.** Editions add a failure mode proto3 did not
   have: flipping `field_presence`, `enum_type`, `utf8_validation`, or `json_format`
   alters the contract while every field number stays put. Treat a feature edit with the
-  same care as a renumber. `buf breaking` has editions-aware rules for exactly this —
+  same care as a renumber. The pinned `go tool -modfile=tools/buf/go.mod buf breaking`
+  command has editions-aware rules for exactly this.
   `FIELD_SAME_CARDINALITY`, `FIELD_WIRE_COMPATIBLE_CARDINALITY`, `ENUM_SAME_TYPE`,
   `FIELD_SAME_UTF8_VALIDATION`, `MESSAGE_SAME_JSON_FORMAT`.
 - Breaking checks are suspended until the first stable release via a module-wide
   `breaking.ignore` of `spec/proto/flowseer` in `buf.yaml` (an empty `breaking.use: []`
   would not disable them — buf treats it as unset and falls back to its default `FILE`
-  category); until then the rules above are held in review, after it `buf breaking`
+  category). Until then the rules above are held in review. After it, `go tool -modfile=tools/buf/go.mod buf breaking`
   takes over.
 - Bumping the edition of an existing file is a deliberate, reviewed migration, not
   housekeeping: the new edition's defaults apply to every field at once. Edition 2026
@@ -313,7 +315,8 @@ deliberate one. State which it is in the field comment; "unset means X" and
 `required` are answers to the same question.
 
 `IGNORE_IF_ZERO_VALUE` has no place in a field we own. On a presence-tracking field it
-is redundant with the default, and buf lint says so — *"has
+is redundant with the default, and the pinned `go tool -modfile=tools/buf/go.mod buf lint`
+command says so. The diagnostic says: *"has
 (buf.validate.field).ignore=IGNORE_IF_ZERO_VALUE and tracks presence. This is the same
 the default and the ignore option can be removed."* Combined with `required` it is a
 contradiction and a hard lint error. It is only meaningful on a field you have
@@ -433,14 +436,15 @@ Web-side rules live in [`code-style-web.md`](code-style-web.md).
 
 ## Workflow
 
-`buf lint` and `buf generate` run in CI; a schema change and its regenerated code
+`go tool -modfile=tools/buf/go.mod buf lint` and `go tool -modfile=tools/buf/go.mod buf generate`
+run in CI. A schema change and its regenerated code
 land in the same commit so `generated/` never drifts from `spec/proto/`.
 
 Run generation from the repository root. `buf.gen.yaml` emits Go messages and
 Connect bindings under `generated/go/proto/`:
 
 ```
-buf generate
+go tool -modfile=tools/buf/go.mod buf generate
 ```
 
 The template sets `clean: true`, so regeneration replaces its output directories.
@@ -478,6 +482,6 @@ Researched 2026-08-16, editions material added 2026-08-20:
   https://github.com/bufbuild/protovalidate/blob/main/proto/protovalidate/buf/validate/validate.proto
 
 Compiler messages, lint messages, and validation output quoted above were reproduced
-locally against buf 1.72.0 and protovalidate with the repo's own `buf.gen.yaml` plugin
+locally against the pinned Buf CLI v1.73.0 and protovalidate with the repo's own `buf.gen.yaml` plugin
 set — including the empty-message result showing that a rule without `required` does
 not fire on an absent field.

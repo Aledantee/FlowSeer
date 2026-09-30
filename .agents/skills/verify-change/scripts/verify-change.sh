@@ -470,9 +470,6 @@ fi
 if [[ $proto == true || $mib == true ]]; then
   required_tools+=(go)
 fi
-if [[ $proto == true ]]; then
-  required_tools+=(buf)
-fi
 if [[ $hook_tooling == true ]]; then
   required_tools+=(jq shellcheck go)
 fi
@@ -756,15 +753,15 @@ for dep in "${dependent_modules[@]:-}"; do
 done
 
 if [[ $proto == true ]]; then
-  need_tool buf
+  buf_cmd=(go tool "-modfile=$root/tools/buf/go.mod" buf)
   proto_path_args=()
   if [[ $full == false && ${#proto_files[@]} -gt 0 ]]; then
     for proto_file in "${proto_files[@]}"; do
       proto_path_args+=(--path "$proto_file")
     done
   fi
-  run buf format -d --exit-code ${proto_path_args[@]+"${proto_path_args[@]}"}
-  run buf lint ${proto_path_args[@]+"${proto_path_args[@]}"}
+  run "${buf_cmd[@]}" format -d --exit-code ${proto_path_args[@]+"${proto_path_args[@]}"}
+  run "${buf_cmd[@]}" lint ${proto_path_args[@]+"${proto_path_args[@]}"}
   # The integration branch is main; master is accepted for a checkout that
   # still carries the old name. Neither resolving is a failed gate: this
   # block once looked for master alone and fell through in silence, so
@@ -777,7 +774,7 @@ if [[ $proto == true ]]; then
     fi
   done
   if [[ -z $integration_branch ]]; then
-    echo "buf breaking needs a main (or master) branch to compare against, and neither exists." >&2
+    echo "the breaking gate needs a main (or master) branch to compare against, and neither exists." >&2
     exit 1
   fi
   # --path names files in the against-ref. A file the branch added is
@@ -793,14 +790,14 @@ if [[ $proto == true ]]; then
     fi
   done
   if [[ $full == true || $proto_deleted == true || ${#proto_files[@]} -eq 0 ]]; then
-    run buf breaking --against ".git#branch=$integration_branch"
+    run "${buf_cmd[@]}" breaking --against ".git#branch=$integration_branch"
   elif ((${#breaking_path_args[@]})); then
-    run buf breaking --against ".git#branch=$integration_branch" "${breaking_path_args[@]}"
+    run "${buf_cmd[@]}" breaking --against ".git#branch=$integration_branch" "${breaking_path_args[@]}"
   else
-    echo "buf breaking skipped: every changed .proto file is new on this branch."
+    echo "breaking skipped: every changed .proto file is new on this branch."
   fi
   generated_dir=$build_dir/generated
-  run buf generate -o "$generated_dir"
+  run "${buf_cmd[@]}" generate -o "$generated_dir"
   run diff -qr generated/go/proto "$generated_dir/generated/go/proto"
   if [[ -d frontend/web/generated || -d $generated_dir/frontend/web/generated ]]; then
     run diff -qr frontend/web/generated "$generated_dir/frontend/web/generated"
