@@ -27,6 +27,18 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
+## 2026-09-30 compound: plan-state treats a reconciliation plan as a parent
+Skill or agent: `.claude/skills/drive/scripts/plan-state.py`, parent detection
+in `phases()` and `open_plans()`.
+What happened: The script treats any plan with a `### U*` unit whose `Files:`
+contains a `docs/plans/*-plan.md` path as a parent. The reconciliation plan's
+U3 lists the old parent and its phase plans in `Files:`
+(`docs/plans/2026-09-30-1338-docs-operator-authorization-reconciliation-plan.md:220-228`).
+The resulting state reports U3 as `implement` even though this plan is
+implemented. The drive had to override that classification.
+Suggested change: distinguish phase children from a docs-only plan's
+reconciliation targets before treating plan paths in `Files:` as phase plans.
+
 ## 2026-09-30 review: repeated concurrency fixes should trigger prior-art search
 Skill or agent: `.claude/skills/review/SKILL.md` fix loop and `.claude/skills/plan/SKILL.md` re-plan trigger.
 What happened: The phase 2 plan records five review rounds on the tenant claim before the record-first rollback protocol was replaced with an atomic batch (operator authorization phase 2, landed 2026-09-30; the retired plan's Review section is in git history). The local fix loop still left concurrency failures until a prior-art-based re-plan changed the mechanism.

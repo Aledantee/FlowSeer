@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/conventions/a-comparison-spike-needs-controls-row-provenance-and-noise-bounds.md
 execution: docs
 amends: docs/architecture/2026-09-30-operator-authorization-direction.md
 ---
