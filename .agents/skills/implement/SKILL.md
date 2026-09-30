@@ -69,7 +69,12 @@ For each unit:
    path. Search for an existing helper first; no abstraction with a single
    caller. Before calling a third-party API the tree does not already use,
    check its signature: `go doc` for Go, Context7 (`mcp__context7__query-docs`
-   or the `ctx7` CLI) for the rest. Where the plan and the working code
+   or the `ctx7` CLI) for the rest. Before code relies on external behavior
+   the plan does not cite, read its source (`AGENTS.md`, Investigation
+   discipline) and cite it in the commit message. A fact you cannot check
+   is a ruling (`references/rulings.md`): a `Ruled:` line, or the unit
+   blocks, and the code that depends on it names the assumption in a test
+   or comment. Where the plan and the working code
    disagree about a shape, the code wins: leave the member out and edit the
    plan, with the reason, in the same commit, since the next session reads the
    plan as the specification.

@@ -203,8 +203,12 @@ order:
 2. The files or diff, as repository-relative paths; a reviewer gets the
    path of a diff file in the scratchpad directory.
 3. The conventions that apply, as paths, and the matched `docs/solutions/`
-   entries; for a reviewer, the pinned version (`go.mod`, `buf.lock`) of
-   every external convention or library those files rely on.
+   entries. For every worker, name the pinned version (`go.mod`, `buf.lock`)
+   of every external convention or library those files rely on, and the
+   vendored spec paths under `spec/` for every protocol or vendor surface
+   they touch. State an external fact in the brief only with its source
+   (`AGENTS.md`, Investigation discipline), since a worker repeats an
+   uncited fact as settled.
 4. What to return: evidence with `path:line`; findings by severity, each
    with a failure scenario; or the changed paths, the focused test command
    and its result, and the commit hash (an editing worker commits before
