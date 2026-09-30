@@ -224,6 +224,19 @@ func decodeJSONObject(s *Schema, obj map[string]json.RawMessage, rv reflect.Valu
 		if !ok {
 			return nil
 		}
+		if group != nil && ((f.Child != nil && f.List) || f.LeafList) {
+			var entries []json.RawMessage
+			if err := json.Unmarshal(raw, &entries); err != nil || entries == nil {
+				kind := "leaf-list"
+				if f.Child != nil {
+					kind = "list"
+				}
+				return errs.From(err).Code(ErrCodeValueParse).Msgf("%s %s is not a JSON array", kind, name)
+			}
+			if len(entries) == 0 {
+				return nil
+			}
+		}
 		fieldRV := rv
 		if group != nil {
 			var err error

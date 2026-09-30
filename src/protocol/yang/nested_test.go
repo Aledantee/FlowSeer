@@ -144,3 +144,132 @@ func TestDecodeNestedListThroughGroupContainer(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodeJSONNestedDoesNotMatchBareGroupedContainer(t *testing.T) {
+	type row struct{ ID *string }
+	type group struct{ Container *struct{ Rows []row } }
+	type outer struct {
+		ID *string
+		B  *group
+	}
+	rowSchema := &yang.Schema{
+		Module: modB,
+		Name:   "row",
+		Fields: []yang.Field{{GoName: "ID", Name: "id", Type: yang.TString}},
+	}
+	outerSchema := &yang.Schema{
+		Module: modA,
+		Name:   "outer",
+		Keys:   []string{"id"},
+		Fields: []yang.Field{
+			{GoName: "ID", Name: "id", Type: yang.TString},
+			{GoName: "B", Group: true, Child: &yang.Schema{
+				Module: modB,
+				Fields: []yang.Field{{
+					GoName: "Container",
+					Child: &yang.Schema{Module: modB, Name: "c", Fields: []yang.Field{{
+						GoName: "Rows", Child: rowSchema, List: true,
+					}}},
+				}},
+			}},
+		},
+	}
+	chain := []*yang.Schema{outerSchema, rowSchema}
+	data := []byte(`{"a:outer":[{"id":"o","c":{"row":[{"id":"B"}]}}]}`)
+	rows, err := yang.DecodeJSONNested[row](chain, data)
+	if err != nil {
+		t.Fatalf("DecodeJSONNested: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("DecodeJSONNested returned %d rows for bare grouped container, want 0", len(rows))
+	}
+
+	var got outer
+	if err := yang.UnmarshalJSON7951Struct(outerSchema, []byte(`{"id":"o","c":{"row":[{"id":"B"}]}}`), &got); err != nil {
+		t.Fatalf("UnmarshalJSON7951Struct: %v", err)
+	}
+	if got.B != nil {
+		t.Fatalf("UnmarshalJSON7951Struct allocated bare grouped container: %+v", got.B)
+	}
+}
+
+func TestDecodeJSONNestedPrefersConformingModuleMatch(t *testing.T) {
+	type row struct{ ID *string }
+	rowA := &yang.Schema{
+		Module: modA,
+		Name:   "row",
+		Fields: []yang.Field{{GoName: "ID", Name: "id", Type: yang.TString}},
+	}
+	rowB := &yang.Schema{
+		Module: modB,
+		Name:   "row",
+		Fields: []yang.Field{{GoName: "ID", Name: "id", Type: yang.TString}},
+	}
+	outerSchema := &yang.Schema{
+		Module: modA,
+		Name:   "outer",
+		Keys:   []string{"id"},
+		Fields: []yang.Field{
+			{GoName: "ID", Name: "id", Type: yang.TString},
+			{GoName: "C", Child: &yang.Schema{
+				Module: modA,
+				Name:   "c",
+				Fields: []yang.Field{{GoName: "Rows", Child: rowA, List: true}},
+			}},
+			{GoName: "B", Group: true, Child: &yang.Schema{
+				Module: modB,
+				Fields: []yang.Field{{
+					GoName: "Container",
+					Child: &yang.Schema{
+						Module: modB,
+						Name:   "c",
+						Fields: []yang.Field{{GoName: "Rows", Child: rowB, List: true}},
+					},
+				}},
+			}},
+		},
+	}
+	data := []byte(`{"a:outer":[{"id":"o","c":{"row":[{"id":"A"}]},"b:c":{"row":[{"id":"B"}]}}]}`)
+	rows, err := yang.DecodeJSONNested[row]([]*yang.Schema{outerSchema, rowB}, data)
+	if err != nil {
+		t.Fatalf("DecodeJSONNested: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Entry.ID == nil || *rows[0].Entry.ID != "B" {
+		t.Fatalf("DecodeJSONNested rows = %+v, want one row from module b", rows)
+	}
+}
+
+func TestDecodeXMLNestedIgnoresForeignAncestorKey(t *testing.T) {
+	type row struct{ ID *string }
+	outerSchema := &yang.Schema{
+		Module: modA,
+		Name:   "outer",
+		Keys:   []string{"id"},
+		Fields: []yang.Field{
+			{GoName: "ID", Name: "id", Type: yang.TInt32},
+			{GoName: "B", Group: true, Child: &yang.Schema{
+				Module: modB,
+				Fields: []yang.Field{
+					{GoName: "ForeignID", Name: "id", Type: yang.TBool},
+					{GoName: "Rows", Child: &yang.Schema{
+						Module: modB,
+						Name:   "row",
+						Fields: []yang.Field{{GoName: "ID", Name: "id", Type: yang.TString}},
+					}, List: true},
+				},
+			}},
+		},
+	}
+	rowSchema := outerSchema.Fields[1].Child.Fields[1].Child
+	data := []byte(`<outer xmlns="urn:a"><id>7</id><id xmlns="urn:b">true</id><row xmlns="urn:b"><id>B</id></row></outer>`)
+	rows, err := yang.DecodeXMLNested[row]([]*yang.Schema{outerSchema, rowSchema}, data)
+	if err != nil {
+		t.Fatalf("DecodeXMLNested: %v", err)
+	}
+	if len(rows) != 1 || yang.AncestorKey(rows[0].AncestorKeys, 0, "id") != "7" {
+		t.Fatalf("DecodeXMLNested ancestor keys = %+v, want id=7", rows)
+	}
+	if rows[0].Entry.ID == nil || *rows[0].Entry.ID != "B" {
+		t.Fatalf("DecodeXMLNested entry = %+v, want id=B", rows[0].Entry)
+	}
+}

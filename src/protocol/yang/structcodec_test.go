@@ -23,6 +23,79 @@ type testExtra struct {
 	Note *string
 }
 
+type groupedCollectionsParent struct {
+	B *groupedCollections
+}
+
+type groupedCollections struct {
+	Rows   []groupedCollectionRow
+	Values []string
+}
+
+type groupedCollectionRow struct {
+	ID *string
+}
+
+func groupedCollectionsSchema() *yang.Schema {
+	return &yang.Schema{
+		Module: modA,
+		Name:   "p",
+		Fields: []yang.Field{{
+			GoName: "B",
+			Group:  true,
+			Child: &yang.Schema{
+				Module: modB,
+				Fields: []yang.Field{
+					{
+						GoName: "Rows",
+						Child: &yang.Schema{
+							Module: modB,
+							Name:   "row",
+							Fields: []yang.Field{{GoName: "ID", Name: "id", Type: yang.TString}},
+						},
+						List: true,
+					},
+					{GoName: "Values", Name: "values", LeafList: true, Type: yang.TString},
+				},
+			},
+		}},
+	}
+}
+
+type groupedContainerParent struct {
+	B *groupedContainerGroup
+}
+
+type groupedContainerGroup struct {
+	Box *groupedContainer
+}
+
+type groupedContainer struct {
+	L *string
+}
+
+func groupedContainerSchema() *yang.Schema {
+	return &yang.Schema{
+		Module: modA,
+		Name:   "p",
+		Fields: []yang.Field{{
+			GoName: "B",
+			Group:  true,
+			Child: &yang.Schema{
+				Module: modB,
+				Fields: []yang.Field{{
+					GoName: "Box",
+					Child: &yang.Schema{
+						Module: modB,
+						Name:   "box",
+						Fields: []yang.Field{{GoName: "L", Name: "l", Type: yang.TString}},
+					},
+				}},
+			},
+		}},
+	}
+}
+
 var (
 	modTestMain = &yang.Module{Name: "test-main", Namespace: "urn:test:main"}
 	modTestAug  = &yang.Module{Name: "test-aug", Namespace: "urn:test:aug"}
@@ -268,6 +341,93 @@ func TestGroupedStructJSONNameCollisions(t *testing.T) {
 	}
 	if absent.B != nil || absent.C != nil {
 		t.Errorf("absent grouped members allocated groups: %+v", absent)
+	}
+}
+
+func TestJSONDecodeDoesNotAllocateEmptyGroupedCollections(t *testing.T) {
+	s := groupedCollectionsSchema()
+	for _, data := range []string{`{"b:rows":[]}`, `{"b:values":[]}`} {
+		var got groupedCollectionsParent
+		if err := yang.UnmarshalJSON7951Struct(s, []byte(data), &got); err != nil {
+			t.Fatalf("UnmarshalJSON7951Struct(%s): %v", data, err)
+		}
+		if got.B != nil {
+			t.Errorf("decode %s allocated empty group: %+v", data, got.B)
+		}
+	}
+}
+
+func TestGroupedContainerStructRoundTrip(t *testing.T) {
+	s := groupedContainerSchema()
+	wantValue := groupedContainerParent{B: &groupedContainerGroup{Box: &groupedContainer{L: str("x")}}}
+	tests := []struct {
+		name    string
+		marshal func() ([]byte, error)
+		decode  func([]byte, any) error
+		want    string
+	}{
+		{
+			name: "JSON",
+			marshal: func() ([]byte, error) {
+				return yang.MarshalJSON7951Struct(s, wantValue)
+			},
+			decode: func(data []byte, v any) error {
+				return yang.UnmarshalJSON7951Struct(s, data, v)
+			},
+			want: `{"b:box":{"l":"x"}}`,
+		},
+		{
+			name: "XML",
+			marshal: func() ([]byte, error) {
+				return yang.MarshalXMLStruct(s, wantValue)
+			},
+			decode: func(data []byte, v any) error {
+				return yang.UnmarshalXMLStruct(s, data, v)
+			},
+			want: `<p xmlns="urn:a"><box xmlns="urn:b"><l>x</l></box></p>`,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := tc.marshal()
+			if err != nil {
+				t.Fatalf("marshal: %v", err)
+			}
+			if string(data) != tc.want {
+				t.Errorf("encoded = %s\nwant %s", data, tc.want)
+			}
+			var got groupedContainerParent
+			if err := tc.decode(data, &got); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			if !yang.EqualStructs(got, wantValue) {
+				t.Errorf("round-trip = %+v, want %+v", got, wantValue)
+			}
+		})
+	}
+}
+
+func TestPublicCodecRejectsNestedGroup(t *testing.T) {
+	type outer struct{ B *struct{ C *struct{} } }
+	s := &yang.Schema{
+		Module: modA,
+		Name:   "p",
+		Fields: []yang.Field{{
+			GoName: "B",
+			Group:  true,
+			Child: &yang.Schema{
+				Module: modB,
+				Fields: []yang.Field{{
+					GoName: "C",
+					Group:  true,
+					Child:  &yang.Schema{Module: modC},
+				}},
+			},
+		}},
+	}
+	_, err := yang.MarshalJSON7951Struct(s, outer{})
+	if err == nil || !strings.Contains(err.Error(), "B") || !strings.Contains(err.Error(), "C") {
+		t.Fatalf("MarshalJSON7951Struct error = %v, want both group fields", err)
 	}
 }
 

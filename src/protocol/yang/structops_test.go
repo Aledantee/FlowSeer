@@ -190,3 +190,64 @@ func TestMergeAndEqualStructsDescendIntoGroups(t *testing.T) {
 		t.Error("values differing in a grouped leaf compare equal")
 	}
 }
+
+func TestVisitStructLeavesUsesGroupedOwnerModule(t *testing.T) {
+	type row struct {
+		ID    *string
+		Value *string
+	}
+	type box struct{ L *string }
+	type group struct {
+		Box  *box
+		Rows []row
+	}
+	type parent struct{ B *group }
+	rowSchema := &yang.Schema{
+		Module: modB,
+		Name:   "row",
+		Keys:   []string{"id"},
+		Fields: []yang.Field{
+			{GoName: "ID", Name: "id", Type: yang.TString},
+			{GoName: "Value", Name: "value", Type: yang.TString},
+		},
+	}
+	s := &yang.Schema{
+		Module: modA,
+		Name:   "p",
+		Fields: []yang.Field{{
+			GoName: "B",
+			Group:  true,
+			Child: &yang.Schema{
+				Module: modB,
+				Fields: []yang.Field{
+					{GoName: "Box", Child: &yang.Schema{
+						Module: modB,
+						Name:   "box",
+						Fields: []yang.Field{{GoName: "L", Name: "l", Type: yang.TString}},
+					}},
+					{GoName: "Rows", Child: rowSchema, List: true},
+				},
+			},
+		}},
+	}
+	v := parent{B: &group{
+		Box:  &box{L: ptr("x")},
+		Rows: []row{{ID: ptr("r"), Value: ptr("v")}},
+	}}
+	var got []string
+	err := yang.VisitStructLeaves(s, v, func(path yang.Path, value yang.Value) bool {
+		canonical, err := value.Canonical()
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, path.String()+"="+canonical)
+		return true
+	})
+	if err != nil {
+		t.Fatalf("VisitStructLeaves: %v", err)
+	}
+	want := []string{"/b:box/l=x", "/b:row[id=r]/id=r", "/b:row[id=r]/value=v"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("leaves = %v, want %v", got, want)
+	}
+}

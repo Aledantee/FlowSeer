@@ -121,14 +121,11 @@ func scanXMLAncestor[Inner any](dec *xml.Decoder, chain []*Schema, anc [][]KeyVa
 		case xml.EndElement:
 			return nil
 		case xml.StartElement:
-			if slices.Contains(level.Keys, t.Name.Local) {
+			field := findFieldByName(level, t.Name.Local)
+			if slices.Contains(level.Keys, t.Name.Local) && field != nil && field.Type != nil && xmlNameMatches(t.Name, t.Name.Local, field.qualifiedNamespace(level)) {
 				text, err := elementText(dec)
 				if err != nil {
 					return errs.Wrapf(err, "%s key %s", level.Name, t.Name.Local)
-				}
-				field := findFieldByName(level, t.Name.Local)
-				if field == nil || field.Type == nil {
-					continue
 				}
 				value, err := ParseCanonical(*field.Type, text)
 				if err != nil {
@@ -305,19 +302,30 @@ func jsonLevelKeys(level *Schema, obj map[string]json.RawMessage) ([]KeyValue, e
 // ancestor entry: directly as a member, or one intermediate container
 // object down (lists nested under a wrapper container).
 func findJSONDescendant(level, next *Schema, obj map[string]json.RawMessage) (json.RawMessage, bool, error) {
-	if arr, ok := lookupMember(obj, next.moduleName(), next.Name); ok {
+	arr, ok, err := findJSONDescendantPass(level, next, obj, true)
+	if err != nil || ok {
+		return arr, ok, err
+	}
+	return findJSONDescendantPass(level, next, obj, false)
+}
+
+// findJSONDescendantPass searches either RFC 7951-conforming member names or
+// the legacy bare-name fallback. Keeping the passes separate prevents a bare
+// member in an earlier container from hiding a qualified member later on.
+func findJSONDescendantPass(level, next *Schema, obj map[string]json.RawMessage, strict bool) (json.RawMessage, bool, error) {
+	if arr, ok := lookupJSONDescendantMember(obj, level.moduleName(), next.moduleName(), next.Name, strict); ok {
 		return arr, true, nil
 	}
 	var found json.RawMessage
 	foundOK := false
-	err := walkFields(level, func(f *Field, owner *Schema, _ *Field) error {
+	err := walkFields(level, func(f *Field, owner *Schema, group *Field) error {
 		if foundOK {
 			return nil
 		}
 		if f.Child == nil || f.List {
 			return nil
 		}
-		raw, ok := lookupMember(obj, f.qualifiedModule(owner), f.Child.Name)
+		raw, ok := lookupJSONFieldMember(obj, level, f, owner, group, strict)
 		if !ok {
 			return nil
 		}
@@ -325,7 +333,7 @@ func findJSONDescendant(level, next *Schema, obj map[string]json.RawMessage) (js
 		if err := json.Unmarshal(raw, &inner); err != nil {
 			return nil
 		}
-		arr, ok, err := findJSONDescendant(f.Child, next, inner)
+		arr, ok, err := findJSONDescendantPass(f.Child, next, inner, strict)
 		if err != nil {
 			return err
 		}
@@ -338,6 +346,28 @@ func findJSONDescendant(level, next *Schema, obj map[string]json.RawMessage) (js
 		return nil, false, err
 	}
 	return found, foundOK, nil
+}
+
+func lookupJSONDescendantMember(obj map[string]json.RawMessage, enclosingModule, module, name string, strict bool) (json.RawMessage, bool) {
+	if strict {
+		if module == enclosingModule {
+			value, ok := obj[name]
+			return value, ok
+		}
+		value, ok := obj[module+":"+name]
+		return value, ok
+	}
+	return lookupMember(obj, module, name)
+}
+
+func lookupJSONFieldMember(obj map[string]json.RawMessage, level *Schema, f *Field, owner *Schema, group *Field, strict bool) (json.RawMessage, bool) {
+	name := f.Child.Name
+	module := f.qualifiedModule(owner)
+	if group != nil {
+		value, ok := obj[module+":"+name]
+		return value, ok
+	}
+	return lookupJSONDescendantMember(obj, level.moduleName(), module, name, strict)
 }
 
 // SubtreeDescriptor builds the synthetic-row descriptor for any
