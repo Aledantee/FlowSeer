@@ -11,8 +11,8 @@ execution: mixed
 
 # Unverified External Claims - Plan
 
-> Partially implemented. U1 to U6 landed, 2026-09-30T09:30:52Z to
-> 2026-09-30T11:01:21Z. U7 to U9 are open.
+> Partially implemented. U1 to U6, U8, and U9 are verified. U7 is staged for
+> guardrail review and remains in progress.
 
 ## Goal
 
