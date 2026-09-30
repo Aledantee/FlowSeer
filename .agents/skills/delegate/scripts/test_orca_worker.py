@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import subprocess
 import sys
@@ -516,6 +517,58 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "not checked: codex")
+
+    def claude_lane_with_session(self):
+        lane_path = self.root / "claude-lane"
+        lane_path.mkdir(exist_ok=True)
+        self.env.pop("CLAUDE_CONFIG_DIR", None)
+        home = self.root / "home"
+        self.env["HOME"] = str(home)
+        session_dir = home / ".claude" / "projects" / re.sub(r"[^a-zA-Z0-9]", "-", str(lane_path))
+        session_dir.mkdir(parents=True, exist_ok=True)
+        (session_dir / "session.jsonl").write_text(json.dumps({
+            "type": "assistant",
+            "timestamp": "2026-09-30T10:05:00Z",
+            "message": {"model": "claude-opus-5-5"},
+        }) + "\n")
+        state_file = self.state_dir / "l1.json"
+        state_file.write_text(json.dumps({
+            "name": "l1", "cli": "claude", "terminal": "term-1",
+            "worktree": "wt-1", "path": str(lane_path), "branch": "main",
+            "run": "run-l1",
+        }))
+        self.runlog.write_text(json.dumps({
+            "v": 1, "event": "start", "run": "run-l1",
+            "at": "2026-09-30T10:00:00Z", "lane": "l1", "cli": "claude",
+            "model": "claude-opus-5-5", "role": "execute", "worktree": "wt-1",
+            "branch": "main", "base": "base-sha",
+        }) + "\n")
+
+    def test_check_passes_for_claude_lane_with_valid_session_using_home(self):
+        self.claude_lane_with_session()
+        result = self.command("check", "l1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "")
+
+    def test_grade_accepted_passes_for_claude_lane_with_valid_session_using_home(self):
+        self.claude_lane_with_session()
+        result = self.command("grade", "l1", "--outcome", "accepted", "--verify", "pass")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        events = [json.loads(line) for line in self.runlog.read_text().splitlines()]
+        self.assertEqual([event["event"] for event in events], ["start", "grade"])
+        self.assertEqual(events[-1]["outcome"], "accepted")
+
+    def test_grade_does_not_duplicate_orca_worker_prefix_when_model_check_fails(self):
+        self.claude_lane_without_session()
+        self.runlog.write_text(json.dumps({
+            "v": 1, "event": "start", "run": "run-l1",
+            "lane": "l1", "cli": "claude", "role": "execute",
+            "worktree": "wt-1", "branch": "main", "base": "base-sha",
+        }) + "\n")
+        result = self.command("grade", "l1", "--outcome", "accepted", "--verify", "pass")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("orca-worker: orca-worker:", result.stderr)
+
 
     def graded_lane(self):
         subprocess.run(["git", "checkout", "-b", "branch-l1"], cwd=self.repo, check=True, capture_output=True)

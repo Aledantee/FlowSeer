@@ -25,7 +25,7 @@
 
 set -uo pipefail
 
-die() { echo "orca-worker: $*" >&2; exit 1; }
+die() { local msg="$*"; echo "orca-worker: ${msg#orca-worker: }" >&2; exit 1; }
 need() { command -v "$1" >/dev/null || die "$1 not on PATH"; }
 need orca; need python3; need git
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -326,7 +326,7 @@ case "$cmd" in
     [[ -f $file ]] || die "file $file not found"
     deliver "$term" "$path" "$file" "$note_name" || die "message not on $name's screen after two submissions: $(screen "$term" | tail -8)"
     ;;
-status)
+  status)
     shopt -s nullglob; files=("$state_dir"/*.json)
     ((${#files[@]})) || { echo "no live lanes"; exit 0; }
     for f in "${files[@]}"; do
@@ -364,7 +364,7 @@ status)
     run_id=$(field "$name" run)
     [[ -n $run_id ]] || die "lane $name has no run"
     if [[ $outcome == accepted || $outcome == amended ]]; then
-      check_output=$(model_check_lane "$name" 2>&1) || die "$check_output"
+      check_output=$(model_check_lane "$name" 2>&1) || die "${check_output#orca-worker: }"
       [[ -z $check_output ]] || echo "$check_output"
     fi
     grade_args=(

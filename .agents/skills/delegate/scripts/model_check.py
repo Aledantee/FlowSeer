@@ -25,8 +25,12 @@ def timestamp(value):
 
 def session_directory(lane_path):
     name = re.sub(r"[^a-zA-Z0-9]", "-", lane_path)
-    config = os.environ.get("CLAUDE_CONFIG_DIR") or os.environ.get("HOME")
-    base = Path(config).expanduser() if config else Path.home() / ".claude"
+    config = os.environ.get("CLAUDE_CONFIG_DIR")
+    if config:
+        base = Path(config).expanduser()
+    else:
+        home = os.environ.get("HOME")
+        base = Path(home).expanduser() / ".claude" if home else Path.home() / ".claude"
     return base / "projects" / name, name
 
 
@@ -44,19 +48,23 @@ def json_records(path):
         return
 
 
+def file_modified_at_or_after(path, since):
+    try:
+        return path.stat().st_mtime >= since.timestamp()
+    except OSError:
+        return False
+
+
 def top_level_files(directory):
     try:
-        return sorted((path for path in directory.iterdir() if path.is_file()), key=str)
+        return sorted((path for path in directory.glob("*.jsonl") if path.is_file()), key=str)
     except OSError:
         return []
 
 
 def subagent_files(directory):
-    subagents = directory / "subagents"
-    if not subagents.is_dir():
-        return []
     try:
-        return sorted((path for path in subagents.rglob("*") if path.is_file()), key=str)
+        return sorted((path for path in directory.glob("*/subagents/**/*.jsonl") if path.is_file()), key=str)
     except OSError:
         return []
 
@@ -85,8 +93,8 @@ def check(lane_path, expected, since_text):
         print(f"unsupported lane path: session directory name is {len(name)} characters")
         return 1
 
-    top_files = top_level_files(directory)
-    all_files = top_files + subagent_files(directory)
+    top_files = [path for path in top_level_files(directory) if file_modified_at_or_after(path, since)]
+    all_files = top_files + [path for path in subagent_files(directory) if file_modified_at_or_after(path, since)]
     violations = []
     qualifying_file = False
 
