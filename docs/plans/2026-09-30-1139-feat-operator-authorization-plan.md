@@ -3,7 +3,7 @@ title: Operator Authorization - Plan
 type: feat
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
+artifact_readiness: implementation-ready
 status: planned
 execution: mixed
 ---
@@ -33,10 +33,24 @@ The [operator authorization record](../architecture/2026-09-30-operator-authoriz
 holds the decisions that outlive this plan. The ones below either restate
 that record's choices the user made or are local to the work.
 
-- OpenFGA is the engine, not SpiceDB. Why: SpiceDB's advantages (ZedTokens,
-  cursored lookups) pay off only with cached checks or listings far past one
-  page, and its audit logging is commercial. (decided by the user,
+- The landed foundation is the identity leaf and the tenant entity with
+  tenant-partitioned stores. The identity leaf landed in
+  `f1f75c2f..6f8f73d5`, and the tenant entity and partitioned stores landed in
+  `2088ca38..b0eafd4b`. Why: this plan starts from the existing
+  `model/identity`, `src/common/tenant`, and tenant-partitioned stores.
+- A request's tenant is named per request and admitted by membership. The
+  `X-FlowSeer-Tenant` header names it, and the caller is admitted when
+  FlowSeer has enrolled them and their token claims the tenant's organization.
+  Why: one token can act in several tenants, and a service provider's admins
+  reach customer tenants through the `partner` relation. (decided by the user,
   2026-09-30)
+- This plan absorbs the earlier authorization plan, and the remaining phases
+  continue here. Why: this record carries the spike evidence, the per-RPC
+  rule, the list checks, and the membership model, while phases 3 to 6 of the
+  earlier plan never started. (decided by the user, 2026-09-30)
+- The engine is chosen after a SpiceDB spike that repeats the OpenFGA spike's
+  measurements. (decided by the user, 2026-09-30) Why: the two records chose
+  different engines without running them on the same workload.
 - OpenFGA runs as its own service on a Postgres that is external from the
   first deployment, never embedded in a FlowSeer host. Why: each can move
   and scale alone. (decided by the user, 2026-09-30)
@@ -217,19 +231,7 @@ service.
 
 ## Open questions
 
-- Reconcile with `docs/architecture/2026-09-28-operator-authorization-direction.md`,
-  accepted 2026-09-28, which landed phases 1 and 2 of its own parent plan
-  (`docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md`: the
-  `model/identity` leaf, the tenant entity bound to one issuer and
-  organization, tenant-partitioned stores, and the edgebus tenant token)
-  before this record was written. The two disagree on the engine (SpiceDB
-  behind an interface there, OpenFGA here) and on how a request's tenant is
-  chosen (bound to the token's organization there, named per request and
-  admitted by FlowSeer-owned membership here). The user decided on
-  2026-09-30 to land the 09-28 work first and reconcile before either
-  parent's next phase is planned; this plan waits on that.
+- Which engine does the user choose after the SpiceDB spike and before phase 2
+  is re-planned?
 - Which OIDC issuer the lab deployment runs (Zitadel, Keycloak, or Dex).
   Phase 2 decides. Any of them passes the vendor rule.
-- How a provider's organization identifiers map to FlowSeer tenant ids
-  when one tenant has several issuers. Phase 2 decides the configuration
-  shape. One issuer with identical ids is the starting case.

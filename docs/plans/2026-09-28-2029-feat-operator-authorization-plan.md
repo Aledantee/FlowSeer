@@ -4,12 +4,15 @@ type: feat
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: superseded
+superseded_by: docs/plans/2026-09-30-1139-feat-operator-authorization-plan.md
 execution: mixed
 amends: docs/architecture/2026-08-20-device-service-and-inventory-direction.md
 ---
 
 # Operator Authorization - Plan
+
+> Phases 1 and 2 landed. The remaining work continues in the 09-30 authorization plan.
 
 ## Goal
 

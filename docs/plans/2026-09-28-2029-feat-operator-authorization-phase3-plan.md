@@ -4,7 +4,8 @@ type: feat
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: needs-decisions
-status: planned
+status: superseded
+superseded_by: docs/plans/2026-09-30-1139-feat-operator-authorization-plan.md
 execution: mixed
 parent: docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md
 ---

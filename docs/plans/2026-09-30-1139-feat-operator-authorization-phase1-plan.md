@@ -283,7 +283,8 @@ go test ./test/conformance/proto/ ./src/services/device/internal/authn/ ./src/se
 
 ## Open questions
 
-- Waits on the parent plan's reconciliation question.
+- Re-plans against a tree holding `model/identity`, `src/common/tenant`, and
+  tenant-partitioned stores.
 - Whether a nested value name inside an option literal trips buf's export
   rule for edition 2024. `buf lint` on U1's draft settles it. A top-level
   `RuleMode` enum avoids the question.
