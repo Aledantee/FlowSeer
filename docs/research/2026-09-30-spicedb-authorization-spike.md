@@ -435,9 +435,11 @@ maximum staleness. This explains why first deny does not mark convergence in
 this topology. It does not establish a bound for other datastores or
 deployments.
 
-The configured bound is 0.1 × 5 s = 500 ms. In these trials, the 303 to 412 ms
-last-allow figure is measured from the scheduled revoke time. The last allow
-minus first deny was 229 to 438 ms.
+The configured maximum-staleness allowance is 0.1 × 5 s = 500 ms past a
+quantization boundary. In these trials, the last allow ran 303 to 412 ms past
+the first boundary after the revoke. The revoked grant stayed allowed for up to
+4.87 s after the delete response, with last allows ranging from 0.886 to
+4.870 s. Last allow minus first deny was 229 to 438 ms.
 
 The OpenFGA note measured 1.509-9.019 s with check caching and the cache
 controller enabled across two replicas. The default-cache trials above observe

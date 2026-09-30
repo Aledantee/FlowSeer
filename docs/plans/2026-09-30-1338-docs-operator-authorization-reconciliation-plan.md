@@ -235,10 +235,11 @@ Change:
   in the 09-30 plan.
 - The 09-30 parent's Decisions gain the landed foundation (the tenancy the
   09-28 phases built, with their `Landed:` ranges) and this plan's three
-  user decisions. Its open question on organization-to-tenant mapping is
-  answered by the tenant binding and removed. The reconciliation hold under
-  its Open questions is replaced by one question: the engine, decided by
-  the user after the SpiceDB spike, before its phase 2 re-plans. Its
+  user decisions. Its organization-mapping question is answered for one
+  issuer by the tenant binding. The several-issuer case stays open in the
+  parent plan's Open questions. The reconciliation hold under its Open
+  questions is replaced by one question: the engine, decided by the user
+  after the SpiceDB spike, before its phase 2 re-plans. Its
   `artifact_readiness` returns to `implementation-ready`.
 - The 09-30 phase 1 plan's hold is replaced by one line: it re-plans
   against a tree holding `model/identity`, `src/common/tenant`, and the
