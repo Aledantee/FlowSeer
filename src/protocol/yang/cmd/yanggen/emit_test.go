@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"go/ast"
 	"go/parser"
@@ -13,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 // updateGolden refreshes the committed goldens under testdata/golden/.
@@ -494,6 +496,7 @@ func TestEmitFileRenderFailurePreservesExistingOutput(t *testing.T) {
 	}
 
 	vendorDir := filepath.Join(outDir, vsGood.Vendor)
+	assertOutputModes(t, vendorDir)
 	before := make(map[string][]byte)
 	err = filepath.Walk(vendorDir, func(p string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -532,6 +535,7 @@ func TestEmitFileRenderFailurePreservesExistingOutput(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	assertOutputModes(t, vendorDir)
 	after := make(map[string][]byte)
 	err = filepath.Walk(vendorDir, func(p string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -578,6 +582,259 @@ func TestEmitFileRenderFailurePreservesExistingOutput(t *testing.T) {
 		if strings.HasPrefix(e.Name(), ".") {
 			t.Errorf("temporary directory/file %s leaked under outDir", e.Name())
 		}
+	}
+}
+
+func assertOutputModes(t *testing.T, vendorDir string) {
+	t.Helper()
+	vInfo, err := os.Stat(vendorDir)
+	if err != nil {
+		t.Fatalf("stat vendor dir: %v", err)
+	}
+	if got := vInfo.Mode().Perm(); got != 0o755 {
+		t.Errorf("vendor dir %s mode = %04o, want 0755", vendorDir, got)
+	}
+	err = filepath.Walk(vendorDir, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if got := info.Mode().Perm(); got != 0o755 {
+				t.Errorf("dir %s mode = %04o, want 0755", p, got)
+			}
+		} else {
+			if got := info.Mode().Perm(); got != 0o644 {
+				t.Errorf("file %s mode = %04o, want 0644", p, got)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk vendor dir %s: %v", vendorDir, err)
+	}
+}
+
+func TestEmitOutputModes(t *testing.T) {
+	tempDir, err := os.MkdirTemp(".", ".yanggen-emit-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	outDir := filepath.Join(tempDir, "generated")
+
+	vs := fixtureVendor(t)
+	if err := Emit([]*VendorSet{vs}, outDir); err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+	vendorDir := filepath.Join(outDir, vs.Vendor)
+	assertOutputModes(t, vendorDir)
+}
+
+func TestEmitPrunesStaleTmpDirsAndRestoresOld(t *testing.T) {
+	t.Run("prunes stale staging when vendor dir exists", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp(".", ".yanggen-emit-test-")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+		outDir := filepath.Join(tempDir, "generated")
+
+		vsGood := fixtureVendor(t)
+		if err := Emit([]*VendorSet{vsGood}, outDir); err != nil {
+			t.Fatalf("initial Emit: %v", err)
+		}
+
+		staleTmp := filepath.Join(outDir, "."+vsGood.Vendor+"-tmp-stale")
+		if err := os.Mkdir(staleTmp, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		staleOld := filepath.Join(outDir, "."+vsGood.Vendor+"-old-stale")
+		if err := os.Mkdir(staleOld, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := Emit([]*VendorSet{vsGood}, outDir); err != nil {
+			t.Fatalf("second Emit: %v", err)
+		}
+
+		if _, err := os.Stat(staleTmp); !os.IsNotExist(err) {
+			t.Errorf("stale tmp dir %s still exists", staleTmp)
+		}
+		if _, err := os.Stat(staleOld); !os.IsNotExist(err) {
+			t.Errorf("stale old dir %s still exists", staleOld)
+		}
+	})
+
+	t.Run("restores newest old dir when vendor dir is missing", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp(".", ".yanggen-emit-test-")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+		outDir := filepath.Join(tempDir, "generated")
+
+		vsGood := fixtureVendor(t)
+		vendorDir := filepath.Join(outDir, vsGood.Vendor)
+
+		if err := os.MkdirAll(outDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		staleTmp := filepath.Join(outDir, "."+vsGood.Vendor+"-tmp-crash")
+		if err := os.Mkdir(staleTmp, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		olderDir := filepath.Join(outDir, "."+vsGood.Vendor+"-old-1")
+		if err := os.Mkdir(olderDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(olderDir, "sentinel.txt"), []byte("older-sentinel"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		newerDir := filepath.Join(outDir, "."+vsGood.Vendor+"-old-2")
+		if err := os.Mkdir(newerDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(newerDir, "sentinel.txt"), []byte("newer-sentinel"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		now := time.Now()
+		if err := os.Chtimes(olderDir, now.Add(-10*time.Minute), now.Add(-10*time.Minute)); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(newerDir, now.Add(-1*time.Minute), now.Add(-1*time.Minute)); err != nil {
+			t.Fatal(err)
+		}
+
+		vsBad := fixtureVendor(t)
+		mainMod := moduleByName(t, vsBad, "fixture-main")
+		server := mainMod.Entry.Dir["servers"].Dir["server"]
+		server.Key = "nonexistent-key"
+
+		err = Emit([]*VendorSet{vsBad}, outDir)
+		if err == nil {
+			t.Fatal("Emit with invalid list key succeeded, want error")
+		}
+
+		got, err := os.ReadFile(filepath.Join(vendorDir, "sentinel.txt"))
+		if err != nil {
+			t.Fatalf("read sentinel from restored vendorDir: %v", err)
+		}
+		if string(got) != "newer-sentinel" {
+			t.Errorf("restored vendorDir sentinel = %q, want %q", got, "newer-sentinel")
+		}
+
+		if _, err := os.Stat(olderDir); !os.IsNotExist(err) {
+			t.Errorf("older dir %s still exists", olderDir)
+		}
+		if _, err := os.Stat(staleTmp); !os.IsNotExist(err) {
+			t.Errorf("stale tmp dir %s still exists", staleTmp)
+		}
+		if _, err := os.Stat(newerDir); !os.IsNotExist(err) {
+			t.Errorf("newer dir %s still exists at temp path", newerDir)
+		}
+	})
+}
+
+func TestEmitRollbackFailurePreservesOldDir(t *testing.T) {
+	tempDir, err := os.MkdirTemp(".", ".yanggen-emit-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	outDir := filepath.Join(tempDir, "generated")
+
+	vsGood := fixtureVendor(t)
+	if err := Emit([]*VendorSet{vsGood}, outDir); err != nil {
+		t.Fatalf("initial Emit: %v", err)
+	}
+	vendorDir := filepath.Join(outDir, vsGood.Vendor)
+	sentinel := filepath.Join(vendorDir, "sentinel.txt")
+	if err := os.WriteFile(sentinel, []byte("original-data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origRename := rename
+	t.Cleanup(func() { rename = origRename })
+
+	var capturedOldDir string
+	rename = func(oldpath, newpath string) error {
+		if oldpath == vendorDir && strings.Contains(newpath, "-old-") {
+			capturedOldDir = newpath
+			return origRename(oldpath, newpath)
+		}
+		if strings.Contains(oldpath, "-tmp-") && newpath == vendorDir {
+			return errors.New("injected swap failure")
+		}
+		if capturedOldDir != "" && oldpath == capturedOldDir && newpath == vendorDir {
+			return errors.New("injected rollback failure")
+		}
+		return origRename(oldpath, newpath)
+	}
+
+	err = Emit([]*VendorSet{vsGood}, outDir)
+	if err == nil {
+		t.Fatal("Emit succeeded, want swap/rollback error")
+	}
+	if capturedOldDir == "" {
+		t.Fatal("vendorDir was never renamed to oldDir")
+	}
+	if !strings.Contains(err.Error(), capturedOldDir) {
+		t.Fatalf("error %q does not name oldDir %q", err, capturedOldDir)
+	}
+	if _, statErr := os.Stat(capturedOldDir); statErr != nil {
+		t.Fatalf("oldDir %s missing after rollback failure: %v", capturedOldDir, statErr)
+	}
+	got, readErr := os.ReadFile(filepath.Join(capturedOldDir, "sentinel.txt"))
+	if readErr != nil {
+		t.Fatalf("read sentinel in oldDir: %v", readErr)
+	}
+	if string(got) != "original-data" {
+		t.Fatalf("sentinel in oldDir = %q, want %q", got, "original-data")
+	}
+}
+
+func TestEmitRollbackSuccessRestoresVendorDir(t *testing.T) {
+	tempDir, err := os.MkdirTemp(".", ".yanggen-emit-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	outDir := filepath.Join(tempDir, "generated")
+
+	vsGood := fixtureVendor(t)
+	if err := Emit([]*VendorSet{vsGood}, outDir); err != nil {
+		t.Fatalf("initial Emit: %v", err)
+	}
+	vendorDir := filepath.Join(outDir, vsGood.Vendor)
+	sentinel := filepath.Join(vendorDir, "sentinel.txt")
+	if err := os.WriteFile(sentinel, []byte("original-data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origRename := rename
+	t.Cleanup(func() { rename = origRename })
+
+	rename = func(oldpath, newpath string) error {
+		if strings.Contains(oldpath, "-tmp-") && newpath == vendorDir {
+			return errors.New("injected swap failure")
+		}
+		return origRename(oldpath, newpath)
+	}
+
+	err = Emit([]*VendorSet{vsGood}, outDir)
+	if err == nil {
+		t.Fatal("Emit succeeded, want swap error")
+	}
+	got, readErr := os.ReadFile(sentinel)
+	if readErr != nil {
+		t.Fatalf("read sentinel after rollback: %v", readErr)
+	}
+	if string(got) != "original-data" {
+		t.Fatalf("sentinel after rollback = %q, want %q", got, "original-data")
 	}
 }
 

@@ -67,7 +67,8 @@
 //
 // The default invocation and -update both rebuild every configured vendor's
 // output directory. Generation renders to temporary directories and swaps each
-// vendor into place only after every vendor renders without error. A failed run
-// leaves existing output untouched. -check verifies source hashes and the
-// generator version, so it does not detect edited or missing generated Go files.
+// vendor into place only after every vendor renders without error. A failure
+// while rendering leaves existing output untouched. -check verifies source
+// hashes and the generator version, so it does not detect edited or missing
+// generated Go files.
 package main

@@ -5,9 +5,12 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
+
+var rename = os.Rename
 
 func buildEmissionPlan(vs *VendorSet, importBase string) (*emissionPlan, error) {
 	view, err := buildVendorDataView(vs.Modules, vs.Recovered)
@@ -144,6 +147,9 @@ func Emit(sets []*VendorSet, outDir string) error {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return errs.Wrapf(err, "create output directory %s", outDir)
 	}
+	if err := pruneStagingDirs(outDir, sets); err != nil {
+		return err
+	}
 
 	type stagedVendor struct {
 		vendor    string
@@ -166,6 +172,9 @@ func Emit(sets []*VendorSet, outDir string) error {
 			return errs.Wrapf(err, "create temp dir for vendor %s", vs.Vendor)
 		}
 		cleanups[tmpDir] = struct{}{}
+		if err := os.Chmod(tmpDir, 0o755); err != nil {
+			return errs.Wrapf(err, "chmod temp dir for vendor %s", vs.Vendor)
+		}
 		staged[i] = stagedVendor{vendor: vs.Vendor, tmpDir: tmpDir, vendorDir: vendorDir}
 
 		plan := plans[i]
@@ -201,12 +210,16 @@ func Emit(sets []*VendorSet, outDir string) error {
 			if err := os.Remove(oldDir); err != nil {
 				return errs.Wrapf(err, "prepare temp path for old vendor %s", s.vendor)
 			}
-			cleanups[oldDir] = struct{}{}
-			if err := os.Rename(s.vendorDir, oldDir); err != nil {
+			if err := rename(s.vendorDir, oldDir); err != nil {
 				return errs.Wrapf(err, "rename old vendor %s aside", s.vendorDir)
 			}
-			if err := os.Rename(s.tmpDir, s.vendorDir); err != nil {
-				_ = os.Rename(oldDir, s.vendorDir)
+			cleanups[oldDir] = struct{}{}
+			if err := rename(s.tmpDir, s.vendorDir); err != nil {
+				if rerr := rename(oldDir, s.vendorDir); rerr != nil {
+					delete(cleanups, oldDir)
+					return errs.Wrapf(err, "rename new vendor %s into place; rollback from %s failed: %v", s.vendorDir, oldDir, rerr)
+				}
+				delete(cleanups, oldDir)
 				return errs.Wrapf(err, "rename new vendor %s into place", s.vendorDir)
 			}
 			delete(cleanups, s.tmpDir)
@@ -215,12 +228,79 @@ func Emit(sets []*VendorSet, outDir string) error {
 			}
 			delete(cleanups, oldDir)
 		} else if os.IsNotExist(err) {
-			if err := os.Rename(s.tmpDir, s.vendorDir); err != nil {
+			if err := rename(s.tmpDir, s.vendorDir); err != nil {
 				return errs.Wrapf(err, "rename new vendor %s into place", s.vendorDir)
 			}
 			delete(cleanups, s.tmpDir)
 		} else {
 			return errs.Wrapf(err, "stat vendor %s", s.vendorDir)
+		}
+	}
+	return nil
+}
+
+func pruneStagingDirs(outDir string, sets []*VendorSet) error {
+	for _, vs := range sets {
+		entries, err := os.ReadDir(outDir)
+		if err != nil {
+			return errs.Wrapf(err, "read output directory %s", outDir)
+		}
+
+		tmpPattern := "." + vs.Vendor + "-tmp-*"
+		oldPattern := "." + vs.Vendor + "-old-*"
+
+		type oldDir struct {
+			path    string
+			modTime time.Time
+		}
+		var oldDirs []oldDir
+
+		for _, e := range entries {
+			name := e.Name()
+			if matched, _ := filepath.Match(tmpPattern, name); matched {
+				if err := os.RemoveAll(filepath.Join(outDir, name)); err != nil {
+					return errs.Wrapf(err, "remove stale tmp dir %s", name)
+				}
+				continue
+			}
+			if matched, _ := filepath.Match(oldPattern, name); matched {
+				info, err := e.Info()
+				if err != nil {
+					return errs.Wrapf(err, "stat stale old dir %s", name)
+				}
+				oldDirs = append(oldDirs, oldDir{
+					path:    filepath.Join(outDir, name),
+					modTime: info.ModTime(),
+				})
+			}
+		}
+
+		vendorDir := filepath.Join(outDir, vs.Vendor)
+		_, err = os.Lstat(vendorDir)
+		vendorMissing := os.IsNotExist(err)
+		if err != nil && !vendorMissing {
+			return errs.Wrapf(err, "stat vendor %s", vendorDir)
+		}
+
+		if vendorMissing && len(oldDirs) > 0 {
+			slices.SortFunc(oldDirs, func(a, b oldDir) int {
+				if a.modTime.After(b.modTime) {
+					return -1
+				}
+				if a.modTime.Before(b.modTime) {
+					return 1
+				}
+				return strings.Compare(b.path, a.path)
+			})
+			if err := rename(oldDirs[0].path, vendorDir); err != nil {
+				return errs.Wrapf(err, "restore old vendor %s from %s", vendorDir, oldDirs[0].path)
+			}
+			oldDirs = oldDirs[1:]
+		}
+		for _, old := range oldDirs {
+			if err := os.RemoveAll(old.path); err != nil {
+				return errs.Wrapf(err, "remove stale old dir %s", old.path)
+			}
 		}
 	}
 	return nil
