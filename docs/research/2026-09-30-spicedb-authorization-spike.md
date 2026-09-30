@@ -1,239 +1,244 @@
 # SpiceDB authorization spike
 
-Date: 2026-09-30. Status: supporting research for the [operator
-authorization record](../architecture/2026-09-30-operator-authorization-direction.md),
-which decides.
+Date: 2026-09-30
 
-This note compares SpiceDB v1.56.2 with OpenFGA v1.21.0 on the same workload.
-The measurements ran on a laptop and show relative behavior, not service
-capacity.
+This note records a controlled comparison of SpiceDB v1.56.2 and OpenFGA v1.21.0 for the operator authorization workload. The measurements cover consistency, revocation, resource lookup, tag exclusion, tenant membership, and rebuild cost.
 
-## Setup
+The harness, generated data, and service containers lived outside the repository. Each service used PostgreSQL. All counterpart values used the same generated workload and service configuration. SpiceDB used its default dispatch cache setting, enabled, its default revision quantization interval of five seconds, and a maximum staleness percentage of 0.1. Point-check latency and membership latency used `fully_consistent` for SpiceDB alongside the separate `minimize_latency` column. Throughput and resource lookup used `fully_consistent`. OpenFGA used its REST API. Ordinary OpenFGA check and lookup measurements disabled its query, iterator, and ListObjects iterator caches. The revocation comparison enabled the query, iterator, ListObjects iterator, and cache controller on both OpenFGA instances with the default ten-second cache TTL. The OpenFGA embedded deployment does not apply to this service-backed comparison. SpiceDB has no embedded deployment counterpart.
 
-- SpiceDB A used port 15051 with a PostgreSQL 17 datastore. SpiceDB B used
-  port 15052 against the same datastore for revocation writes. A separate
-  SpiceDB rebuild server used port 15053 and its own PostgreSQL 17 datastore.
-- OpenFGA v1.21.0 used port 18080 and its own PostgreSQL 17 datastore.
-- All containers ran under Colima.
-- OpenFGA ran with its check and iterator caches disabled, a 50,000 result
-  limit for `ListObjects`, and a 1,000 tuple write batch.
-- The dataset contained 20 tenants, 50 sites per tenant, 40 edges per site,
-  200 users per tenant with one or two of 10 roles, two capture sessions per
-  edge, 363 Tags, and 22,080 Tag grant edges. The union dataset contained
-  302,021 tuples.
-- Checks used SpiceDB `minimize_latency` and `fully_consistent`. Revocation
-  trials also used `at_least_as_fresh` with the token from the revoking write.
-  These modes provide different freshness and latency tradeoffs as described
-  in [SpiceDB consistency](https://authzed.com/docs/spicedb/concepts/consistency).
+## Workload
 
-## Schema translation
+The union dataset contains:
 
-The union model keeps stored relationships separate from computed permissions.
-The SpiceDB form uses `relation` for stored edges, `permission` for computed
-access, and arrows for traversal. This follows the relationship and permission
-mapping described in [the SpiceDB OpenFGA migration guide](https://authzed.com/docs/spicedb/migrate-to-spicedb/migrate-from/openfga).
+- 20 tenants
+- 50 sites per tenant
+- 40 edges per site, for 40,000 edges
+- two capture sessions per edge
+- 200 users per tenant
+- one or two of ten roles per user
+- three tag roots per tenant, branching factor three, depth four including the root, for 120 tags per tenant and 2,400 tags overall
+- two tag relationships per edge
+
+The union schema stored 292,238 relationships. The membership variant added 4,023 enrollment, partner, and administrative relationships. The resource checks used the same edge and tag graph in both systems.
+
+The common resource path was:
 
 ```text
-definition user {}
-definition platform {
-    relation admin: user
+user -> capture_session -> edge -> site -> tenant
+user -> edge -> tag_assignment -> tag -> tenant
+```
+
+The tag-assignment shape kept a tag grant scoped to an edge. Its effective permissions were:
+
+```text
+tag_assignment.capture = tag.capturer - blocked
+tag_assignment.view    = tag.viewer - blocked
+edge.capture           = site.capturer + tag_assignment.capture
+edge.view              = edge.capture + site.viewer + tag_assignment.view
+```
+
+## Check latency
+
+Each row is 1,000 sequential checks. Values are milliseconds at p50 and p99. OpenFGA caches were disabled for these measurements.
+
+| Scenario | SpiceDB fully consistent | SpiceDB minimize latency | OpenFGA cache off |
+| --- | ---: | ---: | ---: |
+| Global admin edge capture | 3.656 / 19.063 | 1.202 / 6.583 | 2.406 / 7.161 |
+| Tenant capturer edge capture | 1.819 / 10.840 | 1.385 / 75.740 | 6.379 / 129.840 |
+| Site capturer edge capture | 1.690 / 26.295 | 5.820 / 56.007 | 11.371 / 183.143 |
+| Tag grant three levels up | 11.479 / 260.507 | 6.069 / 97.733 | 4.201 / 27.489 |
+| No grant | 1.607 / 12.985 | 2.789 / 14.717 | 7.132 / 46.522 |
+| Global admin tenant payload deny | 4.678 / 36.556 | 2.824 / 18.677 | 3.454 / 18.271 |
+
+For a 50-item batch containing 27 allowed and 23 denied pairs, SpiceDB fully consistent completed in 33.142 ms. The OpenFGA cache-off batch completed in 38.321 ms.
+
+With 16 concurrent callers and 1,600 random edge checks, SpiceDB fully consistent completed in 2.885 seconds at 554.6 checks per second. OpenFGA with caches off completed in 2.125 seconds at 752.8 checks per second.
+
+## Resource lookup
+
+SpiceDB used `LookupResources` with a page size of 1,000 and followed every cursor. OpenFGA used `ListObjects` with a maximum result count of 50,000.
+
+| Subject | SpiceDB raw rows | SpiceDB distinct resources | SpiceDB pages | SpiceDB total | OpenFGA objects | OpenFGA total |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Tag user | 1,104 | 1,104 | 2 | 36.841 ms | 1,104 | 8.291 ms |
+| Global admin | 80,000 | 40,000 | 80 | 2,697.875 ms | 40,000 | 113.167 ms |
+
+The global-admin SpiceDB result contains two raw rows for each edge because the site and tag branches both return it. The client must union the raw stream into 40,000 distinct resources.
+
+A separate OpenFGA instance with `listObjectsMaxResults` set to 1,000 returned exactly 1,000 objects in 40.576 ms. The response contained only the `objects` field and no continuation token or partial-result marker. A caller must therefore know the configured cap and query the remaining set by another design if more results are possible.
+
+## Revocation and cache staleness
+
+The revocation test warmed checks on SpiceDB A. A grant was written through SpiceDB B more than five seconds before the revoke. The revoke occurred 50, 150, 250, 350, or 450 ms after a five-second revision boundary. The measured value is wall time from the delete response to the first deny on A. Each mode has five trials in that offset order.
+
+| SpiceDB consistency mode | Allowed after revoke, ms | Check latency, ms |
+| --- | --- | --- |
+| `minimize_latency` | 10.150, 12.851, 4.963, 3.840, 4.805 | 10.140, 12.823, 4.955, 3.834, 4.798 |
+| `at_least_as_fresh` with the revoking write token | 6.857, 5.174, 4.505, 12.772, 4.984 | 6.849, 5.165, 4.497, 12.759, 4.975 |
+| `fully_consistent` | 4.723, 5.209, 3.924, 4.954, 3.932 | 4.714, 5.201, 3.915, 4.946, 3.924 |
+
+OpenFGA used cache-on instances for this comparison. Its allowed-after-revoke times were 28.059, 28.740, 25.925, 27.952, and 29.747 ms. The corresponding check latencies were 4.105, 4.532, 3.576, 4.014, and 3.325 ms.
+
+The SpiceDB measurements show the cost of a consistency choice without a long stale-read window in this topology. `fully_consistent` and `at_least_as_fresh` denied in about one check. OpenFGA's cache-on path also denied quickly here, with a higher end-to-end revoke-to-deny delay than the observed SpiceDB modes.
+
+## Tag exclusion and preview
+
+Both systems modeled an explicit `tag_assignment` object for each edge and tag pair. SpiceDB preview used `LookupResources` under the exclusion permission. OpenFGA preview used `ListObjects` under the equivalent permission. The SpiceDB form was:
+
+```text
+definition tag_assignment {
+    relation edge: edge
+    relation tag: tag
+    relation blocked: user | user:*
+    permission capture = tag->capturer - blocked
+    permission view = tag->viewer - blocked
 }
-definition role {
-    relation assignee: user
+
+definition edge {
+    relation site: site
+    relation tag_assignment: tag_assignment
+    permission capture = site->capturer + tag_assignment->capture
+    permission view = capture + site->viewer + tag_assignment->view
 }
+```
+
+The equivalent OpenFGA form used `capturer from tag but not blocked` and `viewer from tag but not blocked` on `tag_assignment`, then unioned those permissions with the site path on `edge`.
+
+The excluded subtree contained 13 tags and affected 406 edges. Preview removed the same effective resources as the subsequent relationship deletion.
+
+| Engine and operation | Baseline resources | Preview resources | Preview time | Delete resources | Delete time |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| SpiceDB, one tag | 1,104 | 1,103 | 104.392 ms | 1,103 | 134.794 ms |
+| SpiceDB, 13-tag subtree | 1,104 | 698 | 94.778 ms | 698 | 38.247 ms |
+| OpenFGA, one tag | 1,104 | 1,103 | 5.932 ms | 1,103 | 6.523 ms |
+| OpenFGA, 13-tag subtree | 1,104 | 698 | 4.965 ms | 698 | 5.955 ms |
+
+The single-tag preview removed one user-resource pair. The subtree preview removed 406 pairs. Each preview returned one user and the expected resource pairs.
+
+A one-tenant rebuild included exactly 14,615 relationships or tuples, including capture sessions. A fresh SpiceDB datastore accepted its schema and data in 497.454 ms. A fresh OpenFGA store accepted its model and tuples in 1,710.839 ms.
+
+## Tenant membership
+
+The SpiceDB membership model used a caveat for enrollment freshness. Its relevant definitions were:
+
+```text
+caveat tenant_claim(claimed_orgs list<string>, current_time timestamp,
+                    organization string, expires_at timestamp) {
+    organization in claimed_orgs && current_time < expires_at
+}
+
+definition platform { relation admin: user }
+definition role { relation assignee: user }
+
 definition tenant {
     relation platform: platform
+    relation partner: tenant
+    relation enrolled: user with tenant_claim
     relation direct_admin: user | role#assignee
     relation direct_capturer: user | role#assignee
     relation direct_viewer: user | role#assignee
-    relation direct_full_payload: user | role#assignee
+    permission active_admin = direct_admin & member
+    permission member = enrolled + partner->active_admin + platform->admin
     permission admin = direct_admin + platform->admin
     permission capturer = direct_capturer + admin
-    permission viewer = direct_viewer + capturer
-    permission full_payload = direct_full_payload
+    permission viewer = direct_viewer + capturer + admin
 }
+
 definition site {
     relation tenant: tenant
     relation direct_capturer: user | role#assignee
     relation direct_viewer: user | role#assignee
-    permission capturer = direct_capturer + tenant->capturer
-    permission viewer = direct_viewer + capturer + tenant->viewer
+    permission capturer = (direct_capturer + tenant->capturer) & tenant->member
+    permission viewer = (direct_viewer + capturer + tenant->viewer) & tenant->member
+    permission member = tenant->member
 }
+
 definition tag {
     relation tenant: tenant
     relation parent: tag
     relation direct_capturer: user | role#assignee
     relation direct_viewer: user | role#assignee
-    permission capturer = direct_capturer + parent->capturer
-    permission viewer = direct_viewer + capturer + parent->viewer
+    permission capturer = (direct_capturer + parent->capturer) & tenant->member
+    permission viewer = (direct_viewer + capturer + parent->viewer) & tenant->member
+    permission member = tenant->member
 }
+
 definition edge {
     relation site: site
     relation tag: tag
-    permission capture = site->capturer + tag->capturer
-    permission view = capture + site->viewer + tag->viewer
+    permission capture = (site->capturer + tag->capturer) & site->member
+    permission view = (capture + site->viewer + tag->viewer) & site->member
 }
+
 definition capture_session {
     relation edge: edge
     relation requester: user
     permission download = requester + edge->capture
 }
-definition partner {
-    relation admin: user
-}
 ```
 
-## Check latency
+The stored enrollment relationship carried `organization` and `expires_at` in its optional caveat context. Requests supplied `claimed_orgs` and `current_time`. Expiration was therefore evaluated from stored relationship context and request-time context.
 
-Each row used 1,000 calls. The result column confirms that both engines made
-the same allow or deny decision.
+The OpenFGA model represented membership as `(claimed and enrolled) or active_admin from partner or admin from platform`. Contextual `claimed` tuples represented the token organization claims. The stored `enrolled` tuples used a `membership_fresh` condition with `expires_at`, while each request supplied `current_time`.
 
-| Path | SpiceDB fully consistent p50 / p99 ms | SpiceDB minimum latency p50 / p99 ms | OpenFGA cache off p50 / p99 ms | Result |
-| --- | ---: | ---: | ---: | --- |
-| Global admin, edge capture | 0.614 / 1.486 | 0.513 / 0.879 | 1.662 / 4.199 | allow |
-| Tenant capturer, edge capture | 0.636 / 0.985 | 0.454 / 0.756 | 1.249 / 2.418 | allow |
-| Site capturer, edge capture | 0.575 / 0.884 | 0.437 / 0.670 | 0.775 / 2.629 | allow |
-| Tag grant three levels up | 0.622 / 1.590 | 0.467 / 1.493 | 1.462 / 3.162 | allow |
-| No grant | 0.731 / 1.297 | 0.528 / 0.874 | 1.688 / 3.583 | deny |
-| Global admin, tenant full payload | 0.591 / 0.835 | 0.447 / 0.768 | 0.668 / 1.202 | deny |
-
-`BatchCheck` for 50 sessions measured 0.682 / 17.192 ms on SpiceDB and
-28.885 / 41.192 ms on OpenFGA at p50 / p99. Both results were allowed.
-
-## Throughput
-
-With 16 concurrent callers and 1,600 checks, SpiceDB reached 2,158.3 checks
-per second. OpenFGA reached 1,218.2 checks per second with its caches off.
-
-## Resource lookup
-
-Both engines returned complete results for `edge#capture`.
-
-| Subject | SpiceDB count | SpiceDB pages | SpiceDB last page ms | OpenFGA count | OpenFGA elapsed ms |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Tag-derived grant | 1,104 | 3 | 16.054 | 1,104 | 5.518 |
-| Global admin | 40,000 | 41 | 12.827 | 40,000 | 67.507 |
-
-SpiceDB reported complete pagination on every lookup. OpenFGA returned an
-empty continuation token for both results.
-
-## Revocation
-
-The harness wrote each grant through SpiceDB B and checked through SpiceDB A.
-The values below are the five allowed durations in milliseconds followed by
-the five check latencies in milliseconds.
-
-| Consistency mode | Allowed duration trials | Check latency trials |
-| --- | --- | --- |
-| `minimize_latency` | 0.997, 0.914, 0.849, 0.872, 0.839 | 0.996, 0.914, 0.849, 0.872, 0.839 |
-| `at_least_as_fresh` | 2.355, 2.479, 2.329, 2.273, 2.388 | 2.355, 2.478, 2.328, 2.273, 2.388 |
-| `fully_consistent` | 2.599, 2.599, 2.488, 2.482, 2.630 | 2.590, 2.599, 2.488, 2.482, 2.630 |
-
-The `at_least_as_fresh` checks used the revoking write token. The consistency
-modes and ZedToken behavior are described in [SpiceDB consistency](https://authzed.com/docs/spicedb/concepts/consistency).
-SpiceDB `minimize_latency` uses the documented default 5 s revision-quantization
-interval. These five trials did not wait for a quantization-boundary delay.
-
-## Tag preview
-
-The earlier zero result was a selection bug. The corrected dataset intentionally
-places 406 grant edges under the 13-Tag preview subtree. The complete Tag
-derived set contains 1,104 edges, so 698 remain outside the subtree.
-
-| Operation | Preview result | Real delete result | Equal |
-| --- | ---: | ---: | --- |
-| Remove one Tag from one edge | 1,103 allowed resources | 1,103 allowed resources | true |
-| Remove the 13-Tag subtree | 698 allowed resources | 698 allowed resources | true |
-
-The SpiceDB subtree preview lookup completed in 6.642 ms on the last page. The
-real delete lookup completed in 4.532 ms on the last page, and the real delete
-write took 402.938 ms. The affected edge count was 406.
-
-The OpenFGA throwaway-store rebuild took 67,802.654 ms. Its baseline lookup
-returned 1,104 resources and its post-delete lookup returned 698. The delete
-took 25.577 ms and the measured difference was 406 resources.
-
-## Membership gated by token claims
-
-The membership model uses the intended permission shape:
+Its resource intersections were:
 
 ```text
-permission member = enrolled + partner->admin + platform->admin
+tenant.member = (claimed and enrolled)
+              or active_admin from partner
+              or admin from platform
+tenant.active_admin = direct_admin and member
+site.capturer = (direct_capturer or capturer from tenant) and member from tenant
+site.viewer = (direct_viewer or capturer or viewer from tenant) and member from tenant
+tag.capturer = (direct_capturer or capturer from parent) and member from tenant
+tag.viewer = (direct_viewer or capturer or viewer from parent) and member from tenant
+edge.capture = (capturer from site or capturer from tag) and member from site
+edge.view = (capture or viewer from site or viewer from tag) and member from site
 ```
 
-SpiceDB stores `enrolled` with the `tenant_claim` caveat. Its request context
-contains the claimed organization list, the current time, and the expiration
-time. SpiceDB caveats are request-time expressions with caller-supplied
-context, as described in [SpiceDB caveats](https://authzed.com/docs/spicedb/concepts/caveats).
+Fourteen correctness cases held in both engines. They covered missing and wrong claims, expired enrollment, direct grants without enrollment, partner administration with and without a provider claim, global platform administration, and the resource intersections for site and tag paths.
 
-OpenFGA stores `member-t0` and `decayed-t0` as conditioned `enrolled` tuples.
-Each tuple stores its organization and expiration context. The authorization
-model metadata declares the enrolled user type as:
+Tenant check latency used 1,000 sequential checks with OpenFGA caches disabled.
 
-```json
-{
-  "type": "user",
-  "condition": "tenant_claim"
-}
-```
-
-The `tenant_claim` condition compares the stored organization with the request
-`claimed_org` and requires `current_time` to precede `expires_at`. This uses
-the condition metadata and tuple context pattern in [OpenFGA conditions](https://openfga.dev/docs/modeling/conditions) and [OpenFGA ABAC guidance](https://openfga.dev/docs/best-practices/modeling-abac).
-
-### Tenant checks
-
-| Case | SpiceDB p50 / p99 ms | SpiceDB | OpenFGA p50 / p99 ms | OpenFGA |
-| --- | ---: | --- | ---: | --- |
-| Member, token lists the tenant | 0.568 / 1.234 | allow | 0.675 / 2.532 | allow |
-| Member, token lists nothing | 0.590 / 2.449 | deny | 2.713 / 33.003 | deny |
-| Enrollment decayed | 1.571 / 14.278 | deny | 1.541 / 7.674 | deny |
-| Partner admin, token lists the partner | 0.693 / 2.141 | allow | 1.228 / 3.716 | allow |
-| Global admin, token lists the platform | 0.639 / 2.380 | allow | 0.954 / 3.378 | allow |
-| Stranger | 0.554 / 1.135 | deny | 0.806 / 2.265 | deny |
-
-### Resource checks
-
-The resource permission intersects a site or Tag grant with tenant membership.
-The corrected OpenFGA dataset writes the membership edge's `tenant` relation
-to its `mtenant` object for every edge.
-
-| Case | SpiceDB p50 / p99 ms | SpiceDB | OpenFGA p50 / p99 ms | OpenFGA |
-| --- | ---: | --- | ---: | --- |
-| Member with claim | 0.511 / 1.394 | allow | 2.755 / 6.026 | allow |
-| Member without claim | 0.535 / 0.864 | deny | 1.262 / 4.143 | deny |
-| Decayed enrollment | 0.483 / 0.862 | deny | 1.021 / 2.695 | deny |
-| Partner admin without tenant claim | 0.501 / 0.958 | allow | 1.232 / 3.149 | allow |
-| Global admin without tenant claim | 0.493 / 0.818 | allow | 1.042 / 2.543 | allow |
-| Stranger | 0.459 / 0.813 | deny | 0.965 / 2.431 | deny |
-
-### Membership resource lookup
-
-| Subject | SpiceDB count | SpiceDB pages | OpenFGA count | OpenFGA elapsed ms |
-| --- | ---: | ---: | ---: | ---: |
-| Member Tag grant | 406 | 1 | 406 | 21.090 |
-| Global admin | 2,000 | 3 | 2,000 | 53.667 |
-
-Both engines reported complete results for both membership lookups.
-
-## Summary
-
-| Measure | SpiceDB | OpenFGA |
+| Case | SpiceDB fully consistent | OpenFGA cache off |
 | --- | ---: | ---: |
-| Core check throughput | 2,158.3 checks/s | 1,218.2 checks/s |
-| Tag-derived resource lookup | 1,104 complete | 1,104 complete |
-| Global resource lookup | 40,000 complete | 40,000 complete |
-| Tag preview after subtree removal | 698 resources | 698 resources |
-| Membership Tag lookup | 406 complete | 406 complete |
-| Membership global lookup | 2,000 complete | 2,000 complete |
+| Member with claim | 2.874 / 63.657 ms | 1.079 / 3.044 ms |
+| Member without claim | 1.141 / 3.442 ms | 1.189 / 2.369 ms |
+| Enrollment decayed | 1.150 / 1.819 ms | 1.131 / 1.695 ms |
+| Partner admin with provider claim | 1.093 / 2.947 ms | 1.370 / 2.378 ms |
+| Global admin with platform claim | 1.129 / 3.176 ms | 1.183 / 1.942 ms |
+| Stranger | 1.103 / 3.300 ms | 2.181 / 4.884 ms |
 
-These measurements cover one laptop configuration and one dataset shape. They
-do not establish capacity limits or production cost.
+Values are p50 and p99 in milliseconds.
+
+Membership-aware resource lookup exposed a larger difference in recursive intersection listing:
+
+| Subject | SpiceDB distinct resources | SpiceDB pages | SpiceDB total | OpenFGA objects | OpenFGA total |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Tag user with claim context | 1,104 | 2 | 71.172 ms | 1,104 | 1,194.308 ms |
+| Global admin with platform claim | 40,000 | 82 raw pages | 3,033.860 ms | 0 | 3-second default deadline |
+
+The membership global lookup produced 82,000 raw SpiceDB rows and 40,000 distinct edges. OpenFGA returned no objects before its default `ListObjects` deadline for the equivalent recursive intersection.
+
+## Findings
+
+| Area | Result |
+| --- | --- |
+| Point checks | Both engines completed the operator cases. SpiceDB consistency mode changed tail latency. OpenFGA cache-off checks had higher p99 on several traversals. |
+| Batch checks | The engines agreed on 27 allowed and 23 denied results. |
+| Throughput | OpenFGA led this cache-off concurrent check workload at 752.8 checks per second versus 554.6 for SpiceDB fully consistent. |
+| Resource lookup | OpenFGA returned the 40,000-object union directly. SpiceDB required cursor draining and client-side de-duplication. |
+| Revocation | The observed first-deny delay stayed within one check for the SpiceDB consistency modes and was 25.925 to 29.747 ms for the cache-on OpenFGA trials. |
+| Exclusion preview | Both models previewed the same 1,103 and 698 resource sets as their deletes. |
+| Rebuild | SpiceDB rebuilt the one-tenant dataset in 497.454 ms. OpenFGA took 1,710.839 ms. |
+| Membership listing | Recursive membership intersections remained materially more expensive than direct membership checks. OpenFGA did not finish the global lookup before its default deadline. |
 
 ## Sources
 
 - [SpiceDB consistency](https://authzed.com/docs/spicedb/concepts/consistency)
 - [SpiceDB caveats](https://authzed.com/docs/spicedb/concepts/caveats)
+- [SpiceDB command reference](https://authzed.com/docs/spicedb/reference/commands)
 - [SpiceDB migration from OpenFGA](https://authzed.com/docs/spicedb/migrate-to-spicedb/migrate-from/openfga)
+- [OpenFGA configuration](https://openfga.dev/docs/getting-started/setup-openfga/configuration)
+- [OpenFGA token claims and contextual tuples](https://openfga.dev/docs/modeling/token-claims-contextual-tuples)
 - [OpenFGA conditions](https://openfga.dev/docs/modeling/conditions)
-- [OpenFGA ABAC guidance](https://openfga.dev/docs/best-practices/modeling-abac)
