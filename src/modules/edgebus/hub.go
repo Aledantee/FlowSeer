@@ -3,6 +3,7 @@ package edgebus
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -40,7 +41,7 @@ type HubConfig struct {
 	// WebSocket, allowed only on a loopback host for tests and a lab.
 	TLS *tls.Config
 	// MaxStoreBytes is a server-wide ceiling on the whole JetStream store.
-	// Zero is finalized once at server start as 75% of free disk; account
+	// Zero is finalized once at server start as 75% of free disk. Account
 	// budgets reserve against the server store ceiling, and the resulting
 	// edge count is capped by (ceiling - central budget) / edge budget.
 	// A deployment that pins it must leave room for central plus every edge
@@ -438,12 +439,21 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccoun
 	// first connection; wait for it to answer before creating the stream.
 	if err := waitForJetStream(ctx, js); err != nil {
 		conn.Close()
-		if srv != nil {
+		if srv != nil && (errors.Is(err, jetstream.ErrJetStreamNotEnabled) || errors.Is(err, jetstream.ErrJetStreamNotEnabledForAccount)) {
 			if jsc := srv.JetStreamConfig(); jsc != nil {
 				ceiling := jsc.MaxStore
-				h.mu.Lock()
-				attached := len(h.edges)
-				h.mu.Unlock()
+				// The server counts an edge account as soon as it enables
+				// JetStream, before this function creates the edge stream. Use
+				// that count so a failed stream setup still contributes its
+				// account budget to the next refusal diagnostic. The current
+				// refused account is not in the server count, hence the +1.
+				// nats-server v2.14.6 inserts accounts after sufficientResources
+				// passes and JetStreamNumAccounts reports that map's length
+				// (server/jetstream.go:1209-1238 and 1134-1143).
+				attached := srv.JetStreamNumAccounts() - 1
+				if attached < 0 {
+					attached = 0
+				}
 				if ceiling > 0 && h.centralBudget+h.edgeBudget*int64(attached+1) > ceiling {
 					return nil, errs.From(err).Code(ErrCodeHub).
 						Attr("edge", edgeID).
