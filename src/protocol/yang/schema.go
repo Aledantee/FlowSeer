@@ -75,6 +75,11 @@ type Field struct {
 	// Child is the nested node's schema. The Go field is a struct
 	// pointer for a container, a struct slice for a list.
 	Child *Schema
+	// Group marks Child as a module group. A group has no wire element
+	// of its own; its fields are encoded at the parent level under
+	// Child.Module's namespace. Group fields use a pointer to Child's
+	// struct, and Child.Name is empty.
+	Group bool
 	// List marks Child as a list (Go slice) rather than a container
 	// (Go pointer).
 	List bool
@@ -120,4 +125,85 @@ func fieldValue(rv reflect.Value, f *Field) (reflect.Value, error) {
 		return reflect.Value{}, errs.Msgf("struct %s has no field %s", rv.Type(), f.GoName)
 	}
 	return fv, nil
+}
+
+// walkFields yields a schema's fields in wire order. Group fields are omitted
+// and their children are yielded with the group schema and field that owns
+// their namespace.
+func walkFields(s *Schema, yield func(field *Field, owner *Schema, group *Field) error) error {
+	if s == nil {
+		return errs.Msg("nil schema")
+	}
+	if yield == nil {
+		return errs.Msg("nil field visitor")
+	}
+
+	for i := range s.Fields {
+		field := &s.Fields[i]
+		if !field.Group {
+			if err := yield(field, s, nil); err != nil {
+				return err
+			}
+			continue
+		}
+		if field.Child == nil {
+			return errs.Msgf("group field %s has no child schema", fieldLabel(field))
+		}
+		for j := range field.Child.Fields {
+			child := &field.Child.Fields[j]
+			if child.Group {
+				return errs.Msgf("group field %s contains nested group field %s", fieldLabel(field), fieldLabel(child))
+			}
+			if err := yield(child, field.Child, field); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// groupValue returns the struct behind group on rv. A nil group is invalid
+// when alloc is false and is allocated when alloc is true.
+func groupValue(rv reflect.Value, group *Field, alloc bool) (reflect.Value, error) {
+	for rv.IsValid() && rv.Kind() == reflect.Pointer {
+		if rv.IsNil() {
+			return reflect.Value{}, errs.Msg("nil struct pointer")
+		}
+		rv = rv.Elem()
+	}
+	if !rv.IsValid() || rv.Kind() != reflect.Struct {
+		return reflect.Value{}, errs.Msg("group value is not a struct")
+	}
+
+	fv, err := fieldValue(rv, group)
+	if err != nil {
+		return reflect.Value{}, err
+	}
+	if fv.Kind() != reflect.Pointer || fv.Type().Elem().Kind() != reflect.Struct {
+		return reflect.Value{}, errs.Msgf("group field %s is not a struct pointer", fieldLabel(group))
+	}
+	if fv.IsNil() {
+		if !alloc {
+			return reflect.Value{}, nil
+		}
+		if !fv.CanSet() {
+			return reflect.Value{}, errs.Msgf("group field %s is not settable", fieldLabel(group))
+		}
+		fv.Set(reflect.New(fv.Type().Elem()))
+	}
+	return fv.Elem(), nil
+}
+
+// fieldLabel returns the Go field name used in schema diagnostics.
+func fieldLabel(f *Field) string {
+	if f == nil {
+		return "<nil>"
+	}
+	if f.GoName != "" {
+		return f.GoName
+	}
+	if f.Name != "" {
+		return f.Name
+	}
+	return "<unnamed>"
 }
