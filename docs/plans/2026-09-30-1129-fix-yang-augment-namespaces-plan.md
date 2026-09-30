@@ -10,7 +10,7 @@ execution: code
 
 # YANG Augment Namespaces - Plan
 
-> Implemented. Phase 2 regenerated 1,067 bindings. The cold build took 51.32 s wall time and 11,819,909,120 bytes peak RSS before regeneration, then 34.53 s wall time and 10,748,739,584 bytes peak RSS after regeneration. Reproduce it with `cd generated/go/yang && GOCACHE=$(mktemp -d) /usr/bin/time -l go build ./cisco-iosxe/ciscoiosxenative`.
+> Implemented. Phase 2 regenerated 1,067 bindings. The cold build took 51.32 s wall time and 11,819,909,120 bytes peak RSS before regeneration, then 34.53 s wall time and 10,748,739,584 bytes peak RSS after regeneration (measured on the tree before the shared-group regeneration). Reproduce it with `cd generated/go/yang && GOCACHE=$(mktemp -d) /usr/bin/time -l go build ./cisco-iosxe/ciscoiosxenative`.
 
 ## Goal
 
@@ -108,4 +108,5 @@ diff, and `go run ./src/protocol/yang/cmd/yanggen -check` passes.
 - Whether the compile cost of importing `ciscoiosxenative` (147
   augmenting packages) is acceptable. The cold build took 51.32 s wall time
   and 11,819,909,120 bytes peak RSS before regeneration, then 34.53 s wall
-  time and 10,748,739,584 bytes peak RSS after regeneration.
+  time and 10,748,739,584 bytes peak RSS after regeneration (measured on
+  the tree before the shared-group regeneration).

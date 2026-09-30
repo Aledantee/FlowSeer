@@ -141,11 +141,33 @@ func Emit(sets []*VendorSet, outDir string) error {
 		}
 		plans[i] = plan
 	}
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return errs.Wrapf(err, "create output directory %s", outDir)
+	}
+
+	type stagedVendor struct {
+		vendor    string
+		tmpDir    string
+		vendorDir string
+	}
+	staged := make([]stagedVendor, len(sets))
+
+	cleanups := make(map[string]struct{})
+	defer func() {
+		for dir := range cleanups {
+			_ = os.RemoveAll(dir)
+		}
+	}()
+
 	for i, vs := range sets {
 		vendorDir := filepath.Join(outDir, vs.Vendor)
-		if err := os.RemoveAll(vendorDir); err != nil {
-			return errs.Wrapf(err, "clear vendor output %s", vendorDir)
+		tmpDir, err := os.MkdirTemp(outDir, "."+vs.Vendor+"-tmp-*")
+		if err != nil {
+			return errs.Wrapf(err, "create temp dir for vendor %s", vs.Vendor)
 		}
+		cleanups[tmpDir] = struct{}{}
+		staged[i] = stagedVendor{vendor: vs.Vendor, tmpDir: tmpDir, vendorDir: vendorDir}
+
 		plan := plans[i]
 		packageNames := make([]string, 0, len(plan.packages))
 		for name := range plan.packages {
@@ -158,7 +180,7 @@ func Emit(sets []*VendorSet, outDir string) error {
 			if err != nil {
 				return err
 			}
-			pkgDir := filepath.Join(vendorDir, packagePlan.module.Package)
+			pkgDir := filepath.Join(tmpDir, packagePlan.module.Package)
 			if err := os.MkdirAll(pkgDir, 0o755); err != nil {
 				return errs.Wrapf(err, "create package dir %s", pkgDir)
 			}
@@ -167,6 +189,38 @@ func Emit(sets []*VendorSet, outDir string) error {
 					return errs.Wrapf(err, "write %s", filepath.Join(pkgDir, filename))
 				}
 			}
+		}
+	}
+
+	for _, s := range staged {
+		if _, err := os.Lstat(s.vendorDir); err == nil {
+			oldDir, err := os.MkdirTemp(outDir, "."+s.vendor+"-old-*")
+			if err != nil {
+				return errs.Wrapf(err, "create temp dir for old vendor %s", s.vendor)
+			}
+			if err := os.Remove(oldDir); err != nil {
+				return errs.Wrapf(err, "prepare temp path for old vendor %s", s.vendor)
+			}
+			cleanups[oldDir] = struct{}{}
+			if err := os.Rename(s.vendorDir, oldDir); err != nil {
+				return errs.Wrapf(err, "rename old vendor %s aside", s.vendorDir)
+			}
+			if err := os.Rename(s.tmpDir, s.vendorDir); err != nil {
+				_ = os.Rename(oldDir, s.vendorDir)
+				return errs.Wrapf(err, "rename new vendor %s into place", s.vendorDir)
+			}
+			delete(cleanups, s.tmpDir)
+			if err := os.RemoveAll(oldDir); err != nil {
+				return errs.Wrapf(err, "remove old vendor %s", oldDir)
+			}
+			delete(cleanups, oldDir)
+		} else if os.IsNotExist(err) {
+			if err := os.Rename(s.tmpDir, s.vendorDir); err != nil {
+				return errs.Wrapf(err, "rename new vendor %s into place", s.vendorDir)
+			}
+			delete(cleanups, s.tmpDir)
+		} else {
+			return errs.Wrapf(err, "stat vendor %s", s.vendorDir)
 		}
 	}
 	return nil

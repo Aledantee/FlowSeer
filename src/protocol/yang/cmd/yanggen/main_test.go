@@ -79,6 +79,15 @@ func TestRunVerifyRejectsImportPackageCycle(t *testing.T) {
 	if !strings.Contains(stderr.String(), "cyca -> cycb -> cyca") {
 		t.Errorf("stderr = %q, want the package cycle", stderr.String())
 	}
+
+	var stdoutCheck, stderrCheck bytes.Buffer
+	codeCheck := run([]string{"-config", config, "-check"}, &stdoutCheck, &stderrCheck)
+	if codeCheck != 1 {
+		t.Fatalf("run -check on cyclic tree = %d, stderr: %s", codeCheck, stderrCheck.String())
+	}
+	if !strings.Contains(stderrCheck.String(), "cyca -> cycb -> cyca") {
+		t.Errorf("stderrCheck = %q, want the package cycle", stderrCheck.String())
+	}
 }
 
 // TestRunVerifyRealTrees is the end-to-end load gate: all three vendored

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"go/ast"
 	"go/parser"
@@ -476,6 +477,107 @@ func TestEmitValidatesBeforeClearingOutput(t *testing.T) {
 		t.Fatalf("read sentinel after failed Emit: %v", err)
 	} else if string(got) != "keep" {
 		t.Fatalf("sentinel = %q, want it preserved", got)
+	}
+}
+
+func TestEmitFileRenderFailurePreservesExistingOutput(t *testing.T) {
+	tempDir, err := os.MkdirTemp(".", ".yanggen-emit-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	outDir := filepath.Join(tempDir, "generated")
+
+	vsGood := fixtureVendor(t)
+	if err := Emit([]*VendorSet{vsGood}, outDir); err != nil {
+		t.Fatalf("initial Emit: %v", err)
+	}
+
+	vendorDir := filepath.Join(outDir, vsGood.Vendor)
+	before := make(map[string][]byte)
+	err = filepath.Walk(vendorDir, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			rel, err := filepath.Rel(vendorDir, p)
+			if err != nil {
+				return err
+			}
+			data, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			before[rel] = data
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("snapshot vendorDir: %v", err)
+	}
+	if len(before) == 0 {
+		t.Fatal("initial Emit produced no files")
+	}
+
+	vsBad := fixtureVendor(t)
+	mainMod := moduleByName(t, vsBad, "fixture-main")
+	server := mainMod.Entry.Dir["servers"].Dir["server"]
+	server.Key = "nonexistent-key"
+
+	err = Emit([]*VendorSet{vsBad}, outDir)
+	if err == nil {
+		t.Fatal("Emit with invalid list key succeeded, want error")
+	}
+	if !strings.Contains(err.Error(), "not a leaf child") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	after := make(map[string][]byte)
+	err = filepath.Walk(vendorDir, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			rel, err := filepath.Rel(vendorDir, p)
+			if err != nil {
+				return err
+			}
+			data, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			after[rel] = data
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("read vendorDir after failed Emit: %v", err)
+	}
+
+	for rel, prev := range before {
+		curr, ok := after[rel]
+		if !ok {
+			t.Errorf("file %s missing after failed Emit", rel)
+			continue
+		}
+		if !bytes.Equal(prev, curr) {
+			t.Errorf("file %s content changed after failed Emit", rel)
+		}
+	}
+	for rel := range after {
+		if _, ok := before[rel]; !ok {
+			t.Errorf("unexpected new file %s found after failed Emit", rel)
+		}
+	}
+
+	entries, err := os.ReadDir(outDir)
+	if err != nil {
+		t.Fatalf("ReadDir outDir: %v", err)
+	}
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") {
+			t.Errorf("temporary directory/file %s leaked under outDir", e.Name())
+		}
 	}
 }
 
