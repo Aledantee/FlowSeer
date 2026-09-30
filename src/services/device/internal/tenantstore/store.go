@@ -161,8 +161,22 @@ func (s *Store) Create(ctx context.Context, config *identityv1.TenantConfig) (*i
 			return nil, err
 		}
 		if indexMsg != nil && !isMarker(indexMsg) {
-			if record != nil && string(indexMsg.Data) == tenantID {
-				return record, nil
+			if string(indexMsg.Data) == tenantID {
+				if record == nil {
+					recordMsg, _, err = s.readLast(ctx, tenantID)
+					if err != nil {
+						return nil, err
+					}
+					if recordMsg != nil && !isMarker(recordMsg) {
+						record = &identityv1.TenantRecord{}
+						if err := proto.Unmarshal(recordMsg.Data, record); err != nil {
+							return nil, errs.From(err).Code(ErrCodeDecode).Attr("tenant", tenantID).Msg("decode tenant record")
+						}
+					}
+				}
+				if record != nil && proto.Equal(record.GetConfig(), config) {
+					return record, nil
+				}
 			}
 			return nil, errs.New().Code(ErrCodeAlreadyExists).
 				Attr("issuer", config.GetIssuer()).

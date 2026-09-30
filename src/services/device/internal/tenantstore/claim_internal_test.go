@@ -535,6 +535,11 @@ func TestClaimContention(t *testing.T) {
 		wg.Wait()
 		close(results)
 		close(errsCh)
+		for err := range errsCh {
+			if err != nil {
+				t.Fatalf("same-config contention error: %v", err)
+			}
+		}
 		var created *identityv1.TenantRecord
 		for record := range results {
 			if record == nil {
@@ -544,11 +549,6 @@ func TestClaimContention(t *testing.T) {
 				created = record
 			} else if !proto.Equal(created.GetState().GetCreatedAt(), record.GetState().GetCreatedAt()) {
 				t.Fatal("same-config contention returned different created_at values")
-			}
-		}
-		for err := range errsCh {
-			if err != nil {
-				t.Fatalf("same-config contention error: %v", err)
 			}
 		}
 		if msg := rawLast(t, fixture.stream, config.GetRef().GetTenant().GetId()); msg == nil {
