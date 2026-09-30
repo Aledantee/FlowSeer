@@ -38,10 +38,21 @@ func writeXMLElement(b *strings.Builder, s *Schema, rv reflect.Value, parentNS s
 	if ns == "" {
 		ns = parentNS
 	}
-	for i := range s.Fields {
-		if err := writeXMLField(b, s, &s.Fields[i], rv, ns); err != nil {
-			return err
+	if err := walkFields(s, func(f *Field, owner *Schema, group *Field) error {
+		fieldRV := rv
+		if group != nil {
+			var err error
+			fieldRV, err = groupValue(rv, group, false)
+			if err != nil {
+				return err
+			}
+			if !fieldRV.IsValid() {
+				return nil
+			}
 		}
+		return writeXMLField(b, owner, f, fieldRV, ns)
+	}); err != nil {
+		return err
 	}
 	b.WriteString("</")
 	b.WriteString(s.Name)
@@ -202,14 +213,24 @@ func decodeXMLInto(dec *xml.Decoder, s *Schema, rv reflect.Value) error {
 		case xml.EndElement:
 			return nil
 		case xml.StartElement:
-			f := matchField(s, t.Name.Local, t.Name.Space)
+			f, group, err := matchField(s, t.Name.Local, t.Name.Space)
+			if err != nil {
+				return err
+			}
 			if f == nil {
 				if err := dec.Skip(); err != nil {
 					return errs.From(err).Code(ErrCodeValueParse).Msgf("skip unknown element %s", t.Name.Local)
 				}
 				continue
 			}
-			if err := decodeXMLField(dec, f, rv); err != nil {
+			fieldRV := rv
+			if group != nil {
+				fieldRV, err = groupValue(rv, group, true)
+				if err != nil {
+					return err
+				}
+			}
+			if err := decodeXMLField(dec, f, fieldRV); err != nil {
 				return err
 			}
 		default:
@@ -220,24 +241,30 @@ func decodeXMLInto(dec *xml.Decoder, s *Schema, rv reflect.Value) error {
 }
 
 // matchField finds the schema field for a child element name, by
-// local name and, when both sides declare one, namespace.
-func matchField(s *Schema, local, space string) *Field {
-	for i := range s.Fields {
-		f := &s.Fields[i]
+// local name and, when both sides declare one, namespace. It also
+// returns the group owning a grouped field.
+func matchField(s *Schema, local, space string) (*Field, *Field, error) {
+	var found, foundGroup *Field
+	err := walkFields(s, func(f *Field, owner *Schema, group *Field) error {
+		if found != nil {
+			return nil
+		}
 		name := f.Name
 		if f.Child != nil {
 			name = f.Child.Name
 		}
 		if name != local {
-			continue
+			return nil
 		}
-		ns := f.qualifiedNamespace(s)
+		ns := f.qualifiedNamespace(owner)
 		if ns != "" && space != "" && ns != space {
-			continue
+			return nil
 		}
-		return f
-	}
-	return nil
+		found = f
+		foundGroup = group
+		return nil
+	})
+	return found, foundGroup, err
 }
 
 // decodeXMLField decodes one child element into its struct field.

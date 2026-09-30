@@ -37,9 +37,19 @@ func writeJSONObject(b *bytes.Buffer, s *Schema, rv reflect.Value) error {
 		}
 		first = false
 	}
-	for i := range s.Fields {
-		f := &s.Fields[i]
-		fv, err := fieldValue(rv, f)
+	if err := walkFields(s, func(f *Field, owner *Schema, group *Field) error {
+		fieldRV := rv
+		if group != nil {
+			var err error
+			fieldRV, err = groupValue(rv, group, false)
+			if err != nil {
+				return err
+			}
+			if !fieldRV.IsValid() {
+				return nil
+			}
+		}
+		fv, err := fieldValue(fieldRV, f)
 		if err != nil {
 			return err
 		}
@@ -47,7 +57,7 @@ func writeJSONObject(b *bytes.Buffer, s *Schema, rv reflect.Value) error {
 		if f.Child != nil {
 			name = f.Child.Name
 		}
-		if mod := f.qualifiedModule(s); mod != s.moduleName() {
+		if mod := f.qualifiedModule(owner); mod != s.moduleName() {
 			name = mod + ":" + name
 		}
 		key, err := json.Marshal(name)
@@ -58,7 +68,7 @@ func writeJSONObject(b *bytes.Buffer, s *Schema, rv reflect.Value) error {
 		switch {
 		case f.Child != nil && f.List:
 			if fv.Len() == 0 {
-				continue
+				return nil
 			}
 			comma()
 			b.Write(key)
@@ -74,7 +84,7 @@ func writeJSONObject(b *bytes.Buffer, s *Schema, rv reflect.Value) error {
 			b.WriteByte(']')
 		case f.Child != nil:
 			if fv.IsNil() {
-				continue
+				return nil
 			}
 			comma()
 			b.Write(key)
@@ -84,7 +94,7 @@ func writeJSONObject(b *bytes.Buffer, s *Schema, rv reflect.Value) error {
 			}
 		case f.LeafList:
 			if fv.Len() == 0 {
-				continue
+				return nil
 			}
 			comma()
 			b.Write(key)
@@ -102,11 +112,11 @@ func writeJSONObject(b *bytes.Buffer, s *Schema, rv reflect.Value) error {
 			scalar := fv
 			if scalar.Kind() == reflect.Pointer {
 				if scalar.IsNil() {
-					continue
+					return nil
 				}
 				scalar = scalar.Elem()
 			} else if scalar.Kind() == reflect.Slice && scalar.IsNil() {
-				continue
+				return nil
 			}
 			comma()
 			b.Write(key)
@@ -115,6 +125,9 @@ func writeJSONObject(b *bytes.Buffer, s *Schema, rv reflect.Value) error {
 				return err
 			}
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	b.WriteByte('}')
 	return nil
@@ -195,17 +208,31 @@ func lookupMember(obj map[string]json.RawMessage, module, name string) (json.Raw
 
 // decodeJSONObject populates rv from obj per s.
 func decodeJSONObject(s *Schema, obj map[string]json.RawMessage, rv reflect.Value) error {
-	for i := range s.Fields {
-		f := &s.Fields[i]
+	return walkFields(s, func(f *Field, owner *Schema, group *Field) error {
 		name := f.Name
 		if f.Child != nil {
 			name = f.Child.Name
 		}
-		raw, ok := lookupMember(obj, f.qualifiedModule(s), name)
-		if !ok {
-			continue
+		var raw json.RawMessage
+		var ok bool
+		module := f.qualifiedModule(owner)
+		if group != nil {
+			raw, ok = obj[module+":"+name]
+		} else {
+			raw, ok = lookupMember(obj, module, name)
 		}
-		fv, err := fieldValue(rv, f)
+		if !ok {
+			return nil
+		}
+		fieldRV := rv
+		if group != nil {
+			var err error
+			fieldRV, err = groupValue(rv, group, true)
+			if err != nil {
+				return err
+			}
+		}
+		fv, err := fieldValue(fieldRV, f)
 		if err != nil {
 			return err
 		}
@@ -246,8 +273,8 @@ func decodeJSONObject(s *Schema, obj map[string]json.RawMessage, rv reflect.Valu
 				return err
 			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 // storeLeafJSON parses one RFC 7951 leaf value under f's type and

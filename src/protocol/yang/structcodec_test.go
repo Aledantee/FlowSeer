@@ -143,6 +143,134 @@ func TestStructJSONRoundTrip(t *testing.T) {
 	}
 }
 
+func TestGroupedStructXMLRoundTrip(t *testing.T) {
+	s := parentSchema()
+	wantValue := Parent{X: ptr(int32(1)), B: &ParentB{Y: ptr("v")}}
+	wantXML := `<parent xmlns="urn:a"><x>1</x><y xmlns="urn:b">v</y></parent>`
+
+	data, err := yang.MarshalXMLStruct(s, wantValue)
+	if err != nil {
+		t.Fatalf("MarshalXMLStruct: %v", err)
+	}
+	if string(data) != wantXML {
+		t.Errorf("XML = %s\nwant %s", data, wantXML)
+	}
+
+	var got Parent
+	if err := yang.UnmarshalXMLStruct(s, data, &got); err != nil {
+		t.Fatalf("UnmarshalXMLStruct: %v", err)
+	}
+	if !yang.EqualStructs(got, wantValue) {
+		t.Errorf("XML round-trip = %+v, want %+v", got, wantValue)
+	}
+
+	var absent Parent
+	if err := yang.UnmarshalXMLStruct(s, []byte(`<parent xmlns="urn:a"><x>1</x></parent>`), &absent); err != nil {
+		t.Fatalf("UnmarshalXMLStruct without grouped member: %v", err)
+	}
+	if absent.B != nil {
+		t.Errorf("absent grouped member allocated B: %+v", absent)
+	}
+}
+
+func TestGroupedStructJSONRoundTrip(t *testing.T) {
+	s := parentSchema()
+	wantValue := Parent{X: ptr(int32(1)), B: &ParentB{Y: ptr("v")}}
+	wantJSON := `{"x":1,"b:y":"v"}`
+
+	data, err := yang.MarshalJSON7951Struct(s, wantValue)
+	if err != nil {
+		t.Fatalf("MarshalJSON7951Struct: %v", err)
+	}
+	if string(data) != wantJSON {
+		t.Errorf("JSON = %s\nwant %s", data, wantJSON)
+	}
+
+	var got Parent
+	if err := yang.UnmarshalJSON7951Struct(s, data, &got); err != nil {
+		t.Fatalf("UnmarshalJSON7951Struct: %v", err)
+	}
+	if !yang.EqualStructs(got, wantValue) {
+		t.Errorf("JSON round-trip = %+v, want %+v", got, wantValue)
+	}
+
+	var absent Parent
+	if err := yang.UnmarshalJSON7951Struct(s, []byte(`{"x":1}`), &absent); err != nil {
+		t.Fatalf("UnmarshalJSON7951Struct without grouped member: %v", err)
+	}
+	if absent.B != nil {
+		t.Errorf("absent grouped member allocated B: %+v", absent)
+	}
+}
+
+func TestGroupedStructXMLNameCollisions(t *testing.T) {
+	s := parentSchema()
+	wantValue := Parent{
+		X: ptr(int32(0)),
+		B: &ParentB{X: ptr(int32(1))},
+		C: &ParentC{X: ptr(true)},
+	}
+	wantXML := `<parent xmlns="urn:a"><x>0</x><x xmlns="urn:b">1</x><x xmlns="urn:c">true</x></parent>`
+
+	data, err := yang.MarshalXMLStruct(s, wantValue)
+	if err != nil {
+		t.Fatalf("MarshalXMLStruct: %v", err)
+	}
+	if string(data) != wantXML {
+		t.Errorf("XML = %s\nwant %s", data, wantXML)
+	}
+
+	var got Parent
+	if err := yang.UnmarshalXMLStruct(s, []byte(wantXML), &got); err != nil {
+		t.Fatalf("UnmarshalXMLStruct: %v", err)
+	}
+	if !yang.EqualStructs(got, wantValue) {
+		t.Errorf("XML collision decode = %+v, want %+v", got, wantValue)
+	}
+
+	var absent Parent
+	if err := yang.UnmarshalXMLStruct(s, []byte(`<parent xmlns="urn:a"><x>0</x></parent>`), &absent); err != nil {
+		t.Fatalf("UnmarshalXMLStruct without grouped members: %v", err)
+	}
+	if absent.B != nil || absent.C != nil {
+		t.Errorf("absent grouped members allocated groups: %+v", absent)
+	}
+}
+
+func TestGroupedStructJSONNameCollisions(t *testing.T) {
+	s := parentSchema()
+	wantValue := Parent{
+		X: ptr(int32(0)),
+		B: &ParentB{X: ptr(int32(1))},
+		C: &ParentC{X: ptr(true)},
+	}
+	wantJSON := `{"x":0,"b:x":1,"c:x":true}`
+
+	data, err := yang.MarshalJSON7951Struct(s, wantValue)
+	if err != nil {
+		t.Fatalf("MarshalJSON7951Struct: %v", err)
+	}
+	if string(data) != wantJSON {
+		t.Errorf("JSON = %s\nwant %s", data, wantJSON)
+	}
+
+	var got Parent
+	if err := yang.UnmarshalJSON7951Struct(s, []byte(wantJSON), &got); err != nil {
+		t.Fatalf("UnmarshalJSON7951Struct: %v", err)
+	}
+	if !yang.EqualStructs(got, wantValue) {
+		t.Errorf("JSON collision decode = %+v, want %+v", got, wantValue)
+	}
+
+	var absent Parent
+	if err := yang.UnmarshalJSON7951Struct(s, []byte(`{"x":0}`), &absent); err != nil {
+		t.Fatalf("UnmarshalJSON7951Struct without grouped members: %v", err)
+	}
+	if absent.B != nil || absent.C != nil {
+		t.Errorf("absent grouped members allocated groups: %+v", absent)
+	}
+}
+
 func TestDecodeJSONListShapes(t *testing.T) {
 	s := serverSchema()
 	array := `[{"name":"a"},{"name":"b"}]`
