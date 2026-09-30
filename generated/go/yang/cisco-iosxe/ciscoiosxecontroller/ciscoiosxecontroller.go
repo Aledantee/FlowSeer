@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCiscoIOSXEAdsl identifies the Cisco-IOS-XE-adsl YANG module.
-var moduleCiscoIOSXEAdsl = &yang.Module{
-	Name:      "Cisco-IOS-XE-adsl",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-adsl",
-}
-
 // moduleCiscoIOSXEController identifies the Cisco-IOS-XE-controller YANG module.
 var moduleCiscoIOSXEController = &yang.Module{
 	Name:      "Cisco-IOS-XE-controller",

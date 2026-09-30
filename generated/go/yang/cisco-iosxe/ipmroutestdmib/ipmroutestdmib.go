@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCISCOIPMROUTEMIB identifies the CISCO-IPMROUTE-MIB YANG module.
-var moduleCISCOIPMROUTEMIB = &yang.Module{
-	Name:      "CISCO-IPMROUTE-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:CISCO-IPMROUTE-MIB",
-}
-
 // moduleIPMROUTESTDMIB identifies the IPMROUTE-STD-MIB YANG module.
 var moduleIPMROUTESTDMIB = &yang.Module{
 	Name:      "IPMROUTE-STD-MIB",

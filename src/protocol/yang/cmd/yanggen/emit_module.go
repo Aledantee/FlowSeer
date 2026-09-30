@@ -12,8 +12,8 @@ import (
 )
 
 // emit_module.go renders one module's binding package. Nodes defined by an
-// augmenting module are emitted in that module's package, while the target
-// package owns the group field and descriptors for lists below the target.
+// augmenting module are emitted in that module's package, while the package
+// of the tree's top-level module owns descriptors for lists below the target.
 
 // chunkByteBudget bounds one emitted file's pre-format size.
 const chunkByteBudget = 2 << 20
@@ -170,9 +170,6 @@ func (em *moduleEmitter) emitModuleVars() {
 	}
 	for _, shape := range em.p.shapes {
 		add(shape.module, shape.namespace)
-		for _, group := range shape.representative.groups {
-			add(group.module.Name, namespaceOf(group.module.Entry))
-		}
 	}
 	for _, group := range em.p.groups {
 		add(group.module.Name, namespaceOf(group.module.Entry))

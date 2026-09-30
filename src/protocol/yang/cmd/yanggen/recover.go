@@ -91,6 +91,9 @@ func recoverAugments(vendor string, ms *yang.Modules) (map[*yang.Entry][]*yang.E
 	if err := checkAugmentPaths(vendor, ms, recovered); err != nil {
 		return nil, err
 	}
+	if err := checkLeafrefPaths(vendor, ms, recovered); err != nil {
+		return nil, err
+	}
 	return recovered, nil
 }
 
@@ -198,7 +201,7 @@ func escapesRecovered(t *yang.YangType, depth int) bool {
 	}
 	if t.Kind == yang.Yleafref && strings.HasPrefix(t.Path, ".") {
 		level := depth
-		for _, segment := range strings.Split(t.Path, "/") {
+		for _, segment := range strings.Split(stripPredicates(t.Path), "/") {
 			switch segment {
 			case "..":
 				level--
@@ -242,48 +245,209 @@ func checkAugmentPaths(vendor string, ms *yang.Modules, recovered map[*yang.Entr
 }
 
 func checkTargetPath(vendor string, node yang.Node, path string, recovered map[*yang.Entry][]*yang.Entry) error {
-	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
-	if len(parts) == 0 {
-		return nil
+	_, err := checkPath(vendor, node, nil, path, recovered)
+	return err
+}
+
+func checkPath(vendor string, node yang.Node, leaf *yang.Entry, path string, recovered map[*yang.Entry][]*yang.Entry) (*yang.Entry, error) {
+	normalized := stripPredicates(path)
+	var parts []string
+	var e *yang.Entry
+	if strings.HasPrefix(normalized, "/") {
+		parts = strings.Split(strings.TrimPrefix(normalized, "/"), "/")
+		e = pathRoot(node, leaf, parts)
+	} else {
+		parts = strings.Split(normalized, "/")
+		e = leaf
 	}
-	prefix, _, ok := strings.Cut(parts[0], ":")
-	if !ok {
-		prefix = ""
+	if e == nil {
+		return nil, nil
 	}
-	root := yang.FindModuleByPrefix(node, prefix)
+	for index, part := range parts {
+		switch part {
+		case "", ".":
+			continue
+		case "..":
+			if e != nil {
+				e = e.Parent
+			}
+			continue
+		default:
+			prefix, name, qualified := strings.Cut(part, ":")
+			if !qualified {
+				name = prefix
+				prefix = ""
+			}
+			if e == nil || !dataEntry(e) {
+				return e, nil
+			}
+			next := e.Dir[name]
+			for _, child := range recovered[e] {
+				if child.Name != name {
+					continue
+				}
+				want, wantOK := pathSegmentModule(node, leaf, prefix)
+				parentModule, parentErr := e.InstantiatingModule()
+				keptModule := ""
+				if next != nil {
+					keptModule, _ = next.InstantiatingModule()
+				}
+				_, deviation := node.(*yang.Deviation)
+				deviatedOwnNode := deviation && index == len(parts)-1 && next == nil && wantOK && want == parentModule
+				if !deviatedOwnNode && (!wantOK || parentErr != nil || want != parentModule || keptModule != parentModule) {
+					if leaf != nil {
+						return next, &LoadError{Vendor: vendor, Issue: fmt.Sprintf("leafref %s path %s at %s crosses recovered %s (%s, %s, %s)", leaf.Path(), path, yang.Source(node), name, yang.Source(child.Node), sourceOf(next), sourceOf(e))}
+					}
+					return next, &LoadError{Vendor: vendor, Issue: fmt.Sprintf("target path %s at %s crosses recovered %s (%s, %s, %s)", path, yang.Source(node), name, yang.Source(child.Node), sourceOf(next), sourceOf(e))}
+				}
+			}
+			e = next
+		}
+	}
+	return e, nil
+}
+
+func pathRoot(node yang.Node, leaf *yang.Entry, parts []string) *yang.Entry {
+	if leaf != nil {
+		e := leaf
+		for e.Parent != nil {
+			e = e.Parent
+		}
+		prefix := pathPrefix(parts)
+		if prefix == "" {
+			return e
+		}
+		root := pathModule(node, prefix)
+		if root == nil {
+			return nil
+		}
+		entryRoot, ok := e.Node.(*yang.Module)
+		if !ok || entryRoot != root {
+			return yang.ToEntry(root)
+		}
+		return e
+	}
+	root := pathModule(node, pathPrefix(parts))
 	if root == nil {
 		return nil
 	}
-	e := yang.ToEntry(root)
-	for index, part := range parts {
-		prefix, name, qualified := strings.Cut(part, ":")
-		if !qualified {
-			name = prefix
-			prefix = ""
+	return yang.ToEntry(root)
+}
+
+func pathPrefix(parts []string) string {
+	if len(parts) == 0 {
+		return ""
+	}
+	prefix, _, ok := strings.Cut(parts[0], ":")
+	if !ok {
+		return ""
+	}
+	return prefix
+}
+
+func pathModule(node yang.Node, prefix string) *yang.Module {
+	mod := yang.FindModuleByPrefix(node, prefix)
+	if mod == nil {
+		return nil
+	}
+	if mod.Kind() == "submodule" && mod.BelongsTo != nil && mod.Modules != nil {
+		if parent := mod.Modules.Modules[mod.BelongsTo.Name]; parent != nil {
+			return parent
 		}
-		if e == nil || !dataEntry(e) {
+	}
+	return mod
+}
+
+func pathSegmentModule(node yang.Node, leaf *yang.Entry, prefix string) (string, bool) {
+	if prefix != "" {
+		mod := pathModule(node, prefix)
+		if mod == nil {
+			return "", false
+		}
+		return mod.Name, true
+	}
+	if leaf != nil {
+		name, err := leaf.InstantiatingModule()
+		return name, err == nil
+	}
+	mod := pathModule(node, "")
+	if mod == nil {
+		return "", false
+	}
+	return mod.Name, true
+}
+
+func stripPredicates(path string) string {
+	var b strings.Builder
+	depth := 0
+	for _, r := range path {
+		switch r {
+		case '[':
+			depth++
+		case ']':
+			if depth > 0 {
+				depth--
+			}
+		default:
+			if depth == 0 {
+				b.WriteRune(r)
+			}
+		}
+	}
+	return b.String()
+}
+
+func checkLeafrefPaths(vendor string, ms *yang.Modules, recovered map[*yang.Entry][]*yang.Entry) error {
+	visited := make(map[*yang.Entry]bool)
+	var visit func(*yang.Entry) error
+	visit = func(e *yang.Entry) error {
+		if e == nil || visited[e] || !dataEntry(e) {
 			return nil
 		}
-		next := impliedCaseChild(e.Dir[name], name)
-		for _, child := range recovered[e] {
-			if child.Name != name {
-				continue
-			}
-			want := yang.FindModuleByPrefix(node, prefix)
-			parentModule, parentErr := e.InstantiatingModule()
-			keptModule := ""
-			if next != nil {
-				keptModule, _ = next.InstantiatingModule()
-			}
-			_, deviation := node.(*yang.Deviation)
-			deviatedOwnNode := deviation && index == len(parts)-1 && next == nil && want != nil && want.Name == parentModule
-			if !deviatedOwnNode && (want == nil || parentErr != nil || want.Name != parentModule || keptModule != parentModule) {
-				return &LoadError{Vendor: vendor, Issue: fmt.Sprintf("target path %s at %s crosses recovered %s (%s, %s, %s)", path, yang.Source(node), name, yang.Source(child.Node), sourceOf(next), sourceOf(e))}
+		visited[e] = true
+		for _, path := range leafrefPaths(e.Type) {
+			if _, err := checkPath(vendor, e.Node, e, path, recovered); err != nil {
+				return err
 			}
 		}
-		e = next
+		for _, name := range sortedKeys(e.Dir) {
+			if err := visit(e.Dir[name]); err != nil {
+				return err
+			}
+		}
+		for _, child := range recovered[e] {
+			if err := visit(child); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	for _, modules := range []map[string]*yang.Module{ms.Modules, ms.SubModules} {
+		for _, name := range sortedKeys(modules) {
+			mod := modules[name]
+			if name != mod.Name {
+				continue
+			}
+			if err := visit(yang.ToEntry(mod)); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
+}
+
+func leafrefPaths(t *yang.YangType) []string {
+	if t == nil {
+		return nil
+	}
+	var paths []string
+	if t.Kind == yang.Yleafref && t.Path != "" {
+		paths = append(paths, t.Path)
+	}
+	for _, member := range t.Type {
+		paths = append(paths, leafrefPaths(member)...)
+	}
+	return paths
 }
 
 func sourceOf(e *yang.Entry) string {

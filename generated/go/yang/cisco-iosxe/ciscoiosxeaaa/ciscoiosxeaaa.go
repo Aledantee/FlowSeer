@@ -17,12 +17,6 @@ var moduleCiscoIOSXEAaa = &yang.Module{
 	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-aaa",
 }
 
-// moduleCiscoIOSXEBannerInternal identifies the Cisco-IOS-XE-banner-internal YANG module.
-var moduleCiscoIOSXEBannerInternal = &yang.Module{
-	Name:      "Cisco-IOS-XE-banner-internal",
-	Namespace: "http://cisco.com/ns/yang/Cisco-IOS-XE-banner-internal",
-}
-
 // A1 is the Cisco-IOS-XE-aaa node shape instantiated at 2 schema paths, such as /Cisco-IOS-XE-native:native/aaa/Cisco-IOS-XE-aaa:authentication/dot1x/default/a1.
 type A1 struct {
 	Cache  *yang.Value

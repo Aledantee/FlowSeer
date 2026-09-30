@@ -5272,19 +5272,6 @@ var ATMAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXENat,
 }
 
-// ATMSubinterfaceATMIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/ATM-subinterface/ATM/ip.
-type ATMSubinterfaceATMIPAugment struct {
-	Nat *IPNat
-}
-
-// ATMSubinterfaceATMIPAugmentSchema describes ATMSubinterfaceATMIPAugment group fields with no codec root.
-var ATMSubinterfaceATMIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
 // ATMSubinterfaceAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/ATM-subinterface.
 type ATMSubinterfaceAugment struct {
 	Nat64 *Nat64
@@ -5315,45 +5302,6 @@ var AppGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXENat,
 }
 
-// AppGigabitEthernetIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ip.
-type AppGigabitEthernetIPAugment struct {
-	Nat *IPNat
-}
-
-// AppGigabitEthernetIPAugmentSchema describes AppGigabitEthernetIPAugment group fields with no codec root.
-var AppGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// BDIIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/BDI/ip.
-type BDIIPAugment struct {
-	Nat *IPNat
-}
-
-// BDIIPAugmentSchema describes BDIIPAugment group fields with no codec root.
-var BDIIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// BDVIFIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/BD-VIF/ip.
-type BDVIFIPAugment struct {
-	Nat *IPNat
-}
-
-// BDVIFIPAugmentSchema describes BDVIFIPAugment group fields with no codec root.
-var BDVIFIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
 // CellularAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Cellular.
 type CellularAugment struct {
 	Nat66 *string
@@ -5367,19 +5315,6 @@ var CellularAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXENat,
 }
 
-// CellularIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Cellular/ip.
-type CellularIPAugment struct {
-	Nat *IPNat
-}
-
-// CellularIPAugmentSchema describes CellularIPAugment group fields with no codec root.
-var CellularIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
 // DialerAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Dialer.
 type DialerAugment struct {
 	Nat66 *string
@@ -5389,32 +5324,6 @@ type DialerAugment struct {
 var DialerAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{GoName: "Nat66", Name: "nat66", Type: yang.TEnum},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// DialerIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Dialer/ip.
-type DialerIPAugment struct {
-	Nat *IPNat
-}
-
-// DialerIPAugmentSchema describes DialerIPAugment group fields with no codec root.
-var DialerIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// EthernetIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Ethernet/ip.
-type EthernetIPAugment struct {
-	Nat *IPNat
-}
-
-// EthernetIPAugmentSchema describes EthernetIPAugment group fields with no codec root.
-var EthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
 	},
 	Module: moduleCiscoIOSXENat,
 }
@@ -5434,19 +5343,6 @@ var FastEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXENat,
 }
 
-// FastEthernetIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/ip.
-type FastEthernetIPAugment struct {
-	Nat *IPNat
-}
-
-// FastEthernetIPAugmentSchema describes FastEthernetIPAugment group fields with no codec root.
-var FastEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
 // FiftyGigabitEthernetAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet.
 type FiftyGigabitEthernetAugment struct {
 	Nat64 *Nat64
@@ -5458,19 +5354,6 @@ var FiftyGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: Nat64Schema, GoName: "Nat64", Name: "nat64"},
 		{GoName: "Nat66", Name: "nat66", Type: yang.TEnum},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// FiftyGigabitEthernetIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/ip.
-type FiftyGigabitEthernetIPAugment struct {
-	Nat *IPNat
-}
-
-// FiftyGigabitEthernetIPAugmentSchema describes FiftyGigabitEthernetIPAugment group fields with no codec root.
-var FiftyGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
 	},
 	Module: moduleCiscoIOSXENat,
 }
@@ -5490,19 +5373,6 @@ var FiveGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXENat,
 }
 
-// FiveGigabitEthernetIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/ip.
-type FiveGigabitEthernetIPAugment struct {
-	Nat *IPNat
-}
-
-// FiveGigabitEthernetIPAugmentSchema describes FiveGigabitEthernetIPAugment group fields with no codec root.
-var FiveGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
 // FortyGigabitEthernetAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet.
 type FortyGigabitEthernetAugment struct {
 	Nat64 *Nat64
@@ -5514,19 +5384,6 @@ var FortyGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: Nat64Schema, GoName: "Nat64", Name: "nat64"},
 		{GoName: "Nat66", Name: "nat66", Type: yang.TEnum},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// FortyGigabitEthernetIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/ip.
-type FortyGigabitEthernetIPAugment struct {
-	Nat *IPNat
-}
-
-// FortyGigabitEthernetIPAugmentSchema describes FortyGigabitEthernetIPAugment group fields with no codec root.
-var FortyGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
 	},
 	Module: moduleCiscoIOSXENat,
 }
@@ -5546,19 +5403,6 @@ var GigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXENat,
 }
 
-// GigabitEthernetIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/ip.
-type GigabitEthernetIPAugment struct {
-	Nat *IPNat
-}
-
-// GigabitEthernetIPAugmentSchema describes GigabitEthernetIPAugment group fields with no codec root.
-var GigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
 // HundredGigEAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE.
 type HundredGigEAugment struct {
 	Nat64 *Nat64
@@ -5574,54 +5418,13 @@ var HundredGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXENat,
 }
 
-// HundredGigEIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/ip.
-type HundredGigEIPAugment struct {
+// IPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/ATM/ip.
+type IPAugment struct {
 	Nat *IPNat
 }
 
-// HundredGigEIPAugmentSchema describes HundredGigEIPAugment group fields with no codec root.
-var HundredGigEIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// InterfaceATMIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/ATM/ip.
-type InterfaceATMIPAugment struct {
-	Nat *IPNat
-}
-
-// InterfaceATMIPAugmentSchema describes InterfaceATMIPAugment group fields with no codec root.
-var InterfaceATMIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// InterfacePortChannelAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Port-channel.
-type InterfacePortChannelAugment struct {
-	Nat64 *Nat64
-	Nat66 *string
-}
-
-// InterfacePortChannelAugmentSchema describes InterfacePortChannelAugment group fields with no codec root.
-var InterfacePortChannelAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: Nat64Schema, GoName: "Nat64", Name: "nat64"},
-		{GoName: "Nat66", Name: "nat66", Type: yang.TEnum},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// InterfacePortChannelIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/ip.
-type InterfacePortChannelIPAugment struct {
-	Nat *IPNat
-}
-
-// InterfacePortChannelIPAugmentSchema describes InterfacePortChannelIPAugment group fields with no codec root.
-var InterfacePortChannelIPAugmentSchema = &yang.Schema{
+// IPAugmentSchema describes IPAugment group fields with no codec root.
+var IPAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
 	},
@@ -5639,32 +5442,6 @@ var LoopbackAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: Nat64Schema, GoName: "Nat64", Name: "nat64"},
 		{GoName: "Nat66", Name: "nat66", Type: yang.TEnum},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// LoopbackIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Loopback/ip.
-type LoopbackIPAugment struct {
-	Nat *IPNat
-}
-
-// LoopbackIPAugmentSchema describes LoopbackIPAugment group fields with no codec root.
-var LoopbackIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// MultilinkIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Multilink/ip.
-type MultilinkIPAugment struct {
-	Nat *IPNat
-}
-
-// MultilinkIPAugmentSchema describes MultilinkIPAugment group fields with no codec root.
-var MultilinkIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
 	},
 	Module: moduleCiscoIOSXENat,
 }
@@ -5697,43 +5474,17 @@ var NativeIPAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXENat,
 }
 
-// PortChannelSubinterfacePortChannelAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel.
-type PortChannelSubinterfacePortChannelAugment struct {
+// PortChannelAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Port-channel.
+type PortChannelAugment struct {
 	Nat64 *Nat64
 	Nat66 *string
 }
 
-// PortChannelSubinterfacePortChannelAugmentSchema describes PortChannelSubinterfacePortChannelAugment group fields with no codec root.
-var PortChannelSubinterfacePortChannelAugmentSchema = &yang.Schema{
+// PortChannelAugmentSchema describes PortChannelAugment group fields with no codec root.
+var PortChannelAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: Nat64Schema, GoName: "Nat64", Name: "nat64"},
 		{GoName: "Nat66", Name: "nat66", Type: yang.TEnum},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// PortChannelSubinterfacePortChannelIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel/ip.
-type PortChannelSubinterfacePortChannelIPAugment struct {
-	Nat *IPNat
-}
-
-// PortChannelSubinterfacePortChannelIPAugmentSchema describes PortChannelSubinterfacePortChannelIPAugment group fields with no codec root.
-var PortChannelSubinterfacePortChannelIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// SerialIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Serial/ip.
-type SerialIPAugment struct {
-	Nat *IPNat
-}
-
-// SerialIPAugmentSchema describes SerialIPAugment group fields with no codec root.
-var SerialIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
 	},
 	Module: moduleCiscoIOSXENat,
 }
@@ -5753,19 +5504,6 @@ var TenGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXENat,
 }
 
-// TenGigabitEthernetIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/ip.
-type TenGigabitEthernetIPAugment struct {
-	Nat *IPNat
-}
-
-// TenGigabitEthernetIPAugmentSchema describes TenGigabitEthernetIPAugment group fields with no codec root.
-var TenGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
 // TunnelAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Tunnel.
 type TunnelAugment struct {
 	Nat64 *Nat64
@@ -5777,19 +5515,6 @@ var TunnelAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: Nat64Schema, GoName: "Nat64", Name: "nat64"},
 		{GoName: "Nat66", Name: "nat66", Type: yang.TEnum},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// TunnelIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ip.
-type TunnelIPAugment struct {
-	Nat *IPNat
-}
-
-// TunnelIPAugmentSchema describes TunnelIPAugment group fields with no codec root.
-var TunnelIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
 	},
 	Module: moduleCiscoIOSXENat,
 }
@@ -5809,19 +5534,6 @@ var TwentyFiveGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXENat,
 }
 
-// TwentyFiveGigEIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/ip.
-type TwentyFiveGigEIPAugment struct {
-	Nat *IPNat
-}
-
-// TwentyFiveGigEIPAugmentSchema describes TwentyFiveGigEIPAugment group fields with no codec root.
-var TwentyFiveGigEIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
 // TwoGigabitEthernetAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet.
 type TwoGigabitEthernetAugment struct {
 	Nat64 *Nat64
@@ -5833,19 +5545,6 @@ var TwoGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: Nat64Schema, GoName: "Nat64", Name: "nat64"},
 		{GoName: "Nat66", Name: "nat66", Type: yang.TEnum},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// TwoGigabitEthernetIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/ip.
-type TwoGigabitEthernetIPAugment struct {
-	Nat *IPNat
-}
-
-// TwoGigabitEthernetIPAugmentSchema describes TwoGigabitEthernetIPAugment group fields with no codec root.
-var TwoGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
 	},
 	Module: moduleCiscoIOSXENat,
 }
@@ -5876,71 +5575,6 @@ var VLANAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: Nat64Schema, GoName: "Nat64", Name: "nat64"},
 		{GoName: "Nat66", Name: "nat66", Type: yang.TEnum},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// VLANIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Vlan/ip.
-type VLANIPAugment struct {
-	Nat *IPNat
-}
-
-// VLANIPAugmentSchema describes VLANIPAugment group fields with no codec root.
-var VLANIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// VasileftIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/vasileft/ip.
-type VasileftIPAugment struct {
-	Nat *IPNat
-}
-
-// VasileftIPAugmentSchema describes VasileftIPAugment group fields with no codec root.
-var VasileftIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// VasirightIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/vasiright/ip.
-type VasirightIPAugment struct {
-	Nat *IPNat
-}
-
-// VasirightIPAugmentSchema describes VasirightIPAugment group fields with no codec root.
-var VasirightIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// VirtualPortGroupIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/VirtualPortGroup/ip.
-type VirtualPortGroupIPAugment struct {
-	Nat *IPNat
-}
-
-// VirtualPortGroupIPAugmentSchema describes VirtualPortGroupIPAugment group fields with no codec root.
-var VirtualPortGroupIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
-	},
-	Module: moduleCiscoIOSXENat,
-}
-
-// VirtualTemplateIPAugment is the Cisco-IOS-XE-nat augment group at /Cisco-IOS-XE-native:native/interface/Virtual-Template/ip.
-type VirtualTemplateIPAugment struct {
-	Nat *IPNat
-}
-
-// VirtualTemplateIPAugmentSchema describes VirtualTemplateIPAugment group fields with no codec root.
-var VirtualTemplateIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPNatSchema, GoName: "Nat", Name: "nat"},
 	},
 	Module: moduleCiscoIOSXENat,
 }

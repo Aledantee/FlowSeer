@@ -5,6 +5,7 @@ date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
 execution: code
 parent: docs/plans/2026-09-30-1129-fix-yang-augment-namespaces-plan.md
 ---
@@ -285,12 +286,12 @@ group schemas in `ciscoiosxeswitch` (`macsec` typed `yang.TEmpty`) and
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] `yanggen -check` passes, and two `-update` runs leave no diff.
-- [ ] Timings recorded in the parent plan's outcome note.
-- [ ] This plan's `status` set with an outcome note, and the parent's
+- [x] Verifier green for every changed path.
+- [x] `yanggen -check` passes, and two `-update` runs leave no diff.
+- [x] Timings recorded in the parent plan's outcome note.
+- [x] This plan's `status` set with an outcome note, and the parent's
       `Landed:` line for U2 filled.
-- [ ] No plan labels in code.
+- [x] No plan labels in code.
 
 ## Open questions
 

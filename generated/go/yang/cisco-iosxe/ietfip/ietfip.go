@@ -17,12 +17,6 @@ var moduleIetfIP = &yang.Module{
 	Namespace: "urn:ietf:params:xml:ns:yang:ietf-ip",
 }
 
-// moduleIetfIPv6UnicastRouting identifies the ietf-ipv6-unicast-routing YANG module.
-var moduleIetfIPv6UnicastRouting = &yang.Module{
-	Name:      "ietf-ipv6-unicast-routing",
-	Namespace: "urn:ietf:params:xml:ns:yang:ietf-ipv6-unicast-routing",
-}
-
 // Autoconf is the ietf-ip node /ietf-interfaces:interfaces/interface/ietf-ip:ipv6/autoconf.
 type Autoconf struct {
 	CreateGlobalAddresses      *bool

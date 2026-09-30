@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCISCOSONETMIB identifies the CISCO-SONET-MIB YANG module.
-var moduleCISCOSONETMIB = &yang.Module{
-	Name:      "CISCO-SONET-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:CISCO-SONET-MIB",
-}
-
 // moduleSONETMIB identifies the SONET-MIB YANG module.
 var moduleSONETMIB = &yang.Module{
 	Name:      "SONET-MIB",

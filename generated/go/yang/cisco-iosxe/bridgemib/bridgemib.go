@@ -19,24 +19,6 @@ var moduleBRIDGEMIB = &yang.Module{
 	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:BRIDGE-MIB",
 }
 
-// moduleCISCOSTPEXTENSIONSMIB identifies the CISCO-STP-EXTENSIONS-MIB YANG module.
-var moduleCISCOSTPEXTENSIONSMIB = &yang.Module{
-	Name:      "CISCO-STP-EXTENSIONS-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:CISCO-STP-EXTENSIONS-MIB",
-}
-
-// modulePBRIDGEMIB identifies the P-BRIDGE-MIB YANG module.
-var modulePBRIDGEMIB = &yang.Module{
-	Name:      "P-BRIDGE-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:P-BRIDGE-MIB",
-}
-
-// moduleQBRIDGEMIB identifies the Q-BRIDGE-MIB YANG module.
-var moduleQBRIDGEMIB = &yang.Module{
-	Name:      "Q-BRIDGE-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:Q-BRIDGE-MIB",
-}
-
 // BRIDGEMIB is the BRIDGE-MIB node /BRIDGE-MIB:BRIDGE-MIB.
 type BRIDGEMIB struct {
 	Dot1dBase          *Dot1dBase

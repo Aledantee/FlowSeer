@@ -85,32 +85,15 @@ var FilterAugmentSchema = &yang.Schema{
 	Module: moduleCiscoXeIetfYangPushExt,
 }
 
-// SubscriptionConfigSubscriptionAugment is the cisco-xe-ietf-yang-push-ext augment group at /ietf-event-notifications:subscription-config/subscription.
-type SubscriptionConfigSubscriptionAugment struct {
+// SubscriptionAugment is the cisco-xe-ietf-yang-push-ext augment group at /ietf-event-notifications:subscription-config/subscription.
+type SubscriptionAugment struct {
 	NestedURIFilter     *string
 	TdlURIFilter        *string
 	TransformNameFilter *string
 }
 
-// SubscriptionConfigSubscriptionAugmentSchema describes SubscriptionConfigSubscriptionAugment group fields with no codec root.
-var SubscriptionConfigSubscriptionAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{GoName: "NestedURIFilter", Name: "nested-uri-filter", Type: yang.TString},
-		{GoName: "TdlURIFilter", Name: "tdl-uri-filter", Type: yang.TString},
-		{GoName: "TransformNameFilter", Name: "transform-name-filter", Type: yang.TString},
-	},
-	Module: moduleCiscoXeIetfYangPushExt,
-}
-
-// SubscriptionsSubscriptionAugment is the cisco-xe-ietf-yang-push-ext augment group at /ietf-event-notifications:subscriptions/subscription.
-type SubscriptionsSubscriptionAugment struct {
-	NestedURIFilter     *string
-	TdlURIFilter        *string
-	TransformNameFilter *string
-}
-
-// SubscriptionsSubscriptionAugmentSchema describes SubscriptionsSubscriptionAugment group fields with no codec root.
-var SubscriptionsSubscriptionAugmentSchema = &yang.Schema{
+// SubscriptionAugmentSchema describes SubscriptionAugment group fields with no codec root.
+var SubscriptionAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{GoName: "NestedURIFilter", Name: "nested-uri-filter", Type: yang.TString},
 		{GoName: "TdlURIFilter", Name: "tdl-uri-filter", Type: yang.TString},

@@ -921,8 +921,8 @@ var UniversalV2Schema = &yang.Schema{
 	Name:   "universal-v2",
 }
 
-// IPCefAugment is the Cisco-IOS-XE-cef augment group at /Cisco-IOS-XE-native:native/ip/cef.
-type IPCefAugment struct {
+// CefAugment is the Cisco-IOS-XE-cef augment group at /Cisco-IOS-XE-native:native/ip/cef.
+type CefAugment struct {
 	Accounting         *Accounting
 	Distributed        *bool
 	DistributedBoolean *bool
@@ -931,8 +931,8 @@ type IPCefAugment struct {
 	TrafficStatistics  *TrafficStatistics
 }
 
-// IPCefAugmentSchema describes IPCefAugment group fields with no codec root.
-var IPCefAugmentSchema = &yang.Schema{
+// CefAugmentSchema describes CefAugment group fields with no codec root.
+var CefAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: AccountingSchema, GoName: "Accounting", Name: "accounting"},
 		{GoName: "Distributed", Name: "distributed", Type: yang.TEmpty},
@@ -961,29 +961,6 @@ var IPCefV2AugmentSchema = &yang.Schema{
 		{Child: IPCefV2LoadSharingV2Schema, GoName: "LoadSharingV2", Name: "load-sharing-v2"},
 		{Child: OptimizeV2Schema, GoName: "OptimizeV2", Name: "optimize-v2"},
 		{Child: TrafficStatisticsV2Schema, GoName: "TrafficStatisticsV2", Name: "traffic-statistics-v2"},
-	},
-	Module: moduleCiscoIOSXECef,
-}
-
-// IPv6CefAugment is the Cisco-IOS-XE-cef augment group at /Cisco-IOS-XE-native:native/ipv6/cef.
-type IPv6CefAugment struct {
-	Accounting         *Accounting
-	Distributed        *bool
-	DistributedBoolean *bool
-	LoadSharing        *LoadSharing
-	Optimize           *Optimize
-	TrafficStatistics  *TrafficStatistics
-}
-
-// IPv6CefAugmentSchema describes IPv6CefAugment group fields with no codec root.
-var IPv6CefAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: AccountingSchema, GoName: "Accounting", Name: "accounting"},
-		{GoName: "Distributed", Name: "distributed", Type: yang.TEmpty},
-		{GoName: "DistributedBoolean", Name: "distributed-boolean", Type: yang.TBool},
-		{Child: LoadSharingSchema, GoName: "LoadSharing", Name: "load-sharing"},
-		{Child: OptimizeSchema, GoName: "Optimize", Name: "optimize"},
-		{Child: TrafficStatisticsSchema, GoName: "TrafficStatistics", Name: "traffic-statistics"},
 	},
 	Module: moduleCiscoIOSXECef,
 }

@@ -5488,21 +5488,6 @@ var AppGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEL2vpn,
 }
 
-// AppGigabitEthernetServiceInstanceAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type AppGigabitEthernetServiceInstanceAugment struct {
-	Xconnect        *InstanceXconnect
-	XconnectPwClass *XconnectPwClass
-}
-
-// AppGigabitEthernetServiceInstanceAugmentSchema describes AppGigabitEthernetServiceInstanceAugment group fields with no codec root.
-var AppGigabitEthernetServiceInstanceAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: InstanceXconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
-	},
-	Module: moduleCiscoIOSXEL2vpn,
-}
-
 // CellularAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/Cellular.
 type CellularAugment struct {
 	Xconnect *Xconnect
@@ -5531,21 +5516,6 @@ var FastEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEL2vpn,
 }
 
-// FastEthernetServiceInstanceAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type FastEthernetServiceInstanceAugment struct {
-	Xconnect        *InstanceXconnect
-	XconnectPwClass *XconnectPwClass
-}
-
-// FastEthernetServiceInstanceAugmentSchema describes FastEthernetServiceInstanceAugment group fields with no codec root.
-var FastEthernetServiceInstanceAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: InstanceXconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
-	},
-	Module: moduleCiscoIOSXEL2vpn,
-}
-
 // FiftyGigabitEthernetAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet.
 type FiftyGigabitEthernetAugment struct {
 	Evpn     *Evpn
@@ -5557,21 +5527,6 @@ var FiftyGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: EvpnSchema, GoName: "Evpn", Name: "evpn"},
 		{Child: XconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-	},
-	Module: moduleCiscoIOSXEL2vpn,
-}
-
-// FiftyGigabitEthernetServiceInstanceAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type FiftyGigabitEthernetServiceInstanceAugment struct {
-	Xconnect        *InstanceXconnect
-	XconnectPwClass *XconnectPwClass
-}
-
-// FiftyGigabitEthernetServiceInstanceAugmentSchema describes FiftyGigabitEthernetServiceInstanceAugment group fields with no codec root.
-var FiftyGigabitEthernetServiceInstanceAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: InstanceXconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
 	},
 	Module: moduleCiscoIOSXEL2vpn,
 }
@@ -5591,21 +5546,6 @@ var FiveGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEL2vpn,
 }
 
-// FiveGigabitEthernetServiceInstanceAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type FiveGigabitEthernetServiceInstanceAugment struct {
-	Xconnect        *InstanceXconnect
-	XconnectPwClass *XconnectPwClass
-}
-
-// FiveGigabitEthernetServiceInstanceAugmentSchema describes FiveGigabitEthernetServiceInstanceAugment group fields with no codec root.
-var FiveGigabitEthernetServiceInstanceAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: InstanceXconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
-	},
-	Module: moduleCiscoIOSXEL2vpn,
-}
-
 // FortyGigabitEthernetAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet.
 type FortyGigabitEthernetAugment struct {
 	Evpn     *Evpn
@@ -5617,21 +5557,6 @@ var FortyGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: EvpnSchema, GoName: "Evpn", Name: "evpn"},
 		{Child: XconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-	},
-	Module: moduleCiscoIOSXEL2vpn,
-}
-
-// FortyGigabitEthernetServiceInstanceAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type FortyGigabitEthernetServiceInstanceAugment struct {
-	Xconnect        *InstanceXconnect
-	XconnectPwClass *XconnectPwClass
-}
-
-// FortyGigabitEthernetServiceInstanceAugmentSchema describes FortyGigabitEthernetServiceInstanceAugment group fields with no codec root.
-var FortyGigabitEthernetServiceInstanceAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: InstanceXconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
 	},
 	Module: moduleCiscoIOSXEL2vpn,
 }
@@ -5651,21 +5576,6 @@ var GigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEL2vpn,
 }
 
-// GigabitEthernetServiceInstanceAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type GigabitEthernetServiceInstanceAugment struct {
-	Xconnect        *InstanceXconnect
-	XconnectPwClass *XconnectPwClass
-}
-
-// GigabitEthernetServiceInstanceAugmentSchema describes GigabitEthernetServiceInstanceAugment group fields with no codec root.
-var GigabitEthernetServiceInstanceAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: InstanceXconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
-	},
-	Module: moduleCiscoIOSXEL2vpn,
-}
-
 // HundredGigEAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE.
 type HundredGigEAugment struct {
 	Evpn     *Evpn
@@ -5681,14 +5591,14 @@ var HundredGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEL2vpn,
 }
 
-// HundredGigEServiceInstanceAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/Cisco-IOS-XE-ethernet:service/instance.
-type HundredGigEServiceInstanceAugment struct {
+// InstanceAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
+type InstanceAugment struct {
 	Xconnect        *InstanceXconnect
 	XconnectPwClass *XconnectPwClass
 }
 
-// HundredGigEServiceInstanceAugmentSchema describes HundredGigEServiceInstanceAugment group fields with no codec root.
-var HundredGigEServiceInstanceAugmentSchema = &yang.Schema{
+// InstanceAugmentSchema describes InstanceAugment group fields with no codec root.
+var InstanceAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: InstanceXconnectSchema, GoName: "Xconnect", Name: "xconnect"},
 		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
@@ -5788,21 +5698,6 @@ var PortChannelAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: PortChannelEvpnSchema, GoName: "Evpn", Name: "evpn"},
 		{Child: XconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-	},
-	Module: moduleCiscoIOSXEL2vpn,
-}
-
-// PortChannelServiceInstanceAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/Cisco-IOS-XE-ethernet:service/instance.
-type PortChannelServiceInstanceAugment struct {
-	Xconnect        *InstanceXconnect
-	XconnectPwClass *XconnectPwClass
-}
-
-// PortChannelServiceInstanceAugmentSchema describes PortChannelServiceInstanceAugment group fields with no codec root.
-var PortChannelServiceInstanceAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: InstanceXconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
 	},
 	Module: moduleCiscoIOSXEL2vpn,
 }
@@ -5939,21 +5834,6 @@ var TenGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEL2vpn,
 }
 
-// TenGigabitEthernetServiceInstanceAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type TenGigabitEthernetServiceInstanceAugment struct {
-	Xconnect        *InstanceXconnect
-	XconnectPwClass *XconnectPwClass
-}
-
-// TenGigabitEthernetServiceInstanceAugmentSchema describes TenGigabitEthernetServiceInstanceAugment group fields with no codec root.
-var TenGigabitEthernetServiceInstanceAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: InstanceXconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
-	},
-	Module: moduleCiscoIOSXEL2vpn,
-}
-
 // TwentyFiveGigEAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE.
 type TwentyFiveGigEAugment struct {
 	Evpn     *Evpn
@@ -5969,21 +5849,6 @@ var TwentyFiveGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEL2vpn,
 }
 
-// TwentyFiveGigEServiceInstanceAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/Cisco-IOS-XE-ethernet:service/instance.
-type TwentyFiveGigEServiceInstanceAugment struct {
-	Xconnect        *InstanceXconnect
-	XconnectPwClass *XconnectPwClass
-}
-
-// TwentyFiveGigEServiceInstanceAugmentSchema describes TwentyFiveGigEServiceInstanceAugment group fields with no codec root.
-var TwentyFiveGigEServiceInstanceAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: InstanceXconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
-	},
-	Module: moduleCiscoIOSXEL2vpn,
-}
-
 // TwoGigabitEthernetAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet.
 type TwoGigabitEthernetAugment struct {
 	Evpn     *Evpn
@@ -5995,21 +5860,6 @@ var TwoGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: EvpnSchema, GoName: "Evpn", Name: "evpn"},
 		{Child: XconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-	},
-	Module: moduleCiscoIOSXEL2vpn,
-}
-
-// TwoGigabitEthernetServiceInstanceAugment is the Cisco-IOS-XE-l2vpn augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/Cisco-IOS-XE-ethernet:service/instance.
-type TwoGigabitEthernetServiceInstanceAugment struct {
-	Xconnect        *InstanceXconnect
-	XconnectPwClass *XconnectPwClass
-}
-
-// TwoGigabitEthernetServiceInstanceAugmentSchema describes TwoGigabitEthernetServiceInstanceAugment group fields with no codec root.
-var TwoGigabitEthernetServiceInstanceAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: InstanceXconnectSchema, GoName: "Xconnect", Name: "xconnect"},
-		{Child: XconnectPwClassSchema, GoName: "XconnectPwClass", Name: "xconnect-pw-class"},
 	},
 	Module: moduleCiscoIOSXEL2vpn,
 }

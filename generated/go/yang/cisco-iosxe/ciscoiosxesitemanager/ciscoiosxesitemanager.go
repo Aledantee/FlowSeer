@@ -622,26 +622,13 @@ var VRFMasterAdvancedSchema = &yang.Schema{
 	Name:   "advanced",
 }
 
-// ATMSubinterfaceATMAugment is the Cisco-IOS-XE-site-manager augment group at /Cisco-IOS-XE-native:native/interface/ATM-subinterface/ATM.
-type ATMSubinterfaceATMAugment struct {
+// ATMAugment is the Cisco-IOS-XE-site-manager augment group at /Cisco-IOS-XE-native:native/interface/ATM.
+type ATMAugment struct {
 	SiteManager *SiteManager
 }
 
-// ATMSubinterfaceATMAugmentSchema describes ATMSubinterfaceATMAugment group fields with no codec root.
-var ATMSubinterfaceATMAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SiteManagerSchema, GoName: "SiteManager", Name: "site-manager"},
-	},
-	Module: moduleCiscoIOSXESiteManager,
-}
-
-// ATMSubinterfaceATMPvcAugment is the Cisco-IOS-XE-site-manager augment group at /Cisco-IOS-XE-native:native/interface/ATM-subinterface/ATM/Cisco-IOS-XE-atm:pvc.
-type ATMSubinterfaceATMPvcAugment struct {
-	SiteManager *SiteManager
-}
-
-// ATMSubinterfaceATMPvcAugmentSchema describes ATMSubinterfaceATMPvcAugment group fields with no codec root.
-var ATMSubinterfaceATMPvcAugmentSchema = &yang.Schema{
+// ATMAugmentSchema describes ATMAugment group fields with no codec root.
+var ATMAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: SiteManagerSchema, GoName: "SiteManager", Name: "site-manager"},
 	},
@@ -778,32 +765,6 @@ var HundredGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXESiteManager,
 }
 
-// InterfaceATMAugment is the Cisco-IOS-XE-site-manager augment group at /Cisco-IOS-XE-native:native/interface/ATM.
-type InterfaceATMAugment struct {
-	SiteManager *SiteManager
-}
-
-// InterfaceATMAugmentSchema describes InterfaceATMAugment group fields with no codec root.
-var InterfaceATMAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SiteManagerSchema, GoName: "SiteManager", Name: "site-manager"},
-	},
-	Module: moduleCiscoIOSXESiteManager,
-}
-
-// InterfaceATMPvcAugment is the Cisco-IOS-XE-site-manager augment group at /Cisco-IOS-XE-native:native/interface/ATM/Cisco-IOS-XE-atm:pvc.
-type InterfaceATMPvcAugment struct {
-	SiteManager *SiteManager
-}
-
-// InterfaceATMPvcAugmentSchema describes InterfaceATMPvcAugment group fields with no codec root.
-var InterfaceATMPvcAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: SiteManagerSchema, GoName: "SiteManager", Name: "site-manager"},
-	},
-	Module: moduleCiscoIOSXESiteManager,
-}
-
 // LISPAugment is the Cisco-IOS-XE-site-manager augment group at /Cisco-IOS-XE-native:native/interface/LISP.
 type LISPAugment struct {
 	SiteManager *SiteManager
@@ -850,6 +811,19 @@ type PortChannelAugment struct {
 
 // PortChannelAugmentSchema describes PortChannelAugment group fields with no codec root.
 var PortChannelAugmentSchema = &yang.Schema{
+	Fields: []yang.Field{
+		{Child: SiteManagerSchema, GoName: "SiteManager", Name: "site-manager"},
+	},
+	Module: moduleCiscoIOSXESiteManager,
+}
+
+// PvcAugment is the Cisco-IOS-XE-site-manager augment group at /Cisco-IOS-XE-native:native/interface/ATM/Cisco-IOS-XE-atm:pvc.
+type PvcAugment struct {
+	SiteManager *SiteManager
+}
+
+// PvcAugmentSchema describes PvcAugment group fields with no codec root.
+var PvcAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: SiteManagerSchema, GoName: "SiteManager", Name: "site-manager"},
 	},

@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCISCOPOWERETHERNETEXTMIB identifies the CISCO-POWER-ETHERNET-EXT-MIB YANG module.
-var moduleCISCOPOWERETHERNETEXTMIB = &yang.Module{
-	Name:      "CISCO-POWER-ETHERNET-EXT-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:CISCO-POWER-ETHERNET-EXT-MIB",
-}
-
 // modulePOWERETHERNETMIB identifies the POWER-ETHERNET-MIB YANG module.
 var modulePOWERETHERNETMIB = &yang.Module{
 	Name:      "POWER-ETHERNET-MIB",

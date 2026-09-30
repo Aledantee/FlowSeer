@@ -20,24 +20,6 @@ var moduleOpenconfigBGPPolicy = &yang.Module{
 	Namespace: "http://openconfig.net/yang/bgp-policy",
 }
 
-// moduleOpenconfigIsisPolicy identifies the openconfig-isis-policy YANG module.
-var moduleOpenconfigIsisPolicy = &yang.Module{
-	Name:      "openconfig-isis-policy",
-	Namespace: "http://openconfig.net/yang/openconfig-isis-policy",
-}
-
-// moduleOpenconfigNetworkInstancePolicy identifies the openconfig-network-instance-policy YANG module.
-var moduleOpenconfigNetworkInstancePolicy = &yang.Module{
-	Name:      "openconfig-network-instance-policy",
-	Namespace: "http://openconfig.net/yang/network-instance/policy",
-}
-
-// moduleOpenconfigOSPFPolicy identifies the openconfig-ospf-policy YANG module.
-var moduleOpenconfigOSPFPolicy = &yang.Module{
-	Name:      "openconfig-ospf-policy",
-	Namespace: "http://openconfig.net/yang/ospf-policy",
-}
-
 // moduleOpenconfigRoutingPolicy identifies the openconfig-routing-policy YANG module.
 var moduleOpenconfigRoutingPolicy = &yang.Module{
 	Name:      "openconfig-routing-policy",

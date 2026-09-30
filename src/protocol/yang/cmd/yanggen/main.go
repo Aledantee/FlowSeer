@@ -71,9 +71,21 @@ func run(args []string, stdout, stderr io.Writer) int {
 		total += len(vs.Modules)
 		skipped += len(vs.Skipped)
 	}
+	validateViews := func() error {
+		for _, vs := range sets {
+			if _, err := buildVendorDataView(vs.Modules, vs.Recovered); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 
 	switch {
 	case *verify:
+		if err := validateViews(); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
 		for _, vs := range sets {
 			recovered := 0
 			for _, children := range vs.Recovered {
@@ -87,6 +99,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "OK: resolved %d modules (%d skipped)\n", total, skipped)
 		return 0
 	case *check:
+		if err := validateViews(); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
 		committed, err := ReadLockfile(*outDir)
 		if err != nil {
 			fmt.Fprintln(stderr, err)

@@ -12,22 +12,10 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCiscoXeIetfYangPushExt identifies the cisco-xe-ietf-yang-push-ext YANG module.
-var moduleCiscoXeIetfYangPushExt = &yang.Module{
-	Name:      "cisco-xe-ietf-yang-push-ext",
-	Namespace: "urn:cisco:params:xml:ns:yang:cisco-xe-ietf-yang-push-ext",
-}
-
 // moduleIetfEventNotifications identifies the ietf-event-notifications YANG module.
 var moduleIetfEventNotifications = &yang.Module{
 	Name:      "ietf-event-notifications",
 	Namespace: "urn:ietf:params:xml:ns:yang:ietf-event-notifications",
-}
-
-// moduleIetfYangPush identifies the ietf-yang-push YANG module.
-var moduleIetfYangPush = &yang.Module{
-	Name:      "ietf-yang-push",
-	Namespace: "urn:ietf:params:xml:ns:yang:ietf-yang-push",
 }
 
 // IdentityNETCONF is the ietf-event-notifications identity "NETCONF".
@@ -291,8 +279,8 @@ type SubscriptionConfigSubscription struct {
 	StopTime               *string
 	Stream                 *yang.Identity
 	SubscriptionID         *uint32
-	CiscoXeIetfYangPushExt *ciscoxeietfyangpushext.SubscriptionConfigSubscriptionAugment
-	IetfYangPush           *ietfyangpush.SubscriptionConfigSubscriptionAugment
+	CiscoXeIetfYangPushExt *ciscoxeietfyangpushext.SubscriptionAugment
+	IetfYangPush           *ietfyangpush.SubscriptionAugment
 }
 
 // SubscriptionConfigSubscriptionSchema describes SubscriptionConfigSubscription for the generic codecs.
@@ -310,8 +298,8 @@ var SubscriptionConfigSubscriptionSchema = &yang.Schema{
 		{GoName: "StopTime", Name: "stopTime", Type: yang.TString},
 		{GoName: "Stream", Name: "stream", Type: yang.TIdentity},
 		{GoName: "SubscriptionID", Name: "subscription-id", Type: yang.TUint32},
-		{Child: ciscoxeietfyangpushext.SubscriptionConfigSubscriptionAugmentSchema, GoName: "CiscoXeIetfYangPushExt", Group: true},
-		{Child: ietfyangpush.SubscriptionConfigSubscriptionAugmentSchema, GoName: "IetfYangPush", Group: true},
+		{Child: ciscoxeietfyangpushext.SubscriptionAugmentSchema, GoName: "CiscoXeIetfYangPushExt", Group: true},
+		{Child: ietfyangpush.SubscriptionAugmentSchema, GoName: "IetfYangPush", Group: true},
 	},
 	Keys:   []string{"subscription-id"},
 	Module: moduleIetfEventNotifications,
@@ -345,8 +333,8 @@ type SubscriptionsSubscription struct {
 	Stream                 *yang.Identity
 	SubscriptionID         *uint32
 	SubscriptionStatus     *yang.Identity
-	CiscoXeIetfYangPushExt *ciscoxeietfyangpushext.SubscriptionsSubscriptionAugment
-	IetfYangPush           *ietfyangpush.SubscriptionsSubscriptionAugment
+	CiscoXeIetfYangPushExt *ciscoxeietfyangpushext.SubscriptionAugment
+	IetfYangPush           *ietfyangpush.SubscriptionAugment
 }
 
 // SubscriptionsSubscriptionSchema describes SubscriptionsSubscription for the generic codecs.
@@ -366,8 +354,8 @@ var SubscriptionsSubscriptionSchema = &yang.Schema{
 		{GoName: "Stream", Name: "stream", Type: yang.TIdentity},
 		{GoName: "SubscriptionID", Name: "subscription-id", Type: yang.TUint32},
 		{GoName: "SubscriptionStatus", Name: "subscription-status", Type: yang.TIdentity},
-		{Child: ciscoxeietfyangpushext.SubscriptionsSubscriptionAugmentSchema, GoName: "CiscoXeIetfYangPushExt", Group: true},
-		{Child: ietfyangpush.SubscriptionsSubscriptionAugmentSchema, GoName: "IetfYangPush", Group: true},
+		{Child: ciscoxeietfyangpushext.SubscriptionAugmentSchema, GoName: "CiscoXeIetfYangPushExt", Group: true},
+		{Child: ietfyangpush.SubscriptionAugmentSchema, GoName: "IetfYangPush", Group: true},
 	},
 	Keys:   []string{"subscription-id"},
 	Module: moduleIetfEventNotifications,

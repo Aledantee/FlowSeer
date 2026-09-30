@@ -729,26 +729,13 @@ var HundredGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXEVrrp,
 }
 
-// InterfacePortChannelAugment is the Cisco-IOS-XE-vrrp augment group at /Cisco-IOS-XE-native:native/interface/Port-channel.
-type InterfacePortChannelAugment struct {
+// PortChannelAugment is the Cisco-IOS-XE-vrrp augment group at /Cisco-IOS-XE-native:native/interface/Port-channel.
+type PortChannelAugment struct {
 	Vrrp *Vrrp
 }
 
-// InterfacePortChannelAugmentSchema describes InterfacePortChannelAugment group fields with no codec root.
-var InterfacePortChannelAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: VrrpSchema, GoName: "Vrrp", Name: "vrrp"},
-	},
-	Module: moduleCiscoIOSXEVrrp,
-}
-
-// PortChannelSubinterfacePortChannelAugment is the Cisco-IOS-XE-vrrp augment group at /Cisco-IOS-XE-native:native/interface/Port-channel-subinterface/Port-channel.
-type PortChannelSubinterfacePortChannelAugment struct {
-	Vrrp *Vrrp
-}
-
-// PortChannelSubinterfacePortChannelAugmentSchema describes PortChannelSubinterfacePortChannelAugment group fields with no codec root.
-var PortChannelSubinterfacePortChannelAugmentSchema = &yang.Schema{
+// PortChannelAugmentSchema describes PortChannelAugment group fields with no codec root.
+var PortChannelAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: VrrpSchema, GoName: "Vrrp", Name: "vrrp"},
 	},

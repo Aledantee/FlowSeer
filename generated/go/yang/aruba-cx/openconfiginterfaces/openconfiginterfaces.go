@@ -13,28 +13,10 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleOpenconfigIfAggregate identifies the openconfig-if-aggregate YANG module.
-var moduleOpenconfigIfAggregate = &yang.Module{
-	Name:      "openconfig-if-aggregate",
-	Namespace: "http://openconfig.net/yang/interfaces/aggregate",
-}
-
-// moduleOpenconfigIfEthernet identifies the openconfig-if-ethernet YANG module.
-var moduleOpenconfigIfEthernet = &yang.Module{
-	Name:      "openconfig-if-ethernet",
-	Namespace: "http://openconfig.net/yang/interfaces/ethernet",
-}
-
 // moduleOpenconfigInterfaces identifies the openconfig-interfaces YANG module.
 var moduleOpenconfigInterfaces = &yang.Module{
 	Name:      "openconfig-interfaces",
 	Namespace: "http://openconfig.net/yang/interfaces",
-}
-
-// moduleOpenconfigVLAN identifies the openconfig-vlan YANG module.
-var moduleOpenconfigVLAN = &yang.Module{
-	Name:      "openconfig-vlan",
-	Namespace: "http://openconfig.net/yang/vlan",
 }
 
 // HoldTime is the openconfig-interfaces node /openconfig-interfaces:interfaces/interface/hold-time.

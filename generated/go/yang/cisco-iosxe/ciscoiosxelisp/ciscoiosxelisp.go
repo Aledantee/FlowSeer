@@ -8552,19 +8552,6 @@ var AppGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXELisp,
 }
 
-// AppGigabitEthernetIPAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ip.
-type AppGigabitEthernetIPAugment struct {
-	Lisp *IPLisp
-}
-
-// AppGigabitEthernetIPAugmentSchema describes AppGigabitEthernetIPAugment group fields with no codec root.
-var AppGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPLispSchema, GoName: "Lisp", Name: "lisp"},
-	},
-	Module: moduleCiscoIOSXELisp,
-}
-
 // FastEthernetAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet.
 type FastEthernetAugment struct {
 	Lisp *Lisp
@@ -8574,19 +8561,6 @@ type FastEthernetAugment struct {
 var FastEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: LispSchema, GoName: "Lisp", Name: "lisp"},
-	},
-	Module: moduleCiscoIOSXELisp,
-}
-
-// FastEthernetIPAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/ip.
-type FastEthernetIPAugment struct {
-	Lisp *IPLisp
-}
-
-// FastEthernetIPAugmentSchema describes FastEthernetIPAugment group fields with no codec root.
-var FastEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPLispSchema, GoName: "Lisp", Name: "lisp"},
 	},
 	Module: moduleCiscoIOSXELisp,
 }
@@ -8604,19 +8578,6 @@ var FiveGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXELisp,
 }
 
-// FiveGigabitEthernetIPAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/ip.
-type FiveGigabitEthernetIPAugment struct {
-	Lisp *IPLisp
-}
-
-// FiveGigabitEthernetIPAugmentSchema describes FiveGigabitEthernetIPAugment group fields with no codec root.
-var FiveGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPLispSchema, GoName: "Lisp", Name: "lisp"},
-	},
-	Module: moduleCiscoIOSXELisp,
-}
-
 // FortyGigabitEthernetAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet.
 type FortyGigabitEthernetAugment struct {
 	Lisp *Lisp
@@ -8626,19 +8587,6 @@ type FortyGigabitEthernetAugment struct {
 var FortyGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: LispSchema, GoName: "Lisp", Name: "lisp"},
-	},
-	Module: moduleCiscoIOSXELisp,
-}
-
-// FortyGigabitEthernetIPAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/ip.
-type FortyGigabitEthernetIPAugment struct {
-	Lisp *IPLisp
-}
-
-// FortyGigabitEthernetIPAugmentSchema describes FortyGigabitEthernetIPAugment group fields with no codec root.
-var FortyGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPLispSchema, GoName: "Lisp", Name: "lisp"},
 	},
 	Module: moduleCiscoIOSXELisp,
 }
@@ -8656,19 +8604,6 @@ var GigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXELisp,
 }
 
-// GigabitEthernetIPAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/ip.
-type GigabitEthernetIPAugment struct {
-	Lisp *IPLisp
-}
-
-// GigabitEthernetIPAugmentSchema describes GigabitEthernetIPAugment group fields with no codec root.
-var GigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPLispSchema, GoName: "Lisp", Name: "lisp"},
-	},
-	Module: moduleCiscoIOSXELisp,
-}
-
 // HundredGigEAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE.
 type HundredGigEAugment struct {
 	Lisp *Lisp
@@ -8682,13 +8617,13 @@ var HundredGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXELisp,
 }
 
-// HundredGigEIPAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/ip.
-type HundredGigEIPAugment struct {
+// IPAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ip.
+type IPAugment struct {
 	Lisp *IPLisp
 }
 
-// HundredGigEIPAugmentSchema describes HundredGigEIPAugment group fields with no codec root.
-var HundredGigEIPAugmentSchema = &yang.Schema{
+// IPAugmentSchema describes IPAugment group fields with no codec root.
+var IPAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: IPLispSchema, GoName: "Lisp", Name: "lisp"},
 	},
@@ -8708,19 +8643,6 @@ var LoopbackAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXELisp,
 }
 
-// LoopbackIPAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/Loopback/ip.
-type LoopbackIPAugment struct {
-	Lisp *IPLisp
-}
-
-// LoopbackIPAugmentSchema describes LoopbackIPAugment group fields with no codec root.
-var LoopbackIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPLispSchema, GoName: "Lisp", Name: "lisp"},
-	},
-	Module: moduleCiscoIOSXELisp,
-}
-
 // PortChannelAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/Port-channel.
 type PortChannelAugment struct {
 	Lisp *Lisp
@@ -8730,19 +8652,6 @@ type PortChannelAugment struct {
 var PortChannelAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: LispSchema, GoName: "Lisp", Name: "lisp"},
-	},
-	Module: moduleCiscoIOSXELisp,
-}
-
-// PortChannelIPAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/ip.
-type PortChannelIPAugment struct {
-	Lisp *IPLisp
-}
-
-// PortChannelIPAugmentSchema describes PortChannelIPAugment group fields with no codec root.
-var PortChannelIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPLispSchema, GoName: "Lisp", Name: "lisp"},
 	},
 	Module: moduleCiscoIOSXELisp,
 }
@@ -8775,19 +8684,6 @@ var TenGigabitEthernetAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXELisp,
 }
 
-// TenGigabitEthernetIPAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/ip.
-type TenGigabitEthernetIPAugment struct {
-	Lisp *IPLisp
-}
-
-// TenGigabitEthernetIPAugmentSchema describes TenGigabitEthernetIPAugment group fields with no codec root.
-var TenGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPLispSchema, GoName: "Lisp", Name: "lisp"},
-	},
-	Module: moduleCiscoIOSXELisp,
-}
-
 // TunnelAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/Tunnel.
 type TunnelAugment struct {
 	Lisp *Lisp
@@ -8797,19 +8693,6 @@ type TunnelAugment struct {
 var TunnelAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: LispSchema, GoName: "Lisp", Name: "lisp"},
-	},
-	Module: moduleCiscoIOSXELisp,
-}
-
-// TunnelIPAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ip.
-type TunnelIPAugment struct {
-	Lisp *IPLisp
-}
-
-// TunnelIPAugmentSchema describes TunnelIPAugment group fields with no codec root.
-var TunnelIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPLispSchema, GoName: "Lisp", Name: "lisp"},
 	},
 	Module: moduleCiscoIOSXELisp,
 }
@@ -8827,19 +8710,6 @@ var TwentyFiveGigEAugmentSchema = &yang.Schema{
 	Module: moduleCiscoIOSXELisp,
 }
 
-// TwentyFiveGigEIPAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/ip.
-type TwentyFiveGigEIPAugment struct {
-	Lisp *IPLisp
-}
-
-// TwentyFiveGigEIPAugmentSchema describes TwentyFiveGigEIPAugment group fields with no codec root.
-var TwentyFiveGigEIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPLispSchema, GoName: "Lisp", Name: "lisp"},
-	},
-	Module: moduleCiscoIOSXELisp,
-}
-
 // TwoGigabitEthernetAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet.
 type TwoGigabitEthernetAugment struct {
 	Lisp *Lisp
@@ -8849,19 +8719,6 @@ type TwoGigabitEthernetAugment struct {
 var TwoGigabitEthernetAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: LispSchema, GoName: "Lisp", Name: "lisp"},
-	},
-	Module: moduleCiscoIOSXELisp,
-}
-
-// TwoGigabitEthernetIPAugment is the Cisco-IOS-XE-lisp augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/ip.
-type TwoGigabitEthernetIPAugment struct {
-	Lisp *IPLisp
-}
-
-// TwoGigabitEthernetIPAugmentSchema describes TwoGigabitEthernetIPAugment group fields with no codec root.
-var TwoGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPLispSchema, GoName: "Lisp", Name: "lisp"},
 	},
 	Module: moduleCiscoIOSXELisp,
 }

@@ -12,12 +12,6 @@ import (
 	fixtureaug2 "go.aledante.io/FlowSeer/src/protocol/yang/cmd/yanggen/testdata/golden/fixture/fixtureaug2"
 )
 
-// moduleFixtureAug identifies the fixture-aug YANG module.
-var moduleFixtureAug = &yang.Module{
-	Name:      "fixture-aug",
-	Namespace: "urn:flowseer:fixture-aug",
-}
-
 // moduleFixtureAug2 identifies the fixture-aug2 YANG module.
 var moduleFixtureAug2 = &yang.Module{
 	Name:      "fixture-aug2",
@@ -432,7 +426,7 @@ type Servers struct {
 var ServersSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: SchemaSchema, GoName: "Schema", Name: "schema"},
-		{Child: ServersServerSchemaX24fddd, GoName: "Server", List: true, Name: "server"},
+		{Child: ServersServerSchemaX431a4c, GoName: "Server", List: true, Name: "server"},
 		{Child: ServersServerSchemaSchema, GoName: "ServerSchema", Name: "server-schema"},
 		{Child: fixtureaug2.ServersAugmentSchema, GoName: "FixtureAug2", Group: true},
 	},
@@ -454,8 +448,8 @@ type ServersServer struct {
 	FixtureAug2 *fixtureaug2.ServerAugment
 }
 
-// ServersServerSchemaX24fddd describes ServersServer for the generic codecs.
-var ServersServerSchemaX24fddd = &yang.Schema{
+// ServersServerSchemaX431a4c describes ServersServer for the generic codecs.
+var ServersServerSchemaX431a4c = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: EndpointSchema, GoName: "Endpoint", List: true, Name: "endpoint"},
 		{Child: KeySchema, GoName: "Key", Name: "key"},
@@ -620,7 +614,7 @@ type ServerKey struct {
 // ServerDescriptor is the list descriptor callers hand to a protocol library.
 func ServerDescriptor() yang.ListDescriptor[ServersServer, ServerKey] {
 	return yang.ListDescriptor[ServersServer, ServerKey]{
-		Codec: yang.StructRowCodec(ServersServerSchemaX24fddd, func(r *ServersServer) ServerKey {
+		Codec: yang.StructRowCodec(ServersServerSchemaX431a4c, func(r *ServersServer) ServerKey {
 			var k ServerKey
 			if r.Name != nil {
 				k.Name = *r.Name
@@ -647,7 +641,7 @@ type EndpointFlatRow struct {
 // EndpointDescriptor is the flattened-row descriptor for the nested list Endpoint.
 func EndpointDescriptor() yang.ListDescriptor[EndpointFlatRow, EndpointKey] {
 	return yang.ListDescriptor[EndpointFlatRow, EndpointKey]{
-		Codec: yang.NestedRowCodec([]*yang.Schema{ServersServerSchemaX24fddd, EndpointSchema}, func(anc [][]yang.KeyValue, e Endpoint) EndpointFlatRow {
+		Codec: yang.NestedRowCodec([]*yang.Schema{ServersServerSchemaX431a4c, EndpointSchema}, func(anc [][]yang.KeyValue, e Endpoint) EndpointFlatRow {
 			return EndpointFlatRow{
 				Entry:      e,
 				ServerName: yang.AncestorKey(anc, 0, "name"),

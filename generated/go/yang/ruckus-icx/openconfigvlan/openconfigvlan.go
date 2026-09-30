@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleOpenconfigIfIP identifies the openconfig-if-ip YANG module.
-var moduleOpenconfigIfIP = &yang.Module{
-	Name:      "openconfig-if-ip",
-	Namespace: "http://openconfig.net/yang/interfaces/ip",
-}
-
 // moduleOpenconfigVLAN identifies the openconfig-vlan YANG module.
 var moduleOpenconfigVLAN = &yang.Module{
 	Name:      "openconfig-vlan",

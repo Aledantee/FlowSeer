@@ -22,17 +22,17 @@
 // names grow by one ancestor segment together until they are unique,
 // and a clash that runs out of segments resolves to X plus six hex
 // digits of the shape key or path.
-
-// A child recovered from a duplicate augment is emitted behind one
-// group field per augmenting module. The group struct and schema live
-// in the augmenting package, and a group schema has no codec root.
+//
+// Every child from an augmenting module is emitted behind one group field
+// per augmenting module. The group struct and schema live in the augmenting
+// package, and a group schema has no codec root.
 // Descriptors and companion key types for lists inside a group live in
 // the package of the tree's top-level module, while their row structs
 // remain in the package that owns the list.
 //
 // Module descriptors are emitted as package-level *yang.Module variables
-// and shared by all schemas and fields in the package. Schemas format
-// single-line field literals, and list descriptors construct compact
+// for modules named by schemas or descriptor paths in that package. Schemas
+// format single-line field literals, and list descriptors construct compact
 // paths and codecs via JoinPath, In, and NestedRowCodec.
 //
 // A lockfile (yanggen.lock.json) records, per module, its newest
@@ -66,7 +66,9 @@
 //	go run ./src/protocol/yang/cmd/yanggen -check
 //
 // The default invocation and -update both rebuild every configured vendor's
-// output directory. A failed run may leave partial output; rerun generation
-// after correcting the error. -check verifies source hashes and the generator
-// version, so it does not detect edited or missing generated Go files.
+// output directory. Generation renders to temporary directories and swaps each
+// vendor into place only after every vendor renders without error. A failure
+// while rendering leaves existing output untouched. -check verifies source
+// hashes and the generator version, so it does not detect edited or missing
+// generated Go files.
 package main

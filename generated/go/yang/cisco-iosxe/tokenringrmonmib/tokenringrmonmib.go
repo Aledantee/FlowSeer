@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleRMON2MIB identifies the RMON2-MIB YANG module.
-var moduleRMON2MIB = &yang.Module{
-	Name:      "RMON2-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:RMON2-MIB",
-}
-
 // moduleTOKENRINGRMONMIB identifies the TOKEN-RING-RMON-MIB YANG module.
 var moduleTOKENRINGRMONMIB = &yang.Module{
 	Name:      "TOKEN-RING-RMON-MIB",

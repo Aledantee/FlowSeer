@@ -351,104 +351,13 @@ var WebCacheSchemaX84fac8 = &yang.Schema{
 	Name:   "web-cache",
 }
 
-// AppGigabitEthernetIPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ip.
-type AppGigabitEthernetIPAugment struct {
+// IPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/AppGigabitEthernet/ip.
+type IPAugment struct {
 	Wccp *IPWccp
 }
 
-// AppGigabitEthernetIPAugmentSchema describes AppGigabitEthernetIPAugment group fields with no codec root.
-var AppGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPWccpSchema, GoName: "Wccp", Name: "wccp"},
-	},
-	Module: moduleCiscoIOSXEWccp,
-}
-
-// FastEthernetIPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/FastEthernet/ip.
-type FastEthernetIPAugment struct {
-	Wccp *IPWccp
-}
-
-// FastEthernetIPAugmentSchema describes FastEthernetIPAugment group fields with no codec root.
-var FastEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPWccpSchema, GoName: "Wccp", Name: "wccp"},
-	},
-	Module: moduleCiscoIOSXEWccp,
-}
-
-// FiftyGigabitEthernetIPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/FiftyGigabitEthernet/ip.
-type FiftyGigabitEthernetIPAugment struct {
-	Wccp *IPWccp
-}
-
-// FiftyGigabitEthernetIPAugmentSchema describes FiftyGigabitEthernetIPAugment group fields with no codec root.
-var FiftyGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPWccpSchema, GoName: "Wccp", Name: "wccp"},
-	},
-	Module: moduleCiscoIOSXEWccp,
-}
-
-// FiveGigabitEthernetIPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/FiveGigabitEthernet/ip.
-type FiveGigabitEthernetIPAugment struct {
-	Wccp *IPWccp
-}
-
-// FiveGigabitEthernetIPAugmentSchema describes FiveGigabitEthernetIPAugment group fields with no codec root.
-var FiveGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPWccpSchema, GoName: "Wccp", Name: "wccp"},
-	},
-	Module: moduleCiscoIOSXEWccp,
-}
-
-// FortyGigabitEthernetIPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/FortyGigabitEthernet/ip.
-type FortyGigabitEthernetIPAugment struct {
-	Wccp *IPWccp
-}
-
-// FortyGigabitEthernetIPAugmentSchema describes FortyGigabitEthernetIPAugment group fields with no codec root.
-var FortyGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPWccpSchema, GoName: "Wccp", Name: "wccp"},
-	},
-	Module: moduleCiscoIOSXEWccp,
-}
-
-// GigabitEthernetIPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/GigabitEthernet/ip.
-type GigabitEthernetIPAugment struct {
-	Wccp *IPWccp
-}
-
-// GigabitEthernetIPAugmentSchema describes GigabitEthernetIPAugment group fields with no codec root.
-var GigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPWccpSchema, GoName: "Wccp", Name: "wccp"},
-	},
-	Module: moduleCiscoIOSXEWccp,
-}
-
-// HundredGigEIPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/HundredGigE/ip.
-type HundredGigEIPAugment struct {
-	Wccp *IPWccp
-}
-
-// HundredGigEIPAugmentSchema describes HundredGigEIPAugment group fields with no codec root.
-var HundredGigEIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPWccpSchema, GoName: "Wccp", Name: "wccp"},
-	},
-	Module: moduleCiscoIOSXEWccp,
-}
-
-// LoopbackIPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/Loopback/ip.
-type LoopbackIPAugment struct {
-	Wccp *IPWccp
-}
-
-// LoopbackIPAugmentSchema describes LoopbackIPAugment group fields with no codec root.
-var LoopbackIPAugmentSchema = &yang.Schema{
+// IPAugmentSchema describes IPAugment group fields with no codec root.
+var IPAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: IPWccpSchema, GoName: "Wccp", Name: "wccp"},
 	},
@@ -464,97 +373,6 @@ type NativeIPAugment struct {
 var NativeIPAugmentSchema = &yang.Schema{
 	Fields: []yang.Field{
 		{Child: NativeIPWccpSchema, GoName: "Wccp", Name: "wccp"},
-	},
-	Module: moduleCiscoIOSXEWccp,
-}
-
-// PortChannelIPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/Port-channel/ip.
-type PortChannelIPAugment struct {
-	Wccp *IPWccp
-}
-
-// PortChannelIPAugmentSchema describes PortChannelIPAugment group fields with no codec root.
-var PortChannelIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPWccpSchema, GoName: "Wccp", Name: "wccp"},
-	},
-	Module: moduleCiscoIOSXEWccp,
-}
-
-// TenGigabitEthernetIPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/TenGigabitEthernet/ip.
-type TenGigabitEthernetIPAugment struct {
-	Wccp *IPWccp
-}
-
-// TenGigabitEthernetIPAugmentSchema describes TenGigabitEthernetIPAugment group fields with no codec root.
-var TenGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPWccpSchema, GoName: "Wccp", Name: "wccp"},
-	},
-	Module: moduleCiscoIOSXEWccp,
-}
-
-// TunnelIPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/Tunnel/ip.
-type TunnelIPAugment struct {
-	Wccp *IPWccp
-}
-
-// TunnelIPAugmentSchema describes TunnelIPAugment group fields with no codec root.
-var TunnelIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPWccpSchema, GoName: "Wccp", Name: "wccp"},
-	},
-	Module: moduleCiscoIOSXEWccp,
-}
-
-// TwentyFiveGigEIPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/TwentyFiveGigE/ip.
-type TwentyFiveGigEIPAugment struct {
-	Wccp *IPWccp
-}
-
-// TwentyFiveGigEIPAugmentSchema describes TwentyFiveGigEIPAugment group fields with no codec root.
-var TwentyFiveGigEIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPWccpSchema, GoName: "Wccp", Name: "wccp"},
-	},
-	Module: moduleCiscoIOSXEWccp,
-}
-
-// TwoGigabitEthernetIPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/TwoGigabitEthernet/ip.
-type TwoGigabitEthernetIPAugment struct {
-	Wccp *IPWccp
-}
-
-// TwoGigabitEthernetIPAugmentSchema describes TwoGigabitEthernetIPAugment group fields with no codec root.
-var TwoGigabitEthernetIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPWccpSchema, GoName: "Wccp", Name: "wccp"},
-	},
-	Module: moduleCiscoIOSXEWccp,
-}
-
-// VasileftIPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/vasileft/ip.
-type VasileftIPAugment struct {
-	Wccp *IPWccp
-}
-
-// VasileftIPAugmentSchema describes VasileftIPAugment group fields with no codec root.
-var VasileftIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPWccpSchema, GoName: "Wccp", Name: "wccp"},
-	},
-	Module: moduleCiscoIOSXEWccp,
-}
-
-// VasirightIPAugment is the Cisco-IOS-XE-wccp augment group at /Cisco-IOS-XE-native:native/interface/vasiright/ip.
-type VasirightIPAugment struct {
-	Wccp *IPWccp
-}
-
-// VasirightIPAugmentSchema describes VasirightIPAugment group fields with no codec root.
-var VasirightIPAugmentSchema = &yang.Schema{
-	Fields: []yang.Field{
-		{Child: IPWccpSchema, GoName: "Wccp", Name: "wccp"},
 	},
 	Module: moduleCiscoIOSXEWccp,
 }

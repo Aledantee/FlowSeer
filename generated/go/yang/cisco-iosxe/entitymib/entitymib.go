@@ -11,12 +11,6 @@ import (
 	yang "go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
-// moduleCISCOENTITYEXTMIB identifies the CISCO-ENTITY-EXT-MIB YANG module.
-var moduleCISCOENTITYEXTMIB = &yang.Module{
-	Name:      "CISCO-ENTITY-EXT-MIB",
-	Namespace: "urn:ietf:params:xml:ns:yang:smiv2:CISCO-ENTITY-EXT-MIB",
-}
-
 // moduleENTITYMIB identifies the ENTITY-MIB YANG module.
 var moduleENTITYMIB = &yang.Module{
 	Name:      "ENTITY-MIB",
