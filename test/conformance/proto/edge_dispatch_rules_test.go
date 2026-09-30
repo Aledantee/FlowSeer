@@ -29,11 +29,11 @@ func TestExecuteRequestRules(t *testing.T) {
 	asRead.Read = typedRead()
 
 	resumed := executeRequest()
-	resumed.Resume = true
+	resumed.Resume = proto.Bool(true)
 	resumed.AdmittedAt = timestamppb.New(edgeIssuedAt)
 
 	resumedWithoutTime := executeRequest()
-	resumedWithoutTime.Resume = true
+	resumedWithoutTime.Resume = proto.Bool(true)
 
 	timeWithoutResume := executeRequest()
 	timeWithoutResume.AdmittedAt = timestamppb.New(edgeIssuedAt)
@@ -41,7 +41,7 @@ func TestExecuteRequestRules(t *testing.T) {
 	resumedRead := executeRequest()
 	resumedRead.Mutation = nil
 	resumedRead.Read = typedRead()
-	resumedRead.Resume = true
+	resumedRead.Resume = proto.Bool(true)
 	resumedRead.AdmittedAt = timestamppb.New(edgeIssuedAt)
 
 	noOperation := executeRequest()
@@ -95,7 +95,7 @@ func TestExecuteResultRules(t *testing.T) {
 	asProgress.PhaseReached = accessv1.OperationPhase_OPERATION_PHASE_ADMITTED.Enum()
 
 	submitted := executeResult()
-	submitted.Submitted = true
+	submitted.Submitted = proto.Bool(true)
 
 	noOutcome := executeResult()
 	noOutcome.Observation = nil
