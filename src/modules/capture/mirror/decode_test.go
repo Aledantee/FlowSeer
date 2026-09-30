@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"buf.build/go/protovalidate"
+
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/modules/capture/mirror"
