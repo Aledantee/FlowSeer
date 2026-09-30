@@ -1016,8 +1016,9 @@ func TestTenantFromSubjects(t *testing.T) {
 }
 
 func TestStartLeafRefusesEmptyAndInvalidTenant(t *testing.T) {
+	stateDir := filepath.Join(t.TempDir(), "state")
 	cfg := edgebus.LeafConfig{
-		StateDir:        t.TempDir(),
+		StateDir:        stateDir,
 		EdgeID:          edgeID,
 		HubURLs:         []string{"ws://127.0.0.1:1"},
 		CredentialsFile: secret.New([]byte("creds")),
@@ -1029,10 +1030,16 @@ func TestStartLeafRefusesEmptyAndInvalidTenant(t *testing.T) {
 	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodeConfig {
 		t.Fatalf("StartLeaf with empty tenant: err=%v, code=%q, want ErrCodeConfig", err, code)
 	}
+	if _, err := os.Stat(stateDir); !os.IsNotExist(err) {
+		t.Fatalf("empty tenant created state directory: stat error = %v", err)
+	}
 
 	cfg.Tenant = "invalid-tenant"
 	_, err = edgebus.StartLeaf(context.Background(), cfg)
 	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodeConfig {
 		t.Fatalf("StartLeaf with invalid tenant: err=%v, code=%q, want ErrCodeConfig", err, code)
+	}
+	if _, err := os.Stat(stateDir); !os.IsNotExist(err) {
+		t.Fatalf("invalid tenant created state directory: stat error = %v", err)
 	}
 }

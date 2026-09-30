@@ -108,12 +108,19 @@ so a future narrowing that breaks sourcing or a widening that restores it
 fails a single test.
 
 The operator, system, and CENTRAL keys are generated into `<StateDir>/keys`
-on first start; an edge's account key is generated there when it first
-attaches and read back afterwards, so a restart re-attaches every edge it had
-sourced and keeps every minted credential valid. A leaf writes its credential
-to
+on first start. An edge's account key and
+`edge-<edgeID>.tenant` file are generated there when it first attaches and
+read back afterwards, so a restart re-attaches every edge whose two files
+persisted and keeps every minted credential valid. If an edge's tenant file
+cannot be read, the hub skips that edge and continues starting. A leaf writes
+its credential to
 `<StateDir>/hub.creds`, mode 0600, because a remote leaf authenticates from a
 file.
+
+The tenant token is enforced at both ends of the link. An edge user publishes
+only under `flowseer.<tenant>.edge.<edge-id>.>` (`edgePermissions`,
+`keys.go:357-367`), and the forwarder refuses a record whose subject names
+another tenant or edge (`belongsToEdge`, `forwarder.go:226`).
 
 ## What a compromised edge can and cannot do
 
@@ -221,6 +228,6 @@ never dials it.
 
 - Any dispatch, report, or audit subject. Those are Connect calls.
 - Announce subjects and capability advertisement.
-- A second tenant. The `<tenant>` subject token is present but carries no
-  broker enforcement while one tenant runs; the per-edge and CENTRAL accounts
-  are the isolation that exists today, within the one tenant.
+- A per-tenant NATS account. The tenant token is enforced in edge publish
+  permissions and forwarder subject checks, but the account boundary described
+  in the device-service direction remains to be added.

@@ -412,9 +412,8 @@ func waitUntilServing(t *testing.T, client *http.Client, base string) {
 	}
 }
 
-// TenantService is not mounted on the device service mux until caller
-// authentication lands; requests to its procedure paths are refused with
-// HTTP 404 and Connect Unimplemented.
+// TenantService is not mounted on the device service mux, so requests to its
+// procedure paths are refused with HTTP 404 and Connect Unimplemented.
 func TestTenantServiceIsNotMounted(t *testing.T) {
 	base := runningService(t)
 	client := insecureClient()
@@ -490,14 +489,24 @@ edges {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	done := make(chan error, 1)
-	go func() { done <- host.Run(ctx, cfg, "test", options) }()
+	done := make(chan struct{})
+	var runErr error
+	t.Cleanup(func() {
+		cancel()
+		<-done
+		if runErr != nil {
+			t.Errorf("the service stopped with %v, want a clean shutdown", runErr)
+		}
+	})
+	go func() {
+		runErr = host.Run(ctx, cfg, "test", options)
+		close(done)
+	}()
 
 	select {
 	case <-apiBound:
-	case err := <-done:
-		t.Fatalf("the service stopped before it bound its API listener: %v", err)
+	case <-done:
+		t.Fatalf("the service stopped before it bound its API listener: %v", runErr)
 	case <-time.After(30 * time.Second):
 		t.Fatal("the service did not report a bound API address within thirty seconds")
 	}

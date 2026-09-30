@@ -84,10 +84,12 @@ tenant position, and its consumers read the tenant from the subject.
 
 Central's stores are partitioned by tenant: every key in the
 `device-lanes`, `edges`, and `captures` buckets, and every key a later store adds, starts
-with the tenant id. Stored bytes on disk, such as capture artifacts, live
-under a per-tenant directory. A handler reads the tenant from the context
-and never from the request, so a request cannot reach another tenant's
-keys.
+with the tenant id. Lookup indexes are the exception because they resolve an
+identifier before the tenant is known: `edge_<edgeID>` and `setupkey_<keyID>`
+in `edges`, and `org_<hash>` in `tenants`. Stored bytes on disk, such as
+capture artifacts, live under a per-tenant directory. A handler reads the
+tenant from the context and never from the request, so a request cannot reach
+another tenant's keys.
 
 ## Authorization follows the Zanzibar model
 

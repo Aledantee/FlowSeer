@@ -26,8 +26,8 @@ Deliberately absent:
   here that can carry one is `ServiceTelemetry.headers`, which says so, and a
   deployment that puts a token there is choosing to treat the configuration
   file as a secret.
-- A tenant. Scope is ambient, and the bucket a record lives in is per
-  deployment.
+- A tenant field. Scope is ambient, and the tenant is the `<tenant_id>.` prefix
+  of the lane record's key.
 
 ## The lane record
 

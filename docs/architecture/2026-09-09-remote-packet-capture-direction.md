@@ -290,7 +290,7 @@ declared fsync policy, and a lifecycle transition is a compare-and-set against
 the revision it read. The pcapng artifact does not. It is the one thing central
 holds that a KeyValue bucket is wrong for — tens of megabytes bounded by the
 session budget, against a 1 MB value limit and an fsync per write — so it is a
-file at `<StateDir>/captures/<session_id>.pcapng`, written as the chunks arrive
+file at `<StateDir>/captures/<tenant_id>/<session_id>.pcapng`, written as the chunks arrive
 and read back in slices for `DownloadCaptureSession`. The consequence of
 splitting them is that the two can disagree after a crash, so the digest is
 published only over bytes already synced to disk, and the file is never
