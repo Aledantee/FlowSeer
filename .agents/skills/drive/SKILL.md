@@ -82,7 +82,9 @@ The brief follows `delegate` and adds:
 
 After each stage:
 
-1. Check the worker's tree before its report, as `delegate` describes.
+1. Check the worker's tree before its report, as `delegate` describes, and
+   run `.claude/skills/delegate/scripts/orca-worker.sh check <slug>` before
+   the merge. A non-zero result stops this stage.
 2. After the implement stage, read the worker's ledger before the child
    goes, since the merge does not bring it. Report every unit `passed` as
    the per-unit gate `land` would have read; a `blocked` unit parks the plan
@@ -94,6 +96,10 @@ After each stage:
    the report and grade the lane with a `--note` saying so; items 4 to 7
    still run.
    `[ "$(git rev-list --count "$base..$branch")" -gt 0 ] && git merge-base --is-ancestor "$branch" HEAD && echo self-merged`
+   Right after each merge, run
+   `python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
+   A non-zero result stops the drive. Carry every `missing` block in the
+   report.
 4. Run the verifier once on the union of the changed paths, sandbox
    disabled: `.claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>`
 5. Grade the lane before stopping it, `accepted` when merged as left,

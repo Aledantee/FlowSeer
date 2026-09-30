@@ -13,10 +13,19 @@ The coordinating session runs the rounds; no skill runs them on its own, and
    description, a README), and the files of the other sites it finds, each
    listed in its report. It never edits a plan Decision marked
    `decided by the user` (`delegate`, Write the brief, item 6). The review's changed paths do not
-   bound the fix.
+   bound the fix. A fix worker that needs a file outside these classes
+   reports a blocker naming the file and reason. A comment, skipped or
+   weakened test, or partial change is not a fix. When that blocker returns,
+   the coordinator extends the allowed file list and dispatches the worker
+   again.
    The coordinating session does not make the fixes itself.
-2. Merge each worker's branch, then run the verifier once on the union of
-   the changed paths, before anything is reviewed again.
+2. Before each merge, run
+   `.claude/skills/delegate/scripts/orca-worker.sh check <slug>`. A non-zero
+   result stops the round. Merge each worker's branch, then run
+   `python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
+   A non-zero result also stops the round. Carry every `missing` block in the
+   report, then run the verifier once on the union of the changed paths,
+   before anything is reviewed again.
 3. Repeat `SKILL.md` steps 3 and 4 over the branch diff, briefing the
    reviewer with the previous round's findings and the changed paths, so it
    judges each fix against its finding instead of rediscovering it. When the

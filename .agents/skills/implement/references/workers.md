@@ -26,10 +26,15 @@ file, by the plan's own rule; when a wave's units would, the plan's
 `After` lines are wrong and get fixed before dispatch.
 
 Merge in the order the workers settle. After each report, check the
-worker's tree before reading its report as fact, as `delegate` describes:
+worker's tree before reading its report as fact, as `delegate` describes, and
+run `.claude/skills/delegate/scripts/orca-worker.sh check <slug>` before the
+merge:
 the commit it names exists, its tree is clean, and the two or three
 changes most expensive to get wrong are what the report says. Merge the
-worker's branch here, run the focused tests of the merged packages, and
+worker's branch here, then run
+`python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
+A non-zero result stops the wave. Carry every `missing` block in the report,
+then run the focused tests of the merged packages, and
 release the worker and remove its worktree as `delegate` describes. A
 merged unit stays `in_progress` in the ledger: `passed` needs a
 `verified_at`, and only the verifier writes one. Once the wave has

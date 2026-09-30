@@ -25,8 +25,13 @@ the request in a few words, and asks for the checkpoint:
 - A question the skill would put to the user comes back as the worker's
   blocker, and this session asks it.
 
-Merge the worker's branch, remove the child, and start step 1 again from the
-top: the checkpoint on disk gates the merge, not the answer, and the merged
-commit makes the receipt stale, which step 1 then remedies.
+Before merging the worker's branch, run
+`.claude/skills/delegate/scripts/orca-worker.sh check <slug>`. A non-zero
+result stops the merge. After the merge, run
+`python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
+A non-zero result also stops the merge. Carry every `missing` block in the
+report. Remove the child and start step 1 again from the top: the checkpoint
+on disk gates the merge, not the answer, and the merged commit makes the
+receipt stale, which step 1 then remedies.
 Several missing signals are worked one worker after another, in order:
 `implement`, `review`, `compound`.
