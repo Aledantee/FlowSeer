@@ -32,6 +32,6 @@ message OspfArea {
   uint32 lsa_count = 6;
   // Number of area border routers reachable within this area (OSPF-MIB ospfAreaBdrRtrCount).
   uint32 area_border_routers = 7;
-  // Number of AS border routers reachable within this area (OSPF-MIB ospfAreaAsBdrRtrCount).
+  // Number of AS border routers reachable within this area (OSPF-MIB ospfAsBdrRtrCount).
   uint32 as_border_routers = 8;
 }

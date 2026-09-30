@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -201,14 +202,14 @@ func (s *Session) withCreds(ctx context.Context) context.Context {
 
 // unaryCtx prepares a unary RPC context: closed check, timeout
 // defaulting, credentials, span.
-func (s *Session) unaryCtx(ctx context.Context, op string) (context.Context, func(error), error) {
+func (s *Session) unaryCtx(ctx context.Context, op, method string) (context.Context, func(error), error) {
 	if s.isClosed() {
 		return nil, nil, ErrSessionClosed
 	}
 	ctx, cancel := context.WithTimeout(ctx, s.opts.RPCTimeout)
 	ctx, span := s.tracer.Start(ctx, "gnmi."+op,
 		trace.WithSpanKind(trace.SpanKindClient),
-		trace.WithAttributes(semconv.RPCSystemNameGRPC, semconv.RPCMethod(op)))
+		trace.WithAttributes(semconv.RPCSystemNameGRPC, semconv.RPCMethod(method)))
 	finish := func(err error) {
 		if err != nil {
 			span.SetAttributes(semconv.ErrorTypeKey.String(errorType(err)))
@@ -261,7 +262,7 @@ type Update struct {
 // Get issues one Get for the given paths and flattens the reply's
 // notifications into updates (prefixes resolved).
 func (s *Session) Get(ctx context.Context, paths ...yang.Path) ([]Update, error) {
-	ctx, finish, err := s.unaryCtx(ctx, "Get")
+	ctx, finish, err := s.unaryCtx(ctx, "Get", strings.TrimPrefix(gpb.GNMI_Get_FullMethodName, "/"))
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +320,7 @@ type PathValue struct {
 // [ErrCodeRPC]; when the peer reports per-path failure detail, the
 // failing path rides along as an attribute.
 func (s *Session) Set(ctx context.Context, req SetRequest) error {
-	ctx, finish, err := s.unaryCtx(ctx, "Set")
+	ctx, finish, err := s.unaryCtx(ctx, "Set", strings.TrimPrefix(gpb.GNMI_Set_FullMethodName, "/"))
 	if err != nil {
 		return err
 	}

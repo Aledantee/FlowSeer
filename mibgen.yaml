@@ -56,7 +56,7 @@ modules:
   - { name: HOST-RESOURCES-MIB, package: hostresourcesmib }
   - { name: LLDP-MIB,          package: lldpmib }
   # MIKROTIK-MIB lives under spec/mib/mikrotik/ but imports from the
-  # SNMPv2-* base modules under spec/mib/ietf/; gosmi resolves IMPORTS
+  # SNMPv2-* base modules under spec/mib/ietf/; src/protocol/smi resolves IMPORTS
   # across the combined search_paths regardless of listing order, so no
   # depends_on edge is needed.
   - { name: MIKROTIK-MIB,      package: mikrotik }

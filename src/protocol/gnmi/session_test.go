@@ -9,6 +9,9 @@ import (
 	"time"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
@@ -311,6 +314,45 @@ func TestSetPartialFailureNamesPath(t *testing.T) {
 	attrs := errs.Attributes(err)
 	if fp, _ := attrs["failed_path"].(string); !strings.Contains(fp, "hostname") {
 		t.Errorf("failed_path attr = %v", attrs)
+	}
+}
+
+func TestUnarySpansUseFullGNMIMethodNames(t *testing.T) {
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	f := &fakeServer{
+		encodings: []gpb.Encoding{gpb.Encoding_JSON_IETF},
+		getResp:   &gpb.GetResponse{},
+		setResp:   &gpb.SetResponse{},
+	}
+	s := dialFakeWithOptions(t, f, gnmi.Options{Plaintext: true, TracerProvider: provider})
+
+	if _, err := s.Get(context.Background(), ifacePath()); err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if err := s.Set(context.Background(), gnmi.SetRequest{}); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+
+	want := map[string]string{
+		"gnmi.Get": "gnmi.gNMI/Get",
+		"gnmi.Set": "gnmi.gNMI/Set",
+	}
+	got := make(map[string]string, len(want))
+	for _, span := range recorder.Ended() {
+		for _, attr := range span.Attributes() {
+			if attr.Key == semconv.RPCMethodKey {
+				got[span.Name()] = attr.Value.AsString()
+			}
+		}
+	}
+	if len(got) != len(want) {
+		t.Fatalf("recorded methods = %v, want %v", got, want)
+	}
+	for name, method := range want {
+		if got[name] != method {
+			t.Errorf("%s rpc.method = %q, want %q", name, got[name], method)
+		}
 	}
 }
 

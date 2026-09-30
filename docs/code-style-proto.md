@@ -314,13 +314,12 @@ for you. Conversely, omitting `required` is how you spell an optional field with
 deliberate one. State which it is in the field comment; "unset means X" and
 `required` are answers to the same question.
 
-`IGNORE_IF_ZERO_VALUE` has no place in a field we own. On a presence-tracking field it
-is redundant with the default, and the pinned `go tool -modfile=tools/buf/go.mod buf lint`
-command says so. The diagnostic says: *"has
-(buf.validate.field).ignore=IGNORE_IF_ZERO_VALUE and tracks presence. This is the same
-the default and the ignore option can be removed."* Combined with `required` it is a
-contradiction and a hard lint error. It is only meaningful on a field you have
-explicitly set to `IMPLICIT` presence.
+`IGNORE_IF_ZERO_VALUE` applies to repeated and map fields, whose zero values are an
+empty list and map, and to fields explicitly set to `IMPLICIT` presence. It is a
+no-op on any field that tracks presence. The pinned generated Protovalidate
+descriptors (`buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go@v1.36.12-20260825204119-511051f7f437.2/buf/validate/validate.pb.go:131-145`)
+state that this has the same behavior as `IGNORE_UNSPECIFIED` for
+presence-tracking fields, so a present zero value is still validated.
 
 **Reach for the whole vocabulary**
 
