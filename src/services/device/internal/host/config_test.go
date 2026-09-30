@@ -230,3 +230,84 @@ func TestAListenerWithoutAPortIsRefused(t *testing.T) {
 		})
 	}
 }
+
+func TestPlatformAdminAndDevTenant(t *testing.T) {
+	withAdmin := validConfig + `
+platform_admin {
+  issuer: "https://auth.example.test"
+  organization: "org_alpha"
+  subject: "admin@example.test"
+  organization_claim_name: "org_id"
+}
+dev_tenant: "0192e6a0-0000-7000-8000-000000000001"
+`
+	cfg, err := host.LoadConfig(writeConfig(t, withAdmin))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	admin := cfg.PlatformAdmin()
+	if admin == nil {
+		t.Fatal("PlatformAdmin() returned nil")
+	}
+	if admin.GetIssuer() != "https://auth.example.test" {
+		t.Errorf("issuer = %q, want https://auth.example.test", admin.GetIssuer())
+	}
+	if admin.GetOrganization() != "org_alpha" {
+		t.Errorf("organization = %q, want org_alpha", admin.GetOrganization())
+	}
+	if admin.GetSubject() != "admin@example.test" {
+		t.Errorf("subject = %q, want admin@example.test", admin.GetSubject())
+	}
+	if admin.GetOrganizationClaimName() != "org_id" {
+		t.Errorf("organization_claim_name = %q, want org_id", admin.GetOrganizationClaimName())
+	}
+
+	if got := cfg.DevTenant(); got != "0192e6a0-0000-7000-8000-000000000001" {
+		t.Errorf("DevTenant = %q, want 0192e6a0-0000-7000-8000-000000000001", got)
+	}
+
+	// Missing issuer in platform_admin fails validation
+	badAdmin := validConfig + `
+platform_admin {
+  organization: "org_alpha"
+  subject: "admin@example.test"
+  organization_claim_name: "org_id"
+}
+`
+	_, err = host.LoadConfig(writeConfig(t, badAdmin))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("expected ErrCodeConfigInvalid for platform_admin missing issuer, got %v", err)
+	}
+
+	// Missing organization_claim_name in platform_admin fails validation
+	badAdminMissingClaim := validConfig + `
+platform_admin {
+  issuer: "https://auth.example.test"
+  organization: "org_alpha"
+  subject: "admin@example.test"
+}
+`
+	_, err = host.LoadConfig(writeConfig(t, badAdminMissingClaim))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("expected ErrCodeConfigInvalid for platform_admin missing organization_claim_name, got %v", err)
+	}
+
+	// Non-UUID dev_tenant fails validation
+	badDevTenant := validConfig + `
+dev_tenant: "acme.prod"
+`
+	_, err = host.LoadConfig(writeConfig(t, badDevTenant))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("expected ErrCodeConfigInvalid for non-UUID dev_tenant, got %v", err)
+	}
+
+	// Uppercase UUID dev_tenant fails validation
+	badUpperDevTenant := validConfig + `
+dev_tenant: "0192E6A0-0000-7000-8000-000000000001"
+`
+	_, err = host.LoadConfig(writeConfig(t, badUpperDevTenant))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("expected ErrCodeConfigInvalid for uppercase UUID dev_tenant, got %v", err)
+	}
+}

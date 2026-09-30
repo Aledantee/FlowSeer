@@ -21,6 +21,7 @@ import (
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
 
@@ -53,17 +54,16 @@ type Publisher interface {
 // Emitter writes central's own audit records. Safe for concurrent use.
 type Emitter struct {
 	publisher Publisher
-	tenant    string
 	clock     func() time.Time
 }
 
-// New builds an emitter publishing to tenant's audit subjects. A nil clock
+// New builds an emitter publishing audit subjects. A nil clock
 // uses the wall clock.
-func New(publisher Publisher, tenant string, clock func() time.Time) *Emitter {
+func New(publisher Publisher, clock func() time.Time) *Emitter {
 	if clock == nil {
 		clock = time.Now
 	}
-	return &Emitter{publisher: publisher, tenant: tenant, clock: clock}
+	return &Emitter{publisher: publisher, clock: clock}
 }
 
 // DispatchRejected records central disposing a mutation because the edge
@@ -74,7 +74,7 @@ func New(publisher Publisher, tenant string, clock func() time.Time) *Emitter {
 // record, but the reason — the code the edge refused with, a changed firmware
 // epoch first among them — lives nowhere else, and "the sequence ended" with
 // no cause is the answer an incident starts from rather than ends at.
-func (e *Emitter) DispatchRejected(ctx context.Context, device *inventoryv1.DeviceGlobalRef, state *accessv1.MutationState, from accessv1.OperationPhase, refusalCode string) error {
+func (e *Emitter) DispatchRejected(ctx context.Context, tenantID string, device *inventoryv1.DeviceGlobalRef, state *accessv1.MutationState, from accessv1.OperationPhase, refusalCode string) error {
 	detail := &eventaccessv1.PhaseTransitioned{}
 	if from != accessv1.OperationPhase_OPERATION_PHASE_UNSPECIFIED {
 		detail.SetFrom(from)
@@ -92,7 +92,7 @@ func (e *Emitter) DispatchRejected(ctx context.Context, device *inventoryv1.Devi
 	})
 	event.SetPhaseTransitioned(detail)
 
-	return e.emit(ctx, device.GetDevice().GetId(), event)
+	return e.emit(ctx, tenantID, device.GetDevice().GetId(), event)
 }
 
 // DriftDetected records central finding a managed interface carrying
@@ -105,7 +105,7 @@ func (e *Emitter) DispatchRejected(ctx context.Context, device *inventoryv1.Devi
 // record has to survive is the difference itself, so both values ride as
 // attributes: an auditor reading "drift on ethernet 1/1/1" and nothing else
 // cannot tell a typo from a device someone else is administering.
-func (e *Emitter) DriftDetected(ctx context.Context, device *inventoryv1.DeviceGlobalRef, iface, expected, observed string) error {
+func (e *Emitter) DriftDetected(ctx context.Context, tenantID string, device *inventoryv1.DeviceGlobalRef, iface, expected, observed string) error {
 	detail := &eventaccessv1.DriftDetected{}
 	detail.SetFieldName(iface)
 
@@ -119,16 +119,22 @@ func (e *Emitter) DriftDetected(ctx context.Context, device *inventoryv1.DeviceG
 	})
 	event.SetDriftDetected(detail)
 
-	return e.emit(ctx, device.GetDevice().GetId(), event)
+	return e.emit(ctx, tenantID, device.GetDevice().GetId(), event)
 }
 
-func (e *Emitter) emit(ctx context.Context, deviceID string, event *eventaccessv1.DeviceOperationEvent) error {
+func (e *Emitter) emit(ctx context.Context, tenantID, deviceID string, event *eventaccessv1.DeviceOperationEvent) error {
+	if tenantID == "" {
+		return errs.New().Code(ErrCodePublish).Attr("device", deviceID).Msg("tenant is required for audit event")
+	}
+	if err := tenant.Validate(tenantID); err != nil {
+		return errs.From(err).Code(ErrCodePublish).Attr("tenant", tenantID).Attr("device", deviceID).Msg("validate tenant")
+	}
 	data, err := proto.Marshal(event)
 	if err != nil {
-		return errs.From(err).Code(ErrCodePublish).Attr("device", deviceID).Msg("marshal audit event")
+		return errs.From(err).Code(ErrCodePublish).Attr("tenant", tenantID).Attr("device", deviceID).Msg("marshal audit event")
 	}
-	if err := e.publisher.Publish(ctx, edgebus.AuditSubject(e.tenant, deviceID), data, event.GetEventId()); err != nil {
-		return errs.From(err).Code(ErrCodePublish).Attr("device", deviceID).
+	if err := e.publisher.Publish(ctx, edgebus.AuditSubject(tenantID, deviceID), data, event.GetEventId()); err != nil {
+		return errs.From(err).Code(ErrCodePublish).Attr("tenant", tenantID).Attr("device", deviceID).
 			Attr("event", event.GetEventId()).Msg("publish audit event")
 	}
 	return nil

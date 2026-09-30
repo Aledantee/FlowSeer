@@ -12,7 +12,7 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
-	principalv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -135,7 +135,7 @@ func (d *deployment) apply(t *testing.T, key, description, fingerprint string, v
 		Device:         deviceRef(),
 		IdempotencyKey: proto.String(key),
 		Actor: accessv1.Actor_builder{
-			Operator: principalv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
+			Operator: identityv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
 		}.Build(),
 		AccessPolicy:                policyv1.AccessPolicyHandle_builder{Key: proto.String(fixturePolicyKey), Version: proto.Uint64(1)}.Build(),
 		ExpectedFirmwareFingerprint: proto.String(fingerprint),

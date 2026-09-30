@@ -1,6 +1,7 @@
 ---
 title: Local Bus Durability Is a Runtime Setting, Not Storage Identity
 date: 2026-09-05
+last_verified: 2026-09-30
 category: architecture-patterns
 module: src/common/service
 problem_type: architecture_pattern
@@ -13,6 +14,7 @@ applies_when:
   - "reasoning about what the local bus guarantees after a process kill versus a power loss"
   - "profiling publish or settlement-journal latency and finding fsync in the hot path"
   - "a service fails to start with service/bus-config saying the local bus fsync policy must be declared"
+  - "enabling AllowAtomicPublish on a JetStream stream and checking whether its storage mode is compatible"
 related_components:
   - messaging
   - data_model
@@ -35,7 +37,7 @@ An earlier and larger proposal considered per-module storage tiers, with a memor
 
 ## Guidance
 
-Durability policy is a server option and nothing else. `SyncAlways` and `SyncInterval` are fields on `server.Options`; `jetstream.StreamConfig` carries no fsync control, and the only per-stream lever, `PersistMode`, is refused by nats-server v2.14.6 when `AllowAtomicPublish` is set, which the mailbox stream requires (`src/common/service/bus.go:390`). The policy therefore lives on `BusConfig` and is normalized into the embedded server's options. It never appears in a stream configuration, in the persisted manifest, in a protobuf, or in any module-facing API.
+Durability policy is a server option and nothing else. `SyncAlways` and `SyncInterval` are fields on `server.Options`; `jetstream.StreamConfig` carries no fsync control, and the only per-stream lever, `PersistMode`, is refused by nats-server v2.14.6 when `AllowAtomicPublish` is set. The mailbox stream requires that flag (`src/common/service/bus.go:390`), and central's `KV_tenants` stream uses it for multi-key tenant claims (`src/modules/edgebus/hub.go:336-346`). The policy therefore lives on `BusConfig` and is normalized into the embedded server's options. It never appears in a stream configuration, in the persisted manifest, in a protobuf, or in any module-facing API.
 
 Never add a field to the runtime manifest for operational state. `manifestAdditionCompatible` (`src/common/service/manifest.go:414`) clears the module list and module paths from both manifests and then requires `proto.Equal` on everything that remains (`manifest.go:428`). Any new manifest field with a value that differs between the stored manifest and the running binary makes every existing store migration-required on the next start. A durability setting an operator is supposed to be able to change at will would trip that check on every change. The same reasoning applies to `ownedStreamConfigEqual` (`bus.go:362`), which compares only the stream fields that define storage identity; the fsync policy does not appear there because it is not part of that identity, and `TestOwnedStreamConfigsHaveFrozenFsyncIndependentContract` (`src/common/service/bus_test.go:210`) pins both stream configurations to a frozen baseline so a future change cannot slip a policy field in.
 
@@ -89,6 +91,7 @@ The original `SyncAlways` pin came from the Jepsen report on NATS 2.12.1 (Decemb
 - Choosing durability for a new service: the declaration is required, so pick one. `BusFsyncPeriodic` is right for edge buffers; `BusFsyncPerMessage` when an acknowledged record must survive a power cut.
 - Reading a durability benchmark: the per-message number includes a full fsync per publish and per settlement, so compare against the bare `write`+`fsync` floor on the same filesystem before attributing cost to the broker.
 - Investigating a handler that ran twice after a power cut: check the startup record for the policy, then expect a surviving message with a lost settlement rather than a delivery bug.
+- Enabling `AllowAtomicPublish`: keep the stream's storage mode compatible with atomic batches, and verify the flag after restart when KV setup can rewrite the stream configuration.
 
 ## Examples
 
@@ -105,3 +108,4 @@ The change landed as three local commits (the repository has no remote, so the S
 - `src/common/service/README.md`, "Local message bus": the operator-facing contract and the selection example.
 - `docs/architecture/2026-08-20-device-service-and-inventory-direction.md`, "Local service runtime boundary" and the Jepsen note under the integration fabric: why the hub stays on always-fsync and the edge buffer does not.
 - `docs/solutions/architecture-patterns/errs-package-architecture-and-error-conventions.md`: the append-only error-code convention the `service/bus-config` code follows.
+- `docs/solutions/architecture-patterns/a-multi-key-uniqueness-claim-needs-one-conditional-batch.md`: the tenant-store use of atomic publishing and per-subject expected sequences.

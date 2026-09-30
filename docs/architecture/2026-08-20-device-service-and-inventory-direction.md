@@ -314,7 +314,7 @@ this is the most dangerous feature in the product:
 
 ```
 web / workflows
-      │  Connect (typed device API; OpenFGA-guarded)
+      │  Connect (typed device API; authorized)
       ▼
 central device service ── inventory: devices, integrations, bindings, candidates, budgets
       │  Connect: dispatch stream to each edge, reports and audit records back;
@@ -627,3 +627,10 @@ heartbeat, and credential calls are `EdgeService` in `edge/attach/v1`.
 [the network model structure
 record](2026-08-20-network-model-structure-direction.md#the-package-tree)
 for the tree and import graph as they stand.
+
+### 2026-09-28 — operator authorization model decided
+
+The operator-facing device API is authorized through the Zanzibar-style
+authorization model decided in the [operator authorization direction
+record](2026-09-28-operator-authorization-direction.md). The transport diagram
+labels the ingress as authorized rather than naming a specific engine.

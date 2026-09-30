@@ -21,7 +21,7 @@ import (
 // which is what makes validate_only advice rather than a reservation.
 func (s *Service) ApplyInterfaceDescription(ctx context.Context, req *connect.Request[devicev1.ApplyInterfaceDescriptionRequest]) (*connect.Response[devicev1.ApplyInterfaceDescriptionResponse], error) {
 	intent := req.Msg.GetIntent()
-	deviceID, entry, err := s.device(intent.GetDevice())
+	deviceID, laneTenant, entry, err := s.device(ctx, intent.GetDevice())
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -35,7 +35,7 @@ func (s *Service) ApplyInterfaceDescription(ctx context.Context, req *connect.Re
 		return nil, connectErr(err)
 	}
 
-	record, err := s.cfg.Journal.Record(ctx, deviceID)
+	record, err := s.cfg.Journal.Record(ctx, laneTenant, deviceID)
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -55,7 +55,7 @@ func (s *Service) ApplyInterfaceDescription(ctx context.Context, req *connect.Re
 		return connect.NewResponse(resp), nil
 	}
 
-	state, err := s.cfg.Journal.Admit(ctx, deviceID, intent, edgeRef(s.cfg.Resolver.EdgeID()))
+	state, err := s.cfg.Journal.Admit(ctx, laneTenant, deviceID, intent, edgeRef(s.cfg.Resolver.EdgeID()))
 	if err != nil {
 		return nil, connectErr(err)
 	}

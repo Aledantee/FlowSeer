@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
@@ -18,6 +19,7 @@ import (
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 )
 
 // Error codes the journal returns.
@@ -54,6 +56,8 @@ var (
 	// intent, and answering with the new one would describe it as something
 	// central recorded when it recorded something else.
 	ErrCodeIdempotencyMismatch = errs.NewCode("journal/idempotency-mismatch")
+	// ErrCodeArgument is an argument validation failure such as an empty tenant or device.
+	ErrCodeArgument = errs.NewCode("journal/argument")
 )
 
 // intentDigestLen is how much of the intent's SHA-256 the record keeps, and
@@ -91,24 +95,50 @@ func New(kv jetstream.KeyValue, clock func() time.Time) *Journal {
 	return &Journal{kv: kv, clock: clock}
 }
 
+// LaneKey formats a lane record key from tenantID and deviceID.
+// It returns an error if tenantID is not valid.
+func LaneKey(tenantID, deviceID string) (string, error) {
+	if err := tenant.Validate(tenantID); err != nil {
+		return "", err
+	}
+	return tenantID + "." + deviceID, nil
+}
+
+// SplitLaneKey splits a lane record key into tenantID and deviceID.
+// It returns false if the key is not well-formed or the tenant is invalid.
+func SplitLaneKey(key string) (tenantID, deviceID string, ok bool) {
+	parts := strings.SplitN(key, ".", 2)
+	if len(parts) != 2 || tenant.Validate(parts[0]) != nil {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
+}
+
 // Record reads one device's record, or an empty record when the device has
 // none yet.
-func (j *Journal) Record(ctx context.Context, deviceID string) (*storev1.DeviceLaneRecord, error) {
-	rec, _, err := j.load(ctx, deviceID)
+func (j *Journal) Record(ctx context.Context, tenantID, deviceID string) (*storev1.DeviceLaneRecord, error) {
+	rec, _, err := j.load(ctx, tenantID, deviceID)
 	return rec, err
 }
 
-func (j *Journal) load(ctx context.Context, deviceID string) (*storev1.DeviceLaneRecord, uint64, error) {
-	entry, err := j.kv.Get(ctx, deviceID)
+func (j *Journal) load(ctx context.Context, tenantID, deviceID string) (*storev1.DeviceLaneRecord, uint64, error) {
+	if tenantID == "" || deviceID == "" {
+		return nil, 0, errs.New().Code(ErrCodeArgument).Attr("tenant", tenantID).Attr("device", deviceID).Msg("tenant and device are required")
+	}
+	key, err := LaneKey(tenantID, deviceID)
+	if err != nil {
+		return nil, 0, err
+	}
+	entry, err := j.kv.Get(ctx, key)
 	if errors.Is(err, jetstream.ErrKeyNotFound) {
 		return &storev1.DeviceLaneRecord{}, 0, nil
 	}
 	if err != nil {
-		return nil, 0, errs.From(err).Code(ErrCodeStore).Attr("device", deviceID).Msg("read lane record")
+		return nil, 0, errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Attr("device", deviceID).Msg("read lane record")
 	}
 	rec := &storev1.DeviceLaneRecord{}
 	if err := proto.Unmarshal(entry.Value(), rec); err != nil {
-		return nil, 0, errs.From(err).Code(ErrCodeDecode).Attr("device", deviceID).Msg("decode lane record")
+		return nil, 0, errs.From(err).Code(ErrCodeDecode).Attr("tenant", tenantID).Attr("device", deviceID).Msg("decode lane record")
 	}
 	return rec, entry.Revision(), nil
 }
@@ -119,9 +149,16 @@ var errSkip = errs.Msg("journal: no write needed")
 // mutate runs fn against the device's record under compare-and-set,
 // retrying on a revision conflict. fn returning errSkip means "no write is
 // needed" and mutate returns nil without writing.
-func (j *Journal) mutate(ctx context.Context, deviceID string, fn func(*storev1.DeviceLaneRecord) error) error {
+func (j *Journal) mutate(ctx context.Context, tenantID, deviceID string, fn func(*storev1.DeviceLaneRecord) error) error {
+	if tenantID == "" || deviceID == "" {
+		return errs.New().Code(ErrCodeArgument).Attr("tenant", tenantID).Attr("device", deviceID).Msg("tenant and device are required")
+	}
+	key, err := LaneKey(tenantID, deviceID)
+	if err != nil {
+		return err
+	}
 	for attempt := 0; attempt < casRetries; attempt++ {
-		rec, revision, err := j.load(ctx, deviceID)
+		rec, revision, err := j.load(ctx, tenantID, deviceID)
 		if err != nil {
 			return err
 		}
@@ -133,32 +170,32 @@ func (j *Journal) mutate(ctx context.Context, deviceID string, fn func(*storev1.
 		}
 		data, err := proto.Marshal(rec)
 		if err != nil {
-			return errs.From(err).Code(ErrCodeDecode).Attr("device", deviceID).Msg("encode lane record")
+			return errs.From(err).Code(ErrCodeDecode).Attr("tenant", tenantID).Attr("device", deviceID).Msg("encode lane record")
 		}
 		if revision == 0 {
-			_, err = j.kv.Create(ctx, deviceID, data)
+			_, err = j.kv.Create(ctx, key, data)
 			if errors.Is(err, jetstream.ErrKeyExists) {
 				continue // another writer created it; reload and retry
 			}
 		} else {
-			_, err = j.kv.Update(ctx, deviceID, data, revision)
+			_, err = j.kv.Update(ctx, key, data, revision)
 			if errors.Is(err, jetstream.ErrKeyRevisionMismatch) {
 				continue // another writer advanced it; reload and retry
 			}
 		}
 		if err != nil {
-			return errs.From(err).Code(ErrCodeStore).Attr("device", deviceID).Msg("write lane record")
+			return errs.From(err).Code(ErrCodeStore).Attr("tenant", tenantID).Attr("device", deviceID).Msg("write lane record")
 		}
 		return nil
 	}
-	return errs.New().Code(ErrCodeConflict).Attr("device", deviceID).Msg("lane record write did not settle")
+	return errs.New().Code(ErrCodeConflict).Attr("tenant", tenantID).Attr("device", deviceID).Msg("lane CAS did not settle")
 }
 
 // Admit records a mutation intent at ADMITTED and assigns it the next
 // sequence, in one CAS write. A resubmission carrying an idempotency key the
 // record already holds returns the recorded state without admitting again.
-func (j *Journal) Admit(ctx context.Context, deviceID string, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef) (*accessv1.MutationState, error) {
-	return j.admit(ctx, deviceID, intent, edge, accessv1.BlockReason_BLOCK_REASON_UNSPECIFIED)
+func (j *Journal) Admit(ctx context.Context, tenantID, deviceID string, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef) (*accessv1.MutationState, error) {
+	return j.admit(ctx, tenantID, deviceID, intent, edge, accessv1.BlockReason_BLOCK_REASON_UNSPECIFIED)
 }
 
 // AdmitBlocked admits an intent that is recorded but must not be dispatched,
@@ -167,13 +204,13 @@ func (j *Journal) Admit(ctx context.Context, deviceID string, intent *accessv1.M
 // which stops anything else being admitted behind it, and waits for the
 // operator to accept, restore, or replace it. The owed-row derivation refuses
 // to dispatch a blocked mutation, so the hold needs no second mechanism.
-func (j *Journal) AdmitBlocked(ctx context.Context, deviceID string, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef, reason accessv1.BlockReason) (*accessv1.MutationState, error) {
-	return j.admit(ctx, deviceID, intent, edge, reason)
+func (j *Journal) AdmitBlocked(ctx context.Context, tenantID, deviceID string, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef, reason accessv1.BlockReason) (*accessv1.MutationState, error) {
+	return j.admit(ctx, tenantID, deviceID, intent, edge, reason)
 }
 
-func (j *Journal) admit(ctx context.Context, deviceID string, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef, reason accessv1.BlockReason) (*accessv1.MutationState, error) {
+func (j *Journal) admit(ctx context.Context, tenantID, deviceID string, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef, reason accessv1.BlockReason) (*accessv1.MutationState, error) {
 	var state *accessv1.MutationState
-	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+	err := j.mutate(ctx, tenantID, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		seq, recorded, err := recordedSequence(rec, deviceID, intent)
 		if err != nil {
 			return err
@@ -183,7 +220,7 @@ func (j *Journal) admit(ctx context.Context, deviceID string, intent *accessv1.M
 			return errSkip
 		}
 		if rec.HasMutation() {
-			return errs.New().Code(ErrCodeState).Attr("device", deviceID).Msg("a mutation already holds this device's lane")
+			return errs.New().Code(ErrCodeState).Attr("tenant", tenantID).Attr("device", deviceID).Msg("a mutation already holds this device's lane")
 		}
 		state = admitIntent(rec, deviceID, intent, edge, j.clock())
 		if reason != accessv1.BlockReason_BLOCK_REASON_UNSPECIFIED {
@@ -209,9 +246,9 @@ func (j *Journal) admit(ctx context.Context, deviceID string, intent *accessv1.M
 // the previous read's failure instead of reading the device — the sweep and
 // this call would otherwise race to decide which. Replacing it is what the
 // sweep was going to do to it anyway.
-func (j *Journal) OpenRead(ctx context.Context, deviceID string, device *inventoryv1.DeviceGlobalRef, iface string, read *accessv1.TypedRead, idempotencyKey string, deadline time.Time) (uint64, error) {
+func (j *Journal) OpenRead(ctx context.Context, tenantID, deviceID string, device *inventoryv1.DeviceGlobalRef, iface string, read *accessv1.TypedRead, idempotencyKey string, deadline time.Time) (uint64, error) {
 	var seq uint64
-	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+	err := j.mutate(ctx, tenantID, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		ensureDevice(rec, device, deviceID)
 		reads := rec.GetOpenReads()
 		if reads == nil {
@@ -249,8 +286,8 @@ func readExpired(read *storev1.OpenRead, now time.Time) bool {
 // read (OpenRead reuses the key once the prior read closed), so a late report
 // for an earlier sequence must not land on the read that succeeded it, and a
 // report for an entry that already closed is dropped.
-func (j *Journal) CloseRead(ctx context.Context, deviceID, iface string, sequence uint64, obs *accessv1.InterfaceObservation, errPayload *errsv1.ErrorPayload) error {
-	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+func (j *Journal) CloseRead(ctx context.Context, tenantID, deviceID, iface string, sequence uint64, obs *accessv1.InterfaceObservation, errPayload *errsv1.ErrorPayload) error {
+	err := j.mutate(ctx, tenantID, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		reads := rec.GetOpenReads()
 		entry, ok := reads[iface]
 		if !ok || entry.GetSequence() != sequence || entry.HasOutcome() {
@@ -274,9 +311,9 @@ func (j *Journal) CloseRead(ctx context.Context, deviceID, iface string, sequenc
 // that lands between observing an expiry and recording it wins: an entry that
 // acquired an outcome first is left untouched. [ExpiredReads] is its pure
 // counterpart for tests and callers that only need to know what is due.
-func (j *Journal) SweepExpiredReads(ctx context.Context, deviceID string, now time.Time, errPayload *errsv1.ErrorPayload) ([]string, error) {
+func (j *Journal) SweepExpiredReads(ctx context.Context, tenantID, deviceID string, now time.Time, errPayload *errsv1.ErrorPayload) ([]string, error) {
 	var swept []string
-	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+	err := j.mutate(ctx, tenantID, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		reads := rec.GetOpenReads()
 		swept = nil
 		for name, entry := range reads {
@@ -304,8 +341,8 @@ func (j *Journal) SweepExpiredReads(ctx context.Context, deviceID string, now ti
 // per-dispatch confirmations are cleared so the open mutation and any pending
 // hold are re-sent, while dispatched — the fact that the edge once held the
 // mutation — survives.
-func (j *Journal) MarkOnboarded(ctx context.Context, deviceID string) error {
-	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+func (j *Journal) MarkOnboarded(ctx context.Context, tenantID, deviceID string) error {
+	err := j.mutate(ctx, tenantID, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		if !rec.GetDispatchConfirmed() && !rec.GetCheckpointConfirmed() {
 			return errSkip
 		}
@@ -358,8 +395,8 @@ type Report struct {
 // so an in-flight report cannot overwrite an operator's abandonment; and an
 // edge report cannot advance the mutation before its own admission is
 // recorded (dispatched).
-func (j *Journal) ApplyReport(ctx context.Context, deviceID string, rep Report) error {
-	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+func (j *Journal) ApplyReport(ctx context.Context, tenantID, deviceID string, rep Report) error {
+	err := j.mutate(ctx, tenantID, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		m := rec.GetMutation()
 		if m == nil || m.GetSequence() != rep.Sequence {
 			return errSkip // stale, or for a sequence no longer open
@@ -469,8 +506,8 @@ func reportApplies(kind ReportKind, m *accessv1.MutationState, rec *storev1.Devi
 // dispatch it belongs to is still confirmed. An acknowledgement for any other
 // sequence, or one arriving after MarkOnboarded cleared the confirmations,
 // writes nothing.
-func (j *Journal) ConfirmCheckpoint(ctx context.Context, deviceID string, sequence uint64) error {
-	return j.mutateMutation(ctx, deviceID, sequence, func(rec *storev1.DeviceLaneRecord, _ *accessv1.MutationState) {
+func (j *Journal) ConfirmCheckpoint(ctx context.Context, tenantID, deviceID string, sequence uint64) error {
+	return j.mutateMutation(ctx, tenantID, deviceID, sequence, func(rec *storev1.DeviceLaneRecord, _ *accessv1.MutationState) {
 		// Only while the dispatch this checkpoint belongs to is confirmed.
 		// The flag is per dispatch and MarkOnboarded clears it, so an
 		// acknowledgement draining after a restart would otherwise mark the
@@ -484,8 +521,8 @@ func (j *Journal) ConfirmCheckpoint(ctx context.Context, deviceID string, sequen
 }
 
 // ConfirmHoldResolved clears a hold-resolution row the edge acknowledged.
-func (j *Journal) ConfirmHoldResolved(ctx context.Context, deviceID string, sequence uint64) error {
-	return j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+func (j *Journal) ConfirmHoldResolved(ctx context.Context, tenantID, deviceID string, sequence uint64) error {
+	return j.mutate(ctx, tenantID, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		if !removeHold(rec, sequence) {
 			return errSkip
 		}
@@ -500,15 +537,15 @@ func (j *Journal) ConfirmHoldResolved(ctx context.Context, deviceID string, sequ
 // the lane and owes a HoldResolved row instead, which releases an edge that
 // may already hold the dispatched ExecuteRequest. Either way it returns the
 // abandoned state for the caller and the audit.
-func (j *Journal) Dispose(ctx context.Context, deviceID string, sequence uint64) (*accessv1.MutationState, error) {
+func (j *Journal) Dispose(ctx context.Context, tenantID, deviceID string, sequence uint64) (*accessv1.MutationState, error) {
 	var state *accessv1.MutationState
-	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+	err := j.mutate(ctx, tenantID, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		m := rec.GetMutation()
 		if m == nil || m.GetSequence() != sequence {
-			return errs.New().Code(ErrCodeState).Attr("device", deviceID).Msg("no open mutation at that sequence to abandon")
+			return errs.New().Code(ErrCodeState).Attr("tenant", tenantID).Attr("device", deviceID).Msg("no open mutation at that sequence to abandon")
 		}
 		if m.HasDisposition() {
-			return errs.New().Code(ErrCodeState).Attr("device", deviceID).Msg("mutation is already terminal")
+			return errs.New().Code(ErrCodeState).Attr("tenant", tenantID).Attr("device", deviceID).Msg("mutation is already terminal")
 		}
 		m.SetPhase(accessv1.OperationPhase_OPERATION_PHASE_ABANDONED)
 		m.SetDisposition(accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED)
@@ -542,9 +579,9 @@ func (j *Journal) Dispose(ctx context.Context, deviceID string, sequence uint64)
 // edge's RELEASED report frees the lane through the ordinary path. Either way
 // it returns the disposed state for the caller to audit. A stale sequence or
 // an already-terminal mutation is ignored.
-func (j *Journal) RejectDispatch(ctx context.Context, deviceID string, sequence uint64) (*accessv1.MutationState, error) {
+func (j *Journal) RejectDispatch(ctx context.Context, tenantID, deviceID string, sequence uint64) (*accessv1.MutationState, error) {
 	var state *accessv1.MutationState
-	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+	err := j.mutate(ctx, tenantID, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		m := rec.GetMutation()
 		if m == nil || m.GetSequence() != sequence || m.HasDisposition() {
 			return errSkip
@@ -613,9 +650,9 @@ type Resolution struct {
 // A resubmission carrying an idempotency key the record already holds returns
 // the recorded state and writes nothing, so a lost response is retried rather
 // than resolved twice.
-func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string, res Resolution) (*accessv1.MutationState, *accessv1.MutationState, error) {
+func (j *Journal) ResolveDesynchronization(ctx context.Context, tenantID, deviceID string, res Resolution) (*accessv1.MutationState, *accessv1.MutationState, error) {
 	var resolved, admitted *accessv1.MutationState
-	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+	err := j.mutate(ctx, tenantID, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		if res.Intent != nil {
 			seq, recorded, err := recordedSequence(rec, deviceID, res.Intent)
 			if err != nil {
@@ -628,7 +665,7 @@ func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string,
 					// sequence it replaces. Echoing that older state would
 					// answer the operator with a success while the hold they
 					// asked to resolve still stands.
-					return errs.New().Code(ErrCodeIdempotencyMismatch).Attr("device", deviceID).
+					return errs.New().Code(ErrCodeIdempotencyMismatch).Attr("tenant", tenantID).Attr("device", deviceID).
 						Attr("sequence", seq).Attr("resolving", res.Sequence).
 						Msg("this idempotency key was already admitted for an earlier sequence")
 				}
@@ -648,7 +685,7 @@ func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string,
 				// dispatched the replacement into a lane it still occupies.
 				// [TerminatorNamed] already says this arm is the terminator only
 				// once the edge has confirmed; this is that rule enforced.
-				return errs.New().Code(ErrCodeAckPending).Attr("device", deviceID).
+				return errs.New().Code(ErrCodeAckPending).Attr("tenant", tenantID).Attr("device", deviceID).
 					Attr("sequence", res.Sequence).
 					Msg("the edge has not acknowledged how this mutation ended")
 			}
@@ -660,7 +697,7 @@ func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string,
 				// replacement into a lane the edge still occupies.
 				// AbandonMutation is the terminator for a mutation in this
 				// state.
-				return errs.New().Code(ErrCodeEdgeHolds).Attr("device", deviceID).
+				return errs.New().Code(ErrCodeEdgeHolds).Attr("tenant", tenantID).Attr("device", deviceID).
 					Attr("sequence", res.Sequence).
 					Msg("the edge still holds this mutation; abandon it before resolving")
 			}
@@ -677,13 +714,13 @@ func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string,
 			}
 			closeMutation(rec, m)
 		case m != nil:
-			return errs.New().Code(ErrCodeState).Attr("device", deviceID).
+			return errs.New().Code(ErrCodeState).Attr("tenant", tenantID).Attr("device", deviceID).
 				Msg("another mutation holds this device's lane")
 		case holdPending(rec, res.Sequence):
 			// The abandonment already closed the lane and recorded the hold;
 			// the arm's own intent is all that is left to admit.
 		default:
-			return errs.New().Code(ErrCodeState).Attr("device", deviceID).
+			return errs.New().Code(ErrCodeState).Attr("tenant", tenantID).Attr("device", deviceID).
 				Msg("no held sequence to resolve")
 		}
 
@@ -710,8 +747,8 @@ func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string,
 //
 // It ends no mutation. Abandoning live work is a decision only an operator
 // makes, and AbandonMutation is where they make it.
-func (j *Journal) DropHolds(ctx context.Context, deviceID string) error {
-	return j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+func (j *Journal) DropHolds(ctx context.Context, tenantID, deviceID string) error {
+	return j.mutate(ctx, tenantID, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		if len(rec.GetHoldResolutionPending()) == 0 {
 			return errSkip
 		}
@@ -722,8 +759,8 @@ func (j *Journal) DropHolds(ctx context.Context, deviceID string) error {
 
 // SetExpected records the description central expects on one interface, the
 // baseline the drift poll compares against.
-func (j *Journal) SetExpected(ctx context.Context, deviceID string, device *inventoryv1.DeviceGlobalRef, iface, description string) error {
-	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+func (j *Journal) SetExpected(ctx context.Context, tenantID, deviceID string, device *inventoryv1.DeviceGlobalRef, iface, description string) error {
+	err := j.mutate(ctx, tenantID, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		ensureDevice(rec, device, deviceID)
 		setExpected(rec, iface, description)
 		return nil
@@ -732,8 +769,8 @@ func (j *Journal) SetExpected(ctx context.Context, deviceID string, device *inve
 }
 
 // SetFingerprint records the firmware fingerprint the edge reported.
-func (j *Journal) SetFingerprint(ctx context.Context, deviceID string, device *inventoryv1.DeviceGlobalRef, fingerprint string) error {
-	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+func (j *Journal) SetFingerprint(ctx context.Context, tenantID, deviceID string, device *inventoryv1.DeviceGlobalRef, fingerprint string) error {
+	err := j.mutate(ctx, tenantID, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		if rec.GetFirmwareFingerprint() == fingerprint {
 			return errSkip
 		}
@@ -746,8 +783,8 @@ func (j *Journal) SetFingerprint(ctx context.Context, deviceID string, device *i
 
 // mutateMutation applies fn only when the record's open mutation matches
 // sequence.
-func (j *Journal) mutateMutation(ctx context.Context, deviceID string, sequence uint64, fn func(*storev1.DeviceLaneRecord, *accessv1.MutationState)) error {
-	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+func (j *Journal) mutateMutation(ctx context.Context, tenantID, deviceID string, sequence uint64, fn func(*storev1.DeviceLaneRecord, *accessv1.MutationState)) error {
+	err := j.mutate(ctx, tenantID, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		m := rec.GetMutation()
 		if m == nil || m.GetSequence() != sequence {
 			return errSkip

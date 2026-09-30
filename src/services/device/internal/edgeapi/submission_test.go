@@ -321,7 +321,7 @@ func TestRetiringAnEdgeRevokesAnOpenSubmission(t *testing.T) {
 	defer cancel()
 
 	stream.waitFor(t, 2)
-	if _, err := h.admin.RetireEdge(context.Background(), connect.NewRequest(
+	if _, err := h.admin.RetireEdge(testContext(), connect.NewRequest(
 		edgev1.RetireEdgeRequest_builder{Edge: edgeRefFor(edgeID)}.Build())); err != nil {
 		t.Fatalf("RetireEdge: %v", err)
 	}

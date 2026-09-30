@@ -50,21 +50,28 @@ const (
 // result as the open mutation's or an open read's.
 func (s *Service) Report(ctx context.Context, req *connect.Request[dispatchv1.ReportRequest]) (*connect.Response[dispatchv1.ReportResponse], error) {
 	deviceID := req.Msg.GetDeviceId()
-	if err := s.authorizeDevice(ctx, deviceID); err != nil {
+	edgeID, err := s.cfg.EdgeID(ctx)
+	if err != nil {
+		return nil, connectErr(errs.From(err).Code(ErrCodeEdge).Msg("identify reporting edge"))
+	}
+	if err := s.authorizeDevice(ctx, edgeID, deviceID); err != nil {
 		return nil, connectErr(err)
 	}
-	var err error
+	tenantID, err := s.edgeTenant(ctx, edgeID)
+	if err != nil {
+		return nil, connectErr(err)
+	}
 	switch req.Msg.WhichReport() {
 	case dispatchv1.ReportRequest_Result_case:
-		err = s.applyResult(ctx, deviceID, req.Msg.GetResult())
+		err = s.applyResult(ctx, tenantID, deviceID, req.Msg.GetResult())
 	case dispatchv1.ReportRequest_CheckpointAck_case:
-		err = s.cfg.Journal.ConfirmCheckpoint(ctx, deviceID, req.Msg.GetCheckpointAck().GetSequence())
+		err = s.cfg.Journal.ConfirmCheckpoint(ctx, tenantID, deviceID, req.Msg.GetCheckpointAck().GetSequence())
 	case dispatchv1.ReportRequest_HoldResolvedAck_case:
-		err = s.cfg.Journal.ConfirmHoldResolved(ctx, deviceID, req.Msg.GetHoldResolvedAck().GetSequence())
+		err = s.cfg.Journal.ConfirmHoldResolved(ctx, tenantID, deviceID, req.Msg.GetHoldResolvedAck().GetSequence())
 	case dispatchv1.ReportRequest_Refused_case:
-		err = s.applyRefused(ctx, deviceID, req.Msg.GetRefused())
+		err = s.applyRefused(ctx, tenantID, deviceID, req.Msg.GetRefused())
 	case dispatchv1.ReportRequest_Onboarded_case:
-		err = s.applyOnboarded(ctx, deviceID, req.Msg.GetOnboarded())
+		err = s.applyOnboarded(ctx, tenantID, deviceID, req.Msg.GetOnboarded())
 	default:
 		err = errs.New().Code(ErrCodeReport).Attr("device", deviceID).Msg("report carries no known arm")
 	}
@@ -77,9 +84,9 @@ func (s *Service) Report(ctx context.Context, req *connect.Request[dispatchv1.Re
 // applyResult applies an ExecuteResult, which answers either the open mutation
 // or an open read at the same sequence. It learns the firmware fingerprint
 // from any observation's provenance first, then classifies against the record.
-func (s *Service) applyResult(ctx context.Context, deviceID string, result *dispatchv1.ExecuteResult) error {
+func (s *Service) applyResult(ctx context.Context, tenantID, deviceID string, result *dispatchv1.ExecuteResult) error {
 	seq := result.GetSequence()
-	rec, err := s.cfg.Journal.Record(ctx, deviceID)
+	rec, err := s.cfg.Journal.Record(ctx, tenantID, deviceID)
 	if err != nil {
 		return err
 	}
@@ -88,22 +95,22 @@ func (s *Service) applyResult(ctx context.Context, deviceID string, result *disp
 	// stale re-send overwrite a newer one, and, for a device with no record,
 	// would conjure a lane record keyed by whatever id the report carried.
 	if m := rec.GetMutation(); m != nil && m.GetSequence() == seq {
-		if err := s.learnFingerprint(ctx, deviceID, result); err != nil {
+		if err := s.learnFingerprint(ctx, tenantID, deviceID, result); err != nil {
 			return err
 		}
 		rep, ok := mutationReport(result)
 		if !ok {
 			s.log.WarnContext(ctx, "ignoring a mutation result at an unhandled phase",
-				slog.String("flowseer.device.id", deviceID), slog.Uint64("flowseer.device.sequence", seq), slog.String("flowseer.device.phase", result.GetPhaseReached().String()))
+				slog.String("flowseer.tenant.id", tenantID), slog.String("flowseer.device.id", deviceID), slog.Uint64("flowseer.device.sequence", seq), slog.String("flowseer.device.phase", result.GetPhaseReached().String()))
 			return nil
 		}
-		return s.cfg.Journal.ApplyReport(ctx, deviceID, rep)
+		return s.cfg.Journal.ApplyReport(ctx, tenantID, deviceID, rep)
 	}
 	if _, iface, ok := findReadIface(rec, seq); ok {
-		if err := s.learnFingerprint(ctx, deviceID, result); err != nil {
+		if err := s.learnFingerprint(ctx, tenantID, deviceID, result); err != nil {
 			return err
 		}
-		return s.closeReadResult(ctx, deviceID, iface, seq, result)
+		return s.closeReadResult(ctx, tenantID, deviceID, iface, seq, result)
 	}
 	return nil // neither the open mutation nor an open read: a stale report
 }
@@ -111,7 +118,7 @@ func (s *Service) applyResult(ctx context.Context, deviceID string, result *disp
 // learnFingerprint records the firmware fingerprint an observation's
 // provenance carries, if any. Called only once the result is classified, so a
 // stale report writes nothing.
-func (s *Service) learnFingerprint(ctx context.Context, deviceID string, result *dispatchv1.ExecuteResult) error {
+func (s *Service) learnFingerprint(ctx context.Context, tenantID, deviceID string, result *dispatchv1.ExecuteResult) error {
 	obs := result.GetObservation()
 	if obs == nil {
 		return nil
@@ -120,7 +127,7 @@ func (s *Service) learnFingerprint(ctx context.Context, deviceID string, result 
 	if fp == "" {
 		return nil
 	}
-	return s.cfg.Journal.SetFingerprint(ctx, deviceID, deviceRef(deviceID), fp)
+	return s.cfg.Journal.SetFingerprint(ctx, tenantID, deviceID, deviceRef(deviceID), fp)
 }
 
 // mutationReport maps an ExecuteResult to the journal report its phase names,
@@ -157,12 +164,12 @@ func mutationReport(result *dispatchv1.ExecuteResult) (journal.Report, bool) {
 
 // closeReadResult closes an open read with its observation or error; a
 // progress report on a read records nothing.
-func (s *Service) closeReadResult(ctx context.Context, deviceID, iface string, seq uint64, result *dispatchv1.ExecuteResult) error {
+func (s *Service) closeReadResult(ctx context.Context, tenantID, deviceID, iface string, seq uint64, result *dispatchv1.ExecuteResult) error {
 	switch result.WhichOutcome() {
 	case dispatchv1.ExecuteResult_Observation_case:
-		return s.cfg.Journal.CloseRead(ctx, deviceID, iface, seq, result.GetObservation(), nil)
+		return s.cfg.Journal.CloseRead(ctx, tenantID, deviceID, iface, seq, result.GetObservation(), nil)
 	case dispatchv1.ExecuteResult_Error_case:
-		return s.cfg.Journal.CloseRead(ctx, deviceID, iface, seq, nil, result.GetError())
+		return s.cfg.Journal.CloseRead(ctx, tenantID, deviceID, iface, seq, nil, result.GetError())
 	default:
 		return nil
 	}
@@ -171,19 +178,19 @@ func (s *Service) closeReadResult(ctx context.Context, deviceID, iface string, s
 // applyRefused applies a row-level negative confirmation. The dispatch kind
 // says which row the refusal answers, and the code decides whether central
 // keeps owing the row or disposes the mutation.
-func (s *Service) applyRefused(ctx context.Context, deviceID string, refused *dispatchv1.Refused) error {
+func (s *Service) applyRefused(ctx context.Context, tenantID, deviceID string, refused *dispatchv1.Refused) error {
 	seq := refused.GetSequence()
 	switch refused.GetKind() {
 	case dispatchv1.DispatchKind_DISPATCH_KIND_CHECKPOINT:
 		if refused.GetCode() != CodeNoPendingWait {
 			return nil // an unlisted checkpoint refusal leaves the row owed
 		}
-		rec, err := s.cfg.Journal.Record(ctx, deviceID)
+		rec, err := s.cfg.Journal.Record(ctx, tenantID, deviceID)
 		if err != nil {
 			return err
 		}
 		if pastCheckpoint(rec.GetLastReportedPhase()) {
-			return s.cfg.Journal.ConfirmCheckpoint(ctx, deviceID, seq)
+			return s.cfg.Journal.ConfirmCheckpoint(ctx, tenantID, deviceID, seq)
 		}
 		return nil // at ADMITTED the row stays owed; the checkpoint was not received
 	case dispatchv1.DispatchKind_DISPATCH_KIND_TERMINAL_ACK:
@@ -192,20 +199,21 @@ func (s *Service) applyRefused(ctx context.Context, deviceID string, refused *di
 		// RELEASED does; for an abandonment it confirms the ack instead, since
 		// the mutation stays held for ResolveDesynchronization and a
 		// ReportRefused would be dropped, re-deriving the ack forever.
-		rec, err := s.cfg.Journal.Record(ctx, deviceID)
+		rec, err := s.cfg.Journal.Record(ctx, tenantID, deviceID)
 		if err != nil {
 			return err
 		}
 		if m := rec.GetMutation(); m != nil && m.GetDisposition() == accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
-			return s.cfg.Journal.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: seq})
+			return s.cfg.Journal.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: seq})
 		}
-		return s.cfg.Journal.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportRefused, Sequence: seq})
+		return s.cfg.Journal.ApplyReport(ctx, tenantID, deviceID, journal.Report{Kind: journal.ReportRefused, Sequence: seq})
 	case dispatchv1.DispatchKind_DISPATCH_KIND_EXECUTE:
 		terminal, err := s.terminalRefusal(ctx, deviceID, refused.GetCode())
 		if err != nil {
 			// The registry could not say whether it still lists the device;
 			// leave the row owed rather than disposing on a transient failure.
 			s.log.WarnContext(ctx, "could not classify an execute refusal; leaving the row owed",
+				slog.String("flowseer.tenant.id", tenantID),
 				slog.String("flowseer.device.id", deviceID),
 				slog.String("flowseer.edge.refusal.code", refused.GetCode()),
 				slog.String("error.type", telemetry.ErrorType(err)))
@@ -218,7 +226,7 @@ func (s *Service) applyRefused(ctx context.Context, deviceID string, refused *di
 			// decision, so central writes the audit record for it, through the
 			// emitter rather than from here: the reason the edge refused lives
 			// nowhere else once the lane closes.
-			return s.rejectDispatch(ctx, deviceID, seq, refused.GetCode())
+			return s.rejectDispatch(ctx, tenantID, deviceID, seq, refused.GetCode())
 		}
 		return nil // a retryable code leaves the row owed until the operator ends it
 	case dispatchv1.DispatchKind_DISPATCH_KIND_HOLD_RESOLVED:
@@ -230,7 +238,7 @@ func (s *Service) applyRefused(ctx context.Context, deviceID string, refused *di
 		// device whose onboarding failed on its edge then accumulates
 		// members until the pending set is full and every further abandon on
 		// that device is walled off.
-		return s.cfg.Journal.ConfirmHoldResolved(ctx, deviceID, seq)
+		return s.cfg.Journal.ConfirmHoldResolved(ctx, tenantID, deviceID, seq)
 	default:
 		return nil
 	}
@@ -240,11 +248,7 @@ func (s *Service) applyRefused(ctx context.Context, deviceID string, refused *di
 // edge must host the device the report concerns, or an edge could drive
 // another edge's devices. A resolve failure is surfaced, not treated as
 // permission granted.
-func (s *Service) authorizeDevice(ctx context.Context, deviceID string) error {
-	edgeID, err := s.cfg.EdgeID(ctx)
-	if err != nil {
-		return errs.From(err).Code(ErrCodeEdge).Msg("identify reporting edge")
-	}
+func (s *Service) authorizeDevice(ctx context.Context, edgeID, deviceID string) error {
 	hosts, err := s.cfg.Resolver.Hosts(ctx, edgeID, deviceID)
 	if err != nil {
 		return errs.From(err).Code(ErrCodeResolve).Attr("edge", edgeID).Attr("device", deviceID).Msg("resolve edge-device binding")
@@ -279,7 +283,7 @@ func (s *Service) terminalRefusal(ctx context.Context, deviceID, code string) (b
 
 // applyOnboarded clears the per-dispatch confirmations and records the
 // fingerprint the identity probe learned.
-func (s *Service) applyOnboarded(ctx context.Context, deviceID string, onboarded *dispatchv1.Onboarded) error {
+func (s *Service) applyOnboarded(ctx context.Context, tenantID, deviceID string, onboarded *dispatchv1.Onboarded) error {
 	// The fingerprint first. These are two writes and the edge re-sends the
 	// whole report when either fails, so the order decides what a partial
 	// application leaves behind. SetFingerprint is idempotent for an equal
@@ -288,10 +292,10 @@ func (s *Service) applyOnboarded(ctx context.Context, deviceID string, onboarded
 	// confirmations, re-arms an execute row, and leaves the epoch stale —
 	// refusing an operator who supplies the device's real fingerprint and
 	// admitting one who supplies the superseded value.
-	if err := s.cfg.Journal.SetFingerprint(ctx, deviceID, deviceRef(deviceID), onboarded.GetFirmwareFingerprint()); err != nil {
+	if err := s.cfg.Journal.SetFingerprint(ctx, tenantID, deviceID, deviceRef(deviceID), onboarded.GetFirmwareFingerprint()); err != nil {
 		return err
 	}
-	return s.cfg.Journal.MarkOnboarded(ctx, deviceID)
+	return s.cfg.Journal.MarkOnboarded(ctx, tenantID, deviceID)
 }
 
 // pastCheckpoint reports whether a reported phase is at or past
@@ -315,15 +319,15 @@ func deviceRef(id string) *inventoryv1.DeviceGlobalRef {
 // after the disposal, not before: the disposal is what the operator's next
 // call reads, and a failed publish must not leave a mutation the edge refused
 // still holding the lane. A lost record is reported, never swallowed.
-func (s *Service) rejectDispatch(ctx context.Context, deviceID string, sequence uint64, code string) error {
-	rec, err := s.cfg.Journal.Record(ctx, deviceID)
+func (s *Service) rejectDispatch(ctx context.Context, tenantID, deviceID string, sequence uint64, code string) error {
+	rec, err := s.cfg.Journal.Record(ctx, tenantID, deviceID)
 	if err != nil {
 		return err
 	}
 	from := rec.GetMutation().GetPhase()
 	device := rec.GetDevice()
 
-	state, err := s.cfg.Journal.RejectDispatch(ctx, deviceID, sequence)
+	state, err := s.cfg.Journal.RejectDispatch(ctx, tenantID, deviceID, sequence)
 	if err != nil {
 		return err
 	}
@@ -332,8 +336,8 @@ func (s *Service) rejectDispatch(ctx context.Context, deviceID string, sequence 
 	}
 	if s.cfg.Audit == nil {
 		s.log.WarnContext(ctx, "central rejected a dispatch with no audit emitter wired; the reason is not recorded",
-			slog.String("flowseer.device.id", deviceID), slog.Uint64("flowseer.device.sequence", sequence), slog.String("flowseer.edge.refusal.code", code))
+			slog.String("flowseer.tenant.id", tenantID), slog.String("flowseer.device.id", deviceID), slog.Uint64("flowseer.device.sequence", sequence), slog.String("flowseer.edge.refusal.code", code))
 		return nil
 	}
-	return s.cfg.Audit.DispatchRejected(ctx, device, state, from, code)
+	return s.cfg.Audit.DispatchRejected(ctx, tenantID, device, state, from, code)
 }

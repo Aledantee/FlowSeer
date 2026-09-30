@@ -22,6 +22,8 @@ import (
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
+	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 )
 
@@ -72,7 +74,7 @@ type DeviceResolver interface {
 // report that closes a read may land on another central replica, so a waiter
 // cannot poll its own memory.
 type RecordWatcher interface {
-	Watch(ctx context.Context, deviceID string) (<-chan struct{}, func(), error)
+	Watch(ctx context.Context, tenantID, deviceID string) (<-chan struct{}, func(), error)
 }
 
 // Config wires the handlers to the journal, the registry, and the record
@@ -82,6 +84,8 @@ type Config struct {
 	Journal *journal.Journal
 	// Resolver answers the registry facts a device call needs.
 	Resolver DeviceResolver
+	// EdgeTenant resolves an edge ID to its tenant ID. Must not be nil.
+	EdgeTenant func(ctx context.Context, edgeID string) (string, error)
 	// Watcher wakes a waiting read; without it a read polls at ReadPoll.
 	Watcher RecordWatcher
 	// ReadPoll is how often a waiting read re-reads the record when no watch
@@ -114,6 +118,9 @@ func New(cfg Config) (*Service, error) {
 	if cfg.Resolver == nil {
 		return nil, errs.New().Code(ErrCodeRequest).Msg("device service needs a device resolver")
 	}
+	if cfg.EdgeTenant == nil {
+		return nil, errs.New().Code(ErrCodeRequest).Msg("device service needs an edge tenant resolver")
+	}
 	s := &Service{cfg: cfg, clock: cfg.Clock, readPoll: cfg.ReadPoll}
 	if s.clock == nil {
 		s.clock = time.Now
@@ -124,16 +131,34 @@ func New(cfg Config) (*Service, error) {
 	return s, nil
 }
 
-// device resolves a device ref to its id and registry entry, refusing one the
-// registry does not list.
-func (s *Service) device(ref *inventoryv1.DeviceGlobalRef) (string, *storev1.RegistryDevice, error) {
+// device resolves a device ref to its id, its hosting edge's tenant, and its
+// registry entry, refusing one the registry does not list or whose edge is not
+// owned by the caller's tenant.
+func (s *Service) device(ctx context.Context, ref *inventoryv1.DeviceGlobalRef) (string, string, *storev1.RegistryDevice, error) {
+	caller, err := tenant.FromContext(ctx)
+	if err != nil {
+		return "", "", nil, err
+	}
 	id := ref.GetDevice().GetId()
 	entry, ok := s.cfg.Resolver.Device(id)
 	if !ok {
-		return "", nil, errs.New().Code(ErrCodeUnknownDevice).Attr("device", id).
+		return "", "", nil, errs.New().Code(ErrCodeUnknownDevice).Attr("device", id).
 			Msg("registry lists no such device")
 	}
-	return id, entry, nil
+	edgeID := s.cfg.Resolver.EdgeID()
+	owner, err := s.cfg.EdgeTenant(ctx, edgeID)
+	if err != nil {
+		if code, ok := errs.CodeOf(err); ok && code == edgestore.ErrCodeUnknownEdge {
+			return "", "", nil, errs.New().Code(ErrCodeUnknownDevice).Attr("device", id).
+				Msg("registry lists no such device")
+		}
+		return "", "", nil, err
+	}
+	if owner != caller {
+		return "", "", nil, errs.New().Code(ErrCodeUnknownDevice).Attr("device", id).
+			Msg("registry lists no such device")
+	}
+	return id, owner, entry, nil
 }
 
 // pinnedPolicy refuses a handle that is not the version the device pins, so an

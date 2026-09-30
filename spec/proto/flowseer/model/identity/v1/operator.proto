@@ -1,9 +1,7 @@
 edition = "2024";
 
-// Who an authorization check is about. A principal is named by the identity
-// provider, not by FlowSeer: it has no ref pair, no triad, and no place in
-// EntityType, because nothing FlowSeer stores answers for it.
-package flowseer.model.principal.v1;
+// Operator identity across FlowSeer boundaries.
+package flowseer.model.identity.v1;
 
 import option "buf/validate/validate.proto";
 

@@ -3,6 +3,7 @@ package edgeapi
 import (
 	connect "connectrpc.com/connect"
 
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 )
@@ -50,6 +51,7 @@ var ClientErrors = connecterr.Table{
 	},
 
 	ErrCodeNoEdge:           {Code: connect.CodeUnauthenticated, UserMsg: msgUnauthenticated},
+	tenant.ErrCodeNoTenant:  {Code: connect.CodeUnauthenticated, UserMsg: msgUnauthenticated},
 	ErrCodeConfig:           {Code: connect.CodeInternal},
 	ErrCodeRandom:           {Code: connect.CodeInternal},
 	ErrCodeCredential:       {Code: connect.CodeInternal},

@@ -14,6 +14,7 @@ import (
 
 	auditv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
 
@@ -25,7 +26,7 @@ var (
 	// ErrCodeEdge is a delivery whose caller could not be identified as an
 	// edge.
 	ErrCodeEdge = errs.NewCode("auditapi/edge")
-	// ErrCodeResolve is a failure to resolve the edge-device binding.
+	// ErrCodeResolve is a failure to resolve the edge-device binding or edge tenant.
 	ErrCodeResolve = errs.NewCode("auditapi/resolve")
 	// ErrCodeForbidden is a delivery about a device the calling edge does not
 	// host.
@@ -51,16 +52,15 @@ type EdgeBinding interface {
 // Service implements the AuditService handler. A Service is safe for concurrent
 // use when its Publisher and EdgeBinding are safe for concurrent use.
 type Service struct {
-	stream  Publisher
-	binding EdgeBinding
-	tenant  string
+	stream     Publisher
+	binding    EdgeBinding
+	edgeTenant func(ctx context.Context, edgeID string) (string, error)
 }
 
 // New constructs the audit handler over a stream publisher, the edge binding
-// that authorizes each delivery, and the tenant whose audit subject the events
-// are written to.
-func New(stream Publisher, binding EdgeBinding, tenant string) *Service {
-	return &Service{stream: stream, binding: binding, tenant: tenant}
+// that authorizes each delivery, and a function resolving an edge to its tenant.
+func New(stream Publisher, binding EdgeBinding, edgeTenant func(ctx context.Context, edgeID string) (string, error)) *Service {
+	return &Service{stream: stream, binding: binding, edgeTenant: edgeTenant}
 }
 
 // Deliver publishes one event and answers once the stream holds it, after
@@ -89,9 +89,19 @@ func (s *Service) Deliver(ctx context.Context, req *connect.Request[auditv1.Deli
 	if err != nil {
 		return nil, connectErr(errs.From(err).Code(ErrCodePublish).Attr("device", deviceID).Msg("marshal audit event"))
 	}
-	subject := edgebus.AuditSubject(s.tenant, deviceID)
+	if s.edgeTenant == nil {
+		return nil, connectErr(errs.New().Code(ErrCodeResolve).Attr("edge", edgeID).Msg("no edge tenant resolver configured"))
+	}
+	tenantID, err := s.edgeTenant(ctx, edgeID)
+	if err != nil {
+		return nil, connectErr(errs.From(err).Code(ErrCodeResolve).Attr("edge", edgeID).Msg("resolve edge tenant"))
+	}
+	if err := tenant.Validate(tenantID); err != nil {
+		return nil, connectErr(errs.From(err).Code(ErrCodeResolve).Attr("edge", edgeID).Attr("tenant", tenantID).Msg("validate edge tenant"))
+	}
+	subject := edgebus.AuditSubject(tenantID, deviceID)
 	if err := s.stream.Publish(ctx, subject, data, event.GetEventId()); err != nil {
-		return nil, connectErr(errs.From(err).Code(ErrCodePublish).Attr("device", deviceID).
+		return nil, connectErr(errs.From(err).Code(ErrCodePublish).Attr("tenant", tenantID).Attr("device", deviceID).
 			Attr("event", event.GetEventId()).Msg("publish audit event"))
 	}
 	return connect.NewResponse(&auditv1.DeliverResponse{}), nil

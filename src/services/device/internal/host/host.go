@@ -257,6 +257,17 @@ func (h *assembly) setupHub(ctx context.Context) (service.Attempt, error) {
 	}}, nil
 }
 
+func (b *busResources) edgeTenant(ctx context.Context, edgeID string) (string, error) {
+	t, err := b.edges.TenantForEdge(ctx, edgeID)
+	if err != nil {
+		return "", err
+	}
+	if t == "" {
+		return "", errs.New().Code(edgestore.ErrCodeUnknownEdge).Attr("edge", edgeID).Msg("edge has no indexed tenant")
+	}
+	return t, nil
+}
+
 func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *slog.Logger) (*busResources, error) {
 	lanes, err := hub.JetStream().KeyValue(ctx, edgebus.LaneBucket)
 	if err != nil {
@@ -268,18 +279,8 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 	}
 
 	lane := journal.New(lanes, nil)
-	audit := centralaudit.New(auditPublisher(hub), hub.Tenant(), nil)
-	intervals := h.cfg.Intervals()
-	dispatch := dispatchapi.New(dispatchapi.Config{
-		Journal:       lane,
-		Resolver:      h.registry,
-		Watch:         lanes,
-		EdgeID:        edgeIDFromContext,
-		Resend:        intervals.DispatchResend,
-		SweepInterval: intervals.ReadSweep,
-		Audit:         audit,
-		Logger:        log,
-	})
+	edgeStore := edgestore.New(edges)
+	audit := centralaudit.New(auditPublisher(hub), nil)
 
 	capturesBucket, err := hub.JetStream().KeyValue(ctx, edgebus.CapturesBucket)
 	if err != nil {
@@ -292,15 +293,29 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 	}
 	broadcaster := captureapi.NewBroadcaster()
 
-	return &busResources{
+	res := &busResources{
 		hub:         hub,
 		lanes:       lanes,
 		journal:     lane,
-		edges:       edgestore.New(edges),
-		dispatch:    dispatch,
+		edges:       edgeStore,
 		captures:    captureStore,
 		broadcaster: broadcaster,
-	}, nil
+	}
+
+	intervals := h.cfg.Intervals()
+	res.dispatch = dispatchapi.New(dispatchapi.Config{
+		Journal:       lane,
+		Resolver:      h.registry,
+		Watch:         lanes,
+		EdgeID:        edgeIDFromContext,
+		EdgeTenant:    res.edgeTenant,
+		Resend:        intervals.DispatchResend,
+		SweepInterval: intervals.ReadSweep,
+		Audit:         audit,
+		Logger:        log,
+	})
+
+	return res, nil
 }
 
 // setupForwarder ships every edge's buffered telemetry on to the collector.
@@ -368,7 +383,8 @@ func (h *assembly) setupDrift(ctx context.Context) (service.Attempt, error) {
 	poller, err := drift.New(drift.Config{
 		Journal:      resources.journal,
 		Resolver:     h.registry,
-		Audit:        centralaudit.New(auditPublisher(resources.hub), resources.hub.Tenant(), nil),
+		EdgeTenant:   resources.edgeTenant,
+		Audit:        centralaudit.New(auditPublisher(resources.hub), nil),
 		Telemetry:    view,
 		Interval:     intervals.Drift,
 		ReadDeadline: intervals.DriftReadDeadline,

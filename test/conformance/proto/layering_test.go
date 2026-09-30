@@ -81,6 +81,10 @@ var importOrder = map[string][]string{
 	// nothing else.
 	"api/edge": {"model/edge"},
 
+	// The operator-facing service that creates, retrieves, and lists
+	// tenants. It hands back TenantRecord and takes TenantGlobalRef.
+	"api/identity": {"model/identity"},
+
 	// The service an edge calls to get and keep its standing: enrollment,
 	// rekey, heartbeat, bus attachment, the device listing, and the two
 	// credential lifecycles. The listing and the credentials are what reach
@@ -91,10 +95,10 @@ var importOrder = map[string][]string{
 	"model/edge":       nil,
 	"model/credential": nil,
 	"model/policy":     nil,
-	// Whoever an authorization check is about, named by the identity
-	// provider. A leaf, so the capture entity can name a person without
-	// reaching the access plane.
-	"model/principal": nil,
+
+	// The identity leaf: operator and tenant identity. Imports nothing
+	// FlowSeer-owned; model/access imports it for Actor.operator.
+	"model/identity": nil,
 
 	// The error wire payload, a leaf like model/policy: it imports nothing,
 	// and every boundary that carries an error imports it.
@@ -105,8 +109,8 @@ var importOrder = map[string][]string{
 	// stream re-verifies from model/edge, and holds net/capture's counters,
 	// link type and packet records rather than copies of their fields. A
 	// local source's interface name takes its rule from net/key, and the
-	// requester is a model/principal value, never the access plane.
-	"model/capture": {"model/edge", "model/principal", "net/capture", "net/key"},
+	// requester is a model/identity value, never the access plane.
+	"model/capture": {"model/edge", "model/identity", "net/capture", "net/key"},
 
 	// The two Connect services around a capture session: the one an operator
 	// calls to create, control, and read one back, and the one an edge calls
@@ -136,9 +140,8 @@ var importOrder = map[string][]string{
 
 	// The operation values every device-access boundary shares. They reach
 	// model/edge for the responsible edge, so a boundary that imports them
-	// reaches model/edge only through here, and model/principal for the
-	// operator an actor names.
-	"model/access": {"model/edge", "model/inventory", "model/policy", "model/principal", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp", "net/key"},
+	// reaches model/edge only through here.
+	"model/access": {"model/edge", "model/identity", "model/inventory", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp", "net/key"},
 
 	// The operator API, the execution envelope, and the audit event are
 	// sibling boundary consumers of model/access. Each imports model/access
@@ -365,9 +368,7 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "edge attachment imports its credential handles", importer: "edge/attach", imported: "model/policy", want: true},
 		{name: "leaf boundary imports edge", importer: "model/policy", imported: "api/edge"},
 		{name: "access values import inventory", importer: "model/access", imported: "model/inventory", want: true},
-		{name: "access values import the principal", importer: "model/access", imported: "model/principal", want: true},
-		{name: "the capture entity imports the principal", importer: "model/capture", imported: "model/principal", want: true},
-		{name: "the capture entity imports access values", importer: "model/capture", imported: "model/access"},
+		{name: "access values import identity", importer: "model/access", imported: "model/identity", want: true},
 		{name: "access values import the operator api", importer: "model/access", imported: "api/device"},
 		{name: "operator api imports access values", importer: "api/device", imported: "model/access", want: true},
 		{name: "operator api imports the bus contract", importer: "api/device", imported: "runtime"},
@@ -384,6 +385,8 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "edge attachment imports credential material", importer: "edge/attach", imported: "model/credential", want: true},
 		{name: "credential material imports edge", importer: "model/credential", imported: "api/edge"},
 		{name: "credential material imports policy handles", importer: "model/credential", imported: "model/policy"},
+		{name: "identity imports access values", importer: "model/identity", imported: "model/access"},
+		{name: "identity imports inventory", importer: "model/identity", imported: "model/inventory"},
 		{name: "storage imports access values", importer: "store/device", imported: "model/access", want: true},
 		{name: "storage imports credential material", importer: "store/device", imported: "model/credential", want: true},
 		{name: "storage imports the edge service package", importer: "store/device", imported: "api/edge"},

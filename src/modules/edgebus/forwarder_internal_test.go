@@ -83,8 +83,12 @@ func TestForwarderAnswerClasses(t *testing.T) {
 				t.Fatal(err)
 			}
 			f := &Forwarder{
-				cfg:        ForwarderConfig{Endpoint: collector.URL, Client: collector.Client(), RetryDelay: time.Millisecond},
-				hub:        &Hub{},
+				cfg: ForwarderConfig{Endpoint: collector.URL, Client: collector.Client(), RetryDelay: time.Millisecond},
+				hub: &Hub{
+					edges: map[string]*edgeAccount{
+						"edge-a": {tenant: DefaultTenant},
+					},
+				},
 				logger:     slog.New(slog.DiscardHandler),
 				refused:    refused,
 				lastLogged: map[string]time.Time{},

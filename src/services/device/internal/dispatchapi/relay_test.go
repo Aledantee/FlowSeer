@@ -2,6 +2,9 @@ package dispatchapi
 
 import (
 	"context"
+	"errors"
+	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -10,9 +13,10 @@ import (
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
-	principalv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/principal/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
@@ -78,6 +82,7 @@ func newFixture(t *testing.T) (*Service, *journal.Journal, jetstream.KeyValue) {
 		Resolver:      fakeResolver{lists: true},
 		Watch:         kv,
 		EdgeID:        func(context.Context) (string, error) { return edgeID, nil },
+		EdgeTenant:    func(context.Context, string) (string, error) { return tTenant, nil },
 		Resend:        50 * time.Millisecond,
 		SweepInterval: 20 * time.Millisecond,
 	})
@@ -90,7 +95,7 @@ func mutationIntent(key string) *accessv1.MutationIntent {
 	local.SetId(deviceID)
 	device.SetDevice(local)
 	actor := &accessv1.Actor{}
-	op := &principalv1.OperatorRef{}
+	op := &identityv1.OperatorRef{}
 	op.SetSubject("zitadel|1")
 	actor.SetOperator(op)
 	policy := &policyv1.AccessPolicyHandle{}
@@ -141,7 +146,7 @@ func pass(t *testing.T, svc *Service) []*dispatchv1.SubscribeResponse {
 func TestOwedMutationIsSentOnOpen(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a01"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a01"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	msgs := pass(t, svc)
@@ -163,7 +168,7 @@ func TestOwedMutationIsSentOnOpen(t *testing.T) {
 func TestReSendsWhileOwedAndStopsOnConfirmation(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a02"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a02"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	if len(pass(t, svc)) != 1 {
@@ -178,7 +183,7 @@ func TestReSendsWhileOwedAndStopsOnConfirmation(t *testing.T) {
 		{Kind: journal.ReportVerified, Sequence: 1},
 		{Kind: journal.ReportReleased, Sequence: 1},
 	} {
-		if err := j.ApplyReport(ctx, deviceID, r); err != nil {
+		if err := j.ApplyReport(ctx, tTenant, deviceID, r); err != nil {
 			t.Fatalf("apply %v: %v", r.Kind, err)
 		}
 	}
@@ -190,10 +195,10 @@ func TestReSendsWhileOwedAndStopsOnConfirmation(t *testing.T) {
 func TestMutationAndReadDispatchedSideBySide(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a03"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a03"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	if _, err := j.OpenRead(ctx, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f01", time.Now().Add(time.Minute)); err != nil {
+	if _, err := j.OpenRead(ctx, tTenant, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f01", time.Now().Add(time.Minute)); err != nil {
 		t.Fatalf("open read: %v", err)
 	}
 	var mut, read bool
@@ -213,12 +218,12 @@ func TestMutationAndReadDispatchedSideBySide(t *testing.T) {
 func TestNoTerminalAckForNeverDispatchedIntent(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a04"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a04"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 	// Abandon before the edge reports admitted: the lane closes and owes a
 	// hold-resolved row, never a terminal ack.
-	if _, err := j.Dispose(ctx, deviceID, 1); err != nil {
+	if _, err := j.Dispose(ctx, tTenant, deviceID, 1); err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
 	for _, m := range pass(t, svc) {
@@ -231,13 +236,13 @@ func TestNoTerminalAckForNeverDispatchedIntent(t *testing.T) {
 func TestExpiredReadSweptNotSent(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.OpenRead(ctx, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f02", time.Now().Add(-time.Second)); err != nil {
+	if _, err := j.OpenRead(ctx, tTenant, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f02", time.Now().Add(-time.Second)); err != nil {
 		t.Fatalf("open read: %v", err)
 	}
 	if msgs := pass(t, svc); len(msgs) != 0 {
 		t.Fatalf("an expired read was dispatched: %d messages", len(msgs))
 	}
-	rec, _ := j.Record(ctx, deviceID)
+	rec, _ := j.Record(ctx, tTenant, deviceID)
 	if !rec.GetOpenReads()["ethernet 1/1/1"].HasError() {
 		t.Fatal("the pass did not close the expired read with an error")
 	}
@@ -246,13 +251,13 @@ func TestExpiredReadSweptNotSent(t *testing.T) {
 func TestOnboardedResumeCarriesAdmissionTime(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a05"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a05"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+	if err := j.ApplyReport(ctx, tTenant, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
 		t.Fatalf("admitted: %v", err)
 	}
-	if err := j.MarkOnboarded(ctx, deviceID); err != nil {
+	if err := j.MarkOnboarded(ctx, tTenant, deviceID); err != nil {
 		t.Fatalf("onboarded: %v", err)
 	}
 	msgs := pass(t, svc)
@@ -298,7 +303,7 @@ func TestRunningSweeperClosesAnExpiredRead(t *testing.T) {
 	svc, j, kv := newFixture(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	if _, err := j.OpenRead(ctx, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f03", time.Now().Add(-time.Second)); err != nil {
+	if _, err := j.OpenRead(ctx, tTenant, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f03", time.Now().Add(-time.Second)); err != nil {
 		t.Fatalf("open read: %v", err)
 	}
 	done := svc.RunSweeper(ctx, kv)
@@ -306,7 +311,7 @@ func TestRunningSweeperClosesAnExpiredRead(t *testing.T) {
 
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		rec, err := j.Record(ctx, deviceID)
+		rec, err := j.Record(ctx, tTenant, deviceID)
 		if err != nil {
 			t.Fatalf("record: %v", err)
 		}
@@ -317,5 +322,106 @@ func TestRunningSweeperClosesAnExpiredRead(t *testing.T) {
 			t.Fatal("the running sweeper did not close the expired read")
 		}
 		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+func TestSubscribeFailsWhenEdgeTenantFails(t *testing.T) {
+	j, kv := newJournalKV(t)
+	svc := New(Config{
+		Journal:    j,
+		Resolver:   fakeResolver{lists: true},
+		Watch:      kv,
+		EdgeID:     func(context.Context) (string, error) { return edgeID, nil },
+		EdgeTenant: func(context.Context, string) (string, error) { return "", errors.New("cannot resolve tenant") },
+	})
+	stream := &capture{}
+	err := svc.dispatchPass(context.Background(), edgeID, stream)
+	if err == nil {
+		t.Fatal("dispatchPass succeeded when EdgeTenant failed, want error")
+	}
+	if code, _ := errs.CodeOf(err); code != ErrCodeResolve {
+		t.Fatalf("error code = %v, want ErrCodeResolve", code)
+	}
+}
+
+type recordHandler struct {
+	mu      sync.Mutex
+	records []slog.Record
+}
+
+func (h *recordHandler) Enabled(context.Context, slog.Level) bool { return true }
+func (h *recordHandler) Handle(_ context.Context, r slog.Record) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.records = append(h.records, r.Clone())
+	return nil
+}
+func (h *recordHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *recordHandler) WithGroup(string) slog.Handler      { return h }
+
+type sliceKeyLister []string
+
+func (s sliceKeyLister) Keys(context.Context, ...jetstream.WatchOpt) ([]string, error) {
+	return []string(s), nil
+}
+
+func TestSweeperLogsMalformedLaneKeyOnceAtWarnThenDebug(t *testing.T) {
+	h := &recordHandler{}
+	logger := slog.New(h)
+	svc := New(Config{
+		Journal:    &journal.Journal{},
+		Resolver:   fakeResolver{},
+		EdgeID:     func(context.Context) (string, error) { return edgeID, nil },
+		EdgeTenant: func(context.Context, string) (string, error) { return tTenant, nil },
+		Logger:     logger,
+	})
+
+	badKey := "malformed-lane-key"
+	ctx := context.Background()
+
+	// First sweep logs at WARN with namespaced attributes.
+	svc.sweepAll(ctx, sliceKeyLister{badKey})
+
+	h.mu.Lock()
+	if len(h.records) != 1 {
+		h.mu.Unlock()
+		t.Fatalf("records count = %d, want 1", len(h.records))
+	}
+	r1 := h.records[0]
+	h.mu.Unlock()
+
+	if r1.Level != slog.LevelWarn {
+		t.Fatalf("first record level = %v, want WARN", r1.Level)
+	}
+	var laneKey, eventName string
+	r1.Attrs(func(a slog.Attr) bool {
+		switch a.Key {
+		case "flowseer.journal.lane_key":
+			laneKey = a.Value.String()
+		case "otel.event.name":
+			eventName = a.Value.String()
+		}
+		return true
+	})
+	if laneKey != badKey {
+		t.Fatalf("flowseer.journal.lane_key = %q, want %q", laneKey, badKey)
+	}
+	if eventName != "flowseer.dispatch.malformed_lane_key" {
+		t.Fatalf("otel.event.name = %q, want flowseer.dispatch.malformed_lane_key", eventName)
+	}
+
+	// Second sweep logs at DEBUG.
+	svc.sweepAll(ctx, sliceKeyLister{badKey})
+
+	h.mu.Lock()
+	if len(h.records) != 2 {
+		h.mu.Unlock()
+		t.Fatalf("records count = %d, want 2", len(h.records))
+	}
+	r2 := h.records[1]
+	h.mu.Unlock()
+
+	if r2.Level != slog.LevelDebug {
+		t.Fatalf("second record level = %v, want DEBUG", r2.Level)
 	}
 }

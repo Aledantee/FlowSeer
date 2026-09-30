@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"buf.build/go/protovalidate"
 	connect "connectrpc.com/connect"
+	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -302,6 +304,65 @@ func TestEnrollIsIdempotentSoAnEdgeCanRetryAfterACrash(t *testing.T) {
 	}
 }
 
+type faultingKV struct {
+	jetstream.KeyValue
+	failEdgeIndex bool
+}
+
+func (f *faultingKV) Put(ctx context.Context, key string, value []byte) (uint64, error) {
+	if f.failEdgeIndex && strings.HasPrefix(key, "edge_") {
+		return 0, errors.New("injected index edge failure")
+	}
+	return f.KeyValue.Put(ctx, key, value)
+}
+
+func TestEnrollRetryReturnsErrorWhenIndexEdgeFails(t *testing.T) {
+	hub := newHub(t)
+	kv, err := hub.JetStream().KeyValue(context.Background(), edgebus.EdgeBucket)
+	if err != nil {
+		t.Fatalf("bucket: %v", err)
+	}
+	fkv := &faultingKV{KeyValue: kv}
+	store := edgestore.New(fkv)
+	now := testClock
+	admin := newAdminOver(t, store, func() time.Time { return now })
+	record, setupKey := createEdge(t, admin)
+	edgeID := refOf(record).GetEdge().GetId()
+
+	anchor := make([]byte, 32)
+	lanes := &fakeLanes{}
+	svc, err := edgeapi.NewService(store, testRegistry(t, edgeID, nil), lanes, &fakeCredentials{material: snmpMaterial()}, hub, edgeapi.ServiceConfig{
+		Audience:      "flowseer-central",
+		TrustAnchors:  [][]byte{anchor},
+		ClusterURLs:   []string{"wss://central.example.test:4223"},
+		PulseInterval: 5 * time.Millisecond,
+	}, func() time.Time { return now }, nil)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+
+	public, private, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+	req := connect.NewRequest(attachv1.EnrollRequest_builder{
+		SetupKey: proto.String(setupKey),
+		Proof:    enrollProof(t, private, public, setupKey),
+	}.Build())
+
+	// First Enroll succeeds.
+	if _, err := svc.Enroll(context.Background(), req); err != nil {
+		t.Fatalf("first Enroll: %v", err)
+	}
+
+	// Retry takes CONSUMED branch; injected failure on IndexEdge must return an error.
+	fkv.failEdgeIndex = true
+	_, err = svc.Enroll(context.Background(), req)
+	if err == nil {
+		t.Fatal("Enroll retry succeeded when IndexEdge failed, want error")
+	}
+}
+
 func TestEnrollRefusesTheSameKeyWithAnotherPublicKey(t *testing.T) {
 	h := newHarness(t)
 	record, setupKey := h.record, h.setupKey
@@ -376,7 +437,7 @@ func TestEnrollRefusesAProofSignedByAnotherKey(t *testing.T) {
 }
 
 func TestEnrollRefusesAWithdrawnOrRetiredKey(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	cases := []struct {
 		name     string
 		withdraw func(t *testing.T, h *harness, ref *edgev1.EdgeGlobalRef)
@@ -573,7 +634,7 @@ func TestAttachBusHandsOnTheHubsCredentialUnchanged(t *testing.T) {
 	if !bytes.Contains(resp.Msg.GetUserCredential(), []byte("-----BEGIN NATS USER JWT-----")) {
 		t.Error("the user credential is not a .creds file a leaf node can read")
 	}
-	want := edgebus.EdgePublishSubjects(edgebus.DefaultTenant, edgeID)
+	want := edgebus.EdgePublishSubjects(defaultTenantID, edgeID)
 	for name, subject := range want {
 		if got := resp.Msg.GetSubjects()[name]; got != subject {
 			t.Errorf("subject %q = %q, want %q", name, got, subject)
@@ -693,7 +754,7 @@ func TestContactAgesOutOfTheHeartbeatRatherThanTheRecord(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h.now = testClock.Add(tc.silence)
-			resp, err := h.admin.GetEdge(context.Background(), connect.NewRequest(apiedgev1.GetEdgeRequest_builder{Edge: ref}.Build()))
+			resp, err := h.admin.GetEdge(testContext(), connect.NewRequest(apiedgev1.GetEdgeRequest_builder{Edge: ref}.Build()))
 			if err != nil {
 				t.Fatalf("GetEdge: %v", err)
 			}
@@ -714,7 +775,7 @@ func TestContactAgesOutOfTheHeartbeatRatherThanTheRecord(t *testing.T) {
 	}.Build())); err != nil {
 		t.Fatalf("Heartbeat: %v", err)
 	}
-	resp, err := h.admin.GetEdge(context.Background(), connect.NewRequest(apiedgev1.GetEdgeRequest_builder{Edge: ref}.Build()))
+	resp, err := h.admin.GetEdge(testContext(), connect.NewRequest(apiedgev1.GetEdgeRequest_builder{Edge: ref}.Build()))
 	if err != nil {
 		t.Fatalf("GetEdge: %v", err)
 	}
@@ -740,7 +801,7 @@ func TestEnrollRefusesToConsumeAReplacementKeyItNeverSaw(t *testing.T) {
 
 	// The operator replaces the leaked key; the record now holds a fresh ISSUED
 	// key whose digest is not the leaked one's.
-	if _, err := h.admin.IssueSetupKey(context.Background(), connect.NewRequest(
+	if _, err := h.admin.IssueSetupKey(testContext(), connect.NewRequest(
 		apiedgev1.IssueSetupKeyRequest_builder{Edge: ref}.Build())); err != nil {
 		t.Fatalf("IssueSetupKey: %v", err)
 	}
@@ -764,7 +825,7 @@ func TestEnrollRefusesToConsumeAReplacementKeyItNeverSaw(t *testing.T) {
 // Under real contention an edge still ends up coherent: whichever caller
 // enrolled consumed the key it presented and registered the key it named.
 func TestConcurrentIssueAndEnrollLeaveACoherentRecord(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	for range 50 {
 		h := newHarness(t)
 		leaked := h.setupKey
@@ -832,4 +893,47 @@ func TestAcquireReadCredentialSendsNoCredentialFileContentToTheEdge(t *testing.T
 	if strings.Contains(err.Error(), "credential material") {
 		t.Errorf("the edge was told what central failed to read: %q", err.Error())
 	}
+}
+
+type failingBus struct {
+	err error
+}
+
+func (b *failingBus) AttachEdge(context.Context, string, string) error {
+	return b.err
+}
+
+func (b *failingBus) MintEdgeUser(context.Context, string) (edgebus.EdgeCredentials, error) {
+	return edgebus.EdgeCredentials{}, b.err
+}
+
+func TestEnrollBusAttachFailureUnavailable(t *testing.T) {
+	hub := newHub(t)
+	store := newStoreOver(t, hub)
+	admin := newAdminOver(t, store, func() time.Time { return testClock })
+	record, setupKey := createEdge(t, admin)
+	edgeID := refOf(record).GetEdge().GetId()
+
+	bus := &failingBus{err: errors.New("bus connection failed")}
+	svc, err := edgeapi.NewService(store, testRegistry(t, edgeID, nil), &fakeLanes{}, &fakeCredentials{material: snmpMaterial()}, bus, edgeapi.ServiceConfig{
+		Audience:      "flowseer-central",
+		TrustAnchors:  [][]byte{make([]byte, 32)},
+		ClusterURLs:   []string{"wss://central.example.test:4223"},
+		PulseInterval: 5 * time.Millisecond,
+	}, func() time.Time { return testClock }, nil)
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+
+	public, private, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+
+	_, err = svc.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
+		SetupKey: proto.String(setupKey),
+		Proof:    enrollProof(t, private, public, setupKey),
+	}.Build()))
+
+	wantConnectCode(t, err, connect.CodeUnavailable)
 }

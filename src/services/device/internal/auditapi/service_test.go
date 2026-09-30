@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	connect "connectrpc.com/connect"
@@ -11,6 +12,7 @@ import (
 	auditv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/auditapi"
@@ -58,8 +60,10 @@ func (b binding) Hosts(context.Context, string, string) (bool, error) {
 	return b.hosts, nil
 }
 
+func edgeTenant(context.Context, string) (string, error) { return tenant, nil }
+
 func TestDeliverFailsWhenTheStreamRefuses(t *testing.T) {
-	svc := auditapi.New(refusing{}, binding{hosts: true}, tenant)
+	svc := auditapi.New(refusing{}, binding{hosts: true}, edgeTenant)
 	if err := deliver(t, svc, "0192e6a0-0000-7000-8000-00000000e001"); err == nil {
 		t.Fatal("Deliver answered success though the stream refused the publish")
 	}
@@ -68,7 +72,7 @@ func TestDeliverFailsWhenTheStreamRefuses(t *testing.T) {
 func TestDeliverRefusesADeviceTheEdgeDoesNotHost(t *testing.T) {
 	// The publisher would succeed; the binding must stop the delivery first,
 	// so a forged device id never reaches the central-owned stream.
-	svc := auditapi.New(refusing{}, binding{hosts: false}, tenant)
+	svc := auditapi.New(refusing{}, binding{hosts: false}, edgeTenant)
 	err := deliver(t, svc, "0192e6a0-0000-7000-8000-00000000e0ff")
 	if err == nil {
 		t.Fatal("Deliver accepted an event for a device the edge does not host")
@@ -90,7 +94,7 @@ func TestDeliverIsDurableAndDeduplicates(t *testing.T) {
 	}
 	t.Cleanup(hub.Close)
 
-	svc := auditapi.New(auditapi.JetStreamPublisher{JS: hub.JetStream()}, binding{hosts: true}, tenant)
+	svc := auditapi.New(auditapi.JetStreamPublisher{JS: hub.JetStream()}, binding{hosts: true}, edgeTenant)
 
 	const id = "0192e6a0-0000-7000-8000-00000000e002"
 	if err := deliver(t, svc, id); err != nil {
@@ -128,7 +132,7 @@ func streamMsgs(ctx context.Context, t *testing.T, hub *edgebus.Hub) uint64 {
 // The audit stream is central's, and what refused a publish on it is central's
 // business: the edge learns to deliver again, not what the stream said.
 func TestDeliverSendsNoStreamDetailToTheEdge(t *testing.T) {
-	svc := auditapi.New(refusing{}, binding{hosts: true}, tenant)
+	svc := auditapi.New(refusing{}, binding{hosts: true}, edgeTenant)
 
 	err := deliver(t, svc, "0192e6a0-0000-7000-8000-00000000e002")
 	if err == nil {
@@ -139,5 +143,71 @@ func TestDeliverSendsNoStreamDetailToTheEdge(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "stream refused the publish") {
 		t.Errorf("the edge was sent the stream's own refusal: %q", err.Error())
+	}
+}
+
+func TestDeliverMultiTenantAuditSubject(t *testing.T) {
+	ctx := context.Background()
+	hub, err := edgebus.StartHub(ctx, edgebus.HubConfig{
+		StateDir:    t.TempDir(),
+		FsyncPolicy: service.BusFsyncPeriodic,
+		ListenPort:  0,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+
+	const customTenant = "0192e6a0-0000-7000-8000-0000000000aa"
+	svc := auditapi.New(auditapi.JetStreamPublisher{JS: hub.JetStream()}, binding{hosts: true}, func(context.Context, string) (string, error) {
+		return customTenant, nil
+	})
+
+	const id = "0192e6a0-0000-7000-8000-00000000e099"
+	if err := deliver(t, svc, id); err != nil {
+		t.Fatalf("deliver: %v", err)
+	}
+	if got := streamMsgs(ctx, t, hub); got != 1 {
+		t.Fatalf("audit stream holds %d messages, want 1", got)
+	}
+	stream, err := hub.JetStream().Stream(ctx, edgebus.AuditStream)
+	if err != nil {
+		t.Fatalf("audit stream: %v", err)
+	}
+	msg, err := stream.GetLastMsgForSubject(ctx, edgebus.AuditSubject(customTenant, deviceID))
+	if err != nil {
+		t.Fatalf("get message under tenant subject: %v", err)
+	}
+	if msg == nil {
+		t.Fatal("expected message under custom tenant subject")
+	}
+}
+
+type succeedingPublisher struct {
+	called atomic.Bool
+}
+
+func (p *succeedingPublisher) Publish(context.Context, string, []byte, string) error {
+	p.called.Store(true)
+	return nil
+}
+
+func TestDeliverRefusesWhenEdgeTenantFails(t *testing.T) {
+	pub := &succeedingPublisher{}
+	svc := auditapi.New(pub, binding{hosts: true}, func(context.Context, string) (string, error) {
+		return "", errors.New("cannot resolve tenant")
+	})
+	err := deliver(t, svc, "0192e6a0-0000-7000-8000-00000000e001")
+	if err == nil {
+		t.Fatal("Deliver succeeded when edgeTenant failed, want error")
+	}
+	if got := connect.CodeOf(err); got != connect.CodeUnavailable {
+		t.Fatalf("code = %v, want unavailable", got)
+	}
+	if pub.called.Load() {
+		t.Fatal("publisher was called despite edgeTenant failure")
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != auditapi.ErrCodeResolve {
+		t.Fatalf("error code = %v, want %v", code, auditapi.ErrCodeResolve)
 	}
 }

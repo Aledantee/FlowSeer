@@ -38,3 +38,8 @@ round count are recorded by `c13d291b`.
 Suggested change: make the stop condition explicit for mixed or cross-lane
 rounds, and require a fresh plan or a maintainer override when the aggregate
 round count exceeds three.
+
+## 2026-09-30 review: repeated concurrency fixes should trigger prior-art search
+Skill or agent: `.claude/skills/review/SKILL.md` fix loop and `.claude/skills/plan/SKILL.md` re-plan trigger.
+What happened: The phase 2 plan records five review rounds on the tenant claim before the record-first rollback protocol was replaced with an atomic batch (operator authorization phase 2, landed 2026-09-30; the retired plan's Review section is in git history). The local fix loop still left concurrency failures until a prior-art-based re-plan changed the mechanism.
+Suggested change: After a second review round finds another failure in the same concurrency mechanism, pause the fix loop and require a bounded prior-art search or a re-plan before another patch.

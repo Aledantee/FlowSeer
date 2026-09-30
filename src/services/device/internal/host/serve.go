@@ -19,7 +19,9 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
+	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/auditapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
@@ -63,16 +65,21 @@ func panicRecovery() connect.HandlerOption {
 // middleware's limit would have been.
 func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetry.View) (http.Handler, error) {
 	recoverPanic := panicRecovery()
+	devTenant := h.cfg.DevTenant()
+	if devTenant == "" {
+		devTenant = edgebus.DefaultTenant
+	}
 	interceptors := connect.WithInterceptors(
 		TelemetryInterceptor(log, view),
 		ValidatingInterceptor(),
+		TenantInterceptor(devTenant),
 	)
 
 	verifier := edge.NewVerifier(h.cfg.AssertionAudience(), h.cfg.AssertionClockSkew(), resources.edges.Lookup)
 	middleware := edgeapi.NewMiddleware(verifier, maxEdgeBody, log)
 
 	edgeService, err := edgeapi.NewService(
-		resources.edges, h.registry, resources.journal, h.credentials, resources.hub,
+		resources.edges, h.registry, &edgeLaneRecords{journal: resources.journal, edgeTenant: resources.edgeTenant}, h.credentials, resources.hub,
 		edgeapi.ServiceConfig{
 			Audience:      h.cfg.AssertionAudience(),
 			TrustAnchors:  [][]byte{h.certificate.SPKI},
@@ -98,9 +105,10 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	}
 
 	deviceService, err := deviceapi.New(deviceapi.Config{
-		Journal:  resources.journal,
-		Resolver: h.registry,
-		Watcher:  deviceapi.NewKVWatcher(resources.lanes),
+		Journal:    resources.journal,
+		Resolver:   h.registry,
+		EdgeTenant: resources.edgeTenant,
+		Watcher:    deviceapi.NewKVWatcher(resources.lanes),
 	})
 	if err != nil {
 		return nil, err
@@ -109,7 +117,7 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	auditService := auditapi.New(
 		auditPublisher(resources.hub),
 		&auditBinding{registry: h.registry},
-		resources.hub.Tenant(),
+		resources.edgeTenant,
 	)
 
 	captureEdgeService := captureapi.NewEdgeService(
@@ -117,7 +125,8 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 		verifier,
 		resources.broadcaster,
 		captureapi.EdgeServiceConfig{
-			Logger: log,
+			Logger:     log,
+			EdgeTenant: resources.edgeTenant,
 		},
 	)
 	captureOperatorService := captureapi.NewOperatorService(
@@ -125,9 +134,9 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 		resources.broadcaster,
 		captureapi.OperatorServiceConfig{
 			NotifyChange: captureEdgeService.NotifyStoreChange,
+			EdgeTenant:   resources.edgeTenant,
 		},
 	)
-
 	mux := http.NewServeMux()
 	edgePath, edgeHandler := attachv1connect.NewEdgeServiceHandler(edgeService, interceptors, recoverPanic)
 	mux.Handle(edgePath, middleware.Wrap(edgeHandler))
@@ -200,11 +209,19 @@ func (l *laneAdmin) Devices(ctx context.Context, edgeID string) ([]string, error
 }
 
 func (l *laneAdmin) DropHolds(ctx context.Context, deviceID string) error {
-	return l.journal.DropHolds(ctx, deviceID)
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return err
+	}
+	return l.journal.DropHolds(ctx, tenantID, deviceID)
 }
 
 func (l *laneAdmin) OpenMutation(ctx context.Context, deviceID string) (uint64, bool, error) {
-	record, err := l.journal.Record(ctx, deviceID)
+	tenantID, err := tenant.FromContext(ctx)
+	if err != nil {
+		return 0, false, err
+	}
+	record, err := l.journal.Record(ctx, tenantID, deviceID)
 	if err != nil {
 		return 0, false, err
 	}
@@ -213,6 +230,23 @@ func (l *laneAdmin) OpenMutation(ctx context.Context, deviceID string) (uint64, 
 		return 0, false, nil
 	}
 	return mutation.GetSequence(), true, nil
+}
+
+type edgeLaneRecords struct {
+	journal    *journal.Journal
+	edgeTenant func(ctx context.Context, edgeID string) (string, error)
+}
+
+func (e *edgeLaneRecords) Record(ctx context.Context, deviceID string) (*storev1.DeviceLaneRecord, error) {
+	edgeID, _ := edgeapi.EdgeIDFromContext(ctx)
+	if edgeID == "" {
+		return nil, errs.New().Msg("no edge in context")
+	}
+	tenantID, err := e.edgeTenant(ctx, edgeID)
+	if err != nil {
+		return nil, err
+	}
+	return e.journal.Record(ctx, tenantID, deviceID)
 }
 
 // auditBinding binds an audit delivery to the edge its assertion named, so an

@@ -18,11 +18,11 @@ import (
 // and writes nothing. The interface rows come out in name order, because a map
 // would otherwise hand the same device a different answer each time.
 func (s *Service) GetDeviceAccessStatus(ctx context.Context, req *connect.Request[devicev1.GetDeviceAccessStatusRequest]) (*connect.Response[devicev1.GetDeviceAccessStatusResponse], error) {
-	deviceID, _, err := s.device(req.Msg.GetDevice())
+	deviceID, laneTenant, _, err := s.device(ctx, req.Msg.GetDevice())
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	record, err := s.cfg.Journal.Record(ctx, deviceID)
+	record, err := s.cfg.Journal.Record(ctx, laneTenant, deviceID)
 	if err != nil {
 		return nil, connectErr(err)
 	}

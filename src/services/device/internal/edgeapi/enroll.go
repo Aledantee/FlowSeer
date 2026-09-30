@@ -36,11 +36,11 @@ func (s *Service) Enroll(ctx context.Context, req *connect.Request[attachv1.Enro
 		return nil, connectErr(errs.New().Code(ErrCodeRequest).Msg("setup key is not a well-formed key string"))
 	}
 
-	edgeID, err := s.store.EdgeForSetupKey(ctx, keyID)
+	tenantID, edgeID, err := s.store.EdgeForSetupKey(ctx, keyID)
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	stored, _, err := s.storedFor(ctx, edgeID)
+	stored, _, err := s.storedFor(ctx, tenantID, edgeID)
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -116,13 +116,27 @@ func (s *Service) Enroll(ctx context.Context, req *connect.Request[attachv1.Enro
 			return nil, connectErr(errs.New().Code(ErrCodeSetupKeyRefused).Attr("edge", edgeID).
 				Attr("setup_key_id", keyID).Msg("setup key was already used to register another key"))
 		}
+		if err := s.store.IndexEdge(ctx, edgeID, tenantID); err != nil {
+			return nil, connectErr(err)
+		}
+		if err := s.bus.AttachEdge(ctx, tenantID, edgeID); err != nil {
+			return nil, connectErr(errs.From(err).Code(ErrCodeBus).Attr("edge", edgeID).Msg("attach edge to bus"))
+		}
 		return s.enrollResponse(edgeID, now), nil
 	}
 
-	if _, err := s.store.Mutate(ctx, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
+	if _, err := s.store.Mutate(ctx, tenantID, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
 		return consumeSetupKey(current, key, edgeID, public, now)
 	}); err != nil {
 		return nil, connectErr(err)
+	}
+
+	if err := s.store.IndexEdge(ctx, edgeID, tenantID); err != nil {
+		return nil, connectErr(err)
+	}
+
+	if err := s.bus.AttachEdge(ctx, tenantID, edgeID); err != nil {
+		return nil, connectErr(errs.From(err).Code(ErrCodeBus).Attr("edge", edgeID).Msg("attach edge to bus"))
 	}
 
 	return s.enrollResponse(edgeID, now), nil
@@ -207,8 +221,16 @@ func (s *Service) Rekey(ctx context.Context, req *connect.Request[attachv1.Rekey
 		return nil, connectErr(err)
 	}
 
+	tenantID, err := s.store.TenantForEdge(ctx, edgeID)
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	if tenantID == "" {
+		return nil, connectErr(notFound(edgeID))
+	}
+
 	now := s.clock()
-	if _, err := s.store.Mutate(ctx, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
+	if _, err := s.store.Mutate(ctx, tenantID, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
 		if current == nil {
 			return nil, notFound(edgeID)
 		}
@@ -241,11 +263,11 @@ func (s *Service) enrollResponse(edgeID string, now time.Time) *connect.Response
 
 // storedFor reads an edge's record, tolerating an empty id so a setup key that
 // resolved to nothing still reaches the constant-time comparison below.
-func (s *Service) storedFor(ctx context.Context, edgeID string) (*storev1.StoredEdge, uint64, error) {
-	if edgeID == "" {
+func (s *Service) storedFor(ctx context.Context, tenantID, edgeID string) (*storev1.StoredEdge, uint64, error) {
+	if edgeID == "" || tenantID == "" {
 		return nil, 0, nil
 	}
-	return s.store.Get(ctx, edgeID)
+	return s.store.Get(ctx, tenantID, edgeID)
 }
 
 // setupKeyID is the identifier segment of a well-formed setup key string.

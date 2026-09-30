@@ -1,6 +1,7 @@
 package edgebus
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/secret"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 )
 
 // ErrCodeKeys identifies a failure loading, creating, or using the hub's
@@ -59,21 +61,58 @@ func loadOrCreateKeys(dir string) (*hubKeys, error) {
 	return &hubKeys{dir: keysDir, operator: operator, system: system, central: central, edge: map[string]nkeys.KeyPair{}}, nil
 }
 
-// persistedEdgeIDs lists the edges whose account keys are on disk, so a
-// restarted hub re-attaches every edge it had sourced.
-func (k *hubKeys) persistedEdgeIDs() ([]string, error) {
+type persistedEdge struct {
+	id     string
+	tenant string
+	err    error
+}
+
+// persistedEdgeIDs lists the edges whose account keys are on disk, reading each
+// edge's tenant from its sidecar file, so a restarted hub re-attaches every
+// edge under its persisted tenant.
+func (k *hubKeys) persistedEdgeIDs() ([]persistedEdge, error) {
 	entries, err := os.ReadDir(k.dir)
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeKeys).Msg("read keys directory")
 	}
-	var ids []string
+	var edges []persistedEdge
 	for _, entry := range entries {
 		name := entry.Name()
 		if strings.HasPrefix(name, "edge-") && strings.HasSuffix(name, ".nk") {
-			ids = append(ids, strings.TrimSuffix(strings.TrimPrefix(name, "edge-"), ".nk"))
+			edgeID := strings.TrimSuffix(strings.TrimPrefix(name, "edge-"), ".nk")
+			t, _, err := k.edgeTenant(edgeID)
+			edges = append(edges, persistedEdge{
+				id:     edgeID,
+				tenant: t,
+				err:    err,
+			})
 		}
 	}
-	return ids, nil
+	return edges, nil
+}
+
+func (k *hubKeys) persistEdgeTenant(edgeID, tenantID string) error {
+	tenantPath := filepath.Join(k.dir, "edge-"+edgeID+".tenant")
+	if err := writeSecretFile(tenantPath, []byte(tenantID+"\n")); err != nil {
+		return errs.From(err).Code(ErrCodeKeys).Attr("path", tenantPath).Msg("store edge tenant")
+	}
+	return nil
+}
+
+func (k *hubKeys) edgeTenant(edgeID string) (string, bool, error) {
+	tenantPath := filepath.Join(k.dir, "edge-"+edgeID+".tenant")
+	data, err := os.ReadFile(tenantPath)
+	if errors.Is(err, os.ErrNotExist) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, errs.From(err).Code(ErrCodeKeys).Attr("path", tenantPath).Msg("read edge tenant")
+	}
+	t := strings.TrimSpace(string(data))
+	if t == "" {
+		return "", false, nil
+	}
+	return t, true, nil
 }
 
 // validEdgeID reports whether id is safe to use as a file name component
@@ -315,11 +354,14 @@ func (k *hubKeys) mintUser(account nkeys.KeyPair, accountJWT, name string, permi
 // caller read the source consumer's delivery subject) nor any _INBOX
 // subject (the stock random inbox prefix matches none of these and an
 // account-wide _INBOX grant would reach central's own request replies).
-func edgePermissions(edgeID string) jwt.Permissions {
-	subtree := EdgeSubtree(DefaultTenant, edgeID) + ".>"
+func edgePermissions(tenantID, edgeID string) (jwt.Permissions, error) {
+	if err := tenant.Validate(tenantID); err != nil {
+		return jwt.Permissions{}, errs.From(err).Code(ErrCodeKeys).Attr("tenant", tenantID).Attr("edge", edgeID).Msg("validate tenant")
+	}
+	subtree := EdgeSubtree(tenantID, edgeID) + ".>"
 	api := "$JS." + EdgeDomain(edgeID) + ".API.>"
 	return jwt.Permissions{
 		Pub: jwt.Permission{Allow: jwt.StringList{subtree, "$JSC.R.>"}},
 		Sub: jwt.Permission{Allow: jwt.StringList{api, "$JS.FC.>"}},
-	}
+	}, nil
 }

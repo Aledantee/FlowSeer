@@ -10,9 +10,9 @@ package flowseer.model.access.v1;
 
 import "flowseer/model/access/v1/interface.proto";
 import "flowseer/model/edge/v1/edge.proto";
+import "flowseer/model/identity/v1/operator.proto";
 import "flowseer/model/inventory/v1/device.proto";
 import "flowseer/model/policy/v1/handle.proto";
-import "flowseer/model/principal/v1/operator.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
 
@@ -107,7 +107,7 @@ message Actor {
   oneof principal {
     option (buf.validate.oneof).required = true;
 
-    flowseer.model.principal.v1.OperatorRef operator = 1;
+    flowseer.model.identity.v1.OperatorRef operator = 1;
     SystemActor system = 2;
   }
 }

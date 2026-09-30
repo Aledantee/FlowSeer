@@ -24,11 +24,12 @@ func TestSubscribeStreamsOnOpenAndWakesOnChange(t *testing.T) {
 	// after the record change can only have come from the watch waking the
 	// loop, not from the fallback ticker. With Watch nil this test would hang.
 	svc := New(Config{
-		Journal:  j,
-		Resolver: fakeResolver{lists: true},
-		Watch:    kv,
-		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
-		Resend:   10 * time.Minute,
+		Journal:    j,
+		Resolver:   fakeResolver{lists: true},
+		Watch:      kv,
+		EdgeID:     func(context.Context) (string, error) { return edgeID, nil },
+		EdgeTenant: func(context.Context, string) (string, error) { return tTenant, nil },
+		Resend:     10 * time.Minute,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -40,7 +41,7 @@ func TestSubscribeStreamsOnOpenAndWakesOnChange(t *testing.T) {
 	defer srv.Close()
 	client := dispatchv1connect.NewDispatchServiceClient(srv.Client(), srv.URL)
 
-	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c01"), edgeRef()); err != nil {
+	if _, err := j.Admit(ctx, tTenant, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c01"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 
@@ -59,7 +60,7 @@ func TestSubscribeStreamsOnOpenAndWakesOnChange(t *testing.T) {
 
 	// A read opened now is a record change; the watch must wake the loop so its
 	// dispatch arrives without waiting for anything external.
-	if _, err := j.OpenRead(ctx, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f05", time.Now().Add(time.Minute)); err != nil {
+	if _, err := j.OpenRead(ctx, tTenant, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f05", time.Now().Add(time.Minute)); err != nil {
 		t.Fatalf("open read: %v", err)
 	}
 

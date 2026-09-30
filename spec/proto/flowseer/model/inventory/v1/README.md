@@ -22,9 +22,6 @@ Deliberately absent:
   Each is UUID-identified already, but the existence check and cascade that
   admission obliges need the store tables that land with the first
   location- and topology-aware service.
-- A `Tenant` entity with an id surface. `EntityType.TENANT` exists ahead of
-  that identity and its store landing; producers must not emit a tenant
-  `EntityRef` until then.
 
 ## Tags
 
@@ -73,11 +70,8 @@ a shared foundation:
   conventions doc bounds when it may be used instead of a typed ref and what
   admission to `EntityType` obliges. Capability and the value assignment
   stay outside the enum: one is a closed enum rather than an identified
-  entity, and nothing points at an assignment. Tenant is in the enum ahead
-  of the tenant entity gaining an id surface. Producers must not emit a tenant
-  `EntityRef` until that identity and its store exist; the inventory service
-  rejects one during semantic existence checks in the meantime. Once
-  supported, such a ref is content on the pointing entity, never the request's
+  entity, and nothing points at an assignment. Tenant is in the enum;
+  such a ref is content on the pointing entity, never the request's
   tenancy scope.
 - The definition family names the attribute: a display name, one value
   type (string, number, closed enum with the vocabulary as data on the
@@ -336,10 +330,9 @@ through an `EntityRef`.
 
 ## Other entities
 
-`Tenant` and the `Capability` enum with its `CapabilitySet` are
-early sketches predating the conventions doc and are refined entity by
-entity; the tag, attribute, and device families above are the package's fully-shaped
-ones. How tags attach to taggable entities (tag refs on the entity versus a
+The `Capability` enum with its `CapabilitySet` is an
+early sketch predating the conventions doc; the tag, attribute, and device
+families above are the package's fully-shaped ones. How tags attach to taggable entities (tag refs on the entity versus a
 separate assignment entity) is still decided when the first taggable
 entity's triad lands — the attribute assignment family is the separate-entity
 precedent to weigh when that decision comes up.
