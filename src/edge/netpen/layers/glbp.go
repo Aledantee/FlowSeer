@@ -1,10 +1,9 @@
-// GLBP (Gateway Load Balancing Protocol, RFC 7868) layer. Rides UDP on port
-// 3222, multicast to 224.0.0.102. The wire format is a 23-byte fixed header
-// followed by variable-length TLVs (type 2 bytes, length 2 bytes, value).
+// GLBP (Gateway Load Balancing Protocol) layer. Rides UDP on port 3222,
+// multicast to 224.0.0.102. The wire layout follows Wireshark's
+// packet-glbp.c at commit 1dbb8baf9c5bb2e9501b15cce98cea6a3c0f41a3,
+// lines 137-218 and 289-365.
 //
-// The decoder surfaces the opcode, group, hello/hold times, priority,
-// state, and virtual MAC as typed fields a behavior can gate on. Unknown
-// TLV types pass through to the general path without failing the decode.
+// The decoder types Hello TLVs and keeps other TLV values raw.
 
 package layers
 
@@ -16,50 +15,58 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
-// GLBPOpcode is a GLBP message opcode.
-type GLBPOpcode uint8
-
-// GLBP opcodes per RFC 7868.
-const (
-	GLBPOpcodeHello      GLBPOpcode = 1
-	GLBPOpcodeRequest    GLBPOpcode = 2
-	GLBPOpcodeRedirect   GLBPOpcode = 3
-	GLBPOpcodeAssignment GLBPOpcode = 4
-)
-
-// GLBPState is a GLBP router state.
+// GLBPState is a GLBP virtual-gateway state.
 type GLBPState uint8
 
-// GLBP states per RFC 7868.
+// GLBP virtual-gateway states from Wireshark's packet-glbp.c.
 const (
-	GLBPStateInit    GLBPState = 0
-	GLBPStateListen  GLBPState = 1
-	GLBPStateSpeak   GLBPState = 2
-	GLBPStateStandby GLBPState = 3
-	GLBPStateActive  GLBPState = 4
+	GLBPStateListen  GLBPState = 4
+	GLBPStateSpeak   GLBPState = 8
+	GLBPStateStandby GLBPState = 0x10
+	GLBPStateActive  GLBPState = 0x20
 )
+
+const (
+	glbpHeaderLen      = 12
+	glbpTLVHeaderLen   = 2
+	glbpHelloType      = 1
+	glbpHelloFieldsLen = 22
+)
+
+// GLBPHello is the typed value of a GLBP Hello TLV.
+type GLBPHello struct {
+	Unknown10      uint8
+	State          GLBPState
+	Unknown11      uint8
+	Priority       uint8
+	Unknown12      uint16
+	HelloTime      uint32
+	HoldTime       uint32
+	RedirectTime   uint16
+	Timeout        uint16
+	Unknown13      uint16
+	AddressType    uint8
+	AddressLength  uint8
+	VirtualAddress []byte
+}
 
 // GLBPTLV is one Type-Length-Value triple in a GLBP frame.
 type GLBPTLV struct {
-	Type   uint16
-	Length uint16
+	Type   uint8
+	Length uint8
+	Hello  *GLBPHello
 	Value  []byte
 }
 
 // GLBP is a Gateway Load Balancing Protocol message.
 type GLBP struct {
 	BaseLayer
-	Version       uint8
-	Reserved      uint8
-	Opcode        GLBPOpcode
-	Group         uint16
-	HelloTime     uint16
-	HoldTime      uint16
-	VirtualMAC    []byte
-	Priority      uint8
-	State         GLBPState
-	AddressFamily uint8
-	TLVs          []GLBPTLV
+	Version  uint8
+	Unknown1 uint8
+	Group    uint16
+	Unknown2 uint16
+	OwnerMAC []byte
+	TLVs     []GLBPTLV
 }
 
 // LayerType returns LayerTypeGLBP.
@@ -71,66 +78,101 @@ func (g *GLBP) CanDecode() gopacket.LayerClass { return LayerTypeGLBP }
 // NextLayerType returns gopacket.LayerTypeZero; GLBP has no sub-layers.
 func (g *GLBP) NextLayerType() gopacket.LayerType { return gopacket.LayerTypeZero }
 
-// GLBP fixed-field offsets within the PDU (after UDP header).
-const (
-	glbpMinLen   = 23
-	glbpHelloOff = 5
-	glbpVMACOff  = 9
-	glbpPrioOff  = 15
-	glbpTLVOff   = 23
-)
-
-// DecodeFromBytes decodes the GLBP payload (the bytes after the UDP header).
+// DecodeFromBytes decodes the GLBP payload after the UDP header.
 func (g *GLBP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
-	if len(data) < glbpMinLen {
+	if len(data) < glbpHeaderLen {
 		df.SetTruncated()
-		return errs.Msgf("GLBP: truncated at offset 0, need >=%d bytes, got %d", glbpMinLen, len(data))
+		return errs.Msgf("GLBP: truncated at offset 0, need >=%d bytes, got %d", glbpHeaderLen, len(data))
 	}
 
 	g.BaseLayer = BaseLayer{Contents: data, Payload: nil}
 	g.Version = data[0]
-	g.Reserved = data[1]
-	g.Opcode = GLBPOpcode(data[2])
-	g.Group = binary.BigEndian.Uint16(data[3:5])
-	g.HelloTime = binary.BigEndian.Uint16(data[glbpHelloOff : glbpHelloOff+2])
-	g.HoldTime = binary.BigEndian.Uint16(data[glbpHelloOff+2 : glbpHelloOff+4])
-	g.VirtualMAC = append(g.VirtualMAC[:0], data[glbpVMACOff:glbpVMACOff+6]...)
-	g.Priority = data[glbpPrioOff]
-	g.State = GLBPState(data[glbpPrioOff+1])
-	g.AddressFamily = data[glbpPrioOff+2]
-
+	g.Unknown1 = data[1]
+	g.Group = binary.BigEndian.Uint16(data[2:4])
+	g.Unknown2 = binary.BigEndian.Uint16(data[4:6])
+	g.OwnerMAC = append(g.OwnerMAC[:0], data[6:12]...)
 	g.TLVs = g.TLVs[:0]
-	offset := glbpTLVOff
-	for offset+4 <= len(data) {
-		tlvType := binary.BigEndian.Uint16(data[offset : offset+2])
-		tlvLen := int(binary.BigEndian.Uint16(data[offset+2 : offset+4]))
-		if tlvLen < 4 {
-			return errs.Msgf("GLBP: TLV at offset %d has length %d < 4 (header size)", offset, tlvLen)
+
+	for offset := glbpHeaderLen; offset < len(data); {
+		if len(data)-offset < glbpTLVHeaderLen {
+			df.SetTruncated()
+			return errs.Msgf("GLBP: truncated TLV header at offset %d, need 2 bytes, got %d", offset, len(data)-offset)
+		}
+
+		tlvType := data[offset]
+		tlvLen := int(data[offset+1])
+		if tlvLen < glbpTLVHeaderLen {
+			return errs.Msgf("GLBP: TLV at offset %d has length %d < 2 (header size)", offset, tlvLen)
 		}
 		if offset+tlvLen > len(data) {
 			df.SetTruncated()
-			return errs.Msgf("GLBP: truncated TLV value at offset %d, type 0x%04x, need %d bytes, got %d",
-				offset, tlvType, tlvLen-4, len(data)-offset-4)
+			return errs.Msgf("GLBP: truncated TLV value at offset %d, type 0x%02x, need %d bytes, got %d",
+				offset, tlvType, tlvLen-glbpTLVHeaderLen, len(data)-offset-glbpTLVHeaderLen)
 		}
 
-		value := data[offset+4 : offset+tlvLen]
-		g.TLVs = append(g.TLVs, GLBPTLV{
-			Type:   tlvType,
-			Length: uint16(tlvLen),
-			Value:  append([]byte(nil), value...),
-		})
-
+		value := data[offset+glbpTLVHeaderLen : offset+tlvLen]
+		tlv := GLBPTLV{Type: tlvType, Length: uint8(tlvLen)}
+		if tlvType == glbpHelloType {
+			hello, err := decodeGLBPHello(value, offset+glbpTLVHeaderLen, df)
+			if err != nil {
+				return err
+			}
+			tlv.Hello = hello
+		} else {
+			tlv.Value = append([]byte(nil), value...)
+		}
+		g.TLVs = append(g.TLVs, tlv)
 		offset += tlvLen
 	}
 
 	return nil
 }
 
-// SerializeTo writes the GLBP layer from the typed fields and TLVs.
+func decodeGLBPHello(value []byte, offset int, df gopacket.DecodeFeedback) (*GLBPHello, error) {
+	if len(value) < glbpHelloFieldsLen {
+		df.SetTruncated()
+		return nil, errs.Msgf("GLBP: truncated Hello TLV at offset %d, need >=%d bytes, got %d",
+			offset, glbpHelloFieldsLen, len(value))
+	}
+
+	addressLength := int(value[21])
+	if len(value) < glbpHelloFieldsLen+addressLength {
+		df.SetTruncated()
+		return nil, errs.Msgf("GLBP: truncated Hello address at offset %d, need %d bytes, got %d",
+			offset+glbpHelloFieldsLen, addressLength, len(value)-glbpHelloFieldsLen)
+	}
+
+	return &GLBPHello{
+		Unknown10:      value[0],
+		State:          GLBPState(value[1]),
+		Unknown11:      value[2],
+		Priority:       value[3],
+		Unknown12:      binary.BigEndian.Uint16(value[4:6]),
+		HelloTime:      binary.BigEndian.Uint32(value[6:10]),
+		HoldTime:       binary.BigEndian.Uint32(value[10:14]),
+		RedirectTime:   binary.BigEndian.Uint16(value[14:16]),
+		Timeout:        binary.BigEndian.Uint16(value[16:18]),
+		Unknown13:      binary.BigEndian.Uint16(value[18:20]),
+		AddressType:    value[20],
+		AddressLength:  value[21],
+		VirtualAddress: append([]byte(nil), value[22:22+addressLength]...),
+	}, nil
+}
+
+// SerializeTo writes the GLBP layer from its header and TLVs.
 func (g *GLBP) SerializeTo(b gopacket.SerializeBuffer, _ gopacket.SerializeOptions) error {
-	bodyLen := glbpTLVOff
-	for _, tlv := range g.TLVs {
-		bodyLen += 4 + len(tlv.Value)
+	values := make([][]byte, len(g.TLVs))
+	bodyLen := glbpHeaderLen
+	for i, tlv := range g.TLVs {
+		value, err := encodeGLBPTLVValue(tlv)
+		if err != nil {
+			return err
+		}
+		if len(value)+glbpTLVHeaderLen > 0xff {
+			return errs.Msgf("GLBP: TLV type 0x%02x is %d bytes, maximum is 255", tlv.Type, len(value)+glbpTLVHeaderLen)
+		}
+		values[i] = value
+		bodyLen += glbpTLVHeaderLen + len(value)
 	}
 
 	buf, err := b.PrependBytes(bodyLen)
@@ -139,36 +181,52 @@ func (g *GLBP) SerializeTo(b gopacket.SerializeBuffer, _ gopacket.SerializeOptio
 	}
 
 	buf[0] = g.Version
-	buf[1] = g.Reserved
-	buf[2] = byte(g.Opcode)
-	binary.BigEndian.PutUint16(buf[3:5], g.Group)
-	binary.BigEndian.PutUint16(buf[glbpHelloOff:], g.HelloTime)
-	binary.BigEndian.PutUint16(buf[glbpHelloOff+2:], g.HoldTime)
-
-	vmac := g.VirtualMAC
-	if len(vmac) < 6 {
-		padded := make([]byte, 6)
-		copy(padded, vmac)
-		vmac = padded
+	buf[1] = g.Unknown1
+	binary.BigEndian.PutUint16(buf[2:4], g.Group)
+	binary.BigEndian.PutUint16(buf[4:6], g.Unknown2)
+	ownerMAC := g.OwnerMAC
+	if len(ownerMAC) < 6 {
+		ownerMAC = append(append([]byte(nil), ownerMAC...), make([]byte, 6-len(ownerMAC))...)
 	}
-	copy(buf[glbpVMACOff:], vmac[:6])
+	copy(buf[6:12], ownerMAC[:6])
 
-	buf[glbpPrioOff] = g.Priority
-	buf[glbpPrioOff+1] = byte(g.State)
-	buf[glbpPrioOff+2] = g.AddressFamily
-	buf[glbpPrioOff+3] = 0                             // unknown
-	binary.BigEndian.PutUint16(buf[glbpPrioOff+4:], 0) // auth data
-	binary.BigEndian.PutUint16(buf[glbpPrioOff+6:], 0) // reserved
-
-	offset := glbpTLVOff
-	for _, tlv := range g.TLVs {
-		binary.BigEndian.PutUint16(buf[offset:], tlv.Type)
-		binary.BigEndian.PutUint16(buf[offset+2:], uint16(4+len(tlv.Value)))
-		copy(buf[offset+4:], tlv.Value)
-		offset += 4 + len(tlv.Value)
+	offset := glbpHeaderLen
+	for i, tlv := range g.TLVs {
+		value := values[i]
+		buf[offset] = tlv.Type
+		buf[offset+1] = uint8(glbpTLVHeaderLen + len(value))
+		copy(buf[offset+glbpTLVHeaderLen:], value)
+		offset += glbpTLVHeaderLen + len(value)
 	}
 
 	return nil
+}
+
+func encodeGLBPTLVValue(tlv GLBPTLV) ([]byte, error) {
+	if tlv.Type != glbpHelloType || tlv.Hello == nil {
+		return tlv.Value, nil
+	}
+
+	hello := tlv.Hello
+	if int(hello.AddressLength) != len(hello.VirtualAddress) {
+		return nil, errs.Msgf("GLBP: Hello address length is %d, got %d address bytes",
+			hello.AddressLength, len(hello.VirtualAddress))
+	}
+	value := make([]byte, glbpHelloFieldsLen+len(hello.VirtualAddress))
+	value[0] = hello.Unknown10
+	value[1] = byte(hello.State)
+	value[2] = hello.Unknown11
+	value[3] = hello.Priority
+	binary.BigEndian.PutUint16(value[4:6], hello.Unknown12)
+	binary.BigEndian.PutUint32(value[6:10], hello.HelloTime)
+	binary.BigEndian.PutUint32(value[10:14], hello.HoldTime)
+	binary.BigEndian.PutUint16(value[14:16], hello.RedirectTime)
+	binary.BigEndian.PutUint16(value[16:18], hello.Timeout)
+	binary.BigEndian.PutUint16(value[18:20], hello.Unknown13)
+	value[20] = hello.AddressType
+	value[21] = hello.AddressLength
+	copy(value[22:], hello.VirtualAddress)
+	return value, nil
 }
 
 func decodeGLBP(data []byte, p gopacket.PacketBuilder) error {
