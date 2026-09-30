@@ -27,7 +27,8 @@ the request in a few words, and asks for the checkpoint:
 
 Before merging the worker's branch, run
 `.claude/skills/delegate/scripts/orca-worker.sh check <slug>`. A non-zero
-result stops the merge. After the merge, run
+result stops the merge. After the merge commit exists, including a resolved
+conflict, run
 `python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
 A non-zero result also stops the merge. Carry every `missing` block in the
 report. Remove the child and start step 1 again from the top: the checkpoint

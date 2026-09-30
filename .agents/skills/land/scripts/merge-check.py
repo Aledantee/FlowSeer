@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
-"""Check merge commits for changes silently dropped from either parent."""
+"""Check merge commits for changes silently dropped from either parent.
 
+For each nontrivial line, the checker compares counts in the merge base, a
+parent, the other parent, and the merge. A parent addition is unique only for
+the count above both the base and the other parent. A parent removal is kept
+when the merge count falls below the base count. The parent change is lost
+only when no unique addition is kept and no removal is kept.
+"""
+
+from collections import Counter
 import subprocess
 import sys
 
@@ -53,6 +61,7 @@ def changed_paths(base, parent):
 def changed_lines(base, parent, path):
     output = decode(
         git(
+            "--literal-pathspecs",
             "diff",
             "--no-ext-diff",
             "--no-color",
@@ -64,36 +73,122 @@ def changed_lines(base, parent, path):
             path,
         )
     )
-    added = set()
-    removed = set()
+    added = Counter()
+    removed = Counter()
+    in_hunk = False
     for line in output.splitlines():
-        if line.startswith(("+++ ", "--- ")):
+        if line.startswith("@@"):
+            in_hunk = True
+            continue
+        if not in_hunk:
             continue
         if line.startswith("+") and nontrivial(line[1:]):
-            added.add(line[1:])
+            added[line[1:]] += 1
         elif line.startswith("-") and nontrivial(line[1:]):
-            removed.add(line[1:])
+            removed[line[1:]] += 1
     return added, removed
 
 
-def file_lines(commit, path):
+def file_counts(commit, path):
     try:
         output = git("show", f"{commit}:{path}")
     except subprocess.CalledProcessError:
-        return set()
-    return {line for line in decode(output).splitlines() if nontrivial(line)}
+        return Counter()
+    return Counter(
+        line
+        for line in decode(output).splitlines()
+        if nontrivial(line)
+    )
+
+
+def diff_kind(base, parent, path):
+    output = git(
+        "--literal-pathspecs",
+        "diff",
+        "--no-ext-diff",
+        "--no-color",
+        "--no-renames",
+        "--numstat",
+        "-z",
+        base,
+        parent,
+        "--",
+        path,
+    )
+    fields = output.split(b"\0")
+    for field in fields:
+        if not field:
+            continue
+        parts = field.split(b"\t", 2)
+        if len(parts) != 3:
+            continue
+        added, deleted, _ = parts
+        if added == b"-" and deleted == b"-":
+            return "binary"
+        if added == b"0" and deleted == b"0":
+            summary = git(
+                "--literal-pathspecs",
+                "diff",
+                "--no-ext-diff",
+                "--no-color",
+                "--no-renames",
+                "--summary",
+                base,
+                parent,
+                "--",
+                path,
+            )
+            if summary:
+                return "mode-only"
+    return None
 
 
 def merge_parents(merge):
     fields = decode(git("rev-list", "--parents", "-n", "1", merge)).split()
-    if len(fields) < 3:
-        raise RuntimeError(f"{merge} is not a two-parent merge")
+    if len(fields) > 3:
+        raise RuntimeError(
+            f"{merge} has more than two parents ({len(fields) - 1})"
+        )
+    if len(fields) != 3:
+        raise RuntimeError(
+            f"{merge} has {len(fields) - 1} parents; "
+            "merge-check supports exactly two"
+        )
     return fields[1], fields[2]
+
+
+def merge_bases(first, second):
+    return decode(git("merge-base", "--all", first, second)).splitlines()
+
+
+def changed_path_name(change):
+    if change[0] == "renamed":
+        return f"{change[1]} -> {change[2]}"
+    return change[1]
+
+
+def report_multiple_bases(merge, bases, first, second):
+    reports = set()
+    for side, parent in (("first", first), ("second", second)):
+        for base in bases:
+            for change in changed_paths(base, parent):
+                reports.add(
+                    f"merge {merge[:12]}: not compared {side}-parent "
+                    f"{changed_path_name(change)} (multiple merge bases)"
+                )
+    for report in sorted(reports):
+        print(report)
 
 
 def check_merge(merge):
     first, second = merge_parents(merge)
-    base = decode(git("merge-base", first, second)).strip()
+    bases = merge_bases(first, second)
+    if len(bases) != 1:
+        if len(bases) > 1:
+            report_multiple_bases(merge, bases, first, second)
+            return False
+        raise RuntimeError(f"{merge} has no merge base")
+    base = bases[0]
     changes = {
         "first": changed_paths(base, first),
         "second": changed_paths(base, second),
@@ -131,26 +226,57 @@ def check_merge(merge):
     for path in sorted(
         set(comparable["first"]) | set(comparable["second"])
     ):
-        merged_lines = file_lines(merge, path)
+        merged_counts = file_counts(merge, path)
         for side in ("first", "second"):
             if path not in comparable[side]:
                 continue
+            kind = diff_kind(base, parents[side], path)
+            if kind:
+                reports.append(
+                    f"merge {merge[:12]}: not compared {side}-parent "
+                    f"{path} ({kind})"
+                )
+                continue
             added, removed = changed_lines(base, parents[side], path)
-            other = parents["second" if side == "first" else "first"]
-            other_lines = file_lines(other, path)
-            added -= other_lines
-            removed &= other_lines
             if not added and not removed:
                 continue
-            has_added = bool(added & merged_lines)
-            has_removed = bool(removed - merged_lines)
+            other = parents["second" if side == "first" else "first"]
+            base_counts = file_counts(base, path)
+            side_counts = file_counts(parents[side], path)
+            other_counts = file_counts(other, path)
+            unique_additions = Counter()
+            removals = Counter()
+            for line in set(base_counts) | set(side_counts) | set(other_counts):
+                base_count = base_counts[line]
+                side_rise = max(0, side_counts[line] - base_count)
+                other_rise = max(0, other_counts[line] - base_count)
+                unique_count = max(0, side_rise - other_rise)
+                if unique_count:
+                    unique_additions[line] = unique_count
+                removal_count = max(0, base_count - side_counts[line])
+                if removal_count:
+                    removals[line] = removal_count
+            if not unique_additions and not removals:
+                continue
+            has_added = any(
+                merged_counts[line] > max(base_counts[line], other_counts[line])
+                for line in unique_additions
+            )
+            has_removed = any(
+                merged_counts[line] < base_counts[line] for line in removals
+            )
             if not has_added and not has_removed:
                 print(
                     f"merge {merge[:12]}: lost {side}-parent change in {path}"
                 )
                 lost = True
                 continue
-            missing = sorted(added - merged_lines)
+            missing = sorted(
+                line
+                for line in unique_additions
+                if merged_counts[line]
+                <= max(base_counts[line], other_counts[line])
+            )
             if missing and (has_added or has_removed):
                 print(f"merge {merge[:12]}: missing {side}-parent change in {path}:")
                 for line in missing:
