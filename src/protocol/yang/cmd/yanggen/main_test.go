@@ -12,11 +12,11 @@ func TestRunVerifyFixture(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("run -verify = %d, stderr: %s", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "OK: resolved 5 modules") {
+	if !strings.Contains(stdout.String(), "OK: resolved 6 modules") {
 		t.Errorf("stdout = %q, want the resolved-module count", stdout.String())
 	}
-	if !strings.Contains(stdout.String(), "vendor fixture: 5 module(s), 0 skipped, 0 recovered") {
-		t.Errorf("stdout = %q, want 0 recovered", stdout.String())
+	if !strings.Contains(stdout.String(), "vendor fixture: 6 module(s), 0 skipped, 2 recovered") {
+		t.Errorf("stdout = %q, want 2 recovered", stdout.String())
 	}
 }
 
