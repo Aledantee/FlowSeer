@@ -242,6 +242,11 @@ bash "$TMPDIR/run-bare.sh"; echo "rc=$?"
 
 ## Open questions
 
+- Parked by drive: who implements this policy-surface phase, and when. Options: this coordinating
+  session after phase 1 lands (edits prompt for approval per file, ends at a staged diff) | a
+  separate session the user starts (same staged-diff stop, keeps the drive's context small).
+  Recommended: a separate session, because the hook edits need the user's approval at each
+  file either way and the drive session's context is already large.
 - How soon Claude Code and Codex write the payload after starting a hook.
   Neither documents it, so the 5-second deadline is unverified against
   them. A slower runtime would make the guards deny and the reporting
