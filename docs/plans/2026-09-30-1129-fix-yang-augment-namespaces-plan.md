@@ -104,5 +104,6 @@ diff, and `go run ./src/protocol/yang/cmd/yanggen -check` passes.
 ## Open questions
 
 - Whether the compile cost of importing `ciscoiosxenative` (147
-  augmenting packages) is acceptable. Phase 2 measures it before and
-  after.
+  augmenting packages) is acceptable. The cold build took 51.32 s wall time
+  and 11,819,909,120 bytes peak RSS before regeneration, then 34.53 s wall
+  time and 10,748,739,584 bytes peak RSS after regeneration.
