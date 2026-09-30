@@ -24,6 +24,10 @@ import (
 // ErrCodeHub identifies a failure starting or operating the hub.
 var ErrCodeHub = errs.NewCode("edgebus/hub")
 
+// ErrCodeStorage identifies an edge attach refused because its budget does not
+// fit under the server's JetStream store ceiling.
+var ErrCodeStorage = errs.NewCode("edgebus/storage")
+
 // HubConfig declares the hub central embeds. Construct with keyed fields.
 type HubConfig struct {
 	// StateDir holds the keys and the JetStream store. Must be absolute.
@@ -41,10 +45,11 @@ type HubConfig struct {
 	// WebSocket, allowed only on a loopback host for tests and a lab.
 	TLS *tls.Config
 	// MaxStoreBytes is a server-wide ceiling on the whole JetStream store.
-	// Zero lets the server size it against the available disk, which is the
-	// normal setting; a deployment that pins it must leave room for central
-	// plus every edge budget at once, since each is a reservation taken
-	// against this number when the account is enabled.
+	// Zero is finalized once at server start as 75% of free disk. Account
+	// budgets reserve against the server store ceiling, and the resulting
+	// edge count is capped by (ceiling - central budget) / edge budget.
+	// A deployment that pins it must leave room for central plus every edge
+	// budget at once.
 	MaxStoreBytes int64
 	// EdgeBudgetBytes and CentralBudgetBytes are the per-account disk
 	// ceilings. Zero means 128 MiB per edge account and 512 MiB for
@@ -80,22 +85,34 @@ type HubConfig struct {
 // credential lives in the edge account and cannot address a central stream
 // even through a server-reflected publish. A Hub is safe for concurrent use.
 type Hub struct {
-	log        *quietLogger
-	cfg        HubConfig
-	keys       *hubKeys
-	opts       *server.Options
-	server     *server.Server
-	resolver   *server.MemAccResolver
-	edgeBudget int64
+	log           *quietLogger
+	cfg           HubConfig
+	keys          *hubKeys
+	opts          *server.Options
+	server        *server.Server
+	resolver      *server.MemAccResolver
+	centralBudget int64
+	edgeBudget    int64
 
 	central   *nats.Conn
 	centralJS jetstream.JetStream
 
-	mu       sync.Mutex // guards edges and closed
-	attachMu sync.Mutex // serializes edge-account construction
-	edges    map[string]*edgeAccount
-	closed   bool
+	mu       sync.RWMutex // guards edges and closed, and serializes account enablement with shutdown
+	attachMu sync.Mutex   // serializes edge-account construction
+	// edgeAccountAttachHook is called under h.mu's read lock immediately before
+	// connecting the edge account and immediately after reading its JetStream flag.
+	// It is nil outside package tests.
+	edgeAccountAttachHook func(edgeAccountAttachStage)
+	edges                 map[string]*edgeAccount
+	closed                bool
 }
+
+type edgeAccountAttachStage uint8
+
+const (
+	edgeAccountBeforeConnect edgeAccountAttachStage = iota
+	edgeAccountAfterFlagRead
+)
 
 // edgeAccount is central's own handle on one edge's account: the connection
 // the forwarder reads its source stream through, and the account JWT
@@ -144,13 +161,12 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 		return nil, err
 	}
 
-	// JetStreamMaxStore is a server-wide backstop; zero lets the server size
-	// it against the available disk. The per-account disk budgets below are
-	// the real guard: each account is limited to its own budget, so no
-	// number of edges can consume the store the journal writes into. A
-	// reserved MaxStoreBytes would have to exceed central plus every edge's
-	// budget at once, which an unbounded edge count cannot promise, so it
-	// stays a backstop rather than a reservation.
+	// JetStreamMaxStore is the server store ceiling. Zero is finalized once
+	// at server start as 75% of free disk. Account budgets reserve against
+	// this ceiling when each account is enabled, so the edge count is
+	// capped by (ceiling - central budget) / edge budget. Each account is
+	// limited to its own budget so telemetry in an edge account cannot
+	// consume the store the journal writes into.
 	centralBudget := cfg.CentralBudgetBytes
 	if centralBudget <= 0 {
 		centralBudget = defaultCentralBudget
@@ -225,7 +241,7 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 	logger := newQuietLogger(hostLog)
 	srv.SetLoggerV2(logger, false, false, false)
 	srv.Start()
-	hub := &Hub{cfg: cfg, keys: keys, opts: opts, server: srv, log: logger, resolver: resolver, edgeBudget: edgeBudget, edges: map[string]*edgeAccount{}}
+	hub := &Hub{cfg: cfg, keys: keys, opts: opts, server: srv, log: logger, resolver: resolver, centralBudget: centralBudget, edgeBudget: edgeBudget, edges: map[string]*edgeAccount{}}
 	defer func() {
 		if err != nil {
 			hub.Close()
@@ -301,8 +317,7 @@ func (h *Hub) connectAccount(srv *server.Server, account nkeys.KeyPair, accountJ
 }
 
 // waitForJetStream blocks until the account's JetStream answers an account
-// info request or the context ends, so a stream create does not race the
-// server provisioning a just-fetched account.
+// info request or the context ends.
 func waitForJetStream(ctx context.Context, js jetstream.JetStream) error {
 	deadline := time.Now().Add(10 * time.Second)
 	for {
@@ -317,7 +332,7 @@ func waitForJetStream(ctx context.Context, js jetstream.JetStream) error {
 		}
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return err
 		case <-time.After(200 * time.Millisecond):
 		}
 	}
@@ -416,7 +431,7 @@ func (h *Hub) ListenPort() int { return h.opts.Websocket.Port }
 // into it, and its source stream, once. Every per-edge structure hangs off
 // it: the account is the isolation boundary, so one edge's
 // reflection can address nothing but its own subjects. Serialized against
-// concurrent attaches and against Close.
+// concurrent attaches, with account enablement ordered against Close.
 func (h *Hub) ensureEdgeAccount(ctx context.Context, tenantID, edgeID string) (*edgeAccount, error) {
 	// Before anything is written or named. An id with a separator escapes
 	// the keys directory; one with a dot, a wildcard or whitespace is
@@ -472,9 +487,10 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, tenantID, edgeID string) (*
 		return nil, err
 	}
 	// The edge account holds one bounded source stream, so its disk budget
-	// is that stream's ceiling plus margin; it is independent of the
-	// central budget, so no number of edges can consume the journal's
-	// store.
+	// is that stream's ceiling plus margin. Account budgets reserve against
+	// the server store ceiling, so total edges are capped by
+	// (ceiling - central budget) / edge budget, and the edge budget cannot
+	// starve the central journal's store within that capacity.
 	budget := h.edgeBudget
 	accountJWT, err := h.keys.accountJWT(key, "EDGE_"+edgeID, budget)
 	if err != nil {
@@ -487,16 +503,40 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, tenantID, edgeID string) (*
 	if err := h.resolver.Store(pub, accountJWT); err != nil {
 		return nil, errs.From(err).Code(ErrCodeHub).Attr("edge", edgeID).Msg("store edge account claims")
 	}
+	h.mu.RLock()
+	if h.edgeAccountAttachHook != nil {
+		h.edgeAccountAttachHook(edgeAccountBeforeConnect)
+	}
 	conn, js, err := h.connectAccount(srv, key, accountJWT, "edge-"+edgeID)
 	if err != nil {
+		h.mu.RUnlock()
 		return nil, err
 	}
 	ea := &edgeAccount{conn: conn, js: js, accountJWT: accountJWT, key: key, tenant: tenantID}
 
-	// A newly fetched account's JetStream is provisioned a beat after the
-	// first connection; wait for it to answer before creating the stream.
+	account, lookupErr := srv.LookupAccount(pub)
+	// CONNECT enables JetStream for the authenticated account before it
+	// returns. A disabled account here was refused by the server.
+	refused := lookupErr == nil && !account.JetStreamEnabled()
+	if h.edgeAccountAttachHook != nil {
+		h.edgeAccountAttachHook(edgeAccountAfterFlagRead)
+	}
+	h.mu.RUnlock()
+
 	if err := waitForJetStream(ctx, js); err != nil {
 		conn.Close()
+		if refused {
+			storageErr := errs.From(err).Code(ErrCodeStorage).
+				Attr("edge", edgeID).
+				Attr("central_budget_bytes", h.centralBudget).
+				Attr("edge_budget_bytes", h.edgeBudget)
+			if jsc := srv.JetStreamConfig(); jsc != nil {
+				return nil, storageErr.Attr("ceiling_bytes", jsc.MaxStore).
+					Msgf("storage limit exceeded: edge budget %d B does not fit under store ceiling %d B",
+						h.edgeBudget, jsc.MaxStore)
+			}
+			return nil, storageErr.Msgf("storage limit exceeded: edge budget %d B does not fit under the server store ceiling", h.edgeBudget)
+		}
 		return nil, errs.From(err).Code(ErrCodeHub).Attr("edge", edgeID).Msg("wait for the edge account JetStream")
 	}
 	if err := h.createEdgeStream(ctx, js, tenantID, edgeID); err != nil {
@@ -622,8 +662,10 @@ func (h *Hub) LeafCount() int {
 	return h.server.NumLeafNodes()
 }
 
-// Close closes central's connections and stops the server, waiting for its
-// shutdown. Safe to call more than once.
+// Close closes central's connections and stops the server. It holds the write
+// lock until the server has shut down, so attaches and calls to AttachedEdges,
+// EdgeStream, and LeafCount wait for it.
+// Safe to call more than once.
 func (h *Hub) Close() {
 	h.mu.Lock()
 	if h.closed {
@@ -634,7 +676,6 @@ func (h *Hub) Close() {
 	central, srv := h.central, h.server
 	edges := h.edges
 	h.edges = map[string]*edgeAccount{}
-	h.mu.Unlock()
 
 	for _, ea := range edges {
 		ea.conn.Close()
@@ -644,6 +685,9 @@ func (h *Hub) Close() {
 	}
 	if srv != nil {
 		srv.Shutdown()
+	}
+	h.mu.Unlock()
+	if srv != nil {
 		srv.WaitForShutdown()
 	}
 }

@@ -500,6 +500,20 @@ own source (`agy -p /quota` answers from the quota service without a model
 turn, and opencode's database records the dollar cost of every `opencode-go`
 message), and the skill forbids dropping a pool on Orca's word alone.
 
+`AGENTS.md`, Investigation discipline, states once what counts as a source
+for a claim about external behavior. Each stage names only its own action.
+`plan` cites a source per Decision and checks citations and second-source
+fixtures in its review reads. `delegate` hands every worker the pinned
+versions and `spec/` paths, not only reviewers. `implement` reads the source
+or files a ruling before code relies on behavior the plan did not cite.
+`review` asks the question of every change, not only of findings. The rule
+is placed at every stage because the plan step to read sources already
+existed and was skipped. The OSPF checksum (`f11f0589`), AF_PACKET VLAN tag
+(`15fb3e32`), LLDP-MIB bits (`86dd52aa`), and UniFi BSSID (`02c0abda`)
+fixes each corrected a fact stated from memory that the vendored spec or
+pinned module already contradicted. No check can tell a cited claim from
+an uncited one, so enforcement stops at the review gates.
+
 Look up third-party library docs through Context7 when it is connected, and
 nowhere else through a dedicated skill. `plan` and `implement` name the
 Context7 tools and the `ctx7` CLI as a fallback; Go dependencies stay with

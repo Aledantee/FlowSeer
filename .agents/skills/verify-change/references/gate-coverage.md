@@ -14,6 +14,11 @@ These entries complete the closed list in `SKILL.md`.
   `--full`. A module under `generated/` is built only. A changed file inside
   it builds that module and lints its sample packages, since a full lint of
   the YANG bindings runs for over an hour.
+- A `tools/buf/` path selects the pinned protobuf format, lint, breaking, and
+  generate gates plus `go -C tools/buf mod verify` and the protobuf
+  conformance tests. The format, lint, and breaking gates omit `--path` so
+  they check the whole module. It does not select a Go module gate because the
+  module contains the Buf CLI tool and no Go package.
 - A `frontend/web/` path selects the web workspace's typecheck, Vite build,
   ESLint, Stylelint, Prettier check, and Vitest suite, using the local
   binaries installed from its lockfile. With no Go module selected, it also
@@ -25,8 +30,9 @@ These entries complete the closed list in `SKILL.md`.
 - `buf breaking` compares only the changed `.proto` files `main` already
   holds, and prints that it skipped when every changed schema file is new on
   the branch, since `--path` naming a file the baseline lacks fails without
-  saying anything about the change. The whole-module form under `--full`
-  still covers a deletion.
+  saying anything about the change. The `tools/buf/` selection and the
+  whole-module form under `--full` cover the whole module, including a
+  deletion.
 - Full runs and telemetry-sensitive paths (service Go sources, its Collector
   integration sources and fixture, the wrapper, root `go.mod` or `go.sum`)
   run the Docker-backed OpenTelemetry tier through

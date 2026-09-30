@@ -35,6 +35,8 @@ type Batch struct {
 	// run that failed delivers no final batch at all; its consumer learns
 	// that from the pump closing with an error.
 	Final bool
+	// StopReason is set only on the final batch.
+	StopReason modelcapturev1.CaptureStopReason
 }
 
 // State is the engine's live snapshot, mirroring the fields of

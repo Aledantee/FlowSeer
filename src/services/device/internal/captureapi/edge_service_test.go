@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"buf.build/go/protovalidate"
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
@@ -713,6 +715,9 @@ func TestUploadCapture_FinalizationOnStreamCompletion(t *testing.T) {
 	h := newTestHarness(t)
 	sessID := "0192e6a0-0000-7000-8000-000000000015"
 	cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
+	cfg.GetBudget().ClearMaxPackets()
+	cfg.GetBudget().SetMaxBytes(1000)
+	cfg.GetBudget().SetMaxDuration(durationpb.New(time.Minute))
 
 	if _, err := h.store.CreateSession(ctx, testTenantID, cfg); err != nil {
 		t.Fatalf("create session: %v", err)
@@ -739,7 +744,7 @@ func TestUploadCapture_FinalizationOnStreamCompletion(t *testing.T) {
 	// Send chunk with 5 packets
 	packets := make([]*netcapturev1.PacketRecord, 5)
 	for i := range packets {
-		packets[i] = testPacketRecord(uint64(i+1), []byte("\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x08\x00payload"))
+		packets[i] = testPacketRecord(uint64(i+1), bytes.Repeat([]byte{0x01}, 200))
 	}
 
 	counters := netcapturev1.CaptureCounters_builder{
@@ -753,6 +758,7 @@ func TestUploadCapture_FinalizationOnStreamCompletion(t *testing.T) {
 		Packets:       packets,
 		Counters:      counters,
 		Final:         proto.Bool(true),
+		StopReason:    modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_BYTE_COUNT.Enum(),
 	}.Build()
 
 	if err := uploadStream.Send(captureedgev1.UploadCaptureRequest_builder{Chunk: finalChunk}.Build()); err != nil {
@@ -777,8 +783,8 @@ func TestUploadCapture_FinalizationOnStreamCompletion(t *testing.T) {
 	if rec.GetState().GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED {
 		t.Fatalf("got lifecycle %v, want COMPLETED", rec.GetState().GetLifecycle())
 	}
-	if rec.GetState().GetStopReason() == modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_UNSPECIFIED {
-		t.Fatal("expected non-unspecified stop reason")
+	if got := rec.GetState().GetStopReason(); got != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_BYTE_COUNT {
+		t.Errorf("stop reason = %v, want BYTE_COUNT", got)
 	}
 
 	artifact := rec.GetState().GetArtifact()
@@ -793,6 +799,173 @@ func TestUploadCapture_FinalizationOnStreamCompletion(t *testing.T) {
 	}
 	if !h.store.ArtifactExists(testTenantID, sessID) {
 		t.Fatalf("expected artifact file on disk for session %s", sessID)
+	}
+}
+
+func TestUploadCapture_ReportedReasonControlsLifecycle(t *testing.T) {
+	cases := []struct {
+		name          string
+		reported      modelcapturev1.CaptureStopReason
+		canceled      bool
+		wantLifecycle modelcapturev1.CaptureLifecycle
+		wantReason    modelcapturev1.CaptureStopReason
+		wantDisagree  bool
+	}{
+		{"operator on running", modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR, false, modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED, modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR, false},
+		{"packet count after cancellation", modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT, true, modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED, modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR, true},
+		{"operator after cancellation", modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR, true, modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED, modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR, false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			h := newTestHarness(t)
+			sessID := "0192e6a0-0000-7000-8000-0000000000c0"
+			cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
+			if _, err := h.store.CreateSession(ctx, testTenantID, cfg); err != nil {
+				t.Fatalf("create session: %v", err)
+			}
+			if tc.canceled {
+				_, err := h.store.MutateSession(ctx, testTenantID, sessID, func(rec *modelcapturev1.CaptureSessionRecord) error {
+					rec.GetState().SetLifecycle(modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED)
+					rec.GetState().SetStopReason(modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR)
+					return nil
+				})
+				if err != nil {
+					t.Fatalf("cancel session: %v", err)
+				}
+			}
+
+			var logs bytes.Buffer
+			edgeSvc := h.newEdgeService(captureapi.EdgeServiceConfig{
+				Logger: slog.New(slog.NewTextHandler(&logs, nil)),
+			})
+			stream := newUploadServer(t, edgeSvc).UploadCapture(ctx)
+			if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{
+				Assertion: h.signAssertion(t, testEdge1ID, h.privKey1),
+			}.Build()); err != nil {
+				t.Fatalf("send assertion: %v", err)
+			}
+			chunk := modelcapturev1.CapturePacketChunk_builder{
+				Session:       cfg.GetRef(),
+				FirstSequence: proto.Uint64(0),
+				Counters:      &netcapturev1.CaptureCounters{},
+				Final:         proto.Bool(true),
+				StopReason:    tc.reported.Enum(),
+			}.Build()
+			if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{Chunk: chunk}.Build()); err != nil {
+				t.Fatalf("send final chunk: %v", err)
+			}
+			if _, err := stream.CloseAndReceive(); err != nil {
+				t.Fatalf("close upload: %v", err)
+			}
+			rec, _, err := h.store.Session(ctx, testTenantID, sessID)
+			if err != nil {
+				t.Fatalf("get session: %v", err)
+			}
+			if got := rec.GetState().GetLifecycle(); got != tc.wantLifecycle {
+				t.Errorf("lifecycle = %v, want %v", got, tc.wantLifecycle)
+			}
+			if got := rec.GetState().GetStopReason(); got != tc.wantReason {
+				t.Errorf("stop reason = %v, want %v", got, tc.wantReason)
+			}
+			if got := strings.Contains(logs.String(), "capture stop reason disagrees with operator cancellation"); got != tc.wantDisagree {
+				t.Errorf("disagreement logged = %v, want %v", got, tc.wantDisagree)
+			}
+		})
+	}
+}
+
+func TestUploadCapture_RejectsInvalidChunkAndFailsSession(t *testing.T) {
+	cases := []struct {
+		name   string
+		final  bool
+		reason *modelcapturev1.CaptureStopReason
+	}{
+		{"final without reason", true, nil},
+		{"final with error", true, modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR.Enum()},
+		{"non-final with duration", false, modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_DURATION.Enum()},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			h := newTestHarness(t)
+			sessID := "0192e6a0-0000-7000-8000-0000000000d0"
+			cfg := newEdgeSessionConfig(t, testEdge1ID, sessID)
+			if _, err := h.store.CreateSession(ctx, testTenantID, cfg); err != nil {
+				t.Fatalf("create session: %v", err)
+			}
+
+			stream := newUploadServer(t, h.newEdgeService(captureapi.EdgeServiceConfig{})).UploadCapture(ctx)
+			if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{
+				Assertion: h.signAssertion(t, testEdge1ID, h.privKey1),
+			}.Build()); err != nil {
+				t.Fatalf("send assertion: %v", err)
+			}
+			if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{
+				Chunk: modelcapturev1.CapturePacketChunk_builder{
+					Session:       cfg.GetRef(),
+					FirstSequence: proto.Uint64(0),
+					Final:         proto.Bool(false),
+				}.Build(),
+			}.Build()); err != nil {
+				t.Fatalf("send initial chunk: %v", err)
+			}
+
+			badChunk := modelcapturev1.CapturePacketChunk_builder{
+				Session:       cfg.GetRef(),
+				FirstSequence: proto.Uint64(0),
+				Final:         proto.Bool(tc.final),
+				StopReason:    tc.reason,
+			}.Build()
+			if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{Chunk: badChunk}.Build()); err != nil {
+				t.Fatalf("send invalid chunk: %v", err)
+			}
+			_, err := stream.CloseAndReceive()
+			if got := connect.CodeOf(err); got != connect.CodeInvalidArgument {
+				t.Fatalf("code = %v, want CodeInvalidArgument (error: %v)", got, err)
+			}
+
+			rec, _, err := h.store.Session(ctx, testTenantID, sessID)
+			if err != nil {
+				t.Fatalf("get session: %v", err)
+			}
+			if got := rec.GetState().GetLifecycle(); got != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED {
+				t.Fatalf("lifecycle = %v, want FAILED", got)
+			}
+			if got := rec.GetState().GetStopReason(); got != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR {
+				t.Fatalf("stop reason = %v, want ERROR", got)
+			}
+		})
+	}
+}
+
+func TestCapturePacketChunk_FinalReasonValidation(t *testing.T) {
+	cases := []struct {
+		name      string
+		final     bool
+		reason    *modelcapturev1.CaptureStopReason
+		wantValid bool
+	}{
+		{"final without reason", true, nil, false},
+		{"final with error", true, modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR.Enum(), false},
+		{"non-final with duration", false, modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_DURATION.Enum(), false},
+		{"final with byte count", true, modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_BYTE_COUNT.Enum(), true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			chunk := modelcapturev1.CapturePacketChunk_builder{
+				Session:       tailTestSessionRef(),
+				FirstSequence: proto.Uint64(0),
+				Final:         proto.Bool(tc.final),
+				StopReason:    tc.reason,
+			}.Build()
+			err := protovalidate.Validate(chunk)
+			if (err == nil) != tc.wantValid {
+				t.Errorf("validation error = %v, want valid = %v", err, tc.wantValid)
+			}
+		})
 	}
 }
 
@@ -911,7 +1084,8 @@ func TestUploadCapture_RefusesASessionThatAlreadyStopped(t *testing.T) {
 				ReceivedPackets: proto.Uint64(uint64(packets)),
 				AcceptedPackets: proto.Uint64(uint64(packets)),
 			}.Build(),
-			Final: proto.Bool(true),
+			Final:      proto.Bool(true),
+			StopReason: modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT.Enum(),
 		}.Build()
 		if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{Chunk: final}.Build()); err != nil {
 			t.Fatalf("send final chunk: %v", err)
@@ -1403,6 +1577,7 @@ func TestUploadCapture_PerTenantArtifactDirectory(t *testing.T) {
 		Packets:       packets,
 		Counters:      counters,
 		Final:         proto.Bool(true),
+		StopReason:    modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT.Enum(),
 	}.Build()
 
 	if err := stream.Send(captureedgev1.UploadCaptureRequest_builder{Chunk: finalChunk}.Build()); err != nil {

@@ -679,6 +679,8 @@ mkdir -p "$selection_fixture"
 git -C "$selection_fixture" init -q
 printf '# selection fixture\n' >"$selection_fixture/README.md"
 printf 'module example.invalid/selection\n\ngo 1.27\n' >"$selection_fixture/go.mod"
+mkdir -p "$selection_fixture/tools/buf"
+printf 'module example.invalid/buf-tool\n\ngo 1.27\n' >"$selection_fixture/tools/buf/go.mod"
 git -C "$selection_fixture" add README.md go.mod
 git -C "$selection_fixture" -c user.name=Hook -c user.email=hook@example.invalid commit -qm init
 
@@ -699,9 +701,23 @@ select_verifier() {
 }
 
 selection_output=$(select_verifier --full)
-[[ ${selection_output%%$'\n'*} == 'service_otel_integration=true' ]]
-[[ ! -e $selection_receipt ]]
+if [[ ${selection_output%%$'\n'*} != 'service_otel_integration=true' ]]; then exit 1; fi
+if [[ $selection_output != *$'\nproto=true\n'* ]]; then exit 1; fi
+if [[ $selection_output != *$'\ntool_module=tools/buf mode=mod-verify\n'* ]]; then exit 1; fi
+if [[ $selection_output == *$'\nmodule=./tools/buf'* ]]; then exit 1; fi
+if [[ -e $selection_receipt ]]; then exit 1; fi
 ok "verifier selection includes the Collector tier for full verification"
+
+for buf_path in tools/buf/go.mod tools/buf/go.sum; do
+  selection_output=$(select_verifier -- "$buf_path")
+  if [[ $selection_output != $'service_otel_integration=false\nproto=true\ntool_module=tools/buf mode=mod-verify' ]]; then exit 1; fi
+done
+ok "verifier selection routes the pinned Buf module to protobuf gates"
+
+selection_output=$(select_verifier -- buf.gen.yaml)
+if [[ $selection_output != $'service_otel_integration=false\nproto=true' ]]; then exit 1; fi
+if [[ $selection_output == *'tool_module='* ]]; then exit 1; fi
+ok "verifier selection routes Buf generation configuration to protobuf gates"
 
 telemetry_paths=(
   go.mod

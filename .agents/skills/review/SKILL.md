@@ -84,6 +84,10 @@ intent in code doing the opposite. Ask:
   record's premises (what it says exists or is absent) against the tree,
   not only the paths it cites, since fresh paths make a reader trust a
   premise an earlier change made false.
+- Does code or a comment assert how a library, protocol, or device behaves?
+  Open that claim against its source (`AGENTS.md`, Investigation
+  discipline). A test whose fixture was authored from the same document as
+  the code is no evidence for it.
 - Is anything added that has one caller, one implementation, or no caller?
 - Does the change move a boundary an accepted direction record fixes?
 - For schema: do the Config/State/Event triad and each LocalRef/GlobalRef

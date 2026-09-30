@@ -53,7 +53,10 @@ files read as `delegate` describes, one bounded question per agent, in
 parallel when independent.
 
 - Read and cite the RFCs, vendor specs under `spec/`, and library source
-  under `~/go/pkg/mod` the change depends on.
+  under `~/go/pkg/mod` the change depends on. Every Decision or Requirement
+  about external behavior cites its source as `AGENTS.md`, Investigation
+  discipline, defines one. A claim you cannot check says "unverified" and
+  goes under Open questions.
 - For a third-party library outside the module cache, use Context7
   (`mcp__context7__query-docs` when connected, else the `ctx7` CLI), one
   question per query; keep the code example it returns and record the
@@ -64,6 +67,9 @@ parallel when independent.
   security property.
 - Decode or hex-dump a binary fixture (a pcap, a golden file, a captured
   payload) and check its bytes against the claim before the plan cites it.
+  A wire format gets a known-bytes test from a second source (a dissector,
+  a device capture, the vendored spec's example), since a fixture authored
+  from the same document as the code cannot show that document misread.
 
 ## 3. Write the plan
 
@@ -180,14 +186,17 @@ Rules:
 
 Three reads, in this order; fix the plan after each.
 
-1. As the implementer: can each unit start without a question?
+1. As the implementer: can each unit start without a question? Every claim
+   about external behavior carries its source as step 2 requires, or reads
+   "unverified" and appears under Open questions.
 2. Each unit's Tests line against the risks the plan itself names for that
    unit, in its Decisions, Open questions, and Change. A risk the plan calls
    unverifiable, or one a symmetric test cannot see, gets a test that pins
    it, a fixture with known bytes, or a sentence in the unit saying nothing
    in it covers that risk. Where the plan calls a wire layout unverifiable,
    a round-trip test cannot catch it, since it passes whatever octet an
-   encoder chooses.
+   encoder chooses. A wire-format Tests line names a second-source fixture,
+   as step 2 requires.
 3. Each value a unit supplies to an existing matching primitive (a prompt
    regex, a header parser, a routing predicate): trace the primitive's
    matching rule (anchor scope, tie-break) against the value and against
@@ -195,9 +204,10 @@ Three reads, in this order; fix the plan after each.
 
 For more than three units or a schema change, then dispatch one
 `independent-reviewer` as `delegate` describes, with the plan path and the
-question "what would block or mislead an implementer, and what does the
-plan contradict in `docs/architecture/` or the conventions?". Apply the
-findings that hold.
+question "what would block or mislead an implementer, what does the plan
+contradict in `docs/architecture/` or the conventions, and which cited
+external source does not say what the plan claims?". Apply the findings
+that hold.
 
 ## 5. Hand off
 

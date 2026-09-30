@@ -72,15 +72,18 @@ baseline does not carry.
 
 ## GLBP (glbp.pcap)
 
-- **Source:** authored from RFC 7868. The baseline does not carry a GLBP
-  attack (GLBP hijack is an R4 superset attack).
-- **Frames:** one hello (opcode 1).
+- **Source:** authored from Wireshark `packet-glbp.c` at commit
+  `1dbb8baf9c5bb2e9501b15cce98cea6a3c0f41a3`: the
+  [Hello fields](https://github.com/wireshark/wireshark/blob/1dbb8baf9c5bb2e9501b15cce98cea6a3c0f41a3/epan/dissectors/packet-glbp.c#L137-L218)
+  and [header and TLV loop](https://github.com/wireshark/wireshark/blob/1dbb8baf9c5bb2e9501b15cce98cea6a3c0f41a3/epan/dissectors/packet-glbp.c#L289-L365).
+  The baseline does not carry a GLBP attack. No device capture confirms this
+  fixture.
+- **Frames:** one Hello TLV for virtual IPv4 address `10.0.0.1`.
 - **Encapsulation:** Ethernet → IPv4 → UDP 3222 → GLBP. Multicast
   224.0.0.102, source IP 10.0.0.2.
-- **Determinism:** byte-for-byte. Fixed 23-byte header (version, reserved,
-  opcode, group, hello/hold time, virtual MAC, priority, state, address
-  family, auth, reserved) plus one Timer TLV (type=1, length=8, hello/hold
-  values).
+- **Determinism:** byte-for-byte. The 12-byte header carries version, group,
+  and owner MAC. The Hello uses a one-byte type, a one-byte inclusive length,
+  priority 100, Active state, 3000 ms hello, and 10000 ms hold.
 
 ## EIGRP (eigrp.pcap, eigrp_no_tlv.pcap)
 

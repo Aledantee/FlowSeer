@@ -42,6 +42,7 @@ type CapturePacketChunk struct {
 	xxx_hidden_Packets       *[]*v1.PacketRecord      `protobuf:"bytes,3,rep,name=packets"`
 	xxx_hidden_Counters      *v1.CaptureCounters      `protobuf:"bytes,4,opt,name=counters"`
 	xxx_hidden_Final         bool                     `protobuf:"varint,5,opt,name=final"`
+	xxx_hidden_StopReason    CaptureStopReason        `protobuf:"varint,6,opt,name=stop_reason,json=stopReason,enum=flowseer.model.capture.v1.CaptureStopReason"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -110,13 +111,22 @@ func (x *CapturePacketChunk) GetFinal() bool {
 	return false
 }
 
+func (x *CapturePacketChunk) GetStopReason() CaptureStopReason {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 5) {
+			return x.xxx_hidden_StopReason
+		}
+	}
+	return CaptureStopReason_CAPTURE_STOP_REASON_UNSPECIFIED
+}
+
 func (x *CapturePacketChunk) SetSession(v *CaptureSessionGlobalRef) {
 	x.xxx_hidden_Session = v
 }
 
 func (x *CapturePacketChunk) SetFirstSequence(v uint64) {
 	x.xxx_hidden_FirstSequence = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
 }
 
 func (x *CapturePacketChunk) SetPackets(v []*v1.PacketRecord) {
@@ -129,7 +139,12 @@ func (x *CapturePacketChunk) SetCounters(v *v1.CaptureCounters) {
 
 func (x *CapturePacketChunk) SetFinal(v bool) {
 	x.xxx_hidden_Final = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+}
+
+func (x *CapturePacketChunk) SetStopReason(v CaptureStopReason) {
+	x.xxx_hidden_StopReason = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
 }
 
 func (x *CapturePacketChunk) HasSession() bool {
@@ -160,6 +175,13 @@ func (x *CapturePacketChunk) HasFinal() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
+func (x *CapturePacketChunk) HasStopReason() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
 func (x *CapturePacketChunk) ClearSession() {
 	x.xxx_hidden_Session = nil
 }
@@ -178,6 +200,11 @@ func (x *CapturePacketChunk) ClearFinal() {
 	x.xxx_hidden_Final = false
 }
 
+func (x *CapturePacketChunk) ClearStopReason() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_StopReason = CaptureStopReason_CAPTURE_STOP_REASON_UNSPECIFIED
+}
+
 type CapturePacketChunk_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -193,6 +220,9 @@ type CapturePacketChunk_builder struct {
 	// Whether this is the last chunk of the stream. Unset means more chunks
 	// follow.
 	Final *bool
+	// Why the capture stopped. Must be present only on the final chunk.
+	// Failures end the stream without a final chunk.
+	StopReason *CaptureStopReason
 }
 
 func (b0 CapturePacketChunk_builder) Build() *CapturePacketChunk {
@@ -201,14 +231,18 @@ func (b0 CapturePacketChunk_builder) Build() *CapturePacketChunk {
 	_, _ = b, x
 	x.xxx_hidden_Session = b.Session
 	if b.FirstSequence != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
 		x.xxx_hidden_FirstSequence = *b.FirstSequence
 	}
 	x.xxx_hidden_Packets = &b.Packets
 	x.xxx_hidden_Counters = b.Counters
 	if b.Final != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
 		x.xxx_hidden_Final = *b.Final
+	}
+	if b.StopReason != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		x.xxx_hidden_StopReason = *b.StopReason
 	}
 	return m0
 }
@@ -360,13 +394,16 @@ var File_flowseer_model_capture_v1_capture_chunk_proto protoreflect.FileDescript
 
 const file_flowseer_model_capture_v1_capture_chunk_proto_rawDesc = "" +
 	"\n" +
-	"-flowseer/model/capture/v1/capture_chunk.proto\x12\x19flowseer.model.capture.v1\x1a/flowseer/model/capture/v1/capture_session.proto\x1a.flowseer/net/capture/v1/capture_counters.proto\x1a+flowseer/net/capture/v1/packet_record.proto\"\xc1\x02\n" +
+	"-flowseer/model/capture/v1/capture_chunk.proto\x12\x19flowseer.model.capture.v1\x1a/flowseer/model/capture/v1/capture_session.proto\x1a.flowseer/net/capture/v1/capture_counters.proto\x1a+flowseer/net/capture/v1/packet_record.proto\"\xc5\x04\n" +
 	"\x12CapturePacketChunk\x12T\n" +
 	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\x12-\n" +
 	"\x0efirst_sequence\x18\x02 \x01(\x04B\x06\xbaH\x03\xc8\x01\x01R\rfirstSequence\x12J\n" +
 	"\apackets\x18\x03 \x03(\v2%.flowseer.net.capture.v1.PacketRecordB\t\xbaH\x06\x92\x01\x03\x10\x80\x02R\apackets\x12D\n" +
 	"\bcounters\x18\x04 \x01(\v2(.flowseer.net.capture.v1.CaptureCountersR\bcounters\x12\x14\n" +
-	"\x05final\x18\x05 \x01(\bR\x05final\"n\n" +
+	"\x05final\x18\x05 \x01(\bR\x05final\x12[\n" +
+	"\vstop_reason\x18\x06 \x01(\x0e2,.flowseer.model.capture.v1.CaptureStopReasonB\f\xbaH\t\x82\x01\x06\x10\x01 \x00 \x05R\n" +
+	"stopReason:\xa4\x01\xbaH\xa0\x01\x1a\x9d\x01\n" +
+	"*capture_packet_chunk.final_has_stop_reason\x12Ja final capture chunk names its stop reason and a non-final chunk does not\x1a#this.final == has(this.stop_reason)\"n\n" +
 	"\x14CaptureArtifactChunk\x12\x1e\n" +
 	"\x06offset\x18\x01 \x01(\x04B\x06\xbaH\x03\xc8\x01\x01R\x06offset\x12 \n" +
 	"\x04data\x18\x02 \x01(\fB\f\xbaH\t\xc8\x01\x01z\x04\x18\x80\x80@R\x04data\x12\x14\n" +
@@ -380,16 +417,18 @@ var file_flowseer_model_capture_v1_capture_chunk_proto_goTypes = []any{
 	(*CaptureSessionGlobalRef)(nil), // 2: flowseer.model.capture.v1.CaptureSessionGlobalRef
 	(*v1.PacketRecord)(nil),         // 3: flowseer.net.capture.v1.PacketRecord
 	(*v1.CaptureCounters)(nil),      // 4: flowseer.net.capture.v1.CaptureCounters
+	(CaptureStopReason)(0),          // 5: flowseer.model.capture.v1.CaptureStopReason
 }
 var file_flowseer_model_capture_v1_capture_chunk_proto_depIdxs = []int32{
 	2, // 0: flowseer.model.capture.v1.CapturePacketChunk.session:type_name -> flowseer.model.capture.v1.CaptureSessionGlobalRef
 	3, // 1: flowseer.model.capture.v1.CapturePacketChunk.packets:type_name -> flowseer.net.capture.v1.PacketRecord
 	4, // 2: flowseer.model.capture.v1.CapturePacketChunk.counters:type_name -> flowseer.net.capture.v1.CaptureCounters
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	5, // 3: flowseer.model.capture.v1.CapturePacketChunk.stop_reason:type_name -> flowseer.model.capture.v1.CaptureStopReason
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_model_capture_v1_capture_chunk_proto_init() }

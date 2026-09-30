@@ -1169,7 +1169,8 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 				ReceivedPackets: proto.Uint64(1),
 				AcceptedPackets: proto.Uint64(1),
 			}.Build(),
-			Final: proto.Bool(true),
+			Final:      proto.Bool(true),
+			StopReason: modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT.Enum(),
 		}.Build(),
 	}.Build()
 	if err := uploadStream.Send(chunk); err != nil {

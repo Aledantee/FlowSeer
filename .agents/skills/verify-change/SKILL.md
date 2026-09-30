@@ -42,7 +42,9 @@ the Go gates bind loopback listeners and the telemetry tier starts Docker.
   a verified type, which the marker hook records like any other edit.
 
 `--print-selection` says which modules and dependent modules would be
-checked in which mode, and whether the OpenTelemetry tier would run.
+checked in which mode, whether the OpenTelemetry tier would run, whether the
+protobuf gates would run, and whether `tools/buf/` is verified with
+`go -C tools/buf mod verify`.
 
 ## Read the verdict
 

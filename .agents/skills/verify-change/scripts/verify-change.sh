@@ -203,6 +203,7 @@ modules=()
 proto_files=()
 proto_deleted=false
 proto=false
+buf_module=false
 hook_tooling=false
 mib=false
 service_otel_integration=false
@@ -233,7 +234,11 @@ module_for_file() {
 
 if [[ $full == true ]]; then
   while IFS= read -r modfile; do
-    add_module "$(dirname "$modfile")"
+    if [[ $modfile == ./tools/buf/go.mod ]]; then
+      buf_module=true
+    else
+      add_module "$(dirname "$modfile")"
+    fi
   done < <(find . -name go.mod -not -path './.git/*' -not -path './.claude/worktrees/*' -not -path './.codex/worktrees/*' -print | sort)
   while IFS= read -r gofile; do
     go_files+=("${gofile#./}")
@@ -269,6 +274,12 @@ else
           [[ -n $module && $module != . ]] && add_module "$module"
         fi
         ;;
+      tools/buf/go.mod|tools/buf/go.sum)
+        # Keep the tool module out of the generic Go module selection. The
+        # independent tools/buf/* case below routes these files to the
+        # protobuf gates and sets both flags.
+        :
+        ;;
       go.mod|go.sum|*/go.mod|*/go.sum)
         module=$(module_for_file "$path")
         [[ -n $module ]] && add_module "$module"
@@ -294,6 +305,12 @@ else
     # committed bindings under generated/go/mib.
     case "$path" in
       mibgen.yaml|spec/mib/*|src/protocol/snmp/cmd/mibgen/*|src/protocol/smi/*) mib=true ;;
+    esac
+    case "$path" in
+      tools/buf/*)
+        proto=true
+        buf_module=true
+        ;;
     esac
     case "$path" in
       go.mod|go.sum|src/common/service/*.go|src/common/service/test/integration/otel*|src/common/service/test/integration/testdata/otel-collector.yaml|tools/test/service-otel-integration.sh)
@@ -413,6 +430,12 @@ fi
 
 if [[ $print_selection == true ]]; then
   printf 'service_otel_integration=%s\n' "$service_otel_integration"
+  if [[ $proto == true ]]; then
+    printf 'proto=true\n'
+  fi
+  if [[ $buf_module == true ]]; then
+    printf 'tool_module=tools/buf mode=mod-verify\n'
+  fi
   for module in "${modules[@]:-}"; do
     [[ -n $module ]] || continue
     if [[ $module == generated/* ]]; then
@@ -469,9 +492,6 @@ if ((${#modules[@]})); then
 fi
 if [[ $proto == true || $mib == true ]]; then
   required_tools+=(go)
-fi
-if [[ $proto == true ]]; then
-  required_tools+=(buf)
 fi
 if [[ $hook_tooling == true ]]; then
   required_tools+=(jq shellcheck go)
@@ -756,15 +776,18 @@ for dep in "${dependent_modules[@]:-}"; do
 done
 
 if [[ $proto == true ]]; then
-  need_tool buf
+  if [[ $buf_module == true ]]; then
+    run go -C tools/buf mod verify
+  fi
+  buf_cmd=(go tool "-modfile=$root/tools/buf/go.mod" buf)
   proto_path_args=()
-  if [[ $full == false && ${#proto_files[@]} -gt 0 ]]; then
+  if [[ $full == false && $buf_module == false && ${#proto_files[@]} -gt 0 ]]; then
     for proto_file in "${proto_files[@]}"; do
       proto_path_args+=(--path "$proto_file")
     done
   fi
-  run buf format -d --exit-code ${proto_path_args[@]+"${proto_path_args[@]}"}
-  run buf lint ${proto_path_args[@]+"${proto_path_args[@]}"}
+  run "${buf_cmd[@]}" format -d --exit-code ${proto_path_args[@]+"${proto_path_args[@]}"}
+  run "${buf_cmd[@]}" lint ${proto_path_args[@]+"${proto_path_args[@]}"}
   # The integration branch is main; master is accepted for a checkout that
   # still carries the old name. Neither resolving is a failed gate: this
   # block once looked for master alone and fell through in silence, so
@@ -777,7 +800,7 @@ if [[ $proto == true ]]; then
     fi
   done
   if [[ -z $integration_branch ]]; then
-    echo "buf breaking needs a main (or master) branch to compare against, and neither exists." >&2
+    echo "the breaking gate needs a main (or master) branch to compare against, and neither exists." >&2
     exit 1
   fi
   # --path names files in the against-ref. A file the branch added is
@@ -792,15 +815,15 @@ if [[ $proto == true ]]; then
       breaking_path_args+=(--path "$proto_file")
     fi
   done
-  if [[ $full == true || $proto_deleted == true || ${#proto_files[@]} -eq 0 ]]; then
-    run buf breaking --against ".git#branch=$integration_branch"
+  if [[ $full == true || $buf_module == true || $proto_deleted == true || ${#proto_files[@]} -eq 0 ]]; then
+    run "${buf_cmd[@]}" breaking --against ".git#branch=$integration_branch"
   elif ((${#breaking_path_args[@]})); then
-    run buf breaking --against ".git#branch=$integration_branch" "${breaking_path_args[@]}"
+    run "${buf_cmd[@]}" breaking --against ".git#branch=$integration_branch" "${breaking_path_args[@]}"
   else
-    echo "buf breaking skipped: every changed .proto file is new on this branch."
+    echo "breaking skipped: every changed .proto file is new on this branch."
   fi
   generated_dir=$build_dir/generated
-  run buf generate -o "$generated_dir"
+  run "${buf_cmd[@]}" generate -o "$generated_dir"
   run diff -qr generated/go/proto "$generated_dir/generated/go/proto"
   if [[ -d frontend/web/generated || -d $generated_dir/frontend/web/generated ]]; then
     run diff -qr frontend/web/generated "$generated_dir/frontend/web/generated"

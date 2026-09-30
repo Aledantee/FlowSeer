@@ -21,7 +21,7 @@ const readKey = "0192e6a0-0000-7000-8000-00000000a002"
 func laneRecord() storev1.DeviceLaneRecord_builder {
 	return storev1.DeviceLaneRecord_builder{
 		Device:        deviceRef(deviceID),
-		HighWatermark: 42,
+		HighWatermark: proto.Uint64(42),
 	}
 }
 
@@ -29,8 +29,8 @@ func openLaneRecord() storev1.DeviceLaneRecord_builder {
 	record := laneRecord()
 	record.Mutation = mutationState(accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED).Build()
 	record.AdmittedAt = timestamppb.New(edgeIssuedAt)
-	record.Dispatched = true
-	record.DispatchConfirmed = true
+	record.Dispatched = proto.Bool(true)
+	record.DispatchConfirmed = proto.Bool(true)
 	record.LastReportedPhase = accessv1.OperationPhase_OPERATION_PHASE_ADMITTED.Enum()
 	return record
 }
@@ -43,7 +43,7 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 	timeWithoutMutation.AdmittedAt = timestamppb.New(edgeIssuedAt)
 
 	confirmedWithoutMutation := laneRecord()
-	confirmedWithoutMutation.DispatchConfirmed = true
+	confirmedWithoutMutation.DispatchConfirmed = proto.Bool(true)
 
 	phaseWithoutMutation := laneRecord()
 	phaseWithoutMutation.LastReportedPhase = accessv1.OperationPhase_OPERATION_PHASE_ADMITTED.Enum()
@@ -78,10 +78,10 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 	}
 
 	dispatchedWithoutMutation := laneRecord()
-	dispatchedWithoutMutation.Dispatched = true
+	dispatchedWithoutMutation.Dispatched = proto.Bool(true)
 
 	checkpointWithoutMutation := laneRecord()
-	checkpointWithoutMutation.CheckpointConfirmed = true
+	checkpointWithoutMutation.CheckpointConfirmed = proto.Bool(true)
 
 	zeroPhase := openLaneRecord()
 	zeroPhase.LastReportedPhase = accessv1.OperationPhase_OPERATION_PHASE_UNSPECIFIED.Enum()
@@ -99,7 +99,7 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 	holdPastWatermark.HoldResolutionPending = []uint64{43}
 
 	sequencePastWatermark := openLaneRecord()
-	sequencePastWatermark.HighWatermark = 6
+	sequencePastWatermark.HighWatermark = proto.Uint64(6)
 
 	readPastWatermark := laneRecord()
 	readPastWatermark.OpenReads = map[string]*storev1.OpenRead{
@@ -110,7 +110,7 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 			IdempotencyKey: proto.String(readKey),
 		}.Build(),
 	}
-	readPastWatermark.HighWatermark = 7
+	readPastWatermark.HighWatermark = proto.Uint64(7)
 
 	runValidationCases(t, []validationCase{
 		{name: "free lane is valid", message: laneRecord().Build(), wantValid: true},
@@ -130,7 +130,7 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 		{name: "reported phase without a mutation is rejected", message: phaseWithoutMutation.Build()},
 		{name: "open reads and expectations are valid", message: withReads.Build(), wantValid: true},
 		{name: "open read with an empty interface key is rejected", message: badReadKey.Build()},
-		{name: "device is required", message: storev1.DeviceLaneRecord_builder{HighWatermark: 1}.Build()},
+		{name: "device is required", message: storev1.DeviceLaneRecord_builder{HighWatermark: proto.Uint64(1)}.Build()},
 	})
 }
 

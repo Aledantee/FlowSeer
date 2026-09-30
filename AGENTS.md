@@ -41,7 +41,7 @@ Binding on humans and agents equally; each doc states its own scope.
 ## Hard boundaries
 
 - `spec/proto/` contains only `.proto` files and package-boundary `README.md`
-  files. Enforce schema rules through `buf lint`, not executable tests.
+  files. Enforce schema rules through `go tool -modfile=tools/buf/go.mod buf lint`, not executable tests.
 - Never add an exclusion, ignore, suppression, or hook exception to make your own
   artifacts pass; request the policy change explicitly and separately.
 - `AGENTS.md`, `buf.yaml`, `tools/hooks/`, `.claude/settings.json`,
@@ -123,6 +123,15 @@ no remote. The Claude worktree hook defaults to the sibling
 
 - State the leading hypothesis, alternatives, and a discriminating test before
   claiming a root cause; cite the evidence before editing.
+- Research before asserting how anything outside the repository behaves (a
+  library, protocol, standard, vendor API or device, tool release). Read
+  its source and cite it: `~/go/pkg/mod` at the `go.mod` version, a
+  vendored spec under `spec/`, a fetched RFC or page, or a capture. A claim
+  you cannot check says "unverified". Memory, a project's name, a summary,
+  the latest upstream release, and a double that shares the author's belief
+  (our own decoder, a lenient peer such as FRR, a fixture authored from the
+  same document) are not sources. Plans, briefs, code, and reviews all
+  follow this rule. Each workflow skill names what it does at its stage.
 - Before a live-device write or a mutation over 10,000 records, state the blast
   radius and wait for explicit approval.
 

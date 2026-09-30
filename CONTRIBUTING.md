@@ -14,7 +14,7 @@ You need Go 1.27. Everything else depends on what you touch:
 | If you change | You also need |
 | --- | --- |
 | Go code | `golangci-lint` v2 (lint and formatting gate) |
-| `spec/proto/` | Buf v2 |
+| `spec/proto/` | the pinned Buf CLI in `tools/buf/go.mod` |
 | `frontend/web/` | Node 22.12 or newer, pnpm 11.25.0 |
 | integration suites that start real targets | Docker |
 
@@ -75,10 +75,10 @@ usually "an existing one".
 Some boundaries are enforced by hooks and tests rather than by review:
 
 - `generated/` and `buf.lock` are never hand-edited. Change the schema or the
-  generator input and regenerate: `buf generate` for protobuf, `go generate .`
+  generator input and regenerate: `go tool -modfile=tools/buf/go.mod buf generate` for protobuf, `go generate .`
   from the repository root for the SNMP MIB bindings.
 - `spec/proto/` holds `.proto` files and package-boundary `README.md` files.
-  Schema rules are enforced through `buf lint`, never through executable tests.
+  Schema rules are enforced through `go tool -modfile=tools/buf/go.mod buf lint`, never through executable tests.
 - Protocol and common libraries carry no FlowSeer domain types. Keep the
   direction of dependency pointing away from them.
 - Do not add an exclusion, ignore, suppression, or hook exception so that your

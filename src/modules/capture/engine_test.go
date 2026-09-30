@@ -96,6 +96,11 @@ func TestEngine_BudgetStopsAtPacketCount(t *testing.T) {
 		total += len(b.Records)
 		if b.Final {
 			sawFinal = true
+			if got := b.StopReason; got != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT {
+				t.Errorf("final batch stop reason = %v, want PACKET_COUNT", got)
+			}
+		} else if b.StopReason != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_UNSPECIFIED {
+			t.Errorf("non-final batch stop reason = %v, want UNSPECIFIED", b.StopReason)
 		}
 	}
 	if total != 100 {
@@ -153,6 +158,11 @@ func TestEngine_AttributableLoss(t *testing.T) {
 	first := batches[0]
 	if first.FirstSequence == 0 {
 		t.Fatalf("first delivered batch starts at sequence 0: nothing was evicted, so this test proves nothing; increase totalFrames or shrink pumpBuffer")
+	}
+	for i, batch := range batches {
+		if !batch.Final && batch.StopReason != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_UNSPECIFIED {
+			t.Errorf("non-final batch %d stop reason = %v, want UNSPECIFIED", i, batch.StopReason)
+		}
 	}
 
 	final := e.State()
@@ -297,6 +307,27 @@ func TestEngine_MirrorReceiverOmitsInterfaceDropsCounter(t *testing.T) {
 	}
 }
 
+func TestEngine_ByteBoundWinsOverDuration(t *testing.T) {
+	src := newFakeSource(1)
+	src.frames <- testFrame(1)
+	budget := &modelcapturev1.CaptureBudget{}
+	budget.SetMaxBytes(14)
+	budget.SetMaxDuration(durationpb.New(time.Hour))
+
+	e := newEngine(src, budget, true)
+	p, err := e.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	batches := drainAll(p)
+	if len(batches) != 1 || !batches[0].Final {
+		t.Fatalf("batches = %+v, want one final batch", batches)
+	}
+	if got := batches[0].StopReason; got != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_BYTE_COUNT {
+		t.Errorf("final batch stop reason = %v, want BYTE_COUNT", got)
+	}
+}
+
 // TestEngine_LocalInterfaceReportsInterfaceDropsCounter is the converse of
 // TestEngine_MirrorReceiverOmitsInterfaceDropsCounter: a source that does
 // report a real counter always sets dropped_by_interface_packets, even when
@@ -341,7 +372,20 @@ func TestEngine_DurationStopDrainsQueuedFrames(t *testing.T) {
 		t.Fatalf("Run: %v", err)
 	}
 	<-src.closed
-	_ = drainAll(p)
+	batches := drainAll(p)
+	sawFinal := false
+	for _, batch := range batches {
+		if !batch.Final {
+			continue
+		}
+		sawFinal = true
+		if batch.StopReason != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_DURATION {
+			t.Errorf("final batch stop reason = %v, want DURATION", batch.StopReason)
+		}
+	}
+	if !sawFinal {
+		t.Fatal("no final batch delivered")
+	}
 
 	final := e.State()
 	if final.StopReason != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_DURATION {
@@ -396,7 +440,13 @@ func TestEngine_ContextCancelIsOperatorAndCanceled(t *testing.T) {
 
 	cancel()
 	<-src.closed
-	_ = drainAll(p)
+	batches := drainAll(p)
+	if len(batches) == 0 {
+		t.Fatal("drainAll returned no batches, want the final operator-stop batch")
+	}
+	if got := batches[len(batches)-1].StopReason; got != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
+		t.Errorf("final batch stop reason = %v, want OPERATOR", got)
+	}
 
 	final := e.State()
 	if final.StopReason != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
@@ -539,12 +589,9 @@ func TestNewWithSource(t *testing.T) {
 	}
 }
 
-// TestEngine_FailedRunDeliversNoFinalBatch proves a run the source killed
-// off leaves Final unset on every batch it delivered. A host uploading these
-// batches turns Final into "the capture finished"; a receiver reads a final
-// chunk as a completed session and derives a stop reason from the budget, so
-// marking the trailing batch of a failed run Final would record a capture
-// that died on its first packet as one that completed its hundred.
+// TestEngine_FailedRunDeliversNoFinalBatch proves a failed run has no final
+// batch. A final batch tells the receiver the capture ended with a budget or
+// operator reason rather than a failure.
 func TestEngine_FailedRunDeliversNoFinalBatch(t *testing.T) {
 	src := newFakeSource(4)
 	src.frames <- testFrame(0xaa)
@@ -561,6 +608,9 @@ func TestEngine_FailedRunDeliversNoFinalBatch(t *testing.T) {
 	for i, b := range batches {
 		if b.Final {
 			t.Errorf("batch %d of a failed run is marked Final", i)
+		}
+		if b.StopReason != modelcapturev1.CaptureStopReason_CAPTURE_STOP_REASON_UNSPECIFIED {
+			t.Errorf("batch %d of a failed run has stop reason %v", i, b.StopReason)
 		}
 	}
 	if p.Err() == nil {
