@@ -53,7 +53,9 @@ store the journal writes into.
 If the server refuses an edge account because its budget does not fit under
 the store ceiling, `AttachEdge` returns an `edgebus/storage` error naming the
 edge budget and the ceiling. Other wait and stream-setup failures retain
-`edgebus/hub`.
+`edgebus/hub`. The attach holds the hub's read lock from account connection
+through the JetStream flag read, so `Close` cannot clear that flag during the
+decision.
 
 ## Subjects and streams
 

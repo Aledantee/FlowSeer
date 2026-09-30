@@ -1,19 +1,20 @@
-package edgebus_test
+package edgebus
 
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
-	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
-func startStorageTestHub(t *testing.T, edgeStreamMaxBytes int64) *edgebus.Hub {
+func startStorageTestHub(t *testing.T, edgeStreamMaxBytes int64) *Hub {
 	t.Helper()
-	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+	hub, err := StartHub(context.Background(), HubConfig{
 		StateDir:           t.TempDir(),
 		FsyncPolicy:        service.BusFsyncPeriodic,
 		MaxStoreBytes:      640 << 20,
@@ -43,8 +44,8 @@ func TestAttachEdgeRefusedPastStoreCeiling(t *testing.T) {
 	if !strings.Contains(strings.ToLower(err.Error()), "storage") {
 		t.Fatalf("second edge attach error %q does not contain storage", err.Error())
 	}
-	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodeStorage {
-		t.Fatalf("second edge attach error code = %q, want %q", code, edgebus.ErrCodeStorage)
+	if code, ok := errs.CodeOf(err); !ok || code != ErrCodeStorage {
+		t.Fatalf("second edge attach error code = %q, want %q", code, ErrCodeStorage)
 	}
 }
 
@@ -76,8 +77,8 @@ func TestAttachEdgeRefusedPastStoreCeilingAfterFailedAttach(t *testing.T) {
 			if firstErr == nil {
 				t.Fatal("first edge attach succeeded with a stream larger than its account budget")
 			}
-			if code, ok := errs.CodeOf(firstErr); !ok || code != edgebus.ErrCodeHub {
-				t.Fatalf("first edge attach error code = %q, want %q", code, edgebus.ErrCodeHub)
+			if code, ok := errs.CodeOf(firstErr); !ok || code != ErrCodeHub {
+				t.Fatalf("first edge attach error code = %q, want %q", code, ErrCodeHub)
 			}
 			if !strings.Contains(strings.ToLower(firstErr.Error()), "storage") {
 				t.Fatalf("first edge attach error %q does not contain storage", firstErr.Error())
@@ -92,8 +93,8 @@ func TestAttachEdgeRefusedPastStoreCeilingAfterFailedAttach(t *testing.T) {
 			if !strings.Contains(strings.ToLower(secondErr.Error()), "storage") {
 				t.Fatalf("second edge attach error %q does not contain storage", secondErr.Error())
 			}
-			if code, ok := errs.CodeOf(secondErr); !ok || code != edgebus.ErrCodeStorage {
-				t.Fatalf("second edge attach error code = %q, want %q", code, edgebus.ErrCodeStorage)
+			if code, ok := errs.CodeOf(secondErr); !ok || code != ErrCodeStorage {
+				t.Fatalf("second edge attach error code = %q, want %q", code, ErrCodeStorage)
 			}
 		})
 	}
@@ -111,8 +112,8 @@ func TestAttachEdgeCanceledOnFreshHubIsNotStorage(t *testing.T) {
 	if strings.Contains(strings.ToLower(err.Error()), "storage") {
 		t.Fatalf("canceled edge attach error %q incorrectly names storage", err.Error())
 	}
-	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodeHub {
-		t.Fatalf("canceled edge attach error code = %q, want %q", code, edgebus.ErrCodeHub)
+	if code, ok := errs.CodeOf(err); !ok || code != ErrCodeHub {
+		t.Fatalf("canceled edge attach error code = %q, want %q", code, ErrCodeHub)
 	}
 
 	if err := hub.AttachEdge(context.Background(), "0192e6a0-0000-7000-8000-000000000001"); err != nil {
@@ -127,8 +128,8 @@ func TestAttachEdgeRetryAfterFailedStreamSetupIsNotStorage(t *testing.T) {
 	if err == nil {
 		t.Fatal("edge attach succeeded with a stream larger than its account budget")
 	}
-	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodeHub {
-		t.Fatalf("failed stream setup error code = %q, want %q", code, edgebus.ErrCodeHub)
+	if code, ok := errs.CodeOf(err); !ok || code != ErrCodeHub {
+		t.Fatalf("failed stream setup error code = %q, want %q", code, ErrCodeHub)
 	}
 	if !strings.Contains(strings.ToLower(err.Error()), "storage") {
 		t.Fatalf("failed stream setup error %q does not contain storage", err.Error())
@@ -143,7 +144,53 @@ func TestAttachEdgeRetryAfterFailedStreamSetupIsNotStorage(t *testing.T) {
 	if strings.Contains(strings.ToLower(err.Error()), "storage") {
 		t.Fatalf("retry edge attach error %q incorrectly names storage", err.Error())
 	}
-	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodeHub {
-		t.Fatalf("retry edge attach error code = %q, want %q", code, edgebus.ErrCodeHub)
+	if code, ok := errs.CodeOf(err); !ok || code != ErrCodeHub {
+		t.Fatalf("retry edge attach error code = %q, want %q", code, ErrCodeHub)
 	}
+}
+
+func TestAttachEdgeCloseRaceStillNamesStorage(t *testing.T) {
+	hub := startStorageTestHub(t, 0)
+	if err := hub.AttachEdge(context.Background(), "0192e6a0-0000-7000-8000-000000000001"); err != nil {
+		t.Fatalf("first edge attach: %v", err)
+	}
+
+	connected := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseHook := func() { releaseOnce.Do(func() { close(release) }) }
+	t.Cleanup(releaseHook)
+	hub.edgeAccountConnectHook = func() {
+		close(connected)
+		<-release
+	}
+
+	attachDone := make(chan error, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	spawn.Go(ctx, "test edge attach", func() {
+		attachDone <- hub.AttachEdge(ctx, "0192e6a0-0000-7000-8000-000000000002")
+	})
+	<-connected
+
+	closeStarted := make(chan struct{})
+	closeDone := make(chan struct{})
+	spawn.Go(context.Background(), "test hub close", func() {
+		close(closeStarted)
+		hub.Close()
+		close(closeDone)
+	})
+	<-closeStarted
+	select {
+	case <-closeDone:
+		t.Fatal("Hub.Close returned while attach held the account read lock")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	releaseHook()
+	err := <-attachDone
+	if code, ok := errs.CodeOf(err); !ok || code != ErrCodeStorage {
+		t.Fatalf("racing attach error code = %q, want %q", code, ErrCodeStorage)
+	}
+	<-closeDone
 }

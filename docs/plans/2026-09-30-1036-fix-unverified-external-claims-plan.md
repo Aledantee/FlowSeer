@@ -4,16 +4,16 @@ type: fix
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: partially-implemented
+status: implemented
 review: rework
 execution: mixed
 ---
 
 # Unverified External Claims - Plan
 
-> Partially implemented. U1 to U7 and U9 are implemented and verified; U7
-> passed guardrail review (5f19ebeb). U8 reopens for the lock that removes
-> the `Hub.Close` exception from Requirement 12.
+> Implemented. 9 units, 2026-09-30T09:32:43Z to 2026-09-30T15:23:16Z. U8
+> now serializes account enablement with `Hub.Close` through the JetStream
+> flag read and covers the race with a deterministic test.
 
 ## Goal
 
@@ -193,11 +193,11 @@ reproduce main byte for byte first.
   (`jetstream.go:854-857`). What remains is a server that is shutting
   down (`jetstream.go:1181-1207`), and shutdown clears every account's
   JetStream (`jetstream.go:1072-1074`, reached from `server.go:2611`).
-  `Close` sets `h.closed` before it calls `srv.Shutdown`
-  (`hub.go:593,606`), so the hub reads `closed` after the flag. An open
-  hub at that read means a false flag was a refusal. A failed lookup
-  cannot happen either, since a live server keeps every authenticated
-  account registered (`server.go:2217`).
+  `Close` takes the hub mutex for writing before it sets `h.closed` and calls
+  `srv.Shutdown`. The attach holds the same mutex for reading from before
+  `connectAccount` through the account flag read, so shutdown cannot clear the
+  flag during the decision. A failed lookup cannot happen either, since a live
+  server keeps every authenticated account registered (`server.go:2217`).
 - **No exception to the storage rule: the attach holds off `Close` from
   the connect through the flag read.** The attach holds a read lock on a
   hub mutex from before the connect until after the flag read, and
@@ -589,14 +589,15 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills
 Files: src/modules/edgebus/hub.go, src/modules/edgebus/storage_test.go, src/modules/edgebus/README.md, docs/solutions/architecture-patterns/per-account-jetstream-disk-budgets-reserve-against-the-server-store-ceiling.md
 After: U6
 Change: `hub.go` declares `ErrCodeStorage = errs.NewCode("edgebus/storage")`
-beside `ErrCodeHub` (`:23-24`), with a doc comment saying it marks an edge
+beside `ErrCodeHub` (`:23-28`), with a doc comment saying it marks an edge
 attach the server refused because the edge account's budget does not fit
-under the store ceiling. After `connectAccount` returns (`:431`) and
-before `waitForJetStream` (`:439`), `ensureEdgeAccount` looks the account
-up with `srv.LookupAccount(pub)`, reads `JetStreamEnabled()`, and then
-reads `h.closed` under `h.mu`, in that order (Decisions). It records the
-account as refused when the lookup succeeds, the flag is false, and the
-hub is open. When the wait fails, an account not recorded as refused
+under the store ceiling. Before `connectAccount` (`:440`),
+`ensureEdgeAccount` takes the hub mutex for reading and holds it through
+`srv.LookupAccount(pub)` and `JetStreamEnabled()` (`:447-451`). `Close` takes
+the mutex for writing before it calls `srv.Shutdown`, so shutdown cannot clear
+the account flag between connect and read (Decisions). A successful lookup
+with a false flag records the account as refused. When the wait fails, an
+account not recorded as refused
 returns the existing `wait for the edge account JetStream` error with
 `ErrCodeHub`, and a refused one returns `errs.From(err).Code(ErrCodeStorage)` with
 the `edge`, `ceiling_bytes`, `central_budget_bytes`, and
@@ -604,33 +605,30 @@ the `edge`, `ceiling_bytes`, `central_budget_bytes`, and
 `srv.JetStreamConfig().MaxStore` and left out when that returns nil. Its
 message starts with "storage limit exceeded" and names the edge budget
 and the ceiling, and no edge count. The `JetStreamNumAccounts` arithmetic
-and its comment (`:441-466`) go. A two-line comment at the flag read says
-that the server enables the account during CONNECT, so a false flag on an
-open hub is a refusal. The `waitForJetStream` doc (`:295-297`) and the
-comment at `:437-438` drop the claim that JetStream is provisioned a beat
-after the first connection. The wait itself stays (Open questions).
-`README.md:45-51` adds that an attach the server
+and its comment go. A two-line comment at the flag read says that the server
+enables the account during CONNECT, so a false flag is a refusal. The
+`waitForJetStream` doc (`:299-300`) drops the claim that JetStream is
+provisioned a beat after the first connection. The wait itself stays (Open
+questions). `README.md:53-59` adds that an attach the server
 refuses returns `edgebus/storage`. In the solution doc:
 - the `symptoms` entry at `:11` names `edgebus/storage` in place of
   `ErrCodeHub`, and `root_cause` (`:14`) cites `sufficientResources` at
   `server/jetstream.go:2629-2684`
-- `:101-131` describe the lookup and the flag with the enablement chain
-  and the shutdown order under Decisions, and drop the claim at
-  `:108-110` that the arithmetic makes the refusal certain
-- the message shape at `:113-115` and the example at `:230-236` quote the
+- `:101-128` describe the lookup and the flag with the enablement chain
+  and the shutdown order under Decisions
+- the message shape at `:115-117` and the example at `:234-240` quote the
   error `TestAttachEdgeRefusedPastStoreCeiling` returns
-- `:163-169` say "account budget sum" where they say "account count", and
-  "Why This Matters" (`:179-186`) says the hub asks the server
+- `:160-187` says "account budget sum" where it says "account count", and
+  explains in "Why This Matters" that the hub asks the server
 - every `hub.go`, `keys.go`, and `storage_test.go` line cite is re-read
-  after the change. Three are wrong today: `defaultCentralBudget` and
-  `defaultEdgeBudget` sit at `hub.go:120-121`, not `:121-122` (`:157`),
-  `quietLogger.record` at `:650-664`, not `:651-664` (`:185`), and the
-  snippet quoted under `keys.go:237-247` (`:37`) is `keys.go:244-251`.
+  after the change: the budget constants are at `hub.go:126-127`,
+  `quietLogger.record` is at `hub.go:651-664`, and the account JWT snippet
+  is at `keys.go:244-251`
 Tests: in `storage_test.go`, each case on a hub with `MaxStoreBytes`
 640 MiB, `CentralBudgetBytes` 512 MiB, and `EdgeBudgetBytes` 128 MiB:
-- `TestAttachEdgeRefusedPastStoreCeiling` (`:12-37`) also asserts that
+- `TestAttachEdgeRefusedPastStoreCeiling` (`:32-49`) also asserts that
   `errs.CodeOf` of the second edge's error is `edgebus.ErrCodeStorage`.
-- `TestAttachEdgeRefusedPastStoreCeilingAfterFailedAttach` (`:39-67`)
+- `TestAttachEdgeRefusedPastStoreCeilingAfterFailedAttach` (`:52-100`)
   runs the second edge under a canceled context and under a 50 ms
   deadline, a fresh hub each, and both return `ErrCodeStorage`. The first
   edge's error, from stream setup, carries `ErrCodeHub` although its
@@ -639,18 +637,17 @@ Tests: in `storage_test.go`, each case on a hub with `MaxStoreBytes`
   fresh hub under a canceled context. The error carries `ErrCodeHub` and
   its text lacks "storage". A second
   `AttachEdge` for A with `context.Background()` succeeds, which proves
-  the server had enabled the account. Before the change this test fails,
-  since `hub.go:452-456` reads 512 + 2 × 128 MiB.
+  the server had enabled the account.
 - `TestAttachEdgeRetryAfterFailedStreamSetupIsNotStorage` sets
   `EdgeStreamMaxBytes` to 256 MiB, so edge A's first attach fails in
-  stream setup after its wait succeeded (`hub.go:439,469`).
+  stream setup after its wait succeeded (`hub.go:453,469`).
   A retry of A under a canceled context returns `ErrCodeHub` without
   "storage". Before the change it names storage.
 The lock added by the "No exception to the storage rule" Decision gets a
-test: `Close` started while an attach holds the read lock blocks until the
-flag read completes (a test hook or a held lock makes the order
-deterministic), and a refused attach in that window still returns
-`edgebus/storage`. A server that stops on its own stays outside the rule.
+test at `storage_test.go:152-196`: `Close` starts while an attach holds the
+read lock, blocks until the flag read completes, and the refused attach still
+returns `edgebus/storage`. A server that stops on its own stays outside the
+rule.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/edgebus/ docs/solutions/architecture-patterns/per-account-jetstream-disk-budgets-reserve-against-the-server-store-ceiling.md`
 
 ### U9. Link only the rule package capture validation reaches

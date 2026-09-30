@@ -96,10 +96,12 @@ type Hub struct {
 	central   *nats.Conn
 	centralJS jetstream.JetStream
 
-	mu       sync.Mutex // guards edges and closed
-	attachMu sync.Mutex // serializes edge-account construction
-	edges    map[string]*edgeAccount
-	closed   bool
+	mu       sync.RWMutex // guards edges and closed, and serializes account enablement with shutdown
+	attachMu sync.Mutex   // serializes edge-account construction
+	// edgeAccountConnectHook pauses the connect boundary in package tests.
+	edgeAccountConnectHook func()
+	edges                  map[string]*edgeAccount
+	closed                 bool
 }
 
 // edgeAccount is central's own handle on one edge's account: the connection
@@ -297,7 +299,7 @@ func (h *Hub) connectAccount(srv *server.Server, account nkeys.KeyPair, accountJ
 }
 
 // waitForJetStream blocks until the account's JetStream answers an account
-// info request or the context ends, so stream creation sees a live API.
+// info request or the context ends.
 func waitForJetStream(ctx context.Context, js jetstream.JetStream) error {
 	deadline := time.Now().Add(10 * time.Second)
 	for {
@@ -383,7 +385,7 @@ func (h *Hub) ListenPort() int { return h.opts.Websocket.Port }
 // into it, and its source stream, once. Every per-edge structure hangs off
 // it: the account is the isolation boundary, so one edge's
 // reflection can address nothing but its own subjects. Serialized against
-// concurrent attaches and against Close.
+// concurrent attaches, with account enablement ordered against Close.
 func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccount, error) {
 	// Before anything is written or named. An id with a separator escapes
 	// the keys directory; one with a dot, a wildcard or whitespace is
@@ -431,21 +433,22 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccoun
 	if err := h.resolver.Store(pub, accountJWT); err != nil {
 		return nil, errs.From(err).Code(ErrCodeHub).Attr("edge", edgeID).Msg("store edge account claims")
 	}
+	h.mu.RLock()
+	if h.edgeAccountConnectHook != nil {
+		h.edgeAccountConnectHook()
+	}
 	conn, js, err := h.connectAccount(srv, key, accountJWT, "edge-"+edgeID)
 	if err != nil {
+		h.mu.RUnlock()
 		return nil, err
 	}
 	ea := &edgeAccount{conn: conn, js: js, accountJWT: accountJWT, key: key}
 
-	refused := false
 	account, lookupErr := srv.LookupAccount(pub)
-	if lookupErr == nil && !account.JetStreamEnabled() {
-		// CONNECT enables JetStream for the authenticated account before it
-		// returns. A disabled account on an open hub was refused by the server.
-		h.mu.Lock()
-		refused = !h.closed
-		h.mu.Unlock()
-	}
+	// CONNECT enables JetStream for the authenticated account before it
+	// returns. A disabled account here was refused by the server.
+	refused := lookupErr == nil && !account.JetStreamEnabled()
+	h.mu.RUnlock()
 
 	if err := waitForJetStream(ctx, js); err != nil {
 		conn.Close()
@@ -580,7 +583,9 @@ func (h *Hub) LeafCount() int {
 }
 
 // Close closes central's connections and stops the server, waiting for its
-// shutdown. Safe to call more than once.
+// shutdown. It holds the write lock while initiating shutdown so account
+// enablement cannot race the server clearing JetStream state. Safe to call more
+// than once.
 func (h *Hub) Close() {
 	h.mu.Lock()
 	if h.closed {
@@ -591,7 +596,6 @@ func (h *Hub) Close() {
 	central, srv := h.central, h.server
 	edges := h.edges
 	h.edges = map[string]*edgeAccount{}
-	h.mu.Unlock()
 
 	for _, ea := range edges {
 		ea.conn.Close()
@@ -601,6 +605,9 @@ func (h *Hub) Close() {
 	}
 	if srv != nil {
 		srv.Shutdown()
+	}
+	h.mu.Unlock()
+	if srv != nil {
 		srv.WaitForShutdown()
 	}
 }

@@ -49,7 +49,7 @@ if diskBytes > 0 {
 
 The server-wide ceiling is set once, from `HubConfig.MaxStoreBytes`
 (`src/modules/edgebus/hub.go:46-52`), and `StartHub` records how account budgets
-reserve against it (`src/modules/edgebus/hub.go:151-156`):
+reserve against it (`src/modules/edgebus/hub.go:153-158`):
 
 ```go
 // JetStreamMaxStore is the server store ceiling. Zero is finalized once
@@ -100,15 +100,17 @@ exists and authenticates, but any JetStream request inside it returns
 
 In edgebus, `ensureEdgeAccount` looks up the account immediately after
 `connectAccount` and reads `Account.JetStreamEnabled`
-(`src/modules/edgebus/hub.go:434-448`). CONNECT enables JetStream for the
+(`src/modules/edgebus/hub.go:447-451`). CONNECT enables JetStream for the
 authenticated account before it returns. A successful lookup with a false
-flag on an open hub therefore records a server refusal. When the wait then
+flag therefore records a server refusal. When the wait then
 fails, the hub returns `ErrCodeStorage` with the `edge`,
 `central_budget_bytes`, and `edge_budget_bytes` attributes, plus
 `ceiling_bytes` when `srv.JetStreamConfig()` is non-nil
-(`src/modules/edgebus/hub.go:450-464`). A lookup failure, an enabled account,
-or a hub that closed between the connect and the flag read keeps
-`ErrCodeHub`. `errs.From(err)` keeps the wait error in the returned chain.
+(`src/modules/edgebus/hub.go:453-467`). A lookup failure, an enabled account,
+or a connection failure keeps `ErrCodeHub`. The attach holds the hub's read
+lock from `connectAccount` through the flag read, and `Close` takes the write
+lock before shutdown. This prevents shutdown from clearing the flag during the
+decision. `errs.From(err)` keeps the wait error in the returned chain.
 
 ```go
 storage limit exceeded: edge budget <edge> B does not fit under store ceiling <ceiling> B
@@ -118,9 +120,10 @@ The hub does not pre-check the budget sum before attempting to attach. The
 server owns the account-enable decision, so the hub checks the flag on the
 account it just connected. A failed stream setup leaves that account enabled
 even though `h.edges` does not contain it. A retry therefore reports the wait
-failure as `ErrCodeHub`, not storage. A hub close between the connect and the
-flag read also leaves the refusal ambiguous, so the attach keeps `ErrCodeHub`.
-The wait remains because the account API must answer before stream creation.
+failure as `ErrCodeHub`, not storage. The attach's read lock prevents
+`Hub.Close` from shutting down the server between the connect and the flag
+read. The wait remains after the flag read for the account API to become usable
+before stream creation.
 `StartHub` waits for server readiness before it connects the central account or
 re-attaches persisted edges (`src/modules/edgebus/hub.go:238-256`).
 
@@ -148,7 +151,7 @@ Three operational rules follow:
 
 **Budgets are additive against the ceiling, so the arithmetic must leave room
 for the next account.** The hub's defaults are `defaultCentralBudget` at 512 MiB
-and `defaultEdgeBudget` at 128 MiB per edge (`src/modules/edgebus/hub.go:124-125`). A hub configured
+and `defaultEdgeBudget` at 128 MiB per edge (`src/modules/edgebus/hub.go:126-127`). A hub configured
 with `MaxStoreBytes: 640 << 20` has room for exactly one edge: 512 + 128 reaches
 the ceiling without crossing it, and another edge's 128 MiB does not fit under
 the remaining capacity. Any configured ceiling must cover the central budget
@@ -156,31 +159,33 @@ plus the per-edge budget times the largest edge count the deployment expects.
 
 **The refusal belongs to the account the server just checked.** The hub reads
 that account's `JetStreamEnabled` flag instead of inferring refusal from
-`h.edges` or an account count (`src/modules/edgebus/hub.go:440-464`). A failed
+`h.edges` or an account count (`src/modules/edgebus/hub.go:447-467`). A failed
 stream setup leaves the account enabled even though it is not inserted into
 `h.edges`, so a retry is a hub wait failure rather than a storage refusal
-(`src/modules/edgebus/storage_test.go:123-148`).
+(`src/modules/edgebus/storage_test.go:124-149`).
 
 **A fresh canceled attach must not find it.** One edge plus central fits under
 the 640 MiB ceiling, so a canceled attach on a fresh hub reports `ErrCodeHub`
 and a retry succeeds. The refusal boundary and the failed-attach reservation
-case are covered at `src/modules/edgebus/storage_test.go:31-100`. The fresh
-hub and retry cases are covered at `src/modules/edgebus/storage_test.go:102-148`.
+case are covered at `src/modules/edgebus/storage_test.go:32-100`. The fresh
+hub and retry cases are covered at `src/modules/edgebus/storage_test.go:103-149`.
+The close race is covered at `src/modules/edgebus/storage_test.go:152-196`.
 
 ## Why This Matters
 
 Without inspecting the account's `JetStreamEnabled` flag after `CONNECT`, an
 account budget refusal appears as a generic "jetstream not enabled" error. The
-hub uses that flag, together with a successful account lookup and an open hub,
+hub uses that flag together with a successful account lookup
 to identify a server refusal. `srv.JetStreamConfig().MaxStore` supplies the
 ceiling value in the resulting message. The underlying cause is an arithmetic
 budget ceiling rather than credential or resolver issues.
 
 The server's internal refusal log ("insufficient storage resources available")
 is captured by `quietLogger` and forwarded to `HubConfig.Logger`
-(`src/modules/edgebus/hub.go:647-667`). By checking the account's enablement
+(`src/modules/edgebus/hub.go:651-664`). By checking the account's enablement
 flag, `AttachEdge` reports the storage limit only when the server refused that
-account.
+account. The attach and `Hub.Close` share the hub mutex, so shutdown cannot
+clear the flag between `connectAccount` and the lookup.
 
 ## When to Apply
 
@@ -190,7 +195,7 @@ account.
 - Diagnosing `jetstream not enabled` or storage limit errors on a hub account:
   check the account's enablement flag, recent attach failures, and the budget
   sum before looking at keys or the account resolver
-  (`src/modules/edgebus/hub.go:440-464`).
+(`src/modules/edgebus/hub.go:447-467`).
 - Adding a JetStream-enabled account to the hub: its budget joins the same sum
   and can push subsequent accounts over the ceiling.
 - Capacity planning: a hub with a store ceiling holds
@@ -202,7 +207,7 @@ account.
 
 ## Examples
 
-The behavior is verified in `src/modules/edgebus/storage_test.go:31-49` with a hub whose ceiling equals
+The behavior is verified in `src/modules/edgebus/storage_test.go:32-49` with a hub whose ceiling equals
 central's budget plus one edge's budget:
 
 ```go
