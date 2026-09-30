@@ -245,11 +245,11 @@ func checkAugmentPaths(vendor string, ms *yang.Modules, recovered map[*yang.Entr
 }
 
 func checkTargetPath(vendor string, node yang.Node, path string, recovered map[*yang.Entry][]*yang.Entry) error {
-	_, _, err := checkPath(vendor, node, nil, path, recovered)
+	_, err := checkPath(vendor, node, nil, path, recovered)
 	return err
 }
 
-func checkPath(vendor string, node yang.Node, leaf *yang.Entry, path string, recovered map[*yang.Entry][]*yang.Entry) (*yang.Entry, bool, error) {
+func checkPath(vendor string, node yang.Node, leaf *yang.Entry, path string, recovered map[*yang.Entry][]*yang.Entry) (*yang.Entry, error) {
 	normalized := stripPredicates(path)
 	var parts []string
 	var e *yang.Entry
@@ -261,9 +261,8 @@ func checkPath(vendor string, node yang.Node, leaf *yang.Entry, path string, rec
 		e = leaf
 	}
 	if e == nil {
-		return nil, false, nil
+		return nil, nil
 	}
-	collided := false
 	for index, part := range parts {
 		switch part {
 		case "", ".":
@@ -280,14 +279,13 @@ func checkPath(vendor string, node yang.Node, leaf *yang.Entry, path string, rec
 				prefix = ""
 			}
 			if e == nil || !dataEntry(e) {
-				return e, collided, nil
+				return e, nil
 			}
 			next := e.Dir[name]
 			for _, child := range recovered[e] {
 				if child.Name != name {
 					continue
 				}
-				collided = true
 				want, wantOK := pathSegmentModule(node, leaf, prefix)
 				parentModule, parentErr := e.InstantiatingModule()
 				keptModule := ""
@@ -298,15 +296,15 @@ func checkPath(vendor string, node yang.Node, leaf *yang.Entry, path string, rec
 				deviatedOwnNode := deviation && index == len(parts)-1 && next == nil && wantOK && want == parentModule
 				if !deviatedOwnNode && (!wantOK || parentErr != nil || want != parentModule || keptModule != parentModule) {
 					if leaf != nil {
-						return next, true, &LoadError{Vendor: vendor, Issue: fmt.Sprintf("leafref %s path %s at %s crosses recovered %s (%s, %s, %s)", leaf.Path(), path, yang.Source(node), name, yang.Source(child.Node), sourceOf(next), sourceOf(e))}
+						return next, &LoadError{Vendor: vendor, Issue: fmt.Sprintf("leafref %s path %s at %s crosses recovered %s (%s, %s, %s)", leaf.Path(), path, yang.Source(node), name, yang.Source(child.Node), sourceOf(next), sourceOf(e))}
 					}
-					return next, true, &LoadError{Vendor: vendor, Issue: fmt.Sprintf("target path %s at %s crosses recovered %s (%s, %s, %s)", path, yang.Source(node), name, yang.Source(child.Node), sourceOf(next), sourceOf(e))}
+					return next, &LoadError{Vendor: vendor, Issue: fmt.Sprintf("target path %s at %s crosses recovered %s (%s, %s, %s)", path, yang.Source(node), name, yang.Source(child.Node), sourceOf(next), sourceOf(e))}
 				}
 			}
 			e = next
 		}
 	}
-	return e, collided, nil
+	return e, nil
 }
 
 func pathRoot(node yang.Node, leaf *yang.Entry, parts []string) *yang.Entry {
@@ -408,7 +406,7 @@ func checkLeafrefPaths(vendor string, ms *yang.Modules, recovered map[*yang.Entr
 		}
 		visited[e] = true
 		for _, path := range leafrefPaths(e.Type) {
-			if _, _, err := checkPath(vendor, e.Node, e, path, recovered); err != nil {
+			if _, err := checkPath(vendor, e.Node, e, path, recovered); err != nil {
 				return err
 			}
 		}
