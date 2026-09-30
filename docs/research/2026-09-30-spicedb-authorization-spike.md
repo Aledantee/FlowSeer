@@ -4,9 +4,9 @@ Date: 2026-09-30
 
 SpiceDB v1.56.2 and OpenFGA v1.21.0 were measured on the same generated
 relationships through gRPC. This note supplies counterpart measurements for
-the [OpenFGA spike](2026-09-30-openfga-authorization-spike.md). The engines
-remain a decision in the [operator authorization
-record](../architecture/2026-09-30-operator-authorization-direction.md).
+the [OpenFGA spike](2026-09-30-openfga-authorization-spike.md). The [operator authorization
+record](../architecture/2026-09-30-operator-authorization-direction.md) chose the
+engine after reading both notes.
 
 ## Setup
 
