@@ -121,14 +121,11 @@ func scanXMLAncestor[Inner any](dec *xml.Decoder, chain []*Schema, anc [][]KeyVa
 		case xml.EndElement:
 			return nil
 		case xml.StartElement:
-			if slices.Contains(level.Keys, t.Name.Local) {
+			field := findFieldByName(level, t.Name.Local)
+			if slices.Contains(level.Keys, t.Name.Local) && field != nil && field.Type != nil && xmlNameMatches(t.Name, t.Name.Local, field.qualifiedNamespace(level)) {
 				text, err := elementText(dec)
 				if err != nil {
 					return errs.Wrapf(err, "%s key %s", level.Name, t.Name.Local)
-				}
-				field := findFieldByName(level, t.Name.Local)
-				if field == nil || field.Type == nil {
-					continue
 				}
 				value, err := ParseCanonical(*field.Type, text)
 				if err != nil {
@@ -301,24 +298,27 @@ func jsonLevelKeys(level *Schema, obj map[string]json.RawMessage) ([]KeyValue, e
 	return keys, nil
 }
 
-// findJSONDescendant locates the next level's entry array within an
-// ancestor entry: directly as a member, or one intermediate container
-// object down (lists nested under a wrapper container).
+// findJSONDescendant locates the first matching next list at any depth within
+// an ancestor entry in schema order. It stops at list boundaries and uses the
+// same member qualification rule as the struct decoder.
 func findJSONDescendant(level, next *Schema, obj map[string]json.RawMessage) (json.RawMessage, bool, error) {
-	if arr, ok := lookupMember(obj, next.moduleName(), next.Name); ok {
-		return arr, true, nil
-	}
 	var found json.RawMessage
 	foundOK := false
-	err := walkFields(level, func(f *Field, owner *Schema, _ *Field) error {
+	err := walkFields(level, func(f *Field, owner *Schema, group *Field) error {
 		if foundOK {
 			return nil
 		}
-		if f.Child == nil || f.List {
+		raw, ok := lookupJSONField(obj, f, owner, group)
+		if !ok {
 			return nil
 		}
-		raw, ok := lookupMember(obj, f.qualifiedModule(owner), f.Child.Name)
-		if !ok {
+		if f.Child == nil {
+			return nil
+		}
+		if f.List {
+			if f.Child.Name == next.Name && f.qualifiedModule(owner) == next.moduleName() {
+				found, foundOK = raw, true
+			}
 			return nil
 		}
 		var inner map[string]json.RawMessage

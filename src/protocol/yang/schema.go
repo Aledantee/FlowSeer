@@ -76,7 +76,7 @@ type Field struct {
 	// pointer for a container, a struct slice for a list.
 	Child *Schema
 	// Group marks Child as a module group. A group has no wire element
-	// of its own; its fields are encoded at the parent level under
+	// of its own. Its fields are encoded at the parent level under
 	// Child.Module's namespace. Group fields use a pointer to Child's
 	// struct, and Child.Name is empty.
 	Group bool
