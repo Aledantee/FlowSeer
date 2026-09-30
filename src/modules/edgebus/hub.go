@@ -23,8 +23,8 @@ import (
 // ErrCodeHub identifies a failure starting or operating the hub.
 var ErrCodeHub = errs.NewCode("edgebus/hub")
 
-// ErrCodeStorage identifies an edge attach refused because its budget exceeds
-// the server's JetStream store ceiling.
+// ErrCodeStorage identifies an edge attach refused because its budget does not
+// fit under the server's JetStream store ceiling.
 var ErrCodeStorage = errs.NewCode("edgebus/storage")
 
 // HubConfig declares the hub central embeds. Construct with keyed fields.
@@ -456,10 +456,10 @@ func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccoun
 				Attr("edge_budget_bytes", h.edgeBudget)
 			if jsc := srv.JetStreamConfig(); jsc != nil {
 				return nil, storageErr.Attr("ceiling_bytes", jsc.MaxStore).
-					Msgf("storage limit exceeded: edge budget %d B exceeds store ceiling %d B",
+					Msgf("storage limit exceeded: edge budget %d B does not fit under store ceiling %d B",
 						h.edgeBudget, jsc.MaxStore)
 			}
-			return nil, storageErr.Msgf("storage limit exceeded: edge budget %d B exceeds the server store ceiling", h.edgeBudget)
+			return nil, storageErr.Msgf("storage limit exceeded: edge budget %d B does not fit under the server store ceiling", h.edgeBudget)
 		}
 		return nil, errs.From(err).Code(ErrCodeHub).Attr("edge", edgeID).Msg("wait for the edge account JetStream")
 	}
