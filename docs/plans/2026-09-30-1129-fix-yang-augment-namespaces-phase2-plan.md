@@ -298,3 +298,14 @@ group schemas in `ciscoiosxeswitch` (`macsec` typed `yang.TEmpty`) and
   augmented into RPC input and output (`ietf-ipv4-unicast-routing` and
   `ietf-ipv6-unicast-routing` under `ietf-routing` `fib-route`), which
   `yanggen` never emits.
+- Parked by drive: how a bare JSON member reaches a grouped node, given
+  that gNMI rows carry no module. Options: bare match when unique, and a
+  decode error when the name is ambiguous (gNMI keeps working and a
+  collision fails loudly) | bare match when unique, and an ambiguous name
+  decodes into neither field (the plan as written, but a collision is lost
+  silently) | keep phase 1's qualified-only rule and make the gNMI row
+  store qualify each member from the schema (strict, one more unit in
+  `src/protocol/gnmi`, and a colliding name stays unresolvable when the
+  device sends unqualified path elements). Recommended: the first,
+  because it keeps gNMI rows decoding and never drops a value without an
+  error.
