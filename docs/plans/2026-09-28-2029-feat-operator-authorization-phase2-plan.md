@@ -3,8 +3,8 @@ title: Operator Authorization Phase 2, Tenant Entity and Partitioned Stores - Pl
 type: feat
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: implemented
+artifact_readiness: implementation-ready
+status: partially-implemented
 review: rework
 execution: mixed
 parent: docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md
@@ -12,7 +12,7 @@ parent: docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md
 
 # Operator Authorization Phase 2, Tenant Entity and Partitioned Stores - Plan
 
-> Implemented. 10 units, 2026-09-28T20:08:45Z to 2026-09-29T21:10:37Z.
+> Partially implemented. U1–U10 landed 2026-09-28T20:08:45Z to 2026-09-29T21:10:37Z. Follow-up units U11–U13 are open.
 
 This plan is phase 2 of the operator authorization parent plan, following
 phase 1 (`docs/plans/2026-09-28-2029-feat-operator-authorization-phase1-plan.md`,
@@ -36,11 +36,15 @@ position instead of `DefaultTenant`. A platform admin, named in the
 deployment's configuration, creates tenants. The means is a new protobuf
 schema and central tenant store, key-partitioning across central's KeyValue
 buckets and artifact directories, edgebus subject and stream updates, and
-ambient tenant propagation in service handlers. Stop condition: this plan
-is wrong if an amendment to
+ambient tenant propagation in service handlers. The tenant store holds at
+most one tenant per (issuer, organization claim value): a tenant's record
+and its `org_` index key commit together in one atomic batch (ADR-50) or not
+at all. Stop condition: this plan is wrong if an amendment to
 `docs/architecture/2026-09-28-operator-authorization-direction.md`
 removes the requirement for multi-tenancy or moves tenant identity out of
-`flowseer.model.identity.v1`.
+`flowseer.model.identity.v1`. The follow-up units U11–U13 are wrong if the
+pinned nats-server stops checking each batched message's
+`Nats-Expected-Last-Subject-Sequence` at commit.
 
 ## Decisions
 
@@ -89,21 +93,172 @@ The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-
   under the assigned tenant. This ensures records forwarded to central match
   the edge's authoritative tenant and pass `belongsToEdge` in
   `src/modules/edgebus/forwarder.go:221-226`.
-- TenantStore organization index claim is made clock-free via CAS commit after
-  the primary record write.
-  Why: In `src/services/device/internal/tenantstore/store.go:94-176`, writing
-  the primary tenant record first (`s.kv.Create(recCtx, tenantID, data)`)
-  establishes durable record ownership before claiming the secondary index.
-  `Create` then attempts to commit the secondary index `org_<hash>` via
-  compare-and-set. If the index key exists, `Create` reads the record of the
-  tenant it points to. If an active tenant record exists, `Create` rolls back
-  the newly written primary record (`s.kv.Delete(delCtx, tenantID, jetstream.LastRevision(recRev))`)
-  and returns `ErrCodeAlreadyExists`. If the target tenant record does not exist
-  (an orphaned index entry), `Create` takes over the index key via CAS
-  `s.kv.Update(ctx, orgKey, []byte(tenantID), entry.Revision())`, retrying on
-  revision conflict. Removing the `2*s.rollbackTimeout` window eliminates
-  races against delayed claim acknowledgments. Rollback tests drive `Store`
-  APIs directly (`src/services/device/internal/tenantstore/store_test.go`).
+- U12 replaces the organization claim U8 landed: record first, then a
+  compare-and-set `org_` index with rollback and orphan takeover
+  (`src/services/device/internal/tenantstore/store.go:85-245`). The Review
+  section lists what five rounds found wrong with it. The decisions from
+  here to the table below describe the replacement.
+- The batch client is `github.com/synadia-io/orbit.go/jetstreamext` v0.3.2,
+  `PublishMsgBatch`. Why: Synadia ships it as the Go client for ADR-50 (its
+  `README.md` says it needs nats-server 2.12.0 or later), it is Apache-2.0,
+  and it checks the commit ack's batch id and message count
+  (`jetstreamext@v0.3.2/publishbatch.go:464-467`), which a FlowSeer client
+  would have to reimplement. It calls only `JetStream.Conn()` and
+  `JetStream.Options()`, both on the v1.53.1 interface
+  (`nats.go@v1.53.1/jetstream/jetstream.go:54, 58`). Its requirements
+  (nats.go v1.52.0, nkeys v0.4.16, nuid v1.0.1, x/crypto v0.54.0, x/sys
+  v0.47.0, klauspost/compress v1.19.1, and `orbit.go/natsext` v0.1.3 with the
+  same set) are at or below `go.mod`'s pins, so adding it moves no existing
+  version. The ADR-50 header protocol over core nats.go lost: it keeps
+  `go.mod` unchanged, but FlowSeer would own the batch headers, the
+  first-message flow-control ack, and the ack validation that the protocol's
+  authors already publish and test. `PublishMsgBatch` calls `Header.Set` on
+  every message (`publishbatch.go:405-407`), so each message is built with a
+  non-nil header.
+- The hub sets `AllowAtomicPublish` on the `KV_tenants` stream after every
+  `CreateOrUpdateKeyValue` of the `tenants` bucket: it reads the stream's
+  config and sends it back through `UpdateStream` with the flag set. Why:
+  `jetstream.KeyValueConfig` has no field for the flag, and every KV create
+  or update builds the stream config from a literal
+  (`nats.go@v1.53.1/jetstream/kv.go:614-731`, literal at `:672-694`). The
+  server field is `allow_atomic,omitempty`
+  (`nats-server/v2@v2.14.6/server/stream.go:117`), so each start's
+  `CreateOrUpdateKeyValue` in `createStores`
+  (`src/modules/edgebus/hub.go:326-335`) turns the flag off and drops staged
+  batches (`server/stream.go:2720-2723`). The server accepts the flag on an
+  update and refuses it only on a mirror or with `PersistMode: async`
+  (`server/stream.go:1851, 1898`). A KV stream is named `KV_<bucket>`
+  (`kv.go:487`). Creating `KV_tenants` by hand with a KV-shaped config lost:
+  it copies `prepareKeyValueConfig` and drifts when nats.go changes that
+  shape. The flag is off only between the two calls inside `StartHub`,
+  before any caller holds the bucket.
+- `tenantstore.New(ctx, js, bucket) (*Store, error)` replaces
+  `New(kv, opts...)`. It opens the bucket with `js.KeyValue`, opens its
+  stream with `js.Stream(ctx, "KV_"+bucket)`, and refuses a stream whose
+  cached config lacks `AllowAtomicPublish` with `ErrCodeStore`. Batch
+  messages go to `$KV.<bucket>.<key>`, the stream's own subject
+  (`kv.go:489, 727`). Why: `Create` needs the stream for per-subject reads
+  and the `JetStream` handle for the batch, and a bare `jetstream.KeyValue`
+  exposes neither. A bucket without the flag fails at construction instead
+  of on the first `Create` (10174, `jetstreamext@v0.3.2/errors.go:24`).
+  Central's connection is a full-permission user of the CENTRAL account
+  (`src/modules/edgebus/hub.go:278-282`), and orbit publishes each message
+  on its own subject (`publishbatch.go:421, 451`). `WithRollbackTimeout`,
+  `Option`, and `defaultRollbackTimeout` go with the rollback they bounded.
+- `Create` decides from the last message on each of its two subjects and
+  writes through one batch only:
+  1. Read the last message on `$KV.<bucket>.<tenantID>` with
+     `Stream.GetLastMsgForSubject`. `jetstream.ErrMsgNotFound` means an
+     expected sequence of 0. A marker's `Sequence` is the expected
+     sequence. A marker is what `kv.get` treats as one: a `KV-Operation`
+     header of `DEL` or `PURGE`, or a `Nats-Marker-Reason` header of
+     `MaxAge`, `Purge`, or `Remove` (`nats.go@v1.53.1/jetstream/kv.go:962-980`).
+     Any other message is a live record: `Create` returns it when its config
+     is `proto.Equal` to the request, `ErrCodeAlreadyExists` when it is not,
+     and `ErrCodeDecode` when it does not unmarshal.
+  2. Read the last message on `$KV.<bucket>.org_<hash>` the same way. A live
+     index returns `ErrCodeAlreadyExists` whatever tenant it names.
+  3. Publish the record, then the index, as one batch, each message with
+     `Nats-Expected-Last-Subject-Sequence` set to its subject's expected
+     sequence.
+  4. A reply of 10071 or 10164 (wrong last sequence) means another writer
+     moved a subject after the reads. `Create` goes back to step 1, at most
+     `casRetries` times, then returns `ErrCodeConflict`. Any other error
+     returns `ErrCodeStore`.
+
+  Why: the server checks each staged message's expectation against its own
+  subject at commit, under the stream's isolation lock, before it stores any
+  message, and one mismatch refuses the whole batch with 10071
+  (`nats-server/v2@v2.14.6/server/jetstream_batching.go:753-801`,
+  `server/stream.go:7547-7582, 7612-7636`). An expectation of 0 means the
+  subject holds no message, and a marker is a message
+  (`jetstream_batching.go:792-801`), so step 1 reads the marker's sequence
+  the way `kv.Create` does (`nats.go@v1.53.1/jetstream/kv.go:1062-1093`).
+  `kv.Get` hides a marker's revision (`kv.go:1007-1030`), so the reads go to
+  the stream. The reads let every refusal return without writing, and the
+  expectations make acting on them safe: a write between the reads and the
+  commit fails the batch. 10164 is the same refusal on a clustered stream
+  (`jetstream_batching.go:763-780`), and nats.go treats both codes as a
+  wrong last sequence (`kv.go:1097-1104`).
+
+  ```mermaid
+  flowchart TD
+      A[read last msg on record subject] -->|live, equal config| R[return stored record]
+      A -->|live, other config| X[ErrCodeAlreadyExists]
+      A -->|absent or marker| B[read last msg on org_ subject]
+      B -->|live| X
+      B -->|absent or marker| C[batch: record + index, each with expected last subject sequence]
+      C -->|ack| R2[return new record]
+      C -->|10071 or 10164| A
+      C -->|other error| S[ErrCodeStore, outcome unknown]
+  ```
+- A retried or repeated `Create` with the same id resumes nothing. It
+  returns the stored record when the stored config equals the request and
+  `ErrCodeAlreadyExists` otherwise, including after `Mutate` changed the
+  name or description. An error other than a wrong last sequence (a timeout,
+  a lost connection, a cancelled context, 10210 too many batches in flight)
+  leaves the outcome unknown, since the server finishes a commit whose reply
+  the client stopped waiting for (`server/stream.go:7612-7636`). `Create`
+  returns `ErrCodeStore` and does no recovery of its own. A retry of the same
+  call returns the stored record once the batch has committed. Why: a batch
+  writes both keys or neither, so there is no half-written state to resume
+  or roll back, and config equality is the retry test the user's
+  2026-09-30 ruling set. `Create` marshals the record (with its
+  `created_at`) once per call, so a retry that finds the first commit
+  returns that commit's `created_at`. A batch whose commit never arrives is
+  abandoned after 10 s without traffic and stores nothing
+  (`server/stream.go:447-451`, `server/jetstream_batching.go:77-111`).
+- `Get`, `GetWithRevision`, and `List` read the record key alone and drop
+  the `org_` index read (`store.go:256-279`). `LookupByOrg` keeps its check
+  that the record the index names carries the issuer and organization it
+  was looked up by (`store.go:283-302`). `Mutate` keeps its compare-and-set
+  on the record key, still refuses to change the tenant id, issuer, or
+  organization claim value, and still never creates a record
+  (`store.go:340-377`). Why: "committed only while the index names it"
+  hid the record the two-key protocol could write without its index, and a
+  batch cannot leave that state. The immutable binding keeps the index
+  valid for the record's lifetime. `LookupByOrg` is phase 3's
+  authentication path, and its check makes the answer rest on the record's
+  own config at no extra read.
+- No path deletes a tenant: `Store` has no delete method, and
+  `TenantService` defines only `CreateTenant`, `GetTenant`, and
+  `ListTenants` (`spec/proto/flowseer/api/identity/v1/tenant_service.proto:12-16`).
+  A delete, when one is planned, writes both keys' `KV-Operation: DEL`
+  markers in one batch, each expecting its key's current sequence. The
+  batch path ignores `KV-Operation` and allows `Nats-Rollup: sub` once per
+  subject on a bucket that allows rollups
+  (`jetstream_batching.go:921-932`). `Create` already handles the markers
+  such a delete leaves (steps 1 and 2).
+- On a single server a commit is all or nothing except when the file store
+  fails between two stores of one commit (`server/stream.go:7624-7635`). The
+  server treats that failure as terminal, and on restart it writes the rest
+  of the batch from its staging store during stream recovery
+  (`server/jetstream.go:1585-1651`). The tenant store does not detect that
+  gap. It is the one path to a record without its index, and it closes on
+  the server's restart.
+- `Store` holds its stream reader and its batch publish function in
+  unexported fields, and an internal test in package `tenantstore` replaces
+  them with fault wrappers. Why: the claim is three calls (two reads and
+  one batch), and a lost commit reply can only be produced on demand by a
+  publisher that commits and then returns an error.
+- The batch claim stays a plan decision, with no direction record. Why: it
+  changes no wire contract or schema, the direction record's section
+  "Tenants are entities, and the token names one"
+  (`docs/architecture/2026-09-28-operator-authorization-direction.md`)
+  names no storage mechanism, and its one trace outside the store is the
+  bucket flag, which U11 documents in `src/modules/edgebus/README.md`.
+  Multi-key uniqueness by atomic batch is a `compound` candidate once U12
+  lands.
+
+How U12 rules out each failure the Review section lists:
+
+| Review finding | Why it cannot happen after U12 |
+| --- | --- |
+| A retried `Create` of a committed tenant deletes it when the index read fails (`store.go:198-205`), and so do the rollbacks after a failed reconcile read. | `Create` has no delete call. Its only write is the batch, whose two messages carry values, never markers. A failed read returns before any write. |
+| Two concurrent same-id `Create` calls share a record revision, and a cancelled one's rollback deletes the record the other reported. | There is no rollback. Both batches expect the same sequences, the server commits one, and the other gets 10071, re-reads, finds the equal config, and returns the stored record. A cancelled call ends before or after its commit and deletes nothing. |
+| "The index names me" is a read, and a competitor holding the index's old revision takes it over after `Create` returned. | There is no takeover. `Create` writes an `org_` key only when its last message is absent or a marker, the batch's expectation enforces that at commit, and no `kv.Update` on an `org_` key remains. |
+| `ownership_test.go` injects no `Get` or `Keys` faults, faults only the first matching call, never retries, has no same-id concurrency, and its visibility check holds by construction. | U12's claim test faults each of `Create`'s three calls, runs an unfaulted retry after every fault, runs same-id and same-organization contention, and checks invariants on raw stream messages instead of `Store` read methods. `Get` and `Keys` are not calls `Create` makes, so they have no fault point in the claim. |
+| Whether same-id `Create` resumes at all. | It does not: config equality decides between the stored record and `ErrCodeAlreadyExists`. |
 - Lowercase UUID validation for `dev_tenant` in deployment configuration.
   Why: `tenant.Validate` (`src/common/tenant/tenant.go:41-51`) accepts only
   canonical lowercase UUIDs or `DefaultTenant`. In
@@ -287,7 +442,7 @@ The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-
    organization claim validates, and one without an issuer fails.
    (Claims parent Requirement 1 tenant part: `Tenant` entity lives in
    `flowseer.model.identity.v1`, and `spec/proto/flowseer/model/inventory/v1/tenant.proto`
-   is removed so that `grep -rn 'message OperatorRef\|message Tenant' spec/proto`
+   is removed so that `grep -rn 'message OperatorRef\|message Tenant' spec/proto/flowseer`
    prints only files under `model/identity/v1/`).
 2. Partitioned keys. Acceptance: parent Requirement 4, with the tenant set
    from configuration instead of a token: an edge created by a tenant A caller
@@ -296,6 +451,24 @@ The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-
 3. Every tenant's audit reaches central. Acceptance: with tenants A and B
    configured, a `DeviceOperationEvent` published on each tenant's audit
    subject is stored in central's `AuditStream`.
+4. The tenants bucket takes atomic batches across restarts. Acceptance:
+   after `StartHub`, and again after a second `StartHub` on the same state
+   directory, `js.Stream(ctx, "KV_tenants")` reports
+   `AllowAtomicPublish: true`.
+5. One tenant per organization, written all or nothing. Acceptance: with
+   tenant `a` committed for organization `o`, `Create` of tenant `b` for `o`
+   returns `ErrCodeAlreadyExists` and `$KV.tenants.b` holds no message. When
+   another writer commits `o`'s index after `Create`'s reads and before its
+   batch, `Create` returns `ErrCodeAlreadyExists` and `$KV.tenants.b` still
+   holds no message.
+6. A same-config retry succeeds without writing. Acceptance: a `Create`
+   whose batch committed but whose reply was lost returns `ErrCodeStore`. A
+   second `Create` with the same config returns a record whose `created_at`
+   equals the first attempt's, and the last sequences of both subjects are
+   the ones the first batch wrote.
+7. No `Create` deletes or overwrites. Acceptance: across the claim test's
+   fault matrix, no `Create` call adds a message carrying a `KV-Operation`
+   header, and the value of a live `org_` key never changes.
 
 ## Out of scope
 
@@ -303,6 +476,19 @@ The parent's Decisions and `docs/architecture/2026-09-28-operator-authorization-
 - Zanzibar engine interface, SpiceDB adapter, and in-memory fake (phase 4).
 - Relationship authorization checks on operator RPCs (phase 5).
 - Operator action audit stream for administrative RPCs (phase 6).
+- A tenant delete path. The Decisions say what shape one takes.
+- An explicit tenant field on `AttachBusResponse`
+  (`spec/proto/flowseer/edge/attach/v1/bus.proto`). Central always sends the
+  edge's subjects (`src/services/device/internal/edgeapi/service.go:209-215`),
+  and the agent refuses a map that does not name one valid tenant and its
+  own edge id, so nothing infers a wrong tenant today. The field is a wire
+  change to a contract outside this phase's files.
+- The capture path in the accepted
+  `docs/architecture/2026-09-09-remote-packet-capture-direction.md` and the
+  one-tenant wording in
+  `docs/solutions/architecture-patterns/a-restarted-hub-must-re-attach-every-persisted-edge-account.md`.
+  The first is an amendment to an accepted record, which a person re-reads,
+  and the second belongs to `compound`'s refresh of existing solutions.
 
 ## Units
 
@@ -378,8 +564,8 @@ Change:
   (`hub.go:337`), subscribing with a wildcard in the tenant position.
 - `src/modules/edgebus/keys.go`: on edge account creation, `ensureEdgeAccount`
   persists the edge's tenant in an `edge-<edgeID>.tenant` sidecar file beside
-  `edge-<edgeID>.nk`. `persistedEdgeIDs` reads the sidecar (defaulting to
-  `DefaultTenant` if absent), and `StartHub` re-attaches persisted edge accounts
+  `edge-<edgeID>.nk`. `persistedEdgeIDs` reads the sidecar and skips an edge
+  account without one, and `StartHub` re-attaches persisted edge accounts
   under their recorded tenant across hub restarts.
 - `edgeAccount` in `hub.go:102` records `tenant string`. `Hub` exposes
   `EdgeTenant(edgeID string) string`.
@@ -731,6 +917,11 @@ Change:
       records.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal/tenantstore`
 
+U12 replaces this unit's claim. As landed, `Create` resumes an existing id
+whose stored config equals the request instead of returning
+`ErrCodeAlreadyExists`, and the fixes after review added
+`src/services/device/internal/tenantstore/ownership_test.go`.
+
 ### U9. Edge leaf tenant publication and zero-hub edge tenant resolution
 
 Files: `src/modules/edgebus/subjects.go`,
@@ -820,25 +1011,245 @@ Change:
   - Updates `e2e_test.go:890-894` to include `organization_claim_name: "org_id"`
     in the `platform_admin` textproto fixture, satisfying U7's required schema
     validation on `centralhost.LoadConfig`.
-  - In `TestE2EMultiTenantPartitioning` (`lines 971-985`), replaces the call to
+  - In `TestMultiTenantIsolationAndEdgeBusPartitioning` (`lines 971-985`), replaces the call to
     `tenantClient.CreateTenant` with direct tenant creation via
     `tenantstore.New(kvTenant).Create(...)`.
   - Verifies multi-tenant bucket partitioning, edge enrollment, and journal
     operations with the tenant seeded directly through the store.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal/host src/services/device/test/integration`
 
-Waves: U7 U8 U9 | U10
+Waves (landed): U7 U8 U9 | U10
+
+### U11. Tenants bucket takes atomic batches
+
+Files: `src/modules/edgebus/hub.go`,
+`src/modules/edgebus/edgebus_test.go`,
+`src/modules/edgebus/README.md`
+After: none
+Change:
+- `createStores` (`src/modules/edgebus/hub.go:326-335`), after its bucket
+  loop, loads the stream `"KV_" + TenantBucket` with `h.centralJS.Stream`,
+  copies `CachedInfo().Config`, sets `AllowAtomicPublish`, and sends the
+  config through `h.centralJS.UpdateStream`. A failure returns `ErrCodeHub`
+  with the `bucket` attribute, as the loop's failures do. A comment says why
+  the step runs on every start: `KeyValueConfig` has no field for the flag,
+  and each `CreateOrUpdateKeyValue` clears it.
+- `src/modules/edgebus/README.md`: the CENTRAL bullet (line 31) names all
+  four buckets central keeps, and says the `tenants` bucket's stream takes
+  atomic batches so the tenant store writes a record and its organization
+  index together.
+Tests:
+- `TestTenantBucketAllowsAtomicPublishAcrossRestart` in
+  `src/modules/edgebus/edgebus_test.go` starts a hub, asserts that
+  `KV_tenants` reports `AllowAtomicPublish`, closes the hub, starts a second
+  one on the same `StateDir`, and asserts the flag again (Requirement 4). It
+  also asserts that `"KV_" + LaneBucket` has the flag off, so the step stays
+  on one bucket.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/edgebus`
+
+### U12. Tenant store claims an organization with one atomic batch
+
+Files: `go.mod`,
+`go.sum`,
+`src/services/device/internal/tenantstore/store.go`,
+`src/services/device/internal/tenantstore/store_test.go`,
+`src/services/device/internal/tenantstore/ownership_test.go`,
+`src/services/device/internal/tenantstore/claim_internal_test.go`,
+`src/services/device/test/integration/e2e_test.go`
+After: U11
+Change:
+- `go get github.com/synadia-io/orbit.go/jetstreamext@v0.3.2` adds it and
+  `github.com/synadia-io/orbit.go/natsext` v0.1.3 as an indirect
+  requirement. No other version in `go.mod` moves. If one does, stop: the
+  Decision on the client rests on that.
+- `src/services/device/internal/tenantstore/store.go`:
+  - `Store` holds the bucket (`jetstream.KeyValue`), the `JetStream`
+    handle, the subject prefix `$KV.<bucket>.`, and two unexported
+    functions: `lastMsg`, backed by `jetstream.Stream.GetLastMsgForSubject`,
+    and `publish`, backed by `jetstreamext.PublishMsgBatch`.
+  - `New(ctx, js, bucket) (*Store, error)` as the Decisions describe.
+    `Option`, `WithRollbackTimeout`, `defaultRollbackTimeout`,
+    `rollbackDelete`, and `ownsOrgIndex` are removed, and nothing in the
+    package calls `context.WithoutCancel`.
+  - `Create` follows the Decisions' four steps. The record message's data
+    is the marshalled `TenantRecord`, the index message's data is the
+    tenant id, and each carries `jetstream.ExpectedLastSubjSeqHeader`. The
+    marker test reads the `KV-Operation` header by name, since nats.go does
+    not export it (`nats.go@v1.53.1/jetstream/kv.go:497-499`), and
+    `jetstream.MarkerReasonHeader` by its constant. A wrong last
+    sequence is an `*jetstream.APIError` whose `ErrorCode` is
+    `jetstream.JSErrCodeStreamWrongLastSequence` or
+    `jetstream.JSErrCodeStreamWrongLastSequenceConstant`, found with
+    `errors.As`, because orbit returns it unwrapped
+    (`jetstreamext@v0.3.2/publishbatch.go:332-334, 461-463`).
+  - `GetWithRevision` reads the record key alone, and `Get` and `List`
+    follow it. `LookupByOrg` and `Mutate` keep their behavior.
+  - The package comment states the invariant: a tenant's record and its
+    `org_` index are written together by one batch. `Create`'s doc comment
+    states the retry contract: an equal stored config returns the stored
+    record, any other stored config or claimed organization returns
+    `ErrCodeAlreadyExists`, and `ErrCodeStore` leaves the outcome unknown
+    until a retry of the same call.
+- `src/services/device/internal/tenantstore/store_test.go`:
+  - `newStoreWithKV` builds the store with
+    `tenantstore.New(ctx, hub.JetStream(), edgebus.TenantBucket)` and
+    returns the bucket from `hub.JetStream().KeyValue`.
+  - `TestOrphanedOrgIndexTakeover` becomes
+    `TestCreateNeverTakesOverALiveIndex`: a raw `org_` key naming an id with
+    no record makes `Create` return `ErrCodeAlreadyExists`, the key keeps its
+    value and sequence, and the new id's subject holds no message.
+  - `TestRollbackDeletesPrimaryRecordWhenOrgOwned` becomes
+    `TestCreateForClaimedOrgWritesNothing`: the second tenant's subject holds
+    no message (`GetLastMsgForSubject` returns `jetstream.ErrMsgNotFound`),
+    which is stronger than a nil `Get` (Requirement 5, first half).
+  - `TestConcurrentCreateOrgConflictSettlement` also asserts that no loser's
+    record subject holds a message.
+  - `TestDuplicatePrevention` loses its "rolled back" wording and keeps its
+    assertions.
+  - `TestCreateRetryReturnsStoredRecord` (new): two `Create` calls with one
+    config return records with equal `created_at`, and the second call
+    leaves both subjects' last sequences as the first left them.
+  - `TestCreateAfterDeleteMarkers` (new), four cases: `kv.Delete` or
+    `kv.Purge` of both keys of a committed tenant, followed by `Create` of
+    the same config or of a new id for the same organization. Each `Create`
+    succeeds and writes above the markers' sequences.
+  - `TestNewRefusesBucketWithoutAtomicPublish` (new): `New` over a bucket
+    made with `js.CreateKeyValue` alone returns `ErrCodeStore`.
+- `src/services/device/internal/tenantstore/ownership_test.go` is deleted:
+  its fault wrappers wrap `KeyValue.Create`, `Update`, and `Delete`, which
+  `Create` no longer calls.
+- `src/services/device/internal/tenantstore/claim_internal_test.go` (new,
+  package `tenantstore`) holds `TestClaimProperties`, the claim's property
+  test, on a hub from `edgebus.StartHub`:
+  - Six initial states:
+    - empty
+    - the same tenant committed
+    - the id committed for another organization
+    - the organization committed by another id
+    - both keys of the same tenant deleted, leaving markers
+    - a raw `org_` key naming an id with no record
+  - Faults:
+    - a read fails
+    - the batch fails before it is sent
+    - the batch commits and then returns `context.DeadlineExceeded` (a lost
+      reply)
+    - another `Store` commits a conflicting tenant between `Create`'s reads
+      and its batch, either another id for the same organization or the same
+      id for another organization
+
+    Faults are placed by call position: the test
+    records the calls an unfaulted run makes, then reruns the state once per
+    position with that call failing. A run with a conflicting commit makes
+    five calls (two reads, the batch, and two re-reads), so a failed re-read
+    is its own case.
+  - Each (state, fault) case runs `Create` with the fault, checks the
+    invariants, runs `Create` again without faults, and checks its outcome
+    and the invariants again. Without a conflicting commit the retry
+    returns the stored record for the empty, same-tenant, and deleted
+    states and `ErrCodeAlreadyExists` for the other three. After a
+    conflicting commit it returns `ErrCodeAlreadyExists` (Requirement 5,
+    second half, and Requirement 6).
+  - Contention without faults: eight `Create` calls with one config all
+    return records with equal `created_at`, and the record subject holds
+    one message. Eight with one id and eight organizations yield one success
+    and seven `ErrCodeAlreadyExists`, and only the winner's `org_` subject
+    holds a message. Eight with one organization and eight ids yield one
+    success, and only the winner's record subject holds a message.
+  - Contention with lost replies: eight `Create` calls for one organization
+    and eight ids, through a publisher that returns
+    `context.DeadlineExceeded` whenever the real batch committed. One call
+    returns `ErrCodeStore` and seven return `ErrCodeAlreadyExists`. A
+    fault-free retry of each returns the stored record for the one and
+    `ErrCodeAlreadyExists` for the rest.
+  - The invariants read raw stream messages and never `Store` methods: the
+    subjects come from `Stream.Info` with a subject filter on
+    `$KV.tenants.>`, and each subject's last message from
+    `GetLastMsgForSubject`. Every live record subject has a live `org_`
+    subject that names its id and matches its config's `OrgIndexKey`, and
+    every live `org_` subject names a live record, except the raw key the
+    last initial state seeds. `Create` adds no message with a
+    `KV-Operation` header, and a live `org_` key's value never changes
+    (Requirement 7).
+- `src/services/device/test/integration/e2e_test.go`:
+  `TestMultiTenantIsolationAndEdgeBusPartitioning` builds its store with
+  `tenantstore.New(ctx, js, edgebus.TenantBucket)` and drops its `kvTenant`
+  handle (`e2e_test.go:971-976`).
+Tests:
+- `claim_internal_test.go` and the `store_test.go` cases above
+  (Requirements 5, 6, and 7).
+- `TestMultiTenantIsolationAndEdgeBusPartitioning` still seeds its tenant
+  through the store.
+- Two risks the Decisions name have no test in this unit. 10164 comes only
+  from a clustered stream, and every test hub is a single server, so the
+  code treats it as 10071 with the check nats.go uses (`kv.go:1097-1104`).
+  The server's partial commit after a file-store failure cannot be provoked
+  from a test, and nothing in the store detects it.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- go.mod go.sum src/services/device/internal/tenantstore src/services/device/test/integration`
+
+### U13. Tenancy docs and the Review's low findings
+
+Files: `src/modules/edgebus/README.md`,
+`src/modules/edgebus/edgebus_test.go`,
+`spec/proto/flowseer/store/device/v1/README.md`,
+`src/services/device/README.md`,
+`src/services/device/internal/host/host_test.go`
+After: U11
+Change:
+- `src/modules/edgebus/README.md`:
+  - The restart paragraph (line 110) says a restart re-attaches every edge
+    whose account key and `edge-<edgeID>.tenant` file persisted, and skips
+    one whose tenant file cannot be read (`src/modules/edgebus/hub.go:250-262`,
+    `keys.go:102-104`).
+  - The "A second tenant" bullet under "What is deliberately absent"
+    (lines 222-224) goes. The accounts section says instead that the tenant
+    token is enforced: an edge user publishes only under
+    `flowseer.<tenant>.edge.<edge-id>.>` (`edgePermissions`,
+    `keys.go:357-367`), and the forwarder refuses a record whose subject
+    names another tenant or edge (`belongsToEdge`, `forwarder.go:226`). The
+    bullet that replaces it under "What is deliberately absent" names what
+    is still missing, the per-tenant NATS account that
+    `docs/architecture/2026-08-20-device-service-and-inventory-direction.md`
+    draws (line 323).
+- `spec/proto/flowseer/store/device/v1/README.md:29-30`: the "A tenant"
+  bullet says the lane record has no tenant field because the tenant is the
+  `<tenant_id>.` prefix of the record's key.
+- `src/services/device/README.md:181` names `TenantInterceptor` in
+  `internal/host/serve.go` instead of the line range `serve.go:68-76`.
+- `src/services/device/internal/host/host_test.go`: the comment above
+  `TestTenantServiceIsNotMounted` (lines 415-417) states the behavior
+  without saying when authentication lands.
+  `TestStartupDoesNotIndexUnindexedRegistryEdge` registers a `t.Cleanup`
+  that cancels the host and waits on `done`, so `host.Run` returns before
+  the test's temporary directory is removed.
+- `src/modules/edgebus/edgebus_test.go`:
+  `TestStartLeafRefusesEmptyAndInvalidTenant` sets `StateDir` to a path
+  that does not exist yet and asserts it still does not exist after each
+  refusal, which shows the tenant check (`src/modules/edgebus/leaf.go:113`)
+  runs before `os.MkdirAll` (`leaf.go:121`).
+Tests:
+- `TestStartLeafRefusesEmptyAndInvalidTenant` and
+  `TestStartupDoesNotIndexUnindexedRegistryEdge` as changed above. The doc
+  edits have no test beyond the verifier's prose check.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/edgebus spec/proto/flowseer/store/device/v1/README.md src/services/device/README.md src/services/device/internal/host`
+
+Waves: U11 | U12 U13
 
 ## Verification
 
 ```bash
-.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flowseer/model/identity/v1 spec/proto/flowseer/api/identity/v1 spec/proto/flowseer/model/inventory/v1 spec/proto/flowseer/model/README.md spec/proto/flowseer/store/device/v1 src/modules/edgebus src/edge/agent/internal/busattach src/common/tenant src/services/device test/conformance/proto docs/conventions/protobuf.md
+.claude/skills/verify-change/scripts/verify-change.sh -- go.mod go.sum spec/proto/flowseer/model/identity/v1 spec/proto/flowseer/api/identity/v1 spec/proto/flowseer/model/inventory/v1 spec/proto/flowseer/model/README.md spec/proto/flowseer/store/device/v1 src/modules/edgebus src/edge/agent/internal/busattach src/common/tenant src/services/device test/conformance/proto docs/conventions/protobuf.md
 go test -race ./src/modules/edgebus/... ./src/edge/agent/internal/busattach/... ./src/common/tenant/... ./src/services/device/... ./test/conformance/proto/...
+go test -race -count=20 -run 'TestClaim|TestCreate|TestConcurrent' ./src/services/device/internal/tenantstore/
 ```
 
-Run targeted verification on these paths, never `--full`. Integration tests
-under `src/services/device/test/integration` use Docker; run them where Docker
-is reachable.
+Run targeted verification on these paths. The repeated tenant store run
+shakes out ordering in the contention cases. Integration tests under
+`src/services/device/test/integration` use Docker, so run them where Docker
+is reachable. U12's `go get` changes `go.mod` and `go.sum` from Bash, which
+marks the tree `<Bash mutation; verify with --full>`, and `implement` and
+`land` then call for a `--full` run (`.claude/skills/implement/SKILL.md`,
+sections "2. Work the units", step 2, and "3. Finish", step 4). A `--full` run also builds the nested
+`generated/go/yang` module, since the verifier walks every `go.mod`.
 
 ## Definition of done
 
@@ -850,8 +1261,8 @@ is reachable.
 - [x] Parent U2's `Landed:` line filled.
 - [x] Verifier green for every changed path across follow-up units U7–U10.
 - [x] Edge leaf attaches with concrete tenant from `AttachBus` and publishes under assigned tenant.
-- [x] Organization index claim in `tenantstore.Store.Create` is clock-free with CAS commit after record write.
-- [x] Rollback tests drive `tenantstore.Store` directly.
+- [x] Organization index claim in `tenantstore.Store.Create` is clock-free with CAS commit after record write (replaced by U12).
+- [x] Rollback tests drive `tenantstore.Store` directly (replaced by U12).
 - [x] `PlatformAdmin` schema defines `organization_claim_name` and `dev_tenant` rejects uppercase UUIDs.
 - [x] `host.go` contains no synthetic registry edge index auto-bind.
 - [x] `edgebus.Hub.EdgeTenant` never returns `DefaultTenant` on a zero Hub.
@@ -859,6 +1270,13 @@ is reachable.
 - [x] Capture artifact path documentation reflects per-tenant directory layout.
 - [x] This plan's `status` set with an outcome note under its title.
 - [x] No plan labels in code.
+- [ ] Verifier green for every changed path across follow-up units U11–U13.
+- [ ] `KV_tenants` allows atomic publish after every hub start (Requirement 4).
+- [ ] `tenantstore.Create` writes a record and its `org_` index in one atomic batch, and nothing in the package deletes, rolls back, or takes over a key (Requirements 5, 6, and 7).
+- [ ] `claim_internal_test.go` replaces `ownership_test.go`.
+- [ ] The tenancy docs and low findings U13 names are fixed.
+- [ ] This plan's `status` set to `implemented` with an outcome note under its title.
+- [ ] No plan labels in code after U11–U13.
 
 ## Review
 
