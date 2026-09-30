@@ -55,9 +55,9 @@ decision below would then constrain the engine rather than sit beside it.
   left "how a provider's organization identifiers map to FlowSeer tenant
   ids" as an open question for its phase 2. This is the answer, and a
   tenant id is never assumed equal to an organization id. Why: the index
-  exists, is tested against every fault point, and is exactly the lookup
-  the interceptor needs to turn a token's organization claims into
-  tenants. No landed code changes: nothing reads the index on a request
+  exists, is tested against every applicable read and publish fault, and is
+  exactly the lookup the interceptor needs to turn a token's organization
+  claims into tenants. No landed code changes: nothing reads the index on a request
   path until caller authentication lands.
 - The 09-28 record's engine-neutral rules carry over: the service reaches
   the engine through a Go interface with an in-memory fake, and nothing

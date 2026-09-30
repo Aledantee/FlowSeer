@@ -58,9 +58,11 @@ sequenceDiagram
 
 ### The engine remains a user decision
 
-The two spikes ran the same workload on the same laptop. This record does not
-recommend one engine. A person chooses after reading the measured evidence,
-then amends this section and changes the record status.
+The SpiceDB note measures both engines on one generated fixture and host.
+Its dimensions match the OpenFGA note, but that note's individual fixture
+list is absent. Grant distribution, stored-grant reference shape, and client
+language differ. This record does not recommend one engine. A person chooses
+after reading both notes, then amends this section and changes its status.
 
 #### OpenFGA evidence
 
@@ -92,20 +94,31 @@ trips and only one client round trip, and the spike measured the standalone
 container faster than an embedded server that crossed a port forward to its
 database.
 
-Check caching stays off initially, so every read is strongly consistent. With
-several OpenFGA replicas each holds its own cache, and the spike measured a
-revoked grant still allowed for 1.5 s to 9.0 s on the other replica, bounded
-by `cacheController.ttl` (10 s by default). If caching is turned on later,
-calls that hand out full payload, device credentials, or admin grants pass
+Check caching stays off initially, so every read is strongly consistent.
+The [OpenFGA note](../research/2026-09-30-openfga-authorization-spike.md#cache-staleness-across-replicas)
+measured 1.509-9.019 s of stale allows across two instances on one datastore,
+with the check cache and cache controller enabled at ten-second defaults.
+The [SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md#revocation-and-cache-staleness)
+re-measured OpenFGA over gRPC on its 292,238-relationship union plus temporary
+grant probes. Continuous polling and positive grant controls observed stale
+allows, with last allows 1.924-8.743 s after the delete response. These
+seconds-long windows agree. If caching is turned on later, calls that hand
+out full payload, device credentials, or admin grants pass
 `HIGHER_CONSISTENCY`. That preference skips the cache and reads the primary
 even when a secondary datastore is configured
 (`pkg/storage/postgres/postgres.go`, `getPgxPool`, OpenFGA v1.21.0).
 
-The spike also measured why resource permissions are plain unions with no
-intersection: an `and member from tenant` inside every resource permission
-kept checks correct but made `ListObjects` return 11 of 1104 edges after 60 s
-for a Tag-derived grant, and 0 for a platform admin. The same query on the
-union model took 9 ms and 148 ms. Because `ListObjects` caps results at
+The [OpenFGA membership note](../research/2026-09-30-openfga-authorization-spike.md#membership-gated-by-token-claims)
+measured `and member from tenant` inside resource permissions on 336,249
+relationships over gRPC. At a 60-second deadline, it returned 11 of 1,104
+Tag edges and zero platform-admin edges. The
+[SpiceDB note's direct-tenant re-measurement](../research/2026-09-30-spicedb-authorization-spike.md#membership-aware-resource-lookup)
+uses 336,245 relationships and the same deadline. OpenFGA returned all 1,104
+Tag edges in 905.764 ms, but zero platform-admin edges at 60 s. The Tag
+lookup disagreement is unexplained. The fixtures and stored-grant reference
+shape differ. On the 292,238-relationship union, the OpenFGA note measured
+9 ms for Tag and 148 ms for admin. The SpiceDB note re-measured OpenFGA at
+12.960 ms and 82.658 ms over gRPC. Because `ListObjects` caps results at
 `listObjectsMaxResults` (1000 by default) and can return partial results at
 its deadline without an indicator
 ([openfga/openfga#2828](https://github.com/openfga/openfga/issues/2828)),
@@ -129,24 +142,29 @@ The case for SpiceDB rests on four properties:
   ([authzed/api `core.proto`](https://raw.githubusercontent.com/authzed/api/main/authzed/api/v1/core.proto)).
 - **Consistency.** It ships Zanzibar's consistency token as an opaque
   ZedToken ([ZedTokens](https://authzed.com/docs/spicedb/concepts/zedtokens)).
-  That closes the new-enemy problem: when an operator's access is revoked, a
-  download a moment later is not served from old state. It provides
-  `fully_consistent`, `at_least_as_fresh` with a ZedToken, and
-  `minimize_latency` for freshness-sensitive paths.
-- **Engine features an adapter cannot add.** Caveats
-  ([Caveats](https://authzed.com/docs/spicedb/concepts/caveats)) and a Watch
-  stream are engine features. Per-tenant isolation is not: FlowSeer supplies
-  it with the tenant relation, the key prefix, and the handler check.
+  A freshness-sensitive check uses `at_least_as_fresh` with the revoking
+  write's ZedToken, or `fully_consistent` against the primary, to avoid
+  serving a download from pre-revocation state. `minimize_latency` can
+  select old state and allows the new-enemy problem
+  ([consistency](https://authzed.com/docs/spicedb/concepts/consistency)).
+- **Engine features.** SpiceDB provides caveats
+  ([caveats](https://authzed.com/docs/spicedb/concepts/caveats)) and Watch.
+  OpenFGA provides [conditions](https://openfga.dev/docs/modeling/conditions)
+  and a polling [ReadChanges API](https://openfga.dev/docs/interacting/read-tuple-changes)
+  for stored tuple changes. FlowSeer supplies tenant isolation with the
+  tenant relation, key prefix, and handler check.
 - **The vendor rule.** It is open source and self-hostable in our own
   environment without external cloud dependencies.
 
 The [SpiceDB spike](../research/2026-09-30-spicedb-authorization-spike.md)
-measures v1.56.2 on PostgreSQL 17 beside OpenFGA v1.21.0 on the same workload:
-check latency across consistency modes (`fully_consistent`,
-`at_least_as_fresh`, `minimize_latency`), throughput under concurrent callers,
-cursor-paged `LookupResources` for Tag grants and platform admins, revocation
-propagation across replicas with ZedTokens, Tag deletion preview using
-exclusion (`-`), and caveat-gated membership.
+measures v1.56.2 on PostgreSQL 17 beside OpenFGA v1.21.0 over gRPC. Its tables
+cover repeated point and batch latency (`fully_consistent` and
+`minimize_latency`), throughput, cursor-paged resource lookup with last-page
+timing, and continuously polled revocation with positive controls for all
+three SpiceDB consistency modes. It also measures recursive and assignment
+exclusion, all-user loss previews, disposable rebuild/apply/diff, and
+caveat-gated tenant and resource checks and lookup. It reports overlapping
+spreads and unexplained contradictions of the OpenFGA note.
 
 ### A separate engine deployment next to its own Postgres
 
@@ -211,10 +229,12 @@ the tenant id. Lookup indexes are the exception because they resolve an
 identifier before the tenant is known: `edge_<edge_id>` and `setupkey_<key_id>`
 in `edges`, and `org_<hash>` in `tenants`
 (`src/services/device/internal/edgestore/store.go:46-48`,
-`src/services/device/internal/tenantstore/store.go:37-43`).
+`orgIndexPrefix` and `OrgIndexKey` in
+`src/services/device/internal/tenantstore/store.go`).
 Stored bytes on disk, such as capture artifacts, live under
 `<StateDir>/captures/<tenant_id>/`
-(`src/services/device/internal/captureapi/store.go:39`).
+(`Store.artifactPath`, `filepath.Join(s.capturesDir, tenantID)`, in
+`src/services/device/internal/captureapi/store.go`).
 A handler reads the tenant from the context and never from the request, so a
 request cannot reach another tenant's keys.
 
@@ -232,8 +252,10 @@ Nothing substitutes a default tenant for one it could not resolve
 The platform admin configuration names its issuer, organization claim name and
 value, and subject. The host validates those fields before it serves the
 operator APIs
-(`src/services/device/internal/host/config.go:61-75`). The
-identity tenant entity replaces the unused keyless inventory tenant shape, so
+(`parseConfig`, `protovalidate.Validate`, in
+`src/services/device/internal/host/config.go`, and `PlatformAdmin` in
+`spec/proto/flowseer/store/device/v1/service_config.proto`). The identity tenant
+entity replaces the unused keyless inventory tenant shape, so
 the tenant store is the source of existence and organization ownership.
 
 `TenantService` is defined but not served until callers are authenticated.
@@ -300,14 +322,17 @@ type tenant
 The membership check runs once per request, on the tenant object. Resource
 permissions (`edge#capture`, `capture_session#download`) are plain unions
 over stored relationships in the initial OpenFGA model, with no intersection.
-The OpenFGA spike measured why: an `and member from tenant` inside every
-resource permission kept checks correct but made `ListObjects` return 11 of
-1104 edges after 60 s for a Tag-derived grant, and 0 for a platform admin.
-The same query on the union model took 9 ms and 148 ms. The
-[OpenFGA spike](../research/2026-09-30-openfga-authorization-spike.md)
-records the engine-specific failure. The
-[SpiceDB spike](../research/2026-09-30-spicedb-authorization-spike.md)
-measures the caveat-gated resource model and its lookup behavior.
+The [OpenFGA note](../research/2026-09-30-openfga-authorization-spike.md#membership-gated-by-token-claims)
+measured the direct-tenant intersection on 336,249 relationships over gRPC:
+11 of 1,104 Tag edges and zero platform-admin edges at a 60-second deadline.
+The [SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md#membership-aware-resource-lookup)
+re-measured that placement on 336,245 relationships over gRPC. OpenFGA
+returned 1,104 Tag edges in 905.764 ms and zero platform-admin edges at 60 s.
+The Tag disagreement is unexplained, with different fixtures and stored-grant
+reference shapes. The OpenFGA note's 292,238-relationship union returned the
+Tag and admin sets in 9 ms and 148 ms. The SpiceDB note's OpenFGA union
+counterparts took 12.960 ms and 82.658 ms. These observations apply to the
+models and fixtures measured.
 
 Because resource permissions carry no membership term in the initial
 OpenFGA model, every object check also asks whether the object's `tenant`
@@ -364,23 +389,37 @@ what before an admin signs it off (`GOALS.md`). Sites and Tags have schemas
 but no inventory service stores them yet, so the preview lands with that
 service. Its shape is decided here:
 
-- **Gains**: the candidate relationships go in as request-scoped additions
-  supported by the selected adapter, and a per-edge comparison before and
-  after gives who gains.
+- **Gains**: OpenFGA can supply candidate relationships as contextual tuples,
+  and a per-edge comparison gives who gains. SpiceDB has no request-scoped
+  relationships, so its adapter must isolate candidate relationships in a
+  disposable datastore before making that comparison.
 - **Losses**: the tenant's relationships are rebuilt into an isolated
   disposable datastore, the change is applied there, and the same per-edge
-  diff runs against the live store. The OpenFGA spike rebuilt a
-  14,629-relationship tenant in 0.55 s. The
-  [SpiceDB spike](../research/2026-09-30-spicedb-authorization-spike.md)
-  measures the corresponding disposable datastore rebuild and diff.
+  diff runs against the live store. The
+  [OpenFGA note](../research/2026-09-30-openfga-authorization-spike.md#previewing-a-tag-change)
+  rebuilt a 14,629-relationship union tenant, including sessions, in 0.55 s
+  over gRPC. Apply took 0.10 s and the all-user `ListUsers` diff of 406
+  edges took 2.54 s, with 291 lost pairs. The
+  [SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md#disposable-rebuild)
+  re-measured a 14,615-relationship union tenant including sessions. OpenFGA
+  took 1,489.714 ms to load, 56.711 ms to apply, and 1,793.662 ms to diff
+  over gRPC. Its dedicated Tag-user fixture loses 406 pairs. The missing
+  14 relationships and timing difference are unexplained. SpiceDB's
+  corresponding times were 544.766, 38.017, and 3,204.364 ms.
 
-An exclusion (`but not blocked`) on the recursive Tag relation was rejected
-for the OpenFGA request path. It previewed losses exactly, but `ListObjects`
-returned no results after 60 s for any grant that reaches an edge through a
-Tag, with both of OpenFGA's ListObjects algorithms. The
-[SpiceDB spike](../research/2026-09-30-spicedb-authorization-spike.md)
-measures Tag loss preview with SpiceDB's exclusion operator (`-`) and the
-resulting `LookupResources` behavior.
+The rejection of recursive Tag exclusion (`but not blocked`) applies to
+the [OpenFGA note's exclusion fixture](../research/2026-09-30-openfga-authorization-spike.md#previewing-a-tag-change):
+372,239 relationships, exclusion on recursive Tag permissions, gRPC, and a
+60-second deadline. It previewed losses exactly but returned zero Tag-derived
+objects with both ListObjects algorithms. The
+[SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md#tag-exclusion-and-preview)
+re-measured recursive placement on 372,238 relationships. OpenFGA's default
+pipeline returned all 1,104 Tag edges in 1,372.051 ms, and SpiceDB returned
+all 1,104 in 500.535 ms. The OpenFGA disagreement is unexplained. This does
+not reject exclusion on a non-recursive assignment. Both placements' all-user
+previews matched deletion for the dedicated Tag-user fixture. SpiceDB wrote
+and removed blockers in its active experimental database, so that exclusion
+preview has side effects and is separate from the isolated preview above.
 
 ### The operator action trail ships with authorization
 

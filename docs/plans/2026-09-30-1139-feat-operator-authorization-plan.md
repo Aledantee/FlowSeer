@@ -22,6 +22,9 @@ option in the schema enforced by one fail-closed interceptor, a standalone
 OpenFGA on its own Postgres, and a projector that keeps OpenFGA's
 relationships derived from FlowSeer's records.
 
+The OpenFGA-specific decisions below hold if OpenFGA is chosen. Choosing
+SpiceDB requires re-planning those decisions before implementation.
+
 **Stop condition:** a second process starts serving operator RPCs before
 phase 3 lands. The enforcement code then belongs in `src/common/` or
 `src/modules/`, not in the device service's `internal/`, and the phase
@@ -58,9 +61,15 @@ that record's choices the user made or are local to the work.
 - OpenFGA runs as its own service on a Postgres that is external from the
   first deployment, never embedded in a FlowSeer host. Why: each can move
   and scale alone. (decided by the user, 2026-09-30)
-- Check caching stays off. Why: the spike measured revoked grants still
-  allowed on another replica for up to 9.0 s with caching on
-  ([spike](../research/2026-09-30-openfga-authorization-spike.md)).
+- Check caching stays off. Why: the
+  [OpenFGA note](../research/2026-09-30-openfga-authorization-spike.md#cache-staleness-across-replicas)
+  measured 1.509-9.019 s of stale allows across two instances on one database
+  with the check cache and controller at ten-second defaults. The
+  [SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md#revocation-and-cache-staleness)
+  re-measured OpenFGA's gRPC union (292,238 relationships plus trial grants)
+  with continuous polling and positive controls. Last allows were
+  1.924-8.743 s after delete responses, which agrees with seconds of
+  staleness.
 - Authentication accepts any OIDC provider. The principal is issuer plus
   subject. Why: OIDC makes `sub` unique only within an issuer, and the
   project will not depend on one provider's claims. (decided by the user,
@@ -81,13 +90,19 @@ that record's choices the user made or are local to the work.
   (`src/services/device/internal/tenantstore/store.go`). The `claimed`
   relationships come from the token's organization claims resolved through
   the tenant binding's `org_` index, and a tenant id is never assumed equal
-  to an organization id. Why: the index exists, is tested against every fault
-  point, and is the lookup the interceptor needs to turn a token's
-  organization claims into tenants.
+  to an organization id. Why: the index exists, is tested against every
+  applicable read and publish fault, and is the lookup the interceptor needs
+  to turn a token's organization claims into tenants.
 - The membership intersection is checked once per request on the tenant.
-  Resource permissions are unions with no `and` and no `but not`. Why: an
-  intersection inside resource permissions made `ListObjects` return 11 of
-  1,104 edges after 60 s.
+  Resource permissions are unions with no `and` and no `but not`. Why:
+  [OpenFGA resource intersections](../research/2026-09-30-openfga-authorization-spike.md#membership-gated-by-token-claims)
+  on 336,249 relationships over gRPC returned 11 of 1,104 Tag edges at a
+  60-second deadline. The
+  [SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md#membership-aware-resource-lookup)
+  re-measured the direct-tenant placement on 336,245 relationships. OpenFGA
+  returned all 1,104 Tag edges in 905.764 ms over gRPC, but still returned
+  zero global-admin edges at 60 s. The Tag disagreement is unexplained,
+  with fixture and stored-grant reference-shape differences.
 - All tenants share one OpenFGA store. Why: a connected service-provider
   tenant is a relationship between two tenant objects, and relationships
   cannot cross stores.
