@@ -6,7 +6,7 @@ WORKDIR /src
 COPY go.mod go.sum main.go ./
 RUN go mod download && CGO_ENABLED=0 go build -o /gnmitarget .
 
-FROM alpine:3.20
+FROM alpine:3.24
 COPY --from=build /gnmitarget /gnmitarget
 EXPOSE 9339
 ENTRYPOINT ["/gnmitarget", "-addr", ":9339"]

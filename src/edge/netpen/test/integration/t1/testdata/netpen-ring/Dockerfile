@@ -1,7 +1,7 @@
 # Dockerfile for the netpen t1 ring containers.
 # Builds the netpen binary inside the container (linux/amd64), then runs
 # it. The image is used for both the crafter and decoder containers.
-FROM golang:1.26-bookworm AS builder
+FROM golang:1.27-bookworm AS builder
 WORKDIR /src
 COPY . .
 WORKDIR /src/src/edge/netpen
