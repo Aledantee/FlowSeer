@@ -118,9 +118,10 @@ its credential to
 file.
 
 The tenant token is enforced at both ends of the link. An edge user publishes
-only under `flowseer.<tenant>.edge.<edge-id>.>` through `edgePermissions`, and
-the forwarder refuses a record whose subject names another tenant or edge with
-`belongsToEdge`.
+flowseer records only under `flowseer.<tenant>.edge.<edge-id>.>` through
+`edgePermissions`. That permission also grants `$JSC.R.>` for JetStream reply
+flow. The forwarder refuses a record whose subject names another tenant or
+edge with `belongsToEdge`.
 
 ## What a compromised edge can and cannot do
 
