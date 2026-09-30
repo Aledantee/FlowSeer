@@ -78,7 +78,7 @@ graph has a cycle, which this layout cannot import.
 ### U1. Runtime group field kind
 Files: docs/plans/2026-09-30-1129-fix-yang-augment-namespaces-phase1-plan.md
 After: none
-Landed:
+Landed: `d8cb4540..cca18ef1`
 
 ### U2. Generator recovery and group emission
 Files: docs/plans/2026-09-30-1129-fix-yang-augment-namespaces-phase2-plan.md

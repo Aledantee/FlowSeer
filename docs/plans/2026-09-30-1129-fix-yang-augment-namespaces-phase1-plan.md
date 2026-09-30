@@ -4,12 +4,14 @@ type: fix
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-30-1129-fix-yang-augment-namespaces-plan.md
 ---
 
 # YANG Augment Namespaces, Phase 1 - Runtime Group Field Kind - Plan
+
+> Implemented. 3 units, 2026-09-30T10:32:20Z to 2026-09-30T10:32:20Z.
 
 ## Goal
 

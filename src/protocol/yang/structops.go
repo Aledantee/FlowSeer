@@ -93,64 +93,93 @@ func VisitStructLeaves(s *Schema, v any, fn func(Path, Value) bool) error {
 // visitLeaves recursively walks rv. Returns false when fn stopped
 // the walk.
 func visitLeaves(s *Schema, rv reflect.Value, prefix Path, fn func(Path, Value) bool) (bool, error) {
-	for i := range s.Fields {
-		f := &s.Fields[i]
-		fv, err := fieldValue(rv, f)
+	stopped := false
+	err := walkFields(s, func(f *Field, owner *Schema, group *Field) error {
+		if stopped {
+			return nil
+		}
+		fieldRV := rv
+		if group != nil {
+			var err error
+			fieldRV, err = groupValue(rv, group, false)
+			if err != nil {
+				return err
+			}
+			if !fieldRV.IsValid() {
+				return nil
+			}
+		}
+
+		fv, err := fieldValue(fieldRV, f)
 		if err != nil {
-			return false, err
+			return err
 		}
 		switch {
 		case f.Child != nil && f.List:
 			for j := 0; j < fv.Len(); j++ {
 				entry := fv.Index(j)
-				seg, err := listSegment(s, f, entry)
+				seg, err := listSegment(owner, f, entry)
 				if err != nil {
-					return false, err
+					return err
 				}
 				cont, err := visitLeaves(f.Child, entry, appendSegment(prefix, seg), fn)
-				if err != nil || !cont {
-					return cont, err
+				if err != nil {
+					return err
+				}
+				if !cont {
+					stopped = true
+					return nil
 				}
 			}
 		case f.Child != nil:
 			if fv.IsNil() {
-				continue
+				return nil
 			}
-			seg := Segment{Module: f.qualifiedModule(s), Namespace: f.qualifiedNamespace(s), Name: f.Child.Name}
+			seg := Segment{Module: f.qualifiedModule(owner), Namespace: f.qualifiedNamespace(owner), Name: f.Child.Name}
 			cont, err := visitLeaves(f.Child, fv.Elem(), appendSegment(prefix, seg), fn)
-			if err != nil || !cont {
-				return cont, err
+			if err != nil {
+				return err
+			}
+			if !cont {
+				stopped = true
+				return nil
 			}
 		case f.LeafList:
 			for j := 0; j < fv.Len(); j++ {
 				val, err := scalarToValue(f.Type, fv.Index(j))
 				if err != nil {
-					return false, errs.Wrapf(err, "leaf-list %s", f.Name)
+					return errs.Wrapf(err, "leaf-list %s", f.Name)
 				}
-				if !fn(appendSegment(prefix, leafSegment(s, f)), val) {
-					return false, nil
+				if !fn(appendSegment(prefix, leafSegment(owner, f)), val) {
+					stopped = true
+					return nil
 				}
 			}
 		default:
 			scalar := fv
 			if scalar.Kind() == reflect.Pointer {
 				if scalar.IsNil() {
-					continue
+					return nil
 				}
 				scalar = scalar.Elem()
 			} else if scalar.Kind() == reflect.Slice && scalar.IsNil() {
-				continue
+				return nil
 			}
 			val, err := scalarToValue(f.Type, scalar)
 			if err != nil {
-				return false, errs.Wrapf(err, "leaf %s", f.Name)
+				return errs.Wrapf(err, "leaf %s", f.Name)
 			}
-			if !fn(appendSegment(prefix, leafSegment(s, f)), val) {
-				return false, nil
+			if !fn(appendSegment(prefix, leafSegment(owner, f)), val) {
+				stopped = true
+				return nil
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		return false, err
 	}
-	return true, nil
+	return !stopped, nil
 }
 
 // leafSegment builds the path segment for a leaf field.
