@@ -14,7 +14,7 @@ Package `common/service` imports `google.golang.org/genproto/googleapis/rpc/errd
 
 ## Why it is safe
 
-The publisher is Google. Version `v0.0.0-20260928230214-8a89bd6388cc` was published at `2026-09-28T23:02:14Z` and was 3 days old on 2026-10-01. It was marked under the 14-day wait until `2026-10-12T23:02:14Z`, and the Go proxy reported origin commit `8a89bd6388cc9f960fc7076f7e2a43f96ad592e9`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 7 versions, with 0 versions only reachable through this direct dependency.
+The publisher is Google. Version `v0.0.0-20260928230214-8a89bd6388cc` was published at `2026-09-28T23:02:14Z` and was 3 days old on 2026-10-01. It was marked under the 14-day wait until `2026-10-12T23:02:14Z`, and the Go proxy reported origin commit `8a89bd6388cc9f960fc7076f7e2a43f96ad592e9`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 7 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 

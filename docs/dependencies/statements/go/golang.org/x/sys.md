@@ -14,7 +14,7 @@ Packages `common/service` and `services/device/internal/credential` import `gola
 
 ## Why it is safe
 
-The publisher is the Go project. Version `v0.48.0` was published at `2026-08-31T19:43:43Z` and was 31 days old on 2026-10-01. Its 14-day wait ended at `2026-09-14T19:43:43Z`, and the Go proxy reported origin commit `613e2570718ecde85c04e69ebd5585c3881c442c`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 2 versions, with 0 versions only reachable through this direct dependency.
+The publisher is the Go project. Version `v0.48.0` was published at `2026-08-31T19:43:43Z` and was 31 days old on 2026-10-01. Its 14-day wait ended at `2026-09-14T19:43:43Z`, and the Go proxy reported origin commit `613e2570718ecde85c04e69ebd5585c3881c442c`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 2 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 

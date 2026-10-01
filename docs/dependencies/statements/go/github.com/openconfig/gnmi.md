@@ -15,8 +15,8 @@ The package at src/protocol/gnmi imports github.com/openconfig/gnmi/proto/gnmi a
 
 ## Why it is safe
 
-The publisher is OpenConfig. The pinned version `v0.14.1` was published at 2025-03-26T22:09:38Z and was 553 days old on 2026-10-01. Its 14-day wait ended at 2025-04-09T22:09:38Z. The OSV lookup dated 2026-10-01 returned no advisory for `github.com/openconfig/gnmi` at `v0.14.1`. The dependency tree contains 22 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
+The publisher is OpenConfig. The pinned version `v0.14.1` was published at 2025-03-26T22:09:38Z and was 553 days old on 2026-10-01. Its 14-day wait ended at 2025-04-09T22:09:38Z. The OSV lookup dated 2026-10-01 returned no advisory for `github.com/openconfig/gnmi` at `v0.14.1`. The root module graph contains 22 versions, with 0 versions only reachable through this direct dependency. The gNMI target graph contains 22 versions, with 21 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-FlowSeer would have to define and maintain gNMI protobuf and client types for sessions and subscriptions. That would fork a protocol surface and its interoperability behavior. The dependency tree contains 22 versions, with 0 versions only reachable through this direct dependency.
+FlowSeer would have to define and maintain gNMI protobuf and client types for sessions and subscriptions. That would fork a protocol surface and its interoperability behavior. The root module graph contains 22 versions, with 0 versions only reachable through this direct dependency. The gNMI target graph contains 22 versions, with 21 versions only reachable through this direct dependency.

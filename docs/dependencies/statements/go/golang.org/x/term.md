@@ -14,7 +14,7 @@ Package `cmd/netpen` imports `golang.org/x/term` at `src/edge/netpen/cmd/netpen/
 
 ## Why it is safe
 
-The publisher is the Go project. Version `v0.46.0` was published at `2026-09-08T16:27:41Z` and was 23 days old on 2026-10-01. Its 14-day wait ended at `2026-09-22T16:27:41Z`, and the Go proxy reported origin commit `6226200ed12cba417a9d9e799c2a7179d3fc0e27`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The netpen module graph contains 3 versions, with 0 versions only reachable through this direct dependency.
+The publisher is the Go project. Version `v0.46.0` was published at `2026-09-08T16:27:41Z` and was 23 days old on 2026-10-01. Its 14-day wait ended at `2026-09-22T16:27:41Z`, and the Go proxy reported origin commit `6226200ed12cba417a9d9e799c2a7179d3fc0e27`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The netpen module graph contains 3 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
