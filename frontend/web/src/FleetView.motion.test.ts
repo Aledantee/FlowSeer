@@ -219,8 +219,7 @@ describe('FleetView motion layout', () => {
       host.querySelector<HTMLElement>('.main-shell')?.style.transform,
     ).toBe('')
 
-    const collapseAnimations =
-      host.querySelector('nav')?.getAnimations() ?? []
+    const collapseAnimations = host.querySelector('nav')?.getAnimations() ?? []
     const runningOnCollapse = collapseAnimations.filter(
       (animation) => animation.playState === 'running',
     )
