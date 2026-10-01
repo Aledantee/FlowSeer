@@ -11,12 +11,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `go.mod` and `src/protocol/yang/test/integration/testenv/testdata/gnmitarget/go.mod`. It requires `github.com/openconfig/gnmi` at `v0.14.1`.
+The package at src/protocol/gnmi imports github.com/openconfig/gnmi/proto/gnmi at src/protocol/gnmi/session.go:12. The gNMI target test package also imports it at src/protocol/yang/test/integration/testenv/testdata/gnmitarget/main.go:21. The pinned direct requirement is `github.com/openconfig/gnmi` at `v0.14.1`.
 
 ## Why it is safe
 
-The lockfile pins `v0.14.1`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is OpenConfig. The pinned version `v0.14.1` was published at 2025-03-26T22:09:38Z and was 553 days old on 2026-10-01. Its 14-day wait ended at 2025-04-09T22:09:38Z. The OSV lookup dated 2026-10-01 returned no advisory for `github.com/openconfig/gnmi` at `v0.14.1`. The dependency tree contains 22 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `github.com/openconfig/gnmi`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to define and maintain gNMI protobuf and client types for sessions and subscriptions. That would fork a protocol surface and its interoperability behavior. The dependency tree contains 22 versions, with 0 versions only reachable through this direct dependency.

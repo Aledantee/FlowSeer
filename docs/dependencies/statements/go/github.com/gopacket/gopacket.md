@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `src/edge/netpen/go.mod`. It requires `github.com/gopacket/gopacket` at `v1.7.3`.
+The package at src/edge/netpen/attacks/fh imports github.com/gopacket/gopacket at src/edge/netpen/attacks/fh/icmpredirect.go:17. The pinned direct requirement is `github.com/gopacket/gopacket` at `v1.7.3`.
 
 ## Why it is safe
 
-The lockfile pins `v1.7.3`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is the gopacket/gopacket project. The pinned version `v1.7.3` was published at 2026-09-26T23:12:17Z and was 4 days old on 2026-10-01. Its 14-day wait ended at 2026-10-10T23:12:17Z. The OSV lookup dated 2026-10-01 returned no advisory for `github.com/gopacket/gopacket` at `v1.7.3`. The dependency tree contains 6 versions, with 4 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `github.com/gopacket/gopacket`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to implement packet decoding and protocol-layer serialization for netpen. That would duplicate a packet parser and its protocol coverage in the edge application. The dependency tree contains 6 versions, with 4 versions only reachable through this direct dependency.

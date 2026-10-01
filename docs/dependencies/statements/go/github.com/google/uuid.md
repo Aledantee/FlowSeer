@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `go.mod`. It requires `github.com/google/uuid` at `v1.6.0`.
+The package at src/services/device/internal/edgeapi imports github.com/google/uuid at src/services/device/internal/edgeapi/admin.go:10. The tenant package also imports it at src/common/tenant/tenant.go:7. The pinned direct requirement is `github.com/google/uuid` at `v1.6.0`.
 
 ## Why it is safe
 
-The lockfile pins `v1.6.0`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is Google. The pinned version `v1.6.0` was published at 2024-01-23T18:54:04Z and was 981 days old on 2026-10-01. Its 14-day wait ended at 2024-02-06T18:54:04Z. The OSV lookup dated 2026-10-01 returned no advisory for `github.com/google/uuid` at `v1.6.0`. The dependency tree contains 1 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `github.com/google/uuid`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to implement UUID generation, parsing, and validation for identifiers. That would own a general-purpose identifier format and its edge cases instead of keeping that boundary with a maintained library. The dependency tree contains 1 versions, with 0 versions only reachable through this direct dependency.

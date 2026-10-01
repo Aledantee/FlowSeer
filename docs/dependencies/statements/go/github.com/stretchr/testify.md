@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `go.mod`. It requires `github.com/stretchr/testify` at `v1.12.1`.
+The conformance package imports github.com/stretchr/testify/require at test/conformance/proto/bfd_rules_test.go:6. The pinned direct requirement is `github.com/stretchr/testify` at `v1.12.1`.
 
 ## Why it is safe
 
-The lockfile pins `v1.12.1`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is stretchr. The pinned version `v1.12.1` was published at 2026-08-17T08:24:05Z and was 44 days old on 2026-10-01. Its 14-day wait ended at 2026-08-31T08:24:05Z. The OSV lookup dated 2026-10-01 returned no advisory for `github.com/stretchr/testify` at `v1.12.1`. The dependency tree contains 3 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `github.com/stretchr/testify`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to replace assertion and test helper code in conformance tests. That would add a local test framework without improving shipped behavior. The dependency tree contains 3 versions, with 0 versions only reachable through this direct dependency.

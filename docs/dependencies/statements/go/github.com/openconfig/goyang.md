@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `go.mod`. It requires `github.com/openconfig/goyang` at `v1.6.3`.
+The YANG generator package imports github.com/openconfig/goyang/pkg/yang at src/protocol/yang/cmd/yanggen/load.go:16. The pinned direct requirement is `github.com/openconfig/goyang` at `v1.6.3`.
 
 ## Why it is safe
 
-The lockfile pins `v1.6.3`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is OpenConfig. The pinned version `v1.6.3` was published at 2025-07-01T18:46:07Z and was 456 days old on 2026-10-01. Its 14-day wait ended at 2025-07-15T18:46:07Z. The OSV lookup dated 2026-10-01 returned no advisory for `github.com/openconfig/goyang` at `v1.6.3`. The dependency tree contains 26 versions, with 1 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `github.com/openconfig/goyang`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to parse and resolve YANG modules for yanggen. That would duplicate a schema compiler and its resolution rules in owned code. The dependency tree contains 26 versions, with 1 versions only reachable through this direct dependency.

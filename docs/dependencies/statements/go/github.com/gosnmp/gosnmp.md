@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `src/protocol/snmp/bench/go.mod`. It requires `github.com/gosnmp/gosnmp` at `v1.45.0`.
+The SNMP benchmark package imports github.com/gosnmp/gosnmp at src/protocol/snmp/bench/macro_test.go:12. The pinned direct requirement is `github.com/gosnmp/gosnmp` at `v1.45.0`.
 
 ## Why it is safe
 
-The lockfile pins `v1.45.0`, and the inventory classifies this dependency as `run`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is the gosnmp community. The pinned version `v1.45.0` was published at 2026-09-19T08:48:32Z and was 11 days old on 2026-10-01. Its 14-day wait ended at 2026-10-03T08:48:32Z. The OSV lookup dated 2026-10-01 returned no advisory for `github.com/gosnmp/gosnmp` at `v1.45.0`. The dependency tree contains 5 versions, with 1 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `github.com/gosnmp/gosnmp`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to implement an independent SNMP client for the benchmark comparison cases. That would turn a benchmark reference into product code and make protocol fidelity its responsibility. The dependency tree contains 5 versions, with 1 versions only reachable through this direct dependency.

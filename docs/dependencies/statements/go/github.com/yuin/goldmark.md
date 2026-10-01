@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `go.mod`. It requires `github.com/yuin/goldmark` at `v1.8.6`.
+The check-guarantees package imports github.com/yuin/goldmark at tools/check-guarantees/check.go:20. It also imports goldmark's AST package at tools/check-guarantees/check.go:21. The pinned direct requirement is `github.com/yuin/goldmark` at `v1.8.6`.
 
 ## Why it is safe
 
-The lockfile pins `v1.8.6`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is yuin. The pinned version `v1.8.6` was published at 2026-09-03T06:08:38Z and was 27 days old on 2026-10-01. Its 14-day wait ended at 2026-09-17T06:08:38Z. The OSV lookup dated 2026-10-01 returned no advisory for `github.com/yuin/goldmark` at `v1.8.6`. The dependency tree contains 2 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `github.com/yuin/goldmark`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to implement a Markdown parser for check-guarantees. That would duplicate CommonMark parsing and make checker correctness an owned language implementation. The dependency tree contains 2 versions, with 0 versions only reachable through this direct dependency.

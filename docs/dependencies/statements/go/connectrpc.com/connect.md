@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `go.mod`. It requires `connectrpc.com/connect` at `v1.21.0`.
+The package at src/services/device/internal/auditapi imports connectrpc.com/connect at src/services/device/internal/auditapi/service.go:12. The edge API package imports it at src/services/device/internal/edgeapi/enroll.go:12. The pinned direct requirement is `connectrpc.com/connect` at `v1.21.0`.
 
 ## Why it is safe
 
-The lockfile pins `v1.21.0`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is ConnectRPC. The pinned version `v1.21.0` was published at 2026-09-08T13:20:25Z and was 22 days old on 2026-10-01. Its 14-day wait ended at 2026-09-22T13:20:25Z. The OSV lookup dated 2026-10-01 returned no advisory for `connectrpc.com/connect` at `v1.21.0`. The dependency tree contains 5 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `connectrpc.com/connect`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to implement HTTP RPC routing, protocol negotiation, marshaling, and client-server plumbing used by device services. That would duplicate transport infrastructure and make interoperability code owned. The dependency tree contains 5 versions, with 0 versions only reachable through this direct dependency.

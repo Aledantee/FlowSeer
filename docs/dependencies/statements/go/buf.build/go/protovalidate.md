@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `go.mod`. It requires `buf.build/go/protovalidate` at `v1.4.0`.
+The package at src/services/device/internal/edgeapi imports buf.build/go/protovalidate at src/services/device/internal/edgeapi/enroll.go:11. The registry package also imports it at src/services/device/internal/registry/registry.go:20. The pinned direct requirement is `buf.build/go/protovalidate` at `v1.4.0`.
 
 ## Why it is safe
 
-The lockfile pins `v1.4.0`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is Buf. The pinned version `v1.4.0` was published at 2026-08-31T17:15:21Z and was 30 days old on 2026-10-01. Its 14-day wait ended at 2026-09-14T17:15:21Z. The OSV lookup dated 2026-10-01 returned no advisory for `buf.build/go/protovalidate` at `v1.4.0`. The dependency tree contains 32 versions, with 21 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `buf.build/go/protovalidate`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to implement protobuf validation and its integration with generated messages. That would duplicate a shared validation contract and make every rule change local maintenance. The dependency tree contains 32 versions, with 21 versions only reachable through this direct dependency.

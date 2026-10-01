@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `src/protocol/smi/differential/go.mod`. It requires `github.com/sleepinggenius2/gosmi` at `v0.4.4`.
+The SMI differential package imports github.com/sleepinggenius2/gosmi at src/protocol/smi/differential/outcome.go:39. The pinned direct requirement is `github.com/sleepinggenius2/gosmi` at `v0.4.4`.
 
 ## Why it is safe
 
-The lockfile pins `v0.4.4`, and the inventory classifies this dependency as `run`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is the sleepinggenius2/gosmi project. The pinned version `v0.4.4` was published at 2022-02-04T23:35:17Z and was 1699 days old on 2026-10-01. Its 14-day wait ended at 2022-02-18T23:35:17Z. The OSV lookup dated 2026-10-01 returned no advisory for `github.com/sleepinggenius2/gosmi` at `v0.4.4`. The dependency tree contains 19 versions, with 17 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `github.com/sleepinggenius2/gosmi`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to write a second SMI parser to act as the independent side of the differential comparison. That would invalidate the comparison and add parser maintenance. The dependency tree contains 19 versions, with 17 versions only reachable through this direct dependency.

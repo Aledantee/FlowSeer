@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `go.mod`. It requires `github.com/dave/jennifer` at `v1.7.1`.
+The package at src/protocol/snmp/cmd/mibgen imports github.com/dave/jennifer/jen at src/protocol/snmp/cmd/mibgen/emit_dispatch.go:6. The YANG generator imports it at src/protocol/yang/cmd/yanggen/emit_type.go:4. The pinned direct requirement is `github.com/dave/jennifer` at `v1.7.1`.
 
 ## Why it is safe
 
-The lockfile pins `v1.7.1`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is the dave/jennifer project. The pinned version `v1.7.1` was published at 2024-09-08T22:27:02Z and was 752 days old on 2026-10-01. Its 14-day wait ended at 2024-09-22T22:27:02Z. The OSV lookup dated 2026-10-01 returned no advisory for `github.com/dave/jennifer` at `v1.7.1`. The dependency tree contains 1 version, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `github.com/dave/jennifer`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to hand-build Go source strings for mibgen and yanggen. That would make escaping, formatting, and syntax correctness generator code instead of a structured Go AST builder. The dependency tree contains 1 version, with 0 versions only reachable through this direct dependency.

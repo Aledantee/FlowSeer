@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `go.mod`. It requires `github.com/moby/moby/api` at `v1.56.0`.
+The integration test environment package imports github.com/moby/moby/api/types/container at src/common/service/test/integration/testenv/otel.go:18. The SNMP integration environment imports the API at src/protocol/snmp/test/integration/testenv/snmpsim.go:12. The pinned direct requirement is `github.com/moby/moby/api` at `v1.56.0`.
 
 ## Why it is safe
 
-The lockfile pins `v1.56.0`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is the Moby project. The pinned version `v1.56.0` was published at 2026-09-03T20:34:34Z and was 27 days old on 2026-10-01. Its 14-day wait ended at 2026-09-17T20:34:34Z. The OSV lookup dated 2026-10-01 returned no advisory for `github.com/moby/moby/api` at `v1.56.0`. The dependency tree contains 10 versions, with 2 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `github.com/moby/moby/api`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to implement Docker Engine API request and model types for integration test environments. That would duplicate a versioned daemon API and expand test-only owned code. The dependency tree contains 10 versions, with 2 versions only reachable through this direct dependency.

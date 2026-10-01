@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `go.mod`. It requires `github.com/nats-io/nkeys` at `v0.4.16`.
+The package at src/modules/edgebus imports github.com/nats-io/nkeys at src/modules/edgebus/keys.go:11. The pinned direct requirement is `github.com/nats-io/nkeys` at `v0.4.16`.
 
 ## Why it is safe
 
-The lockfile pins `v0.4.16`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is NATS.io. The pinned version `v0.4.16` was published at 2026-06-02T13:46:28Z and was 120 days old on 2026-10-01. Its 14-day wait ended at 2026-06-16T13:46:28Z. The OSV lookup dated 2026-10-01 returned no advisory for `github.com/nats-io/nkeys` at `v0.4.16`. The dependency tree contains 4 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `github.com/nats-io/nkeys`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to implement NATS key generation and signing. That would duplicate cryptographic key formats and signing semantics in owned code. The dependency tree contains 4 versions, with 0 versions only reachable through this direct dependency.
