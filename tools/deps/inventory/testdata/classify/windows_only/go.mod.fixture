@@ -1,0 +1,7 @@
+module example.test/windows_only
+
+go 1.27
+
+require example.test/transitive v0.0.0
+
+replace example.test/transitive => ../transitive

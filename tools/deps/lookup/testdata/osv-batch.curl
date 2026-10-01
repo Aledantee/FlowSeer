@@ -1,0 +1,1 @@
+curl -fsS https://api.osv.dev/v1/querybatch -H 'Content-Type: application/json' -d '{"queries":[{"package":{"ecosystem":"Go","name":"google.golang.org/grpc"},"version":"1.84.0"},{"package":{"ecosystem":"Go","name":"golang.org/x/crypto"},"version":"0.57.0"},{"package":{"ecosystem":"npm","name":"reka-ui"},"version":"2.10.5"}]}' | jq -c .

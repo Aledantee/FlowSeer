@@ -1,0 +1,1 @@
+{"id":"GO-2026-6443","summary":"Server panic via missing authority or Host headers in google.golang.org/grpc","affected":[{"ecosystem_specific":{"imports":[{"path":"google.golang.org/grpc/internal/transport"},{"path":"google.golang.org/grpc/internal/xds/server"}]}}]}
