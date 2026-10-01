@@ -371,6 +371,7 @@ function toggleSidebar() {
     if (!reduced.value) layoutDependency.value++
   } else if (!sidebarCollapsed.value) {
     const nav = navigation.value?.$el
+    // The nav is a UiMotion and motion-v re-applies held values on render, so the nav keeps opacity: 1 inline after this fade.
     play(
       nav instanceof HTMLElement ? nav : undefined,
       { opacity: [0.6, 1] },
@@ -858,11 +859,14 @@ onUnmounted(() => clearInterval(timer))
         </svg>
         <span>FlowSeer</span>
       </UiMotion>
-      <div
+      <UiMotion
+        as="div"
+        layout="position"
+        :layout-dependency="layoutDependency"
         class="nav-label mt-7 text-2xs tracking-[1.5px] text-chrome-muted-foreground px-3 pb-3 max-[800px]:hidden"
       >
         WORKSPACE
-      </div>
+      </UiMotion>
       <UiMotion
         ref="navigation"
         as="nav"
