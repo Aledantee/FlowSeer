@@ -123,8 +123,10 @@ Views never import `reka-ui`; only files under `src/ui/` do.
   - Dispatch `cancelable: true` events and await a tick before reading
     `defaultPrevented`.
   - Query portalled content from `document.body`.
-  - Stub `matchMedia` to reduced motion in any test that triggers
-    `useMotionFeedback`. Do not mock the animation library.
+  - In tests that exercise reduced motion, stub `matchMedia` before the first
+    mount so the reduced-motion query matches. This selects motion-v's safe
+    path in happy-dom. Do not mock the animation library or add an
+    `offsetParent` stub to avoid a throw.
   - Leave layout, stacking, and motion to step 4.
 
 Run the audit alone while iterating, from `frontend/web`:

@@ -91,7 +91,7 @@ Landed: `f35884bb..102193b1`
 
 Files: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase2-plan.md`
 After: U1
-Landed:
+Landed: `7c101257..1d1ab2df`
 
 ### U3. i18n foundation and Ui component strings
 
