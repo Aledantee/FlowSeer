@@ -23,15 +23,15 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `go.mod` and uses `github.com/google/uuid`.
+The package at src/services/device/internal/edgeapi imports github.com/google/uuid at src/services/device/internal/edgeapi/admin.go:10. The tenant package also imports it at src/common/tenant/tenant.go:7. The pinned direct requirement is `github.com/google/uuid` at `v1.6.0`.
 
 ## Why it is safe
 
-The lockfile pins `v1.6.0`. The inventory and lookup commands provide the publication and advisory evidence. Source not yet reviewed.
+The publisher is Google. The pinned version `v1.6.0` was published at 2024-01-23T18:54:04Z and was 981 days old on 2026-10-01. Its 14-day wait ended at 2024-02-06T18:54:04Z. The OSV lookup dated 2026-10-01 returned no advisory for `github.com/google/uuid` at `v1.6.0`. The dependency tree contains 1 version, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-FlowSeer does not own UUID generation. Replacing the module would move a general-purpose package boundary into the repository.
+FlowSeer would have to implement UUID generation, parsing, and validation for identifiers. That would own a general-purpose identifier format and its edge cases instead of keeping that boundary with a maintained library. The dependency tree contains 1 version, with 0 versions only reachable through this direct dependency.
 ```
 
 The first section names the importing package or package graph. The second names the pinned version and the evidence still to review. The third states why the dependency's tree is preferable to an owned replacement. The tree size pulled in by a direct dependency counts against it.
@@ -48,7 +48,7 @@ A pin moves for one of three reasons:
 
 The target is the newest version past the wait with no open advisory. It is never the newest release by default. The [direction record](../architecture/2026-10-01-dependency-admission-direction.md) records why these limits exist.
 
-The inventory classifies a version as `deploy` when shipping code reaches it and `run` for tests, generators, and tooling. A `run` classification still requires a statement and a source review focused on workstation behavior.
+The inventory classifies a version as `deploy` when shipping code reaches it. As a stricter fallback, a root or netpen `go.sum` entry absent from both closures is also `deploy`, because build tags can hide imports and an unexplained entry receives the stricter review. Sampled test-only closure entries are `run`, and non-shipping modules are `run`. A `run` classification still requires a statement and a source review focused on workstation behavior.
 
 ## Inspect the tree
 
@@ -63,4 +63,4 @@ go run ./tools/deps age
 
 `inventory` prints ecosystem, name, version, lockfile hash, criteria, manifests, and direct-dependency paths. `tree` prints each direct dependency's version count and the count of versions only it reaches. `advisories` prints dependency, version, advisory id, summary, and affected import paths. `age` prints publication time, the 14-day status and until time, and the Go origin commit when the proxy provides one.
 
-Phase 1 has statements and the inventory lookups. The per-version records and the version gate do not exist yet. They are part of the later dependency-admission phases described by the direction record.
+The per-version records and the version gate do not exist yet.
