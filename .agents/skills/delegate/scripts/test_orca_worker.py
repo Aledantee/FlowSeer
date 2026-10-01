@@ -59,7 +59,15 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "read":
     elif os.environ.get("ORCA_STUB_DIALOG") and Path(os.environ["ORCA_STUB_DIALOG"]).exists():
         print(Path(os.environ["ORCA_STUB_DIALOG"]).read_text())
     elif os.environ.get("ORCA_STUB_SCREENS") and (Path(os.environ["ORCA_STUB_SCREENS"]) / args[args.index("--terminal") + 1]).exists():
-        print((Path(os.environ["ORCA_STUB_SCREENS"]) / args[args.index("--terminal") + 1]).read_text())
+        term_handle = args[args.index("--terminal") + 1]
+        clock_val = int(Path(os.environ["ORCA_STUB_CLOCK"]).read_text() or "0")
+        if (
+            os.environ.get("ORCA_STUB_CHILD_SCREEN_AFTER")
+            and clock_val >= int(os.environ.get("ORCA_STUB_CHILD_SCREEN_AFTER_CLOCK", "0"))
+        ):
+            print(os.environ["ORCA_STUB_CHILD_SCREEN_AFTER"])
+        else:
+            print((Path(os.environ["ORCA_STUB_SCREENS"]) / term_handle).read_text())
     elif (
         os.environ.get("ORCA_STUB_SCREEN_AFTER")
         and int(Path(os.environ["ORCA_STUB_CLOCK"]).read_text() or "0")
@@ -976,6 +984,37 @@ else:
         result = self.command("wait", "l1", "--stall", "0", "--max", "10")
         self.assert_wait(result, ["timeout", "> lane done"], 10)
 
+    def test_wait_holds_for_a_child_working_until_clock_fifteen(self):
+        self.live_lane()
+        self.child_lane(screen="esc to interrupt")
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        self.env["ORCA_STUB_CHILD_SCREEN_AFTER"] = "> child done"
+        self.env["ORCA_STUB_CHILD_SCREEN_AFTER_CLOCK"] = "15"
+        result = self.command("wait", "l1", "--stall", "15", "--max", "50")
+        self.assert_wait(result, ["idle-children c1", "> lane done"], 35)
+
+    def test_wait_reports_idle_after_a_lane_screen_change_without_children(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> before"
+        self.env["ORCA_STUB_SCREEN_AFTER"] = "> after"
+        self.env["ORCA_STUB_SCREEN_AFTER_CLOCK"] = "5"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "20")
+        self.assert_wait(result, ["idle", "> after"], 15)
+
+    def test_wait_times_out_for_an_idle_lane_at_deadline(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> done"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "5")
+        self.assert_wait(result, ["timeout", "> done"], 5)
+
+    def test_wait_restarts_stall_when_lane_screen_changes_inside_one_pass(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "Thinking... (esc to cancel)"
+        self.env["ORCA_STUB_SCREEN_AFTER"] = "> done"
+        self.env["ORCA_STUB_SCREEN_AFTER_CLOCK"] = "15"
+        result = self.command("wait", "l1", "--stall", "10", "--max", "30")
+        self.assert_wait(result, ["idle", "> done"], 25)
+
     def test_wait_rejects_the_removed_timeout_flag(self):
         self.live_lane()
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
@@ -1024,7 +1063,7 @@ else:
     def test_stop_refuses_a_lane_with_child_worktrees_and_removes_nothing(self):
         state_file, child_path, _ = self.graded_lane()
         (child_path / ".orca-brief.md").write_text("brief")
-        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/grandchild repo::/lanes/second-child"
+        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/grandchild,repo::/lanes/second-child"
         result = self.command("stop", "l1")
         self.assertTrue((child_path / ".orca-brief.md").exists())
         self.assertNotEqual(result.returncode, 0)
@@ -1039,11 +1078,12 @@ else:
     def test_stop_rechecks_children_after_a_stalled_terminal_closes(self):
         state_file, child_path, _ = self.graded_lane()
         self.env["ORCA_STUB_SCREEN"] = "esc to cancel"
-        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/late"
+        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/late,repo::/lanes/second-late"
         self.env["ORCA_STUB_CHILDREN_FROM"] = "2"
         result = self.command("stop", "l1", "--stalled")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("started child worktrees before its terminal closed", result.stderr)
+        self.assertIn("repo::/lanes/late repo::/lanes/second-late", result.stderr)
         self.assertTrue(state_file.exists())
         self.assertTrue(child_path.exists())
         calls = self.orca_calls()
@@ -1052,10 +1092,10 @@ else:
 
     def test_start_rollback_keeps_a_lane_with_child_worktrees(self):
         self.env["ORCA_STUB_FAIL"] = "pointer"
-        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/grandchild"
+        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/grandchild,repo::/lanes/second-child"
         result = self.start()
         self.assert_retained_lane(result, "term-1", True)
-        self.assertIn("it has child worktrees: repo::/lanes/grandchild", result.stderr)
+        self.assertIn("it has child worktrees: repo::/lanes/grandchild repo::/lanes/second-child", result.stderr)
         self.assertNotIn("worktree rm", self.orca_calls())
 
 
