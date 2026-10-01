@@ -61,4 +61,3 @@ condition. The bypass is needed for the target path as well.
 Suggested change: name both `.claude/skills` and `.agents/skills` in the
 bypass condition, or resolve symlinks before deciding whether the merge needs
 the sandbox disabled.
-
