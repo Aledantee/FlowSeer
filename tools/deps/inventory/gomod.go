@@ -15,7 +15,7 @@ func parseModule(root, manifestPath string) (Module, error) {
 	if err != nil {
 		return Module{}, errs.Wrap(err, "read Go module manifest")
 	}
-	parsed, err := modfile.ParseLax(manifestPath, data, nil)
+	parsed, err := modfile.Parse(manifestPath, data, nil)
 	if err != nil {
 		return Module{}, errs.Wrapf(err, "parse Go module manifest %s", manifestPath)
 	}
