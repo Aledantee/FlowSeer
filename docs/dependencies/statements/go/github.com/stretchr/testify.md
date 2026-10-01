@@ -18,4 +18,4 @@ The publisher is stretchr. The pinned version `v1.12.1` was published at 2026-08
 
 ## Why not owned code
 
-The standard library `testing` package can replace the elementary `require` assertions in the three conformance test files. No owned test framework is needed, and removing this dependency also removes its transitive assertion helpers. The dependency tree contains 3 versions, with 0 versions only reachable through this direct dependency.
+The standard library `testing` package can replace the elementary `require` assertions in the three conformance test files. No owned test framework is needed, and the direct dependency can be removed without replacing its assertions with another package. The dependency tree contains 3 versions, with 0 versions only reachable through this direct dependency.
