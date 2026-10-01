@@ -258,10 +258,17 @@ horizontal mobile navigation uses an underline. The highlight slides to the
 selected page in 140 ms, vertically
 on desktop and horizontally on mobile. Reduced motion selects it immediately.
 
-Motion's `motion/mini` animates scope changes, sidebar resizing, details opening,
-and action feedback in 100–160 ms with an ease-out curve. Hover feedback takes
-90 ms. Closing details and dismissing notices are immediate so animation never
-holds focus or delays the next action. Theme changes apply immediately.
+Motion-v provides `UiMotion` for layout and positional animation. The
+`useMotionFeedback` composable lives in `src/ui/motion/` and handles local
+feedback such as scope changes, details opening, and notices. Views import both
+through the `src/ui` barrel. `UiAppRoot` mounts the one app-wide
+`UiMotionConfig` with `reducedMotion="user"`, so the browser preference applies
+to every motion surface.
+
+Motion uses an ease-out curve. Layout and positional changes take 100–160 ms,
+and hover feedback takes 90 ms. Closing details and dismissing notices are
+immediate so animation never holds focus or delays the next action. Theme icons
+crossfade over 160 ms without rotation when reduced motion is enabled.
 
 Live values, table sorting, typing in search, and the decorative header glow do
 not animate. There are no staggered rows, counting numbers, spring overshoots, or

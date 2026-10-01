@@ -6,16 +6,8 @@ primary source. The contract that states the rules is
 `docs/architecture/2026-09-28-web-component-contract-direction.md`.
 
 The `--z-*` tokens and overlay `--animate-*` keyframes are defined in
-`src/theme/tokens.css` and `src/theme/tailwind.css`. motion-v lands in phase 2
-of the contract migration. Check whether it exists:
-
-```bash
-grep -c '"motion-v"' frontend/web/package.json
-```
-
-Until motion-v lands:
-- JavaScript motion stays on `useMotionFeedback` over `motion/mini`.
-- Say in the report that motion-v is waiting on phase 2.
+`src/theme/tokens.css` and `src/theme/tailwind.css`. JavaScript motion uses
+the motion-v surface under `frontend/web/src/ui/motion/`.
 
 ## Failures this repository already had
 
@@ -90,9 +82,10 @@ Until motion-v lands:
 ## Motion rules
 
 1. **One mechanism per property.**
-   - JavaScript motion uses motion-v, which the contract's amendment
-     approved: the `motion` component, `layout` animations, or `animate`
-     through `useMotionFeedback`.
+   - JavaScript motion uses motion-v through `UiMotion`, its `layout`
+     animations, or `useMotionFeedback` from `frontend/web/src/ui/motion/`.
+     Views import these surfaces from the `src/ui` barrel, never from
+     motion-v directly.
    - Reduced motion comes from the one app-root
      `MotionConfig reducedMotion="user"`. Never set `reducedMotion` per
      component, and never leave it at motion-v's default of `"never"`.
