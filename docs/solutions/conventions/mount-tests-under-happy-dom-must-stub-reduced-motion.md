@@ -1,53 +1,65 @@
 ---
-title: Mount Tests for Animated Views Under happy-dom Must Stub matchMedia for Reduced Motion
+title: A happy-dom Mount Test Installs the Reduced-Motion matchMedia Stub Before Its First Mount, and Normal-Motion Cases Live in a File Without It
 date: 2026-09-27
 last_verified: 2026-10-01
 category: conventions
 module: frontend/web
-problem_type: bug
+problem_type: convention
 component: web-console
-severity: medium
-symptoms:
-  - "Vitest mount tests under happy-dom reach motion-v's layout or animation path and throw while the DOM has no browser layout."
-root_cause: "happy-dom lacks browser layout and complete Web Animations behavior. A reduced-motion matchMedia stub selects motion-v's safe path before the first mount."
-resolution_type: workaround
+severity: low
 applies_when:
-  - "Writing or debugging component mount tests in frontend/web/ under Vitest with happy-dom."
-  - "A component mount test reaches motion-v layout or animation code and throws."
-  - "Testing Vue views that invoke frontend/web/src/ui/motion/useMotionFeedback.ts without mocking motion-v globally."
+  - "Writing or debugging component mount tests in frontend/web/ under Vitest with happy-dom that exercise motion-v surfaces (`UiMotion`, `UiMotionConfig`, `useMotionFeedback`)."
+  - "A test needs the reduced-motion path of a mounted motion surface, or needs the normal path and the same file also holds reduced-motion cases."
+  - "A mount test asserts on a layout animation and happy-dom reports no geometry."
 related_components: [web-console, testing]
 tags: [vue, vitest, happy-dom, motion, animations, testing]
 ---
 
-# Mount tests for animated views under happy-dom must stub matchMedia for reduced motion
+# A happy-dom mount test installs the reduced-motion matchMedia stub before its first mount, and normal-motion cases live in a file without it
 
 ## The situation
 
-When mounting view components in Vitest under `happy-dom` (such as `FleetView.vue`),
-the view runs its setup script and renders initial DOM nodes. When the view triggers
-visual motion feedback, it invokes `useMotionFeedback()` from
-`src/ui/motion/useMotionFeedback.ts` or renders `UiMotion`.
+`FleetView.vue` and the `src/ui/motion/` surfaces animate through motion-v.
+Mounted under Vitest with happy-dom, they run on the normal motion path by
+default. That path needs no stub. A mount of `FleetView` under `UiAppRoot` that
+toggles the sidebar, navigates, and switches the theme reports no error without
+any `matchMedia` stub. happy-dom implements `Element.animate`
+(`happy-dom@20.14.5` `lib/nodes/element/Element.js:1083`) and answers
+`prefers-reduced-motion` from its settings
+(`lib/match-media/MediaQueryItem.js:187`).
 
-## Why it fails
+A `matchMedia` stub is therefore a way to select the reduced path, never a way
+to avoid a throw. The same goes for an `offsetParent` stub.
 
-`happy-dom` simulates browser DOM nodes in Node.js, but does not provide browser
-layout. motion-v can inspect layout and animation state during mount, so a test
-that leaves the normal motion path enabled can throw before it reaches an
-assertion. An `offsetParent` stub is not needed to avoid that throw.
+## What is true
+
+| Fact | Source |
+| --- | --- |
+| motion-dom reads the reduced-motion query once per module and keeps that `MediaQueryList`. | `motion-dom@13.4.5` `dist/es/render/utils/reduced-motion/index.mjs:9` |
+| `useMotionFeedback` reads the query itself on every mount through `useMediaQuery`, so it follows a stub installed after an earlier mount. | `motion-v@2.5.1` `dist/es/animation/hooks/use-reduced-motion.mjs` |
+| Under the reduced path the composable keeps the opacity fade and drops movement. | `frontend/web/src/ui/motion/useMotionFeedback.ts:73`, `useMotionFeedback.test.ts:80` |
+| Under the reduced path `UiMotion` layout animations end at once with no fade. | `frontend/web/src/ui/motion/UiMotion.reduced.test.ts:61` |
+| happy-dom has no layout, so a layout animation sees zero-size boxes. | `frontend/web/src/FleetView.motion.test.ts:31` stubs `getBoundingClientRect` |
 
 ## The rule
 
-Activate the reduced-motion path already built into the motion surface. In tests
-that exercise reduced motion, install a `matchMedia` stub before the first mount:
+A file that mounts motion components installs the stub before its first mount,
+because motion-dom keeps the first `MediaQueryList` it reads. Cases on the
+normal path live in a file without the stub. The pair
+`frontend/web/src/ui/motion/UiMotion.test.ts` (no stub, layout and positional
+animation) and `UiMotion.reduced.test.ts` (stub in `beforeEach`) shows the split.
 
 ```ts
 beforeEach(() =>
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: query.includes('reduce'),
-    media: query,
-    addEventListener() {},
-    removeEventListener() {},
-  })),
+  vi.stubGlobal('matchMedia', (query: string) =>
+    Object.assign(new EventTarget(), {
+      matches: query.includes('reduce'),
+      media: query,
+      onchange: null,
+      addListener() {},
+      removeListener() {},
+    }),
+  ),
 )
 afterEach(() => {
   dispose()
@@ -56,14 +68,17 @@ afterEach(() => {
 })
 ```
 
-The reduced-motion matchMedia stub selects motion-v's safe path before the first
-mount. The composable keeps opacity fades and filters movement. `UiMotion` layout
-animations end immediately with no fade. This exercises the production code path
-for users who prefer reduced motion without mocking motion-v or stubbing
-`offsetParent`.
+A file that only mounts the composable can hold both modes, because
+`useMotionFeedback` re-reads the query per mount.
+`frontend/web/src/components/ThemeSwitcher.test.ts` does this through its
+`stubMatchMedia(reducedMotion)` helper.
+
+A test that needs a layout animation to run gives elements geometry with a
+stubbed `HTMLElement.prototype.getBoundingClientRect`, as
+`FleetView.motion.test.ts` does. Do not mock motion-v.
 
 ## What this does not cover
 
-This convention ensures view components mount and behave correctly in fast headless DOM
-suites. It does not verify CSS keyframe interpolation, transition curves, or browser
-layout. Those require end-to-end browser execution.
+These tests check which path a surface takes and what it leaves in the DOM.
+They do not verify CSS keyframe interpolation, transition curves, or browser
+layout. Those need a browser.

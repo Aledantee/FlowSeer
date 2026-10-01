@@ -89,8 +89,8 @@ navigation, type-ahead, and outside-click dismissal. Changing tenants clears the
 site scope. The available tenant list is independent of site filtering.
 
 The icon-only theme switch at the top right crossfades and rotates between
-sun and moon over 160 ms. It has an accessible state label and a tooltip; reduced
-motion swaps the icons immediately. The theme follows the system preference until
+sun and moon over 160 ms. It has an accessible state label and a tooltip. Under
+reduced motion the icons crossfade without rotating. The theme follows the system preference until
 a choice is saved in local browser storage. The navigation frame stays connected in both themes: neutral gray in light mode
 and charcoal in dark mode. Help opens a keyboard-accessible dialog explaining
 scope, device lookup, and site assignment. The adjacent bug button
