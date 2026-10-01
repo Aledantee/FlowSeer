@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/conventions/a-false-double-bracket-does-not-stop-set-e-under-bash-3-2.md
 execution: code
 parent: docs/plans/2026-09-30-2000-fix-harness-gates-and-waiting-plan.md
 ---
