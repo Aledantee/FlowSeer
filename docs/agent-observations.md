@@ -38,18 +38,6 @@ Suggested change: name both `.claude/skills` and `.agents/skills` in the
 bypass condition, or resolve symlinks before deciding whether the merge needs
 the sandbox disabled.
 
-## 2026-09-30 review: fix loop exceeded its three-round stop point
-Skill or agent: `.claude/skills/review/references/fix-loop.md`, "When to stop".
-What happened: The phase review ended with `accept after fixes` after four fix
-rounds. The fourth round (`df4bb8a5`) fixed staging permission, stale-directory
-recovery, and rollback-preservation defects after earlier rounds had already
-changed the emission mechanism. The stop rule does not say how to handle an
-extra round when the final round is needed to reach acceptance. The verdict and
-round count are recorded by `c13d291b`.
-Suggested change: make the stop condition explicit for mixed or cross-lane
-rounds, and require a fresh plan or a maintainer override when the aggregate
-round count exceeds three.
-
 ## 2026-09-30 steer: Bash test assertions are not fail-fast
 Skill or agent: `tools/hooks/tests/run.sh`, the bare `[[ ]]` assertions around
 lines 70-107.
@@ -102,8 +90,3 @@ evidence.
 Suggested change: make the commit helper pass separate message paragraphs or
 write the body through standard input, then reject a body containing literal
 `\\n` before accepting the unit.
-
-## 2026-09-30 review: repeated concurrency fixes should trigger prior-art search
-Skill or agent: `.claude/skills/review/SKILL.md` fix loop and `.claude/skills/plan/SKILL.md` re-plan trigger.
-What happened: The phase 2 plan records five review rounds on the tenant claim before the record-first rollback protocol was replaced with an atomic batch (operator authorization phase 2, landed 2026-09-30; the retired plan's Review section is in git history). The local fix loop still left concurrency failures until a prior-art-based re-plan changed the mechanism.
-Suggested change: After a second review round finds another failure in the same concurrency mechanism, pause the fix loop and require a bounded prior-art search or a re-plan before another patch.
