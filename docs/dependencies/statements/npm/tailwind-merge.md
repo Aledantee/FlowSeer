@@ -4,18 +4,18 @@ ecosystem: npm
 required_by:
   - frontend/web/package.json
 criteria: deploy
-verdict: keep
+verdict: cut
 approved: ""
 ---
 
 ## Why it is required
 
-The importing package graph is rooted at `frontend/web/package.json`. It requires `tailwind-merge` at `3.7.0`.
+No tracked frontend source file, configuration file, or stylesheet imports `tailwind-merge`. `frontend/web/package.json:32` declares the pinned direct requirement at `3.7.0`, but it is the only direct declaration and has no active importer.
 
 ## Why it is safe
 
-The lockfile pins `3.7.0`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The [npm registry metadata](https://registry.npmjs.org/tailwind-merge/3.7.0) lists `GitHub Actions` as the publisher. The pinned version `3.7.0` was published at `2026-09-12T20:10:15.257Z` and was 18 days old on 2026-10-01. Its 14-day wait ended at `2026-09-26T20:10:15.257Z`. The OSV lookup dated 2026-10-01 returned no advisory for `tailwind-merge` at `3.7.0`. The dependency tree contains 1 version, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `tailwind-merge`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+No owned replacement is needed because no tracked file uses this dependency. Keeping it would retain an unused direct package and its 1-version tree. If a future importer needs class conflict resolution, that request should add the importer and justify either this package or a focused local implementation.

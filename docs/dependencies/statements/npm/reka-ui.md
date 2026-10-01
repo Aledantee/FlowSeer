@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `frontend/web/package.json`. It requires `reka-ui` at `2.10.5`.
+`frontend/web/src/ui/app/UiAppRoot.vue:2` and `frontend/web/src/ui/form/UiSelect.vue:22` import Reka UI primitives. The pinned direct requirement is `reka-ui` at `2.10.5` in `frontend/web/package.json`.
 
 ## Why it is safe
 
-The lockfile pins `2.10.5`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The [npm registry metadata](https://registry.npmjs.org/reka-ui/2.10.5) lists `GitHub Actions` as the publisher. The pinned version `2.10.5` was published at `2026-09-21T13:18:23.018Z` and was 9 days old on 2026-10-01. It remains under the 14-day wait until `2026-10-05T13:18:23.018Z`. The OSV lookup dated 2026-10-01 returned no advisory for `reka-ui` at `2.10.5`. The dependency tree contains 43 versions, with 16 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `reka-ui`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to own accessible dialog, tooltip, popover, select, combobox, and menu primitives, including focus management, keyboard behavior, and positioning. That would duplicate UI interaction infrastructure across the components that currently import Reka UI. The dependency tree contains 43 versions, with 16 versions only reachable through this direct dependency.

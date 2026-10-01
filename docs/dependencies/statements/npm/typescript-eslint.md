@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `frontend/web/package.json`. It requires `typescript-eslint` at `8.71.0`.
+`frontend/web/eslint.config.js:2` imports `typescript-eslint` to provide TypeScript-aware ESLint configuration for the frontend. The pinned direct requirement is `typescript-eslint` at `8.71.0` in `frontend/web/package.json`.
 
 ## Why it is safe
 
-The lockfile pins `8.71.0`, and the inventory classifies this dependency as `run`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The [npm registry metadata](https://registry.npmjs.org/typescript-eslint/8.71.0) lists `GitHub Actions` as the publisher. The pinned version `8.71.0` was published at `2026-09-28T17:12:00.356Z` and was 2 days old on 2026-10-01. It remains under the 14-day wait until `2026-10-12T17:12:00.356Z`. The OSV lookup dated 2026-10-01 returned no advisory for `typescript-eslint` at `8.71.0`. The dependency tree contains 97 versions, with 3 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `typescript-eslint`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to parse TypeScript syntax, expose TypeScript-aware ASTs to ESLint, and maintain the configured rules across compiler releases. That would duplicate language tooling in the repository's lint configuration. The dependency tree contains 97 versions, with 3 versions only reachable through this direct dependency.

@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `frontend/web/package.json`. It requires `happy-dom` at `20.14.5`.
+`frontend/web/src/FleetView.test.ts:1` selects the `happy-dom` Vitest environment, and the same directive is used by the component tests under `frontend/web/src/ui/`. The pinned direct requirement is `happy-dom` at `20.14.5` in `frontend/web/package.json`.
 
 ## Why it is safe
 
-The lockfile pins `20.14.5`, and the inventory classifies this dependency as `run`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The [npm registry metadata](https://registry.npmjs.org/happy-dom/20.14.5) lists `GitHub Actions` as the publisher. The pinned version `20.14.5` was published at `2026-09-12T00:07:47.688Z` and was 18 days old on 2026-10-01. Its 14-day wait ended at `2026-09-26T00:07:47.688Z`. The OSV lookup dated 2026-10-01 returned no advisory for `happy-dom` at `20.14.5`. The dependency tree contains 9 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `happy-dom`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to provide the DOM, events, timers, URL behavior, and browser API stubs required by the Vue component tests. That would make test-environment behavior owned code and would leave every new browser API to local maintenance. The dependency tree contains 9 versions, with 0 versions only reachable through this direct dependency.
