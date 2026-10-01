@@ -87,10 +87,11 @@ Storybook's `setProjectAnnotations` in the happy-dom audit.
   globals. The audit renders them in both locales, and the browser check
   selects German with the toolbar. Why: a story-level locale overrides
   the audit's requested locale.
-- Execution order against the AI actions plan remains unresolved under
-  Open questions. Do not dispatch these units until that choice is settled.
-  Why: that plan deletes a component inventoried here and changes shared
-  tests. Neither plan's existing ordering chooses which runs first.
+- Phase 3 runs before the AI actions plan. The units below stand, and the
+  `UiAiActionLayer` messages they add go when that plan replaces the
+  layer. Why: new AI surfaces then start on the i18n foundation, and the
+  inventory taken from this tree stays valid. (decided by the user,
+  2026-10-01)
 
 The parent stop condition does not hold with the resolved versions above.
 A Composition-mode probe using the current preview, `setProjectAnnotations`,
@@ -315,10 +316,3 @@ test and story, `FleetView.test.ts`, and the README.
 The approved package exists and the parent stop condition does not hold.
 The units above are a draft for the first option. Selecting the second
 requires a new inventory and unit ownership before readiness can change.
-
-- Parked by drive: does phase 3 run before or after the AI actions plan.
-  Options: phase 3 first (the draft units stand, and it migrates
-  `UiAiActionLayer` strings that AI actions then deletes) | AI actions
-  first (no work on the removed layer, and phase 3 needs a new inventory
-  and re-plan from that tree). Recommended: phase 3 first, because new AI
-  surfaces then start on the i18n foundation.
