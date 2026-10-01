@@ -2,7 +2,7 @@
 
 Load this when a worker's state does not match what its tree says, when
 `scripts/orca-worker.sh` fails a step, when `wait` prints anything but
-`idle` or the screen shows an unexpected dialog, or for an orchestration run
+`idle` or `done`, or the screen shows an unexpected dialog, or for an orchestration run
 or a full handoff. `SKILL.md` names the lane; this file is the procedure.
 
 Contents: What the script does; When a step fails; Orchestration runs;
@@ -51,12 +51,21 @@ Full handoff.
   the worktree. If either cleanup call fails, it keeps or writes lane state
   so `status` still lists the lane, and reports that it needs manual removal.
 - `wait` does not trust `orca terminal wait --for tui-idle` alone: it was
-  seen satisfied while a worker was mid-turn. The turn has ended
-  when two reads five seconds apart show no "esc to interrupt" or "esc to
-  cancel" hint and the same screen. A screen that shows the hint unchanged
-  for `--stall` seconds (default 1200) prints `stalled`; a terminal that
-  cannot be read prints `exited`. With `--timeout` it prints `timeout`,
-  and the worker is still at work.
+  seen satisfied while a worker was mid-turn. The lane and each child are
+  quiet only after two reads five seconds apart show no "esc to interrupt"
+  or "esc to cancel" hint and the same screen. It prints `idle` for a quiet
+  lane without children, `idle-children <names>` for a quiet lane with
+  children, `done` when `--until <command>` also succeeds, `exited` when the
+  terminal cannot be read, `stalled` when a working screen stays unchanged
+  for `--stall` seconds, and `timeout` at the positive `--max` ceiling.
+  `--max` defaults to 3600 seconds, and `--stall 0` disables the stalled and
+  child-idle clock. A child without a state terminal and an unreadable child
+  count as quiet. `--timeout` is refused. The screen follows every outcome
+  except `exited`.
+- `line --cli <cli> --model <id> [--effort <level>]` prints the launch line
+  used by `start`. Codex lines include
+  `-c background_terminal_max_timeout=3600000`, so a coordinator can poll
+  the blocking wait for up to one hour.
 - `check` reads the lane's `cli` from state and the `model` and `at` values
   from its `start` event. On a Claude lane it checks the session files for
   another model or a refusal fallback. Other lanes print `not checked: <cli>`
@@ -95,6 +104,8 @@ their behavior here is not measured.
 - `wait` prints `idle` and the screen shows a dialog: a permission prompt
   the brief anticipated is answered with `keys <slug> <text>`; anything
   else is reported to the user with the screen text.
+- `wait` prints `idle-children <names>`: read the lane and each named child,
+  then `tell` a lane that stopped waiting to continue.
 - `wait` prints `stalled`: the screen showed a turn in progress and did not
   change for 20 minutes (`--stall <seconds>`), usually a hung model stream
   that Escape may not reach. Read the screen first, since an `agy` or `omp`
@@ -108,10 +119,11 @@ their behavior here is not measured.
   Claude; an `execute` unit goes to `execute-sensitive`.
 - `keys` says it takes 200 characters at most: write the text to a file and
   send it with `tell <slug> <file>`.
-- `wait` keeps running on a quiet worker: rule out causes in cost order.
-  The provider's quota (`pool-usage.sh`), then the screen for a prompt or
-  a mangled instruction, then `git status` in the worker's checkout, where
-  a written file with no commit means the worker is still testing.
+- `wait` keeps running on a quiet worker, or prints `timeout`: rule out
+  causes in cost order once. The provider's quota (`pool-usage.sh`), then
+  the screen for a prompt or a mangled instruction, then `git status` in the
+  worker's checkout, where a written file with no commit means the worker is
+  still testing. Wait again after that check.
 - `read` shows only the end of a long report: the screen holds one frame.
   Prompt the worker to write its report to `REPORT.md` in its own
   worktree and reply with the path, read that file, and delete it before

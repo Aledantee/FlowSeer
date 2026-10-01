@@ -5,7 +5,8 @@
 #
 # orca-worker.sh start --lane SLUG --cli claude|codex|agy --model ID [--effort LEVEL] --role ROLE [--plan FILE] [--unit NAME] --brief FILE [--base REF]
 # orca-worker.sh start --lane SLUG --cli omp --model provider/model [--effort LEVEL] --role ROLE [--plan FILE] [--unit NAME] --brief FILE [--base REF]
-# orca-worker.sh wait   SLUG [--timeout MS] [--stall S]  # prints idle|exited|stalled|timeout, then the screen
+# orca-worker.sh line   --cli CLI --model ID [--effort LEVEL]
+# orca-worker.sh wait   SLUG [--until CMD] [--max S] [--stall S]  # prints idle|idle-children|done|exited|stalled|timeout, then the screen
 # orca-worker.sh read   SLUG [--lines N]
 # orca-worker.sh keys   SLUG TEXT                # raw text into the terminal, no Enter; 200 characters at most
 # orca-worker.sh tell   SLUG FILE                # a message longer than keys takes, delivered like the brief
@@ -39,12 +40,42 @@ children() {
   orca worktree show --worktree "id:$1" --json 2>/dev/null \
     | json '" ".join(d["result"]["worktree"]["childWorktreeIds"])'
 }
+child_info() {
+  local child=$1 file lane terminal
+  for file in "$state_dir"/*.json; do
+    [[ -f $file ]] || continue
+    lane=${file##*/}; lane=${lane%.json}
+    [[ $(field "$lane" worktree) == "$child" ]] || continue
+    terminal=$(field "$lane" terminal)
+    printf '%s\t%s\n' "$lane" "$terminal"
+    return 0
+  done
+  printf '%s\t\n' "$child"
+}
 screen() { [[ -n $1 ]] || return 1; orca terminal read --terminal "$1" --screen 2>/dev/null; }
 brief_name=.orca-brief.md
 note_name=.orca-note.md
 # Every agent TUI here shows an "esc ... interrupt" hint only while a turn
 # runs; agy words it "esc to cancel".
 working() { grep -q -i -E 'esc( to)? (interrupt|cancel)' <<<"$1"; }
+launch_line() {
+  local cli=$1 model=$2 effort=${3:-} line
+  case "$cli" in
+    claude) [[ -n $model ]] || die "--model is required for claude"; line="claude --model $model --dangerously-skip-permissions --settings '{\"switchModelsOnFlag\":false}'${effort:+ --effort $effort}" ;;
+    codex)  [[ -n $model ]] || die "--model is required for codex"; line="codex -a never --sandbox danger-full-access -c check_for_update_on_startup=false -c background_terminal_max_timeout=3600000 -m $model${effort:+ -c model_reasoning_effort=$effort}" ;;
+    agy)    [[ -n $model ]] || die "--model is required for agy"; [[ -z $effort ]] || die "--effort does not apply to agy: it is part of the model id"; line="agy --model $model --dangerously-skip-permissions" ;;
+    omp)    [[ -n $model ]] || die "--model is required for omp, as provider/model"; line="omp --model $model${effort:+ --thinking $effort}" ;;
+    *) die "unknown cli $cli" ;;
+  esac
+  printf 'env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_CHILD_SESSION %s\n' "$line"
+}
+wait_sleep() {
+  local deadline=$1 remaining delay=5
+  remaining=$((deadline - $(date +%s)))
+  (( remaining > 0 )) || return 1
+  (( remaining < delay )) && delay=$remaining
+  sleep "$delay"
+}
 # Delivers FILE into the lane's checkout under NAME, excluded from the tree,
 # and points the terminal at it. A long paragraph through `orca terminal
 # send` arrives truncated or as stray characters, so text goes in a file.
@@ -86,6 +117,19 @@ model_check_lane() {
 
 cmd=${1:-}; shift || true
 case "$cmd" in
+  line)
+    cli='' model='' effort=''
+    while (($#)); do
+      case "$1" in
+        --cli) [[ $# -ge 2 ]] || die "--cli requires a value"; cli=$2; shift 2 ;;
+        --model) [[ $# -ge 2 ]] || die "--model requires a value"; model=$2; shift 2 ;;
+        --effort) [[ $# -ge 2 ]] || die "--effort requires a value"; effort=$2; shift 2 ;;
+        *) die "unknown flag $1" ;;
+      esac
+    done
+    [[ -n $cli ]] || die "--cli is required"
+    launch_line "$cli" "$model" "$effort"
+    ;;
   start)
     lane='' cli='' model='' effort='' agent='' role='' plan='' unit='' brief='' base=''
     while (($#)); do
@@ -166,15 +210,7 @@ case "$cmd" in
     # A safety-classifier flag must not silently move a Claude worker to the
     # fallback model for the rest of its session: with switching off, the
     # worker stops at the switch-or-edit prompt, which a screen read shows.
-    case "$cli" in
-      claude) line="claude --model $model --dangerously-skip-permissions --settings '{\"switchModelsOnFlag\":false}'${effort:+ --effort $effort}" ;;
-      codex)  line="codex -a never --sandbox danger-full-access -c check_for_update_on_startup=false -m $model${effort:+ -c model_reasoning_effort=$effort}" ;;
-      agy)    line="agy --model $model --dangerously-skip-permissions" ;;
-      omp) line="omp --model $model${effort:+ --thinking $effort}" ;;
-    esac
-    # A Claude worker started under this session's child-session variables
-    # runs with transcript saving off.
-    line="env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_CHILD_SESSION $line"
+    line=$(launch_line "$cli" "$model" "$effort")
     started=$(orca terminal create --worktree "id:$wt" --title "$lane" --command "$line" --json 2>&1) \
       || undo "terminal create failed: $started"
     term=$(printf '%s' "$started" | json 'd["result"]["terminal"]["handle"]')
@@ -262,44 +298,124 @@ case "$cmd" in
     printf '{"name":"%s","terminal":"%s","worktree":"%s","path":"%s","branch":"%s","run":"%s"}\n' "$lane" "$term" "$wt" "$path" "$branch" "$run_id"
     ;;
   wait)
-    name=${1:-}; shift || true; timeout=0 stall=1200
-    while (($# >= 2)); do
+    name=${1:-}; shift || true; until_cmd='' max=3600 stall=1200
+    while (($#)); do
       case "$1" in
-        --timeout) timeout=$2; shift 2 ;;
-        --stall) stall=$2; shift 2 ;;
+        --until) [[ $# -ge 2 ]] || die "--until requires a command"; until_cmd=$2; shift 2 ;;
+        --max) [[ $# -ge 2 ]] || die "--max requires seconds"; max=$2; shift 2 ;;
+        --stall) [[ $# -ge 2 ]] || die "--stall requires seconds"; stall=$2; shift 2 ;;
+        --timeout) die "--timeout was replaced by --max" ;;
         *) die "unknown flag $1" ;;
       esac
     done
-    term=$(field "$name" terminal); [[ -n $term ]] || die "no lane named $name; status lists them"
+    [[ $max =~ ^[1-9][0-9]*$ ]] || die "--max must be a positive integer"
+    [[ $stall =~ ^[0-9]+$ ]] || die "--stall must be a non-negative integer"
+    term=$(field "$name" terminal); wt=$(field "$name" worktree); path=$(field "$name" path)
+    [[ -n $term && -n $wt && -n $path ]] || die "no lane named $name; status lists them"
     # tui-idle alone is not the end of a turn: it was seen satisfied while
     # the agent was mid-turn, and the interrupt hint vanishes between tool
     # calls. The turn has ended when two reads five seconds apart show no
-    # hint and the same screen. A screen that shows the hint and has not
-    # changed for --stall seconds is a hung model stream that Escape may not
-    # reach: `stalled`, for the coordinator to close.
-    deadline=$(( timeout > 0 ? $(date +%s) + timeout / 1000 : 0 ))
-    last='' since=$(date +%s) show_screen=true
+    # hint and the same screen. Child lanes use the same test and keep the
+    # parent waiting while a child changes or shows a working hint.
+    deadline=$(( $(date +%s) + max ))
+    since=$(date +%s) last_lane='' show_screen=true outcome=''
     while :; do
       out=$(orca terminal wait --terminal "$term" --for tui-idle --timeout-ms 60000 --json 2>&1)
       st=$(printf '%s' "$out" | json 'd["result"]["wait"]["status"]')
-      [[ $st == exited ]] && { echo exited; break; }
+      [[ $st == exited ]] && { outcome=exited; show_screen=false; break; }
+
+      child_names=() child_terms=() child_first=() child_readable=()
+      if kids=$(children "$wt"); then
+        if [[ -n $kids ]]; then
+          while IFS= read -r child; do
+            info=$(child_info "$child")
+            child_name=${info%%$'\t'*}
+            child_term=${info#*$'\t'}
+            child_names+=("$child_name")
+            child_terms+=("$child_term")
+            if [[ -n $child_term ]]; then
+              if child_screen=$(screen "$child_term"); then
+                child_first+=("$child_screen")
+                child_readable+=(true)
+              else
+                child_first+=('')
+                child_readable+=(false)
+              fi
+            else
+              child_first+=('')
+              child_readable+=(false)
+            fi
+          done <<< "$kids"
+        fi
+      else
+        child_names+=(unreadable)
+        child_terms+=('')
+        child_first+=('')
+        child_readable+=(false)
+      fi
+
       # A terminal closed outside this script reads as nothing, twice, which
       # would otherwise pass for a settled screen.
-      s1=$(screen "$term") || { echo exited; show_screen=false; break; }
-      if ! working "$s1"; then
-        sleep 5
-        s2=$(screen "$term")
-        ! working "$s2" && [[ $s1 == "$s2" ]] && { echo idle; break; }
+      s1=$(screen "$term") || { outcome=exited; show_screen=false; break; }
+      wait_sleep "$deadline" || { outcome=timeout; break; }
+      s2=$(screen "$term") || { outcome=exited; show_screen=false; break; }
+
+      child_active=false
+      for i in "${!child_names[@]}"; do
+        [[ ${child_readable[$i]} == true ]] || continue
+        child_second=$(screen "${child_terms[$i]}") || continue
+        if working "${child_first[$i]}" || working "$child_second" || [[ ${child_first[$i]} != "$child_second" ]]; then
+          child_active=true
+        fi
+      done
+
+      lane_idle=false
+      if ! working "$s1" && ! working "$s2" && [[ $s1 == "$s2" ]]; then
+        lane_idle=true
       fi
       now=$(date +%s)
-      if [[ $s1 != "$last" ]]; then
-        last=$s1 since=$now
-      elif (( stall > 0 && now - since >= stall )); then
-        echo stalled; break
+      if (( now >= deadline )); then
+        outcome=timeout
+        break
       fi
-      (( deadline > 0 && now >= deadline )) && { echo timeout; exit 0; }
-      sleep 5
+      if [[ $s1 != "$last_lane" || $s1 != "$s2" || $child_active == true ]]; then
+        since=$now
+      fi
+      last_lane=$s1
+
+      if [[ $lane_idle == true && $child_active == false ]]; then
+        if ((${#child_names[@]} == 0)); then
+          if [[ -n $until_cmd ]] && (cd "$path" && bash -c "$until_cmd" >/dev/null 2>&1); then
+            outcome=done
+          elif [[ -n $until_cmd ]]; then
+            outcome=idle
+          else
+            outcome=idle
+          fi
+          break
+        fi
+        if (( stall > 0 && now - since >= stall )); then
+          if [[ -n $until_cmd ]] && (cd "$path" && bash -c "$until_cmd" >/dev/null 2>&1); then
+            outcome=done
+          elif [[ -n $until_cmd ]]; then
+            outcome="idle-children ${child_names[*]}"
+          else
+            outcome="idle-children ${child_names[*]}"
+          fi
+          break
+        fi
+      elif [[ $lane_idle == false && $child_active == false && $stall -gt 0 && $((now - since)) -ge $stall ]]; then
+        outcome=stalled
+        break
+      fi
+
+      if (( now >= deadline )); then
+        outcome=timeout
+        break
+      fi
+      wait_sleep "$deadline" || { outcome=timeout; break; }
     done
+    echo "$outcome"
     # A permission dialog also reads as idle, so the screen follows unless its
     # failed read is what reported the terminal as exited.
     if [[ $show_screen == true ]]; then
