@@ -1,0 +1,12 @@
+module example.test/generated/yang
+
+go 1.27
+
+require (
+	example.test/direct v1.0.0
+	example.test/upgraded v1.1.0 // indirect
+)
+
+replace example.test/direct => ../../../direct
+replace example.test/upgraded => ../../../upgraded
+replace example.test/leaf => ../../../leaf

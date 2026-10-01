@@ -1,6 +1,8 @@
 package inventory
 
 import (
+	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -45,7 +47,6 @@ func Classify(_ string, modules []Module, entries []Entry) ([]Entry, error) {
 		for _, manifest := range entries[i].Manifests {
 			if manifest == "generated/go/yang/go.sum" {
 				criteria = "deploy"
-				continue
 			}
 			if set, ok := closures[manifestForGoSum(manifest)]; ok {
 				key := moduleKey(entries[i].Name, entries[i].Version)
@@ -192,6 +193,14 @@ func moduleGraph(module Module) (map[string][]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	selected, err := selectedModuleVersions(module)
+	if err != nil {
+		return nil, err
+	}
+	graph, err = selectModuleGraph(graph, selected, module.Manifest)
+	if err != nil {
+		return nil, err
+	}
 	via := make(map[string][]string)
 	for direct := range module.Direct {
 		for node := range reachableGraph(graph.Edges, module.Path, direct) {
@@ -224,6 +233,135 @@ func readModuleGraph(module Module) (ModuleGraph, error) {
 	}
 	sort.Strings(graph.Direct)
 	return graph, nil
+}
+
+type selectedModule struct {
+	Path    string
+	Version string
+	Replace *selectedModule
+	Error   *selectedModuleError
+}
+
+type selectedModuleError struct {
+	Err string
+}
+
+func selectedModuleVersions(module Module) (map[string]string, error) {
+	output, err := runGo(module.Dir, "", "list", "-m", "-e", "-json", "all")
+	if err != nil {
+		return nil, errs.Wrapf(err, "read selected module versions for %s", module.Manifest)
+	}
+	repositoryModule, err := enclosingRepositoryModulePath(module.Dir)
+	if err != nil {
+		return nil, err
+	}
+
+	selected := make(map[string]string)
+	decoder := json.NewDecoder(strings.NewReader(output))
+	for {
+		var item selectedModule
+		err := decoder.Decode(&item)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, errs.Wrapf(err, "decode selected module versions for %s", module.Manifest)
+		}
+		if item.Path == "" {
+			return nil, errs.Msgf("selected module versions for %s contain an empty module path", module.Manifest)
+		}
+		if item.Error != nil && item.Replace == nil && item.Path != module.Path && !ownedModule(item.Path, repositoryModule) {
+			return nil, errs.Msgf("selected module versions for %s report %s: %s", module.Manifest, item.Path, item.Error.Err)
+		}
+		if item.Version == "" && item.Path != module.Path {
+			return nil, errs.Msgf("selected module versions for %s omit a version for %s", module.Manifest, item.Path)
+		}
+		selected[item.Path] = item.Version
+	}
+	return selected, nil
+}
+
+func enclosingRepositoryModulePath(dir string) (string, error) {
+	current := filepath.Dir(dir)
+	for {
+		manifest := filepath.Join(current, "go.mod")
+		if _, err := os.Stat(manifest); err == nil {
+			parsed, err := parseGoMod(manifest)
+			if err != nil {
+				return "", err
+			}
+			return parsed.Module.Mod.Path, nil
+		} else if !os.IsNotExist(err) {
+			return "", errs.Wrap(err, "stat enclosing repository Go module manifest")
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", nil
+		}
+		current = parent
+	}
+}
+
+// selectModuleGraph applies the build list to the raw requirement graph. A
+// selected target replaces an older requirement edge, but only the selected
+// source version contributes outgoing edges.
+func selectModuleGraph(graph ModuleGraph, selected map[string]string, manifest string) (ModuleGraph, error) {
+	result := ModuleGraph{Edges: make(map[string][]string)}
+	for source, targets := range graph.Edges {
+		selectedSource, ok := selectedModuleSource(source, selected)
+		if !ok {
+			continue
+		}
+		for _, target := range targets {
+			selectedTarget, ok := selectedModuleNode(target, selected)
+			if !ok {
+				continue
+			}
+			result.Edges[selectedSource] = appendUnique(result.Edges[selectedSource], selectedTarget)
+		}
+	}
+	for _, direct := range graph.Direct {
+		selectedDirect, ok := selectedModuleNode(direct, selected)
+		if !ok {
+			return ModuleGraph{}, errs.Msgf("selected module versions for %s omit direct module %s", manifest, direct)
+		}
+		result.Direct = appendUnique(result.Direct, selectedDirect)
+	}
+	sort.Strings(result.Direct)
+	for source := range result.Edges {
+		sort.Strings(result.Edges[source])
+	}
+	return result, nil
+}
+
+func selectedModuleNode(node string, selected map[string]string) (string, bool) {
+	path := pathFromModuleNode(node)
+	version, ok := selected[path]
+	if !ok {
+		return "", false
+	}
+	if version == "" {
+		return path, true
+	}
+	return moduleKey(path, version), true
+}
+
+func selectedModuleSource(node string, selected map[string]string) (string, bool) {
+	selectedNode, ok := selectedModuleNode(node, selected)
+	if !ok {
+		return "", false
+	}
+	if at := strings.LastIndexByte(node, '@'); at >= 0 {
+		return selectedNode, selectedNode == node
+	}
+	return selectedNode, selected[pathFromModuleNode(node)] == ""
+}
+
+func pathFromModuleNode(node string) string {
+	if at := strings.LastIndexByte(node, '@'); at >= 0 {
+		return node[:at]
+	}
+	return node
 }
 
 func reachableGraph(edges map[string][]string, root, direct string) map[string]bool {

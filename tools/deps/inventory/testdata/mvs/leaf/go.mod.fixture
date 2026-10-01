@@ -1,0 +1,3 @@
+module example.test/leaf
+
+go 1.27

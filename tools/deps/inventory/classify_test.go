@@ -83,6 +83,80 @@ func TestClassifyUsesEveryModuleGraph(t *testing.T) {
 	}
 }
 
+func TestClassifyUsesSelectedVersionsForVia(t *testing.T) {
+	root, modules := mvsFixture(t)
+	entries := []Entry{
+		{
+			Ecosystem: "go",
+			Name:      "example.test/upgraded",
+			Version:   "v1.1.0",
+			Manifests: []string{"go.sum"},
+		},
+		{
+			Ecosystem: "go",
+			Name:      "example.test/leaf",
+			Version:   "v1.0.0",
+			Manifests: []string{"go.sum"},
+		},
+		{
+			Ecosystem: "go",
+			Name:      "example.test/upgraded",
+			Version:   "v1.1.0",
+			Manifests: []string{"generated/go/yang/go.sum"},
+		},
+	}
+
+	classified, err := Classify(root, modules, entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range classified {
+		if !containsString(entry.Via, "example.test/direct") {
+			t.Errorf("%s via = %#v, want selected graph's direct importer", entry.Name, entry.Via)
+		}
+		if entry.Manifests[0] == "generated/go/yang/go.sum" && entry.Criteria != "deploy" {
+			t.Errorf("%s criteria = %q, want deploy", entry.Manifests[0], entry.Criteria)
+		}
+	}
+}
+
+func TestSelectModuleGraphUsesSelectedSourcesAndTargets(t *testing.T) {
+	graph := ModuleGraph{
+		Direct: []string{"example.test/direct@v1.0.0"},
+		Edges: map[string][]string{
+			"example.test/root":            {"example.test/direct@v1.0.0"},
+			"example.test/direct@v1.0.0":   {"example.test/upgraded@v1.0.0"},
+			"example.test/upgraded@v1.0.0": {"example.test/old-only@v1.0.0"},
+			"example.test/upgraded@v1.1.0": {"example.test/selected-only@v1.0.0"},
+		},
+	}
+	selected := map[string]string{
+		"example.test/root":          "",
+		"example.test/direct":        "v1.0.0",
+		"example.test/upgraded":      "v1.1.0",
+		"example.test/old-only":      "v1.0.0",
+		"example.test/selected-only": "v1.0.0",
+	}
+
+	got, err := selectModuleGraph(graph, selected, "go.mod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !equalStrings(got.Edges["example.test/direct@v1.0.0"], []string{"example.test/upgraded@v1.1.0"}) {
+		t.Errorf("direct edges = %#v, want selected upgraded target", got.Edges["example.test/direct@v1.0.0"])
+	}
+	if _, ok := got.Edges["example.test/upgraded@v1.0.0"]; ok {
+		t.Errorf("retained old source version: %#v", got.Edges)
+	}
+	selectedEdges := got.Edges["example.test/upgraded@v1.1.0"]
+	if containsString(selectedEdges, "example.test/old-only@v1.0.0") {
+		t.Errorf("selected source retained old-only edge: %#v", selectedEdges)
+	}
+	if !containsString(selectedEdges, "example.test/selected-only@v1.0.0") {
+		t.Errorf("selected source edges = %#v, want selected-only dependency", selectedEdges)
+	}
+}
+
 func classifyFixture(t *testing.T) (string, []Module) {
 	t.Helper()
 	root := copyFixtureTree(t, filepath.Join("testdata", "classify"))
@@ -94,6 +168,29 @@ func classifyFixture(t *testing.T) (string, []Module) {
 		if err := os.Rename(path, filepath.Join(filepath.Dir(path), "go.mod")); err != nil {
 			t.Fatal(err)
 		}
+	}
+
+	modules, err := DiscoverModules(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return root, modules
+}
+
+func mvsFixture(t *testing.T) (string, []Module) {
+	t.Helper()
+	root := copyFixtureTree(t, filepath.Join("testdata", "mvs"))
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || entry.Name() != "go.mod.fixture" {
+			return nil
+		}
+		return os.Rename(path, filepath.Join(filepath.Dir(path), "go.mod"))
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	modules, err := DiscoverModules(root)
