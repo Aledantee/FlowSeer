@@ -309,3 +309,24 @@ network and run unsandboxed. `git status --short` after them shows no
 ## Open questions
 
 - Whether OSV matches Go pseudo-versions sent without the `v` (U2 measures).
+- Parked by drive: the 86 statements landed as one template. None names
+  the importing packages, the publisher, the version's age, the advisory
+  result, or the tree size, and all 86 give the same sentence under "Why not
+  owned code", so U5's Change is not met and there is nothing to rule on.
+  The inventory also calls no root or netpen module `run`:
+  `github.com/testcontainers/testcontainers-go`, imported only from packages
+  with a `test` path element, is `deploy`, and each statement copies its
+  `criteria` from that result. Options: review U1, U2, U5, and U3 now and
+  rewrite the statements in its fix loop (the classification is settled
+  before 86 files copy it, and U4 gets a short review of its own later) |
+  rewrite the statements now and review after U4 as the stages are ordered
+  (less quota now, and a classification finding later rewrites `criteria`
+  again). Recommended: the first, because the phase waits on U4 either way.
+- Parked by drive: `AGENTS.md` is a policy surface and U3 left its entry
+  out. Proposed entry for the Conventions list, pointing at
+  `docs/conventions/dependencies.md`: "dependency statements, pin changes,
+  the 14-day wait, and the `tools/deps` commands". Options: add it now (the
+  convention is reachable from the entry point while the phase is open) |
+  add it when the phase closes (one policy edit after review has settled the
+  convention's wording). Recommended: when the phase closes, because the
+  review may still change what the convention says.
