@@ -143,6 +143,45 @@ the motion-v surface under `frontend/web/src/ui/motion/`.
    motion-v, which retarget midway. Keyframes restart instead,
    so keep keyframes to enter and exit.
 
+## Native feedback tests
+
+`useMotionFeedback` accepts typed opacity and movement pairs. It compiles the
+supplied movement keys into one ordered native transform effect and keeps
+opacity in its own native effect. Its happy-dom tests inspect native
+`KeyframeEffect` endpoints, computed offsets, timing duration and easing, and
+the running state before an effect is finished or paused. They also cover
+owned-style cleanup, cancellation, replacement, stale completions, reduced
+motion, independent elements, and unrelated native animations. The named
+cases live in `frontend/web/src/ui/motion/useMotionFeedback.test.ts`:
+
+- `compiles typed pairs into ordered native effects with deterministic timing`
+- `fills every transform key while leaving opacity-only feedback separate`
+- `cancels and restores synchronously before replacing a play, through the next frame and completion`
+- `ignores a stale completion queued before replacement`
+- `filters reduced movement, keeps reduced fades native, and restores their baseline`
+- `keeps two elements independent and leaves unrelated native animations alive`
+
+Component coverage is in `frontend/web/src/components/ThemeSwitcher.test.ts`
+and `frontend/web/src/FleetView.motion.test.ts`. ThemeSwitcher covers:
+
+- `starts native opacity and ordered transform effects in both icon directions`
+- `keeps reduced motion as one running opacity effect per icon`
+- `replaces running effects on rapid toggles and restores empty inline styles on finish`
+- `restores empty inline styles on window resize during rapid toggle`
+- `restores empty inline styles on unmount during rapid toggle`
+
+FleetView covers:
+
+- `fades nav on expand below desktop width and restores inline opacity`
+- `replaces mobile expand fades within one turn`
+- `restores and replays a mobile fade after resize`
+
+Use a real browser for interpolation, computed styles, the first
+`requestAnimationFrame` samples after an action, active native effects,
+screenshots, and restoration after resize or cancel and replay. The browser
+loop in `references/review.md` is the measurement boundary. Keep the first
+sample and compare it with the latest effect's endpoints.
+
 ## Checks happy-dom cannot make
 
 Run these in the browser loop in `review.md`:
@@ -161,3 +200,21 @@ Reka 2.10.5 opens `DropdownMenuTrigger` on `click`, but `SelectTrigger`
 opens on a plain left `pointerdown`. In a happy-dom test, dispatch the
 event the trigger listens for; the a11y harness's `openOverlay` only
 clicks. agent-browser clicks with real pointer events.
+
+## Mount-test limits
+
+happy-dom runs no layout and loads no app CSS. Stub
+`HTMLElement.prototype.getBoundingClientRect` when a test needs geometry for
+layout or positional motion. Do not mock motion-v. A file that mounts
+`UiMotion` or `UiMotionConfig` installs its reduced-motion `matchMedia` stub
+before the first mount, because motion-dom keeps the first media query it
+reads. Keep normal-motion cases in a file without that stub. A file that only
+mounts `useMotionFeedback` can exercise both modes because the composable
+reads the query on each mount.
+
+Reduced motion keeps feedback fades in `useMotionFeedback` and removes
+movement. `UiMotion` layout and positional animations end immediately with no
+fade. `frontend/web/src/ui/motion/UiMotion.reduced.test.ts` covers both reduced
+layout paths with "ends positional animation at once when the user prefers
+reduced motion" and "ends layout animation at once when the user prefers
+reduced motion".

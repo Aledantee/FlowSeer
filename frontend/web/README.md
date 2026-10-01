@@ -259,8 +259,16 @@ selected page in 140 ms, vertically
 on desktop and horizontally on mobile. Reduced motion selects it immediately.
 
 Motion-v provides `UiMotion` for layout and positional animation. The
-`useMotionFeedback` composable lives in `src/ui/motion/` and handles local
-feedback such as scope changes, details opening, and notices. Views import both
+`useMotionFeedback` composable in
+`frontend/web/src/ui/motion/useMotionFeedback.ts` handles local feedback such as
+scope changes, details opening, and notices. It accepts typed
+`[from, to]` pairs for `opacity`, `x`, `y`, `rotate`, and `scale`. Supplied
+movement keys compile into one ordered native transform effect in
+`translateX`, `translateY`, `rotate`, and `scale` order. Opacity remains a
+separate native effect. Under reduced motion, movement is filtered while fades
+remain. Each play owns only the CSS properties and native effects it supplied.
+Completion, cancellation, resize, preference or configuration changes, and
+unmount restore the previous inline values. Views import both motion surfaces
 through the `src/ui` barrel. `UiAppRoot` mounts the one app-wide
 `UiMotionConfig` with `reducedMotion="user"`, so the browser preference applies
 to every motion surface.

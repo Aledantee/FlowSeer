@@ -23,10 +23,9 @@ tags: [vue, vitest, happy-dom, motion, animations, testing]
 Mounted under Vitest with happy-dom, they run on the normal motion path by
 default. That path needs no stub. A mount of `FleetView` under `UiAppRoot` that
 toggles the sidebar, navigates, and switches the theme reports no error without
-any `matchMedia` stub. happy-dom implements `Element.animate`
-(`happy-dom@20.14.5` `lib/nodes/element/Element.js:1083`) and answers
-`prefers-reduced-motion` from its settings
-(`lib/match-media/MediaQueryItem.js:187`).
+any `matchMedia` stub. The native feedback tests observe the resulting
+`Animation` and `KeyframeEffect` objects through `getAnimations()`.
+`frontend/web/pnpm-lock.yaml` pins happy-dom to 20.14.5.
 
 A `matchMedia` stub is therefore a way to select the reduced path, never a way
 to avoid a throw. The same goes for an `offsetParent` stub.
@@ -35,17 +34,20 @@ to avoid a throw. The same goes for an `offsetParent` stub.
 
 | Fact | Source |
 | --- | --- |
-| motion-dom reads the reduced-motion query once per module and keeps that `MediaQueryList`. | `motion-dom@13.4.5` `dist/es/render/utils/reduced-motion/index.mjs:9` |
-| `useMotionFeedback` reads the query itself on every mount through `useMediaQuery`, so it follows a stub installed after an earlier mount. | `motion-v@2.5.1` `dist/es/animation/hooks/use-reduced-motion.mjs` |
-| Under the reduced path the composable keeps the opacity fade and drops movement. | `frontend/web/src/ui/motion/useMotionFeedback.ts` (`play`'s reduced branch), `frontend/web/src/components/ThemeSwitcher.test.ts` "keeps transforms empty and retains running opacity animations under reduced motion" |
+| The web workspace locks motion-v 2.5.1, motion-dom and framer-motion 13.4.5, @vueuse/core 14.4.0, and happy-dom 20.14.5. | `frontend/web/pnpm-lock.yaml` |
+| `useMotionFeedback` reads the user reduced-motion state when the composable mounts, so a `matchMedia` stub installed before that mount selects the path. | `frontend/web/src/ui/motion/useMotionFeedback.ts`, `frontend/web/src/ui/motion/useMotionFeedback.test.ts` |
+| Under the reduced path the composable keeps the opacity fade and drops movement. | `frontend/web/src/ui/motion/useMotionFeedback.ts` (`play`'s reduced branch), `frontend/web/src/ui/motion/useMotionFeedback.test.ts` "filters reduced movement, keeps reduced fades native, and restores their baseline", `frontend/web/src/components/ThemeSwitcher.test.ts` "keeps reduced motion as one running opacity effect per icon" |
+| Native feedback tests inspect keyframe endpoints, timing, running state, cleanup, and replacement. | `frontend/web/src/ui/motion/useMotionFeedback.test.ts` "compiles typed pairs into ordered native effects with deterministic timing", "cancels and restores synchronously before replacing a play, through the next frame and completion", "ignores a stale completion queued before replacement" |
 | Under the reduced path `UiMotion` layout animations end at once with no fade. | `frontend/web/src/ui/motion/UiMotion.reduced.test.ts` "ends layout animation at once when the user prefers reduced motion" |
-| happy-dom has no layout, so a layout animation sees zero-size boxes. | `happy-dom@20.14.5` `lib/nodes/element/Element.js:795` |
+| happy-dom has no layout, so layout tests provide geometry explicitly. | `frontend/web/src/FleetView.motion.test.ts`, `frontend/web/src/ui/motion/UiMotion.reduced.test.ts` |
 
 ## The rule
 
 A file that mounts motion components installs the stub before its first mount,
-because motion-dom keeps the first `MediaQueryList` it reads. Cases on the
-normal path live in a file without the stub. The pair
+because the locked motion-dom behavior keeps the first `MediaQueryList` it
+reads, as recorded in
+`docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase2-plan.md`.
+Cases on the normal path live in a file without the stub. The pair
 `frontend/web/src/ui/motion/UiMotion.test.ts` (no stub, layout and positional
 animation) and `UiMotion.reduced.test.ts` (stub in `beforeEach`) shows the split.
 
@@ -79,6 +81,9 @@ stubbed `HTMLElement.prototype.getBoundingClientRect`, as
 
 ## What this does not cover
 
-These tests check which path a surface takes and what it leaves in the DOM.
-They do not verify CSS keyframe interpolation, transition curves, or browser
-layout. Those need a browser.
+These tests check which path a surface takes, its native keyframes and timing,
+and what it leaves in the DOM. They do not verify interpolation, computed
+styles, the first `requestAnimationFrame` samples, active native effects as the
+browser runs them, screenshots, or restoration after resize and cancel or
+replay. Those need the real-browser measurement loop in
+`.agents/skills/web-component/references/review.md`.
