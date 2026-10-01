@@ -44,7 +44,7 @@ lane in this order:
 
 1. Drop models whose pool row, as `scripts/pool-usage.sh` printed it for
    this wave (`~/.claude/models/host.yaml` holds the session-start rows),
-   shows `signed_in` false or null, or over 85% on a window that applies to
+   shows `signed_in` false or null, or at or over the pool's limit on a window that applies to
    the model. Orca reporting a provider `unavailable` is not a pool row.
 2. Drop models the role `exclude`s. For `review-unit`, also drop the
    `vendor` of the model that executed the unit under review; for
@@ -85,8 +85,9 @@ Only independent work widens with quota: units of one wave (no `After`
 between them, no shared file), phases with no `After` between them and
 disjoint files, one solution per worker in a refresh, one reviewer per
 unit. Chained work runs in turn. A usable pool holds slots by the worst
-window that applies to the lane in its row: 2 under 50%, 1 from 50% to 85%
-or unknown (`windows: null`), 0 over 85% or signed out. The cap is the sum
+window that applies to the lane in its row: 2 under 50%, 1 from 50% to the
+pool's limit or unknown (`windows: null`), 0 at or over the limit or signed
+out. A pool's limit is its registry `usable_below` percent, 85 when unset. The cap is the sum
 over the pools that fit the role, at most six, never more than the
 independent tasks ready; the rest runs in rounds. Recompute before every
 wave; a 429 mid-wave removes that pool's slots for the rest of it.
@@ -119,12 +120,12 @@ quiet-worker check) or whenever a delegated session goes quiet:
 ```
 
 A pool is usable when signed in and every window that applies to the lane
-is under 85%; only the pool's own row counts. A 429 or "limit reached"
+is under the pool's limit; only the pool's own row counts. A 429 or "limit reached"
 marks it hot for the rest of the wave. When no fitting pool is usable, do
 not dispatch: work sequentially or wait for the earliest `resetsAt`, and
 tell the user which window is exhausted. Load `references/pool-rows.md`
 when reading a `google` or `synthetic` row, a `fableWeekly` window, a window
-at 0%, a row with an `error`, or when `claude` is past 85%. The
+at 0%, a row with an `error`, or when `claude` is past its limit. The
 coordinating session and every native subagent draw on the Claude pool, a
 Fable session also on `fableWeekly`.
 
