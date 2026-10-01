@@ -132,7 +132,9 @@ the motion-v surface under `frontend/web/src/ui/motion/`.
    - anything on mount of every render
 6. **Reduced motion** replaces movement with an opacity change of the
    same duration. It does not remove all feedback, and it is never a
-   global `0.01ms` kill switch.
+   global `0.01ms` kill switch. Layout animations are the exception: they
+   end immediately with no fade (amendment of 2026-10-01 in
+   `docs/architecture/2026-09-28-web-component-contract-direction.md`).
    - Popper surfaces and dialog exits switch to `animate-fade-in` and
      `animate-fade-out` under `motion-reduce:`. Dialog entry switches to
      `animate-dialog-fade-in`, because `animate-fade-in` runs at
