@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `go.mod` and `src/protocol/yang/test/integration/testenv/testdata/gnmitarget/go.mod`. It requires `google.golang.org/genproto/googleapis/rpc` at `v0.0.0-20260928230214-8a89bd6388cc`.
+Package `common/service` imports `google.golang.org/genproto/googleapis/rpc/errdetails` at `src/common/service/telemetry_otlp.go:17`. The root `go.mod` pins version `v0.0.0-20260928230214-8a89bd6388cc`.
 
 ## Why it is safe
 
-The lockfile pins `v0.0.0-20260928230214-8a89bd6388cc`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is Google. Version `v0.0.0-20260928230214-8a89bd6388cc` was published at `2026-09-28T23:02:14Z` and was 3 days old on 2026-10-01. It was marked under the 14-day wait until `2026-10-12T23:02:14Z`, and the Go proxy reported origin commit `8a89bd6388cc9f960fc7076f7e2a43f96ad592e9`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 7 versions, with 0 versions only reachable through this direct dependency.
 
 ## Why not owned code
 
-The repository does not own the external package `google.golang.org/genproto/googleapis/rpc`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to define the generated Google RPC error-detail messages used to attach structured status details to service telemetry. That would duplicate wire types shared with gRPC clients and servers. The tree contains 7 versions, with 0 versions only reachable through this direct dependency.

@@ -12,12 +12,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `go.mod` and `src/protocol/smi/bench/go.mod` and `src/protocol/smi/differential/go.mod`. It requires `gopkg.in/yaml.v3` at `v3.0.1`.
+Packages `tools/deps/inventory`, `protocol/yang/cmd/yanggen`, and `protocol/snmp/cmd/mibgen` import `gopkg.in/yaml.v3` at `tools/deps/inventory/statements.go:11`, `src/protocol/yang/cmd/yanggen/config.go:13`, and `src/protocol/snmp/cmd/mibgen/config.go:11`. The tool caller is `go run ./tools/deps`, and the generator callers are `src/protocol/yang/cmd/yanggen` and `src/protocol/snmp/cmd/mibgen`. The root, SMI benchmark, and SMI differential `go.mod` files pin version `v3.0.1`.
 
 ## Why it is safe
 
-The lockfile pins `v3.0.1`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is the go-yaml project. Version `v3.0.1` was published at `2022-05-27T08:35:30Z` and was 1588 days old on 2026-10-01. Its 14-day wait ended at `2022-06-10T08:35:30Z`. The Go proxy reported no origin commit. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 2 versions, with 0 versions only reachable through this direct dependency. The SMI benchmark graph contains 2 versions, with 0 versions only reachable through this direct dependency. The SMI differential graph contains 2 versions, with 0 versions only reachable through this direct dependency.
 
 ## Why not owned code
 
-The repository does not own the external package `gopkg.in/yaml.v3`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to maintain a YAML parser for dependency inventories, generator configuration, protocol fixtures, and integration manifests. Those inputs cross tool and benchmark boundaries, so a local parser would create several format implementations to maintain. The root graph contains 2 versions, with 0 versions only reachable through this direct dependency. The SMI benchmark graph contains 2 versions, with 0 versions only reachable through this direct dependency. The SMI differential graph contains 2 versions, with 0 versions only reachable through this direct dependency.

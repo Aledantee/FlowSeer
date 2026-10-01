@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `src/edge/netpen/go.mod`. It requires `golang.org/x/term` at `v0.46.0`.
+Package `cmd/netpen` imports `golang.org/x/term` at `src/edge/netpen/cmd/netpen/main.go:18`. The netpen `go.mod` pins version `v0.46.0`.
 
 ## Why it is safe
 
-The lockfile pins `v0.46.0`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is the Go project. Version `v0.46.0` was published at `2026-09-08T16:27:41Z` and was 23 days old on 2026-10-01. Its 14-day wait ended at `2026-09-22T16:27:41Z`, and the Go proxy reported origin commit `6226200ed12cba417a9d9e799c2a7179d3fc0e27`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The netpen module graph contains 3 versions, with 0 versions only reachable through this direct dependency.
 
 ## Why not owned code
 
-The repository does not own the external package `golang.org/x/term`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+The netpen CLI would have to implement terminal mode changes and restoration for its interactive command path. That code is platform-specific and unrelated to the network experiment itself. The tree contains 3 versions, with 0 versions only reachable through this direct dependency.

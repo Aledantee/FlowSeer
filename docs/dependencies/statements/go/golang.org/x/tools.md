@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `go.mod`. It requires `golang.org/x/tools` at `v0.50.0`.
+The `mibgen` generator imports `golang.org/x/tools/imports` at `src/protocol/snmp/cmd/mibgen/emit.go:15`. Its caller is `src/protocol/snmp/cmd/mibgen`, and the root `go.mod` pins version `v0.50.0`.
 
 ## Why it is safe
 
-The lockfile pins `v0.50.0`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is the Go project. Version `v0.50.0` was published at `2026-09-08T19:59:56Z` and was 23 days old on 2026-10-01. Its 14-day wait ended at `2026-09-22T19:59:56Z`, and the Go proxy reported origin commit `265dd1a6ecf0ee85548c7a8d1787d25fc5675e06`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 14 versions, with 2 versions only reachable through this direct dependency.
 
 ## Why not owned code
 
-The repository does not own the external package `golang.org/x/tools`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to rewrite imports and format generated Go source in `mibgen`, including its package resolution rules. A local formatter would create a second implementation of Go import analysis for one generator. The tree contains 14 versions, with 2 versions only reachable through this direct dependency.
