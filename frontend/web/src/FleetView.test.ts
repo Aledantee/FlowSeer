@@ -12,8 +12,8 @@ import { aiRegistryKey } from './ui/ai/context'
 let dispose = () => {}
 let registry: AiRegistry
 
-// happy-dom has no Web Animations API, so the view runs as it does for a
-// user who asked for reduced motion.
+// happy-dom has no Web Animations API, so this suite opts into reduced motion
+// while keeping desktop media queries matched.
 beforeEach(() =>
   vi.stubGlobal('matchMedia', (query: string) => ({
     matches: query.includes('reduce') || query.includes('min-width'),
@@ -27,12 +27,35 @@ beforeEach(() =>
   })),
 )
 
+beforeEach(() =>
+  vi
+    .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+    .mockImplementation(function (this: HTMLElement) {
+      const collapsed =
+        this instanceof HTMLElement &&
+        this.closest('.shell')?.classList.contains('sidebar-collapsed')
+      const width = collapsed ? 64 : 204
+      return {
+        bottom: 64,
+        height: 64,
+        left: 0,
+        right: width,
+        top: 0,
+        width,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect
+    }),
+)
+
 afterEach(() => {
   dispose()
   dispose = () => {}
   localStorage.clear()
   sessionStorage.clear()
   document.body.replaceChildren()
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
@@ -262,6 +285,44 @@ describe('FleetView split resizing', () => {
     dispose = () => {}
 
     expect(document.body.classList.contains('resizing-panes')).toBe(false)
+  })
+})
+
+describe('FleetView motion layout', () => {
+  it('keeps the collapsed sidebar accessible and moves its highlight', async () => {
+    const { host, router } = await mountAt('/dashboard')
+    const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
+    expect(toggle?.classList).toContain('sidebar-toggle')
+
+    toggle?.click()
+    await settle()
+
+    expect(host.querySelector('.shell')?.classList).toContain(
+      'sidebar-collapsed',
+    )
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false')
+    expect(host.querySelector<HTMLElement>('.sidebar')?.style.transform).toBe(
+      '',
+    )
+    expect(
+      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
+    ).toBe('')
+
+    await router.push('/devices')
+    await settle()
+
+    expect(host.querySelectorAll('.nav-highlight')).toHaveLength(1)
+    expect(
+      host
+        .querySelector('.nav-highlight')
+        ?.closest('a')
+        ?.getAttribute('aria-current'),
+    ).toBe('page')
+
+    toggle?.dispatchEvent(new FocusEvent('focus', { bubbles: true }))
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    await nextTick()
+    expect(document.body.textContent).toContain('Expand sidebar')
   })
 })
 
