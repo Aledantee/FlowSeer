@@ -71,7 +71,10 @@ judges the operands of a mutating verb rather than any command that names
 `generated/`, the edit guard resolves paths whose parent directory does not
 exist yet, and the message-sync note stays silent about members the
 file-level comment names. A guard that fires more often on legitimate work
-than on the mistake it was written for gets narrowed, not explained.
+than on the mistake it was written for gets narrowed, not explained. A
+Codex hook command that cannot reach its script says which of the root,
+`git`, or the script is missing and exits 1, since a bare exit 127 names
+none of them.
 
 Do not copy a linter manual into `AGENTS.md`. Name the command and document only
 the project-specific judgment that the tool cannot express.
@@ -181,8 +184,9 @@ branch inside the worktree, where the tests and the verifier already are,
 verifies the union with `--base main`, and emits the primary checkout's
 `git merge --ff-only <branch>` for the person; `--ff-only` lands exactly
 the verified commit and refuses if `main` moved again. The sandbox's deny
-of writes under `.claude/skills/` also covers git replaying a committed
-change, so that merge needs the bypass whenever `main` touched `.claude/`;
+of writes under `.claude/skills/` and its link target `.agents/skills/`
+also covers git replaying a committed change, so that merge needs the
+bypass whenever `main` touched `.claude/` or `.agents/`;
 that deny list, like the isolation guard, is Claude Code's own and not a
 repository policy surface, which is why the owner's direction that a
 session may merge in both directions and remove its own worktrees is met
@@ -322,7 +326,11 @@ the receipt and a silent survivor reads as an artifact, so `land` takes
 the marker's content as its remedy. A web path now selects the web
 workspace's typecheck, build, ESLint, Stylelint, Prettier, and Vitest gates; a
 marked path absent from both the tree and an explicit base clears like
-one whose bytes match the base. The marker hook itself was the last
+one whose bytes match the base. An argument spelled through the
+`.claude/skills` link is rewritten to the path git tracks: git lists
+nothing beyond a link, so the directory form stopped the run before any
+gate, and the marker holds git's spelling, so the file form left its line
+behind. The marker hook itself was the last
 of these. It guessed from a Bash command's text whether the command wrote
 a file, and the pattern missed a Python rewrite of a document and any
 `cp` or `tee`, while it flagged `git log | grep patch` and a redirect to a scratch `.json`; each false

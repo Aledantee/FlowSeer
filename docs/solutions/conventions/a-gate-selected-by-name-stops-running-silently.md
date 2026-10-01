@@ -1,6 +1,7 @@
 ---
 title: A Gate Selected By Name Stops Running Silently; Enumerate It and Count What Ran
 date: 2026-09-15
+last_verified: 2026-10-01
 category: conventions
 module: tools/hooks
 problem_type: convention
@@ -11,6 +12,7 @@ applies_when:
   - "Adding an entry to a list of checks that some runner iterates, where a rename elsewhere would not update the list."
   - "A gate reports success and you are deciding whether it ran."
   - "Reviewing a fix for a check that silently stopped checking, to see whether the fix removed the failure or only moved it one level up."
+  - "Passing a symlinked skill directory to targeted verification, where Git tracks the directory's physical target."
 related_components: [verify-change, stop-hook]
 tags: [conformance-gate, go-test, hooks, silent-failure, merge-gate]
 ---
@@ -75,6 +77,25 @@ walks those modules by path and is the only thing that does.
 Both are the same lesson: the selection is now `./test/conformance/...`, run once
 per targeted verification from the repository root
 (`.claude/skills/verify-change/scripts/verify-change.sh:478-498`).
+
+## A symlinked skill directory can disappear from targeted verification
+
+This checkout exposes `.agents/skills` through `.claude/skills`, but Git tracks
+the target paths:
+
+```text
+$ git ls-files -- .claude/skills/delegate/scripts
+$ git ls-files -- .agents/skills/delegate/scripts
+.agents/skills/delegate/scripts/test_orca_worker.py
+```
+
+`verify-change.sh` expands a directory argument with `git ls-files`
+(`.agents/skills/verify-change/scripts/verify-change.sh:135-155`). A directory
+spelled through the symlink therefore supplies no skill files to the selector.
+The later hook gate walks `.claude/skills/*/scripts` only after the selector has
+chosen hook tooling (`.agents/skills/verify-change/scripts/verify-change.sh:873-896`).
+Use the tracked `.agents/skills` spelling for a targeted skill verification, or
+resolve directory arguments before selecting gates.
 
 ## How to tell whether a gate runs
 

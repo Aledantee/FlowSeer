@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
+# shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail
 
-hook_input=$(cat)
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=common.sh
+source "$script_dir/common.sh"
+
+hook_input=$(hook_read_input)
 if ! jq -e '.cwd | type == "string" and length > 0' >/dev/null 2>&1 <<<"$hook_input" ||
   ! jq -e '.name | type == "string" and length > 0' >/dev/null 2>&1 <<<"$hook_input"; then
   echo "WorktreeCreate requires string cwd and name fields." >&2

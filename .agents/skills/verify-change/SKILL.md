@@ -28,7 +28,9 @@ the Go gates bind loopback listeners and the telemetry tier starts Docker.
   enough for documentation, hook, or single-module work.
 - Pass explicit paths when the worktree holds changes outside the task. A
   directory expands to the files it holds, so `-- src/edge/agent` and the
-  files under it select the same gates.
+  files under it select the same gates. A path through a linked directory
+  is rewritten to the one git tracks, so `.claude/skills/land` verifies
+  `.agents/skills/land`.
 - A `frontend/web/` path needs the web workspace's local binaries, which a
   fresh worktree lacks. Install them with
   `pnpm --dir frontend/web install --frozen-lockfile`, outside the sandbox

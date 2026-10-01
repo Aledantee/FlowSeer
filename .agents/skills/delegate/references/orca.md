@@ -2,7 +2,7 @@
 
 Load this when a worker's state does not match what its tree says, when
 `scripts/orca-worker.sh` fails a step, when `wait` prints anything but
-`idle` or the screen shows an unexpected dialog, or for an orchestration run
+`idle` or `done`, or the screen shows an unexpected dialog, or for an orchestration run
 or a full handoff. `SKILL.md` names the lane; this file is the procedure.
 
 Contents: What the script does; When a step fails; Orchestration runs;
@@ -51,12 +51,35 @@ Full handoff.
   the worktree. If either cleanup call fails, it keeps or writes lane state
   so `status` still lists the lane, and reports that it needs manual removal.
 - `wait` does not trust `orca terminal wait --for tui-idle` alone: it was
-  seen satisfied while a worker was mid-turn. The turn has ended
-  when two reads five seconds apart show no "esc to interrupt" or "esc to
-  cancel" hint and the same screen. A screen that shows the hint unchanged
-  for `--stall` seconds (default 1200) prints `stalled`; a terminal that
-  cannot be read prints `exited`. With `--timeout` it prints `timeout`,
-  and the worker is still at work.
+  seen satisfied while a worker was mid-turn. The lane and each child are
+  quiet only after two reads five seconds apart show no "esc to interrupt"
+  or "esc to cancel" hint and the same screen. It keeps waiting while a child
+  works or its screen changes. When the lane is quiet and no child works,
+  `--until <command>` runs first in the lane checkout. Success prints `done`.
+  Without `--until`, a quiet lane without children prints `idle`. A failing
+  command falls through to `idle` without children or to `idle-children
+  <names>` after the child-idle clock. The child-idle clock is `--stall`
+  seconds, 1200 by default, and restarts when the lane's screen changes or a
+  child works. A child without a state file is named by its raw worktree id. A
+  child without a readable terminal is named by its lane name. A failed child
+  query is named `unreadable`. These
+  cases count as quiet. `stalled` means the lane is still working, no child is
+  working, and the lane screen stayed unchanged for `--stall` seconds.
+  `timeout` is the positive `--max` ceiling. `--max` defaults to 3600 seconds,
+  and `--stall 0` disables the stalled and child-idle clock. `--timeout` is
+  refused. The screen follows every outcome except an `exited` result caused
+  by a failed screen read. An `exited` status from `terminal wait` is followed
+  by the screen.
+- `line --cli <cli> --model <id> [--effort <level>]` prints the launch line
+  used by `start`. Codex lines include
+  `-c background_terminal_max_timeout=3600000`, so a coordinator can poll
+  the blocking wait for up to one hour.
+- `check` reads the lane's `cli` from state and the `model` and `at` values
+  from its `start` event. On a Claude lane it checks the session files for
+  another model or a refusal fallback. Other lanes print `not checked: <cli>`
+  and succeed. `grade --outcome accepted` and `amended` repeats the same
+  check before writing the grade. A failed check is graded `rejected`, left
+  unmerged, and dispatched again under the model-switch rule.
 - `keys` sends at most 200 characters without Enter, for dialog answers;
   longer text arrives with only its tail. `tell` copies a file into the
   checkout as `.orca-note.md` and submits a pointer to it, as `start` does
@@ -74,10 +97,12 @@ Full handoff.
   branch -d` follows, and an unmerged lane removed that way would lose its
   commits.
 
-The behavior above was measured on the earlier `opencode` lane on Orca
-1.4.203. The Codex launch and its hooks-review answer were measured on codex
-0.157.1. The `agy`, `omp`, and `claude` lanes start through this script, but
-their behavior here is not measured.
+The lane-only behavior above was measured on the earlier `opencode` lane on
+Orca 1.4.203. The newer `--until`, `--max`, and `line` behavior is unverified,
+as are child-aware waiting and the Codex poll cap on a live Orca. The Codex
+launch and its hooks-review answer were measured on codex 0.157.1. The `agy`,
+`omp`, and `claude` lanes start through this script, but their behavior here is
+not measured.
 
 ## When a step fails
 
@@ -89,6 +114,12 @@ their behavior here is not measured.
 - `wait` prints `idle` and the screen shows a dialog: a permission prompt
   the brief anticipated is answered with `keys <slug> <text>`; anything
   else is reported to the user with the screen text.
+- `wait` prints `idle-children <names>`: read the parent lane and each named
+  child, then `tell` a lane that stopped waiting to continue. A state-file
+  name is a lane slug and can be passed to `read`. A child without a state
+  file is shown as its raw worktree id and has no terminal handle for this
+  script to read. `unreadable` means the child query failed, so check Orca and
+  run the wait again. `read unreadable` is not a valid lane lookup.
 - `wait` prints `stalled`: the screen showed a turn in progress and did not
   change for 20 minutes (`--stall <seconds>`), usually a hung model stream
   that Escape may not reach. Read the screen first, since an `agy` or `omp`
@@ -102,10 +133,11 @@ their behavior here is not measured.
   Claude; an `execute` unit goes to `execute-sensitive`.
 - `keys` says it takes 200 characters at most: write the text to a file and
   send it with `tell <slug> <file>`.
-- `wait` keeps running on a quiet worker: rule out causes in cost order.
-  The provider's quota (`pool-usage.sh`), then the screen for a prompt or
-  a mangled instruction, then `git status` in the worker's checkout, where
-  a written file with no commit means the worker is still testing.
+- `wait` keeps running on a quiet worker, or prints `timeout`: rule out
+  causes in cost order once. The provider's quota (`pool-usage.sh`), then
+  the screen for a prompt or a mangled instruction, then `git status` in the
+  worker's checkout, where a written file with no commit means the worker is
+  still testing. Wait again after that check.
 - `read` shows only the end of a long report: the screen holds one frame.
   Prompt the worker to write its report to `REPORT.md` in its own
   worktree and reply with the path, read that file, and delete it before

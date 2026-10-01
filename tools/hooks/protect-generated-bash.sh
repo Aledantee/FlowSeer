@@ -7,10 +7,15 @@
 # command names a guarded path. Reads such as `sed -n 5p generated/x.pb.go`
 # or a `grep ... | sed` pipeline pass. Opaque scripts are left to the sandbox
 # and review.
+# shellcheck source-path=SCRIPTDIR
 
 set -uo pipefail
 
-input=$(cat)
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=common.sh
+source "$script_dir/common.sh"
+
+input=$(hook_read_input)
 jq -e . >/dev/null 2>&1 <<<"$input" || {
   jq -n '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:"Generated-file Bash guard received malformed hook input and failed closed."}}'
   exit 0

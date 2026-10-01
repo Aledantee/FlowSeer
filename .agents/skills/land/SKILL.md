@@ -123,13 +123,23 @@ Otherwise merge `main` into the branch:
 git merge --no-edit main
 ```
 
-Run it with the sandbox disabled when `main` touched `.claude/` since the
-merge-base (`git diff --name-only HEAD...main -- .claude` prints a path): the
-sandbox denies writes under `.claude/skills/` even to git, and the merge
-aborts on `unable to unlink old '.claude/skills/...': Operation not permitted`.
+Run the merge with the sandbox disabled when `main` touched `.claude/` or
+`.agents/` since the merge-base
+(`git diff --name-only HEAD...main -- .claude .agents` prints a path).
+`.claude/skills` is a link to `.agents/skills`, where git tracks the skills,
+and the sandbox denies writes under both even to git, so the merge aborts on
+`unable to unlink old '.agents/skills/...': Operation not permitted`.
 That failure is expected after any `steer` has landed, and the bypass is its
 remedy. Resolve a conflict only when the resolution is mechanical; otherwise
 `git merge --abort`, report the conflicting files, and stop.
+
+After the merge commit exists, including a resolved conflict, run:
+
+```bash
+python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD
+```
+
+A non-zero result stops land. Carry every `missing` block in the report.
 
 ## 4. Retire the plan
 

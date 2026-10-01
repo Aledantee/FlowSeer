@@ -1,0 +1,2 @@
+{"type":"assistant","timestamp":"2026-09-19T11:39:10.931Z","message":{"model":"claude-fable-5-1"}}
+{"type":"system","subtype":"model_refusal_fallback","timestamp":"2026-09-19T11:39:12.370Z","originalModel":"claude-fable-5-1","fallbackModel":"claude-opus-4-8"}

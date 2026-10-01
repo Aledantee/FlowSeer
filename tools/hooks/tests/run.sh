@@ -48,10 +48,21 @@ fail() {
   exit 1
 }
 
-if grep -nE '^[[:space:]]*\[\[ .* \]\][[:space:]]*(&&[[:space:]]*|#.*)?$' "$0" >&2; then
-  echo "bare [[ ]] assertion in $0: append || fail \"\$LINENO\"" >&2
-  exit 1
-fi
+set +e
+grep -nE '^[[:space:]]*\[\[ .* \]\][[:space:]]*(&&[[:space:]]*|#.*)?$' "$0" >&2
+bare_rc=$?
+set -e
+case $bare_rc in
+  0)
+    echo "bare [[ ]] assertion in $0: append || fail \"\$LINENO\"" >&2
+    exit 1
+    ;;
+  1) ;;
+  *)
+    echo "cannot read $0 to check for bare [[ ]] assertions" >&2
+    exit 1
+    ;;
+esac
 unequal=b
 if ([[ a == "$unequal" ]] || fail "$LINENO") 2>/dev/null; then
   echo "a false assertion did not stop the run" >&2
@@ -120,7 +131,13 @@ jq -e '.hooks | keys | sort == ["PostToolUse", "PreToolUse", "SessionStart", "St
   "$codex_config" >/dev/null
 
 claude_hook() { printf '"%s/tools/hooks/%s"' "\$CLAUDE_PROJECT_DIR" "$1"; }
-codex_hook() { printf '"%s/tools/hooks/%s"' "\$(git rev-parse --show-toplevel)" "$1"; }
+# Codex has no project-directory variable, so its commands ask git for the
+# root, and each names what it could not find: a bare
+# "$(git rev-parse --show-toplevel)/tools/hooks/x.sh" runs /tools/hooks/x.sh
+# when git prints nothing and exits 127 without a reason.
+codex_hook() {
+  printf '%s' "root=\$(git rev-parse --show-toplevel 2>/dev/null); hook=\$root/tools/hooks/$1; [ -n \"\$root\" ] && [ -x \"\$hook\" ] || { echo \"FlowSeer hook $1 cannot run from \$PWD: repository root \${root:-unresolved}, git \$(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"\$hook\""
+}
 
 assert_hook_mapping "$claude_config" "SessionStart" "<none>" \
   "$(claude_hook worktree-guard.sh)"
@@ -197,6 +214,26 @@ codex_edit_command=$(jq -r '
 codex_edit_output=$(cd "$repo_root" && bash -c "$codex_edit_command" <<<"$edit_input")
 [[ $(decision <<<"$codex_edit_output") == deny ]] || fail "$LINENO"
 ok "configured edit guards deny generated output"
+
+# The three ways a Codex command cannot reach its script, each reported on
+# stderr with exit 1: a session directory outside any repository, a PATH
+# without git, and a checkout that lacks the script.
+outside_repo="$fixture_parent/outside any repository"
+mkdir -p "$outside_repo"
+launcher_rc=0
+launcher_output=$(cd "$outside_repo" && GIT_CEILING_DIRECTORIES="$fixture_parent" \
+  bash -c "$codex_edit_command" 2>&1 <<<"$edit_input") || launcher_rc=$?
+[[ $launcher_rc -eq 1 ]] || fail "$LINENO"
+[[ $launcher_output == "FlowSeer hook pre-tool-policy.sh cannot run from $outside_repo: repository root unresolved, git "/* ]] || fail "$LINENO"
+launcher_rc=0
+launcher_output=$(cd "$repo_root" && env PATH="$outside_repo" "$BASH" -c "$codex_edit_command" 2>&1 <<<"$edit_input") || launcher_rc=$?
+[[ $launcher_rc -eq 1 ]] || fail "$LINENO"
+[[ $launcher_output == "FlowSeer hook pre-tool-policy.sh cannot run from $repo_root: repository root unresolved, git not on PATH" ]] || fail "$LINENO"
+launcher_rc=0
+launcher_output=$(cd "$fixture" && bash -c "$codex_edit_command" 2>&1 <<<"$edit_input") || launcher_rc=$?
+[[ $launcher_rc -eq 1 ]] || fail "$LINENO"
+[[ $launcher_output == "FlowSeer hook pre-tool-policy.sh cannot run from $fixture: repository root $fixture, git "/* ]] || fail "$LINENO"
+ok "a Codex hook command names the root or script it could not find"
 
 new_dir_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/docs/new dir/deeper/notes.md" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')
@@ -718,6 +755,79 @@ mv "$gate_fixture/test/conformance" "$gate_fixture/test/gates"
 gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
 jq -e '.decision == "block" and (.reason | contains("no conformance gate found under test/conformance/"))' <<<"$gate_output" >/dev/null
 ok "Stop blocks when a checkout has no conformance gate to run"
+
+# A stdin that stays open with nothing written. Descriptor 3 holds the FIFO
+# open for reading and writing, so it is a writer that never writes and no
+# helper process has to be cleaned up. Each hook gets 10 seconds, polled
+# once a second, so a hook that waits on its input forever fails its case
+# instead of hanging the suite.
+idle_fifo=$fixture_parent/idle-stdin
+mkfifo "$idle_fifo"
+exec 3<>"$idle_fifo"
+
+# Runs a command on the idle stdin, writing its stdout to the file named
+# first. Returns the command's status, or 124 when it outlived 10 seconds.
+idle_run() {
+  local output=$1 pid tick
+  shift
+  "$@" <&3 >"$output" 2>/dev/null &
+  pid=$!
+  for ((tick = 0; tick < 10; tick++)); do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 1
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    # A reader the hook started, such as the cat of a $(cat), also holds the
+    # FIFO open and would outlive the suite.
+    { pkill -9 -P "$pid"; kill -9 "$pid"; wait "$pid"; } 2>/dev/null
+    return 124
+  fi
+  wait "$pid"
+}
+
+idle_output=$fixture_parent/idle-output
+for idle_guard in pre-tool-policy.sh protect-generated-bash.sh; do
+  set +e
+  idle_run "$idle_output" "$repo_root/tools/hooks/$idle_guard"
+  idle_rc=$?
+  set -e
+  [[ $idle_rc -eq 0 ]] || fail "$LINENO ($idle_guard exited $idle_rc)"
+  [[ $(decision <"$idle_output") == deny ]] || fail "$LINENO ($idle_guard)"
+done
+ok "guards deny a stdin that stays open and silent"
+
+set +e
+idle_run "$idle_output" "$repo_root/tools/hooks/create-worktree.sh"
+idle_rc=$?
+set -e
+[[ $idle_rc -eq 1 ]] || fail "$LINENO (exited $idle_rc)"
+ok "WorktreeCreate fails on a stdin that stays open and silent"
+
+# Each part of this fixture keeps the case from passing vacuously: outside a
+# repository Stop prints {} whatever its input, and without go.mod and a
+# gate directory a hook that ran its gates would block without calling go.
+idle_stop_fixture=$fixture_parent/idle-stop
+idle_go_marker=$fixture_parent/idle-go-called
+idle_go_bin=$fixture_parent/idle-go-bin
+mkdir -p "$idle_stop_fixture/test/conformance/panic" "$idle_go_bin"
+git -C "$idle_stop_fixture" init -q
+printf 'module example.invalid/idle\n\ngo 1.27\n' >"$idle_stop_fixture/go.mod"
+printf '%s\n' '#!/usr/bin/env bash' ": >\"$idle_go_marker\"" 'exit 1' >"$idle_go_bin/go"
+chmod +x "$idle_go_bin/go"
+set +e
+(cd "$idle_stop_fixture" && PATH="$idle_go_bin:$PATH" idle_run "$idle_output" "$repo_root/tools/hooks/stop-check.sh")
+idle_rc=$?
+set -e
+[[ $idle_rc -eq 0 ]] || fail "$LINENO (exited $idle_rc)"
+[[ $(<"$idle_output") == '{}' ]] || fail "$LINENO"
+[[ ! -e $idle_go_marker ]] || fail "$LINENO"
+ok "Stop skips its gates on a stdin that stays open and silent"
+exec 3<&-
+
+# A hook added later reads stdin through hook_read_input, not a bare cat.
+cat_reads=$(grep -nE '^[^#]*(\$\(cat( -)?\)|\$\(<[[:space:]]*/dev/stdin\))' "$repo_root"/tools/hooks/*.sh || true)
+[[ -z $cat_reads ]] || fail "$LINENO: $cat_reads"
+ok "no hook reads stdin through a bare cat or /dev/stdin"
 
 selection_fixture="$fixture_parent/selection fixture"
 mkdir -p "$selection_fixture"

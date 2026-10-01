@@ -2,7 +2,7 @@
 
 Load this when reading a `google`, `synthetic`, or Fable row from
 `scripts/pool-usage.sh`, a window at 0%, a row whose source failed, or when
-the `claude` pool is past 85%.
+the `claude` pool is past its limit (`usable_below`, `SKILL.md` Wave size).
 
 `pool-usage.sh` reads each pool from the source that owns its numbers and
 prints one row per pool with `signed_in`, the used percent of every window,
@@ -29,7 +29,7 @@ and the `worst` one with its reset time:
   refill in ticks instead of resetting, so its row carries no `resets`; the
   tick interval is unmeasured.
 - The coordinator and every native subagent draw on the `claude` pool, a
-  Fable session also on `fableWeekly`. Past 85% there, keep native
+  Fable session also on `fableWeekly`. Past that pool's limit, keep native
   delegation to `judge`; review lanes follow "Orca or native" in `SKILL.md`,
   and the rest goes to the other prepaid pools.
 - A window at 0% may have just rolled over; `resets` in the same row says

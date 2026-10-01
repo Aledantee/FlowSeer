@@ -5,10 +5,15 @@
 # own artifacts pass. That is a judgment call, so this hook does not block;
 # it names the suppressions the edit wrote so the agent has to justify them
 # in the handoff, and the reviewer sees them.
+# shellcheck source-path=SCRIPTDIR
 
 set -uo pipefail
 
-input=$(cat)
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=common.sh
+source "$script_dir/common.sh"
+
+input=$(hook_read_input)
 jq -e . >/dev/null 2>&1 <<<"$input" || exit 0
 
 added=$(jq -r '

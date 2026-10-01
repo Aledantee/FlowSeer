@@ -7,10 +7,15 @@
 # the commit rather than guessed from the command text, which cannot tell a
 # quoted "\n" from $'\n'. The hook reports and does not block: the commit
 # already exists, and an amend from standard input repairs it.
+# shellcheck source-path=SCRIPTDIR
 
 set -uo pipefail
 
-input=$(cat)
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=common.sh
+source "$script_dir/common.sh"
+
+input=$(hook_read_input)
 jq -e . >/dev/null 2>&1 <<<"$input" || exit 0
 cwd=$(jq -r '.cwd // ""' <<<"$input")
 [[ -n $cwd ]] || exit 0

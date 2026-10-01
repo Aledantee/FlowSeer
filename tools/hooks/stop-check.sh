@@ -11,7 +11,13 @@ source "$script_dir/common.sh"
 # started the client need not have on PATH.
 hook_go_on_path
 
-input=$(cat)
+input=$(hook_read_input)
+# Empty input would resolve the hook's own working directory below and run
+# every gate there.
+jq -e . >/dev/null 2>&1 <<<"$input" || {
+  printf '{}\n'
+  exit 0
+}
 cwd=$(jq -r '.cwd // "."' <<<"$input")
 root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null) || {
   printf '{}\n'

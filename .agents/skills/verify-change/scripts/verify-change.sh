@@ -66,6 +66,9 @@ while (($#)); do
       explicit=true
       shift
       while (($#)); do
+        # An empty word, usually an unset variable, would resolve to the
+        # root and select every module.
+        [[ -n $1 ]] || { echo "empty path argument after --" >&2; exit 2; }
         paths+=("$1")
         shift
       done
@@ -85,8 +88,35 @@ done
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 root=$(git rev-parse --show-toplevel)
 cd "$root"
+# An argument may be spelled through a symlinked directory: .claude/skills
+# links to .agents/skills, where git tracks the files. git lists nothing
+# beyond a symlink, so a directory spelled that way expands to no files, and
+# the dirty marker holds git's spelling, so a file verified under the other
+# one stays marked. The deepest existing directory of a relative argument is
+# resolved and the path rewritten against the root; an absolute path, or one
+# that resolves outside the tree, is kept as given.
+root_physical=$(pwd -P)
+canonical_path() {
+  local dir=$1 rest="" physical
+  [[ $dir == /* ]] && { printf '%s\n' "$dir"; return; }
+  while [[ ! -d $dir ]]; do
+    rest=${dir##*/}${rest:+/$rest}
+    if [[ $dir == */* ]]; then dir=${dir%/*}; else dir=.; fi
+  done
+  physical=$(cd "$dir" 2>/dev/null && pwd -P) || { printf '%s\n' "$1"; return; }
+  case "$physical" in
+    "$root_physical") physical="" ;;
+    "$root_physical"/*) physical=${physical#"$root_physical"/} ;;
+    *) printf '%s\n' "$1"; return ;;
+  esac
+  if [[ -n $physical && -n $rest ]]; then
+    printf '%s/%s\n' "$physical" "$rest"
+  else
+    printf '%s\n' "${physical:-${rest:-.}}"
+  fi
+}
 for index in "${!paths[@]}"; do
-  paths[index]=${paths[index]#./}
+  paths[index]=$(canonical_path "${paths[index]#./}")
 done
 add_path() {
   local candidate=${1#./}
@@ -152,6 +182,11 @@ if ((${#paths[@]})); then
     for path in "${expanded[@]}"; do
       add_path "$path"
     done
+  else
+    # Every argument was a directory holding no file git knows. Said here,
+    # since the classification below cannot loop over an empty list.
+    echo "FlowSeer verification found no files under the named paths." >&2
+    exit 2
   fi
 fi
 

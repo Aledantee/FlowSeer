@@ -44,7 +44,7 @@ lane in this order:
 
 1. Drop models whose pool row, as `scripts/pool-usage.sh` printed it for
    this wave (`~/.claude/models/host.yaml` holds the session-start rows),
-   shows `signed_in` false or null, or over 85% on a window that applies to
+   shows `signed_in` false or null, or at or over the pool's limit on a window that applies to
    the model. Orca reporting a provider `unavailable` is not a pool row.
 2. Drop models the role `exclude`s. For `review-unit`, also drop the
    `vendor` of the model that executed the unit under review; for
@@ -85,8 +85,9 @@ Only independent work widens with quota: units of one wave (no `After`
 between them, no shared file), phases with no `After` between them and
 disjoint files, one solution per worker in a refresh, one reviewer per
 unit. Chained work runs in turn. A usable pool holds slots by the worst
-window that applies to the lane in its row: 2 under 50%, 1 from 50% to 85%
-or unknown (`windows: null`), 0 over 85% or signed out. The cap is the sum
+window that applies to the lane in its row: 2 under 50%, 1 from 50% to the
+pool's limit or unknown (`windows: null`), 0 at or over the limit or signed
+out. A pool's limit is its registry `usable_below` percent, 85 when unset. The cap is the sum
 over the pools that fit the role, at most six, never more than the
 independent tasks ready; the rest runs in rounds. Recompute before every
 wave; a 429 mid-wave removes that pool's slots for the rest of it.
@@ -111,20 +112,20 @@ worker runs on any installed agent whose pool is signed in.
 
 ## Dispatch by quota
 
-Run this immediately before each wave, and first whenever a delegated
-session goes quiet:
+Run this immediately before each wave, and first on `timeout` (the
+quiet-worker check) or whenever a delegated session goes quiet:
 
 ```bash
 .claude/skills/delegate/scripts/pool-usage.sh    # unsandboxed
 ```
 
 A pool is usable when signed in and every window that applies to the lane
-is under 85%; only the pool's own row counts. A 429 or "limit reached"
+is under the pool's limit; only the pool's own row counts. A 429 or "limit reached"
 marks it hot for the rest of the wave. When no fitting pool is usable, do
 not dispatch: work sequentially or wait for the earliest `resetsAt`, and
 tell the user which window is exhausted. Load `references/pool-rows.md`
 when reading a `google` or `synthetic` row, a `fableWeekly` window, a window
-at 0%, a row with an `error`, or when `claude` is past 85%. The
+at 0%, a row with an `error`, or when `claude` is past its limit. The
 coordinating session and every native subagent draw on the Claude pool, a
 Fable session also on `fableWeekly`.
 
@@ -143,9 +144,10 @@ disabled; a sandboxed call reports the runtime as not running.
 
 ```bash
 s=.claude/skills/delegate/scripts/orca-worker.sh
+$s line --cli <cli> --model <id> [--effort <level>]
 $s start --lane <slug> --cli <claude|codex|agy> --model <id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file>
 $s start --lane <slug> --cli omp --model <pool_id> --role <role> [--plan <path>] [--unit <unit>] --brief <file>
-$s wait <slug>            # blocks; prints idle, exited, stalled, or timeout, then the screen
+$s wait <slug> [--until <command>] [--max <seconds>]  # blocks; prints idle, done, stalled, timeout, exited, or idle-children, then the screen
 $s read <slug>            # the worker's report, from its screen
 $s keys <slug> <text>     # a dialog answer, at most 200 characters
 $s tell <slug> <file>     # a message over the 200 characters `keys` takes
@@ -156,15 +158,28 @@ $s stop <slug>            # after grade and merge: closes the terminal, removes 
 
 `start` exits 0 only when the worker runs in a child worktree branched from
 this branch with the brief on its screen; its JSON line names the branch
-(prefixed with the git user) and `run`. On `idle`, check the tree, then
-read the report. A permission dialog also reads as idle: answer one the
-brief anticipated with `keys`, otherwise report it. Then merge here, run
-the verifier on the changed paths, `grade`, and `stop`, which refuses an
-ungraded, mid-turn, dirty, or unmerged lane (removal deletes the branch).
-Load `references/orca.md` when a step fails, when `wait` prints anything
-but `idle` or keeps running on a quiet worker, when the screen shows an
-unanticipated dialog or a Claude model-switch prompt, and for an
-orchestration run or a full handoff.
+(prefixed with the git user) and `run`.
+
+A Claude coordinator runs `wait` once per lane with the Bash tool's
+`run_in_background` and `timeout: 7200000`, sandbox disabled, and acts on
+the completion notice. Nothing else is scheduled to check on the lane. A
+notice that the command hit its background time limit reads as `timeout`,
+and any other stop is reported as its notice says. A Codex coordinator
+(whose user sets `background_terminal_max_timeout = 3600000` in
+`~/.codex/config.toml` when starting it by hand) starts `wait` with
+`exec_command` and polls it with an empty `write_stdin` at
+`yield_time_ms: 3600000`. On `agy` or `omp`, shell tool limits are
+unmeasured (`references/orca.md`), so a coordinator there reruns a
+foreground `wait` the tool cut short.
+
+`done` and `idle` lead to the tree check, then read the report. A
+permission dialog also reads as idle: answer one the brief anticipated with
+`keys`, otherwise report it. Then merge here, run the verifier on the
+changed paths, `grade`, and `stop`, which refuses an ungraded, mid-turn,
+dirty, or unmerged lane (removal deletes the branch). Every other outcome
+routes to `references/orca.md`. Load `references/orca.md` as well when a
+step fails, when the screen shows an unanticipated dialog or a Claude
+model-switch prompt, and for an orchestration run or a full handoff.
 
 | Outcome | A lane that commits work | A lane that returns a report (`critique`, `research`, `review-unit` on a pool CLI) |
 | --- | --- | --- |
@@ -178,15 +193,32 @@ orchestration run or a full handoff.
 ### Reading a worker's report
 
 A worker runs its package's focused tests and commits; it does not run the
-verifier. Before reading the report as fact, check the tree:
+verifier. Before reading the report as fact or merging its branch, run the
+lane check:
+
+```bash
+.claude/skills/delegate/scripts/orca-worker.sh check <slug>
+```
+
+A non-zero check stops the merge. Grade the lane `rejected`, leave it
+unmerged, and dispatch it again through the model-switch rule. Then check the
+tree:
 `git -C <child> log --oneline -1` shows the commit the report names,
 `git -C <child> log -1 --format=%B` holds no literal `\n` where a line
 break was meant (`tell` the worker to amend it from standard input),
 `git -C <child> status --porcelain` is empty, and the two or three changes
 most expensive to get wrong are what the report says. An idle lane whose
 child has changes but no new commit stopped short: `tell` it to commit.
-Merge the branch here and run the verifier once, sandbox disabled, on the
-union of changed paths; for a worker on `agy` or `omp`, load
+Merge the branch here. After the merge commit exists, including a resolved
+conflict, run:
+
+```bash
+python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD
+```
+
+A non-zero result stops the merge step. Carry every `missing` block in the
+report, then run the verifier once, sandbox disabled, on the union of changed
+paths; for a worker on `agy` or `omp`, load
 `references/hookless-merge.md` after the merge, before the verifier. A child whose branch did not land stays,
 and the report names it with the reason. Never remove a child with a dirty
 tree; say what is there.
@@ -234,6 +266,10 @@ order:
    under the worker's own `$TMPDIR` (a literal `/tmp` path prompts or is
    denied) or into a temporary commit, never `git stash`, whose stack every
    worktree and session shares.
+   A fix worker that needs a file outside the named files and the classes
+   allowed by `fix-loop.md` step 1 reports a blocker naming the file and
+   reason. A comment, skipped or weakened test, or partial change is not a
+   fix.
 7. For every runtime: no questions; state a blocker and stop. A requirement
    the worker believes the code cannot satisfy is a blocker, even when a
    weaker one is within reach. Editing subagents need worktree isolation,
