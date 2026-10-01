@@ -91,6 +91,20 @@ function wait(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
+function keyframeEffect(animation: Animation) {
+  if (!(animation.effect instanceof KeyframeEffect))
+    throw new Error('Expected a native KeyframeEffect')
+  return animation.effect
+}
+
+async function finishAnimations(...elements: HTMLElement[]) {
+  for (const element of elements) {
+    for (const animation of [...element.getAnimations()]) animation.finish()
+  }
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
 async function mountFleet() {
   const host = document.createElement('div')
   document.body.append(host)
@@ -209,14 +223,16 @@ describe('FleetView motion layout', () => {
     expect(finalHighlight.style.transform).not.toContain('translate')
   })
 
-  it('skips layout transforms and fades nav on expand below desktop width', async () => {
+  it('fades nav on expand below desktop width and restores inline opacity', async () => {
     minWidthMatched = false
     const { host } = await mountFleet()
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
+    const nav = host.querySelector<HTMLElement>('nav')
+    if (!toggle || !nav) throw new Error('Missing mobile navigation controls')
+    nav.style.opacity = '0.37'
 
-    toggle?.click()
+    toggle.click()
     await nextTick()
-    await wait(30)
 
     expect(host.querySelector<HTMLElement>('.sidebar')?.style.transform).toBe(
       '',
@@ -225,18 +241,11 @@ describe('FleetView motion layout', () => {
       host.querySelector<HTMLElement>('.main-shell')?.style.transform,
     ).toBe('')
 
-    const collapseAnimations = host.querySelector('nav')?.getAnimations() ?? []
-    const runningOnCollapse = collapseAnimations.filter(
-      (animation) => animation.playState === 'running',
-    )
-    expect(runningOnCollapse).toHaveLength(0)
+    expect(nav.getAnimations()).toHaveLength(0)
+    expect(nav.style.opacity).toBe('0.37')
 
-    const expandTime =
-      (document.timeline?.currentTime as number | undefined) ??
-      performance.now()
-    toggle?.click()
+    toggle.click()
     await nextTick()
-    await wait(30)
 
     expect(host.querySelector<HTMLElement>('.sidebar')?.style.transform).toBe(
       '',
@@ -245,15 +254,79 @@ describe('FleetView motion layout', () => {
       host.querySelector<HTMLElement>('.main-shell')?.style.transform,
     ).toBe('')
 
-    const expandAnimations = host.querySelector('nav')?.getAnimations() ?? []
-    const runningOnExpand = expandAnimations.filter(
-      (animation) => animation.playState === 'running',
-    )
-    expect(runningOnExpand).toHaveLength(1)
-    const activeAnimation = runningOnExpand[0]
-    if (!activeAnimation || activeAnimation.startTime === null) {
-      throw new Error('Missing running expand animation')
-    }
-    expect(activeAnimation.startTime).toBeGreaterThanOrEqual(expandTime)
+    const expandAnimations = nav.getAnimations()
+    expect(expandAnimations).toHaveLength(1)
+    const activeAnimation = expandAnimations[0]
+    if (!activeAnimation) throw new Error('Missing running expand animation')
+    expect(activeAnimation.playState).toBe('running')
+    expect(keyframeEffect(activeAnimation).getKeyframes()).toMatchObject([
+      { opacity: '0.6' },
+      { opacity: '1' },
+    ])
+    expect(keyframeEffect(activeAnimation).getTiming()).toMatchObject({
+      duration: 100,
+    })
+
+    await finishAnimations(nav)
+    expect(nav.getAnimations()).toHaveLength(0)
+    expect(nav.style.opacity).toBe('0.37')
+  })
+
+  it('replaces mobile expand fades within one turn', async () => {
+    minWidthMatched = false
+    const { host } = await mountFleet()
+    const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
+    const nav = host.querySelector<HTMLElement>('nav')
+    if (!toggle || !nav) throw new Error('Missing mobile navigation controls')
+    nav.style.opacity = '0.24'
+
+    toggle.click()
+    toggle.click()
+    toggle.click()
+    toggle.click()
+    await nextTick()
+
+    const animations = nav.getAnimations()
+    expect(animations).toHaveLength(1)
+    const animation = animations[0]
+    if (!animation) throw new Error('Missing replacement expand animation')
+    expect(animation.playState).toBe('running')
+    expect(keyframeEffect(animation).getKeyframes()).toMatchObject([
+      { opacity: '0.6' },
+      { opacity: '1' },
+    ])
+
+    await finishAnimations(nav)
+    expect(nav.style.opacity).toBe('0.24')
+  })
+
+  it('restores and replays a mobile fade after resize', async () => {
+    minWidthMatched = false
+    const { host } = await mountFleet()
+    const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
+    const nav = host.querySelector<HTMLElement>('nav')
+    if (!toggle || !nav) throw new Error('Missing mobile navigation controls')
+    nav.style.opacity = '0.18'
+
+    toggle.click()
+    toggle.click()
+    await nextTick()
+    expect(nav.getAnimations()).toHaveLength(1)
+
+    window.dispatchEvent(new Event('resize'))
+    expect(nav.getAnimations()).toHaveLength(0)
+    expect(nav.style.opacity).toBe('0.18')
+
+    toggle.click()
+    toggle.click()
+    await nextTick()
+    const replayAnimations = nav.getAnimations()
+    expect(replayAnimations).toHaveLength(1)
+    const replay = replayAnimations[0]
+    if (!replay) throw new Error('Missing replay expand animation')
+    expect(replay.playState).toBe('running')
+
+    await finishAnimations(nav)
+    expect(nav.style.opacity).toBe('0.18')
   })
 })
