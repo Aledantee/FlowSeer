@@ -36,9 +36,10 @@ state_dir=$(git rev-parse --path-format=absolute --git-common-dir)/orca-workers
 field() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' "$state_dir/$1.json" "$2" 2>/dev/null; }
 # Orca drops the lineage of a removed worktree's children, so a lane that
 # started lanes of its own would leave them top-level, unmerged work and all.
+# Newlines keep spaces in a worktree id inside one child entry.
 children() {
   orca worktree show --worktree "id:$1" --json 2>/dev/null \
-    | json '" ".join(d["result"]["worktree"]["childWorktreeIds"])'
+    | json '"\n".join(d["result"]["worktree"]["childWorktreeIds"])'
 }
 child_info() {
   local child=$1 file lane terminal
@@ -196,7 +197,10 @@ case "$cmd" in
       # Checked after the close, so the worker cannot start another lane.
       if [[ -z $cleanup_failed ]]; then
         kids=$(children "$wt") || cleanup_failed='child worktree check failed'
-        [[ -z $cleanup_failed && -n $kids ]] && cleanup_failed="it has child worktrees: $kids"
+        if [[ -z $cleanup_failed && -n $kids ]]; then
+          kids=${kids//$'\n'/ }
+          cleanup_failed="it has child worktrees: $kids"
+        fi
       fi
       if [[ -z $cleanup_failed ]] && ! orca worktree rm --worktree "id:$wt" --force --json >/dev/null 2>&1; then
         cleanup_failed='worktree removal failed'
@@ -329,7 +333,9 @@ case "$cmd" in
       child_names=() child_terms=() child_first=() child_readable=() child_ids=()
       if kids=$(children "$wt"); then
         if [[ -n $kids ]]; then
-          read -r -a child_ids <<<"$kids"
+          while IFS= read -r child; do
+            child_ids+=("$child")
+          done <<<"$kids"
           for child in "${child_ids[@]}"; do
             info=$(child_info "$child")
             child_name=${info%%$'\t'*}
@@ -503,7 +509,10 @@ case "$cmd" in
     [[ $stalled == true ]] || ! working "$(screen "$term")" \
       || die "$name is still working; wait for it, or pass --stalled after wait printed stalled"
     kids=$(children "$wt") || die "cannot read the child worktrees of $name; nothing removed"
-    [[ -z $kids ]] || die "$name has child worktrees of its own; merge and remove them first, nothing removed: $kids"
+    if [[ -n $kids ]]; then
+      kids=${kids//$'\n'/ }
+      die "$name has child worktrees of its own; merge and remove them first, nothing removed: $kids"
+    fi
     rm -f "$path/$brief_name" "$path/$note_name"
     dirty=$(git -C "$path" status --porcelain 2>/dev/null)
     [[ -z $dirty ]] || die "$path is dirty; nothing removed: $dirty"
@@ -522,7 +531,10 @@ case "$cmd" in
       || die "run log end failed after $name's terminal closed: $end_out"
     # A stalled worker may have started a lane after the first check.
     kids=$(children "$wt") || die "cannot read the child worktrees of $name after its terminal closed; worktree kept"
-    [[ -z $kids ]] || die "$name started child worktrees before its terminal closed; merge and remove them, then remove $name in Orca: $kids"
+    if [[ -n $kids ]]; then
+      kids=${kids//$'\n'/ }
+      die "$name started child worktrees before its terminal closed; merge and remove them, then remove $name in Orca: $kids"
+    fi
     out=$(orca worktree rm --worktree "id:$wt" --json 2>&1) || die "worktree rm refused: $out"
     rm -f "$state_dir/$name.json" || die "cannot remove lane state for $name"
     ;;

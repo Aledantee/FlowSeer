@@ -56,10 +56,13 @@ Full handoff.
   or "esc to cancel" hint and the same screen. It keeps waiting while a child
   works or its screen changes. When the lane is quiet and no child works,
   `--until <command>` runs first in the lane checkout. Success prints `done`.
-  A failing command falls through to `idle` without children or to
-  `idle-children <names>` after the child-idle clock. A child without a state
-  file is named by its raw worktree id. A child without a readable terminal is
-  named by its lane name. A failed child query is named `unreadable`. These
+  Without `--until`, a quiet lane without children prints `idle`. A failing
+  command falls through to `idle` without children or to `idle-children
+  <names>` after the child-idle clock. The child-idle clock is `--stall`
+  seconds, 1200 by default, and restarts when the lane's screen changes or a
+  child works. A child without a state file is named by its raw worktree id. A
+  child without a readable terminal is named by its lane name. A failed child
+  query is named `unreadable`. These
   cases count as quiet. `stalled` means the lane is still working, no child is
   working, and the lane screen stayed unchanged for `--stall` seconds.
   `timeout` is the positive `--max` ceiling. `--max` defaults to 3600 seconds,
@@ -95,10 +98,11 @@ Full handoff.
   commits.
 
 The lane-only behavior above was measured on the earlier `opencode` lane on
-Orca 1.4.203. The Codex launch and its hooks-review answer were measured on
-codex 0.157.1. Child-aware waiting and the Codex poll cap are unverified on a
-live Orca. The `agy`, `omp`, and `claude` lanes start through this script, but
-their behavior here is not measured.
+Orca 1.4.203. The newer `--until`, `--max`, and `line` behavior is unverified,
+as are child-aware waiting and the Codex poll cap on a live Orca. The Codex
+launch and its hooks-review answer were measured on codex 0.157.1. The `agy`,
+`omp`, and `claude` lanes start through this script, but their behavior here is
+not measured.
 
 ## When a step fails
 
