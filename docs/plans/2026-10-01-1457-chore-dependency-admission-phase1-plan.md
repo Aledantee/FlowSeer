@@ -98,8 +98,9 @@ apply. Local ones:
   against `minimumReleaseAge` and refused 58 of them. The lockfile last
   moved on 2026-09-30 (`1966c0dd`), so the install passes between
   2026-10-09 and 2026-10-14, and the phase stays open until then. Why:
-  installs stay green and no other unit needs U4. (decided by the user,
-  2026-10-01)
+  installs stay green and no other unit needs U4. The change is already
+  written: commit `723cd2ca` on branch `Aledantee/depadm-p1-u4`, which is
+  kept unmerged until then. (decided by the user, 2026-10-01)
 - U1, U2, U5, and U3 are reviewed before U4 lands, and U4 gets a review of
   its own. The 86 statements first landed as one template that met none of
   U5's Change, and they are rewritten in that review's fix loop after the
