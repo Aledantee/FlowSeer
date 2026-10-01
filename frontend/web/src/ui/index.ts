@@ -1,7 +1,7 @@
 export { default as UiAppRoot } from './app/UiAppRoot.vue'
 export type { UiAppRootProps } from './app/UiAppRoot.vue'
 
-export { UiMotion, UiMotionConfig, useMotionFeedback } from './motion'
+export { UiMotion, useMotionFeedback } from './motion'
 
 export { default as UiBadge } from './badge/UiBadge.vue'
 export type { UiBadgeProps } from './badge/UiBadge.vue'
