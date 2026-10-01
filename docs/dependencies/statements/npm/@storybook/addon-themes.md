@@ -10,12 +10,24 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `frontend/web/package.json`. It requires `@storybook/addon-themes` at `10.6.0`.
+`frontend/web/.storybook/main.ts:6` enables the addon, and
+`frontend/web/.storybook/preview.ts:2` imports its theme decorator. The direct
+requirement is pinned at `10.6.0` in `frontend/web/package.json:42`.
 
 ## Why it is safe
 
-The lockfile pins `10.6.0`, and the inventory classifies this dependency as `run`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The npm registry metadata identifies `GitHub Actions` as the publisher of
+version `10.6.0` ([registry record](https://registry.npmjs.org/%40storybook%2Faddon-themes)).
+The version was published at `2026-09-02T13:56:19.936Z` and was 29 days old
+on 2026-10-01. Its 14-day wait ended at `2026-09-16T13:56:19.936Z`. The OSV
+lookup dated 2026-10-01 returned no advisory for `@storybook/addon-themes` at
+`10.6.0`. The npm dependency tree contains 146 versions, with 0 versions
+only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `@storybook/addon-themes`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to implement Storybook theme decorators, toolbar state,
+and document attribute updates for the light and dark previews. That would
+duplicate an integration whose behavior depends on Storybook's preview
+lifecycle. The npm dependency tree contains 146 versions, with 0 versions only
+reachable through this direct dependency.

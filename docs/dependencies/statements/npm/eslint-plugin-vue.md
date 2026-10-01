@@ -10,12 +10,25 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `frontend/web/package.json`. It requires `eslint-plugin-vue` at `10.11.1`.
+`frontend/web/eslint.config.js:3` imports `eslint-plugin-vue`, and line 10
+enables its flat Vue rule set for the web source. The direct requirement is
+pinned at `10.11.1` in `frontend/web/package.json:50`.
 
 ## Why it is safe
 
-The lockfile pins `10.11.1`, and the inventory classifies this dependency as `run`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The npm registry metadata identifies `GitHub Actions` as the publisher of
+version `10.11.1` ([registry record](https://registry.npmjs.org/eslint-plugin-vue)).
+The version was published at `2026-09-24T01:09:50.484Z` and was 7 days old
+on 2026-10-01. Its 14-day wait ends at `2026-10-08T01:09:50.484Z`, so the pin
+is still under the wait. The OSV lookup dated 2026-10-01 returned no advisory
+for `eslint-plugin-vue` at `10.11.1`. The npm dependency tree contains 100
+versions, with 4 versions only reachable through this direct dependency.
+Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `eslint-plugin-vue`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to parse Vue single-file components and maintain Vue-aware
+lint rules for templates, directives, and script blocks. That would duplicate
+the parser and rule set needed to track Vue and ESLint releases. The npm
+dependency tree contains 100 versions, with 4 versions only reachable through
+this direct dependency.

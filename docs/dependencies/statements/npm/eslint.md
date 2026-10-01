@@ -10,12 +10,24 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `frontend/web/package.json`. It requires `eslint` at `10.11.0`.
+`frontend/web/package.json:15` runs `eslint .` in the web lint script, which
+loads `frontend/web/eslint.config.js`. The direct requirement is pinned at
+`10.11.0` in `frontend/web/package.json:48`.
 
 ## Why it is safe
 
-The lockfile pins `10.11.0`, and the inventory classifies this dependency as `run`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The npm registry metadata identifies `eslintbot` as the publisher of version
+`10.11.0` ([registry record](https://registry.npmjs.org/eslint)). The version
+was published at `2026-09-18T20:15:36.485Z` and was 12 days old on 2026-10-01.
+Its 14-day wait ends at `2026-10-02T20:15:36.485Z`, so the pin is still under
+the wait. The OSV lookup dated 2026-10-01 returned no advisory for `eslint` at
+`10.11.0`. The npm dependency tree contains 79 versions, with 0 versions only
+reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `eslint`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to own the JavaScript lint engine, parser integration,
+rule execution, diagnostics, and command-line behavior used by the web lint
+script. That is a language-tooling product rather than application code. The
+npm dependency tree contains 79 versions, with 0 versions only reachable
+through this direct dependency.
