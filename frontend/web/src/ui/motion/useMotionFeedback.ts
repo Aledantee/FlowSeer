@@ -11,6 +11,12 @@ const easing: [number, number, number, number] = [0.2, 0, 0, 1]
 type MotionKey = 'opacity' | 'x' | 'y' | 'rotate' | 'scale'
 type TransformKey = Exclude<MotionKey, 'opacity'>
 type MotionKeyframes = Partial<Record<MotionKey, [number, number]>>
+type ActiveAnimation = {
+  animation: AnimationPlaybackControlsWithThen
+  originalOpacity: string
+  originalTransform: string
+  restore: () => void
+}
 const transformKeys = ['x', 'y', 'rotate', 'scale'] as const
 
 function hasTransformKey(keyframes: MotionKeyframes) {
@@ -51,15 +57,7 @@ export function useMotionFeedback() {
       config.value.reducedMotion === 'always' ||
       (config.value.reducedMotion === 'user' && userReducedMotion.value),
   )
-  const active = new Map<
-    HTMLElement,
-    {
-      animation: AnimationPlaybackControlsWithThen
-      originalOpacity: string
-      originalTransform: string
-      restore: () => void
-    }
-  >()
+  const active = new Map<HTMLElement, ActiveAnimation>()
 
   function stop(element: HTMLElement, restore: boolean) {
     const current = active.get(element)
@@ -92,7 +90,7 @@ export function useMotionFeedback() {
     const originalOpacity = current?.originalOpacity ?? element.style.opacity
     const originalTransform =
       current?.originalTransform ?? element.style.transform
-    let playKeyframes = keyframes
+    let playKeyframes: MotionKeyframes = keyframes
     if (reduced.value) {
       if (keyframes.opacity === undefined) {
         cancel(element)
@@ -106,11 +104,6 @@ export function useMotionFeedback() {
 
     if (current) {
       stop(element, false)
-      if (!hasTransformKey(playKeyframes)) {
-        frame.postRender(() => {
-          element.style.transform = originalTransform
-        })
-      }
     }
 
     const restore = () => {
@@ -122,9 +115,23 @@ export function useMotionFeedback() {
       duration,
       ease: easing,
     })
+    active.set(element, {
+      animation,
+      originalOpacity,
+      originalTransform,
+      restore,
+    })
     if (current) {
+      const isActive = () => active.get(element)?.animation === animation
+      if (!hasTransformKey(playKeyframes)) {
+        frame.postRender(() => {
+          if (!isActive()) return
+          element.style.transform = originalTransform
+        })
+      }
       // A canceled animation writes its first keyframe on the next render.
       frame.postRender(() => {
+        if (!isActive()) return
         if (playKeyframes.opacity) {
           element.style.opacity = String(playKeyframes.opacity[0])
         }
@@ -138,12 +145,6 @@ export function useMotionFeedback() {
       if (active.get(element)?.animation !== animation) return
       cancel(element)
     }
-    active.set(element, {
-      animation,
-      originalOpacity,
-      originalTransform,
-      restore,
-    })
     void animation.finished.then(finish)
   }
 
