@@ -70,6 +70,13 @@ keeps transitive packages under `.pnpm/`). Other bare paths are relative to
   `UiMotion.vue` wrapper would re-declare `Motion`'s props and need a story
   (`src/ui/a11y.test.ts`). The contract names the old path, so U4 amends it.
   The amendment is accepted. (decided by the user, 2026-10-01)
+- **`useMotionFeedback` is rebuilt on `animateMini`.** The review ended in
+  `rework`: three fix rounds each left an ordering defect in how the
+  composable restores inline styles around motion-v's own writes. The
+  per-element value store behind `animate` is the cause, and `animateMini`
+  keeps none. This replaces U1's "play runs motion-v's `animate`" and the
+  tests that read an inline `transform` mid-flight. (decided by the user,
+  2026-10-01)
 - **`UiAppRoot` mounts the config with `reducedMotion="user"` and
   `transition { duration: 0.14, ease: [0.2, 0, 0, 1] }`.** motion-v
   defaults to `"never"` (`dist/es/components/motion-config/context.mjs`)
@@ -329,11 +336,3 @@ phase lands second merges those and regenerates the lockfile with
   wrapper around `UiTooltip` that takes the toggle's absolute positioning.
 - pnpm 11.25.0's reuse of the locked versions is unverified. The cited
   lines are from 13.4.5, and U1's reduced tests catch a version that differs.
-- Parked by drive: what happens to `useMotionFeedback` after the review
-  ended in `rework`. Options: re-plan it on `animateMini`, which keeps no
-  per-element value store (contradicts U1's "play runs motion-v's
-  `animate`" and the tests that read inline `transform` mid-flight, so it
-  needs `plan`) | run a fourth fix round on the current design (smaller
-  change, and each of three rounds surfaced a new ordering defect).
-  Recommended: re-plan on `animateMini`, because all four defects come from
-  that value store.
