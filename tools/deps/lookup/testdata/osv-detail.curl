@@ -1,0 +1,1 @@
+curl -fsS https://api.osv.dev/v1/vulns/GO-2026-6443
