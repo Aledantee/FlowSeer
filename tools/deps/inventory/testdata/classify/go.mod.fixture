@@ -5,9 +5,11 @@ go 1.27
 require (
 	example.test/non_test v0.0.0
 	example.test/test_only v0.0.0
+	example.test/transitive v0.0.0 // indirect
 	example.test/windows_only v0.0.0
 )
 
 replace example.test/non_test => ./non_test
 replace example.test/test_only => ./test_only
+replace example.test/transitive => ./transitive
 replace example.test/windows_only => ./windows_only

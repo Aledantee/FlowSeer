@@ -1,0 +1,36 @@
+lockfileVersion: '9.0'
+
+importers:
+  .:
+    dependencies:
+      app:
+        specifier: 1.0.0
+        version: 1.0.0
+    devDependencies:
+      dev-tool:
+        specifier: 1.0.0
+        version: 1.0.0
+
+packages:
+  app@1.0.0:
+    resolution:
+      integrity: sha512-app
+  child@1.0.0:
+    resolution:
+      integrity: sha512-child
+  optional@1.0.0:
+    resolution:
+      integrity: sha512-optional
+  dev-tool@1.0.0:
+    resolution:
+      integrity: sha512-dev-tool
+
+snapshots:
+  app@1.0.0:
+    dependencies:
+      child: 1.0.0
+    optionalDependencies:
+      optional: 1.0.0
+  child@1.0.0: {}
+  optional@1.0.0: {}
+  dev-tool@1.0.0: {}

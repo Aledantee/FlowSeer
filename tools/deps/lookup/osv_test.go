@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"go.aledante.io/FlowSeer/tools/deps/inventory"
@@ -60,10 +61,10 @@ func TestAdvisoriesReadsBatchAndDetailFixtures(t *testing.T) {
 	if len(advisories) != 2 {
 		t.Fatalf("got %d advisories, want 2", len(advisories))
 	}
-	if advisories[0].ID != "GO-2026-6443" || advisories[0].Summary == "" || len(advisories[0].Imports) != 2 {
+	if advisories[0].ID != "GO-2026-6443" || advisories[0].Summary == "" || !reflect.DeepEqual(advisories[0].Imports, []string{"google.golang.org/grpc/internal/transport", "google.golang.org/grpc/internal/xds/server"}) {
 		t.Fatalf("first advisory = %#v", advisories[0])
 	}
-	if advisories[1].ID != "GO-2026-5932" || len(advisories[1].Imports) != 1 {
+	if advisories[1].ID != "GO-2026-5932" || !reflect.DeepEqual(advisories[1].Imports, []string{"golang.org/x/crypto/openpgp"}) {
 		t.Fatalf("second advisory = %#v", advisories[1])
 	}
 }

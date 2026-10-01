@@ -10,17 +10,10 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
-func parseModule(root, manifestPath string) (Module, error) {
-	data, err := os.ReadFile(manifestPath)
+func parseModule(root, manifestPath, repositoryModule string) (Module, error) {
+	parsed, err := parseGoMod(manifestPath)
 	if err != nil {
-		return Module{}, errs.Wrap(err, "read Go module manifest")
-	}
-	parsed, err := modfile.Parse(manifestPath, data, nil)
-	if err != nil {
-		return Module{}, errs.Wrapf(err, "parse Go module manifest %s", manifestPath)
-	}
-	if parsed.Module == nil {
-		return Module{}, errs.Msgf("Go module manifest %s has no module path", manifestPath)
+		return Module{}, err
 	}
 
 	manifest := filepath.ToSlash(relativePath(root, manifestPath))
@@ -33,6 +26,9 @@ func parseModule(root, manifestPath string) (Module, error) {
 	goSum := filepath.Join(module.Dir, "go.sum")
 	if _, err := os.Stat(goSum); err == nil {
 		module.GoSum = filepath.ToSlash(relativePath(root, goSum))
+	}
+	if repositoryModule == "" {
+		repositoryModule = parsed.Module.Mod.Path
 	}
 
 	toolPaths := make([]string, 0, len(parsed.Tool))
@@ -47,7 +43,7 @@ func parseModule(root, manifestPath string) (Module, error) {
 				break
 			}
 		}
-		if !isDirect || ownedModule(require.Mod.Path, parsed.Module.Mod.Path) {
+		if !isDirect || ownedModule(require.Mod.Path, repositoryModule) {
 			continue
 		}
 		module.Direct[require.Mod.Path] = true
@@ -59,6 +55,36 @@ func parseModule(root, manifestPath string) (Module, error) {
 		})
 	}
 	return module, nil
+}
+
+func repositoryModulePath(root string) (string, error) {
+	manifestPath := filepath.Join(root, "go.mod")
+	if _, err := os.Stat(manifestPath); err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", errs.Wrap(err, "stat repository Go module manifest")
+	}
+	parsed, err := parseGoMod(manifestPath)
+	if err != nil {
+		return "", err
+	}
+	return parsed.Module.Mod.Path, nil
+}
+
+func parseGoMod(manifestPath string) (*modfile.File, error) {
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return nil, errs.Wrap(err, "read Go module manifest")
+	}
+	parsed, err := modfile.Parse(manifestPath, data, nil)
+	if err != nil {
+		return nil, errs.Wrapf(err, "parse Go module manifest %s", manifestPath)
+	}
+	if parsed.Module == nil {
+		return nil, errs.Msgf("Go module manifest %s has no module path", manifestPath)
+	}
+	return parsed, nil
 }
 
 func ownedModule(name, root string) bool {

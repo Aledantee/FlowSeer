@@ -1,3 +1,5 @@
 module example.test/non_test
 
 go 1.27
+
+require example.test/transitive v0.0.0

@@ -77,6 +77,9 @@ func Age(ctx context.Context, entries []inventory.Entry, goProxyBase, npmRegistr
 		default:
 			return nil, errs.Msgf("unsupported dependency ecosystem %q", entry.Ecosystem)
 		}
+		if published.IsZero() {
+			return nil, errs.Msgf("no publication date for %s dependency %s@%s", entry.Ecosystem, entry.Name, entry.Version)
+		}
 		until := published.Add(releaseWait)
 		publications = append(publications, Publication{
 			Ecosystem:     entry.Ecosystem,

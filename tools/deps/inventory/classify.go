@@ -224,30 +224,31 @@ func readModuleGraph(module Module) (ModuleGraph, error) {
 }
 
 func reachableGraph(edges map[string][]string, root, direct string) map[string]bool {
-	seen := make(map[string]bool)
-	queue := make([]string, 0)
+	directNodes := make(map[string]bool)
 	for node := range edges {
 		if node == root || strings.HasPrefix(node, root+"@") {
-			queue = append(queue, node)
+			for _, next := range edges[node] {
+				if strings.HasPrefix(next, direct+"@") {
+					directNodes[next] = true
+				}
+			}
 		}
 	}
-	if len(queue) == 0 {
-		return seen
-	}
-	start := make(map[string]bool)
-	for _, node := range queue {
-		start[node] = true
+	seen := make(map[string]bool, len(directNodes))
+	queue := make([]string, 0, len(directNodes))
+	for node := range directNodes {
+		queue = append(queue, node)
 	}
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
+		if seen[current] {
+			continue
+		}
+		seen[current] = true
 		for _, next := range edges[current] {
-			if !start[next] {
-				start[next] = true
+			if !seen[next] {
 				queue = append(queue, next)
-			}
-			if strings.HasPrefix(next, direct+"@") {
-				seen[next] = true
 			}
 		}
 	}

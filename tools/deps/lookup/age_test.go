@@ -34,24 +34,24 @@ func TestAgeReadsGoOriginAndNpmPublicationDate(t *testing.T) {
 	if len(ages) != 2 {
 		t.Fatalf("got %d ages, want 2", len(ages))
 	}
-	if ages[0].Published.Format(time.RFC3339) != "2024-01-23T18:54:04Z" || ages[0].OriginCommit != "0f11ee6918f41a04c201eceeadf612a377bc7fbc" || ages[0].Under14Days {
+	if ages[0].Published.Format(time.RFC3339) != "2024-01-23T18:54:04Z" || ages[0].OriginCommit != "0f11ee6918f41a04c201eceeadf612a377bc7fbc" || ages[0].OriginMissing || ages[0].Under14Days || ages[0].Until.Format(time.RFC3339) != "2024-02-06T18:54:04Z" {
 		t.Fatalf("Go age = %#v", ages[0])
 	}
-	if ages[1].Published.Format(time.RFC3339Nano) != "2026-09-21T13:18:23.018Z" || !ages[1].Under14Days {
+	if ages[1].Published.Format(time.RFC3339Nano) != "2026-09-21T13:18:23.018Z" || ages[1].OriginMissing || !ages[1].Under14Days || ages[1].Until.Format(time.RFC3339Nano) != "2026-10-05T13:18:23.018Z" {
 		t.Fatalf("npm age = %#v", ages[1])
 	}
 }
 
 func TestAgeEscapesGoPathAndReportsMissingOrigin(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path != "/github.com/!azure/go-ansiterm/@v/v1.0.0.info" {
+		if request.URL.Path != "/github.com/!azure/go-ansiterm/@v/v0.0.0-20210617225240-d185dfc1b5a1.info" {
 			t.Errorf("path = %q", request.URL.Path)
 		}
 		_, _ = writer.Write(fixture(t, "no-origin.info"))
 	}))
 	defer server.Close()
 
-	ages, err := Age(context.Background(), []inventory.Entry{{Ecosystem: "go", Name: "github.com/Azure/go-ansiterm", Version: "v1.0.0"}}, server.URL, server.URL, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC))
+	ages, err := Age(context.Background(), []inventory.Entry{{Ecosystem: "go", Name: "github.com/Azure/go-ansiterm", Version: "v0.0.0-20210617225240-d185dfc1b5a1"}}, server.URL, server.URL, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,5 +69,20 @@ func TestAgeReturnsHTTPError(t *testing.T) {
 	_, err := Age(context.Background(), []inventory.Entry{{Ecosystem: "go", Name: "example.com/module", Version: "v1.0.0"}}, server.URL, server.URL, time.Now())
 	if err == nil {
 		t.Fatal("Age() error = nil, want HTTP error")
+	}
+}
+
+func TestAgeRejectsMissingGoPublicationDate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = writer.Write([]byte(`{"Version":"v1.0.0"}`))
+	}))
+	defer server.Close()
+
+	_, err := Age(context.Background(), []inventory.Entry{{Ecosystem: "go", Name: "example.com/module", Version: "v1.0.0"}}, server.URL, server.URL, time.Now())
+	if err == nil {
+		t.Fatal("Age() error = nil, want missing publication date error")
+	}
+	if !strings.Contains(err.Error(), "publication date") {
+		t.Fatalf("Age() error = %q, want publication date", err)
 	}
 }

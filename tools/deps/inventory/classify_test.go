@@ -14,7 +14,7 @@ func TestClassifyUsesTestAndWindowsClosures(t *testing.T) {
 	if err := os.Rename(filepath.Join(root, "go.mod.fixture"), filepath.Join(root, "go.mod")); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"non_test", "test_only", "windows_only"} {
+	for _, name := range []string{"non_test", "test_only", "transitive", "windows_only"} {
 		path := filepath.Join(root, name, "go.mod.fixture")
 		if err := os.Rename(path, filepath.Join(filepath.Dir(path), "go.mod")); err != nil {
 			t.Fatal(err)
@@ -28,6 +28,7 @@ func TestClassifyUsesTestAndWindowsClosures(t *testing.T) {
 	entries := []Entry{
 		{Ecosystem: "go", Name: "example.test/non_test", Version: "v0.0.0", Manifests: []string{"go.sum"}},
 		{Ecosystem: "go", Name: "example.test/test_only", Version: "v0.0.0", Manifests: []string{"go.sum"}},
+		{Ecosystem: "go", Name: "example.test/transitive", Version: "v0.0.0", Manifests: []string{"go.sum"}},
 		{Ecosystem: "go", Name: "example.test/windows_only", Version: "v0.0.0", Manifests: []string{"go.sum"}},
 	}
 
@@ -38,6 +39,7 @@ func TestClassifyUsesTestAndWindowsClosures(t *testing.T) {
 	want := map[string]string{
 		"example.test/non_test":     "deploy",
 		"example.test/test_only":    "run",
+		"example.test/transitive":   "deploy",
 		"example.test/windows_only": "deploy",
 	}
 	for _, entry := range classified {
@@ -45,6 +47,9 @@ func TestClassifyUsesTestAndWindowsClosures(t *testing.T) {
 			t.Errorf("%s criteria = %q, want %q", entry.Name, got, want[entry.Name])
 		}
 		if entry.Name == "example.test/non_test" && !containsString(entry.Via, "example.test/non_test") {
+			t.Errorf("%s via = %#v, want its direct importer", entry.Name, entry.Via)
+		}
+		if entry.Name == "example.test/transitive" && !containsString(entry.Via, "example.test/non_test") {
 			t.Errorf("%s via = %#v, want its direct importer", entry.Name, entry.Via)
 		}
 	}
@@ -101,6 +106,16 @@ func copyFixtureTree(t *testing.T, source string) string {
 		t.Fatal(err)
 	}
 	return root
+}
+
+func writeTestFile(t *testing.T, path, contents string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func findRepositoryRoot(t *testing.T) string {

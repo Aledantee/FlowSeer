@@ -52,14 +52,52 @@ type Result struct {
 // Collect discovers the repository's Go modules and pnpm lockfile, then
 // classifies every pinned entry using the discovered dependency closures.
 func Collect(root string) (Result, error) {
-	root, err := filepath.Abs(root)
-	if err != nil {
-		return Result{}, errs.Wrap(err, "resolve repository root")
-	}
-
-	modules, err := DiscoverModules(root)
+	root, err := resolveRoot(root)
 	if err != nil {
 		return Result{}, err
+	}
+
+	modules, result, err := readLockfiles(root)
+	if err != nil {
+		return Result{}, err
+	}
+	result.Entries, err = Classify(root, modules, result.Entries)
+	if err != nil {
+		return Result{}, err
+	}
+	result.Entries = mergeEntries(result.Entries)
+	sortEntries(result.Entries)
+
+	return result, nil
+}
+
+// Read reads the repository lockfiles without invoking the Go toolchain.
+// Callers that only need pinned versions can use it offline, while [Collect]
+// adds package classification through Go commands.
+func Read(root string) (Result, error) {
+	root, err := resolveRoot(root)
+	if err != nil {
+		return Result{}, err
+	}
+	_, result, err := readLockfiles(root)
+	if err != nil {
+		return Result{}, err
+	}
+	return result, nil
+}
+
+func resolveRoot(root string) (string, error) {
+	root, err := filepath.Abs(root)
+	if err != nil {
+		return "", errs.Wrap(err, "resolve repository root")
+	}
+	return root, nil
+}
+
+func readLockfiles(root string) ([]Module, Result, error) {
+	modules, err := DiscoverModules(root)
+	if err != nil {
+		return nil, Result{}, err
 	}
 	entries := make([]Entry, 0)
 	direct := make([]DirectDependency, 0)
@@ -67,9 +105,10 @@ func Collect(root string) (Result, error) {
 		if module.GoSum == "" {
 			continue
 		}
-		parsed, err := parseGoSum(module.GoSum, module.GoSum, module.Path, module.Direct)
+		goSumPath := filepath.Join(root, filepath.FromSlash(module.GoSum))
+		parsed, err := parseGoSum(goSumPath, module.GoSum, module.Path, module.Direct)
 		if err != nil {
-			return Result{}, err
+			return nil, Result{}, err
 		}
 		entries = append(entries, parsed...)
 		direct = append(direct, module.Requires...)
@@ -79,25 +118,19 @@ func Collect(root string) (Result, error) {
 	if _, err := os.Stat(lockPath); err == nil {
 		lock, err := readPnpmLock(lockPath, "frontend/web/pnpm-lock.yaml")
 		if err != nil {
-			return Result{}, err
+			return nil, Result{}, err
 		}
 		entries = append(entries, lock.Entries...)
 		direct = append(direct, lock.Direct...)
 		entries = classifyPnpmEntries(entries, lock)
 	} else if !os.IsNotExist(err) {
-		return Result{}, errs.Wrap(err, "stat pnpm lockfile")
+		return nil, Result{}, errs.Wrap(err, "stat pnpm lockfile")
 	}
 
-	entries = mergeEntries(entries)
-	entries, err = Classify(root, modules, entries)
-	if err != nil {
-		return Result{}, err
-	}
 	entries = mergeEntries(entries)
 	direct = mergeDirect(direct)
 	sortEntries(entries)
-
-	return Result{Entries: entries, Direct: direct}, nil
+	return modules, Result{Entries: entries, Direct: direct}, nil
 }
 
 // DiscoverModules returns every tracked-shape go.mod below root while
@@ -106,6 +139,10 @@ func DiscoverModules(root string) ([]Module, error) {
 	root, err := filepath.Abs(root)
 	if err != nil {
 		return nil, errs.Wrap(err, "resolve repository root")
+	}
+	repoModulePath, err := repositoryModulePath(root)
+	if err != nil {
+		return nil, err
 	}
 
 	var modules []Module
@@ -127,7 +164,7 @@ func DiscoverModules(root string) ([]Module, error) {
 			return nil
 		}
 
-		module, err := parseModule(root, path)
+		module, err := parseModule(root, path, repoModulePath)
 		if err != nil {
 			return err
 		}
