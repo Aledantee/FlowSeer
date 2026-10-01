@@ -5,7 +5,7 @@ date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: rework
+review: accept after fixes
 execution: code
 parent: docs/plans/2026-09-30-2000-fix-harness-gates-and-waiting-plan.md
 ---
@@ -308,7 +308,12 @@ None blocks a unit. Unverified and untested here:
 - Whether a hook's approval prompt for a policy-surface edit still shows
   under `--dangerously-skip-permissions`. `drive` step 4 parks such edits.
 
-Open review findings:
+Open review findings, accepted as follow-up work (decided by the user,
+2026-10-01). Each ends in a refusal, so `drive` continues in its own
+session. `codex --help` shows `codex [OPTIONS] [PROMPT]`, and `agy --help`
+describes `--prompt-interactive` as running an initial prompt
+interactively, which settles the prompt forms but not how fast the hint
+shows:
 
 - `successor.sh` reads the registry with one quote flag for `"` and `'`. A
   value such as `note: "didn't refuse"` drops the entry's fields, and the
