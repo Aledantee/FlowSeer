@@ -67,6 +67,10 @@
           {
             "type": "command",
             "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/mark-verification-dirty.sh\""
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/commit-message-check.sh\""
           }
         ]
       }

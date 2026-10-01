@@ -26,24 +26,3 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
-
-## 2026-09-30 steer: Bash test assertions are not fail-fast
-Skill or agent: `tools/hooks/tests/run.sh`, the bare `[[ ]]` assertions around
-lines 70-107.
-What happened: the assertions rely on `set -e`, but the host's `/usr/bin/env
-bash` is GNU bash 3.2.57 on arm64-apple-darwin25. A direct check,
-`bash -c 'set -euo pipefail; [[ a == b ]]; echo reached'`, prints `reached`
-and exits 0. A failing check can therefore report success.
-Suggested change: route each assertion through an explicit `if` or status
-check, and add a regression case for a deliberately false assertion.
-
-## 2026-09-30 implement: commit bodies contain literal backslash-n text
-Skill or agent: `.claude/skills/implement/SKILL.md`, the unit commit step and
-its requirement for one line per test failure.
-What happened: the bodies of `39ef5aa6`, `07473cae`, and `eee9557b` contain
-literal `\\n` sequences where commit paragraphs should contain newlines. The
-history therefore records escaped formatting instead of readable test
-evidence.
-Suggested change: make the commit helper pass separate message paragraphs or
-write the body through standard input, then reject a body containing literal
-`\\n` before accepting the unit.
