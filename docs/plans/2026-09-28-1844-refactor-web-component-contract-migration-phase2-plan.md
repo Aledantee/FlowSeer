@@ -68,6 +68,7 @@ keeps transitive packages under `.pnpm/`). Other bare paths are relative to
   matches `motion-v` and today prints `src/motion/useMotionFeedback.ts`. A
   `UiMotion.vue` wrapper would re-declare `Motion`'s props and need a story
   (`src/ui/a11y.test.ts`). The contract names the old path, so U4 amends it.
+  The amendment is accepted. (decided by the user, 2026-10-01)
 - **`UiAppRoot` mounts the config with `reducedMotion="user"` and
   `transition { duration: 0.14, ease: [0.2, 0, 0, 1] }`.** motion-v
   defaults to `"never"` (`dist/es/components/motion-config/context.mjs`)
