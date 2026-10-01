@@ -2,6 +2,47 @@
 
 set -euo pipefail
 
+passed=0
+
+ok() {
+  passed=$((passed + 1))
+  printf 'ok %d - %s\n' "$passed" "$1"
+}
+
+# Every assertion is `[[ … ]] || fail "<expectation>"`. Bash 3.2, the
+# /bin/bash macOS ships, does not let a false `[[ ]]` trigger `set -e`, so a
+# bare one passes whether it holds or not.
+fail() {
+  printf 'FAIL line %d: %s\n' "${BASH_LINENO[0]}" "$1" >&2
+  exit 1
+}
+
+set +e
+bare_assertions=$(grep -nE '^[[:space:]]*\[\[.*\]\][[:space:]]*$' "$0")
+bare_rc=$?
+set -e
+case $bare_rc in
+  0)
+    printf 'assertions without || fail, by line:\n%s\n' "$bare_assertions" >&2
+    exit 1
+    ;;
+  1) ;;
+  *)
+    echo "cannot read $0 to check for assertions without || fail" >&2
+    exit 1
+    ;;
+esac
+
+probe_value=a
+set +e
+probe_stderr=$( ( [[ $probe_value == b ]] || fail probe ) 2>&1 >/dev/null)
+probe_rc=$?
+set -e
+if [[ $probe_rc -ne 1 || $probe_stderr != *probe* ]]; then
+  echo "fail does not stop the suite on a false assertion" >&2
+  exit 1
+fi
+
 repo_root=$(git rev-parse --show-toplevel)
 # Canonical from the start: the hooks print resolved paths, and on macOS the
 # temp directory sits behind a symlink (/var -> /private/var, /tmp ->
@@ -32,13 +73,6 @@ git -C "$fixture" worktree add -qb hook-test "$linked_worktree"
 mkdir -p "$linked_worktree/generated"
 ln -s "$repo_root" "$project_dir_with_spaces"
 
-passed=0
-
-ok() {
-  passed=$((passed + 1))
-  printf 'ok %d - %s\n' "$passed" "$1"
-}
-
 assert_deny() {
   local hook=$1
   local payload=$2
@@ -47,7 +81,7 @@ assert_deny() {
     echo "hook failed: $hook" >&2
     exit 1
   }
-  [[ $(decision <<<"$output") == deny ]]
+  [[ $(decision <<<"$output") == deny ]] || fail "$hook did not deny"
 }
 
 assert_allow() {
@@ -58,7 +92,7 @@ assert_allow() {
     echo "hook failed: $hook" >&2
     exit 1
   }
-  [[ -z $output ]]
+  [[ -z $output ]] || fail "$hook printed output where it should allow"
 }
 
 decision() {
@@ -165,14 +199,14 @@ claude_edit_command=$(jq -r '
   .hooks[] | .command | select(contains("pre-tool-policy"))
 ' "$claude_config")
 claude_edit_output=$(CLAUDE_PROJECT_DIR="$repo_root" bash -c "$claude_edit_command" <<<"$edit_input")
-[[ $(decision <<<"$claude_edit_output") == deny ]]
+[[ $(decision <<<"$claude_edit_output") == deny ]] || fail "configured Claude edit guard did not deny"
 codex_edit_command=$(jq -r '
   .hooks.PreToolUse[] |
   select(.matcher == "Edit|Write") |
   .hooks[] | .command | select(contains("pre-tool-policy"))
 ' "$codex_config")
 codex_edit_output=$(cd "$repo_root" && bash -c "$codex_edit_command" <<<"$edit_input")
-[[ $(decision <<<"$codex_edit_output") == deny ]]
+[[ $(decision <<<"$codex_edit_output") == deny ]] || fail "configured Codex edit guard did not deny"
 ok "configured edit guards deny generated output"
 
 new_dir_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/docs/new dir/deeper/notes.md" \
@@ -217,7 +251,7 @@ for policy_path in AGENTS.md buf.yaml .claude/settings.json .codex/hooks.json to
   policy_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/$policy_path" \
     '{cwd:$cwd,tool_input:{file_path:$path}}')
   policy_output=$(printf '%s' "$policy_input" | "$repo_root/tools/hooks/pre-tool-policy.sh")
-  [[ $(decision <<<"$policy_output") == ask ]]
+  [[ $(decision <<<"$policy_output") == ask ]] || fail "Edit did not ask before touching $policy_path"
 done
 ok "Edit asks before touching a policy surface"
 
@@ -237,9 +271,9 @@ worktree_create_command=$(jq -r '.hooks.WorktreeCreate[0].hooks[0].command' "$cl
 created_worktree=$(FLOWSEER_WORKTREE_ROOT="$external_worktree_root" \
   CLAUDE_PROJECT_DIR="$project_dir_with_spaces" \
   bash -c "$worktree_create_command" <<<"$worktree_create_input")
-[[ $created_worktree == "$external_worktree_root/external-checkout" ]]
-[[ $(git -C "$created_worktree" rev-parse --is-inside-work-tree) == true ]]
-[[ $(git -C "$created_worktree" symbolic-ref --short HEAD) == worktree-external-checkout ]]
+[[ $created_worktree == "$external_worktree_root/external-checkout" ]] || fail "WorktreeCreate printed the wrong path"
+[[ $(git -C "$created_worktree" rev-parse --is-inside-work-tree) == true ]] || fail "created worktree is not a work tree"
+[[ $(git -C "$created_worktree" symbolic-ref --short HEAD) == worktree-external-checkout ]] || fail "created worktree is on the wrong branch"
 git -C "$fixture" worktree remove --force "$created_worktree"
 ok "configured WorktreeCreate handles project and repository paths with spaces"
 
@@ -247,8 +281,8 @@ default_worktree_input=$(jq -n --arg cwd "$fixture" --arg name "default-checkout
   '{cwd:$cwd,hook_event_name:"WorktreeCreate",name:$name}')
 default_worktree=$("$repo_root/tools/hooks/create-worktree.sh" <<<"$default_worktree_input")
 expected_worktree="$(dirname "$fixture")/worktrees/$(basename "$fixture")/default-checkout"
-[[ $default_worktree == "$expected_worktree" ]]
-[[ $(git -C "$default_worktree" symbolic-ref --short HEAD) == worktree-default-checkout ]]
+[[ $default_worktree == "$expected_worktree" ]] || fail "default worktree is not a sibling directory"
+[[ $(git -C "$default_worktree" symbolic-ref --short HEAD) == worktree-default-checkout ]] || fail "default worktree is on the wrong branch"
 git -C "$fixture" worktree remove --force "$default_worktree"
 ok "WorktreeCreate defaults to a sibling worktree directory"
 
@@ -276,7 +310,7 @@ if FLOWSEER_WORKTREE_ROOT="$cross_checkout_root" \
   echo "root inside another registered checkout was accepted" >&2
   exit 1
 fi
-[[ ! -e $cross_checkout_root ]]
+[[ ! -e $cross_checkout_root ]] || fail "rejected root inside a checkout was created"
 ok "WorktreeCreate rejects roots inside another registered checkout"
 
 symlinked_checkout=$fixture_parent/repository-alias
@@ -287,7 +321,7 @@ if FLOWSEER_WORKTREE_ROOT="$symlinked_root" \
   echo "symlinked root inside a registered checkout was accepted" >&2
   exit 1
 fi
-[[ ! -e $fixture/nested-through-symlink ]]
+[[ ! -e $fixture/nested-through-symlink ]] || fail "rejected symlinked root was created"
 ok "WorktreeCreate rejects symlinked roots without creating them"
 
 assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" '{malformed'
@@ -327,7 +361,7 @@ claude_bash_command=$(jq -r '
   .hooks[] | .command | select(contains("protect-generated-bash"))
 ' "$claude_config")
 claude_bash_output=$(CLAUDE_PROJECT_DIR="$repo_root" bash -c "$claude_bash_command" <<<"$bash_edit")
-[[ $(decision <<<"$claude_bash_output") == deny ]]
+[[ $(decision <<<"$claude_bash_output") == deny ]] || fail "configured Bash guard did not deny"
 ok "configured Bash guard denies generated-file mutation"
 
 for read_command in \
@@ -405,7 +439,7 @@ ok "proto hook reports partial families the file does not explain"
 
 printf 'syntax = "proto3";\n\n// The widget family is deliberately partial: nothing observes a widget,\n// so there is no WidgetState and no WidgetEvent.\nmessage WidgetConfig {}\n' >"$proto"
 proto_output=$(PATH="$stub_bin:$PATH" "$repo_root/tools/hooks/proto-check.sh" <<<"$proto_input")
-[[ -z $proto_output ]]
+[[ -z $proto_output ]] || fail "proto hook reported members the comment names"
 printf 'syntax = "proto3";\n\n// Nothing observes a widget, so there is no WidgetState.\nmessage WidgetConfig {}\n' >"$proto"
 proto_output=$(PATH="$stub_bin:$PATH" "$repo_root/tools/hooks/proto-check.sh" <<<"$proto_input")
 jq -e '.hookSpecificOutput.additionalContext | contains("WidgetEvent") and (contains("WidgetState") | not)' \
@@ -421,7 +455,7 @@ jq -e '.hookSpecificOutput.additionalContext | contains("nolint")' <<<"$suppress
 plain_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/main.go" \
   --arg new $'func x() error {\n\treturn nil\n}' \
   '{cwd:$cwd,tool_input:{file_path:$path,old_string:"",new_string:$new}}')
-[[ -z $("$repo_root/tools/hooks/suppression-warn.sh" <<<"$plain_input") ]]
+[[ -z $("$repo_root/tools/hooks/suppression-warn.sh" <<<"$plain_input") ]] || fail "suppression hook reported a plain edit"
 ok "suppression hook reports new lint suppressions and nothing else"
 
 guard_write=$(jq -n --arg cwd "$fixture" --arg path "$fixture/README.md" \
@@ -478,7 +512,7 @@ lint_output=$(PATH="$stub_bin:$PATH" BUF_LINT_RC=9 \
   "$repo_root/tools/hooks/proto-check.sh" <<<"$proto_input" 2>&1)
 lint_rc=$?
 set -e
-[[ $lint_rc -eq 2 && $lint_output == *"fixture lint failure"* ]]
+[[ $lint_rc -eq 2 && $lint_output == *"fixture lint failure"* ]] || fail "proto hook did not block failing lint"
 ok "proto hook blocks failing lint"
 
 touch "$fixture/main.go"
@@ -504,13 +538,13 @@ ok "the first Bash call marks every dirty path once"
 rm -f "$dirty_marker"
 assert_allow "$repo_root/tools/hooks/mark-verification-dirty.sh" \
   "$(bash_mark 'git log | grep patch > /scratch/out.json')"
-[[ ! -e $dirty_marker ]]
+[[ ! -e $dirty_marker ]] || fail "Bash call that changed nothing marked a path"
 ok "a Bash call that changed no file marks nothing, whatever its text"
 
 printf 'package main\n' >"$fixture/main.go"
 assert_allow "$repo_root/tools/hooks/mark-verification-dirty.sh" \
   "$(bash_mark 'python3 rewrite.py')"
-[[ $(cat "$dirty_marker") == main.go ]]
+[[ $(cat "$dirty_marker") == main.go ]] || fail "Bash write was not marked by path alone"
 ok "a Bash write is marked by path, with no full-scope line"
 
 rm -f "$dirty_marker"
@@ -545,7 +579,7 @@ mkdir -p "$merge_repo"
 )
 merge_input=$(jq -n --arg cwd "$merge_repo" '{cwd:$cwd,tool_input:{command:"git merge other"}}')
 assert_allow "$repo_root/tools/hooks/mark-verification-dirty.sh" "$merge_input"
-[[ $(cat "$merge_repo/.git/flowseer-verification-dirty") == c.go ]]
+[[ $(cat "$merge_repo/.git/flowseer-verification-dirty") == c.go ]] || fail "merge marked more than the hand-resolved file"
 ok "a merge in progress marks only what changed beyond the incoming branch"
 
 # The format hook resolves gofumpt and goimports from $(go env GOPATH)/bin
@@ -569,8 +603,8 @@ chmod +x "$format_gopath/stub/go" "$format_gopath/bin/gofumpt" "$format_gopath/b
 format_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/main.go" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')
 format_output=$(PATH="$format_gopath/stub:$PATH" "$repo_root/tools/hooks/go-format.sh" <<<"$format_input")
-[[ -f $format_gopath/gofumpt.ran && -f $format_gopath/goimports.ran ]]
-[[ $format_output != *"not on PATH"* ]]
+[[ -f $format_gopath/gofumpt.ran && -f $format_gopath/goimports.ran ]] || fail "go-format did not run the GOPATH formatters"
+[[ $format_output != *"not on PATH"* ]] || fail "go-format reported a formatter missing from PATH"
 ok "go-format resolves the formatters from GOPATH/bin when PATH lacks it"
 
 stop_input=$(jq -n --arg cwd "$fixture" '{cwd:$cwd,hook_event_name:"Stop"}')
@@ -578,7 +612,7 @@ stop_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$stop_input")
 jq -e '.decision == null and (.systemMessage | contains("Edited but not verified"))' <<<"$stop_output" >/dev/null
 rm -f "$fixture/.git/flowseer-verification-dirty"
 stop_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$stop_input")
-[[ $stop_output == '{}' ]]
+[[ $stop_output == '{}' ]] || fail "Stop did not pass a clean tree"
 ok "Stop reports unverified edits without blocking and passes a clean tree"
 
 # A fixture with one gate package under test/conformance/. The fixture
@@ -608,7 +642,7 @@ import "testing"
 func TestPanicPolicy(t *testing.T) {}
 GATE
 gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
-[[ $gate_output == '{}' ]]
+[[ $gate_output == '{}' ]] || fail "Stop did not pass a holding panic gate"
 ok "Stop blocks on a failing panic gate and passes when it holds"
 
 # A gate package whose test is not called what the fixture above calls it.
@@ -674,6 +708,79 @@ gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
 jq -e '.decision == "block" and (.reason | contains("no conformance gate found under test/conformance/"))' <<<"$gate_output" >/dev/null
 ok "Stop blocks when a checkout has no conformance gate to run"
 
+# A stdin that stays open with nothing written. Descriptor 3 holds the FIFO
+# open for reading and writing, so it is a writer that never writes and no
+# helper process has to be cleaned up. Each hook gets 10 seconds, polled
+# once a second, so a hook that waits on its input forever fails its case
+# instead of hanging the suite.
+idle_fifo=$fixture_parent/idle-stdin
+mkfifo "$idle_fifo"
+exec 3<>"$idle_fifo"
+
+# Runs a command on the idle stdin, writing its stdout to the file named
+# first. Returns the command's status, or 124 when it outlived 10 seconds.
+idle_run() {
+  local output=$1 pid tick
+  shift
+  "$@" <&3 >"$output" 2>/dev/null &
+  pid=$!
+  for ((tick = 0; tick < 10; tick++)); do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 1
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    # A reader the hook started, such as the cat of a $(cat), also holds the
+    # FIFO open and would outlive the suite.
+    { pkill -9 -P "$pid"; kill -9 "$pid"; wait "$pid"; } 2>/dev/null
+    return 124
+  fi
+  wait "$pid"
+}
+
+idle_output=$fixture_parent/idle-output
+for idle_guard in pre-tool-policy.sh protect-generated-bash.sh; do
+  set +e
+  idle_run "$idle_output" "$repo_root/tools/hooks/$idle_guard"
+  idle_rc=$?
+  set -e
+  [[ $idle_rc -eq 0 ]] || fail "$idle_guard on idle input exited $idle_rc"
+  [[ $(decision <"$idle_output") == deny ]] || fail "$idle_guard did not deny idle input"
+done
+ok "guards deny a stdin that stays open and silent"
+
+set +e
+idle_run "$idle_output" "$repo_root/tools/hooks/create-worktree.sh"
+idle_rc=$?
+set -e
+[[ $idle_rc -eq 1 ]] || fail "create-worktree.sh on idle input exited $idle_rc, not 1"
+ok "WorktreeCreate fails on a stdin that stays open and silent"
+
+# Each part of this fixture keeps the case from passing vacuously: outside a
+# repository Stop prints {} whatever its input, and without go.mod and a
+# gate directory a hook that ran its gates would block without calling go.
+idle_stop_fixture=$fixture_parent/idle-stop
+idle_go_marker=$fixture_parent/idle-go-called
+idle_go_bin=$fixture_parent/idle-go-bin
+mkdir -p "$idle_stop_fixture/test/conformance/panic" "$idle_go_bin"
+git -C "$idle_stop_fixture" init -q
+printf 'module example.invalid/idle\n\ngo 1.27\n' >"$idle_stop_fixture/go.mod"
+printf '%s\n' '#!/usr/bin/env bash' ": >\"$idle_go_marker\"" 'exit 1' >"$idle_go_bin/go"
+chmod +x "$idle_go_bin/go"
+set +e
+(cd "$idle_stop_fixture" && PATH="$idle_go_bin:$PATH" idle_run "$idle_output" "$repo_root/tools/hooks/stop-check.sh")
+idle_rc=$?
+set -e
+[[ $idle_rc -eq 0 ]] || fail "stop-check.sh on idle input exited $idle_rc"
+[[ $(<"$idle_output") == '{}' ]] || fail "stop-check.sh did not pass idle input"
+[[ ! -e $idle_go_marker ]] || fail "stop-check.sh ran its gates on idle input"
+ok "Stop skips its gates on a stdin that stays open and silent"
+exec 3<&-
+
+# A hook added later reads stdin through hook_read_input, not a bare cat.
+cat_reads=$(grep -nE '^[^#]*(\$\(cat( -)?\)|\$\(<[[:space:]]*/dev/stdin\))' "$repo_root"/tools/hooks/*.sh || true)
+[[ -z $cat_reads ]] || fail "hooks read stdin without hook_read_input: $cat_reads"
+ok "no hook reads stdin through a bare cat or /dev/stdin"
+
 selection_fixture="$fixture_parent/selection fixture"
 mkdir -p "$selection_fixture"
 git -C "$selection_fixture" init -q
@@ -728,30 +835,30 @@ telemetry_paths=(
 )
 for telemetry_path in "${telemetry_paths[@]}"; do
   selection_output=$(select_verifier -- "$telemetry_path")
-  [[ ${selection_output%%$'\n'*} == 'service_otel_integration=true' ]]
+  [[ ${selection_output%%$'\n'*} == 'service_otel_integration=true' ]] || fail "$telemetry_path did not select the OpenTelemetry tier"
 done
-[[ ! -e $selection_receipt ]]
+[[ ! -e $selection_receipt ]] || fail "telemetry selection wrote a receipt"
 ok "verifier selection includes every telemetry-sensitive path category"
 
 for unrelated_path in docs/notes.md src/common/errs/example.go 'docs/path with spaces.md'; do
   selection_output=$(select_verifier -- "$unrelated_path")
-  [[ $selection_output == 'service_otel_integration=false' ]]
+  [[ $selection_output == 'service_otel_integration=false' ]] || fail "$unrelated_path selected the OpenTelemetry tier"
 done
-[[ ! -e $selection_receipt ]]
+[[ ! -e $selection_receipt ]] || fail "unrelated selection wrote a receipt"
 ok "verifier selection skips unrelated paths and preserves spaces"
 
 selection_output=$(select_verifier --)
-[[ $selection_output == 'service_otel_integration=false' ]]
-[[ ! -e $selection_receipt ]]
+[[ $selection_output == 'service_otel_integration=false' ]] || fail "empty selection chose the OpenTelemetry tier"
+[[ ! -e $selection_receipt ]] || fail "empty selection wrote a receipt"
 ok "verifier selection handles an empty changed-path set without a receipt"
 
 selection_output=$(select_verifier -- tools/hooks/tests/run.sh)
-[[ $selection_output == 'service_otel_integration=false' ]]
-[[ ! -e $selection_receipt ]]
-[[ ! -e $selection_side_effect ]]
-[[ ! -e $selection_go_side_effect ]]
+[[ $selection_output == 'service_otel_integration=false' ]] || fail "hook test selection chose the OpenTelemetry tier"
+[[ ! -e $selection_receipt ]] || fail "hook test selection wrote a receipt"
+[[ ! -e $selection_side_effect ]] || fail "hook test selection ran a side effect"
+[[ ! -e $selection_go_side_effect ]] || fail "hook test selection ran go"
 selection_build_dirs=$(find "$selection_tmp" -maxdepth 1 -name 'flowseer-build.*' -print -quit)
-[[ -z $selection_build_dirs ]]
+[[ -z $selection_build_dirs ]] || fail "hook test selection left a build directory"
 ok "verifier selection exits before recursively running hook tests"
 
 # A root module with two nested modules that replace it: a generated one
@@ -785,35 +892,35 @@ select_nested() {
 }
 
 selection_output=$(select_nested lib/b/b.go)
-[[ $selection_output == *$'\nmodule=. mode=full'* ]]
-[[ $selection_output == *$'\ndependent=src/edge/netpen mode=build-vet'* ]]
-[[ $selection_output != *dependent=generated/go/yang* ]]
+[[ $selection_output == *$'\nmodule=. mode=full'* ]] || fail "root package change did not select the root module"
+[[ $selection_output == *$'\ndependent=src/edge/netpen mode=build-vet'* ]] || fail "root package change did not build-vet netpen"
+[[ $selection_output != *dependent=generated/go/yang* ]] || fail "root package change selected the generated module"
 ok "verifier selection skips a nested module that does not import the changed root package"
 
 selection_output=$(select_nested lib/c/c.go)
-[[ $selection_output == *$'\ndependent=src/edge/netpen mode=build-vet'* ]]
-[[ $selection_output != *dependent=generated/go/yang* ]]
+[[ $selection_output == *$'\ndependent=src/edge/netpen mode=build-vet'* ]] || fail "build-tag import did not build-vet netpen"
+[[ $selection_output != *dependent=generated/go/yang* ]] || fail "build-tag import selected the generated module"
 ok "verifier selection counts a nested module's imports behind a build tag"
 
 selection_output=$(select_nested lib/a/a.go)
-[[ $selection_output == *$'\ndependent=generated/go/yang mode=build'* ]]
-[[ $selection_output != *dependent=generated/go/yang\ mode=build-vet* ]]
-[[ $selection_output != *dependent=src/edge/netpen* ]]
+[[ $selection_output == *$'\ndependent=generated/go/yang mode=build'* ]] || fail "generated module that imports the change was not built"
+[[ $selection_output != *dependent=generated/go/yang\ mode=build-vet* ]] || fail "generated module was vetted"
+[[ $selection_output != *dependent=src/edge/netpen* ]] || fail "netpen was selected without importing the change"
 ok "verifier selection builds a generated nested module that imports the changed root package"
 
 selection_output=$(select_nested generated/go/yang/v/m/m.go)
-[[ $selection_output == *$'\nmodule=generated/go/yang mode=build-sample-lint'* ]]
-[[ $selection_output != *module=.\ * ]]
-[[ $selection_output != *dependent=* ]]
+[[ $selection_output == *$'\nmodule=generated/go/yang mode=build-sample-lint'* ]] || fail "generated file did not get its own module"
+[[ $selection_output != *module=.\ * ]] || fail "generated file selected the root module"
+[[ $selection_output != *dependent=* ]] || fail "generated file selected a dependent"
 ok "verifier selection gives a changed generated file its own module, build and sample lint only"
 
 selection_output=$(select_nested go.mod)
-[[ $selection_output == *$'\ndependent=generated/go/yang mode=build'* ]]
-[[ $selection_output == *$'\ndependent=src/edge/netpen mode=build-vet'* ]]
+[[ $selection_output == *$'\ndependent=generated/go/yang mode=build'* ]] || fail "root go.mod change did not build the generated module"
+[[ $selection_output == *$'\ndependent=src/edge/netpen mode=build-vet'* ]] || fail "root go.mod change did not build-vet netpen"
 ok "verifier selection builds every nested module for a root go.mod change"
 
 run_helper=$(sed -n '/^run() {/,/^}/p' "$selection_script")
-[[ -n $run_helper ]]
+[[ -n $run_helper ]] || fail "verifier has no run helper"
 bash -c 'set -euo pipefail
   gate_label() { :; }
   gate_file=/dev/null
@@ -848,13 +955,13 @@ write_ledger() {
 JSON
 }
 
-[[ -z $(check_ledger) ]]
-[[ -z $(check_ledger "$ledger") ]]
+[[ -z $(check_ledger) ]] || fail "ledger check spoke with no ledger"
+[[ -z $(check_ledger "$ledger") ]] || fail "ledger check spoke on a missing ledger path"
 ok "plan status check passes when no ledger exists"
 
 write_ledger pending
-[[ -z $(check_ledger) ]]
-[[ -z $(check_ledger "$ledger") ]]
+[[ -z $(check_ledger) ]] || fail "ledger check rejected a well-formed ledger"
+[[ -z $(check_ledger "$ledger") ]] || fail "ledger check rejected a well-formed ledger path"
 ok "plan status check accepts a well-formed ledger"
 
 write_ledger 'done'
@@ -862,8 +969,8 @@ set +e
 ledger_output=$(check_ledger)
 ledger_rc=$?
 set -e
-[[ $ledger_rc -eq 1 ]]
-[[ $ledger_output == *'units[1].status must be one of pending, in_progress, passed, blocked'* ]]
+[[ $ledger_rc -eq 1 ]] || fail "ledger check accepted an unknown status"
+[[ $ledger_output == *'units[1].status must be one of pending, in_progress, passed, blocked'* ]] || fail "ledger check did not name the bad status"
 ok "plan status check names a status outside the allowed values"
 
 write_ledger pending
@@ -872,20 +979,20 @@ set +e
 ledger_output=$(check_ledger)
 ledger_rc=$?
 set -e
-[[ $ledger_rc -eq 1 ]]
-[[ $ledger_output == *"plan 'docs/plans/missing-plan.md' does not exist"* ]]
+[[ $ledger_rc -eq 1 ]] || fail "ledger check accepted a missing plan"
+[[ $ledger_output == *"plan 'docs/plans/missing-plan.md' does not exist"* ]] || fail "ledger check did not name the missing plan"
 ok "plan status check rejects a ledger whose plan does not exist"
 
 write_ledger pending
 mkdir -p "$ledger_fixture/src/deeper"
-[[ -z $(cd "$ledger_fixture/src/deeper" && python3 "$ledger_script" 2>&1) ]]
+[[ -z $(cd "$ledger_fixture/src/deeper" && python3 "$ledger_script" 2>&1) ]] || fail "ledger check failed from a subdirectory"
 sed -i.bak 's#"id": "U2"#"id": "U1"#' "$ledger" && rm -f "$ledger.bak"
 set +e
 ledger_output=$(check_ledger)
 ledger_rc=$?
 set -e
-[[ $ledger_rc -eq 1 ]]
-[[ $ledger_output == *'units must not repeat an id'* ]]
+[[ $ledger_rc -eq 1 ]] || fail "ledger check accepted repeated ids"
+[[ $ledger_output == *'units must not repeat an id'* ]] || fail "ledger check did not name the repeated id"
 rm -f "$ledger"
 ok "plan status check resolves the plan from a subdirectory and rejects repeated ids"
 
@@ -928,8 +1035,8 @@ set +e
 phase_output=$(check_phase)
 phase_rc=$?
 set -e
-[[ $phase_rc -eq 1 ]]
-[[ $phase_output == *'phase U1 has not landed'* ]]
+[[ $phase_rc -eq 1 ]] || fail "phase check accepted an unlanded prerequisite"
+[[ $phase_output == *'phase U1 has not landed'* ]] || fail "phase check did not name the unlanded phase"
 ok "plan status check refuses a phase whose prerequisite has not landed"
 
 write_parent "\`0000000..1111111\`" ''
@@ -937,8 +1044,8 @@ set +e
 phase_output=$(check_phase)
 phase_rc=$?
 set -e
-[[ $phase_rc -eq 1 ]]
-[[ $phase_output == *'landed at 1111111, which is not in this tree'* ]]
+[[ $phase_rc -eq 1 ]] || fail "phase check accepted a non-ancestor prerequisite"
+[[ $phase_output == *'landed at 1111111, which is not in this tree'* ]] || fail "phase check did not name the missing commit"
 ok "plan status check refuses a phase whose prerequisite is not an ancestor"
 
 write_parent "2026-09-11 on a branch, commits $phase_head through the fix" ''
@@ -946,12 +1053,12 @@ set +e
 phase_output=$(check_phase)
 phase_rc=$?
 set -e
-[[ $phase_rc -eq 1 ]]
-[[ $phase_output == *'must carry its commit range'* ]]
+[[ $phase_rc -eq 1 ]] || fail "phase check accepted a prose Landed line"
+[[ $phase_output == *'must carry its commit range'* ]] || fail "phase check did not ask for a commit range"
 ok "plan status check refuses a Landed line written as prose"
 
 write_parent "\`$phase_head..$phase_head\`" ''
-[[ -z $(check_phase) ]]
+[[ -z $(check_phase) ]] || fail "phase check rejected a landed prerequisite"
 ok "plan status check accepts a phase whose prerequisite is in the tree"
 
 write_parent "\`$phase_head..$phase_head\`" "\`$phase_head..$phase_head\`"
@@ -961,8 +1068,8 @@ set +e
 phase_output=$(check_phase)
 phase_rc=$?
 set -e
-[[ $phase_rc -eq 1 ]]
-[[ $phase_output == *'already landed on'* ]]
+[[ $phase_rc -eq 1 ]] || fail "phase check accepted a phase already landed"
+[[ $phase_output == *'already landed on'* ]] || fail "phase check did not say the phase already landed"
 rm -f "$phase_ledger"
 ok "plan status check refuses a phase the integration branch already shows landed"
 
@@ -975,19 +1082,19 @@ printf 'package pkg\n' >"$integrity_fixture/pkg/b_test.go"
 printf 'golden\n' >"$integrity_fixture/pkg/testdata/out.golden"
 git -C "$integrity_fixture" add pkg
 git -C "$integrity_fixture" -c user.name=Hook -c user.email=hook@example.invalid commit -qm base
-[[ -z $(cd "$integrity_fixture" && python3 "$integrity_script" HEAD) ]]
+[[ -z $(cd "$integrity_fixture" && python3 "$integrity_script" HEAD) ]] || fail "integrity check spoke on a clean tree"
 printf 'package pkg\n\nimport "testing"\n\nfunc TestKeep(t *testing.T) {\n\tt.Skip("flaky")\n}\n' >"$integrity_fixture/pkg/a_test.go"
 printf 'changed\n' >"$integrity_fixture/pkg/testdata/out.golden"
 printf 'new\n' >"$integrity_fixture/pkg/testdata/new.golden"
 rm "$integrity_fixture/pkg/b_test.go"
 integrity_output=$(cd "$integrity_fixture" && python3 "$integrity_script" HEAD)
-[[ $integrity_output == *'deleted test file: pkg/b_test.go'* ]]
-[[ $integrity_output == *'modified existing testdata: pkg/testdata/out.golden'* ]]
-[[ $integrity_output == *'skip added: pkg/a_test.go: t.Skip("flaky")'* ]]
-[[ $integrity_output == *'removed test: pkg/a_test.go: TestGone'* ]]
-[[ $integrity_output != *'TestKeep'* ]]
-[[ $integrity_output != *'new.golden'* ]]
-[[ -z $(cd "$integrity_fixture" && python3 "$integrity_script" HEAD -- pkg/testdata/new.golden) ]]
+[[ $integrity_output == *'deleted test file: pkg/b_test.go'* ]] || fail "integrity check missed the deleted test file"
+[[ $integrity_output == *'modified existing testdata: pkg/testdata/out.golden'* ]] || fail "integrity check missed the rewritten testdata"
+[[ $integrity_output == *'skip added: pkg/a_test.go: t.Skip("flaky")'* ]] || fail "integrity check missed the added skip"
+[[ $integrity_output == *'removed test: pkg/a_test.go: TestGone'* ]] || fail "integrity check missed the removed test"
+[[ $integrity_output != *'TestKeep'* ]] || fail "integrity check named a kept test"
+[[ $integrity_output != *'new.golden'* ]] || fail "integrity check named new testdata"
+[[ -z $(cd "$integrity_fixture" && python3 "$integrity_script" HEAD -- pkg/testdata/new.golden) ]] || fail "integrity check spoke on a new golden file alone"
 ok "test integrity check names deleted, skipped, and removed tests and rewritten testdata"
 
 deviations_script=$repo_root/.claude/skills/implement/scripts/plan-deviations.py
@@ -1014,14 +1121,14 @@ git -C "$deviations_fixture" -c user.name=Hook -c user.email=hook@example.invali
 printf 'package a // changed\n' >"$deviations_fixture/pkg/a/a.go"
 printf 'package c\n' >"$deviations_fixture/pkg/c.go"
 deviations_output=$(cd "$deviations_fixture" && python3 "$deviations_script" docs/plans/dot-plan.md HEAD)
-[[ $deviations_output == *'Changed, named by no unit:'*'  pkg/c.go'* ]]
-[[ $deviations_output == *'  U1: pkg/a/a_test.go'* ]]
-[[ $deviations_output == *'  U1: pkg/b/b.go'* ]]
-[[ $deviations_output == *'  U1: pkg/b/b_test.go'* ]]
-[[ $deviations_output != *'Symbol'* && $deviations_output != *'U1: pkg/a/a.go'* ]]
+[[ $deviations_output == *'Changed, named by no unit:'*'  pkg/c.go'* ]] || fail "deviations missed the unnamed changed file"
+[[ $deviations_output == *'  U1: pkg/a/a_test.go'* ]] || fail "deviations missed an unchanged test"
+[[ $deviations_output == *'  U1: pkg/b/b.go'* ]] || fail "deviations missed an unchanged file in braces"
+[[ $deviations_output == *'  U1: pkg/b/b_test.go'* ]] || fail "deviations missed an unchanged test in braces"
+[[ $deviations_output != *'Symbol'* && $deviations_output != *'U1: pkg/a/a.go'* ]] || fail "deviations listed a symbol or a changed file"
 deviations_output=$(cd "$deviations_fixture" && python3 "$deviations_script" docs/plans/colon-plan.md HEAD)
-[[ $deviations_output == *'  pkg/c.go'* ]]
-[[ $deviations_output == *'Named by a unit, unchanged:'*'  none' ]]
+[[ $deviations_output == *'  pkg/c.go'* ]] || fail "colon plan deviations missed the unnamed file"
+[[ $deviations_output == *'Named by a unit, unchanged:'*'  none' ]] || fail "colon plan deviations listed an unchanged entry"
 ok "plan deviations script reads both unit formats, braces, untracked files, and directory entries"
 
 otel_wrapper=$repo_root/tools/test/service-otel-integration.sh
@@ -1065,8 +1172,8 @@ set +e
 wrapper_output=$(PATH="$no_buf" "$otel_wrapper" 2>&1)
 wrapper_rc=$?
 set -e
-[[ $wrapper_rc -eq 1 ]]
-[[ $wrapper_output == 'Docker is required for the service OpenTelemetry integration tier.' ]]
+[[ $wrapper_rc -eq 1 ]] || fail "wrapper did not exit 1 without Docker"
+[[ $wrapper_output == 'Docker is required for the service OpenTelemetry integration tier.' ]] || fail "wrapper did not report the missing Docker command"
 ok "service OpenTelemetry wrapper reports a missing Docker command"
 
 daemon_go_marker=$fixture_parent/daemon-go-called
@@ -1075,9 +1182,9 @@ wrapper_output=$(PATH="$wrapper_bin:$PATH" FLOWSEER_FAKE_DOCKER_RC=23 \
   FLOWSEER_FAKE_GO_CALLED="$daemon_go_marker" "$otel_wrapper" 2>&1)
 wrapper_rc=$?
 set -e
-[[ $wrapper_rc -eq 1 ]]
-[[ $wrapper_output == 'Docker is installed but its daemon is unavailable.' ]]
-[[ ! -e $daemon_go_marker ]]
+[[ $wrapper_rc -eq 1 ]] || fail "wrapper did not exit 1 on an unavailable daemon"
+[[ $wrapper_output == 'Docker is installed but its daemon is unavailable.' ]] || fail "wrapper did not report the unavailable daemon"
+[[ ! -e $daemon_go_marker ]] || fail "wrapper ran go with no Docker daemon"
 ok "service OpenTelemetry wrapper stops before Go when the Docker daemon is unavailable"
 
 hang_go_marker=$fixture_parent/hang-go-called
@@ -1086,9 +1193,9 @@ wrapper_output=$(PATH="$wrapper_bin:$PATH" FLOWSEER_FAKE_DOCKER_SLEEP=5 \
   FLOWSEER_DOCKER_PROBE_TIMEOUT=1 FLOWSEER_FAKE_GO_CALLED="$hang_go_marker" "$otel_wrapper" 2>&1)
 wrapper_rc=$?
 set -e
-[[ $wrapper_rc -eq 1 ]]
-[[ $wrapper_output == "Docker daemon did not answer 'docker info' within 1s." ]]
-[[ ! -e $hang_go_marker ]]
+[[ $wrapper_rc -eq 1 ]] || fail "wrapper did not exit 1 on a silent daemon"
+[[ $wrapper_output == "Docker daemon did not answer 'docker info' within 1s." ]] || fail "wrapper did not report the silent daemon"
+[[ ! -e $hang_go_marker ]] || fail "wrapper ran go with a silent daemon"
 ok "service OpenTelemetry wrapper gives up on a Docker daemon that does not answer"
 
 success_capture=$fixture_parent/success-artifact-path
@@ -1101,9 +1208,9 @@ PATH="$wrapper_bin:$PATH" TMPDIR="$wrapper_tmp" GOFLAGS=-short FLOWSEER_FAKE_DOC
   FLOWSEER_FAKE_GOFLAGS_LEAK="$success_goflags_leak" \
   "$otel_wrapper"
 success_artifact_dir=$(<"$success_capture")
-[[ -e $success_go_marker ]]
-[[ ! -e $success_artifact_dir ]]
-[[ ! -e $wrapper_otel_leak && ! -e $wrapper_control_missing && ! -e $success_goflags_leak ]]
+[[ -e $success_go_marker ]] || fail "wrapper did not run go"
+[[ ! -e $success_artifact_dir ]] || fail "wrapper kept success artifacts"
+[[ ! -e $wrapper_otel_leak && ! -e $wrapper_control_missing && ! -e $success_goflags_leak ]] || fail "wrapper leaked OTel, GOFLAGS, or dropped its control variable"
 grep -qx -- 'test -race -count=1 -short=false -tags=service_otel_integration ./src/common/service/test/integration/...' \
   "$success_args"
 ok "service OpenTelemetry wrapper removes success artifacts after the tagged race command"
@@ -1119,15 +1226,15 @@ wrapper_output=$(PATH="$wrapper_bin:$PATH" TMPDIR="$wrapper_tmp" FLOWSEER_FAKE_D
 wrapper_rc=$?
 set -e
 safe_artifact_dir=$(<"$safe_capture")
-[[ $wrapper_rc -eq 7 ]]
-[[ -e $safe_go_marker && -f $safe_artifact_dir/collector.log ]]
-[[ $wrapper_output == "Collector failure artifacts retained at: $safe_artifact_dir" ]]
+[[ $wrapper_rc -eq 7 ]] || fail "wrapper did not pass the go exit status through"
+[[ -e $safe_go_marker && -f $safe_artifact_dir/collector.log ]] || fail "wrapper did not keep the collector log"
+[[ $wrapper_output == "Collector failure artifacts retained at: $safe_artifact_dir" ]] || fail "wrapper did not report the kept artifacts"
 case "$safe_artifact_dir" in
   "$wrapper_tmp"/flowseer-service-otel.*) ;;
   *) echo "wrapper retained an artifact directory outside its fixture root" >&2; exit 1 ;;
 esac
 rm -rf "$safe_artifact_dir"
-[[ ! -e $safe_artifact_dir ]]
+[[ ! -e $safe_artifact_dir ]] || fail "kept artifact directory survived removal"
 ok "service OpenTelemetry wrapper retains and reports scrubbed failure artifacts"
 
 sentinel_capture=$fixture_parent/sentinel-artifact-path
@@ -1141,9 +1248,9 @@ wrapper_output=$(PATH="$wrapper_bin:$PATH" TMPDIR="$wrapper_tmp" FLOWSEER_FAKE_D
 wrapper_rc=$?
 set -e
 sentinel_artifact_dir=$(<"$sentinel_capture")
-[[ $wrapper_rc -eq 8 ]]
-[[ -e $sentinel_go_marker && ! -e $sentinel_artifact_dir ]]
-[[ $wrapper_output == 'Collector artifacts contained the synthetic secret sentinel and were removed.' ]]
+[[ $wrapper_rc -eq 8 ]] || fail "wrapper did not pass the sentinel exit status through"
+[[ -e $sentinel_go_marker && ! -e $sentinel_artifact_dir ]] || fail "wrapper kept artifacts holding the sentinel"
+[[ $wrapper_output == 'Collector artifacts contained the synthetic secret sentinel and were removed.' ]] || fail "wrapper did not report the sentinel removal"
 ok "service OpenTelemetry wrapper removes artifacts rejected by the sentinel scan"
 
 scan_capture=$fixture_parent/scan-error-artifact-path
@@ -1157,9 +1264,9 @@ wrapper_output=$(PATH="$scan_error_bin:$wrapper_bin:$PATH" TMPDIR="$wrapper_tmp"
 wrapper_rc=$?
 set -e
 scan_artifact_dir=$(<"$scan_capture")
-[[ $wrapper_rc -eq 9 ]]
-[[ -e $scan_go_marker && ! -e $scan_artifact_dir ]]
-[[ $wrapper_output == 'Collector artifacts could not be scanned safely and were removed.' ]]
+[[ $wrapper_rc -eq 9 ]] || fail "wrapper did not pass the scan error status through"
+[[ -e $scan_go_marker && ! -e $scan_artifact_dir ]] || fail "wrapper kept artifacts after a scan error"
+[[ $wrapper_output == 'Collector artifacts could not be scanned safely and were removed.' ]] || fail "wrapper did not report the scan error removal"
 ok "service OpenTelemetry wrapper removes artifacts after a scan error"
 
 printf '1..%d\n' "$passed"

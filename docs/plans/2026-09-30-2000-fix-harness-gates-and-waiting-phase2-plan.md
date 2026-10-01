@@ -4,12 +4,16 @@ type: fix
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
+review: accept after fixes
 execution: code
 parent: docs/plans/2026-09-30-2000-fix-harness-gates-and-waiting-plan.md
 ---
 
 # Harness Gates and Waiting Phase 2, Hook Assertions and Input - Plan
+
+> Implemented. 3 units, 2026-10-01T17:12Z to 2026-10-01T17:26Z. Staged,
+> not committed, for review of the policy surface.
 
 ## Goal
 
@@ -119,6 +123,14 @@ The parent's Decisions apply. Local to this phase:
   `implement`, stopping at a staged diff for the user's review (decided by
   the user, 2026-10-01). Why: each hook edit needs the user's approval,
   and the drive session's context is already large.
+- Ruled: `tools/test/service-otel-integration.sh` runs its kill-and-reap
+  block with stderr discarded. Why: once `|| fail` made assertions count,
+  the case "service OpenTelemetry wrapper gives up on a Docker daemon that
+  does not answer" failed, because bash printed
+  `line 40: … Terminated: 15 docker info > /dev/null 2>&1` ahead of the
+  wrapper's message. The notice comes when bash reaps the killed probe,
+  not from any one command's stderr. Cost if wrong: the one block and the
+  case's expected output.
 
 ## Requirements
 
@@ -237,12 +249,12 @@ bash "$TMPDIR/run-bare.sh"; echo "rc=$?"
 
 ## Definition of done
 
-- [ ] Verifier green on `tools/hooks` and `docs/agent-observations.md`.
-- [ ] Both hand checks exit 1 with the `fail` text.
-- [ ] The diff staged, not committed, for a person's review of the policy
+- [x] Verifier green on `tools/hooks` and `docs/agent-observations.md`.
+- [x] Both hand checks exit 1 with the `fail` text.
+- [x] The diff staged, not committed, for a person's review of the policy
       surface.
-- [ ] This plan's `status` set with an outcome note under its title.
-- [ ] No plan labels in code, comments, or commit messages.
+- [x] This plan's `status` set with an outcome note under its title.
+- [x] No plan labels in code, comments, or commit messages.
 
 ## Open questions
 

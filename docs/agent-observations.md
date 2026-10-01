@@ -62,16 +62,6 @@ Suggested change: name both `.claude/skills` and `.agents/skills` in the
 bypass condition, or resolve symlinks before deciding whether the merge needs
 the sandbox disabled.
 
-## 2026-09-30 steer: Bash test assertions are not fail-fast
-Skill or agent: `tools/hooks/tests/run.sh`, the bare `[[ ]]` assertions around
-lines 70-107.
-What happened: the assertions rely on `set -e`, but the host's `/usr/bin/env
-bash` is GNU bash 3.2.57 on arm64-apple-darwin25. A direct check,
-`bash -c 'set -euo pipefail; [[ a == b ]]; echo reached'`, prints `reached`
-and exits 0. A failing check can therefore report success.
-Suggested change: route each assertion through an explicit `if` or status
-check, and add a regression case for a deliberately false assertion.
-
 ## 2026-09-30 implement: passed-unit commits were not verified against the worker base
 Skill or agent: `.claude/skills/implement/SKILL.md`, the unit completion step
 that records a passed unit's `HEAD` after verification.

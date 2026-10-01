@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck source-path=SCRIPTDIR
 #
 # worktree-guard.sh — force each Claude Code session to write inside its own
 # git worktree instead of the primary checkout's protected branch.
@@ -25,9 +26,13 @@
 
 set -uo pipefail
 
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=common.sh
+source "$script_dir/common.sh"
+
 [ "${CLAUDE_WORKTREE_GUARD:-}" = "off" ] && exit 0
 
-input=$(cat)
+input=$(hook_read_input)
 event=$(jq -r '.hook_event_name // ""' <<<"$input")
 cwd=$(jq -r '.cwd // ""' <<<"$input")
 
