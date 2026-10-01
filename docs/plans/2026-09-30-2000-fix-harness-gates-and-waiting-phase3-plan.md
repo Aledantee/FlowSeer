@@ -290,6 +290,13 @@ Then requirement 5's and 8's `grep` lines, and the parent's live drive.
 
 ## Open questions
 
+- Parked by drive: the review ended `rework` at the three-round cap with two low
+  test-coverage findings open (a two-child `stop` case, five untested `wait` guards).
+  Options: one tests-only fix round, then a re-review (closes both, about an hour) |
+  accept with the two findings listed (no wrong behavior is known). Recommended: the
+  tests-only round, because the guards are the stall and timeout rules coordinators
+  now rely on, and the cases are already specified.
+
 None blocks a unit. Unconfirmed: only a Claude coordinator hands off, which
 narrows the parent's hand-off decision, since no rule says which Claude
 model continues a drive started elsewhere. Unverified and untested here:
