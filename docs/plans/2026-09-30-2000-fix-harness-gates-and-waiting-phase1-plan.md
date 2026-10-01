@@ -85,6 +85,14 @@ The parent's Decisions apply. Local to this phase:
   classes `fix-loop.md` step 1 already allows. Why: step 1 lets a fix reach
   the owning layer, files it leaves stale, and other sites of the class,
   and a rule that ignored that would contradict it.
+- A side counts as lost only when the merge adds no line of its own to
+  the path, so its version holds only lines from the base and the parents.
+  A merge that writes a combined line, as in resolving a conflict, lists
+  the side's missing lines and passes (decided by the user, 2026-10-01).
+  Why: a combined resolution holds neither side's line, so the line rule
+  failed it with no override, and every later range holding that merge
+  failed again. The `f5be45ac` reset adds no line of its own and still
+  fails.
 
 ## Requirements
 
