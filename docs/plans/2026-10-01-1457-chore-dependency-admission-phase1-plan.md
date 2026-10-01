@@ -5,6 +5,7 @@ date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: planned
+review: accept after fixes
 execution: mixed
 parent: docs/plans/2026-10-01-1457-chore-dependency-admission-plan.md
 ---
