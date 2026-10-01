@@ -122,6 +122,14 @@ async function mountFleet() {
   return { host, router }
 }
 
+function parseTranslateY(transform: string | undefined): number | null {
+  if (!transform || transform === 'none') return null
+  const match =
+    /translate(?:3d)?\([^,]+,\s*(-?[\d.]+)px/.exec(transform) ??
+    /translateY\((-?[\d.]+)px\)/.exec(transform)
+  return match ? Number.parseFloat(match[1] ?? '') : null
+}
+
 describe('FleetView motion layout', () => {
   it('animates the sidebar size and main-shell position', async () => {
     const { host } = await mountFleet()
@@ -169,19 +177,36 @@ describe('FleetView motion layout', () => {
     await router.push('/devices')
     await nextTick()
 
-    expect(
-      host.querySelector<HTMLElement>('.nav-highlight')?.style.transform,
-    ).toContain('translate')
+    const firstTransform =
+      host.querySelector<HTMLElement>('.nav-highlight')?.style.transform
+    const firstOffset = parseTranslateY(firstTransform)
+
+    await wait(30)
+
+    const secondTransform =
+      host.querySelector<HTMLElement>('.nav-highlight')?.style.transform
+    const secondOffset = parseTranslateY(secondTransform)
+
+    expect(firstTransform).toContain('translate')
+    expect(secondTransform).toContain('translate')
+    expect(firstOffset).not.toBeNull()
+    expect(secondOffset).not.toBeNull()
+    if (firstOffset !== null && secondOffset !== null) {
+      expect(secondOffset).not.toBe(firstOffset)
+      expect(Math.abs(secondOffset)).toBeLessThan(Math.abs(firstOffset))
+    }
+
+    await wait(200)
+
+    const finalTransform =
+      host.querySelector<HTMLElement>('.nav-highlight')?.style.transform ?? ''
+    expect(finalTransform).not.toContain('translate')
   })
 
   it('skips layout transforms and fades nav on expand below desktop width', async () => {
     minWidthMatched = false
     const { host } = await mountFleet()
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
-
-    toggle?.click()
-    await nextTick()
-    await wait(30)
 
     toggle?.click()
     await nextTick()
@@ -194,10 +219,36 @@ describe('FleetView motion layout', () => {
       host.querySelector<HTMLElement>('.main-shell')?.style.transform,
     ).toBe('')
 
-    const animations = host.querySelector('nav')?.getAnimations() ?? []
-    const running = animations.filter(
+    const collapseAnimations =
+      host.querySelector('nav')?.getAnimations() ?? []
+    const runningOnCollapse = collapseAnimations.filter(
       (animation) => animation.playState === 'running',
     )
-    expect(running).toHaveLength(1)
+    expect(runningOnCollapse).toHaveLength(0)
+
+    const expandTime =
+      (document.timeline?.currentTime as number | undefined) ??
+      performance.now()
+    toggle?.click()
+    await nextTick()
+    await wait(30)
+
+    expect(host.querySelector<HTMLElement>('.sidebar')?.style.transform).toBe(
+      '',
+    )
+    expect(
+      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
+    ).toBe('')
+
+    const expandAnimations = host.querySelector('nav')?.getAnimations() ?? []
+    const runningOnExpand = expandAnimations.filter(
+      (animation) => animation.playState === 'running',
+    )
+    expect(runningOnExpand).toHaveLength(1)
+    const activeAnimation = runningOnExpand[0]
+    expect(activeAnimation).toBeDefined()
+    if (activeAnimation && activeAnimation.startTime !== null) {
+      expect(activeAnimation.startTime).toBeGreaterThanOrEqual(expandTime)
+    }
   })
 })

@@ -37,9 +37,9 @@ to avoid a throw. The same goes for an `offsetParent` stub.
 | --- | --- |
 | motion-dom reads the reduced-motion query once per module and keeps that `MediaQueryList`. | `motion-dom@13.4.5` `dist/es/render/utils/reduced-motion/index.mjs:9` |
 | `useMotionFeedback` reads the query itself on every mount through `useMediaQuery`, so it follows a stub installed after an earlier mount. | `motion-v@2.5.1` `dist/es/animation/hooks/use-reduced-motion.mjs` |
-| Under the reduced path the composable keeps the opacity fade and drops movement. | `frontend/web/src/ui/motion/useMotionFeedback.ts:73`, `useMotionFeedback.test.ts:80` |
-| Under the reduced path `UiMotion` layout animations end at once with no fade. | `frontend/web/src/ui/motion/UiMotion.reduced.test.ts:61` |
-| happy-dom has no layout, so a layout animation sees zero-size boxes. | `frontend/web/src/FleetView.motion.test.ts:31` stubs `getBoundingClientRect` |
+| Under the reduced path the composable keeps the opacity fade and drops movement. | `frontend/web/src/ui/motion/useMotionFeedback.ts` (`play`'s reduced branch), `frontend/web/src/ui/motion/useMotionFeedback.test.ts` "keeps the fade while reduced motion filters movement" |
+| Under the reduced path `UiMotion` layout animations end at once with no fade. | `frontend/web/src/ui/motion/UiMotion.reduced.test.ts` "ends layout animation at once when the user prefers reduced motion" |
+| happy-dom has no layout, so a layout animation sees zero-size boxes. | `happy-dom@20.14.5` `lib/nodes/element/Element.js:795` |
 
 ## The rule
 
