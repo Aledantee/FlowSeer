@@ -13,11 +13,9 @@ file reset to the merge base is also reported as lost.
 
 from collections import Counter
 from functools import lru_cache
+import os
 import subprocess
 import sys
-
-
-EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 
 def git(*args):
@@ -28,6 +26,11 @@ def git(*args):
 
 def decode(value):
     return value.decode("utf-8", errors="surrogateescape")
+
+
+@lru_cache
+def empty_tree():
+    return decode(git("hash-object", "-t", "tree", "/dev/null")).strip()
 
 
 def nontrivial(line):
@@ -271,8 +274,9 @@ def report_multiple_bases(merge, bases, first, second):
 
 def report_no_merge_base(merge, first, second):
     reports = set()
+    empty_tree_id = empty_tree()
     for side, parent in (("first", first), ("second", second)):
-        for change in changed_paths(EMPTY_TREE, parent):
+        for change in changed_paths(empty_tree_id, parent):
             reports.add(
                 f"merge {merge[:12]}: not compared {side}-parent "
                 f"{changed_path_name(change)} (no merge base)"
@@ -454,6 +458,8 @@ def main(argv):
         print(__doc__, file=sys.stderr)
         return 2
     try:
+        repository_root = decode(git("rev-parse", "--show-toplevel")).strip()
+        os.chdir(repository_root)
         merges = decode(git("rev-list", "--merges", argv[0])).splitlines()
         if not merges:
             print("no merges")
