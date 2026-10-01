@@ -315,3 +315,10 @@ test and story, `FleetView.test.ts`, and the README.
 The approved package exists and the parent stop condition does not hold.
 The units above are a draft for the first option. Selecting the second
 requires a new inventory and unit ownership before readiness can change.
+
+- Parked by drive: does phase 3 run before or after the AI actions plan.
+  Options: phase 3 first (the draft units stand, and it migrates
+  `UiAiActionLayer` strings that AI actions then deletes) | AI actions
+  first (no work on the removed layer, and phase 3 needs a new inventory
+  and re-plan from that tree). Recommended: phase 3 first, because new AI
+  surfaces then start on the i18n foundation.
