@@ -124,8 +124,9 @@ Four findings need more than a re-read:
   a round finds a defect in the previous round's fix for the same mechanism,
   stop patching: state the property the mechanism must hold and make it
   executable (a generated state space, an invariant assertion the suite can
-  fail on) instead of reviewing the next rewrite. Step 6 says who notices
-  this across rounds.
+  fail on) instead of reviewing the next rewrite. See
+  [references/fix-loop.md](references/fix-loop.md) for the two-round limit
+  and who notices this across rounds.
 
 When the smallest fix rests on a claim about the code ("nothing else
 produces this", "no caller does that", "this path is unreachable"), open the
