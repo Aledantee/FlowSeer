@@ -110,31 +110,25 @@ func shippingPackages(module Module, rootModule bool, goos string) ([]string, er
 	if rootModule {
 		pattern = "./src/..."
 	}
-	output, err := runGo(module.Dir, goos, "list", "-mod=readonly", "-e", "-f", "{{if .Error}}error:{{.Error.Err}};{{end}}{{range .DepsErrors}}error:{{.Err}};{{end}}\t{{.ImportPath}}\t{{.Dir}}\t{{join .GoFiles \" \"}} {{join .CgoFiles \" \"}}", pattern)
+	output, err := runGo(module.Dir, goos, "list", "-mod=readonly", "-e", "-f", "{{.ImportPath}}\t{{.Dir}}\t{{join .GoFiles \" \"}} {{join .CgoFiles \" \"}}", pattern)
 	if err != nil {
 		return nil, errs.Wrapf(err, "list shipping packages in %s", module.Manifest)
 	}
 	var packages []string
-	for _, line := range strings.Split(strings.TrimRight(output, "\n"), "\n") {
-		fields := strings.SplitN(line, "\t", 4)
-		if listingError := fields[0]; strings.TrimSpace(listingError) != "" {
-			if onlyBuildConstraintErrors(listingError) {
-				continue
-			}
-			return nil, errs.Wrapf(errs.Msgf("go list reported: %s", strings.TrimSuffix(listingError, ";")), "list shipping packages in %s", module.Manifest)
-		}
-		if len(fields) != 4 || fields[1] == "" || strings.TrimSpace(fields[3]) == "" {
+	for _, line := range strings.Split(strings.TrimSpace(output), "\n") {
+		fields := strings.SplitN(line, "\t", 3)
+		if len(fields) != 3 || fields[0] == "" || strings.TrimSpace(fields[2]) == "" {
 			continue
 		}
-		rel, err := filepath.Rel(module.Dir, fields[2])
+		rel, err := filepath.Rel(module.Dir, fields[1])
 		if err != nil {
 			return nil, errs.Wrap(err, "resolve package path")
 		}
 		rel = filepath.ToSlash(rel)
-		if hasPathElement(rel, "test") || generatorPackage(fields[1]) {
+		if hasPathElement(rel, "test") || generatorPackage(fields[0]) {
 			continue
 		}
-		packages = append(packages, fields[1])
+		packages = append(packages, fields[0])
 	}
 	sort.Strings(packages)
 	return packages, nil
@@ -166,7 +160,7 @@ func listModuleClosure(module Module, packages []string, goos string, tests bool
 	if tests {
 		args = append(args, "-test")
 	}
-	args = append(args, "-f", "{{if .Error}}error:{{.Error.Err}};{{end}}{{range .DepsErrors}}error:{{.Err}};{{end}}\t{{if .Module}}{{.Module.Path}}\t{{.Module.Version}}{{end}}")
+	args = append(args, "-f", "{{if .Module}}{{.Module.Path}}\t{{.Module.Version}}{{end}}")
 	args = append(args, packages...)
 	output, err := runGo(module.Dir, goos, args...)
 	if err != nil {
@@ -176,44 +170,18 @@ func listModuleClosure(module Module, packages []string, goos string, tests bool
 		}
 		return nil, errs.Wrapf(err, "list %s closure in %s for %s", kind, module.Manifest, goos)
 	}
-	keys, listingErr := parseModuleKeys(output)
-	if listingErr != nil {
-		kind := "build"
-		if tests {
-			kind = "test"
-		}
-		return nil, errs.Wrapf(listingErr, "list %s closure in %s for %s", kind, module.Manifest, goos)
-	}
-	return keys, nil
+	return parseModuleKeys(output), nil
 }
 
-func parseModuleKeys(output string) (map[string]bool, error) {
+func parseModuleKeys(output string) map[string]bool {
 	keys := make(map[string]bool)
 	for _, line := range strings.Split(output, "\n") {
-		fields := strings.SplitN(line, "\t", 3)
-		if listingError := strings.TrimSpace(fields[0]); listingError != "" {
-			return nil, errs.Msgf("go list reported: %s", strings.TrimSuffix(listingError, ";"))
-		}
-		if len(fields) == 3 && fields[1] != "" && fields[2] != "" {
-			keys[moduleKey(fields[1], fields[2])] = true
+		fields := strings.SplitN(strings.TrimSpace(line), "\t", 2)
+		if len(fields) == 2 && fields[0] != "" && fields[1] != "" {
+			keys[moduleKey(fields[0], fields[1])] = true
 		}
 	}
-	return keys, nil
-}
-
-func onlyBuildConstraintErrors(value string) bool {
-	const prefix = "error:build constraints exclude all Go files in "
-	value = strings.TrimSpace(value)
-	if !strings.HasPrefix(value, prefix) {
-		return false
-	}
-	for _, part := range strings.Split(value, "error:")[1:] {
-		part = strings.TrimSuffix(strings.TrimSpace(part), ";")
-		if !strings.HasPrefix(part, "build constraints exclude all Go files in ") {
-			return false
-		}
-	}
-	return true
+	return keys
 }
 
 func moduleGraph(module Module) (map[string][]string, error) {

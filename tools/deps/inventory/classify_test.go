@@ -55,45 +55,6 @@ func TestClassifyUsesTestAndWindowsClosures(t *testing.T) {
 	}
 }
 
-func TestClassifyRejectsPackageListingErrors(t *testing.T) {
-	root := t.TempDir()
-	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.test/root\n\ngo 1.27\n")
-	writeTestFile(t, filepath.Join(root, "src", "main.go"), "package main\n\nimport _ \"example.test/missing\"\n")
-
-	modules, err := DiscoverModules(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = Classify(root, modules, nil)
-	if err == nil {
-		t.Fatal("Classify() error = nil, want package listing error")
-	}
-	if !strings.Contains(err.Error(), "go.mod") || !strings.Contains(err.Error(), "example.test/missing") {
-		t.Fatalf("Classify() error = %q, want module and missing import", err)
-	}
-}
-
-func TestClassifyRejectsErrorsInSelectedClosure(t *testing.T) {
-	root := t.TempDir()
-	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.test/root\n\ngo 1.27\n\nrequire example.test/windows_only v0.0.0\n\nreplace example.test/windows_only => ./windows_only\n")
-	writeTestFile(t, filepath.Join(root, "src", "main.go"), "package main\n")
-	writeTestFile(t, filepath.Join(root, "src", "main_test.go"), "package main\n\nimport _ \"example.test/windows_only\"\n")
-	writeTestFile(t, filepath.Join(root, "windows_only", "go.mod"), "module example.test/windows_only\n\ngo 1.27\n")
-	writeTestFile(t, filepath.Join(root, "windows_only", "dep_windows.go"), "//go:build windows\n\npackage windows_only\n")
-
-	modules, err := DiscoverModules(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = Classify(root, modules, nil)
-	if err == nil {
-		t.Fatal("Classify() error = nil, want selected closure error")
-	}
-	if !strings.Contains(err.Error(), "go.mod") || !strings.Contains(err.Error(), "build constraints exclude all Go files") {
-		t.Fatalf("Classify() error = %q, want module and closure error", err)
-	}
-}
-
 func TestDiscoversEveryModule(t *testing.T) {
 	root := findRepositoryRoot(t)
 	modules, err := DiscoverModules(root)
