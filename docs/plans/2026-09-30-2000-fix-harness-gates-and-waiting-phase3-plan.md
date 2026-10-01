@@ -77,39 +77,37 @@ The parent's Decisions apply. Local to this phase:
   ms by default. On the installed 0.159.3, `codex -c
   'background_terminal_max_timeout="abc"' features list` fails with
   `expected u64`, and `unified_exec` is listed `stable`.
-- `successor.sh <parent> --model <id> [--effort <level>]` runs only when
-  Orca is reachable, the tree is clean, this worktree has no child worktree,
-  and the model id starts with `claude-`. It creates one terminal with `orca
-  terminal create --worktree active`, the Claude launch line a new
-  `orca-worker.sh line` prints, and a quoted prompt to read
-  `.claude/skills/drive/SKILL.md` and drive the parent. Why: a copied line
-  would drift from the `switchModelsOnFlag` setting, which stops a flagged
-  session from changing model unseen. `orca terminal create --help` says
-  "Use this, not worktree create, for a fresh agent in the current
-  checkout", and `claude --help` shows `claude [options] [command]
-  [prompt]`. `orca-worker.sh status` cannot replace the child test, since
-  its state directory holds the lanes of every worktree. A child kept on
-  purpose refuses the hand-off.
+- `successor.sh <parent> --cli <cli> --model <id> [--effort <level>]` runs only
+  when Orca is reachable, the tree is clean, this worktree has no child
+  worktree, and the model id is in `roles.plan.fit` with the selected CLI
+  matching its pool. It creates one terminal with `orca terminal create
+  --worktree active`, the selected CLI launch line that a new `orca-worker.sh
+  line` prints, and the drive prompt in that CLI's documented form. Why: a
+  copied line would drift from the worker's permission and model-switching
+  flags. `orca terminal create --help` says "Use this, not worktree create,
+  for a fresh agent in the current checkout". `orca-worker.sh status` cannot
+  replace the child test, since its state directory holds the lanes of every
+  worktree. A child kept on purpose refuses the hand-off.
 - `successor.sh` exits 0 with the terminal handle only once the new screen
-  shows Claude's `esc to interrupt` hint. With no hint it closes the
-  terminal and exits 1, like a refusal. It exits 2 when a successor may be
-  running: no handle came back, or the close failed. Why: `drive` ends its
-  turn on exit 0 and continues on exit 1, so a successor that never started
-  would end the drive unseen, and one left running would drive beside this
-  session. The shell echoes the prompt, so its text on the screen proves
-  nothing.
+  shows the selected CLI's working hint, either `esc to interrupt` or `esc to
+  cancel`. With no hint it closes the terminal and exits 1, like a refusal. It
+  exits 2 when a successor may be running: no handle came back, or the close
+  failed. Why: `drive` ends its turn on exit 0 and continues on exit 1, so a
+  successor that never started would end the drive unseen, and one left
+  running would drive beside this session. The shell echoes the prompt, so its
+  text on the screen proves nothing.
 - The successor keeps the worker line's `--dangerously-skip-permissions`.
   Why: a coordinator stopped at a permission prompt with nobody watching
   ends the drive, and every lane already runs this way.
 - A Claude coordinator hands off when a phase's last stage reads done, the
   state command still names a phase that can run, no lane of this session is
-  live, and no plan in scope holds a `Parked by drive:` line. It passes its
-  own model id, and `--effort` only when the user named one. Exit 1
-  continues here, exit 2 stops the drive with a report, and the last phase
-  goes to step 5. A coordinator on another runtime does not hand off
-  (unconfirmed). Why: a phase landing while another is in flight leaves a
-  live lane, so the last to settle hands off. A resumed drive asks parked
-  questions first (`drive` step 4), in a terminal nobody watches.
+  live, and no plan in scope holds a `Parked by drive:` line. It resolves the
+  `plan` role lane through `delegate` and passes its CLI, model id, and effort
+  to `successor.sh`. Exit 1 continues here, exit 2 stops the drive with a
+  report, and the last phase goes to step 5. A coordinator on another runtime
+  does not hand off (unconfirmed). Why: a phase landing while another is in
+  flight leaves a live lane, so the last to settle hands off. A resumed drive
+  asks parked questions first (`drive` step 4), in a terminal nobody watches.
 - `drive` waits on each stage with `wait <slug> --until '<test>'`, the test
   an anchored `grep -q` for the frontmatter field of the stage's "Done
   when". On `done` without the stage's report on the screen it waits again
@@ -158,10 +156,10 @@ The parent's Decisions apply. Local to this phase:
    `grep -n -E -- '--timeout|ScheduleWakeup|sleep' .claude/skills/delegate/SKILL.md .claude/skills/drive/SKILL.md`
    prints nothing, while `grep -c` counts at least 1 for `run_in_background`
    and `write_stdin` in the first file and for `--until` in the second.
-6. `successor.sh` refuses a dirty tree, a live lane, or a model outside the `plan` role's `fit` set,
-   and otherwise records one `terminal create` whose command holds
-   `.claude/skills/drive/SKILL.md` and the parent path. Example: `--model
-   gpt-6-sol` exits 1 and the Orca log holds no `terminal create`.
+6. `successor.sh` refuses a dirty tree, a live lane, or a model outside the
+   `plan` role's `fit` set, and otherwise records one `terminal create` whose
+   command holds `.claude/skills/drive/SKILL.md` and the parent path. Example:
+   `--model claude-opus-5` exits 1 and the Orca log holds no `terminal create`.
 7. `drive` step 2's "End a turn only while" list and its caps parenthetical
    match the hand-off and the new round limits. Example: the list names a
    started successor, and the parenthetical the two-round limit.
@@ -224,26 +222,24 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .claude/skills
 ### U2. Successor script
 Files: `.claude/skills/drive/scripts/successor.sh`, `.claude/skills/drive/scripts/test_successor.py`
 After: U1
-Change: `successor.sh` finds `orca-worker.sh` from its own directory. It
-refuses with exit 1 in the order model, effort, parent path, tree, Orca
-reachability, children, each naming what it found and creating nothing. The
-parent must exist and match `docs/plans/<name>-plan.md`, the effort level
-must be lowercase letters, and a child query that fails or returns no
-`childWorktreeIds` refuses. It builds the command from `orca-worker.sh line
---cli claude` and the prompt `"Read .claude/skills/drive/SKILL.md and drive
-<parent>."`, and creates the terminal titled `drive`. It reads the screen up
-to 20 times with `sleep 3` between reads and exits as the Decisions say,
-with `successor may be running` and the handle on exit 2.
+Change: `successor.sh` finds `orca-worker.sh` from its own directory and reads
+the effective machine and project registries. It refuses with exit 1 in the
+order model, effort, parent path, tree, Orca reachability, children, each
+naming what it found and creating nothing. The model must be in
+`roles.plan.fit`, the selected CLI must match the model's pool, and an
+`id_format` model must receive an effort. It builds each command from
+`orca-worker.sh line` and the prompt `"Read .claude/skills/drive/SKILL.md and
+drive <parent>."` in the selected CLI's documented form, then creates the
+terminal titled `drive`. It reads the screen up to 20 times with `sleep 3`
+between reads and exits as the Decisions say, with `successor may be running`
+and the handle on exit 2.
 Tests: `test_successor.py` in a throwaway repository, with an Orca stub that
-logs calls and a no-op `sleep` on `PATH`, as `test_orca_worker.py` has.
-Cases: `gpt-6-sol`, a missing parent, an untracked file, a non-empty
-`childWorktreeIds`, and a failed `worktree show` each exit 1 with no
-`terminal create` logged. The accepted case logs one `terminal create` with
-`--worktree active` whose command holds `--model claude-opus-5-5`,
-`switchModelsOnFlag`, `.claude/skills/drive/SKILL.md`, and the parent path,
-and exits 0 on a screen holding the hint. A screen holding only the echoed
-command logs a `terminal close` and exits 1. A failed close and an empty
-handle each exit 2. Nothing here covers a live Claude TUI.
+logs calls and a no-op `sleep` on `PATH`, as `test_orca_worker.py` has. The
+cases cover a model outside the fit set, a pool CLI mismatch, an `@level` fit
+entry, project-over-machine fit replacement, missing registries, one accepted
+launch for each supported CLI, missing Google effort, and both working hints.
+The existing refusal and terminal failure cases remain. Nothing here covers a
+live TUI.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .claude/skills/drive/scripts`
 
 ### U3. Fix round limits

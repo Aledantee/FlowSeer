@@ -163,11 +163,12 @@ conditions hold:
 3. No lane of this session is live.
 4. No plan in scope holds a `Parked by drive:` line.
 
-Call `successor.sh`, sandbox disabled and `timeout: 180000`, passing this
-session's model id, and `--effort` only when the user named one:
+Resolve the `plan` role lane through `delegate` at this hand-off. Call
+`successor.sh`, sandbox disabled and `timeout: 180000`, with its CLI, model id,
+and effort:
 
 ```bash
-.claude/skills/drive/scripts/successor.sh <parent> --model <id> [--effort <level>]
+.claude/skills/drive/scripts/successor.sh <parent> --cli <cli> --model <id> --effort <level>
 ```
 
 Exit handling:
