@@ -1,0 +1,3 @@
+module example.test/non_test
+
+go 1.27
