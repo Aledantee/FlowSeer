@@ -3,7 +3,7 @@ title: Web Component Contract Migration, Phase 3 - i18n Foundation and Ui String
 type: refactor
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
+artifact_readiness: implementation-ready
 status: planned
 execution: code
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
@@ -31,10 +31,19 @@ Storybook's `setProjectAnnotations` in the happy-dom audit.
 - This tree holds phase 1 through `102193b1`, and phase 3's `Landed:`
   remains empty on `main`. Recheck both with the
   [phase re-plan checks](../../.agents/skills/plan/references/replan-phase.md)
-  before implementation. Phase 2 shares `package.json`,
-  `pnpm-lock.yaml`, and `UiAppRoot.vue` with this phase.
-  Preserve both dependency changes and merge its `MotionConfig` with
-  this phase's Composer wiring. Why: both accepted providers are needed.
+  before implementation.
+- Implementation starts from a tree that holds
+  [phase 2](2026-09-28-1844-refactor-web-component-contract-migration-phase2-plan.md),
+  up to the last commit of the parent's U2 `Landed:` line. Phase 2's
+  dependency changes and its `UiMotionConfig` in `UiAppRoot` stay as merged.
+  Why: phase 2's units edit `package.json`, `pnpm-lock.yaml`,
+  `UiAppRoot.vue`, `src/ui/index.ts`, `FleetView.test.ts`, and the README,
+  which U1 and U5 edit too. Phase 2 also adds five test files that mount
+  `UiAppRoot`, and `useI18n` throws `NOT_INSTALLED` in an app without the
+  plugin, so U1 installs it in them. The parent's `After:` names only
+  phase 1, so this order is recorded here. This tree does not hold phase 2.
+  What this plan says about phase 2's files comes from its plan and is
+  unverified (Open questions).
 - Pin the added package exactly. Existing resolved versions in
   `frontend/web/pnpm-lock.yaml` are Vue 3.5.43, Reka UI 2.10.5,
   Storybook 10.6.0, happy-dom 20.14.5, Vitest 5.0.2, and Tailwind 4.3.3.
@@ -112,7 +121,7 @@ but its current index includes v12 material, so v11 claims use these files.
 | Source | Behavior used |
 | --- | --- |
 | [vue-i18n 11.4.12 registry metadata](https://registry.npmjs.org/vue-i18n/11.4.12) | Exact package exists, MIT, Vue peer `^3.0.0`. |
-| [vue-i18n 11.4.12 distribution](https://unpkg.com/vue-i18n@11.4.12/dist/vue-i18n.mjs) | `createI18n`, `install`, `useI18n`, reactive Composer locale, `Translation`. |
+| [vue-i18n 11.4.12 distribution](https://unpkg.com/vue-i18n@11.4.12/dist/vue-i18n.mjs) | `createI18n`, `install`, `useI18n`, reactive Composer locale, `Translation`. `useI18n` throws `NOT_INSTALLED` when the app lacks the plugin. |
 | [Vue compiler-sfc 3.5.43](https://unpkg.com/@vue/compiler-sfc@3.5.43/dist/compiler-sfc.cjs.js) | `checkInvalidScopeReference` checks `propsRuntimeDefaults`. |
 | [Storybook Vue 10.6.0 portable stories](https://unpkg.com/@storybook/vue3@10.6.0/dist/index.js) | `setProjectAnnotations` registers annotations. `composeStories` returns renderable components. |
 | [Storybook Vue 10.6.0 renderer](https://unpkg.com/@storybook/vue3@10.6.0/dist/_browser-chunks/chunk-X42PMG4S.js) | `setup` registers callbacks, `renderToCanvas` runs them. |
@@ -121,7 +130,15 @@ but its current index includes v12 material, so v11 claims use these files.
 | [Reka toast provider](https://unpkg.com/reka-ui@2.10.5/dist/Toast/ToastProvider.js), [viewport](https://unpkg.com/reka-ui@2.10.5/dist/Toast/ToastViewport.js), [action](https://unpkg.com/reka-ui@2.10.5/dist/Toast/ToastAction.js) | English label defaults and function viewport labels. Empty action alt text and whitespace-only provider labels throw. |
 | [Reka progress](https://unpkg.com/reka-ui@2.10.5/dist/Progress/ProgressRoot.js) | `getValueText` supplies `aria-valuetext`, alongside numeric ARIA attributes. |
 | [Vue I18n component interpolation](https://vue-i18n.intlify.dev/guide/advanced/component) | Named slots interpolate markup into one message. |
-| [Intl.ListFormat](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/ListFormat) | Locale-specific list joining. |
+| [Intl.ListFormat](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/ListFormat) | Locale-specific list joining, with `type` and `style` options. |
+
+The joined text is locale data that page does not list. Node 22.14.0
+(ICU 76.1) prints `A, B, C` and `A, B und C` for the command below. The
+default `conjunction` type prints `A, B, and C` in `en`.
+
+```bash
+node -e "for (const l of ['en', 'de']) console.log(new Intl.ListFormat(l, { type: 'unit', style: 'short' }).format(['A', 'B', 'C']))"
+```
 
 ### String inventory
 
@@ -200,11 +217,11 @@ Review all 59 against requirement 3, including wrappers left unchanged.
 
 ### U1. Locale catalog and app installation
 
-Files: `frontend/web/package.json`, `frontend/web/pnpm-lock.yaml`, `frontend/web/src/i18n/index.ts`, `frontend/web/src/i18n/locales/en.json`, `frontend/web/src/i18n/locales/de.json`, `frontend/web/src/i18n/i18n.test.ts`, `frontend/web/src/main.ts`, `frontend/web/src/ui/app/UiAppRoot.vue`, `frontend/web/src/ui/app/UiAppRoot.test.ts`, `frontend/web/.storybook/preview.ts`, `frontend/web/.storybook/i18nDecorator.ts`, `frontend/web/.storybook/i18nDecorator.test.ts`, `frontend/web/.storybook/aiDecorator.test.ts`, `frontend/web/src/ui/a11y.test.ts`, `frontend/web/src/FleetView.test.ts`, `frontend/web/src/DeviceView.test.ts`, `frontend/web/src/components/GlobalSearch.test.ts`, `frontend/web/src/components/TenantSwitcher.test.ts`, `frontend/web/src/components/topology/TopologySemantics.test.ts`
+Files: `frontend/web/package.json`, `frontend/web/pnpm-lock.yaml`, `frontend/web/src/i18n/index.ts`, `frontend/web/src/i18n/locales/en.json`, `frontend/web/src/i18n/locales/de.json`, `frontend/web/src/i18n/i18n.test.ts`, `frontend/web/src/main.ts`, `frontend/web/src/ui/app/UiAppRoot.vue`, `frontend/web/src/ui/app/UiAppRoot.test.ts`, `frontend/web/.storybook/preview.ts`, `frontend/web/.storybook/i18nDecorator.ts`, `frontend/web/.storybook/i18nDecorator.test.ts`, `frontend/web/.storybook/aiDecorator.test.ts`, `frontend/web/src/ui/a11y.test.ts`, `frontend/web/src/FleetView.test.ts`, `frontend/web/src/DeviceView.test.ts`, `frontend/web/src/components/GlobalSearch.test.ts`, `frontend/web/src/components/TenantSwitcher.test.ts`, `frontend/web/src/components/topology/TopologySemantics.test.ts`, `frontend/web/src/ui/motion/useMotionFeedback.test.ts`, `frontend/web/src/ui/motion/UiMotion.test.ts`, `frontend/web/src/ui/motion/UiMotion.reduced.test.ts`, `frontend/web/src/FleetView.motion.test.ts`, `frontend/web/src/components/ThemeSwitcher.test.ts`
 After: none
-Change: Add the approved exact dependency with pnpm, then restore lockfile formatting with the workspace Prettier. Create the catalog and fixed values in the String inventory in both locales. Export WebLocale, supportedLocales, and createWebI18n(locale = 'en') from src/i18n/index.ts. It returns a fresh legacy: false plugin with fallbackLocale: 'en', both message catalogs, decimal and integer number formats, and a percent format. main.ts installs one instance before mount. UiAppRoot reads the global Composer locale for ConfigProvider and removes its unused locale prop, retaining dir and scrollBody. Preserve any MotionConfig added by phase 2. Storybook setup installs a fresh instance per app. withLocale watches reactive(context.globals).locale, with globals taking precedence over the initial plugin locale, and wraps stories in UiAppRoot, except when context.component === UiAppRoot, whose story already renders it. The locale toolbar offers en and de beside the existing theme toolbar. Direct createApp and createSSRApp mounts in the listed harnesses install a fresh instance explicitly.
-Tests: src/i18n/i18n.test.ts recursively compares sorted message leaf paths in both directions, rejects empty or non-string leaves, and proves deleting ui.pagination.nextText from either cloned catalog yields that missing path. Test Composition mode, German interpolation, plural selection for 0/1/2 through a test-local test.items message (No items | One item | {count} items, and Keine Einträge | Ein Eintrag | {count} Einträge), and en/de number formats. src/ui/app/UiAppRoot.test.ts observes Reka's injected locale changing en to de after a Composer update while retaining tooltip behavior. .storybook/i18nDecorator.test.ts uses setProjectAnnotations and composeStories to mount a translated probe in both locales, composes each locale with matching initialGlobals, changes reactive(Story.globals).locale without remounting, mounts en/de canvases together, and proves unmounting either leaves the other's translations usable. Existing AI document-scope and view/SSR tests retain their assertions with the real plugin.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/package.json frontend/web/pnpm-lock.yaml frontend/web/src/i18n/index.ts frontend/web/src/i18n/locales/en.json frontend/web/src/i18n/locales/de.json frontend/web/src/i18n/i18n.test.ts frontend/web/src/main.ts frontend/web/src/ui/app/UiAppRoot.vue frontend/web/src/ui/app/UiAppRoot.test.ts frontend/web/.storybook/preview.ts frontend/web/.storybook/i18nDecorator.ts frontend/web/.storybook/i18nDecorator.test.ts frontend/web/.storybook/aiDecorator.test.ts frontend/web/src/ui/a11y.test.ts frontend/web/src/FleetView.test.ts frontend/web/src/DeviceView.test.ts frontend/web/src/components/GlobalSearch.test.ts frontend/web/src/components/TenantSwitcher.test.ts frontend/web/src/components/topology/TopologySemantics.test.ts`
+Change: Add the approved exact dependency with pnpm, then restore lockfile formatting with the workspace Prettier. Create the catalog and fixed values in the String inventory in both locales. Export WebLocale, supportedLocales, and createWebI18n(locale = 'en') from src/i18n/index.ts. It returns a fresh legacy: false plugin with fallbackLocale: 'en', both message catalogs, decimal and integer number formats, and a percent format. main.ts installs one instance before mount. UiAppRoot reads the global Composer locale for ConfigProvider and removes its unused locale prop, retaining dir and scrollBody. Phase 2's plan puts UiMotionConfig inside TooltipProvider, a shape that is unverified until phase 2 merges. U1 edits the script block and ConfigProvider's locale binding and leaves that element and its props as merged. Storybook setup installs a fresh instance per app. withLocale watches reactive(context.globals).locale, with globals taking precedence over the initial plugin locale, and wraps stories in UiAppRoot, except when context.component === UiAppRoot, whose story already renders it. The locale toolbar offers en and de beside the existing theme toolbar. Direct createApp and createSSRApp mounts in the listed harnesses install a fresh instance explicitly. The last five listed files are phase 2's tests under src/ui/motion/, src/FleetView.motion.test.ts, and src/components/ThemeSwitcher.test.ts, named from its plan.
+Tests: src/i18n/i18n.test.ts recursively compares sorted message leaf paths in both directions, rejects empty or non-string leaves, and proves deleting ui.pagination.nextText from either cloned catalog yields that missing path. Test Composition mode, German interpolation, plural selection for 0/1/2 through a test-local test.items message (No items | One item | {count} items, and Keine Einträge | Ein Eintrag | {count} Einträge), and en/de number formats. src/ui/app/UiAppRoot.test.ts observes Reka's injected locale changing en to de after a Composer update while retaining tooltip behavior. .storybook/i18nDecorator.test.ts uses setProjectAnnotations and composeStories to mount a translated probe in both locales, composes each locale with matching initialGlobals, changes reactive(Story.globals).locale without remounting, mounts en/de canvases together, and proves unmounting either leaves the other's translations usable. Existing AI document-scope and view/SSR tests retain their assertions with the real plugin, as do phase 2's five. Its UiMotion.reduced.test.ts fails when the UiAppRoot edit drops UiMotionConfig.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/package.json frontend/web/pnpm-lock.yaml frontend/web/src/i18n/index.ts frontend/web/src/i18n/locales/en.json frontend/web/src/i18n/locales/de.json frontend/web/src/i18n/i18n.test.ts frontend/web/src/main.ts frontend/web/src/ui/app/UiAppRoot.vue frontend/web/src/ui/app/UiAppRoot.test.ts frontend/web/.storybook/preview.ts frontend/web/.storybook/i18nDecorator.ts frontend/web/.storybook/i18nDecorator.test.ts frontend/web/.storybook/aiDecorator.test.ts frontend/web/src/ui/a11y.test.ts frontend/web/src/FleetView.test.ts frontend/web/src/DeviceView.test.ts frontend/web/src/components/GlobalSearch.test.ts frontend/web/src/components/TenantSwitcher.test.ts frontend/web/src/components/topology/TopologySemantics.test.ts frontend/web/src/ui/motion/useMotionFeedback.test.ts frontend/web/src/ui/motion/UiMotion.test.ts frontend/web/src/ui/motion/UiMotion.reduced.test.ts frontend/web/src/FleetView.motion.test.ts frontend/web/src/components/ThemeSwitcher.test.ts`
 
 ### U2. Control defaults and accessible labels
 
@@ -218,8 +235,8 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/s
 
 Files: `frontend/web/src/ui/badge/UiStatusBadge.vue`, `frontend/web/src/ui/badge/UiBadge.test.ts`, `frontend/web/src/ui/badge/UiStatusBadge.stories.ts`, `frontend/web/src/ui/card/UiMetricCard.vue`, `frontend/web/src/ui/card/UiMetricCard.test.ts`, `frontend/web/src/ui/card/UiMetricCard.stories.ts`, `frontend/web/src/ui/form/UiField.vue`, `frontend/web/src/ui/form/UiField.test.ts`, `frontend/web/src/ui/form/UiField.stories.ts`, `frontend/web/src/ui/meter/UiMeter.vue`, `frontend/web/src/ui/meter/UiSegmentedMeter.vue`, `frontend/web/src/ui/meter/UiMeter.test.ts`, `frontend/web/src/ui/meter/UiMeter.stories.ts`, `frontend/web/src/ui/pagination/UiPagination.vue`, `frontend/web/src/ui/pagination/UiPagination.test.ts`, `frontend/web/src/ui/pagination/UiPagination.stories.ts`, `frontend/web/src/ui/table/UiTableHead.vue`, `frontend/web/src/ui/table/UiTable.test.ts`, `frontend/web/src/ui/table/UiTable.stories.ts`, `frontend/web/src/ui/tooltip/UiTooltip.vue`, `frontend/web/src/ui/tooltip/UiTooltip.test.ts`, `frontend/web/src/ui/tooltip/UiTooltip.stories.ts`
 After: U1
-Change: UiStatusBadge maps its existing status identifiers to messages and adds a label override while preserving its slot. UiSegmentedMeter retains the counts identifiers, translates their default labels through a labels override map, formats counts, and resolves each whole count/label phrase through segmentText(count, label), an optional formatter prop. Its summary uses Intl.ListFormat for the active locale and preserves the existing label override. UiMetricCard and UiMeter format numbers and join units with a non-breaking space through I18nT scope="global" and named value/unit slots, preserving the existing styled spans and .metric-value selector. An optional valueText(value, unit) formatter replaces the complete display with caller text. UiMeter's unit and detailSeparator defaults come from messages. UiField adds requiredMark. UiTableHead adds ascendingMark/descendingMark. UiPagination exposes firstLabel/previousLabel/nextLabel/lastLabel, previousText/nextText, pageLabel(page), and firstMark/previousMark/nextMark/lastMark/ellipsis. It overrides Reka's per-page English label and formats page text. UiTooltip translates the known keysOf labels and glyphs for Shortcut objects through a keyLabel(key) formatter prop, while explicit string[] shortcuts remain caller text. Remove per-story TooltipProvider wrappers because the locale decorator owns UiAppRoot. Listed tests install real plugin instances.
-Tests: UiBadge.test.ts checks Healthy renders Gesund in de without changing status-dependent classes or label and slot overrides. UiMetricCard.test.ts and UiMeter.test.ts check 1234.5 becomes 1.234,5 in de, a non-breaking space before units, German count labels and list joining, zero counts, explicit segments, and formatter overrides. UiPagination.test.ts checks Zurück/Weiter, Erste Seite, Seite 2, every glyph override, and unchanged update:page behavior. UiField.test.ts and UiTable.test.ts check required/sort marks and overrides. UiTooltip.test.ts checks Ctrl becomes Strg for a non-Mac Shortcut, Mac glyphs, explicit string arrays, an explicit keyLabel override, and a locale switch while open. Stories include German LongText, formatted values, and default label cases.
+Change: UiStatusBadge maps its existing status identifiers to messages and adds a label override while preserving its slot. UiSegmentedMeter retains the counts identifiers, translates their default labels through a labels override map, formats counts, and resolves each whole count/label phrase through segmentText(count, label), an optional formatter prop. Its summary joins the phrases with new Intl.ListFormat(locale, { type: 'unit', style: 'short' }), which keeps today's English comma list, and preserves the existing label override. UiMetricCard and UiMeter format numbers and join units with a non-breaking space through I18nT scope="global" and named value/unit slots, preserving the existing styled spans and .metric-value selector. An optional valueText(value, unit) formatter replaces the complete display with caller text. UiMeter's unit and detailSeparator defaults come from messages. UiField adds requiredMark. UiTableHead adds ascendingMark/descendingMark. UiPagination exposes firstLabel/previousLabel/nextLabel/lastLabel, previousText/nextText, pageLabel(page), and firstMark/previousMark/nextMark/lastMark/ellipsis. It overrides Reka's per-page English label and formats page text. UiTooltip translates the known keysOf labels and glyphs for Shortcut objects through a keyLabel(key) formatter prop, while explicit string[] shortcuts remain caller text. Remove per-story TooltipProvider wrappers because the locale decorator owns UiAppRoot. Listed tests install real plugin instances.
+Tests: UiBadge.test.ts checks Healthy renders Gesund in de without changing status-dependent classes or label and slot overrides. UiMetricCard.test.ts and UiMeter.test.ts check 1234.5 becomes 1.234,5 in de, a non-breaking space before units, German count labels and list joining, zero counts, explicit segments, and formatter overrides. The English summary stays 10 Healthy, 2 Degraded, 1 Offline, and the German one joins its last phrase with und. UiPagination.test.ts checks Zurück/Weiter, Erste Seite, Seite 2, every glyph override, and unchanged update:page behavior. UiField.test.ts and UiTable.test.ts check required/sort marks and overrides. UiTooltip.test.ts checks Ctrl becomes Strg for a non-Mac Shortcut, Mac glyphs, explicit string arrays, an explicit keyLabel override, and a locale switch while open. Stories include German LongText, formatted values, and default label cases.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/src/ui/badge/UiStatusBadge.vue frontend/web/src/ui/badge/UiBadge.test.ts frontend/web/src/ui/badge/UiStatusBadge.stories.ts frontend/web/src/ui/card/UiMetricCard.vue frontend/web/src/ui/card/UiMetricCard.test.ts frontend/web/src/ui/card/UiMetricCard.stories.ts frontend/web/src/ui/form/UiField.vue frontend/web/src/ui/form/UiField.test.ts frontend/web/src/ui/form/UiField.stories.ts frontend/web/src/ui/meter/UiMeter.vue frontend/web/src/ui/meter/UiSegmentedMeter.vue frontend/web/src/ui/meter/UiMeter.test.ts frontend/web/src/ui/meter/UiMeter.stories.ts frontend/web/src/ui/pagination/UiPagination.vue frontend/web/src/ui/pagination/UiPagination.test.ts frontend/web/src/ui/pagination/UiPagination.stories.ts frontend/web/src/ui/table/UiTableHead.vue frontend/web/src/ui/table/UiTable.test.ts frontend/web/src/ui/table/UiTable.stories.ts frontend/web/src/ui/tooltip/UiTooltip.vue frontend/web/src/ui/tooltip/UiTooltip.test.ts frontend/web/src/ui/tooltip/UiTooltip.stories.ts`
 
 ### U4. AI surface messages
@@ -251,6 +268,7 @@ flowchart LR
 ```
 
 Only U1 edits the catalogs. U2, U3, and U4 have disjoint Files sets.
+U1 and U5 both edit `a11y.test.ts`, with that wave between them.
 U5 follows them because its every-story audit tests their translated
 defaults and its documentation describes their APIs.
 
@@ -296,23 +314,15 @@ It does not mark the component migration implemented.
 
 ## Open questions
 
-Execution order against
-[`AI actions`](2026-09-28-1804-feat-ai-actions-and-assistant-plan.md)
-is a blocker. Its Decisions require migration phase 1 first, and the
-parent requires AI actions before migration phase 5. Neither chooses an
-order with phase 3. AI actions U4 deletes `UiAiActionLayer` and its test
-and story. Its U1/U2 rebuild `UiAiSummary`, and it also edits the
-decorator test, `a11y.test.ts`, `ui/index.ts`, `UiDialog` and its
-test and story, `FleetView.test.ts`, and the README.
+- Phase 2's shape is unverified until it merges. This plan takes two
+  things from phase 2's plan: `UiMotionConfig` inside `TooltipProvider` in
+  `UiAppRoot.vue`, and the five test files at the end of U1's `Files:`
+  line. Before U1 starts, list the harnesses that mount the app root and
+  correct U1's `Files:` and `Verify:` lines to the result:
 
-- **Phase 3 first (recommended).** Complete this migration before starting
-  overlapping AI actions units. The current inventory stays usable and
-  new AI surfaces receive the i18n foundation. The action-layer messages
-  are deleted when that layer is replaced.
-- **AI actions first.** Land that plan, then re-plan phase 3 from its tree.
-  This avoids migrating the removed layer, but the new AI surfaces widen
-  the inventory and invalidate the current AI unit and audit assumptions.
+  ```bash
+  rg -l UiAppRoot frontend/web/src frontend/web/.storybook -g '*.test.ts'
+  ```
 
-The approved package exists and the parent stop condition does not hold.
-The units above are a draft for the first option. Selecting the second
-requires a new inventory and unit ownership before readiness can change.
+  A harness the list misses fails the web gate's full Vitest run with
+  `Need to install with app.use function`.
