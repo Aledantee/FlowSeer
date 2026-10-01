@@ -204,6 +204,8 @@ A non-zero check stops the merge. Grade the lane `rejected`, leave it
 unmerged, and dispatch it again through the model-switch rule. Then check the
 tree:
 `git -C <child> log --oneline -1` shows the commit the report names,
+`git -C <child> log -1 --format=%B` holds no literal `\n` where a line
+break was meant (`tell` the worker to amend it from standard input),
 `git -C <child> status --porcelain` is empty, and the two or three changes
 most expensive to get wrong are what the report says. An idle lane whose
 child has changes but no new commit stopped short: `tell` it to commit.

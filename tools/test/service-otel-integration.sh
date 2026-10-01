@@ -25,22 +25,20 @@ for ((tick = 0; tick < docker_probe_timeout * 10; tick++)); do
 done
 if kill -0 "$docker_probe" 2>/dev/null; then
   # The wait after the kill must not become the hang it replaces, so a
-  # probe that ignores TERM for a second is killed outright. Bash 3.2.57
-  # prints a killed background job ("Terminated: 15") on its own stderr
-  # when it reaps it, observed with a stub docker, so the whole block runs
-  # with stderr discarded. The probe can exit after the check above, and
-  # under set -e a failed kill would replace the message below.
-  {
-    kill "$docker_probe" || true
-    for ((tick = 0; tick < 10; tick++)); do
-      kill -0 "$docker_probe" || break
-      sleep 0.1
-    done
-    # A probe that honoured TERM is already gone, and a kill of a dead pid
-    # fails; under set -e that exit would replace the message below.
-    kill -9 "$docker_probe" || true
-    wait "$docker_probe" || true
-  } 2>/dev/null
+  # probe that ignores TERM for a second is killed outright. The probe
+  # leaves the job table first: bash reports a killed job on stderr
+  # (`Terminated: 15`), ahead of the message below.
+  disown "$docker_probe" 2>/dev/null || true
+  # The probe can exit after the check above, and under set -e a failed
+  # kill would replace the message below.
+  kill "$docker_probe" 2>/dev/null || true
+  for ((tick = 0; tick < 10; tick++)); do
+    kill -0 "$docker_probe" 2>/dev/null || break
+    sleep 0.1
+  done
+  # A probe that honoured TERM is already gone, and a kill of a dead pid
+  # fails; under set -e that exit would replace the message below.
+  kill -9 "$docker_probe" 2>/dev/null || true
   echo "Docker daemon did not answer 'docker info' within ${docker_probe_timeout}s." >&2
   exit 1
 fi

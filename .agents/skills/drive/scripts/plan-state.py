@@ -42,6 +42,19 @@ def frontmatter(path):
     return fields
 
 
+def is_phase(parent, unit):
+    """Whether the plan a unit names is a phase of this parent.
+
+    A phase plan on disk carries `parent:` naming this plan, the test
+    plan-queue.py applies. A plan gone from disk is a retired or missing
+    phase only when the unit has the `Landed:` line every phase unit
+    carries. A unit that lists other plans because it edits them is neither.
+    """
+    if unit["plan"].exists():
+        return frontmatter(unit["plan"]).get("parent") == parent.as_posix()
+    return "landed" in unit
+
+
 def phases(parent):
     """The parent's units that name a phase plan, in file order."""
     found, unit = [], None
@@ -66,7 +79,7 @@ def phases(parent):
             unit["after"] = re.findall(r"U\d+[a-z]?", value)
         elif key == "Landed":
             unit["landed"] = value
-    return found
+    return [unit for unit in found if is_phase(parent, unit)]
 
 
 def on_main(landed):

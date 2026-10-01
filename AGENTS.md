@@ -143,7 +143,8 @@ non-source files under `spec/proto/`, deny file writes in the primary checkout
 on a protected branch, prompt for approval before an edit to a policy surface,
 auto-run gofumpt/goimports and `buf format`/`buf lint` on edits, check triad
 and ref message sync (a member the file-level comment names as deliberately
-absent is not reported), and flag newly added lint suppressions. Both
+absent is not reported), flag newly added lint suppressions, and report a
+new commit whose message holds a literal `\n\n`. Both
 runtimes' Stop hooks run the repository layout checks and every conformance
 gate under `test/conformance/` (among them the panic gate: a `panic` outside
 a `Must`/`must` function, a `go` statement outside `src/common/spawn`) and

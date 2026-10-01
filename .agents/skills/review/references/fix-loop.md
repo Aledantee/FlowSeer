@@ -44,18 +44,28 @@ The coordinating session runs the rounds; no skill runs them on its own, and
   the `accept` row's question.
 - The coordinator holds the rounds' history, so it is the one that sees a
   round find a defect in the previous round's fix for the same mechanism.
-  Apply step 4's class rule before the next round.
-- After two rounds on one mechanism without a clean one, stop patching.
-  A round counts against a mechanism when its re-review finds a correctness
-  defect in it. A third round runs only when step 4's executable property or
-  one `research` lane's prior art names the fix. Brief that lane with the
-  mechanism, the property, and each round's findings, and ask how
-  `docs/solutions/`, `docs/architecture/`, and the libraries the code imports
-  solve it. Otherwise take the work to `plan` with what the rounds
-  established. After three rounds in total on one review, stop patching and
-  take the work to `plan` unless the user overrides. Under `drive`, return a
-  `rework` verdict whose report names the limit that caused it. `drive` step 4
-  parks that report with another round as an option.
+  Apply step 4's class rule before the next round, and read how an
+  established implementation solves that mechanism before another patch is
+  briefed: the pinned library's own primitive, a vendored spec, or a
+  `docs/solutions/` entry, cited as `AGENTS.md`, Investigation discipline,
+  defines a source. The next brief names that source, or the work goes to
+  `plan` because none was found.
+- Count every round, whatever it fixed. Three rounds without a clean one
+  end the loop:
+  - All three on one mechanism: take the work to `plan` with what the
+    rounds established.
+  - Rounds on different mechanisms: ask the user (`AGENTS.md`, Agent
+    behavior) whether to take the work to `plan` (recommended, since each
+    round has surfaced a new defect) or to run one more round. A fourth
+    round runs only on that answer. A delegated worker does not ask: it
+    sets the verdict to `rework` and states the round count as its blocker.
+    Under `drive`, that report names the limit, and `drive` step 4 parks it
+    with another round as an option.
+
+  Example: rounds one and two rework an emission mechanism, and round three
+  fixes its staging permissions and finds a rollback defect. That is three
+  rounds, and the fourth is the user's call.
+- The commit that records the verdict names the number of fix rounds.
 
 Before the final report, stop each fix worker's lane: `orca worktree list
 --json` lists no worktree whose `parentWorktreeId` is this one, other than

@@ -16,6 +16,10 @@ than the cap runs in rounds, the cap recomputed before each. A phase plan runs e
 a fresh context per unit keeps the coordinator's own context to the
 ledger; a plain plan runs a wave of one here.
 
+Run `ledger.py set <unit> in_progress` when the unit is dispatched, before
+its branch is merged: `passed` counts the commits after the `HEAD` that
+call recorded, and a unit marked after its merge has none.
+
 The brief carries the plan path, the unit's text, the conventions for its
 files, the focused test command, and the ledger notes of landed units. It
 asks for the per-test mutation lines step 2.3 of the skill puts in the

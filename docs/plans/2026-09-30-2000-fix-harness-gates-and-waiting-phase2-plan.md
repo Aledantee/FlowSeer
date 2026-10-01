@@ -132,6 +132,15 @@ The parent's Decisions apply. Local to this phase:
   wrapper's message. The notice comes when bash reaps the killed probe,
   not from any one command's stderr. Cost if wrong: the one block and the
   case's expected output.
+- Ruled: on merging `main`, its `f3b04f1d` (assertions as
+  `|| fail "$LINENO"`, a bare-assertion check, a `fail` probe) and its
+  `disown` fix of the wrapper replace this phase's versions. This phase
+  adds what `main` lacks on top: an unreadable `$0` fails the check, the
+  wrapper's first `kill` takes `|| true`, the idle-input cases and stdin
+  scan, and `hook_read_input` in `main`'s new `commit-message-check.sh`.
+  Why: `main`'s versions landed first and were tested (decided by the
+  user, 2026-10-01). Cost if wrong: the assertion message shape in
+  `run.sh`.
 
 ## Requirements
 

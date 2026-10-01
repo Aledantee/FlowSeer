@@ -3,7 +3,7 @@ title: Operator Authorization - Plan
 type: feat
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
+artifact_readiness: implementation-ready
 status: planned
 execution: mixed
 ---
@@ -22,6 +22,9 @@ option in the schema enforced by one fail-closed interceptor, a standalone
 OpenFGA on its own Postgres, and a projector that keeps OpenFGA's
 relationships derived from FlowSeer's records.
 
+The OpenFGA-specific decisions below hold if OpenFGA is chosen. Choosing
+SpiceDB requires re-planning those decisions before implementation.
+
 **Stop condition:** a second process starts serving operator RPCs before
 phase 3 lands. The enforcement code then belongs in `src/common/` or
 `src/modules/`, not in the device service's `internal/`, and the phase
@@ -33,33 +36,85 @@ The [operator authorization record](../architecture/2026-09-30-operator-authoriz
 holds the decisions that outlive this plan. The ones below either restate
 that record's choices the user made or are local to the work.
 
-- OpenFGA is the engine, not SpiceDB. Why: SpiceDB's advantages (ZedTokens,
-  cursored lookups) pay off only with cached checks or listings far past one
-  page, and its audit logging is commercial. (decided by the user,
-  2026-09-30)
+- The landed foundation is the identity leaf and the tenant entity with
+  tenant-partitioned stores. The identity leaf landed in
+  `f1f75c2f..6f8f73d5`, and the tenant entity and partitioned stores landed in
+  `2088ca38..b0eafd4b`. Why: this plan starts from the existing
+  `model/identity`, `src/common/tenant`, and tenant-partitioned stores.
+- A request's tenant is named per request and admitted by membership, as
+  the 09-30 record decides: the `X-FlowSeer-Tenant` header names it, and
+  the caller is admitted when FlowSeer has enrolled them and their token
+  claims the tenant's organization. Partner admins through `partner` and
+  global admins through `platform` are also admitted. Why: one token can act
+  in several tenants, and a service provider's admins reach customer tenants through
+  the `partner` relation, which a token-bound tenant cannot model. (decided
+  by the user, 2026-09-30)
+- The 09-30 record absorbs the 09-28 record, and the 09-30 parent plan
+  continues. Why: the 09-30 record carries the spike evidence, the per-RPC
+  rule, the list checks, and the membership model. The 09-28 parent's
+  remaining phases (3 to 6) are stubs that never planned. (decided by the
+  user, 2026-09-30)
+- The engine is chosen after a SpiceDB spike that repeats the OpenFGA
+  spike's measurements. (decided by the user, 2026-09-30) Why this spike
+  and not a paper comparison: the 09-28 record chose SpiceDB for its
+  consistency token from documentation, the 09-30 record chose OpenFGA from
+  measurements, and the two never ran on the same workload.
+  This replaces the earlier decision that named OpenFGA as the engine.
+- OpenFGA is the engine, chosen after reading the SpiceDB spike beside the
+  OpenFGA spike. Why: neither ranks on speed, both keep revocation exact in
+  their consistent modes, and this plan's design is written for OpenFGA.
+  (decided by the user, 2026-09-30)
 - OpenFGA runs as its own service on a Postgres that is external from the
   first deployment, never embedded in a FlowSeer host. Why: each can move
   and scale alone. (decided by the user, 2026-09-30)
-- Check caching stays off. Why: the spike measured revoked grants still
-  allowed on another replica for up to 9.0 s with caching on
-  ([spike](../research/2026-09-30-openfga-authorization-spike.md)).
+- Check caching stays off. Why: the
+  [OpenFGA note](../research/2026-09-30-openfga-authorization-spike.md#cache-staleness-across-replicas)
+  measured 1.509-9.019 s of stale allows across two instances on one database
+  with the check cache and controller at ten-second defaults. The
+  [SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md#revocation-and-cache-staleness)
+  re-measured OpenFGA's gRPC union (292,238 relationships plus trial grants)
+  with continuous polling and positive controls. Last allows were
+  1.924-8.743 s after delete responses, which agrees with seconds of
+  staleness.
 - Authentication accepts any OIDC provider. The principal is issuer plus
   subject. Why: OIDC makes `sub` unique only within an issuer, and the
   project will not depend on one provider's claims. (decided by the user,
   2026-09-30)
-- The request names its tenant in the `X-FlowSeer-Tenant` header, and the
-  interceptor admits it only for a `tenant#member`. Why: OIDC has no
-  standard tenant claim, and Zitadel's organization scope rejects users
-  whose access comes from a grant (zitadel#11869).
+- The request names its tenant in the `X-FlowSeer-Tenant` header. The
+  interceptor admits only a `member` of the named tenant. Membership is
+  FlowSeer enrollment with a token claiming the tenant's organization, or
+  reach through `partner` or `platform`. A caller who is not a member of the
+  named tenant is `PermissionDenied`, not `Unauthenticated`. Why: OIDC has no
+  standard tenant claim, and Zitadel's organization scope rejects users whose
+  access comes from a grant (zitadel#11869).
 - Membership is `(claimed and enrolled) or active_admin from partner or
   admin from platform`: `enrolled` is owned by FlowSeer (invite, remove),
   `claimed` is sent per request from the token's organization claims.
   Why: exact access reviews, and removal at the identity provider takes
   effect at the next token refresh. (decided by the user, 2026-09-30)
+- The landed tenant binding is the membership model's `claimed` mapping:
+  a `TenantConfig` binds a tenant to an issuer, an organization claim name,
+  and a value, and the `tenants` bucket's `org_` index resolves an (issuer,
+  organization) pair to one tenant in one atomic batch
+  (`src/services/device/internal/tenantstore/store.go`). The `claimed`
+  relationships come from the token's organization claims resolved through
+  the tenant binding's `org_` index, and a tenant id is never assumed equal
+  to an organization id. Why: the index exists, is tested against every
+  applicable read and publish fault, and is the lookup the interceptor needs
+  to turn a token's organization claims into tenants.
 - The membership intersection is checked once per request on the tenant.
-  Resource permissions are unions with no `and` and no `but not`. Why: an
-  intersection inside resource permissions made `ListObjects` return 11 of
-  1,104 edges after 60 s.
+  Resource permissions are unions without `and`, and recursive Tag
+  permissions do not use `but not`. Why:
+  [OpenFGA resource intersections](../research/2026-09-30-openfga-authorization-spike.md#membership-gated-by-token-claims)
+  on 336,249 relationships returned 11 of 1,104 Tag edges at a 60-second
+  deadline. The [OpenFGA exclusion fixture](../research/2026-09-30-openfga-authorization-spike.md#previewing-a-tag-change)
+  used `but not` on recursive Tag permissions and returned zero Tag-derived
+  objects after 60 seconds. The
+  [SpiceDB note](../research/2026-09-30-spicedb-authorization-spike.md#membership-aware-resource-lookup)
+  re-measured the direct-tenant placement on 336,245 relationships. OpenFGA
+  returned all 1,104 Tag edges in 905.764 ms over gRPC, but still returned
+  zero global-admin edges at 60 s. The Tag disagreement is unexplained,
+  with fixture and stored-grant reference-shape differences.
 - All tenants share one OpenFGA store. Why: a connected service-provider
   tenant is a relationship between two tenant objects, and relationships
   cannot cross stores.
@@ -88,10 +143,10 @@ that record's choices the user made or are local to the work.
 - Every object check also requires the object's `tenant` to be the
   admitted tenant. Why: resource permissions carry no membership term, so a
   member of B with a grant in A could otherwise act on A while naming B.
-- A provider configured without organization claims gets a `claimed` tuple
-  for the tenant the request names, so its gate is `enrolled` alone. Why:
-  the membership relation needs both terms, and such a provider has no
-  claim to supply one.
+- An issuer configured without organization claims cannot satisfy the
+  claimed-member path. Why: `claimed` relationships derive from the token's
+  organization claims resolved through the tenant binding, and a provider
+  with no organization claim provides nothing the binding can resolve.
 - The work splits into four phases. Why: the schema and the enforcement
   core, the external systems, the service migration, and the tenancy admin
   surfaces touch disjoint files and each depends on the one before. The
@@ -168,7 +223,10 @@ the edge a request names.
   authenticate with signed assertions and stay outside these rules.
 - Moving FlowSeer's own records to Postgres. Postgres here is OpenFGA's
   datastore.
-- Caching checks, and SpiceDB. The direction record names when to revisit.
+- Choosing the engine. The user decides after reading the spike. That
+  decision amends the direction record and sets it accepted-direction in a
+  change of its own. Caching checks is also out of scope until an initial
+  deployment settles.
 
 ## Units
 
@@ -217,19 +275,8 @@ service.
 
 ## Open questions
 
-- Reconcile with `docs/architecture/2026-09-28-operator-authorization-direction.md`,
-  accepted 2026-09-28, which landed phases 1 and 2 of its own parent plan
-  (`docs/plans/2026-09-28-2029-feat-operator-authorization-plan.md`: the
-  `model/identity` leaf, the tenant entity bound to one issuer and
-  organization, tenant-partitioned stores, and the edgebus tenant token)
-  before this record was written. The two disagree on the engine (SpiceDB
-  behind an interface there, OpenFGA here) and on how a request's tenant is
-  chosen (bound to the token's organization there, named per request and
-  admitted by FlowSeer-owned membership here). The user decided on
-  2026-09-30 to land the 09-28 work first and reconcile before either
-  parent's next phase is planned; this plan waits on that.
+- How one tenant with several issuers maps to organization claims.
+  `TenantConfig` binds one issuer, so multiple issuers for one tenant need an
+  answered pattern before phase 2 writes the configuration.
 - Which OIDC issuer the lab deployment runs (Zitadel, Keycloak, or Dex).
   Phase 2 decides. Any of them passes the vendor rule.
-- How a provider's organization identifiers map to FlowSeer tenant ids
-  when one tenant has several issuers. Phase 2 decides the configuration
-  shape. One issuer with identical ids is the starting case.

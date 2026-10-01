@@ -125,8 +125,8 @@ so it is the one caller that reaches the directory. The shape:
     {"id": "U1", "status": "passed", "commit": "d037089c",
      "verified_at": "2026-09-06T12:10:00Z",
      "note": "Diagnostics keep the source span; the catalog is generated."},
-    {"id": "U2", "status": "in_progress", "commit": null,
-     "verified_at": null, "note": null}
+    {"id": "U2", "status": "in_progress", "base": "d037089c",
+     "commit": null, "verified_at": null, "note": null}
   ]
 }
 ```
@@ -134,6 +134,7 @@ so it is the one caller that reaches the directory. The shape:
 | Field | Rule |
 | --- | --- |
 | `status` | one of `pending`, `in_progress`, `passed`, `blocked`; a `passed` unit carries its commit and the receipt's `verified_at` |
+| `base` | `HEAD` when the unit went `in_progress`; `ledger.py set <unit> passed` refuses a commit outside this branch or with nothing committed since the base |
 | `resume` | the `in_progress` units, or the next `pending` unit when none is in progress; empty once every unit is `passed` |
 | `note` | one line, only for a decision or pitfall the next unit needs |
 | `id` | unique |

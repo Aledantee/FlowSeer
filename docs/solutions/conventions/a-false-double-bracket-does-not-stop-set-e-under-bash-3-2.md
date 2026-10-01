@@ -29,7 +29,7 @@ rc=1
 ```
 
 A script whose assertions are bare `[[ … ]]` lines therefore passes
-whether they hold or not. In `tools/hooks/tests/run.sh` 104 of them did.
+whether they hold or not. In `tools/hooks/tests/run.sh` over a hundred of them did.
 Once they could fail, one had been false all along: the OpenTelemetry
 wrapper's timeout case expected one line of stderr and got two (below).
 
@@ -40,17 +40,17 @@ bare one so a later edit cannot reintroduce it:
 
 ```bash
 fail() {
-  printf 'FAIL line %d: %s\n' "${BASH_LINENO[0]}" "$1" >&2
+  echo "assertion failed at line $1" >&2
   exit 1
 }
-[[ $rc -eq 1 ]] || fail "wrapper did not exit 1"
+[[ $rc -eq 1 ]] || fail "$LINENO"
 ```
 
-`tools/hooks/tests/run.sh:15` defines `fail`. Lines 20 to 33 grep the
-script's own file for a line that is only a `[[ … ]]` statement and fail
-on a match, and fail as well when grep cannot read the file (exit 2), so
-the check never skips silently. Line 38 probes `fail` itself before any
-fixture work. `[[` is a keyword, so a helper that takes the test as
+`tools/hooks/tests/run.sh:46` defines `fail`. Lines 51 to 64 grep the
+script's own file for a bare `[[ … ]]` statement and fail on a match, and
+fail as well when grep cannot read the file (exit 2, as under
+`bash < run.sh`), so the check never skips silently. Line 66 probes
+`fail` itself before any fixture work. `[[` is a keyword, so a helper that takes the test as
 arguments cannot evaluate it. `test` lacks the `==` pattern match the
 suite uses.
 
@@ -59,28 +59,30 @@ suite uses.
 A script that kills a background job prints a line like
 `script.sh: line 40:  97731 Terminated: 15  docker info > /dev/null 2>&1`
 when bash reaps the job. The line goes to the shell's stderr at reap
-time, so `kill … 2>/dev/null` does not stop it. Discard stderr around the
-whole kill-and-reap block instead, as
-`tools/test/service-otel-integration.sh:33-43` does:
+time, so `kill … 2>/dev/null` does not stop it. Take the job out of the
+job table before killing it, as `tools/test/service-otel-integration.sh:31`
+does, or discard stderr around the whole kill-and-reap block:
 
 ```bash
-{
-  kill "$docker_probe" || true
-  …
-  wait "$docker_probe" || true
-} 2>/dev/null
+disown "$docker_probe" 2>/dev/null || true
+kill "$docker_probe" 2>/dev/null || true
 ```
 
-Observed 2026-10-01 under bash 3.2.57 with a stub `docker` that sleeps.
-Five runs with the block wrapped printed only the wrapper's message.
+Observed 2026-10-01 under bash 3.2.57 with a stub `docker` that sleeps:
+without either, the wrapper printed the notice ahead of its message, and
+the case "service OpenTelemetry wrapper gives up on a Docker daemon that
+does not answer" in `tools/hooks/tests/run.sh` failed once assertions
+could fail. Wrapping the block in `{ … } 2>/dev/null` printed only the
+message in five of five runs. Keep `|| true` on the first `kill` as well:
+the probe can exit between the liveness check and the kill.
 
 ## In the Claude Code sandbox, ps and pkill see nothing
 
 Inside the sandbox, `ps` fails with `operation not permitted`, and
 `pkill -P <pid>` matches no process. `idle_run` in
-`tools/hooks/tests/run.sh:734` kills a timed-out hook's children with
+`tools/hooks/tests/run.sh:756` kills a timed-out hook's children with
 `pkill -9 -P` before the hook, because a `$(cat)` child holds the FIFO
-that `exec 3<>` (line 718) opened for reading and writing, and so never
+that `exec 3<>` (line 740) opened for reading and writing, and so never
 sees end of input. A sandboxed run that hits that timeout leaves the `cat`
 orphaned under pid 1. The verifier runs unsandboxed and leaves none. Run
 a mutation that is meant to hit the timeout unsandboxed, or look for and
@@ -90,8 +92,8 @@ kill the orphan afterwards.
 
 - How newer bash releases treat a false `[[` under `set -e` is unverified
   here. A script that also runs on Linux still needs `|| fail` for macOS.
-- The self-check matches only a line that is just a `[[ … ]]` statement.
-  `[[ … ]] # note`, `[[ … ]]; ok`, and an assertion continued across lines
-  pass it.
+- The self-check matches a line that is a `[[ … ]]` statement, alone or
+  followed by `&&` or a comment. `[[ … ]]; ok` and an assertion continued
+  across lines pass it.
 - `if [[ … ]]; then exit 1; fi` and `jq -e` assertions already fail and
   need no change.

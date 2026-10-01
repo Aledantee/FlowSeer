@@ -107,9 +107,12 @@ Rules each RPC carries (the parent's relation table names the relations):
 | `CaptureService.DownloadCaptureSession` | request | `capture_session` | `download` | `session.capture_session.id` |
 
 Session RPCs check the session, not the edge its ref names. The capture
-store reads a session by its id alone (`Store.Session` in
-`src/services/device/internal/captureapi/store.go`), so a check on the
-request's edge would authorize one edge and read another's session.
+store reads a session by tenant and session id through
+`Store.Session(ctx, tenantID, sessionID)`
+(`src/services/device/internal/captureapi/store.go:160`). Within a tenant,
+the request edge ref and stored session edge can differ, so RPCs check the
+session rather than the request edge. A check on the request's edge would
+authorize one edge and read another's session.
 `capture_session#manage` derives from the session's stored edge instead.
 
 `CreateCaptureSession` with `full_payload_requested` also needs
@@ -283,7 +286,8 @@ go test ./test/conformance/proto/ ./src/services/device/internal/authn/ ./src/se
 
 ## Open questions
 
-- Waits on the parent plan's reconciliation question.
+- Re-plans against a tree holding `model/identity`, `src/common/tenant`, and
+  tenant-partitioned stores.
 - Whether a nested value name inside an option literal trips buf's export
   rule for edition 2024. `buf lint` on U1's draft settles it. A top-level
   `RuleMode` enum avoids the question.

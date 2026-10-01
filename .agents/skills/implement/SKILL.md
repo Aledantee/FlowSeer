@@ -99,7 +99,9 @@ For each unit:
    - When the unit adds or removes a name in a repository-wide namespace (an
      error code, a telemetry scope, an event or metric name, a bus subject, a
      bucket), grep the tree for it: no per-package gate sees two owners.
-   - Commit the unit.
+   - Commit the unit, a body of several paragraphs on standard input
+     (`git commit -F -`) or as one `-m` each: `-m "a\n\nb"` stores the
+     backslashes, not line breaks.
    - Run the verifier for the unit's paths, sandbox disabled, in the
      background while you read on, as the last command of its invocation (a
      trailing `echo` or `tail` reports its own exit code as the gate's):
@@ -112,13 +114,17 @@ For each unit:
    units together and say so.
 6. Once that run's last line reads `FlowSeer verification passed.` (quote it
    verbatim in the report), run `ledger.py set U1 passed`, which records `HEAD`
-   and the receipt's `verified_at` and moves `resume` on. Add `--note` only for
+   and the receipt's `verified_at` and moves `resume` on. It refuses a commit
+   with nothing committed since the unit went `in_progress`, since a commit
+   from an earlier round is not this unit's. Add `--note` only for
    a decision or pitfall the next unit needs, in one line. In Orca, set the
    worktree comment to the unit that landed.
 
 A unit still red after three verifier rounds is `blocked`
 (`ledger.py set U1 blocked --note "<reason>"`), and the Finish question offers
-taking it back to `plan`.
+taking it back to `plan`. It holds back only the units whose `After` chain
+reaches it: every other unit still runs in its wave. Example: with U1
+blocked, U5 (`After: none`) runs and U2 (`After: U1`) waits.
 
 Never write plan labels (`U2`, `R4`) or a plan filename into code, comments,
 or commit messages.

@@ -153,7 +153,7 @@ direction record treats as the most restricted data this system holds. Nothing
 scopes a session to the operator who created it: `authorization.requested_by`
 is an `OperatorRef` the caller writes about itself, and nothing verifies it.
 The relations each capture RPC will be checked against are proposed in the
-[capture direction record](../../../docs/architecture/2026-09-09-remote-packet-capture-direction.md#2026-09-28--operator-identity-and-the-relations-capture-needs).
+[capture direction record](../../../docs/architecture/2026-09-09-remote-packet-capture-direction.md#every-capture-is-bounded-and-authorized).
 
 The request body limit is also narrower than it looks: it wraps only the
 middleware-mounted paths, so `DeviceService`, `EdgeAdminService` and
@@ -163,8 +163,8 @@ middleware too, and carries its own per-message bound instead.
 
 This gap is accepted for now rather than overlooked. Authorization for the
 operator and admin surfaces is a named follow-up in the
-[operator authorization record](../../../docs/architecture/2026-09-28-operator-authorization-direction.md),
-which decides how the gap closes. Until the enforcement that record decides
+[operator authorization record](../../../docs/architecture/2026-09-30-operator-authorization-direction.md#every-rpc-declares-its-rule),
+which describes how the gap closes. Until the enforcement that record describes
 lands, the deployment's network boundary is the only thing in front of
 `DeviceService`, `EdgeAdminService`, and `CaptureService`. Do not expose the API
 port beyond it, and understand that what the boundary is protecting is the
@@ -174,9 +174,9 @@ There is also no operator action trail: nothing records that someone created
 an edge, minted or revoked a setup key, or retired one. Minting a setup key
 is the most privileged action here, and after an incident there is no way to
 answer who minted which key for which edge. The audit stream is
-device-scoped by design and is not that trail; the operator authorization
-record's [Actions leave a trail](../../../docs/architecture/2026-09-28-operator-authorization-direction.md#actions-leave-a-trail)
-section decides the trail that closes this gap.
+device-scoped by design and is not that trail. The operator authorization
+record's [The operator action trail ships with authorization](../../../docs/architecture/2026-09-30-operator-authorization-direction.md#the-operator-action-trail-ships-with-authorization)
+section describes the trail that closes this gap.
 
 Operator calls run as `dev_tenant` (or `default` when unset) through
 `TenantInterceptor` in `internal/host/interceptor.go`.

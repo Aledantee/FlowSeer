@@ -66,7 +66,7 @@ def check_unit(index: int, unit: object) -> None:
         status in STATUSES,
         f"{where}.status must be one of {', '.join(STATUSES)}, got {status!r}",
     )
-    for field in ("commit", "verified_at", "note"):
+    for field in ("commit", "verified_at", "note", "base"):
         value = unit.get(field)
         expect(value is None or isinstance(value, str), f"{where}.{field} must be a string or null")
     if status == "passed":

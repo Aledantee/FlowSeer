@@ -13,12 +13,16 @@ diff covers tracked changes and untracked files alike. Explicit paths
 limit it to the task's own changes when the worktree holds others.
 
 Plans write the field two ways, `Files: ...` and `- **Files:**` with the
-paths on the following lines; the entries are backtick-quoted, comma
-separated, may run over several lines, and a later entry with no slash is
-a file in the directory of the entry before it. A directory entry covers
-everything under it, `{a,b}` braces expand, and a quoted word with neither
-a slash nor a dot is a symbol named in an aside, not a file. The plan
-itself and `docs/plans/` are never a deviation.
+paths on the following lines; the entries are comma separated,
+backtick-quoted or bare, may run over several lines, and a later quoted
+entry with no slash is a file in the directory of the entry before it. A
+directory entry covers everything under it, `{a,b}` braces expand, and a
+word with neither a slash nor a dot is a symbol named in an aside, not a
+file. On a line with no backticks every entry is a full path, a
+parenthesised aside (`(regenerated)`) is dropped, and an entry holding a
+space is prose. A line that mixes both forms keeps only its quoted
+entries. The plan itself and
+`docs/plans/` are never a deviation.
 
 Prints two lists and exits 0; the caller quotes them. Exits 2 on a plan
 without units or a base git cannot resolve.
@@ -35,6 +39,17 @@ UNIT = re.compile(r"^###\s+(U\d+[a-z]?)[.:]\s")
 FIELD = re.compile(r"^(?:-\s+)?\**([A-Z][a-z]+)\**:\**\s*(.*)$")
 QUOTED = re.compile(r"`([^`]+)`")
 BRACES = re.compile(r"\{([^{}]*)\}")
+ASIDE = re.compile(r"\([^()]*\)")
+COMMA = re.compile(r",(?![^{}]*\})")
+
+
+def entries(text: str) -> tuple[list[str], bool]:
+    """The path entries on one line of a Files field, and whether they are quoted."""
+    quoted = QUOTED.findall(text)
+    if quoted:
+        return quoted, True
+    bare = (item.strip().removeprefix("- ").strip() for item in COMMA.split(ASIDE.sub("", text)))
+    return [item for item in bare if item and not re.search(r"\s", item)], False
 
 
 def expand(entry: str) -> list[str]:
@@ -61,13 +76,16 @@ def units(plan: Path) -> dict[str, list[str]]:
             result[current] = []
             in_files = False
             continue
+        text = line
         field = FIELD.match(line.strip())
         if field and not line.startswith((" ", "\t")):
             in_files = field.group(1) == "Files"
             last_dir = ""
+            text = field.group(2)
         if not (in_files and current):
             continue
-        for item in QUOTED.findall(line):
+        items, quoted = entries(text)
+        for item in items:
             item = item.strip()
             is_dir = item.endswith("/")
             item = item.rstrip("/")
@@ -75,7 +93,9 @@ def units(plan: Path) -> dict[str, list[str]]:
                 continue
             if "/" not in item and "." not in item and not is_dir:
                 continue
-            if "/" not in item and last_dir:
+            # A bare list writes every path in full, so a root file in it
+            # (`AGENTS.md`) is not a sibling of the entry before it.
+            if "/" not in item and last_dir and quoted:
                 item = f"{last_dir}/{item}"
             for expanded in expand(item):
                 result[current].append(expanded)
