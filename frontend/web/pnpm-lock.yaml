@@ -28,12 +28,18 @@ importers:
       '@vue-flow/minimap':
         specifier: ^1.5.4
         version: 1.5.4(@vue-flow/core@1.48.2(vue@3.5.43(typescript@6.0.3)))(vue@3.5.43(typescript@6.0.3))
+      '@vueuse/core':
+        specifier: ^14.4.0
+        version: 14.4.0(vue@3.5.43(typescript@6.0.3))
       elkjs:
         specifier: ^0.12.0
         version: 0.12.0
       motion:
         specifier: ^13.4.5
         version: 13.4.5(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      motion-v:
+        specifier: ^2.5.1
+        version: 2.5.1(@vueuse/core@14.4.0(vue@3.5.43(typescript@6.0.3)))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vue@3.5.43(typescript@6.0.3))
       reka-ui:
         specifier: ^2.10.5
         version: 2.10.5(vue@3.5.43(typescript@6.0.3))
@@ -3145,6 +3151,12 @@ packages:
       }
     engines: { node: '>= 0.4' }
 
+  hey-listen@1.0.8:
+    resolution:
+      {
+        integrity: sha512-COpmrF2NOg4TBWUJ5UVyaCU2A88wEMkUPK4hNqyCkqHbxT92BbvfjoSozkAIIm6XhicGlJHhFdullInrdhwU8Q==,
+      }
+
   hookable@5.5.3:
     resolution:
       {
@@ -3923,6 +3935,15 @@ packages:
       {
         integrity: sha512-sgSschQp7EseHInIlR7hBbMuvet3RA0bs28KPZAXJcGKGdxHGvh1ogpYDilY3bOMtl73EqPNmp75sAKHYPU5sg==,
       }
+
+  motion-v@2.5.1:
+    resolution:
+      {
+        integrity: sha512-0zkYUiDZmzkBACh5TF4JuguGAF/Hv08YpCfH1Gbj1U/WTz195kEliONbVorYVWgDaveDF4EBGAUx2klxRuesdw==,
+      }
+    peerDependencies:
+      '@vueuse/core': '>=10.0.0'
+      vue: '>=3.0.0'
 
   motion@13.4.5:
     resolution:
@@ -7117,6 +7138,8 @@ snapshots:
     dependencies:
       function-bind: 1.1.2
 
+  hey-listen@1.0.8: {}
+
   hookable@5.5.3: {}
 
   hookified@1.15.1: {}
@@ -7495,6 +7518,18 @@ snapshots:
       motion-utils: 13.3.0
 
   motion-utils@13.3.0: {}
+
+  motion-v@2.5.1(@vueuse/core@14.4.0(vue@3.5.43(typescript@6.0.3)))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vue@3.5.43(typescript@6.0.3)):
+    dependencies:
+      '@vueuse/core': 14.4.0(vue@3.5.43(typescript@6.0.3))
+      framer-motion: 13.4.5(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      hey-listen: 1.0.8
+      motion-dom: 13.4.5
+      motion-utils: 13.3.0
+      vue: 3.5.43(typescript@6.0.3)
+    transitivePeerDependencies:
+      - react
+      - react-dom
 
   motion@13.4.5(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
     dependencies:
