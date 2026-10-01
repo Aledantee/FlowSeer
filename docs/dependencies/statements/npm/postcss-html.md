@@ -10,7 +10,7 @@ approved: ""
 
 ## Why it is required
 
-`frontend/web/.stylelintrc.json:6` selects `postcss-html` as the custom syntax for Vue files. The `frontend/web/package.json:15` lint script runs Stylelint over CSS and Vue files. The pinned direct requirement is `postcss-html` at `2.0.0` in `frontend/web/package.json`.
+`frontend/web/.stylelintrc.json:7` selects `postcss-html` as the custom syntax for Vue files. The `frontend/web/package.json:15` lint script runs Stylelint over CSS and Vue files. The pinned direct requirement is `postcss-html` at `2.0.0` in `frontend/web/package.json`.
 
 ## Why it is safe
 

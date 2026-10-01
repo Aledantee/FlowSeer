@@ -10,7 +10,7 @@ approved: ""
 
 ## Why it is required
 
-`frontend/web/.stylelintrc.json:4` loads `stylelint-declaration-strict-value`, and `frontend/web/.stylelintrc.json:8` configures its declaration-value rule. The pinned direct requirement is `stylelint-declaration-strict-value` at `1.12.1` in `frontend/web/package.json`.
+`frontend/web/.stylelintrc.json:3` loads `stylelint-declaration-strict-value`, and `frontend/web/.stylelintrc.json:12` configures its declaration-value rule. The pinned direct requirement is `stylelint-declaration-strict-value` at `1.12.1` in `frontend/web/package.json`.
 
 ## Why it is safe
 
