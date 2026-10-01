@@ -4,11 +4,13 @@ type: fix
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 ---
 
 # Harness Gates and Waiting - Plan
+
+> Implemented. 3 phases, the last landed 2026-10-01.
 
 ## Goal
 
@@ -92,7 +94,7 @@ Landed: `ea366104..69b9117c`
 ### U2. Hook assertions and input
 Files: `docs/plans/2026-09-30-2000-fix-harness-gates-and-waiting-phase2-plan.md`
 After: none
-Landed:
+Landed: `b500dc93..b500dc93`
 
 ### U3. Waiting and rework
 Files: `docs/plans/2026-09-30-2000-fix-harness-gates-and-waiting-phase3-plan.md`
