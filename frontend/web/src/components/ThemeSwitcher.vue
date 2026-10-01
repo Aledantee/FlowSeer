@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { UiTooltip } from '../ui'
+import { UiTooltip, useMotionFeedback } from '../ui'
 import { onMounted, onUnmounted, ref, watch } from 'vue'
-import { useMotionFeedback } from '../motion/useMotionFeedback'
 import AppIcon from './AppIcon.vue'
 
 const { play } = useMotionFeedback()
@@ -49,9 +48,8 @@ watch(
       sun.value,
       {
         opacity: dark ? [1, 0] : [0, 1],
-        transform: dark
-          ? ['rotate(0deg) scale(1)', 'rotate(45deg) scale(0.65)']
-          : ['rotate(-45deg) scale(0.65)', 'rotate(0deg) scale(1)'],
+        rotate: dark ? [0, 45] : [-45, 0],
+        scale: dark ? [1, 0.65] : [0.65, 1],
       },
       0.16,
     )
@@ -59,9 +57,8 @@ watch(
       moon.value,
       {
         opacity: dark ? [0, 1] : [1, 0],
-        transform: dark
-          ? ['rotate(-35deg) scale(0.65)', 'rotate(0deg) scale(1)']
-          : ['rotate(0deg) scale(1)', 'rotate(35deg) scale(0.65)'],
+        rotate: dark ? [-35, 0] : [0, 35],
+        scale: dark ? [0.65, 1] : [1, 0.65],
       },
       0.16,
     )
