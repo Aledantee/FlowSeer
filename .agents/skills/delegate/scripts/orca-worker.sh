@@ -61,12 +61,17 @@ working() { grep -q -i -E 'esc( to)? (interrupt|cancel)' <<<"$1"; }
 launch_line() {
   local cli=$1 model=$2 effort=${3:-} line
   case "$cli" in
+    # A safety-classifier flag must not silently move a Claude worker to the
+    # fallback model for the rest of its session: with switching off, the
+    # worker stops at the switch-or-edit prompt, which a screen read shows.
     claude) [[ -n $model ]] || die "--model is required for claude"; line="claude --model $model --dangerously-skip-permissions --settings '{\"switchModelsOnFlag\":false}'${effort:+ --effort $effort}" ;;
     codex)  [[ -n $model ]] || die "--model is required for codex"; line="codex -a never --sandbox danger-full-access -c check_for_update_on_startup=false -c background_terminal_max_timeout=3600000 -m $model${effort:+ -c model_reasoning_effort=$effort}" ;;
     agy)    [[ -n $model ]] || die "--model is required for agy"; [[ -z $effort ]] || die "--effort does not apply to agy: it is part of the model id"; line="agy --model $model --dangerously-skip-permissions" ;;
     omp)    [[ -n $model ]] || die "--model is required for omp, as provider/model"; line="omp --model $model${effort:+ --thinking $effort}" ;;
     *) die "unknown cli $cli" ;;
   esac
+  # A Claude worker started under this session's child-session variables runs
+  # with transcript saving off.
   printf 'env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_CHILD_SESSION %s\n' "$line"
 }
 wait_sleep() {
@@ -207,9 +212,6 @@ case "$cmd" in
     }
     base_sha=$(git -C "$path" rev-parse HEAD 2>&1) || undo "cannot resolve initial HEAD at $path: $base_sha"
 
-    # A safety-classifier flag must not silently move a Claude worker to the
-    # fallback model for the rest of its session: with switching off, the
-    # worker stops at the switch-or-edit prompt, which a screen read shows.
     line=$(launch_line "$cli" "$model" "$effort")
     started=$(orca terminal create --worktree "id:$wt" --title "$lane" --command "$line" --json 2>&1) \
       || undo "terminal create failed: $started"
@@ -322,12 +324,13 @@ case "$cmd" in
     while :; do
       out=$(orca terminal wait --terminal "$term" --for tui-idle --timeout-ms 60000 --json 2>&1)
       st=$(printf '%s' "$out" | json 'd["result"]["wait"]["status"]')
-      [[ $st == exited ]] && { outcome=exited; show_screen=false; break; }
+      [[ $st == exited ]] && { outcome=exited; break; }
 
-      child_names=() child_terms=() child_first=() child_readable=()
+      child_names=() child_terms=() child_first=() child_readable=() child_ids=()
       if kids=$(children "$wt"); then
         if [[ -n $kids ]]; then
-          while IFS= read -r child; do
+          read -r -a child_ids <<<"$kids"
+          for child in "${child_ids[@]}"; do
             info=$(child_info "$child")
             child_name=${info%%$'\t'*}
             child_term=${info#*$'\t'}
@@ -345,7 +348,7 @@ case "$cmd" in
               child_first+=('')
               child_readable+=(false)
             fi
-          done <<< "$kids"
+          done
         fi
       else
         child_names+=(unreadable)
@@ -390,24 +393,16 @@ case "$cmd" in
       last_lane=$s1
 
       if [[ $lane_idle == true && $child_active == false ]]; then
+        if [[ -n $until_cmd ]] && (cd "$path" && bash -c "$until_cmd" >/dev/null 2>&1); then
+          outcome='done'
+          break
+        fi
         if ((${#child_names[@]} == 0)); then
-          if [[ -n $until_cmd ]] && (cd "$path" && bash -c "$until_cmd" >/dev/null 2>&1); then
-            outcome='done'
-          elif [[ -n $until_cmd ]]; then
-            outcome=idle
-          else
-            outcome=idle
-          fi
+          outcome=idle
           break
         fi
         if (( stall > 0 && now - since >= stall )); then
-          if [[ -n $until_cmd ]] && (cd "$path" && bash -c "$until_cmd" >/dev/null 2>&1); then
-            outcome='done'
-          elif [[ -n $until_cmd ]]; then
-            outcome="idle-children ${child_names[*]}"
-          else
-            outcome="idle-children ${child_names[*]}"
-          fi
+          outcome="idle-children ${child_names[*]}"
           break
         fi
       elif [[ $lane_idle == false && $child_active == false && $stall -gt 0 && $((now - since)) -ge $stall ]]; then
@@ -415,10 +410,6 @@ case "$cmd" in
         break
       fi
 
-      if (( now >= deadline )); then
-        outcome=timeout
-        break
-      fi
       wait_sleep "$deadline" || { outcome=timeout; break; }
     done
     echo "$outcome"
@@ -535,5 +526,5 @@ case "$cmd" in
     out=$(orca worktree rm --worktree "id:$wt" --json 2>&1) || die "worktree rm refused: $out"
     rm -f "$state_dir/$name.json" || die "cannot remove lane state for $name"
     ;;
-  *) sed -n '2,23p' "$0" >&2; exit 2 ;;
+  *) sed -n '2,25p' "$0" >&2; exit 2 ;;
 esac

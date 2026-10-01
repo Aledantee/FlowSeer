@@ -53,15 +53,20 @@ Full handoff.
 - `wait` does not trust `orca terminal wait --for tui-idle` alone: it was
   seen satisfied while a worker was mid-turn. The lane and each child are
   quiet only after two reads five seconds apart show no "esc to interrupt"
-  or "esc to cancel" hint and the same screen. It prints `idle` for a quiet
-  lane without children, `idle-children <names>` for a quiet lane with
-  children, `done` when `--until <command>` also succeeds, `exited` when the
-  terminal cannot be read, `stalled` when a working screen stays unchanged
-  for `--stall` seconds, and `timeout` at the positive `--max` ceiling.
-  `--max` defaults to 3600 seconds, and `--stall 0` disables the stalled and
-  child-idle clock. A child without a state terminal and an unreadable child
-  count as quiet. `--timeout` is refused. The screen follows every outcome
-  except `exited`.
+  or "esc to cancel" hint and the same screen. It keeps waiting while a child
+  works or its screen changes. When the lane is quiet and no child works,
+  `--until <command>` runs first in the lane checkout. Success prints `done`.
+  A failing command falls through to `idle` without children or to
+  `idle-children <names>` after the child-idle clock. A child without a state
+  file is named by its raw worktree id. A child without a readable terminal is
+  named by its lane name. A failed child query is named `unreadable`. These
+  cases count as quiet. `stalled` means the lane is still working, no child is
+  working, and the lane screen stayed unchanged for `--stall` seconds.
+  `timeout` is the positive `--max` ceiling. `--max` defaults to 3600 seconds,
+  and `--stall 0` disables the stalled and child-idle clock. `--timeout` is
+  refused. The screen follows every outcome except an `exited` result caused
+  by a failed screen read. An `exited` status from `terminal wait` is followed
+  by the screen.
 - `line --cli <cli> --model <id> [--effort <level>]` prints the launch line
   used by `start`. Codex lines include
   `-c background_terminal_max_timeout=3600000`, so a coordinator can poll
@@ -89,9 +94,10 @@ Full handoff.
   branch -d` follows, and an unmerged lane removed that way would lose its
   commits.
 
-The behavior above was measured on the earlier `opencode` lane on Orca
-1.4.203. The Codex launch and its hooks-review answer were measured on codex
-0.157.1. The `agy`, `omp`, and `claude` lanes start through this script, but
+The lane-only behavior above was measured on the earlier `opencode` lane on
+Orca 1.4.203. The Codex launch and its hooks-review answer were measured on
+codex 0.157.1. Child-aware waiting and the Codex poll cap are unverified on a
+live Orca. The `agy`, `omp`, and `claude` lanes start through this script, but
 their behavior here is not measured.
 
 ## When a step fails
@@ -104,8 +110,12 @@ their behavior here is not measured.
 - `wait` prints `idle` and the screen shows a dialog: a permission prompt
   the brief anticipated is answered with `keys <slug> <text>`; anything
   else is reported to the user with the screen text.
-- `wait` prints `idle-children <names>`: read the lane and each named child,
-  then `tell` a lane that stopped waiting to continue.
+- `wait` prints `idle-children <names>`: read the parent lane and each named
+  child, then `tell` a lane that stopped waiting to continue. A state-file
+  name is a lane slug and can be passed to `read`. A child without a state
+  file is shown as its raw worktree id and has no terminal handle for this
+  script to read. `unreadable` means the child query failed, so check Orca and
+  run the wait again. `read unreadable` is not a valid lane lookup.
 - `wait` prints `stalled`: the screen showed a turn in progress and did not
   change for 20 minutes (`--stall <seconds>`), usually a hung model stream
   that Escape may not reach. Read the screen first, since an `agy` or `omp`
