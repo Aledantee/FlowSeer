@@ -1,0 +1,8 @@
+module example.test/direct
+
+go 1.27
+
+require example.test/upgraded v1.0.0
+
+replace example.test/upgraded => ../upgraded
+replace example.test/leaf => ../leaf

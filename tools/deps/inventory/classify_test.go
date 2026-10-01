@@ -83,6 +83,40 @@ func TestClassifyUsesEveryModuleGraph(t *testing.T) {
 	}
 }
 
+func TestClassifyUsesSelectedVersionsForVia(t *testing.T) {
+	root, modules := mvsFixture(t)
+	entries := []Entry{
+		{
+			Ecosystem: "go",
+			Name:      "example.test/upgraded",
+			Version:   "v1.1.0",
+			Manifests: []string{"go.sum"},
+		},
+		{
+			Ecosystem: "go",
+			Name:      "example.test/leaf",
+			Version:   "v1.0.0",
+			Manifests: []string{"go.sum"},
+		},
+		{
+			Ecosystem: "go",
+			Name:      "example.test/upgraded",
+			Version:   "v1.1.0",
+			Manifests: []string{"generated/go/yang/go.sum"},
+		},
+	}
+
+	classified, err := Classify(root, modules, entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range classified {
+		if !containsString(entry.Via, "example.test/direct") {
+			t.Errorf("%s via = %#v, want selected graph's direct importer", entry.Name, entry.Via)
+		}
+	}
+}
+
 func classifyFixture(t *testing.T) (string, []Module) {
 	t.Helper()
 	root := copyFixtureTree(t, filepath.Join("testdata", "classify"))
@@ -94,6 +128,29 @@ func classifyFixture(t *testing.T) (string, []Module) {
 		if err := os.Rename(path, filepath.Join(filepath.Dir(path), "go.mod")); err != nil {
 			t.Fatal(err)
 		}
+	}
+
+	modules, err := DiscoverModules(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return root, modules
+}
+
+func mvsFixture(t *testing.T) (string, []Module) {
+	t.Helper()
+	root := copyFixtureTree(t, filepath.Join("testdata", "mvs"))
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || entry.Name() != "go.mod.fixture" {
+			return nil
+		}
+		return os.Rename(path, filepath.Join(filepath.Dir(path), "go.mod"))
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	modules, err := DiscoverModules(root)
