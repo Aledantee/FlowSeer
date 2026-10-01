@@ -4,64 +4,33 @@ type: refactor
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: implemented
+status: planned
 review: rework
-execution: code
-amends: docs/architecture/2026-09-28-web-component-contract-direction.md
+execution: mixed
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
 ---
 
 # Web Component Contract Migration, Phase 2 - motion-v Replaces motion/mini - Plan
 
-> Implemented. 4 units, 2026-10-01T13:15:44Z to 2026-10-01T14:00:14Z.
+> Re-planned for rework. The migration is present. The four units below are pending.
 
 ## Goal
 
-JavaScript motion runs on motion-v. `UiAppRoot` sets
-`MotionConfig reducedMotion="user"` once. The three callers of
-`useMotionFeedback` (`FleetView.vue`, `WorkspacePage.vue`,
-`ThemeSwitcher.vue`) move to motion-v. Where the sidebar resize is a
-layout change, its hand-rolled read, `nextTick`, read, play sequence
-gives way to motion-v's `layout` animation. The `motion` package is
-removed once nothing imports it. The means: motion-v is imported only
-under `frontend/web/src/ui/motion/`, and views take `UiMotion` and
-`useMotionFeedback` from the `src/ui` barrel.
+Rebuild `useMotionFeedback` on motion-v's `animateMini` so cancellation,
+replacement, and completion restore the inline styles each play owns.
+Cancel or resize followed by play before the next frame leaves no discarded
+transform. Native-effect tests and browser measurements prove cleanup.
 
-Stop condition: in a real browser, `layout` cannot resize the sidebar
-without stretching its content. The sidebar would then need a mechanism
-this plan does not name.
+Stop condition: Mini cannot meet this cleanup contract alongside layout.
+Report the failing case before changing dependencies or the layout mechanism.
 
 ## Decisions
 
-`dist/` and `lib/` paths are inside the published package at the named
-version, under `frontend/web/node_modules/` once U1 has installed it (pnpm
-keeps transitive packages under `.pnpm/`). Other bare paths are relative to
-`frontend/web/`. The four units form one cluster, so this stays one plan.
-
-- **The contract's 2026-09-28 amendment governs.** It approves `motion-v`
-  and `@vueuse/core` and the removal of `motion`, which is the approval the
-  `web-component` skill's dependency step asks for. That step still applies
-  to any other package. `hey-listen` arrives only as motion-v's dependency.
-- **`motion-v` `^2.5.1` and `@vueuse/core` `^14.4.0`.** motion-v 2.5.1 is
-  the registry's latest (MIT, published 2026-09-28) and has the peer
-  `@vueuse/core >=10.0.0`. The lockfile already holds 14.4.0 for `reka-ui`,
-  and the registry's 15.0.0 would add a third copy.
-- **One copy each of `motion-dom` and `motion-utils`, checked in the
-  lockfile.** motion-v depends on `framer-motion`, `motion-dom`, and
-  `motion-utils` at `^13.3.0`. Through `motion` the lockfile holds 13.4.5,
-  13.4.5, and 13.3.0. The registry published 13.5.0 of each on 2026-10-01,
-  and whether pnpm 11.25.0 reuses the locked ones is unverified. motion-v
-  imports `motion-dom` directly and through `framer-motion/dom`
-  (`dist/es/index.mjs`), so two copies would each hold their own
-  reduced-motion state (`dist/es/render/utils/reduced-motion/state.mjs`).
-  U1 and U4 run the check below. It prints three lines. On more, the unit
-  stops and reports the versions, since `pnpm dedupe`, the likely remedy,
-  can move unrelated packages.
-
-  ```bash
-  grep -oE "^  (framer-motion|motion-dom|motion-utils)@[0-9][^:(]*" \
-    frontend/web/pnpm-lock.yaml | sort -u
-  ```
+- This is rework of the same unaccepted phase. Phase 1's `102193b1` is an
+  ancestor of HEAD. Phase 2's `Landed:` is empty on `main`. Both
+  [phase re-plan checks](../../.agents/skills/plan/references/replan-phase.md)
+  pass. `status: planned` makes `.claude/skills/drive/scripts/plan-state.py` select
+  `implement`. `review: rework` retains the existing code's verdict.
 - **motion-v is imported only under `src/ui/motion/`.** Its `index.ts`
   exports motion-v's `Motion` as `UiMotion`, its `MotionConfig` as
   `UiMotionConfig`, and the moved `useMotionFeedback`. The parent's
@@ -77,262 +46,254 @@ keeps transitive packages under `.pnpm/`). Other bare paths are relative to
   keeps none. This replaces U1's "play runs motion-v's `animate`" and the
   tests that read an inline `transform` mid-flight. (decided by the user,
   2026-10-01)
-- **`UiAppRoot` mounts the config with `reducedMotion="user"` and
-  `transition { duration: 0.14, ease: [0.2, 0, 0, 1] }`.** motion-v
-  defaults to `"never"` (`dist/es/components/motion-config/context.mjs`)
-  and gives a component without its own `transition` the config's
-  (`dist/es/utils/resolve-motion-props.mjs`). The values are
-  `--duration-base` and `--ease-out` in `src/theme/tokens.css`.
-- **Components take reduced motion from that config.** motion-dom 13.4.5
-  then ends positional keys and layout animations at once and keeps playing
-  opacity (`dist/es/animation/interfaces/visual-element-target.mjs:85`,
-  `dist/es/projection/node/create-projection-node.mjs:328`). A component
-  reads the preference when it mounts (`dist/es/render/VisualElement.mjs:205`).
-  The highlight remounts on every navigation. The sidebar nodes stay
-  mounted, so `toggleSidebar` checks the preference itself.
-- **`useMotionFeedback` drops movement itself under reduced motion and
-  plays only `opacity`.** motion-v's `animate` ignores the config, since
-  `useAnimate` forwards only `skipAnimations`
-  (`dist/es/animation/hooks/use-animate.mjs`). motion-dom's `reduceMotion`
-  option jumps a positional key to its end value, which would show the
-  outgoing theme icon rotated before it fades. `play` therefore takes
-  `opacity`, `x`, `y`, `rotate`, and `scale` as `[from, to]` number pairs,
-  where a `transform` string would hide which part is movement.
-- **The nav highlight is a shared layout element, `layoutId`.** The span
-  unmounts in one link and mounts in the next (`src/FleetView.vue:918`),
-  which replaces the hand-written FLIP at `src/FleetView.vue:354`.
-- **The sidebar resize is a layout change and uses `layout`.** Only the
-  `sidebar-collapsed` class on `.shell` changes `.sidebar`'s width and
-  `.main-shell`'s `margin-left` (`src/style.css:50`, `156`, `162`, `218`).
-  - `layout` animates size through `scale`, which stretches children that
-    are not layout nodes
-    ([layout animation](https://motion.dev/docs/vue-layout-animations)).
-    `layout="position"` slides a node and lets its size snap, so
-    `.main-shell` and the sidebar's children take it.
-  - motion-v measures a node in `onBeforeUpdate`
-    (`dist/es/components/motion/use-motion-state.mjs:95`), and with
-    `layoutDependency` set only when that value changes
-    (`dist/es/features/layout/layout.mjs:50`). The class sits on an
-    ancestor, so the nodes share a counter. It moves only at
-    `(min-width: 801px)` with reduced motion off. Below that width today's
-    code animates nothing except the nav fade (`src/FleetView.vue:395`).
-  - Projection writes inline `transform`, which would override the
-    toggle's `transform: translateY(-50%)` (`src/style.css:91`).
-- **Test shim: the repository's `matchMedia` stub stays, and no
-  `offsetParent` stub is added.**
-  - motion-v's own setup has none to copy. Its
-    [`vitest.config.ts`](https://raw.githubusercontent.com/motiondivision/motion-vue/v2.5.1/packages/motion/vitest.config.ts)
-    sets `environment: 'jsdom'` and no `setupFiles`, its `test` script is
-    `vitest --dom`, and its layout, config, and `useAnimate` tests stub
-    neither.
-  - happy-dom 20.14.5 defines no `offsetParent`, which motion-v's
-    `isHidden` compares with `null` (`dist/es/utils/is-hidden.mjs`). It
-    implements `Element.animate` (`lib/nodes/element/Element.js:1083`) and
-    answers the media query from its settings
-    (`lib/match-media/MediaQueryItem.js:187`), so the stub only selects the
-    reduced path.
-  - motion-dom keeps the first `MediaQueryList` it reads
-    (`dist/es/render/utils/reduced-motion/index.mjs:4`). A file that mounts
-    motion components installs the stub before its first mount, and
-    normal-motion cases live in a file without it.
+- The ownership amendment above is already present in
+  `docs/architecture/2026-09-28-web-component-contract-direction.md`,
+  section `2026-10-01`. Its paths and reduced-motion rules remain binding.
+  The dated decision names migration input. `src/motion/` is absent.
+  U4 updates guidance without another direction change.
+- Keep the versions in `frontend/web/pnpm-lock.yaml`: motion-v 2.5.1,
+  framer-motion and motion-dom 13.4.5, motion-utils 13.3.0, @vueuse/core
+  14.4.0, and happy-dom 20.14.5. No package is added, removed, or upgraded.
+- Keep the typed `opacity | x | y | rotate | scale` numeric pairs on
+  `play(element, keyframes, duration = 0.14)`. Compile movement to one
+  `transform` pair in the order translateX, translateY, rotate, scale.
+  Include only supplied keys, with px for translation and deg for rotation.
+  This keeps reduced-motion filtering explicit and prevents omitted keys
+  inheriting another play's values. Source: Mini's CSS-property path below.
+- Pass `[element]` to `animateMini`. Single-element resolution uses
+  `instanceof EventTarget`, while an array bypasses that check
+  (motion-dom `dist/es/utils/resolve-elements.mjs:5`). happy-dom's
+  `lib/window/WindowContextClassExtender.js:135` subclasses its global
+  EventTarget separately from the base inherited by `lib/nodes/node/Node.js:14`.
+  The array works with these locked versions without a prototype stub.
+- Each play owns only its supplied CSS properties and native animations.
+  Cancel the previous play and restore its owned styles synchronously
+  before taking the next snapshot. Mini's `cancel` removes its effect,
+  while `stop` can commit the sampled style. Mini commits final styles
+  on completion, so an identity-guarded `finished` handler restores them.
+  Why: the lifecycle sources below define different cancel and finish paths.
+- Keep `useMotionConfig` and `useReducedMotion` as the source of
+  `reduced`. Mini's native path has no config lookup or reduced-motion
+  branch. The composable filters movement itself, clears active plays when
+  effective reduced motion changes, and keeps fades. Source:
+  `motion-v/dist/es/animation/hooks/use-reduced-motion.mjs` and Mini below.
+- Keep FleetView's layout sidebar, highlight, and position-only children,
+  the inferred `UiMotion` prop type, and the app-root config. Keep
+  `UiMotionConfig` out of `src/ui/index.ts`. Their existing tests remain
+  acceptance checks. Phase 3 stays held until phase 2's review accepts this
+  rework, because its U1 edits `UiAppRoot.vue` and all five motion test files.
+
+```mermaid
+flowchart LR
+    active["Active play"] -->|cancel, resize, or clear| restored["Cancel owned effects and restore styles"]
+    active -->|finished and still current| restored
+    restored -->|play| replacement["Snapshot and start replacement"]
+    replacement --> active
+```
+
+### External sources
+
+Installed by `pnpm install --frozen-lockfile` in `frontend/web`.
+Paths below are under `frontend/web/node_modules/`.
+`framer-motion/` abbreviates
+`.pnpm/framer-motion@13.4.5_react-dom@19.3.0_react@19.3.0__react@19.3.0/node_modules/framer-motion/`.
+`motion-dom/` abbreviates `.pnpm/motion-dom@13.4.5/node_modules/motion-dom/`.
+
+| Source | Behavior used |
+| --- | --- |
+| `motion-v/dist/es/index.mjs:41`, `motion-v/dist/es/index.d.ts:1`, `framer-motion/dist/es/dom.mjs:5`, `framer-motion/dist/dom.d.ts:129` | Runtime and type exports expose `animateMini` through motion-v. |
+| `framer-motion/dist/es/animation/animators/waapi/animate-style.mjs`, `framer-motion/dist/es/animation/animators/waapi/animate-elements.mjs:42-106` | Mini creates native animations for the supplied CSS properties synchronously. It keeps a registry of animation controls, without hybrid transform MotionValues. |
+| `motion-dom/dist/es/animation/utils/active-animations.mjs` | The registry is a per-element map of controls. The value-store decision above does not mean there is no animation registry. |
+| `motion-dom/dist/es/animation/NativeAnimation.mjs:36-111`, `motion-dom/dist/es/animation/utils/WithPromise.mjs`, `motion-dom/dist/es/animation/GroupAnimation.mjs` | Finish writes final inline values, cancels native effects, then resolves the Motion promise. Cancel does not resolve that promise. Stop can commit styles. |
+| `motion-dom/dist/es/animation/waapi/start-waapi-animation.mjs` | Mini passes real CSS keyframes to `Element.animate`, with seconds converted to milliseconds and `fill: "both"`. |
+| `happy-dom/lib/nodes/element/Element.js:1083`, `happy-dom/lib/animation/Animation.js:139-165`, `happy-dom/lib/animation/KeyframeEffect.js:47-81` | Native controls and keyframes are observable. Playback does not interpolate inline styles. Finish dispatches an event, cancel rejects the native finished promise, and computed effect progress remains null. |
+
+Motion's [WAAPI example](https://motion.dev/docs/improvements-to-the-web-animations-api-dx),
+section `Independent transforms`, shows the full CSS transform Mini needs:
+
+```js
+element.animate({ transform: "translateX(50px) scaleX(2)" })
+```
+
+The composable produces `transform: ['translateY(-4px)', 'translateY(0px)']`
+for `y: [-4, 0]`. A browser proves interpolation.
 
 ## Requirements
 
-1. No file imports `motion/mini` or `motion`, and `package.json` no
-   longer lists `motion`.
-2. Under reduced motion, the sidebar and the scope highlight change
-   without movement. Example: with the media query emulated, collapsing
-   the sidebar sets its final width in the same frame.
-3. Tests that trigger motion run under happy-dom without throwing. The
-   re-plan decides the shim (an `offsetParent` stub, or the reduced-motion
-   stub the repository already uses) from motion-v's own test setup.
+1. Movement compiles to complete ordered CSS transform endpoints. Example:
+   `{ x: [17, 0], y: [-4, 0], rotate: [0, 45], scale: [1, 0.65] }`
+   gives `translateX(17px) translateY(-4px) rotate(0deg) scale(1)` and
+   `translateX(0px) translateY(0px) rotate(45deg) scale(0.65)`.
+2. Terminal paths restore owned inline values, including absence.
+   Example: start with opacity `0.93` and transform
+   `translateX(17px) scale(0.72) rotate(13deg)`, play both properties,
+   then complete, cancel, resize, change preference, or unmount. Those
+   values return with no owned native animation running.
+3. Cancellation and replacement are safe within one turn. Example:
+   play `y: [-40, -20]`, cancel or dispatch resize, then play
+   `opacity: [0.6, 1]` before a frame. The original transform is present
+   immediately and after completion, and the new fade runs. A completion
+   queued before replacement cannot cancel or restore over the new play.
+4. Replacement uses its own keys from the first observable frame. Example:
+   rotate/scale/opacity replaced by y/opacity has the new pairs, without
+   prior rotation, scale, or a baseline reset while it runs.
+5. Reduced motion keeps opacity and removes movement. Example: under
+   `"user"` with the query matching, or `"always"` without it,
+   y/opacity creates one running opacity animation. A movement-only play
+   cancels earlier feedback, restores its styles, and creates no animation.
+6. Cleanup preserves unrelated properties and animations. Example: change
+   a layout transform during an opacity-only play, then cancel. The changed
+   transform and an unrelated native animation survive. Repeated cancel is harmless.
+7. Below desktop width, expansion fades the nav from 0.6 to 1 over 100 ms
+   and returns its original inline opacity. Collapse creates no fade.
+   Existing layout, highlight, reduced-layout, tooltip, and prop-type
+   checks keep passing. No `motion` or `motion/mini` import returns.
 
 ## Out of scope
 
-- Overlay enter and exit, which stay on CSS keyframes as the amendment says.
-- CSS transitions motion-v does not drive: the toggle icon's rotation, the
-  pane `flex-basis`, and `TopologyGraph.vue`'s own reduced-motion check.
-- Strings in the touched views (phase 4), and a story for the shell.
-- A preference turned off mid-session, which mounted sidebar nodes miss.
+- Dependency changes, a new motion wrapper, layout redesign, overlays,
+  strings, and the phase 3 i18n work.
+- Simultaneous owners of the same CSS property on one element. The nav's
+  layout transform and feedback opacity remain separate.
+- Tests of interpolated browser values through happy-dom's inline styles.
 
 ## Units
 
-### U1. motion-v, the app-root config, and the src/ui motion surface
+### U1. Native feedback lifecycle and deterministic invariants
 
-Files: `frontend/web/package.json`, `frontend/web/pnpm-lock.yaml`, `frontend/web/src/ui/app/UiAppRoot.vue`, `frontend/web/src/ui/motion/index.ts`, `frontend/web/src/ui/motion/useMotionFeedback.ts`, `frontend/web/src/ui/motion/useMotionFeedback.test.ts`, `frontend/web/src/ui/motion/UiMotion.test.ts`, `frontend/web/src/ui/motion/UiMotion.reduced.test.ts`, `frontend/web/src/ui/index.ts`
+Files: `frontend/web/src/ui/motion/useMotionFeedback.ts`, `frontend/web/src/ui/motion/useMotionFeedback.test.ts`, `frontend/web/src/components/ThemeSwitcher.test.ts`
 After: none
 Change:
-- `package.json` lists `motion-v` and `@vueuse/core`. `motion` and
-  `src/motion/` stay until U4, so the callers keep working between units.
-- `src/ui/motion/index.ts` holds the three exports the Decisions name.
-  `src/ui/index.ts` re-exports `UiMotion` and `useMotionFeedback`, and
-  `UiAppRoot` renders `UiMotionConfig` inside `TooltipProvider`.
-- `useMotionFeedback()` returns `play(element, keyframes, duration = 0.14)`,
-  `cancel(element)`, and `reduced`. `reduced` is true when motion-v's
-  `useMotionConfig()` says `"always"`, or `"user"` while its
-  `useReducedMotion()` is true. `play` runs motion-v's `animate` with ease
-  `[0.2, 0, 0, 1]`, and passes on only the `opacity` pair while `reduced`.
-  After an animation ends or is cancelled, the element's inline `opacity`
-  and `transform` hold their values from before `play`. A window `resize`,
-  a preference change, and unmount cancel every running animation.
+- `play` compiles the typed pairs and calls `animateMini([element], …)`
+  with ease `[0.2, 0, 0, 1]` and the requested duration. Empty keyframes,
+  undefined elements, and reduced movement-only plays create no animation.
+  A play with no effective keys still cancels prior feedback on that element.
+- Snapshot `element.getAnimations()` before Mini, then record only new
+  identities after it returns in the same turn. Mini creates effects
+  synchronously (source above). This uses public DOM APIs without a cast
+  into group internals. The active entry holds these natives, group controls,
+  and owned inline values. Handle native cancellation rejections on creation.
+- Cancellation deletes the entry, cancels only its group, and restores
+  its owned styles immediately. Completion checks entry identity before
+  cleanup. Resize, effective preference/config changes, and scope disposal
+  clear active entries. Disposal removes the resize listener.
+- `frame.render`, `frame.postRender`, transform filling, and seed writes
+  leave this composable.
 
-Tests: all mount under `UiAppRoot`, and none mocks motion-v or Vue.
-- `useMotionFeedback.test.ts`: `play(el, { y: [-4, 0], opacity: [0.6, 1] })`
-  holds an intermediate `translateY` mid-flight and leaves the inline
-  `transform` and `opacity` empty once it ends. Stubbed to reduced, the
-  inline `transform` stays empty while `el.getAnimations()` holds the fade.
-  The resize, preference-change, replacement, and unmount cases of
-  `src/motion/useMotionFeedback.test.ts` carry over without mocks.
-- `UiMotion.test.ts`, with no stub. `<UiMotion :animate="{ x: 100 }">`
-  reads exactly 100px after 250 ms, which motion-v's default spring does
-  not. A parent's class toggles while two children carry a changing
-  `layout-dependency`, one with `layout` and one with `layout="position"`,
-  and `getBoundingClientRect` answers from the parent's class. Mid-flight
-  the first holds `scale(` and the second a translate only, which pins that
-  the first box measured predates the class change. A re-render that leaves
-  the dependency alone never calls the stub.
-- `UiMotion.reduced.test.ts` installs the reduced stub before its first
-  mount. Both cases end at once, which fails when the config is missing or
-  at `"never"`.
-- The lockfile check prints three lines.
+Tests: mount under `UiAppRoot` with real motion-v and Vue. Replace inline
+sampling, the style-proxy no-write assertion, and the frame override with
+native assertions. Adapt ThemeSwitcher's existing transform assertion here.
+- Assert running state before pausing. Narrow `effect` to `KeyframeEffect`.
+  Inspect `getKeyframes()` endpoints/computed offsets and `getTiming()`
+  duration/easing for opacity, x/y, rotate/scale, and the all-key example.
+- Retain the terminal-path and replacement matrices for empty and nonempty
+  inline styles. Finish through native `Animation.finish()` and await
+  cleanup. Cancel/resize followed by play has assertions in the same turn,
+  after microtasks, at the next frame, and after completion.
+- Cover same/different keys, opacity-to-transform and back, three plays in
+  one turn, sequential plays, and replacements ended by each terminal path.
+- Queue the old group's completion by finishing all its native controls,
+  replace before draining microtasks, then assert running replacement
+  effects and its baseline.
+- Cover reduced modes, preference/config changes, no-opacity replacement,
+  empty/undefined plays, repeated cancel, two elements, unrelated animation
+  survival, and resize after disposal.
+- Assert positive native keyframes from the call onward. No helper slices
+  past a first active frame or accepts too few samples as a pass.
+  Watch failures when transform compilation, synchronous restoration,
+  identity guarding, owned cancellation, or reduced filtering is removed.
+  Quote new tests' failing lines in the implementation commit body.
 
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/package.json frontend/web/pnpm-lock.yaml frontend/web/src/ui/app/UiAppRoot.vue frontend/web/src/ui/motion/index.ts frontend/web/src/ui/motion/useMotionFeedback.ts frontend/web/src/ui/motion/useMotionFeedback.test.ts frontend/web/src/ui/motion/UiMotion.test.ts frontend/web/src/ui/motion/UiMotion.reduced.test.ts frontend/web/src/ui/index.ts`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/src/ui/motion/useMotionFeedback.ts frontend/web/src/ui/motion/useMotionFeedback.test.ts frontend/web/src/components/ThemeSwitcher.test.ts`
 
-### U2. FleetView: shared highlight, layout sidebar, feedback from src/ui
+### U2. FleetView fade direction and cleanup
 
-Files: `frontend/web/src/FleetView.vue`, `frontend/web/src/FleetView.test.ts`, `frontend/web/src/FleetView.motion.test.ts`, `frontend/web/src/style.css`
+Files: `frontend/web/src/FleetView.vue`, `frontend/web/src/FleetView.motion.test.ts`
 After: U1
-Change:
-- The highlight span is
-  `<UiMotion as="span" layout-id="nav-highlight" :layout-dependency="section">`.
-  The `watch(section, …)` at `src/FleetView.vue:354` is deleted.
-- `.sidebar` is a `UiMotion` with `layout`. `.main-shell`, `.product-brand`,
-  the `nav`, and `.sidebar-toggle` are `UiMotion` with `layout="position"`.
-  All five bind one counter as `layout-dependency`.
-- `toggleSidebar` flips `sidebarCollapsed`. At `(min-width: 801px)` with
-  `reduced` false it also increments the counter. Below that width an
-  expand runs `play(nav, { opacity: [0.6, 1] }, 0.1)`. The
-  `getComputedStyle` reads, the `nextTick`, and the `cancel` calls go.
-- The scope-change feedback at `src/FleetView.vue:376` keeps
-  `{ opacity: [0.85, 1] }` over 0.12 s, with `useMotionFeedback` from `./ui`.
-- `sidebar`, `mainShell`, and `navigation` become component refs. The
-  observer at `src/FleetView.vue:85` writes `--topbar-height` through the
-  main shell's `$el`.
-- `src/style.css`: `.sidebar-toggle` centres with `top: calc(50% - 32px)`.
-  Its `transform: translateY(-50%)` and the `transform: none` under
-  `(max-width: 800px)` are deleted.
+Change: the mobile expand keeps `opacity: [0.6, 1]` over 0.1 s.
+Delete the comment accepting persistent inline opacity at `toggleSidebar`.
+Keep the layout nodes, shared dependency counter, scope fade, and imports.
 
-Tests:
-- `FleetView.test.ts` already stubs reduced motion and a matching
-  `min-width`, and its comment at line 15 about the Web Animations API is
-  corrected. Both files stub `getBoundingClientRect` to 204 and 64 px by
-  the `sidebar-collapsed` class. A click on the toggle sets that class and
-  `aria-expanded="false"` and leaves the sidebar and main shell without a
-  transform. Navigating to `/devices` leaves one `.nav-highlight`, inside
-  the Devices link. Hovering the toggle shows `Collapse sidebar`, which
-  pins Reka's `TooltipTrigger as-child` over `UiMotion`.
-- `FleetView.motion.test.ts` stubs `matchMedia` to match only `min-width`
-  queries. Mid-flight the sidebar's inline transform holds `scale(` and the
-  main shell's a translate with no scale. The stub then turns reduced on
-  and fires `change`, and the next toggle leaves both without a transform.
-- happy-dom loads no app CSS, so the browser step checks requirement 2's
-  width example and the absence of stretched content. No test here does.
+Tests: `FleetView.motion.test.ts` retains its layout and highlight cases.
+The below-desktop case pins ordered opacity endpoints, 100 ms duration,
+running state, no fade on collapse, and original inline opacity after
+completion. Repeat collapse/expand within one turn and resize during a
+fade, then verify restoration and replay.
+Reversing the pair to `[1, 0.6]` must fail. Leaving inline `opacity: 1`
+after completion must fail. Record both mutation failures.
 
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/src/FleetView.vue frontend/web/src/FleetView.test.ts frontend/web/src/FleetView.motion.test.ts frontend/web/src/style.css`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/src/FleetView.vue frontend/web/src/FleetView.motion.test.ts`
 
-### U3. WorkspacePage and ThemeSwitcher feedback from src/ui
+### U3. ThemeSwitcher native animation assertions
 
-Files: `frontend/web/src/WorkspacePage.vue`, `frontend/web/src/components/ThemeSwitcher.vue`, `frontend/web/src/components/ThemeSwitcher.test.ts`
+Files: `frontend/web/src/components/ThemeSwitcher.test.ts`
 After: U1
-Change: both import `useMotionFeedback` from the `src/ui` barrel. The
-notice at `src/WorkspacePage.vue:256` plays
-`{ opacity: [0.6, 1], y: [-4, 0] }`. The theme icons play `opacity`,
-`rotate`, and `scale` pairs with today's numbers: the sun going dark is
-`{ opacity: [1, 0], rotate: [0, 45], scale: [1, 0.65] }`.
-Tests:
-- `ThemeSwitcher.test.ts` is new and mounts under `UiAppRoot`. The
-  composable reads the media query itself, so one file holds both modes. A
-  click flips `aria-checked`, and mid-flight the sun's inline transform
-  holds `rotate(`. Once it ends both icons have an empty inline `transform`
-  and `opacity`. With the reduced stub the transforms stay empty and each
-  icon holds one running animation.
-- `WorkspacePage.vue` has no test of its own. `vue-tsc` rejects the old
-  `transform` string, and the `FleetView.test.ts` cases that mount it keep
-  passing. Nothing in this unit covers the notice animation at runtime.
+Change: extend U1's adapted native assertions to both directions and rapid
+toggles. The component stays as written.
 
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/src/WorkspacePage.vue frontend/web/src/components/ThemeSwitcher.vue frontend/web/src/components/ThemeSwitcher.test.ts`
+Tests: pin each icon's opacity and rotate/scale endpoints in both directions,
+160 ms duration, and running state before deterministic finishing. Reduced
+motion has one running opacity animation per icon and no transform.
+Rapid toggles leave the latest effects, then empty inline styles after
+finish, resize, and unmount. A missing transform pair or retained final
+opacity fails a named case. Record those mutation failures.
 
-### U4. Remove motion and update the documents
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/src/components/ThemeSwitcher.test.ts`
 
-Files: `frontend/web/package.json`, `frontend/web/pnpm-lock.yaml`, `frontend/web/src/motion/useMotionFeedback.ts`, `frontend/web/src/motion/useMotionFeedback.test.ts`, `frontend/web/README.md`, `.agents/skills/web-component/SKILL.md`, `.agents/skills/web-component/references/overlays-and-motion.md`, `docs/solutions/conventions/mount-tests-under-happy-dom-must-stub-reduced-motion.md`, `docs/solutions/README.md`, `docs/architecture/2026-09-28-web-component-contract-direction.md`
-After: U2 U3
-Change:
-- `src/motion/` is deleted, and `motion` leaves `package.json` and the
-  lockfile.
-- `README.md` names motion-v, `UiMotion`, `useMotionFeedback` under
-  `src/ui/motion/`, and the config in the app root, and says the theme
-  icons crossfade without rotating under reduced motion. It holds every
-  README change U2 and U3 cause, so no unit of that wave touches the file.
-- `overlays-and-motion.md` loses its "Until motion-v lands" block and its
-  `grep` check, and its motion rule 1 names `UiMotion` and the
-  `src/ui/motion/` import rule. `SKILL.md`, the solution document, and its
-  row in `docs/solutions/README.md` say what the stub selects, that a file
-  installs it before its first mount, and that no stub is needed to avoid a
-  throw.
-- The direction record gains a dated amendment, which a person re-reads
-  before landing. It says `useMotionFeedback` lives at
-  `frontend/web/src/ui/motion/useMotionFeedback.ts`, views take motion from
-  the `src/ui` barrel, and `UiMotion` is a re-export with no story. Under
-  reduced motion the composable keeps only the fade, and layout animations
-  end at once with no fade.
+### U4. Document native feedback and its test limits
 
-Tests: `grep -rnE "from 'motion(/mini)?'" frontend/web/src` and
-`grep -rlE "from 'motion-v'" frontend/web/src | grep -v '^frontend/web/src/ui/motion/'`
-print nothing, as does the parent's requirement 2 command.
-`grep -c '"motion"' frontend/web/package.json` and
-`grep -c "^  motion@" frontend/web/pnpm-lock.yaml` print 0. The lockfile
-check prints three lines, and `pnpm test` in `frontend/web` passes.
+Files: `frontend/web/README.md`, `.agents/skills/web-component/references/overlays-and-motion.md`, `docs/solutions/conventions/mount-tests-under-happy-dom-must-stub-reduced-motion.md`
+After: U1 U2 U3
+Change: the README explains typed pairs compiled to native effects and owned
+style cleanup. The motion reference and solution cite the new tests and
+describe native assertions and browser measurements. Keep the accepted amendment
+and matchMedia/geometry rules. `applies_when` and the index row stay accurate.
 
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/package.json frontend/web/pnpm-lock.yaml frontend/web/src/motion/useMotionFeedback.ts frontend/web/src/motion/useMotionFeedback.test.ts frontend/web/README.md .agents/skills/web-component/SKILL.md .agents/skills/web-component/references/overlays-and-motion.md docs/solutions/conventions/mount-tests-under-happy-dom-must-stub-reduced-motion.md docs/solutions/README.md docs/architecture/2026-09-28-web-component-contract-direction.md`
+Tests: run `check-prose.py` on these files and check every cited path and
+named test. No runtime test is added for prose.
+
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/README.md .agents/skills/web-component/references/overlays-and-motion.md docs/solutions/conventions/mount-tests-under-happy-dom-must-stub-reduced-motion.md`
 
 Waves: U1 | U2 U3 | U4
 
-Phase 3 also edits `frontend/web/src/ui/app/UiAppRoot.vue`,
-`frontend/web/package.json`, and `frontend/web/pnpm-lock.yaml`. Whichever
-phase lands second merges those and regenerates the lockfile with
-`pnpm install`.
-
 ## Verification
 
-- The verifier over the union of changed paths, without `--full`, and
-  `pnpm test` from `frontend/web`.
-- A browser step for U2 against `pnpm dev`, at 1280 × 800 and 390 × 844,
-  since `FleetView` has no story. When agent-browser is missing, the report
-  names these checks for the user (`web-component` skill, step 4).
-  On collapse and expand no text or icon in the sidebar is drawn stretched,
-  the toggle stays vertically centred, the panes still run up under the top
-  bar, and the highlight slides to the selected page. At 390 a toggle moves
-  nothing and an expand fades the nav in. With reduced motion emulated, the
-  sidebar's computed width is final in the frame after the click, no
-  element carries a transform, and the theme icons crossfade.
+- Run each unit's verifier, then the verifier over their union and this
+  plan file. Use explicit paths, without `--full`.
+- From `frontend/web`, run `pnpm test`. Repeat
+  `./node_modules/.bin/vitest run src/ui/motion` six times, all green.
+  Run `./node_modules/.bin/vitest run src/ui/motion src/FleetView.motion.test.ts src/components/ThemeSwitcher.test.ts` after U2 and U3.
+- Check the parent's requirement 2 import boundary. `UiMotionConfig`
+  remains absent from the UI barrel, and the package files are unchanged.
+- Against `pnpm dev`, use agent-browser to measure 1280 × 800 and
+  390 × 844 in both themes. Read the four screenshots. During collapse,
+  expand, navigation, and rapid theme toggles, record every requestAnimationFrame
+  sample from the action onward: computed transform/opacity, native
+  effects, and inline styles. Keep the first sample. Check active values
+  against the latest effect's endpoints and assert restoration after
+  completion, resize, and cancel/replay on a mounted composable harness.
+- At desktop width, sidebar content stays unstretched, position-only
+  children do not scale, the toggle stays centred, and the highlight moves
+  to the selected link. On mobile, layout does not move and nav opacity
+  increases from 0.6 to 1, then its inline opacity returns to baseline.
+  With reduced motion emulated, computed sidebar width is final at the
+  first post-click frame and theme icons crossfade without movement.
+  Missing browser tooling or a failed measurement leaves review unaccepted.
+  Record measurements and mutations in implementation commit bodies.
+  Screenshots and the temporary harness stay under the implementer's `$TMPDIR`.
 
 ## Definition of done
 
-- [ ] The verifier is green for every changed path, and the browser step
-      ran or the report says why it did not.
-- [ ] Requirements 1 to 3 hold, the lockfile check prints three lines, and
-      the documents U4 names changed with the code.
-- [ ] This plan's `status` is set with an outcome note, the parent's U2
-      `Landed:` line carries the commit range, and no plan label is in code.
+- [ ] Requirements 1 to 7 pass, including the immediate cancel/resize replay
+      regression and the stale-completion mutation.
+- [ ] The verifier is green for every changed path. All five motion test
+      files and full web suite pass, with six green motion-suite repeats.
+- [ ] The browser measurement ran and its first-frame evidence is recorded.
+      The existing layout/config/prop contracts and corrected docs hold.
+- [ ] This plan reads `implemented` with its new outcome note. The parent
+      records the rework range through the implementation workflow. Review
+      runs afresh before phase 3 starts. No plan labels enter source code.
 
 ## Open questions
 
-- `.nav-label` is `display: none` while the sidebar is collapsed
-  (`src/style.css:171`) and stays a plain element. How motion-v projects a
-  `layout="position"` node with no box in one state is unverified, so the
-  browser step decides whether the label becomes one.
-- Reka's `TooltipTrigger as-child` over a motion-v component is unverified.
-  If U2's tooltip test fails, the `layout="position"` node becomes a
-  wrapper around `UiTooltip` that takes the toggle's absolute positioning.
-- pnpm 11.25.0's reuse of the locked versions is unverified. The cited
-  lines are from 13.4.5, and U1's reduced tests catch a version that differs.
+None.
