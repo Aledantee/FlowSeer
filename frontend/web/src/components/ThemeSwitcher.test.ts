@@ -66,6 +66,26 @@ function animationsFor(element: HTMLElement) {
   }))
 }
 
+function motionEffectsFor(element: HTMLElement) {
+  const animations = animationsFor(element)
+  expect(animations).toHaveLength(2)
+  const opacity = animations.find(({ effect }) =>
+    effect.getKeyframes().some((keyframe) => 'opacity' in keyframe),
+  )
+  const transform = animations.find(({ effect }) =>
+    effect.getKeyframes().some((keyframe) => 'transform' in keyframe),
+  )
+  if (!opacity || !transform) throw new Error('Missing expected motion effect')
+  return { opacity, transform }
+}
+
+function expectEmptyStyles(...elements: HTMLElement[]) {
+  for (const element of elements) {
+    expect(element.style.opacity).toBe('')
+    expect(element.style.transform).toBe('')
+  }
+}
+
 async function finishAnimations(...elements: HTMLElement[]) {
   for (const element of elements) {
     for (const animation of [...element.getAnimations()]) animation.finish()
@@ -82,45 +102,78 @@ describe('ThemeSwitcher', () => {
     button.click()
     await nextTick()
 
-    const sunAnimations = animationsFor(sun)
-    const moonAnimations = animationsFor(moon)
-    expect(sunAnimations).toHaveLength(2)
-    expect(moonAnimations).toHaveLength(2)
+    const darkSun = motionEffectsFor(sun)
+    const darkMoon = motionEffectsFor(moon)
 
-    const sunTransform = sunAnimations.find(({ effect }) =>
-      effect.getKeyframes().some((keyframe) => 'transform' in keyframe),
-    )
-    const moonTransform = moonAnimations.find(({ effect }) =>
-      effect.getKeyframes().some((keyframe) => 'transform' in keyframe),
-    )
-    if (!sunTransform || !moonTransform)
-      throw new Error('Missing transform effect')
-    expect(sunTransform.effect.getKeyframes()).toMatchObject([
-      {
-        transform: 'rotate(0deg) scale(1)',
-      },
-      {
-        transform: 'rotate(45deg) scale(0.65)',
-      },
+    expect(darkSun.opacity.effect.getKeyframes()).toMatchObject([
+      { opacity: '1' },
+      { opacity: '0' },
     ])
-    expect(moonTransform.effect.getKeyframes()).toMatchObject([
-      {
-        transform: 'rotate(-35deg) scale(0.65)',
-      },
-      {
-        transform: 'rotate(0deg) scale(1)',
-      },
+    expect(darkSun.transform.effect.getKeyframes()).toMatchObject([
+      { transform: 'rotate(0deg) scale(1)' },
+      { transform: 'rotate(45deg) scale(0.65)' },
     ])
-    expect(sunTransform.effect.getTiming()).toMatchObject({ duration: 160 })
-    expect(moonTransform.effect.getTiming()).toMatchObject({ duration: 160 })
+    expect(darkSun.opacity.effect.getTiming()).toMatchObject({ duration: 160 })
+    expect(darkSun.transform.effect.getTiming()).toMatchObject({
+      duration: 160,
+    })
+
+    expect(darkMoon.opacity.effect.getKeyframes()).toMatchObject([
+      { opacity: '0' },
+      { opacity: '1' },
+    ])
+    expect(darkMoon.transform.effect.getKeyframes()).toMatchObject([
+      { transform: 'rotate(-35deg) scale(0.65)' },
+      { transform: 'rotate(0deg) scale(1)' },
+    ])
+    expect(darkMoon.opacity.effect.getTiming()).toMatchObject({ duration: 160 })
+    expect(darkMoon.transform.effect.getTiming()).toMatchObject({
+      duration: 160,
+    })
 
     await finishAnimations(sun, moon)
     expect(sun.getAnimations()).toHaveLength(0)
     expect(moon.getAnimations()).toHaveLength(0)
-    expect(sun.style.opacity).toBe('')
-    expect(sun.style.transform).toBe('')
-    expect(moon.style.opacity).toBe('')
-    expect(moon.style.transform).toBe('')
+    expectEmptyStyles(sun, moon)
+
+    button.click()
+    await nextTick()
+
+    const lightSun = motionEffectsFor(sun)
+    const lightMoon = motionEffectsFor(moon)
+
+    expect(lightSun.opacity.effect.getKeyframes()).toMatchObject([
+      { opacity: '0' },
+      { opacity: '1' },
+    ])
+    expect(lightSun.transform.effect.getKeyframes()).toMatchObject([
+      { transform: 'rotate(-45deg) scale(0.65)' },
+      { transform: 'rotate(0deg) scale(1)' },
+    ])
+    expect(lightSun.opacity.effect.getTiming()).toMatchObject({ duration: 160 })
+    expect(lightSun.transform.effect.getTiming()).toMatchObject({
+      duration: 160,
+    })
+
+    expect(lightMoon.opacity.effect.getKeyframes()).toMatchObject([
+      { opacity: '1' },
+      { opacity: '0' },
+    ])
+    expect(lightMoon.transform.effect.getKeyframes()).toMatchObject([
+      { transform: 'rotate(0deg) scale(1)' },
+      { transform: 'rotate(35deg) scale(0.65)' },
+    ])
+    expect(lightMoon.opacity.effect.getTiming()).toMatchObject({
+      duration: 160,
+    })
+    expect(lightMoon.transform.effect.getTiming()).toMatchObject({
+      duration: 160,
+    })
+
+    await finishAnimations(sun, moon)
+    expect(sun.getAnimations()).toHaveLength(0)
+    expect(moon.getAnimations()).toHaveLength(0)
+    expectEmptyStyles(sun, moon)
   })
 
   it('keeps reduced motion as one running opacity effect per icon', async () => {
@@ -133,10 +186,6 @@ describe('ThemeSwitcher', () => {
     for (const icon of [sun, moon]) {
       const animations = animationsFor(icon)
       expect(animations).toHaveLength(1)
-      expect(animations[0]?.effect.getKeyframes()).toMatchObject([
-        { opacity: expect.any(String) },
-        { opacity: expect.any(String) },
-      ])
       expect(
         animations[0]?.effect
           .getKeyframes()
@@ -145,8 +194,167 @@ describe('ThemeSwitcher', () => {
       expect(icon.style.transform).toBe('')
     }
 
+    const darkSunAnimations = animationsFor(sun)
+    const darkMoonAnimations = animationsFor(moon)
+    expect(darkSunAnimations[0]?.effect.getKeyframes()).toMatchObject([
+      { opacity: '1' },
+      { opacity: '0' },
+    ])
+    expect(darkMoonAnimations[0]?.effect.getKeyframes()).toMatchObject([
+      { opacity: '0' },
+      { opacity: '1' },
+    ])
+    expect(darkSunAnimations[0]?.effect.getTiming()).toMatchObject({
+      duration: 160,
+    })
+    expect(darkMoonAnimations[0]?.effect.getTiming()).toMatchObject({
+      duration: 160,
+    })
+
     await finishAnimations(sun, moon)
-    expect(sun.style.opacity).toBe('')
-    expect(moon.style.opacity).toBe('')
+    expect(sun.getAnimations()).toHaveLength(0)
+    expect(moon.getAnimations()).toHaveLength(0)
+    expectEmptyStyles(sun, moon)
+
+    button.click()
+    await nextTick()
+
+    for (const icon of [sun, moon]) {
+      const animations = animationsFor(icon)
+      expect(animations).toHaveLength(1)
+      expect(
+        animations[0]?.effect
+          .getKeyframes()
+          .every((keyframe) => !('transform' in keyframe)),
+      ).toBe(true)
+      expect(icon.style.transform).toBe('')
+    }
+
+    const lightSunAnimations = animationsFor(sun)
+    const lightMoonAnimations = animationsFor(moon)
+    expect(lightSunAnimations[0]?.effect.getKeyframes()).toMatchObject([
+      { opacity: '0' },
+      { opacity: '1' },
+    ])
+    expect(lightMoonAnimations[0]?.effect.getKeyframes()).toMatchObject([
+      { opacity: '1' },
+      { opacity: '0' },
+    ])
+    expect(lightSunAnimations[0]?.effect.getTiming()).toMatchObject({
+      duration: 160,
+    })
+    expect(lightMoonAnimations[0]?.effect.getTiming()).toMatchObject({
+      duration: 160,
+    })
+
+    await finishAnimations(sun, moon)
+    expect(sun.getAnimations()).toHaveLength(0)
+    expect(moon.getAnimations()).toHaveLength(0)
+    expectEmptyStyles(sun, moon)
+  })
+
+  it('replaces running effects on rapid toggles and restores empty inline styles on finish', async () => {
+    stubMatchMedia(false)
+    const { button, sun, moon } = mountSwitcher()
+
+    button.click()
+    await nextTick()
+    const firstSunAnimations = animationsFor(sun)
+    const firstMoonAnimations = animationsFor(moon)
+
+    button.click()
+    await nextTick()
+
+    expect(
+      firstSunAnimations.every(
+        ({ animation }) => animation.playState === 'idle',
+      ),
+    ).toBe(true)
+    expect(
+      firstMoonAnimations.every(
+        ({ animation }) => animation.playState === 'idle',
+      ),
+    ).toBe(true)
+
+    button.click()
+    await nextTick()
+
+    const latestSun = motionEffectsFor(sun)
+    const latestMoon = motionEffectsFor(moon)
+
+    expect(latestSun.opacity.effect.getKeyframes()).toMatchObject([
+      { opacity: '1' },
+      { opacity: '0' },
+    ])
+    expect(latestSun.transform.effect.getKeyframes()).toMatchObject([
+      { transform: 'rotate(0deg) scale(1)' },
+      { transform: 'rotate(45deg) scale(0.65)' },
+    ])
+    expect(latestSun.opacity.effect.getTiming()).toMatchObject({
+      duration: 160,
+    })
+    expect(latestSun.transform.effect.getTiming()).toMatchObject({
+      duration: 160,
+    })
+
+    expect(latestMoon.opacity.effect.getKeyframes()).toMatchObject([
+      { opacity: '0' },
+      { opacity: '1' },
+    ])
+    expect(latestMoon.transform.effect.getKeyframes()).toMatchObject([
+      { transform: 'rotate(-35deg) scale(0.65)' },
+      { transform: 'rotate(0deg) scale(1)' },
+    ])
+    expect(latestMoon.opacity.effect.getTiming()).toMatchObject({
+      duration: 160,
+    })
+    expect(latestMoon.transform.effect.getTiming()).toMatchObject({
+      duration: 160,
+    })
+
+    await finishAnimations(sun, moon)
+    expect(sun.getAnimations()).toHaveLength(0)
+    expect(moon.getAnimations()).toHaveLength(0)
+    expectEmptyStyles(sun, moon)
+  })
+
+  it('restores empty inline styles on window resize during rapid toggle', async () => {
+    stubMatchMedia(false)
+    const { button, sun, moon } = mountSwitcher()
+
+    button.click()
+    await nextTick()
+    button.click()
+    await nextTick()
+
+    expect(animationsFor(sun)).toHaveLength(2)
+    expect(animationsFor(moon)).toHaveLength(2)
+
+    window.dispatchEvent(new Event('resize'))
+    await nextTick()
+
+    expect(sun.getAnimations()).toHaveLength(0)
+    expect(moon.getAnimations()).toHaveLength(0)
+    expectEmptyStyles(sun, moon)
+  })
+
+  it('restores empty inline styles on unmount during rapid toggle', async () => {
+    stubMatchMedia(false)
+    const { button, sun, moon } = mountSwitcher()
+
+    button.click()
+    await nextTick()
+    button.click()
+    await nextTick()
+
+    expect(animationsFor(sun)).toHaveLength(2)
+    expect(animationsFor(moon)).toHaveLength(2)
+
+    dispose()
+    await nextTick()
+
+    expect(sun.getAnimations()).toHaveLength(0)
+    expect(moon.getAnimations()).toHaveLength(0)
+    expectEmptyStyles(sun, moon)
   })
 })
