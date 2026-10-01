@@ -7,13 +7,17 @@ the count above both the base and the other parent. A parent removal is unique
 only for the fall below the base beyond the other parent's fall, and is kept
 when the merge count falls below the other parent's count. A parent change is
 lost when it has a unique addition or removal, no unique addition is kept
-beyond the other parent's count, and no unique removal is kept.
+beyond the other parent's count, and no unique removal is kept. A nontrivial
+file reset to the merge base is also reported as lost.
 """
 
 from collections import Counter
 from functools import lru_cache
 import subprocess
 import sys
+
+
+EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 
 def git(*args):
@@ -63,16 +67,50 @@ def changed_paths(base, parent):
 
 
 @lru_cache(maxsize=128)
-def tree_objects(commit):
-    entries = []
-    for entry in git("ls-tree", "-r", "-z", commit).split(b"\0"):
+def parse_tree_entries(output):
+    entries = {}
+    for entry in output.split(b"\0"):
         if not entry:
             continue
         metadata, path = entry.split(b"\t", 1)
-        _mode, object_type, object_id = metadata.split()
-        if object_type == b"blob":
-            entries.append((decode(path), object_id))
-    return dict(entries)
+        mode, object_type, object_id = metadata.split()
+        entries[decode(path)] = (
+            decode(mode),
+            decode(object_type),
+            object_id,
+        )
+    return entries
+
+
+@lru_cache(maxsize=128)
+def tree_entries(commit):
+    return parse_tree_entries(git("ls-tree", "-r", "-z", commit))
+
+
+@lru_cache(maxsize=256)
+def tree_entries_for_paths(commit, paths):
+    if not paths:
+        return {}
+    return parse_tree_entries(
+        git(
+            "--literal-pathspecs",
+            "ls-tree",
+            "-r",
+            "-z",
+            commit,
+            "--",
+            *paths,
+        )
+    )
+
+
+@lru_cache(maxsize=128)
+def tree_objects(commit):
+    return {
+        path: object_id
+        for path, (_mode, object_type, object_id) in tree_entries(commit).items()
+        if object_type == "blob"
+    }
 
 
 def blob_contents(commit, paths):
@@ -102,27 +140,37 @@ def blob_contents(commit, paths):
     return files
 
 
+@lru_cache(maxsize=4096)
+def nontrivial_lines(content):
+    return tuple(
+        line
+        for line in decode(content).splitlines()
+        if nontrivial(line)
+    )
+
+
 def counts_from_contents(contents):
     return {
-        path: Counter(
-            line
-            for line in decode(content).splitlines()
-            if nontrivial(line)
-        )
+        path: Counter(nontrivial_lines(content))
         for path, content in contents.items()
     }
 
 
 @lru_cache(maxsize=256)
-def file_counts_for_paths(commit, paths):
+def file_contents_for_paths(commit, paths):
     if len(paths) == 1:
         path = paths[0]
         try:
             content = git("show", f"{commit}:{path}")
         except subprocess.CalledProcessError:
             return {}
-        return counts_from_contents({path: content})
-    return counts_from_contents(blob_contents(commit, paths))
+        return {path: content}
+    return blob_contents(commit, paths)
+
+
+@lru_cache(maxsize=256)
+def file_counts_for_paths(commit, paths):
+    return counts_from_contents(file_contents_for_paths(commit, paths))
 
 
 @lru_cache
@@ -140,6 +188,7 @@ def diff_kinds(base, parent):
         "--",
     )
     kinds = {}
+    fields = []
     for field in output.split(b"\0"):
         if not field:
             continue
@@ -147,10 +196,29 @@ def diff_kinds(base, parent):
         if len(parts) != 3:
             continue
         added, deleted, path = parts
+        path = decode(path)
+        fields.append((added, deleted, path))
+    paths = tuple(path for _added, _deleted, path in fields)
+    base_entries = tree_entries_for_paths(base, paths)
+    parent_entries = tree_entries_for_paths(parent, paths)
+    for added, deleted, path in fields:
+        base_entry = base_entries.get(path)
+        parent_entry = parent_entries.get(path)
+        if (
+            (base_entry and base_entry[1] == "commit")
+            or (parent_entry and parent_entry[1] == "commit")
+        ):
+            kinds[path] = "submodule"
+            continue
         if added == b"-" and deleted == b"-":
-            kinds[decode(path)] = "binary"
+            kinds[path] = "binary"
         elif added == b"0" and deleted == b"0":
-            kinds[decode(path)] = "mode-only"
+            if (
+                base_entry
+                and parent_entry
+                and base_entry[0] != parent_entry[0]
+            ):
+                kinds[path] = "mode-only"
     return kinds
 
 
@@ -173,7 +241,13 @@ def merge_parents(merge):
 
 @lru_cache
 def merge_bases(first, second):
-    return decode(git("merge-base", "--all", first, second)).splitlines()
+    try:
+        output = git("merge-base", "--all", first, second)
+    except subprocess.CalledProcessError as error:
+        if error.returncode == 1:
+            return []
+        raise
+    return decode(output).splitlines()
 
 
 def changed_path_name(change):
@@ -195,6 +269,18 @@ def report_multiple_bases(merge, bases, first, second):
         print(report)
 
 
+def report_no_merge_base(merge, first, second):
+    reports = set()
+    for side, parent in (("first", first), ("second", second)):
+        for change in changed_paths(EMPTY_TREE, parent):
+            reports.add(
+                f"merge {merge[:12]}: not compared {side}-parent "
+                f"{changed_path_name(change)} (no merge base)"
+            )
+    for report in sorted(reports):
+        print(report)
+
+
 def check_merge(merge):
     parents = merge_parents(merge)
     if parents is None:
@@ -205,7 +291,8 @@ def check_merge(merge):
         if len(bases) > 1:
             report_multiple_bases(merge, bases, first, second)
             return False
-        raise RuntimeError(f"{merge} has no merge base")
+        report_no_merge_base(merge, first, second)
+        return False
     base = bases[0]
     changes = {
         "first": changed_paths(base, first),
@@ -254,6 +341,14 @@ def check_merge(merge):
         commit: file_counts_for_paths(commit, count_paths)
         for commit in (base, first, second, merge)
     }
+    contents = {
+        commit: file_contents_for_paths(commit, count_paths)
+        for commit in (base, first, second, merge)
+    }
+    objects = {
+        commit: tree_entries_for_paths(commit, count_paths)
+        for commit in (base, first, second, merge)
+    }
     for path in paths:
         merged_counts = counts[merge].get(path, Counter())
         base_counts = counts[base].get(path, Counter())
@@ -282,6 +377,29 @@ def check_merge(merge):
                     if base_counts[line] > side_counts[line]
                 }
             )
+            if not added and not removed:
+                changed_lines = (
+                    nontrivial_lines(contents[parents[side]].get(path, b""))
+                    != nontrivial_lines(contents[base].get(path, b""))
+                )
+            else:
+                changed_lines = True
+            base_entry = objects[base].get(path)
+            merge_entry = objects[merge].get(path)
+            side_entry = objects[parents[side]].get(path)
+            if (
+                base_entry
+                and merge_entry
+                and side_entry
+                and merge_entry[2] == base_entry[2]
+                and side_entry[2] != base_entry[2]
+                and changed_lines
+            ):
+                print(
+                    f"merge {merge[:12]}: lost {side}-parent change in {path}"
+                )
+                lost = True
+                continue
             if not added and not removed:
                 continue
             other = parents["second" if side == "first" else "first"]
@@ -321,7 +439,7 @@ def check_merge(merge):
                 for line in unique_additions
                 if merged_counts[line] <= other_counts[line]
             )
-            if missing and (has_added or has_removed):
+            if missing:
                 print(f"merge {merge[:12]}: missing {side}-parent change in {path}:")
                 for line in missing:
                     print(f"  + {line}")
@@ -343,11 +461,11 @@ def main(argv):
         lost = False
         for merge in merges:
             lost = check_merge(merge) or lost
-    except (subprocess.CalledProcessError, RuntimeError) as error:
+    except Exception as error:
         if isinstance(error, subprocess.CalledProcessError):
             detail = decode(error.stderr).strip() if error.stderr else str(error)
         else:
-            detail = str(error)
+            detail = f"{type(error).__name__}: {error}"
         print(detail, file=sys.stderr)
         return 2
     return 1 if lost else 0

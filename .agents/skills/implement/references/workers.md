@@ -25,14 +25,13 @@ Workers do not run the verifier. Two units in one wave never share a
 file, by the plan's own rule; when a wave's units would, the plan's
 `After` lines are wrong and get fixed before dispatch.
 
-Merge in the order the workers settle. After each report, check the
-worker's tree before reading its report as fact, as `delegate` describes, and
-run `.claude/skills/delegate/scripts/orca-worker.sh check <slug>` before the
-merge:
-the commit it names exists, its tree is clean, and the two or three
-changes most expensive to get wrong are what the report says. Merge the
-worker's branch here. After the merge commit exists, including a resolved
-conflict, run
+Merge in the order the workers settle. After each report, check the worker's
+tree before reading its report as fact, as `delegate` describes. Verify that
+the commit it names exists, its tree is clean, and the two or three changes
+most expensive to get wrong are what the report says. Run
+`.claude/skills/delegate/scripts/orca-worker.sh check <slug>` before the
+merge. A non-zero result stops that unit's merge. Merge the worker's branch
+here. After the merge commit exists, including a resolved conflict, run
 `python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
 A non-zero result stops the wave. Carry every `missing` block in the report,
 then run the focused tests of the merged packages, and

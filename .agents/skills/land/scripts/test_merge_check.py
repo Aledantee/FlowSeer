@@ -5,9 +5,9 @@ import os
 import subprocess
 import tempfile
 import unittest
-from collections import Counter
 from itertools import product
 from pathlib import Path
+from unittest import mock
 
 
 MERGE_CHECK = Path(__file__).with_name("merge-check.py")
@@ -16,53 +16,67 @@ MERGE_CHECKER = importlib.util.module_from_spec(CHECKER_SPEC)
 CHECKER_SPEC.loader.exec_module(MERGE_CHECKER)
 
 
-def line_counts(lines):
-    return Counter(
-        line
-        for line in lines
-        if sum(not character.isspace() for character in line) > 2
+def expected_lost_sides(
+    outcome,
+    base,
+    first,
+    second,
+    first_operator=None,
+    second_operator=None,
+):
+    """Derive loss from merge construction and the reset decision.
+
+    It uses complete file values and operator semantics, never line counts.
+    """
+    if outcome == "auto-merge":
+        return set()
+    if outcome == "merge-equals-base":
+        return {
+            side
+            for side, lines in (("first", first), ("second", second))
+            if lines != base
+        }
+    if outcome == "combined-resolution":
+        return {"first", "second"}
+    if outcome == "partial-keep":
+        return set()
+    kept = {"reset-first": ("first", first), "reset-second": ("second", second)}
+    kept_side, kept_lines = kept[outcome]
+    dropped_side = "second" if kept_side == "first" else "first"
+    dropped_lines = second if dropped_side == "second" else first
+    kept_operator = first_operator if kept_side == "first" else second_operator
+    dropped_operator = (
+        second_operator if dropped_side == "second" else first_operator
     )
-
-
-def expected_lost_sides(base, first, second, merged):
-    base_counts = line_counts(base)
-    merged_counts = line_counts(merged)
-    lost = set()
-    for side, side_lines, other_lines in (
-        ("first", first, second),
-        ("second", second, first),
+    if kept_lines == base and dropped_lines != base:
+        return {dropped_side}
+    if dropped_operator in ("none", "swap"):
+        return set()
+    if dropped_lines == base:
+        return set()
+    if change_signature(base, dropped_operator, dropped_side) <= change_signature(
+        base, kept_operator, kept_side
     ):
-        side_counts = line_counts(side_lines)
-        other_counts = line_counts(other_lines)
-        unique_additions = {
-            line
-            for line in set(side_counts)
-            if side_counts[line] > base_counts[line]
-            and side_counts[line] - base_counts[line]
-            > max(0, other_counts[line] - base_counts[line])
-        }
-        unique_removals = {
-            line
-            for line in set(base_counts)
-            if base_counts[line] > side_counts[line]
-            and base_counts[line] - side_counts[line]
-            > max(0, base_counts[line] - other_counts[line])
-        }
-        has_added = any(
-            merged_counts[line] > other_counts[line]
-            for line in unique_additions
-        )
-        has_removed = any(
-            merged_counts[line] < other_counts[line]
-            for line in unique_removals
-        )
-        if (
-            (unique_additions or unique_removals)
-            and not has_added
-            and not has_removed
-        ):
-            lost.add(side)
-    return lost
+        return set()
+    return {dropped_side}
+
+
+def change_signature(base, operator, side):
+    if operator == "none":
+        return set()
+    if operator == "append":
+        return {("add", f"{side}-append")}
+    if operator == "delete":
+        return {("remove", base[1])}
+    if operator == "replace":
+        return {("remove", base[1]), ("add", f"{side}-replace")}
+    if operator == "shared-replace":
+        return {("remove", base[1]), ("add", "shared-replace")}
+    if operator == "duplicate":
+        return {("add", base[0])}
+    if operator == "swap":
+        return {("reorder",)}
+    raise AssertionError(f"unknown edit operator: {operator}")
 
 
 def apply_edit(base, operator, side):
@@ -286,6 +300,20 @@ class ThrowawayRepository:
             [], returncode, stdout.getvalue(), stderr.getvalue()
         )
 
+    def check_merge_fast(self, merge):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        previous_directory = os.getcwd()
+        os.chdir(self.root)
+        try:
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                lost = MERGE_CHECKER.check_merge(merge)
+        finally:
+            os.chdir(previous_directory)
+        return subprocess.CompletedProcess(
+            [], 1 if lost else 0, stdout.getvalue(), stderr.getvalue()
+        )
+
 
 class MergeCheckTest(unittest.TestCase):
     def repository(self):
@@ -336,6 +364,71 @@ class MergeCheckTest(unittest.TestCase):
         self.assertIn("lost first-parent change", result.stdout)
         self.assertIn("file.txt", result.stdout)
         self.assertIn(merge[:12], result.stdout)
+
+    def test_reset_to_base_reports_loss_without_rejecting_clean_counter_moves(self):
+        repo = self.repository()
+        base = repo.commit_tree(
+            "alpha\nalpha\nbeta\n",
+            "base",
+        )
+        first = repo.commit_tree(
+            "alpha\nalpha\nbeta\nalpha\n",
+            "first",
+            parents=(base,),
+        )
+        second = repo.commit_tree(
+            "alpha\nbeta\n",
+            "second",
+            parents=(base,),
+        )
+        merge = repo.commit_tree(
+            "alpha\nalpha\nbeta\n",
+            "merge equals base",
+            parents=(first, second),
+        )
+
+        result = repo.check(f"{merge}^..{merge}")
+
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("lost first-parent change in file.txt", result.stdout)
+        self.assertIn("lost second-parent change in file.txt", result.stdout)
+
+        base_content = (
+            "func a() error {\n"
+            "\treturn err\n"
+            "}\n"
+            "\n"
+            "func b() {\n"
+            '\tprintln("b")\n'
+            "}\n"
+        )
+        first_content = (
+            "func a() error {\n"
+            "\treturn err\n"
+            "}\n"
+            "\n"
+            "func b() {\n"
+            '\tprintln("b")\n'
+            "\treturn err\n"
+            "}\n"
+        )
+        second_content = base_content.replace("\treturn err", "\tpanic(1)", 1)
+        go_base = repo.commit_tree(base_content, "go base")
+        clean = repo.plain_merge(
+            go_base,
+            first_content,
+            second_content,
+            "clean-counter-moves",
+        )
+
+        self.assertIsNotNone(clean)
+        clean_result = repo.check(clean[3])
+        self.assertEqual(
+            clean_result.returncode,
+            0,
+            clean_result.stdout + clean_result.stderr,
+        )
+        self.assertNotIn("lost", clean_result.stdout)
 
     def test_missing_added_lines_are_reported_without_failure(self):
         repo = self.repository()
@@ -467,11 +560,12 @@ class MergeCheckTest(unittest.TestCase):
         self.assertIn("lost first-parent change", result.stdout)
         self.assertNotIn("lost second-parent change", result.stdout)
 
-    def test_binary_and_mode_only_changes_are_reported(self):
+    def test_binary_mode_and_empty_file_changes_are_reported(self):
         repo = self.repository()
         base = repo.base("stable\n")
         repo.run("checkout", "-B", "binary-first", base)
         repo.write_bytes("binary.bin", b"\x00\xff\n")
+        repo.write("empty.txt", "")
         repo.commit("binary change")
         repo.run("checkout", "-B", "binary-second", base)
         repo.write("other.txt", "second parent\n")
@@ -492,6 +586,7 @@ class MergeCheckTest(unittest.TestCase):
         )
         self.assertIn("not compared", binary_result.stdout)
         self.assertIn("binary.bin (binary)", binary_result.stdout)
+        self.assertNotIn("empty.txt (mode-only)", binary_result.stdout)
 
         repo.run("checkout", "-B", "mode-first", base)
         os.chmod(repo.root / "file.txt", 0o755)
@@ -511,7 +606,7 @@ class MergeCheckTest(unittest.TestCase):
         self.assertEqual(mode_result.returncode, 0, mode_result.stdout + mode_result.stderr)
         self.assertIn("file.txt (mode-only)", mode_result.stdout)
 
-    def test_comment_like_lines_are_parsed_inside_hunks(self):
+    def test_comment_like_lines_are_counted_as_changed_lines(self):
         repo = self.repository()
         repo.base("-- x\nstable\n")
         _, revision_range = repo.merge(
@@ -525,6 +620,74 @@ class MergeCheckTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("missing first-parent change", result.stdout)
         self.assertIn("+ ++ y", result.stdout)
+
+    def test_submodule_pointer_changes_are_not_compared(self):
+        repo = self.repository()
+        base = repo.base("stable\n")
+        repo.run("checkout", "-B", "submodule-first", base)
+        submodule_commit = repo.commit_tree("submodule\n", "submodule")
+        repo.run(
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            f"160000,{submodule_commit},sub",
+        )
+        repo.run("commit", "-m", "submodule pointer")
+        repo.run("checkout", "-B", "submodule-second", base)
+        repo.write("other.txt", "second parent\n")
+        repo.commit("other change")
+        repo.run("checkout", "submodule-first")
+        repo.run(
+            "merge",
+            "--no-ff",
+            "-s",
+            "ours",
+            "submodule-second",
+            "-m",
+            "submodule merge",
+        )
+        repo.run("checkout", "submodule-second", "--", "other.txt")
+        repo.run("add", "other.txt")
+        repo.run("commit", "--amend", "--no-edit")
+        merge = repo.run("rev-parse", "HEAD").stdout.strip()
+
+        result = repo.check(f"{merge}^..{merge}")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("sub (submodule)", result.stdout)
+
+    def test_no_merge_base_lists_paths_without_failing(self):
+        repo = self.repository()
+        first = repo.commit_tree("first\n", "first")
+        second = repo.commit_tree("second\n", "second")
+        merge = repo.commit_tree(
+            "merge\n",
+            "unrelated merge",
+            parents=(first, second),
+        )
+
+        result = repo.check(f"{merge}^..{merge}")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("first-parent file.txt (no merge base)", result.stdout)
+        self.assertIn("second-parent file.txt (no merge base)", result.stdout)
+
+    def test_unexpected_checker_errors_return_exit_two(self):
+        repo = self.repository()
+        repo.base()
+        _, revision_range = repo.merge(
+            "a\nb\nx01\n", "a\nb\ny01\n", "a\nb\nx01\ny01\n"
+        )
+
+        with mock.patch.object(
+            MERGE_CHECKER,
+            "check_merge",
+            side_effect=IndexError("missing cat-file header"),
+        ):
+            result = repo.check_fast(revision_range)
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("IndexError: missing cat-file header", result.stderr)
 
     def test_generated_edits_follow_the_line_change_rule(self):
         repo = self.repository()
@@ -575,8 +738,30 @@ class MergeCheckTest(unittest.TestCase):
                 )
                 case += 1
 
+                if base_index == 0:
+                    base_merge = repo.commit_tree(
+                        base_content,
+                        f"merge equals base {case}",
+                        parents=(first, second),
+                    )
+                    case += 1
+                    result = repo.check_merge_fast(base_merge)
+                    self.assert_checker_result(
+                        result,
+                        expected_lost_sides(
+                            "merge-equals-base",
+                            base_lines,
+                            first_lines,
+                            second_lines,
+                            first_operator,
+                            second_operator,
+                        ),
+                        f"base reset base={base_lines}, "
+                        f"first={first_operator}, second={second_operator}",
+                    )
+
                 if conflicted:
-                    for kept, merged_lines in (
+                    for kept, _merged_lines in (
                         (first, first_lines),
                         (second, second_lines),
                     ):
@@ -585,12 +770,14 @@ class MergeCheckTest(unittest.TestCase):
                         )
                         case += 1
                         expected = expected_lost_sides(
+                            "reset-first" if kept == first else "reset-second",
                             base_lines,
                             first_lines,
                             second_lines,
-                            merged_lines,
+                            first_operator,
+                            second_operator,
                         )
-                        result = repo.check_fast(f"{merge}^..{merge}")
+                        result = repo.check_merge_fast(merge)
                         self.assert_checker_result(
                             result,
                             expected,
@@ -600,15 +787,21 @@ class MergeCheckTest(unittest.TestCase):
                         )
                     continue
 
-                result = repo.check_fast(f"{auto_merge}^..{auto_merge}")
-                self.assertEqual(
-                    result.returncode,
-                    0,
-                    f"clean base={base_lines}, first={first_operator}, "
-                    f"second={second_operator}: "
-                    f"{result.stdout}{result.stderr}",
+                result = repo.check_merge_fast(auto_merge)
+                self.assert_checker_result(
+                    result,
+                    expected_lost_sides(
+                        "auto-merge",
+                        base_lines,
+                        first_lines,
+                        second_lines,
+                        first_operator,
+                        second_operator,
+                    ),
+                    f"auto base={base_lines}, first={first_operator}, "
+                    f"second={second_operator}",
                 )
-                for kept, merged_lines in (
+                for kept, _merged_lines in (
                     (first, first_lines),
                     (second, second_lines),
                 ):
@@ -617,12 +810,14 @@ class MergeCheckTest(unittest.TestCase):
                     )
                     case += 1
                     expected = expected_lost_sides(
+                        "reset-first" if kept == first else "reset-second",
                         base_lines,
                         first_lines,
                         second_lines,
-                        merged_lines,
+                        first_operator,
+                        second_operator,
                     )
-                    result = repo.check_fast(f"{merge}^..{merge}")
+                    result = repo.check_merge_fast(merge)
                     self.assert_checker_result(
                         result,
                         expected,
