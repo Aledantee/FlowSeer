@@ -17,7 +17,7 @@ The body answers three questions:
 Run the statement gate from the repository root:
 
 ```text
-go test ./test/conformance/dependencies -run TestDirectDependenciesHaveStatements
+go test ./test/conformance/dependencies
 ```
 
 The gate also rejects an empty direct-dependency set. It reads Go manifests and
