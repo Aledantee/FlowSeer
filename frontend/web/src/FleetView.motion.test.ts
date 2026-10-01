@@ -177,30 +177,36 @@ describe('FleetView motion layout', () => {
     await router.push('/devices')
     await nextTick()
 
-    const firstTransform =
-      host.querySelector<HTMLElement>('.nav-highlight')?.style.transform
+    const firstHighlight = host.querySelector<HTMLElement>('.nav-highlight')
+    if (!firstHighlight) throw new Error('Missing nav highlight')
+    const firstTransform = firstHighlight.style.transform
     const firstOffset = parseTranslateY(firstTransform)
 
     await wait(30)
 
-    const secondTransform =
-      host.querySelector<HTMLElement>('.nav-highlight')?.style.transform
+    const secondHighlight = host.querySelector<HTMLElement>('.nav-highlight')
+    if (!secondHighlight) throw new Error('Missing nav highlight')
+    const secondTransform = secondHighlight.style.transform
     const secondOffset = parseTranslateY(secondTransform)
 
     expect(firstTransform).toContain('translate')
     expect(secondTransform).toContain('translate')
-    expect(firstOffset).not.toBeNull()
-    expect(secondOffset).not.toBeNull()
-    if (firstOffset !== null && secondOffset !== null) {
-      expect(secondOffset).not.toBe(firstOffset)
-      expect(Math.abs(secondOffset)).toBeLessThan(Math.abs(firstOffset))
+    if (firstOffset === null || secondOffset === null) {
+      throw new Error('Missing translate offset')
     }
+    expect(secondOffset).not.toBe(firstOffset)
+    expect(Math.abs(secondOffset)).toBeLessThan(Math.abs(firstOffset))
 
     await wait(200)
 
-    const finalTransform =
-      host.querySelector<HTMLElement>('.nav-highlight')?.style.transform ?? ''
-    expect(finalTransform).not.toContain('translate')
+    const highlights = host.querySelectorAll<HTMLElement>('.nav-highlight')
+    expect(highlights).toHaveLength(1)
+    const finalHighlight = highlights[0]
+    if (!finalHighlight) throw new Error('Missing nav highlight')
+    const devicesLink = finalHighlight.closest('a')
+    expect(devicesLink?.getAttribute('aria-current')).toBe('page')
+    expect(devicesLink?.getAttribute('href')).toContain('devices')
+    expect(finalHighlight.style.transform).not.toContain('translate')
   })
 
   it('skips layout transforms and fades nav on expand below desktop width', async () => {
@@ -245,9 +251,9 @@ describe('FleetView motion layout', () => {
     )
     expect(runningOnExpand).toHaveLength(1)
     const activeAnimation = runningOnExpand[0]
-    expect(activeAnimation).toBeDefined()
-    if (activeAnimation && activeAnimation.startTime !== null) {
-      expect(activeAnimation.startTime).toBeGreaterThanOrEqual(expandTime)
+    if (!activeAnimation || activeAnimation.startTime === null) {
+      throw new Error('Missing running expand animation')
     }
+    expect(activeAnimation.startTime).toBeGreaterThanOrEqual(expandTime)
   })
 })
