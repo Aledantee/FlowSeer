@@ -34,10 +34,10 @@ func TestAgeReadsGoOriginAndNpmPublicationDate(t *testing.T) {
 	if len(ages) != 2 {
 		t.Fatalf("got %d ages, want 2", len(ages))
 	}
-	if ages[0].Published.Format(time.RFC3339) != "2024-01-23T18:54:04Z" || ages[0].OriginCommit != "0f11ee6918f41a04c201eceeadf612a377bc7fbc" || ages[0].Under14Days {
+	if ages[0].Published.Format(time.RFC3339) != "2024-01-23T18:54:04Z" || ages[0].OriginCommit != "0f11ee6918f41a04c201eceeadf612a377bc7fbc" || ages[0].OriginMissing || ages[0].Under14Days || ages[0].Until.Format(time.RFC3339) != "2024-02-06T18:54:04Z" {
 		t.Fatalf("Go age = %#v", ages[0])
 	}
-	if ages[1].Published.Format(time.RFC3339Nano) != "2026-09-21T13:18:23.018Z" || !ages[1].Under14Days {
+	if ages[1].Published.Format(time.RFC3339Nano) != "2026-09-21T13:18:23.018Z" || ages[1].OriginMissing || !ages[1].Under14Days || ages[1].Until.Format(time.RFC3339Nano) != "2026-10-05T13:18:23.018Z" {
 		t.Fatalf("npm age = %#v", ages[1])
 	}
 }

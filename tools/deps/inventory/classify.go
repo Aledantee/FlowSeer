@@ -192,9 +192,6 @@ func parseModuleKeys(output string) (map[string]bool, error) {
 	for _, line := range strings.Split(output, "\n") {
 		fields := strings.SplitN(line, "\t", 3)
 		if listingError := strings.TrimSpace(fields[0]); listingError != "" {
-			if onlyBuildConstraintErrors(listingError) {
-				continue
-			}
 			return nil, errs.Msgf("go list reported: %s", strings.TrimSuffix(listingError, ";"))
 		}
 		if len(fields) == 3 && fields[1] != "" && fields[2] != "" {

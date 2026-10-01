@@ -146,7 +146,8 @@ func printUsage(stderr io.Writer) {
 
 func cleanLine(value string) string {
 	value = strings.ReplaceAll(value, "\r", " ")
-	return strings.ReplaceAll(value, "\n", " ")
+	value = strings.ReplaceAll(value, "\n", " ")
+	return strings.ReplaceAll(value, "\t", " ")
 }
 
 func writeJSON(output io.Writer, value any) error {

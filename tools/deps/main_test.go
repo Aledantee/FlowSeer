@@ -21,6 +21,12 @@ func TestRunRejectsUnknownCommand(t *testing.T) {
 	}
 }
 
+func TestCleanLineRemovesTSVDelimiters(t *testing.T) {
+	if got, want := cleanLine("summary\twith\nline\rend"), "summary with line end"; got != want {
+		t.Fatalf("cleanLine() = %q, want %q", got, want)
+	}
+}
+
 func TestRunAgeReadsLockfilesWithoutClassification(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.test/root\n\ngo 1.27\n\nrequire example.test/dependency v1.0.0\n")
