@@ -378,7 +378,13 @@ case "$cmd" in
         outcome=timeout
         break
       fi
-      if [[ $s1 != "$last_lane" || $s1 != "$s2" || $child_active == true ]]; then
+      lane_changed=false
+      if [[ $s1 != "$last_lane" ]]; then
+        lane_changed=true
+      elif [[ $s1 != "$s2" ]]; then
+        lane_changed=true
+      fi
+      if [[ $lane_changed == true || $child_active == true ]]; then
         since=$now
       fi
       last_lane=$s1
@@ -386,7 +392,7 @@ case "$cmd" in
       if [[ $lane_idle == true && $child_active == false ]]; then
         if ((${#child_names[@]} == 0)); then
           if [[ -n $until_cmd ]] && (cd "$path" && bash -c "$until_cmd" >/dev/null 2>&1); then
-            outcome=done
+            outcome='done'
           elif [[ -n $until_cmd ]]; then
             outcome=idle
           else
@@ -396,7 +402,7 @@ case "$cmd" in
         fi
         if (( stall > 0 && now - since >= stall )); then
           if [[ -n $until_cmd ]] && (cd "$path" && bash -c "$until_cmd" >/dev/null 2>&1); then
-            outcome=done
+            outcome='done'
           elif [[ -n $until_cmd ]]; then
             outcome="idle-children ${child_names[*]}"
           else
