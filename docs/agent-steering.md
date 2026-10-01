@@ -181,8 +181,9 @@ branch inside the worktree, where the tests and the verifier already are,
 verifies the union with `--base main`, and emits the primary checkout's
 `git merge --ff-only <branch>` for the person; `--ff-only` lands exactly
 the verified commit and refuses if `main` moved again. The sandbox's deny
-of writes under `.claude/skills/` also covers git replaying a committed
-change, so that merge needs the bypass whenever `main` touched `.claude/`;
+of writes under `.claude/skills/` and its link target `.agents/skills/`
+also covers git replaying a committed change, so that merge needs the
+bypass whenever `main` touched `.claude/` or `.agents/`;
 that deny list, like the isolation guard, is Claude Code's own and not a
 repository policy surface, which is why the owner's direction that a
 session may merge in both directions and remove its own worktrees is met
@@ -322,7 +323,11 @@ the receipt and a silent survivor reads as an artifact, so `land` takes
 the marker's content as its remedy. A web path now selects the web
 workspace's typecheck, build, ESLint, Stylelint, Prettier, and Vitest gates; a
 marked path absent from both the tree and an explicit base clears like
-one whose bytes match the base. The marker hook itself was the last
+one whose bytes match the base. An argument spelled through the
+`.claude/skills` link is rewritten to the path git tracks: git lists
+nothing beyond a link, so the directory form stopped the run before any
+gate, and the marker holds git's spelling, so the file form left its line
+behind. The marker hook itself was the last
 of these. It guessed from a Bash command's text whether the command wrote
 a file, and the pattern missed a Python rewrite of a document and any
 `cp` or `tee`, while it flagged `git log | grep patch` and a redirect to a scratch `.json`; each false

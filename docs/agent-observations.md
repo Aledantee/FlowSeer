@@ -27,18 +27,6 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
-## 2026-10-01 verify-change: targeted skill verification follows an untracked alias
-Skill or agent: `.agents/skills/verify-change/SKILL.md`, named-path verification
-command and the command table at lines 20-23.
-What happened: The instructions and `AGENTS.md` direct a coordinator through
-`.claude/skills/`. This checkout tracks the physical target under
-`.agents/skills/`, so `git ls-files` returns no files for a symlinked skill
-directory. The verifier then fails to enumerate the requested skill tests when
-the documented directory spelling is followed.
-Suggested change: resolve directory arguments before selecting gates, or teach
-the verification skill to use `.agents/skills/` for targeted skill paths, and
-add a regression case for the symlinked spelling.
-
 ## 2026-10-01 codex: hook command resolution is unverified on lane PATHs
 Skill or agent: `.codex/hooks.json` project hook commands and
 `/Users/aledante/.codex/hooks.json` SessionStart hook.
@@ -50,14 +38,9 @@ executable can fail before the target script reports its own error. The exact
 failing command was not isolated.
 Suggested change: run hook launchers through resolved executable paths, or add a
 startup check that reports which command is missing under the lane PATH.
-
-## 2026-10-01 land: sandbox bypass names the symlink alias but not its target
-Skill or agent: `.claude/skills/land/SKILL.md`, step 3's sandbox bypass.
-What happened: The step says the sandbox denies writes under `.claude/skills/`,
-but this checkout stores that path through the `.claude/skills` symlink to
-`.agents/skills`. Git writes to the target can fail with `Operation not
-permitted` while a coordinator follows the documented `.claude/skills`
-condition. The bypass is needed for the target path as well.
-Suggested change: name both `.claude/skills` and `.agents/skills` in the
-bypass condition, or resolve symlinks before deciding whether the merge needs
-the sandbox disabled.
+Status: awaiting guardrail review. The staged `.codex/hooks.json` commands
+report an unresolved root, a missing `git`, or a missing script and exit 1,
+pinned in `tools/hooks/tests/run.sh`. Every project hook exits 0 under
+`PATH=/usr/bin:/bin`, so a lane PATH is not shown to be the cause. A session
+directory outside the repository reproduces the 127. The user-level file is
+outside the repository and unchanged.
