@@ -44,14 +44,14 @@ func TestAgeReadsGoOriginAndNpmPublicationDate(t *testing.T) {
 
 func TestAgeEscapesGoPathAndReportsMissingOrigin(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path != "/github.com/!azure/go-ansiterm/@v/v1.0.0.info" {
+		if request.URL.Path != "/github.com/!azure/go-ansiterm/@v/v0.0.0-20210617225240-d185dfc1b5a1.info" {
 			t.Errorf("path = %q", request.URL.Path)
 		}
 		_, _ = writer.Write(fixture(t, "no-origin.info"))
 	}))
 	defer server.Close()
 
-	ages, err := Age(context.Background(), []inventory.Entry{{Ecosystem: "go", Name: "github.com/Azure/go-ansiterm", Version: "v1.0.0"}}, server.URL, server.URL, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC))
+	ages, err := Age(context.Background(), []inventory.Entry{{Ecosystem: "go", Name: "github.com/Azure/go-ansiterm", Version: "v0.0.0-20210617225240-d185dfc1b5a1"}}, server.URL, server.URL, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
 	}
