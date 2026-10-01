@@ -27,6 +27,17 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
+## 2026-10-01 land: sandbox bypass names the symlink alias but not its target
+Skill or agent: `.claude/skills/land/SKILL.md`, step 3's sandbox bypass.
+What happened: The step says the sandbox denies writes under `.claude/skills/`,
+but this checkout stores that path through the `.claude/skills` symlink to
+`.agents/skills`. Git writes to the target can fail with `Operation not
+permitted` while a coordinator follows the documented `.claude/skills`
+condition. The bypass is needed for the target path as well.
+Suggested change: name both `.claude/skills` and `.agents/skills` in the
+bypass condition, or resolve symlinks before deciding whether the merge needs
+the sandbox disabled.
+
 ## 2026-09-30 review: fix loop exceeded its three-round stop point
 Skill or agent: `.claude/skills/review/references/fix-loop.md`, "When to stop".
 What happened: The phase review ended with `accept after fixes` after four fix
