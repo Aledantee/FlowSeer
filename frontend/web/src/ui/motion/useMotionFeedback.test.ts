@@ -8,10 +8,141 @@ import { useMotionFeedback } from './useMotionFeedback'
 vi.hoisted(() => {
   vi.stubGlobal(
     'requestAnimationFrame',
+    // Motion reads this when its frame loop is imported, and browser frames run
+    // after timer tasks scheduled by the same turn.
     (callback: (timestamp: number) => void) =>
       setTimeout(() => callback(performance.now()), 16),
   )
 })
+
+type MotionKey = 'opacity' | 'x' | 'y' | 'rotate' | 'scale'
+type MotionKeyframes = Partial<Record<MotionKey, [number, number]>>
+type TransformKey = Exclude<MotionKey, 'opacity'>
+type TransformValues = Partial<Record<TransformKey, number>>
+
+interface FrameSample {
+  phase: string
+  time: number
+  opacity: string
+  transform: string
+}
+
+interface PlayCase {
+  name: string
+  keyframes: MotionKeyframes
+}
+
+interface InlineStyleCase {
+  name: string
+  opacity: string
+  transform: string
+}
+
+interface EndPath {
+  name: string
+  run: (
+    args: {
+      element: HTMLElement
+      feedback: ReturnType<typeof useMotionFeedback>
+      setPhase: (phase: string) => void
+      dispose: () => void
+    },
+    keyframes: MotionKeyframes,
+  ) => Promise<void>
+}
+
+const playCases: PlayCase[] = [
+  { name: 'opacity', keyframes: { opacity: [0.2, 0.8] } },
+  { name: 'y', keyframes: { y: [-40, 0] } },
+  {
+    name: 'y and opacity',
+    keyframes: { y: [-40, 0], opacity: [0.2, 0.8] },
+  },
+  {
+    name: 'rotate, scale, and opacity',
+    keyframes: {
+      rotate: [-45, 45],
+      scale: [0.9, 0.65],
+      opacity: [0.2, 0.8],
+    },
+  },
+]
+
+const inlineStyleCases: InlineStyleCase[] = [
+  { name: 'none', opacity: '', transform: '' },
+  { name: 'opacity', opacity: '0.93', transform: '' },
+  {
+    name: 'opacity and transform',
+    opacity: '0.93',
+    transform: 'translateX(17px) scale(0.72) rotate(13deg)',
+  },
+]
+
+const endPaths: EndPath[] = [
+  {
+    name: 'completion',
+    async run({ element, feedback, setPhase }, keyframes) {
+      setPhase('first')
+      feedback.play(element, keyframes, 0.08)
+      await wait(180)
+    },
+  },
+  {
+    name: 'cancel from a timer task',
+    async run({ element, feedback, setPhase }, keyframes) {
+      setPhase('first')
+      feedback.play(element, keyframes, 0.4)
+      await wait(32)
+      window.setTimeout(() => feedback.cancel(element), 0)
+      await wait(180)
+    },
+  },
+  {
+    name: 'window resize',
+    async run({ element, feedback, setPhase }, keyframes) {
+      setPhase('first')
+      feedback.play(element, keyframes, 0.4)
+      await wait(32)
+      window.dispatchEvent(new Event('resize'))
+      await wait(180)
+    },
+  },
+  {
+    name: 'motion preference change',
+    async run({ element, feedback, setPhase }, keyframes) {
+      setPhase('first')
+      feedback.play(element, keyframes, 0.4)
+      await wait(32)
+      preference.matches = true
+      preference.dispatchEvent(
+        Object.assign(new Event('change'), { matches: true }),
+      )
+      await nextTick()
+      await wait(180)
+    },
+  },
+  {
+    name: 'unmount',
+    async run({ element, feedback, setPhase, dispose }, keyframes) {
+      setPhase('first')
+      feedback.play(element, keyframes, 0.4)
+      await wait(32)
+      dispose()
+      await wait(180)
+    },
+  },
+]
+
+const generatedEndCases = endPaths.flatMap((path) =>
+  playCases.flatMap((playCase) =>
+    inlineStyleCases.map((inlineStyles) => ({
+      ...path,
+      ...playCase,
+      ...inlineStyles,
+      caseName: `${path.name} / ${playCase.name} / ${inlineStyles.name}`,
+    })),
+  ),
+)
 
 let dispose = () => {}
 let preference: EventTarget & { matches: boolean }
@@ -38,7 +169,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function mountFeedback(reducedMotion?: 'always' | 'user') {
+function mountFeedback(reducedMotion?: 'always') {
   let feedback: ReturnType<typeof useMotionFeedback> | undefined
   const Harness = defineComponent({
     setup() {
@@ -68,127 +199,298 @@ function mountFeedback(reducedMotion?: 'always' | 'user') {
   return { element, feedback }
 }
 
+function recordFrames(element: HTMLElement, getPhase: () => string) {
+  const frames: FrameSample[] = []
+  let recording = true
+
+  const record = () => {
+    if (!recording) return
+    frames.push({
+      phase: getPhase(),
+      time: performance.now(),
+      opacity: element.style.opacity,
+      transform: element.style.transform,
+    })
+    requestAnimationFrame(record)
+  }
+
+  requestAnimationFrame(record)
+  return {
+    frames,
+    stop() {
+      recording = false
+    },
+  }
+}
+
+function parseTransform(transform: string): TransformValues {
+  const values: TransformValues = {}
+  const names: Record<string, TransformKey> = {
+    translateX: 'x',
+    translateY: 'y',
+    rotate: 'rotate',
+    scale: 'scale',
+  }
+  for (const match of transform.matchAll(/([a-z]+)\((-?[\d.]+)/gi)) {
+    const key = names[match[1] ?? '']
+    if (key) values[key] = Number(match[2])
+  }
+  return values
+}
+
+function transformKeyframes(keyframes: MotionKeyframes) {
+  return Object.fromEntries(
+    Object.entries(keyframes).filter(([key]) => key !== 'opacity'),
+  ) as Partial<Record<TransformKey, [number, number]>>
+}
+
+function expectWithin(value: number, pair: [number, number]) {
+  const low = Math.min(...pair) - 0.01
+  const high = Math.max(...pair) + 0.01
+  expect(value).toBeGreaterThanOrEqual(low)
+  expect(value).toBeLessThanOrEqual(high)
+}
+
+function assertTransformInvariant(
+  frames: FrameSample[],
+  originalTransform: string,
+  keyframes: MotionKeyframes,
+) {
+  const activeKeyframes = transformKeyframes(keyframes)
+  for (const frame of frames) {
+    if (frame.transform === originalTransform) continue
+    const values = parseTransform(frame.transform)
+    for (const [key, value] of Object.entries(values) as [
+      TransformKey,
+      number,
+    ][]) {
+      const pair = activeKeyframes[key]
+      expect(
+        pair,
+        `${key} must belong to the active play in ${frame.phase}: ${frame.transform}`,
+      ).toBeDefined()
+      if (pair === undefined) throw new Error(`Missing keyframes for ${key}`)
+      expectWithin(value, pair)
+    }
+  }
+}
+
+function assertOpacityInvariant(
+  frames: FrameSample[],
+  originalOpacity: string,
+  keyframes: MotionKeyframes,
+) {
+  const pair = keyframes.opacity
+  if (!pair) return
+  for (const frame of frames) {
+    if (frame.opacity === originalOpacity) continue
+    expectWithin(Number(frame.opacity || 0), pair)
+  }
+}
+
+function assertRestored(
+  frames: FrameSample[],
+  originalOpacity: string,
+  originalTransform: string,
+) {
+  expect(frames.length).toBeGreaterThanOrEqual(4)
+  const tail = frames.slice(-4)
+  for (const frame of tail) {
+    expect(frame.opacity).toBe(originalOpacity)
+    expect(frame.transform).toBe(originalTransform)
+  }
+}
+
+function assertReplacementFrames(
+  frames: FrameSample[],
+  replacementStart: number,
+  originalOpacity: string,
+  originalTransform: string,
+  keyframes: MotionKeyframes,
+) {
+  const earlyFrames = frames.filter(
+    (frame) =>
+      frame.time >= replacementStart && frame.time < replacementStart + 120,
+  )
+  expect(earlyFrames.length).toBeGreaterThanOrEqual(2)
+  assertTransformInvariant(earlyFrames, originalTransform, keyframes)
+  assertOpacityInvariant(earlyFrames, originalOpacity, keyframes)
+  const transformNames = Object.keys(transformKeyframes(keyframes))
+  if (transformNames.length) {
+    expect(
+      earlyFrames.some((frame) =>
+        transformNames.some((key) =>
+          frame.transform.includes(key === 'y' ? 'translateY(' : `${key}(`),
+        ),
+      ),
+    ).toBe(true)
+  }
+}
+
 function wait(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
-describe('useMotionFeedback', () => {
-  it('holds movement during play and restores inline styles after completion', async () => {
-    const { element, feedback } = mountFeedback()
+describe('useMotionFeedback invariants', () => {
+  it.each(generatedEndCases)('$caseName restores styles', async (testCase) => {
+    const mounted = mountFeedback()
+    mounted.element.style.opacity = testCase.opacity
+    mounted.element.style.transform = testCase.transform
+    let phase = 'before'
+    const recorder = recordFrames(mounted.element, () => phase)
 
-    feedback.play(element, { y: [-4, 0], opacity: [0.6, 1] })
-    await wait(40)
-
-    expect(element.style.transform).toContain('translateY(')
-
-    await wait(280)
-    expect(element.style.transform).toBe('')
-    expect(element.style.opacity).toBe('')
-  })
-
-  it('keeps the fade while reduced motion filters movement', async () => {
-    preference.matches = true
-    const { element, feedback } = mountFeedback()
-
-    expect(feedback.reduced.value).toBe(true)
-    feedback.play(element, { y: [-4, 0], opacity: [0.6, 1] })
-    await wait(40)
-
-    expect(element.style.transform).toBe('')
-    expect(element.getAnimations()[0]?.playState).toBe('running')
-  })
-
-  it('treats an always-reduced motion config as reduced', async () => {
-    const { element, feedback } = mountFeedback('always')
-
-    expect(feedback.reduced.value).toBe(true)
-    feedback.play(element, { y: [-4, 0], opacity: [0.6, 1] })
-    await wait(40)
-
-    expect(element.style.transform).toBe('')
-    expect(element.getAnimations()[0]?.playState).toBe('running')
-  })
-
-  it('cancels and restores the prior style on resize', async () => {
-    const { element, feedback } = mountFeedback()
-    element.style.opacity = '0.9'
-
-    feedback.play(element, { opacity: [0.5, 0.9] })
-    window.dispatchEvent(new Event('resize'))
-    await wait(40)
-
-    expect(element.style.opacity).toBe('0.9')
-    expect(element.getAnimations()).toHaveLength(0)
-  })
-
-  it('cancels active feedback when the motion preference changes', async () => {
-    const { element, feedback } = mountFeedback()
-    element.style.transform = 'scale(0.8)'
-    feedback.play(element, { y: [-4, 0], opacity: [0.6, 1] })
-
-    preference.matches = true
-    preference.dispatchEvent(
-      Object.assign(new Event('change'), { matches: true }),
+    await testCase.run(
+      {
+        element: mounted.element,
+        feedback: mounted.feedback,
+        setPhase(nextPhase) {
+          phase = nextPhase
+        },
+        dispose,
+      },
+      testCase.keyframes,
     )
-    await nextTick()
-    await wait(40)
+    recorder.stop()
 
-    expect(element.style.transform).toBe('scale(0.8)')
-    expect(element.getAnimations()).toHaveLength(0)
+    assertTransformInvariant(
+      recorder.frames,
+      testCase.transform,
+      testCase.keyframes,
+    )
+    assertOpacityInvariant(
+      recorder.frames,
+      testCase.opacity,
+      testCase.keyframes,
+    )
+    assertRestored(recorder.frames, testCase.opacity, testCase.transform)
   })
 
-  it('keeps the replacement animation running after cancellation', async () => {
-    const { element, feedback } = mountFeedback()
+  it.each(inlineStyleCases)(
+    'reduced play without opacity restores $name styles',
+    async (inlineStyles) => {
+      const mounted = mountFeedback('always')
+      mounted.element.style.opacity = inlineStyles.opacity
+      mounted.element.style.transform = inlineStyles.transform
+      let phase = 'before'
+      const recorder = recordFrames(mounted.element, () => phase)
+      phase = 'reduced play'
+      mounted.feedback.play(mounted.element, { y: [-40, 0] }, 0.4)
+      await wait(180)
+      recorder.stop()
 
-    feedback.play(element, { opacity: [0.2, 1] }, 0.2)
-    await wait(20)
-    feedback.play(element, { opacity: [0.4, 1] }, 0.2)
-    await wait(40)
+      expect(mounted.feedback.reduced.value).toBe(true)
+      assertTransformInvariant(recorder.frames, inlineStyles.transform, {
+        y: [-40, 0],
+      })
+      assertRestored(
+        recorder.frames,
+        inlineStyles.opacity,
+        inlineStyles.transform,
+      )
+    },
+  )
 
-    expect(element.getAnimations()).toHaveLength(1)
-    expect(element.getAnimations()[0]?.playState).toBe('running')
-    await wait(60)
-    expect(element.getAnimations()).toHaveLength(1)
-    expect(element.getAnimations()[0]?.playState).toBe('running')
+  const replacementCases = [
+    {
+      name: 'same key replacement',
+      first: { opacity: [0.1, 0.2] } as MotionKeyframes,
+      replacement: { opacity: [0.6, 0.8] } as MotionKeyframes,
+    },
+    {
+      name: 'different key replacement',
+      first: {
+        rotate: [-45, -30],
+        scale: [0.9, 0.72],
+        opacity: [0.1, 0.2],
+      } as MotionKeyframes,
+      replacement: { y: [-40, -20], opacity: [0.6, 0.8] } as MotionKeyframes,
+    },
+  ]
+
+  it.each(
+    replacementCases.flatMap((replacementCase) =>
+      inlineStyleCases.map((inlineStyles) => ({
+        ...replacementCase,
+        ...inlineStyles,
+        caseName: `${replacementCase.name} / ${inlineStyles.name}`,
+      })),
+    ),
+  )('$caseName has no reset frame', async (testCase) => {
+    const mounted = mountFeedback()
+    mounted.element.style.opacity = testCase.opacity
+    mounted.element.style.transform = testCase.transform
+    let phase = 'before'
+    const recorder = recordFrames(mounted.element, () => phase)
+
+    phase = 'first'
+    mounted.feedback.play(mounted.element, testCase.first, 0.4)
+    await wait(48)
+    const replacementStart = performance.now()
+    phase = 'replacement'
+    mounted.feedback.play(mounted.element, testCase.replacement, 0.24)
+    await wait(400)
+    recorder.stop()
+
+    assertTransformInvariant(
+      recorder.frames.filter((frame) => frame.phase === 'first'),
+      testCase.transform,
+      testCase.first,
+    )
+    assertTransformInvariant(
+      recorder.frames.filter((frame) => frame.phase === 'replacement'),
+      testCase.transform,
+      testCase.replacement,
+    )
+    assertReplacementFrames(
+      recorder.frames,
+      replacementStart,
+      testCase.opacity,
+      testCase.transform,
+      testCase.replacement,
+    )
+    assertRestored(recorder.frames, testCase.opacity, testCase.transform)
   })
 
-  it('restores styles from before a replacement with different keys', async () => {
-    const { element, feedback } = mountFeedback()
+  it.each(inlineStyleCases)(
+    'sequential plays with different transform keys keep $name isolated',
+    async (inlineStyles) => {
+      const mounted = mountFeedback()
+      mounted.element.style.opacity = inlineStyles.opacity
+      mounted.element.style.transform = inlineStyles.transform
+      let phase = 'before'
+      const recorder = recordFrames(mounted.element, () => phase)
 
-    feedback.play(element, { y: [-4, 0], opacity: [0.6, 1] })
-    await wait(40)
-    feedback.play(element, { opacity: [0.85, 1] }, 0.12)
-    await wait(40)
+      phase = 'first'
+      mounted.feedback.play(
+        mounted.element,
+        { rotate: [-45, 45], scale: [0.9, 0.65], opacity: [0.2, 0.8] },
+        0.08,
+      )
+      await wait(180)
+      phase = 'second'
+      mounted.feedback.play(
+        mounted.element,
+        { y: [-40, -20], opacity: [0.6, 0.8] },
+        0.24,
+      )
+      await wait(400)
+      recorder.stop()
 
-    expect(element.style.transform).toBe('')
-    await wait(180)
-
-    expect(element.style.transform).toBe('')
-  })
-
-  it('restores inline styles when a timer cancels an animation', async () => {
-    const { element, feedback } = mountFeedback()
-    element.style.opacity = '0.9'
-
-    feedback.play(element, { y: [-40, 0], opacity: [0.2, 1] }, 0.2)
-    await wait(30)
-    window.setTimeout(() => feedback.cancel(element), 0)
-    await wait(50)
-
-    expect(element.style.transform).toBe('')
-    expect(element.style.opacity).toBe('0.9')
-  })
-
-  it('cancels all feedback when the owning component unmounts', async () => {
-    const { element, feedback } = mountFeedback()
-
-    feedback.play(element, { opacity: [0.5, 1] })
-    await wait(40)
-    expect(element.getAnimations()).not.toHaveLength(0)
-
-    dispose()
-    await wait(40)
-
-    expect(element.getAnimations()).toHaveLength(0)
-  })
+      assertTransformInvariant(
+        recorder.frames.filter((frame) => frame.phase === 'first'),
+        inlineStyles.transform,
+        { rotate: [-45, 45], scale: [0.9, 0.65] },
+      )
+      assertTransformInvariant(
+        recorder.frames.filter((frame) => frame.phase === 'second'),
+        inlineStyles.transform,
+        { y: [-40, -20] },
+      )
+      assertRestored(
+        recorder.frames,
+        inlineStyles.opacity,
+        inlineStyles.transform,
+      )
+    },
+  )
 })
