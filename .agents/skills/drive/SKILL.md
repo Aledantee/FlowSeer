@@ -80,6 +80,18 @@ The brief follows `delegate` and adds:
   the share is the whole cap. The stage skill's own rules about workers
   stand; only the count is this drive's.
 
+Wait on the lane as `delegate` describes, with
+`wait <slug> --until '<test>'` using the anchored `grep -q` on the plan path
+for the stage's "Done when":
+
+- re-plan: `grep -q '^artifact_readiness: implementation-ready$' <plan>`
+- implement: `grep -q '^status: implemented$' <plan>`
+- review: `grep -q '^review: accept' <plan>`
+- compound: `grep -q '^compound:' <plan>`
+
+On `done` without the stage's report on the screen, wait again without
+`--until`.
+
 After each stage:
 
 1. Check the worker's tree before its report, as `delegate` describes, and
@@ -116,13 +128,13 @@ After each stage:
    success and leaves the field unset parks the plan with that as its
    question; do not run it again.
 
-End a turn only while waiting on a started lane, at a parked question, or
-when a failed lane check in step 1 or a failed merge-check in step 3 stops the
-drive. A turn that ends right after announcing the next stage leaves nothing
-to wake it. Run each stage once:
-the skills' own caps (three verifier rounds on a unit, three review rounds
-on a mechanism) decide when patching stops, and a parked question is what
-sends a plan back.
+End a turn only while waiting on a started lane, with a started successor,
+at a parked question, or when a failed lane check in step 1 or a failed
+merge-check in step 3 stops the drive. A turn that ends right after
+announcing the next stage leaves nothing to wake it. Run each stage once:
+the skills' own caps (three verifier rounds on a unit, two fix rounds on a
+mechanism, three on a review) decide when patching stops, and a parked
+question is what sends a plan back.
 
 ## 3. Drive a parent's phases
 
@@ -143,13 +155,40 @@ a phase named in another's `After:` releases that dependent once its review
 and compound stages also read done. The parent has no stage; its `status`
 follows its last phase, as `implement` writes it.
 
+A Claude coordinator hands off to a successor between phases when four
+conditions hold:
+
+1. A phase's last stage reads done.
+2. The state command still names a phase that can run.
+3. No lane of this session is live.
+4. No plan in scope holds a `Parked by drive:` line.
+
+Call `successor.sh`, sandbox disabled and `timeout: 180000`, passing this
+session's model id, and `--effort` only when the user named one:
+
+```bash
+.claude/skills/drive/scripts/successor.sh <parent> --model <id> [--effort <level>]
+```
+
+Exit handling:
+
+- Exit 0: report in one line that the drive and its closing question continue
+  in the named terminal, and end the turn.
+- Exit 1: continue the drive in this session.
+- Exit 2: stop the drive and report that a successor may be running with the
+  printed handle.
+
+When no further phase can run, go to step 5. A coordinator on another
+runtime does not hand off.
+
 ## 4. Park what needs the user, continue elsewhere
 
 Park a plan when its worker stops on a decision that is the user's (a ruling
 that changes other units, the wire, or an accepted record; a design question
 in a re-plan; a direction record awaiting acceptance), on a `blocked` unit,
 on a review that ends in `rework` after its loop, or on a change to a policy
-surface. Load `references/parking.md` to park it, and again when the user
+surface. A `rework` that names the round limit parks with another round as
+an option. Load `references/parking.md` to park it, and again when the user
 answers a parked question. A resumed drive reads the `Parked by drive:`
 lines first and asks them before anything else.
 

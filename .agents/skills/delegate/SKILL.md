@@ -111,8 +111,8 @@ worker runs on any installed agent whose pool is signed in.
 
 ## Dispatch by quota
 
-Run this immediately before each wave, and first whenever a delegated
-session goes quiet:
+Run this immediately before each wave, and first on `timeout` (the
+quiet-worker check) or whenever a delegated session goes quiet:
 
 ```bash
 .claude/skills/delegate/scripts/pool-usage.sh    # unsandboxed
@@ -143,9 +143,10 @@ disabled; a sandboxed call reports the runtime as not running.
 
 ```bash
 s=.claude/skills/delegate/scripts/orca-worker.sh
+$s line --cli <cli> --model <id> [--effort <level>]
 $s start --lane <slug> --cli <claude|codex|agy> --model <id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file>
 $s start --lane <slug> --cli omp --model <pool_id> --role <role> [--plan <path>] [--unit <unit>] --brief <file>
-$s wait <slug>            # blocks; prints idle, exited, stalled, or timeout, then the screen
+$s wait <slug> [--until <command>] [--max <seconds>]  # blocks; prints idle, done, stalled, timeout, exited, or idle-children, then the screen
 $s read <slug>            # the worker's report, from its screen
 $s keys <slug> <text>     # a dialog answer, at most 200 characters
 $s tell <slug> <file>     # a message over the 200 characters `keys` takes
@@ -156,15 +157,28 @@ $s stop <slug>            # after grade and merge: closes the terminal, removes 
 
 `start` exits 0 only when the worker runs in a child worktree branched from
 this branch with the brief on its screen; its JSON line names the branch
-(prefixed with the git user) and `run`. On `idle`, check the tree, then
-read the report. A permission dialog also reads as idle: answer one the
-brief anticipated with `keys`, otherwise report it. Then merge here, run
-the verifier on the changed paths, `grade`, and `stop`, which refuses an
-ungraded, mid-turn, dirty, or unmerged lane (removal deletes the branch).
-Load `references/orca.md` when a step fails, when `wait` prints anything
-but `idle` or keeps running on a quiet worker, when the screen shows an
-unanticipated dialog or a Claude model-switch prompt, and for an
-orchestration run or a full handoff.
+(prefixed with the git user) and `run`.
+
+A Claude coordinator runs `wait` once per lane with the Bash tool's
+`run_in_background` and `timeout: 7200000`, sandbox disabled, and acts on
+the completion notice. Nothing else is scheduled to check on the lane. A
+notice that the command hit its background time limit reads as `timeout`,
+and any other stop is reported as its notice says. A Codex coordinator
+(whose user sets `background_terminal_max_timeout = 3600000` in
+`~/.codex/config.toml` when starting it by hand) starts `wait` with
+`exec_command` and polls it with an empty `write_stdin` at
+`yield_time_ms: 3600000`. On `agy` or `omp`, shell tool limits are
+unmeasured (`references/orca.md`), so a coordinator there reruns a
+foreground `wait` the tool cut short.
+
+`done` and `idle` lead to the tree check, then read the report. A
+permission dialog also reads as idle: answer one the brief anticipated with
+`keys`, otherwise report it. Then merge here, run the verifier on the
+changed paths, `grade`, and `stop`, which refuses an ungraded, mid-turn,
+dirty, or unmerged lane (removal deletes the branch). Every other outcome
+routes to `references/orca.md`. Load `references/orca.md` as well when a
+step fails, when the screen shows an unanticipated dialog or a Claude
+model-switch prompt, and for an orchestration run or a full handoff.
 
 | Outcome | A lane that commits work | A lane that returns a report (`critique`, `research`, `review-unit` on a pool CLI) |
 | --- | --- | --- |
