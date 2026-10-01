@@ -329,3 +329,11 @@ phase lands second merges those and regenerates the lockfile with
   wrapper around `UiTooltip` that takes the toggle's absolute positioning.
 - pnpm 11.25.0's reuse of the locked versions is unverified. The cited
   lines are from 13.4.5, and U1's reduced tests catch a version that differs.
+- Parked by drive: what happens to `useMotionFeedback` after the review
+  ended in `rework`. Options: re-plan it on `animateMini`, which keeps no
+  per-element value store (contradicts U1's "play runs motion-v's
+  `animate`" and the tests that read inline `transform` mid-flight, so it
+  needs `plan`) | run a fourth fix round on the current design (smaller
+  change, and each of three rounds surfaced a new ordering defect).
+  Recommended: re-plan on `animateMini`, because all four defects come from
+  that value store.
