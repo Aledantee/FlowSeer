@@ -304,3 +304,17 @@ network and run unsandboxed. `git status --short` after them shows no
 - Whether pnpm applies `minimumReleaseAge` and `trustPolicy` to a frozen
   install. If it does, `reka-ui` `2.10.5` blocks installs until 2026-10-05
   and U4 waits or lands after that date.
+- Parked by drive: with `minimumReleaseAge: 20160` set, `pnpm install
+  --frozen-lockfile` on pnpm 11.25.0 installs and then exits non-zero. It
+  refuses 58 locked versions published after 2026-09-17, not only `reka-ui`
+  `2.10.5`. pnpm prints 20 of them, the newest from 2026-09-25, and the
+  lockfile last moved on 2026-09-30 (`1966c0dd`), so the last one clears
+  between 2026-10-09 and 2026-10-14. Options: land U1, U2, U5, and U3 now
+  and U4 once the install passes (the phase stays open until then and the
+  parent's U2 waits on it) | land U4 now (every frozen install exits
+  non-zero until the versions age out) | land U4 now with the 58 versions
+  excluded from the age check (an exclusion list a person approves, and
+  whether pnpm 11.25.0 has such a setting is unverified) | move U4 to the
+  parent's U3 (this phase closes without parent requirement 10 and both
+  plans change). Recommended: the first, because installs stay green and no
+  other unit of this phase needs U4.
