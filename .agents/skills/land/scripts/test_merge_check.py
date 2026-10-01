@@ -21,7 +21,8 @@ def expected_lost_sides(base, first, second, merged):
     """Derive loss from the lines a merge keeps from each parent.
 
     A side is lost when the merge holds none of the lines it added and every
-    line it removed, after changes shared with the other parent are excluded.
+    line it removed, after changes shared with the other parent are excluded,
+    unless the merge adds a line absent from the base and both parents.
     """
     if merged == base:
         return {
@@ -32,6 +33,17 @@ def expected_lost_sides(base, first, second, merged):
 
     base_counts = Counter(base)
     merged_counts = Counter(merged)
+    if any(
+        count
+        > max(
+            base_counts[line],
+            Counter(first)[line],
+            Counter(second)[line],
+        )
+        for line, count in merged_counts.items()
+    ):
+        return set()
+
     expected = set()
     for side, lines, other in (
         ("first", first, second),
@@ -544,7 +556,7 @@ class MergeCheckTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertNotIn("lost", result.stdout)
 
-    def test_combined_resolution_drops_both_line_changes(self):
+    def test_combined_resolution_lists_both_missing_sides_without_failure(self):
         repo = self.repository()
         repo.base("value = original\n")
         _, revision_range = repo.merge(
@@ -555,9 +567,28 @@ class MergeCheckTest(unittest.TestCase):
 
         result = repo.check(revision_range)
 
-        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("lost first-parent change", result.stdout)
-        self.assertIn("lost second-parent change", result.stdout)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("lost", result.stdout)
+        self.assertIn("missing first-parent change", result.stdout)
+        self.assertIn("+ value = from main", result.stdout)
+        self.assertIn("missing second-parent change", result.stdout)
+        self.assertIn("+ value = from side", result.stdout)
+
+    def test_merge_added_line_lists_both_missing_sides_without_failure(self):
+        repo = self.repository()
+        repo.base("L-base\n")
+        _, revision_range = repo.merge(
+            "L1-first\n", "L2-second\n", "L12-merged\n"
+        )
+
+        result = repo.check(revision_range)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("lost", result.stdout)
+        self.assertIn("missing first-parent change", result.stdout)
+        self.assertIn("+ L1-first", result.stdout)
+        self.assertIn("missing second-parent change", result.stdout)
+        self.assertIn("+ L2-second", result.stdout)
 
     def test_f5be45ac_shape_reports_dropped_added_lines(self):
         repo = self.repository()

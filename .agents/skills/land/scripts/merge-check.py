@@ -6,9 +6,11 @@ parent, the other parent, and the merge. A parent addition is unique only for
 the count above both the base and the other parent. A parent removal is unique
 only for the fall below the base beyond the other parent's fall, and is kept
 when the merge count falls below the other parent's count. A parent change is
-lost when it has a unique addition or removal, no unique addition is kept
-beyond the other parent's count, and no unique removal is kept. A nontrivial
-file reset to the merge base is also reported as lost.
+lost when it has a unique addition or removal, the merge adds no line of its
+own beyond the base and both parents, no unique addition is kept beyond the
+other parent's count, and no unique removal is kept. A merge that adds its own
+line reports missing unique additions without failing. A nontrivial file
+reset to the merge base is also reported as lost.
 """
 
 from collections import Counter
@@ -356,6 +358,15 @@ def check_merge(merge):
     for path in paths:
         merged_counts = counts[merge].get(path, Counter())
         base_counts = counts[base].get(path, Counter())
+        merge_owns_line = any(
+            merged_counts[line]
+            > max(
+                base_counts[line],
+                counts[first].get(path, Counter())[line],
+                counts[second].get(path, Counter())[line],
+            )
+            for line in merged_counts
+        )
         for side in ("first", "second"):
             if path not in comparable[side]:
                 continue
@@ -398,6 +409,7 @@ def check_merge(merge):
                 and merge_entry[2] == base_entry[2]
                 and side_entry[2] != base_entry[2]
                 and changed_lines
+                and not merge_owns_line
             ):
                 print(
                     f"merge {merge[:12]}: lost {side}-parent change in {path}"
@@ -423,6 +435,20 @@ def check_merge(merge):
                 if removal_count:
                     unique_removals[line] = removal_count
             if not unique_additions and not unique_removals:
+                continue
+            if merge_owns_line:
+                missing = sorted(
+                    line
+                    for line in unique_additions
+                    if merged_counts[line] <= other_counts[line]
+                )
+                if missing:
+                    print(
+                        f"merge {merge[:12]}: missing {side}-parent "
+                        f"change in {path}:"
+                    )
+                    for line in missing:
+                        print(f"  + {line}")
                 continue
             has_added = any(
                 merged_counts[line] > other_counts[line]

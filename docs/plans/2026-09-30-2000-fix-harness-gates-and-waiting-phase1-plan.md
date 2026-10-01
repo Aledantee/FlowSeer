@@ -116,9 +116,9 @@ The parent's Decisions apply. Local to this phase:
    Example: base `a b`, first parent `a b x1`, second parent `a b y1`,
    merge `a b y1`: path listed as dropping the first parent, exit 1.
    The same with an unchanged second parent and merge `a b` also fails.
-8. It lists added lines a merge lacks when the side kept some of its
-   change, and exits 0. Example: first parent adds `x1` and `x2`, merge
-   keeps `x1`: `x2` listed, exit 0.
+8. It lists added lines a merge lacks when the side kept some of its change
+   or when the merge adds a line of its own, and exits 0. Example: first
+   parent adds `x1` and `x2`, merge keeps `x1`: `x2` listed, exit 0.
 9. It passes a merge equal to a parent that already holds the other's
    change. Example: first parent adds `x1`, second adds `x1` and `y1`,
    merge equals the second: exit 0.
