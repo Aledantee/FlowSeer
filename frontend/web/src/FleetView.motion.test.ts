@@ -10,22 +10,24 @@ import { aiRegistryKey } from './ui/ai/context'
 
 let dispose = () => {}
 let preference: (EventTarget & { matches: boolean }) | undefined
+let minWidthMatched = true
 const mediaQueries = new Map<string, EventTarget & { matches: boolean }>()
 
 beforeEach(() => {
+  minWidthMatched = true
   mediaQueries.clear()
   vi.stubGlobal('matchMedia', (query: string) => {
     const existing = mediaQueries.get(query)
     if (existing) return existing
     const media = Object.assign(new EventTarget(), {
-      matches: query.includes('min-width'),
+      matches: minWidthMatched && query.includes('min-width'),
       media: query,
       onchange: null,
       addListener: () => {},
       removeListener: () => {},
     }) as EventTarget & { matches: boolean }
     mediaQueries.set(query, media)
-    if (query.includes('prefers-reduced-motion')) preference = media
+    if (query === '(prefers-reduced-motion: reduce)') preference = media
     return media
   })
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
@@ -37,6 +39,31 @@ beforeEach(() => {
       const isMainShell = element?.classList.contains('main-shell')
       const width = collapsed ? 64 : 204
       const left = isMainShell ? width : 0
+      const navLink = element?.closest('nav a')
+      if (navLink) {
+        const navItems = [
+          'dashboard',
+          'devices',
+          'topology',
+          'clients',
+          'sites',
+        ]
+        const href = navLink.getAttribute('href') ?? ''
+        const index = navItems.findIndex((item) => href.includes(item))
+        const top = (index >= 0 ? index : 0) * 44
+        const height = 40
+        return {
+          bottom: top + height,
+          height,
+          left: 0,
+          right: width,
+          top,
+          width,
+          x: 0,
+          y: top,
+          toJSON: () => ({}),
+        } as DOMRect
+      }
       return {
         bottom: 64,
         height: 64,
@@ -92,12 +119,12 @@ async function mountFleet() {
   dispose = () => app.unmount()
   await nextTick()
   await wait(20)
-  return host
+  return { host, router }
 }
 
 describe('FleetView motion layout', () => {
   it('animates the sidebar size and main-shell position', async () => {
-    const host = await mountFleet()
+    const { host } = await mountFleet()
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
     toggle?.click()
     await nextTick()
@@ -115,7 +142,7 @@ describe('FleetView motion layout', () => {
   })
 
   it('stops layout transforms after the user enables reduced motion', async () => {
-    const host = await mountFleet()
+    const { host } = await mountFleet()
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
 
     if (!preference) throw new Error('Missing reduced-motion media query')
@@ -135,5 +162,42 @@ describe('FleetView motion layout', () => {
     expect(
       host.querySelector<HTMLElement>('.main-shell')?.style.transform,
     ).toBe('')
+  })
+
+  it('animates the nav highlight position across route changes', async () => {
+    const { host, router } = await mountFleet()
+    await router.push('/devices')
+    await nextTick()
+
+    expect(
+      host.querySelector<HTMLElement>('.nav-highlight')?.style.transform,
+    ).toContain('translate')
+  })
+
+  it('skips layout transforms and fades nav on expand below desktop width', async () => {
+    minWidthMatched = false
+    const { host } = await mountFleet()
+    const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
+
+    toggle?.click()
+    await nextTick()
+    await wait(30)
+
+    toggle?.click()
+    await nextTick()
+    await wait(30)
+
+    expect(host.querySelector<HTMLElement>('.sidebar')?.style.transform).toBe(
+      '',
+    )
+    expect(
+      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
+    ).toBe('')
+
+    const animations = host.querySelector('nav')?.getAnimations() ?? []
+    const running = animations.filter(
+      (animation) => animation.playState === 'running',
+    )
+    expect(running).toHaveLength(1)
   })
 })

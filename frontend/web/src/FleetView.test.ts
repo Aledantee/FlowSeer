@@ -12,8 +12,8 @@ import { aiRegistryKey } from './ui/ai/context'
 let dispose = () => {}
 let registry: AiRegistry
 
-// happy-dom has no Web Animations API, so this suite opts into reduced motion
-// while keeping desktop media queries matched.
+// Reduced motion lets these cases assert the static end state without
+// waiting on animation while keeping desktop media queries matched.
 beforeEach(() =>
   vi.stubGlobal('matchMedia', (query: string) => ({
     matches: query.includes('reduce') || query.includes('min-width'),
