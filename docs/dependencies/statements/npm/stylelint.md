@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `frontend/web/package.json`. It requires `stylelint` at `17.15.0`.
+`frontend/web/package.json:15` runs Stylelint over `src/**/*.{css,vue}`, using the rules in `frontend/web/.stylelintrc.json`. The pinned direct requirement is `stylelint` at `17.15.0` in `frontend/web/package.json`.
 
 ## Why it is safe
 
-The lockfile pins `17.15.0`, and the inventory classifies this dependency as `run`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The [npm registry metadata](https://registry.npmjs.org/stylelint/17.15.0) lists `GitHub Actions` as the publisher. The pinned version `17.15.0` was published at `2026-09-04T14:00:35.419Z` and was 26 days old on 2026-10-01. Its 14-day wait ended at `2026-09-18T14:00:35.419Z`. The OSV lookup dated 2026-10-01 returned no advisory for `stylelint` at `17.15.0`. The dependency tree contains 117 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `stylelint`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to parse CSS and Vue style blocks, apply the configured rules, report source locations, and maintain the linter's CLI behavior. That would make syntax parsing and lint diagnostics owned tooling instead of a shared linter. The dependency tree contains 117 versions, with 0 versions only reachable through this direct dependency.

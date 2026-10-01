@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `frontend/web/package.json`. It requires `storybook` at `10.6.0`.
+`frontend/web/package.json:18-19` invokes the `storybook` development server and static build, while the stories under `frontend/web/src/ui/` are the component inputs. The pinned direct requirement is `storybook` at `10.6.0` in `frontend/web/package.json`.
 
 ## Why it is safe
 
-The lockfile pins `10.6.0`, and the inventory classifies this dependency as `run`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The [npm registry metadata](https://registry.npmjs.org/storybook/10.6.0) lists `GitHub Actions` as the publisher. The pinned version `10.6.0` was published at `2026-09-02T14:07:30.853Z` and was 28 days old on 2026-10-01. Its 14-day wait ended at `2026-09-16T14:07:30.853Z`. The OSV lookup dated 2026-10-01 returned no advisory for `storybook` at `10.6.0`. The dependency tree contains 144 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `storybook`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to build a component preview server, story indexing, browser rendering, static export, and the development controls used by the stories. That would make a test and design-review harness part of the repository's owned tooling. The dependency tree contains 144 versions, with 0 versions only reachable through this direct dependency.

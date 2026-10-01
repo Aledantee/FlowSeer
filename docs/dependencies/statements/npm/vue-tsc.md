@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `frontend/web/package.json`. It requires `vue-tsc` at `3.3.11`.
+`frontend/web/package.json:12-13` invokes `vue-tsc` for the production build and the standalone typecheck command. The pinned direct requirement is `vue-tsc` at `3.3.11` in `frontend/web/package.json`.
 
 ## Why it is safe
 
-The lockfile pins `3.3.11`, and the inventory classifies this dependency as `run`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The [npm registry metadata](https://registry.npmjs.org/vue-tsc/3.3.11) lists `GitHub Actions` as the publisher. The pinned version `3.3.11` was published at `2026-08-21T10:11:21.360Z` and was 40 days old on 2026-10-01. Its 14-day wait ended at `2026-09-04T10:11:21.360Z`. The OSV lookup dated 2026-10-01 returned no advisory for `vue-tsc` at `3.3.11`. The dependency tree contains 21 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
-The repository does not own the external package `vue-tsc`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to transform Vue single-file components, connect their templates to TypeScript's type checker, and report diagnostics at Vue source locations. That would duplicate a compiler integration and make Vue language-service behavior owned tooling. The dependency tree contains 21 versions, with 0 versions only reachable through this direct dependency.
