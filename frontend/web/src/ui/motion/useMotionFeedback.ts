@@ -1,23 +1,15 @@
 import {
   animate,
+  frame,
   useMotionConfig,
   useReducedMotion,
   type AnimationPlaybackControlsWithThen,
-  type DOMKeyframesDefinition,
 } from 'motion-v'
 import { computed, onScopeDispose, watch } from 'vue'
 
 const easing: [number, number, number, number] = [0.2, 0, 0, 1]
-
-type AnimationWithChildren = AnimationPlaybackControlsWithThen & {
-  animations?: Array<{
-    animation?: {
-      animation?: {
-        finished?: Promise<unknown>
-      }
-    }
-  }>
-}
+type MotionKey = 'opacity' | 'x' | 'y' | 'rotate' | 'scale'
+type MotionKeyframes = Partial<Record<MotionKey, [number, number]>>
 
 export function useMotionFeedback() {
   const config = useMotionConfig()
@@ -31,24 +23,23 @@ export function useMotionFeedback() {
     HTMLElement,
     {
       animation: AnimationPlaybackControlsWithThen
+      originalOpacity: string
+      originalTransform: string
       restore: () => void
-      timer: number
     }
   >()
 
   function cancel(element: HTMLElement) {
     const current = active.get(element)
     if (!current) return
-    window.clearTimeout(current.timer)
     active.delete(element)
+
+    // happy-dom rejects canceled Web Animations promises without a handler.
+    for (const animation of element.getAnimations()) {
+      void animation.finished.catch(() => {})
+    }
     current.animation.cancel()
-    current.restore()
-    queueMicrotask(() => {
-      if (!active.has(element)) current.restore()
-    })
-    window.setTimeout(() => {
-      if (!active.has(element)) current.restore()
-    }, 0)
+    frame.render(current.restore)
   }
 
   function clear() {
@@ -57,14 +48,16 @@ export function useMotionFeedback() {
 
   function play(
     element: HTMLElement | undefined,
-    keyframes: DOMKeyframesDefinition,
+    keyframes: MotionKeyframes,
     duration = 0.14,
   ) {
     if (!element) return
+    const current = active.get(element)
+    const originalOpacity = current?.originalOpacity ?? element.style.opacity
+    const originalTransform =
+      current?.originalTransform ?? element.style.transform
     cancel(element)
 
-    const originalOpacity = element.style.opacity
-    const originalTransform = element.style.transform
     const restore = () => {
       element.style.opacity = originalOpacity
       element.style.transform = originalTransform
@@ -79,15 +72,14 @@ export function useMotionFeedback() {
       duration,
       ease: easing,
     })
-    for (const child of (animation as AnimationWithChildren).animations ?? []) {
-      void child.animation?.animation?.finished?.catch(() => {})
-    }
-    const finish = () => {
-      if (active.get(element)?.animation === animation) cancel(element)
-    }
-    const timer = window.setTimeout(finish, duration * 1000 + 100)
-    active.set(element, { animation, restore, timer })
-    void animation.finished.then(finish).catch(() => {})
+    const finish = () => cancel(element)
+    active.set(element, {
+      animation,
+      originalOpacity,
+      originalTransform,
+      restore,
+    })
+    void animation.finished.then(finish)
   }
 
   watch(userReducedMotion, clear)

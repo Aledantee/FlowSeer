@@ -1,8 +1,17 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp, defineComponent, h, nextTick } from 'vue'
-import { UiAppRoot, UiMotionConfig } from '../index'
+import { UiAppRoot } from '../index'
+import { UiMotionConfig } from './index'
 import { useMotionFeedback } from './useMotionFeedback'
+
+vi.hoisted(() => {
+  vi.stubGlobal(
+    'requestAnimationFrame',
+    (callback: (timestamp: number) => void) =>
+      setTimeout(() => callback(performance.now()), 16),
+  )
+})
 
 let dispose = () => {}
 let preference: EventTarget & { matches: boolean }
@@ -86,7 +95,7 @@ describe('useMotionFeedback', () => {
     await wait(40)
 
     expect(element.style.transform).toBe('')
-    expect(element.getAnimations()).not.toHaveLength(0)
+    expect(element.getAnimations()[0]?.playState).toBe('running')
   })
 
   it('treats an always-reduced motion config as reduced', async () => {
@@ -97,15 +106,16 @@ describe('useMotionFeedback', () => {
     await wait(40)
 
     expect(element.style.transform).toBe('')
-    expect(element.getAnimations()).not.toHaveLength(0)
+    expect(element.getAnimations()[0]?.playState).toBe('running')
   })
 
-  it('cancels and restores the prior style on resize', () => {
+  it('cancels and restores the prior style on resize', async () => {
     const { element, feedback } = mountFeedback()
     element.style.opacity = '0.9'
 
     feedback.play(element, { opacity: [0.5, 0.9] })
     window.dispatchEvent(new Event('resize'))
+    await wait(40)
 
     expect(element.style.opacity).toBe('0.9')
     expect(element.getAnimations()).toHaveLength(0)
@@ -121,12 +131,13 @@ describe('useMotionFeedback', () => {
       Object.assign(new Event('change'), { matches: true }),
     )
     await nextTick()
+    await wait(40)
 
     expect(element.style.transform).toBe('scale(0.8)')
     expect(element.getAnimations()).toHaveLength(0)
   })
 
-  it('replaces an animation without allowing the prior completion to clear it', async () => {
+  it('keeps the replacement animation running after cancellation', async () => {
     const { element, feedback } = mountFeedback()
 
     feedback.play(element, { opacity: [0.2, 1] }, 0.2)
@@ -134,9 +145,38 @@ describe('useMotionFeedback', () => {
     feedback.play(element, { opacity: [0.4, 1] }, 0.2)
     await wait(40)
 
-    expect(element.getAnimations()).not.toHaveLength(0)
+    expect(element.getAnimations()).toHaveLength(1)
+    expect(element.getAnimations()[0]?.playState).toBe('running')
     await wait(60)
-    expect(element.getAnimations()).not.toHaveLength(0)
+    expect(element.getAnimations()).toHaveLength(1)
+    expect(element.getAnimations()[0]?.playState).toBe('running')
+  })
+
+  it('restores styles from before a replacement with different keys', async () => {
+    const { element, feedback } = mountFeedback()
+
+    feedback.play(element, { y: [-4, 0], opacity: [0.6, 1] })
+    await wait(40)
+    feedback.play(element, { opacity: [0.85, 1] }, 0.12)
+    await wait(40)
+
+    expect(element.style.transform).toBe('')
+    await wait(180)
+
+    expect(element.style.transform).toBe('')
+  })
+
+  it('restores inline styles when a timer cancels an animation', async () => {
+    const { element, feedback } = mountFeedback()
+    element.style.opacity = '0.9'
+
+    feedback.play(element, { y: [-40, 0], opacity: [0.2, 1] }, 0.2)
+    await wait(30)
+    window.setTimeout(() => feedback.cancel(element), 0)
+    await wait(50)
+
+    expect(element.style.transform).toBe('')
+    expect(element.style.opacity).toBe('0.9')
   })
 
   it('cancels all feedback when the owning component unmounts', async () => {
@@ -147,6 +187,7 @@ describe('useMotionFeedback', () => {
     expect(element.getAnimations()).not.toHaveLength(0)
 
     dispose()
+    await wait(40)
 
     expect(element.getAnimations()).toHaveLength(0)
   })

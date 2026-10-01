@@ -1,7 +1,16 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApp, defineComponent, h, nextTick, ref } from 'vue'
-import { UiAppRoot, UiMotion } from '../index'
+import {
+  createApp,
+  defineComponent,
+  h,
+  nextTick,
+  ref,
+  type Component,
+} from 'vue'
+import { UiAppRoot, UiMotion as Motion } from '../index'
+
+const UiMotion: Component = Motion
 
 let dispose = () => {}
 
@@ -85,12 +94,14 @@ describe('UiMotion', () => {
               h(UiMotion, {
                 as: 'div',
                 class: 'layout-box',
+                'data-render-count': renderCount.value,
                 layout: true,
                 layoutDependency: dependency.value,
               }),
               h(UiMotion, {
                 as: 'div',
                 class: 'position-box',
+                'data-render-count': renderCount.value,
                 layout: 'position',
                 layoutDependency: dependency.value,
               }),
