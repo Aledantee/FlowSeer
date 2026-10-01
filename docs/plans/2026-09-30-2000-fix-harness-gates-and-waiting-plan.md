@@ -97,7 +97,7 @@ Landed:
 ### U3. Waiting and rework
 Files: `docs/plans/2026-09-30-2000-fix-harness-gates-and-waiting-phase3-plan.md`
 After: U1
-Landed:
+Landed: `c735168d..9b95d3cd`
 
 Waves: U1 U2 | U3
 

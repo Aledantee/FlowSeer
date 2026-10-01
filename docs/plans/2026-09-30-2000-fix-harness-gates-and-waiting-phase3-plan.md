@@ -4,12 +4,14 @@ type: fix
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-30-2000-fix-harness-gates-and-waiting-plan.md
 ---
 
 # Harness Gates and Waiting Phase 3, Waiting and Rework - Plan
+
+> Implemented. 4 units, 2026-10-01T11:37:30Z to 2026-10-01T11:47:12Z.
 
 ## Goal
 
@@ -281,8 +283,8 @@ Then requirement 5's and 8's `grep` lines, and the parent's live drive.
 
 ## Definition of done
 
-- [ ] Verifier green on the union of changed paths.
-- [ ] This plan's `status` and outcome note set, and the parent's `Landed:`
+- [x] Verifier green on the union of changed paths.
+- [x] This plan's `status` and outcome note set, and the parent's `Landed:`
       line for U3 filled. No plan labels in code or commits.
 
 ## Open questions
