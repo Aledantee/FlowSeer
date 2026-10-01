@@ -131,7 +131,13 @@ jq -e '.hooks | keys | sort == ["PostToolUse", "PreToolUse", "SessionStart", "St
   "$codex_config" >/dev/null
 
 claude_hook() { printf '"%s/tools/hooks/%s"' "\$CLAUDE_PROJECT_DIR" "$1"; }
-codex_hook() { printf '"%s/tools/hooks/%s"' "\$(git rev-parse --show-toplevel)" "$1"; }
+# Codex has no project-directory variable, so its commands ask git for the
+# root, and each names what it could not find: a bare
+# "$(git rev-parse --show-toplevel)/tools/hooks/x.sh" runs /tools/hooks/x.sh
+# when git prints nothing and exits 127 without a reason.
+codex_hook() {
+  printf '%s' "root=\$(git rev-parse --show-toplevel 2>/dev/null); hook=\$root/tools/hooks/$1; [ -n \"\$root\" ] && [ -x \"\$hook\" ] || { echo \"FlowSeer hook $1 cannot run from \$PWD: repository root \${root:-unresolved}, git \$(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"\$hook\""
+}
 
 assert_hook_mapping "$claude_config" "SessionStart" "<none>" \
   "$(claude_hook worktree-guard.sh)"
@@ -208,6 +214,26 @@ codex_edit_command=$(jq -r '
 codex_edit_output=$(cd "$repo_root" && bash -c "$codex_edit_command" <<<"$edit_input")
 [[ $(decision <<<"$codex_edit_output") == deny ]] || fail "$LINENO"
 ok "configured edit guards deny generated output"
+
+# The three ways a Codex command cannot reach its script, each reported on
+# stderr with exit 1: a session directory outside any repository, a PATH
+# without git, and a checkout that lacks the script.
+outside_repo="$fixture_parent/outside any repository"
+mkdir -p "$outside_repo"
+launcher_rc=0
+launcher_output=$(cd "$outside_repo" && GIT_CEILING_DIRECTORIES="$fixture_parent" \
+  bash -c "$codex_edit_command" 2>&1 <<<"$edit_input") || launcher_rc=$?
+[[ $launcher_rc -eq 1 ]] || fail "$LINENO"
+[[ $launcher_output == "FlowSeer hook pre-tool-policy.sh cannot run from $outside_repo: repository root unresolved, git "/* ]] || fail "$LINENO"
+launcher_rc=0
+launcher_output=$(cd "$repo_root" && env PATH="$outside_repo" "$BASH" -c "$codex_edit_command" 2>&1 <<<"$edit_input") || launcher_rc=$?
+[[ $launcher_rc -eq 1 ]] || fail "$LINENO"
+[[ $launcher_output == "FlowSeer hook pre-tool-policy.sh cannot run from $repo_root: repository root unresolved, git not on PATH" ]] || fail "$LINENO"
+launcher_rc=0
+launcher_output=$(cd "$fixture" && bash -c "$codex_edit_command" 2>&1 <<<"$edit_input") || launcher_rc=$?
+[[ $launcher_rc -eq 1 ]] || fail "$LINENO"
+[[ $launcher_output == "FlowSeer hook pre-tool-policy.sh cannot run from $fixture: repository root $fixture, git "/* ]] || fail "$LINENO"
+ok "a Codex hook command names the root or script it could not find"
 
 new_dir_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/docs/new dir/deeper/notes.md" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')

@@ -71,7 +71,10 @@ judges the operands of a mutating verb rather than any command that names
 `generated/`, the edit guard resolves paths whose parent directory does not
 exist yet, and the message-sync note stays silent about members the
 file-level comment names. A guard that fires more often on legitimate work
-than on the mistake it was written for gets narrowed, not explained.
+than on the mistake it was written for gets narrowed, not explained. A
+Codex hook command that cannot reach its script says which of the root,
+`git`, or the script is missing and exits 1, since a bare exit 127 names
+none of them.
 
 Do not copy a linter manual into `AGENTS.md`. Name the command and document only
 the project-specific judgment that the tool cannot express.

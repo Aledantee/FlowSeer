@@ -26,21 +26,3 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
-
-## 2026-10-01 codex: hook command resolution is unverified on lane PATHs
-Skill or agent: `.codex/hooks.json` project hook commands and
-`/Users/aledante/.codex/hooks.json` SessionStart hook.
-What happened: Codex lanes reported `Hook failed: hook exited with code 127`.
-The project commands invoke bare `git` while constructing every hook path
-(`.codex/hooks.json:9-79`), and the user SessionStart hook invokes bare `bash`
-(`/Users/aledante/.codex/hooks.json:47-52`). A lane PATH without either
-executable can fail before the target script reports its own error. The exact
-failing command was not isolated.
-Suggested change: run hook launchers through resolved executable paths, or add a
-startup check that reports which command is missing under the lane PATH.
-Status: awaiting guardrail review. The staged `.codex/hooks.json` commands
-report an unresolved root, a missing `git`, or a missing script and exit 1,
-pinned in `tools/hooks/tests/run.sh`. Every project hook exits 0 under
-`PATH=/usr/bin:/bin`, so a lane PATH is not shown to be the cause. A session
-directory outside the repository reproduces the 127. The user-level file is
-outside the repository and unchanged.

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/worktree-guard.sh\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/worktree-guard.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook worktree-guard.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
           }
         ]
       }
@@ -17,11 +17,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/worktree-guard.sh\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/worktree-guard.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook worktree-guard.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
           },
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/pre-tool-policy.sh\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/pre-tool-policy.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook pre-tool-policy.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
           }
         ]
       },
@@ -30,11 +30,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/worktree-guard.sh\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/worktree-guard.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook worktree-guard.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
           },
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/protect-generated-bash.sh\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/protect-generated-bash.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook protect-generated-bash.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
           }
         ]
       }
@@ -45,19 +45,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/go-format.sh\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/go-format.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook go-format.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
           },
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/proto-check.sh\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/proto-check.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook proto-check.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
           },
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/suppression-warn.sh\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/suppression-warn.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook suppression-warn.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
           },
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/mark-verification-dirty.sh\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/mark-verification-dirty.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook mark-verification-dirty.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
           }
         ]
       },
@@ -66,11 +66,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/mark-verification-dirty.sh\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/mark-verification-dirty.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook mark-verification-dirty.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
           },
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/commit-message-check.sh\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/commit-message-check.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook commit-message-check.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
           }
         ]
       }
@@ -80,7 +80,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/stop-check.sh\"",
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/stop-check.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook stop-check.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\"",
             "timeout": 30
           }
         ]
