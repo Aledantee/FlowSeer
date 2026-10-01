@@ -74,17 +74,30 @@ with open(os.environ["ORCA_STUB_LOG"], "a") as log:
 
 args = sys.argv[1:]
 if args and args[0] == "status":
-    print(json.dumps({"result": {"runtime": {"reachable": True}}}))
+    mode = os.environ.get("ORCA_STUB_STATUS", "")
+    if mode == "fail":
+        raise SystemExit(1)
+    print(json.dumps({"result": {"runtime": {"reachable": mode != "unreachable"}}}))
 elif args[:2] == ["worktree", "show"]:
     if os.environ.get("ORCA_STUB_FAIL") == "worktree-show":
         raise SystemExit(1)
+    if os.environ.get("ORCA_STUB_NO_CHILD_FIELD") == "1":
+        print(json.dumps({"result": {"worktree": {}}}))
+        raise SystemExit(0)
     children = [item for item in os.environ.get("ORCA_STUB_CHILDREN", "").split(",") if item]
     print(json.dumps({"result": {"worktree": {"childWorktreeIds": children}}}))
 elif args[:2] == ["terminal", "create"]:
+    if os.environ.get("ORCA_STUB_FAIL") == "terminal-create":
+        raise SystemExit(1)
     handle = "" if os.environ.get("ORCA_STUB_NO_HANDLE") == "1" else "term-1"
     print(json.dumps({"result": {"terminal": {"handle": handle}}}))
 elif args[:2] == ["terminal", "read"]:
-    print(os.environ.get("ORCA_STUB_SCREEN", ""))
+    with open(os.environ["ORCA_STUB_LOG"]) as log:
+        reads = sum(1 for line in log if line.startswith("terminal read"))
+    if reads >= int(os.environ.get("ORCA_STUB_HINT_AFTER", "1")):
+        print(os.environ.get("ORCA_STUB_SCREEN", ""))
+    else:
+        print("echoed command")
 elif args[:2] == ["terminal", "close"]:
     if os.environ.get("ORCA_STUB_CLOSE_FAIL") == "1":
         raise SystemExit(1)
@@ -114,8 +127,22 @@ else:
     def calls(self):
         return self.log.read_text() if self.log.exists() else ""
 
+    def count_calls(self, prefix):
+        return sum(1 for call in self.calls().splitlines() if call.startswith(prefix))
+
+    def commit_all(self, message):
+        subprocess.run(
+            ["git", "add", "."], cwd=self.repo, check=True, capture_output=True
+        )
+        subprocess.run(
+            ["git", "commit", "-m", message],
+            cwd=self.repo,
+            check=True,
+            capture_output=True,
+        )
+
     def assert_no_create(self, result):
-        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.returncode, 1, result.stderr)
         self.assertNotIn("terminal create", self.calls())
 
     def test_rejects_non_claude_model_before_creating_terminal(self):
@@ -134,6 +161,17 @@ else:
         result = self.invoke(parent="docs/plans/missing-plan.md")
         self.assert_no_create(result)
         self.assertIn("parent", result.stderr)
+        self.assertIn("docs/plans/missing-plan.md", result.stderr)
+
+    def test_rejects_existing_file_outside_plan_name_pattern(self):
+        for parent in ("docs/plans/notes.md", "README.md"):
+            with self.subTest(parent=parent):
+                (self.repo / parent).write_text("not a plan")
+                self.commit_all(f"add {parent}")
+                result = self.invoke(parent=parent)
+                self.assert_no_create(result)
+                self.assertIn("parent", result.stderr)
+                self.assertIn(parent, result.stderr)
 
     def test_rejects_untracked_file_before_creating_terminal(self):
         (self.repo / "untracked.txt").write_text("dirty")
@@ -151,10 +189,46 @@ else:
         self.env["ORCA_STUB_FAIL"] = "worktree-show"
         result = self.invoke()
         self.assert_no_create(result)
-        self.assertIn("child", result.stderr)
+        self.assertIn("childWorktreeIds", result.stderr)
+
+    def test_rejects_child_answer_without_child_field_before_creating_terminal(self):
+        self.env["ORCA_STUB_NO_CHILD_FIELD"] = "1"
+        result = self.invoke()
+        self.assert_no_create(result)
+        self.assertIn("childWorktreeIds", result.stderr)
+
+    def test_rejects_unreachable_runtime_before_creating_terminal(self):
+        for mode in ("unreachable", "fail"):
+            with self.subTest(mode=mode):
+                self.env["ORCA_STUB_STATUS"] = mode
+                result = self.invoke()
+                self.assert_no_create(result)
+                self.assertIn("not reachable", result.stderr)
+
+    def test_refuses_in_the_documented_order(self):
+        untracked = self.repo / "untracked.txt"
+        untracked.write_text("dirty")
+        self.env["ORCA_STUB_STATUS"] = "unreachable"
+        self.env["ORCA_STUB_CHILDREN"] = "child-1"
+        missing = "docs/plans/missing-plan.md"
+
+        def refusal(wanted, **kwargs):
+            with self.subTest(wanted=wanted):
+                result = self.invoke(**kwargs)
+                self.assert_no_create(result)
+                self.assertIn(wanted, result.stderr)
+
+        refusal("model", model="gpt-6-sol", effort="High1", parent=missing)
+        refusal("effort", effort="High1", parent=missing)
+        refusal("parent must", parent=missing)
+        refusal("untracked.txt")
+        untracked.unlink()
+        refusal("not reachable")
+        self.env["ORCA_STUB_STATUS"] = ""
+        refusal("child-1")
 
     def test_starts_successor_after_screen_shows_working_hint(self):
-        result = self.invoke()
+        result = self.invoke(effort="high")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("term-1", result.stdout)
         creates = [call for call in self.calls().splitlines() if "terminal create" in call]
@@ -165,12 +239,34 @@ else:
         self.assertIn("--model claude-opus-5-5", command)
         self.assertIn("switchModelsOnFlag", command)
         self.assertIn(".claude/skills/drive/SKILL.md", command)
-        self.assertIn("docs/plans/parent-plan.md", command)
+        self.assertIn("--effort high", command)
+        self.assertTrue(
+            command.endswith(
+                ' "Read .claude/skills/drive/SKILL.md and drive docs/plans/parent-plan.md." --json'
+            ),
+            command,
+        )
+
+    def test_waits_for_working_hint_on_a_later_read(self):
+        self.env["ORCA_STUB_HINT_AFTER"] = "3"
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("term-1", result.stdout)
+        self.assertEqual(self.count_calls("terminal read"), 3)
+        self.assertNotIn("terminal close", self.calls())
+
+    def test_failed_terminal_create_reports_successor_may_be_running(self):
+        self.env["ORCA_STUB_FAIL"] = "terminal-create"
+        result = self.invoke()
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("successor may be running", result.stderr)
+        self.assertEqual(self.count_calls("terminal read"), 0)
 
     def test_closes_refused_successor_when_screen_has_no_hint(self):
         self.env["ORCA_STUB_SCREEN"] = "Read .claude/skills/drive/SKILL.md and drive docs/plans/parent-plan.md."
         result = self.invoke()
         self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(self.count_calls("terminal read"), 20)
         self.assertIn("terminal close", self.calls())
         self.assertNotIn("successor may be running", result.stderr)
 
