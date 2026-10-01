@@ -109,6 +109,13 @@ apply. Local ones:
 - The `AGENTS.md` entry of U3 is added when the phase closes. Why: the
   review may still change what the convention says, and one policy edit is
   enough. (decided by the user, 2026-10-01)
+- Statement rulings of 2026-10-01: `github.com/stretchr/testify` and
+  `tailwind-merge` are cut, and the parent's U2 removes them. The other 39
+  npm statements and 41 Go statements are approved as `keep`. The three
+  `charm.land` modules and `golang.org/x/term` are held without a date. Why:
+  they serve the netpen terminal interface, and the command-line client is
+  to be cut in favor of a full central connection, so they are ruled on
+  with that change. (decided by the user, 2026-10-01)
 
 ## Requirements
 

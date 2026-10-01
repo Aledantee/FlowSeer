@@ -5,7 +5,7 @@ required_by:
   - src/protocol/smi/differential/go.mod
 criteria: run
 verdict: keep
-approved: ""
+approved: 2026-10-01
 ---
 
 ## Why it is required

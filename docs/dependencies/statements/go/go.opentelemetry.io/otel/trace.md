@@ -5,7 +5,7 @@ required_by:
   - go.mod
 criteria: deploy
 verdict: keep
-approved: ""
+approved: 2026-10-01
 ---
 
 ## Why it is required

@@ -6,7 +6,7 @@ required_by:
   - src/protocol/yang/test/integration/testenv/testdata/gnmitarget/go.mod
 criteria: deploy
 verdict: keep
-approved: ""
+approved: 2026-10-01
 ---
 
 ## Why it is required
