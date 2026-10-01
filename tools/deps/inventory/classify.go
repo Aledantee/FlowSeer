@@ -193,6 +193,14 @@ func moduleGraph(module Module) (map[string][]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	selected, err := selectedModuleVersions(module)
+	if err != nil {
+		return nil, err
+	}
+	graph, err = selectModuleGraph(graph, selected, module.Manifest)
+	if err != nil {
+		return nil, err
+	}
 	via := make(map[string][]string)
 	for direct := range module.Direct {
 		for node := range reachableGraph(graph.Edges, module.Path, direct) {
@@ -224,11 +232,7 @@ func readModuleGraph(module Module) (ModuleGraph, error) {
 		}
 	}
 	sort.Strings(graph.Direct)
-	selected, err := selectedModuleVersions(module)
-	if err != nil {
-		return ModuleGraph{}, err
-	}
-	return selectModuleGraph(graph, selected, module.Manifest)
+	return graph, nil
 }
 
 type selectedModule struct {

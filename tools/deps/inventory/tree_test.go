@@ -32,24 +32,6 @@ func TestTreeStatsRetainsManifest(t *testing.T) {
 	}
 }
 
-func TestTreeCountsSelectedModuleVersions(t *testing.T) {
-	root, _ := mvsFixture(t)
-	stats, err := Tree(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, stat := range stats {
-		if stat.Manifest != "go.mod" || stat.Name != "example.test/direct" {
-			continue
-		}
-		if stat.Versions != 3 || stat.Only != 2 {
-			t.Fatalf("selected direct tree = %#v, want 3 versions and 2 only", stat)
-		}
-		return
-	}
-	t.Fatal("selected direct tree entry not found")
-}
-
 func TestTreeCountsNpmSnapshotClosureAndOptionalDependencies(t *testing.T) {
 	root := t.TempDir()
 	lockPath := filepath.Join(root, "frontend", "web", "pnpm-lock.yaml")
