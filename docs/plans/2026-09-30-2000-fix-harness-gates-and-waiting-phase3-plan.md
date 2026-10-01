@@ -307,3 +307,20 @@ None blocks a unit. Unverified and untested here:
   seconds. A miss closes the successor and `drive` continues itself.
 - Whether a hook's approval prompt for a policy-surface edit still shows
   under `--dangerously-skip-permissions`. `drive` step 4 parks such edits.
+
+Open review findings:
+
+- `successor.sh` reads the registry with one quote flag for `"` and `'`. A
+  value such as `note: "didn't refuse"` drops the entry's fields, and the
+  model is refused with exit 1. Neither registry holds such a value now.
+- `drive/SKILL.md` does not say that `--model` takes the registry id on
+  `agy`. With `gemini-3.8-flash-high`, as `delegate` writes a Google lane,
+  `successor.sh` refuses with exit 1.
+- The missing-effort refusal for an `id_format` model runs after the
+  children check, against U2's order.
+- No case fails when `orca-worker.sh:376` loses its "reads differ" test,
+  and none starts a successor with one registry file alone.
+- The Decisions cite no `--help` output for the three prompt forms. That
+  `agy --prompt-interactive` takes the next argument, that a Codex prompt
+  passes the hooks review, and that Codex and `agy` show the hint within 60
+  seconds are unverified. Each miss closes the successor with exit 1.
