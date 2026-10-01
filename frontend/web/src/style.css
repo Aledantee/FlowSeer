@@ -85,10 +85,9 @@ html:has(.shell) {
 
 .sidebar-toggle {
   position: absolute;
-  top: 50%;
+  top: calc(50% - 32px);
   right: -16px;
   z-index: 3;
-  transform: translateY(-50%);
   display: grid;
   place-items: center;
   width: 32px;
@@ -135,7 +134,6 @@ html:has(.shell) {
     right: 8px;
     width: 40px;
     height: 40px;
-    transform: none;
     border-radius: var(--radius-control);
   }
 
