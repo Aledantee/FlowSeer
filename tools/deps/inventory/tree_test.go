@@ -1,6 +1,10 @@
 package inventory
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestTreeCountsSharedAndExclusiveVersions(t *testing.T) {
 	got := treeStats(ModuleGraph{
@@ -19,4 +23,36 @@ func TestTreeCountsSharedAndExclusiveVersions(t *testing.T) {
 	if got[1].Name != "b" || got[1].Versions != 3 || got[1].Only != 1 {
 		t.Fatalf("b = %#v", got[1])
 	}
+}
+
+func TestTreeStatsRetainsManifest(t *testing.T) {
+	got := treeStatsForManifest(ModuleGraph{Direct: []string{"a@v1"}}, "src/edge/netpen/go.mod")
+	if len(got) != 1 || got[0].Manifest != "src/edge/netpen/go.mod" {
+		t.Fatalf("tree stats = %#v, want manifest", got)
+	}
+}
+
+func TestTreeCountsNpmSnapshotClosureAndOptionalDependencies(t *testing.T) {
+	root := t.TempDir()
+	lockPath := filepath.Join(root, "frontend", "web", "pnpm-lock.yaml")
+	data, err := os.ReadFile(filepath.Join("testdata", "pnpm", "tree-lock.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, lockPath, string(data))
+
+	stats, err := Tree(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, stat := range stats {
+		if stat.Name != "app" {
+			continue
+		}
+		if stat.Manifest != "frontend/web/pnpm-lock.yaml" || stat.Versions != 3 || stat.Only != 2 {
+			t.Fatalf("app tree = %#v, want npm manifest and optional closure", stat)
+		}
+		return
+	}
+	t.Fatal("npm app tree entry not found")
 }

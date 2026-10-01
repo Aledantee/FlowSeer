@@ -1,8 +1,12 @@
 package inventory
 
 import (
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // ModuleGraph is a directed graph whose direct nodes are module paths with
@@ -15,13 +19,19 @@ type ModuleGraph struct {
 // TreeEntry reports the total and exclusive versions reachable from a direct
 // dependency.
 type TreeEntry struct {
+	Manifest string `json:"manifest"`
 	Name     string `json:"name"`
 	Versions int    `json:"versions"`
 	Only     int    `json:"only"`
 }
 
-// Tree reads each Go module graph and returns its direct dependency tree.
+// Tree reads each Go module graph and the pnpm snapshot graph, then returns
+// their direct dependency trees with the source manifest on every row.
 func Tree(root string) ([]TreeEntry, error) {
+	root, err := resolveRoot(root)
+	if err != nil {
+		return nil, err
+	}
 	modules, err := DiscoverModules(root)
 	if err != nil {
 		return nil, err
@@ -32,17 +42,43 @@ func Tree(root string) ([]TreeEntry, error) {
 		if err != nil {
 			return nil, err
 		}
-		for _, stat := range treeStats(graph) {
-			key := module.Manifest + "\x00" + stat.Name
+		for _, stat := range treeStatsForManifest(graph, module.Manifest) {
+			key := stat.Manifest + "\x00" + stat.Name
 			all[key] = stat
 		}
+	}
+	lockPath := filepath.Join(root, "frontend", "web", "pnpm-lock.yaml")
+	if _, err := os.Stat(lockPath); err == nil {
+		lock, err := readPnpmLock(lockPath, "frontend/web/pnpm-lock.yaml")
+		if err != nil {
+			return nil, err
+		}
+		for _, stat := range treeStatsForManifest(lock.Graph, "frontend/web/pnpm-lock.yaml") {
+			key := stat.Manifest + "\x00" + stat.Name
+			all[key] = stat
+		}
+	} else if !os.IsNotExist(err) {
+		return nil, errs.Wrap(err, "stat pnpm lockfile")
 	}
 	result := make([]TreeEntry, 0, len(all))
 	for _, stat := range all {
 		result = append(result, stat)
 	}
-	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Manifest != result[j].Manifest {
+			return result[i].Manifest < result[j].Manifest
+		}
+		return result[i].Name < result[j].Name
+	})
 	return result, nil
+}
+
+func treeStatsForManifest(graph ModuleGraph, manifest string) []TreeEntry {
+	result := treeStats(graph)
+	for i := range result {
+		result[i].Manifest = manifest
+	}
+	return result
 }
 
 func treeStats(graph ModuleGraph) []TreeEntry {

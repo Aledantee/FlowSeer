@@ -110,25 +110,31 @@ func shippingPackages(module Module, rootModule bool, goos string) ([]string, er
 	if rootModule {
 		pattern = "./src/..."
 	}
-	output, err := runGo(module.Dir, goos, "list", "-mod=readonly", "-e", "-f", "{{.ImportPath}}\t{{.Dir}}\t{{join .GoFiles \" \"}} {{join .CgoFiles \" \"}}", pattern)
+	output, err := runGo(module.Dir, goos, "list", "-mod=readonly", "-e", "-f", "{{if .Error}}error:{{.Error.Err}};{{end}}{{range .DepsErrors}}error:{{.Err}};{{end}}\t{{.ImportPath}}\t{{.Dir}}\t{{join .GoFiles \" \"}} {{join .CgoFiles \" \"}}", pattern)
 	if err != nil {
 		return nil, errs.Wrapf(err, "list shipping packages in %s", module.Manifest)
 	}
 	var packages []string
-	for _, line := range strings.Split(strings.TrimSpace(output), "\n") {
-		fields := strings.SplitN(line, "\t", 3)
-		if len(fields) != 3 || fields[0] == "" || strings.TrimSpace(fields[2]) == "" {
+	for _, line := range strings.Split(strings.TrimRight(output, "\n"), "\n") {
+		fields := strings.SplitN(line, "\t", 4)
+		if listingError := fields[0]; strings.TrimSpace(listingError) != "" {
+			if onlyBuildConstraintErrors(listingError) {
+				continue
+			}
+			return nil, errs.Wrapf(errs.Msgf("go list reported: %s", strings.TrimSuffix(listingError, ";")), "list shipping packages in %s", module.Manifest)
+		}
+		if len(fields) != 4 || fields[1] == "" || strings.TrimSpace(fields[3]) == "" {
 			continue
 		}
-		rel, err := filepath.Rel(module.Dir, fields[1])
+		rel, err := filepath.Rel(module.Dir, fields[2])
 		if err != nil {
 			return nil, errs.Wrap(err, "resolve package path")
 		}
 		rel = filepath.ToSlash(rel)
-		if hasPathElement(rel, "test") || generatorPackage(fields[0]) {
+		if hasPathElement(rel, "test") || generatorPackage(fields[1]) {
 			continue
 		}
-		packages = append(packages, fields[0])
+		packages = append(packages, fields[1])
 	}
 	sort.Strings(packages)
 	return packages, nil
@@ -160,7 +166,7 @@ func listModuleClosure(module Module, packages []string, goos string, tests bool
 	if tests {
 		args = append(args, "-test")
 	}
-	args = append(args, "-f", "{{if .Module}}{{.Module.Path}}\t{{.Module.Version}}{{end}}")
+	args = append(args, "-f", "{{if .Error}}error:{{.Error.Err}};{{end}}{{range .DepsErrors}}error:{{.Err}};{{end}}\t{{if .Module}}{{.Module.Path}}\t{{.Module.Version}}{{end}}")
 	args = append(args, packages...)
 	output, err := runGo(module.Dir, goos, args...)
 	if err != nil {
@@ -170,18 +176,47 @@ func listModuleClosure(module Module, packages []string, goos string, tests bool
 		}
 		return nil, errs.Wrapf(err, "list %s closure in %s for %s", kind, module.Manifest, goos)
 	}
-	return parseModuleKeys(output), nil
+	keys, listingErr := parseModuleKeys(output)
+	if listingErr != nil {
+		kind := "build"
+		if tests {
+			kind = "test"
+		}
+		return nil, errs.Wrapf(listingErr, "list %s closure in %s for %s", kind, module.Manifest, goos)
+	}
+	return keys, nil
 }
 
-func parseModuleKeys(output string) map[string]bool {
+func parseModuleKeys(output string) (map[string]bool, error) {
 	keys := make(map[string]bool)
 	for _, line := range strings.Split(output, "\n") {
-		fields := strings.SplitN(strings.TrimSpace(line), "\t", 2)
-		if len(fields) == 2 && fields[0] != "" && fields[1] != "" {
-			keys[moduleKey(fields[0], fields[1])] = true
+		fields := strings.SplitN(line, "\t", 3)
+		if listingError := strings.TrimSpace(fields[0]); listingError != "" {
+			if onlyBuildConstraintErrors(listingError) {
+				continue
+			}
+			return nil, errs.Msgf("go list reported: %s", strings.TrimSuffix(listingError, ";"))
+		}
+		if len(fields) == 3 && fields[1] != "" && fields[2] != "" {
+			keys[moduleKey(fields[1], fields[2])] = true
 		}
 	}
-	return keys
+	return keys, nil
+}
+
+func onlyBuildConstraintErrors(value string) bool {
+	const prefix = "error:build constraints exclude all Go files in "
+	value = strings.TrimSpace(value)
+	if !strings.HasPrefix(value, prefix) {
+		return false
+	}
+	for _, part := range strings.Split(value, "error:")[1:] {
+		part = strings.TrimSuffix(strings.TrimSpace(part), ";")
+		if !strings.HasPrefix(part, "build constraints exclude all Go files in ") {
+			return false
+		}
+	}
+	return true
 }
 
 func moduleGraph(module Module) (map[string][]string, error) {
@@ -224,30 +259,31 @@ func readModuleGraph(module Module) (ModuleGraph, error) {
 }
 
 func reachableGraph(edges map[string][]string, root, direct string) map[string]bool {
-	seen := make(map[string]bool)
-	queue := make([]string, 0)
+	directNodes := make(map[string]bool)
 	for node := range edges {
 		if node == root || strings.HasPrefix(node, root+"@") {
-			queue = append(queue, node)
+			for _, next := range edges[node] {
+				if strings.HasPrefix(next, direct+"@") {
+					directNodes[next] = true
+				}
+			}
 		}
 	}
-	if len(queue) == 0 {
-		return seen
-	}
-	start := make(map[string]bool)
-	for _, node := range queue {
-		start[node] = true
+	seen := make(map[string]bool, len(directNodes))
+	queue := make([]string, 0, len(directNodes))
+	for node := range directNodes {
+		queue = append(queue, node)
 	}
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
+		if seen[current] {
+			continue
+		}
+		seen[current] = true
 		for _, next := range edges[current] {
-			if !start[next] {
-				start[next] = true
+			if !seen[next] {
 				queue = append(queue, next)
-			}
-			if strings.HasPrefix(next, direct+"@") {
-				seen[next] = true
 			}
 		}
 	}

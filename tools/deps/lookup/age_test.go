@@ -71,3 +71,18 @@ func TestAgeReturnsHTTPError(t *testing.T) {
 		t.Fatal("Age() error = nil, want HTTP error")
 	}
 }
+
+func TestAgeRejectsMissingGoPublicationDate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = writer.Write([]byte(`{"Version":"v1.0.0"}`))
+	}))
+	defer server.Close()
+
+	_, err := Age(context.Background(), []inventory.Entry{{Ecosystem: "go", Name: "example.com/module", Version: "v1.0.0"}}, server.URL, server.URL, time.Now())
+	if err == nil {
+		t.Fatal("Age() error = nil, want missing publication date error")
+	}
+	if !strings.Contains(err.Error(), "publication date") {
+		t.Fatalf("Age() error = %q, want publication date", err)
+	}
+}

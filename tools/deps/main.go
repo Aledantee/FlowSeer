@@ -78,7 +78,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	}
 
 	if command == "advisories" || command == "age" {
-		result, err := inventory.Collect(root)
+		result, err := inventory.Read(root)
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return errs.From(err).ExitCode(1).Msg("dependency inventory failed")
@@ -133,7 +133,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return writeJSON(stdout, stats)
 	}
 	for _, stat := range stats {
-		if _, err := fmt.Fprintf(stdout, "%s\t%d versions\t%d only\n", stat.Name, stat.Versions, stat.Only); err != nil {
+		if _, err := fmt.Fprintf(stdout, "%s\t%s\t%d versions\t%d only\n", stat.Manifest, stat.Name, stat.Versions, stat.Only); err != nil {
 			return errs.From(err).ExitCode(1).Msg("write dependency tree")
 		}
 	}

@@ -16,6 +16,7 @@ type pnpmLock struct {
 	Direct  []DirectDependency
 	Deploy  map[string]bool
 	Via     map[string][]string
+	Graph   ModuleGraph
 }
 
 type pnpmDocument struct {
@@ -108,28 +109,34 @@ func readPnpmLock(path, manifest string) (pnpmLock, error) {
 		return entries[i].Version < entries[j].Version
 	})
 
-	graph := make(map[string][]string, len(document.Snapshots))
+	snapshotEdges := make(map[string][]string, len(document.Snapshots))
 	for key, snapshot := range document.Snapshots {
 		name, version := splitPackageKey(key)
 		from := packageKey(name, version)
 		for dependency, dependencyVersion := range snapshot.Dependencies {
-			graph[from] = append(graph[from], packageKey(dependency, snapshotVersion(dependencyVersion)))
+			snapshotEdges[from] = append(snapshotEdges[from], packageKey(dependency, snapshotVersion(dependencyVersion)))
 		}
 		for dependency, dependencyVersion := range snapshot.OptionalDependencies {
-			graph[from] = append(graph[from], packageKey(dependency, snapshotVersion(dependencyVersion)))
+			snapshotEdges[from] = append(snapshotEdges[from], packageKey(dependency, snapshotVersion(dependencyVersion)))
 		}
-		sort.Strings(graph[from])
+		sort.Strings(snapshotEdges[from])
 	}
+	graph := ModuleGraph{Edges: snapshotEdges}
 	via := make(map[string][]string)
-	deploy := closure(graph, deployRoots)
+	deploy := closure(snapshotEdges, deployRoots)
 	for _, dependency := range direct {
 		root := packageKey(dependency.Name, dependency.Version)
-		reachable := closure(graph, map[string]bool{root: true})
+		reachable := closure(snapshotEdges, map[string]bool{root: true})
 		for key := range reachable {
 			via[key] = appendUnique(via[key], dependency.Name)
 		}
 	}
-	return pnpmLock{Entries: entries, Direct: direct, Deploy: deploy, Via: via}, nil
+	graph.Direct = make([]string, 0, len(direct))
+	for _, dependency := range direct {
+		graph.Direct = appendUnique(graph.Direct, packageKey(dependency.Name, dependency.Version))
+	}
+	sort.Strings(graph.Direct)
+	return pnpmLock{Entries: entries, Direct: direct, Deploy: deploy, Via: via, Graph: graph}, nil
 }
 
 func classifyPnpmEntries(entries []Entry, lock pnpmLock) []Entry {
