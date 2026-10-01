@@ -125,6 +125,18 @@ The parent's Decisions apply. Local to this phase:
   `rework` verdict naming the limit, which step 4 parks with another round
   as an option. Why: `docs/agent-observations.md` records a fourth round
   past the three-round rule and five rounds on one concurrency mechanism.
+- The successor coordinator may run on any model in the `plan` role's
+  `fit` set, on that model's CLI. `drive` resolves the `plan` role lane
+  through `delegate` at the hand-off and passes `--cli`, `--model`, and
+  `--effort` to `successor.sh`, which refuses a model outside that `fit`
+  set and builds the launch line `orca-worker.sh` builds for that CLI
+  (decided by the user, 2026-10-01). Why: a drive's coordinator needs
+  planning judgment, and the `plan` role names the models measured for it.
+- After the review's third round, one more tests-only round adds the two
+  open cases (a two-child `stop` case with the ids joined as the stub
+  expects, and cases for the five `wait` guards) together with the
+  successor change above, followed by one re-review (decided by the user,
+  2026-10-01).
 
 ## Requirements
 
@@ -146,7 +158,7 @@ The parent's Decisions apply. Local to this phase:
    `grep -n -E -- '--timeout|ScheduleWakeup|sleep' .claude/skills/delegate/SKILL.md .claude/skills/drive/SKILL.md`
    prints nothing, while `grep -c` counts at least 1 for `run_in_background`
    and `write_stdin` in the first file and for `--until` in the second.
-6. `successor.sh` refuses a dirty tree, a live lane, or a non-Claude model,
+6. `successor.sh` refuses a dirty tree, a live lane, or a model outside the `plan` role's `fit` set,
    and otherwise records one `terminal create` whose command holds
    `.claude/skills/drive/SKILL.md` and the parent path. Example: `--model
    gpt-6-sol` exits 1 and the Orca log holds no `terminal create`.
@@ -290,16 +302,8 @@ Then requirement 5's and 8's `grep` lines, and the parent's live drive.
 
 ## Open questions
 
-- Parked by drive: the review ended `rework` at the three-round cap with two low
-  test-coverage findings open (a two-child `stop` case, five untested `wait` guards).
-  Options: one tests-only fix round, then a re-review (closes both, about an hour) |
-  accept with the two findings listed (no wrong behavior is known). Recommended: the
-  tests-only round, because the guards are the stall and timeout rules coordinators
-  now rely on, and the cases are already specified.
 
-None blocks a unit. Unconfirmed: only a Claude coordinator hands off, which
-narrows the parent's hand-off decision, since no rule says which Claude
-model continues a drive started elsewhere. Unverified and untested here:
+None blocks a unit. Unverified and untested here:
 
 - A live Codex coordinator's empty poll runs the full 3600000 ms, and a
   background command's fate with `backgroundDeadlineDisabled` set.
