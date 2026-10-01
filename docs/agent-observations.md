@@ -27,30 +27,6 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
-## 2026-09-30 compound: plan-state treats a reconciliation plan as a parent
-Skill or agent: `.claude/skills/drive/scripts/plan-state.py`, parent detection
-in `phases()` and `open_plans()`.
-What happened: The script treats any plan with a `### U*` unit whose `Files:`
-contains a `docs/plans/*-plan.md` path as a parent. The reconciliation plan's
-U3 lists the old parent and its phase plans in `Files:`
-(the operator authorization reconciliation plan, landed 2026-09-30; its text is in git history).
-The resulting state reports U3 as `implement` even though this plan is
-implemented. The drive had to override that classification.
-Suggested change: distinguish phase children from a docs-only plan's
-reconciliation targets before treating plan paths in `Files:` as phase plans.
-
-## 2026-09-30 review: fix loop exceeded its three-round stop point
-Skill or agent: `.claude/skills/review/references/fix-loop.md`, "When to stop".
-What happened: The phase review ended with `accept after fixes` after four fix
-rounds. The fourth round (`df4bb8a5`) fixed staging permission, stale-directory
-recovery, and rollback-preservation defects after earlier rounds had already
-changed the emission mechanism. The stop rule does not say how to handle an
-extra round when the final round is needed to reach acceptance. The verdict and
-round count are recorded by `c13d291b`.
-Suggested change: make the stop condition explicit for mixed or cross-lane
-rounds, and require a fresh plan or a maintainer override when the aggregate
-round count exceeds three.
-
 ## 2026-09-30 steer: Bash test assertions are not fail-fast
 Skill or agent: `tools/hooks/tests/run.sh`, the bare `[[ ]]` assertions around
 lines 70-107.
@@ -60,38 +36,6 @@ bash` is GNU bash 3.2.57 on arm64-apple-darwin25. A direct check,
 and exits 0. A failing check can therefore report success.
 Suggested change: route each assertion through an explicit `if` or status
 check, and add a regression case for a deliberately false assertion.
-
-## 2026-09-30 implement: passed-unit commits were not verified against the worker base
-Skill or agent: `.claude/skills/implement/SKILL.md`, the unit completion step
-that records a passed unit's `HEAD` after verification.
-What happened: U8 and U9 were recorded with `139391fe` and `b64fc806`, yet
-those commits are earlier ancestors in the current history and contain the
-unit changes from an earlier review round. No unit commit represented the
-worker's completed pass. The implement guidance says to record `HEAD`, while
-the tree check had to detect that the recorded commits predated the relevant
-work.
-Suggested change: require a passed-unit commit to be reachable from the
-worker base and the worker's new `HEAD`, then reject an ancestor reused from
-an earlier round.
-
-## 2026-09-30 implement: independent units halted behind a blocked prerequisite
-Skill or agent: `.claude/skills/implement/SKILL.md`, the wave grouping and unit
-progress steps.
-What happened: U5 has `After: none` in
-the 2026-09-30 plan that fixed unverified external claims, but it was
-halted when U1 was blocked. Work with satisfied prerequisites should have
-continued independently.
-Suggested change: keep blocked units in their own state and dispatch every
-other unit whose `After` prerequisites are satisfied.
-
-## 2026-09-30 implement: plan-deviations rejects unquoted Files lines
-Skill or agent: `.claude/skills/implement/scripts/plan-deviations.py`, its
-`QUOTED` parser and `no unit with a Files field` guard.
-What happened: the helper only collects backtick-quoted paths, while this
-plan writes paths after unquoted `Files:` fields. Running it against the plan
-returned `no unit with a Files field` with status 2 on the 2026-09-30 plan that fixed unverified external claims.
-Suggested change: parse both backtick-quoted and unquoted comma-separated
-paths, while retaining the existing symbol and directory handling.
 
 ## 2026-09-30 implement: commit bodies contain literal backslash-n text
 Skill or agent: `.claude/skills/implement/SKILL.md`, the unit commit step and
@@ -103,8 +47,3 @@ evidence.
 Suggested change: make the commit helper pass separate message paragraphs or
 write the body through standard input, then reject a body containing literal
 `\\n` before accepting the unit.
-
-## 2026-09-30 review: repeated concurrency fixes should trigger prior-art search
-Skill or agent: `.claude/skills/review/SKILL.md` fix loop and `.claude/skills/plan/SKILL.md` re-plan trigger.
-What happened: The phase 2 plan records five review rounds on the tenant claim before the record-first rollback protocol was replaced with an atomic batch (operator authorization phase 2, landed 2026-09-30; the retired plan's Review section is in git history). The local fix loop still left concurrency failures until a prior-art-based re-plan changed the mechanism.
-Suggested change: After a second review round finds another failure in the same concurrency mechanism, pause the fix loop and require a bounded prior-art search or a re-plan before another patch.

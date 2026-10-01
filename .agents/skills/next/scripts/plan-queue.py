@@ -76,7 +76,14 @@ def units(text: str) -> list[dict]:
     for line in text.splitlines():
         match = UNIT.match(line)
         if match:
-            unit = {"id": match.group(1), "name": match.group(2), "plans": [], "after": [], "landed": False}
+            unit = {
+                "id": match.group(1),
+                "name": match.group(2),
+                "plans": [],
+                "after": [],
+                "landed": False,
+                "landed_line": False,
+            }
             found.append(unit)
             field = ""
             continue
@@ -94,8 +101,10 @@ def units(text: str) -> list[dict]:
         value = line.split(":", 1)[1] if label else line
         if field == "After":
             unit["after"] += UNIT_ID.findall(value)
-        elif field == "Landed" and COMMIT_RANGE.search(value):
-            unit["landed"] = True
+        elif field == "Landed":
+            unit["landed_line"] = True
+            if COMMIT_RANGE.search(value):
+                unit["landed"] = True
     return found
 
 
@@ -144,10 +153,12 @@ def main() -> int:
                 if named in plans and plans[named]["fm"].get("parent") == plan["path"]:
                     phase_of.setdefault(named, (plan, []))[1].append(unit)
     parents = {parent["path"] for parent, _ in phase_of.values()}
-    # land deletes a phase plan once the phase lands, so a landed unit that
-    # names a plan no longer on disk is a retired phase, not a plain unit.
+    # land deletes a phase plan once the phase lands, so a unit with the
+    # `Landed:` line every phase unit carries that names a plan no longer on
+    # disk is a retired or missing phase, not a plain unit. plan-state.py
+    # applies the same test.
     for plan in plans.values():
-        if any(unit["landed"] and unit["plans"] and unit["plans"][0] not in plans for unit in plan["units"]):
+        if any(unit["landed_line"] and unit["plans"] and unit["plans"][0] not in plans for unit in plan["units"]):
             parents.add(plan["path"])
 
     rows = []

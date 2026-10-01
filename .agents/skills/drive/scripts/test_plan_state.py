@@ -59,7 +59,9 @@ class PlanStateTest(unittest.TestCase):
                 "### U1. First\nFiles: `docs/plans/phase1-plan.md`\nLanded: `abcdef0..abcdef1`\n\n"
                 "### U2. Second\nFiles: `docs/plans/phase2-plan.md`\nAfter: U1\nLanded:\n"
             )
-            (plans / "phase2-plan.md").write_text("---\nstatus: planned\n---\n")
+            (plans / "phase2-plan.md").write_text(
+                "---\nstatus: planned\nparent: docs/plans/parent-plan.md\n---\n"
+            )
             cwd = Path.cwd()
             os.chdir(directory)
             try:
@@ -67,6 +69,30 @@ class PlanStateTest(unittest.TestCase):
                 with patch.object(plan_state, "on_main", return_value=True):
                     self.assertEqual(plan_state.stage(units[0], set()), "on main (plan retired)")
                     self.assertEqual(plan_state.stage(units[1], {"U1"}), "implement")
+            finally:
+                os.chdir(cwd)
+
+    def test_unit_that_edits_other_plans_is_not_a_phase(self):
+        with tempfile.TemporaryDirectory() as directory:
+            plans = Path(directory) / "docs/plans"
+            plans.mkdir(parents=True)
+            # A reconciliation unit lists the plans it rewrites: one on disk
+            # that names no parent, one already retired. Neither is a phase.
+            (plans / "reconcile-plan.md").write_text(
+                "### U1. Point the plans one way\n"
+                "Files: `docs/plans/old-parent-plan.md`,\n"
+                "`docs/plans/old-phase3-plan.md`\nAfter: none\n\n"
+                "### U2. Drop the retired plan's links\n"
+                "Files: `docs/plans/gone-plan.md`\nAfter: U1\n"
+            )
+            (plans / "old-parent-plan.md").write_text("---\nstatus: planned\n---\n")
+            (plans / "old-phase3-plan.md").write_text(
+                "---\nstatus: planned\nparent: docs/plans/old-parent-plan.md\n---\n"
+            )
+            cwd = Path.cwd()
+            os.chdir(directory)
+            try:
+                self.assertEqual(plan_state.phases(Path("docs/plans/reconcile-plan.md")), [])
             finally:
                 os.chdir(cwd)
 

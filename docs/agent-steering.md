@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-09-28
+last_updated: 2026-10-01
 ---
 
 # Agent steering
@@ -386,7 +386,11 @@ the verifier receipt: per unit an id, status, commit, verifier time, and a
 one-line note for a decision the next unit needs. The verifier validates
 it on every run, `land` gates the merge on every unit `passed` and removes
 it after the merge, and a resumed session checks each recorded commit
-against `HEAD` before editing. The skills write it and the checkpoints
+against `HEAD` before editing. A unit's entry also keeps the `HEAD` it
+started from, and `passed` is refused for a commit that adds nothing to
+that base: units added to a plan after a review round were once recorded
+against the commits that round had already made, and "record `HEAD`" as
+prose could not tell those from the unit's own work. The skills write it and the checkpoints
 file through `ledger.py` in the verifier's scripts rather than by hand:
 that directory sits under the parent checkout's `.git/`, which a
 worktree-isolated session can read but not write through a redirect or
@@ -668,7 +672,11 @@ reads them before the trigger changes. As of 2026-09-27 most notes show
 phases of three to six units with short verification spans. Several two-unit
 phases were scoped by dependencies, and the longer spans do not establish
 that unit count caused a phase to outlast one session. The data does not yet
-support changing the trigger.
+support changing the trigger. As of 2026-10-01 three notes exceed it, with
+8, 9, and 13 units and spans of 6 to 36 hours (the retire commits on
+`main` hold the notes). The 9- and 13-unit plans
+were planned within the trigger and grew by units a review added, so they
+measure the fix loop and not the size a plan was cut to.
 
 Fix-and-re-review rounds belong to the coordinator. `review` carries the
 loop as a step the user asks for, because the coordinator is the only
@@ -677,7 +685,14 @@ round undo the previous round's fix: fixes are dispatched through
 `delegate`, the verifier runs on the union before each review round, the
 loop stops at a round with no correctness findings, and after three
 rounds on one mechanism the work goes to `plan`, the cap `implement` puts
-on a red unit.
+on a red unit. The count covers every round, whatever it fixed: a cap
+counted per mechanism let a loop run a fourth round because each round
+had found a different defect, so three rounds on different mechanisms now
+stop at a question to the user. A second defect in one mechanism also
+sends the coordinator to prior art before the next patch. Five rounds of
+local fixes to a multi-key uniqueness claim ended only when a re-plan
+replaced the protocol with the store's atomic batch
+(`docs/solutions/architecture-patterns/a-multi-key-uniqueness-claim-needs-one-conditional-batch.md`).
 
 Sequence a parent plan's stages from the files, in a skill that owns only
 the order. A plan, implement, review, compound loop per phase, with each

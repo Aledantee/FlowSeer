@@ -34,9 +34,26 @@ The coordinating session runs the rounds; no skill runs them on its own, and
   the `accept` row's question.
 - The coordinator holds the rounds' history, so it is the one that sees a
   round find a defect in the previous round's fix for the same mechanism.
-  Apply step 4's class rule before the next round.
-- After three rounds on the same mechanism without a clean one, take the
-  work to `plan` with what the rounds established.
+  Apply step 4's class rule before the next round, and read how an
+  established implementation solves that mechanism before another patch is
+  briefed: the pinned library's own primitive, a vendored spec, or a
+  `docs/solutions/` entry, cited as `AGENTS.md`, Investigation discipline,
+  defines a source. The next brief names that source, or the work goes to
+  `plan` because none was found.
+- Count every round, whatever it fixed. Three rounds without a clean one
+  end the loop:
+  - All three on one mechanism: take the work to `plan` with what the
+    rounds established.
+  - Rounds on different mechanisms: ask the user (`AGENTS.md`, Agent
+    behavior) whether to take the work to `plan` (recommended, since each
+    round has surfaced a new defect) or to run one more round. A fourth
+    round runs only on that answer. A delegated worker does not ask: it
+    sets the verdict to `rework` and states the round count as its blocker.
+
+  Example: rounds one and two rework an emission mechanism, and round three
+  fixes its staging permissions and finds a rollback defect. That is three
+  rounds, and the fourth is the user's call.
+- The commit that records the verdict names the number of fix rounds.
 
 Before the final report, stop each fix worker's lane: `orca worktree list
 --json` lists no worktree whose `parentWorktreeId` is this one, other than

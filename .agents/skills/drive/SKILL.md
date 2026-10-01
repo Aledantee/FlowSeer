@@ -108,9 +108,9 @@ After each stage:
 End a turn only while waiting on a started lane, at a parked question, or
 when step 1 or step 5 stops the drive; a turn that ends right after
 announcing the next stage leaves nothing to wake it. Run each stage once:
-the skills' own caps (three verifier rounds on a unit, three review rounds
-on a mechanism) decide when patching stops, and a parked question is what
-sends a plan back.
+the skills' own caps (three verifier rounds on a unit, three fix rounds in
+a review) decide when patching stops, and a parked question is what sends a
+plan back.
 
 ## 3. Drive a parent's phases
 

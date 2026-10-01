@@ -25,7 +25,10 @@ for ((tick = 0; tick < docker_probe_timeout * 10; tick++)); do
 done
 if kill -0 "$docker_probe" 2>/dev/null; then
   # The wait after the kill must not become the hang it replaces, so a
-  # probe that ignores TERM for a second is killed outright.
+  # probe that ignores TERM for a second is killed outright. The probe
+  # leaves the job table first: bash reports a killed job on stderr
+  # (`Terminated: 15`), ahead of the message below.
+  disown "$docker_probe" 2>/dev/null || true
   kill "$docker_probe" 2>/dev/null
   for ((tick = 0; tick < 10; tick++)); do
     kill -0 "$docker_probe" 2>/dev/null || break
@@ -34,7 +37,6 @@ if kill -0 "$docker_probe" 2>/dev/null; then
   # A probe that honoured TERM is already gone, and a kill of a dead pid
   # fails; under set -e that exit would replace the message below.
   kill -9 "$docker_probe" 2>/dev/null || true
-  wait "$docker_probe" 2>/dev/null || true
   echo "Docker daemon did not answer 'docker info' within ${docker_probe_timeout}s." >&2
   exit 1
 fi

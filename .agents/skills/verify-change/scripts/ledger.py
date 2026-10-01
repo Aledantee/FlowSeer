@@ -18,7 +18,10 @@ and the note, and the `verify-change` contract stays in one place.
 
 `set ... passed` takes the commit from `HEAD` and `verified_at` from the
 receipt of the verifier run that just passed, unless `--commit` or
-`--verified-at` overrides them. `resume` is recomputed on every write: the
+`--verified-at` overrides them. `set ... in_progress` records `HEAD` as the
+unit's `base`, and `passed` refuses a commit that is not in this branch or
+holds nothing committed since that base: a commit from before the unit
+started cannot be the unit's work, whatever it touched. `resume` is recomputed on every write: the
 units in progress, else the first pending unit, else empty. A note is kept
 until `--note` replaces it; `--note ""` clears it.
 """
@@ -104,6 +107,30 @@ def receipt_verified_at(directory: Path) -> str:
     raise AssertionError("unreachable")
 
 
+def head() -> str:
+    return git_output("rev-parse", "--short=8", "HEAD")
+
+
+def check_unit_commit(unit: dict, commit: str) -> None:
+    def git_try(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+
+    if git_try("merge-base", "--is-ancestor", commit, "HEAD").returncode != 0:
+        fail(f"commit {commit} is not in this branch's history")
+    base = unit.get("base")
+    if not base:
+        return
+    since = git_try("rev-list", "--count", f"{base}..{commit}")
+    if since.returncode != 0:
+        fail(f"cannot compare {commit} with the unit's base {base}: {since.stderr.strip()}")
+    if since.stdout.strip() == "0":
+        fail(
+            f"commit {commit} holds nothing committed since {unit['id']} went in_progress at {base}; "
+            "commit the unit's work first. When the tree already held it, the plan is wrong about "
+            "the tree: record that under the plan's Open questions and commit the plan"
+        )
+
+
 def cmd_init(args: argparse.Namespace) -> None:
     root = Path(git_output("rev-parse", "--show-toplevel"))
     if not (root / args.plan).is_file():
@@ -140,11 +167,19 @@ def cmd_set(args: argparse.Namespace) -> None:
     if not matches:
         fail(f"{args.unit!r} is not a unit of {ledger['plan']}")
     unit = matches[0]
+    if args.status == "in_progress" and unit["status"] != "in_progress":
+        # Kept across a repeated `in_progress`, so a resumed session does not
+        # move the base past the commit it already made for the unit.
+        unit["base"] = head()
     unit["status"] = args.status
     if args.status == "passed":
-        unit["commit"] = args.commit or git_output("rev-parse", "--short=8", "HEAD")
+        unit["commit"] = args.commit or head()
+        check_unit_commit(unit, unit["commit"])
         unit["verified_at"] = args.verified_at or receipt_verified_at(directory)
     else:
+        if args.status == "pending":
+            # The way out for a unit marked in progress after its commit.
+            unit.pop("base", None)
         if args.commit:
             unit["commit"] = args.commit
         if args.verified_at:
