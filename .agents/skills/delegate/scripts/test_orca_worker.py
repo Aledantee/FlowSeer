@@ -60,6 +60,12 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "read":
         print(Path(os.environ["ORCA_STUB_DIALOG"]).read_text())
     elif os.environ.get("ORCA_STUB_SCREENS") and (Path(os.environ["ORCA_STUB_SCREENS"]) / args[args.index("--terminal") + 1]).exists():
         print((Path(os.environ["ORCA_STUB_SCREENS"]) / args[args.index("--terminal") + 1]).read_text())
+    elif (
+        os.environ.get("ORCA_STUB_SCREEN_AFTER")
+        and int(Path(os.environ["ORCA_STUB_CLOCK"]).read_text() or "0")
+        >= int(os.environ.get("ORCA_STUB_SCREEN_AFTER_CLOCK", "0"))
+    ):
+        print(os.environ["ORCA_STUB_SCREEN_AFTER"])
     elif os.environ.get("ORCA_STUB_SCREEN"):
         print(os.environ["ORCA_STUB_SCREEN"])
     else:
@@ -221,6 +227,11 @@ else:
         if not self.orca_log.exists():
             return ""
         return self.orca_log.read_text()
+
+    def assert_wait(self, result, lines, clock):
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines(), lines)
+        self.assertEqual(self.clock.read_text().strip(), str(clock))
 
     def start(self, cli="codex", model="gpt-6-sol"):
         brief = self.repo / "brief.md"
@@ -698,15 +709,13 @@ else:
         self.live_lane()
         self.env["ORCA_STUB_SCREEN"] = "Thinking... (esc to cancel)"
         result = self.command("wait", "l1", "--stall", "5", "--max", "20")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines()[0], "stalled")
+        self.assert_wait(result, ["stalled", "Thinking... (esc to cancel)"], 15)
 
     def test_wait_reports_idle_for_a_settled_screen(self):
         self.live_lane()
         self.env["ORCA_STUB_SCREEN"] = "> done"
         result = self.command("wait", "l1", "--stall", "5", "--max", "10")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines()[0], "idle")
+        self.assert_wait(result, ["idle", "> done"], 5)
 
     def test_keys_refuses_text_the_terminal_would_truncate(self):
         self.live_lane()
@@ -730,24 +739,21 @@ else:
         self.live_lane()
         self.env["ORCA_STUB_FAIL"] = "terminal-read"
         result = self.command("wait", "l1", "--stall", "5", "--max", "10")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines()[0], "exited")
+        self.assert_wait(result, ["exited"], 0)
 
     def test_wait_reports_an_exited_wait_with_the_screen(self):
         self.live_lane()
         self.env["ORCA_STUB_FAIL"] = "terminal-wait-exited"
         self.env["ORCA_STUB_SCREEN"] = "worker exited unexpectedly"
         result = self.command("wait", "l1", "--stall", "5", "--max", "10")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines(), ["exited", "worker exited unexpectedly"])
+        self.assert_wait(result, ["exited", "worker exited unexpectedly"], 0)
 
     def test_wait_times_out_when_an_idle_lane_has_a_working_child(self):
         self.live_lane()
         self.child_lane(screen="esc to interrupt")
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
         result = self.command("wait", "l1", "--stall", "5", "--max", "20")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines(), ["timeout", "> lane done"])
+        self.assert_wait(result, ["timeout", "> lane done"], 20)
 
     def test_wait_keeps_waiting_when_one_of_multiple_children_works(self):
         self.live_lane()
@@ -757,16 +763,14 @@ else:
         )
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
         result = self.command("wait", "l1", "--stall", "5", "--max", "20")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines(), ["timeout", "> lane done"])
+        self.assert_wait(result, ["timeout", "> lane done"], 20)
 
     def test_wait_reports_idle_children_for_a_quiet_child(self):
         self.live_lane()
         self.child_lane()
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
         result = self.command("wait", "l1", "--stall", "5", "--max", "20")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines(), ["idle-children c1", "> lane done"])
+        self.assert_wait(result, ["idle-children c1", "> lane done"], 15)
 
     def test_wait_reports_all_quiet_children_by_lane_name(self):
         self.live_lane()
@@ -776,8 +780,16 @@ else:
         )
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
         result = self.command("wait", "l1", "--stall", "5", "--max", "20")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines(), ["idle-children c1 c2", "> lane done"])
+        self.assert_wait(result, ["idle-children c1 c2", "> lane done"], 15)
+
+    def test_wait_restarts_the_stall_clock_when_the_lane_screen_changes(self):
+        self.live_lane()
+        self.child_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> lane before"
+        self.env["ORCA_STUB_SCREEN_AFTER"] = "> lane after"
+        self.env["ORCA_STUB_SCREEN_AFTER_CLOCK"] = "5"
+        result = self.command("wait", "l1", "--stall", "10", "--max", "30")
+        self.assert_wait(result, ["idle-children c1", "> lane after"], 25)
 
     def test_wait_reads_each_child_id_as_one_entry_and_holds_for_a_working_child(self):
         self.live_lane()
@@ -797,14 +809,15 @@ else:
             ),
         )
 
+        expected_clock = 0
         for children in quiet_lists:
             with self.subTest(child_ids=[child_id for child_id, _, _, _ in children]):
                 self.child_lanes(*children)
                 self.orca_log.write_text("")
                 result = self.command("wait", "l1", "--stall", "5", "--max", "20")
-                self.assertEqual(result.returncode, 0, result.stderr)
                 names = [name for _, name, _, _ in children]
-                self.assertEqual(result.stdout.splitlines(), [f"idle-children {' '.join(names)}", "> lane done"])
+                expected_clock += 15
+                self.assert_wait(result, [f"idle-children {' '.join(names)}", "> lane done"], expected_clock)
                 reads = {
                     line.split("--terminal ", 1)[1].split(" --screen", 1)[0]
                     for line in self.orca_calls().splitlines()
@@ -822,8 +835,8 @@ else:
         self.child_lanes(*working_children)
         self.orca_log.write_text("")
         result = self.command("wait", "l1", "--stall", "5", "--max", "20")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines(), ["timeout", "> lane done"])
+        expected_clock += 20
+        self.assert_wait(result, ["timeout", "> lane done"], expected_clock)
         reads = {
             line.split("--terminal ", 1)[1].split(" --screen", 1)[0]
             for line in self.orca_calls().splitlines()
@@ -836,8 +849,7 @@ else:
         self.child_without_state()
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
         result = self.command("wait", "l1", "--stall", "5", "--max", "20")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines()[0], "idle-children wt-c1")
+        self.assert_wait(result, ["idle-children wt-c1", "> lane done"], 15)
         self.assertNotIn("terminal read --terminal  --screen", self.orca_calls())
 
     def test_wait_names_an_unreadable_child_query(self):
@@ -845,16 +857,27 @@ else:
         self.env["ORCA_STUB_FAIL"] = "worktree-show"
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
         result = self.command("wait", "l1", "--stall", "5", "--max", "20")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines()[0], "idle-children unreadable")
+        self.assert_wait(result, ["idle-children unreadable", "> lane done"], 15)
 
     def test_wait_times_out_when_a_frozen_lane_has_a_working_child(self):
         self.live_lane()
         self.child_lane(screen="esc to interrupt")
         self.env["ORCA_STUB_SCREEN"] = "esc to interrupt"
         result = self.command("wait", "l1", "--stall", "5", "--max", "20")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines()[0], "timeout")
+        self.assert_wait(result, ["timeout", "esc to interrupt"], 20)
+
+    def test_wait_times_out_before_stall_for_a_quiet_child(self):
+        self.live_lane()
+        self.child_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command("wait", "l1", "--stall", "15", "--max", "10")
+        self.assert_wait(result, ["timeout", "> lane done"], 10)
+
+    def test_wait_times_out_before_stall_for_a_frozen_lane_without_children(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "esc to interrupt"
+        result = self.command("wait", "l1", "--stall", "15", "--max", "10")
+        self.assert_wait(result, ["timeout", "esc to interrupt"], 10)
 
     def test_wait_until_reports_idle_when_the_command_fails(self):
         self.live_lane()
@@ -862,8 +885,7 @@ else:
         result = self.command(
             "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "10",
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines()[0], "idle")
+        self.assert_wait(result, ["idle", "> lane done"], 5)
 
     def test_wait_until_reports_stalled_before_running_a_command(self):
         lane_path = self.live_lane()
@@ -872,8 +894,7 @@ else:
         result = self.command(
             "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "20",
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines()[0], "stalled")
+        self.assert_wait(result, ["stalled", "esc to interrupt"], 15)
 
     def test_wait_until_does_not_run_a_command_while_the_lane_is_working(self):
         lane_path = self.live_lane()
@@ -882,8 +903,7 @@ else:
         result = self.command(
             "wait", "l1", "--until", "touch until-ran", "--stall", "5", "--max", "20",
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines(), ["stalled", "esc to interrupt"])
+        self.assert_wait(result, ["stalled", "esc to interrupt"], 15)
         self.assertFalse(marker.exists())
 
     def test_wait_until_reports_done_for_an_idle_lane(self):
@@ -893,8 +913,7 @@ else:
         result = self.command(
             "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "10",
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines(), ["done", "> lane done"])
+        self.assert_wait(result, ["done", "> lane done"], 5)
 
     def test_wait_until_reports_done_for_a_quiet_child_without_stall_delay(self):
         lane_path = self.live_lane()
@@ -904,8 +923,7 @@ else:
         result = self.command(
             "wait", "l1", "--until", "test -f DONE", "--stall", "0", "--max", "10",
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines(), ["done", "> lane done"])
+        self.assert_wait(result, ["done", "> lane done"], 5)
 
     def test_wait_until_reports_idle_children_when_the_command_fails(self):
         self.live_lane()
@@ -914,8 +932,7 @@ else:
         result = self.command(
             "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "20",
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines(), ["idle-children c1", "> lane done"])
+        self.assert_wait(result, ["idle-children c1", "> lane done"], 15)
 
     def test_wait_until_times_out_while_a_child_works(self):
         lane_path = self.live_lane()
@@ -925,8 +942,7 @@ else:
         result = self.command(
             "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "20",
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines()[0], "timeout")
+        self.assert_wait(result, ["timeout", "> lane done"], 20)
 
     def test_wait_until_times_out_when_one_of_multiple_children_works(self):
         lane_path = self.live_lane()
@@ -939,23 +955,26 @@ else:
         result = self.command(
             "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "20",
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines(), ["timeout", "> lane done"])
+        self.assert_wait(result, ["timeout", "> lane done"], 20)
 
     def test_wait_times_out_and_shows_the_screen_for_a_working_lane(self):
         self.live_lane()
         self.env["ORCA_STUB_SCREEN"] = "esc to interrupt"
-        result = self.command("wait", "l1", "--stall", "0", "--max", "5")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines(), ["timeout", "esc to interrupt"])
+        result = self.command("wait", "l1", "--stall", "0", "--max", "1")
+        self.assert_wait(result, ["timeout", "esc to interrupt"], 1)
+
+    def test_wait_with_stall_zero_checks_the_decision_before_a_non_multiple_ceiling(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "esc to interrupt"
+        result = self.command("wait", "l1", "--stall", "0", "--max", "7")
+        self.assert_wait(result, ["timeout", "esc to interrupt"], 7)
 
     def test_wait_with_stall_zero_times_out_for_a_quiet_child(self):
         self.live_lane()
         self.child_lane()
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
         result = self.command("wait", "l1", "--stall", "0", "--max", "10")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines(), ["timeout", "> lane done"])
+        self.assert_wait(result, ["timeout", "> lane done"], 10)
 
     def test_wait_rejects_the_removed_timeout_flag(self):
         self.live_lane()
@@ -963,12 +982,14 @@ else:
         result = self.command("wait", "l1", "--timeout", "1000")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("replaced by --max", result.stderr)
+        self.assertEqual(self.clock.read_text().strip(), "0")
 
     def test_wait_rejects_a_zero_maximum(self):
         self.live_lane()
         result = self.command("wait", "l1", "--max", "0")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("positive integer", result.stderr)
+        self.assertEqual(self.clock.read_text().strip(), "0")
 
     def test_start_records_the_line_command_for_codex_with_the_poll_cap(self):
         expected = self.command("line", "--cli", "codex", "--model", "gpt-6-sol").stdout.strip()
@@ -1003,12 +1024,12 @@ else:
     def test_stop_refuses_a_lane_with_child_worktrees_and_removes_nothing(self):
         state_file, child_path, _ = self.graded_lane()
         (child_path / ".orca-brief.md").write_text("brief")
-        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/grandchild"
+        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/grandchild repo::/lanes/second-child"
         result = self.command("stop", "l1")
         self.assertTrue((child_path / ".orca-brief.md").exists())
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("child worktrees", result.stderr)
-        self.assertIn("repo::/lanes/grandchild", result.stderr)
+        self.assertIn("repo::/lanes/grandchild repo::/lanes/second-child", result.stderr)
         self.assertTrue(state_file.exists())
         self.assertTrue(child_path.exists())
         calls = self.orca_calls()
