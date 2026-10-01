@@ -14,7 +14,7 @@ Packages `common/service` and `services/device/internal/auditapi` import protobu
 
 ## Why it is safe
 
-The publisher is Google. Version `v1.36.12` was published at `2026-08-10T13:29:45Z` and was 52 days old on 2026-10-01. Its 14-day wait ended at `2026-08-24T13:29:45Z`, and the Go proxy reported origin commit `cdd4c5f7406e82462949c7a65defa9f3029c162d`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 5 versions, with 0 versions only reachable through this direct dependency.
+The publisher is Google. Version `v1.36.12` was published at `2026-08-10T13:29:45Z` and was 52 days old on 2026-10-01. Its 14-day wait ended at `2026-08-24T13:29:45Z`, and the Go proxy reported origin commit `cdd4c5f7406e82462949c7a65defa9f3029c162d`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 5 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 

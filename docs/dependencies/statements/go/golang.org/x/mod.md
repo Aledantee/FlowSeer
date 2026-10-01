@@ -14,7 +14,7 @@ Tool packages `tools/deps/inventory` and `tools/deps/lookup` import `golang.org/
 
 ## Why it is safe
 
-The publisher is the Go project. Version `v0.41.0` was published at `2026-08-24T20:56:42Z` and was 38 days old on 2026-10-01. Its 14-day wait ended at `2026-09-07T20:56:42Z`, and the Go proxy reported origin commit `d0a27b2d4a48460806692bf5c87fc157c3c65292`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 3 versions, with 0 versions only reachable through this direct dependency.
+The publisher is the Go project. Version `v0.41.0` was published at `2026-08-24T20:56:42Z` and was 38 days old on 2026-10-01. Its 14-day wait ended at `2026-09-07T20:56:42Z`, and the Go proxy reported origin commit `d0a27b2d4a48460806692bf5c87fc157c3c65292`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 3 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 

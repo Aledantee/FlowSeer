@@ -14,7 +14,7 @@ Package `common/service` imports generated OTLP packages from module `go.opentel
 
 ## Why it is safe
 
-The publisher is the OpenTelemetry Go project. Version `v1.11.0` was published at `2026-07-22T21:40:59Z` and was 71 days old on 2026-10-01. Its 14-day wait ended at `2026-08-05T21:40:59Z`, and the Go proxy reported origin commit `bc625d6e040020737ab65c675c87e03bc841fd60`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 10 versions, with 0 versions only reachable through this direct dependency.
+The publisher is the OpenTelemetry Go project. Version `v1.11.0` was published at `2026-07-22T21:40:59Z` and was 71 days old on 2026-10-01. Its 14-day wait ended at `2026-08-05T21:40:59Z`, and the Go proxy reported origin commit `bc625d6e040020737ab65c675c87e03bc841fd60`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 10 versions, with 0 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 

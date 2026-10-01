@@ -14,7 +14,7 @@ Package `protocol/netconf` imports `nemith.io/netconf` and its SSH transport at 
 
 ## Why it is safe
 
-The publisher is the Nemith project. Version `v0.0.4` was published at `2026-01-08T17:00:49Z` and was 266 days old on 2026-10-01. Its 14-day wait ended at `2026-01-22T17:00:49Z`, and the Go proxy reported origin commit `8d43db445fb8869175b9093196f846db3a126f86`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 5 versions, with 4 versions only reachable through this direct dependency.
+The publisher is the Nemith project. Version `v0.0.4` was published at `2026-01-08T17:00:49Z` and was 266 days old on 2026-10-01. Its 14-day wait ended at `2026-01-22T17:00:49Z`, and the Go proxy reported origin commit `8d43db445fb8869175b9093196f846db3a126f86`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 5 versions, with 4 versions only reachable through this direct dependency. Source not yet reviewed.
 
 ## Why not owned code
 
