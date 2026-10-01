@@ -1,5 +1,5 @@
 import {
-  animate,
+  animateMini,
   frame,
   useMotionConfig,
   useReducedMotion,
@@ -8,45 +8,61 @@ import {
 import { computed, onScopeDispose, watch } from 'vue'
 
 const easing: [number, number, number, number] = [0.2, 0, 0, 1]
-type MotionKey = 'opacity' | 'x' | 'y' | 'rotate' | 'scale'
-type TransformKey = Exclude<MotionKey, 'opacity'>
+const transformKeys = ['x', 'y', 'rotate', 'scale'] as const
+type MotionKey = 'opacity' | (typeof transformKeys)[number]
 type MotionKeyframes = Partial<Record<MotionKey, [number, number]>>
-type ActiveAnimation = {
+type OwnedStyles = Partial<Record<'opacity' | 'transform', string>>
+type CompiledKeyframes = Partial<
+  Record<'opacity' | 'transform', [number | string, number | string]>
+>
+
+interface ActiveAnimation {
   animation: AnimationPlaybackControlsWithThen
-  originalOpacity: string
-  originalTransform: string
+  nativeAnimations: Animation[]
+  ownedStyles: OwnedStyles
   restore: () => void
 }
-const transformKeys = ['x', 'y', 'rotate', 'scale'] as const
 
 function hasTransformKey(keyframes: MotionKeyframes) {
   return transformKeys.some((key) => keyframes[key] !== undefined)
 }
 
-function fillTransformKeyframes(keyframes: MotionKeyframes) {
-  const filled = { ...keyframes }
-  for (const key of transformKeys) {
-    filled[key] ??= key === 'scale' ? [1, 1] : [0, 0]
-  }
-  return filled
+function transformValue(key: (typeof transformKeys)[number], value: number) {
+  const name = key === 'x' ? 'translateX' : key === 'y' ? 'translateY' : key
+  const unit = key === 'scale' ? '' : key === 'rotate' ? 'deg' : 'px'
+  return `${name}(${value}${unit})`
 }
 
-function firstTransform(keyframes: MotionKeyframes) {
-  const names: Record<TransformKey, string> = {
-    x: 'translateX',
-    y: 'translateY',
-    rotate: 'rotate',
-    scale: 'scale',
+function fillTransformKeyframes(
+  keyframes: MotionKeyframes,
+): [string, string] | undefined {
+  if (!hasTransformKey(keyframes)) return undefined
+  const endpoint = (index: 0 | 1) =>
+    transformKeys
+      .flatMap((key) => {
+        const pair = keyframes[key]
+        return pair === undefined ? [] : [transformValue(key, pair[index])]
+      })
+      .join(' ')
+  return [endpoint(0), endpoint(1)]
+}
+
+function compileKeyframes(
+  keyframes: MotionKeyframes | undefined,
+  reduced: boolean,
+) {
+  if (!keyframes) return {}
+  const compiled: CompiledKeyframes = {}
+  if (keyframes.opacity !== undefined) compiled.opacity = keyframes.opacity
+  if (!reduced) {
+    const transform = fillTransformKeyframes(keyframes)
+    if (transform) compiled.transform = transform
   }
-  const values = transformKeys.flatMap((key) => {
-    const value = keyframes[key]?.[0]
-    if (value === undefined) return []
-    const isDefault = value === (key === 'scale' ? 1 : 0)
-    if (isDefault) return []
-    const unit = key === 'scale' ? '' : key === 'rotate' ? 'deg' : 'px'
-    return `${names[key]}(${value}${unit})`
-  })
-  return values.join(' ') || 'none'
+  return compiled
+}
+
+function hasEffectiveKeyframes(keyframes: CompiledKeyframes) {
+  return Object.keys(keyframes).length > 0
 }
 
 export function useMotionFeedback() {
@@ -64,12 +80,17 @@ export function useMotionFeedback() {
     if (!current) return
     active.delete(element)
 
-    // happy-dom rejects canceled Web Animations promises without a handler.
-    for (const animation of element.getAnimations()) {
+    // Native cancellation rejects finished promises in happy-dom and browsers.
+    for (const animation of current.nativeAnimations) {
       void animation.finished.catch(() => {})
     }
+    void current.animation.finished.catch(() => {})
     current.animation.cancel()
-    if (restore) frame.render(current.restore)
+    if (restore) {
+      current.restore()
+      frame.render(current.restore)
+      frame.postRender(current.restore)
+    }
   }
 
   function cancel(element: HTMLElement) {
@@ -77,78 +98,68 @@ export function useMotionFeedback() {
   }
 
   function clear() {
-    for (const element of active.keys()) cancel(element)
+    for (const element of [...active.keys()]) cancel(element)
   }
 
   function play(
     element: HTMLElement | undefined,
-    keyframes: MotionKeyframes,
+    keyframes?: MotionKeyframes,
     duration = 0.14,
   ) {
     if (!element) return
+
     const current = active.get(element)
-    const originalOpacity = current?.originalOpacity ?? element.style.opacity
-    const originalTransform =
-      current?.originalTransform ?? element.style.transform
-    let playKeyframes: MotionKeyframes = keyframes
-    if (reduced.value) {
-      if (keyframes.opacity === undefined) {
-        cancel(element)
-        return
-      }
-      playKeyframes = { opacity: keyframes.opacity }
-    } else if (hasTransformKey(keyframes)) {
-      // motion-dom retains unmentioned transform values in its per-element store.
-      playKeyframes = fillTransformKeyframes(keyframes)
+    const compiled = compileKeyframes(keyframes, reduced.value)
+    if (!hasEffectiveKeyframes(compiled)) {
+      cancel(element)
+      return
     }
 
-    if (current) {
-      stop(element, false)
-    }
+    if (current) stop(element, true)
 
+    const ownedStyles: OwnedStyles = {}
+    if (compiled.opacity !== undefined) {
+      ownedStyles.opacity =
+        current?.ownedStyles.opacity ?? element.style.opacity
+    }
+    if (compiled.transform !== undefined) {
+      ownedStyles.transform =
+        current?.ownedStyles.transform ?? element.style.transform
+    }
     const restore = () => {
-      element.style.opacity = originalOpacity
-      element.style.transform = originalTransform
+      if (ownedStyles.opacity !== undefined)
+        element.style.opacity = ownedStyles.opacity
+      if (ownedStyles.transform !== undefined)
+        element.style.transform = ownedStyles.transform
     }
 
-    const animation = animate(element, playKeyframes, {
+    const previousAnimations = new Set(element.getAnimations())
+    const animation = animateMini([element], compiled, {
       duration,
       ease: easing,
     })
+    const nativeAnimations = element
+      .getAnimations()
+      .filter((nativeAnimation) => !previousAnimations.has(nativeAnimation))
+    for (const nativeAnimation of nativeAnimations) {
+      void nativeAnimation.finished.catch(() => {})
+    }
+
     active.set(element, {
       animation,
-      originalOpacity,
-      originalTransform,
+      nativeAnimations,
+      ownedStyles,
       restore,
     })
-    if (current) {
-      const isActive = () => active.get(element)?.animation === animation
-      if (!hasTransformKey(playKeyframes)) {
-        frame.postRender(() => {
-          if (!isActive()) return
-          element.style.transform = originalTransform
-        })
-      }
-      // A canceled animation writes its first keyframe on the next render.
-      frame.postRender(() => {
-        if (!isActive()) return
-        if (playKeyframes.opacity) {
-          element.style.opacity = String(playKeyframes.opacity[0])
-        }
-        if (hasTransformKey(playKeyframes)) {
-          element.style.transform = firstTransform(playKeyframes)
-        }
-      })
-    }
+
     const finish = () => {
-      // A stale completion must not cancel the animation that replaced it.
       if (active.get(element)?.animation !== animation) return
-      cancel(element)
+      stop(element, true)
     }
-    void animation.finished.then(finish)
+    void animation.finished.then(finish).catch(() => {})
   }
 
-  watch(userReducedMotion, clear)
+  watch(() => [config.value.reducedMotion, userReducedMotion.value], clear)
   window.addEventListener('resize', clear)
   onScopeDispose(() => {
     clear()

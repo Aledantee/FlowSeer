@@ -41,54 +41,112 @@ function mountSwitcher() {
   }
   const button = host.querySelector<HTMLButtonElement>('button.theme-switcher')
   if (!button) throw new Error('Missing theme switcher button')
-  const icons = host.querySelectorAll<HTMLElement>('.theme-icon')
+  const icons = [...host.querySelectorAll<HTMLElement>('.theme-icon')]
   const sun = icons[0]
   const moon = icons[1]
   if (!sun || !moon) throw new Error('Missing theme icons')
   return { button, sun, moon }
 }
 
-function wait(milliseconds: number) {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds))
+function keyframeEffect(animation: Animation) {
+  if (!(animation.effect instanceof KeyframeEffect))
+    throw new Error('Expected a native KeyframeEffect')
+  return animation.effect
+}
+
+function animationsFor(element: HTMLElement) {
+  const animations = element.getAnimations()
+  expect(animations).not.toHaveLength(0)
+  expect(
+    animations.every((animation) => animation.playState === 'running'),
+  ).toBe(true)
+  return animations.map((animation) => ({
+    animation,
+    effect: keyframeEffect(animation),
+  }))
+}
+
+async function finishAnimations(...elements: HTMLElement[]) {
+  for (const element of elements) {
+    for (const animation of [...element.getAnimations()]) animation.finish()
+  }
+  await Promise.resolve()
+  await Promise.resolve()
 }
 
 describe('ThemeSwitcher', () => {
-  it('animates theme icons during normal motion and clears styles after completion', async () => {
+  it('starts native opacity and ordered transform effects in both icon directions', async () => {
     stubMatchMedia(false)
     const { button, sun, moon } = mountSwitcher()
 
-    expect(button.getAttribute('aria-checked')).toBe('false')
-
     button.click()
     await nextTick()
 
-    expect(button.getAttribute('aria-checked')).toBe('true')
+    const sunAnimations = animationsFor(sun)
+    const moonAnimations = animationsFor(moon)
+    expect(sunAnimations).toHaveLength(2)
+    expect(moonAnimations).toHaveLength(2)
 
-    await wait(40)
-    expect(sun.style.transform).toContain('rotate')
+    const sunTransform = sunAnimations.find(({ effect }) =>
+      effect.getKeyframes().some((keyframe) => 'transform' in keyframe),
+    )
+    const moonTransform = moonAnimations.find(({ effect }) =>
+      effect.getKeyframes().some((keyframe) => 'transform' in keyframe),
+    )
+    if (!sunTransform || !moonTransform)
+      throw new Error('Missing transform effect')
+    expect(sunTransform.effect.getKeyframes()).toMatchObject([
+      {
+        transform: 'rotate(0deg) scale(1)',
+      },
+      {
+        transform: 'rotate(45deg) scale(0.65)',
+      },
+    ])
+    expect(moonTransform.effect.getKeyframes()).toMatchObject([
+      {
+        transform: 'rotate(-35deg) scale(0.65)',
+      },
+      {
+        transform: 'rotate(0deg) scale(1)',
+      },
+    ])
+    expect(sunTransform.effect.getTiming()).toMatchObject({ duration: 160 })
+    expect(moonTransform.effect.getTiming()).toMatchObject({ duration: 160 })
 
-    await wait(280)
-    expect(sun.style.transform).toBe('')
+    await finishAnimations(sun, moon)
+    expect(sun.getAnimations()).toHaveLength(0)
+    expect(moon.getAnimations()).toHaveLength(0)
     expect(sun.style.opacity).toBe('')
-    expect(moon.style.transform).toBe('')
+    expect(sun.style.transform).toBe('')
     expect(moon.style.opacity).toBe('')
+    expect(moon.style.transform).toBe('')
   })
 
-  it('keeps transforms empty and retains running opacity animations under reduced motion', async () => {
+  it('keeps reduced motion as one running opacity effect per icon', async () => {
     stubMatchMedia(true)
     const { button, sun, moon } = mountSwitcher()
 
-    expect(button.getAttribute('aria-checked')).toBe('false')
-
     button.click()
     await nextTick()
 
-    expect(button.getAttribute('aria-checked')).toBe('true')
+    for (const icon of [sun, moon]) {
+      const animations = animationsFor(icon)
+      expect(animations).toHaveLength(1)
+      expect(animations[0]?.effect.getKeyframes()).toMatchObject([
+        { opacity: expect.any(String) },
+        { opacity: expect.any(String) },
+      ])
+      expect(
+        animations[0]?.effect
+          .getKeyframes()
+          .every((keyframe) => !('transform' in keyframe)),
+      ).toBe(true)
+      expect(icon.style.transform).toBe('')
+    }
 
-    await wait(40)
-    expect(sun.style.transform).toBe('')
-    expect(moon.style.transform).toBe('')
-    expect(sun.getAnimations()[0]?.playState).toBe('running')
-    expect(moon.getAnimations()[0]?.playState).toBe('running')
+    await finishAnimations(sun, moon)
+    expect(sun.style.opacity).toBe('')
+    expect(moon.style.opacity).toBe('')
   })
 })
