@@ -16,6 +16,9 @@ class SuccessorTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+        self.home = self.root / "home"
+        self.machine_registry = self.home / ".claude/models/registry.yaml"
+        self.machine_registry.parent.mkdir(parents=True)
         self.repo = self.root / "repo"
         self.repo.mkdir()
         subprocess.run(
@@ -40,6 +43,9 @@ class SuccessorTests(unittest.TestCase):
         self.parent = self.repo / "docs/plans/parent-plan.md"
         self.parent.parent.mkdir(parents=True)
         self.parent.write_text("---\nstatus: implemented\n---\n")
+        self.project_registry = self.repo / ".claude/models/registry.yaml"
+        self.project_registry.parent.mkdir(parents=True)
+        self.write_registries()
         subprocess.run(
             ["git", "add", "."], cwd=self.repo, check=True, capture_output=True
         )
@@ -56,6 +62,7 @@ class SuccessorTests(unittest.TestCase):
         self.env = {
             **os.environ,
             "PATH": f"{self.bin}:{os.environ.get('PATH', '')}",
+            "HOME": str(self.home),
             "ORCA_STUB_LOG": str(self.log),
             "ORCA_STUB_CHILDREN": "",
             "ORCA_STUB_SCREEN": "esc to interrupt",
@@ -111,8 +118,44 @@ else:
         sleep.write_text("#!/bin/sh\nexit 0\n")
         sleep.chmod(sleep.stat().st_mode | stat.S_IEXEC)
 
-    def invoke(self, model="claude-opus-5-5", effort=None, parent=None):
-        args = [str(SCRIPT), parent or "docs/plans/parent-plan.md", "--model", model]
+    def registry_text(self, fit="claude-opus-5-5, gpt-6-sol, gemini-3.8-flash"):
+        return (
+            "pools:\n"
+            "  claude: {cli: claude}\n"
+            "  codex: {cli: codex}\n"
+            "  google: {cli: agy}\n"
+            "models:\n"
+            "  claude-opus-5-5: {pool: claude}\n"
+            "  claude-opus-5: {pool: claude}\n"
+            "  gpt-6-sol: {pool: codex}\n"
+            "  gemini-3.8-flash: {pool: google, id_format: \"gemini-3.8-flash-<effort>\"}\n"
+            "roles:\n"
+            f"  plan: {{effort: xhigh, fit: [{fit}]}}\n"
+        )
+
+    def write_registries(self, machine_fit=None, project_fit=None):
+        self.machine_registry.write_text(
+            self.registry_text(machine_fit or "claude-opus-5-5, gpt-6-sol, gemini-3.8-flash")
+        )
+        self.project_registry.write_text(
+            self.registry_text(project_fit or "claude-opus-5-5, gpt-6-sol, gemini-3.8-flash")
+        )
+
+    def invoke(
+        self,
+        model="claude-opus-5-5",
+        effort=None,
+        parent=None,
+        cli="claude",
+    ):
+        args = [
+            str(SCRIPT),
+            parent or "docs/plans/parent-plan.md",
+            "--cli",
+            cli,
+            "--model",
+            model,
+        ]
         if effort is not None:
             args.extend(["--effort", effort])
         return subprocess.run(
@@ -130,6 +173,21 @@ else:
     def count_calls(self, prefix):
         return sum(1 for call in self.calls().splitlines() if call.startswith(prefix))
 
+    def worker_line(self, cli, model, effort=None):
+        worker = SCRIPT.parent.parent.parent / "delegate/scripts/orca-worker.sh"
+        args = [str(worker), "line", "--cli", cli, "--model", model]
+        if effort is not None:
+            args.extend(["--effort", effort])
+        result = subprocess.run(
+            args,
+            cwd=self.repo,
+            env=self.env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
     def commit_all(self, message):
         subprocess.run(
             ["git", "add", "."], cwd=self.repo, check=True, capture_output=True
@@ -145,11 +203,45 @@ else:
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertNotIn("terminal create", self.calls())
 
-    def test_rejects_non_claude_model_before_creating_terminal(self):
-        result = self.invoke(model="gpt-6-sol")
+    def test_rejects_model_outside_plan_fit_before_creating_terminal(self):
+        result = self.invoke(model="claude-opus-5")
+        self.assert_no_create(result)
+        self.assertIn("model", result.stderr)
+        self.assertIn("claude-opus-5", result.stderr)
+
+    def test_rejects_model_on_another_cli_before_creating_terminal(self):
+        result = self.invoke(model="gpt-6-sol", cli="claude")
+        self.assert_no_create(result)
+        self.assertIn("cli", result.stderr)
+        self.assertIn("codex", result.stderr)
+
+    def test_accepts_fit_entry_with_effort_suffix(self):
+        self.write_registries(project_fit="claude-opus-5-5@xhigh")
+        self.commit_all("pin plan fit effort")
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_project_registry_replaces_machine_fit(self):
+        self.write_registries(machine_fit="gpt-6-sol", project_fit="claude-opus-5-5")
+        self.commit_all("narrow project plan fit")
+        result = self.invoke(model="gpt-6-sol", cli="codex")
         self.assert_no_create(result)
         self.assertIn("model", result.stderr)
         self.assertIn("gpt-6-sol", result.stderr)
+
+    def test_rejects_missing_registry_before_creating_terminal(self):
+        self.machine_registry.unlink()
+        self.project_registry.unlink()
+        subprocess.run(
+            ["git", "rm", str(self.project_registry.relative_to(self.repo))],
+            cwd=self.repo,
+            check=True,
+            capture_output=True,
+        )
+        self.commit_all("remove registry")
+        result = self.invoke()
+        self.assert_no_create(result)
+        self.assertIn("registry", result.stderr)
 
     def test_rejects_non_lowercase_effort_before_creating_terminal(self):
         result = self.invoke(effort="High1")
@@ -218,7 +310,7 @@ else:
                 self.assert_no_create(result)
                 self.assertIn(wanted, result.stderr)
 
-        refusal("model", model="gpt-6-sol", effort="High1", parent=missing)
+        refusal("model", model="claude-opus-5", effort="High1", parent=missing)
         refusal("effort", effort="High1", parent=missing)
         refusal("parent must", parent=missing)
         refusal("untracked.txt")
@@ -236,16 +328,38 @@ else:
         command = creates[0]
         self.assertIn("--worktree active", command)
         self.assertIn("--title drive", command)
-        self.assertIn("--model claude-opus-5-5", command)
-        self.assertIn("switchModelsOnFlag", command)
-        self.assertIn(".claude/skills/drive/SKILL.md", command)
-        self.assertIn("--effort high", command)
-        self.assertTrue(
-            command.endswith(
-                ' "Read .claude/skills/drive/SKILL.md and drive docs/plans/parent-plan.md." --json'
-            ),
-            command,
+        expected = self.worker_line("claude", "claude-opus-5-5", "high")
+        prompt = '"Read .claude/skills/drive/SKILL.md and drive docs/plans/parent-plan.md."'
+        self.assertTrue(command.endswith(f" --command {expected} {prompt} --json"), command)
+
+    def test_starts_codex_with_worker_line_and_positional_prompt(self):
+        result = self.invoke(model="gpt-6-sol", cli="codex", effort="xhigh")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        expected = self.worker_line("codex", "gpt-6-sol", "xhigh")
+        prompt = '"Read .claude/skills/drive/SKILL.md and drive docs/plans/parent-plan.md."'
+        self.assertIn(f"--command {expected} {prompt} --json", self.calls())
+
+    def test_starts_agy_with_effort_in_model_id_and_interactive_prompt(self):
+        result = self.invoke(
+            model="gemini-3.8-flash", cli="agy", effort="high"
         )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        expected = self.worker_line("agy", "gemini-3.8-flash-high")
+        prompt = '"Read .claude/skills/drive/SKILL.md and drive docs/plans/parent-plan.md."'
+        self.assertIn(
+            f"--command {expected} --prompt-interactive {prompt} --json", self.calls()
+        )
+
+    def test_rejects_agy_without_effort_before_creating_terminal(self):
+        result = self.invoke(model="gemini-3.8-flash", cli="agy")
+        self.assert_no_create(result)
+        self.assertIn("effort", result.stderr)
+
+    def test_accepts_agy_cancel_hint(self):
+        self.env["ORCA_STUB_SCREEN"] = "esc to cancel"
+        result = self.invoke(model="gemini-3.8-flash", cli="agy", effort="high")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("term-1", result.stdout)
 
     def test_waits_for_working_hint_on_a_later_read(self):
         self.env["ORCA_STUB_HINT_AFTER"] = "3"
