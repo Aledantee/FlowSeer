@@ -10,12 +10,12 @@ approved: ""
 
 ## Why it is required
 
-The importing package graph is rooted at `go.mod`. It requires `mvdan.cc/gofumpt` at `v0.12.0`.
+The `mibgen` generator imports `mvdan.cc/gofumpt/format` at `src/protocol/snmp/cmd/mibgen/emit.go:16`. Its caller is `src/protocol/snmp/cmd/mibgen`, and the root `go.mod` pins version `v0.12.0`.
 
 ## Why it is safe
 
-The lockfile pins `v0.12.0`, and the inventory classifies this dependency as `deploy`. The `tools/deps age` and `tools/deps advisories` commands provide its publication and advisory evidence. Source not yet reviewed.
+The publisher is the mvdan.cc Go formatting project. Version `v0.12.0` was published at `2026-09-07T22:34:18Z` and was 24 days old on 2026-10-01. Its 14-day wait ended at `2026-09-21T22:34:18Z`, and the Go proxy reported origin commit `3e07e7e70ac93761d8e79ca0083a19e3d59f753d`. The OSV lookup dated 2026-10-01 returned no advisory for this version. The root module graph contains 12 versions, with 4 versions only reachable through this direct dependency.
 
 ## Why not owned code
 
-The repository does not own the external package `mvdan.cc/gofumpt`. Its pinned tree size is reported by `go run ./tools/deps tree`. Replacing it would move that package boundary and its maintenance into FlowSeer.
+FlowSeer would have to format generated Go source and keep import grouping consistent in `mibgen`. A local formatter would make one generator maintain its own Go formatting rules. The tree contains 12 versions, with 4 versions only reachable through this direct dependency.
