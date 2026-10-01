@@ -10,21 +10,7 @@ import (
 )
 
 func TestClassifyUsesTestAndWindowsClosures(t *testing.T) {
-	root := copyFixtureTree(t, filepath.Join("testdata", "classify"))
-	if err := os.Rename(filepath.Join(root, "go.mod.fixture"), filepath.Join(root, "go.mod")); err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range []string{"non_test", "test_only", "transitive", "windows_only"} {
-		path := filepath.Join(root, name, "go.mod.fixture")
-		if err := os.Rename(path, filepath.Join(filepath.Dir(path), "go.mod")); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	modules, err := DiscoverModules(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	root, modules := classifyFixture(t)
 	entries := []Entry{
 		{Ecosystem: "go", Name: "example.test/non_test", Version: "v0.0.0", Manifests: []string{"go.sum"}},
 		{Ecosystem: "go", Name: "example.test/test_only", Version: "v0.0.0", Manifests: []string{"go.sum"}},
@@ -53,6 +39,80 @@ func TestClassifyUsesTestAndWindowsClosures(t *testing.T) {
 			t.Errorf("%s via = %#v, want its direct importer", entry.Name, entry.Via)
 		}
 	}
+}
+
+func TestClassifyUsesEveryModuleGraph(t *testing.T) {
+	root, modules := classifyFixture(t)
+
+	entries := make([]Entry, 0, len(modules))
+	for _, module := range modules {
+		entries = append(entries, Entry{
+			Ecosystem: "go",
+			Name:      "example.test/transitive",
+			Version:   "v0.0.0",
+			Manifests: []string{strings.TrimSuffix(module.Manifest, "go.mod") + "go.sum"},
+		})
+	}
+
+	classified, err := Classify(root, modules, entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantCriteria := map[string]string{
+		"go.sum":              "deploy",
+		"non_test/go.sum":     "run",
+		"test_only/go.sum":    "run",
+		"transitive/go.sum":   "run",
+		"windows_only/go.sum": "run",
+	}
+	wantVia := map[string][]string{
+		"go.sum":              {"example.test/non_test", "example.test/test_only", "example.test/windows_only"},
+		"non_test/go.sum":     {"example.test/transitive"},
+		"test_only/go.sum":    {"example.test/transitive"},
+		"transitive/go.sum":   nil,
+		"windows_only/go.sum": {"example.test/transitive"},
+	}
+	for _, entry := range classified {
+		manifest := entry.Manifests[0]
+		if got := entry.Criteria; got != wantCriteria[manifest] {
+			t.Errorf("%s criteria = %q, want %q", manifest, got, wantCriteria[manifest])
+		}
+		if got := entry.Via; !equalStrings(got, wantVia[manifest]) {
+			t.Errorf("%s via = %#v, want %#v", manifest, got, wantVia[manifest])
+		}
+	}
+}
+
+func classifyFixture(t *testing.T) (string, []Module) {
+	t.Helper()
+	root := copyFixtureTree(t, filepath.Join("testdata", "classify"))
+	if err := os.Rename(filepath.Join(root, "go.mod.fixture"), filepath.Join(root, "go.mod")); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"non_test", "test_only", "transitive", "windows_only"} {
+		path := filepath.Join(root, name, "go.mod.fixture")
+		if err := os.Rename(path, filepath.Join(filepath.Dir(path), "go.mod")); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	modules, err := DiscoverModules(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return root, modules
+}
+
+func equalStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestDiscoversEveryModule(t *testing.T) {

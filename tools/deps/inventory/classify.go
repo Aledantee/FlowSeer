@@ -10,13 +10,20 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
-// Classify assigns deploy or run to Go entries. Root and netpen modules use
-// their shipping package closures for Linux, Darwin, and Windows. Other Go
-// modules are tooling or fixtures and remain run-scoped.
+// Classify assigns deploy or run to Go entries. Every Go module contributes its
+// module graph to Via. Root and netpen modules also use their shipping package
+// closures for Linux, Darwin, and Windows. Other Go modules remain run-scoped.
 func Classify(_ string, modules []Module, entries []Entry) ([]Entry, error) {
 	rootModule := moduleForManifest(modules, "go.mod")
 	closures := make(map[string]closureSet)
+	graphs := make(map[string]map[string][]string, len(modules))
 	for _, module := range modules {
+		via, err := moduleGraph(module)
+		if err != nil {
+			return nil, err
+		}
+		graphs[module.Manifest] = via
+
 		if module.Manifest != "go.mod" && module.Manifest != "src/edge/netpen/go.mod" {
 			continue
 		}
@@ -42,10 +49,12 @@ func Classify(_ string, modules []Module, entries []Entry) ([]Entry, error) {
 			}
 			if set, ok := closures[manifestForGoSum(manifest)]; ok {
 				key := moduleKey(entries[i].Name, entries[i].Version)
-				entries[i].Via = appendUnique(entries[i].Via, set.Via[key]...)
 				if !set.Test[key] || set.Build[key] {
 					criteria = "deploy"
 				}
+			}
+			if via, ok := graphs[manifestForGoSum(manifest)]; ok {
+				entries[i].Via = appendUnique(entries[i].Via, via[moduleKey(entries[i].Name, entries[i].Version)]...)
 			}
 		}
 		entries[i].Criteria = criteria
@@ -56,7 +65,6 @@ func Classify(_ string, modules []Module, entries []Entry) ([]Entry, error) {
 type closureSet struct {
 	Build map[string]bool
 	Test  map[string]bool
-	Via   map[string][]string
 }
 
 func moduleForManifest(modules []Module, manifest string) Module {
@@ -76,7 +84,7 @@ func manifestForGoSum(manifest string) string {
 }
 
 func moduleClosures(module Module, rootModule bool) (closureSet, error) {
-	set := closureSet{Build: make(map[string]bool), Test: make(map[string]bool), Via: make(map[string][]string)}
+	set := closureSet{Build: make(map[string]bool), Test: make(map[string]bool)}
 	for _, goos := range []string{"linux", "darwin", "windows"} {
 		packages, err := shippingPackages(module, rootModule, goos)
 		if err != nil {
@@ -97,11 +105,6 @@ func moduleClosures(module Module, rootModule bool) (closureSet, error) {
 			set.Test[key] = true
 		}
 	}
-	via, err := moduleGraph(module)
-	if err != nil {
-		return closureSet{}, err
-	}
-	set.Via = via
 	return set, nil
 }
 
