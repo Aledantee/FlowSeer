@@ -371,7 +371,6 @@ function toggleSidebar() {
     if (!reduced.value) layoutDependency.value++
   } else if (!sidebarCollapsed.value) {
     const nav = navigation.value?.$el
-    // The nav is a UiMotion and motion-v re-applies held values on render, so the nav keeps opacity: 1 inline after this fade.
     play(
       nav instanceof HTMLElement ? nav : undefined,
       { opacity: [0.6, 1] },
