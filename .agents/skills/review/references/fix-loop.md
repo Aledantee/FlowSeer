@@ -11,19 +11,27 @@ Sort the settled findings (`SKILL.md` step 4) before dispatching anything:
 | --- | --- | --- |
 | behaviour | shipped code does the wrong thing for some input, or contradicts a numbered Requirement | a round: steps 1 to 4 |
 | false test | a test fails, errors, or passes only on some runs, or its title, comment, or commit body names a behaviour and it passes with that behaviour removed | a round: steps 1 to 4 |
-| gap | a mutation survives in behaviour no test names, or a comment or doc is wrong | recorded now, closed in the gap pass below |
+| gap | a mutation survives in a branch or boundary no test's title, comment, or commit body states, or a comment or doc is wrong | recorded now, closed in the gap pass below |
 
 A false test is as serious as a defect, because the suite reports a
 guarantee it does not hold and the next reader trusts it. A gap claims
 nothing. Reviewing gap fixes does not converge: each fix adds tests, and
 every new test is something the next reviewer can mutate.
 
+The boundary is what the test states. A broadly named test (`TestValidate`)
+with a surviving edge-case mutation is a false test when the mutation removes
+the specific condition its title, comment, or commit body states, and a gap
+when it removes a branch or boundary none of them states. When both readings
+hold, it is a false test, since that side is reviewed.
+
 Record each gap when it is settled, as one line under a `## Review gaps`
 heading at the end of the plan: `path:line`, the surviving mutation, and the
 case that would fail on it. A gap whose only test would restate the
 implementation (a buffer capacity, a log string) is dropped with that reason
-in the report, not recorded. Planless work lists its gaps in the report and
-closes them in the same pass.
+in the report, not recorded. Planless work has no plan section, so it lists
+its gaps in the report and records the verdict `fixes needed` while one is
+open, since `land` reads that verdict and not the report. The gap pass
+replaces it with `accept after fixes`.
 
 ### The gap pass
 

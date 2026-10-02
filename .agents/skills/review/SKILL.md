@@ -85,9 +85,9 @@ intent in code doing the opposite. Ask:
   `references/mutation-check.md` and run one mutation of your own choosing
   against it, whether or not its commit quotes a failure, since the
   author's mutation shows only the fault the author thought of. A test that
-  passes against the defect it names is a correctness finding. A mutation
-  that survives in behaviour no test names is a gap
-  (`references/fix-loop.md`).
+  passes against the defect it names is a false test. A mutation that
+  survives in behaviour no test names is a gap (`references/fix-loop.md`,
+  which decides the boundary between the two).
 - Does any comment narrate process, cite history, or carry a plan label?
 - For each line the verifier printed under `Test changes to account for:`,
   does the implementer's reason hold against the diff, and does the suite
@@ -185,7 +185,10 @@ When the scope is this branch's work (the working tree, the branch, or its
 plan's paths), record the verdict where `land` reads it (`land`, step 1). With a plan, add
 `review: <verdict>` beside `status` in its frontmatter, commit that with a
 message naming the review, then run the verifier on the plan path so the
-receipt post-dates the commit. Planless work runs
+receipt post-dates the commit. Planless work has no `## Review gaps`
+section for `land` to read, so a gap open at the report records `fixes
+needed` and the gap pass replaces it with `accept after fixes`
+(`references/fix-loop.md`). Planless work runs
 `.claude/skills/verify-change/scripts/ledger.py checkpoint review "<verdict>"`,
 which appends the line to `$(git rev-parse --git-dir)/flowseer-checkpoints`
 and needs no commit or run. In Orca, also append the verdict to the worktree
@@ -203,7 +206,8 @@ happens next (`AGENTS.md`, Agent behavior):
 
 | Verdict | Options, recommended first |
 | --- | --- |
-| accept | run `compound` now; stop here |
+| accept, no gap listed | run `compound` now; stop here |
+| accept, a gap listed (planless work: recorded `fixes needed`) | run the gap pass now (`references/fix-loop.md`); stop here |
 | fixes needed or rework, findings in one file group | apply the fixes here; fix and review again until clean (step 6); stop |
 | fixes needed or rework, findings across file groups | fix and review again until clean (step 6); apply chosen findings only; stop |
 | rework too large to fix in place | take what the review established to `plan`; stop |
