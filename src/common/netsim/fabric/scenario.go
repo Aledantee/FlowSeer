@@ -10,7 +10,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 )
 
 // ActionKind identifies the mutation or injection performed by a scenario action.

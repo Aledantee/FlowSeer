@@ -18,13 +18,13 @@ import (
 )
 
 // diffCoveredPackages is the literal a person edits deliberately: every package under
-// src/common/netsim/vswitch/, src/common/netsim/vswitch/*/, and src/common/netsim/fabric/
+// src/common/sim/device/vswitch/, src/common/sim/device/vswitch/*/, and src/common/netsim/fabric/
 // that owns a diff.go. AssertEveryDiffPackageIsCovered walks those three locations and
 // fails when it finds a diff.go whose package path is absent here, so a new capability
 // package stops the suite rather than shipping without a coverage gate of its own. The
 // walk is what grows; this literal is what a person edits deliberately.
 var diffCoveredPackages = []string{
-	"src/common/netsim/vswitch",
+	"src/common/sim/device/vswitch",
 	"src/common/sim/layer/bridge",
 	"src/common/sim/layer/filter",
 	"src/common/sim/layer/lag",
@@ -38,7 +38,7 @@ var diffCoveredPackages = []string{
 	"src/common/netsim/fabric",
 }
 
-// AssertEveryDiffPackageIsCovered walks src/common/netsim/vswitch/, its direct
+// AssertEveryDiffPackageIsCovered walks src/common/sim/device/vswitch/, its direct
 // subdirectories, and src/common/netsim/fabric/ for a file named diff.go, and fails on
 // every path it finds that is absent from diffCoveredPackages, and on every entry in
 // diffCoveredPackages the walk did not find. Go builds one test binary per package, so no
@@ -48,7 +48,7 @@ func AssertEveryDiffPackageIsCovered(t *testing.T) {
 	t.Helper()
 
 	root := repoRoot(t)
-	found := diffGoPackagePaths(t, root, "src/common/netsim/vswitch", "src/common/netsim/fabric")
+	found := diffGoPackagePaths(t, root, "src/common/sim/device/vswitch", "src/common/netsim/fabric")
 	assertCoverage(t, found, diffCoveredPackages)
 }
 
