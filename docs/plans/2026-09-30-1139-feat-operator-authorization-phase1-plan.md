@@ -3,7 +3,7 @@ title: Operator Authorization Phase 1, Rule Schema and Enforcement Core - Plan
 type: feat
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
+artifact_readiness: implementation-ready
 status: planned
 execution: code
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
@@ -72,7 +72,8 @@ phase:
   `platform#admin`, and `CreateTenant` runs before any tenant exists to
   name. U1 adds the mode to the rule table of the
   [operator authorization record](../architecture/2026-09-30-operator-authorization-direction.md#every-rpc-declares-its-rule).
-  Unconfirmed: see Open questions.
+  The mode is enforced in this phase, not refused until a later one.
+  (decided by the user, 2026-10-02)
 - `authn` in this phase holds only the principal and its context carrier.
   `Principal.ID` is opaque, and queries name the caller `user:<Principal.ID>`.
   Why: the interceptor needs a principal to test against, and the id's
@@ -352,35 +353,6 @@ go test ./test/conformance/proto/ ./src/services/device/internal/authn/ ./src/se
 
 ## Open questions
 
-- How `TenantService` declares its rule. This blocks `implementation-ready`:
-  a platform rule names no tenant, and the parent decides that a request
-  names its tenant and is admitted by membership. The plan is written for
-  option 1. The others change U1's enum and CEL rules, three table rows,
-  requirement 14, and U4.
-  1. Recommended: `RULE_MODE_PLATFORM`, enforced in this phase as the
-     Decisions describe. Cost: an RPC class outside the membership gate,
-     and a row in the accepted record's mode table for a person to re-read.
-  2. The same mode in the schema, refused by the interceptor like streaming
-     until a phase serves `TenantService`. Cost: a declared rule nothing
-     enforces or tests until then.
-  3. Five modes, with `TenantService` on loaded rules naming
-     `platform#admin` and its handler calling `Require`. Cost: creating or
-     listing tenants passes the membership gate of an unrelated tenant, and
-     the first `CreateTenant` needs a bootstrap tuple on `tenant:default`.
-  4. Move `TenantService` out of `flowseer.api.` until a phase serves it.
-     Cost: `spec/proto/flowseer/api/README.md` admits every operator-called
-     service to `api/`, so the move breaks the root's admission rule.
 - Requirement 11 sends `platform:flowseer#claimed`, and no record states
   the `platform` type's relations yet. Phase 2's model has to define
   `claimed` on it, or OpenFGA rejects every check that carries the tuple.
-- Parked by drive: how `TenantService` declares its rule, the first open
-  question above. Options: `RULE_MODE_PLATFORM` enforced in this phase (an
-  RPC class outside the membership gate, and a new row in the accepted
-  record's mode table) | the same mode refused by the interceptor until a
-  phase serves `TenantService` (a declared rule nothing enforces or tests) |
-  five modes with `TenantService` on loaded rules naming `platform#admin`
-  (tenant creation passes an unrelated tenant's membership gate and needs a
-  bootstrap tuple on `tenant:default`) | move `TenantService` out of
-  `flowseer.api.` (breaks the `api/` root's admission rule). Recommended:
-  `RULE_MODE_PLATFORM` enforced in this phase, because `CreateTenant` runs
-  before any tenant exists and the plan is already written for it.
