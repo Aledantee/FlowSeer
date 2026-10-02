@@ -4,12 +4,14 @@ type: refactor
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
 ---
 
 # Web Component Contract Migration, Phase 3 - i18n Foundation and Ui Strings - Plan
+
+> Implemented. 5 units, 2026-10-02T20:19Z to 2026-10-02T21:18Z.
 
 ## Goal
 
@@ -303,14 +305,14 @@ It does not mark the component migration implemented.
 
 ## Definition of done
 
-- [ ] All three unchanged requirements pass, including a read of every
+- [x] All three unchanged requirements pass, including a read of every
       `Ui*` template for visible literals.
-- [ ] Every changed path passes the diff-aware verifier.
-- [ ] Storybook's locale toolbar, German LongText, both themes, and open
+- [x] Every changed path passes the diff-aware verifier.
+- [x] Storybook's locale toolbar, German LongText, both themes, and open
       overlays pass the browser checks.
-- [ ] The README and i18n skill reference describe the implemented behavior.
-- [ ] This plan reads `status: implemented` with an outcome note.
-- [ ] Requirement and unit labels appear only in the plan.
+- [x] The README and i18n skill reference describe the implemented behavior.
+- [x] This plan reads `status: implemented` with an outcome note.
+- [x] Requirement and unit labels appear only in the plan.
 
 ## Open questions
 
