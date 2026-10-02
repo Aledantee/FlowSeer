@@ -138,6 +138,24 @@ func checkObjectIDPath(method protoreflect.MethodDescriptor, rule *authzv1.Rule)
 	return nil
 }
 
+// requestRuleObjectIDPathViolations ranges over every flowseer.api. method
+// carrying a request rule in files and returns the count of request rules
+// visited together with the object_id_path violations checkObjectIDPath
+// reports for them.
+func requestRuleObjectIDPathViolations(files *protoregistry.Files) (int, []string) {
+	requestRuleCount := 0
+	var violations []string
+	forEachAPIMethod(files, func(method protoreflect.MethodDescriptor) {
+		rule := methodRule(method)
+		if rule == nil || rule.GetMode() != authzv1.RuleMode_RULE_MODE_REQUEST {
+			return
+		}
+		requestRuleCount++
+		violations = append(violations, checkObjectIDPath(method, rule)...)
+	})
+	return requestRuleCount, violations
+}
+
 // checkKnownRelation verifies that a rule names a permitted (object_type, relation)
 // pair.
 func checkKnownRelation(method protoreflect.MethodDescriptor, rule *authzv1.Rule) []string {
@@ -487,17 +505,10 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 // TestAuthorizationRuleObjectPathResolves ensures every request rule object_id_path
 // resolves through singular message fields to a string field of the method input.
 func TestAuthorizationRuleObjectPathResolves(t *testing.T) {
-	requestRuleCount := 0
-	forEachAPIMethod(protoregistry.GlobalFiles, func(method protoreflect.MethodDescriptor) {
-		rule := methodRule(method)
-		if rule == nil || rule.GetMode() != authzv1.RuleMode_RULE_MODE_REQUEST {
-			return
-		}
-		requestRuleCount++
-		for _, violation := range checkObjectIDPath(method, rule) {
-			t.Errorf("%s", violation)
-		}
-	})
+	requestRuleCount, violations := requestRuleObjectIDPathViolations(protoregistry.GlobalFiles)
+	for _, violation := range violations {
+		t.Errorf("%s", violation)
+	}
 	if requestRuleCount == 0 {
 		t.Fatalf("no request-mode operator RPC methods found under flowseer.api.")
 	}
@@ -715,6 +726,59 @@ func TestAuthorizationRuleObjectPathResolves(t *testing.T) {
 				violations := checkObjectIDPath(method, tt.rule)
 				assertViolations(t, violations, tt.wantReason)
 			})
+		}
+	})
+
+	t.Run("walk sees a synthetic request rule", func(t *testing.T) {
+		unresolvablePathRule := authzv1.Rule_builder{
+			Mode:         authzv1.RuleMode_RULE_MODE_REQUEST.Enum(),
+			ObjectType:   proto.String("edge"),
+			Relation:     proto.String("view"),
+			ObjectIdPath: proto.String("edge.edge.name"),
+		}.Build()
+
+		tenantRule := authzv1.Rule_builder{
+			Mode:       authzv1.RuleMode_RULE_MODE_TENANT.Enum(),
+			ObjectType: proto.String("tenant"),
+			Relation:   proto.String("member"),
+		}.Build()
+
+		file := newSyntheticFileDescriptor(t, &descriptorpb.FileDescriptorProto{
+			Name:    proto.String("flowseer/api/test/v1/object_id_path_service.proto"),
+			Package: proto.String("flowseer.api.test.v1"),
+			Syntax:  proto.String("proto3"),
+			Dependency: []string{
+				"flowseer/authz/v1/rule.proto",
+				"flowseer/api/edge/v1/edge_admin_service.proto",
+			},
+			Service: []*descriptorpb.ServiceDescriptorProto{
+				{
+					Name: proto.String("ObjectIDPathService"),
+					Method: []*descriptorpb.MethodDescriptorProto{
+						syntheticMethod(t, "UnresolvablePathMethod",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							unresolvablePathRule),
+						syntheticMethod(t, "TenantRuleMethod",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							tenantRule),
+					},
+				},
+			},
+		})
+
+		var files protoregistry.Files
+		if err := files.RegisterFile(file); err != nil {
+			t.Fatalf("register synthetic file %s: %v", file.Path(), err)
+		}
+
+		count, violations := requestRuleObjectIDPathViolations(&files)
+		if count != 1 {
+			t.Errorf("request rules visited = %d, want 1", count)
+		}
+		if len(violations) != 1 || !strings.Contains(violations[0], `object_id_path "edge.edge.name"`) {
+			t.Errorf("walk violations = %v, want one naming object_id_path %q", violations, "edge.edge.name")
 		}
 	})
 }
