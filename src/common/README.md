@@ -10,10 +10,10 @@ nothing of FlowSeer's own.
 | `net/ip`               | IPv4 and IPv6 header codec                                           |
 | `net/netaddr`          | MAC and EUI-64 hardware address types and parsing                    |
 | `net/vlan`             | 802.1Q tag, VLAN identifier, and priority code point value types     |
-| `netsim`               | network simulation: traces, capability-built virtual switch          |
 | `pump`                 | shared work-pump concurrency primitive                               |
 | `secret`               | redacting carrier for credential material                            |
 | `service`              | process-local module runtime, supervision, delivery, and telemetry   |
+| `sim`                  | network simulation: traces, capability-built virtual switch          |
 | `internal/netpenguard` | build guard limiting heavy dependencies to `src/edge/netpen`         |
 | `internal/secretguard` | build guard keeping credential material out of raw string fields     |
 
@@ -26,7 +26,7 @@ cross-cutting; it belongs in that consumer's `internal/`.
 The rule against domain types keeps common packages independent of generated
 schemas. Three packages carry narrow exceptions that import from
 `generated/go/proto`: `errs` for status envelopes, `service` for process
-runtime contracts, and `netsim/vswitch/netmodel` to translate model records
+runtime contracts, and `sim/netmodel` to translate model records
 into simulator configurations. Translating at this boundary lets both the
 control plane and edge tools run the simulator without depending on a service
 module.

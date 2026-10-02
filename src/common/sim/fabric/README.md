@@ -25,11 +25,11 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 func main() {
@@ -149,7 +149,7 @@ func main() {
 ## Attached streams
 
 `AttachStream` lets the run pull frames from a `stream.Source` without expanding
-the entire stream into the arrival queue. Add the `netsim/stream` import to the
+the entire stream into the arrival queue. Add the `sim/stream` import to the
 example above, then use a valid `frame` for host `h1`:
 
 ```go
@@ -983,11 +983,11 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 func main() {
@@ -1206,7 +1206,7 @@ scenario comparison.
 
 ## Representative scale and fork cost
 
-Package `internal/netsimtest` defines `RepresentativeFabric()`, a representative
+Package `internal/simtest` defines `RepresentativeFabric()`, a representative
 simulation topology envelope of eight nodes of thirty-two physical ports,
 sixteen trunked VLANs, one two-member LAG per node, rapid spanning tree, one VRF
 per node with sixty-four routes and sixty-four neighbors, sixty-four hosts,

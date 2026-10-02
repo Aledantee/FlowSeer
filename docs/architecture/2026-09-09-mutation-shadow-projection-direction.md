@@ -112,7 +112,7 @@ preview diff with a confidence tier. No third-party emulator runs.
 - The invariant set grows by adding a rule with a test; no rule is implied
   by another. A rule that needs data the model lacks (spanning-tree state,
   routed reachability) waits for that data rather than guessing.
-- `src/common/netsim` provides the projection engine: a virtual device
+- `src/common/sim` provides the projection engine: a virtual device
   evaluates the projected configuration, and a frame query joins the named
   invariants in the preview.
 

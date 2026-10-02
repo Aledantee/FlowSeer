@@ -15,7 +15,7 @@ export NETSIMLOAD_LAB_TX_PORT=1/1/1 NETSIMLOAD_LAB_RX_PORT=1/1/2
 export NETSIMLOAD_LAB_VLAN=10
 export NETSIMLOAD_LAB_TX_MAC=02:00:00:00:00:01 NETSIMLOAD_LAB_RX_MAC=02:00:00:00:00:02
 export NETSIMLOAD_LAB_TX_SPEED_BPS=1000000000 NETSIMLOAD_LAB_RX_SPEED_BPS=1000000000
-go test -tags=netsimload_lab -run '^TestICX7150Comparison$' -count=1 -v ./src/edge/netsimload/test/integration
+go test -tags=simload_lab -run '^TestICX7150Comparison$' -count=1 -v ./src/edge/simload/test/integration
 ```
 
 Replace every example value with the lab's observed wiring. The test checks

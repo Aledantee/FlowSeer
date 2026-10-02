@@ -53,6 +53,6 @@ records.
 
 ## Boundaries
 
-- Imports: `src/common/errs`, `src/common/net/*`, `src/common/netsim/analysis`,
-  `src/common/netsim/trace`, `src/common/netsim/vswitch/port`.
-- Imported by: `src/common/netsim/vswitch`, `src/common/netsim/vswitch/netmodel`.
+- Imports: `src/common/errs`, `src/common/net/*`, `src/common/sim/analysis`,
+  `src/common/sim/trace`, `src/common/sim/port`.
+- Imported by: `src/common/sim/device/vswitch`, `src/common/sim/netmodel`.

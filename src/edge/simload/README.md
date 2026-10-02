@@ -1,6 +1,6 @@
-# netsimload
+# simload
 
-`netsimload` executes finite `stream.Source` values on an edge host. It sends
+`simload` executes finite `stream.Source` values on an edge host. It sends
 complete Ethernet frames through a named transmit interface and observes the
 signed frames on a different named receive interface. The command does not
 choose an interface for the operator.

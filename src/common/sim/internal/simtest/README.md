@@ -1,9 +1,9 @@
-# netsimtest
+# simtest
 
-Package `netsimtest` provides the versioned conformance test corpus and execution
+Package `simtest` provides the versioned conformance test corpus and execution
 helpers for verifying network simulation contracts.
 
-The package is internal to `src/common/netsim`. It is test support owned by the
+The package is internal to `src/common/sim`. It is test support owned by the
 simulation library, not a public service, wire schema, benchmark, or UI. The
 representative scale fixture (`RepresentativeFabric`) is a shared topology
 envelope; scale measurement and allocation gating live in `fabric`, preserving
@@ -251,7 +251,7 @@ was there:
 
 ```go
 seed := bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{10: "ten"}}}
-netsimtest.AssertDiffCoversConfig(t, seed, bridge.Config.Normalize, bridge.Diff, nil)
+simtest.AssertDiffCoversConfig(t, seed, bridge.Config.Normalize, bridge.Diff, nil)
 ```
 
 The value chosen for each leaf matters: normalization can silently absorb a
@@ -275,8 +275,9 @@ under a specific discriminant like `Fault.Kind` — is named in the
 leaf the walk did not find fails, so a renamed or removed field cannot hide
 behind a stale exemption.
 
-[AssertEveryDiffPackageIsCovered] walks `src/common/netsim/vswitch/`, its
-direct subdirectories, and `src/common/netsim/fabric/` for a file named
+[AssertEveryDiffPackageIsCovered] walks `src/common/sim/device/vswitch/`,
+`src/common/sim/port/`, `src/common/sim/fabric/`, and the direct
+subdirectories of `src/common/sim/layer/` for a file named
 `diff.go` and fails on any path absent from the package's own
 `diffCoveredPackages` literal, and on any entry in that literal the walk did
 not find. Go builds one test binary per package, so no single package's

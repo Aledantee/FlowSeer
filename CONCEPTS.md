@@ -165,7 +165,7 @@ Every physical quantity has one canonical unit, named in the field suffix, in in
 
 ### Virtual Device
 
-A device the simulator under `src/common/netsim` builds from a port table and the capabilities its configuration carries: a relay, VLAN awareness, Ethernet speeds, PoE, link aggregation. Its capabilities are the layers it is built with, and a layer's presence in the configuration is its own discriminator, the facet rule applied to the simulator. The inventory's `Capability` is the coarser area a Binding reports; a virtual device with the `relay` and `vlan` layers is what a Binding's switching capability looks like from inside.
+A device the simulator under `src/common/sim` builds from a port table and the capabilities its configuration carries: a relay, VLAN awareness, Ethernet speeds, PoE, link aggregation. Its capabilities are the layers it is built with, and a layer's presence in the configuration is its own discriminator, the facet rule applied to the simulator. The inventory's `Capability` is the coarser area a Binding reports; a virtual device with the `relay` and `vlan` layers is what a Binding's switching capability looks like from inside.
 
 ### Endpoint
 
