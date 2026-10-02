@@ -61,7 +61,9 @@ For an entry that holds, place the fix where `docs/agent-steering.md`,
   and has several conditional steps; otherwise add a step to an existing
   skill. Its `description` says when it applies and when to skip it, and it
   ends by running the verifier and by pointing corrections to `compound`,
-  Observe, like the others.
+  Observe, like the others. A script it ships is made executable with
+  `chmod +x <path>`, sandbox disabled, since the sandbox denies writes
+  under the skills directory and the file otherwise lands as mode 100644.
 - A rule every task needs: `AGENTS.md`, staged, not applied.
 
 Before editing, grep `AGENTS.md`, `docs/agent-steering.md`,

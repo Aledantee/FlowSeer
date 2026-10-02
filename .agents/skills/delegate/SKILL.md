@@ -261,6 +261,11 @@ order:
    word budget; see Register. Name the checks the coordinator already ran
    with their result, and say to report once the named scope is checked; an
    editing worker still runs the focused checks its own edits invalidate.
+   A lane that returns a report and commits nothing gets a file path
+   under the session scratchpad directory: it writes the whole report
+   there and prints only the path and the finding count. Read that file,
+   since `orca-worker.sh read` returns the terminal's last screens and a
+   long report scrolls out of them.
 5. For a unit of a plan with a ledger (`verify-change`'s `SKILL.md`
    documents it), the `note` line of every landed unit, verbatim, and
    nothing else from the ledger.

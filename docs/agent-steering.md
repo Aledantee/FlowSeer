@@ -934,6 +934,24 @@ Karpathy's guidelines were already the "Rules for coding agents" in
 `code-style.md`. gstack's skills, at 500 to 1,900 lines each, were read
 for single rules only.
 
+Check the landing branch's merges, not the ones `main` already holds.
+`land` ran `merge-check.py ORIG_HEAD..HEAD` after merging `main` into the
+branch, a range that holds every merge commit `main` brought in. Merge
+`cd07426d` on `main` took one parent's `pool-usage.sh` whole, on purpose:
+`2b02d559` had replaced the other parent's change with a native reader
+(`orca_pools` in `pool-usage.sh`, "Native fallback for Claude and Codex"
+in `delegate/references/pool-rows.md`). The check read that as a lost
+change and would have stopped every later landing. `land` now checks
+`main..HEAD`, which is the branch's own merges. The other callers keep
+`ORIG_HEAD..HEAD`, since they merge a worker's branch and its commits are
+theirs to check.
+
+A report a worker prints is only as long as its terminal keeps. A review
+lane's six findings came back as three, because `orca-worker.sh read`
+returns the last screens. `delegate`'s brief now gives a report-only lane
+a scratchpad file to write. The path was measured on `agy`. Whether a
+Codex worker's sandbox lets it write there is unverified.
+
 ## Change and review process
 
 Treat changes to the policy surfaces named in `AGENTS.md` as policy changes, even
