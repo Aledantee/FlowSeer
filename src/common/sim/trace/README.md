@@ -83,6 +83,17 @@ unstated buffer's maximum-frame threshold carries a producer-owned
 runtime evidence. It records why readiness is Incomplete; the frame may still
 be delivered.
 
+## Subject keys
+
+[Subject.Key] identifies the entity within its kind:
+
+- A key of one part is the identifier string as-is.
+- A key of several parts quotes each part with `strconv.Quote` and joins them
+  with `/` through [CompositeKey].
+
+Port names, VLAN interfaces, and hierarchical policy rules often contain `/`.
+Quoting each component ensures keys from distinct hierarchies never collide.
+
 ## Canonical ordering and equality
 
 Comparing traces from two runs must not depend on map iteration order or slice

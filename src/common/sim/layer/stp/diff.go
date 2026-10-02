@@ -12,104 +12,104 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// MACFact wraps a netaddr.MAC as a trace.Fact.
-type MACFact netaddr.MAC
+// macFact wraps a netaddr.MAC as a trace.Fact.
+type macFact netaddr.MAC
 
-// TypeID returns the fact type identifier for MACFact.
-func (f MACFact) TypeID() string { return "stp.mac" }
+// TypeID returns the fact type identifier for macFact.
+func (f macFact) TypeID() string { return "stp.mac" }
 
 // Canonical returns the formatted MAC string.
-func (f MACFact) Canonical() string { return netaddr.MAC(f).String() }
+func (f macFact) Canonical() string { return netaddr.MAC(f).String() }
 
-// PriorityFact wraps a bridge priority as a trace.Fact.
-type PriorityFact uint16
+// priorityFact wraps a bridge priority as a trace.Fact.
+type priorityFact uint16
 
-// TypeID returns the fact type identifier for PriorityFact.
-func (f PriorityFact) TypeID() string { return "stp.priority" }
+// TypeID returns the fact type identifier for priorityFact.
+func (f priorityFact) TypeID() string { return "stp.priority" }
 
 // Canonical returns the decimal string of the priority.
-func (f PriorityFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f priorityFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// DurationFact wraps a time.Duration as a trace.Fact.
-type DurationFact time.Duration
+// durationFact wraps a time.Duration as a trace.Fact.
+type durationFact time.Duration
 
-// TypeID returns the fact type identifier for DurationFact.
-func (f DurationFact) TypeID() string { return "stp.duration" }
+// TypeID returns the fact type identifier for durationFact.
+func (f durationFact) TypeID() string { return "stp.duration" }
 
 // Canonical returns the formatted duration string.
-func (f DurationFact) Canonical() string { return time.Duration(f).String() }
+func (f durationFact) Canonical() string { return time.Duration(f).String() }
 
-// TxHoldCountFact wraps a tx hold count as a trace.Fact.
-type TxHoldCountFact uint8
+// txHoldCountFact wraps a tx hold count as a trace.Fact.
+type txHoldCountFact uint8
 
-// TypeID returns the fact type identifier for TxHoldCountFact.
-func (f TxHoldCountFact) TypeID() string { return "stp.tx_hold_count" }
+// TypeID returns the fact type identifier for txHoldCountFact.
+func (f txHoldCountFact) TypeID() string { return "stp.tx_hold_count" }
 
 // Canonical returns the decimal string of the tx hold count.
-func (f TxHoldCountFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f txHoldCountFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// PortPriorityFact wraps a port priority as a trace.Fact.
-type PortPriorityFact uint8
+// portPriorityFact wraps a port priority as a trace.Fact.
+type portPriorityFact uint8
 
-// TypeID returns the fact type identifier for PortPriorityFact.
-func (f PortPriorityFact) TypeID() string { return "stp.port_priority" }
+// TypeID returns the fact type identifier for portPriorityFact.
+func (f portPriorityFact) TypeID() string { return "stp.port_priority" }
 
 // Canonical returns the decimal string of the port priority.
-func (f PortPriorityFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f portPriorityFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// PathCostFact wraps an admin path cost as a trace.Fact.
-type PathCostFact uint32
+// pathCostFact wraps an admin path cost as a trace.Fact.
+type pathCostFact uint32
 
-// TypeID returns the fact type identifier for PathCostFact.
-func (f PathCostFact) TypeID() string { return "stp.path_cost" }
+// TypeID returns the fact type identifier for pathCostFact.
+func (f pathCostFact) TypeID() string { return "stp.path_cost" }
 
 // Canonical returns the decimal string of the path cost.
-func (f PathCostFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f pathCostFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// BoolFact wraps a boolean value as a trace.Fact.
-type BoolFact bool
+// boolFact wraps a boolean value as a trace.Fact.
+type boolFact bool
 
-// TypeID returns the fact type identifier for BoolFact.
-func (f BoolFact) TypeID() string { return "stp.bool" }
+// TypeID returns the fact type identifier for boolFact.
+func (f boolFact) TypeID() string { return "stp.bool" }
 
 // Canonical returns "true" or "false".
-func (f BoolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
+func (f boolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
 
-// MSTNameFact wraps an MST region name as a trace.Fact.
-type MSTNameFact string
+// mstNameFact wraps an MST region name as a trace.Fact.
+type mstNameFact string
 
-// TypeID returns the fact type identifier for MSTNameFact.
-func (f MSTNameFact) TypeID() string { return "stp.mst.name" }
+// TypeID returns the fact type identifier for mstNameFact.
+func (f mstNameFact) TypeID() string { return "stp.mst.name" }
 
 // Canonical returns the region name.
-func (f MSTNameFact) Canonical() string { return string(f) }
+func (f mstNameFact) Canonical() string { return string(f) }
 
-// MSTRevisionFact wraps an MST region revision as a trace.Fact.
-type MSTRevisionFact uint16
+// mstRevisionFact wraps an MST region revision as a trace.Fact.
+type mstRevisionFact uint16
 
-// TypeID returns the fact type identifier for MSTRevisionFact.
-func (f MSTRevisionFact) TypeID() string { return "stp.mst.revision" }
+// TypeID returns the fact type identifier for mstRevisionFact.
+func (f mstRevisionFact) TypeID() string { return "stp.mst.revision" }
 
 // Canonical returns the decimal string of the revision.
-func (f MSTRevisionFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f mstRevisionFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// MaxHopsFact wraps an MST region maximum hop count as a trace.Fact.
-type MaxHopsFact uint8
+// maxHopsFact wraps an MST region maximum hop count as a trace.Fact.
+type maxHopsFact uint8
 
-// TypeID returns the fact type identifier for MaxHopsFact.
-func (f MaxHopsFact) TypeID() string { return "stp.mst.max_hops" }
+// TypeID returns the fact type identifier for maxHopsFact.
+func (f maxHopsFact) TypeID() string { return "stp.mst.max_hops" }
 
 // Canonical returns the decimal string of the maximum hop count.
-func (f MaxHopsFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f maxHopsFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// VLANListFact wraps a set of VLAN identifiers as a trace.Fact.
-type VLANListFact []vlan.ID
+// vlanListFact wraps a set of VLAN identifiers as a trace.Fact.
+type vlanListFact []vlan.ID
 
-// TypeID returns the fact type identifier for VLANListFact.
-func (f VLANListFact) TypeID() string { return "stp.mst.vlans" }
+// TypeID returns the fact type identifier for vlanListFact.
+func (f vlanListFact) TypeID() string { return "stp.mst.vlans" }
 
 // Canonical returns the VLAN identifiers sorted and joined with commas.
-func (f VLANListFact) Canonical() string {
+func (f vlanListFact) Canonical() string {
 	sorted := slices.Clone(f)
 	slices.Sort(sorted)
 
@@ -138,8 +138,8 @@ func Diff(a, b Config) []trace.Change {
 			Layer:   lyr,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "address",
-			From:    MACFact(a.Address),
-			To:      MACFact(b.Address),
+			From:    macFact(a.Address),
+			To:      macFact(b.Address),
 		})
 	}
 
@@ -148,8 +148,8 @@ func Diff(a, b Config) []trace.Change {
 			Layer:   lyr,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "priority",
-			From:    PriorityFact(a.Priority),
-			To:      PriorityFact(b.Priority),
+			From:    priorityFact(a.Priority),
+			To:      priorityFact(b.Priority),
 		})
 	}
 
@@ -158,8 +158,8 @@ func Diff(a, b Config) []trace.Change {
 			Layer:   lyr,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "hello_time",
-			From:    DurationFact(a.HelloTime),
-			To:      DurationFact(b.HelloTime),
+			From:    durationFact(a.HelloTime),
+			To:      durationFact(b.HelloTime),
 		})
 	}
 
@@ -168,8 +168,8 @@ func Diff(a, b Config) []trace.Change {
 			Layer:   lyr,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "max_age",
-			From:    DurationFact(a.MaxAge),
-			To:      DurationFact(b.MaxAge),
+			From:    durationFact(a.MaxAge),
+			To:      durationFact(b.MaxAge),
 		})
 	}
 
@@ -178,8 +178,8 @@ func Diff(a, b Config) []trace.Change {
 			Layer:   lyr,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "forward_delay",
-			From:    DurationFact(a.ForwardDelay),
-			To:      DurationFact(b.ForwardDelay),
+			From:    durationFact(a.ForwardDelay),
+			To:      durationFact(b.ForwardDelay),
 		})
 	}
 
@@ -188,8 +188,8 @@ func Diff(a, b Config) []trace.Change {
 			Layer:   lyr,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "tx_hold_count",
-			From:    TxHoldCountFact(a.TxHoldCount),
-			To:      TxHoldCountFact(b.TxHoldCount),
+			From:    txHoldCountFact(a.TxHoldCount),
+			To:      txHoldCountFact(b.TxHoldCount),
 		})
 	}
 
@@ -213,8 +213,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   lyr,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "priority",
-				From:    PortPriorityFact(ap.Priority),
-				To:      PortPriorityFact(bp.Priority),
+				From:    portPriorityFact(ap.Priority),
+				To:      portPriorityFact(bp.Priority),
 			})
 		}
 
@@ -223,8 +223,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   lyr,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "admin_path_cost",
-				From:    PathCostFact(ap.PathCost),
-				To:      PathCostFact(bp.PathCost),
+				From:    pathCostFact(ap.PathCost),
+				To:      pathCostFact(bp.PathCost),
 			})
 		}
 
@@ -233,8 +233,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   lyr,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "admin_edge",
-				From:    BoolFact(ap.AdminEdge),
-				To:      BoolFact(bp.AdminEdge),
+				From:    boolFact(ap.AdminEdge),
+				To:      boolFact(bp.AdminEdge),
 			})
 		}
 
@@ -253,8 +253,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   lyr,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "auto_edge",
-				From:    BoolFact(ap.AutoEdge),
-				To:      BoolFact(bp.AutoEdge),
+				From:    boolFact(ap.AutoEdge),
+				To:      boolFact(bp.AutoEdge),
 			})
 		}
 
@@ -275,8 +275,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   lyr,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   guard.field,
-				From:    BoolFact(guard.from),
-				To:      BoolFact(guard.to),
+				From:    boolFact(guard.from),
+				To:      boolFact(guard.to),
 			})
 		}
 	}
@@ -299,8 +299,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   lyr,
 				Subject: trace.Subject{Kind: "bridge", Key: ""},
 				Field:   "mst",
-				From:    BoolFact(a.MST != nil),
-				To:      BoolFact(b.MST != nil),
+				From:    boolFact(a.MST != nil),
+				To:      boolFact(b.MST != nil),
 			})
 		}
 		if a.MST != nil && b.MST != nil {
@@ -312,7 +312,7 @@ func Diff(a, b Config) []trace.Change {
 		if (a.PVST == nil) != (b.PVST == nil) {
 			changes = append(changes, trace.Change{
 				Layer: lyr, Subject: trace.Subject{Kind: "bridge", Key: ""}, Field: "pvst",
-				From: BoolFact(a.PVST != nil), To: BoolFact(b.PVST != nil),
+				From: boolFact(a.PVST != nil), To: boolFact(b.PVST != nil),
 			})
 		}
 		if a.PVST != nil && b.PVST != nil {
@@ -334,19 +334,19 @@ func diffMST(a, b MST, lyr trace.Layer) []trace.Change {
 	if a.Name != b.Name {
 		changes = append(changes, trace.Change{
 			Layer: lyr, Subject: bridge, Field: "mst.name",
-			From: MSTNameFact(a.Name), To: MSTNameFact(b.Name),
+			From: mstNameFact(a.Name), To: mstNameFact(b.Name),
 		})
 	}
 	if a.Revision != b.Revision {
 		changes = append(changes, trace.Change{
 			Layer: lyr, Subject: bridge, Field: "mst.revision",
-			From: MSTRevisionFact(a.Revision), To: MSTRevisionFact(b.Revision),
+			From: mstRevisionFact(a.Revision), To: mstRevisionFact(b.Revision),
 		})
 	}
 	if a.MaxHops != b.MaxHops {
 		changes = append(changes, trace.Change{
 			Layer: lyr, Subject: bridge, Field: "mst.max_hops",
-			From: MaxHopsFact(a.MaxHops), To: MaxHopsFact(b.MaxHops),
+			From: maxHopsFact(a.MaxHops), To: maxHopsFact(b.MaxHops),
 		})
 	}
 
@@ -395,19 +395,19 @@ func diffMSTInstance(a, b Instance, key string, lyr trace.Layer) []trace.Change 
 	if a.Priority != b.Priority {
 		changes = append(changes, trace.Change{
 			Layer: lyr, Subject: subject, Field: "priority",
-			From: PriorityFact(a.Priority), To: PriorityFact(b.Priority),
+			From: priorityFact(a.Priority), To: priorityFact(b.Priority),
 		})
 	}
 	if !slices.Equal(a.VLANs, b.VLANs) {
 		changes = append(changes, trace.Change{
 			Layer: lyr, Subject: subject, Field: "vlans",
-			From: VLANListFact(a.VLANs), To: VLANListFact(b.VLANs),
+			From: vlanListFact(a.VLANs), To: vlanListFact(b.VLANs),
 		})
 	}
 
 	for _, name := range sortedKeys(a.Ports) {
 		ap := a.Ports[name]
-		portKey := key + "/" + name
+		portKey := trace.CompositeKey(key, name)
 		portSubject := trace.Subject{Kind: "mst_instance_port", Key: portKey}
 		bp, exists := b.Ports[name]
 		if !exists {
@@ -420,20 +420,20 @@ func diffMSTInstance(a, b Instance, key string, lyr trace.Layer) []trace.Change 
 		if ap.Priority != bp.Priority || ap.PriorityPresent != bp.PriorityPresent {
 			changes = append(changes, trace.Change{
 				Layer: lyr, Subject: portSubject, Field: "priority",
-				From: PortPriorityFact(ap.Priority), To: PortPriorityFact(bp.Priority),
+				From: portPriorityFact(ap.Priority), To: portPriorityFact(bp.Priority),
 			})
 		}
 		if ap.PathCost != bp.PathCost {
 			changes = append(changes, trace.Change{
 				Layer: lyr, Subject: portSubject, Field: "path_cost",
-				From: PathCostFact(ap.PathCost), To: PathCostFact(bp.PathCost),
+				From: pathCostFact(ap.PathCost), To: pathCostFact(bp.PathCost),
 			})
 		}
 	}
 
 	for _, name := range sortedKeys(b.Ports) {
 		if _, exists := a.Ports[name]; !exists {
-			portKey := key + "/" + name
+			portKey := trace.CompositeKey(key, name)
 			changes = append(changes, trace.Change{
 				Layer:   lyr,
 				Subject: trace.Subject{Kind: "mst_instance_port", Key: portKey},
@@ -497,13 +497,13 @@ func diffPVSTTree(a, b Tree, key string, lyr trace.Layer) []trace.Change {
 	if a.Priority != b.Priority {
 		changes = append(changes, trace.Change{
 			Layer: lyr, Subject: subject, Field: "priority",
-			From: PriorityFact(a.Priority), To: PriorityFact(b.Priority),
+			From: priorityFact(a.Priority), To: priorityFact(b.Priority),
 		})
 	}
 
 	for _, name := range sortedKeys(a.Ports) {
 		ap := a.Ports[name]
-		portKey := key + "/" + name
+		portKey := trace.CompositeKey(key, name)
 		portSubject := trace.Subject{Kind: "pvst_tree_port", Key: portKey}
 		bp, exists := b.Ports[name]
 		if !exists {
@@ -516,20 +516,20 @@ func diffPVSTTree(a, b Tree, key string, lyr trace.Layer) []trace.Change {
 		if ap.Priority != bp.Priority || ap.PriorityPresent != bp.PriorityPresent {
 			changes = append(changes, trace.Change{
 				Layer: lyr, Subject: portSubject, Field: "priority",
-				From: PortPriorityFact(ap.Priority), To: PortPriorityFact(bp.Priority),
+				From: portPriorityFact(ap.Priority), To: portPriorityFact(bp.Priority),
 			})
 		}
 		if ap.PathCost != bp.PathCost {
 			changes = append(changes, trace.Change{
 				Layer: lyr, Subject: portSubject, Field: "path_cost",
-				From: PathCostFact(ap.PathCost), To: PathCostFact(bp.PathCost),
+				From: pathCostFact(ap.PathCost), To: pathCostFact(bp.PathCost),
 			})
 		}
 	}
 
 	for _, name := range sortedKeys(b.Ports) {
 		if _, exists := a.Ports[name]; !exists {
-			portKey := key + "/" + name
+			portKey := trace.CompositeKey(key, name)
 			changes = append(changes, trace.Change{
 				Layer:   lyr,
 				Subject: trace.Subject{Kind: "pvst_tree_port", Key: portKey},

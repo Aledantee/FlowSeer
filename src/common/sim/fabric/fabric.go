@@ -1049,10 +1049,10 @@ func (f *Fabric) markQueueBufferUnstated(now time.Time, ep Endpoint, egressPort 
 		f.unstatedBacked = make(map[Endpoint]trace.EvidenceRef)
 	}
 	target := egressPort
-	subject := trace.Subject{Kind: "port", Key: fmt.Sprintf("%s/%d", egressPort, pcp)}
+	subject := trace.Subject{Kind: "port", Key: trace.CompositeKey(egressPort, strconv.Itoa(int(pcp)))}
 	if egressPort == "" {
 		target = ep.Node
-		subject = trace.Subject{Kind: "host", Key: fmt.Sprintf("%s/%d", ep.Node, pcp)}
+		subject = trace.Subject{Kind: "host", Key: trace.CompositeKey(ep.Node, strconv.Itoa(int(pcp)))}
 	}
 	fact := traffic.QueueThresholdFact(depthBefore, frameOctets, threshold)
 	context := "rule=" + strconv.Quote(string(traffic.RuleQueueBufferUnstated)) +

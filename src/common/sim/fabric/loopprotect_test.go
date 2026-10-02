@@ -375,7 +375,7 @@ func TestLoopProtectWithRSTPDetectsNothing(t *testing.T) {
 func hasLoopProtectFact(step trace.Step) bool {
 	for _, facts := range [][]trace.Fact{step.Inputs, step.Outputs} {
 		for _, fact := range facts {
-			if fact != nil && fact.TypeID() == "vswitch.loopprotect_decision" {
+			if fact != nil && strings.HasPrefix(fact.TypeID(), "loopprotect.") {
 				return true
 			}
 		}

@@ -11,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func mustMAC(t *testing.T, s string) netaddr.MAC {
@@ -305,8 +306,11 @@ func TestDiff(t *testing.T) {
 		t.Errorf("mode change: got (%v, %v, %v), want (%v, %v, true)", from, to, ok, lag.ActiveBackup, lag.BalanceTCP)
 	}
 
-	memberKey := strconv.Quote("lag1") + "/" + strconv.Quote("1/1/1")
-	if from, to, ok := findChange("port", memberKey, "priority"); !ok || from != lag.PortPriorityFact(lag.DefaultPortPriority) || to != lag.PortPriorityFact(100) {
+	memberKey := trace.CompositeKey("lag1", "1/1/1")
+	from, to, ok := findChange("port", memberKey, "priority")
+	fromFact, okFrom := from.(trace.Fact)
+	toFact, okTo := to.(trace.Fact)
+	if !ok || !okFrom || !okTo || fromFact.Canonical() != strconv.Itoa(int(lag.DefaultPortPriority)) || toFact.Canonical() != "100" {
 		t.Errorf("priority change: got (%v, %v, %v), want (%d, 100, true)", from, to, ok, lag.DefaultPortPriority)
 	}
 }

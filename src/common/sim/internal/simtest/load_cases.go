@@ -188,7 +188,7 @@ func CasePlanningOversubscribedTrunkStatedBuffer() Case {
 	buffer := uint64(1518)
 	queueFact := NewFactExpectation(traffic.QueueDropFact(1018, buffer, 1018))
 	steps := append(loadForwardSteps(), expectedStep(traffic.LayerName, trace.OpDrop, traffic.RuleQueueDrop,
-		trace.Subject{Kind: "port", Key: "1/1/2/0"}, []FactExpectation{queueFact}, nil))
+		trace.Subject{Kind: "port", Key: trace.CompositeKey("1/1/2", "0")}, []FactExpectation{queueFact}, nil))
 	return Case{
 		ID: "planning/oversubscribed-trunk-stated-buffer", UseCase: UseCasePlanning,
 		Question:         "Which frame is lost when a 10,000 frame/s stream feeds a 10 Mbit/s tagged trunk with a 1518-octet buffer?",
@@ -197,7 +197,7 @@ func CasePlanningOversubscribedTrunkStatedBuffer() Case {
 		ExpectedMetadata: &MetadataExpectation{Status: analysis.Complete, Scope: analysis.WholeScope()},
 		ExpectedOutcome:  trace.Dropped, ExpectedReason: traffic.ReasonQueueFull,
 		ExpectedRules:    []trace.RuleID{traffic.RuleQueueDrop},
-		ExpectedSubjects: []trace.Subject{{Kind: "port", Key: "1/1/2/0"}},
+		ExpectedSubjects: []trace.Subject{{Kind: "port", Key: trace.CompositeKey("1/1/2", "0")}},
 		ExpectedFacts:    []FactExpectation{queueFact}, ExpectedSteps: steps,
 		Execute: func() (ExecutionResult, error) { return executeLoadCase(&buffer, false, traffic.RuleQueueDrop) },
 	}
@@ -210,7 +210,7 @@ func CasePlanningOversubscribedTrunkUnstatedBuffer() Case {
 	catalog, ref := analysis.EvidenceCatalog{}.Add(analysis.Evidence{Kind: "fabric.runtime", Origin: "egress-queue", Context: context})
 	queueFact := NewFactExpectation(traffic.QueueThresholdFact(1018, 1018, 1518))
 	queueStep := expectedStep(traffic.LayerName, trace.OpQueue, traffic.RuleQueueBufferUnstated,
-		trace.Subject{Kind: "port", Key: "1/1/2/0"}, []FactExpectation{queueFact}, nil)
+		trace.Subject{Kind: "port", Key: trace.CompositeKey("1/1/2", "0")}, []FactExpectation{queueFact}, nil)
 	queueStep.Evidence = []trace.EvidenceRef{ref}
 	steps := append(loadForwardSteps(), queueStep,
 		expectedStep("host", trace.OpFilter, "host.mac.own", trace.Subject{Kind: "host", Key: "h2"},
@@ -233,7 +233,7 @@ func CasePlanningOversubscribedTrunkUnstatedBuffer() Case {
 		},
 		ExpectedOutcome:  trace.Forwarded,
 		ExpectedRules:    []trace.RuleID{traffic.RuleQueueBufferUnstated, "host.mac.own"},
-		ExpectedSubjects: []trace.Subject{{Kind: "port", Key: "1/1/2/0"}, {Kind: "host", Key: "h2"}},
+		ExpectedSubjects: []trace.Subject{{Kind: "port", Key: trace.CompositeKey("1/1/2", "0")}, {Kind: "host", Key: "h2"}},
 		ExpectedFacts:    []FactExpectation{queueFact}, ExpectedSteps: steps,
 		Execute: func() (ExecutionResult, error) { return executeLoadCase(nil, false, traffic.RuleQueueBufferUnstated) },
 	}

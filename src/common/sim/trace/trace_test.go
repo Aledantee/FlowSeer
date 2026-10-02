@@ -638,3 +638,36 @@ func TestZeroValueBehavior(t *testing.T) {
 		}
 	})
 }
+
+func TestCompositeKey(t *testing.T) {
+	t.Parallel()
+
+	if got := trace.CompositeKey(); got != "" {
+		t.Errorf("CompositeKey() = %q, want empty", got)
+	}
+	if got := trace.CompositeKey("port1"); got != "port1" {
+		t.Errorf("CompositeKey(port1) = %q, want port1", got)
+	}
+
+	pairs := []struct {
+		lag    string
+		member string
+	}{
+		{lag: "a/b", member: "c"},
+		{lag: "a", member: "b/c"},
+		{lag: "left|lag", member: "shared/member"},
+		{lag: "right|lag", member: "shared/member"},
+	}
+
+	keys := make(map[string]struct{}, len(pairs))
+	for _, pair := range pairs {
+		k := trace.CompositeKey(pair.lag, pair.member)
+		if _, duplicate := keys[k]; duplicate {
+			t.Errorf("duplicate composite key %q", k)
+		}
+		keys[k] = struct{}{}
+	}
+	if len(keys) != len(pairs) {
+		t.Fatalf("unique keys = %d, want %d", len(keys), len(pairs))
+	}
+}

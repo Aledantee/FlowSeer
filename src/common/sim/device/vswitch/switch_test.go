@@ -1129,7 +1129,7 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 		}
 		ch := changes[0]
 		if ch.Subject.Kind != "pse_group" || ch.Subject.Key != "g1" || ch.Field != "power_nanowatts" ||
-			trace.CompareFact(ch.From, phy.PowerFact(60_000_000_000)) != 0 || trace.CompareFact(ch.To, phy.PowerFact(90_000_000_000)) != 0 {
+			ch.From.Canonical() != "60000000000" || ch.To.Canonical() != "90000000000" {
 			t.Errorf("unexpected pse_group change: %+v", ch)
 		}
 	})
@@ -1151,7 +1151,7 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 		for _, ch := range changes {
 			if ch.Subject.Kind == "capability" && ch.Subject.Key == "vlan" {
 				foundCap = true
-				if ch.From != nil || trace.CompareFact(ch.To, vswitch.LayerFact(bridge.LayerNameVLAN)) != 0 {
+				if ch.From != nil || ch.To.Canonical() != string(bridge.LayerNameVLAN) {
 					t.Errorf("unexpected capability change payload: %+v", ch)
 				}
 			}
@@ -1177,7 +1177,7 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 		}
 		ch := changes[0]
 		if ch.Layer != traffic.LayerName || ch.Subject.Kind != "mirror" || ch.Subject.Key != "m1" ||
-			ch.Field != "snap_len" || trace.CompareFact(ch.From, traffic.SnapLenFact(64)) != 0 || trace.CompareFact(ch.To, traffic.SnapLenFact(128)) != 0 {
+			ch.Field != "snap_len" || ch.From.Canonical() != "64" || ch.To.Canonical() != "128" {
 			t.Errorf("unexpected mirror change: %+v", ch)
 		}
 	})
@@ -1881,7 +1881,7 @@ func TestDiffSTPPriorityChange(t *testing.T) {
 	for _, ch := range changes {
 		if ch.Layer == stp.LayerName && ch.Subject.Kind == "bridge" && ch.Field == "priority" {
 			found = true
-			if trace.CompareFact(ch.From, stp.PriorityFact(32768)) != 0 || trace.CompareFact(ch.To, stp.PriorityFact(4096)) != 0 {
+			if ch.From.Canonical() != "32768" || ch.To.Canonical() != "4096" {
 				t.Errorf("priority change = %+v, want 32768 -> 4096", ch)
 			}
 		}
@@ -2386,7 +2386,7 @@ func TestLoopProtectForeignProbeFloodsWithOneClassificationStep(t *testing.T) {
 	if classifications != 1 {
 		t.Errorf("foreign probe produced %d classification steps, want exactly 1: %+v", classifications, res.Steps)
 	}
-	if traceHasFactType(res.Steps, "vswitch.loopprotect_decision") {
+	if traceHasFactType(res.Steps, "loopprotect.probe") || traceHasFactType(res.Steps, "loopprotect.probe_return") || traceHasFactType(res.Steps, "loopprotect.port_transition") {
 		t.Errorf("foreign probe steps carry a loop-protection decision: %+v", res.Steps)
 	}
 }
@@ -5180,7 +5180,7 @@ func TestDiffReportsDeviceMAC(t *testing.T) {
 	}
 	ch := changes[0]
 	if ch.Layer != port.LayerName || ch.Subject != (trace.Subject{Kind: "device"}) || ch.Field != "mac" ||
-		ch.From != vswitch.DeviceMACFact(cfgA.MAC) || ch.To != vswitch.DeviceMACFact(cfgB.MAC) {
+		ch.From.Canonical() != cfgA.MAC.String() || ch.To.Canonical() != cfgB.MAC.String() {
 		t.Errorf("change = %+v, want layer port, subject device, field mac, %s to %s", ch, cfgA.MAC, cfgB.MAC)
 	}
 	if got := vswitch.Diff(cfgA, cfgA); len(got) != 0 {
@@ -5223,7 +5223,7 @@ func TestDiffRoutingNeighborChange(t *testing.T) {
 	for _, c := range changes {
 		if c.Layer == routing.LayerName && c.Subject.Kind == "neighbor" && c.Field == "mac" {
 			foundNeighborChange = true
-			if c.From != routing.MACFact(macA) || c.To != routing.MACFact(macB) {
+			if c.From.Canonical() != macA.String() || c.To.Canonical() != macB.String() {
 				t.Errorf("neighbor diff from=%v to=%v, want %v -> %v", c.From, c.To, macA, macB)
 			}
 		}
@@ -6311,7 +6311,7 @@ func TestMulticastDataResolutionAndFloodExceptions(t *testing.T) {
 	if res.Reason != mcast.ReasonUnregistered {
 		t.Errorf("unregistered group without router reason = %q, want %q", res.Reason, mcast.ReasonUnregistered)
 	}
-	if !traceHasFactType(res.Steps, "vswitch.mcast_membership") {
+	if !traceHasFactType(res.Steps, "mcast.membership_decision") {
 		t.Errorf("unregistered multicast trace has no membership decision: %+v", res.Steps)
 	}
 
@@ -6325,7 +6325,7 @@ func TestMulticastDataResolutionAndFloodExceptions(t *testing.T) {
 	if got := mcastForwardedPorts(res); !slices.Equal(got, []string{"1/1/4"}) {
 		t.Errorf("unregistered group with router ports = %v, want [1/1/4]", got)
 	}
-	if !traceHasFactType(res.Steps, "vswitch.mcast_membership") {
+	if !traceHasFactType(res.Steps, "mcast.membership_decision") {
 		t.Errorf("router-port multicast trace has no membership decision: %+v", res.Steps)
 	}
 

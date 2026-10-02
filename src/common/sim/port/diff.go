@@ -36,8 +36,8 @@ func Diff(a, b Table) []trace.Change {
 					Key:  ap.Name,
 				},
 				Field: "ifindex",
-				From:  IfIndexFact(ap.IfIndex),
-				To:    IfIndexFact(bp.IfIndex),
+				From:  ifIndexFact(ap.IfIndex),
+				To:    ifIndexFact(bp.IfIndex),
 			})
 		}
 
@@ -88,8 +88,8 @@ func Diff(a, b Table) []trace.Change {
 					Key:  ap.Name,
 				},
 				Field: "mtu",
-				From:  MTUFact(ap.MTU),
-				To:    MTUFact(bp.MTU),
+				From:  mtuFact(ap.MTU),
+				To:    mtuFact(bp.MTU),
 			})
 		}
 
@@ -101,8 +101,8 @@ func Diff(a, b Table) []trace.Change {
 					Key:  ap.Name,
 				},
 				Field: "lag_parent",
-				From:  LagParentFact(ap.LagParent),
-				To:    LagParentFact(bp.LagParent),
+				From:  lagParentFact(ap.LagParent),
+				To:    lagParentFact(bp.LagParent),
 			})
 		}
 	}

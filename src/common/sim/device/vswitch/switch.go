@@ -7,7 +7,6 @@ import (
 	"maps"
 	"net/netip"
 	"slices"
-	"strconv"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
@@ -1777,15 +1776,15 @@ func (s *Switch) Resolve(now time.Time, vid vlan.ID, f ethernet.Frame) ([]string
 // admitted egress set, so the fact makes explicit which source produced it.
 func (s *Switch) MembershipFact(now time.Time, vid vlan.ID, f ethernet.Frame, ports []string, decided bool) trace.Fact {
 	if s.mcast == nil {
-		return newMembershipFact(vid, netip.Addr{}, netip.Addr{}, ports, false, decided)
+		return mcast.MembershipFact(vid, netip.Addr{}, netip.Addr{}, ports, false, decided)
 	}
 	hdr, _, err := ip.Decode(f.Payload)
 	if err != nil {
-		return newMembershipFact(vid, netip.Addr{}, netip.Addr{}, ports, false, decided)
+		return mcast.MembershipFact(vid, netip.Addr{}, netip.Addr{}, ports, false, decided)
 	}
 	_, registered, _ := s.mcast.Resolve(vid, hdr.Dst, hdr.Src, now)
 
-	return newMembershipFact(vid, hdr.Dst, hdr.Src, ports, registered, decided)
+	return mcast.MembershipFact(vid, hdr.Dst, hdr.Src, ports, registered, decided)
 }
 
 func (s *Switch) finishForward(now time.Time, ingress string, received ethernet.Frame, res bridge.Result, mutate bool) bridge.Result {
@@ -2564,8 +2563,8 @@ func (s *Switch) interceptLoopProtect(now time.Time, ingress string, f ethernet.
 		Op:      trace.OpClassify,
 		RuleID:  loopprotect.RuleProbeReturn,
 		Subject: trace.Subject{Kind: "port", Key: probe.Port},
-		Inputs:  []trace.Fact{loopProtectProbeFact(probe)},
-		Outputs: []trace.Fact{loopProtectReturnFact(probe, in.FID, before, after)},
+		Inputs:  []trace.Fact{loopprotect.ProbeFact(probe)},
+		Outputs: []trace.Fact{loopprotect.ReturnFact(probe, in.FID, before, after)},
 	})
 	if before.Action != after.Action {
 		steps = append(steps, trace.Step{
@@ -2573,7 +2572,7 @@ func (s *Switch) interceptLoopProtect(now time.Time, ingress string, f ethernet.
 			Op:      trace.OpFilter,
 			RuleID:  loopprotect.RulePortBlock,
 			Subject: trace.Subject{Kind: "port", Key: probe.Port},
-			Outputs: []trace.Fact{loopProtectTransitionFact(probe.Port, before, after)},
+			Outputs: []trace.Fact{loopprotect.TransitionFact(probe.Port, before, after)},
 		})
 	}
 
@@ -2592,44 +2591,6 @@ func (s *Switch) interceptLoopProtect(now time.Time, ingress string, f ethernet.
 	))
 
 	return result, true
-}
-
-type loopProtectDecisionFact string
-
-func (f loopProtectDecisionFact) TypeID() string    { return "vswitch.loopprotect_decision" }
-func (f loopProtectDecisionFact) Canonical() string { return string(f) }
-
-// loopProtectProbeFact returns an immutable snapshot of a returned probe's payload.
-func loopProtectProbeFact(probe loopprotect.Probe) trace.Fact {
-	return loopProtectDecisionFact("origin=" + probe.OriginMAC.String() +
-		";sequence=" + strconv.FormatUint(uint64(probe.Sequence), 10) +
-		";sent_vid=" + strconv.FormatUint(uint64(probe.VID), 10) +
-		";port=" + strconv.Quote(probe.Port))
-}
-
-// loopProtectReturnFact returns an immutable snapshot of a probe's return,
-// carrying both the VLAN it was sent on and the VLAN it was classified into
-// so an inter-VLAN loop is visible in the trace.
-func loopProtectReturnFact(probe loopprotect.Probe, returnedVID vlan.ID, before, after loopprotect.PortInfo) trace.Fact {
-	return loopProtectDecisionFact("port=" + strconv.Quote(probe.Port) +
-		";sent_vid=" + strconv.FormatUint(uint64(probe.VID), 10) +
-		";returned_vid=" + strconv.FormatUint(uint64(returnedVID), 10) +
-		";before=" + loopProtectPortInfoSnapshot(before) +
-		";after=" + loopProtectPortInfoSnapshot(after))
-}
-
-// loopProtectTransitionFact returns an immutable snapshot of a loop-protection
-// port action transition.
-func loopProtectTransitionFact(portName string, before, after loopprotect.PortInfo) trace.Fact {
-	return loopProtectDecisionFact("port=" + strconv.Quote(portName) +
-		";before=" + loopProtectPortInfoSnapshot(before) +
-		";after=" + loopProtectPortInfoSnapshot(after))
-}
-
-func loopProtectPortInfoSnapshot(info loopprotect.PortInfo) string {
-	return "{action=" + strconv.Quote(string(info.Action)) +
-		";inter_vlan=" + strconv.FormatBool(info.InterVLAN) +
-		";recurrences=" + strconv.FormatUint(info.Recurrences, 10) + "}"
 }
 
 func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {

@@ -45,8 +45,8 @@ func TestReportDeepClonesNestedJourneyData(t *testing.T) {
 			Entries: []Entry{{
 				Result: &vswitch.ForwardResult{Result: bridge.Result{
 					Trace: trace.Trace{Steps: []trace.Step{{
-						Inputs:   []trace.Fact{LengthFact(1)},
-						Outputs:  []trace.Fact{TopSpeedFact(2)},
+						Inputs:   []trace.Fact{lengthFact(1)},
+						Outputs:  []trace.Fact{topSpeedFact(2)},
 						Evidence: []trace.EvidenceRef{"source"},
 					}}},
 					Egress: []bridge.Egress{{Frame: frame}},
@@ -59,8 +59,8 @@ func TestReportDeepClonesNestedJourneyData(t *testing.T) {
 	report[0].Injection.Frame.Tags[0].VID = 20
 	report[0].Injection.Frame.Payload[0] = 10
 	report[0].Injection.Packet.Payload[0] = 20
-	report[0].Entries[0].Result.Steps[0].Inputs[0] = LengthFact(10)
-	report[0].Entries[0].Result.Steps[0].Outputs[0] = TopSpeedFact(20)
+	report[0].Entries[0].Result.Steps[0].Inputs[0] = lengthFact(10)
+	report[0].Entries[0].Result.Steps[0].Outputs[0] = topSpeedFact(20)
 	report[0].Entries[0].Result.Steps[0].Evidence[0] = "mutated"
 	report[0].Entries[0].Result.Egress[0].Frame.Tags[0].VID = 30
 	report[0].Entries[0].Result.Egress[0].Frame.Payload[0] = 30

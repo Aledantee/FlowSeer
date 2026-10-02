@@ -11,14 +11,14 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// BoolFact represents a boolean multicast snooping setting.
-type BoolFact bool
+// boolFact represents a boolean multicast snooping setting.
+type boolFact bool
 
-// TypeID returns the stable identifier for BoolFact.
-func (f BoolFact) TypeID() string { return "mcast.bool" }
+// TypeID returns the stable identifier for boolFact.
+func (f boolFact) TypeID() string { return "mcast.bool" }
 
 // Canonical returns "true" or "false".
-func (f BoolFact) Canonical() string {
+func (f boolFact) Canonical() string {
 	if f {
 		return "true"
 	}
@@ -27,7 +27,7 @@ func (f BoolFact) Canonical() string {
 }
 
 // String returns "true" or "false".
-func (f BoolFact) String() string {
+func (f boolFact) String() string {
 	if f {
 		return "true"
 	}
@@ -35,29 +35,29 @@ func (f BoolFact) String() string {
 	return "false"
 }
 
-// DurationFact represents a duration interval in multicast snooping.
-type DurationFact time.Duration
+// durationFact represents a duration interval in multicast snooping.
+type durationFact time.Duration
 
-// TypeID returns the stable identifier for DurationFact.
-func (f DurationFact) TypeID() string { return "mcast.duration" }
+// TypeID returns the stable identifier for durationFact.
+func (f durationFact) TypeID() string { return "mcast.duration" }
 
 // Canonical returns the string representation of the duration.
-func (f DurationFact) Canonical() string { return time.Duration(f).String() }
+func (f durationFact) Canonical() string { return time.Duration(f).String() }
 
 // String returns the string representation of the duration.
-func (f DurationFact) String() string { return time.Duration(f).String() }
+func (f durationFact) String() string { return time.Duration(f).String() }
 
-// IntFact represents an integer multicast snooping setting, such as the robustness variable.
-type IntFact int
+// intFact represents an integer multicast snooping setting, such as the robustness variable.
+type intFact int
 
-// TypeID returns the stable identifier for IntFact.
-func (f IntFact) TypeID() string { return "mcast.int" }
+// TypeID returns the stable identifier for intFact.
+func (f intFact) TypeID() string { return "mcast.int" }
 
 // Canonical returns the decimal string representation of the value.
-func (f IntFact) Canonical() string { return strconv.Itoa(int(f)) }
+func (f intFact) Canonical() string { return strconv.Itoa(int(f)) }
 
 // String returns the decimal string representation of the value.
-func (f IntFact) String() string { return strconv.Itoa(int(f)) }
+func (f intFact) String() string { return strconv.Itoa(int(f)) }
 
 type routerPortsFact string
 
@@ -105,28 +105,28 @@ func Diff(a, b Config) []trace.Change {
 		}
 
 		if from, to := a.Floods(vid), b.Floods(vid); from != to {
-			changes = append(changes, vlanChange(vid, "flood_unregistered", BoolFact(from), BoolFact(to)))
+			changes = append(changes, vlanChange(vid, "flood_unregistered", boolFact(from), boolFact(to)))
 		}
 		if aCfg.FastLeave != bCfg.FastLeave {
-			changes = append(changes, vlanChange(vid, "fast_leave", BoolFact(aCfg.FastLeave), BoolFact(bCfg.FastLeave)))
+			changes = append(changes, vlanChange(vid, "fast_leave", boolFact(aCfg.FastLeave), boolFact(bCfg.FastLeave)))
 		}
 
 		if !slices.Equal(aCfg.RouterPorts, bCfg.RouterPorts) {
 			changes = append(changes, vlanChange(vid, "router_ports", RouterPortsFact(aCfg.RouterPorts), RouterPortsFact(bCfg.RouterPorts)))
 		}
 		if aCfg.MembershipInterval != bCfg.MembershipInterval {
-			changes = append(changes, vlanChange(vid, "membership_interval", DurationFact(aCfg.MembershipInterval), DurationFact(bCfg.MembershipInterval)))
+			changes = append(changes, vlanChange(vid, "membership_interval", durationFact(aCfg.MembershipInterval), durationFact(bCfg.MembershipInterval)))
 		}
 		if aCfg.RouterPortInterval != bCfg.RouterPortInterval {
-			changes = append(changes, vlanChange(vid, "router_port_interval", DurationFact(aCfg.RouterPortInterval), DurationFact(bCfg.RouterPortInterval)))
+			changes = append(changes, vlanChange(vid, "router_port_interval", durationFact(aCfg.RouterPortInterval), durationFact(bCfg.RouterPortInterval)))
 		}
 		if aCfg.LastMemberQueryInterval != bCfg.LastMemberQueryInterval {
 			changes = append(changes, vlanChange(vid, "last_member_query_interval",
-				DurationFact(aCfg.LastMemberQueryInterval), DurationFact(bCfg.LastMemberQueryInterval)))
+				durationFact(aCfg.LastMemberQueryInterval), durationFact(bCfg.LastMemberQueryInterval)))
 		}
 		if aCfg.LastMemberQueryCount != bCfg.LastMemberQueryCount {
 			changes = append(changes, vlanChange(vid, "last_member_query_count",
-				IntFact(aCfg.LastMemberQueryCount), IntFact(bCfg.LastMemberQueryCount)))
+				intFact(aCfg.LastMemberQueryCount), intFact(bCfg.LastMemberQueryCount)))
 		}
 	}
 

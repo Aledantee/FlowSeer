@@ -178,7 +178,7 @@ func TestDiffDistinguishesVLANAwareness(t *testing.T) {
 	if len(changes) != 1 {
 		t.Fatalf("len(Diff()) = %d, want 1: %+v", len(changes), changes)
 	}
-	if got := changes[0]; got.Field != "vlan_awareness" || got.From != bridge.BoolFact(false) || got.To != bridge.BoolFact(true) {
+	if got := changes[0]; got.Field != "vlan_awareness" || got.From.Canonical() != "false" || got.To.Canonical() != "true" {
 		t.Errorf("Diff()[0] = %+v, want vlan_awareness false -> true", got)
 	}
 }
@@ -2285,7 +2285,7 @@ func TestDiffReportsMaxEntriesChange(t *testing.T) {
 		t.Fatalf("Diff returned %d changes, want 1", len(changes))
 	}
 	ch := changes[0]
-	if ch.Field != "max_entries" || ch.From != bridge.IntFact(0) || ch.To != bridge.IntFact(2) || ch.Layer != bridge.LayerName {
+	if ch.Field != "max_entries" || ch.From.Canonical() != "0" || ch.To.Canonical() != "2" || ch.Layer != bridge.LayerName {
 		t.Errorf("Diff change = %+v, want max_entries From: 0 To: 2 at LayerRelay", ch)
 	}
 }
@@ -2602,7 +2602,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 			t.Fatalf("len(changes) = %d, want 1", len(changes))
 		}
 		ch := changes[0]
-		if ch.Field != "forward_bpdu" || ch.From != bridge.BoolFact(false) || ch.To != bridge.BoolFact(true) || ch.Layer != bridge.LayerName {
+		if ch.Field != "forward_bpdu" || ch.From.Canonical() != "false" || ch.To.Canonical() != "true" || ch.Layer != bridge.LayerName {
 			t.Errorf("change = %+v, want forward_bpdu From: false To: true at LayerRelay", ch)
 		}
 	})

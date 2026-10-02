@@ -123,41 +123,41 @@ func (p Port) Normalize() Port {
 	return cp
 }
 
-// MTUFact is an immutable semantic fact representing a port's MTU setting.
-type MTUFact int
+// mtuFact is an immutable semantic fact representing a port's MTU setting.
+type mtuFact int
 
-// TypeID returns the stable identifier for MTUFact.
-func (m MTUFact) TypeID() string { return "port.mtu" }
+// TypeID returns the stable identifier for mtuFact.
+func (m mtuFact) TypeID() string { return "port.mtu" }
 
 // Canonical returns the decimal string representation of the MTU.
-func (m MTUFact) Canonical() string { return strconv.Itoa(int(m)) }
+func (m mtuFact) Canonical() string { return strconv.Itoa(int(m)) }
 
 // String returns the string representation of the MTU.
-func (m MTUFact) String() string { return strconv.Itoa(int(m)) }
+func (m mtuFact) String() string { return strconv.Itoa(int(m)) }
 
-// LagParentFact is an immutable semantic fact representing a port's LAG parent membership.
-type LagParentFact string
+// lagParentFact is an immutable semantic fact representing a port's LAG parent membership.
+type lagParentFact string
 
-// TypeID returns the stable identifier for LagParentFact.
-func (f LagParentFact) TypeID() string { return "port.lag_parent" }
+// TypeID returns the stable identifier for lagParentFact.
+func (f lagParentFact) TypeID() string { return "port.lag_parent" }
 
 // Canonical returns the string representation of the LAG parent.
-func (f LagParentFact) Canonical() string { return string(f) }
+func (f lagParentFact) Canonical() string { return string(f) }
 
 // String returns the string representation of the LAG parent.
-func (f LagParentFact) String() string { return string(f) }
+func (f lagParentFact) String() string { return string(f) }
 
-// IfIndexFact is an immutable semantic fact representing a port's ifIndex.
-type IfIndexFact uint32
+// ifIndexFact is an immutable semantic fact representing a port's ifIndex.
+type ifIndexFact uint32
 
-// TypeID returns the stable identifier for IfIndexFact.
-func (f IfIndexFact) TypeID() string { return "port.ifindex" }
+// TypeID returns the stable identifier for ifIndexFact.
+func (f ifIndexFact) TypeID() string { return "port.ifindex" }
 
 // Canonical returns the decimal string representation of the ifIndex.
-func (f IfIndexFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f ifIndexFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
 // String returns the string representation of the ifIndex.
-func (f IfIndexFact) String() string { return strconv.FormatUint(uint64(f), 10) }
+func (f ifIndexFact) String() string { return strconv.FormatUint(uint64(f), 10) }
 
 // Forwards reports whether the port forwards frames. A port forwards only if its
 // administrative and operational states are both Up.

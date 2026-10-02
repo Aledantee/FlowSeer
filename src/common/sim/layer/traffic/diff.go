@@ -1,7 +1,6 @@
 package traffic
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -11,50 +10,50 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// RateFact wraps a uint64 rate in bits per second as a trace.Fact.
-type RateFact uint64
+// rateFact wraps a uint64 rate in bits per second as a trace.Fact.
+type rateFact uint64
 
-// TypeID returns the fact type identifier for RateFact.
-func (f RateFact) TypeID() string { return "traffic.rate_bps" }
+// TypeID returns the fact type identifier for rateFact.
+func (f rateFact) TypeID() string { return "traffic.rate_bps" }
 
 // Canonical returns the decimal string of the rate.
-func (f RateFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f rateFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// BurstFact wraps a burst size in octets as a trace.Fact.
-type BurstFact int
+// burstFact wraps a burst size in octets as a trace.Fact.
+type burstFact int
 
-// TypeID returns the fact type identifier for BurstFact.
-func (f BurstFact) TypeID() string { return "traffic.burst_octets" }
+// TypeID returns the fact type identifier for burstFact.
+func (f burstFact) TypeID() string { return "traffic.burst_octets" }
 
 // Canonical returns the decimal string of the burst.
-func (f BurstFact) Canonical() string { return strconv.Itoa(int(f)) }
+func (f burstFact) Canonical() string { return strconv.Itoa(int(f)) }
 
-// MaxRateFact wraps a maximum rate in bits per second as a trace.Fact.
-type MaxRateFact uint64
+// maxRateFact wraps a maximum rate in bits per second as a trace.Fact.
+type maxRateFact uint64
 
-// TypeID returns the fact type identifier for MaxRateFact.
-func (f MaxRateFact) TypeID() string { return "traffic.max_rate_bps" }
+// TypeID returns the fact type identifier for maxRateFact.
+func (f maxRateFact) TypeID() string { return "traffic.max_rate_bps" }
 
 // Canonical returns the decimal string of the max rate.
-func (f MaxRateFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f maxRateFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// QueueBufferFact wraps a queue buffer in encoded frame octets as a trace.Fact.
-type QueueBufferFact uint64
+// queueBufferFact wraps a queue buffer in encoded frame octets as a trace.Fact.
+type queueBufferFact uint64
 
-// TypeID returns the fact type identifier for QueueBufferFact.
-func (f QueueBufferFact) TypeID() string { return "traffic.queue_buffer_octets" }
+// TypeID returns the fact type identifier for queueBufferFact.
+func (f queueBufferFact) TypeID() string { return "traffic.queue_buffer_octets" }
 
 // Canonical returns the decimal string of the buffer.
-func (f QueueBufferFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f queueBufferFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// SelectAllFact wraps a boolean select_all flag as a trace.Fact.
-type SelectAllFact bool
+// selectAllFact wraps a boolean select_all flag as a trace.Fact.
+type selectAllFact bool
 
-// TypeID returns the fact type identifier for SelectAllFact.
-func (f SelectAllFact) TypeID() string { return "traffic.select_all" }
+// TypeID returns the fact type identifier for selectAllFact.
+func (f selectAllFact) TypeID() string { return "traffic.select_all" }
 
 // Canonical returns "true" or "false".
-func (f SelectAllFact) Canonical() string { return strconv.FormatBool(bool(f)) }
+func (f selectAllFact) Canonical() string { return strconv.FormatBool(bool(f)) }
 
 type portsFact string
 
@@ -89,32 +88,32 @@ func VLANsFact(ids []vlan.ID) trace.Fact {
 	return vlansFact(strings.Join(values, ","))
 }
 
-// OutputPortFact wraps an output port name as a trace.Fact.
-type OutputPortFact string
+// outputPortFact wraps an output port name as a trace.Fact.
+type outputPortFact string
 
-// TypeID returns the fact type identifier for OutputPortFact.
-func (f OutputPortFact) TypeID() string { return "traffic.output_port" }
+// TypeID returns the fact type identifier for outputPortFact.
+func (f outputPortFact) TypeID() string { return "traffic.output_port" }
 
 // Canonical returns the output port name string.
-func (f OutputPortFact) Canonical() string { return string(f) }
+func (f outputPortFact) Canonical() string { return string(f) }
 
-// OutputVLANFact wraps an output VLAN ID as a trace.Fact.
-type OutputVLANFact vlan.ID
+// outputVLANFact wraps an output VLAN ID as a trace.Fact.
+type outputVLANFact vlan.ID
 
-// TypeID returns the fact type identifier for OutputVLANFact.
-func (f OutputVLANFact) TypeID() string { return "traffic.output_vlan" }
+// TypeID returns the fact type identifier for outputVLANFact.
+func (f outputVLANFact) TypeID() string { return "traffic.output_vlan" }
 
 // Canonical returns the decimal string of the VLAN ID.
-func (f OutputVLANFact) Canonical() string { return strconv.Itoa(int(f)) }
+func (f outputVLANFact) Canonical() string { return strconv.Itoa(int(f)) }
 
-// SnapLenFact wraps a snap length as a trace.Fact.
-type SnapLenFact int
+// snapLenFact wraps a snap length as a trace.Fact.
+type snapLenFact int
 
-// TypeID returns the fact type identifier for SnapLenFact.
-func (f SnapLenFact) TypeID() string { return "traffic.snap_len" }
+// TypeID returns the fact type identifier for snapLenFact.
+func (f snapLenFact) TypeID() string { return "traffic.snap_len" }
 
 // Canonical returns the decimal string of the snap length.
-func (f SnapLenFact) Canonical() string { return strconv.Itoa(int(f)) }
+func (f snapLenFact) Canonical() string { return strconv.Itoa(int(f)) }
 
 type mirrorSnapshotFact string
 
@@ -198,12 +197,12 @@ func Diff(a, b Config) []trace.Change {
 		subject := trace.Subject{Kind: "port", Key: name}
 		if ap.RateBPS != bp.RateBPS {
 			changes = append(changes, trace.Change{
-				Layer: LayerName, Subject: subject, Field: "rate", From: RateFact(ap.RateBPS), To: RateFact(bp.RateBPS),
+				Layer: LayerName, Subject: subject, Field: "rate", From: rateFact(ap.RateBPS), To: rateFact(bp.RateBPS),
 			})
 		}
 		if ap.BurstOctets != bp.BurstOctets {
 			changes = append(changes, trace.Change{
-				Layer: LayerName, Subject: subject, Field: "burst", From: BurstFact(ap.BurstOctets), To: BurstFact(bp.BurstOctets),
+				Layer: LayerName, Subject: subject, Field: "burst", From: burstFact(ap.BurstOctets), To: burstFact(bp.BurstOctets),
 			})
 		}
 	}
@@ -214,18 +213,18 @@ func Diff(a, b Config) []trace.Change {
 		for _, pcp := range unionPCPs(aQueues.MaxRateBPS, bQueues.MaxRateBPS, aQueues.BufferOctets, bQueues.BufferOctets) {
 			subject := trace.Subject{
 				Kind: "port",
-				Key:  fmt.Sprintf("%s/%d", portName, pcp),
+				Key:  trace.CompositeKey(portName, strconv.Itoa(int(pcp))),
 			}
 			if aRate, bRate := aQueues.MaxRateBPS[pcp], bQueues.MaxRateBPS[pcp]; aRate != bRate {
 				changes = append(changes, trace.Change{
 					Layer: LayerName, Subject: subject, Field: "max_rate",
-					From: MaxRateFact(aRate), To: MaxRateFact(bRate),
+					From: maxRateFact(aRate), To: maxRateFact(bRate),
 				})
 			}
 			if aBuffer, bBuffer := aQueues.BufferOctets[pcp], bQueues.BufferOctets[pcp]; aBuffer != bBuffer {
 				changes = append(changes, trace.Change{
 					Layer: LayerName, Subject: subject, Field: "buffer_octets",
-					From: QueueBufferFact(aBuffer), To: QueueBufferFact(bBuffer),
+					From: queueBufferFact(aBuffer), To: queueBufferFact(bBuffer),
 				})
 			}
 		}
@@ -243,7 +242,7 @@ func diffMirror(changes []trace.Change, name string, a, b Mirror) []trace.Change
 	}
 
 	if a.SelectAll != b.SelectAll {
-		appendChange("select_all", SelectAllFact(a.SelectAll), SelectAllFact(b.SelectAll))
+		appendChange("select_all", selectAllFact(a.SelectAll), selectAllFact(b.SelectAll))
 	}
 	if !slices.Equal(a.SelectSrcPorts, b.SelectSrcPorts) {
 		appendChange("select_src_ports", PortsFact(a.SelectSrcPorts), PortsFact(b.SelectSrcPorts))
@@ -255,13 +254,13 @@ func diffMirror(changes []trace.Change, name string, a, b Mirror) []trace.Change
 		appendChange("select_vlans", VLANsFact(a.SelectVLANs), VLANsFact(b.SelectVLANs))
 	}
 	if a.OutputPort != b.OutputPort {
-		appendChange("output_port", OutputPortFact(a.OutputPort), OutputPortFact(b.OutputPort))
+		appendChange("output_port", outputPortFact(a.OutputPort), outputPortFact(b.OutputPort))
 	}
 	if !equalVLANs(a.OutputVLAN, b.OutputVLAN) {
 		appendChange("output_vlan", vlanFact(a.OutputVLAN), vlanFact(b.OutputVLAN))
 	}
 	if a.SnapLen != b.SnapLen {
-		appendChange("snap_len", SnapLenFact(a.SnapLen), SnapLenFact(b.SnapLen))
+		appendChange("snap_len", snapLenFact(a.SnapLen), snapLenFact(b.SnapLen))
 	}
 
 	return changes
@@ -340,5 +339,5 @@ func vlanFact(id *vlan.ID) trace.Fact {
 		return nil
 	}
 
-	return OutputVLANFact(*id)
+	return outputVLANFact(*id)
 }

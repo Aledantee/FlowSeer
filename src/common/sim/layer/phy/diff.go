@@ -9,26 +9,26 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// SpeedFact represents a port speed in bits per second.
-type SpeedFact uint64
+// speedFact represents a port speed in bits per second.
+type speedFact uint64
 
-// TypeID returns the stable identifier for SpeedFact.
-func (f SpeedFact) TypeID() string { return "phy.speed_bps" }
+// TypeID returns the stable identifier for speedFact.
+func (f speedFact) TypeID() string { return "phy.speed_bps" }
 
 // Canonical returns the decimal string representation of the speed.
-func (f SpeedFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f speedFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
 // String returns the decimal string representation of the speed.
-func (f SpeedFact) String() string { return strconv.FormatUint(uint64(f), 10) }
+func (f speedFact) String() string { return strconv.FormatUint(uint64(f), 10) }
 
-// BoolFact represents a boolean physical layer setting.
-type BoolFact bool
+// boolFact represents a boolean physical layer setting.
+type boolFact bool
 
-// TypeID returns the stable identifier for BoolFact.
-func (f BoolFact) TypeID() string { return "phy.bool" }
+// TypeID returns the stable identifier for boolFact.
+func (f boolFact) TypeID() string { return "phy.bool" }
 
 // Canonical returns "true" or "false".
-func (f BoolFact) Canonical() string {
+func (f boolFact) Canonical() string {
 	if f {
 		return "true"
 	}
@@ -37,7 +37,7 @@ func (f BoolFact) Canonical() string {
 }
 
 // String returns "true" or "false".
-func (f BoolFact) String() string {
+func (f boolFact) String() string {
 	if f {
 		return "true"
 	}
@@ -45,29 +45,29 @@ func (f BoolFact) String() string {
 	return "false"
 }
 
-// PowerFact represents power in nanowatts.
-type PowerFact uint64
+// powerFact represents power in nanowatts.
+type powerFact uint64
 
-// TypeID returns the stable identifier for PowerFact.
-func (f PowerFact) TypeID() string { return "phy.power_nw" }
+// TypeID returns the stable identifier for powerFact.
+func (f powerFact) TypeID() string { return "phy.power_nw" }
 
 // Canonical returns the decimal string representation of power in nanowatts.
-func (f PowerFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f powerFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
 // String returns the decimal string representation of power in nanowatts.
-func (f PowerFact) String() string { return strconv.FormatUint(uint64(f), 10) }
+func (f powerFact) String() string { return strconv.FormatUint(uint64(f), 10) }
 
-// ClassFact represents an IEEE PD or PSE class.
-type ClassFact uint8
+// classFact represents an IEEE PD or PSE class.
+type classFact uint8
 
-// TypeID returns the stable identifier for ClassFact.
-func (f ClassFact) TypeID() string { return "phy.class" }
+// TypeID returns the stable identifier for classFact.
+func (f classFact) TypeID() string { return "phy.class" }
 
 // Canonical returns the decimal string representation of the class.
-func (f ClassFact) Canonical() string { return strconv.Itoa(int(f)) }
+func (f classFact) Canonical() string { return strconv.Itoa(int(f)) }
 
 // String returns the decimal string representation of the class.
-func (f ClassFact) String() string { return strconv.Itoa(int(f)) }
+func (f classFact) String() string { return strconv.Itoa(int(f)) }
 
 type speedsFact string
 
@@ -104,17 +104,17 @@ func snapshotPSEPort(psePort PsePort) trace.Fact {
 	return psePortSnapshotFact(psePort.Canonical())
 }
 
-// StringFact represents a string setting in the physical layer.
-type StringFact string
+// stringFact represents a string setting in the physical layer.
+type stringFact string
 
-// TypeID returns the stable identifier for StringFact.
-func (f StringFact) TypeID() string { return "phy.string" }
+// TypeID returns the stable identifier for stringFact.
+func (f stringFact) TypeID() string { return "phy.string" }
 
 // Canonical returns the string value.
-func (f StringFact) Canonical() string { return string(f) }
+func (f stringFact) Canonical() string { return string(f) }
 
 // String returns the string value.
-func (f StringFact) String() string { return string(f) }
+func (f stringFact) String() string { return string(f) }
 
 // Diff computes the difference between two physical-layer configurations,
 // covering all behavior-bearing fields for Ethernet and PoE.
@@ -147,8 +147,8 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "speed_bps",
-				From:    SpeedFact(from),
-				To:      SpeedFact(to),
+				From:    speedFact(from),
+				To:      speedFact(to),
 			})
 		}
 		if from, to := settingDuplex(ae), settingDuplex(be); from != to {
@@ -165,8 +165,8 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "auto_negotiation_enabled",
-				From:    BoolFact(from),
-				To:      BoolFact(to),
+				From:    boolFact(from),
+				To:      boolFact(to),
 			})
 		}
 		if !slices.Equal(ae.SupportedSpeedsBPS, be.SupportedSpeedsBPS) {
@@ -192,8 +192,8 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "observed_speed_bps",
-				From:    SpeedFact(from),
-				To:      SpeedFact(to),
+				From:    speedFact(from),
+				To:      speedFact(to),
 			})
 		}
 		if from, to := observedDuplex(ae), observedDuplex(be); from != to {
@@ -210,8 +210,8 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "resolve_source",
-				From:    StringFact(from),
-				To:      StringFact(to),
+				From:    stringFact(from),
+				To:      stringFact(to),
 			})
 		}
 	}
@@ -258,8 +258,8 @@ func diffPoE(a, b *PoE) []trace.Change {
 				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "pse_group", Key: name},
 				Field:   "power_nanowatts",
-				From:    PowerFact(ag.PowerNanowatts),
-				To:      PowerFact(bg.PowerNanowatts),
+				From:    powerFact(ag.PowerNanowatts),
+				To:      powerFact(bg.PowerNanowatts),
 			})
 		}
 	}
@@ -291,8 +291,8 @@ func diffPoE(a, b *PoE) []trace.Change {
 				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "group",
-				From:    StringFact(ap.Group),
-				To:      StringFact(bp.Group),
+				From:    stringFact(ap.Group),
+				To:      stringFact(bp.Group),
 			})
 		}
 		if ap.MaxClass != bp.MaxClass {
@@ -300,8 +300,8 @@ func diffPoE(a, b *PoE) []trace.Change {
 				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "max_class",
-				From:    ClassFact(ap.MaxClass),
-				To:      ClassFact(bp.MaxClass),
+				From:    classFact(ap.MaxClass),
+				To:      classFact(bp.MaxClass),
 			})
 		}
 		if ap.Enabled != bp.Enabled {
@@ -309,8 +309,8 @@ func diffPoE(a, b *PoE) []trace.Change {
 				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "enabled",
-				From:    BoolFact(ap.Enabled),
-				To:      BoolFact(bp.Enabled),
+				From:    boolFact(ap.Enabled),
+				To:      boolFact(bp.Enabled),
 			})
 		}
 		if !equalUint64Ptr(ap.Limit, bp.Limit) {
@@ -404,7 +404,7 @@ func limitFact(limit *uint64) trace.Fact {
 		return nil
 	}
 
-	return PowerFact(*limit)
+	return powerFact(*limit)
 }
 
 func pdClassFact(pdClass *uint8) trace.Fact {
@@ -412,7 +412,7 @@ func pdClassFact(pdClass *uint8) trace.Fact {
 		return nil
 	}
 
-	return ClassFact(*pdClass)
+	return classFact(*pdClass)
 }
 
 func equalUint64Ptr(a, b *uint64) bool {

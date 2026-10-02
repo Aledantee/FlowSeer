@@ -4,6 +4,7 @@ package trace
 import (
 	"cmp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -80,6 +81,24 @@ func (s Subject) String() string {
 		return s.Kind
 	}
 	return s.Kind + ":" + s.Key
+}
+
+// CompositeKey returns a deterministic subject key joining parts.
+// A subject key of one part is the identifier. A key of several parts quotes each
+// with strconv.Quote and joins them with "/", ensuring identifiers with slashes do not collide.
+func CompositeKey(parts ...string) string {
+	switch len(parts) {
+	case 0:
+		return ""
+	case 1:
+		return parts[0]
+	default:
+		encoded := make([]string, len(parts))
+		for i, part := range parts {
+			encoded[i] = strconv.Quote(part)
+		}
+		return strings.Join(encoded, "/")
+	}
 }
 
 // EvidenceRef is an opaque identifier referencing supporting evidence in an evidence catalog.

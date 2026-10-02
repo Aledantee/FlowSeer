@@ -1,10 +1,10 @@
 package lag_test
 
 import (
-	"strconv"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestDiffMemberSubjectKeysAreInjectiveAcrossLAGs(t *testing.T) {
@@ -41,7 +41,7 @@ func TestDiffMemberSubjectKeysAreInjectiveAcrossLAGs(t *testing.T) {
 		t.Fatalf("member subject keys = %v, want %d unique keys", keys, len(pairs))
 	}
 	for _, pair := range pairs {
-		want := strconv.Quote(pair.lag) + "/" + strconv.Quote(pair.member)
+		want := trace.CompositeKey(pair.lag, pair.member)
 		if _, ok := keys[want]; !ok {
 			t.Errorf("member subject keys = %v, want %q", keys, want)
 		}

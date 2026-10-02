@@ -787,7 +787,7 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 		RuleID:  RuleClassify,
 		Subject: trace.Subject{Kind: "interface", Key: iface},
 		Inputs:  []trace.Fact{packetSnapshot(iface, f, hdr, err == nil, classifyReason)},
-		Outputs: []trace.Fact{RouteInterfaceFact(iface)},
+		Outputs: []trace.Fact{routeInterfaceFact(iface)},
 	})
 
 	if err != nil {

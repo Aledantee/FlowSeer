@@ -194,7 +194,7 @@ func CaseTroubleshootingMDNSIPv6UnregisteredRouterPorts() Case {
 	frame := expectedFact("bridge.frame", `src="00:11:22:33:44:02";dst="33:33:00:00:00:fb";ether_type=34525;tags=[];payload_len=94`)
 	fdbLearned := expectedFact("bridge.fdb_decision", `fid=10;mac="00:11:22:33:44:02";present=true;port="p1";static=false`)
 	groupDestination := expectedFact("bridge.egress_decision", `port="";member="";fid=10;eligible=true;reason="group-destination"`)
-	membership := expectedFact("vswitch.mcast_membership", `fid=10;group="ff02::fb";source="fe80::1";registered=false;decided=true;ports=["p9"]`)
+	membership := expectedFact("mcast.membership_decision", `fid=10;group="ff02::fb";source="fe80::1";registered=false;decided=true;ports=["p9"]`)
 
 	expectedSteps := []StepExpectation{
 		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "10"},

@@ -1705,7 +1705,7 @@ func CaseTroubleshootingSSMRejectsUnjoinedSource() Case {
 	frame := expectedFact("bridge.frame", `src="00:11:22:33:44:fe";dst="01:00:5e:01:01:01";ether_type=2048;tags=[];payload_len=24`)
 	fdbLearned := expectedFact("bridge.fdb_decision", `fid=10;mac="00:11:22:33:44:fe";present=true;port="p9";static=false`)
 	groupDestination := expectedFact("bridge.egress_decision", `port="";member="";fid=10;eligible=true;reason="group-destination"`)
-	membership := expectedFact("vswitch.mcast_membership", `fid=10;group="232.1.1.1";source="10.0.0.2";registered=true;decided=true;ports=[]`)
+	membership := expectedFact("mcast.membership_decision", `fid=10;group="232.1.1.1";source="10.0.0.2";registered=true;decided=true;ports=[]`)
 	dropDecision := expectedFact("bridge.egress_decision", `port="";member="";fid=10;eligible=false;reason="unregistered"`)
 
 	expectedSteps := []StepExpectation{
@@ -1845,7 +1845,7 @@ func CaseTroubleshootingLeaveLastMemberQuery() Case {
 	frame := expectedFact("bridge.frame", `src="00:11:22:33:44:fe";dst="01:00:5e:06:06:06";ether_type=2048;tags=[];payload_len=24`)
 	fdbLearned := expectedFact("bridge.fdb_decision", `fid=10;mac="00:11:22:33:44:fe";present=true;port="p9";static=false`)
 	groupDestination := expectedFact("bridge.egress_decision", `port="";member="";fid=10;eligible=true;reason="group-destination"`)
-	membership := expectedFact("vswitch.mcast_membership", `fid=10;group="239.6.6.6";source="10.9.9.9";registered=true;decided=true;ports=["p9"]`)
+	membership := expectedFact("mcast.membership_decision", `fid=10;group="239.6.6.6";source="10.9.9.9";registered=true;decided=true;ports=["p9"]`)
 	dropDecision := expectedFact("bridge.egress_decision", `port="";member="";fid=10;eligible=false;reason="no-egress"`)
 
 	expectedSteps := []StepExpectation{
@@ -2092,7 +2092,7 @@ func CasePlanningECMPCandidatesRecorded() Case {
 			expectedStep(routing.LayerName, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "out-a"},
 				[]FactExpectation{neighbor, packetIn}, []FactExpectation{packetOut}),
 			expectedStep(routing.LayerName, trace.OpTransmit, "routing.transmit", trace.Subject{Kind: "port", Key: "out-a"},
-				nil, []FactExpectation{expectedFact("routing.lookup_decision", `interface="out-a";port="out-a";member="";reason=""`)}),
+				nil, []FactExpectation{expectedFact("routing.egress_decision", `interface="out-a";port="out-a";member="";reason=""`)}),
 		},
 		ExpectedForwardMetadata: &MetadataExpectation{
 			Status: analysis.Complete,
@@ -2384,7 +2384,7 @@ func CaseTroubleshootingRecursiveRouteNotInstalled() Case {
 			expectedStep(routing.LayerName, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "out"},
 				[]FactExpectation{neighbor, packetIn}, []FactExpectation{packetOut}),
 			expectedStep(routing.LayerName, trace.OpTransmit, "routing.transmit", trace.Subject{Kind: "port", Key: "out"},
-				nil, []FactExpectation{expectedFact("routing.lookup_decision", `interface="out";port="out";member="";reason=""`)}),
+				nil, []FactExpectation{expectedFact("routing.egress_decision", `interface="out";port="out";member="";reason=""`)}),
 		},
 		ExpectedForwardMetadata: &MetadataExpectation{
 			Status: analysis.Complete,

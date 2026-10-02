@@ -74,7 +74,7 @@ func (p Port) Canonical() string {
 	return "action=" + string(p.Action) +
 		",recovery_mode=" + string(p.Recovery.Mode) +
 		",recovery_duration=" + p.Recovery.Duration.String() +
-		",vlans=" + VLANListFact(p.VLANs).Canonical()
+		",vlans=" + vlanListFact(p.VLANs).Canonical()
 }
 
 // Config defines the loop-protection configuration of a virtual switch.

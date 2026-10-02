@@ -3,7 +3,6 @@ package routing_test
 import (
 	"fmt"
 	"net/netip"
-	"strings"
 	"testing"
 	"time"
 
@@ -1270,41 +1269,5 @@ func TestRoutingSnapshotFactsAreLosslessAndImmutable(t *testing.T) {
 	}
 	if interfaceFactA.Canonical() == interfaceFactB.Canonical() {
 		t.Errorf("different interfaces share canonical form %q", interfaceFactA.Canonical())
-	}
-}
-
-func TestFactTypeIDsUnique(t *testing.T) {
-	t.Parallel()
-
-	facts := []trace.Fact{
-		routing.Route{},
-		routing.Neighbor{},
-		routing.VLANFact(0),
-		routing.PortFact(""),
-		routing.MACFact{},
-		routing.PrefixesFact(nil),
-		routing.AddrFact{},
-		routing.RouteInterfaceFact(""),
-		routing.RoutePreferenceFact(0),
-		routing.RouteMetricFact(0),
-		routing.NeighborModeFact(""),
-		routing.ReachableTimeFact(0),
-		routing.ResolutionTimeoutFact(0),
-		routing.HoldDepthFact(0),
-	}
-
-	seen := make(map[string]string)
-	for _, f := range facts {
-		tid := f.TypeID()
-		if tid == "" {
-			t.Errorf("fact %T has empty TypeID", f)
-		}
-		if !strings.HasPrefix(tid, "routing.") {
-			t.Errorf("fact %T TypeID %q must be prefixed with 'routing.'", f, tid)
-		}
-		if prev, ok := seen[tid]; ok {
-			t.Errorf("duplicate TypeID %q shared by %s and %T", tid, prev, f)
-		}
-		seen[tid] = fmt.Sprintf("%T", f)
 	}
 }

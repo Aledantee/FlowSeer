@@ -14,35 +14,38 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// VLANFact wraps a vlan.ID as a trace.Fact.
-type VLANFact vlan.ID
+// vlanFact wraps a vlan.ID as a trace.Fact.
+type vlanFact vlan.ID
 
-// TypeID returns the fact type identifier for VLANFact.
-func (f VLANFact) TypeID() string { return "routing.vlan" }
+// TypeID returns the fact type identifier for vlanFact.
+func (f vlanFact) TypeID() string { return "routing.vlan" }
 
 // Canonical returns the decimal string of the VLAN ID.
-func (f VLANFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f vlanFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// VID returns the underlying vlan.ID.
-func (f VLANFact) VID() vlan.ID { return vlan.ID(f) }
+// VLANFact returns an immutable fact wrapping a VLAN ID.
+func VLANFact(vid vlan.ID) trace.Fact { return vlanFact(vid) }
 
-// PortFact wraps a port name as a trace.Fact.
-type PortFact string
+// portFact wraps a port name as a trace.Fact.
+type portFact string
 
-// TypeID returns the fact type identifier for PortFact.
-func (f PortFact) TypeID() string { return "routing.port" }
+// TypeID returns the fact type identifier for portFact.
+func (f portFact) TypeID() string { return "routing.port" }
 
 // Canonical returns the port name string.
-func (f PortFact) Canonical() string { return string(f) }
+func (f portFact) Canonical() string { return string(f) }
 
-// MACFact wraps a netaddr.MAC as a trace.Fact.
-type MACFact netaddr.MAC
+// PortFact returns an immutable fact wrapping a port name.
+func PortFact(name string) trace.Fact { return portFact(name) }
 
-// TypeID returns the fact type identifier for MACFact.
-func (f MACFact) TypeID() string { return "routing.mac" }
+// macFact wraps a netaddr.MAC as a trace.Fact.
+type macFact netaddr.MAC
+
+// TypeID returns the fact type identifier for macFact.
+func (f macFact) TypeID() string { return "routing.mac" }
 
 // Canonical returns the formatted MAC string.
-func (f MACFact) Canonical() string { return netaddr.MAC(f).String() }
+func (f macFact) Canonical() string { return netaddr.MAC(f).String() }
 
 type prefixesFact string
 
@@ -62,77 +65,80 @@ func PrefixesFact(prefixes []netip.Prefix) trace.Fact {
 	return prefixesFact(out.String())
 }
 
-// AddrFact wraps a netip.Addr as a trace.Fact.
-type AddrFact netip.Addr
+// addrFact wraps a netip.Addr as a trace.Fact.
+type addrFact netip.Addr
 
-// TypeID returns the fact type identifier for AddrFact.
-func (f AddrFact) TypeID() string { return "routing.addr" }
+// TypeID returns the fact type identifier for addrFact.
+func (f addrFact) TypeID() string { return "routing.addr" }
 
 // Canonical returns the IP address string.
-func (f AddrFact) Canonical() string { return netip.Addr(f).String() }
+func (f addrFact) Canonical() string { return netip.Addr(f).String() }
 
-// RouteInterfaceFact wraps a route interface name as a trace.Fact.
-type RouteInterfaceFact string
+// AddrFact returns an immutable fact wrapping a netip.Addr.
+func AddrFact(addr netip.Addr) trace.Fact { return addrFact(addr) }
 
-// TypeID returns the fact type identifier for RouteInterfaceFact.
-func (f RouteInterfaceFact) TypeID() string { return "routing.route.interface" }
+// routeInterfaceFact wraps a route interface name as a trace.Fact.
+type routeInterfaceFact string
+
+// TypeID returns the fact type identifier for routeInterfaceFact.
+func (f routeInterfaceFact) TypeID() string { return "routing.route.interface" }
 
 // Canonical returns the interface name string.
-func (f RouteInterfaceFact) Canonical() string { return string(f) }
+func (f routeInterfaceFact) Canonical() string { return string(f) }
 
-// RoutePreferenceFact wraps a route preference as a trace.Fact.
-type RoutePreferenceFact uint8
+// routePreferenceFact wraps a route preference as a trace.Fact.
+type routePreferenceFact uint8
 
-// TypeID returns the fact type identifier for RoutePreferenceFact.
-func (f RoutePreferenceFact) TypeID() string { return "routing.route.preference" }
+// TypeID returns the fact type identifier for routePreferenceFact.
+func (f routePreferenceFact) TypeID() string { return "routing.route.preference" }
 
 // Canonical returns the decimal preference string.
-func (f RoutePreferenceFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f routePreferenceFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// RouteMetricFact wraps a route metric as a trace.Fact.
-type RouteMetricFact uint32
+// routeMetricFact wraps a route metric as a trace.Fact.
+type routeMetricFact uint32
 
-// TypeID returns the fact type identifier for RouteMetricFact.
-func (f RouteMetricFact) TypeID() string { return "routing.route.metric" }
+// TypeID returns the fact type identifier for routeMetricFact.
+func (f routeMetricFact) TypeID() string { return "routing.route.metric" }
 
 // Canonical returns the decimal metric string.
-func (f RouteMetricFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f routeMetricFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// NeighborModeFact wraps a neighbor policy Mode as a trace.Fact.
-type NeighborModeFact Mode
+// neighborModeFact wraps a neighbor policy Mode as a trace.Fact.
+type neighborModeFact Mode
 
-// TypeID returns the fact type identifier for NeighborModeFact.
-func (f NeighborModeFact) TypeID() string { return "routing.neighbor_policy.mode" }
+// TypeID returns the fact type identifier for neighborModeFact.
+func (f neighborModeFact) TypeID() string { return "routing.neighbor_policy.mode" }
 
 // Canonical returns the mode string.
-func (f NeighborModeFact) Canonical() string { return string(f) }
+func (f neighborModeFact) Canonical() string { return string(f) }
 
-// ReachableTimeFact wraps a neighbor policy ReachableTime as a trace.Fact.
-type ReachableTimeFact time.Duration
+// reachableTimeFact wraps a neighbor policy ReachableTime as a trace.Fact.
+type reachableTimeFact time.Duration
 
-// TypeID returns the fact type identifier for ReachableTimeFact.
-func (f ReachableTimeFact) TypeID() string { return "routing.neighbor_policy.reachable_time" }
-
-// Canonical returns the duration string.
-func (f ReachableTimeFact) Canonical() string { return time.Duration(f).String() }
-
-// ResolutionTimeoutFact wraps a neighbor policy ResolutionTimeout as a trace.Fact.
-type ResolutionTimeoutFact time.Duration
-
-// TypeID returns the fact type identifier for ResolutionTimeoutFact.
-func (f ResolutionTimeoutFact) TypeID() string { return "routing.neighbor_policy.resolution_timeout" }
+// TypeID returns the fact type identifier for reachableTimeFact.
+func (f reachableTimeFact) TypeID() string { return "routing.neighbor_policy.reachable_time" }
 
 // Canonical returns the duration string.
-func (f ResolutionTimeoutFact) Canonical() string { return time.Duration(f).String() }
+func (f reachableTimeFact) Canonical() string { return time.Duration(f).String() }
 
-// HoldDepthFact wraps a neighbor policy HoldDepth as a trace.Fact.
-type HoldDepthFact int
+// resolutionTimeoutFact wraps a neighbor policy ResolutionTimeout as a trace.Fact.
+type resolutionTimeoutFact time.Duration
 
-// TypeID returns the fact type identifier for HoldDepthFact.
-func (f HoldDepthFact) TypeID() string { return "routing.neighbor_policy.hold_depth" }
+// TypeID returns the fact type identifier for resolutionTimeoutFact.
+func (f resolutionTimeoutFact) TypeID() string { return "routing.neighbor_policy.resolution_timeout" }
+
+// Canonical returns the duration string.
+func (f resolutionTimeoutFact) Canonical() string { return time.Duration(f).String() }
+
+// holdDepthFact wraps a neighbor policy HoldDepth as a trace.Fact.
+type holdDepthFact int
+
+// TypeID returns the fact type identifier for holdDepthFact.
+func (f holdDepthFact) TypeID() string { return "routing.neighbor_policy.hold_depth" }
 
 // Canonical returns the decimal depth string.
-func (f HoldDepthFact) Canonical() string { return strconv.Itoa(int(f)) }
+func (f holdDepthFact) Canonical() string { return strconv.Itoa(int(f)) }
 
 type interfaceSnapshotFact string
 
@@ -290,7 +296,7 @@ func Diff(a, b Config) []trace.Change {
 			for _, ifName := range sortedIfaces {
 				ifA, ifInA := aVRF.Interfaces[ifName]
 				ifB, ifInB := bVRF.Interfaces[ifName]
-				key := compositeSubjectKey(vrfName, ifName)
+				key := trace.CompositeKey(vrfName, ifName)
 
 				switch {
 				case ifInA && !ifInB:
@@ -315,8 +321,8 @@ func Diff(a, b Config) []trace.Change {
 							Layer:   LayerName,
 							Subject: trace.Subject{Kind: "interface", Key: key},
 							Field:   "vlan",
-							From:    VLANFact(ifA.VLAN),
-							To:      VLANFact(ifB.VLAN),
+							From:    vlanFact(ifA.VLAN),
+							To:      vlanFact(ifB.VLAN),
 						})
 					}
 					if ifA.Port != ifB.Port {
@@ -324,8 +330,8 @@ func Diff(a, b Config) []trace.Change {
 							Layer:   LayerName,
 							Subject: trace.Subject{Kind: "interface", Key: key},
 							Field:   "port",
-							From:    PortFact(ifA.Port),
-							To:      PortFact(ifB.Port),
+							From:    portFact(ifA.Port),
+							To:      portFact(ifB.Port),
 						})
 					}
 					if ifA.MAC != ifB.MAC {
@@ -333,8 +339,8 @@ func Diff(a, b Config) []trace.Change {
 							Layer:   LayerName,
 							Subject: trace.Subject{Kind: "interface", Key: key},
 							Field:   "mac",
-							From:    MACFact(ifA.MAC),
-							To:      MACFact(ifB.MAC),
+							From:    macFact(ifA.MAC),
+							To:      macFact(ifB.MAC),
 						})
 					}
 					if !slices.Equal(ifA.Prefixes, ifB.Prefixes) {
@@ -381,7 +387,7 @@ func Diff(a, b Config) []trace.Change {
 			for _, k := range sortedRoutes {
 				rA, rInA := aRoutes[k]
 				rB, rInB := bRoutes[k]
-				key := compositeSubjectKey(vrfName, k.prefix.String(), k.nextHop.String(), k.iface)
+				key := trace.CompositeKey(vrfName, k.prefix.String(), k.nextHop.String(), k.iface)
 
 				switch {
 				case rInA && !rInB:
@@ -406,8 +412,8 @@ func Diff(a, b Config) []trace.Change {
 							Layer:   LayerName,
 							Subject: trace.Subject{Kind: "route", Key: key},
 							Field:   "preference",
-							From:    RoutePreferenceFact(rA.Preference),
-							To:      RoutePreferenceFact(rB.Preference),
+							From:    routePreferenceFact(rA.Preference),
+							To:      routePreferenceFact(rB.Preference),
 						})
 					}
 					if rA.Metric != rB.Metric {
@@ -415,8 +421,8 @@ func Diff(a, b Config) []trace.Change {
 							Layer:   LayerName,
 							Subject: trace.Subject{Kind: "route", Key: key},
 							Field:   "metric",
-							From:    RouteMetricFact(rA.Metric),
-							To:      RouteMetricFact(rB.Metric),
+							From:    routeMetricFact(rA.Metric),
+							To:      routeMetricFact(rB.Metric),
 						})
 					}
 				}
@@ -451,7 +457,7 @@ func Diff(a, b Config) []trace.Change {
 			for _, k := range sortedNeighbors {
 				nA, nInA := aNeighbors[k]
 				nB, nInB := bNeighbors[k]
-				key := compositeSubjectKey(vrfName, k.iface, k.addr.String())
+				key := trace.CompositeKey(vrfName, k.iface, k.addr.String())
 
 				switch {
 				case nInA && !nInB:
@@ -476,8 +482,8 @@ func Diff(a, b Config) []trace.Change {
 							Layer:   LayerName,
 							Subject: trace.Subject{Kind: "neighbor", Key: key},
 							Field:   "mac",
-							From:    MACFact(nA.MAC),
-							To:      MACFact(nB.MAC),
+							From:    macFact(nA.MAC),
+							To:      macFact(nB.MAC),
 						})
 					}
 				}
@@ -489,8 +495,8 @@ func Diff(a, b Config) []trace.Change {
 					Layer:   LayerName,
 					Subject: policySubject,
 					Field:   "mode",
-					From:    NeighborModeFact(aVRF.NeighborPolicy.Mode),
-					To:      NeighborModeFact(bVRF.NeighborPolicy.Mode),
+					From:    neighborModeFact(aVRF.NeighborPolicy.Mode),
+					To:      neighborModeFact(bVRF.NeighborPolicy.Mode),
 				})
 			}
 			if aVRF.NeighborPolicy.ReachableTime != bVRF.NeighborPolicy.ReachableTime {
@@ -498,8 +504,8 @@ func Diff(a, b Config) []trace.Change {
 					Layer:   LayerName,
 					Subject: policySubject,
 					Field:   "reachable_time",
-					From:    ReachableTimeFact(aVRF.NeighborPolicy.ReachableTime),
-					To:      ReachableTimeFact(bVRF.NeighborPolicy.ReachableTime),
+					From:    reachableTimeFact(aVRF.NeighborPolicy.ReachableTime),
+					To:      reachableTimeFact(bVRF.NeighborPolicy.ReachableTime),
 				})
 			}
 			if aVRF.NeighborPolicy.ResolutionTimeout != bVRF.NeighborPolicy.ResolutionTimeout {
@@ -507,8 +513,8 @@ func Diff(a, b Config) []trace.Change {
 					Layer:   LayerName,
 					Subject: policySubject,
 					Field:   "resolution_timeout",
-					From:    ResolutionTimeoutFact(aVRF.NeighborPolicy.ResolutionTimeout),
-					To:      ResolutionTimeoutFact(bVRF.NeighborPolicy.ResolutionTimeout),
+					From:    resolutionTimeoutFact(aVRF.NeighborPolicy.ResolutionTimeout),
+					To:      resolutionTimeoutFact(bVRF.NeighborPolicy.ResolutionTimeout),
 				})
 			}
 			if aVRF.NeighborPolicy.HoldDepth != bVRF.NeighborPolicy.HoldDepth {
@@ -516,20 +522,12 @@ func Diff(a, b Config) []trace.Change {
 					Layer:   LayerName,
 					Subject: policySubject,
 					Field:   "hold_depth",
-					From:    HoldDepthFact(aVRF.NeighborPolicy.HoldDepth),
-					To:      HoldDepthFact(bVRF.NeighborPolicy.HoldDepth),
+					From:    holdDepthFact(aVRF.NeighborPolicy.HoldDepth),
+					To:      holdDepthFact(bVRF.NeighborPolicy.HoldDepth),
 				})
 			}
 		}
 	}
 
 	return changes
-}
-
-func compositeSubjectKey(parts ...string) string {
-	encoded := make([]string, len(parts))
-	for i, part := range parts {
-		encoded[i] = strconv.Quote(part)
-	}
-	return strings.Join(encoded, "/")
 }

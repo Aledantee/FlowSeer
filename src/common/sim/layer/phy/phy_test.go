@@ -448,7 +448,7 @@ func TestDiff(t *testing.T) {
 		if c0.Layer != phy.LayerNamePoE || c0.Subject.Kind != "pse_group" || c0.Subject.Key != "1" {
 			t.Errorf("diffs[0] = %+v, want poe pse_group:1", c0)
 		}
-		if c0.Field != "power_nanowatts" || c0.From != phy.PowerFact(60_000_000_000) || c0.To != phy.PowerFact(90_000_000_000) {
+		if c0.Field != "power_nanowatts" || c0.From.Canonical() != "60000000000" || c0.To.Canonical() != "90000000000" {
 			t.Errorf("diffs[0] = %+v, want power_nanowatts 60000000000 -> 90000000000", c0)
 		}
 
@@ -456,7 +456,7 @@ func TestDiff(t *testing.T) {
 		if c1.Layer != phy.LayerNamePoE || c1.Subject.Kind != "port" || c1.Subject.Key != "1/1/1" {
 			t.Errorf("diffs[1] = %+v, want poe port:1/1/1", c1)
 		}
-		if c1.Field != "enabled" || c1.From != phy.BoolFact(true) || c1.To != phy.BoolFact(false) {
+		if c1.Field != "enabled" || c1.From.Canonical() != "true" || c1.To.Canonical() != "false" {
 			t.Errorf("diffs[1] = %+v, want enabled true -> false", c1)
 		}
 	})
@@ -507,13 +507,13 @@ func TestDiff(t *testing.T) {
 		if got, want := len(diffs), 3; got != want {
 			t.Fatalf("len(diffs) = %d, want %d", got, want)
 		}
-		if diffs[0].Field != "speed_bps" || diffs[0].From != phy.SpeedFact(100_000_000) || diffs[0].To != phy.SpeedFact(0) {
+		if diffs[0].Field != "speed_bps" || diffs[0].From.Canonical() != "100000000" || diffs[0].To.Canonical() != "0" {
 			t.Errorf("diffs[0] = %+v, want speed_bps 100000000 -> 0", diffs[0])
 		}
-		if diffs[1].Field != "auto_negotiation_enabled" || diffs[1].From != phy.BoolFact(false) || diffs[1].To != phy.BoolFact(true) {
+		if diffs[1].Field != "auto_negotiation_enabled" || diffs[1].From.Canonical() != "false" || diffs[1].To.Canonical() != "true" {
 			t.Errorf("diffs[1] = %+v, want auto_negotiation_enabled false -> true", diffs[1])
 		}
-		if diffs[2].Field != "resolve_source" || diffs[2].From != phy.StringFact(phy.SourceSetting) || diffs[2].To != phy.StringFact(phy.SourceUnresolved) {
+		if diffs[2].Field != "resolve_source" || diffs[2].From.Canonical() != string(phy.SourceSetting) || diffs[2].To.Canonical() != string(phy.SourceUnresolved) {
 			t.Errorf("diffs[2] = %+v, want resolve_source setting -> unresolved", diffs[2])
 		}
 	})
@@ -526,7 +526,7 @@ func TestDiff(t *testing.T) {
 		if len(diffs) != 1 {
 			t.Fatalf("len(Diff()) = %d, want 1: %+v", len(diffs), diffs)
 		}
-		if got := diffs[0]; got.Field != "resolve_source" || got.From != phy.StringFact(phy.SourceUnresolved) || got.To != phy.StringFact(phy.SourceObserved) {
+		if got := diffs[0]; got.Field != "resolve_source" || got.From.Canonical() != string(phy.SourceUnresolved) || got.To.Canonical() != string(phy.SourceObserved) {
 			t.Errorf("Diff()[0] = %+v, want resolve_source unresolved -> observed", got)
 		}
 	})

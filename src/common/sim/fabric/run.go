@@ -8,6 +8,7 @@ import (
 	"math/bits"
 	"net/netip"
 	"slices"
+	"strconv"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -983,7 +984,7 @@ func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string,
 						Layer:   traffic.LayerName,
 						Op:      trace.OpDrop,
 						RuleID:  traffic.RuleQueueDrop,
-						Subject: trace.Subject{Kind: "port", Key: fmt.Sprintf("%s/%d", egressPort, pcp)},
+						Subject: trace.Subject{Kind: "port", Key: trace.CompositeKey(egressPort, strconv.Itoa(int(pcp)))},
 						Inputs:  []trace.Fact{traffic.QueueDropFact(q.depth[pcp], buffer, int(octets))},
 					},
 				})
