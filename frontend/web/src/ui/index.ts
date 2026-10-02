@@ -121,6 +121,7 @@ export type { UiCommandInputProps } from './command/UiCommandInput.vue'
 export { default as UiCommandList } from './command/UiCommandList.vue'
 export type { UiCommandListProps } from './command/UiCommandList.vue'
 export { default as UiCommandEmpty } from './command/UiCommandEmpty.vue'
+export type { UiCommandEmptyProps } from './command/UiCommandEmpty.vue'
 export { default as UiCommandGroup } from './command/UiCommandGroup.vue'
 export type { UiCommandGroupProps } from './command/UiCommandGroup.vue'
 export { default as UiCommandItem } from './command/UiCommandItem.vue'
@@ -135,7 +136,9 @@ export { default as UiScrollArea } from './scroll-area/UiScrollArea.vue'
 export type { UiScrollAreaProps } from './scroll-area/UiScrollArea.vue'
 
 export { default as UiAiSummary } from './ai/UiAiSummary.vue'
+export type { UiAiSummaryProps } from './ai/UiAiSummary.vue'
 export { default as UiAiActionLayer } from './ai/UiAiActionLayer.vue'
+export type { UiAiActionLayerProps } from './ai/UiAiActionLayer.vue'
 
 export { default as UiBreadcrumb } from './breadcrumb/UiBreadcrumb.vue'
 export type {
