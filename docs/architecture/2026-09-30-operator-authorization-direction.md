@@ -452,10 +452,13 @@ The rule-mode table gains a platform row for global admin RPCs on
 tenant header, and sets no tenant in the context.
 
 The interceptor reads the rule before any membership check. A platform rule
-makes one check and no member check. This qualifies three places in this
-record: the sequence diagram under [The approach](#the-approach) (which
-depicted the member check before reading the rule), the tenant admission
+makes one check and no member check. This qualifies places in this
+record: the sequence diagram under [A request, end to end](#a-request-end-to-end)
+(which depicted the member check before reading the rule), the tenant admission
 description under [Any OIDC provider, and a tenant the request names](#any-oidc-provider-and-a-tenant-the-request-names)
-(stating the interceptor admits only a member of the named tenant), and the
-checks consequence under [Consequences](#consequences) (stating every
-operator request makes two checks).
+(stating the interceptor admits only a member of the named tenant), the
+membership and tenant checks under [Membership: owned by FlowSeer, confirmed by the token](#membership-owned-by-flowseer-confirmed-by-the-token)
+(stating the membership check runs once per request and every object check asks
+whether the object's tenant relation names the admitted tenant), and the checks
+consequence under [Consequences](#consequences) (stating every operator request
+makes two checks).
