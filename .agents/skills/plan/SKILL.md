@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Scopes and plans bounded FlowSeer work into a decision record under docs/plans/ before implementation. Use when asked to plan, brainstorm, scope, or break down a change, or when a request is too large or too open to implement directly. Not for diagnosing bugs, and not for changes that need no design choice.
+description: Scopes and plans bounded FlowSeer work into a decision record under docs/plans/ before implementation. Use when asked to plan, brainstorm, scope, or break down a change, or when a request is too large or too open to implement directly. Not for diagnosing bugs (`diagnose`), and not for changes that need no design choice.
 argument-hint: "[request or path of an existing plan]"
 ---
 
@@ -26,7 +26,9 @@ plan, so code and record change together.
 
 Ask only questions whose answer changes the design, at most three, in one
 call of the question tool (`AGENTS.md`, Agent behavior), each with a
-recommended answer. When the user cannot answer, take the recommendation,
+recommended answer. A question whose options depend on an answer still
+open waits for a second call. A fact the tree, a vendored spec, or a
+command can supply is looked up, never asked. When the user cannot answer, take the recommendation,
 mark the decision "unconfirmed", and repeat it under Open questions. A
 decision the user answered ends with `(decided by the user, <YYYY-MM-DD>)`,
 which no worker may edit (`delegate`, Write the brief, item 6). Every

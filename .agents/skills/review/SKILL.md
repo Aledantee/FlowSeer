@@ -49,7 +49,9 @@ and agents write in this repository are trusted, and input from a network
 peer, a device, or a runtime user is not. A way to defeat the change that
 needs a hostile author of trusted input is a note, not a finding: a
 checker for honest mistakes (`docs/conventions/guarantees.md`) is not
-reworked for crafted files. Ask for findings that affect correctness, the stated requirements, or a
+reworked for crafted files. When the change handles input from one of
+those untrusted authors, load `references/security.md` and put its
+finding table in the brief. Ask for findings that affect correctness, the stated requirements, or a
 repository rule, ordered by severity, each with path and line, the failure
 scenario, and the smallest safe fix, or, when the fix rests on a claim about
 code the reviewer did not open, a direction and the claim left unchecked.

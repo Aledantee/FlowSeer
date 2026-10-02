@@ -1,6 +1,6 @@
 ---
 name: Documentation & Prose Style
-last_updated: 2026-09-28
+last_updated: 2026-10-02
 ---
 
 # FlowSeer Documentation and Prose Style
@@ -104,7 +104,9 @@ product prose, so it warns about them and the writer decides.
    machine, a message sequence, or an ownership graph goes in a diagram. Use
    Mermaid in a fenced `mermaid` block so it renders on the forge and diffs as
    text. Keep the prose around it to what the diagram cannot show (why, and
-   what goes wrong).
+   what goes wrong). Past about nine nodes or twelve arrows a reader traces
+   lines instead of reading, so split the diagram into an overview and a
+   detail. When a three-column table says the same thing, use the table.
 7. **Don't mix modes.** A package README explains shape and rationale, field
    contracts live in the schema comments, task walkthroughs live elsewhere.
    When a doc starts doing two jobs, split it.
@@ -139,9 +141,10 @@ govern when a comment exists and what a contract states. On top of those:
 
 Readers pattern-match on machine tells and discount the text when they pile
 up. `check-prose.py` flags em dashes, semicolons, signposting, wrap-ups,
-negative parallelism, trailing participles, and the puffery words. The rest
-(overexplaining, three-item lists, hedging, formatting, attribution, rhythm)
-need a reread.
+negative parallelism, trailing participles, the puffery words, and the
+stock phrases of a staged saying, a closer, or an answer to nobody. The rest
+(overexplaining, three-item lists, hedging, formatting, attribution, rhythm,
+text about the document) need a reread.
 
 - **No em dashes.** Use a period, a comma, a colon, or parentheses. The em
   dash is the most-cited single tell, and every use of it has a plainer
@@ -158,8 +161,19 @@ need a reread.
   when the content stops.
 - **Rule-of-three lists** and symmetric bullet sets where every item has the
   same length and shape. Real lists are ragged. Two items, or five, are fine.
-- **Negative parallelism**: `not X, but Y`, `not only X but also Y`. Say the
-  positive form.
+- **Negative parallelism**: `not X, but Y`, `not only X but also Y`,
+  `it's not X, it's Y`, and the same contrast split across two sentences.
+  Say the positive form. Keep a contrast only when the reader holds the
+  belief the negative half corrects.
+- **Staged sayings and closers**: `at its core`, `the real question is`, a
+  one-line paragraph that repeats the one before it. A short sentence earns
+  its place by carrying a new fact.
+- **Answering nobody**: `a tempting approach would be`, `this is not to
+  say`, a rejected option that appears nowhere else. State the choice and
+  its reason. Keep an alternative a reader would weigh.
+- **Text about the document**: how it was assembled, what it replaced, a
+  layout the reader can see (`the table below compares`). Write about the
+  subject. A change log is the place for what changed.
 - **Trailing participles**: `…, ensuring consistency`,
   `…, highlighting its importance`. End the sentence.
 - **Puffery and inflated significance**: `delve`, `robust`, `seamless`,
@@ -220,6 +234,13 @@ Comments and machine-writing tells:
 - Wikipedia, "Signs of AI writing" (the catalogue behind most of the list
   above, including its caveat that each sign is a symptom and humans use them
   too): https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing
+- blader/humanizer, a rewrite procedure over the same catalogue, ordered by
+  how strongly each sign marks a text (the staged sayings, closers, and
+  unprompted rebuttals above): https://github.com/blader/humanizer
+- cathrynlavery/diagram-design, whose complexity budget is the source of
+  the node and arrow bound on a diagram. The numbers are that author's
+  working limit, not a measurement:
+  https://github.com/cathrynlavery/diagram-design
 - Weights & Biases, what LLMs do and don't write well (padding and
   overexplaining in how-to prose):
   https://wandb.ai/wandb_fc/LLM%20Best%20Practices/reports/Editing-GPT-4-What-LLMs-Do-and-Don-t-Write-Well-and-How-To-Use-Them-for-Professional-Writing--Vmlldzo0MjYzMTgz

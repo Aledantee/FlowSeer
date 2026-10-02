@@ -471,6 +471,10 @@ spec/          # protobuf, MIB, and YANG sources of truth
   produced five more, none of them a negative-only assertion, so the check
   is the reversal itself: a new test is evidence once its failure against
   the defect has been quoted.
+- An expected value comes from somewhere other than the code under test: a
+  literal worked by hand, an example from the spec, a capture. A `want`
+  computed with the helper or the formula the code uses agrees with it by
+  construction and cannot fail when both are wrong.
 - A self-authored fake peer produces only the sequence the client was coded
   to expect. Seed it with leftover state ahead of the call under test: a
   banner, a retained buffer, an out-of-order message.

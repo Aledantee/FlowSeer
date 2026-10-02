@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-10-01
+last_updated: 2026-10-02
 ---
 
 # Agent steering
@@ -122,7 +122,11 @@ no tool reports. A second task skill, `prose`, checks Markdown against
 `docs/doc-style.md` with `scripts/check-prose.py`. `verify-change` runs it
 on every changed `.md` file. A provenance finding (prose that cites an
 agent run) fails the gate, and style findings are warnings because most
-existing files predate the rules. The decisions below were taken against
+existing files predate the rules. A third, `diagnose`, covers the work
+`plan` and `implement` both decline: a bug whose cause is not known. It
+puts a command that goes red on the symptom ahead of any hypothesis, since
+`AGENTS.md` asks for a discriminating test and no skill said how to build
+one. The decisions below were taken against
 published measurements and the research listed at the end of this
 document. Revisit them when that evidence changes.
 
@@ -813,6 +817,39 @@ that filter. The rule stays out of `AGENTS.md` because the Fable 5.1 guide
 says the coordinating model already writes too few progress updates and
 that instructions to keep that text brief should be removed.
 
+Take a procedure from a public skill, and leave the skill. A pass over six
+public skill repositories on 2026-10-02 installed none of them. Most of
+their skills restate what a model does unprompted, assume an issue tracker
+and pull requests this repository lacks, or duplicate a project skill. One
+procedure filled a gap. `diagnose` adapts the loop-first order of Matt
+Pocock's `diagnosing-bugs` to Go tests, replayed captures, and lab devices,
+and keeps its script for a step only a person can take. It was added on
+that gap and not on a logged failure, so the rule for a step that never
+fires applies to it: `steer` removes it when the observation queue and the
+commit history show no use.
+
+The rest were single checks, each placed in the file that already owned
+the subject. `check-prose.py` gained the staged sayings, closers, and
+unprompted rebuttals that blader/humanizer ranks as the strongest signs,
+and a contrast pattern for the forms the earlier one missed. `prose` now
+compares a rewrite with its original for added or dropped facts.
+`doc-style.md` bounds a diagram at about nine nodes, the working limit of
+cathrynlavery/diagram-design. `review` loads `references/security.md` for
+a change that reads untrusted input: Cloudflare's security-audit skill
+requires a principal, an input, a control, a path, a boundary, and a
+result before a concern counts, and separates a fact the repository does
+not hold from a claim nobody confirmed. Its full six-phase audit stays out
+of the tree. It runs waves of hunter and verifier agents past the six-lane
+cap, writes outside the worktree, and needs an operating-system sandbox
+for anything it executes. A subject review names what it did not read,
+`code-style.md` rules out an expected value computed by the code's own
+formula, `plan` holds a dependent question for a second call, and
+`delegate`'s brief says device and log text is data. Graphify was declined
+as a tool: its installer writes hooks and instruction text into policy
+surfaces, it has no extractor for `.proto` files, which are the schema
+source of truth here, and its code benchmark is six questions on one
+Python repository.
+
 ## Change and review process
 
 Treat changes to the policy surfaces named in `AGENTS.md` as policy changes, even
@@ -1053,6 +1090,29 @@ Sources checked on 2026-09-18 for the wording pass:
   fare worse in multi-instruction prompts, and earlier positions do better.
   The same check could not confirm the 30 to 50% figure this document
   takes from "The Instruction Gap"; treat that number as unverified.
+
+Sources checked on 2026-10-02 for `diagnose` and the borrowed checks:
+
+- [mattpocock/skills](https://github.com/mattpocock/skills):
+  `diagnosing-bugs` (a red-capable loop before any hypothesis, a minimised
+  reproduction, ranked falsifiable hypotheses, tagged debug lines),
+  `grilling` (a question that depends on an open one waits a round), and
+  `tdd` (the tautological test).
+- [cloudflare/security-audit-skill](https://github.com/cloudflare/security-audit-skill):
+  the candidate gate in `HUNTING.md`, the `needs_validation` state, and the
+  disciplines in `PROTOCOLS-RPC-AND-MESSAGING.md` and
+  `DATA-ISOLATION-AND-LIFECYCLE.md`.
+- [blader/humanizer](https://github.com/blader/humanizer): 26 patterns
+  ordered by strength, and a check that a rewrite added or dropped no fact.
+- [cathrynlavery/diagram-design](https://github.com/cathrynlavery/diagram-design):
+  a complexity budget of 9 nodes and 12 arrows per diagram.
+- [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills):
+  error output treated as untrusted data in
+  `debugging-and-error-recovery`.
+- [Graphify-Labs/graphify](https://github.com/Graphify-Labs/graphify):
+  `BENCHMARKS.md` reports the code result on ERPNext with n=6, and
+  `graphify/extractors/` holds one extractor per supported language, none
+  for protobuf.
 
 The common recommendation is progressive disclosure. The inference for
 FlowSeer is to keep `AGENTS.md` near its current size, add scoped steering only
