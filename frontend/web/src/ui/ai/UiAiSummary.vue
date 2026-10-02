@@ -1,21 +1,44 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { AiStaleError, AiUnavailableError } from '../../ai'
 import type { AiTarget } from '../../ai'
 import UiButton from '../button/UiButton.vue'
 import { useAiRegistry } from './context'
 
+export interface UiAiSummaryLabels {
+  summaryLabel?: string
+  generate?: string
+  generating?: string
+  unavailable?: string
+  retry?: string
+  error?: string
+}
+
+export interface UiAiSummaryProps {
+  target: AiTarget
+  labels?: UiAiSummaryLabels
+}
+
 // An on-demand summary. It makes no request until the operator activates
 // Generate summary, so a page with several placements stays quiet until one
 // is wanted. A retry is a fresh request, with its own request id.
-const props = defineProps<{ target: AiTarget }>()
+const props = defineProps<UiAiSummaryProps>()
+const { t } = useI18n({ useScope: 'global' })
 const registry = useAiRegistry()
+
+const summaryLabelText = computed(
+  () =>
+    props.labels?.summaryLabel ??
+    t('ui.aiSummary.summaryLabel', { label: props.target.label }),
+)
 
 type SummaryState =
   | { kind: 'idle' }
   | { kind: 'loading' }
   | { kind: 'result'; answer: string }
   | { kind: 'error'; message: string }
+  | { kind: 'generic-error' }
   | { kind: 'unavailable' }
 const state = ref<SummaryState>({ kind: 'idle' })
 
@@ -62,10 +85,14 @@ async function generate() {
       state.value = { kind: 'unavailable' }
       return
     }
-    state.value = {
-      kind: 'error',
-      message: error instanceof Error ? error.message : 'Something went wrong.',
+    if (error instanceof Error) {
+      state.value = {
+        kind: 'error',
+        message: error.message,
+      }
+      return
     }
+    state.value = { kind: 'generic-error' }
   }
 }
 function start() {
@@ -104,7 +131,7 @@ onUnmounted(stopReveal)
 <template>
   <section
     class="flex flex-col items-start gap-2"
-    :aria-label="`AI summary for ${target.label}`"
+    :aria-label="summaryLabelText"
   >
     <UiButton
       v-if="state.kind === 'idle'"
@@ -112,7 +139,7 @@ onUnmounted(stopReveal)
       variant="secondary"
       @click="start"
     >
-      Generate summary
+      {{ props.labels?.generate ?? t('ui.aiSummary.generate') }}
     </UiButton>
 
     <template v-else-if="state.kind === 'loading'">
@@ -133,8 +160,9 @@ onUnmounted(stopReveal)
       <span
         role="status"
         class="sr-only text-2xs text-muted-foreground motion-reduce:not-sr-only"
-        >Generating summary…</span
       >
+        {{ props.labels?.generating ?? t('ui.aiSummary.generating') }}
+      </span>
     </template>
 
     <template v-else-if="state.kind === 'result'">
@@ -151,16 +179,24 @@ onUnmounted(stopReveal)
 
     <template v-else-if="state.kind === 'unavailable'">
       <p role="status" class="text-xs text-muted-foreground">
-        AI is unavailable
+        {{ props.labels?.unavailable ?? t('ui.aiSummary.unavailable') }}
       </p>
-      <UiButton size="sm" variant="ghost" @click="start">Retry</UiButton>
+      <UiButton size="sm" variant="ghost" @click="start">
+        {{ props.labels?.retry ?? t('ui.aiSummary.retry') }}
+      </UiButton>
     </template>
 
     <template v-else>
       <p role="alert" class="text-xs text-danger-foreground">
-        {{ state.message }}
+        {{
+          state.kind === 'error'
+            ? state.message
+            : (props.labels?.error ?? t('ui.aiSummary.error'))
+        }}
       </p>
-      <UiButton size="sm" variant="secondary" @click="start">Retry</UiButton>
+      <UiButton size="sm" variant="secondary" @click="start">
+        {{ props.labels?.retry ?? t('ui.aiSummary.retry') }}
+      </UiButton>
     </template>
   </section>
 </template>

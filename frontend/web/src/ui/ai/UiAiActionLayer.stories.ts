@@ -50,3 +50,93 @@ export const Selected: Story = {
     `,
   }),
 }
+
+const longTextTargetId = 'standalone:story:ai-action-layer:long-text:row'
+
+export const LongText: Story = {
+  render: () => ({
+    setup() {
+      onMounted(() => {
+        aiRegistry.highlight(longTextTargetId)
+      })
+      onUnmounted(() => {
+        aiRegistry.clearHighlight()
+      })
+      const target = {
+        id: longTextTargetId,
+        kind: 'row',
+        label:
+          'Primary Core Aggregation Node EMEA-BER-DC1-SW-AGG-01A with redundant fabric interconnects',
+        context: {
+          site: 'Frankfurt Datacenter Campus North Building 3 Hall B Rack 42',
+        },
+      }
+      return { target }
+    },
+    template: `
+      <div class="p-6 space-y-3 text-foreground">
+        <p class="text-xs text-muted-foreground">
+          The outline and Ask follow the selected target with an extensive label.
+        </p>
+        <div
+          v-ai-target="target"
+          tabindex="0"
+          class="p-3 border border-border rounded-panel bg-card text-xs"
+        >
+          Primary Core Aggregation Node EMEA-BER-DC1-SW-AGG-01A with redundant fabric interconnects
+        </div>
+      </div>
+    `,
+  }),
+}
+
+const overridesTargetId = 'standalone:story:ai-action-layer:overrides:row'
+
+export const Overrides: Story = {
+  render: () => ({
+    components: { UiAiActionLayer },
+    setup() {
+      onMounted(() => {
+        aiRegistry.highlight(overridesTargetId)
+      })
+      onUnmounted(() => {
+        aiRegistry.clearHighlight()
+      })
+      const target = {
+        id: overridesTargetId,
+        kind: 'row',
+        label: 'Overridden target row',
+        context: { site: 'Berlin Mitte' },
+      }
+      const labels = {
+        askAbout: 'Inquire regarding {label}',
+        heading: 'Diagnostic inquiry for target',
+        ai: 'Copilot',
+        questionLabel: 'Specify query',
+        questionPlaceholder:
+          'Explain telemetry anomalies observed on this interface...',
+        cancel: 'Dismiss',
+        ask: 'Inquire',
+        asking: 'Querying telemetry engine…',
+        unavailable: 'Diagnostic assistant offline',
+        error: 'Telemetry analysis request rejected',
+      }
+      return { target, labels }
+    },
+    template: `
+      <div class="p-6 space-y-3 text-foreground">
+        <p class="text-xs text-muted-foreground">
+          Action layer rendering with caller-supplied label overrides.
+        </p>
+        <div
+          v-ai-target="target"
+          tabindex="0"
+          class="p-3 border border-border rounded-panel bg-card text-xs"
+        >
+          Overridden target row
+        </div>
+        <UiAiActionLayer :labels="labels" />
+      </div>
+    `,
+  }),
+}
