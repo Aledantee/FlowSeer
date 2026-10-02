@@ -25,7 +25,8 @@ python3 .claude/skills/drive/scripts/plan-state.py <plan>
 - A parent plan: it prints, per phase, the next stage (`plan`, `implement`,
   `review`, `compound`, `land`), or done (landed here, fast-forward
   pending), on `main`, or waiting for other phases; its last line names the
-  phases owed a land, or else the phases that can run now. Run step 2 once
+  phases owed a land and, after `after`, the phases holding it, or else the
+  phases that can run now. Run step 2 once
   per phase, in step 3's order.
 - "not a parent plan": drive it by step 2, its stages read off its own
   frontmatter.
@@ -150,7 +151,7 @@ twice. A round takes the phases its last line names that are not parked, in
 its order, and runs step 2 on each from the stage the command printed.
 
 Load `references/concurrent-phases.md` when that last line names more than
-one phase: it says which run at once, how they split the cap, and how to
+one phase that can run (not a `next: land` line): it says which run at once, how they split the cap, and how to
 set the parent's `status` when the last phases land together.
 
 A landed phase fills its `Landed:` line, which records implementation only:
@@ -162,12 +163,15 @@ When the state command's last line reads `next: land <phases>`, land them
 before any new stage, as `land` describes for multi-phase plans. `land`
 stops while a lane is live and gates every plan this branch carries past
 `main`. From then on start no phase whose implement has not merged here.
-A phase whose implement has merged runs its review and compound stages to
-done or parks; once no lane is live, run `land` once in this session on
-the phases owed. A phase that parks after its implement merged holds that
+The phases the line names after `after` have merged their implement: a
+round takes those and runs their review and compound stages to done or
+parks. Once the line reads `next: land <phases>` with no `after` and no
+lane is live, run `land` once in this session on the phases owed. A phase that parks after its implement merged holds that
 land until its question is answered, so the drive goes to step 5. A
 fast-forward the harness refuses goes into step 5's
 report and the drive continues. Any other stop in `land` stops the drive.
+A pending fast-forward can outlive this session, so step 5 reads it off
+the branch rather than from memory.
 
 A Claude coordinator hands off to a successor between phases when four
 conditions hold:
@@ -220,8 +224,19 @@ Report, outcome first: plans landed with their commit ranges, review
 verdicts, and per-unit ledger result; plans parked with the question each
 waits on; phases still waiting and on what; which phases ran at once and the
 cap each round read; the pools used and left idle; the commands run with
-results; the fast-forwards `land` left for the person, in order; the child
-worktrees that remain, with the reason.
+results; the fast-forward `land` left for the person; the child worktrees
+and `parked/` branches that remain, with the reason.
+
+A phase land ends on its retire commit, so the newest one `main` lacks is
+the commit to fast-forward to. Each later one descends from the earlier, so
+that single command covers every phase landed here, whichever session ran
+the land:
+
+```bash
+git log -1 --format=%H --grep '^docs(plans): retire' main..HEAD
+```
+
+Print the result in `land`'s fast-forward command (`land`, step 5).
 
 Then ask the user (`AGENTS.md`, Agent behavior), in one call:
 

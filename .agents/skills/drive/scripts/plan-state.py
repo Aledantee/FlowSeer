@@ -156,10 +156,12 @@ def report(parent):
     settled = ("land", "done", "on main", "waits", "landed")
     ready = [u["id"] for u, s in zip(units, stages) if not s.startswith(settled)]
     # A phase owed a land goes before any new stage, since land gates every
-    # plan this branch carries past main.
+    # plan this branch carries past main. A phase whose implement merged here
+    # holds that land until its review and compound are done.
     owed = [u["id"] for u, s in zip(units, stages) if s == "land"]
+    holding = [u["id"] for u, s in zip(units, stages) if s.startswith(("review", "compound"))]
     if owed:
-        print("next: land " + ", ".join(owed))
+        print("next: land " + ", ".join(owed) + (" after " + ", ".join(holding) if holding else ""))
     else:
         print("next: " + (", ".join(ready) if ready else "nothing"))
     return 0

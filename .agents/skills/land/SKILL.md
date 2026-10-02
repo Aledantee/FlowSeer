@@ -12,8 +12,8 @@ runs it after reading the report. Merged child worktrees are removed in step 2.
 
 A multi-phase plan lands phase by phase: run this skill once a phase's
 `implement`, `review`, and `compound` checkpoints are on disk, not once
-after the last phase. Each phase is then verified on top of `main` on its
-own, with a fast-forward to a commit that holds only finished phases. The
+after the last phase. Each phase is then verified on top of `main`, with a
+fast-forward to a commit that holds only finished phases. The
 parent retires with its last phase (step 4).
 
 Merge inside this worktree, from `main` into the branch. The harness refuses a
@@ -204,15 +204,20 @@ Run it once; a worktree-isolated session is refused, and the report then
 carries the command verbatim for the person:
 
 ```bash
-git -C <primary> merge --ff-only <sha>   # <primary>: the parent of $(git rev-parse --git-common-dir); <sha>: git rev-parse HEAD, read after the three checks
+test "$(git -C <primary> symbolic-ref --short HEAD)" = main && git -C <primary> merge --ff-only <sha>
+# <primary>: the parent of $(git rev-parse --git-common-dir)
+# <sha>: git rev-parse HEAD, read after the three checks
 ```
 
 Name the verified commit, not the branch: a branch that keeps moving, as a
 `drive` of further phases does, would carry unverified commits into `main`
-when the person runs the command later. `--ff-only` lands exactly that
-commit, and refuses when `main` moved again in the meantime, in which case
-the skill runs again from step 3. Do not delete the branch; Orca deletes it
-with the worktree. Once `main` holds the commit, the plan status ledger and the checkpoints
+when the person runs the command later. The branch test comes first because
+that run can come long after step 2 read the primary checkout's `HEAD`.
+`--ff-only` lands exactly that commit, and refuses when `main` no longer
+leads to it. On that refusal the skill runs again from step 3 when
+`git rev-list <sha>..HEAD` prints nothing, and from step 1 otherwise, since
+the branch then carries work step 1 has not gated. Do not delete the
+branch; Orca deletes it with the worktree. Once `main` holds the commit, the plan status ledger and the checkpoints
 file are removed; when the person runs the fast-forward, this goes into
 the report beside it (not `rm -f`, which Codex's command policy rejects):
 
@@ -225,9 +230,9 @@ find "$(git rev-parse --git-dir)" -maxdepth 1 \( -name flowseer-plan-status.json
 In Orca, mark the card as `references/orca-card.md` describes: `completed`
 with the merge sha, or `ready for main: <sha>` and `in-review` when the
 fast-forward is left for the person. A phase land whose parent still has
-phases to run (the parent was not retired in step 4) only appends
-`ready for main: <sha>` and keeps the card's status, since the worktree is
-still working.
+phases to run (the parent was not retired in step 4) appends
+`merged into main as <sha>` or `ready for main: <sha>` and keeps the card's
+status, since the worktree is still working.
 
 ## 7. Report
 
