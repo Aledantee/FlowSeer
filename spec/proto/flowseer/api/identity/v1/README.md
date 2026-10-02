@@ -10,7 +10,7 @@ back a tenant.
 
 ## Boundaries
 
-Imports: model/identity
+Imports: authz, model/identity
 
 Imported by: nothing
 

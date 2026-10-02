@@ -8,19 +8,60 @@ import "flowseer/model/edge/v1/edge.proto";
 import "flowseer/model/edge/v1/provisioning.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/authz/v1/rule.proto";
 
 service EdgeAdminService {
   // Creates a pending edge and issues its first setup key.
-  rpc CreateEdge(CreateEdgeRequest) returns (CreateEdgeResponse);
+  rpc CreateEdge(CreateEdgeRequest) returns (CreateEdgeResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_TENANT
+      object_type: "tenant"
+      relation: "admin"
+    };
+  }
   // Issues a fresh setup key to a pending or retired edge, replacing any
   // unused one. A retired edge returns to pending.
-  rpc IssueSetupKey(IssueSetupKeyRequest) returns (IssueSetupKeyResponse);
+  rpc IssueSetupKey(IssueSetupKeyRequest) returns (IssueSetupKeyResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "edge"
+      relation: "administer"
+      object_id_path: "edge.edge.id"
+    };
+  }
   // Revokes an unused setup key.
-  rpc RevokeSetupKey(RevokeSetupKeyRequest) returns (RevokeSetupKeyResponse);
+  rpc RevokeSetupKey(RevokeSetupKeyRequest) returns (RevokeSetupKeyResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "edge"
+      relation: "administer"
+      object_id_path: "edge.edge.id"
+    };
+  }
   // Retires an edge. Its key is refused from the next call on.
-  rpc RetireEdge(RetireEdgeRequest) returns (RetireEdgeResponse);
-  rpc GetEdge(GetEdgeRequest) returns (GetEdgeResponse);
-  rpc ListEdges(ListEdgesRequest) returns (ListEdgesResponse);
+  rpc RetireEdge(RetireEdgeRequest) returns (RetireEdgeResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "edge"
+      relation: "administer"
+      object_id_path: "edge.edge.id"
+    };
+  }
+  rpc GetEdge(GetEdgeRequest) returns (GetEdgeResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "edge"
+      relation: "view"
+      object_id_path: "edge.edge.id"
+    };
+  }
+  rpc ListEdges(ListEdgesRequest) returns (ListEdgesResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_FILTERED
+      object_type: "edge"
+      relation: "view"
+    };
+  }
 }
 
 message CreateEdgeRequest {

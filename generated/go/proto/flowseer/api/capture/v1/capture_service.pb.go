@@ -1606,15 +1606,16 @@ const file_flowseer_api_capture_v1_capture_service_proto_rawDesc = "" +
 	"\x1dDownloadCaptureSessionRequest\x12T\n" +
 	"\asession\x18\x01 \x01(\v22.flowseer.model.capture.v1.CaptureSessionGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\asession\"o\n" +
 	"\x1eDownloadCaptureSessionResponse\x12M\n" +
-	"\x05chunk\x18\x01 \x01(\v2/.flowseer.model.capture.v1.CaptureArtifactChunkB\x06\xbaH\x03\xc8\x01\x01R\x05chunk2\xa9\a\n" +
-	"\x0eCaptureService\x12\x83\x01\n" +
-	"\x14CreateCaptureSession\x124.flowseer.api.capture.v1.CreateCaptureSessionRequest\x1a5.flowseer.api.capture.v1.CreateCaptureSessionResponse\x12}\n" +
-	"\x12StopCaptureSession\x122.flowseer.api.capture.v1.StopCaptureSessionRequest\x1a3.flowseer.api.capture.v1.StopCaptureSessionResponse\x12z\n" +
-	"\x11GetCaptureSession\x121.flowseer.api.capture.v1.GetCaptureSessionRequest\x1a2.flowseer.api.capture.v1.GetCaptureSessionResponse\x12\x80\x01\n" +
-	"\x13ListCaptureSessions\x123.flowseer.api.capture.v1.ListCaptureSessionsRequest\x1a4.flowseer.api.capture.v1.ListCaptureSessionsResponse\x12\x83\x01\n" +
-	"\x14DeleteCaptureSession\x124.flowseer.api.capture.v1.DeleteCaptureSessionRequest\x1a5.flowseer.api.capture.v1.DeleteCaptureSessionResponse\x12\x7f\n" +
-	"\x12TailCaptureSession\x122.flowseer.api.capture.v1.TailCaptureSessionRequest\x1a3.flowseer.api.capture.v1.TailCaptureSessionResponse0\x01\x12\x8b\x01\n" +
-	"\x16DownloadCaptureSession\x126.flowseer.api.capture.v1.DownloadCaptureSessionRequest\x1a7.flowseer.api.capture.v1.DownloadCaptureSessionResponse0\x01B\xfd\x01\n" +
+	"\x05chunk\x18\x01 \x01(\v2/.flowseer.model.capture.v1.CaptureArtifactChunkB\x06\xbaH\x03\xc8\x01\x01R\x05chunk2\x9d\n" +
+	"\n" +
+	"\x0eCaptureService\x12\xa8\x01\n" +
+	"\x14CreateCaptureSession\x124.flowseer.api.capture.v1.CreateCaptureSessionRequest\x1a5.flowseer.api.capture.v1.CreateCaptureSessionResponse\"#\x82\xb5\x18\x1f\b\x01\x12\acapture\x1a\x04edge\"\fedge.edge.id\x12\xba\x01\n" +
+	"\x12StopCaptureSession\x122.flowseer.api.capture.v1.StopCaptureSessionRequest\x1a3.flowseer.api.capture.v1.StopCaptureSessionResponse\";\x82\xb5\x187\b\x01\x12\x06manage\x1a\x0fcapture_session\"\x1asession.capture_session.id\x12\xb7\x01\n" +
+	"\x11GetCaptureSession\x121.flowseer.api.capture.v1.GetCaptureSessionRequest\x1a2.flowseer.api.capture.v1.GetCaptureSessionResponse\";\x82\xb5\x187\b\x01\x12\x06manage\x1a\x0fcapture_session\"\x1asession.capture_session.id\x12\x97\x01\n" +
+	"\x13ListCaptureSessions\x123.flowseer.api.capture.v1.ListCaptureSessionsRequest\x1a4.flowseer.api.capture.v1.ListCaptureSessionsResponse\"\x15\x82\xb5\x18\x11\b\x04\x12\acapture\x1a\x04edge\x12\xc0\x01\n" +
+	"\x14DeleteCaptureSession\x124.flowseer.api.capture.v1.DeleteCaptureSessionRequest\x1a5.flowseer.api.capture.v1.DeleteCaptureSessionResponse\";\x82\xb5\x187\b\x01\x12\x06manage\x1a\x0fcapture_session\"\x1asession.capture_session.id\x12\xbe\x01\n" +
+	"\x12TailCaptureSession\x122.flowseer.api.capture.v1.TailCaptureSessionRequest\x1a3.flowseer.api.capture.v1.TailCaptureSessionResponse\"=\x82\xb5\x189\b\x01\x12\bdownload\x1a\x0fcapture_session\"\x1asession.capture_session.id0\x01\x12\xca\x01\n" +
+	"\x16DownloadCaptureSession\x126.flowseer.api.capture.v1.DownloadCaptureSessionRequest\x1a7.flowseer.api.capture.v1.DownloadCaptureSessionResponse\"=\x82\xb5\x189\b\x01\x12\bdownload\x1a\x0fcapture_session\"\x1asession.capture_session.id0\x01B\xfd\x01\n" +
 	"\x1bcom.flowseer.api.capture.v1B\x13CaptureServiceProtoZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1;capturev1\xa2\x02\x03FAC\xaa\x02\x17Flowseer.Api.Capture.V1\xca\x02\x17Flowseer\\Api\\Capture\\V1\xe2\x02#Flowseer\\Api\\Capture\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Api::Capture::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_capture_v1_capture_service_proto_msgTypes = make([]protoimpl.MessageInfo, 15)

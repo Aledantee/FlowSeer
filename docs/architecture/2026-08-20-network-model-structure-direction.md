@@ -119,6 +119,7 @@ model/identity ← {model/access, model/capture}
 model/access ← {edge/dispatch, event/access}
 model/inventory ← event/access
 errs ← {edge/dispatch, store/device}
+authz ← {api/capture, api/device, api/edge, api/identity}
 event/access ← edge/audit
 {model/edge, model/inventory, model/policy, model/access, errs, net/addr} ← store/device
 ```

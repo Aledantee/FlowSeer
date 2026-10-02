@@ -13,7 +13,7 @@ the RPCs exchange.
 
 ## Boundaries
 
-Imports: model/access, model/inventory, net/key
+Imports: authz, model/access, model/inventory, net/key
 
 Imported by: nothing
 

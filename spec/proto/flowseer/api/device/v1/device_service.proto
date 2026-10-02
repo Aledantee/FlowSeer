@@ -9,34 +9,77 @@ import "flowseer/model/access/v1/interface.proto";
 import "flowseer/model/access/v1/operation.proto";
 import "flowseer/model/inventory/v1/device.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/authz/v1/rule.proto";
 import option "flowseer/net/key/v1/key.proto";
 
 service DeviceService {
   // Reads one interface over the lowest-cost route that can answer
   // completely. An SNMP read that turns out incomplete falls through to
   // SSH inside this call; the response's provenance says which answered.
-  rpc ReadInterface(ReadInterfaceRequest) returns (ReadInterfaceResponse);
+  rpc ReadInterface(ReadInterfaceRequest) returns (ReadInterfaceResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "device"
+      relation: "view"
+      object_id_path: "device.device.id"
+    };
+  }
   // Records an interface-description intent and admits it to the device's
   // lane. The call returns at admission; the caller follows the mutation
   // through GetDeviceAccessStatus. With validate_only set, the intent is
   // checked against policy, firmware epoch, and lane state and nothing is
   // recorded.
-  rpc ApplyInterfaceDescription(ApplyInterfaceDescriptionRequest) returns (ApplyInterfaceDescriptionResponse);
+  rpc ApplyInterfaceDescription(ApplyInterfaceDescriptionRequest) returns (ApplyInterfaceDescriptionResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "device"
+      relation: "operate"
+      object_id_path: "intent.device.device.id"
+    };
+  }
   // Returns the device's high-watermark sequence, the unresolved mutation
   // if any, and the last complete observation per interface.
-  rpc GetDeviceAccessStatus(GetDeviceAccessStatusRequest) returns (GetDeviceAccessStatusResponse);
+  rpc GetDeviceAccessStatus(GetDeviceAccessStatusRequest) returns (GetDeviceAccessStatusResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "device"
+      relation: "view"
+      object_id_path: "device.device.id"
+    };
+  }
   // Ends recovery of a mutation whose effect could not be established. The
   // mutation becomes abandoned and the lane stays blocked until the
   // observed recovery state is resolved.
-  rpc AbandonMutation(AbandonMutationRequest) returns (AbandonMutationResponse);
+  rpc AbandonMutation(AbandonMutationRequest) returns (AbandonMutationResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "device"
+      relation: "operate"
+      object_id_path: "device.device.id"
+    };
+  }
   // Resolves a blocked lane after abandonment or drift: accept the
   // observed state as the new expectation, restore the expected state, or
   // replace the interrupted intent with a new one.
-  rpc ResolveDesynchronization(ResolveDesynchronizationRequest) returns (ResolveDesynchronizationResponse);
+  rpc ResolveDesynchronization(ResolveDesynchronizationRequest) returns (ResolveDesynchronizationResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "device"
+      relation: "operate"
+      object_id_path: "device.device.id"
+    };
+  }
   // Names the devices whose lanes one edge is still holding open work on.
   // Retiring an edge orphans that work rather than ending it, and this is
   // what tells an operator which lanes they now have to abandon.
-  rpc ListEdgeOpenMutations(ListEdgeOpenMutationsRequest) returns (ListEdgeOpenMutationsResponse);
+  rpc ListEdgeOpenMutations(ListEdgeOpenMutationsRequest) returns (ListEdgeOpenMutationsResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "edge"
+      relation: "view"
+      object_id_path: "edge_id"
+    };
+  }
 }
 
 message ReadInterfaceRequest {

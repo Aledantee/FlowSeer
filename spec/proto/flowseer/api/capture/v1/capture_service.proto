@@ -10,20 +10,69 @@ import "flowseer/model/capture/v1/capture_session.proto";
 import "flowseer/model/edge/v1/edge.proto";
 import "flowseer/net/capture/v1/capture_filter.proto";
 import option "buf/validate/validate.proto";
+import option "flowseer/authz/v1/rule.proto";
 
 service CaptureService {
   // Creates a capture session on an edge.
-  rpc CreateCaptureSession(CreateCaptureSessionRequest) returns (CreateCaptureSessionResponse);
+  rpc CreateCaptureSession(CreateCaptureSessionRequest) returns (CreateCaptureSessionResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "edge"
+      relation: "capture"
+      object_id_path: "edge.edge.id"
+    };
+  }
   // Stops a running capture session before its budget bound is reached.
-  rpc StopCaptureSession(StopCaptureSessionRequest) returns (StopCaptureSessionResponse);
-  rpc GetCaptureSession(GetCaptureSessionRequest) returns (GetCaptureSessionResponse);
-  rpc ListCaptureSessions(ListCaptureSessionsRequest) returns (ListCaptureSessionsResponse);
+  rpc StopCaptureSession(StopCaptureSessionRequest) returns (StopCaptureSessionResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "capture_session"
+      relation: "manage"
+      object_id_path: "session.capture_session.id"
+    };
+  }
+  rpc GetCaptureSession(GetCaptureSessionRequest) returns (GetCaptureSessionResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "capture_session"
+      relation: "manage"
+      object_id_path: "session.capture_session.id"
+    };
+  }
+  rpc ListCaptureSessions(ListCaptureSessionsRequest) returns (ListCaptureSessionsResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_FILTERED
+      object_type: "edge"
+      relation: "capture"
+    };
+  }
   // Deletes a capture session and its artifact.
-  rpc DeleteCaptureSession(DeleteCaptureSessionRequest) returns (DeleteCaptureSessionResponse);
+  rpc DeleteCaptureSession(DeleteCaptureSessionRequest) returns (DeleteCaptureSessionResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "capture_session"
+      relation: "manage"
+      object_id_path: "session.capture_session.id"
+    };
+  }
   // Streams packets as the session captures them.
-  rpc TailCaptureSession(TailCaptureSessionRequest) returns (stream TailCaptureSessionResponse);
+  rpc TailCaptureSession(TailCaptureSessionRequest) returns (stream TailCaptureSessionResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "capture_session"
+      relation: "download"
+      object_id_path: "session.capture_session.id"
+    };
+  }
   // Streams the session's stored artifact.
-  rpc DownloadCaptureSession(DownloadCaptureSessionRequest) returns (stream DownloadCaptureSessionResponse);
+  rpc DownloadCaptureSession(DownloadCaptureSessionRequest) returns (stream DownloadCaptureSessionResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_REQUEST
+      object_type: "capture_session"
+      relation: "download"
+      object_id_path: "session.capture_session.id"
+    };
+  }
 }
 
 message CreateCaptureSessionRequest {

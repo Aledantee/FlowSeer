@@ -1675,14 +1675,14 @@ const file_flowseer_api_device_v1_device_service_proto_rawDesc = "" +
 	"\x1dListEdgeOpenMutationsResponse\x12C\n" +
 	"\x04open\x18\x01 \x03(\v2$.flowseer.api.device.v1.OpenMutationB\t\xbaH\x06\x92\x01\x03\x10\xe8\aR\x04open\x122\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\bR\rnextPageToken2\xa2\x06\n" +
-	"\rDeviceService\x12l\n" +
-	"\rReadInterface\x12,.flowseer.api.device.v1.ReadInterfaceRequest\x1a-.flowseer.api.device.v1.ReadInterfaceResponse\x12\x90\x01\n" +
-	"\x19ApplyInterfaceDescription\x128.flowseer.api.device.v1.ApplyInterfaceDescriptionRequest\x1a9.flowseer.api.device.v1.ApplyInterfaceDescriptionResponse\x12\x84\x01\n" +
-	"\x15GetDeviceAccessStatus\x124.flowseer.api.device.v1.GetDeviceAccessStatusRequest\x1a5.flowseer.api.device.v1.GetDeviceAccessStatusResponse\x12r\n" +
-	"\x0fAbandonMutation\x12..flowseer.api.device.v1.AbandonMutationRequest\x1a/.flowseer.api.device.v1.AbandonMutationResponse\x12\x8d\x01\n" +
-	"\x18ResolveDesynchronization\x127.flowseer.api.device.v1.ResolveDesynchronizationRequest\x1a8.flowseer.api.device.v1.ResolveDesynchronizationResponse\x12\x84\x01\n" +
-	"\x15ListEdgeOpenMutations\x124.flowseer.api.device.v1.ListEdgeOpenMutationsRequest\x1a5.flowseer.api.device.v1.ListEdgeOpenMutationsResponseB\xf5\x01\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\bR\rnextPageToken2\x99\b\n" +
+	"\rDeviceService\x12\x94\x01\n" +
+	"\rReadInterface\x12,.flowseer.api.device.v1.ReadInterfaceRequest\x1a-.flowseer.api.device.v1.ReadInterfaceResponse\"&\x82\xb5\x18\"\b\x01\x12\x04view\x1a\x06device\"\x10device.device.id\x12\xc2\x01\n" +
+	"\x19ApplyInterfaceDescription\x128.flowseer.api.device.v1.ApplyInterfaceDescriptionRequest\x1a9.flowseer.api.device.v1.ApplyInterfaceDescriptionResponse\"0\x82\xb5\x18,\b\x01\x12\aoperate\x1a\x06device\"\x17intent.device.device.id\x12\xac\x01\n" +
+	"\x15GetDeviceAccessStatus\x124.flowseer.api.device.v1.GetDeviceAccessStatusRequest\x1a5.flowseer.api.device.v1.GetDeviceAccessStatusResponse\"&\x82\xb5\x18\"\b\x01\x12\x04view\x1a\x06device\"\x10device.device.id\x12\x9d\x01\n" +
+	"\x0fAbandonMutation\x12..flowseer.api.device.v1.AbandonMutationRequest\x1a/.flowseer.api.device.v1.AbandonMutationResponse\")\x82\xb5\x18%\b\x01\x12\aoperate\x1a\x06device\"\x10device.device.id\x12\xb8\x01\n" +
+	"\x18ResolveDesynchronization\x127.flowseer.api.device.v1.ResolveDesynchronizationRequest\x1a8.flowseer.api.device.v1.ResolveDesynchronizationResponse\")\x82\xb5\x18%\b\x01\x12\aoperate\x1a\x06device\"\x10device.device.id\x12\xa1\x01\n" +
+	"\x15ListEdgeOpenMutations\x124.flowseer.api.device.v1.ListEdgeOpenMutationsRequest\x1a5.flowseer.api.device.v1.ListEdgeOpenMutationsResponse\"\x1b\x82\xb5\x18\x17\b\x01\x12\x04view\x1a\x04edge\"\aedge_idB\xf5\x01\n" +
 	"\x1acom.flowseer.api.device.v1B\x12DeviceServiceProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1;devicev1\xa2\x02\x03FAD\xaa\x02\x16Flowseer.Api.Device.V1\xca\x02\x16Flowseer\\Api\\Device\\V1\xe2\x02\"Flowseer\\Api\\Device\\V1\\GPBMetadata\xea\x02\x19Flowseer::Api::Device::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_device_v1_device_service_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
