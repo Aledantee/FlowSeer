@@ -44,10 +44,10 @@ type labConfig struct {
 
 func readLabConfig(getenv func(string) string) (labConfig, bool, error) {
 	names := []string{
-		"NETSIMLOAD_LAB_TX_INTERFACE", "NETSIMLOAD_LAB_RX_INTERFACE",
-		"NETSIMLOAD_LAB_TX_PORT", "NETSIMLOAD_LAB_RX_PORT",
-		"NETSIMLOAD_LAB_VLAN", "NETSIMLOAD_LAB_TX_MAC", "NETSIMLOAD_LAB_RX_MAC",
-		"NETSIMLOAD_LAB_TX_SPEED_BPS", "NETSIMLOAD_LAB_RX_SPEED_BPS",
+		"SIMLOAD_LAB_TX_INTERFACE", "SIMLOAD_LAB_RX_INTERFACE",
+		"SIMLOAD_LAB_TX_PORT", "SIMLOAD_LAB_RX_PORT",
+		"SIMLOAD_LAB_VLAN", "SIMLOAD_LAB_TX_MAC", "SIMLOAD_LAB_RX_MAC",
+		"SIMLOAD_LAB_TX_SPEED_BPS", "SIMLOAD_LAB_RX_SPEED_BPS",
 	}
 	values := make(map[string]string, len(names))
 	configured := false
@@ -81,7 +81,7 @@ func readLabConfig(getenv func(string) string) (labConfig, bool, error) {
 	}
 	vid, err := strconv.ParseUint(values[names[4]], 10, 12)
 	if err != nil || vid < 1 || vid > 4094 {
-		return labConfig{}, true, fmt.Errorf("NETSIMLOAD_LAB_VLAN must be between 1 and 4094")
+		return labConfig{}, true, fmt.Errorf("SIMLOAD_LAB_VLAN must be between 1 and 4094")
 	}
 	config.vlan = vlan.ID(vid)
 	for i, target := range []*netaddr.MAC{&config.txMAC, &config.rxMAC} {
@@ -231,11 +231,11 @@ func TestLabConfigRefusesPartialAndMalformedValues(t *testing.T) {
 		t.Fatalf("unset config = configured %t, error %v; want unset without error", configured, err)
 	}
 	valid := map[string]string{
-		"NETSIMLOAD_LAB_TX_INTERFACE": "eth1", "NETSIMLOAD_LAB_RX_INTERFACE": "eth2",
-		"NETSIMLOAD_LAB_TX_PORT": "1/1/1", "NETSIMLOAD_LAB_RX_PORT": "1/1/2",
-		"NETSIMLOAD_LAB_VLAN":   "10",
-		"NETSIMLOAD_LAB_TX_MAC": "02:00:00:00:00:01", "NETSIMLOAD_LAB_RX_MAC": "02:00:00:00:00:02",
-		"NETSIMLOAD_LAB_TX_SPEED_BPS": "1000000000", "NETSIMLOAD_LAB_RX_SPEED_BPS": "1000000000",
+		"SIMLOAD_LAB_TX_INTERFACE": "eth1", "SIMLOAD_LAB_RX_INTERFACE": "eth2",
+		"SIMLOAD_LAB_TX_PORT": "1/1/1", "SIMLOAD_LAB_RX_PORT": "1/1/2",
+		"SIMLOAD_LAB_VLAN":   "10",
+		"SIMLOAD_LAB_TX_MAC": "02:00:00:00:00:01", "SIMLOAD_LAB_RX_MAC": "02:00:00:00:00:02",
+		"SIMLOAD_LAB_TX_SPEED_BPS": "1000000000", "SIMLOAD_LAB_RX_SPEED_BPS": "1000000000",
 	}
 	if _, configured, err := readLabConfig(func(name string) string { return valid[name] }); !configured || err != nil {
 		t.Fatalf("complete config = configured %t, error %v; want valid", configured, err)
@@ -244,13 +244,13 @@ func TestLabConfigRefusesPartialAndMalformedValues(t *testing.T) {
 		name  string
 		value string
 	}{
-		{"NETSIMLOAD_LAB_RX_INTERFACE", ""},
-		{"NETSIMLOAD_LAB_VLAN", "4095"},
-		{"NETSIMLOAD_LAB_TX_MAC", "01:00:00:00:00:01"},
-		{"NETSIMLOAD_LAB_RX_SPEED_BPS", "0"},
-		{"NETSIMLOAD_LAB_RX_INTERFACE", "eth1"},
-		{"NETSIMLOAD_LAB_RX_PORT", "1/1/1"},
-		{"NETSIMLOAD_LAB_RX_MAC", "02:00:00:00:00:01"},
+		{"SIMLOAD_LAB_RX_INTERFACE", ""},
+		{"SIMLOAD_LAB_VLAN", "4095"},
+		{"SIMLOAD_LAB_TX_MAC", "01:00:00:00:00:01"},
+		{"SIMLOAD_LAB_RX_SPEED_BPS", "0"},
+		{"SIMLOAD_LAB_RX_INTERFACE", "eth1"},
+		{"SIMLOAD_LAB_RX_PORT", "1/1/1"},
+		{"SIMLOAD_LAB_RX_MAC", "02:00:00:00:00:01"},
 	} {
 		_, configured, err := readLabConfig(func(name string) string {
 			if name == tc.name {

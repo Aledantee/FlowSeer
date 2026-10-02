@@ -13,10 +13,10 @@ import (
 )
 
 func TestRealInterface(t *testing.T) {
-	tx := os.Getenv("NETSIMLOAD_LINK_TX_INTERFACE")
-	rx := os.Getenv("NETSIMLOAD_LINK_RX_INTERFACE")
+	tx := os.Getenv("SIMLOAD_LINK_TX_INTERFACE")
+	rx := os.Getenv("SIMLOAD_LINK_RX_INTERFACE")
 	if tx == "" || rx == "" {
-		t.Skip("NETSIMLOAD_LINK_TX_INTERFACE and NETSIMLOAD_LINK_RX_INTERFACE are required")
+		t.Skip("SIMLOAD_LINK_TX_INTERFACE and SIMLOAD_LINK_RX_INTERFACE are required")
 	}
 	if tx == rx {
 		t.Fatal("transmit and receive interfaces must differ")
