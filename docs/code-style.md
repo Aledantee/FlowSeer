@@ -478,9 +478,10 @@ spec/          # protobuf, MIB, and YANG sources of truth
 - A test waits for the condition it needs, not for a duration: a channel
   receive, a `sync.WaitGroup`, a poll with a deadline, or a
   `testing/synctest` bubble for concurrent code that reads the clock. A
-  `time.Sleep` that passes on an idle machine can fail under `-race` and
-  load. One that stays carries a comment naming the timing behavior under
-  test.
+  `time.Sleep` on the real clock that passes on an idle machine can fail
+  under `-race` and load. One that stays carries a comment naming the
+  timing behavior under test. Inside a `synctest` bubble the clock is fake
+  and a sleep is deterministic, so the rule does not reach it.
 - A self-authored fake peer produces only the sequence the client was coded
   to expect. Seed it with leftover state ahead of the call under test: a
   banner, a retained buffer, an out-of-order message.

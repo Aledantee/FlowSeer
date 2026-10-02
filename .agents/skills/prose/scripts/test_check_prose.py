@@ -124,7 +124,7 @@ KEPT = [
 STYLE_FLAGGED = [
     ("It's not a cache, it's a ledger.", "negative parallelism"),
     ("This is not a retry, this is a second request.", "negative parallelism"),
-    ("This does not mean the walk failed. It means the agent truncated it.", "negative parallelism"),
+    ("The cap holds. That distinction matters.", "closer"),
     ("At its core the pump is a queue.", "staged saying"),
     ("The real question is whether the edge reconnects.", "staged saying"),
     ("Retries hide brief outages. That is the real win.", "closer"),
@@ -141,6 +141,10 @@ STYLE_KEPT = [
     "The core of the pump is a queue.",
     "The question is whether the edge reconnects.",
     "That is the point where the session closes.",
+    "If it is not ready, it is dropped.",
+    "When it is not set, it is omitted.",
+    "Unless this is not present, this is an error.",
+    "That distinction matters because the kernel reorders packets.",
 ]
 
 

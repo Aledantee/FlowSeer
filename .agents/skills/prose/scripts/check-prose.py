@@ -83,11 +83,12 @@ STYLE = [
     (re.compile(r"\b(serves|stands|acts) as\b", re.I), "use the plain verb (is, does)"),
     (re.compile(rf"\b(it{APOS}?s|it is) (worth noting|important to note|worth mentioning)\b|\bnote that\b|\bimportantly,|\bin (conclusion|summary)\b|\bto summari[sz]e\b|\bsimply put\b|\bessentially,|\blet{APOS}s\b|\blet us\b|\bhere{APOS}?s (what|how|why)\b", re.I), "signposting: say the thing"),
     (re.compile(r"\bnot (only|just|merely)\b[^.]*\bbut\b", re.I), "negative parallelism"),
-    # The same contrast without "but": "it's not X, it's Y", and the form
-    # split across two sentences, "This does not mean X. It means Y."
-    (re.compile(rf"\b(it|this|that)({APOS}s| is) not\b[^.]*,\s+(it|this|that)({APOS}s| is)\b|\bdoes not mean\b[^.]*\.\s+It means\b", re.I), "negative parallelism"),
+    # The same contrast without "but": "it's not X, it's Y". A conditional
+    # ("If it is not ready, it is dropped.") has the same shape and is
+    # plain prose, so a clause opened by a subordinating word is skipped.
+    (re.compile(rf"(?<!\bif )(?<!\bwhen )(?<!\bunless )(?<!\bbecause )(?<!\bwhile )(?<!\bsince )\b(it|this|that)({APOS}s| is) not\b[^.]*,\s+(it|this|that)({APOS}s| is)\b", re.I), "negative parallelism"),
     (re.compile(r"\b(at its core|the real question is|what really matters|the heart of the matter|the deeper issue)\b", re.I), "staged saying: state the claim"),
-    (re.compile(rf"\b(that is|that{APOS}s) the real (win|point|lesson)\b|\blet that sink in\b|\bread that again\b|\bthat distinction matters\b", re.I), "closer: cut it or add a fact"),
+    (re.compile(rf"\b(that is|that{APOS}s) the real (win|point|lesson)\b|\blet that sink in\b|\bread that again\b|\bthat distinction matters(?=\s*[.!?]|\s*$)", re.I), "closer: cut it or add a fact"),
     (re.compile(rf"\ba tempting approach would be\b|\bone might be tempted to\b|\ban obvious approach would be\b|\bit would be easy to just\b|\bdon{APOS}t get me wrong\b|\bthis is not to say\b", re.I), "answers an objection nobody raised"),
     (re.compile(r",\s(ensuring|highlighting|underscoring|emphasizing|reflecting|showcasing|enabling|allowing for)\b", re.I), "trailing participle: end the sentence"),
     (re.compile(r"\b(plays? a (vital|key|crucial|pivotal) role)\b", re.I), "inflated significance"),

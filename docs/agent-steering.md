@@ -825,13 +825,13 @@ procedure filled a gap. `diagnose` adapts the loop-first order of Matt
 Pocock's `diagnosing-bugs` to Go tests, replayed captures, and lab devices,
 and keeps its script for a step only a person can take. It was added on
 that gap and not on a logged failure, so the rule for a step that never
-fires applies to it: `steer` removes it when the observation queue and the
-commit history show no use.
+fires applies to it: a `diagnose` nobody has invoked by the next `steer`
+audit is a candidate for removal.
 
 The rest were single checks, each placed in the file that already owned
 the subject. `check-prose.py` gained the staged sayings, closers, and
 unprompted rebuttals that blader/humanizer ranks as the strongest signs,
-and a contrast pattern for the forms the earlier one missed. `prose` now
+and a contrast pattern for a form the earlier one missed. `prose` now
 compares a rewrite with its original for added or dropped facts.
 `doc-style.md` bounds a diagram at about nine nodes, the working limit of
 cathrynlavery/diagram-design. `review` loads `references/security.md` for

@@ -22,11 +22,12 @@ step() {
 }
 
 capture() {
-  local var="$1" question="$2" answer
-  printf '\n>>> %s\n' "$question"
-  read -r -p "    > " answer
-  printf -v "$var" '%s' "$answer"
-  CAPTURED+=("$var")
+  # Underscored locals, so a caller's variable name cannot collide with one.
+  local _var="$1" _question="$2" _answer
+  printf '\n>>> %s\n' "$_question"
+  read -r -p "    > " _answer
+  printf -v "$_var" '%s' "$_answer"
+  CAPTURED+=("$_var")
 }
 
 # --- edit below ---------------------------------------------------------

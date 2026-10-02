@@ -162,15 +162,15 @@ text about the document) need a reread.
 - **Rule-of-three lists** and symmetric bullet sets where every item has the
   same length and shape. Real lists are ragged. Two items, or five, are fine.
 - **Negative parallelism**: `not X, but Y`, `not only X but also Y`,
-  `it's not X, it's Y`, and the same contrast split across two sentences.
-  Say the positive form. Keep a contrast only when the reader holds the
+  `it's not X, it's Y`, and the same contrast split across two sentences,
+  which the checker cannot see across a line break. Say the positive form. Keep a contrast only when the reader holds the
   belief the negative half corrects.
 - **Staged sayings and closers**: `at its core`, `the real question is`, a
   one-line paragraph that repeats the one before it. A short sentence earns
   its place by carrying a new fact.
-- **Answering nobody**: `a tempting approach would be`, `this is not to
-  say`, a rejected option that appears nowhere else. State the choice and
-  its reason. Keep an alternative a reader would weigh.
+- **Answering nobody**: `a tempting approach would be`,
+  `this is not to say`, a rejected option that appears nowhere else. State
+  the choice and its reason. Keep an alternative a reader would weigh.
 - **Text about the document**: how it was assembled, what it replaced, a
   layout the reader can see (`the table below compares`). Write about the
   subject. A change log is the place for what changed.

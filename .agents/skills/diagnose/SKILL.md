@@ -31,7 +31,7 @@ fixed. Try these in order and take the first that reaches the bug:
 | A flaky failure | the same test with `-count=200 -failfast`, then with `-cpu 1,4` |
 | A regression between two commits | `git bisect run <the test command>`, after committing or copying aside any open work |
 | The same input through the old and the new code | a throwaway test in `$TMPDIR` that diffs the two outputs |
-| A step only a person can take: a lab device, a browser, a power cycle | a copy of `scripts/hitl-loop.sh` |
+| A step only a person can take: a lab device, a browser, a power cycle | a copy of `.claude/skills/diagnose/scripts/hitl-loop.sh` |
 
 A loop is ready when it has run at least once and all three hold:
 
@@ -134,15 +134,8 @@ defect.
 2. Throwaway harnesses and copies under `$TMPDIR` are gone, and
    `git status --porcelain` shows only the fix, its test, and what was
    there at the start.
-3. Record the outcome where `land` reads it, as `implement` does for a
-   planless request:
-
-   ```bash
-   .claude/skills/verify-change/scripts/ledger.py checkpoint --replace implemented "<the fix in a few words>"
-   ```
-
-4. Run the verifier on the changed paths, sandbox disabled, as the last
-   command:
+3. Run the verifier on the changed paths, sandbox disabled, as the last
+   command of its invocation:
 
    ```bash
    .claude/skills/verify-change/scripts/verify-change.sh -- <paths>
@@ -156,5 +149,20 @@ End by asking the user what happens next (`AGENTS.md`, Agent behavior):
 commit the fix and run `review` (recommended when it changed behavior other
 callers see), commit it and run `compound` (recommended when the cause was
 not derivable from the code), commit and stop, or take an unfixed cause to
-`plan`. A correction to this procedure is logged as `compound`, Observe
-describes.
+`plan`.
+
+On an answer that commits, in this order:
+
+1. Commit the fix and its test.
+2. Record the outcome where `land` reads it:
+
+   ```bash
+   .claude/skills/verify-change/scripts/ledger.py checkpoint --replace implemented "<the fix in a few words>"
+   ```
+
+   In Orca, mark the card as well, with the command under "Orca" in
+   `.claude/skills/implement/references/outcome-records.md`.
+3. Run the verifier on the same paths again, since `land` refuses a
+   receipt older than the last commit.
+
+A correction to this procedure is logged as `compound`, Observe describes.
