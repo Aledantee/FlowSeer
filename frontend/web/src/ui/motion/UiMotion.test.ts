@@ -49,11 +49,31 @@ function wait(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
+// motion's frame loop timestamps every frame from performance.now, so a
+// controlled clock makes animation progress independent of host speed.
+let motionClock = 0
+
+function installMotionClock() {
+  motionClock = 0
+  vi.spyOn(performance, 'now').mockImplementation(() => motionClock)
+}
+
+async function advanceMotion(milliseconds: number) {
+  motionClock += milliseconds
+  // happy-dom runs requestAnimationFrame in a macrotask, so these turns let
+  // the frame loop read the advanced timestamp. The count is fixed, not timed.
+  for (let turn = 0; turn < 3; turn += 1) {
+    await wait(0)
+  }
+}
+
 describe('UiMotion', () => {
   it('uses the configured duration instead of the default spring', async () => {
+    installMotionClock()
     const { target } = mountMotion({ animate: { x: 100 } })
 
-    await wait(250)
+    await advanceMotion(70)
+    await advanceMotion(200)
 
     expect(target.style.transform).toBe('translateX(100px)')
   })
@@ -136,6 +156,7 @@ describe('UiMotion', () => {
         return h(UiAppRoot, {}, () => h(Harness))
       },
     })
+    installMotionClock()
     app.mount(host)
     dispose = () => {
       app.unmount()
@@ -143,16 +164,16 @@ describe('UiMotion', () => {
     }
 
     await nextTick()
-    await wait(20)
+    await advanceMotion(20)
     const unchangedDependencyMeasurements = measurements.mock.calls.length
     host.querySelector<HTMLButtonElement>('.rerender-layout')?.click()
     await nextTick()
-    await wait(20)
+    await advanceMotion(20)
     expect(measurements.mock.calls.length).toBe(unchangedDependencyMeasurements)
 
     host.querySelector<HTMLButtonElement>('.toggle-layout')?.click()
     await nextTick()
-    await wait(30)
+    await advanceMotion(30)
 
     const layoutTransform =
       host.querySelector<HTMLElement>('.layout-box')?.style.transform

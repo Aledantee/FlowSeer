@@ -63,11 +63,30 @@ function wait(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
+// motion's frame loop timestamps every frame from performance.now, so a
+// controlled clock makes animation progress independent of host speed.
+let motionClock = 0
+
+function installMotionClock() {
+  motionClock = 0
+  vi.spyOn(performance, 'now').mockImplementation(() => motionClock)
+}
+
+async function advanceMotion(milliseconds: number) {
+  motionClock += milliseconds
+  // happy-dom runs requestAnimationFrame in a macrotask, so these turns let
+  // the frame loop read the advanced timestamp. The count is fixed, not timed.
+  for (let turn = 0; turn < 3; turn += 1) {
+    await wait(0)
+  }
+}
+
 describe('UiMotion reduced motion', () => {
   it('ends positional animation at once when the user prefers reduced motion', async () => {
+    installMotionClock()
     const target = mountMotion({ animate: { x: 100 } })
 
-    await new Promise((resolve) => setTimeout(resolve, 40))
+    await advanceMotion(70)
 
     expect(target.style.transform).toBe('translateX(100px)')
   })
@@ -119,6 +138,7 @@ describe('UiMotion reduced motion', () => {
         return h(UiAppRoot, {}, () => h(Harness))
       },
     })
+    installMotionClock()
     app.mount(host)
     dispose = () => {
       app.unmount()
@@ -129,9 +149,10 @@ describe('UiMotion reduced motion', () => {
       throw new Error('Missing reduced target')
 
     await nextTick()
+    await advanceMotion(20)
     dependency.value = true
     await nextTick()
-    await wait(40)
+    await advanceMotion(40)
 
     expect(target.style.transform).not.toMatch(/scale\(|translate/)
   })

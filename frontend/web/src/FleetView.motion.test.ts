@@ -91,6 +91,24 @@ function wait(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
+// motion's frame loop timestamps every frame from performance.now, so a
+// controlled clock makes layout animation progress independent of host speed.
+let motionClock = 0
+
+function installMotionClock() {
+  motionClock = 0
+  vi.spyOn(performance, 'now').mockImplementation(() => motionClock)
+}
+
+async function advanceMotion(milliseconds: number) {
+  motionClock += milliseconds
+  // happy-dom runs requestAnimationFrame in a macrotask, so these turns let
+  // the frame loop read the advanced timestamp. The count is fixed, not timed.
+  for (let turn = 0; turn < 3; turn += 1) {
+    await wait(0)
+  }
+}
+
 function keyframeEffect(animation: Animation) {
   if (!(animation.effect instanceof KeyframeEffect))
     throw new Error('Expected a native KeyframeEffect')
@@ -146,11 +164,12 @@ function parseTranslateY(transform: string | undefined): number | null {
 
 describe('FleetView motion layout', () => {
   it('animates the sidebar size and main-shell position', async () => {
+    installMotionClock()
     const { host } = await mountFleet()
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
     toggle?.click()
     await nextTick()
-    await wait(30)
+    await advanceMotion(30)
 
     expect(
       host.querySelector<HTMLElement>('.sidebar')?.style.transform,
@@ -164,6 +183,7 @@ describe('FleetView motion layout', () => {
   })
 
   it('stops layout transforms after the user enables reduced motion', async () => {
+    installMotionClock()
     const { host } = await mountFleet()
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
 
@@ -176,7 +196,16 @@ describe('FleetView motion layout', () => {
 
     toggle?.click()
     await nextTick()
-    await wait(30)
+    await advanceMotion(30)
+
+    expect(host.querySelector<HTMLElement>('.sidebar')?.style.transform).toBe(
+      '',
+    )
+    expect(
+      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
+    ).toBe('')
+
+    await advanceMotion(200)
 
     expect(host.querySelector<HTMLElement>('.sidebar')?.style.transform).toBe(
       '',
@@ -187,16 +216,18 @@ describe('FleetView motion layout', () => {
   })
 
   it('animates the nav highlight position across route changes', async () => {
+    installMotionClock()
     const { host, router } = await mountFleet()
     await router.push('/devices')
     await nextTick()
+    await advanceMotion(30)
 
     const firstHighlight = host.querySelector<HTMLElement>('.nav-highlight')
     if (!firstHighlight) throw new Error('Missing nav highlight')
     const firstTransform = firstHighlight.style.transform
     const firstOffset = parseTranslateY(firstTransform)
 
-    await wait(30)
+    await advanceMotion(70)
 
     const secondHighlight = host.querySelector<HTMLElement>('.nav-highlight')
     if (!secondHighlight) throw new Error('Missing nav highlight')
@@ -211,7 +242,7 @@ describe('FleetView motion layout', () => {
     expect(secondOffset).not.toBe(firstOffset)
     expect(Math.abs(secondOffset)).toBeLessThan(Math.abs(firstOffset))
 
-    await wait(200)
+    await advanceMotion(200)
 
     const highlights = host.querySelectorAll<HTMLElement>('.nav-highlight')
     expect(highlights).toHaveLength(1)
@@ -221,6 +252,57 @@ describe('FleetView motion layout', () => {
     expect(devicesLink?.getAttribute('aria-current')).toBe('page')
     expect(devicesLink?.getAttribute('href')).toContain('devices')
     expect(finalHighlight.style.transform).not.toContain('translate')
+  })
+
+  it('leaves the nav opacity untouched when expanding at desktop width', async () => {
+    const { host } = await mountFleet()
+    const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
+    const nav = host.querySelector<HTMLElement>('nav')
+    if (!toggle || !nav) throw new Error('Missing navigation controls')
+    if (!preference) throw new Error('Missing reduced-motion media query')
+    // Reduced motion stops the layout animation from rewriting the nav's inline
+    // style, so the width branch is the only thing that can start a fade.
+    preference.matches = true
+    preference.dispatchEvent(
+      Object.assign(new Event('change'), { matches: true }),
+    )
+    await nextTick()
+    nav.style.opacity = '0.42'
+
+    toggle.click()
+    await nextTick()
+    toggle.click()
+    await nextTick()
+
+    expect(nav.getAnimations()).toHaveLength(0)
+    expect(nav.style.opacity).toBe('0.42')
+  })
+
+  it('fades the pane scope when the tenant or site changes', async () => {
+    const { host, router } = await mountFleet()
+    const pane = host.querySelector<HTMLElement>('.main-pane .pane-scroll')
+    if (!pane) throw new Error('Missing scoped pane')
+    pane.style.opacity = '0.72'
+
+    await router.push({ path: '/devices', query: { tenant: 'aurora-de' } })
+    await nextTick()
+
+    const animations = pane.getAnimations()
+    expect(animations).toHaveLength(1)
+    const animation = animations[0]
+    if (!animation) throw new Error('Missing scope fade')
+    expect(animation.playState).toBe('running')
+    expect(keyframeEffect(animation).getKeyframes()).toMatchObject([
+      { opacity: '0.85' },
+      { opacity: '1' },
+    ])
+    expect(keyframeEffect(animation).getTiming()).toMatchObject({
+      duration: 120,
+    })
+
+    await finishAnimations(pane)
+    expect(pane.getAnimations()).toHaveLength(0)
+    expect(pane.style.opacity).toBe('0.72')
   })
 
   it('fades nav on expand below desktop width and restores inline opacity', async () => {
@@ -313,6 +395,21 @@ describe('FleetView motion layout', () => {
     await nextTick()
     expect(nav.getAnimations()).toHaveLength(1)
 
+    window.dispatchEvent(new Event('resize'))
+    expect(nav.getAnimations()).toHaveLength(0)
+    expect(nav.style.opacity).toBe('0.18')
+
+    toggle.click()
+    toggle.click()
+    await nextTick()
+    const running = nav.getAnimations()
+    expect(running).toHaveLength(1)
+
+    // The native finish writes the final keyframe into the inline style. The
+    // resize must cancel and restore the baseline in the same turn, before the
+    // composable's completion microtask can run.
+    for (const animation of running) animation.finish()
+    expect(nav.style.opacity).toBe('1')
     window.dispatchEvent(new Event('resize'))
     expect(nav.getAnimations()).toHaveLength(0)
     expect(nav.style.opacity).toBe('0.18')

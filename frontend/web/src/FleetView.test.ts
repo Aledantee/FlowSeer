@@ -319,6 +319,7 @@ describe('FleetView motion layout', () => {
         ?.getAttribute('aria-current'),
     ).toBe('page')
 
+    expect(document.body.textContent).not.toContain('Expand sidebar')
     toggle?.dispatchEvent(new FocusEvent('focus', { bubbles: true }))
     await new Promise((resolve) => setTimeout(resolve, 400))
     await nextTick()
