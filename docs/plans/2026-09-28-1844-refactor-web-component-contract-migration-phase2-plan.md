@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/conventions/restoring-inline-styles-from-a-frame-callback-overwrites-later-writers.md
 execution: mixed
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
 ---
