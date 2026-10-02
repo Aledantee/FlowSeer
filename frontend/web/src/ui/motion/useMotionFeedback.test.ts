@@ -371,6 +371,8 @@ const terminalPaths: readonly TerminalPath[] = [
       mounted.feedback.play(probe, { opacity: [0.1, 0.2] }, 0.4)
       window.dispatchEvent(new Event('resize'))
       expect(getNativeAnimations(probe)).toHaveLength(1)
+      mounted.feedback.cancel(probe)
+      expect(probe.getAnimations()).toHaveLength(0)
     },
   },
   {
@@ -425,10 +427,13 @@ const terminalPaths: readonly TerminalPath[] = [
     afterPath: (mounted) => {
       expect(mounted.element.getAnimations()).toHaveLength(0)
     },
-    exempt: (_invariant, owned) =>
-      owned.keys.includes('transform')
-        ? 'the reduced mount drops movement, so the play owns opacity alone'
-        : undefined,
+    exempt: (_invariant, owned) => {
+      if (owned.name === 'transform')
+        return 'reduced motion drops movement, so the play creates no animation at all'
+      if (owned.name === 'both')
+        return 'the reduced mount drops movement, so the play owns opacity alone'
+      return undefined
+    },
   },
 ]
 
