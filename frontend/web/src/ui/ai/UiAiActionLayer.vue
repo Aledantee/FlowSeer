@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { I18nT, useI18n } from 'vue-i18n'
 import { AiStaleError, AiUnavailableError } from '../../ai'
 import type { AiTargetView } from '../../ai'
 import UiButton from '../button/UiButton.vue'
@@ -8,6 +9,26 @@ import UiTextarea from '../form/UiTextarea.vue'
 import { useAiRegistry } from './context'
 import { placeAsk, visibleRect } from './geometry'
 import type { Rect } from './geometry'
+
+export interface UiAiActionLayerLabels {
+  askAbout?: string
+  heading?: string
+  ai?: string
+  questionLabel?: string
+  questionPlaceholder?: string
+  cancel?: string
+  ask?: string
+  asking?: string
+  unavailable?: string
+  error?: string
+}
+
+export interface UiAiActionLayerProps {
+  labels?: UiAiActionLayerLabels
+}
+
+const props = defineProps<UiAiActionLayerProps>()
+const { t } = useI18n({ useScope: 'global' })
 
 // One overlay per app or Storybook canvas. It draws the compact AI button in
 // the top-right corner of whichever target is selected or focused, and hosts
@@ -101,6 +122,13 @@ const buttonStyle = computed(() => {
     left: `${position.left}px`,
   }
 })
+const askAboutLabel = computed(
+  () =>
+    props.labels?.askAbout ??
+    t('ui.aiActionLayer.askAbout', {
+      label: layerTarget.value?.target.label ?? '',
+    }),
+)
 
 function measure() {
   const element = layerTarget.value?.element
@@ -197,6 +225,7 @@ type AskState =
   | { kind: 'idle' }
   | { kind: 'answer'; answer: string }
   | { kind: 'error'; message: string }
+  | { kind: 'generic-error' }
   | { kind: 'unavailable' }
 const state = ref<AskState>({ kind: 'idle' })
 
@@ -256,14 +285,16 @@ async function runAsk() {
       closeAsk()
       return
     }
-    if (error instanceof AiUnavailableError)
+    if (error instanceof AiUnavailableError) {
       state.value = { kind: 'unavailable' }
-    else
+    } else if (error instanceof Error) {
       state.value = {
         kind: 'error',
-        message:
-          error instanceof Error ? error.message : 'Something went wrong.',
+        message: error.message,
       }
+    } else {
+      state.value = { kind: 'generic-error' }
+    }
   } finally {
     if (isCurrent()) pending.value = false
   }
@@ -297,10 +328,10 @@ function submit() {
             tabindex="-1"
             class="ai-ask"
             :style="buttonStyle"
-            :aria-label="`Ask about ${layerTarget.target.label}`"
+            :aria-label="askAboutLabel"
             @click="openAsk(layerTarget.target.id)"
           >
-            AI
+            {{ props.labels?.ai ?? t('ui.aiActionLayer.ai') }}
           </button>
         </template>
         <form
@@ -309,20 +340,31 @@ function submit() {
           @submit.prevent="submit"
         >
           <p class="text-xs font-medium text-foreground">
-            Ask about
-            <strong class="font-semibold">{{
-              layerTarget.target.label
-            }}</strong>
+            <template v-if="props.labels?.heading">
+              {{ props.labels.heading }}
+            </template>
+            <I18nT v-else keypath="ui.aiActionLayer.heading" scope="global">
+              <template #label>
+                <strong class="font-semibold">{{
+                  layerTarget.target.label
+                }}</strong>
+              </template>
+            </I18nT>
           </p>
           <UiTextarea
             v-model="prompt"
             :rows="3"
-            aria-label="Your question"
-            placeholder="Why is this device offline?"
+            :aria-label="
+              props.labels?.questionLabel ?? t('ui.aiActionLayer.questionLabel')
+            "
+            :placeholder="
+              props.labels?.questionPlaceholder ??
+              t('ui.aiActionLayer.questionPlaceholder')
+            "
           />
           <div class="flex items-center justify-end gap-2">
             <UiButton size="sm" variant="ghost" @click="closeAsk">
-              Cancel
+              {{ props.labels?.cancel ?? t('ui.aiActionLayer.cancel') }}
             </UiButton>
             <UiButton
               type="submit"
@@ -331,16 +373,18 @@ function submit() {
               :disabled="!prompt.trim()"
               :loading="pending"
             >
-              Ask
+              {{ props.labels?.ask ?? t('ui.aiActionLayer.ask') }}
             </UiButton>
           </div>
-          <p v-if="pending" role="status" class="sr-only">Asking…</p>
+          <p v-if="pending" role="status" class="sr-only">
+            {{ props.labels?.asking ?? t('ui.aiActionLayer.asking') }}
+          </p>
           <p
             v-else-if="state.kind === 'unavailable'"
             role="status"
             class="text-xs text-muted-foreground"
           >
-            AI is unavailable
+            {{ props.labels?.unavailable ?? t('ui.aiActionLayer.unavailable') }}
           </p>
           <p
             v-else-if="state.kind === 'error'"
@@ -348,6 +392,13 @@ function submit() {
             class="text-xs text-danger-foreground"
           >
             {{ state.message }}
+          </p>
+          <p
+            v-else-if="state.kind === 'generic-error'"
+            role="alert"
+            class="text-xs text-danger-foreground"
+          >
+            {{ props.labels?.error ?? t('ui.aiActionLayer.error') }}
           </p>
           <p
             v-else-if="state.kind === 'answer'"
