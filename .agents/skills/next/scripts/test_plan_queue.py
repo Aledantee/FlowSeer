@@ -79,6 +79,11 @@ class PlanQueueTest(unittest.TestCase):
         self.commit("phase done, Landed empty")
         self.assertEqual(self.groups().get(PHASE), "in-progress")
 
+    def test_unreviewed_phase_with_empty_landed_line_needs_implement(self):
+        self.write(PHASE, f"---\nstatus: implemented\nparent: {PARENT}\n---\n")
+        self.commit("phase implemented, Landed empty, no review")
+        self.assertEqual(self.groups().get(PHASE), "in-progress")
+
     def test_finished_plain_plan_on_branch_is_owed_a_land(self):
         self.finish(PLAIN)
         self.commit("plain done")

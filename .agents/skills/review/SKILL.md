@@ -165,7 +165,8 @@ it in the report and carry on.
 Verdict first (accept, fixes needed, rework), then findings, most severe
 first: title, `path:line`, what goes wrong and when, and the smallest fix or
 the direction with its unchecked claim (step 4). Then the residual testing
-gap. `accept after fixes` is never a report's first verdict. It is written
+gap. `accept after fixes` is never the verdict of a review's initial
+report. It is written
 only once the fixes exist, since `land`, `drive`, and `next` all read it as
 passing.
 

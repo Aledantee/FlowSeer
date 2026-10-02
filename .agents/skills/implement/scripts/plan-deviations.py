@@ -81,8 +81,12 @@ def expand(entry: str) -> list[str]:
     ]
 
 
-def units(plan: Path, root: Path | None = None) -> dict[str, list[str]]:
-    """Each unit's Files entries. ROOT, the tree root, tells a quoted root file from a sibling."""
+def units(plan: Path, root: Path | None = None, fork: str | None = None) -> dict[str, list[str]]:
+    """Each unit's Files entries.
+
+    ROOT, the tree root, tells a quoted root file from a sibling, and FORK,
+    the commit the branch left from, does so for a sibling the work deleted.
+    """
     result: dict[str, list[str]] = {}
     current = None
     in_files = False
@@ -113,7 +117,7 @@ def units(plan: Path, root: Path | None = None) -> dict[str, list[str]]:
                 continue
             # A bare list writes every path in full, so a root file in it
             # (`AGENTS.md`) is not a sibling of the entry before it.
-            if "/" not in item and last_dir and quoted and not root_file(root, last_dir, item):
+            if "/" not in item and last_dir and quoted and not root_file(root, last_dir, item, fork):
                 item = f"{last_dir}/{item}"
             item = canonical(item)
             for expanded in expand(item):
@@ -123,16 +127,24 @@ def units(plan: Path, root: Path | None = None) -> dict[str, list[str]]:
     return result
 
 
-def root_file(root: Path | None, last_dir: str, name: str) -> bool:
+def root_file(root: Path | None, last_dir: str, name: str, fork: str | None = None) -> bool:
     """Whether a quoted NAME after an entry in LAST_DIR is the tree-root file of that name.
 
     A plan quotes `CONCEPTS.md` after `src/a/a.go` as often as it quotes
     `a_test.go`, and only the tree tells the two apart. A file in neither
-    place is a new sibling, the shorthand's usual use.
+    place is a new sibling, the shorthand's usual use. A sibling the work
+    deleted is gone from the tree but still in FORK.
     """
     if root is None or any(c in name for c in "{*"):
         return False
-    return (root / name).exists() and not (root / last_dir / name).exists()
+    if not (root / name).exists() or (root / last_dir / name).exists():
+        return False
+    if fork is None:
+        return True
+    in_fork = subprocess.run(
+        ["git", "cat-file", "-e", f"{fork}:{last_dir}/{name}"], cwd=root, capture_output=True
+    )
+    return in_fork.returncode != 0
 
 
 def covers(entry: str, path: str) -> bool:
@@ -160,11 +172,11 @@ def main(argv: list[str]) -> int:
         print(f"plan not found: {plan}", file=sys.stderr)
         return 2
     root = Path(git_lines("rev-parse", "--show-toplevel")[0])
-    unit_files = units(plan, root)
+    fork = git_lines("merge-base", base, "HEAD")[0]
+    unit_files = units(plan, root, fork)
     if not any(unit_files.values()):
         print(f"no unit with a Files field in {plan}", file=sys.stderr)
         return 2
-    fork = git_lines("merge-base", base, "HEAD")[0]
     changed = git_lines("diff", "--name-only", "--no-renames", fork, "--", *paths)
     changed += git_lines("ls-files", "--others", "--exclude-standard", "--", *paths)
 

@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 spec = importlib.util.spec_from_file_location(
     "plan_deviations", Path(__file__).with_name("plan-deviations.py")
@@ -77,10 +78,19 @@ class DiffTest(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.root = Path(self.directory.name)
+        # A user's diff.renames or commit.gpgsign would change what the
+        # rename test proves or break the commits, for main() too.
+        env = mock.patch.dict(
+            os.environ, {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+        )
+        env.start()
+        self.addCleanup(env.stop)
         self.git("init", "-q", "-b", "main")
         body = "".join(f"line {n}\n" for n in range(20))
         self.write(".agents/skills/s/old.md", body)
         self.write("src/a/a.go")
+        self.write("src/a/README.md")
+        self.write("README.md")
         self.git("add", "-A")
         self.git("commit", "-qm", "base")
         self.git("checkout", "-qb", "work")
@@ -128,6 +138,16 @@ class DiffTest(unittest.TestCase):
             os.chdir(cwd)
         self.assertEqual(code, 0)
         return out.getvalue()
+
+    def test_deleted_sibling_is_not_read_as_the_root_file(self):
+        self.git("rm", "-q", "src/a/README.md")
+        plan = self.root / "docs/plans/delete-plan.md"
+        plan.write_text("### U1. Drop\n\nFiles: `src/a/a.go`, `README.md`\n")
+        fork = subprocess.run(
+            ["git", "merge-base", "main", "HEAD"], cwd=self.root, check=True, capture_output=True, text=True
+        ).stdout.strip()
+        found = plan_deviations.units(plan, self.root, fork)
+        self.assertEqual(found["U1"], ["src/a/a.go", "src/a/README.md"])
 
     def test_diff_starts_at_the_fork_point(self):
         self.assertNotIn("src/main_only.go", self.run_main())

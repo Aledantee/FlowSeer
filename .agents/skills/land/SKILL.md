@@ -77,7 +77,7 @@ run the missing skill now, all missing signals in one question:
 | implementation, or a unit `pending` or `in_progress` | run `implement` on the remaining units; stop |
 | a unit `blocked` | take it back to `plan`; stop. Never `implement` again: the unit already failed three verifier rounds |
 | review verdict | run `review` on the branch now; stop |
-| review verdict is `rework` | fix the findings and review again (`review`, step 6); stop |
+| review verdict is `rework` or `fixes needed` | fix the findings and review again (`review`, step 6); stop |
 | compound outcome | run `compound` now; record `compound: no lesson` when the user says there is none; stop |
 
 On yes, load `references/missing-checkpoint.md`. A partial implementation is

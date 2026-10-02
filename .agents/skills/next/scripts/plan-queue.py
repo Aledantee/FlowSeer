@@ -9,7 +9,7 @@ that touch a plan, and the plans this branch changed. Prints one line per
 plan with work left, grouped:
 
   land         implemented on this branch with an accepted review and a
-               compound field, still on disk; a phase also has its
+               compound field, still on disk. A phase also has its
                `Landed:` range. land goes first, since it gates every plan
                this branch carries past main
   in-progress  partially-implemented, named by this worktree's ledger, an
@@ -205,14 +205,14 @@ def main() -> int:
             unfinished = (review and review not in ACCEPTED) or (
                 rel in changed_here and (not review or "compound" not in fm)
             )
-            if unfinished:
+            if rel in changed_here and rel in phase_of and not all(u["landed"] for u in phase_of[rel][1]):
+                # plan-state.py reads a phase with an empty `Landed:` line
+                # as owed its implement, before any review or land.
+                group = "in-progress"
+            elif unfinished:
                 group = "unchecked"
             elif rel not in changed_here:
                 continue
-            elif rel in phase_of and not all(u["landed"] for u in phase_of[rel][1]):
-                # plan-state.py reads a finished phase with an empty
-                # `Landed:` line as owed its implement, not a land.
-                group = "in-progress"
             else:
                 # Reviewed and compounded on this branch, still on disk:
                 # land has not run for it. plan-state.py prints `land`.

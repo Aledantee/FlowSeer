@@ -129,8 +129,8 @@ After each stage:
    `.claude/skills/delegate/scripts/orca-worker.sh grade <slug> --outcome accepted|amended --verify pass|fail`
 6. Remove the child worktree: `.claude/skills/delegate/scripts/orca-worker.sh stop <slug>`
 7. Read the stage's "done when" off the merged files. A stage that reports
-   success and leaves the field unset parks the plan with that as its
-   question; do not run it again.
+   success and leaves the field unset, or set to a value other than an
+   accept, parks the plan with that as its question; do not run it again.
 
 End a turn only while waiting on a started lane, with a started successor,
 at a parked question, or when a failed lane check in step 1 or a failed
@@ -205,7 +205,7 @@ runtime does not hand off.
 Park a plan when its worker stops on a decision that is the user's (a ruling
 that changes other units, the wire, or an accepted record; a design question
 in a re-plan; a direction record awaiting acceptance), on a `blocked` unit,
-on a review that ends in `rework` after its loop, or on a change to a policy
+on a review that ends in `rework` or `fixes needed` after its loop, or on a change to a policy
 surface. A `rework` that names the round limit parks with another round as
 an option. Load `references/parking.md` to park it, and again when the user
 answers a parked question. A resumed drive reads the `Parked by drive:`

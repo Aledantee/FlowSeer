@@ -52,7 +52,9 @@ with every unit in plan order and mark the landed ones again:
 .claude/skills/verify-change/scripts/ledger.py set U1 passed --commit <commit> --verified-at <verified_at>
 ```
 
-Carry each unit's `--note` over the same way. Do this between units, with
+Carry each unit's `--note` over the same way, and mark each `blocked` unit
+again with `ledger.py set <unit> blocked --note <note>`, since a fresh
+ledger would otherwise name it as the unit to resume. Do this between units, with
 none `in_progress`: a unit marked `in_progress` again takes the current
 `HEAD` as its base, and `passed` then no longer counts the commits it made
 before.
