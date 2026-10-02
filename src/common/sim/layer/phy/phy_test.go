@@ -46,7 +46,7 @@ func TestSpeedsResolvePerPort(t *testing.T) {
 			Setting:            &phy.Setting{SpeedBPS: 100_000_000, Duplex: phy.Full},
 		}
 		got := e.Resolve()
-		want := phy.Resolved{SpeedBPS: 100_000_000, Duplex: phy.Full, Source: phy.SourceSetting}
+		want := phy.Resolved{SpeedBPS: 100_000_000, Duplex: phy.Full, Source: "setting"}
 		if got != want {
 			t.Errorf("Resolve() = %+v, want %+v", got, want)
 		}
@@ -129,8 +129,8 @@ func TestPoeAllocationHonoursBudgetPriorityAndLimit(t *testing.T) {
 		}}
 
 		got := cfg.Allocate()
-		if pa := got.Ports["1/1/1"]; pa.Denial != phy.ReasonLimit || pa.MaxNanowatts != 0 || pa.State != phy.PowerDenied {
-			t.Errorf("Ports[\"1/1/1\"] = %+v, want denial %q", pa, phy.ReasonLimit)
+		if pa := got.Ports["1/1/1"]; pa.Denial != "limit" || pa.MaxNanowatts != 0 || pa.State != phy.PowerDenied {
+			t.Errorf("Ports[\"1/1/1\"] = %+v, want denial %q", pa, "limit")
 		}
 		if g := got.Groups["1"]; g.RemainderNanowatts != 60_000_000_000 {
 			t.Errorf("Groups[\"1\"].RemainderNanowatts = %d, want 60000000000", g.RemainderNanowatts)
@@ -165,8 +165,8 @@ func TestClassAbovePortMaximum(t *testing.T) {
 	}}
 
 	got := cfg.Allocate()
-	if pa := got.Ports["1/1/1"]; pa.Denial != phy.ReasonClassUnsupported || pa.MaxNanowatts != 0 || pa.State != phy.PowerDenied {
-		t.Errorf("Ports[\"1/1/1\"] = %+v, want denial %q", pa, phy.ReasonClassUnsupported)
+	if pa := got.Ports["1/1/1"]; pa.Denial != "class-unsupported" || pa.MaxNanowatts != 0 || pa.State != phy.PowerDenied {
+		t.Errorf("Ports[\"1/1/1\"] = %+v, want denial %q", pa, "class-unsupported")
 	}
 	if g := got.Groups["1"]; g.RemainderNanowatts != 90_000_000_000 {
 		t.Errorf("Groups[\"1\"].RemainderNanowatts = %d, want 90000000000", g.RemainderNanowatts)
@@ -237,22 +237,6 @@ func TestConfigResolve(t *testing.T) {
 			t.Errorf("Config{}.Resolve() = %v, want nil", got)
 		}
 	})
-}
-
-func TestClassPowerNanowatts(t *testing.T) {
-	powers := []uint64{
-		15_400_000_000, 4_000_000_000, 7_000_000_000, 15_400_000_000, 30_000_000_000,
-		45_000_000_000, 60_000_000_000, 75_000_000_000, 90_000_000_000,
-	}
-	for class, want := range powers {
-		got, ok := phy.ClassPowerNanowatts(uint8(class))
-		if !ok || got != want {
-			t.Errorf("ClassPowerNanowatts(%d) = %d, %v; want %d, true", class, got, ok, want)
-		}
-	}
-	if got, ok := phy.ClassPowerNanowatts(9); ok || got != 0 {
-		t.Errorf("ClassPowerNanowatts(9) = %d, %v; want 0, false", got, ok)
-	}
 }
 
 func TestValidate(t *testing.T) {
@@ -513,7 +497,7 @@ func TestDiff(t *testing.T) {
 		if diffs[1].Field != "auto_negotiation_enabled" || diffs[1].From.Canonical() != "false" || diffs[1].To.Canonical() != "true" {
 			t.Errorf("diffs[1] = %+v, want auto_negotiation_enabled false -> true", diffs[1])
 		}
-		if diffs[2].Field != "resolve_source" || diffs[2].From.Canonical() != string(phy.SourceSetting) || diffs[2].To.Canonical() != string(phy.SourceUnresolved) {
+		if diffs[2].Field != "resolve_source" || diffs[2].From.Canonical() != "setting" || diffs[2].To.Canonical() != string(phy.SourceUnresolved) {
 			t.Errorf("diffs[2] = %+v, want resolve_source setting -> unresolved", diffs[2])
 		}
 	})
@@ -848,7 +832,7 @@ func TestPoeAllocateTruthTable(t *testing.T) {
 			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: true, MaxClass: 3, PD: phy.PDAttached, PDClass: phy.Class(4)}},
 		}}
 		got := cfg.Allocate().Ports["1/1/1"]
-		want := phy.PortAllocation{State: phy.PowerDenied, Denial: phy.ReasonClassUnsupported, MinNanowatts: 0, MaxNanowatts: 0}
+		want := phy.PortAllocation{State: phy.PowerDenied, Denial: "class-unsupported", MinNanowatts: 0, MaxNanowatts: 0}
 		if got != want {
 			t.Errorf("Allocate() port = %+v, want %+v", got, want)
 		}
@@ -860,7 +844,7 @@ func TestPoeAllocateTruthTable(t *testing.T) {
 			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: true, MaxClass: 8, Limit: &limit15k, PD: phy.PDAttached, PDClass: phy.Class(4)}},
 		}}
 		got := cfg.Allocate().Ports["1/1/1"]
-		want := phy.PortAllocation{State: phy.PowerDenied, Denial: phy.ReasonLimit, MinNanowatts: 0, MaxNanowatts: 0}
+		want := phy.PortAllocation{State: phy.PowerDenied, Denial: "limit", MinNanowatts: 0, MaxNanowatts: 0}
 		if got != want {
 			t.Errorf("Allocate() port = %+v, want %+v", got, want)
 		}

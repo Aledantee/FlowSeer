@@ -360,8 +360,8 @@ func (c Config) QueueBuffer(name string, pcp vlan.PCP) (uint64, bool) {
 	return buffer, ok
 }
 
-// OutputPorts returns the sorted set of ports reserved for mirror output.
-func (c Config) OutputPorts() []string {
+// outputPorts returns the sorted set of ports reserved for mirror output.
+func (c Config) outputPorts() []string {
 	ports := make(map[string]struct{}, len(c.Mirrors))
 	for _, mirror := range c.Mirrors {
 		if mirror.OutputPort != "" {

@@ -2655,7 +2655,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 			t.Errorf("Egress port = %q, want 1/1/3", eg.Port)
 		}
 		wantTags := []vlan.Tag{
-			{TPID: bridge.DefaultServiceTPID, VID: 10},
+			{TPID: 0x88A8, VID: 10},
 			{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 100},
 		}
 		if !slices.Equal(eg.Frame.Tags, wantTags) {
@@ -2736,7 +2736,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 			t.Errorf("Egress port = %q, want 1/1/3", eg.Port)
 		}
 		wantTags := []vlan.Tag{
-			{TPID: bridge.DefaultServiceTPID, VID: 10},
+			{TPID: 0x88A8, VID: 10},
 		}
 		if !slices.Equal(eg.Frame.Tags, wantTags) {
 			t.Errorf("Egress tags = %+v, want %+v", eg.Frame.Tags, wantTags)
@@ -3336,8 +3336,8 @@ func TestNormalize(t *testing.T) {
 	if !slices.Equal(sw.Untagged, wantUntagged) {
 		t.Errorf("Untagged: got %v, want %v", sw.Untagged, wantUntagged)
 	}
-	if sw.Tunnel.TPID != bridge.DefaultServiceTPID {
-		t.Errorf("Tunnel TPID: got 0x%04x, want 0x%04x", sw.Tunnel.TPID, bridge.DefaultServiceTPID)
+	if sw.Tunnel.TPID != 0x88A8 {
+		t.Errorf("Tunnel TPID: got 0x%04x, want 0x%04x", sw.Tunnel.TPID, 0x88A8)
 	}
 	wantCust := []vlan.ID{100, 200}
 	if !slices.Equal(sw.Tunnel.CustomerVIDs, wantCust) {

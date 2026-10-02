@@ -200,11 +200,6 @@ func (b *Layer) Clone() *Layer {
 	return cp
 }
 
-// Validate verifies the invariants of the bridge configuration against the given environment.
-func (b *Layer) Validate(env layer.Env) error {
-	return b.cfg.Validate(env)
-}
-
 // SetGate installs g as the bridge forwarding and learning gate for scope,
 // the protocol scope containing the per-port fields the gate consults. A nil
 // gate allows every port to learn and forward, but still contributes scope to
@@ -456,16 +451,6 @@ func (b *Layer) evictOldestDynamic() (Entry, bool) {
 	b.counters.Evicted++
 
 	return oldest, true
-}
-
-// Forward processes an ingress frame through the bridge pipeline and updates dynamic forwarding database entries.
-func (b *Layer) Forward(now time.Time, ingress string, f ethernet.Frame) Result {
-	return b.forward(now, ingress, f, true)
-}
-
-// Peek processes an ingress frame through the bridge pipeline without mutating the forwarding database.
-func (b *Layer) Peek(now time.Time, ingress string, f ethernet.Frame) Result {
-	return b.forward(now, ingress, f, false)
 }
 
 func (b *Layer) forward(now time.Time, ingress string, f ethernet.Frame, learn bool) Result {

@@ -35,9 +35,6 @@ func TestEncodeOffsets(t *testing.T) {
 	if f.Src != src {
 		t.Errorf("Src = %s, want %s", f.Src, src)
 	}
-	if f.EtherType != loopprotect.EtherType {
-		t.Errorf("EtherType = 0x%04x, want 0x%04x", f.EtherType, loopprotect.EtherType)
-	}
 	if f.EtherType != 0x88b5 {
 		t.Errorf("EtherType = 0x%04x, want 0x88b5", f.EtherType)
 	}
@@ -176,7 +173,7 @@ func TestDecodeRefusals(t *testing.T) {
 			f := ethernet.Frame{
 				Dst:       loopprotect.GroupAddress(),
 				Src:       netaddr.MAC{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
-				EtherType: loopprotect.EtherType,
+				EtherType: 0x88b5,
 				Payload:   tc.payload,
 			}
 
@@ -203,7 +200,7 @@ func TestDecodeFieldsReadBack(t *testing.T) {
 	f := ethernet.Frame{
 		Dst:       loopprotect.GroupAddress(),
 		Src:       netaddr.MAC{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
-		EtherType: loopprotect.EtherType,
+		EtherType: 0x88b5,
 		Payload:   payload,
 	}
 

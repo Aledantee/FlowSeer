@@ -343,7 +343,7 @@ func TestLoopGuardHoldsAnInternalMSTIPortOutOfForwarding(t *testing.T) {
 	if l.Forwards("1/1/1", 10) {
 		t.Error("loop-inconsistent port forwards MSTI 1's VLAN 10, which is the loop the guard exists to prevent")
 	}
-	if info := l.InstancePortInfo(1, "1/1/1"); info.State == StateForwarding {
+	if info := l.instancePortInfo(1, "1/1/1"); info.State == StateForwarding {
 		t.Errorf("MSTI 1 port state = %v, want not Forwarding once loop guard trips on the CIST", info.State)
 	}
 }

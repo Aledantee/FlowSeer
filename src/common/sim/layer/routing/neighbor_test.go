@@ -631,43 +631,6 @@ func wantReleaseOrder(t *testing.T, trial int, exits []routing.HeldFrame, want .
 	}
 }
 
-// TestDiscardHeldThenWakePastDeadlineFailsTheEntry verifies that expiry still moves an
-// incomplete entry to Failed after DiscardHeld empties its held-frame queue.
-func TestDiscardHeldThenWakePastDeadlineFailsTheEntry(t *testing.T) {
-	t.Parallel()
-	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ResolutionTimeout: time.Second})
-
-	res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
-	if res.Reason != routing.ReasonNeighborPending {
-		t.Fatalf("reason = %q, want pending", res.Reason)
-	}
-	if _, ok := l.NextWake(); !ok {
-		t.Fatal("NextWake reports no timer before DiscardHeld, want one")
-	}
-
-	l.DiscardHeld()
-
-	// DiscardHeld leaves state and expiry alone: the entry is still Incomplete, still pending.
-	after := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), false)
-	if after.Reason != routing.ReasonNeighborPending {
-		t.Fatalf("reason after DiscardHeld = %q, want still pending", after.Reason)
-	}
-
-	eff := advanceAndDrain(l, testNow.Add(time.Second))
-	if len(eff) != 0 {
-		t.Fatalf("exits = %+v, want none: DiscardHeld left no frames to report", eff)
-	}
-	if _, ok := l.NextWake(); ok {
-		t.Error("NextWake still reports a timer once the entry failed, want none")
-	}
-
-	final := routeToV4(t, l, testNow.Add(time.Second), lifecycleDstV4, []byte("data"), true)
-	if final.Reason != routing.ReasonNeighborMiss {
-		t.Fatalf("reason = %q, want %q (the entry reached Failed on its own)", final.Reason, routing.ReasonNeighborMiss)
-	}
-	wantState(t, final, "failed")
-}
-
 // TestOriginatePendingResolutionKeepsHopLimit64 is finding 4: finishHeld used to decrement the
 // hop limit of every held frame, but Originate's direct (non-held) path never decrements, so a
 // datagram queued while its neighbor resolved left one hop limit lower than an identical one that

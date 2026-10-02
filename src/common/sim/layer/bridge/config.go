@@ -24,8 +24,8 @@ func effectiveAgingTime(configured time.Duration) time.Duration {
 	return configured
 }
 
-// DefaultServiceTPID is the standard IEEE 802.1ad Service Tag protocol identifier (0x88A8).
-const DefaultServiceTPID uint16 = 0x88A8
+// defaultServiceTPID is the standard IEEE 802.1ad Service Tag protocol identifier (0x88A8).
+const defaultServiceTPID uint16 = 0x88A8
 
 // Tunnel configures 802.1Q tunnel (QinQ) behavior for a switchport. Tunnel values are safe
 // for concurrent reads but not for concurrent mutation.
@@ -35,10 +35,10 @@ type Tunnel struct {
 	TPID         uint16
 }
 
-// EffectiveTPID returns the configured service TPID or [DefaultServiceTPID] when unset.
+// EffectiveTPID returns the configured service TPID or defaultServiceTPID when unset.
 func (t *Tunnel) EffectiveTPID() uint16 {
 	if t == nil || t.TPID == 0 {
-		return DefaultServiceTPID
+		return defaultServiceTPID
 	}
 
 	return t.TPID
@@ -290,7 +290,7 @@ func (c Config) Normalize(_ layer.Env) Config {
 			}
 			if sw.Tunnel != nil {
 				if sw.Tunnel.TPID == 0 {
-					sw.Tunnel.TPID = DefaultServiceTPID
+					sw.Tunnel.TPID = defaultServiceTPID
 				}
 				if len(sw.Tunnel.CustomerVIDs) > 0 {
 					slices.Sort(sw.Tunnel.CustomerVIDs)

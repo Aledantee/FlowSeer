@@ -15,12 +15,12 @@ import (
 // DefaultMembershipInterval is the membership and router-port lifetime used when an interval is unset.
 const DefaultMembershipInterval = 260 * time.Second
 
-// DefaultLastMemberQueryInterval is the last-member query interval used when unset (RFC 3376 §8.8, RFC 3810 §9.8).
-const DefaultLastMemberQueryInterval = time.Second
+// defaultLastMemberQueryInterval is the last-member query interval used when unset (RFC 3376 §8.8, RFC 3810 §9.8).
+const defaultLastMemberQueryInterval = time.Second
 
-// DefaultLastMemberQueryCount is the robustness variable used when LastMemberQueryCount is unset
+// defaultLastMemberQueryCount is the robustness variable used when LastMemberQueryCount is unset
 // (RFC 3376 §8.1, §8.9).
-const DefaultLastMemberQueryCount = 2
+const defaultLastMemberQueryCount = 2
 
 // Config selects the VLANs whose multicast membership is snooped.
 type Config struct {
@@ -51,10 +51,10 @@ func (c Config) Normalize(_ layer.Env) Config {
 			cfg.RouterPortInterval = DefaultMembershipInterval
 		}
 		if cfg.LastMemberQueryInterval == 0 {
-			cfg.LastMemberQueryInterval = DefaultLastMemberQueryInterval
+			cfg.LastMemberQueryInterval = defaultLastMemberQueryInterval
 		}
 		if cfg.LastMemberQueryCount == 0 {
-			cfg.LastMemberQueryCount = DefaultLastMemberQueryCount
+			cfg.LastMemberQueryCount = defaultLastMemberQueryCount
 		}
 
 		if len(cfg.RouterPorts) > 0 {
@@ -81,12 +81,12 @@ type VLANSnooping struct {
 	RouterPortInterval time.Duration
 
 	// LastMemberQueryInterval is the spacing between last-member queries. Zero uses
-	// [DefaultLastMemberQueryInterval].
+	// [defaultLastMemberQueryInterval].
 	LastMemberQueryInterval time.Duration
 
 	// LastMemberQueryCount is the robustness variable: how many last-member queries a
 	// querier sends before concluding a group or source has no more listeners. Zero uses
-	// [DefaultLastMemberQueryCount].
+	// [defaultLastMemberQueryCount].
 	LastMemberQueryCount int
 }
 
@@ -228,7 +228,7 @@ func (v VLANSnooping) routerPortInterval() time.Duration {
 
 func (v VLANSnooping) lastMemberQueryInterval() time.Duration {
 	if v.LastMemberQueryInterval == 0 {
-		return DefaultLastMemberQueryInterval
+		return defaultLastMemberQueryInterval
 	}
 
 	return v.LastMemberQueryInterval
@@ -236,7 +236,7 @@ func (v VLANSnooping) lastMemberQueryInterval() time.Duration {
 
 func (v VLANSnooping) lastMemberQueryCount() int {
 	if v.LastMemberQueryCount == 0 {
-		return DefaultLastMemberQueryCount
+		return defaultLastMemberQueryCount
 	}
 
 	return v.LastMemberQueryCount

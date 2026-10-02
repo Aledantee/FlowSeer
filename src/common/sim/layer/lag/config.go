@@ -14,29 +14,29 @@ import (
 )
 
 const (
-	// DefaultSystemPriority is the standard administrative system priority (32768).
-	DefaultSystemPriority uint16 = 32768
+	// defaultSystemPriority is the standard administrative system priority (32768).
+	defaultSystemPriority uint16 = 32768
 
-	// DefaultPortPriority is the standard administrative port priority (32768).
-	DefaultPortPriority uint16 = 32768
+	// defaultPortPriority is the standard administrative port priority (32768).
+	defaultPortPriority uint16 = 32768
 
-	// FastPeriod is the transmission interval for fast LACP (1 second).
-	FastPeriod time.Duration = time.Second
+	// fastPeriod is the transmission interval for fast LACP (1 second).
+	fastPeriod time.Duration = time.Second
 
-	// SlowPeriod is the transmission interval for slow LACP (30 seconds).
-	SlowPeriod time.Duration = 30 * time.Second
+	// slowPeriod is the transmission interval for slow LACP (30 seconds).
+	slowPeriod time.Duration = 30 * time.Second
 
-	// TimeoutMultiplier is the multiplier applied to the transmission period to compute receive timeouts (3).
-	TimeoutMultiplier = 3
+	// timeoutMultiplier is the multiplier applied to the transmission period to compute receive timeouts (3).
+	timeoutMultiplier = 3
 
-	// DefaultRebalanceInterval is the rebalance interval Normalize fills in when
+	// defaultRebalanceInterval is the rebalance interval Normalize fills in when
 	// RebalanceInterval is nil (OVS `vswitchd/bridge.c` `bond-rebalance-interval`
 	// default 10000 ms).
-	DefaultRebalanceInterval time.Duration = 10 * time.Second
+	defaultRebalanceInterval time.Duration = 10 * time.Second
 
-	// MinRebalanceInterval is the smallest nonzero rebalance interval Normalize
+	// minRebalanceInterval is the smallest nonzero rebalance interval Normalize
 	// accepts; a configured nonzero value below it is raised to it.
-	MinRebalanceInterval time.Duration = time.Second
+	minRebalanceInterval time.Duration = time.Second
 )
 
 // Mode defines the frame distribution policy across aggregated links.
@@ -124,8 +124,8 @@ type LAG struct {
 
 	// RebalanceInterval governs the rebalance-unmodeled signal: a balanced
 	// selection is reported once its bucket is at least this old. Nil
-	// normalizes to DefaultRebalanceInterval, zero disables the signal, and a
-	// nonzero value below MinRebalanceInterval is raised to it.
+	// normalizes to 10 seconds, zero disables the signal, and a
+	// nonzero value below 1 second is raised to it.
 	RebalanceInterval *time.Duration
 
 	LACP    LACPConfig
@@ -209,7 +209,7 @@ func (c Config) Normalize(env layer.Env) Config {
 			lag.LACP.Mode = Off
 		}
 		if lag.LACP.SystemPriority == 0 {
-			lag.LACP.SystemPriority = DefaultSystemPriority
+			lag.LACP.SystemPriority = defaultSystemPriority
 		}
 		if lag.LACP.SystemID == (netaddr.MAC{}) {
 			lag.LACP.SystemID = env.MAC
@@ -220,9 +220,9 @@ func (c Config) Normalize(env layer.Env) Config {
 
 		switch {
 		case lag.RebalanceInterval == nil:
-			lag.RebalanceInterval = new(DefaultRebalanceInterval)
-		case *lag.RebalanceInterval > 0 && *lag.RebalanceInterval < MinRebalanceInterval:
-			lag.RebalanceInterval = new(MinRebalanceInterval)
+			lag.RebalanceInterval = new(defaultRebalanceInterval)
+		case *lag.RebalanceInterval > 0 && *lag.RebalanceInterval < minRebalanceInterval:
+			lag.RebalanceInterval = new(minRebalanceInterval)
 		}
 
 		members, knownLAG := lagMembers[lagName]
@@ -236,7 +236,7 @@ func (c Config) Normalize(env layer.Env) Config {
 		}
 		for memName, m := range lag.Members {
 			if m.Priority == 0 {
-				m.Priority = DefaultPortPriority
+				m.Priority = defaultPortPriority
 			}
 			if m.Key == 0 && lag.LACP.Key != 0 {
 				m.Key = lag.LACP.Key

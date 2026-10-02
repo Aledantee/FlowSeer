@@ -392,7 +392,7 @@ func TestBPDUGuardHoldsAnMSTIOutOfForwarding(t *testing.T) {
 	if l.Forwards("1/1/1", 10) {
 		t.Error("BPDU guard tripped on the CIST but MSTI 1 still forwards VLAN 10")
 	}
-	if info := l.InstancePortInfo(1, "1/1/1"); info.State == stp.StateForwarding {
+	if info := l.VLANPortInfo(10, "1/1/1"); info.State == stp.StateForwarding {
 		t.Errorf("MSTI 1 port state = %v, want not Forwarding once BPDU guard trips", info.State)
 	}
 }

@@ -1406,7 +1406,7 @@ func TestForeignRegionRevisionMarksPortExternalAndMSTIFollowsCIST(t *testing.T) 
 		t.Fatalf("CIST role = %v, want Root (a foreign-region BPDU is still evaluated on the CIST)", cistInfo.Role)
 	}
 
-	mstiInfo := l.InstancePortInfo(1, "1/1/1")
+	mstiInfo := l.VLANPortInfo(10, "1/1/1")
 	if mstiInfo.Role != cistInfo.Role || mstiInfo.State != cistInfo.State {
 		t.Errorf("MSTI 1 (role, state) = (%v, %v), want the CIST's boundary values (%v, %v)",
 			mstiInfo.Role, mstiInfo.State, cistInfo.Role, cistInfo.State)
@@ -1631,7 +1631,7 @@ func TestMSTInstancesSelectIndependentRoots(t *testing.T) {
 		for _, l := range layers {
 			for _, port := range []string{"l1", "l2"} {
 				fmt.Fprintf(&b, "%v/%v/%v/%v;",
-					l.PortInfo(port).Role, l.InstancePortInfo(1, port).Role, l.InstancePortInfo(2, port).Role,
+					l.PortInfo(port).Role, l.VLANPortInfo(10, port).Role, l.VLANPortInfo(20, port).Role,
 					l.PortInfo(port).State)
 			}
 		}
@@ -1640,19 +1640,19 @@ func TestMSTInstancesSelectIndependentRoots(t *testing.T) {
 
 	convergeLayers(t, start, layers, cables, snapshot)
 
-	msti1 := sw2.InstancePortInfo(1, "l2")
+	msti1 := sw2.VLANPortInfo(10, "l2")
 	if msti1.Role != bpdu.RoleRoot {
 		t.Errorf("sw2 MSTI 1 on l2 = %v, want Root (l1 costs 200000 for MSTI 1)", msti1.Role)
 	}
-	if got := sw2.InstancePortInfo(1, "l1").Role; got != bpdu.RoleAlternate && got != bpdu.RoleDesignated {
+	if got := sw2.VLANPortInfo(10, "l1").Role; got != bpdu.RoleAlternate && got != bpdu.RoleDesignated {
 		t.Errorf("sw2 MSTI 1 on l1 = %v, want Alternate or Designated, not Root", got)
 	}
 
-	msti2 := sw2.InstancePortInfo(2, "l1")
+	msti2 := sw2.VLANPortInfo(20, "l1")
 	if msti2.Role != bpdu.RoleRoot {
 		t.Errorf("sw2 MSTI 2 on l1 = %v, want Root (l2 costs 200000 for MSTI 2)", msti2.Role)
 	}
-	if got := sw2.InstancePortInfo(2, "l2").Role; got != bpdu.RoleAlternate && got != bpdu.RoleDesignated {
+	if got := sw2.VLANPortInfo(20, "l2").Role; got != bpdu.RoleAlternate && got != bpdu.RoleDesignated {
 		t.Errorf("sw2 MSTI 2 on l2 = %v, want Alternate or Designated, not Root", got)
 	}
 }
@@ -1764,9 +1764,9 @@ func TestMSTIRecordFlagsCarryThePerInstancePortRole(t *testing.T) {
 		t.Errorf("MSTI record learning=%t forwarding=%t, want both false before any agreement", decoded.Learning(), decoded.Forwarding())
 	}
 
-	instanceInfo := l.InstancePortInfo(1, "1/1/1")
+	instanceInfo := l.VLANPortInfo(10, "1/1/1")
 	if decoded.Role() != instanceInfo.Role {
-		t.Errorf("MSTI record role = %v, want it to match InstancePortInfo's %v", decoded.Role(), instanceInfo.Role)
+		t.Errorf("MSTI record role = %v, want it to match VLANPortInfo's %v", decoded.Role(), instanceInfo.Role)
 	}
 }
 
@@ -1889,7 +1889,7 @@ func TestAutoEdgeReachesAnMSTIAtTheSameWake(t *testing.T) {
 	if !l.Forwards("1/1/1", 10) {
 		t.Error("MSTI 1 does not forward VLAN 10 at the same wake the CIST's auto-edge fires")
 	}
-	if info := l.InstancePortInfo(1, "1/1/1"); !info.Edge {
+	if info := l.VLANPortInfo(10, "1/1/1"); !info.Edge {
 		t.Errorf("MSTI 1 port edge = %v, want true, mirrored from the CIST's auto-edge decision", info.Edge)
 	}
 
@@ -2587,7 +2587,7 @@ func TestSSTPOnANonPVSTBridgeRunsTheLinkHalfAndAppliesNoVector(t *testing.T) {
 		}
 	}
 
-	before := []stp.PortInfo{local.PortInfo("l1"), local.InstancePortInfo(1, "l1")}
+	before := []stp.PortInfo{local.PortInfo("l1"), local.VLANPortInfo(20, "l1")}
 	fx, outcome := local.ReceiveSSTP(now, "l1", stp.SSTPArrival{ArrivalVID: 20, TLVVID: 20, Admitted: true}, sstpBPDU)
 
 	if outcome != stp.SSTPBoundary {
@@ -2604,7 +2604,7 @@ func TestSSTPOnANonPVSTBridgeRunsTheLinkHalfAndAppliesNoVector(t *testing.T) {
 		t.Errorf("CIST root = %v, want this bridge's own %v: the SSTP vector must not be applied", root, local.BridgeID())
 	}
 
-	after := []stp.PortInfo{local.PortInfo("l1"), local.InstancePortInfo(1, "l1")}
+	after := []stp.PortInfo{local.PortInfo("l1"), local.VLANPortInfo(20, "l1")}
 	for i := range before {
 		// The received BPDU counter is the one field that must move: the
 		// frame did arrive, it is what the boundary report rests on.
@@ -2714,7 +2714,7 @@ func TestPVSTVLAN1PathCostDoesNotLeakToOtherVLANs(t *testing.T) {
 		t.Fatalf("VLAN 1 l1 path cost = %d, want the configured 100", got)
 	}
 
-	want := stp.DefaultPathCost(1_000_000_000)
+	want := uint32(20_000)
 	if got := l.VLANPortInfo(20, "l1").PathCost; got != want {
 		t.Errorf("VLAN 20 l1 path cost = %d, want the link-derived %d, not VLAN 1's configured 100", got, want)
 	}
@@ -3079,8 +3079,8 @@ func TestSpeedOnlyLinkChangeReachesEveryTreesCostWithoutBouncing(t *testing.T) {
 	if before.State != stp.StateForwarding {
 		t.Fatalf("l1 state before the speed change = %v, want Forwarding", before.State)
 	}
-	if got := l.VLANPortInfo(10, "l1").PathCost; got != stp.DefaultPathCost(1_000_000_000) {
-		t.Fatalf("VLAN 10 path cost before the speed change = %d, want %d", got, stp.DefaultPathCost(1_000_000_000))
+	if got := l.VLANPortInfo(10, "l1").PathCost; got != 20_000 {
+		t.Fatalf("VLAN 10 path cost before the speed change = %d, want 20000", got)
 	}
 
 	// Re-describing the same link at the same speed is not a transition.
@@ -3094,8 +3094,8 @@ func TestSpeedOnlyLinkChangeReachesEveryTreesCostWithoutBouncing(t *testing.T) {
 	if after.PathCost != 55 {
 		t.Errorf("CIST (VLAN 1) path cost after the speed change = %d, want the fixed 55", after.PathCost)
 	}
-	if got := l.VLANPortInfo(10, "l1").PathCost; got != stp.DefaultPathCost(10_000_000_000) {
-		t.Errorf("VLAN 10 path cost after the speed change = %d, want %d", got, stp.DefaultPathCost(10_000_000_000))
+	if got := l.VLANPortInfo(10, "l1").PathCost; got != 2_000 {
+		t.Errorf("VLAN 10 path cost after the speed change = %d, want 2000", got)
 	}
 	if after.State != before.State {
 		t.Errorf("l1 state after the speed change = %v, want the unchanged %v", after.State, before.State)
@@ -3142,7 +3142,7 @@ func TestATreesPortStartsAtTheBridgePortsConfiguredCost(t *testing.T) {
 			},
 		}, mustPortTable(t, "l1"))
 
-		if got := l.InstancePortInfo(1, "l1").PathCost; got != 100 {
+		if got := l.VLANPortInfo(10, "l1").PathCost; got != 100 {
 			t.Errorf("MSTI 1 path cost before any LinkChange = %d, want the configured 100", got)
 		}
 	})

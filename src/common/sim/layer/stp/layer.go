@@ -430,7 +430,7 @@ func newLayer(cfg Config) *Layer {
 
 		cost := pCfg.PathCost
 		if cost == 0 {
-			cost = DefaultPathCost(0)
+			cost = defaultPathCost(0)
 		}
 		linkCost := cost
 		fixed := false
@@ -584,7 +584,7 @@ func (l *Layer) addTree(id treeID, vid vlan.ID, bridgeID bpdu.BridgeID, treePort
 		// after.
 		linkCost := pCfg.PathCost
 		if linkCost == 0 {
-			linkCost = DefaultPathCost(0)
+			linkCost = defaultPathCost(0)
 		}
 		cost := linkCost
 		fixed := false
@@ -749,11 +749,11 @@ func (l *Layer) PortInfo(port string) PortInfo {
 	return l.portInfo(l.cist(), port)
 }
 
-// InstancePortInfo returns runtime spanning tree information for the named
+// instancePortInfo returns runtime spanning tree information for the named
 // port within the given MST instance. It returns a zero value when the
 // instance or the port is not tracked by the layer, which is also what a
 // plain RSTP bridge (no MST configured) answers for any nonzero bpdu.MSTID.
-func (l *Layer) InstancePortInfo(mstid bpdu.MSTID, port string) PortInfo {
+func (l *Layer) instancePortInfo(mstid bpdu.MSTID, port string) PortInfo {
 	t, ok := l.trees[treeID(mstid)]
 	if !ok {
 		return PortInfo{}
@@ -898,7 +898,7 @@ func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
 	}
 
 	p.sendRSTP = true
-	p.mdelayWhile = now.Add(MigrateTime)
+	p.mdelayWhile = now.Add(migrateTime)
 
 	// sendRSTP is link-replicated: every other tree's emit gate reads its own
 	// copy, and only a sync carries this migration check onto it. Without
@@ -1094,7 +1094,7 @@ func (l *Layer) frames(t *tree, p *portState, b bpdu.BPDU) ([]taggedFrame, error
 // shared one.
 func (l *Layer) edgeDelay(t *tree, p *portState) time.Duration {
 	if p.pointToPoint {
-		return MigrateTime
+		return migrateTime
 	}
 	maxAge, _, _ := l.times(t)
 
@@ -1898,7 +1898,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 	}
 	linkCost := p.cfg.PathCost
 	if linkCost == 0 {
-		linkCost = DefaultPathCost(speedBPS)
+		linkCost = defaultPathCost(speedBPS)
 	}
 	// A cost the tree configured for itself stays put across a link change,
 	// the way syncInstancePorts already leaves a fixed instance cost alone.
@@ -1936,7 +1936,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 	p.role = bpdu.RoleDesignated
 	p.agreed = false
 	p.sendRSTP = true
-	p.mdelayWhile = now.Add(MigrateTime)
+	p.mdelayWhile = now.Add(migrateTime)
 
 	p.edge = p.adminEdge
 	p.edgeDelayWhile = now.Add(l.edgeDelay(t, p))
@@ -2023,10 +2023,10 @@ func (l *Layer) receiveLink(now time.Time, p *portState, b bpdu.BPDU, flushes *[
 
 	if (b.Type == bpdu.TypeConfiguration || b.Type == bpdu.TypeTopologyChangeNotification) && p.sendRSTP && !p.mdelayWhile.After(now) {
 		p.sendRSTP = false
-		p.mdelayWhile = now.Add(MigrateTime)
+		p.mdelayWhile = now.Add(migrateTime)
 	} else if b.Type == bpdu.TypeRapid && !p.sendRSTP && !p.mdelayWhile.After(now) {
 		p.sendRSTP = true
-		p.mdelayWhile = now.Add(MigrateTime)
+		p.mdelayWhile = now.Add(migrateTime)
 	}
 
 	wasAutoEdge := p.edge && !p.adminEdge

@@ -1,7 +1,6 @@
 package traffic_test
 
 import (
-	"slices"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -260,9 +259,6 @@ func TestConfigLookups(t *testing.T) {
 		Queues: map[string]traffic.PortQueues{
 			"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{7: 100_000_000}, BufferOctets: map[vlan.PCP]uint64{7: 2000}},
 		},
-	}
-	if got, want := cfg.OutputPorts(), []string{"1/1/24", "1/1/4"}; !slices.Equal(got, want) {
-		t.Errorf("OutputPorts = %v, want %v", got, want)
 	}
 	if got, ok := cfg.MaxRate("1/1/24", 7); !ok || got != 100_000_000 {
 		t.Errorf("MaxRate = %d, %t, want 100000000, true", got, ok)

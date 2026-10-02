@@ -358,7 +358,7 @@ func diffRules(changes []trace.Change, setName string, rulesA, rulesB []Rule) []
 			})
 			continue
 		}
-		if !rA.Equal(rB) {
+		if !rA.equal(rB) {
 			changes = append(changes, trace.Change{
 				Layer:   LayerName,
 				Subject: subject,

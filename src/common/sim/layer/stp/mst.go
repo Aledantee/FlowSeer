@@ -163,7 +163,7 @@ func (i Instance) clone() Instance {
 
 func effectiveMaxHops(h uint8) uint8 {
 	if h == 0 {
-		return DefaultMaxHops
+		return defaultMaxHops
 	}
 	return h
 }

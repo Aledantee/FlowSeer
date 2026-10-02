@@ -149,8 +149,8 @@ const (
 	// SourceObserved resolves from the reported active speed.
 	SourceObserved Source = "observed"
 
-	// SourceSetting resolves from the configured speed with auto-negotiation off.
-	SourceSetting Source = "setting"
+	// sourceSetting resolves from the configured speed with auto-negotiation off.
+	sourceSetting Source = "setting"
 
 	// SourceNegotiated resolves to the highest supported speed at full duplex
 	// with auto-negotiation on.
@@ -190,7 +190,7 @@ func (e Ethernet) Resolve() Resolved {
 		return Resolved{Source: SourceUnresolved}
 	}
 
-	return Resolved{SpeedBPS: e.Setting.SpeedBPS, Duplex: e.Setting.Duplex, Source: SourceSetting}
+	return Resolved{SpeedBPS: e.Setting.SpeedBPS, Duplex: e.Setting.Duplex, Source: sourceSetting}
 }
 
 // Resolve computes every port's active speed and duplex. It returns nil when

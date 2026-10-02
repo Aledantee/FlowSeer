@@ -446,20 +446,20 @@ func (l *Layer) Clone() *Layer {
 	return cp
 }
 
-// DiscardHeld drops every neighbor entry's held-frame queue and any frame
-// [appendHeld] has evicted from it but [Layer.Wake] has not yet reported,
+// discardHeld drops every neighbor entry's held-frame queue and any frame
+// [appendHeld] has evicted from it but [Layer.Advance] has not yet reported,
 // without changing the entry's state, expiry, or link-layer address. A frame
 // in flight belongs to the run that queued it, not to configuration a later
 // derive retains: a cloned layer that kept someone else's in-flight or
 // evicted frames would make two forks compare unequal for a reason neither
 // configuration shows, or report a frame from a run that never woke it.
 //
-// DiscardHeld leaves an Incomplete entry's state and expiry untouched on
-// purpose, even though emptying its queue looks like settling it: [Layer.Wake]
+// discardHeld leaves an Incomplete entry's state and expiry untouched on
+// purpose, even though emptying its queue looks like settling it: [Layer.Advance]
 // alone decides when a resolution deadline passing moves the entry to Failed,
 // and it does that whether or not the queue it drains is empty. Settling the
 // entry here as well would just duplicate that decision under a second name.
-func (l *Layer) DiscardHeld() {
+func (l *Layer) discardHeld() {
 	for _, vs := range l.vrfs {
 		for _, entry := range vs.neighbors {
 			entry.queue = nil

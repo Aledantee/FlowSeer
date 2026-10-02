@@ -222,8 +222,8 @@ func TestNormalize(t *testing.T) {
 				RouterPorts:             []string{"1/1/1", "1/1/2"},
 				MembershipInterval:      mcast.DefaultMembershipInterval,
 				RouterPortInterval:      mcast.DefaultMembershipInterval,
-				LastMemberQueryInterval: mcast.DefaultLastMemberQueryInterval,
-				LastMemberQueryCount:    mcast.DefaultLastMemberQueryCount,
+				LastMemberQueryInterval: time.Second,
+				LastMemberQueryCount:    2,
 			},
 		}}
 
@@ -258,7 +258,7 @@ func TestLastMemberQueryCountDiffUsesEffectiveValue(t *testing.T) {
 
 	zero := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{10: {}}}
 	explicitDefault := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
-		10: {LastMemberQueryCount: mcast.DefaultLastMemberQueryCount},
+		10: {LastMemberQueryCount: 2},
 	}}
 	changedTo3 := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
 		10: {LastMemberQueryCount: 3},

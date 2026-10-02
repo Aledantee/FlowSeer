@@ -11,9 +11,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// ReasonUnsupportedProbe indicates that a received frame could not be
+// reasonUnsupportedProbe indicates that a received frame could not be
 // decoded as a loop-protection probe.
-const ReasonUnsupportedProbe trace.Reason = "unsupported-loopprotect-probe"
+const reasonUnsupportedProbe trace.Reason = "unsupported-loopprotect-probe"
 
 // probeVersion is the only version Encode writes and Decode accepts.
 const probeVersion uint8 = 1
@@ -37,9 +37,9 @@ func GroupAddress() netaddr.MAC {
 	return groupAddress
 }
 
-// EtherType is the loop-protection probe EtherType, IEEE Std 802 Local
+// etherType is the loop-protection probe EtherType, IEEE Std 802 Local
 // Experimental EtherType 1.
-const EtherType ethernet.EtherType = 0x88b5
+const etherType ethernet.EtherType = 0x88b5
 
 // Probe is a decoded loop-protection probe. A probe whose payload names this
 // switch as OriginMAC and this switch's own port as Port is a loop on that port.
@@ -69,7 +69,7 @@ func Encode(p Probe, src netaddr.MAC) ethernet.Frame {
 	return ethernet.Frame{
 		Dst:       groupAddress,
 		Src:       src,
-		EtherType: EtherType,
+		EtherType: etherType,
 		Payload:   payload,
 	}
 }
@@ -92,7 +92,7 @@ func SetProbeVID(f ethernet.Frame, vid vlan.ID) ethernet.Frame {
 func Decode(f ethernet.Frame) (Probe, error) {
 	if len(f.Payload) < probeHeaderLength {
 		return Probe{}, errs.New().
-			Attr("reason", ReasonUnsupportedProbe).
+			Attr("reason", reasonUnsupportedProbe).
 			Attr("have", len(f.Payload)).
 			Attr("min", probeHeaderLength).
 			Msgf("loop protection probe payload length %d is too short", len(f.Payload))
@@ -101,7 +101,7 @@ func Decode(f ethernet.Frame) (Probe, error) {
 	version := f.Payload[0]
 	if version != probeVersion {
 		return Probe{}, errs.New().
-			Attr("reason", ReasonUnsupportedProbe).
+			Attr("reason", reasonUnsupportedProbe).
 			Attr("version", version).
 			Msgf("unsupported loop protection probe version %d, want %d", version, probeVersion)
 	}
@@ -115,21 +115,21 @@ func Decode(f ethernet.Frame) (Probe, error) {
 	nameLen := int(f.Payload[13])
 	if nameLen == 0 {
 		return Probe{}, errs.New().
-			Attr("reason", ReasonUnsupportedProbe).
+			Attr("reason", reasonUnsupportedProbe).
 			Msg("loop protection probe port name length is zero")
 	}
 
 	end := probeHeaderLength + nameLen
 	if end > len(f.Payload) {
 		return Probe{}, errs.New().
-			Attr("reason", ReasonUnsupportedProbe).
+			Attr("reason", reasonUnsupportedProbe).
 			Attr("name_len", nameLen).
 			Attr("payload_len", len(f.Payload)).
 			Msgf("loop protection probe port name of length %d runs past the %d-octet payload", nameLen, len(f.Payload))
 	}
 	if end < len(f.Payload) {
 		return Probe{}, errs.New().
-			Attr("reason", ReasonUnsupportedProbe).
+			Attr("reason", reasonUnsupportedProbe).
 			Attr("have", len(f.Payload)).
 			Attr("want", end).
 			Msgf("loop protection probe payload carries %d trailing octets after the port name", len(f.Payload)-end)

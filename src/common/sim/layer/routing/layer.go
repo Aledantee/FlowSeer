@@ -68,8 +68,8 @@ func RouteLookupScope(nodeID, vrf string, dst netip.Addr) analysis.Scope {
 	return analysis.FieldScope(VRFScope(nodeID, vrf), "routes", dst.String())
 }
 
-// LocalAddressLookupScope returns the exact scope for a local-destination lookup in a VRF.
-func LocalAddressLookupScope(nodeID, vrf string, dst netip.Addr) analysis.Scope {
+// localAddressLookupScope returns the exact scope for a local-destination lookup in a VRF.
+func localAddressLookupScope(nodeID, vrf string, dst netip.Addr) analysis.Scope {
 	return analysis.FieldScope(VRFScope(nodeID, vrf), "local_addresses", dst.String())
 }
 
@@ -123,19 +123,19 @@ type Result struct {
 	Steps           []trace.Step
 	Reason          trace.Reason
 	Interface       string
-	Candidates      []Candidate
+	candidates      []candidate
 	Frame           ethernet.Frame
 	consultedScopes []analysis.Scope
 }
 
-// Candidate is one route of the equal-cost set a lookup chose from: the routes whose prefix
+// candidate is one route of the equal-cost set a lookup chose from: the routes whose prefix
 // contains the destination and which tie the winner on prefix length, preference, and metric.
 // A lookup reports them in canonical order, by next hop then egress interface, and forwards
 // on the one the packet's flow hash lands on. NextHop is the configured next hop; Interface
 // is the egress the route resolved to, which for a route configured with a next hop alone is
 // the interface the next hop is on-link on, whether directly or at the end of a chain of
 // routes.
-type Candidate struct {
+type candidate struct {
 	Prefix     netip.Prefix
 	NextHop    netip.Addr
 	Interface  string
@@ -614,10 +614,10 @@ func (l *Layer) WithdrawnRoutes(vrf string) []WithdrawnRoute {
 	return out
 }
 
-func candidateSet(entries []routeEntry) []Candidate {
-	set := make([]Candidate, len(entries))
+func candidateSet(entries []routeEntry) []candidate {
+	set := make([]candidate, len(entries))
 	for i, e := range entries {
-		set[i] = Candidate{
+		set[i] = candidate{
 			Prefix:     e.Prefix,
 			NextHop:    e.NextHop,
 			Interface:  e.Interface,
@@ -801,7 +801,7 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 		})
 		return res
 	}
-	res.consult(LocalAddressLookupScope(l.nodeID, vrfName, hdr.Dst))
+	res.consult(localAddressLookupScope(l.nodeID, vrfName, hdr.Dst))
 
 	if _, isLocal := vrf.localAddrs[hdr.Dst]; isLocal {
 		res.Reason = ReasonNotRouted
@@ -856,7 +856,7 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 		return res
 	}
 
-	res.Candidates = candidateSet(sel.candidates)
+	res.candidates = candidateSet(sel.candidates)
 	matchedRoute := sel.route()
 	res.Steps = append(res.Steps, trace.Step{
 		Layer:   LayerName,
@@ -1081,7 +1081,7 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 			Outputs: []trace.Fact{packetSnapshot(targetIface, ethernet.Frame{EtherType: etherType}, hdr, false, ReasonBadHeader)},
 		})
 		res.Reason = ReasonBadHeader
-		res.Candidates = candidateSet(sel.candidates)
+		res.candidates = candidateSet(sel.candidates)
 		return res
 	}
 
@@ -1108,7 +1108,7 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 		})
 		res.Reason = ReasonNeighborPending
 		res.Interface = targetIface
-		res.Candidates = candidateSet(sel.candidates)
+		res.candidates = candidateSet(sel.candidates)
 		return res
 	}
 	if !lookup.ok {
@@ -1123,7 +1123,7 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 		})
 		res.Reason = ReasonNeighborMiss
 		res.Interface = targetIface
-		res.Candidates = candidateSet(sel.candidates)
+		res.candidates = candidateSet(sel.candidates)
 		return res
 	}
 
@@ -1132,7 +1132,7 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 	egressIfaceObj := l.ifaces[targetIface]
 	res.Steps = steps
 	res.Interface = targetIface
-	res.Candidates = candidateSet(sel.candidates)
+	res.candidates = candidateSet(sel.candidates)
 	res.Frame = ethernet.Frame{
 		Src:       egressIfaceObj.MAC,
 		Dst:       lookup.mac,

@@ -239,18 +239,18 @@ func TestDefaults(t *testing.T) {
 	if l1.Primary != "" {
 		t.Errorf("lag1 primary = %q, want unset", l1.Primary)
 	}
-	if l1.RebalanceInterval == nil || *l1.RebalanceInterval != lag.DefaultRebalanceInterval {
-		t.Errorf("lag1 rebalance interval = %v, want %v", l1.RebalanceInterval, lag.DefaultRebalanceInterval)
+	if l1.RebalanceInterval == nil || *l1.RebalanceInterval != 10*time.Second {
+		t.Errorf("lag1 rebalance interval = %v, want %v", l1.RebalanceInterval, 10*time.Second)
 	}
-	if l1.LACP.SystemPriority != lag.DefaultSystemPriority {
-		t.Errorf("lag1 system priority = %d, want %d", l1.LACP.SystemPriority, lag.DefaultSystemPriority)
+	if l1.LACP.SystemPriority != 32768 {
+		t.Errorf("lag1 system priority = %d, want 32768", l1.LACP.SystemPriority)
 	}
 	if l1.LACP.SystemID != sysMAC {
 		t.Errorf("lag1 system ID = %v, want %v", l1.LACP.SystemID, sysMAC)
 	}
 	m1 := l1.Members["1/1/1"]
-	if m1.Priority != lag.DefaultPortPriority {
-		t.Errorf("member 1/1/1 priority = %d, want %d", m1.Priority, lag.DefaultPortPriority)
+	if m1.Priority != 32768 {
+		t.Errorf("member 1/1/1 priority = %d, want 32768", m1.Priority)
 	}
 	if m1.Key != 1 {
 		t.Errorf("member 1/1/1 key = %d, want 1", m1.Key)
@@ -273,7 +273,7 @@ func TestDiff(t *testing.T) {
 			"lag1": {
 				Mode: lag.ActiveBackup,
 				Members: map[string]lag.Member{
-					"1/1/1": {Priority: lag.DefaultPortPriority},
+					"1/1/1": {Priority: 32768},
 				},
 			},
 		},
@@ -310,8 +310,8 @@ func TestDiff(t *testing.T) {
 	from, to, ok := findChange("port", memberKey, "priority")
 	fromFact, okFrom := from.(trace.Fact)
 	toFact, okTo := to.(trace.Fact)
-	if !ok || !okFrom || !okTo || fromFact.Canonical() != strconv.Itoa(int(lag.DefaultPortPriority)) || toFact.Canonical() != "100" {
-		t.Errorf("priority change: got (%v, %v, %v), want (%d, 100, true)", from, to, ok, lag.DefaultPortPriority)
+	if !ok || !okFrom || !okTo || fromFact.Canonical() != strconv.Itoa(32768) || toFact.Canonical() != "100" {
+		t.Errorf("priority change: got (%v, %v, %v), want (32768, 100, true)", from, to, ok)
 	}
 }
 
@@ -335,12 +335,12 @@ func TestNormalize(t *testing.T) {
 	if l.LACP.Mode != lag.Off {
 		t.Errorf("LACP.Mode: got %v, want %v", l.LACP.Mode, lag.Off)
 	}
-	if l.LACP.SystemPriority != lag.DefaultSystemPriority {
-		t.Errorf("LACP.SystemPriority: got %d, want %d", l.LACP.SystemPriority, lag.DefaultSystemPriority)
+	if l.LACP.SystemPriority != 32768 {
+		t.Errorf("LACP.SystemPriority: got %d, want 32768", l.LACP.SystemPriority)
 	}
 	m := l.Members["1/1/1"]
-	if m.Priority != lag.DefaultPortPriority {
-		t.Errorf("Member Priority: got %d, want %d", m.Priority, lag.DefaultPortPriority)
+	if m.Priority != 32768 {
+		t.Errorf("Member Priority: got %d, want 32768", m.Priority)
 	}
 }
 
@@ -368,9 +368,9 @@ func TestRebalanceIntervalNormalization(t *testing.T) {
 		in   *time.Duration
 		want time.Duration
 	}{
-		{name: "nil fills the default", in: nil, want: lag.DefaultRebalanceInterval},
+		{name: "nil fills the default", in: nil, want: 10 * time.Second},
 		{name: "zero disables and stays zero", in: &zero, want: 0},
-		{name: "below the minimum is raised to it", in: &below, want: lag.MinRebalanceInterval},
+		{name: "below the minimum is raised to it", in: &below, want: time.Second},
 		{name: "at or above the minimum is kept", in: &above, want: above},
 	}
 	for _, tc := range cases {

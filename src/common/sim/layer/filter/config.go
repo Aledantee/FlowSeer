@@ -297,8 +297,8 @@ func (c Config) Validate(_ layer.Env) error {
 	return nil
 }
 
-// Equal reports whether c and other are semantically identical.
-func (c Config) Equal(other Config) bool {
+// equal reports whether c and other are semantically identical.
+func (c Config) equal(other Config) bool {
 	normA := c.Normalize(layer.Env{})
 	normB := other.Normalize(layer.Env{})
 
@@ -312,7 +312,7 @@ func (c Config) Equal(other Config) bool {
 			return false
 		}
 		for i := range setA.Rules {
-			if !setA.Rules[i].Equal(setB.Rules[i]) {
+			if !setA.Rules[i].equal(setB.Rules[i]) {
 				return false
 			}
 		}
@@ -327,16 +327,16 @@ func (c Config) Equal(other Config) bool {
 	return true
 }
 
-// Equal reports whether r and other are identical.
-func (r Rule) Equal(other Rule) bool {
+// equal reports whether r and other are identical.
+func (r Rule) equal(other Rule) bool {
 	if r.Name != other.Name || r.Action != other.Action {
 		return false
 	}
-	return r.Match.Equal(other.Match)
+	return r.Match.equal(other.Match)
 }
 
-// Equal reports whether m and other match identical packet criteria.
-func (m Match) Equal(other Match) bool {
+// equal reports whether m and other match identical packet criteria.
+func (m Match) equal(other Match) bool {
 	if (m.Protocol == nil) != (other.Protocol == nil) {
 		return false
 	}

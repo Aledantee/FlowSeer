@@ -55,11 +55,6 @@ func (b *Bucket) Admit(now time.Time, octets int) bool {
 	return true
 }
 
-// Tokens returns the current token count without refilling the bucket.
-func (b *Bucket) Tokens() float64 {
-	return b.tokens
-}
-
 // Clone returns an independent bucket with the same configuration and state.
 func (b *Bucket) Clone() *Bucket {
 	cp := *b

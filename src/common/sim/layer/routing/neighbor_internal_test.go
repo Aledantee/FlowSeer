@@ -290,7 +290,7 @@ func runConservation(t *testing.T, depth int, ops []conservationOp) conservation
 			})
 		case "discard":
 			run.discarded = append(run.discarded, held()...)
-			l.DiscardHeld()
+			l.discardHeld()
 		case "wake":
 			drain(now)
 		case "timeout":
@@ -356,5 +356,65 @@ func TestResolveNeighborStoredZeroStateIsAMiss(t *testing.T) {
 	}
 	if len(vs.neighbors[key].queue) != 0 {
 		t.Errorf("queue length = %d, want 0", len(vs.neighbors[key].queue))
+	}
+}
+
+// TestDiscardHeldThenWakePastDeadlineFailsTheEntry verifies that expiry still moves an
+// incomplete entry to Failed after discardHeld empties its held-frame queue.
+func TestDiscardHeldThenWakePastDeadlineFailsTheEntry(t *testing.T) {
+	t.Parallel()
+	l := conservationLayer(t, 3)
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	dst := conservationAddrs[0]
+
+	route := func(commit bool) Result {
+		hdr := ip.Header{
+			Src:      netip.MustParseAddr("10.0.10.99"),
+			Dst:      dst,
+			HopLimit: 64,
+			Protocol: 17,
+			V4:       &ip.V4{},
+		}
+		b, err := hdr.Encode([]byte("data"))
+		if err != nil {
+			t.Fatalf("encode: %v", err)
+		}
+		return l.Route(now, "vlan10", ethernet.Frame{
+			Src:       conservationSenderMAC,
+			Dst:       conservationDeviceMAC,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   b,
+		}, commit)
+	}
+
+	res := route(true)
+	if res.Reason != ReasonNeighborPending {
+		t.Fatalf("reason = %q, want pending", res.Reason)
+	}
+	if _, ok := l.NextWake(); !ok {
+		t.Fatal("NextWake reports no timer before discardHeld, want one")
+	}
+
+	l.discardHeld()
+
+	// discardHeld leaves state and expiry alone: the entry is still Incomplete, still pending.
+	after := route(false)
+	if after.Reason != ReasonNeighborPending {
+		t.Fatalf("reason after discardHeld = %q, want still pending", after.Reason)
+	}
+
+	now = now.Add(time.Second)
+	l.Advance(now)
+	eff := l.DrainExits()
+	if len(eff) != 0 {
+		t.Fatalf("exits = %+v, want none: discardHeld left no frames to report", eff)
+	}
+	if _, ok := l.NextWake(); ok {
+		t.Error("NextWake still reports a timer once the entry failed, want none")
+	}
+
+	final := route(true)
+	if final.Reason != ReasonNeighborMiss {
+		t.Fatalf("reason after expiry = %q, want %q (the entry reached Failed on its own)", final.Reason, ReasonNeighborMiss)
 	}
 }

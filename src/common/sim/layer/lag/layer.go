@@ -38,11 +38,11 @@ type Info struct {
 	PartnerKey            uint16
 	Up                    bool
 
-	// Pending names member ports that may still change state on their own
+	// pending names member ports that may still change state on their own
 	// (a running link delay, an Expired partner, or an attached partner
 	// without synchronization) and when. A pending member changes no other
 	// field of Info; the answer above is definite as of now.
-	Pending []Pending
+	pending []pending
 }
 
 // MemberInfo summarizes the runtime status of one member port in a link aggregation group.
@@ -58,27 +58,27 @@ type MemberInfo struct {
 	BadLACPDUs uint64
 }
 
-// PendingCause identifies why a member port may still change state.
-type PendingCause string
+// pendingCause identifies why a member port may still change state.
+type pendingCause string
 
 const (
-	// PendingLinkDelay marks a member whose up or down delay timer is running.
-	PendingLinkDelay PendingCause = "link-delay"
+	// pendingLinkDelay marks a member whose up or down delay timer is running.
+	pendingLinkDelay pendingCause = "link-delay"
 
-	// PendingPartnerExpired marks a member whose partner information is Expired
+	// pendingPartnerExpired marks a member whose partner information is Expired
 	// and will move to Defaulted when its receive timer elapses.
-	PendingPartnerExpired PendingCause = "partner-expired"
+	pendingPartnerExpired pendingCause = "partner-expired"
 
-	// PendingUnsynchronized marks a member attached to the lead partner that has
+	// pendingUnsynchronized marks a member attached to the lead partner that has
 	// not yet advertised synchronization.
-	PendingUnsynchronized PendingCause = "unsynchronized"
+	pendingUnsynchronized pendingCause = "unsynchronized"
 )
 
-// Pending names one member port that may still change state on its own, and
+// pending names one member port that may still change state on its own, and
 // the time at which that is currently scheduled to happen.
-type Pending struct {
+type pending struct {
 	Member string
-	Cause  PendingCause
+	Cause  pendingCause
 	At     time.Time
 }
 
@@ -202,9 +202,9 @@ func newLayer(cfg Config, ports port.Table, systemID netaddr.MAC) *Layer {
 		}
 		layer.lags[lagName] = ls
 
-		txPeriod := SlowPeriod
+		txPeriod := slowPeriod
 		if lagCfg.LACP.Fast {
-			txPeriod = FastPeriod
+			txPeriod = fastPeriod
 		}
 
 		for idx, memName := range memNames {
@@ -541,7 +541,7 @@ func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) layer.Effects
 	m.partnerDefaulted = true
 	m.partner = lacp.Info{State: lacp.StateDefaulted}
 	m.rxPeriod = m.txPeriod
-	m.rxTimer = now.Add(time.Duration(TimeoutMultiplier) * m.rxPeriod)
+	m.rxTimer = now.Add(time.Duration(timeoutMultiplier) * m.rxPeriod)
 
 	if l.updateLag(lag) {
 		changed = append(changed, lag.name)
@@ -604,11 +604,11 @@ func (l *Layer) Receive(now time.Time, member string, pdu lacp.PDU) layer.Effect
 	m.status = Current
 
 	if pdu.Actor.State&lacp.StateShortTimeout != 0 {
-		m.rxPeriod = FastPeriod
+		m.rxPeriod = fastPeriod
 	} else {
-		m.rxPeriod = SlowPeriod
+		m.rxPeriod = slowPeriod
 	}
-	m.rxTimer = now.Add(time.Duration(TimeoutMultiplier) * m.rxPeriod)
+	m.rxTimer = now.Add(time.Duration(timeoutMultiplier) * m.rxPeriod)
 
 	var changed []string
 	if l.updateLag(lag) {
@@ -664,7 +664,7 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 			switch m.status {
 			case Current:
 				m.status = Expired
-				m.rxTimer = now.Add(time.Duration(TimeoutMultiplier) * m.rxPeriod)
+				m.rxTimer = now.Add(time.Duration(timeoutMultiplier) * m.rxPeriod)
 				lagNeedsUpdate = true
 			case Expired:
 				m.status = Defaulted
@@ -763,10 +763,10 @@ func (l *Layer) Info(lagName string) Info {
 		return Info{}
 	}
 
-	var pending []Pending
+	var pendingList []pending
 	for _, name := range lag.memberNames {
 		if p, ok := pendingEntry(l.members[name]); ok {
-			pending = append(pending, p)
+			pendingList = append(pendingList, p)
 		}
 	}
 
@@ -778,7 +778,7 @@ func (l *Layer) Info(lagName string) Info {
 		PartnerSystemPriority: lag.partnerSysPrio,
 		PartnerKey:            lag.partnerKey,
 		Up:                    len(lag.enabledOrder) > 0,
-		Pending:               pending,
+		pending:               pendingList,
 	}
 }
 
@@ -786,16 +786,16 @@ func (l *Layer) Info(lagName string) Info {
 // still change state on its own. A member matching more than one condition
 // reports the one checked first below, since Info carries one entry per
 // member.
-func pendingEntry(m *memberState) (Pending, bool) {
+func pendingEntry(m *memberState) (pending, bool) {
 	switch {
 	case m.hasPendingLink:
-		return Pending{Member: m.name, Cause: PendingLinkDelay, At: m.linkDelayTimer}, true
+		return pending{Member: m.name, Cause: pendingLinkDelay, At: m.linkDelayTimer}, true
 	case m.status == Expired:
-		return Pending{Member: m.name, Cause: PendingPartnerExpired, At: m.rxTimer}, true
+		return pending{Member: m.name, Cause: pendingPartnerExpired, At: m.rxTimer}, true
 	case m.attached && m.partner.State&lacp.StateSynchronization == 0:
-		return Pending{Member: m.name, Cause: PendingUnsynchronized, At: m.rxTimer}, true
+		return pending{Member: m.name, Cause: pendingUnsynchronized, At: m.rxTimer}, true
 	default:
-		return Pending{}, false
+		return pending{}, false
 	}
 }
 

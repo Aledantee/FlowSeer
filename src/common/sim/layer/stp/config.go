@@ -37,11 +37,11 @@ const (
 	// DefaultTxHoldCount is the standard transmit hold count limit of 6 BPDUs per second.
 	DefaultTxHoldCount uint8 = 6
 
-	// MigrateTime is the protocol migration delay of 3 seconds (IEEE 802.1D-2004 Table 17-1).
-	MigrateTime time.Duration = 3 * time.Second
+	// migrateTime is the protocol migration delay of 3 seconds (IEEE 802.1D-2004 Table 17-1).
+	migrateTime time.Duration = 3 * time.Second
 
-	// DefaultMaxHops is the IEEE 802.1Q recommended default MST region maximum hop count (20).
-	DefaultMaxHops uint8 = 20
+	// defaultMaxHops is the IEEE 802.1Q recommended default MST region maximum hop count (20).
+	defaultMaxHops uint8 = 20
 )
 
 // PointToPointMode controls whether a port operates as a point-to-point link.
@@ -222,10 +222,10 @@ func (c Config) Normalize(_ layer.Env) Config {
 	return cloned
 }
 
-// DefaultPathCost returns the IEEE 802.1D-2004 recommended path cost for the
+// defaultPathCost returns the IEEE 802.1D-2004 recommended path cost for the
 // given link speed in bits per second. A speed between two rows takes the cost
 // of the row at or below it. A zero or unknown speed returns 20,000.
-func DefaultPathCost(speedBPS uint64) uint32 {
+func defaultPathCost(speedBPS uint64) uint32 {
 	switch {
 	case speedBPS >= 100_000_000_000:
 		return 200
