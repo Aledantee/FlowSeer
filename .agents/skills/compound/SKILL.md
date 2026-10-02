@@ -108,7 +108,10 @@ sentence a reader should remember.
 
 When the work's `implement` and `review` checkpoints are in place, end by
 asking the user (`AGENTS.md`, Agent behavior) whether to run `land` now or
-stop here. The same question ends a run the gate stopped with
+stop here. With a review gap still listed (`python3
+.claude/skills/land/scripts/review-gaps.py <plan>` exits 1, or planless work
+whose recorded verdict is `fixes needed`), the question offers the gap pass
+(`review`, `references/fix-loop.md`) first, since `land` stops on it. The same question ends a run the gate stopped with
 `compound: no lesson` or `compound: observation logged`.
 
 ## Refresh

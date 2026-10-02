@@ -1,7 +1,8 @@
 # Running a missing skill before the merge
 
 Load this when the user answers yes to step 1's question to run `implement`,
-`review`, or `compound` before the merge.
+`review`, or `compound` before the merge, or to close a listed review gap
+(the gap pass, below).
 
 The skill runs in a session of its own, never in this one: this session's
 context stays on the merge, and a review is independent only when its reader
@@ -36,3 +37,17 @@ on disk gates the merge, not the answer, and the merged commit makes the
 receipt stale, which step 1 then remedies.
 Several missing signals are worked one worker after another, in order:
 `implement`, `review`, `compound`.
+
+## The gap pass
+
+When step 1 offered the gap pass for a listed review gap, dispatch one worker
+as above, role `execute`. The brief names
+`.claude/skills/review/references/fix-loop.md`, "The gap pass", this branch as
+the scope, and the plan path. The work is done when
+`python3 .claude/skills/land/scripts/review-gaps.py <plan>` exits 0. The
+worker leaves source outside tests, comments, and docs untouched: a gap whose
+fix needs it is a blocker for the worker to state, and that fix is a round of
+`review`'s fix loop, not this pass. For planless work the worker reports the
+gap fixes, and this session records `accept after fixes` with
+`ledger.py checkpoint` after checking the worker's tree. Merge as above, and
+start step 1 again from the top.

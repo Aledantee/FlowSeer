@@ -58,8 +58,8 @@ unsandboxed) the card carries the same entries; load
 | Implementation landed | plan `status`, or the checkpoints file's `implemented:` line with commits in `main..HEAD` (in Orca also the card's `implemented:` entry with `.workspaceStatus` `in-review`) | `status: implemented`, or the line present |
 | Verifier ran after the last edit | `$(git rev-parse --git-dir)/flowseer-verification-receipt` present, `flowseer-verification-dirty` absent | `verified_at` newer than the last commit |
 | Every unit landed | `$(git rev-parse --git-dir)/flowseer-plan-status.json`, when present | every `status` is `passed` |
-| Review verdict | plan `review` field, or the checkpoints file's `review:` line (in Orca also the card) | `accept` or `accept after fixes` |
-| Review gaps closed | `python3 .claude/skills/land/scripts/review-gaps.py <plan>`, with every plan this branch carries | exit 0 |
+| Review verdict | plan `review` field, or the checkpoints file's `review:` line (in Orca also the card) | `accept` or `accept after fixes`. Planless work with a gap open records `fixes needed`, so this row gates it until the gap pass records `accept after fixes` |
+| Review gaps closed | `python3 .claude/skills/land/scripts/review-gaps.py <plan>`, with every plan this branch carries. Planless work has no plan section, and the verdict row above carries its gaps | exit 0 |
 | Lesson captured or declined | plan `compound` field, or the checkpoints file's `compound:` line (in Orca also the card) | a solution path, `no lesson`, or `observation logged` |
 
 A verdict or outcome in neither place is missing, whatever the conversation
@@ -177,8 +177,10 @@ deletes it in a commit of its own.
 A merge can carry in a finished plan that no `land` gated, such as a phase a
 `drive` merged into another branch. Retire those too: each plan the merged tree holds whose `status` is
 `superseded` or `abandoned`, and each `implemented` one whose `review` and
-`compound` fields read as step 1 requires. Report an `implemented` plan
-missing a field without retiring it.
+`compound` fields read as step 1 requires and for which
+`python3 .claude/skills/land/scripts/review-gaps.py <plan>` exits 0. Report an
+`implemented` plan missing a field, or one that lists a gap, without retiring
+it.
 
 ```bash
 grep -l -E '^status: (implemented|superseded|abandoned)' docs/plans/*-plan.md

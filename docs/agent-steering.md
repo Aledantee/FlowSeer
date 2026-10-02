@@ -155,7 +155,8 @@ Gate the merge on evidence, not on the conversation. `land` is the one
 skill whose action reaches every other worktree, and a session cannot see
 which skills ran before it, so `implement`, `review`, and `compound` each
 leave a checkpoint that `land` reads: the plan's `status`, `review`, and
-`compound` fields, the verifier receipt under the git dir, and in Orca the
+`compound` fields, its `## Review gaps` section (which must list nothing),
+the verifier receipt under the git dir, and in Orca the
 card's status and comment. Work that skipped the plan has no frontmatter,
 so the same three lines go to a `flowseer-checkpoints` file beside the
 receipt, with the commit range standing in for the plan. Every checkpoint

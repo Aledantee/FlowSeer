@@ -90,7 +90,9 @@ for the stage's "Done when":
 
 - re-plan: `grep -q '^artifact_readiness: implementation-ready$' <plan>`
 - implement: `grep -q '^status: implemented$' <plan>`
-- review: `grep -q '^review: accept' <plan>`
+- review: `grep -q '^review: accept' <plan> && python3 .claude/skills/land/scripts/review-gaps.py <plan>`.
+  On a gap pass the verdict already matches, so the test also waits for the
+  script to exit 0, which holds once the worker has deleted every gap's line.
 - compound: `grep -q '^compound:' <plan>`
 
 On `done` without the stage's report on the screen, wait again without
@@ -213,12 +215,14 @@ lines first and asks them before anything else.
 
 ## 5. Stop and ask
 
-Stop when every plan in scope has its three fields set, when only parked or
-waiting plans remain, when no pool is usable, or when the verifier is red on
-a merged union. Asking `drive` to run a parent is the user's answer for its
-phase lands (step 3). A plan without phases lands only from the question
-below, since a merge into `main` lands for every worktree; a policy-surface
-change stays a parked question.
+Stop when every plan in scope has its three fields set and
+`review-gaps.py <plan>` exits 0, when only parked or waiting plans remain,
+when no pool is usable, or when the verifier is red on a merged union. A plan
+that lists a gap with its three fields set is not done: run the review stage's
+gap pass (step 2's table) on it first. Asking `drive` to run a parent is the
+user's answer for its phase lands (step 3). A plan without phases lands only
+from the question below, since a merge into `main` lands for every worktree;
+a policy-surface change stays a parked question.
 
 Report, outcome first: plans landed with their commit ranges, review
 verdicts, and per-unit ledger result; plans parked with the question each
@@ -241,8 +245,8 @@ Print the result in `land`'s fast-forward command (`land`, step 5).
 Then ask the user (`AGENTS.md`, Agent behavior), in one call:
 
 - every parked question, with its options and the recommendation;
-- when a plan without phases has its three fields set: run `land` now
-  (recommended), or stop here;
+- when a plan without phases has its three fields set and
+  `review-gaps.py <plan>` exits 0: run `land` now (recommended), or stop here;
 - when plans remain and a question was answered: continue the drive now, or
   stop here.
 

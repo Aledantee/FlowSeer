@@ -102,7 +102,8 @@ parent: <path of the parent plan; only in a phase plan>
 describes the plan's completeness and does not change with progress.
 `review` and `compound` each add a field of their own name beside `status`
 when they run (`review: accept`, `compound: no lesson`); `land` reads the
-three together.
+three together, and also stops while the plan's `## Review gaps` section
+lists an entry.
 
 The body, in this order; leave out an empty section:
 
