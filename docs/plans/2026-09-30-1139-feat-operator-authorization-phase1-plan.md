@@ -222,6 +222,12 @@ adds the tenant check through `authz.Require` in phase 3.
   context. Why: a plan does not override an accepted record
   (`.claude/skills/plan/SKILL.md`), and the record's 2026-10-02 amendment
   already added an enforcement rule this way.
+- After the fifth fix round, one more round changes tests, comments, and
+  the operator authorization record, and no production behavior. It ends
+  when the 13 mutations behind the seven behaviors under Open questions
+  fail the suite, and the review then records `accept after fixes`. Why:
+  earlier rounds reopened by adding behavior, and this one cannot.
+  (decided by the user, 2026-10-02)
 
 ## Requirements
 
@@ -558,15 +564,3 @@ go test ./test/conformance/proto/ ./src/services/device/internal/authn/ ./src/se
   gets `Internal` under requirement 9's first sentence, whatever the store
   said. Requirement 16 lifts that only for an ended context. Phase 3 writes
   the list handlers and decides how they discharge before a failed read.
-- Parked by drive: the fifth fix round closed its five items and the review
-  stays `rework`. The code answers as requirements 9, 10, 14, and 16 say.
-  Left are the seven behaviors above that no test holds and the rule
-  findings, among them record text that says more or less than requirements
-  9 and 16. Options: run one test-and-record round that changes no
-  production code, ends when the 13 listed mutations fail the suite, and
-  records `accept after fixes` (the target is closed because no behavior is
-  added, at the cost of one more round of worker quota) | accept the phase
-  now with these items recorded (phase 2 starts at once, on a record whose
-  text is inexact and tests with seven known gaps) | stop the drive here
-  (phases 2 to 4 stay waiting). Recommended: the test-and-record round,
-  because earlier rounds reopened by adding behavior and this one cannot.
