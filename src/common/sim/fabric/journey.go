@@ -421,49 +421,15 @@ func (f *Fabric) record(j *Journey, e Entry, raised ...analysis.Issue) {
 
 	merged := j.Metadata
 	if e.Result != nil {
-		merged = mergeMetadata(merged, e.Result.Metadata)
+		merged = merged.Merge(e.Result.Metadata)
 	}
 	if dependencies := f.dependencies(e); len(dependencies) > 0 {
-		merged = mergeMetadata(merged, scopedMetadata(f.Metadata(), dependencies))
+		merged = merged.Merge(scopedMetadata(f.Metadata(), dependencies))
 	}
 	if len(raised) > 0 {
 		merged = f.mergeRaised(merged, raised)
 	}
 	j.Metadata = merged
-}
-
-// mergeMetadata folds source's issues and assumptions into base, citing each
-// added item's evidence in base's catalog and dropping one base already holds.
-// It returns base unchanged when nothing was added. It is the merge record
-// applies to one entry and the fold applies to a settled journey.
-func mergeMetadata(base, source analysis.Metadata) analysis.Metadata {
-	issues := base.Issues()
-	assumptions := base.Assumptions()
-	catalog := base.Evidence()
-	changed := false
-
-	for _, issue := range source.Issues() {
-		if slices.ContainsFunc(issues, func(kept analysis.Issue) bool { return sameIssue(kept, issue) }) {
-			continue
-		}
-		issues = append(issues, issue)
-		catalog = citeEvidence(catalog, issue.Evidence, source.Evidence())
-		changed = true
-	}
-	for _, assumption := range source.Assumptions() {
-		if slices.ContainsFunc(assumptions, func(kept analysis.Assumption) bool { return sameAssumption(kept, assumption) }) {
-			continue
-		}
-		assumptions = append(assumptions, assumption)
-		catalog = citeEvidence(catalog, assumption.Evidence, source.Evidence())
-		changed = true
-	}
-
-	if !changed {
-		return base
-	}
-
-	return analysis.NewMetadata(base.Scope(), issues, catalog, assumptions)
 }
 
 // scopedMetadata returns the issues and assumptions of m whose scope overlaps
@@ -484,17 +450,6 @@ func scopedMetadata(m analysis.Metadata, scopes []analysis.Scope) analysis.Metad
 	}
 
 	return analysis.NewMetadata(analysis.WholeScope(), issues, m.Evidence(), assumptions)
-}
-
-// citeEvidence adds to catalog every evidence value source holds for refs.
-func citeEvidence(catalog analysis.EvidenceCatalog, refs []trace.EvidenceRef, source analysis.EvidenceCatalog) analysis.EvidenceCatalog {
-	for _, ref := range refs {
-		if evidence, ok := source.Lookup(ref); ok {
-			catalog, _ = catalog.Add(evidence)
-		}
-	}
-
-	return catalog
 }
 
 // dependencies returns the scopes whose fabric issues could change e: its
@@ -536,12 +491,6 @@ func sameIssue(a, b analysis.Issue) bool {
 
 	return a.Code == b.Code && a.Status == b.Status && a.Scope.Compare(b.Scope) == 0 && a.Message == b.Message &&
 		slices.Equal(a.Evidence, b.Evidence)
-}
-
-func sameAssumption(a, b analysis.Assumption) bool {
-	a, b = a.Canonical(), b.Canonical()
-
-	return a.Scope.Compare(b.Scope) == 0 && a.Statement == b.Statement && slices.Equal(a.Evidence, b.Evidence)
 }
 
 func cloneResult(r vswitch.ForwardResult) *vswitch.ForwardResult {

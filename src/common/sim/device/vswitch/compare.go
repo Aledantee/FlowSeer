@@ -14,22 +14,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 )
 
-// Difference describes the first behavioral observable that differed between two
-// evaluations, naming the observable and the values observed on both sides.
-type Difference struct {
-	Observable string
-	Current    string
-	Expected   string
-}
-
-// String returns a human-readable representation of the difference, or empty if none.
-func (d Difference) String() string {
-	if d.Observable == "" {
-		return ""
-	}
-	return d.Observable + ": current=" + d.Current + ", expected=" + d.Expected
-}
-
 // Comparison holds the forwarding results from evaluating the same frame arrival
 // on two switches, and reports the derived comparison disposition and the first
 // differing behavioral observable.
@@ -37,7 +21,7 @@ type Comparison struct {
 	Current     ForwardResult
 	Expected    ForwardResult
 	Disposition analysis.Disposition
-	Difference  Difference
+	Difference  analysis.Difference
 }
 
 // CompareResults compares two [ForwardResult] values directly and reports their exact
@@ -74,23 +58,23 @@ func Compare(a, b *Switch, now time.Time, port string, f ethernet.Frame) Compari
 	return CompareResults(a.Peek(now, port, f), b.Peek(now, port, f))
 }
 
-func diffForwardResult(cur, exp ForwardResult) (Difference, bool) {
+func diffForwardResult(cur, exp ForwardResult) (analysis.Difference, bool) {
 	if cur.Outcome != exp.Outcome {
-		return Difference{
+		return analysis.Difference{
 			Observable: "outcome",
 			Current:    string(cur.Outcome),
 			Expected:   string(exp.Outcome),
 		}, true
 	}
 	if cur.Reason != exp.Reason {
-		return Difference{
+		return analysis.Difference{
 			Observable: "reason",
 			Current:    string(cur.Reason),
 			Expected:   string(exp.Reason),
 		}, true
 	}
 	if cur.FID != exp.FID {
-		return Difference{
+		return analysis.Difference{
 			Observable: "fid",
 			Current:    strconv.Itoa(int(cur.FID)),
 			Expected:   strconv.Itoa(int(exp.FID)),
@@ -124,70 +108,70 @@ func diffForwardResult(cur, exp ForwardResult) (Difference, bool) {
 		egA, okA := curByPort[p]
 		egB, okB := expByPort[p]
 		if !okA {
-			return Difference{
+			return analysis.Difference{
 				Observable: "egress.port",
 				Current:    "<absent>",
 				Expected:   p,
 			}, true
 		}
 		if !okB {
-			return Difference{
+			return analysis.Difference{
 				Observable: "egress.port",
 				Current:    p,
 				Expected:   "<absent>",
 			}, true
 		}
 		if egA.Dropped != egB.Dropped {
-			return Difference{
+			return analysis.Difference{
 				Observable: "egress.dropped",
 				Current:    string(egA.Dropped),
 				Expected:   string(egB.Dropped),
 			}, true
 		}
 		if egA.Frame.Dst != egB.Frame.Dst {
-			return Difference{
+			return analysis.Difference{
 				Observable: "frame.dst",
 				Current:    egA.Frame.Dst.String(),
 				Expected:   egB.Frame.Dst.String(),
 			}, true
 		}
 		if egA.Frame.Src != egB.Frame.Src {
-			return Difference{
+			return analysis.Difference{
 				Observable: "frame.src",
 				Current:    egA.Frame.Src.String(),
 				Expected:   egB.Frame.Src.String(),
 			}, true
 		}
 		if egA.Frame.EtherType != egB.Frame.EtherType {
-			return Difference{
+			return analysis.Difference{
 				Observable: "frame.ethertype",
 				Current:    egA.Frame.EtherType.String(),
 				Expected:   egB.Frame.EtherType.String(),
 			}, true
 		}
 		if !slices.Equal(egA.Frame.Tags, egB.Frame.Tags) {
-			return Difference{
+			return analysis.Difference{
 				Observable: "frame.tags",
 				Current:    fmt.Sprint(egA.Frame.Tags),
 				Expected:   fmt.Sprint(egB.Frame.Tags),
 			}, true
 		}
 		if !bytes.Equal(egA.Frame.Payload, egB.Frame.Payload) {
-			return Difference{
+			return analysis.Difference{
 				Observable: "frame.payload",
 				Current:    fmt.Sprintf("%x", egA.Frame.Payload),
 				Expected:   fmt.Sprintf("%x", egB.Frame.Payload),
 			}, true
 		}
 		if egA.Member != egB.Member {
-			return Difference{
+			return analysis.Difference{
 				Observable: "lag.member",
 				Current:    egA.Member,
 				Expected:   egB.Member,
 			}, true
 		}
 		if egA.PCP != egB.PCP {
-			return Difference{
+			return analysis.Difference{
 				Observable: "pcp",
 				Current:    strconv.Itoa(int(egA.PCP)),
 				Expected:   strconv.Itoa(int(egB.PCP)),
@@ -198,14 +182,14 @@ func diffForwardResult(cur, exp ForwardResult) (Difference, bool) {
 	mirrorsA := mirrorCopies(cur)
 	mirrorsB := mirrorCopies(exp)
 	if !slices.Equal(mirrorsA, mirrorsB) {
-		return Difference{
+		return analysis.Difference{
 			Observable: "mirror",
 			Current:    strings.Join(mirrorsA, ","),
 			Expected:   strings.Join(mirrorsB, ","),
 		}, true
 	}
 
-	return Difference{}, false
+	return analysis.Difference{}, false
 }
 
 func mirrorCopies(res ForwardResult) []string {

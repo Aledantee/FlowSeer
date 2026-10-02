@@ -113,7 +113,7 @@ func (s ConstructionSpec) Clone() ConstructionSpec {
 	cp := ConstructionSpec{
 		Config:   s.Config.Clone(),
 		NodeID:   s.NodeID,
-		Metadata: cloneMetadata(s.Metadata),
+		Metadata: s.Metadata.Clone(),
 	}
 	if len(s.Seeds) > 0 {
 		cp.Seeds = slices.Clone(s.Seeds)
@@ -124,7 +124,7 @@ func (s ConstructionSpec) Clone() ConstructionSpec {
 // Equal reports whether two construction specifications carry the same fields,
 // treating seed timestamps at the same instant as equal.
 func (s ConstructionSpec) Equal(other ConstructionSpec) bool {
-	if s.NodeID != other.NodeID || !s.Config.Equal(other.Config) || !metadataEqual(s.Metadata, other.Metadata) {
+	if s.NodeID != other.NodeID || !s.Config.Equal(other.Config) || !s.Metadata.Equal(other.Metadata) {
 		return false
 	}
 	if len(s.Seeds) != len(other.Seeds) {
@@ -314,7 +314,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		ports:    norm.Ports.Clone(),
 		seeds:    slices.Clone(seeds),
 		nodeID:   nodeID,
-		metadata: cloneMetadata(metadata),
+		metadata: metadata.Clone(),
 	}
 
 	if norm.Phy != nil {
@@ -442,7 +442,7 @@ func (s *Switch) Spec() ConstructionSpec {
 	spec := ConstructionSpec{
 		Config:   s.cfg.Clone(),
 		NodeID:   s.nodeID,
-		Metadata: cloneMetadata(s.metadata),
+		Metadata: s.metadata.Clone(),
 	}
 	if len(s.seeds) > 0 {
 		spec.Seeds = slices.Clone(s.seeds)

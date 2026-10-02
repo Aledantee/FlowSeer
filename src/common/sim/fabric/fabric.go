@@ -1032,7 +1032,7 @@ func (f *Fabric) mergeRaised(base analysis.Metadata, issues []analysis.Issue) an
 		return base
 	}
 
-	return mergeMetadata(base, analysis.NewMetadata(analysis.WholeScope(), issues, f.evidence, nil))
+	return base.Merge(analysis.NewMetadata(analysis.WholeScope(), issues, f.evidence, nil))
 }
 
 // markQueueBufferUnstated records the first threshold crossing per physical

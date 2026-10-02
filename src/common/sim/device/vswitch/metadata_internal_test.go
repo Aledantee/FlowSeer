@@ -30,7 +30,7 @@ func TestRuntimeEvidenceIdentityDoesNotUseIssueMessage(t *testing.T) {
 	if !slices.Equal(first.Evidence().Entries(), second.Evidence().Entries()) {
 		t.Fatalf("wording changed runtime evidence catalog: %+v != %+v", first.Evidence().Entries(), second.Evidence().Entries())
 	}
-	if !metadataEqual(first, second) {
+	if !first.Equal(second) {
 		t.Fatal("wording changed semantic forwarding metadata")
 	}
 	if got := first.Evidence().Entries()[0].Evidence.Context; got == "first wording" {

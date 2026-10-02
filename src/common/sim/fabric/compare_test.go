@@ -1627,7 +1627,7 @@ func TestCompareEquivalentComplete(t *testing.T) {
 	if cmp.Disposition != analysis.Equivalent {
 		t.Errorf("Disposition = %v, want Equivalent", cmp.Disposition)
 	}
-	if cmp.Difference != (fabric.Difference{}) {
+	if cmp.Difference != (analysis.Difference{}) {
 		t.Errorf("Difference = %v, want empty", cmp.Difference)
 	}
 }
@@ -1666,7 +1666,7 @@ func TestCompareInconclusiveIncomplete(t *testing.T) {
 	if cmp.Disposition != analysis.Inconclusive {
 		t.Errorf("Disposition = %v, want Inconclusive", cmp.Disposition)
 	}
-	if cmp.Difference != (fabric.Difference{}) {
+	if cmp.Difference != (analysis.Difference{}) {
 		t.Errorf("Difference = %v, want empty", cmp.Difference)
 	}
 }

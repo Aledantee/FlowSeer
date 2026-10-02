@@ -14,64 +14,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-func cloneMetadata(metadata analysis.Metadata) analysis.Metadata {
-	catalog := analysis.EvidenceCatalog{}
-	for _, entry := range metadata.Evidence().Entries() {
-		catalog, _ = catalog.Add(entry.Evidence)
-	}
-
-	return analysis.NewMetadata(
-		metadata.Scope(),
-		metadata.Issues(),
-		catalog,
-		metadata.Assumptions(),
-	)
-}
-
-func metadataEqual(a, b analysis.Metadata) bool {
-	return a.Scope().Compare(b.Scope()) == 0 &&
-		a.Status() == b.Status() &&
-		issueListsEqual(a.Issues(), b.Issues()) &&
-		slices.Equal(a.Evidence().Entries(), b.Evidence().Entries()) &&
-		slices.EqualFunc(a.Assumptions(), b.Assumptions(), assumptionEqual)
-}
-
-func issueEqual(a, b analysis.Issue) bool {
-	return a.Code == b.Code &&
-		a.Status == b.Status &&
-		a.Scope.Compare(b.Scope) == 0 &&
-		slices.Equal(a.Evidence, b.Evidence)
-}
-
-func issueListsEqual(a, b []analysis.Issue) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	matched := make([]bool, len(b))
-	for _, issue := range a {
-		found := -1
-		for i, candidate := range b {
-			if !matched[i] && issueEqual(issue, candidate) {
-				found = i
-				break
-			}
-		}
-		if found < 0 {
-			return false
-		}
-		matched[found] = true
-	}
-
-	return true
-}
-
-func assumptionEqual(a, b analysis.Assumption) bool {
-	return a.Scope.Compare(b.Scope) == 0 &&
-		a.Statement == b.Statement &&
-		slices.Equal(a.Evidence, b.Evidence)
-}
-
 func forwardingMetadata(
 	nodeID string,
 	loaded analysis.Metadata,
