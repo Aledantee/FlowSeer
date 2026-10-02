@@ -35,9 +35,9 @@ to avoid a throw. The same goes for an `offsetParent` stub.
 | Fact | Source |
 | --- | --- |
 | The web workspace locks motion-v 2.5.1, motion-dom and framer-motion 13.4.5, @vueuse/core 14.4.0, and happy-dom 20.14.5. | `frontend/web/pnpm-lock.yaml` |
-| A mounted `UiMotion` element reads the reduced-motion query once per test file. The first element whose config needs the dynamic value calls `initPrefersReducedMotion`, and the listener binds to the `MediaQueryList` returned then. | `motion-dom/dist/es/render/VisualElement.mjs:205-216` and `motion-dom/dist/es/render/utils/reduced-motion/index.mjs:4-13`, under `frontend/web/node_modules/.pnpm/motion-dom@13.4.5/node_modules/` |
+| A mounted `UiMotion` element reads the reduced-motion query through motion-dom once per test file. The first element whose config needs the dynamic value calls `initPrefersReducedMotion`, which listens to `(prefers-reduced-motion)`, and the element fixes its choice at mount from that read. | `motion-dom/dist/es/render/VisualElement.mjs:205-216` and `motion-dom/dist/es/render/utils/reduced-motion/index.mjs:4-13`, under `frontend/web/node_modules/.pnpm/motion-dom@13.4.5/node_modules/` |
 | `UiMotionConfig` reads no media query. It provides config and renders its slot. | `frontend/web/node_modules/motion-v/dist/es/components/motion-config/MotionConfig.vue_vue_type_script_setup_true_lang.mjs` |
-| `useMotionFeedback` reads the user reduced-motion state when the composable mounts, so a `matchMedia` stub installed before that mount selects the path. | `frontend/web/src/ui/motion/useMotionFeedback.ts`, `frontend/web/src/ui/motion/useMotionFeedback.test.ts` |
+| `useMotionFeedback` watches `(prefers-reduced-motion: reduce)`, a different query from motion-dom's, and reads it when the composable mounts, so a `matchMedia` stub installed before that mount selects the path. | `frontend/web/src/ui/motion/useMotionFeedback.ts`, `frontend/web/node_modules/motion-v/dist/es/animation/hooks/use-reduced-motion.mjs:4`, `frontend/web/src/ui/motion/useMotionFeedback.test.ts` |
 | Under the reduced path the composable keeps the opacity fade and drops movement. | `frontend/web/src/ui/motion/useMotionFeedback.ts` (`play`'s reduced branch), `frontend/web/src/ui/motion/useMotionFeedback.test.ts` "filters reduced movement, keeps reduced fades native, and restores their baseline", `frontend/web/src/components/ThemeSwitcher.test.ts` "keeps reduced motion as one running opacity effect per icon" |
 | Native feedback tests inspect keyframe endpoints, timing, running state, cleanup, and replacement. | `frontend/web/src/ui/motion/useMotionFeedback.test.ts` "compiles typed pairs into ordered native effects with deterministic timing", "cancels and restores synchronously before replacing a play, through the next frame and completion", "ignores a stale completion queued before replacement" |
 | Under the reduced path `UiMotion` layout animations end at once with no fade. | `docs/architecture/2026-09-28-web-component-contract-direction.md`, section `2026-10-01`. `frontend/web/src/ui/motion/UiMotion.reduced.test.ts` "ends layout animation at once when the user prefers reduced motion" asserts no `scale` or `translate` remains. |
@@ -76,12 +76,18 @@ afterEach(() => {
 })
 ```
 
-A file can still hold both modes. Its stub returns the same `MediaQueryList` for
-a query, and the reduced-motion case flips `matches` and dispatches `change` on
-it, as `frontend/web/src/FleetView.motion.test.ts` does (`:16-32`, the case
-"stops layout transforms after the user enables reduced motion"). A file that
-only mounts the composable can also hold both modes, because
-`useMotionFeedback` re-reads the query per mount.
+A file can still hold both modes, but not by flipping a mounted `UiMotion`'s
+path. motion-dom watches `(prefers-reduced-motion)`
+(`reduced-motion/index.mjs:9`) and the element reads that preference at mount,
+so a `change` after the mount reaches only elements mounted afterwards.
+`useMotionFeedback` watches `(prefers-reduced-motion: reduce)`
+(`frontend/web/node_modules/motion-v/dist/es/animation/hooks/use-reduced-motion.mjs:4`)
+and re-reads it per mount.
+`frontend/web/src/FleetView.motion.test.ts` dispatches `change` on the `reduce`
+object (`:16-32`). Its reduced-motion case asserts `FleetView.vue`'s own gate,
+which skips the layout bump when the composable reports reduced
+(`toggleSidebar`), not `UiMotion`'s reduced layout path. A file that only mounts
+the composable can hold both modes for the same reason.
 `frontend/web/src/components/ThemeSwitcher.test.ts` does this through its
 `stubMatchMedia(reducedMotion)` helper.
 

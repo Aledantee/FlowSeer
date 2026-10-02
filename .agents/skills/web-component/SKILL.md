@@ -124,16 +124,15 @@ Views never import `reka-ui`; only files under `src/ui/` do.
     `defaultPrevented`.
   - Query portalled content from `document.body`.
   - In tests that exercise reduced motion on a mounted `UiMotion`, stub
-    `matchMedia` before the first mount. The first mounted element binds the
-    reduced-motion listener once per file, so a stub installed later cannot
-    select the path
+    `matchMedia` before the first mount. The element fixes its choice at mount
+    from motion-dom's one-time read of `(prefers-reduced-motion)`, so a stub
+    installed later cannot select the path
     (`frontend/web/node_modules/.pnpm/motion-dom@13.4.5/node_modules/motion-dom/dist/es/render/VisualElement.mjs:205-216`).
-    `UiMotionConfig` reads no query. A file can hold both modes when its stub
-    returns one `MediaQueryList` per query and the test dispatches `change` on
-    it, as `frontend/web/src/FleetView.motion.test.ts` does, or when it only
-    mounts the composable, which re-reads the query per mount. No stub is
-    needed to avoid a throw. Do not mock the animation library or add an
-    `offsetParent` stub.
+    `UiMotionConfig` reads no query. A file that holds both modes changes the
+    composable's `(prefers-reduced-motion: reduce)` query instead, which
+    `useMotionFeedback` re-reads per mount and a `change` event reaches. No
+    stub is needed to avoid a throw. Do not mock the animation library or add
+    an `offsetParent` stub.
   - Leave layout, stacking, and motion to step 4.
 
 Run the audit alone while iterating, from `frontend/web`:

@@ -221,15 +221,24 @@ calls `initPrefersReducedMotion`, and the `change` listener binds to the
 `MediaQueryList` that call returned
 (`motion-dom/dist/es/render/VisualElement.mjs:205-216` and
 `motion-dom/dist/es/render/utils/reduced-motion/index.mjs:4-13`, under
-`frontend/web/node_modules/.pnpm/motion-dom@13.4.5/node_modules/`). A stub
-installed after that first mount cannot select the path, so a file that mounts
-`UiMotion` installs its reduced-motion `matchMedia` stub before the first
-mount. `UiMotionConfig` reads no query, so it mounts without a stub.
+`frontend/web/node_modules/.pnpm/motion-dom@13.4.5/node_modules/`). The
+element fixes its choice at mount, so a stub installed after the first mount
+cannot select the path and a `change` after it reaches only elements mounted
+afterwards. A file that mounts `UiMotion` therefore installs its
+reduced-motion `matchMedia` stub before the first mount. `UiMotionConfig` reads
+no query, so it mounts without a stub.
 
-A file can hold both modes anyway. Its stub returns the same `MediaQueryList`
-for a query, and the reduced-motion case flips `matches` and dispatches
-`change` on it, as `frontend/web/src/FleetView.motion.test.ts` does. A file
-that only mounts `useMotionFeedback` can also hold both modes, because the
+`frontend/web/src/FleetView.motion.test.ts` holds both modes by changing the
+composable's query instead. Its stub returns one `MediaQueryList` per query
+string (`:19-32`). motion-dom asked for `(prefers-reduced-motion)`
+(`motion-dom/dist/es/render/utils/reduced-motion/index.mjs:9`) and the
+composable asked for `(prefers-reduced-motion: reduce)`
+(`frontend/web/node_modules/motion-v/dist/es/animation/hooks/use-reduced-motion.mjs:4`),
+so these are two objects. The reduced-motion case dispatches `change` on the
+`reduce` object, which the composable listens to, and `FleetView.vue` gates its
+layout dependency on the composable's `reduced` (`toggleSidebar`). The case
+asserts that gate, not `UiMotion`'s reduced layout path. A file that only
+mounts the composable can hold both modes for the same reason, because the
 composable reads the query on each mount.
 
 Layout animation needs a controlled clock. motion's frame loop stamps each
