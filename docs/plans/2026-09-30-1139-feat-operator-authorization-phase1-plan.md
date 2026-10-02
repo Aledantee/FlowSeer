@@ -99,13 +99,14 @@ phase:
   work under every rule that admits a tenant and discharge a deferred
   rule's obligation even when they deny. A platform rule admits no tenant,
   so its handlers do not call them. Why: the obligation proves a check ran, and requirement
-  9's denial rule catches a handler that ignores a `Require` answer.
+  9's failed-check rule catches a handler that ignores an error from either.
   Nothing in the interceptor can see whether a handler used `Filter`'s
   answer, so phase 3 puts a denied-edge case in every list handler's tests.
 - Errors reach the caller through `connecterr.WrapAs`
   (`src/services/device/internal/connecterr/connecterr.go`) with fixed
   messages: "authentication required", "permission denied", "no tenant
-  named", "authorization is unavailable". Each refusal has its own `errs`
+  named", "authorization is unavailable". Requirement 16's bare `ctx.Err()`
+  is the one error that does not. Each refusal has its own `errs`
   code under `authz/`, except that every `PermissionDenied` from a check
   the checker answered false shares `authz/denied`. Why: the wire carries
   the Connect code, the message, and the `errs` code, so one code keeps a
@@ -154,6 +155,73 @@ adds the tenant check through `authz.Require` in phase 3.
   items under Open questions. Why: one item needs requirement 9 changed, and
   every round so far has surfaced new findings.
   (decided by the user, 2026-10-02)
+- The interceptor drops a response after any error from `Require` or
+  `Filter` in the call and answers `Internal` with
+  `authz/obligation-violation` (requirement 9). `Require` records only a
+  denial today (`recordRequireDenied`,
+  `src/services/device/internal/authz/obligation.go:87-96`) and `Filter`
+  records nothing (`:113-128`), so a handler that ignores a checker error
+  returns its response. `Filter` is in the rule because its error leaves the
+  same hole: the handler holds no allowed set and can still return its
+  unfiltered list. The answer is `Internal` even when the ignored error was
+  `Unavailable`. Why: the response exists only because a handler discarded
+  an error, a defect no retry repairs, and an ignored denial already
+  answers `Internal`. Requirement 10 keeps its meaning, since the check's
+  own `Unavailable` reaches the caller whenever the handler returns it.
+- A later successful check in the same call does not clear a recorded
+  failure, so a handler that retries a failed `Require`, succeeds, and
+  answers still yields `Internal`. Why: the denial rule is already sticky
+  this way, the interceptor cannot tell a retry of one check from a
+  different check, and a handler leaves retrying to the caller by returning
+  the retryable error.
+- The violation error carries a retry disposition other than retryable.
+  Why: an `errs` chain reports the outermost disposition any link expressed
+  (`retryOf` in `src/common/errs/retry.go`, written to the wire by
+  `EncodeForClient` in `src/common/errs/wire.go`), so a violation that takes
+  the retryable `authz/unavailable` as its cause and sets nothing itself
+  would tell the caller to retry. The fix either leaves the cause off or
+  marks the violation `.Fatal()`.
+- A call whose context has ended answers with `ctx.Err()` itself
+  (requirement 16). Connect's unary wrapper returns `ctx.Err()` without
+  calling the handler once the context has ended
+  (`connectrpc.com/connect@v1.21.0`, `NewUnaryHandler`, `handler.go:44-47`).
+  Under a loaded or filtered rule the interceptor then finds no discharged
+  check and answers `Internal` with `authz/obligation-violation`
+  (`src/services/device/internal/authz/interceptor.go:178-183`). Why:
+  `docs/code-style.md:255-256` has cancellation surface as the unwrapped
+  `ctx.Err()`, so that `errors.Is(err, context.Canceled)` holds end to end.
+- The interceptor returns that error bare, outside `connecterr`. Why:
+  Connect codes a context error only when nothing has coded it.
+  `Handler.ServeHTTP` closes the connection with the implementation's error
+  (`handler.go:351`), the close runs `wrapIfContextError`
+  (`errorTranslatingHandlerConnCloser.Close` and
+  `wrapHandlerConnWithCodedErrors` in `protocol.go`), and that function
+  returns a `*connect.Error` as it is and otherwise maps `context.Canceled`
+  to `Canceled` and `context.DeadlineExceeded` to `DeadlineExceeded`
+  (`error.go:293-313`). `connecterr.WrapAs` would fix a code of our choosing
+  first.
+- Requirement 16 keys on `ctx.Err()` being non-nil and on no response being
+  at stake, and returns `ctx.Err()`, never the handler's error. Why: the
+  interceptor cannot tell a handler Connect skipped from one that ran and
+  failed before its check, and the second one's error could say whether an
+  object exists.
+- Requirement 16 also covers a checker error under an ended context. Why: a
+  checker that honours its context fails the membership check before the
+  handler is reached, so with only the deferred-handler case fixed a
+  cancelled call still answers `Unavailable` and retryable. Such a call
+  would reach `interceptor.go:178` only under a checker that ignores its
+  context, as `fakeChecker.Check` in
+  `src/services/device/internal/authz/authz_test.go` does. The test is on
+  `ctx.Err()` because `Checker` does not promise an error that unwraps to
+  the context's (`src/services/device/internal/authz/authz.go:44-52`).
+- Requirements 9 and 16 extend the operator authorization record, and the
+  fix round states them there in a dated amendment in the same change as
+  the code. The record's rule-mode table drops a response only "when the
+  handler returned without a check" and its diagram ends on "drop the
+  response if no check ran". Neither names a failed check or an ended
+  context. Why: a plan does not override an accepted record
+  (`.claude/skills/plan/SKILL.md`), and the record's 2026-10-02 amendment
+  already added an enforcement rule this way.
 
 ## Requirements
 
@@ -183,10 +251,26 @@ adds the tenant check through `authz.Require` in phase 3.
 9. A loaded or filtered rule runs the handler, and a handler that returns
    without calling `Require` or `Filter` gets the caller `Internal` and no
    response. In every mode, so does a handler that returns a response after
-   a `Require` in the call denied. Otherwise the handler's response or
-   error passes through unchanged.
+   any `Require` or `Filter` in the call returned an error: a denial, a
+   checker error, a short `BatchCheck` answer, or the refusal under a
+   platform rule. The answer carries `authz/obligation-violation` and a
+   retry disposition other than retryable. Otherwise the handler's response
+   or error passes through unchanged. Requirement 16 narrows the first
+   sentence. With the checker failing the `edge` queries, a
+   `ListCaptureSessions` handler that ignores its `Filter` error and
+   returns a response yields `Internal`, and one that returns the error
+   yields `Unavailable` with `authz/unavailable`. The same pair holds for
+   `Require` on `tenant#full_payload` in a `CreateCaptureSession` handler.
+   A `ListTenants` handler that calls `Require`, ignores the refusal, and
+   returns a response yields `Internal`.
 10. A checker error becomes `Unavailable` with "authorization is
-    unavailable", and the handler does not run.
+    unavailable", `authz/unavailable`, and the retryable disposition. A
+    `BatchCheck` answer of the wrong length counts as one. On a check the
+    interceptor makes, the handler does not run: with the membership query
+    failing, `GetEdge` yields `Unavailable` and records that one query. On
+    a check inside `Require` or `Filter`, the handler receives the error
+    and requirement 9 decides what the caller gets. Requirement 16 applies
+    instead when the context has ended.
 11. Every check carries one contextual tuple `tenant:<T>#claimed@user:<id>`
     per tenant the principal lists, plus `platform:flowseer#claimed@user:<id>`
     when the principal carries the platform claim.
@@ -201,6 +285,23 @@ adds the tenant check through `authz.Require` in phase 3.
 15. A request rule whose path yields no id is refused with
     `PermissionDenied` and makes no object check. `GetEdgeRequest` with no
     `edge` set is refused.
+16. A call whose context has ended answers with `ctx.Err()` itself, bare
+    and outside `connecterr`, in two places. A checker error returned while
+    `ctx.Err()` is non-nil yields it in place of requirement 10's
+    `Unavailable`, from the interceptor, `Require`, and `Filter` alike.
+    Under a loaded or filtered rule, a handler path that ends in an error
+    with no check discharged while `ctx.Err()` is non-nil yields it in
+    place of requirement 9's `Internal`. A response never passes on this
+    ground, and a query the checker answered false stays
+    `PermissionDenied`. An interceptor outside the authorization one wraps
+    the context in `context.WithCancel`, and the fake checker cancels it
+    while answering the membership query true. `ListCaptureSessions` then
+    records that one query, does not run its handler, hands the outer
+    interceptor an error equal to `context.Canceled`, and shows the client
+    `connect.CodeCanceled`. With a deadline that has passed, the two are
+    `context.DeadlineExceeded` and `connect.CodeDeadlineExceeded`. With the
+    checker cancelling and then failing the membership query, the answer is
+    `context.Canceled` again, where a live context yields `Unavailable`.
 
 ## Out of scope
 
@@ -299,7 +400,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- test/conforman
 
 ### U4. Principal carrier and the authorization interceptor
 
-Files: `src/services/device/internal/authn/principal.go`, `src/services/device/internal/authn/principal_test.go`, `src/services/device/internal/authz/authz.go`, `src/services/device/internal/authz/interceptor.go`, `src/services/device/internal/authz/obligation.go`, `src/services/device/internal/authz/authz_test.go`, `src/services/device/README.md`
+Files: `src/services/device/internal/authn/principal.go`, `src/services/device/internal/authn/principal_test.go`, `src/services/device/internal/authz/authz.go`, `src/services/device/internal/authz/interceptor.go`, `src/services/device/internal/authz/obligation.go`, `src/services/device/internal/authz/authz_test.go`, `src/services/device/README.md`, `docs/architecture/2026-09-30-operator-authorization-direction.md`
 After: U1, U2
 Change: `authn.Principal` holds `ID`, `Tenants` (tenant ids the token vouches
 for), and `Platform` (the token carries the platform claim), with
@@ -312,17 +413,23 @@ by requirement 13 before anything else, then applies requirement 4. A
 platform rule then runs requirement 14. Every other mode applies
 requirements 5 and 6, puts the admitted tenant in the context, and runs
 the rule's mode (7 and 15, 8, or 9). Requirement 10 holds on any checker
-error. `authz.Require(ctx, relation, objectType, id)` returns nil or an
+error, and requirement 16 once the context has ended.
+`authz.Require(ctx, relation, objectType, id)` returns nil or an
 error. `authz.Filter(ctx, relation, objectType, ids)` deduplicates ids,
 sends the relation and tenant queries for each, at most 50 queries per
 `BatchCheck` (OpenFGA's default limit,
 `DefaultMaxChecksPerBatchCheck` in `github.com/openfga/openfga@v1.21.0`,
 which `go.mod` does not pin until phase 2), and returns the allowed set.
-Both discharge the obligation, return errors already rendered through
-`connecterr`, and refuse with `Internal` on a context the interceptor did
-not prepare or one with no admitted tenant. The streaming handler wrapper
+Both discharge the obligation, record every error they return on a context
+the interceptor prepared (requirement 9), return errors already rendered
+through `connecterr`
+except requirement 16's bare `ctx.Err()`, and refuse with `Internal` on a
+context the interceptor did not prepare or one with no admitted tenant.
+The streaming handler wrapper
 refuses every call, and the streaming client wrapper passes through. The
-device README's Layout table gains the two packages.
+device README's Layout table gains the two packages. The operator
+authorization record gains a dated amendment stating requirements 9 and
+16, and its request diagram is redrawn with the rule read first.
 Tests: `authz_test.go` serves the generated `CaptureService`,
 `EdgeAdminService`, and `TenantService` handlers through `httptest` with a
 fake `Checker` that records every `Query` and answers true unless the case
@@ -342,8 +449,20 @@ repeated, recorded as batches of 50, 50, and 18 queries, a `Require` under
 a platform rule (`Internal`), and the contextual tuples of a principal with
 two tenants and the platform claim (requirement 11). The rules come from
 the generated descriptors, which pins the stop condition.
+The fix round adds a handler that ignores a failed `Require` or `Filter`
+and returns a response, once per cause requirement 9 lists, each beside a
+handler that returns the error. It adds requirement 16's three examples,
+each asserting the recorded membership query before the outcome and each
+beside a live-context call that yields the answer of requirement 9 or 10.
+Those three mount their own handler with an interceptor ahead of the
+authorization one that derives the context, keeps its `cancel` and the
+error `next` returned under a mutex, and lets a `SetDeny` or `SetFail`
+closure call `cancel` on the membership query. `setupTestEnv` stays as it
+is for every other test.
+A new case counts once its failure against the code before the fix has
+been quoted (`docs/code-style.md:466-473`).
 `principal_test.go` covers the context round trip and an empty context.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal/authn src/services/device/internal/authz src/services/device/README.md`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal/authn src/services/device/internal/authz src/services/device/README.md docs/architecture/2026-09-30-operator-authorization-direction.md`
 
 Waves: U1 | U2 | U3 U4
 
@@ -370,15 +489,47 @@ go test ./test/conformance/proto/ ./src/services/device/internal/authn/ ./src/se
 - Requirement 11 sends `platform:flowseer#claimed`, and no record states
   the `platform` type's relations yet. Phase 2's model has to define
   `claimed` on it, or OpenFGA rejects every check that carries the tuple.
-- Open after the fourth fix round, for `plan` to settle the first two and a
-  fix round to close all five. A `Require` that fails on a checker error
-  records nothing, so a handler that ignores it and returns a response
-  passes through, and requirement 9 names only a denial
-  (`src/services/device/internal/authz/obligation.go`). A context that ends
-  before a deferred handler runs answers `Internal` instead of the
-  context's own error (`src/services/device/internal/authz/interceptor.go`).
-  Test locals in `authz_test.go` are shared with the handler goroutine
-  without a lock. The record's request diagram draws the membership check
-  before the rule read. Synthetic gate fixtures in
-  `test/conformance/proto/api_authorization_test.go` are never passed
-  through protovalidate.
+- One fix round closes five items. The first two are settled above and
+  need code. The last three each break a rule.
+  1. Requirement 9: `Require` and `Filter` record every error they return,
+     and the interceptor drops a response after one
+     (`src/services/device/internal/authz/obligation.go`, `interceptor.go`).
+     Two subtests of `TestPlatformRuleAuthorization` hold the old shape, a
+     handler that ignores a refused `Require` or `Filter` and still answers
+     (`src/services/device/internal/authz/authz_test.go:2373-2460`). Both
+     now expect `Internal`.
+  2. Requirement 16, in both places it names, in the same two files.
+  3. `TestDeferredObligationDischarge` writes `handlerRan`, `filterIDs`,
+     `filterErr`, and `requireErr` in the handler goroutine and reads them
+     in the test goroutine with no lock (`authz_test.go:2958-3012`). It
+     breaks `docs/code-style.md:408-412`: a mutex guards shared state, and
+     code that passes only without `-race` does not merge. Subtests of
+     `TestPlatformRuleAuthorization` guard the same kind of local with `mu`
+     (`authz_test.go:2376-2406`).
+     Whether the race detector reports the access is unverified.
+  4. The record's request diagram draws the membership check before the
+     rule read (`docs/architecture/2026-09-30-operator-authorization-direction.md:42-44`),
+     the interceptor reads the rule first (`interceptor.go:47-75`), and
+     the record's own amendment says the diagram is the other way round
+     (`:458-460`). It breaks rule 8 of `docs/doc-style.md`, "Stale is worse
+     than missing": update the doc or delete the claim. The fix redraws the
+     diagram with the rule read first and the platform branch that skips
+     the membership check, deletes that sentence, and adds the amendment
+     for requirements 9 and 16 in the same edit. U4's Files and Verify
+     lines carry the record for this.
+  5. `syntheticMethod` attaches a `Rule` the test built to a synthetic
+     method (`test/conformance/proto/api_authorization_test.go:190-202`),
+     and the rules built in `TestAuthorizationRuleObjectPathResolves` and
+     `TestAuthorizationRuleNamesKnownRelation` never pass through
+     `protovalidate.Validate`, since those tests call only
+     `checkObjectIDPath` and `checkKnownRelation`. It breaks
+     `docs/code-style.md:462-465`, which has a fixture that
+     constructs a protobuf message pass validation in the test that builds
+     it, and U3's own Tests line, since only validation shows a negative is
+     valid in every respect but the one under test. The subtest "rule
+     failing validation is reported" keeps its invalid rule and asserts
+     that validation rejects it for the relation alone.
+- A filtered handler whose store read fails returns before `Filter` and
+  gets `Internal` under requirement 9's first sentence, whatever the store
+  said. Requirement 16 lifts that only for an ended context. Phase 3 writes
+  the list handlers and decides how they discharge before a failed read.
