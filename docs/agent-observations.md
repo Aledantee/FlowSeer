@@ -50,6 +50,22 @@ step does not mention the mode.
 Suggested change: the step sets the mode in the index with
 `git update-index --chmod=+x <path>`, which the sandbox allows.
 
+## 2026-10-02 delegate: a merge on main dropped the unreadable-Orca change to pool-usage.sh
+Skill or agent: `.claude/skills/delegate/scripts/pool-usage.sh` and
+`test_pool_usage.py`, and `.claude/skills/land/SKILL.md`, step 3.
+What happened: merge `cd07426d` on `main` took its second parent's version
+of both files whole. The first parent's change from `642b3ad8` and
+`0ff7b91e` is gone: `orca_unreadable()`, which reports the `claude` pool as
+signed in from the CLI's own token when Orca is unreadable, and its tests.
+`delegate/SKILL.md` and `references/pool-rows.md` still describe that
+behavior. `merge-check.py ORIG_HEAD..HEAD` reports the loss on every later
+`land`, since the range holds the merge commits `main` brought in, and
+exits 1 for a merge the landing branch did not make.
+Suggested change: restore the dropped change or state that `2b02d559`
+replaces it and correct the two documents. In `land` step 3, tell a loss
+in a merge already on `main` apart from one in the landing branch's own
+merge, and stop only on the second.
+
 ## 2026-10-02 hooks: proto source guard allows every dotfile
 Skill or agent: `tools/hooks/pre-tool-policy.sh`, the `spec/proto/` branch,
 and `test/conformance/proto/layout_test.go`, `protoPathViolation`.
