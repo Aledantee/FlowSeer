@@ -1503,12 +1503,6 @@ func TestSwitchReadableState(t *testing.T) {
 		t.Errorf("got %d ports, want 1", sw.Ports().Len())
 	}
 
-	// Speeds
-	speeds := sw.Speeds()
-	if speeds == nil || len(speeds) != 1 {
-		t.Errorf("got resolved speeds %v, want exactly 1", speeds)
-	}
-
 	// Power
 	power := sw.Power()
 	if power.Groups == nil || len(power.Groups) != 1 {
@@ -6488,44 +6482,6 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 // invalid operational state on the sticky Err() channel instead of panicking:
 // a bogus state leaves the switch alive and Err() naming the port, a second
 // bogus state does not displace the first, and a valid transition records
-// nothing. The Err() assertions are the caller-side read the sticky field
-// needs — a fault recorded and never read would otherwise go unnoticed.
-func TestLinkChangeRecordsInvalidOperStatusAsFault(t *testing.T) {
-	ports := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
-	sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
-
-	sw.LinkChange(fixedTime, "1/1/1", port.LinkState("bogus"), vswitch.PointToPointTrue, 1_000_000_000)
-
-	first := sw.Err()
-	if first == nil {
-		t.Fatal("Err() = nil after an invalid oper status, want a fault")
-	}
-	if got := errs.Attributes(first)["name"]; got != "1/1/1" {
-		t.Errorf("fault names port %v, want 1/1/1", got)
-	}
-
-	sw.LinkChange(fixedTime.Add(time.Second), "1/1/2", port.LinkState("worse"), vswitch.PointToPointTrue, 1_000_000_000)
-	if sw.Err() != first {
-		t.Errorf("Err() = %v after a second fault, want the first %v", sw.Err(), first)
-	}
-}
-
-// TestLinkChangeValidTransitionRecordsNoFault confirms a well-formed link
-// transition leaves Err() nil, so the fault channel reports only real faults.
-func TestLinkChangeValidTransitionRecordsNoFault(t *testing.T) {
-	ports := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
-	sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
-
-	sw.LinkChange(fixedTime, "1/1/1", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
-
-	if err := sw.Err(); err != nil {
-		t.Errorf("Err() = %v after a valid transition, want nil", err)
-	}
-}
-
 // balancedLAGConfig builds a switch with one flat (untagged, VLAN-unaware)
 // ingress port "in" and a two-member BalanceSLB lag1, so a flooded frame
 // always exercises LAG member selection.

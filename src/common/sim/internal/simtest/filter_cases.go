@@ -23,9 +23,9 @@ import (
 // RegisterFilterCases populates registry with the packet filter cases covering
 // first-match drops, stateful counterpart acceptance, and planning rule diffs.
 func RegisterFilterCases(registry *Registry) {
-	registry.MustRegister(CasePlanningFilterRuleChange())
-	registry.MustRegister(CaseTroubleshootingFilterDropsMDNSUnicastProbe())
-	registry.MustRegister(CaseTroubleshootingStatefulReplyAllowed())
+	registry.MustRegister(casePlanningFilterRuleChange())
+	registry.MustRegister(caseTroubleshootingFilterDropsMDNSUnicastProbe())
+	registry.MustRegister(caseTroubleshootingStatefulReplyAllowed())
 }
 
 var (
@@ -133,9 +133,9 @@ func statefulReplyFrame() (ethernet.Frame, error) {
 	}, nil
 }
 
-// CaseTroubleshootingFilterDropsMDNSUnicastProbe tests that an interface-bound filter rule
+// caseTroubleshootingFilterDropsMDNSUnicastProbe tests that an interface-bound filter rule
 // matches packet criteria and drops matching traffic with ReasonFilterDrop and Complete status.
-func CaseTroubleshootingFilterDropsMDNSUnicastProbe() Case {
+func caseTroubleshootingFilterDropsMDNSUnicastProbe() Case {
 	arrivingFrame := expectedFact("bridge.frame",
 		`src="02:00:00:00:00:01";dst="02:00:00:00:00:fe";ether_type=2048;tags=[];payload_len=38`)
 	vlanDec := expectedFact("bridge.vlan_decision",
@@ -242,9 +242,9 @@ func CaseTroubleshootingFilterDropsMDNSUnicastProbe() Case {
 	}
 }
 
-// CaseTroubleshootingStatefulReplyAllowed tests that an interface filter with a default-drop policy
+// caseTroubleshootingStatefulReplyAllowed tests that an interface filter with a default-drop policy
 // allows return traffic whose reversed 5-tuple was accepted by a stateful counterpart set.
-func CaseTroubleshootingStatefulReplyAllowed() Case {
+func caseTroubleshootingStatefulReplyAllowed() Case {
 	arrivingFrame := expectedFact("bridge.frame",
 		`src="02:00:00:00:00:02";dst="02:00:00:00:00:fe";ether_type=2048;tags=[];payload_len=54`)
 	vlanDec := expectedFact("bridge.vlan_decision",
@@ -399,9 +399,9 @@ func CaseTroubleshootingStatefulReplyAllowed() Case {
 	}
 }
 
-// CasePlanningFilterRuleChange evaluates a prospective filter rule addition to an ingress
+// casePlanningFilterRuleChange evaluates a prospective filter rule addition to an ingress
 // interface, asserting typed diff changes and a flipped forwarding outcome under Compare.
-func CasePlanningFilterRuleChange() Case {
+func casePlanningFilterRuleChange() Case {
 	arrivingFrame := expectedFact("bridge.frame",
 		`src="02:00:00:00:00:01";dst="02:00:00:00:00:fe";ether_type=2048;tags=[];payload_len=38`)
 	vlanDec := expectedFact("bridge.vlan_decision",

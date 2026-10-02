@@ -37,7 +37,7 @@ const (
 	ReasonAdminDown trace.Reason = "admin-down"
 
 	// ReasonNoCable records that a port is Down because [Config.Uncabled] states no cable reaches it;
-	// Fabric.Unlinked carries it, since a port without a cable has no Link.
+	// unlinked ports carry it, since a port without a cable has no Link.
 	ReasonNoCable trace.Reason = "no-cable"
 
 	// ReasonAdjacencyUnresolved records that a switch port is Unknown because no cable names it and

@@ -1559,7 +1559,7 @@ func (f *Fabric) applyAction(a Action) error {
 		if a.At.After(f.clock) {
 			f.clock = a.At
 		}
-		return f.Mcheck(a.Mcheck.Node, a.Mcheck.Port)
+		return f.mcheck(a.Mcheck.Node, a.Mcheck.Port)
 	case ActionRecord:
 		rec := a.Record
 		inj := Injection{

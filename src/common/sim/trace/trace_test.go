@@ -257,11 +257,11 @@ func TestSemanticEquality(t *testing.T) {
 			Evidence: []trace.EvidenceRef{"ev-1"},
 		}
 
-		if !trace.EqualChange(c1, c2) || !c1.Equal(c2) {
-			t.Errorf("EqualChange(c1, c2) = false, want true")
+		if !c1.Equal(c2) {
+			t.Errorf("c1.Equal(c2) = false, want true")
 		}
-		if trace.EqualChange(c1, c3) || c1.Equal(c3) {
-			t.Errorf("EqualChange(c1, c3) = true, want false")
+		if c1.Equal(c3) {
+			t.Errorf("c1.Equal(c3) = true, want false")
 		}
 	})
 }
@@ -315,11 +315,7 @@ func TestDeterministicRendering(t *testing.T) {
 			Reason:  "fdb-miss",
 		}
 
-		rendered := trace.Render(tr)
 		want := "1. [layer=\"vlan\" op=\"filter\"] rule=\"ingress-admission\" subject.kind=\"port\" subject.key=\"1/1/1\" in=[{type=\"vlan\" value=\"10\"}]\n2. [layer=\"bridge\" op=\"lookup\"] rule=\"fdb-miss\" subject.kind=\"port\" subject.key=\"1/1/1\" out=[{type=\"action\" value=\"flood\"}]\nOutcome: \"Flooded\" reason=\"fdb-miss\""
-		if rendered != want {
-			t.Errorf("Render(tr) =\n%q\nwant:\n%q", rendered, want)
-		}
 		if tr.String() != want {
 			t.Errorf("tr.String() =\n%q\nwant:\n%q", tr.String(), want)
 		}
@@ -399,55 +395,6 @@ func TestTypedChanges(t *testing.T) {
 		}
 		if delChange.To != nil {
 			t.Errorf("delChange.To = %v, want nil", delChange.To)
-		}
-	})
-
-	t.Run("canonical sorting of changes", func(t *testing.T) {
-		changes := []trace.Change{
-			{
-				Layer:   "vlan",
-				Subject: trace.Subject{Kind: "vlan", Key: "20"},
-				Field:   "name",
-				From:    nil,
-				To:      testStatusFact{status: "engineering"},
-			},
-			{
-				Layer:   "port",
-				Subject: trace.Subject{Kind: "port", Key: "1/1/2"},
-				Field:   "admin_status",
-				From:    testStatusFact{status: "Down"},
-				To:      testStatusFact{status: "Up"},
-			},
-			{
-				Layer:   "port",
-				Subject: trace.Subject{Kind: "port", Key: "1/1/1"},
-				Field:   "admin_status",
-				From:    testStatusFact{status: "Down"},
-				To:      testStatusFact{status: "Up"},
-			},
-			{
-				Layer:   "bridge",
-				Subject: trace.Subject{Kind: "bridge", Key: "br0"},
-				Field:   "aging_time",
-				From:    nil,
-				To:      testStatusFact{status: "300"},
-			},
-		}
-
-		trace.SortChanges(changes)
-
-		expectedOrder := []string{
-			"bridge:bridge:br0:aging_time",
-			"port:port:1/1/1:admin_status",
-			"port:port:1/1/2:admin_status",
-			"vlan:vlan:20:name",
-		}
-
-		for i, c := range changes {
-			key := fmt.Sprintf("%s:%s:%s", c.Layer, c.Subject.String(), c.Field)
-			if key != expectedOrder[i] {
-				t.Errorf("changes[%d] = %q, want %q", i, key, expectedOrder[i])
-			}
 		}
 	})
 }
@@ -557,11 +504,11 @@ func TestRenderingEscapesEveryDynamicValue(t *testing.T) {
 		"step":   {got: trace.RenderStep(step), want: stepWant},
 		"change": {got: trace.RenderChange(change), want: changeWant},
 		"trace": {
-			got: trace.Render(trace.Trace{
+			got: (trace.Trace{
 				Steps:   []trace.Step{step},
 				Outcome: trace.Outcome(injected),
 				Reason:  trace.Reason(injected),
-			}),
+			}).String(),
 			want: "1. " + stepWant + "\nOutcome: " + quoted + " reason=" + quoted,
 		},
 	} {
@@ -599,9 +546,6 @@ func TestZeroValueBehavior(t *testing.T) {
 			t.Errorf("tr.Canonical().Equal(tr) = false, want true")
 		}
 
-		if rendered := trace.Render(tr); rendered != "Outcome: unspecified" {
-			t.Errorf("Render(zero) = %q, want %q", rendered, "Outcome: unspecified")
-		}
 		if tr.String() != "Outcome: unspecified" {
 			t.Errorf("tr.String() = %q, want %q", tr.String(), "Outcome: unspecified")
 		}
@@ -623,8 +567,8 @@ func TestZeroValueBehavior(t *testing.T) {
 		if c.String() != "[unspecified]" {
 			t.Errorf("c.String() = %q, want %q", c.String(), "[unspecified]")
 		}
-		if !trace.EqualChange(c, trace.Change{}) {
-			t.Errorf("EqualChange(c, Change{}) = false, want true")
+		if !c.Equal(trace.Change{}) {
+			t.Errorf("c.Equal(Change{}) = false, want true")
 		}
 	})
 

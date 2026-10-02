@@ -902,13 +902,13 @@ func (f *Fabric) Links() []Link {
 	return cp
 }
 
-// Unlinked returns one link end per non-LAG port of the named switch that has
+// unlinked returns one link end per non-LAG port of the named switch that has
 // no cable, in port name order: Down with reason no-cable for a port
 // [Config.Uncabled] lists, Unknown with reason adjacency-unresolved for any
 // other. A port without a cable has no Link, so this is where that reason is
 // carried. It returns nil for a node that is not a switch or a switch whose
 // ports are all cabled.
-func (f *Fabric) Unlinked(node string) []LinkEnd {
+func (f *Fabric) unlinked(node string) []LinkEnd {
 	swCfg, ok := f.cfg.Switches[node]
 	if !ok {
 		return nil
@@ -1387,11 +1387,11 @@ func endpointPhyAndAdmin(ep Endpoint, cfg Config) (phy.Ethernet, port.LinkState)
 	return eth, admin
 }
 
-// Mcheck forces protocol migration checking on a switch port at the current
+// mcheck forces protocol migration checking on a switch port at the current
 // fabric clock, then queues what the spanning tree layer emitted and its next
 // wake, as every other switch call inside the run does. It returns an error
 // when the node is not a switch.
-func (f *Fabric) Mcheck(node, portName string) error {
+func (f *Fabric) mcheck(node, portName string) error {
 	sw, ok := f.switches[node]
 	if !ok {
 		return errs.New().

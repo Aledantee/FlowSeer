@@ -237,8 +237,8 @@ func TestInjectEmissionWithoutHeldFrameFallsBackToInjectionOrigin(t *testing.T) 
 	for _, journey := range f.journeys {
 		j = journey
 	}
-	if err := j.Origin.Validate(); err != nil {
-		t.Errorf("journey.Origin.Validate() failed: %v", err)
+	if err := j.Origin.validate(); err != nil {
+		t.Errorf("journey.Origin.validate() failed: %v", err)
 	}
 	if j.Origin.Kind != OriginInjection {
 		t.Errorf("journey.Origin.Kind = %v, want %v", j.Origin.Kind, OriginInjection)

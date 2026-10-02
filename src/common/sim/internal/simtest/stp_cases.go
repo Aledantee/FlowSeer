@@ -163,15 +163,15 @@ func stpCaseDataFrame() ethernet.Frame {
 // same boundary unaffected; and the case covering rapid spanning tree per
 // VLAN: VLAN 10 crossing the link its own tree elected.
 func RegisterSTPCases(registry *Registry) {
-	registry.MustRegister(CaseTroubleshootingStaleRootAgesOut())
-	registry.MustRegister(CaseTroubleshootingBPDUGuardDisablesEdge())
-	registry.MustRegister(CaseTroubleshootingLoopGuardUnidirectionalLink())
-	registry.MustRegister(CasePlanningMSTPVLANInstancesDiverge())
-	registry.MustRegister(CasePlanningMSTPVLANInstancesDivergeVLAN20CrossesL1())
-	registry.MustRegister(CasePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate())
-	registry.MustRegister(CaseTopologyShadowingMSTRegionBoundary())
-	registry.MustRegister(CaseTopologyShadowingMSTRegionBoundaryVLAN20CrossesL1())
-	registry.MustRegister(CasePlanningPVSTPerVLANRoot())
+	registry.MustRegister(caseTroubleshootingStaleRootAgesOut())
+	registry.MustRegister(caseTroubleshootingBPDUGuardDisablesEdge())
+	registry.MustRegister(caseTroubleshootingLoopGuardUnidirectionalLink())
+	registry.MustRegister(casePlanningMSTPVLANInstancesDiverge())
+	registry.MustRegister(casePlanningMSTPVLANInstancesDivergeVLAN20CrossesL1())
+	registry.MustRegister(casePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate())
+	registry.MustRegister(caseTopologyShadowingMSTRegionBoundary())
+	registry.MustRegister(caseTopologyShadowingMSTRegionBoundaryVLAN20CrossesL1())
+	registry.MustRegister(casePlanningPVSTPerVLANRoot())
 }
 
 // stpMSTAddresses are the bridge addresses the two MST cases share: sw1 is
@@ -394,12 +394,12 @@ func stpMSTOverriddenRegion(revision uint16) *stp.MST {
 // every VLAN: sw2's per-instance path cost is inflated on l1 for MSTI 1
 // (VLAN 10), so MSTI 1 roots through l2 and the VLAN 10 frame crosses it.
 // One [Case] asserts one journey, so VLAN 20's opposite-link delivery is a
-// second, registered case, [CasePlanningMSTPVLANInstancesDivergeVLAN20CrossesL1],
+// second, registered case, [casePlanningMSTPVLANInstancesDivergeVLAN20CrossesL1],
 // and MSTI 1 actually discarding on the link it left Alternate, rather than
 // merely leaving it unused, is a third,
-// [CasePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate]; all three
+// [casePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate]; all three
 // share [stpMSTFabricSpec]'s fixture.
-func CasePlanningMSTPVLANInstancesDiverge() Case {
+func casePlanningMSTPVLANInstancesDiverge() Case {
 	spec, err := stpMSTFabricSpec(stpMSTRegion(1), stpMSTOverriddenRegion(1))
 
 	frame10Untagged := expectedFact("bridge.frame",
@@ -493,12 +493,12 @@ func CasePlanningMSTPVLANInstancesDiverge() Case {
 	}
 }
 
-// CasePlanningMSTPVLANInstancesDivergeVLAN20CrossesL1 returns the companion
+// casePlanningMSTPVLANInstancesDivergeVLAN20CrossesL1 returns the companion
 // case sharing [stpMSTFabricSpec]'s fixture with
-// [CasePlanningMSTPVLANInstancesDiverge]: VLAN 20's own MST instance has its
+// [casePlanningMSTPVLANInstancesDiverge]: VLAN 20's own MST instance has its
 // per-instance path cost inflated on l2, so MSTI 2 roots through l1 instead,
 // and the VLAN 20 frame crosses the opposite physical link from VLAN 10's.
-func CasePlanningMSTPVLANInstancesDivergeVLAN20CrossesL1() Case {
+func casePlanningMSTPVLANInstancesDivergeVLAN20CrossesL1() Case {
 	spec, err := stpMSTFabricSpec(stpMSTRegion(1), stpMSTOverriddenRegion(1))
 
 	frame20Untagged := expectedFact("bridge.frame",
@@ -593,15 +593,15 @@ func CasePlanningMSTPVLANInstancesDivergeVLAN20CrossesL1() Case {
 	}
 }
 
-// CasePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate returns the
+// casePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate returns the
 // third case sharing [stpMSTFabricSpec]'s fixture with
-// [CasePlanningMSTPVLANInstancesDiverge]: a frame seeded behind l1 for VLAN
+// [casePlanningMSTPVLANInstancesDiverge]: a frame seeded behind l1 for VLAN
 // 10 proves MSTI 1 actually discards on the link its inflated path cost left
 // Alternate at sw2, rather than merely leaving it unused because the
 // destination reachable over l2 happens not to need it. Without this case,
 // two journeys crossing different links cannot be told apart from two
 // instances that block nothing at all.
-func CasePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate() Case {
+func casePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate() Case {
 	spec, err := stpMSTFabricSpec(stpMSTRegion(1), stpMSTOverriddenRegion(1))
 
 	frameUntagged := expectedFact("bridge.frame",
@@ -689,7 +689,7 @@ func CasePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate() Case {
 	}
 }
 
-// CaseTopologyShadowingMSTRegionBoundary returns the case evaluating that a
+// caseTopologyShadowingMSTRegionBoundary returns the case evaluating that a
 // region boundary holds MSTI 1 to the CIST's own answer rather than letting
 // it compute one of its own: sw1 and sw2 name the same region but a
 // different revision, so every port between them is a boundary port, and
@@ -697,11 +697,11 @@ func CasePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate() Case {
 // rather than the link its own (now ignored) path cost override would have
 // elected. One [Case] asserts one journey, so VLAN 20's unaffected delivery
 // over the CIST's forwarding link is a second, registered case,
-// [CaseTopologyShadowingMSTRegionBoundaryVLAN20CrossesL1], sharing this
+// [caseTopologyShadowingMSTRegionBoundaryVLAN20CrossesL1], sharing this
 // fixture.
-func CaseTopologyShadowingMSTRegionBoundary() Case {
+func caseTopologyShadowingMSTRegionBoundary() Case {
 	// sw2 carries the same per-instance path cost overrides
-	// [CasePlanningMSTPVLANInstancesDiverge] uses to split the two instances
+	// [casePlanningMSTPVLANInstancesDiverge] uses to split the two instances
 	// apart, but at a different region revision: the configuration
 	// identifier no longer matches sw1's, both links become boundary ports,
 	// and an MSTI takes the CIST port's role outright rather than computing
@@ -799,12 +799,12 @@ func CaseTopologyShadowingMSTRegionBoundary() Case {
 	}
 }
 
-// CaseTopologyShadowingMSTRegionBoundaryVLAN20CrossesL1 returns the
+// caseTopologyShadowingMSTRegionBoundaryVLAN20CrossesL1 returns the
 // companion case sharing [stpMSTFabricSpec]'s fixture with
-// [CaseTopologyShadowingMSTRegionBoundary]: VLAN 20 (MSTI 2) is unaffected by
+// [caseTopologyShadowingMSTRegionBoundary]: VLAN 20 (MSTI 2) is unaffected by
 // the boundary's block on l2, and crosses l1, the link the CIST itself
 // forwards on, delivering to h2v20.
-func CaseTopologyShadowingMSTRegionBoundaryVLAN20CrossesL1() Case {
+func caseTopologyShadowingMSTRegionBoundaryVLAN20CrossesL1() Case {
 	spec, err := stpMSTFabricSpec(stpMSTRegion(1), stpMSTOverriddenRegion(2))
 
 	frame20Untagged := expectedFact("bridge.frame",
@@ -899,11 +899,11 @@ func CaseTopologyShadowingMSTRegionBoundaryVLAN20CrossesL1() Case {
 	}
 }
 
-// CaseTroubleshootingStaleRootAgesOut returns the case evaluating that
+// caseTroubleshootingStaleRootAgesOut returns the case evaluating that
 // information whose message age has reached the max age its own BPDU carries is
 // discarded rather than stored, so a BPDU circulating a root that no longer
 // exists cannot refresh a port's timer on every hop and hold it blocked.
-func CaseTroubleshootingStaleRootAgesOut() Case {
+func caseTroubleshootingStaleRootAgesOut() Case {
 	return Case{
 		Execute: func() (ExecutionResult, error) {
 			sw, err := stpCaseSwitch(map[string]stp.Port{
@@ -978,10 +978,10 @@ func CaseTroubleshootingStaleRootAgesOut() Case {
 	}
 }
 
-// CaseTroubleshootingBPDUGuardDisablesEdge returns the case evaluating that a
+// caseTroubleshootingBPDUGuardDisablesEdge returns the case evaluating that a
 // BPDU arriving on a guarded edge port disables the port for spanning tree,
 // rather than leaving it forwarding as an edge port that never expected one.
-func CaseTroubleshootingBPDUGuardDisablesEdge() Case {
+func caseTroubleshootingBPDUGuardDisablesEdge() Case {
 	return Case{
 		Execute: func() (ExecutionResult, error) {
 			sw, err := stpCaseSwitch(map[string]stp.Port{
@@ -1046,10 +1046,10 @@ var stpCaseBPDUGuardGate = stpCaseGateFact(
 		`designated_cost=0;point_to_point=true;edge=true;forward_transitions=1;tx_bpdus=0;rx_bpdus=1;` +
 		`bad_bpdus=0;send_rstp=true}`)
 
-// CaseTroubleshootingLoopGuardUnidirectionalLink returns the case evaluating
+// caseTroubleshootingLoopGuardUnidirectionalLink returns the case evaluating
 // that a guarded port whose designated peer stops sending is held discarding
 // rather than becoming designated and opening a loop.
-func CaseTroubleshootingLoopGuardUnidirectionalLink() Case {
+func caseTroubleshootingLoopGuardUnidirectionalLink() Case {
 	return Case{
 		Execute: func() (ExecutionResult, error) {
 			sw, err := stpCaseSwitch(map[string]stp.Port{
@@ -1136,14 +1136,14 @@ func stpPVSTTrees(costs map[vlan.ID]map[string]uint32) *stp.PVST {
 	return &stp.PVST{Trees: trees}
 }
 
-// CasePlanningPVSTPerVLANRoot returns the case evaluating that VLAN 10,
+// casePlanningPVSTPerVLANRoot returns the case evaluating that VLAN 10,
 // running its own rapid spanning tree, crosses the link its own tree elected
 // rather than whichever link one shared tree would pick for every VLAN: sw2's
 // per-VLAN path cost is inflated on l1 for VLAN 10, so VLAN 10's tree roots
 // through l2 and the frame crosses it. It shares [stpMSTFabricSpec]'s
 // topology through [stpPVSTFabricSpec], so the per-VLAN answer is compared
 // against the MST cases over one fixture rather than two.
-func CasePlanningPVSTPerVLANRoot() Case {
+func casePlanningPVSTPerVLANRoot() Case {
 	spec, err := stpPVSTFabricSpec(
 		stpPVSTTrees(nil),
 		stpPVSTTrees(map[vlan.ID]map[string]uint32{

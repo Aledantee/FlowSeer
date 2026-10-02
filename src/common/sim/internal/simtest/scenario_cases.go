@@ -29,10 +29,10 @@ var (
 	periodicSW2 = netaddr.MAC{0x02, 0, 0, 0, 0x08, 0x02}
 )
 
-// CasePlanningScenarioReplaysLinkFlap returns the planning case proving that a
+// casePlanningScenarioReplaysLinkFlap returns the planning case proving that a
 // scenario recording a timed trunk cut and frame injection produces a replay
 // specification that reproduces identical execution and outcomes.
-func CasePlanningScenarioReplaysLinkFlap() Case {
+func casePlanningScenarioReplaysLinkFlap() Case {
 	frame := expectedFact("bridge.frame",
 		`src="02:00:00:00:07:01";dst="02:00:00:00:07:02";ether_type=2048;tags=[];payload_len=4`)
 	fdbHit := expectedFact("bridge.fdb_decision",
@@ -211,10 +211,10 @@ func CasePlanningScenarioReplaysLinkFlap() Case {
 	}
 }
 
-// CaseTroubleshootingPeriodicProtocolHidesExhaustion returns the troubleshooting case
+// caseTroubleshootingPeriodicProtocolHidesExhaustion returns the troubleshooting case
 // proving that when simulation budget is exhausted before spanning tree convergence,
 // Run returns StopBudget with an Exhausted analysis issue rather than appearing complete.
-func CaseTroubleshootingPeriodicProtocolHidesExhaustion() Case {
+func caseTroubleshootingPeriodicProtocolHidesExhaustion() Case {
 	bpduIn := expectedFact("stp.bpdu_decision",
 		`ether_type=39;payload_len=46;valid=true;reason=""`)
 	bpduDec := expectedFact("stp.bpdu_decision",
@@ -359,6 +359,6 @@ func CaseTroubleshootingPeriodicProtocolHidesExhaustion() Case {
 // RegisterScenarioCases populates registry with cases covering scenario replay
 // under link faults and honest analysis status on budget exhaustion.
 func RegisterScenarioCases(registry *Registry) {
-	registry.MustRegister(CasePlanningScenarioReplaysLinkFlap())
-	registry.MustRegister(CaseTroubleshootingPeriodicProtocolHidesExhaustion())
+	registry.MustRegister(casePlanningScenarioReplaysLinkFlap())
+	registry.MustRegister(caseTroubleshootingPeriodicProtocolHidesExhaustion())
 }

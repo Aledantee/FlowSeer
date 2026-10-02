@@ -24,9 +24,9 @@ type Comparison struct {
 	Difference  analysis.Difference
 }
 
-// CompareResults compares two [ForwardResult] values directly and reports their exact
+// compareResults compares two [ForwardResult] values directly and reports their exact
 // behavioral disposition ([analysis.Equivalent], [analysis.Different], or [analysis.Inconclusive]).
-func CompareResults(cur, exp ForwardResult) Comparison {
+func compareResults(cur, exp ForwardResult) Comparison {
 	diff, hasDiff := diffForwardResult(cur, exp)
 	var disp analysis.Disposition
 	switch {
@@ -55,7 +55,7 @@ func CompareResults(cur, exp ForwardResult) Comparison {
 // egress PCP, and mirror copies. Semantic traces and metadata are diagnostic and never
 // make a Different.
 func Compare(a, b *Switch, now time.Time, port string, f ethernet.Frame) Comparison {
-	return CompareResults(a.Peek(now, port, f), b.Peek(now, port, f))
+	return compareResults(a.Peek(now, port, f), b.Peek(now, port, f))
 }
 
 func diffForwardResult(cur, exp ForwardResult) (analysis.Difference, bool) {

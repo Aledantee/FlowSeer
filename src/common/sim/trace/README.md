@@ -102,7 +102,7 @@ insertion order.
 - [Step.Canonical] returns a copy with sorted input facts, sorted output facts,
   and sorted, deduplicated evidence references.
 - [Trace.Equal] and [Step.Equal] compare canonical forms.
-- [SortChanges] sorts configuration changes by layer, subject, field, and fact
+- [Change.Equal] compares configuration changes by layer, subject, field, and fact
   values.
 
 ## Zero values

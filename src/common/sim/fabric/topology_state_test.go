@@ -418,20 +418,6 @@ func TestUncabledPortDropsDefinitelyAndOmittedPortIsUnresolved(t *testing.T) {
 		t.Fatalf("NewWithSpec: %v", err)
 	}
 
-	wantUnlinked := []fabric.LinkEnd{
-		{Endpoint: fabric.Endpoint{Node: "sw1", Port: "2"}, Oper: port.Unknown, Reason: fabric.ReasonAdjacencyUnresolved},
-		{Endpoint: fabric.Endpoint{Node: "sw1", Port: "3"}, Oper: port.Down, Reason: fabric.ReasonNoCable},
-		{Endpoint: fabric.Endpoint{Node: "sw1", Port: "4"}, Oper: port.Unknown, Reason: fabric.ReasonAdjacencyUnresolved},
-	}
-	got := fab.Unlinked("sw1")
-	if len(got) != len(wantUnlinked) {
-		t.Fatalf("Unlinked(sw1) = %+v, want %+v", got, wantUnlinked)
-	}
-	for i := range wantUnlinked {
-		if got[i].Endpoint != wantUnlinked[i].Endpoint || got[i].Oper != wantUnlinked[i].Oper || got[i].Reason != wantUnlinked[i].Reason {
-			t.Errorf("Unlinked(sw1)[%d] = %+v, want %+v", i, got[i], wantUnlinked[i])
-		}
-	}
 	ports := fab.Switch("sw1").Ports()
 	if p, _ := ports.Port("3"); p.OperStatus != port.Down {
 		t.Errorf("port 3 OperStatus = %s, want Down", p.OperStatus)

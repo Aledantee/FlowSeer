@@ -182,9 +182,9 @@ func loadForwardSteps() []StepExpectation {
 	}
 }
 
-// CasePlanningOversubscribedTrunkStatedBuffer proves a 1518-octet egress
+// casePlanningOversubscribedTrunkStatedBuffer proves a 1518-octet egress
 // buffer tail-drops a frame offered faster than the tagged trunk can serve it.
-func CasePlanningOversubscribedTrunkStatedBuffer() Case {
+func casePlanningOversubscribedTrunkStatedBuffer() Case {
 	buffer := uint64(1518)
 	queueFact := NewFactExpectation(traffic.QueueDropFact(1018, buffer, 1018))
 	steps := append(loadForwardSteps(), expectedStep(traffic.LayerName, trace.OpDrop, traffic.RuleQueueDrop,
@@ -203,9 +203,9 @@ func CasePlanningOversubscribedTrunkStatedBuffer() Case {
 	}
 }
 
-// CasePlanningOversubscribedTrunkUnstatedBuffer proves a delivered frame
+// casePlanningOversubscribedTrunkUnstatedBuffer proves a delivered frame
 // carries the first queue crossing and its runtime evidence despite no drop.
-func CasePlanningOversubscribedTrunkUnstatedBuffer() Case {
+func casePlanningOversubscribedTrunkUnstatedBuffer() Case {
 	context := `rule="traffic.queue.buffer-unstated";physical_node="sw1";physical_port="1/1/2";egress_port="1/1/2";pcp=0;frame_id=3;at="1970-01-01T00:00:00.000208304Z";depth_before_octets=1018;frame_octets=1018;threshold_octets=1518`
 	catalog, ref := analysis.EvidenceCatalog{}.Add(analysis.Evidence{Kind: "fabric.runtime", Origin: "egress-queue", Context: context})
 	queueFact := NewFactExpectation(traffic.QueueThresholdFact(1018, 1018, 1518))
@@ -239,9 +239,9 @@ func CasePlanningOversubscribedTrunkUnstatedBuffer() Case {
 	}
 }
 
-// CasePlanningPolicedStream proves the ingress token bucket refuses the
+// casePlanningPolicedStream proves the ingress token bucket refuses the
 // second frame even though the first frame has enough burst tokens.
-func CasePlanningPolicedStream() Case {
+func casePlanningPolicedStream() Case {
 	policerFact := NewFactExpectation(traffic.PolicerDecisionFact(1_000_000, 1518, 1038, false))
 	return Case{
 		ID: "planning/policed-stream", UseCase: UseCasePlanning,

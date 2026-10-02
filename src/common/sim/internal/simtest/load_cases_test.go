@@ -15,9 +15,9 @@ func TestLoadCases(t *testing.T) {
 		build func() Case
 		frame fabric.FrameID
 	}{
-		{"stated buffer", CasePlanningOversubscribedTrunkStatedBuffer, 3},
-		{"unstated buffer", CasePlanningOversubscribedTrunkUnstatedBuffer, 3},
-		{"policed", CasePlanningPolicedStream, 2},
+		{"stated buffer", casePlanningOversubscribedTrunkStatedBuffer, 3},
+		{"unstated buffer", casePlanningOversubscribedTrunkUnstatedBuffer, 3},
+		{"policed", casePlanningPolicedStream, 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := tc.build()
@@ -36,7 +36,7 @@ func TestLoadCases(t *testing.T) {
 }
 
 func TestUnstatedLoadCaseCrossingPrecedesTransmission(t *testing.T) {
-	result := AssertCase(t, CasePlanningOversubscribedTrunkUnstatedBuffer())
+	result := AssertCase(t, casePlanningOversubscribedTrunkUnstatedBuffer())
 	journey := result.Journey
 	crossingIndex, arrivalIndex := -1, -1
 	for i, entry := range journey.Entries {

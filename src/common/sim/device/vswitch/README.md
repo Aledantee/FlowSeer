@@ -154,7 +154,7 @@ The virtual switch uses a ladder of architectural layers:
   gate.
 - **Multicast snooping**: Configured with VLAN-aware `bridge.Config` and
   `mcast.Config`. IGMP and MLD reports register group members, while queries
-  identify router ports. `Switch.Resolve` filters admitted member ports by
+  identify router ports. The multicast resolver filters admitted member ports by
   the frame's decoded IP source, so an `(S,G)` join admits that source and no
   other; router ports always receive registered traffic. Each VLAN chooses
   whether an unregistered group floods or reaches router ports only.
@@ -365,9 +365,8 @@ explicit calls:
 - `MemberInfo(member)` returns the runtime aggregation status of the member port.
 - `SelectMember(now, lag, frame, vid)` commits an enabled member choice for a
   frame egressing a LAG outside the bridge pipeline, such as a fabric
-  transmission; `PeekMember` computes the same choice without committing it.
-  The bridge's own LAG egress commits exactly when the forwarding call that
-  produced it does (`Forward` commits, `Peek` does not).
+  transmission. The bridge's own LAG egress commits exactly when the forwarding
+  call that produced it does (`Forward` commits, `Peek` does not).
 
 On a switch configured with `stp.Config`, a frame addressed to
 01-80-C2-00-00-00 is intercepted before relay processing; its trace ends with

@@ -150,8 +150,8 @@ type JourneyOrigin struct {
 	Mirror string
 }
 
-// Validate verifies that Of and Mirror fields are consistent with Kind.
-func (o JourneyOrigin) Validate() error {
+// validate verifies that Of and Mirror fields are consistent with Kind.
+func (o JourneyOrigin) validate() error {
 	switch o.Kind {
 	case OriginInjection:
 		if o.Of != 0 {
@@ -182,8 +182,8 @@ const (
 	// IssueTruncatedRecord indicates an injected frame was truncated during capture.
 	IssueTruncatedRecord analysis.IssueCode = "truncated-record"
 
-	// ReasonTruncatedRecord indicates an injected frame was truncated during capture.
-	ReasonTruncatedRecord trace.Reason = "truncated-record"
+	// reasonTruncatedRecord indicates an injected frame was truncated during capture.
+	reasonTruncatedRecord trace.Reason = "truncated-record"
 )
 
 // journeyStatePrecedence declares the evaluation order for journey states, highest first.
@@ -344,7 +344,7 @@ func isJourneyTruncated(j *Journey) bool {
 		return true
 	}
 	return slices.ContainsFunc(j.Entries, func(e Entry) bool {
-		return e.Reason == ReasonTruncatedRecord
+		return e.Reason == reasonTruncatedRecord
 	})
 }
 

@@ -176,18 +176,18 @@ type Emission struct {
 	Protocol bool
 }
 
-// ReasonHeldInterfaceUnknown indicates a held frame the routing layer released onto an interface
+// reasonHeldInterfaceUnknown indicates a held frame the routing layer released onto an interface
 // the switch's own routing configuration does not resolve. Nothing constructible reaches it —
 // the exit names the interface the same layer resolved when it queued the frame — but a frame
 // that leaves a hold queue and then reaches no wire is reported rather than dropped in silence.
-const ReasonHeldInterfaceUnknown trace.Reason = "held-interface-unknown"
+const reasonHeldInterfaceUnknown trace.Reason = "held-interface-unknown"
 
-// ReasonHeldCauseUnknown indicates a held frame [routing.Layer.Wake] released under a
+// reasonHeldCauseUnknown indicates a held frame [routing.Layer.Wake] released under a
 // [routing.HeldCause] applyRoutingEffects does not recognize. Nothing constructs it —
 // [routing.Layer.Wake] stamps one of the three defined causes at every release site — but a
 // routing package that adds a fourth would otherwise reach this switch with no arm for it and
 // vanish with no record, the way the interface case above does not.
-const ReasonHeldCauseUnknown trace.Reason = "held-cause-unknown"
+const reasonHeldCauseUnknown trace.Reason = "held-cause-unknown"
 
 // NeighborDrop is one frame [Switch.Wake] took out of a hold queue and could not put on a wire,
 // carrying the reason from whichever stage refused it: the routing layer, for a frame that timed
@@ -355,7 +355,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		}
 		sw.mcast = m
 		if sw.bridge != nil {
-			sw.bridge.SetGroupResolver(sw, protocolScope(nodeID, mcast.LayerName), mcast.LayerName, mcast.RuleGroupMembers)
+			sw.bridge.SetGroupResolver(mcastResolver{sw: sw}, protocolScope(nodeID, mcast.LayerName), mcast.LayerName, mcast.RuleGroupMembers)
 		}
 	}
 
@@ -535,10 +535,10 @@ func (s *Switch) Fork() *Switch {
 			cp.bridge.SetSelector(lagSelector{sw: cp}, protocolScope(cp.nodeID, lag.LayerName))
 		}
 		if cp.mcast != nil {
-			cp.bridge.SetGroupResolver(cp, protocolScope(cp.nodeID, mcast.LayerName), mcast.LayerName, mcast.RuleGroupMembers)
+			cp.bridge.SetGroupResolver(mcastResolver{sw: cp}, protocolScope(cp.nodeID, mcast.LayerName), mcast.LayerName, mcast.RuleGroupMembers)
 		}
 	}
-	cp.retention = AllKeptRetention()
+	cp.retention = allKeptRetention()
 	return cp
 }
 
@@ -685,20 +685,6 @@ func (s *Switch) RelayCounters() bridge.Counters {
 	}
 
 	return s.bridge.Counters()
-}
-
-// Speeds returns the resolved physical link speeds and duplex modes keyed by
-// port name, or nil if the Ethernet capability is absent.
-func (s *Switch) Speeds() map[string]phy.Resolved {
-	if s.speeds == nil {
-		return nil
-	}
-	cp := make(map[string]phy.Resolved, len(s.speeds))
-	for k, v := range s.speeds {
-		cp[k] = v
-	}
-
-	return cp
 }
 
 // Power returns the Power over Ethernet budget distribution and port allocations with analysis metadata.
@@ -1723,9 +1709,9 @@ func routerPortNames(routers []mcast.RouterPort) []string {
 	return ports
 }
 
-// Resolve selects multicast members and router ports for an eligible IP group
+// resolveMcast selects multicast members and router ports for an eligible IP group
 // frame as of now, filtering admitted member ports by the frame's IP source.
-func (s *Switch) Resolve(now time.Time, vid vlan.ID, f ethernet.Frame) ([]string, bool) {
+func (s *Switch) resolveMcast(now time.Time, vid vlan.ID, f ethernet.Frame) ([]string, bool) {
 	if s.mcast == nil || s.cfg.Mcast == nil {
 		return nil, false
 	}
@@ -1771,10 +1757,10 @@ func (s *Switch) Resolve(now time.Time, vid vlan.ID, f ethernet.Frame) ([]string
 	return ports, true
 }
 
-// MembershipFact records the multicast membership lookup used by bridge
+// mcastMembershipFact records the multicast membership lookup used by bridge
 // replication, naming the frame's IP source: ports is already that source's
 // admitted egress set, so the fact makes explicit which source produced it.
-func (s *Switch) MembershipFact(now time.Time, vid vlan.ID, f ethernet.Frame, ports []string, decided bool) trace.Fact {
+func (s *Switch) mcastMembershipFact(now time.Time, vid vlan.ID, f ethernet.Frame, ports []string, decided bool) trace.Fact {
 	if s.mcast == nil {
 		return mcast.MembershipFact(vid, netip.Addr{}, netip.Addr{}, ports, false, decided)
 	}
@@ -3139,7 +3125,7 @@ func (s *Switch) applyRoutingExits(now time.Time, exits []routing.HeldFrame) {
 			// silence for its own unreachable case; a cause this switch on hf.Cause does not
 			// recognize gets the same treatment rather than vanishing with no emission and no
 			// NeighborDrop.
-			s.recordHeldExitDrop(hf, ReasonHeldCauseUnknown)
+			s.recordHeldExitDrop(hf, reasonHeldCauseUnknown)
 		}
 	}
 }
@@ -3197,7 +3183,7 @@ func (s *Switch) recordHeldEgressDrop(hf routing.HeldFrame, egressPort, member s
 func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 	egressIface, ok := s.routing.Interface(hf.Interface)
 	if !ok {
-		s.recordHeldEgressDrop(hf, "", "", trace.RuleID(ReasonHeldInterfaceUnknown), ReasonHeldInterfaceUnknown)
+		s.recordHeldEgressDrop(hf, "", "", trace.RuleID(reasonHeldInterfaceUnknown), reasonHeldInterfaceUnknown)
 
 		return
 	}
@@ -3664,14 +3650,6 @@ func (s *Switch) SelectMember(now time.Time, lagName string, f ethernet.Frame, v
 	return sel.Member, sel.OK
 }
 
-// PeekMember computes the same choice SelectMember would make without
-// committing it.
-func (s *Switch) PeekMember(now time.Time, lagName string, f ethernet.Frame, vid vlan.ID) (string, bool) {
-	sel := s.selectOrPeekMember(now, lagName, f, vid, false)
-
-	return sel.Member, sel.OK
-}
-
 // selectOrPeekMember chooses a member of the named LAG to carry f at vid,
 // committing the choice when commit is true, and records the selection for
 // the lag-rebalance-unmodeled issue when it reports that condition.
@@ -3763,6 +3741,20 @@ func (a lagSelector) SelectionFact(lagName string, f ethernet.Frame, vid vlan.ID
 	})
 }
 
+// mcastResolver adapts a switch's multicast layer to [bridge.GroupResolver] and
+// bridge's semanticGroupResolver.
+type mcastResolver struct {
+	sw *Switch
+}
+
+func (r mcastResolver) Resolve(now time.Time, vid vlan.ID, f ethernet.Frame) ([]string, bool) {
+	return r.sw.resolveMcast(now, vid, f)
+}
+
+func (r mcastResolver) MembershipFact(now time.Time, vid vlan.ID, f ethernet.Frame, ports []string, decided bool) trace.Fact {
+	return r.sw.mcastMembershipFact(now, vid, f, ports, decided)
+}
+
 // LagInfo returns the runtime aggregation status of the named LAG,
 // or a zero-value Info if the aggregation layer is absent.
 func (s *Switch) LagInfo(lagName string) lag.Info {
@@ -3830,19 +3822,11 @@ func (s *Switch) setOperStatus(portName string, state port.LinkState) {
 }
 
 // recordOperFault keeps the first oper-status fault. Later faults are dropped
-// so [Switch.Err] reports the one that started the trouble.
+// so s.operErr records the one that started the trouble.
 func (s *Switch) recordOperFault(err error) {
 	if s.operErr == nil {
 		s.operErr = err
 	}
-}
-
-// Err reports the first oper-status fault [Switch.LinkChange] or
-// [Switch.updateLagState] recorded, or nil if none occurred. A caller that
-// drives link transitions reads it to learn that a transition named an invalid
-// operational state, which those methods cannot return directly.
-func (s *Switch) Err() error {
-	return s.operErr
 }
 
 func validateOperStatus(portName string, state port.LinkState) error {
