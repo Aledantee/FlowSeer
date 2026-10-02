@@ -489,46 +489,71 @@ go test ./test/conformance/proto/ ./src/services/device/internal/authn/ ./src/se
 - Requirement 11 sends `platform:flowseer#claimed`, and no record states
   the `platform` type's relations yet. Phase 2's model has to define
   `claimed` on it, or OpenFGA rejects every check that carries the tuple.
-- One fix round closes five items. The first two are settled above and
-  need code. The last three each break a rule.
-  1. Requirement 9: `Require` and `Filter` record every error they return,
-     and the interceptor drops a response after one
-     (`src/services/device/internal/authz/obligation.go`, `interceptor.go`).
-     Two subtests of `TestPlatformRuleAuthorization` hold the old shape, a
-     handler that ignores a refused `Require` or `Filter` and still answers
-     (`src/services/device/internal/authz/authz_test.go:2373-2460`). Both
-     now expect `Internal`.
-  2. Requirement 16, in both places it names, in the same two files.
-  3. `TestDeferredObligationDischarge` writes `handlerRan`, `filterIDs`,
-     `filterErr`, and `requireErr` in the handler goroutine and reads them
-     in the test goroutine with no lock (`authz_test.go:2958-3012`). It
-     breaks `docs/code-style.md:408-412`: a mutex guards shared state, and
-     code that passes only without `-race` does not merge. Subtests of
-     `TestPlatformRuleAuthorization` guard the same kind of local with `mu`
-     (`authz_test.go:2376-2406`).
-     Whether the race detector reports the access is unverified.
-  4. The record's request diagram draws the membership check before the
-     rule read (`docs/architecture/2026-09-30-operator-authorization-direction.md:42-44`),
-     the interceptor reads the rule first (`interceptor.go:47-75`), and
-     the record's own amendment says the diagram is the other way round
-     (`:458-460`). It breaks rule 8 of `docs/doc-style.md`, "Stale is worse
-     than missing": update the doc or delete the claim. The fix redraws the
-     diagram with the rule read first and the platform branch that skips
-     the membership check, deletes that sentence, and adds the amendment
-     for requirements 9 and 16 in the same edit. U4's Files and Verify
-     lines carry the record for this.
-  5. `syntheticMethod` attaches a `Rule` the test built to a synthetic
-     method (`test/conformance/proto/api_authorization_test.go:190-202`),
-     and the rules built in `TestAuthorizationRuleObjectPathResolves` and
-     `TestAuthorizationRuleNamesKnownRelation` never pass through
-     `protovalidate.Validate`, since those tests call only
-     `checkObjectIDPath` and `checkKnownRelation`. It breaks
-     `docs/code-style.md:462-465`, which has a fixture that
-     constructs a protobuf message pass validation in the test that builds
-     it, and U3's own Tests line, since only validation shows a negative is
-     valid in every respect but the one under test. The subtest "rule
-     failing validation is reported" keeps its invalid rule and asserts
-     that validation rejects it for the relation alone.
+- The fix round closed its five items, and its re-review left seven
+  behaviors the suite does not hold. The code answers as requirements 9,
+  10, 14, and 16 say. Each change below, made alone, alters what a caller
+  gets and leaves `go test ./src/services/device/internal/authz/` or the
+  gate green, and `docs/code-style.md:466-473` counts a test as evidence
+  only once it fails against the defect. Paths are under
+  `src/services/device/internal/authz/` unless given in full.
+  1. A recorded failure is sticky. `obligation.go:30` clearing `checkFailed`
+     in `discharge`, or either deferred func assigning `err != nil` to it
+     (`:82-86`, `:118-122`), lets a response pass after a failed check
+     followed by a successful one. No handler in `authz_test.go` makes two
+     checks in one call.
+  2. The context error is bare. `authz.go:72-74` returning
+     `connect.NewError(connect.CodeCanceled, ctxErr)` or a `connecterr`
+     wrap, and `interceptor.go:179-181` returning an `errs` wrap of
+     `ctx.Err()`, pass. `TestContextCancellation` asserts `errors.Is`
+     where requirement 16 says equal, and no case pairs a deadline with a
+     checker error.
+  3. Two of the five checker-error sites look at the call's context.
+     `obligation.go:168` (a `tenant` object) and `:207` (a short answer)
+     given `context.Background()` pass.
+  4. A false answer stays `PermissionDenied`. Returning `ctx.Err()` from the
+     denial in `Require` (`obligation.go:99`) or from the platform check
+     (`interceptor.go:103`) passes. Only the membership check has the case
+     (`authz_test.go:3835`), and neither it nor the response case at `:3863`
+     asserts that the context ended before the outcome.
+  5. A handler's error passes through once a check was discharged. The
+     branch at `interceptor.go:179-181` moved above `:178` swaps that error
+     for `ctx.Err()` in every mode and passes.
+  6. A platform rule reads no tenant header. `tenant.WithTenant` on the
+     header value after `interceptor.go:91` passes, since every platform
+     test sends no header.
+  7. The gate's path walk keeps its mode filter.
+     `test/conformance/proto/api_authorization_test.go:493` with `!=` turned
+     to `==` passes: the count guard still sees six rules, and the synthetic
+     cases call `checkObjectIDPath` without the walk.
+
+  `TestDeferredObligationDischarge` is the suite's enumeration of
+  requirement 9. Items 1 and 5 belong there as a second check and a
+  context state, with the request, tenant, and platform modes as rows.
+- The same re-review left rule findings that change no behavior:
+  - The operator authorization record's new text says more or less than
+    requirements 9 and 16
+    (`docs/architecture/2026-09-30-operator-authorization-direction.md`).
+    The table states the failed-check drop only for loaded and filtered
+    rules and has `Filter` "in place of" `Require` (`:377-378`). The
+    diagram answers `ctx.Err()` for every ended context with no response
+    (`:65-66`) and calls the handler after a denied check (`:54-55`). It
+    breaks rule 8 of `docs/doc-style.md`.
+  - The deadline example waits out a 2 ms timeout with a 10 ms sleep
+    (`authz_test.go:3628`), where a deadline already passed needs no clock.
+  - Three comments added to `authz.go:46` and `obligation.go:76`, `:112`
+    hold a semicolon (`docs/doc-style.md:149`). `WrapUnary`'s comment
+    states neither the dropped response nor the context error. `unavailable`
+    and `unauthenticated` have one caller each (`docs/code-style.md:544`).
+  - `TestEdgeAssertionHeaderVector` marshals an assertion it never
+    validates (`test/conformance/proto/model_edge_rules_test.go:332`,
+    `docs/code-style.md:462-465`). The fixture predates this phase and
+    passes validation.
+- `Require` and `Filter` discharge before the checker answers and record a
+  failure when they return (`obligation.go:93`, `:129`). A handler that
+  starts one in a goroutine and answers without joining it returns its
+  response. Requirement 9 names a check that returned an error, so this is
+  outside it. Phase 3 writes the handlers and decides whether the tracker
+  counts checks in flight.
 - A filtered handler whose store read fails returns before `Filter` and
   gets `Internal` under requirement 9's first sentence, whatever the store
   said. Requirement 16 lifts that only for an ended context. Phase 3 writes
