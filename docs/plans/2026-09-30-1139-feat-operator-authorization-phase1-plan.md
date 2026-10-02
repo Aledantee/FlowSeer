@@ -365,3 +365,23 @@ go test ./test/conformance/proto/ ./src/services/device/internal/authn/ ./src/se
 - Requirement 11 sends `platform:flowseer#claimed`, and no record states
   the `platform` type's relations yet. Phase 2's model has to define
   `claimed` on it, or OpenFGA rejects every check that carries the tuple.
+- Parked by drive: the fourth fix round fixed its seven items and the
+  re-review found five more, so the review stays `rework`. Two are
+  correctness items. A `Require` that fails on a checker error records
+  nothing, so a handler that ignores it and returns a response passes
+  through, and requirement 9 names only a denial
+  (`src/services/device/internal/authz/obligation.go`). A context that ends
+  before a deferred handler runs answers `Internal` instead of the
+  context's own error (`src/services/device/internal/authz/interceptor.go`).
+  Three are rule violations: test locals shared with the handler goroutine
+  without a lock, the record's request diagram drawing the membership check
+  before the rule read, and synthetic gate fixtures never passed through
+  protovalidate. Options: take the two correctness items to `plan`, then
+  run a fix round (a plan pass before any fix, and requirement 9 is settled
+  where a reviewer checks against it) | run a fifth fix round with
+  requirement 9 extended to any failed `Require` (faster, and a fifth round
+  may again end with findings) | accept the phase with the five items
+  recorded here (phase 2 wires a real checker onto the checker-error gap) |
+  stop the drive here (phases 2 to 4 stay waiting). Recommended: take the
+  two items to `plan`, because one needs a requirement changed and every
+  round so far has surfaced new findings.
