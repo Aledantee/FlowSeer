@@ -475,6 +475,12 @@ spec/          # protobuf, MIB, and YANG sources of truth
   literal worked by hand, an example from the spec, a capture. A `want`
   computed with the helper or the formula the code uses agrees with it by
   construction and cannot fail when both are wrong.
+- A test waits for the condition it needs, not for a duration: a channel
+  receive, a `sync.WaitGroup`, a poll with a deadline, or a
+  `testing/synctest` bubble for concurrent code that reads the clock. A
+  `time.Sleep` that passes on an idle machine can fail under `-race` and
+  load. One that stays carries a comment naming the timing behavior under
+  test.
 - A self-authored fake peer produces only the sequence the client was coded
   to expect. Seed it with leftover state ahead of the call under test: a
   banner, a retained buffer, an out-of-order message.

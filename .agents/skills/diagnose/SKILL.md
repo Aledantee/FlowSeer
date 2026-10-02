@@ -64,7 +64,17 @@ failure. A fix for the wrong failure passes every later step.
 
 ## 3. Rank hypotheses
 
-Write three to five hypotheses before testing one, each with the prediction
+Two cheap observations come first, since each narrows where to look:
+
+- When the failing path crosses components (edge, bus, service, or
+  session, decoder, store), log what enters and leaves each boundary and
+  run the loop once. The first boundary with a wrong value is where the
+  hypotheses start.
+- When a similar path works (another vendor, another message type, the
+  previous commit), list every difference between it and the failing one,
+  including the ones that look irrelevant.
+
+Then write three to five hypotheses before testing one, each with the prediction
 that would refute it: "if the scanner keeps its window across commands,
 a second command with a shorter echo fails and a longer one passes". This
 is the leading hypothesis, the alternatives, and the discriminating test

@@ -71,6 +71,13 @@ each hunk's code before the comment above it, decide what the code does,
 then compare, since a comment stating intent primes a reader to see that
 intent in code doing the opposite. Ask:
 
+- With a plan: what is the verdict on each numbered Requirement, taken one
+  at a time? `implemented` names the line that enforces it. `partial` holds
+  on the tested path and fails on another. `contradicted` and `absent` are
+  findings, and `absent` lists the paths and patterns searched, since
+  enforcement often lives in a caller the search did not reach. `stronger`
+  is a constraint the plan does not state, and `undecidable` is a finding
+  against the plan's wording. Passing tests are not a verdict.
 - Does every behavior change have a test that would fail without it, and
   would that test still fail if the check moved to the wrong place? Commit
   bodies carry a mutation and a quoted `--- FAIL` line per new test

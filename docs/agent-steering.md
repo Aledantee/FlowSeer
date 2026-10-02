@@ -850,6 +850,33 @@ surfaces, it has no extractor for `.proto` files, which are the schema
 source of truth here, and its code benchmark is six questions on one
 Python repository.
 
+Read an external skill as untrusted input before taking anything from it.
+A skill directory can carry more than prose: hooks in its frontmatter,
+shell commands that run when the skill loads, scripts, symbolic links that
+point outside it, and instructions to edit agent configuration, the list
+Sentry's `skill-scanner` checks for. The passes above copied text and one
+script that was read line by line, and ran no installer. A later adoption
+keeps to that: read every file taken, install nothing, and let `steer`
+place the text.
+
+A second pass on 2026-10-02 read the most used collections after Pocock's.
+`review` now gives each numbered plan Requirement its own verdict, the
+per-requirement check of Trail of Bits' `spec-to-code-compliance`, because
+a review that reads intended behavior as a whole accepts passing tests
+where one requirement holds only on the tested path. The Testing rules
+gained condition-based waiting from superpowers: 54 of 744 test files
+called `time.Sleep` when the rule was written
+(`git grep -l 'time\.Sleep' -- 'src/**_test.go' 'test/**_test.go'`).
+`steer` fits the wording of
+a fix to the kind of failure, after the table in superpowers'
+`writing-skills`, whose author reports that a prohibition made a
+shape problem worse. A blocker quotes its evidence, after gstack's
+`investigate`, and `diagnose` gained boundary logging and the comparison
+with a working sibling from superpowers' `systematic-debugging`.
+Karpathy's guidelines were already the "Rules for coding agents" in
+`code-style.md`. gstack's skills, at 500 to 1,900 lines each, were read
+for single rules only.
+
 ## Change and review process
 
 Treat changes to the policy surfaces named in `AGENTS.md` as policy changes, even
@@ -1113,6 +1140,23 @@ Sources checked on 2026-10-02 for `diagnose` and the borrowed checks:
   `BENCHMARKS.md` reports the code result on ERPNext with n=6, and
   `graphify/extractors/` holds one extractor per supported language, none
   for protobuf.
+
+Sources checked on 2026-10-02 for the second pass:
+
+- [obra/superpowers](https://github.com/obra/superpowers):
+  `systematic-debugging` with `condition-based-waiting.md`, and the
+  "Match the Form to the Failure" table in `writing-skills`.
+- [trailofbits/skills](https://github.com/trailofbits/skills):
+  `spec-to-code-compliance` (six verdicts per requirement, an `absent`
+  verdict resting on its search record) and `fp-check`.
+- [getsentry/skills](https://github.com/getsentry/skills): `skill-scanner`,
+  the structural checks on a skill directory.
+- [garrytan/gstack](https://github.com/garrytan/gstack): "Claimed
+  Limitations Need Evidence" in `investigate`.
+- [forrestchang/andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills):
+  `karpathy-guidelines`, four rules this repository already held.
+- [skills.sh](https://skills.sh/): the install leaderboard used to pick
+  what to read.
 
 The common recommendation is progressive disclosure. The inference for
 FlowSeer is to keep `AGENTS.md` near its current size, add scoped steering only

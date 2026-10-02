@@ -42,7 +42,17 @@ For an entry that holds, place the fix where `docs/agent-steering.md`,
 "Steering surfaces" puts it:
 
 - The step was skipped or misread: reword or reorder the step in the skill
-  or agent. Add one example when the wording could be read two ways.
+  or agent. Add one example when the wording could be read two ways. Fit
+  the wording to what went wrong:
+
+  | What went wrong | Form of the fix |
+  | --- | --- |
+  | The output had the wrong shape: a buried verdict, a restated brief | State what the output is, its parts in order |
+  | A required element was left out of something the step already produces | A named slot in the template or report list |
+  | The behavior should depend on a condition | A conditional on something the reader has already observed |
+  | The rule was known and skipped | A plain prohibition with its reason |
+
+  An exception is its own conditional, never a clause appended to the rule.
 - The step was followed as written and still failed, or the same rule was
   violated more than once: the fix is enforcement, a hook under
   `tools/hooks/` or a check in the verifier, and the prose only names it.
