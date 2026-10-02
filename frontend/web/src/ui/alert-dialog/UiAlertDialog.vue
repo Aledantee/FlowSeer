@@ -27,6 +27,8 @@ export interface UiAlertDialogProps {
 const props = withDefaults(defineProps<UiAlertDialogProps>(), {
   open: undefined,
   defaultOpen: false,
+  confirmText: undefined,
+  cancelText: undefined,
   destructive: false,
 })
 
