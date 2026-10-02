@@ -223,13 +223,13 @@ func (x *Rule) ClearObjectIdPath() {
 type Rule_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The authorization enforcement mode. Must be specified.
+	// The authorization enforcement mode. Must be present.
 	Mode *RuleMode
-	// The relation required on the object. Must match snake_case identifier format.
+	// The relation required on the object. Must match snake_case identifier format. Must be present.
 	Relation *string
-	// The object type checked in the relationship engine. Must match snake_case identifier format.
+	// The object type checked in the relationship engine. Must match snake_case identifier format. Must be present.
 	ObjectType *string
-	// Dot-separated path to the string object identifier within the request message. Unset outside request mode.
+	// Dot-separated path to the string object identifier within the request message. Must be present in request mode. Unset in every other mode.
 	ObjectIdPath *string
 }
 
