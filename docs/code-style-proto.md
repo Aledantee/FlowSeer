@@ -363,12 +363,12 @@ assumes population will fire on partial messages. And give every `cel` rule a st
 `id` and a `message` written for the API consumer who will read it in an error
 response, not for the reviewer of this file.
 
-**Predefined-rule extension numbers**
+**Extension numbers**
 
-Two packages already use 50000 on different rules messages, and this table stops
+Two packages already use 50000 on different extended messages, and this table stops
 a third package from taking a number already used on the same message.
 
-| Rules message | Number | Rule name | File |
+| Extended message | Number | Extension name | File |
 | --- | --- | --- | --- |
 | `StringRules` | 50000 | `interface_name` | `spec/proto/flowseer/net/key/v1/key.proto` |
 | `StringRules` | 50001 | `shell_safe_interface_name` | `spec/proto/flowseer/net/key/v1/key.proto` |
@@ -385,6 +385,7 @@ a third package from taking a number already used on the same message.
 | `EnumRules` | 50001 | `tcp_flag` | `spec/proto/flowseer/net/packet/v1/tcp_flags.proto` |
 | `EnumRules` | 50002 | `ip_protocol` | `spec/proto/flowseer/net/packet/v1/ip_protocol.proto` |
 | `EnumRules` | 50003 | `ip_dscp` | `spec/proto/flowseer/net/packet/v1/ip_dscp.proto` |
+| `MethodOptions` | 50000 | `rule` | `spec/proto/flowseer/authz/v1/rule.proto` |
 
 **Where rules are enforced**
 

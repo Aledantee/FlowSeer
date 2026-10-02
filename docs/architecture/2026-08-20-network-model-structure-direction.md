@@ -1009,3 +1009,10 @@ operation vocabulary into callers that only need identity. `OperatorRef` keeps
 its fields and `Actor.operator` keeps field 1, so encoded intents decode
 unchanged; the message's full name, its `.proto` import, and its Go import
 path move.
+
+### 2026-10-02: the authorization rule root is a leaf
+
+The `authz/v1` leaf package holds the `Rule` message, the `RuleMode` enum, and
+the `MethodOptions` extension 50000. It imports nothing FlowSeer-owned and sits
+as a leaf beside `errs/`. Operator-facing RPC services import it to declare
+authorization rules.

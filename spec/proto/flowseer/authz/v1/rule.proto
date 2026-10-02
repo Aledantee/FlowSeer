@@ -1,0 +1,60 @@
+edition = "2024";
+
+package flowseer.authz.v1;
+
+import "google/protobuf/descriptor.proto";
+import option "buf/validate/validate.proto";
+
+extend google.protobuf.MethodOptions {
+  Rule rule = 50000;
+}
+
+// Mode governing how an RPC is authorized.
+enum RuleMode {
+  RULE_MODE_UNSPECIFIED = 0;
+  RULE_MODE_REQUEST = 1;
+  RULE_MODE_TENANT = 2;
+  RULE_MODE_LOADED = 3;
+  RULE_MODE_FILTERED = 4;
+  RULE_MODE_PLATFORM = 5;
+}
+
+// Authorization rule declared on an operator RPC method.
+message Rule {
+  option (buf.validate.message).cel = {
+    id: "rule.object_id_path_matches_mode"
+    message: "object_id_path is set exactly when mode is RULE_MODE_REQUEST"
+    expression: "has(this.object_id_path) == (this.mode == 1)"
+  };
+  option (buf.validate.message).cel = {
+    id: "rule.tenant_mode_matches_object_type"
+    message: "object_type is tenant exactly when mode is RULE_MODE_TENANT"
+    expression: "(this.object_type == 'tenant') == (this.mode == 2)"
+  };
+  option (buf.validate.message).cel = {
+    id: "rule.platform_mode_matches_object_type"
+    message: "object_type is platform exactly when mode is RULE_MODE_PLATFORM"
+    expression: "(this.object_type == 'platform') == (this.mode == 5)"
+  };
+
+  // The authorization enforcement mode. Must be specified.
+  RuleMode mode = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // The relation required on the object. Must match snake_case identifier format.
+  string relation = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^[a-z][a-z_]*$"
+  ];
+  // The object type checked in the relationship engine. Must match snake_case identifier format.
+  string object_type = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^[a-z][a-z_]*$"
+  ];
+  // Dot-separated path to the string object identifier within the request message. Unset outside request mode.
+  string object_id_path = 4 [(buf.validate.field).string.pattern = "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"];
+}

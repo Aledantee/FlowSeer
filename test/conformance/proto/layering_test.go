@@ -79,11 +79,11 @@ var importOrder = map[string][]string{
 	// The operator-facing service that creates, provisions, and retires an
 	// edge. It hands back EdgeRecord and takes EdgeGlobalRef, and needs
 	// nothing else.
-	"api/edge": {"model/edge"},
+	"api/edge": {"model/edge", "authz"},
 
 	// The operator-facing service that creates, retrieves, and lists
 	// tenants. It hands back TenantRecord and takes TenantGlobalRef.
-	"api/identity": {"model/identity"},
+	"api/identity": {"model/identity", "authz"},
 
 	// The service an edge calls to get and keep its standing: enrollment,
 	// rekey, heartbeat, bus attachment, the device listing, and the two
@@ -104,6 +104,10 @@ var importOrder = map[string][]string{
 	// and every boundary that carries an error imports it.
 	"errs": nil,
 
+	// The authorization rule schema, a leaf like errs: it imports nothing,
+	// and every boundary declaring authorization rules imports it.
+	"authz": nil,
+
 	// A capture session's identity, lifecycle, and the chunk frames its two
 	// services share. It takes the owning ref and the assertion its upload
 	// stream re-verifies from model/edge, and holds net/capture's counters,
@@ -116,7 +120,7 @@ var importOrder = map[string][]string{
 	// calls to create, control, and read one back, and the one an edge calls
 	// to upload one. Neither adds an import model/capture does not already
 	// carry.
-	"api/capture": {"model/capture", "model/edge", "net/capture"},
+	"api/capture": {"model/capture", "model/edge", "net/capture", "authz"},
 
 	// The Connect service an edge calls to upload a running capture
 	// session's packets. Takes the entity and the assertion it re-verifies
@@ -151,7 +155,7 @@ var importOrder = map[string][]string{
 	// device or edge ref at all (the transport already names both), and the
 	// audit event needs model/inventory directly because it is read outside
 	// any live transport context.
-	"api/device": {"model/inventory", "model/access", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp", "net/key"},
+	"api/device": {"model/inventory", "model/access", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp", "net/key", "authz"},
 
 	// The Connect call an edge delivers a DeviceOperationEvent through.
 	"edge/audit": {"event/access"},
@@ -183,7 +187,7 @@ var importOrder = map[string][]string{
 var orderedRoots = []string{
 	"flowseer/net", "flowseer/api", "flowseer/edge", "flowseer/model",
 	"flowseer/errs", "flowseer/integration", "flowseer/event",
-	"flowseer/store",
+	"flowseer/store", "flowseer/authz",
 }
 
 // unorderedRoots are the trees deliberately outside the import order, relative
@@ -395,6 +399,13 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "operator api imports storage", importer: "api/device", imported: "store/device"},
 		{name: "operator api imports the execution envelope", importer: "api/device", imported: "edge/dispatch"},
 		{name: "capture upload imports the entity and the chunk frames", importer: "edge/capture", imported: "model/capture", want: true},
+		{name: "operator edge api imports authz", importer: "api/edge", imported: "authz", want: true},
+		{
+			name:       "authz leaf imports model",
+			importer:   "authz",
+			imported:   "model/edge",
+			wantReason: "importing model/edge is outside authz's declared layer ()",
+		},
 		{
 			name:       "the entity imports the service that carries it",
 			importer:   "model/capture",

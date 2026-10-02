@@ -355,6 +355,7 @@ option. One Connect interceptor enforces it:
 | --- | --- |
 | The object is named in a request field | checks the relation on that object before the handler runs |
 | The object is the admitted tenant (creating an edge) | checks the relation on the tenant before the handler runs |
+| The object is the platform | checks the relation on `platform:flowseer` before the handler runs, reading no tenant header |
 | The object is known only after a load | runs the handler with an obligation in the context, and returns `Internal` and drops the response when the handler returned without a check |
 | The handler filters a list | same obligation as a load |
 | No rule | refuses the call |
@@ -441,3 +442,11 @@ rather than the device-scoped audit stream.
   the authenticated principal instead of trusting the payload.
 - Site and Tag grants and the preview wait for the inventory service. The
   OpenFGA model reserves their types.
+
+## Amendments
+
+### 2026-10-02: platform rule mode
+
+The rule-mode table gains a platform row for global admin RPCs on
+`TenantService`. The interceptor checks `platform:flowseer#admin`, reads no
+tenant header, and sets no tenant in the context.

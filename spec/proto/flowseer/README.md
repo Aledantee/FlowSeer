@@ -13,6 +13,7 @@ message.
 spec/proto/flowseer/
   net/           Ref-free network primitives with no identity, lifecycle, or tenant
   model/         Entities carrying identity, refs, triads, handles, and shared values
+  authz/         Authorization rule schema declared on operator RPC methods
   errs/          Canonical error wire payload
   event/         Durable stream records that are not an entity's own transition
   api/           Northbound Connect services for operators, the web app, and workflows
@@ -25,8 +26,8 @@ spec/proto/flowseer/
 ## Import order between roots
 
 Imports flow strictly upward across boundaries; lower roots never depend on
-higher roots. Primitives under `net/` and error payloads under `errs/` are
-leaves. `model/` defines identity and shared values that upper boundaries
+higher roots. Primitives under `net/`, error payloads under `errs/`, and
+authorization rule options under `authz/` are leaves. `model/` defines identity and shared values that upper boundaries
 embed. `event/`, `integration/`, `api/`, and `edge/` are boundary consumers
 that import `model/`, `errs/`, and `net/` as needed; `edge/audit` also imports
 `event/access` for the record it delivers, so a boundary consumer may import
