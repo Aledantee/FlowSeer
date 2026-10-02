@@ -74,14 +74,26 @@ Report the failing case before changing dependencies or the layout mechanism.
   Why: the lifecycle sources below define different cancel and finish paths.
 - Keep `useMotionConfig` and `useReducedMotion` as the source of
   `reduced`. Mini's native path has no config lookup or reduced-motion
-  branch. The composable filters movement itself, clears active plays when
-  effective reduced motion changes, and keeps fades. Source:
+  branch. The composable filters movement itself, clears active plays on
+  every preference or config change, and keeps fades. Source:
   `motion-v/dist/es/animation/hooks/use-reduced-motion.mjs` and Mini below.
 - Keep FleetView's layout sidebar, highlight, and position-only children,
   the inferred `UiMotion` prop type, and the app-root config. Keep
   `UiMotionConfig` out of `src/ui/index.ts`. Their existing tests remain
   acceptance checks. Phase 3 stays held until phase 2's review accepts this
   rework, because its U1 edits `UiAppRoot.vue` and all five motion test files.
+- **Every preference or config change clears active plays**, including a
+  change that leaves effective reduced motion as it was. The watcher on the
+  raw config and preference pair stays, and the test rows that assert it
+  stay. Why: a play never keeps running under a stale configuration.
+  (decided by the user, 2026-10-02)
+- **The review gets one more fix round** past its three-round limit,
+  resumed from `parked/wcc-p2-review` (`d7995d3d`). It covers the skipped
+  reduced-motion row for the `both` owned set, the two rows weaker than
+  their titles, the `settleFrames` timer citation, and the stale line
+  citation in the happy-dom solution. Why: the source has no open defect
+  and the remaining correctness item is one skipped case with a known fix.
+  (decided by the user, 2026-10-02)
 
 ```mermaid
 flowchart LR
@@ -296,24 +308,4 @@ Waves: U1 | U2 U3 | U4
 
 ## Open questions
 
-- Parked by drive: the fresh review ended in `rework` at the three-round
-  limit with no open defect in `useMotionFeedback.ts`, one untested defect
-  path (the skipped reduced-motion row for the `both` owned set in
-  `useMotionFeedback.test.ts`), and low test and citation items. The three
-  rounds of fixes are on `parked/wcc-p2-review` (`d7995d3d`), unmerged.
-  Options: run one more fix round from `parked/wcc-p2-review` on the open
-  findings (small, but each round so far surfaced a new test gap) | take
-  the cleanup-property tests to `plan` (what `review` prescribes after
-  three rounds on one mechanism, and slower) | accept with the gaps
-  recorded (releases phase 3 now, and overrides the review gate).
-  Recommended: one more fix round, because the remaining correctness item
-  is one skipped case with a known fix and the source has been stable
-  since round 1.
-- Parked by drive: should active plays clear on every preference or
-  config change, or only when effective reduced motion changes? Two test
-  rows on `parked/wcc-p2-review` assert the first, and this plan's
-  Decisions state the second. Options: every change clears (keeps the
-  code and rows, amends the Decision) | only an effective change clears
-  (matches the Decision, changes the watcher and drops the rows).
-  Recommended: every change clears, because it is what the code does
-  today and it cannot leave a play running under a stale configuration.
+None.
