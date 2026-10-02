@@ -60,3 +60,64 @@ export const WithIcon: Story = {
     `,
   }),
 }
+
+export const FormattedValue: Story = {
+  args: {
+    label: 'Total Packets Ingested',
+    value: 1234567.8,
+    unit: 'pkts/s',
+  },
+  render: (args) => ({
+    components: { UiMetricCard },
+    setup() {
+      return { args }
+    },
+    template: `
+      <div class="max-w-xs">
+        <UiMetricCard v-bind="args" />
+      </div>
+    `,
+  }),
+}
+
+export const LongText: Story = {
+  args: {
+    label:
+      'Cumulative cross-region synchronized replication throughput across all active cluster nodes',
+    value: 9876543.2,
+    unit: 'megabits per second',
+  },
+  render: (args) => ({
+    components: { UiMetricCard },
+    setup() {
+      return { args }
+    },
+    template: `
+      <div class="max-w-sm">
+        <UiMetricCard v-bind="args">
+          Aggregated across 4 geographic regions and 12 availability zones
+        </UiMetricCard>
+      </div>
+    `,
+  }),
+}
+
+export const CustomValueText: Story = {
+  args: {
+    label: 'Storage Capacity',
+    value: 84.5,
+    unit: '%',
+    valueText: (value, unit) => `${value} ${unit} utilized of 100 TB`,
+  },
+  render: (args) => ({
+    components: { UiMetricCard },
+    setup() {
+      return { args }
+    },
+    template: `
+      <div class="max-w-xs">
+        <UiMetricCard v-bind="args" />
+      </div>
+    `,
+  }),
+}

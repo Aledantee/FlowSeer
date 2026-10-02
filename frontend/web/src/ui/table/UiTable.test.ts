@@ -8,6 +8,7 @@ import UiTableRow from './UiTableRow.vue'
 import UiTableHead from './UiTableHead.vue'
 import UiTableCell from './UiTableCell.vue'
 import UiTableEmpty from './UiTableEmpty.vue'
+import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
@@ -18,7 +19,7 @@ afterEach(() => {
 
 let currentRender = () => h('div')
 
-function mountView(renderFn: () => unknown) {
+function mountView(renderFn: () => unknown, locale: WebLocale = 'en') {
   const host = document.createElement('div')
   document.body.append(host)
   currentRender = renderFn as () => ReturnType<typeof h>
@@ -27,6 +28,8 @@ function mountView(renderFn: () => unknown) {
       return currentRender()
     },
   })
+  const i18n = createWebI18n(locale)
+  app.use(i18n)
   app.mount(host)
   dispose = () => app.unmount()
   return host
@@ -65,6 +68,39 @@ describe('UiTableHead', () => {
 
     expect(ths[2]?.getAttribute('aria-sort')).toBeNull()
     expect(ths[2]?.querySelector('button')).toBeNull()
+  })
+
+  it('renders custom ascendingMark and descendingMark overrides', () => {
+    const host = mountView(() =>
+      h('table', [
+        h('thead', [
+          h('tr', [
+            h(
+              UiTableHead,
+              {
+                sortable: true,
+                sortDirection: 'ascending',
+                ascendingMark: ' [ASC]',
+              },
+              () => 'Name',
+            ),
+            h(
+              UiTableHead,
+              {
+                sortable: true,
+                sortDirection: 'descending',
+                descendingMark: ' [DESC]',
+              },
+              () => 'Status',
+            ),
+          ]),
+        ]),
+      ]),
+    )
+
+    const ths = host.querySelectorAll('th')
+    expect(ths[0]?.textContent).toContain(' [ASC]')
+    expect(ths[1]?.textContent).toContain(' [DESC]')
   })
 
   it('clicking a sortable header emits the sort event', async () => {

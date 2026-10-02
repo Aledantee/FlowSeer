@@ -327,3 +327,81 @@ export const Empty: Story = {
     `,
   }),
 }
+
+export const LongText: Story = {
+  render: () => ({
+    components: {
+      UiTable,
+      UiTableHeader,
+      UiTableBody,
+      UiTableRow,
+      UiTableHead,
+      UiTableCell,
+    },
+    setup() {
+      const items = [
+        {
+          id: 'dev-1',
+          name: 'edge-router-distributed-datacenter-zone-north-01',
+          ip: '10.250.128.1',
+          status: 'Healthy and responding to bidirectional telemetry probes',
+          throughput: '1240.5 megabits per second sustained',
+        },
+      ]
+      return { items }
+    },
+    template: `
+      <UiTable>
+        <UiTableHeader>
+          <UiTableRow>
+            <UiTableHead>Fully Qualified Device Name</UiTableHead>
+            <UiTableHead>Network Protocol Address</UiTableHead>
+            <UiTableHead>Operational Telemetry Status</UiTableHead>
+            <UiTableHead align="numeric">Cumulative Throughput Rate</UiTableHead>
+          </UiTableRow>
+        </UiTableHeader>
+        <UiTableBody>
+          <UiTableRow v-for="item in items" :key="item.id">
+            <UiTableCell>{{ item.name }}</UiTableCell>
+            <UiTableCell mono>{{ item.ip }}</UiTableCell>
+            <UiTableCell>{{ item.status }}</UiTableCell>
+            <UiTableCell align="numeric">{{ item.throughput }}</UiTableCell>
+          </UiTableRow>
+        </UiTableBody>
+      </UiTable>
+    `,
+  }),
+}
+
+export const CustomSortMarks: Story = {
+  render: () => ({
+    components: {
+      UiTable,
+      UiTableHeader,
+      UiTableBody,
+      UiTableRow,
+      UiTableHead,
+      UiTableCell,
+    },
+    template: `
+      <UiTable>
+        <UiTableHeader>
+          <UiTableRow>
+            <UiTableHead sortable sort-direction="ascending" ascending-mark=" [ASC]">
+              Device Name
+            </UiTableHead>
+            <UiTableHead sortable sort-direction="descending" descending-mark=" [DESC]">
+              Status
+            </UiTableHead>
+          </UiTableRow>
+        </UiTableHeader>
+        <UiTableBody>
+          <UiTableRow>
+            <UiTableCell>edge-router-01</UiTableCell>
+            <UiTableCell>Healthy</UiTableCell>
+          </UiTableRow>
+        </UiTableBody>
+      </UiTable>
+    `,
+  }),
+}
