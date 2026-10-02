@@ -12,6 +12,7 @@ import UiCommandItem, {
 import UiCommandList from './UiCommandList.vue'
 import UiCommandSeparator from './UiCommandSeparator.vue'
 import UiCommandShortcut from './UiCommandShortcut.vue'
+import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
@@ -19,12 +20,13 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
-function mountApp(renderFn: () => unknown) {
+function mountApp(renderFn: () => unknown, locale: WebLocale = 'en') {
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp({
     render: renderFn,
   })
+  app.use(createWebI18n(locale))
   app.mount(host)
   dispose = () => app.unmount()
   return host
@@ -474,5 +476,82 @@ describe('UiCommand', () => {
     await new Promise((r) => setTimeout(r, 20))
 
     expect(ordinarySelects).toEqual(['item-2'])
+  })
+
+  it('renders default command strings in en and de', async () => {
+    mountApp(
+      () =>
+        h(UiCommandDialog, { open: true }, () => [
+          h(UiCommandInput),
+          h(UiCommandList, null, () => [h(UiCommandEmpty)]),
+        ]),
+      'en',
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialogTitleEn = document.body.querySelector('h2')
+    expect(dialogTitleEn?.textContent).toBe('Command Palette')
+    const inputEn = document.body.querySelector('input')
+    expect(inputEn?.placeholder).toBe('Type a command or search...')
+    expect(inputEn?.getAttribute('aria-label')).toBe('Search commands')
+    const listboxEn = document.body.querySelector('[role="listbox"]')
+    expect(listboxEn?.getAttribute('aria-label')).toBe('Commands')
+    expect(document.body.textContent).toContain('No results found.')
+
+    dispose()
+    document.body.replaceChildren()
+
+    mountApp(
+      () =>
+        h(UiCommandDialog, { open: true }, () => [
+          h(UiCommandInput),
+          h(UiCommandList, null, () => [h(UiCommandEmpty)]),
+        ]),
+      'de',
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialogTitleDe = document.body.querySelector('h2')
+    expect(dialogTitleDe?.textContent).toBe('Befehlspalette')
+    const inputDe = document.body.querySelector('input')
+    expect(inputDe?.placeholder).toBe('Befehl eingeben oder suchen...')
+    expect(inputDe?.getAttribute('aria-label')).toBe('Befehle durchsuchen')
+    const listboxDe = document.body.querySelector('[role="listbox"]')
+    expect(listboxDe?.getAttribute('aria-label')).toBe('Befehle')
+    expect(document.body.textContent).toContain('Keine Ergebnisse gefunden.')
+  })
+
+  it('preserves explicit overrides across command surfaces, including empty strings', async () => {
+    mountApp(
+      () =>
+        h(
+          UiCommandDialog,
+          {
+            open: true,
+            title: 'Custom Palette',
+            description: 'Custom Desc',
+          },
+          () => [
+            h(UiCommandInput, { placeholder: '', label: 'Custom Search' }),
+            h(UiCommandList, { label: 'Custom Commands' }, () => [
+              h(UiCommandEmpty, { text: 'Custom Empty' }),
+            ]),
+          ],
+        ),
+      'de',
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialogTitle = document.body.querySelector('h2')
+    expect(dialogTitle?.textContent).toBe('Custom Palette')
+    const input = document.body.querySelector('input')
+    expect(input?.placeholder).toBe('')
+    expect(input?.getAttribute('aria-label')).toBe('Custom Search')
+    const listbox = document.body.querySelector('[role="listbox"]')
+    expect(listbox?.getAttribute('aria-label')).toBe('Custom Commands')
+    expect(document.body.textContent).toContain('Custom Empty')
   })
 })

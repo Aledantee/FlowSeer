@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import {
   DialogContent,
   DialogDescription,
@@ -8,6 +9,7 @@ import {
   DialogTitle,
   VisuallyHidden,
 } from 'reka-ui'
+import { useI18n } from 'vue-i18n'
 import UiCommand from './UiCommand.vue'
 
 defineOptions({
@@ -20,15 +22,25 @@ export interface UiCommandDialogProps {
   ignoreFilter?: boolean
   modelValue?: string
   highlightedValue?: string
+  title?: string
+  description?: string
 }
 
-withDefaults(defineProps<UiCommandDialogProps>(), {
+const props = withDefaults(defineProps<UiCommandDialogProps>(), {
   open: undefined,
   defaultOpen: false,
   ignoreFilter: false,
   modelValue: '',
   highlightedValue: '',
+  title: undefined,
+  description: undefined,
 })
+
+const { t } = useI18n({ useScope: 'global' })
+const resolvedTitle = computed(() => props.title ?? t('ui.commandDialog.title'))
+const resolvedDescription = computed(
+  () => props.description ?? t('ui.commandDialog.description'),
+)
 
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
@@ -55,10 +67,10 @@ const emit = defineEmits<{
         @close-auto-focus="emit('closeAutoFocus', $event)"
       >
         <VisuallyHidden as-child>
-          <DialogTitle>Command Palette</DialogTitle>
+          <DialogTitle>{{ resolvedTitle }}</DialogTitle>
         </VisuallyHidden>
         <VisuallyHidden as-child>
-          <DialogDescription>Search and command palette</DialogDescription>
+          <DialogDescription>{{ resolvedDescription }}</DialogDescription>
         </VisuallyHidden>
         <UiCommand
           :model-value="modelValue"

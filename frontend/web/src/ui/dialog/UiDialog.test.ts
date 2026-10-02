@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, h, nextTick, ref } from 'vue'
 import UiDialog, { type UiDialogProps } from './UiDialog.vue'
+import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
@@ -12,6 +13,7 @@ afterEach(() => {
 function mountDialog(
   props: Partial<UiDialogProps> & Record<string, unknown> = {},
   slots: Record<string, () => unknown> = {},
+  locale: WebLocale = 'en',
 ) {
   const host = document.createElement('div')
   document.body.append(host)
@@ -20,6 +22,7 @@ function mountDialog(
       return h(UiDialog, props as UiDialogProps, slots)
     },
   })
+  app.use(createWebI18n(locale))
   app.mount(host)
   dispose = () => app.unmount()
   return host
@@ -161,5 +164,58 @@ describe('UiDialog', () => {
     expect(emittedEvent).not.toBeNull()
     expect(document.activeElement).toBe(customButton)
     customButton.remove()
+  })
+
+  it('renders default fallback title, description, and closeLabel in en and de', async () => {
+    mountDialog({ defaultOpen: true }, {}, 'en')
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialogTitleEn = document.body.querySelector('h2')
+    expect(dialogTitleEn?.textContent).toBe('Dialog')
+    const dialogDescEn = document.body.querySelector('p')
+    expect(dialogDescEn?.textContent).toBe('Dialog description')
+    const closeBtnEn = document.body.querySelector('button[aria-label="Close"]')
+    expect(closeBtnEn).not.toBeNull()
+
+    dispose()
+    document.body.replaceChildren()
+
+    mountDialog({ defaultOpen: true }, {}, 'de')
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialogTitleDe = document.body.querySelector('h2')
+    expect(dialogTitleDe?.textContent).toBe('Dialog')
+    const dialogDescDe = document.body.querySelector('p')
+    expect(dialogDescDe?.textContent).toBe('Dialogbeschreibung')
+    const closeBtnDe = document.body.querySelector(
+      'button[aria-label="Schließen"]',
+    )
+    expect(closeBtnDe).not.toBeNull()
+  })
+
+  it('preserves explicit fallbackTitle, fallbackDescription, and closeLabel overrides across locales', async () => {
+    mountDialog(
+      {
+        defaultOpen: true,
+        fallbackTitle: '',
+        fallbackDescription: 'Custom Description',
+        closeLabel: 'Dismiss Modal',
+      },
+      {},
+      'de',
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialogTitle = document.body.querySelector('h2')
+    expect(dialogTitle?.textContent).toBe('')
+    const dialogDesc = document.body.querySelector('p')
+    expect(dialogDesc?.textContent).toBe('Custom Description')
+    const closeBtn = document.body.querySelector(
+      'button[aria-label="Dismiss Modal"]',
+    )
+    expect(closeBtn).not.toBeNull()
   })
 })
