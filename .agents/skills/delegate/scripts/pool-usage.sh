@@ -4,7 +4,7 @@
 # that owns its numbers, because no single tool sees them all:
 #
 #   claude, codex  orca account list --json      (rateLimits), falling back
-#                  to each CLI's own token when Orca has no account for it
+#                  to native CLI usage when Orca cannot supply its windows
 #   google         agy -p /quota                 (answers without a model turn)
 #   synthetic      GET api.synthetic.new/v2/quotas (rolling five-hour request
 #                  limit and weekly credit limit; the call is not counted)
@@ -32,18 +32,21 @@ import datetime
 import json
 import os
 import shutil
+import selectors
+import time
+import tempfile
 import subprocess
 import urllib.error
 import urllib.request
 
 
-def run(cmd, timeout=90):
+def run(cmd, timeout=90, ok_codes=(0,), cwd=None):
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
-                           stdin=subprocess.DEVNULL)
+                           stdin=subprocess.DEVNULL, cwd=cwd)
     except (OSError, subprocess.TimeoutExpired) as e:
         return None, str(e)
-    if p.returncode != 0:
+    if p.returncode not in ok_codes:
         lines = (p.stderr or p.stdout).strip().splitlines()
         return None, lines[-1] if lines else "exit %d" % p.returncode
     return p.stdout, None
@@ -67,61 +70,152 @@ def iso(ms):
 
 
 def orca_pools():
-    if not shutil.which("orca"):
-        for pool in ("claude", "codex"):
-            emit(pool, None, "orca", error="orca not installed")
-        return
-    out, err = run(["orca", "account", "list", "--json"])
-    try:
-        result = json.loads(out)["result"]
-    except (TypeError, ValueError, KeyError):
-        for pool in ("claude", "codex"):
-            emit(pool, None, "orca", error=err or "unreadable account list")
-        return
-    for pool in ("claude", "codex"):
-        rl = result.get("rateLimits", {}).get(pool) or {}
+    result = None
+    if shutil.which("orca"):
+        out, _ = run(["orca", "account", "list", "--json"])
+        try:
+            result = json.loads(out)["result"]
+            if not isinstance(result, dict) or not isinstance(result.get("rateLimits"), dict):
+                result = None
+        except (TypeError, ValueError, KeyError):
+            pass
+    for pool, native in (("claude", claude_pool), ("codex", codex_pool)):
+        rl = (result or {}).get("rateLimits", {}).get(pool) or {}
         windows, resets = {}, {}
-        for name, w in rl.items():
-            if isinstance(w, dict) and "usedPercent" in w:
-                windows[name] = w["usedPercent"]
-                if w.get("resetsAt"):
-                    resets[name] = iso(w["resetsAt"])
-        signed_in = rl.get("status") == "ok"
-        if pool == "codex":
-            signed_in = signed_in or bool(result.get("codex", {}).get("systemDefault", {}).get("hasAuth"))
-        if pool == "claude":
-            # Orca knows only about accounts registered with Orca. The CLI
-            # keeps its own OAuth token, and a host where `claude` is signed
-            # in but Orca has no Claude account reads as signed out, which
-            # takes every Claude model out of every fit set.
-            # `codex` has had the same fallback all along, through
-            # systemDefault.hasAuth.
-            signed_in = signed_in or claude_cli_signed_in()
-        note = rl.get("error")
-        if pool == "claude" and signed_in and not windows and rl.get("status") != "ok":
-            # Signed in on the CLI's own token, so the pool is usable, but
-            # Orca is the only source of the windows and it has nothing.
-            note = note or "signed in on the claude CLI token; orca has no account for it, so no windows"
-        emit(pool, signed_in, "orca", windows or None, resets, note)
+        if isinstance(rl, dict) and rl.get("status") == "ok":
+            for name, w in rl.items():
+                if isinstance(w, dict) and isinstance(w.get("usedPercent"), (int, float)):
+                    windows[name] = w["usedPercent"]
+                    if w.get("resetsAt"):
+                        resets[name] = iso(w["resetsAt"])
+        if windows:
+            emit(pool, True, "orca", windows, resets, rl.get("error"))
+        else:
+            native()
 
 
-def claude_cli_signed_in():
-    """True when the `claude` CLI holds an OAuth token that has not expired.
-
-    A refresh token that is still valid counts: the CLI renews the access
-    token on its own, so an expired access token alone is not a sign-out.
-    """
+def claude_pool():
+    if not shutil.which("claude"):
+        emit("claude", None, "claude-cli", error="claude not installed")
+        return
+    out, _ = run(["claude", "auth", "status"], ok_codes=(0, 1))
     try:
-        auth = json.load(open(os.path.expanduser("~/.claude/.credentials.json")))
-        oauth = auth["claudeAiOauth"]
-    except (OSError, ValueError, KeyError, TypeError):
-        return False
-    now = datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000
-    for field in ("expiresAt", "refreshTokenExpiresAt"):
-        expiry = oauth.get(field)
-        if isinstance(expiry, (int, float)) and expiry > now:
-            return True
-    return False
+        auth = json.loads(out)
+        signed_in = auth["loggedIn"]
+        if not isinstance(signed_in, bool):
+            raise ValueError("unreadable sign-in state")
+    except (TypeError, ValueError, KeyError):
+        emit("claude", None, "claude-cli", error="unreadable claude auth status")
+        return
+    if not signed_in or auth.get("authMethod") not in ("claude.ai", "oauth_token"):
+        emit("claude", False, "claude-cli", error="no claude.ai subscription sign-in")
+        return
+    # /usage is a local command. Stream output carries its structured report,
+    # while ordinary JSON output keeps only the rendered text.
+    with tempfile.TemporaryDirectory(prefix="flowseer-pool-usage-") as scratch:
+        out, _ = run(["claude", "-p", "/usage", "--output-format", "stream-json",
+                      "--verbose", "--no-session-persistence", "--tools", ""], cwd=scratch)
+    try:
+        messages = [json.loads(line) for line in out.splitlines() if line.strip()]
+        if not any(m.get("type") == "result" and m.get("local_command") == "usage"
+                   and m.get("num_turns") == 0 and not m.get("is_error") for m in messages):
+            raise ValueError("missing local command result")
+        report = next(m["usage_report"] for m in messages if m.get("usage_report"))
+        limits = report["rate_limits"]["limits"]
+        windows, resets = {}, {}
+        names = {"session": "session", "weekly_all": "weekly"}
+        for limit in limits or []:
+            name = names.get(limit.get("kind"))
+            if limit.get("kind") == "weekly_scoped":
+                model = (limit.get("scope") or {}).get("model") or {}
+                label = model.get("display_name", "")
+                # Delegate meters Fable separately. Keep other model scopes
+                # distinct so they cannot overwrite the all-model weekly row.
+                name = "fableWeekly" if "fable" in label.lower() else label + "Weekly"
+            percent = limit.get("percent")
+            if name and isinstance(percent, (int, float)):
+                windows[name] = percent
+                if limit.get("resets_at"):
+                    resets[name] = limit["resets_at"]
+    except (AttributeError, TypeError, ValueError, KeyError, StopIteration):
+        emit("claude", True, "claude-cli", error="unreadable claude /usage report")
+        return
+    emit("claude", True, "claude-cli", windows or None, resets,
+         None if windows else "claude /usage returned no quota windows")
+
+
+def codex_pool():
+    if not shutil.which("codex"):
+        emit("codex", None, "codex-app-server", error="codex not installed")
+        return
+    signed_in = None
+    proc = None
+    selector = selectors.DefaultSelector()
+    try:
+        proc = subprocess.Popen(["codex", "app-server"], stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        selector.register(proc.stdout, selectors.EVENT_READ)
+        buffer = b""
+
+        def request(rid, method, params=None):
+            nonlocal buffer
+            message = {"id": rid, "method": method}
+            if params is not None:
+                message["params"] = params
+            proc.stdin.write((json.dumps(message) + "\n").encode())
+            proc.stdin.flush()
+            deadline = time.monotonic() + 30
+            while True:
+                while b"\n" in buffer:
+                    line, buffer = buffer.split(b"\n", 1)
+                    reply = json.loads(line)
+                    if reply.get("id") == rid:
+                        return reply["result"]
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or not selector.select(remaining):
+                    raise TimeoutError("codex app-server timed out")
+                chunk = os.read(proc.stdout.fileno(), 65536)
+                if not chunk:
+                    raise OSError("codex app-server exited")
+                buffer += chunk
+
+        request(1, "initialize", {"clientInfo": {"name": "flowseer_pool_usage", "version": "1"}})
+        proc.stdin.write(b'{"method":"initialized","params":{}}\n')
+        proc.stdin.flush()
+        account = request(2, "account/read", {"refreshToken": False})["account"]
+        signed_in = isinstance(account, dict) and account.get("type") == "chatgpt"
+        if not signed_in:
+            emit("codex", False, "codex-app-server", error="no ChatGPT subscription sign-in")
+            return
+        quota = request(3, "account/rateLimits/read")
+        buckets = quota.get("rateLimitsByLimitId") or {}
+        snapshot = buckets.get("codex") or quota["rateLimits"]
+        windows, resets = {}, {}
+        for key in ("primary", "secondary"):
+            w = snapshot.get(key)
+            if not isinstance(w, dict) or not isinstance(w.get("usedPercent"), (int, float)):
+                continue
+            # Primary can be weekly on accounts without a session window.
+            duration = w.get("windowDurationMins")
+            name = {300: "session", 10080: "weekly"}.get(duration, key)
+            windows[name] = w["usedPercent"]
+            if w.get("resetsAt"):
+                resets[name] = iso(w["resetsAt"] * 1000)
+        emit("codex", True, "codex-app-server", windows or None, resets,
+             None if windows else "codex returned no quota windows")
+    except (OSError, TypeError, ValueError, KeyError, AttributeError):
+        emit("codex", signed_in, "codex-app-server", error="unreadable codex app-server quota")
+    finally:
+        selector.close()
+        if proc is not None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+            proc.stdin.close()
+            proc.stdout.close()
 
 
 def google_pool():

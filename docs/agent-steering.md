@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-10-01
+last_updated: 2026-10-02
 ---
 
 # Agent steering
@@ -505,13 +505,15 @@ starting point chosen so that the two lanes a pool may hold under 50%
 cannot push a window over its limit mid-run; tune it when a wave gets cut off or when quota sits
 idle.
 
-Orca reads usage only for the providers it has credentials for.
-`orca account list` can show a pool such as `antigravity` or `opencodeGo`
-as `unavailable` while it is signed in and nearly idle: the status
-describes Orca's view, not the pool. `delegate/scripts/pool-usage.sh` therefore reads each pool from its
-own source (`agy -p /quota` answers from the quota service without a model
-turn, and opencode's database records the dollar cost of every `opencode-go`
-message), and the skill forbids dropping a pool on Orca's word alone.
+Orca reads usage only for the providers it has credentials for. Its
+`unavailable` status describes its view, not the pool. The
+[`pool-usage.sh`](../.agents/skills/delegate/scripts/pool-usage.sh) reader uses
+each pool's own source. When Orca is absent or cannot supply Claude or Codex
+windows, native CLI queries read subscription usage through the CLI's own
+sign-in. This prevents an absent runtime from excluding installed, signed-in
+CLIs or hiding their exhausted windows. The
+[pool-row reference](../.agents/skills/delegate/references/pool-rows.md) names
+the interfaces and failure states.
 
 `AGENTS.md`, Investigation discipline, states once what counts as a source
 for a claim about external behavior. Each stage names only its own action.
