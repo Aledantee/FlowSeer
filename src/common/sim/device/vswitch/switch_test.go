@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -50,10 +52,10 @@ func mustTable(t *testing.T, b *port.Builder) port.Table {
 	return tbl
 }
 
-func mustEncode(t *testing.T, b stp.BPDU, src netaddr.MAC) ethernet.Frame {
+func mustEncode(t *testing.T, b bpdu.BPDU, src netaddr.MAC) ethernet.Frame {
 	t.Helper()
 
-	frame, err := stp.Encode(b, src)
+	frame, err := bpdu.Encode(b, src)
 	if err != nil {
 		t.Fatalf("stp.Encode: %v", err)
 	}
@@ -1733,19 +1735,19 @@ func TestBPDUConsumedWithEmissionDrained(t *testing.T) {
 	sw.Start(now)
 	sw.Drain()
 
-	bpdu := stp.BPDU{
-		RootID:       stp.BridgeID{Priority: 4096, Address: macRoot},
+	b := bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
 		RootPathCost: 0,
-		BridgeID:     stp.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
 		PortID:       0x8001,
 		HelloTime:    stp.DefaultHelloTime,
 		MaxAge:       stp.DefaultMaxAge,
 		ForwardDelay: stp.DefaultForwardDelay,
 	}
-	bpdu.SetRole(stp.RoleDesignated)
-	bpdu.SetProposal(true)
+	b.SetRole(bpdu.RoleDesignated)
+	b.SetProposal(true)
 
-	frame := mustEncode(t, bpdu, macRoot)
+	frame := mustEncode(t, b, macRoot)
 
 	res := sw.Forward(now, "1/1/1", frame)
 	if res.Outcome != trace.Consumed {
@@ -1798,16 +1800,16 @@ func TestBPDUOnLAGMemberConsumedOnLAG(t *testing.T) {
 	sw.Start(now)
 	sw.Drain()
 
-	bpdu := stp.BPDU{
-		RootID:       stp.BridgeID{Priority: 4096, Address: macRoot},
+	b := bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
 		RootPathCost: 0,
-		BridgeID:     stp.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
 		PortID:       0x8001,
 		HelloTime:    stp.DefaultHelloTime,
 	}
-	bpdu.SetRole(stp.RoleDesignated)
+	b.SetRole(bpdu.RoleDesignated)
 
-	frame := mustEncode(t, bpdu, macRoot)
+	frame := mustEncode(t, b, macRoot)
 
 	res := sw.Forward(now, "1/1/1", frame)
 	if res.Outcome != trace.Consumed {
@@ -1827,11 +1829,11 @@ func TestHubRepeatsBPDU(t *testing.T) {
 	sw := mustSwitch(t, cfg)
 
 	macRoot := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
-	bpdu := stp.BPDU{
-		RootID:   stp.BridgeID{Priority: 4096, Address: macRoot},
-		BridgeID: stp.BridgeID{Priority: 4096, Address: macRoot},
+	b := bpdu.BPDU{
+		RootID:   bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID: bpdu.BridgeID{Priority: 4096, Address: macRoot},
 	}
-	frame := mustEncode(t, bpdu, macRoot)
+	frame := mustEncode(t, b, macRoot)
 
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	res := sw.Forward(now, "1/1/1", frame)
@@ -1915,17 +1917,17 @@ func TestPeekLeavesSTPLayerUntouched(t *testing.T) {
 	sw.Start(now)
 	sw.Drain()
 
-	bpdu := stp.BPDU{
-		RootID:       stp.BridgeID{Priority: 4096, Address: macRoot},
+	b := bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
 		RootPathCost: 0,
-		BridgeID:     stp.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
 		PortID:       0x8001,
 		HelloTime:    stp.DefaultHelloTime,
 	}
-	bpdu.SetRole(stp.RoleDesignated)
-	bpdu.SetProposal(true)
+	b.SetRole(bpdu.RoleDesignated)
+	b.SetProposal(true)
 
-	frame := mustEncode(t, bpdu, macRoot)
+	frame := mustEncode(t, b, macRoot)
 
 	res := sw.Peek(now, "1/1/1", frame)
 	if res.Outcome != trace.Consumed {
@@ -1937,7 +1939,7 @@ func TestPeekLeavesSTPLayerUntouched(t *testing.T) {
 	}
 
 	roles := sw.Roles()
-	if roles["1/1/1"].Role == stp.RoleRoot {
+	if roles["1/1/1"].Role == bpdu.RoleRoot {
 		t.Errorf("Peek modified role of 1/1/1 to Root")
 	}
 }
@@ -1981,7 +1983,7 @@ func TestSwitchTreeRoles(t *testing.T) {
 	if _, ok := treeRolesRSTP[1]; !ok {
 		t.Fatalf("swRSTP.TreeRoles() missing VLAN 1: %+v", treeRolesRSTP)
 	}
-	if info, ok := treeRolesRSTP[1]["1/1/1"]; !ok || info.Role != stp.RoleDesignated {
+	if info, ok := treeRolesRSTP[1]["1/1/1"]; !ok || info.Role != bpdu.RoleDesignated {
 		t.Errorf("swRSTP.TreeRoles()[1][\"1/1/1\"] = %+v, want designated role", info)
 	}
 
@@ -2005,7 +2007,7 @@ func TestSwitchTreeRoles(t *testing.T) {
 			},
 			MST: &stp.MST{
 				Name: "region-1",
-				Instances: map[stp.MSTID]stp.Instance{
+				Instances: map[bpdu.MSTID]stp.Instance{
 					1: {VLANs: []vlan.ID{10}},
 					2: {VLANs: []vlan.ID{20}},
 				},
@@ -2108,12 +2110,12 @@ func TestSwitchMigrationToLegacySTPAndMcheck(t *testing.T) {
 	sw.Wake(t0.Add(4 * time.Second))
 	sw.Drain()
 
-	inferiorBridgeID := stp.BridgeID{
+	inferiorBridgeID := bpdu.BridgeID{
 		Priority: 61440,
 		Address:  netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0c},
 	}
-	inferiorBPDU := stp.BPDU{
-		Type:         stp.BPDUTypeConfiguration,
+	inferiorBPDU := bpdu.BPDU{
+		Type:         bpdu.TypeConfiguration,
 		RootID:       inferiorBridgeID,
 		BridgeID:     inferiorBridgeID,
 		PortID:       0x8001,
@@ -2141,12 +2143,12 @@ func TestSwitchMigrationToLegacySTPAndMcheck(t *testing.T) {
 		t.Fatalf("no emission found on port 1/1/1: %+v", emissions)
 	}
 
-	replyBPDU, err := stp.Decode(replyEmission.Frame)
+	replyBPDU, err := bpdu.Decode(replyEmission.Frame)
 	if err != nil {
-		t.Fatalf("stp.Decode(replyEmission.Frame) failed: %v", err)
+		t.Fatalf("bpdu.Decode(replyEmission.Frame) failed: %v", err)
 	}
-	if replyBPDU.Type != stp.BPDUTypeConfiguration {
-		t.Errorf("replyBPDU.Type = %v, want %v (Configuration)", replyBPDU.Type, stp.BPDUTypeConfiguration)
+	if replyBPDU.Type != bpdu.TypeConfiguration {
+		t.Errorf("replyBPDU.Type = %v, want %v (Configuration)", replyBPDU.Type, bpdu.TypeConfiguration)
 	}
 	if sw.Roles()["1/1/1"].SendRSTP {
 		t.Errorf("Roles()[\"1/1/1\"].SendRSTP = true, want false")
@@ -2184,22 +2186,22 @@ func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
 	sw.Start(now)
 	sw.Drain()
 
-	bpdu := stp.BPDU{
-		RootID:       stp.BridgeID{Priority: 4096, Address: macRoot},
+	b := bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
 		RootPathCost: 0,
-		BridgeID:     stp.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
 		PortID:       0x8001,
 		HelloTime:    stp.DefaultHelloTime,
 		MaxAge:       stp.DefaultMaxAge,
 		ForwardDelay: stp.DefaultForwardDelay,
 	}
-	bpdu.SetRole(stp.RoleDesignated)
-	bpdu.SetProposal(true)
+	b.SetRole(bpdu.RoleDesignated)
+	b.SetProposal(true)
 
-	sw.Forward(now, "1/1/1", mustEncode(t, bpdu, macRoot))
+	sw.Forward(now, "1/1/1", mustEncode(t, b, macRoot))
 
 	rolesBefore := sw.Roles()
-	if rolesBefore["1/1/1"].Role != stp.RoleRoot || rolesBefore["1/1/1"].State != stp.StateForwarding {
+	if rolesBefore["1/1/1"].Role != bpdu.RoleRoot || rolesBefore["1/1/1"].State != stp.StateForwarding {
 		t.Fatalf("1/1/1 before derive = %s/%s, want Root/Forwarding", rolesBefore["1/1/1"].Role, rolesBefore["1/1/1"].State)
 	}
 
@@ -2209,7 +2211,7 @@ func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
 	}
 
 	rolesAfter := derived.Roles()
-	if rolesAfter["1/1/1"].Role != stp.RoleRoot || rolesAfter["1/1/1"].State != stp.StateForwarding {
+	if rolesAfter["1/1/1"].Role != bpdu.RoleRoot || rolesAfter["1/1/1"].State != stp.StateForwarding {
 		t.Errorf("1/1/1 after derive = %s/%s, want Root/Forwarding", rolesAfter["1/1/1"].Role, rolesAfter["1/1/1"].State)
 	}
 }
@@ -2241,18 +2243,18 @@ func TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress(t *testing.T) {
 	sw.Start(now)
 	sw.Drain()
 
-	bpdu := stp.BPDU{
-		RootID:       stp.BridgeID{Priority: 4096, Address: macRoot},
-		BridgeID:     stp.BridgeID{Priority: 4096, Address: macRoot},
+	b := bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
 		PortID:       0x8001,
 		HelloTime:    stp.DefaultHelloTime,
 		MaxAge:       stp.DefaultMaxAge,
 		ForwardDelay: stp.DefaultForwardDelay,
 	}
-	bpdu.SetRole(stp.RoleDesignated)
-	bpdu.SetProposal(true)
-	sw.Forward(now, "1/1/1", mustEncode(t, bpdu, macRoot))
-	if before := sw.Roles()["1/1/1"]; before.Role != stp.RoleRoot || before.State != stp.StateForwarding {
+	b.SetRole(bpdu.RoleDesignated)
+	b.SetProposal(true)
+	sw.Forward(now, "1/1/1", mustEncode(t, b, macRoot))
+	if before := sw.Roles()["1/1/1"]; before.Role != bpdu.RoleRoot || before.State != stp.StateForwarding {
 		t.Fatalf("1/1/1 before derive = %s/%s, want Root/Forwarding", before.Role, before.State)
 	}
 
@@ -2260,7 +2262,7 @@ func TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Derive() error = %v", err)
 	}
-	if after := derived.Roles()["1/1/1"]; after.Role != stp.RoleRoot || after.State != stp.StateForwarding {
+	if after := derived.Roles()["1/1/1"]; after.Role != bpdu.RoleRoot || after.State != stp.StateForwarding {
 		t.Errorf("1/1/1 after derive = %s/%s, want Root/Forwarding", after.Role, after.State)
 	}
 	if derived.BridgeID().Address != sw.BridgeID().Address {
@@ -2291,16 +2293,16 @@ func TestBPDUOnDownPortIsDropped(t *testing.T) {
 	sw.Start(now)
 	sw.Drain()
 
-	bpdu := stp.BPDU{
-		RootID:    stp.BridgeID{Priority: 4096, Address: macRoot},
-		BridgeID:  stp.BridgeID{Priority: 4096, Address: macRoot},
+	b := bpdu.BPDU{
+		RootID:    bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID:  bpdu.BridgeID{Priority: 4096, Address: macRoot},
 		PortID:    0x8001,
 		HelloTime: stp.DefaultHelloTime,
 		MaxAge:    stp.DefaultMaxAge,
 	}
-	bpdu.SetRole(stp.RoleDesignated)
+	b.SetRole(bpdu.RoleDesignated)
 
-	res := sw.Forward(now, "1/1/1", mustEncode(t, bpdu, macRoot))
+	res := sw.Forward(now, "1/1/1", mustEncode(t, b, macRoot))
 	if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown {
 		t.Fatalf("BPDU on down port = %s/%s, want Dropped/%s", res.Outcome, res.Reason, port.ReasonPortDown)
 	}
@@ -5441,19 +5443,19 @@ func TestForwardBPDUWithSpanningTree(t *testing.T) {
 	sw.Start(now)
 	sw.Drain()
 
-	bpdu := stp.BPDU{
-		RootID:       stp.BridgeID{Priority: 4096, Address: macRoot},
+	b := bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
 		RootPathCost: 0,
-		BridgeID:     stp.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
 		PortID:       0x8001,
 		HelloTime:    stp.DefaultHelloTime,
 		MaxAge:       stp.DefaultMaxAge,
 		ForwardDelay: stp.DefaultForwardDelay,
 	}
-	bpdu.SetRole(stp.RoleDesignated)
-	bpdu.SetProposal(true)
+	b.SetRole(bpdu.RoleDesignated)
+	b.SetProposal(true)
 
-	bpduFrame := mustEncode(t, bpdu, macRoot)
+	bpduFrame := mustEncode(t, b, macRoot)
 	resBPDU := sw.Forward(now, "1/1/1", bpduFrame)
 	if resBPDU.Outcome != trace.Consumed {
 		t.Errorf("BPDU outcome = %s, want Consumed", resBPDU.Outcome)
@@ -7118,7 +7120,7 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	mac1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	mac2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	region := func(instances map[stp.MSTID]stp.Instance) *stp.MST {
+	region := func(instances map[bpdu.MSTID]stp.Instance) *stp.MST {
 		return &stp.MST{Name: "region-1", Revision: 1, Instances: instances}
 	}
 	pvid := vlan.ID(10)
@@ -7138,7 +7140,7 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 			Priority: 4096,
 			Address:  mac1,
 			Ports:    map[string]stp.Port{"l1": {}, "l2": {}},
-			MST: region(map[stp.MSTID]stp.Instance{
+			MST: region(map[bpdu.MSTID]stp.Instance{
 				1: {VLANs: []vlan.ID{10}},
 				2: {VLANs: []vlan.ID{20}},
 			}),
@@ -7159,7 +7161,7 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 			Priority: 32768,
 			Address:  mac2,
 			Ports:    map[string]stp.Port{"l1": {}, "l2": {}, "p3": {}},
-			MST: region(map[stp.MSTID]stp.Instance{
+			MST: region(map[bpdu.MSTID]stp.Instance{
 				1: {VLANs: []vlan.ID{10}, Ports: map[string]stp.InstancePort{"l1": {PathCost: 200_000}}},
 				2: {VLANs: []vlan.ID{20}},
 			}),
@@ -7189,7 +7191,7 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	// landing on l2 instead of l1 is confirmed indirectly below, by which
 	// FDB entry the flush after l2 fails leaves behind.
 	cist := sw2.Roles()["l1"]
-	if cist.Role != stp.RoleRoot || cist.State != stp.StateForwarding {
+	if cist.Role != bpdu.RoleRoot || cist.State != stp.StateForwarding {
 		t.Fatalf("sw2 CIST on l1 = role %v state %v, want Root Forwarding", cist.Role, cist.State)
 	}
 
@@ -7264,10 +7266,10 @@ func emittedBPDUShape(t *testing.T, em vswitch.Emission) string {
 		tag = fmt.Sprintf("tags=%d", len(em.Frame.Tags))
 	}
 
-	if em.Frame.Dst != stp.GroupAddressSSTP {
+	if em.Frame.Dst != bpdu.GroupAddressSSTP() {
 		return fmt.Sprintf("ieee/%s", tag)
 	}
-	_, tlvVID, err := stp.DecodeSSTP(em.Frame)
+	_, tlvVID, err := bpdu.DecodeSSTP(em.Frame)
 	if err != nil {
 		t.Fatalf("decode drained SSTP emission: %v", err)
 	}
@@ -7392,12 +7394,12 @@ func TestNewRefusesAPVSTSwitchCarryingAVLANWithNoTree(t *testing.T) {
 func pvstSSTPFrame(t *testing.T, vid vlan.ID, tagVID vlan.ID, src netaddr.MAC) ethernet.Frame {
 	t.Helper()
 
-	frame, err := stp.EncodeSSTP(stp.BPDU{
-		RootID:       stp.BridgeID{Priority: 4096 | uint16(vid), Address: src},
-		BridgeID:     stp.BridgeID{Priority: 4096 | uint16(vid), Address: src},
+	frame, err := bpdu.EncodeSSTP(bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 4096 | uint16(vid), Address: src},
+		BridgeID:     bpdu.BridgeID{Priority: 4096 | uint16(vid), Address: src},
 		PortID:       0x8001,
 		Version:      2,
-		Type:         stp.BPDUTypeRapid,
+		Type:         bpdu.TypeRapid,
 		MaxAge:       20 * time.Second,
 		HelloTime:    2 * time.Second,
 		ForwardDelay: 15 * time.Second,
@@ -7472,12 +7474,12 @@ func TestPVSTBoundaryIssueIsRaisedPerVLANAndNotForVLAN1(t *testing.T) {
 	sw.Drain()
 
 	// An MST BPDU from the neighbor marks the port a boundary.
-	mstFrame, err := stp.Encode(stp.BPDU{
-		RootID:       stp.BridgeID{Priority: 4096, Address: peerMAC},
-		BridgeID:     stp.BridgeID{Priority: 4096, Address: peerMAC},
+	mstFrame, err := bpdu.Encode(bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: peerMAC},
 		PortID:       0x8001,
 		Version:      3,
-		Type:         stp.BPDUTypeRapid,
+		Type:         bpdu.TypeRapid,
 		MaxAge:       20 * time.Second,
 		HelloTime:    2 * time.Second,
 		ForwardDelay: 15 * time.Second,
@@ -7531,7 +7533,7 @@ func TestPVSTBoundaryIssueIsRaisedOnAnMSTPBridgeToo(t *testing.T) {
 
 	cfg := pvstSwitchConfig(t, 1, 1, 10)
 	cfg.STP.PVST = nil
-	cfg.STP.MST = &stp.MST{Name: "region-1", Revision: 1, Instances: map[stp.MSTID]stp.Instance{
+	cfg.STP.MST = &stp.MST{Name: "region-1", Revision: 1, Instances: map[bpdu.MSTID]stp.Instance{
 		1: {VLANs: []vlan.ID{10}},
 	}}
 
@@ -7583,12 +7585,12 @@ func TestPVSTForeignVLANDoesNotRewriteVLAN1sRoot(t *testing.T) {
 	// any port. Its root priority is far better than this switch's own, so
 	// if the BPDU falls back to the CIST (VLAN 1's tree under PVST) instead
 	// of being refused, the peer displaces this switch as VLAN 1's root.
-	foreign, err := stp.EncodeSSTP(stp.BPDU{
-		RootID:       stp.BridgeID{Priority: 0, Address: peer},
-		BridgeID:     stp.BridgeID{Priority: 0, Address: peer},
+	foreign, err := bpdu.EncodeSSTP(bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 0, Address: peer},
+		BridgeID:     bpdu.BridgeID{Priority: 0, Address: peer},
 		PortID:       0x8001,
 		Version:      2,
-		Type:         stp.BPDUTypeRapid,
+		Type:         bpdu.TypeRapid,
 		MaxAge:       20 * time.Second,
 		HelloTime:    2 * time.Second,
 		ForwardDelay: 15 * time.Second,
@@ -7720,12 +7722,12 @@ func TestPVSTBoundaryNotRaisedForAnFID0Drop(t *testing.T) {
 	sw.Drain()
 
 	// An MST BPDU from the neighbor marks the port a boundary.
-	mstFrame, err := stp.Encode(stp.BPDU{
-		RootID:       stp.BridgeID{Priority: 4096, Address: peerMAC},
-		BridgeID:     stp.BridgeID{Priority: 4096, Address: peerMAC},
+	mstFrame, err := bpdu.Encode(bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: peerMAC},
 		PortID:       0x8001,
 		Version:      3,
-		Type:         stp.BPDUTypeRapid,
+		Type:         bpdu.TypeRapid,
 		MaxAge:       20 * time.Second,
 		HelloTime:    2 * time.Second,
 		ForwardDelay: 15 * time.Second,
@@ -7770,12 +7772,12 @@ func TestPVSTAdmitBeforeSnapshotUsesTheArrivalVLANsTree(t *testing.T) {
 	// from the default Designated. Nothing is ever sent for VLAN 1, so the
 	// CIST stays at its default Designated/Forwarding, and the two trees now
 	// disagree about this port's role.
-	converge, err := stp.EncodeSSTP(stp.BPDU{
-		RootID:       stp.BridgeID{Priority: 0, Address: peer},
-		BridgeID:     stp.BridgeID{Priority: 0, Address: peer},
+	converge, err := bpdu.EncodeSSTP(bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 0, Address: peer},
+		BridgeID:     bpdu.BridgeID{Priority: 0, Address: peer},
 		PortID:       0x8001,
 		Version:      2,
-		Type:         stp.BPDUTypeRapid,
+		Type:         bpdu.TypeRapid,
 		MaxAge:       20 * time.Second,
 		HelloTime:    2 * time.Second,
 		ForwardDelay: 15 * time.Second,
@@ -7903,12 +7905,12 @@ func TestSSTPForAnUnadmittedVLANStillFiresBPDUGuard(t *testing.T) {
 	// this port. A gate that refused the frame before the layer saw it would
 	// never let BPDU guard fire; the fix is that the layer's link half runs
 	// regardless.
-	rogue, err := stp.EncodeSSTP(stp.BPDU{
-		RootID:       stp.BridgeID{Priority: 0, Address: peer},
-		BridgeID:     stp.BridgeID{Priority: 0, Address: peer},
+	rogue, err := bpdu.EncodeSSTP(bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 0, Address: peer},
+		BridgeID:     bpdu.BridgeID{Priority: 0, Address: peer},
 		PortID:       0x8001,
 		Version:      2,
-		Type:         stp.BPDUTypeRapid,
+		Type:         bpdu.TypeRapid,
 		MaxAge:       20 * time.Second,
 		HelloTime:    2 * time.Second,
 		ForwardDelay: 15 * time.Second,
@@ -8039,7 +8041,7 @@ func TestSSTPTraceShapeIsTheSameWithAndWithoutMutation(t *testing.T) {
 			cfg: func(t *testing.T) vswitch.Config {
 				cfg := pvstSwitchConfig(t, 1, 1, 10)
 				cfg.STP.PVST = nil
-				cfg.STP.MST = &stp.MST{Name: "region-1", Revision: 1, Instances: map[stp.MSTID]stp.Instance{
+				cfg.STP.MST = &stp.MST{Name: "region-1", Revision: 1, Instances: map[bpdu.MSTID]stp.Instance{
 					1: {VLANs: []vlan.ID{10}},
 				}}
 				return cfg
@@ -8238,12 +8240,12 @@ func TestSSTPClassifiesAQinQTaggedFrameLikeBridgeIngress(t *testing.T) {
 	sw.Start(now)
 	sw.Drain()
 
-	frame, err := stp.EncodeSSTP(stp.BPDU{
-		RootID:       stp.BridgeID{Priority: 4096 | 1, Address: peer},
-		BridgeID:     stp.BridgeID{Priority: 4096 | 1, Address: peer},
+	frame, err := bpdu.EncodeSSTP(bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 4096 | 1, Address: peer},
+		BridgeID:     bpdu.BridgeID{Priority: 4096 | 1, Address: peer},
 		PortID:       0x8001,
 		Version:      2,
-		Type:         stp.BPDUTypeRapid,
+		Type:         bpdu.TypeRapid,
 		MaxAge:       20 * time.Second,
 		HelloTime:    2 * time.Second,
 		ForwardDelay: 15 * time.Second,

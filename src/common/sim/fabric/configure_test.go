@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -688,7 +690,7 @@ func TestConfigureProtocolTimersRestart(t *testing.T) {
 	// sw1 is root.
 	snap0 := fab.Snapshot()
 	for pName, info := range snap0.Devices["sw1"].Roles {
-		if info.Role != stp.RoleDesignated {
+		if info.Role != bpdu.RoleDesignated {
 			t.Errorf("initial root sw1 port %s role = %v, want Designated", pName, info.Role)
 		}
 	}
@@ -745,12 +747,12 @@ func TestConfigureProtocolTimersRestart(t *testing.T) {
 
 	finalSnap := fab.Snapshot()
 	for pName, info := range finalSnap.Devices["sw3"].Roles {
-		if info.Role != stp.RoleDesignated {
+		if info.Role != bpdu.RoleDesignated {
 			t.Errorf("new root sw3 port %s role = %v, want Designated", pName, info.Role)
 		}
 	}
 	sw1P3 := finalSnap.Devices["sw1"].Roles["1/1/3"]
-	if sw1P3.Role != stp.RoleRoot {
+	if sw1P3.Role != bpdu.RoleRoot {
 		t.Errorf("sw1 port 1/1/3 role = %v, want Root", sw1P3.Role)
 	}
 }

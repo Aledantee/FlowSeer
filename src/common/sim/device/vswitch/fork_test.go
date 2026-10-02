@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
@@ -12,7 +14,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -63,15 +64,15 @@ func probeSwitchSTP(t *testing.T) {
 	fork := sw.Fork()
 
 	sw.LinkChange(time.Unix(2000, 0), "1/1/1", port.Down, PointToPointFalse, 0)
-	if got := sw.Roles()["1/1/1"].Role; got != stp.RoleDisabled {
-		t.Fatalf("source STP port role = %v, want %v", got, stp.RoleDisabled)
+	if got := sw.Roles()["1/1/1"].Role; got != bpdu.RoleDisabled {
+		t.Fatalf("source STP port role = %v, want %v", got, bpdu.RoleDisabled)
 	}
-	if fork.Roles()["1/1/1"].Role == stp.RoleDisabled {
+	if fork.Roles()["1/1/1"].Role == bpdu.RoleDisabled {
 		t.Errorf("fork STP port role moved when source changed link")
 	}
 
 	fork.LinkChange(time.Unix(2000, 0), "1/1/2", port.Down, PointToPointFalse, 0)
-	if sw.Roles()["1/1/2"].Role == stp.RoleDisabled {
+	if sw.Roles()["1/1/2"].Role == bpdu.RoleDisabled {
 		t.Errorf("source STP port role moved when fork changed link")
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
@@ -48,7 +49,7 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 			Name:     "region1",
 			Revision: 1,
 			MaxHops:  20,
-			Instances: map[stp.MSTID]stp.Instance{
+			Instances: map[bpdu.MSTID]stp.Instance{
 				1: {
 					Priority:        0,
 					PriorityPresent: true,

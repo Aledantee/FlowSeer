@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -48,7 +50,7 @@ var (
 	// taken from the stp package rather than re-declared the way
 	// stpGroupAddress is, since the codec that builds those frames is what
 	// owns the address.
-	sstpGroupAddress = stp.GroupAddressSSTP
+	sstpGroupAddress = bpdu.GroupAddressSSTP()
 
 	allNodesAddress = netip.MustParseAddr("ff02::1")
 )
@@ -2623,7 +2625,7 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 	resolvedPort := receive.Resolved.Name
 	before := s.stp.PortInfo(resolvedPort)
 
-	bpdu, err := stp.Decode(f)
+	bpdu, err := bpdu.Decode(f)
 	if err != nil {
 		if mutate {
 			s.stp.BadBPDU(resolvedPort)
@@ -2631,9 +2633,6 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 		after := s.stp.PortInfo(resolvedPort)
 
 		reason := stp.ReasonUnsupportedBPDU
-		if r, ok := errs.Attributes(err)["reason"].(trace.Reason); ok {
-			reason = r
-		}
 
 		return bridge.Result{
 			Trace: trace.Trace{
@@ -2724,7 +2723,7 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 	resolvedPort := receive.Resolved.Name
 	before := s.stp.PortInfo(resolvedPort)
 
-	bpdu, tlvVID, err := stp.DecodeSSTP(f)
+	bpdu, tlvVID, err := bpdu.DecodeSSTP(f)
 	if err != nil {
 		if mutate {
 			s.stp.BadBPDU(resolvedPort)
@@ -2732,9 +2731,6 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 		after := s.stp.PortInfo(resolvedPort)
 
 		reason := stp.ReasonUnsupportedBPDU
-		if r, ok := errs.Attributes(err)["reason"].(trace.Reason); ok {
-			reason = r
-		}
 
 		return bridge.Result{
 			Trace: trace.Trace{
@@ -3455,9 +3451,9 @@ func (s *Switch) configuredVLANs() []vlan.ID {
 // Root returns the elected root bridge identifier, the path cost to reach it,
 // and the interface name of the root port, or zero values if the spanning tree
 // layer is absent.
-func (s *Switch) Root() (stp.BridgeID, uint32, string) {
+func (s *Switch) Root() (bpdu.BridgeID, uint32, string) {
 	if s.stp == nil {
-		return stp.BridgeID{}, 0, ""
+		return bpdu.BridgeID{}, 0, ""
 	}
 
 	return s.stp.Root()
@@ -3475,9 +3471,9 @@ func (s *Switch) TopologyChanges() (uint64, time.Time) {
 
 // BridgeID returns the spanning tree bridge identifier with the priority in
 // effect, or a zero value if the spanning tree layer is absent.
-func (s *Switch) BridgeID() stp.BridgeID {
+func (s *Switch) BridgeID() bpdu.BridgeID {
 	if s.stp == nil {
-		return stp.BridgeID{}
+		return bpdu.BridgeID{}
 	}
 
 	return s.stp.BridgeID()

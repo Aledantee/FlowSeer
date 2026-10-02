@@ -6,6 +6,7 @@ goroutines or wall-clock dependencies.
 
 | Package                | What it does                                              |
 | ---------------------- | ------------------------------------------------------------ |
+| `../net/bpdu`          | IEEE 802.1D Spanning Tree and Cisco SSTP BPDU wire codecs   |
 | `../net/igmp`          | IGMPv1, IGMPv2, and IGMPv3 message codec                    |
 | `../net/mld`           | MLDv1 and MLDv2 message codec                               |
 | `../net/udp`           | UDP header codec with pseudo-header checksums               |
@@ -22,7 +23,7 @@ goroutines or wall-clock dependencies.
 | `layer/mcast`          | Per-port RFC 3376/MLDv2 router state, router ports, and aging |
 | `layer/routing`        | Routed interfaces, per-VRF tables, equal-cost selection, recursive next hops |
 | `layer/filter`         | Interface-bound access-control rules and stateful reverse matches |
-| `layer/stp`            | Rapid Spanning Tree Protocol state machine, BPDUs, and port guards |
+| `layer/stp`            | Rapid Spanning Tree Protocol state machine and port guards   |
 | `layer/loopprotect`    | netsim's own loop-protection probe and per-port block/no-learn action, independent of spanning tree |
 | `layer/traffic`        | Mirrors, ingress policers, and per-PCP queue limits          |
 | `netmodel`             | Translation boundary for FlowSeer network model protos       |

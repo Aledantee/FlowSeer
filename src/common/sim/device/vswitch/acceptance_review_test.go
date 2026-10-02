@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -99,9 +101,9 @@ func TestPortInsertionOrderDoesNotChangeConfigurationOrForwardingSemantics(t *te
 func TestFailedLAGMemberIngressReportsBothStatesAndDecisivePort(t *testing.T) {
 	deviceMAC := netaddr.MAC{2, 0, 0, 0, 0, 1}
 	frame := ethernet.Frame{Src: netaddr.MAC{2, 0, 0, 0, 0, 2}, Dst: deviceMAC}
-	bpdu := mustEncode(t, stp.BPDU{
-		RootID:       stp.BridgeID{Priority: stp.DefaultBridgePriority, Address: deviceMAC},
-		BridgeID:     stp.BridgeID{Priority: stp.DefaultBridgePriority, Address: deviceMAC},
+	bpdu := mustEncode(t, bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: stp.DefaultBridgePriority, Address: deviceMAC},
+		BridgeID:     bpdu.BridgeID{Priority: stp.DefaultBridgePriority, Address: deviceMAC},
 		PortID:       0x8001,
 		HelloTime:    stp.DefaultHelloTime,
 		MaxAge:       stp.DefaultMaxAge,

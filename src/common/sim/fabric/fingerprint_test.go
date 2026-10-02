@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
@@ -124,13 +126,13 @@ func baseSnapshotForTest() Snapshot {
 					10: {
 						"1/1/1": {
 							MSTID:          1,
-							Role:           stp.RoleRoot,
+							Role:           bpdu.RoleRoot,
 							State:          stp.StateForwarding,
 							BlockReason:    "",
 							Priority:       128,
 							PathCost:       20000,
-							DesignatedRoot: stp.BridgeID{Priority: 4096, Address: netaddr.MAC{1, 2, 3, 4, 5, 6}},
-							Designated:     stp.BridgeID{Priority: 4096, Address: netaddr.MAC{1, 2, 3, 4, 5, 6}},
+							DesignatedRoot: bpdu.BridgeID{Priority: 4096, Address: netaddr.MAC{1, 2, 3, 4, 5, 6}},
+							Designated:     bpdu.BridgeID{Priority: 4096, Address: netaddr.MAC{1, 2, 3, 4, 5, 6}},
 							DesignatedPort: 1,
 							DesignatedCost: 0,
 							PointToPoint:   true,
@@ -340,7 +342,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				info := dev.TreeRoles[10]["1/1/1"]
-				info.Role = stp.RoleDesignated
+				info.Role = bpdu.RoleDesignated
 				dev.TreeRoles[10]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
@@ -717,8 +719,8 @@ func TestFingerprintDeterministicMapOrdering(t *testing.T) {
 			treeRoles := make(map[vlan.ID]map[string]stp.PortInfo)
 			for _, vid := range []vlan.ID{20, 10, 30} {
 				treeRoles[vid] = map[string]stp.PortInfo{
-					"1/1/2": {Role: stp.RoleDesignated, State: stp.StateForwarding},
-					"1/1/1": {Role: stp.RoleRoot, State: stp.StateForwarding},
+					"1/1/2": {Role: bpdu.RoleDesignated, State: stp.StateForwarding},
+					"1/1/1": {Role: bpdu.RoleRoot, State: stp.StateForwarding},
 				}
 			}
 			devices[name] = Device{
@@ -841,7 +843,7 @@ func TestFingerprintDetectsTopologyAndRoleChanges(t *testing.T) {
 	mut := cloneSnapshot(base)
 	dev := mut.Devices["sw1"]
 	pInfo := dev.TreeRoles[10]["1/1/1"]
-	pInfo.Role = stp.RoleAlternate
+	pInfo.Role = bpdu.RoleAlternate
 	dev.TreeRoles[10]["1/1/1"] = pInfo
 	mut.Devices["sw1"] = dev
 	if mut.Fingerprint() == base.Fingerprint() {
@@ -853,10 +855,10 @@ func TestFingerprintDetectsTopologyAndRoleChanges(t *testing.T) {
 	mstSnap1 := cloneSnapshot(base)
 	mstDev1 := mstSnap1.Devices["sw1"]
 	mstDev1.TreeRoles[1] = map[string]stp.PortInfo{
-		"1/1/1": {MSTID: 0, Role: stp.RoleRoot, State: stp.StateForwarding},
+		"1/1/1": {MSTID: 0, Role: bpdu.RoleRoot, State: stp.StateForwarding},
 	}
 	mstDev1.TreeRoles[10] = map[string]stp.PortInfo{
-		"1/1/1": {MSTID: 1, Role: stp.RoleRoot, State: stp.StateForwarding},
+		"1/1/1": {MSTID: 1, Role: bpdu.RoleRoot, State: stp.StateForwarding},
 	}
 	mstSnap1.Devices["sw1"] = mstDev1
 
@@ -864,7 +866,7 @@ func TestFingerprintDetectsTopologyAndRoleChanges(t *testing.T) {
 	mstDev2 := mstSnap2.Devices["sw1"]
 	// CIST unchanged, MSTI 1 role changed
 	mstDev2.TreeRoles[10]["1/1/1"] = stp.PortInfo{
-		MSTID: 1, Role: stp.RoleAlternate, State: stp.StateDiscarding,
+		MSTID: 1, Role: bpdu.RoleAlternate, State: stp.StateDiscarding,
 	}
 	mstSnap2.Devices["sw1"] = mstDev2
 
@@ -877,7 +879,7 @@ func TestFingerprintDetectsTopologyAndRoleChanges(t *testing.T) {
 	pvstDev1 := pvstSnap1.Devices["sw1"]
 	pvstDev1.TreeRoles[10] = map[string]stp.PortInfo{
 		"1/1/1": {
-			DesignatedRoot: stp.BridgeID{Priority: 4096, Address: netaddr.MAC{0, 0, 0, 0, 0, 1}},
+			DesignatedRoot: bpdu.BridgeID{Priority: 4096, Address: netaddr.MAC{0, 0, 0, 0, 0, 1}},
 		},
 	}
 	pvstSnap1.Devices["sw1"] = pvstDev1
@@ -885,7 +887,7 @@ func TestFingerprintDetectsTopologyAndRoleChanges(t *testing.T) {
 	pvstSnap2 := cloneSnapshot(pvstSnap1)
 	pvstDev2 := pvstSnap2.Devices["sw1"]
 	pvstDev2.TreeRoles[10]["1/1/1"] = stp.PortInfo{
-		DesignatedRoot: stp.BridgeID{Priority: 8192, Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
+		DesignatedRoot: bpdu.BridgeID{Priority: 8192, Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
 	}
 	pvstSnap2.Devices["sw1"] = pvstDev2
 
@@ -1007,7 +1009,7 @@ func TestFingerprintIncludedFieldsAffectFingerprint(t *testing.T) {
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				info := dev.TreeRoles[10]["1/1/1"]
-				info.Role = stp.RoleAlternate
+				info.Role = bpdu.RoleAlternate
 				dev.TreeRoles[10]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
@@ -1077,7 +1079,7 @@ func TestFingerprintIncludedFieldsAffectFingerprint(t *testing.T) {
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				info := dev.TreeRoles[10]["1/1/1"]
-				info.Role = stp.RoleDesignated
+				info.Role = bpdu.RoleDesignated
 				dev.TreeRoles[10]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},

@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -412,9 +414,9 @@ func TestBridgeID(t *testing.T) {
 	mac1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	mac2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	b1 := stp.BridgeID{Priority: 4096, Address: mac1}
-	b2 := stp.BridgeID{Priority: 8192, Address: mac1}
-	b3 := stp.BridgeID{Priority: 4096, Address: mac2}
+	b1 := bpdu.BridgeID{Priority: 4096, Address: mac1}
+	b2 := bpdu.BridgeID{Priority: 8192, Address: mac1}
+	b3 := bpdu.BridgeID{Priority: 4096, Address: mac2}
 
 	if !b1.Less(b2) {
 		t.Error("b1 should be Less than b2 by priority")
@@ -751,7 +753,7 @@ func TestDiffMSTVLANMoveBetweenInstances(t *testing.T) {
 
 	a := stp.Config{
 		MST: &stp.MST{
-			Instances: map[stp.MSTID]stp.Instance{
+			Instances: map[bpdu.MSTID]stp.Instance{
 				1: {VLANs: []vlan.ID{10}},
 				2: {VLANs: []vlan.ID{20}},
 			},
@@ -759,7 +761,7 @@ func TestDiffMSTVLANMoveBetweenInstances(t *testing.T) {
 	}
 	b := stp.Config{
 		MST: &stp.MST{
-			Instances: map[stp.MSTID]stp.Instance{
+			Instances: map[bpdu.MSTID]stp.Instance{
 				1: {VLANs: []vlan.ID{10, 20}},
 				2: {VLANs: []vlan.ID{}},
 			},
@@ -1073,14 +1075,14 @@ func TestDiffMSTInstancePortCost(t *testing.T) {
 
 	a := stp.Config{
 		MST: &stp.MST{
-			Instances: map[stp.MSTID]stp.Instance{
+			Instances: map[bpdu.MSTID]stp.Instance{
 				1: {Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 100}}},
 			},
 		},
 	}
 	b := stp.Config{
 		MST: &stp.MST{
-			Instances: map[stp.MSTID]stp.Instance{
+			Instances: map[bpdu.MSTID]stp.Instance{
 				1: {Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 200}}},
 			},
 		},

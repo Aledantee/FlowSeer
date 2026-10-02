@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
@@ -16,7 +18,7 @@ func TestMSTConfigIDDigest(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		instances  map[stp.MSTID]stp.Instance
+		instances  map[bpdu.MSTID]stp.Instance
 		wantDigest string
 	}{
 		{
@@ -25,8 +27,8 @@ func TestMSTConfigIDDigest(t *testing.T) {
 			wantDigest: "ac36177f50283cd4b83821d8ab26de62",
 		},
 		{
-			name: "VID 10 on MSTID 1 and VID 20 on MSTID 2",
-			instances: map[stp.MSTID]stp.Instance{
+			name: "VID 10 on bpdu.MSTID 1 and VID 20 on bpdu.MSTID 2",
+			instances: map[bpdu.MSTID]stp.Instance{
 				1: {VLANs: []vlan.ID{10}},
 				2: {VLANs: []vlan.ID{20}},
 			},
@@ -46,7 +48,7 @@ func TestMSTConfigIDDigest(t *testing.T) {
 				t.Fatalf("hex.DecodeString(%q): %v", tc.wantDigest, err)
 			}
 			if got := id.Digest[:]; hex.EncodeToString(got) != hex.EncodeToString(want) {
-				t.Errorf("ConfigID().Digest = %x, want %x", got, want)
+				t.Errorf("bpdu.ConfigID().Digest = %x, want %x", got, want)
 			}
 		})
 	}
@@ -95,24 +97,24 @@ func TestMSTValidate(t *testing.T) {
 			mst: stp.MST{
 				Name:    "region-1",
 				MaxHops: 20,
-				Instances: map[stp.MSTID]stp.Instance{
+				Instances: map[bpdu.MSTID]stp.Instance{
 					1: {Priority: 4096, VLANs: []vlan.ID{10}, Ports: map[string]stp.InstancePort{"1/1/1": {}}},
 				},
 			},
 			wantErr: false,
 		},
 		{
-			name: "MSTID zero rejected",
+			name: "bpdu.MSTID zero rejected",
 			mst: stp.MST{
-				Instances: map[stp.MSTID]stp.Instance{0: {}},
+				Instances: map[bpdu.MSTID]stp.Instance{0: {}},
 			},
 			wantErr:   true,
 			wantField: "mst.instances.0",
 		},
 		{
-			name: "MSTID above 4094 rejected",
+			name: "bpdu.MSTID above 4094 rejected",
 			mst: stp.MST{
-				Instances: map[stp.MSTID]stp.Instance{4095: {}},
+				Instances: map[bpdu.MSTID]stp.Instance{4095: {}},
 			},
 			wantErr:   true,
 			wantField: "mst.instances.4095",
@@ -132,7 +134,7 @@ func TestMSTValidate(t *testing.T) {
 		{
 			name: "instance priority not a multiple of 4096 rejected",
 			mst: stp.MST{
-				Instances: map[stp.MSTID]stp.Instance{1: {Priority: 100}},
+				Instances: map[bpdu.MSTID]stp.Instance{1: {Priority: 100}},
 			},
 			wantErr:   true,
 			wantField: "mst.instances.1.priority",
@@ -146,7 +148,7 @@ func TestMSTValidate(t *testing.T) {
 		{
 			name: "VID claimed twice rejected",
 			mst: stp.MST{
-				Instances: map[stp.MSTID]stp.Instance{
+				Instances: map[bpdu.MSTID]stp.Instance{
 					1: {Priority: 4096, VLANs: []vlan.ID{10}},
 					2: {Priority: 4096, VLANs: []vlan.ID{10}},
 				},
@@ -157,7 +159,7 @@ func TestMSTValidate(t *testing.T) {
 		{
 			name: "unknown instance port rejected",
 			mst: stp.MST{
-				Instances: map[stp.MSTID]stp.Instance{
+				Instances: map[bpdu.MSTID]stp.Instance{
 					1: {Priority: 4096, Ports: map[string]stp.InstancePort{"1/1/99": {}}},
 				},
 			},
@@ -167,7 +169,7 @@ func TestMSTValidate(t *testing.T) {
 		{
 			name: "instance port absent from the STP port set rejected",
 			mst: stp.MST{
-				Instances: map[stp.MSTID]stp.Instance{
+				Instances: map[bpdu.MSTID]stp.Instance{
 					1: {Priority: 4096, Ports: map[string]stp.InstancePort{"1/1/2": {}}},
 				},
 			},
@@ -177,7 +179,7 @@ func TestMSTValidate(t *testing.T) {
 		{
 			name: "VID zero rejected",
 			mst: stp.MST{
-				Instances: map[stp.MSTID]stp.Instance{
+				Instances: map[bpdu.MSTID]stp.Instance{
 					1: {Priority: 4096, VLANs: []vlan.ID{0}},
 				},
 			},
@@ -187,7 +189,7 @@ func TestMSTValidate(t *testing.T) {
 		{
 			name: "VID 4095 rejected",
 			mst: stp.MST{
-				Instances: map[stp.MSTID]stp.Instance{
+				Instances: map[bpdu.MSTID]stp.Instance{
 					1: {Priority: 4096, VLANs: []vlan.ID{4095}},
 				},
 			},
@@ -197,7 +199,7 @@ func TestMSTValidate(t *testing.T) {
 		{
 			name: "VID 5000 rejected",
 			mst: stp.MST{
-				Instances: map[stp.MSTID]stp.Instance{
+				Instances: map[bpdu.MSTID]stp.Instance{
 					1: {Priority: 4096, VLANs: []vlan.ID{5000}},
 				},
 			},
@@ -215,7 +217,7 @@ func TestMSTValidate(t *testing.T) {
 		{
 			name: "instance port path cost over maximum rejected",
 			mst: stp.MST{
-				Instances: map[stp.MSTID]stp.Instance{
+				Instances: map[bpdu.MSTID]stp.Instance{
 					1: {
 						Priority: 4096,
 						Ports:    map[string]stp.InstancePort{"1/1/1": {PathCost: stp.MaxPathCost + 1}},
@@ -249,7 +251,7 @@ func TestMSTNormalizeIdempotent(t *testing.T) {
 
 	m := stp.MST{
 		Name: "region-1",
-		Instances: map[stp.MSTID]stp.Instance{
+		Instances: map[bpdu.MSTID]stp.Instance{
 			1: {
 				VLANs: []vlan.ID{30, 10, 20},
 				Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 100}},
@@ -285,7 +287,7 @@ func TestMSTNormalizeSortsVLANs(t *testing.T) {
 	t.Parallel()
 
 	m := stp.MST{
-		Instances: map[stp.MSTID]stp.Instance{
+		Instances: map[bpdu.MSTID]stp.Instance{
 			1: {VLANs: []vlan.ID{30, 10, 20}},
 		},
 	}
@@ -307,7 +309,7 @@ func TestMSTClone(t *testing.T) {
 	t.Parallel()
 
 	m := stp.MST{
-		Instances: map[stp.MSTID]stp.Instance{
+		Instances: map[bpdu.MSTID]stp.Instance{
 			1: {
 				VLANs: []vlan.ID{10},
 				Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 100}},
@@ -344,13 +346,13 @@ func TestMSTValidateRejectsTheDigestCollisionVLAN(t *testing.T) {
 
 	a := stp.MST{
 		Name: "region-1",
-		Instances: map[stp.MSTID]stp.Instance{
+		Instances: map[bpdu.MSTID]stp.Instance{
 			1: {Priority: 4096, VLANs: []vlan.ID{10}},
 		},
 	}
 	b := stp.MST{
 		Name: "region-1",
-		Instances: map[stp.MSTID]stp.Instance{
+		Instances: map[bpdu.MSTID]stp.Instance{
 			1: {Priority: 4096, VLANs: []vlan.ID{10, 5000}},
 		},
 	}
@@ -365,7 +367,7 @@ func TestMSTValidateRejectsTheDigestCollisionVLAN(t *testing.T) {
 
 // TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries guards the seam
 // between the region configuration and the wire: Encode refuses to build an
-// MST BPDU whose version 3 length would not fit 16 bits, so a region that
+// MST bpdu.BPDU whose version 3 length would not fit 16 bits, so a region that
 // validates must not be able to reach that count.
 func TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries(t *testing.T) {
 	t.Parallel()
@@ -375,17 +377,17 @@ func TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries(t *testing.T) {
 		t.Fatalf("port.Builder.Build: %v", err)
 	}
 
-	// 4091 records is the most the version 3 length field can name; the MSTID
+	// 4091 records is the most the version 3 length field can name; the bpdu.MSTID
 	// space runs to 4094, so a region can ask for more than the wire allows.
-	instances := make(map[stp.MSTID]stp.Instance, 4092)
-	for id := stp.MSTID(1); id <= 4092; id++ {
+	instances := make(map[bpdu.MSTID]stp.Instance, 4092)
+	for id := bpdu.MSTID(1); id <= 4092; id++ {
 		instances[id] = stp.Instance{Priority: 4096}
 	}
 
 	m := stp.MST{Name: "region-1", Instances: instances}
 	err = m.Validate(tbl, nil)
 	if err == nil {
-		t.Fatal("Validate() = nil, want rejection of a region no BPDU can carry")
+		t.Fatal("Validate() = nil, want rejection of a region no bpdu.BPDU can carry")
 	}
 
 	if got := errs.Attributes(err)["field"]; got != "mst.instances" {
@@ -402,7 +404,7 @@ func TestMSTNormalizeDoesNotOverrideUnsetInstancePortPriority(t *testing.T) {
 	t.Parallel()
 
 	m := stp.MST{
-		Instances: map[stp.MSTID]stp.Instance{
+		Instances: map[bpdu.MSTID]stp.Instance{
 			1: {
 				Priority: 4096,
 				Ports:    map[string]stp.InstancePort{"1/1/1": {PathCost: 200_000}},
@@ -429,7 +431,7 @@ func TestMSTNormalizePreservesExplicitZeroInstancePriority(t *testing.T) {
 	t.Parallel()
 
 	m := stp.MST{
-		Instances: map[stp.MSTID]stp.Instance{
+		Instances: map[bpdu.MSTID]stp.Instance{
 			1: {Priority: 0, PriorityPresent: true},
 		},
 	}
@@ -443,14 +445,14 @@ func TestMSTNormalizePreservesExplicitZeroInstancePriority(t *testing.T) {
 	}
 }
 
-// TestMSTConfigIDDeterministicAcrossCalls guards ConfigID against map
+// TestMSTConfigIDDeterministicAcrossCalls guards bpdu.ConfigID against map
 // iteration order: two calls on the same configuration, with several
 // instances, must always produce the same digest.
 func TestMSTConfigIDDeterministicAcrossCalls(t *testing.T) {
 	t.Parallel()
 
 	m := stp.MST{
-		Instances: map[stp.MSTID]stp.Instance{
+		Instances: map[bpdu.MSTID]stp.Instance{
 			1: {VLANs: []vlan.ID{10, 11, 12}},
 			2: {VLANs: []vlan.ID{20, 21}},
 			3: {VLANs: []vlan.ID{30}},
@@ -461,7 +463,7 @@ func TestMSTConfigIDDeterministicAcrossCalls(t *testing.T) {
 	want := m.ConfigID().Digest
 	for i := 0; i < 20; i++ {
 		if got := m.ConfigID().Digest; got != want {
-			t.Fatalf("ConfigID().Digest on call %d = %x, want %x", i, got, want)
+			t.Fatalf("bpdu.ConfigID().Digest on call %d = %x, want %x", i, got, want)
 		}
 	}
 }
@@ -503,12 +505,12 @@ func TestMSTCanonicalIncludesInstances(t *testing.T) {
 	t.Parallel()
 
 	a := stp.MST{
-		Instances: map[stp.MSTID]stp.Instance{
+		Instances: map[bpdu.MSTID]stp.Instance{
 			1: {Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 100}}},
 		},
 	}
 	b := stp.MST{
-		Instances: map[stp.MSTID]stp.Instance{
+		Instances: map[bpdu.MSTID]stp.Instance{
 			1: {Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 200}}},
 		},
 	}

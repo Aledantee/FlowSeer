@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -24,10 +26,10 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
-func mustEncode(t *testing.T, b stp.BPDU, src netaddr.MAC) ethernet.Frame {
+func mustEncode(t *testing.T, b bpdu.BPDU, src netaddr.MAC) ethernet.Frame {
 	t.Helper()
 
-	frame, err := stp.Encode(b, src)
+	frame, err := bpdu.Encode(b, src)
 	if err != nil {
 		t.Fatalf("stp.Encode: %v", err)
 	}
@@ -144,17 +146,17 @@ func newRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[string]netadd
 	return fab, t0, macs
 }
 
-func roleMatches(protoRole stpv1.PortRole, layerRole stp.Role) bool {
+func roleMatches(protoRole stpv1.PortRole, layerRole bpdu.Role) bool {
 	switch layerRole {
-	case stp.RoleRoot:
+	case bpdu.RoleRoot:
 		return protoRole == stpv1.PortRole_PORT_ROLE_ROOT
-	case stp.RoleDesignated:
+	case bpdu.RoleDesignated:
 		return protoRole == stpv1.PortRole_PORT_ROLE_DESIGNATED
-	case stp.RoleAlternate:
+	case bpdu.RoleAlternate:
 		return protoRole == stpv1.PortRole_PORT_ROLE_ALTERNATE
-	case stp.RoleBackup:
+	case bpdu.RoleBackup:
 		return protoRole == stpv1.PortRole_PORT_ROLE_BACKUP
-	case stp.RoleDisabled:
+	case bpdu.RoleDisabled:
 		return protoRole == stpv1.PortRole_PORT_ROLE_DISABLED
 	default:
 		return protoRole == stpv1.PortRole_PORT_ROLE_UNSPECIFIED
@@ -304,12 +306,12 @@ func TestStpExport_MigratedPort(t *testing.T) {
 	sw.Wake(t0.Add(4 * time.Second))
 	sw.Drain()
 
-	inferiorBridgeID := stp.BridgeID{
+	inferiorBridgeID := bpdu.BridgeID{
 		Priority: 61440,
 		Address:  netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0c},
 	}
-	inferiorBPDU := stp.BPDU{
-		Type:         stp.BPDUTypeConfiguration,
+	inferiorBPDU := bpdu.BPDU{
+		Type:         bpdu.TypeConfiguration,
 		RootID:       inferiorBridgeID,
 		BridgeID:     inferiorBridgeID,
 		PortID:       0x8001,

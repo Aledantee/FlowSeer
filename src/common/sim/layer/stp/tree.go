@@ -3,6 +3,7 @@ package stp
 import (
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 )
 
@@ -37,9 +38,9 @@ type tree struct {
 	// the CIST's is the layer's own bridgeID; an MSTI can carry a different
 	// one, and so can the CIST in PVST mode, where it carries VLAN 1 in the
 	// system-ID extension.
-	bridgeID BridgeID
+	bridgeID bpdu.BridgeID
 
-	rootID       BridgeID
+	rootID       bpdu.BridgeID
 	rootPathCost uint32
 	rootPort     string
 
@@ -49,7 +50,7 @@ type tree struct {
 	// rootID and rootPathCost already carry the regional root and the cost to
 	// it (clause 13.11's MSTI vector has no external component to keep them
 	// apart from).
-	regionalRootID       BridgeID
+	regionalRootID       bpdu.BridgeID
 	internalRootPathCost uint32
 
 	helloTimer time.Time

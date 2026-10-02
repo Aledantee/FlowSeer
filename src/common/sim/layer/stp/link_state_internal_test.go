@@ -7,6 +7,8 @@ import (
 	"time"
 	"unsafe"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 )
@@ -91,7 +93,7 @@ var portStateFieldClasses = map[string]fieldSpec{
 	// resets when the CIST's port goes down.
 	"portID":                  {class: classTreeOwned},
 	"pathCostFixed":           {class: classTreeOwned},
-	"role":                    {class: classTreeOwned, linkDownClears: true, linkDownValue: RoleDisabled},
+	"role":                    {class: classTreeOwned, linkDownClears: true, linkDownValue: bpdu.RoleDisabled},
 	"state":                   {class: classTreeOwned, linkDownClears: true, linkDownValue: StateDiscarding},
 	"pvidInconsistent":        {class: classTreeOwned, linkDownClears: true, linkDownValue: false},
 	"proposing":               {class: classTreeOwned},
@@ -181,7 +183,7 @@ func syncTestLayer(t *testing.T) (l *Layer, cistP, mstP *portState) {
 		Ports:    map[string]Port{"p1": {PathCost: 100}},
 		MST: &MST{
 			Name: "region-1",
-			Instances: map[MSTID]Instance{
+			Instances: map[bpdu.MSTID]Instance{
 				1: {VLANs: []vlan.ID{10}},
 			},
 		},
@@ -232,8 +234,8 @@ func distinctValue(t *testing.T, typ reflect.Type, seed int) reflect.Value {
 	switch typ {
 	case reflect.TypeOf(time.Time{}):
 		return reflect.ValueOf(time.Unix(int64(1_700_000_000+seed), 0))
-	case reflect.TypeOf(BridgeID{}):
-		return reflect.ValueOf(BridgeID{
+	case reflect.TypeOf(bpdu.BridgeID{}):
+		return reflect.ValueOf(bpdu.BridgeID{
 			Priority: uint16(seed + 1),
 			Address:  netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, byte(seed + 1)},
 		})
@@ -446,22 +448,22 @@ func TestPortLinkedAgreesWithReceiveSSTPsOwnPortDownCheck(t *testing.T) {
 	// "p2" names no port at all: never configured. "p3" is configured but
 	// LinkChange is never called for it, so it stays down. "p1" is linked.
 
-	bpdu := BPDU{
+	b := bpdu.BPDU{
 		Version:      2,
-		Type:         BPDUTypeRapid,
-		RootID:       BridgeID{Priority: 4096, Address: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}},
-		BridgeID:     BridgeID{Priority: 4096, Address: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}},
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}},
 		PortID:       0x8001,
 		HelloTime:    2 * time.Second,
 		MaxAge:       20 * time.Second,
 		ForwardDelay: 15 * time.Second,
 	}
-	bpdu.SetRole(RoleDesignated)
+	b.SetRole(bpdu.RoleDesignated)
 
 	for _, port := range []string{"p1", "p2", "p3"} {
 		linked := l.PortLinked(port)
 
-		_, outcome := l.ReceiveSSTP(t0.Add(time.Second), port, SSTPArrival{ArrivalVID: 1, TLVVID: 1, Admitted: true}, bpdu)
+		_, outcome := l.ReceiveSSTP(t0.Add(time.Second), port, SSTPArrival{ArrivalVID: 1, TLVVID: 1, Admitted: true}, b)
 		down := outcome == SSTPPortDown
 
 		if linked == down {
@@ -471,18 +473,18 @@ func TestPortLinkedAgreesWithReceiveSSTPsOwnPortDownCheck(t *testing.T) {
 	}
 }
 
-// TestAnMSTIDoesNotElectThroughAGuardDisabledPort is evidence that once BPDU
+// TestAnMSTIDoesNotElectThroughAGuardDisabledPort is evidence that once bpdu.BPDU
 // guard fires on the CIST's copy of a port, an MSTI's own root election
 // excludes it too, even though the MSTI's own rcvInfoValid survives the
 // guard firing untouched (receiveLink clears rcvInfoValid on the CIST alone)
 // and would otherwise look like a live candidate until it ages out on its
 // own. Reaching that state through the public API alone is not possible: a
-// BPDU-guarded port's very first reception fires the guard before the frame
-// ever reaches an MSTI's own applyBPDU, so no BPDU can establish an MSTI's
+// bpdu.BPDU-guarded port's very first reception fires the guard before the frame
+// ever reaches an MSTI's own applyBPDU, so no bpdu.BPDU can establish an MSTI's
 // information on a guarded port in the first place. This test seeds the
 // MSTI's port state directly with the information a peer would have
 // delivered moments earlier, before the guard fired, and then drives the
-// guard-firing BPDU through the public Receive.
+// guard-firing bpdu.BPDU through the public Receive.
 func TestAnMSTIDoesNotElectThroughAGuardDisabledPort(t *testing.T) {
 	t0 := time.Unix(1_000_000, 0)
 
@@ -492,7 +494,7 @@ func TestAnMSTIDoesNotElectThroughAGuardDisabledPort(t *testing.T) {
 		Ports:    map[string]Port{"l1": {BPDUGuard: true}},
 		MST: &MST{
 			Name: "region-1",
-			Instances: map[MSTID]Instance{
+			Instances: map[bpdu.MSTID]Instance{
 				1: {VLANs: []vlan.ID{10}},
 			},
 		},
@@ -502,7 +504,7 @@ func TestAnMSTIDoesNotElectThroughAGuardDisabledPort(t *testing.T) {
 	l.LinkChange(t0, "l1", true, true, 1_000_000_000)
 
 	mstP := l.trees[treeID(1)].ports["l1"]
-	peer := BridgeID{Priority: 4096, Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0xee}}
+	peer := bpdu.BridgeID{Priority: 4096, Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0xee}}
 	mstP.rcvInfoValid = true
 	mstP.rcvRootID = peer
 	mstP.rcvBridgeID = peer
@@ -511,22 +513,22 @@ func TestAnMSTIDoesNotElectThroughAGuardDisabledPort(t *testing.T) {
 	mstP.rcvHelloTime = 2 * time.Second
 	mstP.rcvTime = t0
 
-	rogue := BPDU{
+	rogue := bpdu.BPDU{
 		Version:      2,
-		Type:         BPDUTypeRapid,
-		RootID:       BridgeID{Priority: 0, Address: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x99}},
-		BridgeID:     BridgeID{Priority: 0, Address: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x99}},
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 0, Address: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x99}},
+		BridgeID:     bpdu.BridgeID{Priority: 0, Address: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x99}},
 		PortID:       0x8001,
 		HelloTime:    2 * time.Second,
 		MaxAge:       20 * time.Second,
 		ForwardDelay: 15 * time.Second,
 	}
-	rogue.SetRole(RoleDesignated)
+	rogue.SetRole(bpdu.RoleDesignated)
 
 	l.Receive(t0.Add(time.Second), "l1", rogue)
 
 	if cistP := l.cist().ports["l1"]; !cistP.bpduGuardDisabled {
-		t.Fatal("test setup: BPDU guard did not fire on l1")
+		t.Fatal("test setup: bpdu.BPDU guard did not fire on l1")
 	}
 
 	mt := l.trees[treeID(1)]

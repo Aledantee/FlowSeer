@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -329,7 +331,7 @@ func TestLoopProtectWithRSTPDetectsNothing(t *testing.T) {
 	blocked := 0
 	for _, name := range []string{"1/1/1", "1/1/2"} {
 		info := snap.Devices["sw2"].Roles[name]
-		if info.State == stp.StateDiscarding && (info.Role == stp.RoleAlternate || info.Role == stp.RoleBackup) {
+		if info.State == stp.StateDiscarding && (info.Role == bpdu.RoleAlternate || info.Role == bpdu.RoleBackup) {
 			blocked++
 		}
 	}

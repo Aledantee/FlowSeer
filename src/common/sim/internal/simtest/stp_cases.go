@@ -5,6 +5,8 @@ import (
 	"slices"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -123,21 +125,21 @@ func stpCaseSuperiorBPDU(messageAge time.Duration) (ethernet.Frame, error) {
 // stpCaseBPDU encodes an RST BPDU from bridge `sender` claiming root 4096 at
 // `cost`, so a case can place one bridge's claim against another's.
 func stpCaseBPDU(sender uint16, cost uint32, messageAge time.Duration) (ethernet.Frame, error) {
-	b := stp.BPDU{
+	b := bpdu.BPDU{
 		Version:      2,
-		Type:         stp.BPDUTypeRapid,
-		RootID:       stp.BridgeID{Priority: 4096},
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096},
 		RootPathCost: cost,
-		BridgeID:     stp.BridgeID{Priority: sender},
+		BridgeID:     bpdu.BridgeID{Priority: sender},
 		PortID:       0x8001,
 		MessageAge:   messageAge,
 		MaxAge:       20 * time.Second,
 		HelloTime:    2 * time.Second,
 		ForwardDelay: 15 * time.Second,
 	}
-	b.SetRole(stp.RoleDesignated)
+	b.SetRole(bpdu.RoleDesignated)
 
-	return stp.Encode(b, netaddr.MAC{0x02, 0, 0, 0, 3, 0x01})
+	return bpdu.Encode(b, netaddr.MAC{0x02, 0, 0, 0, 3, 0x01})
 }
 
 // stpCaseDataFrame is an ordinary unicast frame aimed at the seeded target,
@@ -362,7 +364,7 @@ func stpMSTRegion(revision uint16) *stp.MST {
 	return &stp.MST{
 		Name:     "region-1",
 		Revision: revision,
-		Instances: map[stp.MSTID]stp.Instance{
+		Instances: map[bpdu.MSTID]stp.Instance{
 			1: {VLANs: []vlan.ID{10}},
 			2: {VLANs: []vlan.ID{20}},
 		},

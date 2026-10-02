@@ -260,7 +260,7 @@ classified its BPDUs per VLAN, which it does not.
 
 ### Emission
 
-Every tree sends its BPDU to `GroupAddressSSTP` naming its own VLAN through
+Every tree sends its BPDU to `bpdu.GroupAddressSSTP()` naming its own VLAN through
 `Emission.VID`; VLAN 1's tree sends a second, IEEE-addressed and naming no
 VLAN. The two are one transmission and spend one budget slot between them. The
 layer never builds a VLAN tag: a non-zero `Emission.VID` tells the switch to
@@ -268,8 +268,8 @@ put the frame through the port's ordinary egress rules, which is where the
 native-versus-tagged decision already lives.
 
 A port migrated to legacy STP sends VLAN 1's untagged IEEE Configuration BPDU
-alone, because SSTP has no legacy form: `EncodeSSTP` forces a version of at
-least 2 and `DecodeSSTP` refuses anything else, so a version-2 wrapper around
+alone, because SSTP has no legacy form: `bpdu.EncodeSSTP` forces a version of at
+least 2 and `bpdu.DecodeSSTP` refuses anything else, so a version-2 wrapper around
 a legacy BPDU would be a frame whose header contradicts its content. A
 non-CIST tree on such a port builds and meters nothing; VLAN 1's tree still
 builds its legacy Configuration BPDU but sends only the IEEE-addressed copy,
