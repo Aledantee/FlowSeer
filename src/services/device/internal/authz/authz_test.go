@@ -191,8 +191,8 @@ func (t *testAuthnInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFu
 			return next(ctx, req)
 		}
 		p := t.defaultPrincipal
-		if id := req.Header().Get("X-Test-Principal-ID"); id != "" {
-			p.ID = id
+		if vals := req.Header().Values("X-Test-Principal-ID"); len(vals) > 0 {
+			p.ID = vals[0]
 		}
 		if tenants := req.Header().Get("X-Test-Principal-Tenants"); tenants != "" {
 			p.Tenants = strings.Split(tenants, ",")
@@ -215,6 +215,9 @@ func (t *testAuthnInterceptor) WrapStreamingHandler(next connect.StreamingHandle
 			return next(ctx, conn)
 		}
 		p := t.defaultPrincipal
+		if vals := conn.RequestHeader().Values("X-Test-Principal-ID"); len(vals) > 0 {
+			p.ID = vals[0]
+		}
 		ctx = authn.NewContext(ctx, p)
 		return next(ctx, conn)
 	}
@@ -824,6 +827,35 @@ func TestNoPrincipalIsUnauthenticated(t *testing.T) {
 		}
 		if len(env.checker.Recorded()) != 0 {
 			t.Errorf("got %d queries, want 0", len(env.checker.Recorded()))
+		}
+	})
+
+	t.Run("principal with empty ID in context fails Unauthenticated", func(t *testing.T) {
+		env.checker.Reset()
+		req := validRequest(t, edgev1.GetEdgeRequest_builder{
+			Edge: edgeRef(t),
+		}.Build())
+		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+		req.Header().Set("X-Test-Principal-ID", "")
+
+		_, err := env.edgeCli.GetEdge(context.Background(), req)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if connect.CodeOf(err) != connect.CodeUnauthenticated {
+			t.Errorf("got code %v, want %v", connect.CodeOf(err), connect.CodeUnauthenticated)
+		}
+		if got := errCodeOf(t, err); got != authz.ErrCodeUnauthenticated.String() {
+			t.Errorf("got error code %q, want %q", got, authz.ErrCodeUnauthenticated)
+		}
+		if !strings.Contains(err.Error(), "authentication required") {
+			t.Errorf("got error message %q, want containing 'authentication required'", err.Error())
+		}
+		if len(env.checker.Recorded()) != 0 {
+			t.Errorf("got %d queries, want 0", len(env.checker.Recorded()))
+		}
+		if env.handlers.DidRun("GetEdge") {
+			t.Error("handler ran, want not run")
 		}
 	})
 }
@@ -2051,6 +2083,9 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 						if got := errCodeOf(t, out.callErr); got != authz.ErrCodeUnavailable.String() {
 							t.Errorf("call error code = %q, want %q", got, authz.ErrCodeUnavailable)
 						}
+						if got := retryDispositionOf(t, out.callErr); got != errsv1.RetryDisposition_RETRY_DISPOSITION_RETRYABLE {
+							t.Errorf("call retry disposition = %v, want retryable", got)
+						}
 					default:
 						if !out.handlerRan {
 							t.Error("handler did not run, want run")
@@ -2072,6 +2107,9 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 						}
 						if got := errCodeOf(t, out.callErr); got != authz.ErrCodeUnavailable.String() {
 							t.Errorf("call error code = %q, want %q", got, authz.ErrCodeUnavailable)
+						}
+						if got := retryDispositionOf(t, out.callErr); got != errsv1.RetryDisposition_RETRY_DISPOSITION_RETRYABLE {
+							t.Errorf("call retry disposition = %v, want retryable", got)
 						}
 					}
 				})
@@ -2423,32 +2461,66 @@ func TestPlatformRuleAuthorization(t *testing.T) {
 }
 
 func TestRequestRuleNoIDRefused(t *testing.T) {
-	env := setupTestEnv(t)
+	tests := []struct {
+		name string
+		req  *connect.Request[edgev1.GetEdgeRequest]
+	}{
+		{
+			name: "omitted edge field yields no id",
+			req:  connect.NewRequest(edgev1.GetEdgeRequest_builder{}.Build()),
+		},
+		{
+			name: "present edge field with empty id yields no id",
+			req: connect.NewRequest(edgev1.GetEdgeRequest_builder{
+				Edge: edgemodelv1.EdgeGlobalRef_builder{
+					Edge: edgemodelv1.EdgeLocalRef_builder{
+						Id: proto.String(""),
+					}.Build(),
+				}.Build(),
+			}.Build()),
+		},
+	}
 
-	// GetEdgeRequest deliberately omits the required edge field to test that
-	// a request rule whose path yields no id is refused.
-	req := connect.NewRequest(edgev1.GetEdgeRequest_builder{}.Build())
-	req.Header().Set("X-FlowSeer-Tenant", validTenantID)
-
-	_, err := env.edgeCli.GetEdge(context.Background(), req)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if connect.CodeOf(err) != connect.CodePermissionDenied {
-		t.Errorf("got code %v, want %v", connect.CodeOf(err), connect.CodePermissionDenied)
-	}
-	if got := errCodeOf(t, err); got != authz.ErrCodeNoObjectID.String() {
-		t.Errorf("got error code %q, want %q", got, authz.ErrCodeNoObjectID)
+	wantQuery := authz.Query{
+		Object:   "tenant:" + validTenantID,
+		Relation: "member",
+		User:     "user:" + testPrincipalID,
+		ContextualTuples: []authz.Tuple{
+			{
+				Object:   "tenant:" + validTenantID,
+				Relation: "claimed",
+				User:     "user:" + testPrincipalID,
+			},
+		},
 	}
 
-	recorded := env.checker.Recorded()
-	for _, q := range recorded {
-		if strings.HasPrefix(q.Object, "edge:") {
-			t.Errorf("unexpected object check on edge: %+v", q)
-		}
-	}
-	if env.handlers.DidRun("GetEdge") {
-		t.Error("handler ran, want not run")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			env := setupTestEnv(t)
+			tc.req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+
+			_, err := env.edgeCli.GetEdge(context.Background(), tc.req)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if connect.CodeOf(err) != connect.CodePermissionDenied {
+				t.Errorf("got code %v, want %v", connect.CodeOf(err), connect.CodePermissionDenied)
+			}
+			if got := errCodeOf(t, err); got != authz.ErrCodeNoObjectID.String() {
+				t.Errorf("got error code %q, want %q", got, authz.ErrCodeNoObjectID)
+			}
+
+			recorded := env.checker.Recorded()
+			if len(recorded) != 1 {
+				t.Fatalf("got %d queries, want 1: %+v", len(recorded), recorded)
+			}
+			if !queryEquals(recorded[0], wantQuery) {
+				t.Errorf("recorded query = %+v, want %+v", recorded[0], wantQuery)
+			}
+			if env.handlers.DidRun("GetEdge") {
+				t.Error("handler ran, want not run")
+			}
+		})
 	}
 }
 
@@ -2762,4 +2834,237 @@ func TestDirectObligationContextValidation(t *testing.T) {
 			t.Errorf("got error code %q, want %q", got, authz.ErrCodeObligationViolation)
 		}
 	})
+}
+
+func TestDeferredObligationDischarge(t *testing.T) {
+	type deferredMode struct {
+		name       string
+		relation   string
+		objectType string
+		call       func(t *testing.T, env *testEnv, handler func(ctx context.Context) error) (any, error)
+	}
+
+	modes := []deferredMode{
+		{
+			name:       "loaded",
+			relation:   "view",
+			objectType: "edge",
+			call: func(t *testing.T, env *testEnv, handler func(ctx context.Context) error) (any, error) {
+				env.setLoadedFn(func(ctx context.Context, _ *connect.Request[edgev1.GetEdgeRequest]) (*connect.Response[edgev1.GetEdgeResponse], error) {
+					if err := handler(ctx); err != nil {
+						return nil, err
+					}
+					return validResponse(t, edgev1.GetEdgeResponse_builder{
+						Edge: validEdgeRecord(t),
+					}.Build()), nil
+				})
+				req := validRequest(t, edgev1.GetEdgeRequest_builder{
+					Edge: edgeRef(t),
+				}.Build())
+				req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+				resp, err := env.loadedCli.CallUnary(context.Background(), req)
+				if err != nil {
+					return nil, err
+				}
+				return resp, nil
+			},
+		},
+		{
+			name:       "filtered",
+			relation:   "capture",
+			objectType: "edge",
+			call: func(t *testing.T, env *testEnv, handler func(ctx context.Context) error) (any, error) {
+				env.handlers.SetListCaptureFn(func(ctx context.Context, _ *connect.Request[capturev1.ListCaptureSessionsRequest]) (*connect.Response[capturev1.ListCaptureSessionsResponse], error) {
+					if err := handler(ctx); err != nil {
+						return nil, err
+					}
+					return validResponse(t, capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
+				})
+				req := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
+				req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+				resp, err := env.captureCli.ListCaptureSessions(context.Background(), req)
+				if err != nil {
+					return nil, err
+				}
+				return resp, nil
+			},
+		},
+	}
+
+	type checkKind int
+	const (
+		checkNone checkKind = iota
+		checkRequireAllowed
+		checkRequireDenied
+		checkFilterWithIDs
+		checkFilterNilIDs
+		checkFilterEmptyIDs
+	)
+
+	checkKinds := []struct {
+		name string
+		kind checkKind
+	}{
+		{name: "none", kind: checkNone},
+		{name: "Require allowed", kind: checkRequireAllowed},
+		{name: "Require denied", kind: checkRequireDenied},
+		{name: "Filter with ids", kind: checkFilterWithIDs},
+		{name: "Filter with nil ids", kind: checkFilterNilIDs},
+		{name: "Filter with empty non-nil ids", kind: checkFilterEmptyIDs},
+	}
+
+	type returnKind int
+	const (
+		returnResponse returnKind = iota
+		returnError
+	)
+
+	returnKinds := []struct {
+		name string
+		kind returnKind
+	}{
+		{name: "response", kind: returnResponse},
+		{name: "error", kind: returnError},
+	}
+
+	wantMembershipQuery := authz.Query{
+		Object:   "tenant:" + validTenantID,
+		Relation: "member",
+		User:     "user:" + testPrincipalID,
+		ContextualTuples: []authz.Tuple{
+			{
+				Object:   "tenant:" + validTenantID,
+				Relation: "claimed",
+				User:     "user:" + testPrincipalID,
+			},
+		},
+	}
+
+	handlerErr := connect.NewError(connect.CodeNotFound, errors.New("sentinel handler error"))
+
+	for _, mode := range modes {
+		t.Run(mode.name, func(t *testing.T) {
+			for _, tcCheck := range checkKinds {
+				t.Run(tcCheck.name, func(t *testing.T) {
+					for _, tcReturn := range returnKinds {
+						t.Run(tcReturn.name, func(t *testing.T) {
+							env := setupTestEnv(t)
+							if tcCheck.kind == checkRequireDenied {
+								env.checker.SetDeny(func(q authz.Query) bool {
+									return strings.HasPrefix(q.Object, mode.objectType+":")
+								})
+							}
+
+							var (
+								handlerRan bool
+								filterIDs  []string
+								filterErr  error
+								requireErr error
+							)
+
+							resp, err := mode.call(t, env, func(ctx context.Context) error {
+								handlerRan = true
+								switch tcCheck.kind {
+								case checkNone:
+									// No check performed.
+								case checkRequireAllowed, checkRequireDenied:
+									requireErr = authz.Require(ctx, mode.relation, mode.objectType, validEdgeID)
+								case checkFilterWithIDs:
+									filterIDs, filterErr = authz.Filter(ctx, mode.relation, mode.objectType, []string{validEdgeID})
+								case checkFilterNilIDs:
+									filterIDs, filterErr = authz.Filter(ctx, mode.relation, mode.objectType, nil)
+								case checkFilterEmptyIDs:
+									filterIDs, filterErr = authz.Filter(ctx, mode.relation, mode.objectType, []string{})
+								}
+
+								if tcReturn.kind == returnResponse {
+									return nil
+								}
+								if tcCheck.kind == checkRequireDenied && requireErr != nil {
+									return requireErr
+								}
+								return handlerErr
+							})
+
+							if !handlerRan {
+								t.Fatal("handler did not run")
+							}
+
+							if tcCheck.kind == checkRequireAllowed && requireErr != nil {
+								t.Fatalf("Require failed unexpectedly: %v", requireErr)
+							}
+							if tcCheck.kind == checkRequireDenied && requireErr == nil {
+								t.Fatal("expected Require to fail, got nil")
+							}
+							if tcCheck.kind == checkFilterWithIDs {
+								if filterErr != nil {
+									t.Fatalf("Filter failed unexpectedly: %v", filterErr)
+								}
+								if !slices.Equal(filterIDs, []string{validEdgeID}) {
+									t.Fatalf("Filter returned %v, want [%s]", filterIDs, validEdgeID)
+								}
+							}
+							if tcCheck.kind == checkFilterNilIDs || tcCheck.kind == checkFilterEmptyIDs {
+								if filterErr != nil {
+									t.Errorf("Filter returned error: %v, want nil", filterErr)
+								}
+								if filterIDs == nil || len(filterIDs) != 0 {
+									t.Errorf("Filter returned IDs %v, want empty non-nil slice", filterIDs)
+								}
+								recorded := env.checker.Recorded()
+								if len(recorded) != 1 {
+									t.Errorf("recorded %d queries, want 1", len(recorded))
+								} else if !queryEquals(recorded[0], wantMembershipQuery) {
+									t.Errorf("recorded query = %+v, want %+v", recorded[0], wantMembershipQuery)
+								}
+							}
+
+							wantViolation := (tcCheck.kind == checkNone) || (tcCheck.kind == checkRequireDenied && tcReturn.kind == returnResponse)
+							if wantViolation {
+								if resp != nil {
+									t.Errorf("got response %v, want nil", resp)
+								}
+								if err == nil {
+									t.Fatal("expected error, got nil")
+								}
+								if connect.CodeOf(err) != connect.CodeInternal {
+									t.Errorf("got code %v, want %v", connect.CodeOf(err), connect.CodeInternal)
+								}
+								if got := errCodeOf(t, err); got != authz.ErrCodeObligationViolation.String() {
+									t.Errorf("got error code %q, want %q", got, authz.ErrCodeObligationViolation)
+								}
+							} else {
+								switch tcReturn.kind {
+								case returnResponse:
+									if err != nil {
+										t.Fatalf("unexpected call error: %v", err)
+									}
+									if resp == nil {
+										t.Fatal("expected response, got nil")
+									}
+								case returnError:
+									if resp != nil {
+										t.Errorf("got response %v, want nil", resp)
+									}
+									if err == nil {
+										t.Fatal("expected error, got nil")
+									}
+									wantCode := connect.CodeNotFound
+									if tcCheck.kind == checkRequireDenied {
+										wantCode = connect.CodePermissionDenied
+										if got := errCodeOf(t, err); got != authz.ErrCodeDenied.String() {
+											t.Errorf("got error code %q, want %q", got, authz.ErrCodeDenied)
+										}
+									}
+									if connect.CodeOf(err) != wantCode {
+										t.Errorf("got code %v, want %v", connect.CodeOf(err), wantCode)
+									}
+								}
+							}
+						})
+					}
+				})
+			}
+		})
+	}
 }
