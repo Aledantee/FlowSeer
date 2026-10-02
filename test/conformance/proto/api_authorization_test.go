@@ -249,6 +249,15 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 				{
 					Name: proto.String("PrecedingService"),
 					Method: []*descriptorpb.MethodDescriptorProto{
+						syntheticMethod("PrecedingMethod",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							compliantRule),
+					},
+				},
+				{
+					Name: proto.String("MiddleService"),
+					Method: []*descriptorpb.MethodDescriptorProto{
 						syntheticMethod("FirstMethod",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
@@ -263,6 +272,10 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 					Name: proto.String("TestService"),
 					Method: []*descriptorpb.MethodDescriptorProto{
 						syntheticMethod("RuledMethod",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							compliantRule),
+						syntheticMethod("SecondRuledMethod",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
@@ -295,6 +308,14 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
+						syntheticMethod("AlphaThree",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							compliantRule),
+						syntheticMethod("AlphaFour",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							compliantRule),
 					},
 				},
 				{
@@ -308,6 +329,38 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
+						syntheticMethod("BetaThree",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							compliantRule),
+						syntheticMethod("BetaFour",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							compliantRule),
+						syntheticMethod("BetaFive",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							compliantRule),
+					},
+				},
+			},
+		})
+
+		siblingFile := newSyntheticFileDescriptor(t, &descriptorpb.FileDescriptorProto{
+			Name:    proto.String("flowseer/apix/v1/sibling.proto"),
+			Package: proto.String("flowseer.apix.v1"),
+			Syntax:  proto.String("proto3"),
+			Dependency: []string{
+				"flowseer/api/edge/v1/edge_admin_service.proto",
+			},
+			Service: []*descriptorpb.ServiceDescriptorProto{
+				{
+					Name: proto.String("SiblingService"),
+					Method: []*descriptorpb.MethodDescriptorProto{
+						syntheticMethod("SiblingMethod",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							nil),
 					},
 				},
 			},
@@ -340,19 +393,29 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 		if err := files.RegisterFile(apiFile2); err != nil {
 			t.Fatalf("register apiFile2: %v", err)
 		}
+		if err := files.RegisterFile(siblingFile); err != nil {
+			t.Fatalf("register siblingFile: %v", err)
+		}
 		if err := files.RegisterFile(otherFile); err != nil {
 			t.Fatalf("register otherFile: %v", err)
 		}
 
 		wantVisited := []string{
+			"flowseer.api.sample.v1.AlphaService.AlphaFour",
 			"flowseer.api.sample.v1.AlphaService.AlphaOne",
+			"flowseer.api.sample.v1.AlphaService.AlphaThree",
 			"flowseer.api.sample.v1.AlphaService.AlphaTwo",
+			"flowseer.api.sample.v1.BetaService.BetaFive",
+			"flowseer.api.sample.v1.BetaService.BetaFour",
 			"flowseer.api.sample.v1.BetaService.BetaOne",
+			"flowseer.api.sample.v1.BetaService.BetaThree",
 			"flowseer.api.sample.v1.BetaService.BetaTwo",
-			"flowseer.api.test.v1.PrecedingService.FirstMethod",
-			"flowseer.api.test.v1.PrecedingService.SecondMethod",
+			"flowseer.api.test.v1.MiddleService.FirstMethod",
+			"flowseer.api.test.v1.MiddleService.SecondMethod",
+			"flowseer.api.test.v1.PrecedingService.PrecedingMethod",
 			"flowseer.api.test.v1.TestService.Ping",
 			"flowseer.api.test.v1.TestService.RuledMethod",
+			"flowseer.api.test.v1.TestService.SecondRuledMethod",
 		}
 		slices.Sort(wantVisited)
 
