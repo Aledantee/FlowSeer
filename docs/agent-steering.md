@@ -364,6 +364,15 @@ later reviewer can read, and the coordinator or `review` runs the
 mutation itself for any new test whose commit lacks one. A quoted failure
 can be checked by the next reader; "I watched it fail" cannot.
 
+Have the reviewer run a mutation of its own for every behavior change.
+The author's mutation shows the test catches the fault the author had in
+mind, which is the fault the author already guarded against. Meta's
+mutation-guided test generation (Foster et al. 2025,
+https://arxiv.org/abs/2501.12862) aims tests at faults the existing suite
+does not detect and reports engineers accepting 73% of the tests it
+produced. So `review`'s own reading picks one fault per behavior change
+and runs it, a quoted `--- FAIL` in the commit or not.
+
 Hand the class across the seam, and judge the remedy. A rule held inside
 one step gets lost at the handoff to the next. A fix briefed with the
 instance misses the class the review named. A verified finding can carry
@@ -377,6 +386,20 @@ subject is the new invariant, and a brief quotes plan requirements as not
 the worker's to restate. A ruling in `implement` is provisional until its
 unit lands, for the same reason: a comment written from a ruling that is
 later falsified cites it as though it were the source.
+
+Give every fix-loop round a reviewer that has not seen the findings, and
+record `accept after fixes` only once the fixes exist. A model checking
+work against its own earlier judgment rarely corrects it and sometimes
+makes it worse (Huang et al. 2023, "Large Language Models Cannot
+Self-Correct Reasoning Yet", https://arxiv.org/abs/2310.01798), and a
+survey of self-correction finds it works with reliable external feedback
+and not with feedback from a prompted model (Kamoi et al. 2024,
+https://arxiv.org/abs/2406.01297). A reviewer briefed with the previous
+findings judges each fix against them, so `fix-loop.md` adds a required
+"New findings" section to that brief and runs one more reviewer over the
+changed paths without them. A verdict written before the fixes reads as
+passing to `land`, `drive`, and `next`, so a review that wants fixes
+records `fixes needed`, which none of them accepts.
 
 Split large plans into phases and carry progress in a ledger, not in the
 conversation. Long-horizon coding degrades measurably: SWE-Bench Pro
@@ -565,6 +588,14 @@ more than none. `plan` therefore ends with an implementer's read and an
 independent review, and `implement` re-reads each unit before starting it.
 Units carry an `After` line so that `implement` can run independent units
 in parallel without guessing.
+
+Send every plan with more than one unit, and every schema change, to an
+independent reviewer. The planner's own three reads are self-review, which
+rarely catches the planner's own mistakes without outside feedback (Huang
+et al. 2023, https://arxiv.org/abs/2310.01798, and Kamoi et al. 2024,
+https://arxiv.org/abs/2406.01297). Two units already carry an `After` edge
+and a split of files that a fresh reader can find wrong, and a reviewer run
+costs less than an implement pass built on that mistake.
 
 Log process corrections in one place, apply them on request. Task Observer,
 a widely used meta-skill, keeps an observation log of corrections and skill
