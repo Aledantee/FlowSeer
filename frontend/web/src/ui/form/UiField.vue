@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, provide, useId } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 export interface UiFieldProps {
   id?: string
@@ -7,6 +8,7 @@ export interface UiFieldProps {
   description?: string
   error?: string
   required?: boolean
+  requiredMark?: string
 }
 
 const props = withDefaults(defineProps<UiFieldProps>(), {
@@ -15,7 +17,14 @@ const props = withDefaults(defineProps<UiFieldProps>(), {
   description: undefined,
   error: undefined,
   required: false,
+  requiredMark: undefined,
 })
+
+const { t } = useI18n({ useScope: 'global' })
+
+const resolvedRequiredMark = computed(
+  () => props.requiredMark ?? t('ui.field.requiredMark'),
+)
 
 const autoId = useId()
 const fieldId = computed(() => props.id || autoId)
@@ -50,7 +59,7 @@ provide('ui-field-context', {
         v-if="required"
         class="text-danger-foreground ml-0.5"
         aria-hidden="true"
-        >*</span
+        >{{ resolvedRequiredMark }}</span
       >
     </label>
     <slot
