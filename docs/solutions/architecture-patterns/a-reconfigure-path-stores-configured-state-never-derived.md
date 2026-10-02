@@ -3,9 +3,9 @@ title: A Reconfigure Path Stores Configured State, Never Derived Operational Sta
 date: 2026-09-28
 last_verified: 2026-09-28
 category: architecture-patterns
-module: src/common/netsim/fabric
+module: src/common/sim/fabric
 problem_type: bug
-component: netsim
+component: sim
 severity: high
 symptoms:
   - "A no-op in-run reconfiguration mutates the fabric Spec"
@@ -48,20 +48,20 @@ Two defects followed:
 - Active switch execution requires cable-derived operational states.
   `vswitch.Derive` takes `targetSpec` with `rebuiltPorts` so protocol timers,
   spanning tree states, and forwarding decisions observe physical link state
-  (`src/common/netsim/fabric/configure.go:72-78`).
+  (`src/common/sim/fabric/configure.go:72-78`).
 - Stored configuration requires the caller's declared ports.
   `f.cfg.Switches[node]` must store `normSpec.Switches[node].Config.Ports`
-  (`src/common/netsim/fabric/configure.go:88-91`), mirroring how `fabric.Derive`
+  (`src/common/sim/fabric/configure.go:88-91`), mirroring how `fabric.Derive`
   restores `next.cfg.Switches[name].Ports`
-  (`src/common/netsim/fabric/derive.go:40-42`).
+  (`src/common/sim/fabric/derive.go:40-42`).
 - Analysis and lint passes judge the gap between intent and reality.
   `Metadata()` detects misconfigurations by comparing `p.OperStatus` from
   `f.cfg` against `derived.Oper` from `f.derivedEnd(ep)`
-  (`src/common/netsim/fabric/fabric.go:989-997`). If `f.cfg` absorbs derived
+  (`src/common/sim/fabric/fabric.go:989-997`). If `f.cfg` absorbs derived
   states, this detection fails silently.
 - Reconfiguration must be idempotent. Calling `Configure(node, fab.Config().Switches[node])`
   must leave `fab.Spec()` identical to its initial value
-  (`src/common/netsim/fabric/fabric.go:282-286`).
+  (`src/common/sim/fabric/fabric.go:282-286`).
 
 ## How to apply
 
@@ -86,14 +86,14 @@ f.cfg.Switches[node] = derivedCfg
 
 ## Evidence
 
-- `src/common/netsim/fabric/configure.go:88-91`: `Configure` stores
+- `src/common/sim/fabric/configure.go:88-91`: `Configure` stores
   `normSpec.Switches[node].Config.Ports` into `f.cfg.Switches[node]`.
-- `src/common/netsim/fabric/derive.go:40-42`: `fabric.Derive` preserves
+- `src/common/sim/fabric/derive.go:40-42`: `fabric.Derive` preserves
   `next.cfg.Switches[name].Ports` across switch derivation.
-- `src/common/netsim/fabric/fabric.go:989-997`: `Metadata()` flags
+- `src/common/sim/fabric/fabric.go:989-997`: `Metadata()` flags
   `IssueOperStatusConflict` when configured `p.OperStatus` differs from
   `derived.Oper`.
-- `src/common/netsim/fabric/configure_test.go:430-465`:
+- `src/common/sim/fabric/configure_test.go:430-465`:
   `TestConfigureNoOpKeepsConfiguredOperStatus` configures a port `Down` over a
   healthy cable, runs a no-op `Configure`, and asserts that the
   `IssueOperStatusConflict` remains present and `Spec()` is equal.

@@ -89,8 +89,8 @@ no remote. The Claude worktree hook defaults to the sibling
   or skill of the same kind (compound-engineering's `ce-work` or
   `ce-code-review`, for example); an external one is for work no project
   skill covers.
-- Auto-memory is personal and fallible; promote durable team facts per
-  `docs/agent-knowledge.md`.
+- Auto-memory is off. Record a durable fact in the repository, in the place
+  `docs/agent-knowledge.md` names for it.
 - FlowSeer is still building its building blocks and nothing external consumes
   them. Make a breaking change whenever it improves the overall design, in
   schemas, Go APIs, and service contracts alike. Do not add a compatibility

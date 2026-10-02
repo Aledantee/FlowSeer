@@ -1,7 +1,7 @@
 ---
 title: Network Simulation Prior Art Research
 date: 2026-09-10
-scope: src/common/netsim
+scope: src/common/sim
 confidence: medium-high
 ---
 
@@ -74,7 +74,7 @@ translation is unsupported
 parses vendor configs and runs on a JVM, which the shadow record already
 weighed.
 
-FlowSeer's bounded differential search package (`src/common/netsim/search`)
+FlowSeer's bounded differential search package (`src/common/sim/search`)
 adopts Batfish's `differentialReachability` question for change validation,
 evaluating whether prospective changes introduce behavioral divergence. Unlike
 Batfish, FlowSeer applies exact IEEE 802.1Q bridging, FDB learning, and STP
@@ -211,7 +211,7 @@ All three confirm the rules; none is a library FlowSeer could import.
    the plan's seeds and the expected state's inheritance rule.
 6. **Differential shape from Batfish.** A comparison carries the current
    and the expected trace side by side and a `Same` verdict. Bounded
-   differential search (`src/common/netsim/search`) enumerates finite L2
+   differential search (`src/common/sim/search`) enumerates finite L2
    traffic domains and timed faults, pairing divergence detection with
    deterministic counterexample minimization and causal trace alignment.
 7. **One `c-vlan` component now, components and FIDs later.** The 802.1Q

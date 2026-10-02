@@ -26,3 +26,18 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-10-02 delegate: pool usage unread when Orca is not installed
+Skill or agent: `.claude/skills/delegate/scripts/pool-usage.sh`, read by
+`delegate` "Dispatch by quota" and `drive` step 1.
+What happened: on a host without the `orca` binary, the `claude` and
+`codex` rows came back `signed_in: null`, `windows: null`, `error: orca
+not installed`, although both CLIs were installed. The script falls back
+to each CLI's own token only when Orca runs and has no account for the
+pool (`pool-usage.sh:6`), not when Orca is absent. The step was followed
+as written, so the drive dispatched on unknown headroom at one slot.
+Suggested change: when `orca` is missing or unreachable, read the
+`claude` and `codex` windows through the native CLI fallback the script
+already has, and state in `references/pool-rows.md` that `orca not
+installed` triggers it. How each CLI exposes its windows is unverified
+and is the first thing to check.

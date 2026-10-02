@@ -2,7 +2,7 @@
 title: A Reflection Perturbation Gate Must Copy Unexported-Field Structs Whole and Assert the Change It Induced
 date: 2026-09-18
 category: conventions
-module: src/common/netsim/internal/netsimtest
+module: src/common/sim/internal/simtest
 problem_type: convention
 component: coverage-gate
 severity: high
@@ -27,7 +27,7 @@ including one whose `Diff` arm was genuinely absent.
 `reflect` cannot set an unexported field, so a deep copy that rebuilds a struct
 field by field skips them and returns the type with those fields zeroed.
 `vswitch.Config.Ports` is a `port.Table` whose only fields are unexported
-(`src/common/netsim/vswitch/port/port.go:196`):
+(`src/common/sim/port/port.go:196`):
 
 ```go
 type Table struct {
@@ -42,7 +42,7 @@ So the perturbed copy carried an empty port table, `vswitch.Diff` called
 perturbed.
 
 **Asserting "some change fired" masks a missing arm.** `checkLeaf` asserted only
-`len(changes) == 0` fails (`src/common/netsim/internal/netsimtest/diffcoverage.go:493`).
+`len(changes) == 0` fails (`src/common/sim/internal/simtest/diffcoverage.go:493`).
 With the spurious port delta always present, every leaf passed — including
 `.MAC`, whose arm `vswitch.Diff` did not have. The gate that exists to catch a
 missing arm could not catch one.
@@ -53,7 +53,7 @@ Copy a struct that has any unexported field *whole*, then re-copy each exported
 field for its own storage, because the walk still descends into exported fields
 and an aliased exported pointer, slice, or map would be mutated through when a
 leaf beneath it is perturbed
-(`src/common/netsim/internal/netsimtest/diffcoverage.go:260`):
+(`src/common/sim/internal/simtest/diffcoverage.go:260`):
 
 ```go
 if hasUnexportedField(t) {
@@ -68,7 +68,7 @@ if hasUnexportedField(t) {
 ```
 
 Then prove the gate can still fail: `TestCheckLeafFailsForAVswitchLeafWithNoDiffArm`
-(`src/common/netsim/internal/netsimtest/diffcoverage_test.go:71`) runs the real
+(`src/common/sim/internal/simtest/diffcoverage_test.go:71`) runs the real
 `vswitch.Diff` with its `mac` arm removed and asserts `checkLeaf(.MAC, …)`
 returns an error. It fails against the pre-fix copy (the spurious delta made it
 pass) and passes with the fix. A perturbation gate lands with a case that fails

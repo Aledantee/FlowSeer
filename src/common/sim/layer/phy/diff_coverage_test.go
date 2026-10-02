@@ -1,0 +1,50 @@
+package phy_test
+
+import (
+	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+)
+
+// TestDiffCoversEveryConfigField verifies that every exported phy.Config field reaches
+// phy.Diff.
+func TestDiffCoversEveryConfigField(t *testing.T) {
+	limit := uint64(5_000_000_000)
+	pdClass := uint8(4)
+	seed := phy.Config{
+		Ethernet: map[string]phy.Ethernet{
+			"1/1/1": {
+				SupportedSpeedsBPS:       []uint64{1_000_000_000},
+				AutoNegotiationSupported: phy.CapabilitySupported,
+				Setting: &phy.Setting{
+					SpeedBPS:        1_000_000_000,
+					Duplex:          phy.Full,
+					AutoNegotiation: true,
+				},
+				Observed: &phy.Observed{
+					SpeedBPS: 1_000_000_000,
+					Duplex:   phy.Full,
+				},
+			},
+		},
+		PoE: &phy.PoE{
+			Groups: map[string]phy.Group{
+				"g1": {PowerNanowatts: 370_000_000_000},
+			},
+			Ports: map[string]phy.PsePort{
+				"1/1/1": {
+					Group:    "g1",
+					MaxClass: 4,
+					Enabled:  true,
+					Limit:    &limit,
+					Priority: phy.PriorityHigh,
+					PD:       phy.PDAttached,
+					PDClass:  &pdClass,
+				},
+			},
+		},
+	}
+
+	simtest.AssertDiffCoversConfig(t, seed, phy.Config.Normalize, phy.Diff, nil)
+}

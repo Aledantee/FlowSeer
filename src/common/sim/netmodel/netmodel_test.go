@@ -1,0 +1,1679 @@
+package netmodel_test
+
+import (
+	"net/netip"
+	"slices"
+	"testing"
+	"time"
+
+	"buf.build/go/protovalidate"
+
+	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
+	filterv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/filter/v1"
+	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
+	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
+	packetv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1"
+	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
+	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
+)
+
+var testTime = time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
+
+// A LAG forwards as one port: lag1 with members 1/1/5 and 1/1/6, VLAN 10
+// tagged; a frame ingressing 1/1/6 traces ingress port lag1, a flood in VLAN
+// 10 from 1/1/1 lists one egress lag1 on member 1/1/5, and a member's own
+// switchport facet loads as skipped.
+func TestLagForwardingAndSkippedFacet(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	vid10 := uint32(10)
+	frameAdmAll := switchingv1.FrameAdmission_FRAME_ADMISSION_ALL
+	ingressFiltFalse := false
+	lagParent := "lag1"
+
+	p1Name := "1/1/1"
+	p1 := interfacev1.Interface_builder{
+		Name:        &p1Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Switchport: switchingv1.SwitchportFacet_builder{
+				TaggedVlanIds:    []uint32{vid10},
+				FrameAdmission:   &frameAdmAll,
+				IngressFiltering: &ingressFiltFalse,
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	lagName := "lag1"
+	lag := interfacev1.Interface_builder{
+		Name:        &lagName,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Lag: interfacev1.LagInterface_builder{
+			Switchport: switchingv1.SwitchportFacet_builder{
+				TaggedVlanIds:    []uint32{vid10},
+				FrameAdmission:   &frameAdmAll,
+				IngressFiltering: &ingressFiltFalse,
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	p5Name := "1/1/5"
+	p5 := interfacev1.Interface_builder{
+		Name:        &p5Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Physical: interfacev1.PhysicalInterface_builder{
+			LagParentInterfaceName: &lagParent,
+		}.Build(),
+	}.Build()
+
+	p6Name := "1/1/6"
+	p6 := interfacev1.Interface_builder{
+		Name:        &p6Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Physical: interfacev1.PhysicalInterface_builder{
+			LagParentInterfaceName: &lagParent,
+			Switchport: switchingv1.SwitchportFacet_builder{
+				TaggedVlanIds:    []uint32{vid10},
+				FrameAdmission:   &frameAdmAll,
+				IngressFiltering: &ingressFiltFalse,
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	ifaces := []*interfacev1.Interface{p1, lag, p5, p6}
+	for _, iface := range ifaces {
+		if err := protovalidate.Validate(iface); err != nil {
+			t.Fatalf("interface validation failed: %v", err)
+		}
+	}
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("netmodel.Load failed: %v", err)
+	}
+	cfg := res.Spec.Config
+	report := res.Report
+
+	// Member's switchport facet must be reported as skipped.
+	foundSkipped := false
+	for _, s := range report.Skipped {
+		if s.Port == "1/1/6" && s.What == "switchport" {
+			foundSkipped = true
+			break
+		}
+	}
+	if !foundSkipped {
+		t.Errorf("got skips %+v, want 1/1/6 switchport skipped", report.Skipped)
+	}
+
+	sw, err := vswitch.New(cfg)
+	if err != nil {
+		t.Fatalf("vswitch.New: %v", err)
+	}
+
+	// Ingress on member 1/1/6 traces ingress port lag1.
+	tag10 := vlan.Tag{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}
+	ingressFrame := ethernet.Frame{
+		Dst:     netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+		Src:     netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
+		Tags:    []vlan.Tag{tag10},
+		Payload: []byte("test payload"),
+	}
+	resIngress := sw.Forward(testTime, "1/1/6", ingressFrame)
+	if resIngress.Ingress != "lag1" {
+		t.Errorf("ingress port = %q, want %q", resIngress.Ingress, "lag1")
+	}
+
+	// Flood in VLAN 10 from 1/1/1 lists one egress lag1 on member 1/1/5.
+	floodFrame := ethernet.Frame{
+		Dst:     netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+		Src:     netaddr.MAC{0x00, 0x11, 0x11, 0x11, 0x11, 0x11},
+		Tags:    []vlan.Tag{tag10},
+		Payload: []byte("flood payload"),
+	}
+	resFlood := sw.Forward(testTime, "1/1/1", floodFrame)
+	if len(resFlood.Egress) != 1 {
+		t.Fatalf("flood egress count = %d, want 1", len(resFlood.Egress))
+	}
+	eg := resFlood.Egress[0]
+	if eg.Port != "lag1" {
+		t.Errorf("egress port = %q, want %q", eg.Port, "lag1")
+	}
+	if eg.Member != "1/1/5" {
+		t.Errorf("egress member = %q, want %q", eg.Member, "1/1/5")
+	}
+}
+
+// Loading infers capabilities and reports every assumption: interfaces with
+// switchport facets and no Ethernet facet load with {relay, vlan} and the
+// report says so; a SwitchportFacet with untagged_vlan_ids [30], no pvid, and
+// no frame_admission loads as PVID 30, admission ALL, both listed as defaults
+// by port name; a wanted set of {relay} drops every switchport facet and lists
+// each as skipped.
+func TestInferCapabilitiesAndReportDefaults(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+
+	p1Name := "1/1/1"
+	p1 := interfacev1.Interface_builder{
+		Name:        &p1Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Switchport: switchingv1.SwitchportFacet_builder{
+				UntaggedVlanIds: []uint32{30},
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	p2Name := "1/1/2"
+	p2 := interfacev1.Interface_builder{
+		Name:        &p2Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Switchport: switchingv1.SwitchportFacet_builder{
+				UntaggedVlanIds: []uint32{30},
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	ifaces := []*interfacev1.Interface{p1, p2}
+	for _, iface := range ifaces {
+		if err := protovalidate.Validate(iface); err != nil {
+			t.Fatalf("interface validation failed: %v", err)
+		}
+	}
+
+	// Part 1: Infer {relay, vlan} and report defaults.
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("netmodel.Load failed: %v", err)
+	}
+	cfg := res.Spec.Config
+	report := res.Report
+
+	wantCaps := []port.Layer{port.LayerRelay, port.LayerVLAN}
+	if !slices.Equal(report.Capabilities, wantCaps) {
+		t.Errorf("capabilities = %v, want %v", report.Capabilities, wantCaps)
+	}
+	if report.CapabilitySources[port.LayerRelay] != "always" {
+		t.Errorf("relay source = %q, want always", report.CapabilitySources[port.LayerRelay])
+	}
+	if report.CapabilitySources[port.LayerVLAN] != "inferred:switchport" {
+		t.Errorf("vlan source = %q, want inferred:switchport", report.CapabilitySources[port.LayerVLAN])
+	}
+
+	// Verify PVID 30 and admission ALL in config.
+	sw1 := cfg.Bridge.VLAN.Switchports["1/1/1"]
+	if sw1.PVID == nil || *sw1.PVID != 30 {
+		t.Errorf("sw1 PVID = %v, want 30", sw1.PVID)
+	}
+	if sw1.Admission != "All" {
+		t.Errorf("sw1 Admission = %v, want All", sw1.Admission)
+	}
+
+	// Verify defaults listed by port name in report.
+	hasPvidDefault := false
+	hasAdmDefault := false
+	for _, d := range report.Defaults {
+		if d.Port == "1/1/1" && d.Field == "pvid" && d.Value == "30" {
+			hasPvidDefault = true
+		}
+		if d.Port == "1/1/1" && d.Field == "frame_admission" && d.Value == "ALL" {
+			hasAdmDefault = true
+		}
+	}
+	if !hasPvidDefault {
+		t.Errorf("defaults missing pvid:30 for 1/1/1: %+v", report.Defaults)
+	}
+	if !hasAdmDefault {
+		t.Errorf("defaults missing frame_admission:ALL for 1/1/1: %+v", report.Defaults)
+	}
+
+	// Part 2: Wanted set of {relay} drops every switchport facet and lists each as skipped.
+	resRelayOnly, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerRelay})
+	if err != nil {
+		t.Fatalf("netmodel.Load with relay failed: %v", err)
+	}
+	cfgRelayOnly := resRelayOnly.Spec.Config
+	reportRelayOnly := resRelayOnly.Report
+	if cfgRelayOnly.Bridge.VLAN != nil {
+		t.Errorf("expected VLAN configuration to be nil when only relay is wanted")
+	}
+	skippedP1 := false
+	skippedP2 := false
+	for _, s := range reportRelayOnly.Skipped {
+		if s.Port == "1/1/1" && s.What == "switchport" {
+			skippedP1 = true
+		}
+		if s.Port == "1/1/2" && s.What == "switchport" {
+			skippedP2 = true
+		}
+	}
+	if !skippedP1 || !skippedP2 {
+		t.Errorf("got skips %+v, want both switchport facets skipped", reportRelayOnly.Skipped)
+	}
+}
+
+// The FDB and PoE state export as net/switching and net/phy rows: one learned
+// entry becomes one FdbEntry (vlan_id 10, that MAC, interface_name 1/1/1,
+// DYNAMIC, ACTIVE); an allocation becomes a PseBudget per group and a PoeFacet
+// per port with allocated_power_nanowatts; every message passes protovalidate.
+func TestFdbAndPoeExport(t *testing.T) {
+	// An untagged frame on a port with PVID 10 learns its source under VLAN 10.
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	pvid10 := uint32(10)
+	frameAdmAll := switchingv1.FrameAdmission_FRAME_ADMISSION_ALL
+	ingressFiltFalse := false
+
+	p1Name := "1/1/1"
+	p1 := interfacev1.Interface_builder{
+		Name:        &p1Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Switchport: switchingv1.SwitchportFacet_builder{
+				Pvid:             &pvid10,
+				UntaggedVlanIds:  []uint32{10},
+				FrameAdmission:   &frameAdmAll,
+				IngressFiltering: &ingressFiltFalse,
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	p2Name := "1/1/2"
+	p2 := interfacev1.Interface_builder{
+		Name:        &p2Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Switchport: switchingv1.SwitchportFacet_builder{
+				Pvid:             &pvid10,
+				UntaggedVlanIds:  []uint32{10},
+				FrameAdmission:   &frameAdmAll,
+				IngressFiltering: &ingressFiltFalse,
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	vid10 := uint32(10)
+	vname10 := "vlan10"
+	vlans := []*switchingv1.Vlan{
+		switchingv1.Vlan_builder{NetworkInstance: ptr("default"), Id: &vid10, Name: &vname10}.Build(),
+	}
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, vlans, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("netmodel.Load failed: %v", err)
+	}
+	cfg := res.Spec.Config
+
+	sw, err := vswitch.New(cfg)
+	if err != nil {
+		t.Fatalf("vswitch.New: %v", err)
+	}
+
+	srcMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	frame := ethernet.Frame{
+		Dst:     netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
+		Src:     srcMAC,
+		Payload: []byte("untagged packet"),
+	}
+	sw.Forward(testTime, "1/1/1", frame)
+
+	entries := sw.Entries()
+	fdbExport, err := netmodel.FdbEntries(entries)
+	if err != nil {
+		t.Fatalf("FdbEntries: %v", err)
+	}
+	if len(fdbExport) != 1 {
+		t.Fatalf("exported FDB entry count = %d, want 1", len(fdbExport))
+	}
+	fe := fdbExport[0]
+	if err := protovalidate.Validate(fe); err != nil {
+		t.Fatalf("FdbEntry protovalidate failed: %v", err)
+	}
+
+	if fe.GetVlanId() != 10 {
+		t.Errorf("FdbEntry vlan_id = %d, want 10", fe.GetVlanId())
+	}
+	if fe.GetInterfaceName() != "1/1/1" {
+		t.Errorf("FdbEntry interface_name = %q, want %q", fe.GetInterfaceName(), "1/1/1")
+	}
+	if fe.GetKind() != switchingv1.FdbEntryKind_FDB_ENTRY_KIND_DYNAMIC {
+		t.Errorf("FdbEntry kind = %v, want DYNAMIC", fe.GetKind())
+	}
+	if fe.GetStatus() != switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE {
+		t.Errorf("FdbEntry status = %v, want ACTIVE", fe.GetStatus())
+	}
+	if !slices.Equal(fe.GetMac().GetOctets(), srcMAC[:]) {
+		t.Errorf("FdbEntry MAC = %x, want %x", fe.GetMac().GetOctets(), srcMAC)
+	}
+
+	// Group 1 with 60 W and three class-4 ports at critical, high, low
+	// allocates two and denies one with budget.
+	phyCfg := phy.Config{
+		PoE: &phy.PoE{
+			Groups: map[string]phy.Group{
+				"1": {PowerNanowatts: 60_000_000_000},
+			},
+			Ports: map[string]phy.PsePort{
+				"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(4)},
+				"1/1/2": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityHigh, PD: phy.PDAttached, PDClass: phy.Class(4)},
+				"1/1/3": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityLow, PD: phy.PDAttached, PDClass: phy.Class(4)},
+			},
+		},
+	}
+	alloc := phyCfg.Allocate()
+
+	budgets, facets, err := netmodel.Poe(phyCfg, alloc)
+	if err != nil {
+		t.Fatalf("Poe: %v", err)
+	}
+	if len(budgets) != 1 {
+		t.Fatalf("exported budgets count = %d, want 1", len(budgets))
+	}
+	b0 := budgets[0]
+	if err := protovalidate.Validate(b0); err != nil {
+		t.Fatalf("PseBudget protovalidate failed: %v", err)
+	}
+	if b0.GetPseGroup() != 1 {
+		t.Errorf("budget pse_group = %d, want 1", b0.GetPseGroup())
+	}
+	if b0.GetPowerNanowatts() != 60_000_000_000 {
+		t.Errorf("budget power_nanowatts = %d, want 60000000000", b0.GetPowerNanowatts())
+	}
+
+	if len(facets) != 3 {
+		t.Fatalf("exported facets count = %d, want 3", len(facets))
+	}
+
+	for name, facet := range facets {
+		if err := protovalidate.Validate(facet); err != nil {
+			t.Fatalf("PoeFacet %s protovalidate failed: %v", name, err)
+		}
+	}
+
+	f1 := facets["1/1/1"]
+	if f1.GetAllocatedPowerNanowatts() != 30_000_000_000 {
+		t.Errorf("1/1/1 allocated = %d, want 30000000000", f1.GetAllocatedPowerNanowatts())
+	}
+	if f1.GetStatus() != phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER {
+		t.Errorf("1/1/1 status = %v, want DELIVERING_POWER", f1.GetStatus())
+	}
+
+	f2 := facets["1/1/2"]
+	if f2.GetAllocatedPowerNanowatts() != 30_000_000_000 {
+		t.Errorf("1/1/2 allocated = %d, want 30000000000", f2.GetAllocatedPowerNanowatts())
+	}
+	if f2.GetStatus() != phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER {
+		t.Errorf("1/1/2 status = %v, want DELIVERING_POWER", f2.GetStatus())
+	}
+
+	f3 := facets["1/1/3"]
+	if f3.HasAllocatedPowerNanowatts() {
+		t.Errorf("1/1/3 allocated should be unset, got %d", f3.GetAllocatedPowerNanowatts())
+	}
+	if f3.HasPowerClass() {
+		t.Errorf("1/1/3 power_class should be unset, got %d", f3.GetPowerClass())
+	}
+	if f3.GetStatus() != phyv1.PoeStatus_POE_STATUS_SEARCHING {
+		t.Errorf("1/1/3 status = %v, want SEARCHING", f3.GetStatus())
+	}
+}
+
+func TestNetmodel_InvalidFdbEntrySkipped(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	name := "1/1/1"
+	iface := interfacev1.Interface_builder{
+		Name:        &name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+	}.Build()
+
+	vid := uint32(10)
+	ifname := "1/1/1"
+	statusInvalid := switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_INVALID
+	statusActive := switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE
+	kindDynamic := switchingv1.FdbEntryKind_FDB_ENTRY_KIND_DYNAMIC
+	macBytes := []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+
+	fdb1 := switchingv1.FdbEntry_builder{
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid,
+		InterfaceName:   &ifname,
+		Status:          &statusInvalid,
+		Kind:            &kindDynamic,
+		Mac:             addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
+	}.Build()
+
+	fdb2 := switchingv1.FdbEntry_builder{
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid,
+		InterfaceName:   &ifname,
+		Status:          &statusActive,
+		Kind:            &kindDynamic,
+		Mac:             addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
+	}.Build()
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{iface}, nil, []*switchingv1.FdbEntry{fdb1, fdb2}, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	seeds := res.Spec.Seeds
+	report := res.Report
+
+	if len(seeds) != 0 {
+		t.Errorf("seeds = %+v, want both unusable rows omitted", seeds)
+	}
+
+	foundSkipped := false
+	for _, s := range report.Skipped {
+		if s.Port == "1/1/1" && s.What == "fdb_entry" {
+			foundSkipped = true
+			break
+		}
+	}
+	if !foundSkipped {
+		t.Errorf("got Skipped %+v, want invalid FDB entry", report.Skipped)
+	}
+	if res.Readiness() == analysis.Complete {
+		t.Error("readiness = Complete, want unusable active row reported")
+	}
+	if _, err := vswitch.NewWithSpec(res.Spec); err != nil {
+		t.Errorf("NewWithSpec: %v", err)
+	}
+}
+
+func TestNetmodel_PortWithoutPoeDetailSkipped(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	name := "1/1/1"
+	poeSup := true
+	role := phyv1.PoeRole_POE_ROLE_PSE
+	group1 := uint32(1)
+	power := uint64(100_000_000_000)
+
+	budget := phyv1.PseBudget_builder{
+		PseGroup:       &group1,
+		PowerNanowatts: &power,
+	}.Build()
+
+	iface := interfacev1.Interface_builder{
+		Name:        &name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Ethernet: phyv1.EthernetFacet_builder{
+				Copper: phyv1.CopperFacet_builder{
+					Poe: phyv1.PoeFacet_builder{
+						Supported: &poeSup,
+						Role:      &role,
+					}.Build(),
+					// Deliberately missing PoeDetail
+				}.Build(),
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{iface}, nil, nil, []*phyv1.PseBudget{budget}, nil, nil, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	cfg := res.Spec.Config
+	report := res.Report
+
+	foundSkipped := false
+	for _, s := range report.Skipped {
+		if s.Port == "1/1/1" && s.What == "poe" && s.Why == "missing poe_detail" {
+			foundSkipped = true
+			break
+		}
+	}
+	if !foundSkipped {
+		t.Errorf("got Skipped %+v, want poe without detail skipped", report.Skipped)
+	}
+
+	if cfg.Phy != nil && cfg.Phy.PoE != nil && len(cfg.Phy.PoE.Ports) != 0 {
+		t.Errorf("got %d PoE ports loaded, want 0", len(cfg.Phy.PoE.Ports))
+	}
+}
+
+func TestNetmodel_LoadErrors(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+
+	t.Run("empty interfaces", func(t *testing.T) {
+		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		if err == nil {
+			t.Fatal("expected error on empty interface list")
+		}
+	})
+
+	t.Run("duplicate interface name", func(t *testing.T) {
+		p1Name := "1/1/1"
+		p1 := interfacev1.Interface_builder{Name: &p1Name, AdminStatus: &adminUp, OperStatus: &operUp}.Build()
+		p2 := interfacev1.Interface_builder{Name: &p1Name, AdminStatus: &adminUp, OperStatus: &operUp}.Build()
+		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		if err == nil {
+			t.Fatal("expected error on duplicate interface name")
+		}
+	})
+
+	t.Run("lag_parent_interface_name naming non-existent", func(t *testing.T) {
+		p1Name := "1/1/1"
+		lagParent := "lag99"
+		p1 := interfacev1.Interface_builder{
+			Name:        &p1Name,
+			AdminStatus: &adminUp,
+			OperStatus:  &operUp,
+			Physical: interfacev1.PhysicalInterface_builder{
+				LagParentInterfaceName: &lagParent,
+			}.Build(),
+		}.Build()
+		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		if err == nil {
+			t.Fatal("expected error on non-existent lag parent")
+		}
+	})
+
+	t.Run("lag_parent_interface_name naming non-LAG", func(t *testing.T) {
+		p1Name := "1/1/1"
+		p2Name := "1/1/2"
+		p1 := interfacev1.Interface_builder{Name: &p1Name, AdminStatus: &adminUp, OperStatus: &operUp}.Build()
+		p2 := interfacev1.Interface_builder{
+			Name:        &p2Name,
+			AdminStatus: &adminUp,
+			OperStatus:  &operUp,
+			Physical: interfacev1.PhysicalInterface_builder{
+				LagParentInterfaceName: &p1Name,
+			}.Build(),
+		}.Build()
+		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		if err == nil {
+			t.Fatal("expected error on lag parent that is not a LAG")
+		}
+	})
+}
+
+func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+
+	// 1. Explicit MTU 0 reported and treated as unlimited
+	p1Name := "1/1/1"
+	mtuZero := uint32(0)
+	p1 := interfacev1.Interface_builder{
+		Name:        &p1Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Mtu:         &mtuZero,
+	}.Build()
+
+	// 2. Switchport without PVID and with multiple untagged VLANs (no PVID)
+	p2Name := "1/1/2"
+	p2 := interfacev1.Interface_builder{
+		Name:        &p2Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Switchport: switchingv1.SwitchportFacet_builder{
+				UntaggedVlanIds: []uint32{10, 20},
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	// 3. PseBudget without power_nanowatts (loads as budget 0)
+	grp1 := uint32(1)
+	budgetWithoutPower := phyv1.PseBudget_builder{
+		PseGroup: &grp1,
+	}.Build()
+
+	// 4. FDB entry with STATIC kind
+	staticKind := switchingv1.FdbEntryKind_FDB_ENTRY_KIND_STATIC
+	statusActive := switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE
+	vid10 := uint32(10)
+	fdbStatic := switchingv1.FdbEntry_builder{
+		NetworkInstance: ptr("default"),
+		VlanId:          &vid10,
+		InterfaceName:   &p2Name,
+		Kind:            &staticKind,
+		Status:          &statusActive,
+		Mac:             addrv1.Eui48Address_builder{Octets: []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}}.Build(),
+	}.Build()
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, nil, []*switchingv1.FdbEntry{fdbStatic}, []*phyv1.PseBudget{budgetWithoutPower}, nil, nil, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	cfg := res.Spec.Config
+	seeds := res.Spec.Seeds
+	report := res.Report
+
+	// MTU 0 treated as unlimited in Port
+	port1, ok := cfg.Ports.Port("1/1/1")
+	if !ok || port1.MTU != 0 {
+		t.Errorf("got port 1/1/1 MTU %d, want 0", port1.MTU)
+	}
+
+	// Explicit zero is observed input, not a loader default.
+	hasMtuDefault := false
+	hasBudgetDefault := false
+	for _, d := range report.Defaults {
+		if d.Port == "1/1/1" && d.Field == "mtu" && d.Value == "0" {
+			hasMtuDefault = true
+		}
+		if d.Port == "1" && d.Field == "power_nanowatts" && d.Value == "0" {
+			hasBudgetDefault = true
+		}
+	}
+	if hasMtuDefault {
+		t.Errorf("explicit MTU zero reported as a default: %+v", report.Defaults)
+	}
+	if !hasBudgetDefault {
+		t.Errorf("got defaults %+v, want power_nanowatts reported", report.Defaults)
+	}
+
+	// Switchport with multiple untagged VLANs has no PVID
+	sw2 := cfg.Bridge.VLAN.Switchports["1/1/2"]
+	if sw2.PVID != nil {
+		t.Errorf("got sw2 PVID %v, want nil", sw2.PVID)
+	}
+
+	// Seed should be marked static
+	if len(seeds) != 1 || seeds[0].Lifetime != bridge.Static {
+		t.Errorf("got seeds %+v, want static seed", seeds)
+	}
+
+	// An entry of a bridge without VLAN awareness has no FdbEntry shape, since
+	// the message requires a VLAN id.
+	entryFID0 := []bridge.Entry{
+		{
+			FID:       0,
+			MAC:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+			Port:      "1/1/1",
+			Lifetime:  bridge.Aging,
+			LearnedAt: testTime,
+		},
+	}
+	if _, err := netmodel.FdbEntries(entryFID0); err == nil {
+		t.Error("FdbEntries(FID 0) error = nil, want an error")
+	}
+}
+
+func TestPoeExportRefusesANonNumericGroup(t *testing.T) {
+	cfg := phy.Config{PoE: &phy.PoE{
+		Groups: map[string]phy.Group{"g1": {PowerNanowatts: 60_000_000_000}},
+		Ports:  map[string]phy.PsePort{"1/1/1": {Group: "g1", MaxClass: 8, Enabled: true, PDClass: phy.Class(4)}},
+	}}
+	if _, _, err := netmodel.Poe(cfg, cfg.Allocate()); err == nil {
+		t.Error("Poe(group g1) error = nil, want an error")
+	}
+}
+
+func TestPoeExportStatusFollowsTheDenial(t *testing.T) {
+	cfg := phy.Config{PoE: &phy.PoE{
+		Groups: map[string]phy.Group{"1": {PowerNanowatts: 30_000_000_000}},
+		Ports: map[string]phy.PsePort{
+			"1/1/1": {Group: "1", MaxClass: 8, Enabled: false, PD: phy.PDAttached, PDClass: phy.Class(4)},
+			"1/1/2": {Group: "1", MaxClass: 3, Enabled: true, PD: phy.PDAttached, PDClass: phy.Class(4)},
+			"1/1/3": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityHigh, PD: phy.PDAttached, PDClass: phy.Class(4)},
+			"1/1/4": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityLow, PD: phy.PDAttached, PDClass: phy.Class(4)},
+			"1/1/5": {Group: "1", MaxClass: 8, Enabled: true, PD: phy.PDAbsent},
+		},
+	}}
+	_, facets, err := netmodel.Poe(cfg, cfg.Allocate())
+	if err != nil {
+		t.Fatalf("Poe: %v", err)
+	}
+	want := map[string]phyv1.PoeStatus{
+		"1/1/1": phyv1.PoeStatus_POE_STATUS_DISABLED,
+		"1/1/2": phyv1.PoeStatus_POE_STATUS_SEARCHING,
+		"1/1/3": phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER,
+		"1/1/4": phyv1.PoeStatus_POE_STATUS_SEARCHING,
+		"1/1/5": phyv1.PoeStatus_POE_STATUS_SEARCHING,
+	}
+	for name, status := range want {
+		if got := facets[name].GetStatus(); got != status {
+			t.Errorf("facets[%q].Status = %v, want %v", name, got, status)
+		}
+		if err := protovalidate.Validate(facets[name]); err != nil {
+			t.Errorf("facets[%q] fails validation: %v", name, err)
+		}
+	}
+	for _, name := range []string{"1/1/1", "1/1/2", "1/1/4", "1/1/5"} {
+		if facets[name].HasPowerClass() {
+			t.Errorf("facets[%q] exported a power_class when not delivering power", name)
+		}
+	}
+	if !facets["1/1/3"].HasPowerClass() || facets["1/1/3"].GetPowerClass() != 4 {
+		t.Errorf("facets[1/1/3] power_class = %v, want 4", facets["1/1/3"].GetPowerClass())
+	}
+}
+
+func TestLoadImpliesRelayForVlanAndKeepsLagPresent(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	lagParent := "lag1"
+	name := func(s string) *string { return &s }
+	ifaces := []*interfacev1.Interface{
+		interfacev1.Interface_builder{Name: name("lag1"), AdminStatus: &adminUp, Lag: interfacev1.LagInterface_builder{
+			Switchport: switchingv1.SwitchportFacet_builder{TaggedVlanIds: []uint32{10}}.Build(),
+		}.Build()}.Build(),
+		interfacev1.Interface_builder{Name: name("1/1/1"), AdminStatus: &adminUp, Physical: interfacev1.PhysicalInterface_builder{
+			LagParentInterfaceName: &lagParent,
+		}.Build()}.Build(),
+	}
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerVLAN})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	cfg := res.Spec.Config
+	report := res.Report
+	if cfg.Bridge == nil || cfg.Bridge.VLAN == nil {
+		t.Fatal("a wanted vlan layer did not build the bridge")
+	}
+	if !slices.Equal(report.Capabilities, cfg.Capabilities()) {
+		t.Errorf("report.Capabilities = %v, cfg.Capabilities() = %v; want them equal", report.Capabilities, cfg.Capabilities())
+	}
+	if report.CapabilitySources[port.LayerRelay] != "implied:vlan" || report.CapabilitySources[port.LayerLAG] != "present:lag" {
+		t.Errorf("CapabilitySources = %v", report.CapabilitySources)
+	}
+}
+
+func TestDot1qTunnelSwitchport(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	mode := switchingv1.SwitchportMode_SWITCHPORT_MODE_DOT1Q_TUNNEL
+	pvid10 := uint32(10)
+
+	p1Name := "1/1/1"
+	p1 := interfacev1.Interface_builder{
+		Name:        &p1Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Switchport: switchingv1.SwitchportFacet_builder{
+				Mode:          &mode,
+				Pvid:          &pvid10,
+				TaggedVlanIds: []uint32{100},
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	p2Name := "1/1/2"
+	p2 := interfacev1.Interface_builder{
+		Name:        &p2Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Switchport: switchingv1.SwitchportFacet_builder{
+				Mode:            &mode,
+				UntaggedVlanIds: []uint32{10},
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	p3Name := "1/1/3"
+	p3 := interfacev1.Interface_builder{
+		Name:        &p3Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Switchport: switchingv1.SwitchportFacet_builder{
+				Mode:            &mode,
+				Pvid:            &pvid10,
+				TaggedVlanIds:   []uint32{100},
+				UntaggedVlanIds: []uint32{20},
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	ifaces := []*interfacev1.Interface{p1, p2, p3}
+	for _, iface := range ifaces {
+		if err := protovalidate.Validate(iface); err != nil {
+			t.Fatalf("interface validation failed: %v", err)
+		}
+	}
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("netmodel.Load failed: %v", err)
+	}
+	cfg := res.Spec.Config
+	report := res.Report
+
+	sw1, ok := cfg.Bridge.VLAN.Switchports["1/1/1"]
+	if !ok {
+		t.Fatal("missing switchport 1/1/1 in config")
+	}
+	if sw1.Tunnel == nil {
+		t.Fatal("expected 1/1/1 switchport to have Tunnel configured")
+	}
+	if sw1.Tunnel.VID != 10 {
+		t.Errorf("Tunnel.VID = %d, want 10", sw1.Tunnel.VID)
+	}
+	wantCust := []vlan.ID{100}
+	if !slices.Equal(sw1.Tunnel.CustomerVIDs, wantCust) {
+		t.Errorf("Tunnel.CustomerVIDs = %v, want %v", sw1.Tunnel.CustomerVIDs, wantCust)
+	}
+	if sw1.PVID != nil {
+		t.Errorf("Tunnel port has PVID set: %v", sw1.PVID)
+	}
+	if len(sw1.Tagged) > 0 {
+		t.Errorf("Tunnel port has Tagged set: %v", sw1.Tagged)
+	}
+	if len(sw1.Untagged) > 0 {
+		t.Errorf("Tunnel port has Untagged set: %v", sw1.Untagged)
+	}
+
+	hasQinqDefault := false
+	for _, d := range report.Defaults {
+		if d.Port == "1/1/1" && d.Field == "qinq_ethtype" && d.Value == "0x88A8" {
+			hasQinqDefault = true
+			break
+		}
+	}
+	if !hasQinqDefault {
+		t.Errorf("got defaults %+v, want qinq_ethtype 0x88A8 for 1/1/1", report.Defaults)
+	}
+
+	if _, ok := cfg.Bridge.VLAN.Table[10]; !ok {
+		t.Error("expected VLAN table to contain tunnel VID 10")
+	}
+	if _, ok := cfg.Bridge.VLAN.Table[100]; ok {
+		t.Error("VLAN table contains customer VID 100, should not")
+	}
+
+	hasSkippedP2 := false
+	for _, s := range report.Skipped {
+		if s.Port == "1/1/2" && s.What == "switchport" && s.Why == "tunnel without pvid" {
+			hasSkippedP2 = true
+			break
+		}
+	}
+	if !hasSkippedP2 {
+		t.Errorf("got skipped %+v, want 1/1/2 switchport skipped with 'tunnel without pvid'", report.Skipped)
+	}
+	if _, ok := cfg.Bridge.VLAN.Switchports["1/1/2"]; ok {
+		t.Error("1/1/2 switchport should not be present in config")
+	}
+
+	hasSkippedUntagged := false
+	for _, s := range report.Skipped {
+		if s.Port == "1/1/3" && s.What == "untagged_vlan_ids" && s.Why == "tunnel port" {
+			hasSkippedUntagged = true
+			break
+		}
+	}
+	if !hasSkippedUntagged {
+		t.Errorf("got skipped %+v, want 1/1/3 untagged_vlan_ids skipped with 'tunnel port'", report.Skipped)
+	}
+}
+
+func TestPoeExportAndLoadRoundTrip(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	mtu0 := uint32(0)
+	grp := uint32(1)
+
+	loadExported := func(t *testing.T, phyCfg phy.Config, alloc phy.Allocation) netmodel.Result {
+		t.Helper()
+		budgets, facets, err := netmodel.Poe(phyCfg, alloc)
+		if err != nil {
+			t.Fatalf("Poe export failed: %v", err)
+		}
+		for _, b := range budgets {
+			if err := protovalidate.Validate(b); err != nil {
+				t.Fatalf("budget protovalidate failed: %v", err)
+			}
+		}
+		for name, f := range facets {
+			if err := protovalidate.Validate(f); err != nil {
+				t.Fatalf("facet %s protovalidate failed: %v", name, err)
+			}
+		}
+
+		names := make([]string, 0, len(facets))
+		for name := range facets {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+		ifaces := make([]*interfacev1.Interface, 0, len(facets))
+		for _, name := range names {
+			pName := name
+			iface := interfacev1.Interface_builder{
+				Name:        &pName,
+				AdminStatus: &adminUp,
+				OperStatus:  &operUp,
+				Mtu:         &mtu0,
+				Physical: interfacev1.PhysicalInterface_builder{
+					Ethernet: phyv1.EthernetFacet_builder{
+						Copper: phyv1.CopperFacet_builder{
+							Poe: facets[pName],
+							PoeDetail: phyv1.PoePortDetail_builder{
+								PseGroup: &grp,
+								PsePort:  ptr(uint32(1)),
+							}.Build(),
+						}.Build(),
+					}.Build(),
+				}.Build(),
+			}.Build()
+			if err := protovalidate.Validate(iface); err != nil {
+				t.Fatalf("iface %s protovalidate failed: %v", pName, err)
+			}
+			ifaces = append(ifaces, iface)
+		}
+
+		res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, budgets, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerPoE})
+		if err != nil {
+			t.Fatalf("netmodel.Load failed: %v", err)
+		}
+		return res
+	}
+
+	t.Run("delivered", func(t *testing.T) {
+		phyCfg := phy.Config{
+			PoE: &phy.PoE{
+				Groups: map[string]phy.Group{
+					"1": {PowerNanowatts: 100_000_000_000},
+				},
+				Ports: map[string]phy.PsePort{
+					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(2)},
+				},
+			},
+		}
+		alloc := phyCfg.Allocate()
+		if alloc.Ports["1/1/1"].State != phy.PowerDelivered {
+			t.Fatalf("got power state %v, want PowerDelivered", alloc.Ports["1/1/1"].State)
+		}
+
+		res := loadExported(t, phyCfg, alloc)
+		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
+		if !ok {
+			t.Fatal("port 1/1/1 missing from loaded config")
+		}
+		if p.PD != phy.PDAttached {
+			t.Errorf("PD = %v, want Attached", p.PD)
+		}
+		if p.PDClass == nil || *p.PDClass != 2 {
+			t.Errorf("PDClass = %v, want 2", p.PDClass)
+		}
+		for _, a := range res.Metadata.Assumptions() {
+			if a.Statement == "absence is inferred from the searching status" {
+				t.Errorf("unexpected searching assumption: %+v", a)
+			}
+		}
+	})
+
+	t.Run("disabled", func(t *testing.T) {
+		phyCfg := phy.Config{
+			PoE: &phy.PoE{
+				Groups: map[string]phy.Group{
+					"1": {PowerNanowatts: 100_000_000_000},
+				},
+				Ports: map[string]phy.PsePort{
+					"1/1/1": {Group: "1", MaxClass: 8, Enabled: false, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(2)},
+				},
+			},
+		}
+		alloc := phyCfg.Allocate()
+		if alloc.Ports["1/1/1"].State != phy.PowerDenied || alloc.Ports["1/1/1"].Denial != phy.ReasonDisabled {
+			t.Fatalf("got port allocation %+v, want PowerDenied(disabled)", alloc.Ports["1/1/1"])
+		}
+
+		res := loadExported(t, phyCfg, alloc)
+		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
+		if !ok {
+			t.Fatal("port 1/1/1 missing from loaded config")
+		}
+		if p.PD != phy.PDUnknown {
+			t.Errorf("PD = %v, want Unknown", p.PD)
+		}
+		if p.PDClass != nil {
+			t.Errorf("PDClass = %v, want nil", p.PDClass)
+		}
+		for _, a := range res.Metadata.Assumptions() {
+			if a.Statement == "absence is inferred from the searching status" {
+				t.Errorf("unexpected searching assumption: %+v", a)
+			}
+		}
+	})
+
+	t.Run("no device", func(t *testing.T) {
+		phyCfg := phy.Config{
+			PoE: &phy.PoE{
+				Groups: map[string]phy.Group{
+					"1": {PowerNanowatts: 100_000_000_000},
+				},
+				Ports: map[string]phy.PsePort{
+					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAbsent},
+				},
+			},
+		}
+		alloc := phyCfg.Allocate()
+		if alloc.Ports["1/1/1"].State != phy.PowerNoDevice {
+			t.Fatalf("got power state %v, want PowerNoDevice", alloc.Ports["1/1/1"].State)
+		}
+
+		res := loadExported(t, phyCfg, alloc)
+		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
+		if !ok {
+			t.Fatal("port 1/1/1 missing from loaded config")
+		}
+		if p.PD != phy.PDAbsent {
+			t.Errorf("PD = %v, want Absent", p.PD)
+		}
+		if p.PDClass != nil {
+			t.Errorf("PDClass = %v, want nil", p.PDClass)
+		}
+
+		portScope := analysis.PortScope("sw1", "1/1/1")
+		var portAssumptions []analysis.Assumption
+		for _, a := range res.Metadata.Assumptions() {
+			if a.Scope.Compare(portScope) == 0 && a.Statement == "absence is inferred from the searching status" {
+				portAssumptions = append(portAssumptions, a)
+			}
+		}
+		if len(portAssumptions) != 1 {
+			t.Fatalf("port assumptions count = %d, want 1", len(portAssumptions))
+		}
+		if portAssumptions[0].Statement != "absence is inferred from the searching status" {
+			t.Errorf("statement = %q, want %q", portAssumptions[0].Statement, "absence is inferred from the searching status")
+		}
+	})
+
+	t.Run("unknown", func(t *testing.T) {
+		phyCfg := phy.Config{
+			PoE: &phy.PoE{
+				Groups: map[string]phy.Group{
+					"1": {PowerNanowatts: 100_000_000_000},
+				},
+				Ports: map[string]phy.PsePort{
+					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDUnknown},
+				},
+			},
+		}
+		alloc := phyCfg.Allocate()
+		if alloc.Ports["1/1/1"].State != phy.PowerUnknown {
+			t.Fatalf("got power state %v, want PowerUnknown", alloc.Ports["1/1/1"].State)
+		}
+
+		res := loadExported(t, phyCfg, alloc)
+		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
+		if !ok {
+			t.Fatal("port 1/1/1 missing from loaded config")
+		}
+		if p.PD != phy.PDUnknown {
+			t.Errorf("PD = %v, want Unknown", p.PD)
+		}
+		if p.PDClass != nil {
+			t.Errorf("PDClass = %v, want nil", p.PDClass)
+		}
+		for _, a := range res.Metadata.Assumptions() {
+			if a.Statement == "absence is inferred from the searching status" {
+				t.Errorf("unexpected searching assumption: %+v", a)
+			}
+		}
+	})
+
+	t.Run("budget denial", func(t *testing.T) {
+		phyCfg := phy.Config{
+			PoE: &phy.PoE{
+				Groups: map[string]phy.Group{
+					"1": {PowerNanowatts: 10_000_000_000},
+				},
+				Ports: map[string]phy.PsePort{
+					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(4)},
+				},
+			},
+		}
+		alloc := phyCfg.Allocate()
+		if alloc.Ports["1/1/1"].State != phy.PowerDenied || alloc.Ports["1/1/1"].Denial != phy.ReasonBudget {
+			t.Fatalf("got port allocation %+v, want PowerDenied(budget)", alloc.Ports["1/1/1"])
+		}
+
+		res := loadExported(t, phyCfg, alloc)
+		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
+		if !ok {
+			t.Fatal("port 1/1/1 missing from loaded config")
+		}
+		if p.PD != phy.PDAbsent {
+			t.Errorf("PD = %v, want Absent", p.PD)
+		}
+		if p.PDClass != nil {
+			t.Errorf("PDClass = %v, want nil", p.PDClass)
+		}
+
+		portScope := analysis.PortScope("sw1", "1/1/1")
+		var portAssumptions []analysis.Assumption
+		for _, a := range res.Metadata.Assumptions() {
+			if a.Scope.Compare(portScope) == 0 && a.Statement == "absence is inferred from the searching status" {
+				portAssumptions = append(portAssumptions, a)
+			}
+		}
+		if len(portAssumptions) != 1 {
+			t.Fatalf("port assumptions count = %d, want 1", len(portAssumptions))
+		}
+		if portAssumptions[0].Statement != "absence is inferred from the searching status" {
+			t.Errorf("statement = %q, want %q", portAssumptions[0].Statement, "absence is inferred from the searching status")
+		}
+	})
+}
+
+func TestLoad_PoeLimitInNanowatts(t *testing.T) {
+	// The requested limit reaches the loaded port in nanowatts, the unit
+	// every phy power value shares.
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	mtu0 := uint32(0)
+	grp := uint32(1)
+	power := uint64(100_000_000_000)
+	name := "1/1/1"
+
+	iface := interfacev1.Interface_builder{
+		Name:        &name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Mtu:         &mtu0,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Ethernet: phyv1.EthernetFacet_builder{
+				Copper: phyv1.CopperFacet_builder{
+					PoeSettings: phyv1.PoeSettings_builder{PowerLimitNanowatts: ptr(uint64(15_400_000_000))}.Build(),
+					PoeDetail:   phyv1.PoePortDetail_builder{PseGroup: &grp, PsePort: ptr(uint32(1))}.Build(),
+				}.Build(),
+			}.Build(),
+		}.Build(),
+	}.Build()
+	budget := phyv1.PseBudget_builder{PseGroup: &grp, PowerNanowatts: &power}.Build()
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{iface}, nil, nil, []*phyv1.PseBudget{budget}, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerPoE})
+	if err != nil {
+		t.Fatalf("netmodel.Load: %v", err)
+	}
+
+	p, ok := res.Spec.Config.Phy.PoE.Ports[name]
+	if !ok {
+		t.Fatalf("port %s missing from loaded config", name)
+	}
+
+	if p.Limit == nil {
+		t.Fatal("Limit is absent, want 15400000000 nanowatts")
+	}
+
+	if *p.Limit != 15_400_000_000 {
+		t.Errorf("Limit = %d, want 15400000000 nanowatts", *p.Limit)
+	}
+}
+
+func TestLoad_FilterFacetWithIPFacet(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	vid10 := uint32(10)
+	vlan10Name := "vlan10"
+	inSetName := "in-set"
+	outSetName := "out-set"
+
+	rule1Name := "allow-http"
+	tcpProto := packetv1.IpProtocol_IP_PROTOCOL_TCP
+	p80 := uint32(80)
+	acceptAction := filterv1.FilterAction_FILTER_ACTION_ACCEPT
+	dropAction := filterv1.FilterAction_FILTER_ACTION_DROP
+
+	rule1 := filterv1.FilterRule_builder{
+		Name:   &rule1Name,
+		Action: &acceptAction,
+		Match: filterv1.FilterMatch_builder{
+			Protocol: &tcpProto,
+			DstPrefixes: []*addrv1.IpPrefix{
+				protoIPv4Prefix([4]byte{10, 0, 0, 0}, 24),
+			},
+			DstPorts: []*packetv1.TransportPortMatch{
+				packetv1.TransportPortMatch_builder{
+					Exact: &p80,
+				}.Build(),
+			},
+		}.Build(),
+	}.Build()
+
+	isStateful := true
+	inSet := filterv1.FilterRuleSet_builder{
+		Name:     &inSetName,
+		Stateful: &isStateful,
+		Default:  &dropAction,
+		Rules:    []*filterv1.FilterRule{rule1},
+	}.Build()
+
+	notStateful := false
+	outSet := filterv1.FilterRuleSet_builder{
+		Name:     &outSetName,
+		Stateful: &notStateful,
+		Default:  &acceptAction,
+	}.Build()
+
+	filterSets := []*filterv1.FilterRuleSet{inSet, outSet}
+	for _, s := range filterSets {
+		if err := protovalidate.Validate(s); err != nil {
+			t.Fatalf("filter set validation failed: %v", err)
+		}
+	}
+
+	vlan10 := interfacev1.Interface_builder{
+		Name:        &vlan10Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Vlan: interfacev1.VlanInterface_builder{
+			VlanId: &vid10,
+		}.Build(),
+		Ip: ipv1.IpFacet_builder{
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
+		}.Build(),
+		Filter: filterv1.FilterFacet_builder{
+			InSet:  &inSetName,
+			OutSet: &outSetName,
+		}.Build(),
+	}.Build()
+
+	if err := protovalidate.Validate(vlan10); err != nil {
+		t.Fatalf("interface validation failed: %v", err)
+	}
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{vlan10}, nil, nil, nil, nil, nil, nil, nil, nil, nil, filterSets, nil)
+	if err != nil {
+		t.Fatalf("netmodel.Load failed: %v", err)
+	}
+
+	cfg := res.Spec.Config
+	if cfg.Filter == nil {
+		t.Fatal("expected cfg.Filter to be non-nil")
+	}
+	if len(cfg.Filter.Sets) != 2 {
+		t.Fatalf("sets count = %d, want 2", len(cfg.Filter.Sets))
+	}
+	sIn, ok := cfg.Filter.Sets["in-set"]
+	if !ok {
+		t.Fatal("missing in-set")
+	}
+	if !sIn.Stateful {
+		t.Errorf("in-set stateful = %v, want true", sIn.Stateful)
+	}
+	if sIn.Default != filter.Drop {
+		t.Errorf("in-set default = %v, want Drop", sIn.Default)
+	}
+	if len(sIn.Rules) != 1 {
+		t.Fatalf("in-set rules count = %d, want 1", len(sIn.Rules))
+	}
+	r := sIn.Rules[0]
+	if r.Name != "allow-http" || r.Action != filter.Accept {
+		t.Errorf("rule = %+v, want allow-http / Accept", r)
+	}
+	if r.Match.Protocol == nil || *r.Match.Protocol != 6 {
+		t.Errorf("protocol = %v, want 6", r.Match.Protocol)
+	}
+	wantPrefix := netip.MustParsePrefix("10.0.0.0/24")
+	if len(r.Match.Dst) != 1 || r.Match.Dst[0] != wantPrefix {
+		t.Errorf("dst prefix = %v, want %v", r.Match.Dst, wantPrefix)
+	}
+	if len(r.Match.DstPorts) != 1 || r.Match.DstPorts[0].Start != 80 || r.Match.DstPorts[0].End != 80 {
+		t.Errorf("dst ports = %+v, want 80..80", r.Match.DstPorts)
+	}
+
+	sOut, ok := cfg.Filter.Sets["out-set"]
+	if !ok {
+		t.Fatal("missing out-set")
+	}
+	if sOut.Stateful {
+		t.Errorf("out-set stateful = %v, want false", sOut.Stateful)
+	}
+	if sOut.Default != filter.Accept {
+		t.Errorf("out-set default = %v, want Accept", sOut.Default)
+	}
+
+	var foundIn, foundOut bool
+	for _, b := range cfg.Filter.Bindings {
+		if b.Interface == "vlan10" && b.Direction == filter.In && b.Set == "in-set" {
+			foundIn = true
+		}
+		if b.Interface == "vlan10" && b.Direction == filter.Out && b.Set == "out-set" {
+			foundOut = true
+		}
+	}
+	if !foundIn || !foundOut {
+		t.Errorf("bindings = %+v, want vlan10 in->in-set and out->out-set", cfg.Filter.Bindings)
+	}
+
+	if !slices.Contains(res.Report.Capabilities, port.LayerFilter) {
+		t.Errorf("capabilities = %v, want to contain port.LayerFilter", res.Report.Capabilities)
+	}
+}
+
+func TestLoad_FilterFacetWithoutIPFacet(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	p1Name := "1/1/1"
+	inSetName := "in-set"
+	acceptAction := filterv1.FilterAction_FILTER_ACTION_ACCEPT
+
+	inSet := filterv1.FilterRuleSet_builder{
+		Name:    &inSetName,
+		Default: &acceptAction,
+	}.Build()
+
+	p1 := interfacev1.Interface_builder{
+		Name:        &p1Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
+		Filter: filterv1.FilterFacet_builder{
+			InSet: &inSetName,
+		}.Build(),
+	}.Build()
+
+	if err := protovalidate.Validate(p1); err != nil {
+		t.Fatalf("interface validation failed: %v", err)
+	}
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1}, nil, nil, nil, nil, nil, nil, nil, nil, nil, []*filterv1.FilterRuleSet{inSet}, nil)
+	if err != nil {
+		t.Fatalf("netmodel.Load failed: %v", err)
+	}
+
+	if res.Readiness() == analysis.Complete {
+		t.Errorf("readiness = %v, want degraded", res.Readiness())
+	}
+
+	wantScope := routing.OwnershipScope("sw1", routing.DefaultVRF, "1/1/1")
+	found := false
+	for _, issue := range res.Metadata.Issues() {
+		if issue.Code == netmodel.IssueUnboundFilterInterface && issue.Scope.Compare(wantScope) == 0 {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("issues = %+v, want issue %s with scope %s", res.Metadata.Issues(), netmodel.IssueUnboundFilterInterface, wantScope)
+	}
+}
+
+func TestLoad_FilterFacetMissingSet(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	vid10 := uint32(10)
+	vlan10Name := "vlan10"
+	missingSetName := "nonexistent-set"
+
+	vlan10 := interfacev1.Interface_builder{
+		Name:        &vlan10Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Vlan: interfacev1.VlanInterface_builder{
+			VlanId: &vid10,
+		}.Build(),
+		Ip: ipv1.IpFacet_builder{
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
+		}.Build(),
+		Filter: filterv1.FilterFacet_builder{
+			InSet: &missingSetName,
+		}.Build(),
+	}.Build()
+
+	if err := protovalidate.Validate(vlan10); err != nil {
+		t.Fatalf("interface validation failed: %v", err)
+	}
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{vlan10}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("netmodel.Load failed: %v", err)
+	}
+
+	if res.Readiness() == analysis.Complete {
+		t.Errorf("readiness = %v, want degraded", res.Readiness())
+	}
+
+	wantScope := routing.OwnershipScope("sw1", routing.DefaultVRF, "vlan10")
+	found := false
+	for _, issue := range res.Metadata.Issues() {
+		if issue.Code == netmodel.IssueMissingFilterSet && issue.Scope.Compare(wantScope) == 0 {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("issues = %+v, want issue %s with scope %s", res.Metadata.Issues(), netmodel.IssueMissingFilterSet, wantScope)
+	}
+}
+
+// A rule set matching a destination MAC, which the IP-layer filter cannot
+// evaluate, is left out of the filter configuration rather than translated
+// wider: its ingress binding reports an unsupported facet, not a missing set,
+// while the evaluable egress set still binds.
+func TestLoad_FilterSetWithL2MatchIsSkipped(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	vid10 := uint32(10)
+	vlan10Name := "vlan10"
+	l2SetName := "l2-set"
+	ipSetName := "ip-set"
+	ruleName := "drop-bpdu"
+	acceptAction := filterv1.FilterAction_FILTER_ACTION_ACCEPT
+	dropAction := filterv1.FilterAction_FILTER_ACTION_DROP
+
+	l2Set := filterv1.FilterRuleSet_builder{
+		Name:    &l2SetName,
+		Default: &acceptAction,
+		Rules: []*filterv1.FilterRule{filterv1.FilterRule_builder{
+			Name:   &ruleName,
+			Action: &dropAction,
+			Match: filterv1.FilterMatch_builder{
+				DstMac: filterv1.MacMatch_builder{
+					Address: addrv1.Eui48Address_builder{Octets: []byte{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}}.Build(),
+				}.Build(),
+			}.Build(),
+		}.Build()},
+	}.Build()
+	ipSet := filterv1.FilterRuleSet_builder{
+		Name:    &ipSetName,
+		Default: &acceptAction,
+	}.Build()
+
+	filterSets := []*filterv1.FilterRuleSet{l2Set, ipSet}
+	for _, s := range filterSets {
+		if err := protovalidate.Validate(s); err != nil {
+			t.Fatalf("filter set validation failed: %v", err)
+		}
+	}
+
+	vlan10 := interfacev1.Interface_builder{
+		Name:        &vlan10Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Vlan: interfacev1.VlanInterface_builder{
+			VlanId: &vid10,
+		}.Build(),
+		Ip: ipv1.IpFacet_builder{
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
+		}.Build(),
+		Filter: filterv1.FilterFacet_builder{
+			InSet:  &l2SetName,
+			OutSet: &ipSetName,
+		}.Build(),
+	}.Build()
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{vlan10}, nil, nil, nil, nil, nil, nil, nil, nil, nil, filterSets, nil)
+	if err != nil {
+		t.Fatalf("netmodel.Load failed: %v", err)
+	}
+
+	cfg := res.Spec.Config
+	if cfg.Filter == nil {
+		t.Fatal("expected cfg.Filter to be non-nil for the evaluable egress set")
+	}
+	if _, ok := cfg.Filter.Sets[l2SetName]; ok {
+		t.Errorf("sets = %v, want %q left out", cfg.Filter.Sets, l2SetName)
+	}
+	var boundOut bool
+	for _, b := range cfg.Filter.Bindings {
+		if b.Set == l2SetName {
+			t.Errorf("binding %+v names the skipped set", b)
+		}
+		if b.Interface == vlan10Name && b.Direction == filter.Out && b.Set == ipSetName {
+			boundOut = true
+		}
+	}
+	if !boundOut {
+		t.Errorf("bindings = %+v, want vlan10 out->%s", cfg.Filter.Bindings, ipSetName)
+	}
+
+	wantScope := routing.OwnershipScope("sw1", routing.DefaultVRF, vlan10Name)
+	var skippedAtInterface bool
+	for _, issue := range res.Metadata.Issues() {
+		if issue.Code == netmodel.IssueMissingFilterSet {
+			t.Errorf("unexpected issue %+v: the set exists but is skipped", issue)
+		}
+		if issue.Code == netmodel.IssueSkippedUnsupportedFacet && issue.Scope.Compare(wantScope) == 0 {
+			skippedAtInterface = true
+		}
+	}
+	if !skippedAtInterface {
+		t.Errorf("issues = %+v, want issue %s with scope %s", res.Metadata.Issues(), netmodel.IssueSkippedUnsupportedFacet, wantScope)
+	}
+}
+
+func TestLoad_RequestLayerFilterAccepted(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	vid10 := uint32(10)
+	vlan10Name := "vlan10"
+	inSetName := "in-set"
+	acceptAction := filterv1.FilterAction_FILTER_ACTION_ACCEPT
+
+	inSet := filterv1.FilterRuleSet_builder{
+		Name:    &inSetName,
+		Default: &acceptAction,
+	}.Build()
+
+	vlan10 := interfacev1.Interface_builder{
+		Name:        &vlan10Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Vlan: interfacev1.VlanInterface_builder{
+			VlanId: &vid10,
+		}.Build(),
+		Ip: ipv1.IpFacet_builder{
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
+		}.Build(),
+		Filter: filterv1.FilterFacet_builder{
+			InSet: &inSetName,
+		}.Build(),
+	}.Build()
+
+	res, err := netmodel.Load(
+		testTime,
+		netmodel.SourceContext{DeviceID: "sw1"},
+		[]*interfacev1.Interface{vlan10},
+		nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		[]*filterv1.FilterRuleSet{inSet},
+		[]port.Layer{port.LayerFilter},
+	)
+	if err != nil {
+		t.Fatalf("netmodel.Load failed: %v", err)
+	}
+
+	for _, issue := range res.Metadata.Issues() {
+		if issue.Code == netmodel.IssueUnsupportedRequestedCapability {
+			t.Errorf("unexpected IssueUnsupportedRequestedCapability for LayerFilter: %+v", issue)
+		}
+	}
+
+	if !slices.Contains(res.Report.Capabilities, port.LayerFilter) {
+		t.Errorf("capabilities = %v, want to contain port.LayerFilter", res.Report.Capabilities)
+	}
+}
+
+func TestLoad_FilterICMPMatchNarrowingReportsIssue(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	vid10 := uint32(10)
+	vlan10Name := "vlan10"
+	setName := "icmp-set"
+	ruleName := "icmp-echo"
+	protoICMP := packetv1.IpProtocol_IP_PROTOCOL_ICMP
+	acceptAction := filterv1.FilterAction_FILTER_ACTION_ACCEPT
+
+	rule := filterv1.FilterRule_builder{
+		Name:   &ruleName,
+		Action: &acceptAction,
+		Match: filterv1.FilterMatch_builder{
+			Protocol: &protoICMP,
+			Icmp: packetv1.IcmpMatch_builder{
+				V4: packetv1.Icmpv4Match_builder{
+					Types: []uint32{8, 0},
+				}.Build(),
+			}.Build(),
+		}.Build(),
+	}.Build()
+
+	set := filterv1.FilterRuleSet_builder{
+		Name:    &setName,
+		Default: &acceptAction,
+		Rules:   []*filterv1.FilterRule{rule},
+	}.Build()
+
+	if err := protovalidate.Validate(set); err != nil {
+		t.Fatalf("filter set validation failed: %v", err)
+	}
+
+	vlan10 := interfacev1.Interface_builder{
+		Name:        &vlan10Name,
+		AdminStatus: &adminUp,
+		OperStatus:  &operUp,
+		Vlan: interfacev1.VlanInterface_builder{
+			VlanId: &vid10,
+		}.Build(),
+		Ip: ipv1.IpFacet_builder{
+			NetworkInstance: ptr("default"),
+			Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
+		}.Build(),
+	}.Build()
+
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{vlan10}, nil, nil, nil, nil, nil, nil, nil, nil, nil, []*filterv1.FilterRuleSet{set}, nil)
+	if err != nil {
+		t.Fatalf("netmodel.Load failed: %v", err)
+	}
+
+	if res.Readiness() == analysis.Complete {
+		t.Errorf("readiness = %v, want degraded after narrowing an ICMP list", res.Readiness())
+	}
+
+	found := false
+	for _, issue := range res.Metadata.Issues() {
+		if issue.Code == netmodel.IssueSkippedUnsupportedFacet {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("issues = %+v, want issue %s for the narrowed ICMP match", res.Metadata.Issues(), netmodel.IssueSkippedUnsupportedFacet)
+	}
+}

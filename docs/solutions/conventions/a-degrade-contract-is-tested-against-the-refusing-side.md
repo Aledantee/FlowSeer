@@ -3,7 +3,7 @@ title: A Contract That Must Never Reach a Refusal Is Tested By Enumerating the R
 date: 2026-09-17
 last_verified: 2026-09-17
 category: conventions
-module: src/common/netsim/vswitch/netmodel
+module: src/common/sim/netmodel
 problem_type: convention
 component: netmodel
 severity: high
@@ -22,7 +22,7 @@ tags: [testing, contract, translation-boundary, enumeration, degrade]
 `netmodel.Load` translates a device report into a switch configuration, and
 promises that it returns an error only for three conditions that make
 construction impossible; everything else becomes a recorded issue
-(`src/common/netsim/vswitch/netmodel/netmodel.go:169-172`). The configuration it
+(`src/common/sim/netmodel/netmodel.go:169-172`). The configuration it
 builds is then handed to `Validate`, which refuses dozens of shapes. The
 contract is therefore a negative: no device report may reach any of those
 refusals.
@@ -44,10 +44,10 @@ argument for why no input can express it. Collecting reports that happened to
 fail only ever finds what someone already saw.
 
 `TestLoad_RoutedPortRefusalRulesBecomeIssues`
-(`src/common/netsim/vswitch/netmodel/routing_test.go:1112`) is that shape. Its
+(`src/common/sim/netmodel/routing_test.go:1112`) is that shape. Its
 doc comment carries nineteen numbered rules read out of
-`src/common/netsim/vswitch/config.go` and
-`src/common/netsim/vswitch/routing/config.go`, each with one of the three
+`src/common/sim/device/vswitch/config.go` and
+`src/common/sim/layer/routing/config.go`, each with one of the three
 dispositions, and its table drives the reachable ones:
 
 ```go
@@ -81,15 +81,15 @@ filed under a rule it could not trip, then that it omitted eight more.
 
 ## Evidence
 
-- The contract: `src/common/netsim/vswitch/netmodel/netmodel.go:169-172`.
+- The contract: `src/common/sim/netmodel/netmodel.go:169-172`.
 - The enumeration and its dispositions:
-  `src/common/netsim/vswitch/netmodel/routing_test.go:1112` onward, nineteen
+  `src/common/sim/netmodel/routing_test.go:1112` onward, nineteen
   rules, nine of them driven as table rows.
 - That a row holds its own rule: deleting the VLAN claim tracking at
   `netmodel.go` fails `DuplicateVLANClaim` alone, watched on 2026-09-16, darwin.
 - That the boundary was genuinely broken: before `parseIP` refused the mapped
   form, an address row reported as IPv4-mapped parsed, reached the VRF, and was
-  refused by `src/common/netsim/vswitch/routing/config.go:315`, so `Load`
+  refused by `src/common/sim/layer/routing/config.go:315`, so `Load`
   returned an error for an ordinary report.
 - A row can be filed under a rule it cannot trip. The invalid-VLAN row first
   used a tag id of 0, which leaves the VLAN at its zero value and reads to the

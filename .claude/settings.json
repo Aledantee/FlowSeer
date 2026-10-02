@@ -1,4 +1,5 @@
 {
+  "autoMemoryEnabled": false,
   "enabledPlugins": {
     "compound-engineering@compound-engineering-plugin": false
   },
