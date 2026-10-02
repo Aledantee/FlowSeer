@@ -558,3 +558,15 @@ go test ./test/conformance/proto/ ./src/services/device/internal/authn/ ./src/se
   gets `Internal` under requirement 9's first sentence, whatever the store
   said. Requirement 16 lifts that only for an ended context. Phase 3 writes
   the list handlers and decides how they discharge before a failed read.
+- Parked by drive: the fifth fix round closed its five items and the review
+  stays `rework`. The code answers as requirements 9, 10, 14, and 16 say.
+  Left are the seven behaviors above that no test holds and the rule
+  findings, among them record text that says more or less than requirements
+  9 and 16. Options: run one test-and-record round that changes no
+  production code, ends when the 13 listed mutations fail the suite, and
+  records `accept after fixes` (the target is closed because no behavior is
+  added, at the cost of one more round of worker quota) | accept the phase
+  now with these items recorded (phase 2 starts at once, on a record whose
+  text is inexact and tests with seven known gaps) | stop the drive here
+  (phases 2 to 4 stay waiting). Recommended: the test-and-record round,
+  because earlier rounds reopened by adding behavior and this one cannot.
