@@ -9,8 +9,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
-	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
@@ -137,7 +137,7 @@ func TestConformanceRunLifecycle(t *testing.T) {
 
 	// 2. Schedule injections with shuffled insertion order
 	rawOffsets := []int{3, 0, 2, 1}
-	shuffled := netsimtest.PermuteOrder(rawOffsets, 7)
+	shuffled := simtest.PermuteOrder(rawOffsets, 7)
 
 	for _, offset := range shuffled {
 		_, err := fab.Inject(fabric.Injection{

@@ -10,8 +10,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 func mustPortTable(t *testing.T, names ...string) port.Table {

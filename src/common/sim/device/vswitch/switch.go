@@ -28,10 +28,10 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 const (

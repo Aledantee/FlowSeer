@@ -1,4 +1,4 @@
-package netsimtest
+package simtest
 
 import (
 	"os"
@@ -161,8 +161,7 @@ func TestLeavesOrEmptyFailsRatherThanPassingVacuously(t *testing.T) {
 // diff.go the covered list does not name, and asserts coverageProblems reports it.
 func TestCoverageProblemsCatchesAnUncoveredPackage(t *testing.T) {
 	root := t.TempDir()
-	vswitchDir := filepath.Join(root, "vswitch")
-	newcapDir := filepath.Join(vswitchDir, "newcap")
+	newcapDir := filepath.Join(root, "layer", "newcap")
 	if err := os.MkdirAll(newcapDir, 0o755); err != nil {
 		t.Fatalf("mkdir %s: %v", newcapDir, err)
 	}
@@ -174,12 +173,12 @@ func TestCoverageProblemsCatchesAnUncoveredPackage(t *testing.T) {
 		t.Fatalf("mkdir %s: %v", fabricDir, err)
 	}
 
-	found := diffGoPackagePaths(t, root, "vswitch", "fabric")
+	found := diffGoPackagePaths(t, root, []string{"device/vswitch", "fabric"}, []string{"layer"})
 
-	if problems := coverageProblems(found, []string{"vswitch/newcap"}); len(problems) != 0 {
+	if problems := coverageProblems(found, []string{"layer/newcap"}); len(problems) != 0 {
 		t.Errorf("coverageProblems with the new package covered = %v, want none", problems)
 	}
-	if problems := coverageProblems(found, []string{"vswitch"}); len(problems) == 0 {
-		t.Error("coverageProblems with the new package omitted = none, want a problem naming vswitch/newcap")
+	if problems := coverageProblems(found, []string{"fabric"}); len(problems) == 0 {
+		t.Error("coverageProblems with the new package omitted = none, want a problem naming layer/newcap")
 	}
 }

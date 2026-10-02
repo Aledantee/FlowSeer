@@ -9,21 +9,21 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
-	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 func TestTopologyShadowingConformance(t *testing.T) {
-	reg := netsimtest.DefaultRegistry()
+	reg := simtest.DefaultRegistry()
 	c, ok := reg.Get("topology-shadowing/partial-model-unknown-port")
 	if !ok {
 		t.Fatal("topology-shadowing/partial-model-unknown-port case not found in default registry")
 	}
 
-	res := netsimtest.AssertCase(t, c)
+	res := simtest.AssertCase(t, c)
 
 	if res.ModelResult == nil {
 		t.Fatal("res.ModelResult is nil")

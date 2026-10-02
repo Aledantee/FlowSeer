@@ -1,4 +1,4 @@
-package netsimtest
+package simtest
 
 import (
 	"math/rand/v2"

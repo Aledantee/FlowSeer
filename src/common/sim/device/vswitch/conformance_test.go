@@ -9,12 +9,12 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
-	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // Conformance group: result-canonicality
@@ -67,7 +67,7 @@ func TestConformanceResultCanonicality(t *testing.T) {
 	}
 
 	orderA := []string{"1/1/1", "1/1/2", "1/1/3"}
-	orderB := netsimtest.PermuteOrder(orderA, 42)
+	orderB := simtest.PermuteOrder(orderA, 42)
 
 	// Randomized map and port insertion order
 	swA := buildSwitch(orderA)
@@ -105,7 +105,7 @@ func TestConformanceOrderingDeterminism(t *testing.T) {
 
 	// Build port table with multiple permuted orders
 	for seed := int64(1); seed <= 5; seed++ {
-		shuffled := netsimtest.PermuteOrder(rawPorts, seed)
+		shuffled := simtest.PermuteOrder(rawPorts, seed)
 		b := port.NewBuilder()
 		for _, name := range shuffled {
 			b.Add(port.Port{Name: name, Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -247,13 +247,13 @@ func TestConformanceDeriveInvalidation(t *testing.T) {
 
 func TestPlanningConformance(t *testing.T) {
 	t.Parallel()
-	reg := netsimtest.DefaultRegistry()
+	reg := simtest.DefaultRegistry()
 	c, ok := reg.Get("planning/port-vlan-change")
 	if !ok {
 		t.Fatal("planning/port-vlan-change case not found in default registry")
 	}
 
-	res := netsimtest.AssertCase(t, c)
+	res := simtest.AssertCase(t, c)
 
 	if res.Comparison == nil {
 		t.Fatal("res.Comparison is nil")
@@ -294,13 +294,13 @@ func TestPlanningConformance(t *testing.T) {
 
 func TestTroubleshootingConformance(t *testing.T) {
 	t.Parallel()
-	reg := netsimtest.DefaultRegistry()
+	reg := simtest.DefaultRegistry()
 	c, ok := reg.Get("troubleshooting/unicast-fdb-forwarding")
 	if !ok {
 		t.Fatal("troubleshooting/unicast-fdb-forwarding case not found in default registry")
 	}
 
-	res := netsimtest.AssertCase(t, c)
+	res := simtest.AssertCase(t, c)
 
 	if res.Forward == nil {
 		t.Fatal("res.Forward is nil")
@@ -332,7 +332,7 @@ func TestTroubleshootingConformance(t *testing.T) {
 
 func TestMDNSMulticastConformance(t *testing.T) {
 	t.Parallel()
-	reg := netsimtest.DefaultRegistry()
+	reg := simtest.DefaultRegistry()
 
 	t.Run("ipv4 floods under snooping", func(t *testing.T) {
 		c, ok := reg.Get("troubleshooting/mdns-ipv4-floods-under-snooping")
@@ -340,7 +340,7 @@ func TestMDNSMulticastConformance(t *testing.T) {
 			t.Fatal("troubleshooting/mdns-ipv4-floods-under-snooping case not found in default registry")
 		}
 
-		res := netsimtest.AssertCase(t, c)
+		res := simtest.AssertCase(t, c)
 		if res.Forward == nil {
 			t.Fatal("res.Forward is nil")
 		}
@@ -361,7 +361,7 @@ func TestMDNSMulticastConformance(t *testing.T) {
 			t.Fatal("troubleshooting/mdns-ipv6-unregistered-router-ports case not found in default registry")
 		}
 
-		res := netsimtest.AssertCase(t, c)
+		res := simtest.AssertCase(t, c)
 		if res.Forward == nil {
 			t.Fatal("res.Forward is nil")
 		}

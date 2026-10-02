@@ -3,7 +3,7 @@ package port_test
 import (
 	"testing"
 
-	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -32,5 +32,5 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		".Name": "Name is the key Diff matches ports across tables by; renaming reads as removing one port and adding another",
 	}
 
-	netsimtest.AssertDiffCoversPort(t, seed, companions, exemptions)
+	simtest.AssertDiffCoversPort(t, seed, companions, exemptions)
 }

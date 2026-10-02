@@ -13,8 +13,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // queueBufferTopology builds one untagged switch joining h1, h2, and h3 at a

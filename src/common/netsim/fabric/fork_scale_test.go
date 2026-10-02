@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // forkAllocationBaseline is the measured heap allocation count of Fabric.Fork
@@ -20,21 +20,21 @@ const forkAllocationBaseline = 16815
 const forkAllocationFixedFloor = 4515
 
 func TestRepresentativeFabricEnvelope(t *testing.T) {
-	fab := netsimtest.RepresentativeFabric()
+	fab := simtest.RepresentativeFabric()
 	cfg := fab.Config()
 
-	if len(cfg.Switches) != netsimtest.RepresentativeScaleNodeCount {
-		t.Fatalf("switch count = %d, want %d", len(cfg.Switches), netsimtest.RepresentativeScaleNodeCount)
+	if len(cfg.Switches) != simtest.RepresentativeScaleNodeCount {
+		t.Fatalf("switch count = %d, want %d", len(cfg.Switches), simtest.RepresentativeScaleNodeCount)
 	}
-	if len(cfg.Hosts) != netsimtest.RepresentativeScaleHostCount {
-		t.Fatalf("host count = %d, want %d", len(cfg.Hosts), netsimtest.RepresentativeScaleHostCount)
+	if len(cfg.Hosts) != simtest.RepresentativeScaleHostCount {
+		t.Fatalf("host count = %d, want %d", len(cfg.Hosts), simtest.RepresentativeScaleHostCount)
 	}
 
 	totalPhysicalPorts := 0
 	totalRoutes := 0
 	totalNeighbors := 0
 
-	for s := 1; s <= netsimtest.RepresentativeScaleNodeCount; s++ {
+	for s := 1; s <= simtest.RepresentativeScaleNodeCount; s++ {
 		swName := fmt.Sprintf("sw%d", s)
 		sw := fab.Switch(swName)
 		if sw == nil {
@@ -47,14 +47,14 @@ func TestRepresentativeFabricEnvelope(t *testing.T) {
 				physCount++
 			}
 		}
-		if physCount != netsimtest.RepresentativeScalePortsPerNode {
-			t.Errorf("switch %s physical ports = %d, want %d", swName, physCount, netsimtest.RepresentativeScalePortsPerNode)
+		if physCount != simtest.RepresentativeScalePortsPerNode {
+			t.Errorf("switch %s physical ports = %d, want %d", swName, physCount, simtest.RepresentativeScalePortsPerNode)
 		}
 		totalPhysicalPorts += physCount
 
 		vlanCount := len(sw.Config().Bridge.VLAN.Table)
-		if vlanCount != netsimtest.RepresentativeScaleVLANCount {
-			t.Errorf("switch %s VLAN count = %d, want %d", swName, vlanCount, netsimtest.RepresentativeScaleVLANCount)
+		if vlanCount != simtest.RepresentativeScaleVLANCount {
+			t.Errorf("switch %s VLAN count = %d, want %d", swName, vlanCount, simtest.RepresentativeScaleVLANCount)
 		}
 
 		lagCfg := sw.Config().LAG
@@ -62,36 +62,36 @@ func TestRepresentativeFabricEnvelope(t *testing.T) {
 			t.Fatalf("switch %s expected 1 LAG", swName)
 		}
 		for _, l := range lagCfg.LAGs {
-			if len(l.Members) != netsimtest.RepresentativeScaleLAGMembers {
-				t.Errorf("switch %s LAG members = %d, want %d", swName, len(l.Members), netsimtest.RepresentativeScaleLAGMembers)
+			if len(l.Members) != simtest.RepresentativeScaleLAGMembers {
+				t.Errorf("switch %s LAG members = %d, want %d", swName, len(l.Members), simtest.RepresentativeScaleLAGMembers)
 			}
 		}
 
 		vrf := sw.Config().Routing.VRFs[routing.DefaultVRF]
 		routes := len(vrf.Routes)
-		if routes != netsimtest.RepresentativeScaleRoutesPerVRF {
-			t.Errorf("switch %s routes = %d, want %d", swName, routes, netsimtest.RepresentativeScaleRoutesPerVRF)
+		if routes != simtest.RepresentativeScaleRoutesPerVRF {
+			t.Errorf("switch %s routes = %d, want %d", swName, routes, simtest.RepresentativeScaleRoutesPerVRF)
 		}
 		totalRoutes += routes
 
 		neighbors := len(vrf.Neighbors)
-		if neighbors != netsimtest.RepresentativeScaleNeighborsPerVRF {
-			t.Errorf("switch %s neighbors = %d, want %d", swName, neighbors, netsimtest.RepresentativeScaleNeighborsPerVRF)
+		if neighbors != simtest.RepresentativeScaleNeighborsPerVRF {
+			t.Errorf("switch %s neighbors = %d, want %d", swName, neighbors, simtest.RepresentativeScaleNeighborsPerVRF)
 		}
 		totalNeighbors += neighbors
 	}
 
-	wantPhysicalPorts := netsimtest.RepresentativeScaleNodeCount * netsimtest.RepresentativeScalePortsPerNode
+	wantPhysicalPorts := simtest.RepresentativeScaleNodeCount * simtest.RepresentativeScalePortsPerNode
 	if totalPhysicalPorts != wantPhysicalPorts {
 		t.Errorf("total physical ports = %d, want %d", totalPhysicalPorts, wantPhysicalPorts)
 	}
 
-	wantRoutes := netsimtest.RepresentativeScaleNodeCount * netsimtest.RepresentativeScaleRoutesPerVRF
+	wantRoutes := simtest.RepresentativeScaleNodeCount * simtest.RepresentativeScaleRoutesPerVRF
 	if totalRoutes != wantRoutes {
 		t.Errorf("total routes = %d, want %d", totalRoutes, wantRoutes)
 	}
 
-	wantNeighbors := netsimtest.RepresentativeScaleNodeCount * netsimtest.RepresentativeScaleNeighborsPerVRF
+	wantNeighbors := simtest.RepresentativeScaleNodeCount * simtest.RepresentativeScaleNeighborsPerVRF
 	if totalNeighbors != wantNeighbors {
 		t.Errorf("total neighbors = %d, want %d", totalNeighbors, wantNeighbors)
 	}
@@ -102,17 +102,17 @@ func TestRepresentativeFabricEnvelope(t *testing.T) {
 	for _, dev := range snap.Devices {
 		totalEntries += len(dev.Entries)
 	}
-	if totalEntries != netsimtest.RepresentativeScaleLearnedEntries {
-		t.Errorf("total learned entries = %d, want %d", totalEntries, netsimtest.RepresentativeScaleLearnedEntries)
+	if totalEntries != simtest.RepresentativeScaleLearnedEntries {
+		t.Errorf("total learned entries = %d, want %d", totalEntries, simtest.RepresentativeScaleLearnedEntries)
 	}
 
-	if len(snap.Queue) != netsimtest.RepresentativeScaleQueueDepth {
-		t.Errorf("queued arrivals = %d, want %d", len(snap.Queue), netsimtest.RepresentativeScaleQueueDepth)
+	if len(snap.Queue) != simtest.RepresentativeScaleQueueDepth {
+		t.Errorf("queued arrivals = %d, want %d", len(snap.Queue), simtest.RepresentativeScaleQueueDepth)
 	}
 }
 
 func TestRepresentativeFabricForkAllocs(t *testing.T) {
-	fab := netsimtest.RepresentativeFabric()
+	fab := simtest.RepresentativeFabric()
 
 	allocs := testing.AllocsPerRun(5, func() {
 		_ = fab.Fork()
@@ -124,12 +124,12 @@ func TestRepresentativeFabricForkAllocs(t *testing.T) {
 }
 
 func TestRepresentativeFabricForkAllocsQueueScaling(t *testing.T) {
-	fab1x := netsimtest.RepresentativeFabric()
+	fab1x := simtest.RepresentativeFabric()
 	allocs1x := testing.AllocsPerRun(5, func() {
 		_ = fab1x.Fork()
 	})
 
-	fab4x := netsimtest.RepresentativeFabricAtQueueDepth(4 * netsimtest.RepresentativeScaleQueueDepth)
+	fab4x := simtest.RepresentativeFabricAtQueueDepth(4 * simtest.RepresentativeScaleQueueDepth)
 	allocs4x := testing.AllocsPerRun(5, func() {
 		_ = fab4x.Fork()
 	})

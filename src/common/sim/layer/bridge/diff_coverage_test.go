@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 )
 
@@ -41,5 +41,5 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		},
 	}
 
-	netsimtest.AssertDiffCoversConfig(t, seed, bridge.Config.Normalize, bridge.Diff, nil)
+	simtest.AssertDiffCoversConfig(t, seed, bridge.Config.Normalize, bridge.Diff, nil)
 }

@@ -8,9 +8,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
-	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 )
 
@@ -91,5 +91,5 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 			"the compared configuration; diffUncabled (fabric/diff.go) matches entries by Endpoint alone",
 	}
 
-	netsimtest.AssertDiffCoversConfig(t, seed, fabric.Config.Normalize, fabric.Diff, exemptions)
+	simtest.AssertDiffCoversConfig(t, seed, fabric.Config.Normalize, fabric.Diff, exemptions)
 }

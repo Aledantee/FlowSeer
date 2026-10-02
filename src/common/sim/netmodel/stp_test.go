@@ -18,10 +18,10 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
-	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 func mustEncode(t *testing.T, b stp.BPDU, src netaddr.MAC) ethernet.Frame {

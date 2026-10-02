@@ -1,4 +1,4 @@
-package netsimtest_test
+package simtest_test
 
 import (
 	"fmt"
@@ -8,15 +8,15 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
-	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 )
 
 func TestSchemaVersion(t *testing.T) {
-	if netsimtest.SchemaVersion != "v1" {
-		t.Errorf("SchemaVersion = %q, want %q", netsimtest.SchemaVersion, "v1")
+	if simtest.SchemaVersion != "v1" {
+		t.Errorf("SchemaVersion = %q, want %q", simtest.SchemaVersion, "v1")
 	}
 }
 
@@ -29,14 +29,14 @@ func TestIssueExpectationIgnoresMessageButRequiresSemanticIdentity(t *testing.T)
 		Message:  "the original wording",
 		Evidence: []trace.EvidenceRef{"evidence-1"},
 	}
-	expected := netsimtest.NewIssueExpectation(issue)
+	expected := simtest.NewIssueExpectation(issue)
 
 	reworded := issue
 	reworded.Message = "wording can change without changing the issue"
 	if !expected.Matches(reworded) {
 		t.Error("IssueExpectation.Matches treated issue wording as semantic identity")
 	}
-	if !reflect.DeepEqual(expected, netsimtest.NewIssueExpectation(reworded)) {
+	if !reflect.DeepEqual(expected, simtest.NewIssueExpectation(reworded)) {
 		t.Error("issue expectations with identical semantics differ by message wording")
 	}
 	if got := analysis.NewMetadata(scope, []analysis.Issue{reworded}, analysis.EvidenceCatalog{}, nil).Issues()[0].Message; got != reworded.Message {
@@ -63,10 +63,10 @@ func TestIssueExpectationIgnoresMessageButRequiresSemanticIdentity(t *testing.T)
 }
 
 func TestAssertCaseIgnoresIssueMessageWordingAcrossRuns(t *testing.T) {
-	c := netsimtest.CaseShadowingPartialUnknownPort()
+	c := simtest.CaseShadowingPartialUnknownPort()
 	origExecute := c.Execute
 	executions := 0
-	c.Execute = func() (netsimtest.ExecutionResult, error) {
+	c.Execute = func() (simtest.ExecutionResult, error) {
 		res, err := origExecute()
 		if err != nil {
 			return res, err
@@ -79,128 +79,128 @@ func TestAssertCaseIgnoresIssueMessageWordingAcrossRuns(t *testing.T) {
 	}
 
 	rec := &recordingTB{}
-	netsimtest.AssertCase(rec, c)
+	simtest.AssertCase(rec, c)
 	if len(rec.errors) != 0 {
 		t.Errorf("AssertCase rejected message-only issue changes: %v", rec.errors)
 	}
 }
 
 func TestAdmissionValidation(t *testing.T) {
-	validCase := netsimtest.CasePlanningPortVLANChange()
+	validCase := simtest.CasePlanningPortVLANChange()
 
 	tests := []struct {
 		name    string
-		mutate  func(c *netsimtest.Case)
+		mutate  func(c *simtest.Case)
 		wantErr string
 	}{
 		{
 			name: "empty ID",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ID = ""
 			},
 			wantErr: "corpus case ID cannot be empty",
 		},
 		{
 			name: "unspecified use case",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.UseCase = ""
 			},
 			wantErr: "unspecified or invalid use case class",
 		},
 		{
 			name: "invalid use case",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.UseCase = "benchmark"
 			},
 			wantErr: "unspecified or invalid use case class",
 		},
 		{
 			name: "empty question",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.Question = "   "
 			},
 			wantErr: "has empty question",
 		},
 		{
 			name: "empty false answer",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.FalseAnswer = ""
 			},
 			wantErr: "has empty false answer",
 		},
 		{
 			name: "empty current result",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.CurrentResult = ""
 			},
 			wantErr: "has empty current result description",
 		},
 		{
 			name: "empty expected outcome",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedOutcome = ""
 			},
 			wantErr: "has empty expected outcome",
 		},
 		{
 			name: "unspecified expected metadata",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedMetadata = nil
 			},
 			wantErr: "has unspecified expected metadata",
 		},
 		{
 			name: "invalid expected status",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedMetadata.Status = 99
 			},
 			wantErr: "has invalid result metadata status",
 		},
 		{
 			name: "missing expected rules",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedRules = nil
 			},
 			wantErr: "must define at least one expected trace rule",
 		},
 		{
 			name: "missing expected subjects",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedSubjects = nil
 			},
 			wantErr: "must define at least one expected trace subject",
 		},
 		{
 			name: "missing expected facts",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedFacts = nil
 			},
 			wantErr: "must define at least one expected semantic fact",
 		},
 		{
 			name: "missing ordered expected steps",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedSteps = nil
 			},
 			wantErr: "must define its ordered expected trace steps",
 		},
 		{
 			name: "step without layer",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedSteps[0].Layer = ""
 			},
 			wantErr: "incomplete expected step",
 		},
 		{
 			name: "step without operation",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedSteps[0].Op = ""
 			},
 			wantErr: "incomplete expected step",
 		},
 		{
 			name: "step without rule",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedSteps[0].RuleID = ""
 				c.ExpectedRules = c.ExpectedRules[1:]
 			},
@@ -208,28 +208,28 @@ func TestAdmissionValidation(t *testing.T) {
 		},
 		{
 			name: "step without subject kind",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedSteps[0].Subject.Kind = ""
 			},
 			wantErr: "incomplete expected step",
 		},
 		{
 			name: "step without subject key",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedSteps[0].Subject.Key = ""
 			},
 			wantErr: "incomplete expected step",
 		},
 		{
 			name: "change without layer",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedChanges[0].Layer = ""
 			},
 			wantErr: "incomplete expected change",
 		},
 		{
 			name: "whole-subject change without key",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedChanges[0].Subject.Key = ""
 				c.ExpectedChanges[0].Field = ""
 			},
@@ -237,7 +237,7 @@ func TestAdmissionValidation(t *testing.T) {
 		},
 		{
 			name: "non-complete status without issues",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedMetadata.Status = analysis.Incomplete
 				c.ExpectedMetadata.Issues = nil
 			},
@@ -245,8 +245,8 @@ func TestAdmissionValidation(t *testing.T) {
 		},
 		{
 			name: "non-complete side metadata without issues",
-			mutate: func(c *netsimtest.Case) {
-				c.ExpectedForwardMetadata = &netsimtest.MetadataExpectation{
+			mutate: func(c *simtest.Case) {
+				c.ExpectedForwardMetadata = &simtest.MetadataExpectation{
 					Status: analysis.Incomplete,
 					Scope:  analysis.WholeScope(),
 				}
@@ -255,9 +255,9 @@ func TestAdmissionValidation(t *testing.T) {
 		},
 		{
 			name: "primary issue without evidence",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedMetadata.Status = analysis.Incomplete
-				c.ExpectedMetadata.Issues = []netsimtest.IssueExpectation{{
+				c.ExpectedMetadata.Issues = []simtest.IssueExpectation{{
 					Code: "test.issue", Status: analysis.Incomplete, Scope: c.ExpectedMetadata.Scope,
 				}}
 			},
@@ -265,9 +265,9 @@ func TestAdmissionValidation(t *testing.T) {
 		},
 		{
 			name: "issue with invalid status",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedMetadata.Status = analysis.Incomplete
-				c.ExpectedMetadata.Issues = []netsimtest.IssueExpectation{{
+				c.ExpectedMetadata.Issues = []simtest.IssueExpectation{{
 					Code: "test.issue", Status: analysis.Complete, Scope: analysis.WholeScope(), Evidence: []trace.EvidenceRef{"ev-1"},
 				}}
 			},
@@ -275,9 +275,9 @@ func TestAdmissionValidation(t *testing.T) {
 		},
 		{
 			name: "empty issue code",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedMetadata.Status = analysis.Incomplete
-				c.ExpectedMetadata.Issues = []netsimtest.IssueExpectation{{
+				c.ExpectedMetadata.Issues = []simtest.IssueExpectation{{
 					Status: analysis.Incomplete, Scope: analysis.WholeScope(), Evidence: []trace.EvidenceRef{"ev-1"},
 				}}
 			},
@@ -285,8 +285,8 @@ func TestAdmissionValidation(t *testing.T) {
 		},
 		{
 			name: "empty expected assumption statement",
-			mutate: func(c *netsimtest.Case) {
-				c.ExpectedMetadata.Assumptions = []netsimtest.AssumptionExpectation{{
+			mutate: func(c *simtest.Case) {
+				c.ExpectedMetadata.Assumptions = []simtest.AssumptionExpectation{{
 					Scope: analysis.WholeScope(), Statement: "   ", Evidence: []trace.EvidenceRef{"ev-1"},
 				}}
 			},
@@ -294,49 +294,49 @@ func TestAdmissionValidation(t *testing.T) {
 		},
 		{
 			name: "empty expected rule ID",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedRules = []trace.RuleID{""}
 			},
 			wantErr: "has empty expected rule ID",
 		},
 		{
 			name: "empty expected subject",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedSubjects = []trace.Subject{{}}
 			},
 			wantErr: "has empty expected subject",
 		},
 		{
 			name: "empty expected fact type ID",
-			mutate: func(c *netsimtest.Case) {
-				c.ExpectedFacts = []netsimtest.FactExpectation{{TypeID: "  "}}
+			mutate: func(c *simtest.Case) {
+				c.ExpectedFacts = []simtest.FactExpectation{{TypeID: "  "}}
 			},
 			wantErr: "has empty expected fact type ID",
 		},
 		{
 			name: "rule not bound to an expected step",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedRules = []trace.RuleID{"missing-rule"}
 			},
 			wantErr: "without a matching step expectation",
 		},
 		{
 			name: "subject not bound to structured expectation",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.ExpectedSubjects = []trace.Subject{{Kind: "port", Key: "missing"}}
 			},
 			wantErr: "without a matching step or change expectation",
 		},
 		{
 			name: "fact not bound to structured expectation",
-			mutate: func(c *netsimtest.Case) {
-				c.ExpectedFacts = []netsimtest.FactExpectation{{TypeID: "missing.fact", Canonical: "missing"}}
+			mutate: func(c *simtest.Case) {
+				c.ExpectedFacts = []simtest.FactExpectation{{TypeID: "missing.fact", Canonical: "missing"}}
 			},
 			wantErr: "without a matching step or change expectation",
 		},
 		{
 			name: "nil execute function",
-			mutate: func(c *netsimtest.Case) {
+			mutate: func(c *simtest.Case) {
 				c.Execute = nil
 			},
 			wantErr: "has nil execute function",
@@ -347,7 +347,7 @@ func TestAdmissionValidation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := validCase.Clone()
 			tc.mutate(&c)
-			err := netsimtest.ValidateCase(c)
+			err := simtest.ValidateCase(c)
 			if err == nil {
 				t.Fatalf("got nil error, want one containing %q", tc.wantErr)
 			}
@@ -368,15 +368,15 @@ func TestAdmissionRejectsMetadataStatusContradictions(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		expectation netsimtest.MetadataExpectation
+		expectation simtest.MetadataExpectation
 		wantErr     string
 	}{
 		{
 			name: "complete with overlapping incomplete issue",
-			expectation: netsimtest.MetadataExpectation{
+			expectation: simtest.MetadataExpectation{
 				Status: analysis.Complete,
 				Scope:  localScope,
-				Issues: []netsimtest.IssueExpectation{{
+				Issues: []simtest.IssueExpectation{{
 					Code: "test.incomplete", Status: analysis.Incomplete, Scope: localScope, Evidence: []trace.EvidenceRef{incompleteRef},
 				}},
 				Evidence: evidence,
@@ -385,10 +385,10 @@ func TestAdmissionRejectsMetadataStatusContradictions(t *testing.T) {
 		},
 		{
 			name: "lower precedence than overlapping issues",
-			expectation: netsimtest.MetadataExpectation{
+			expectation: simtest.MetadataExpectation{
 				Status: analysis.Incomplete,
 				Scope:  analysis.NodeScope("status-node"),
-				Issues: []netsimtest.IssueExpectation{
+				Issues: []simtest.IssueExpectation{
 					{Code: "test.incomplete", Status: analysis.Incomplete, Scope: localScope, Evidence: []trace.EvidenceRef{incompleteRef}},
 					{Code: "test.unsupported", Status: analysis.Unsupported, Scope: otherScope, Evidence: []trace.EvidenceRef{unsupportedRef}},
 				},
@@ -398,10 +398,10 @@ func TestAdmissionRejectsMetadataStatusContradictions(t *testing.T) {
 		},
 		{
 			name: "non-complete status justified only by disjoint issue",
-			expectation: netsimtest.MetadataExpectation{
+			expectation: simtest.MetadataExpectation{
 				Status: analysis.Incomplete,
 				Scope:  localScope,
-				Issues: []netsimtest.IssueExpectation{{
+				Issues: []simtest.IssueExpectation{{
 					Code: "test.incomplete", Status: analysis.Incomplete, Scope: otherScope, Evidence: []trace.EvidenceRef{incompleteRef},
 				}},
 				Evidence: evidence,
@@ -412,10 +412,10 @@ func TestAdmissionRejectsMetadataStatusContradictions(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			c := netsimtest.CasePlanningPortVLANChange()
+			c := simtest.CasePlanningPortVLANChange()
 			c.ExpectedForwardMetadata = &tc.expectation
 
-			err := netsimtest.ValidateCase(c)
+			err := simtest.ValidateCase(c)
 			if err == nil {
 				t.Fatal("ValidateCase() error = nil, want metadata status contradiction")
 			}
@@ -427,19 +427,19 @@ func TestAdmissionRejectsMetadataStatusContradictions(t *testing.T) {
 }
 
 func TestAdmissionRejectsPrimaryMetadataStatusPrecedenceContradiction(t *testing.T) {
-	c := netsimtest.CasePlanningPortVLANChange()
+	c := simtest.CasePlanningPortVLANChange()
 	var catalog analysis.EvidenceCatalog
 	catalog, incompleteRef := catalog.Add(analysis.Evidence{Kind: "test.status", Origin: "corpus-test", Context: "incomplete issue"})
 	catalog, unsupportedRef := catalog.Add(analysis.Evidence{Kind: "test.status", Origin: "corpus-test", Context: "unsupported issue"})
 	c.ExpectedMetadata.Status = analysis.Incomplete
 	c.ExpectedMetadata.Scope = analysis.NodeScope("")
-	c.ExpectedMetadata.Issues = []netsimtest.IssueExpectation{
+	c.ExpectedMetadata.Issues = []simtest.IssueExpectation{
 		{Code: "test.incomplete", Status: analysis.Incomplete, Scope: analysis.PortScope("", "p1"), Evidence: []trace.EvidenceRef{incompleteRef}},
 		{Code: "test.unsupported", Status: analysis.Unsupported, Scope: analysis.PortScope("", "p2"), Evidence: []trace.EvidenceRef{unsupportedRef}},
 	}
 	c.ExpectedMetadata.Evidence = catalog.Entries()
 
-	err := netsimtest.ValidateCase(c)
+	err := simtest.ValidateCase(c)
 	if err == nil {
 		t.Fatal("ValidateCase() error = nil, want primary metadata status contradiction")
 	}
@@ -449,8 +449,8 @@ func TestAdmissionRejectsPrimaryMetadataStatusPrecedenceContradiction(t *testing
 }
 
 func TestRegistryDuplicateRejection(t *testing.T) {
-	r := netsimtest.NewRegistry()
-	c := netsimtest.CasePlanningPortVLANChange()
+	r := simtest.NewRegistry()
+	c := simtest.CasePlanningPortVLANChange()
 
 	if err := r.Register(c); err != nil {
 		t.Fatalf("first registration failed: %v", err)
@@ -466,8 +466,8 @@ func TestRegistryDuplicateRejection(t *testing.T) {
 }
 
 func TestRegistryCopyIsolation(t *testing.T) {
-	r := netsimtest.NewRegistry()
-	c := netsimtest.CasePlanningPortVLANChange()
+	r := simtest.NewRegistry()
+	c := simtest.CasePlanningPortVLANChange()
 	r.MustRegister(c)
 
 	retrieved, ok := r.Get(c.ID)
@@ -478,8 +478,8 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	// Mutate fields in retrieved copy.
 	retrieved.ExpectedRules[0] = "mutated-rule"
 	retrieved.ExpectedSubjects[0] = trace.Subject{Kind: "mutated", Key: "mutated"}
-	retrieved.ExpectedFacts[0] = netsimtest.FactExpectation{TypeID: "mutated", Canonical: "mutated"}
-	retrieved.ExpectedSteps[0].Outputs[0] = netsimtest.FactExpectation{TypeID: "mutated", Canonical: "mutated"}
+	retrieved.ExpectedFacts[0] = simtest.FactExpectation{TypeID: "mutated", Canonical: "mutated"}
+	retrieved.ExpectedSteps[0].Outputs[0] = simtest.FactExpectation{TypeID: "mutated", Canonical: "mutated"}
 	retrieved.ExpectedChanges[0].From.TypeID = "mutated"
 	retrieved.ExpectedComparison.Current.Steps[0].Inputs[0].TypeID = "mutated"
 	retrieved.ExpectedMetadata.Scope = analysis.WholeScope()
@@ -512,7 +512,7 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	}
 
 	// Also verify non-Complete shadowing case isolation for issues, scopes, evidence, assumptions.
-	cShadow := netsimtest.CaseShadowingPartialUnknownPort()
+	cShadow := simtest.CaseShadowingPartialUnknownPort()
 	r.MustRegister(cShadow)
 
 	retrievedShadow, ok := r.Get(cShadow.ID)
@@ -573,7 +573,7 @@ func TestRegistryCopyIsolation(t *testing.T) {
 }
 
 func TestRegistryDeterministicOrdering(t *testing.T) {
-	r := netsimtest.DefaultRegistry()
+	r := simtest.DefaultRegistry()
 	allCases := r.All()
 
 	if len(allCases) != 39 {
@@ -601,7 +601,7 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 		"planning/pvst-per-vlan-root",
 		"planning/scenario-replays-link-flap",
 	}
-	planningCases := r.ByUseCase(netsimtest.UseCasePlanning)
+	planningCases := r.ByUseCase(simtest.UseCasePlanning)
 	if len(planningCases) != len(wantPlanning) {
 		t.Fatalf("ByUseCase(Planning) returned %d cases, want %d: %v", len(planningCases), len(wantPlanning), planningCases)
 	}
@@ -621,7 +621,7 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 		"topology-shadowing/unresolved-transceiver",
 		"topology-shadowing/unresolved-transceiver-known-delivery",
 	}
-	shadowingCases := r.ByUseCase(netsimtest.UseCaseTopologyShadowing)
+	shadowingCases := r.ByUseCase(simtest.UseCaseTopologyShadowing)
 	if len(shadowingCases) != len(wantShadowing) {
 		t.Fatalf("ByUseCase(TopologyShadowing) returned %d cases, want %d: %v", len(shadowingCases), len(wantShadowing), shadowingCases)
 	}
@@ -651,7 +651,7 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 		"troubleshooting/stateful-reply-allowed",
 		"troubleshooting/unicast-fdb-forwarding",
 	}
-	troubleshootingCases := r.ByUseCase(netsimtest.UseCaseTroubleshooting)
+	troubleshootingCases := r.ByUseCase(simtest.UseCaseTroubleshooting)
 	if len(troubleshootingCases) != len(wantTroubleshooting) {
 		t.Fatalf("ByUseCase(Troubleshooting) returned %d cases, want %d: %v", len(troubleshootingCases), len(wantTroubleshooting), troubleshootingCases)
 	}
@@ -663,8 +663,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 }
 
 func TestExecutePlanningCase(t *testing.T) {
-	c := netsimtest.CasePlanningPortVLANChange()
-	res := netsimtest.AssertCase(t, c)
+	c := simtest.CasePlanningPortVLANChange()
+	res := simtest.AssertCase(t, c)
 
 	if res.Comparison == nil {
 		t.Fatal("res.Comparison is nil")
@@ -702,8 +702,8 @@ func TestExecutePlanningCase(t *testing.T) {
 }
 
 func TestExecuteShadowingCase(t *testing.T) {
-	c := netsimtest.CaseShadowingPartialUnknownPort()
-	res := netsimtest.AssertCase(t, c)
+	c := simtest.CaseShadowingPartialUnknownPort()
+	res := simtest.AssertCase(t, c)
 
 	if res.ModelResult == nil {
 		t.Fatal("res.ModelResult is nil")
@@ -737,8 +737,8 @@ func TestExecuteShadowingCase(t *testing.T) {
 }
 
 func TestExecuteTroubleshootingCase(t *testing.T) {
-	c := netsimtest.CaseTroubleshootingUnicastForwarding()
-	res := netsimtest.AssertCase(t, c)
+	c := simtest.CaseTroubleshootingUnicastForwarding()
+	res := simtest.AssertCase(t, c)
 
 	if res.Forward == nil {
 		t.Fatal("res.Forward is nil")
@@ -772,15 +772,15 @@ func TestExecuteTroubleshootingCase(t *testing.T) {
 }
 
 func TestCorpusAdmitsAndExecutesEveryCaseDeterministically(t *testing.T) {
-	for _, c := range netsimtest.DefaultRegistry().All() {
+	for _, c := range simtest.DefaultRegistry().All() {
 		t.Run(c.ID, func(t *testing.T) {
-			netsimtest.AssertCase(t, c)
+			simtest.AssertCase(t, c)
 		})
 	}
 }
 
 func TestUnresolvedTransceiverCasesShareOneFabricButDivergeInTrust(t *testing.T) {
-	incomplete := netsimtest.AssertCase(t, netsimtest.CaseTopologyShadowingUnresolvedTransceiver())
+	incomplete := simtest.AssertCase(t, simtest.CaseTopologyShadowingUnresolvedTransceiver())
 	if incomplete.Journey == nil {
 		t.Fatal("res.Journey is nil")
 	}
@@ -794,7 +794,7 @@ func TestUnresolvedTransceiverCasesShareOneFabricButDivergeInTrust(t *testing.T)
 		t.Errorf("fabric metadata link issues = %+v, want propagation-unknown", got)
 	}
 
-	complete := netsimtest.AssertCase(t, netsimtest.CaseTopologyShadowingUnresolvedTransceiverKnownDelivery())
+	complete := simtest.AssertCase(t, simtest.CaseTopologyShadowingUnresolvedTransceiverKnownDelivery())
 	if complete.Journey == nil || len(complete.Journey.Deliveries) != 1 || complete.Journey.Deliveries[0].Host != "h3" {
 		t.Errorf("deliveries = %+v, want one to h3", complete.Journey.Deliveries)
 	}
@@ -804,7 +804,7 @@ func TestUnresolvedTransceiverCasesShareOneFabricButDivergeInTrust(t *testing.T)
 }
 
 func TestUncabledPortDefiniteDropLocalizesAwayFromTheOmittedPort(t *testing.T) {
-	res := netsimtest.AssertCase(t, netsimtest.CaseTopologyShadowingUncabledPortDefiniteDrop())
+	res := simtest.AssertCase(t, simtest.CaseTopologyShadowingUncabledPortDefiniteDrop())
 	if res.FabricMetadata == nil {
 		t.Fatal("res.FabricMetadata is nil")
 	}
@@ -818,14 +818,14 @@ func TestUncabledPortDefiniteDropLocalizesAwayFromTheOmittedPort(t *testing.T) {
 }
 
 func TestUnreportedNegotiationDropsWithoutDeliveringToTheUnknownPort(t *testing.T) {
-	res := netsimtest.AssertCase(t, netsimtest.CaseTopologyShadowingUnreportedNegotiation())
+	res := simtest.AssertCase(t, simtest.CaseTopologyShadowingUnreportedNegotiation())
 	if res.Journey == nil || len(res.Journey.Deliveries) != 0 {
 		t.Errorf("deliveries = %+v, want none: h2's link never resolved", res.Journey.Deliveries)
 	}
 }
 
 func TestUnknownUplinkSTPCarriesProtocolIssuesOnTheKnownPath(t *testing.T) {
-	res := netsimtest.AssertCase(t, netsimtest.CaseTopologyShadowingUnknownUplinkSTP())
+	res := simtest.AssertCase(t, simtest.CaseTopologyShadowingUnknownUplinkSTP())
 	if res.Journey == nil || len(res.Journey.Deliveries) != 1 || res.Journey.Deliveries[0].Host != "h2" {
 		t.Errorf("deliveries = %+v, want one to h2 over the known uplink", res.Journey.Deliveries)
 	}
@@ -838,7 +838,7 @@ func TestUnknownUplinkSTPCarriesProtocolIssuesOnTheKnownPath(t *testing.T) {
 }
 
 func TestHostRejectsForeignUnicastOverAFullyResolvedPath(t *testing.T) {
-	res := netsimtest.AssertCase(t, netsimtest.CaseTroubleshootingHostRejectsForeignUnicast())
+	res := simtest.AssertCase(t, simtest.CaseTroubleshootingHostRejectsForeignUnicast())
 	if res.Journey == nil {
 		t.Fatal("res.Journey is nil")
 	}
@@ -856,7 +856,7 @@ func TestHostRejectsForeignUnicastOverAFullyResolvedPath(t *testing.T) {
 // the query h1 injected, so its Parent names the query's frame and it alone
 // carries the delivery to h2.
 func TestReflectedQueryPinsTheCopyNotTheInjectedQuery(t *testing.T) {
-	res := netsimtest.AssertCase(t, netsimtest.CaseTroubleshootingMDNSReflectedAcrossVLANs())
+	res := simtest.AssertCase(t, simtest.CaseTroubleshootingMDNSReflectedAcrossVLANs())
 	if res.Journey == nil {
 		t.Fatal("res.Journey is nil")
 	}
@@ -873,7 +873,7 @@ func TestReflectedQueryPinsTheCopyNotTheInjectedQuery(t *testing.T) {
 // (FrameID > 1), and it is the one whose arrival re-entered an endpoint
 // its own ancestry already carries.
 func TestTwoReflectorsLoopPinsTheReenteringCopy(t *testing.T) {
-	res := netsimtest.AssertCase(t, netsimtest.CaseTroubleshootingMDNSTwoReflectorsLoop())
+	res := simtest.AssertCase(t, simtest.CaseTroubleshootingMDNSTwoReflectorsLoop())
 	if res.Journey == nil {
 		t.Fatal("res.Journey is nil")
 	}
@@ -890,16 +890,16 @@ func TestExecutionResultStatusDerivesFromMetadata(t *testing.T) {
 		Code:   "test.issue",
 		Status: analysis.Incomplete,
 	}}, analysis.EvidenceCatalog{}, nil)
-	res := netsimtest.ExecutionResult{Metadata: meta}
+	res := simtest.ExecutionResult{Metadata: meta}
 	if res.Status() != analysis.Incomplete {
 		t.Errorf("res.Status() = %v, want Incomplete (derived from Metadata)", res.Status())
 	}
 }
 
 func TestAdmissionRequiresPrimaryMetadataEvidenceContents(t *testing.T) {
-	c := netsimtest.CaseShadowingPartialUnknownPort()
+	c := simtest.CaseShadowingPartialUnknownPort()
 	c.ExpectedMetadata.Evidence = nil
-	err := netsimtest.ValidateCase(c)
+	err := simtest.ValidateCase(c)
 	if err == nil {
 		t.Fatal("expected error for metadata reference without evidence contents, got nil")
 	}
@@ -911,30 +911,30 @@ func TestAdmissionRequiresPrimaryMetadataEvidenceContents(t *testing.T) {
 func TestAdmissionRequiresIssueEvidenceOnEveryNestedMetadataAxis(t *testing.T) {
 	tests := []struct {
 		name    string
-		caseFn  func() netsimtest.Case
-		mutate  func(*netsimtest.Case)
+		caseFn  func() simtest.Case
+		mutate  func(*simtest.Case)
 		wantErr string
 	}{
 		{
 			name:   "comparison current",
-			caseFn: netsimtest.CasePlanningPortVLANChange,
-			mutate: func(c *netsimtest.Case) {
+			caseFn: simtest.CasePlanningPortVLANChange,
+			mutate: func(c *simtest.Case) {
 				c.ExpectedComparison.Current.Metadata = metadataWithUnprovenIssue()
 			},
 			wantErr: "comparison current metadata issue without evidence",
 		},
 		{
 			name:   "comparison expected",
-			caseFn: netsimtest.CasePlanningPortVLANChange,
-			mutate: func(c *netsimtest.Case) {
+			caseFn: simtest.CasePlanningPortVLANChange,
+			mutate: func(c *simtest.Case) {
 				c.ExpectedComparison.Expected.Metadata = metadataWithUnprovenIssue()
 			},
 			wantErr: "comparison expected metadata issue without evidence",
 		},
 		{
 			name:   "model",
-			caseFn: netsimtest.CaseShadowingPartialUnknownPort,
-			mutate: func(c *netsimtest.Case) {
+			caseFn: simtest.CaseShadowingPartialUnknownPort,
+			mutate: func(c *simtest.Case) {
 				isolated := c.ExpectedModelMetadata.Canonical()
 				c.ExpectedModelMetadata = &isolated
 				c.ExpectedModelMetadata.Issues[0].Evidence = nil
@@ -943,8 +943,8 @@ func TestAdmissionRequiresIssueEvidenceOnEveryNestedMetadataAxis(t *testing.T) {
 		},
 		{
 			name:   "forward",
-			caseFn: netsimtest.CaseShadowingPartialUnknownPort,
-			mutate: func(c *netsimtest.Case) {
+			caseFn: simtest.CaseShadowingPartialUnknownPort,
+			mutate: func(c *simtest.Case) {
 				for i := range c.ExpectedForwardMetadata.Issues {
 					c.ExpectedForwardMetadata.Issues[i].Evidence = nil
 				}
@@ -958,7 +958,7 @@ func TestAdmissionRequiresIssueEvidenceOnEveryNestedMetadataAxis(t *testing.T) {
 			c := test.caseFn()
 			test.mutate(&c)
 
-			err := netsimtest.ValidateCase(c)
+			err := simtest.ValidateCase(c)
 			if err == nil {
 				t.Fatalf("ValidateCase() error = nil, want one containing %q", test.wantErr)
 			}
@@ -970,12 +970,12 @@ func TestAdmissionRequiresIssueEvidenceOnEveryNestedMetadataAxis(t *testing.T) {
 }
 
 func TestBaselineMetadataIssuesCarryResolvableEvidence(t *testing.T) {
-	for _, c := range []netsimtest.Case{
-		netsimtest.CasePlanningPortVLANChange(),
-		netsimtest.CaseShadowingPartialUnknownPort(),
-		netsimtest.CaseTroubleshootingUnicastForwarding(),
+	for _, c := range []simtest.Case{
+		simtest.CasePlanningPortVLANChange(),
+		simtest.CaseShadowingPartialUnknownPort(),
+		simtest.CaseTroubleshootingUnicastForwarding(),
 	} {
-		axes := map[string]*netsimtest.MetadataExpectation{
+		axes := map[string]*simtest.MetadataExpectation{
 			"result":  c.ExpectedMetadata,
 			"model":   c.ExpectedModelMetadata,
 			"forward": c.ExpectedForwardMetadata,
@@ -1007,12 +1007,12 @@ func TestBaselineMetadataIssuesCarryResolvableEvidence(t *testing.T) {
 	}
 }
 
-func metadataWithUnprovenIssue() netsimtest.MetadataExpectation {
+func metadataWithUnprovenIssue() simtest.MetadataExpectation {
 	scope := analysis.NodeScope("")
-	return netsimtest.MetadataExpectation{
+	return simtest.MetadataExpectation{
 		Status: analysis.Incomplete,
 		Scope:  scope,
-		Issues: []netsimtest.IssueExpectation{{
+		Issues: []simtest.IssueExpectation{{
 			Code: "test.issue", Status: analysis.Incomplete, Scope: scope,
 		}},
 	}
@@ -1034,9 +1034,9 @@ func (r *recordingTB) Fatalf(format string, args ...any) {
 }
 
 func TestAssertCaseVerifiesExactPrimaryEvidenceAndAssumptions(t *testing.T) {
-	c := netsimtest.CaseShadowingPartialUnknownPort()
+	c := simtest.CaseShadowingPartialUnknownPort()
 	origExecute := c.Execute
-	c.Execute = func() (netsimtest.ExecutionResult, error) {
+	c.Execute = func() (simtest.ExecutionResult, error) {
 		res, err := origExecute()
 		if err != nil {
 			return res, err
@@ -1050,15 +1050,15 @@ func TestAssertCaseVerifiesExactPrimaryEvidenceAndAssumptions(t *testing.T) {
 	}
 
 	rec := &recordingTB{}
-	netsimtest.AssertCase(rec, c)
+	simtest.AssertCase(rec, c)
 	if !recordedErrorContains(rec, "result metadata does not match its exact structured expectation") {
 		t.Errorf("AssertCase errors = %v, want exact primary metadata failure", rec.errors)
 	}
 }
 
 func TestShadowingCasePopulatesEvidenceAndAssumptions(t *testing.T) {
-	c := netsimtest.CaseShadowingPartialUnknownPort()
-	for axis, metadata := range map[string]*netsimtest.MetadataExpectation{
+	c := simtest.CaseShadowingPartialUnknownPort()
+	for axis, metadata := range map[string]*simtest.MetadataExpectation{
 		"result":  c.ExpectedMetadata,
 		"model":   c.ExpectedModelMetadata,
 		"forward": c.ExpectedForwardMetadata,
@@ -1072,23 +1072,23 @@ func TestShadowingCasePopulatesEvidenceAndAssumptions(t *testing.T) {
 func TestAssertCaseRequiresExactSideMetadata(t *testing.T) {
 	tests := []struct {
 		name   string
-		mutate func(*netsimtest.MetadataExpectation)
+		mutate func(*simtest.MetadataExpectation)
 	}{
 		{
 			name: "issue",
-			mutate: func(metadata *netsimtest.MetadataExpectation) {
+			mutate: func(metadata *simtest.MetadataExpectation) {
 				metadata.Issues[0].Code = "changed.side.issue"
 			},
 		},
 		{
 			name: "assumption",
-			mutate: func(metadata *netsimtest.MetadataExpectation) {
+			mutate: func(metadata *simtest.MetadataExpectation) {
 				metadata.Assumptions[0].Statement = "changed side assumption"
 			},
 		},
 		{
 			name: "evidence",
-			mutate: func(metadata *netsimtest.MetadataExpectation) {
+			mutate: func(metadata *simtest.MetadataExpectation) {
 				var catalog analysis.EvidenceCatalog
 				catalog, _ = catalog.Add(analysis.Evidence{
 					Kind:    "test.side-metadata",
@@ -1102,11 +1102,11 @@ func TestAssertCaseRequiresExactSideMetadata(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			c := netsimtest.CaseShadowingPartialUnknownPort()
+			c := simtest.CaseShadowingPartialUnknownPort()
 			test.mutate(c.ExpectedModelMetadata)
 
 			rec := &recordingTB{}
-			netsimtest.AssertCase(rec, c)
+			simtest.AssertCase(rec, c)
 			if !recordedErrorContains(rec, "model metadata does not match its exact structured expectation") {
 				t.Errorf("AssertCase errors = %v, want exact model metadata failure", rec.errors)
 			}
@@ -1115,7 +1115,7 @@ func TestAssertCaseRequiresExactSideMetadata(t *testing.T) {
 }
 
 func TestAssertCaseRejectsUndeclaredCatalogEvidence(t *testing.T) {
-	c := netsimtest.CasePlanningPortVLANChange()
+	c := simtest.CasePlanningPortVLANChange()
 	cat := analysis.EvidenceCatalog{}
 	cat, _ = cat.Add(analysis.Evidence{
 		Kind:    "test.kind",
@@ -1123,7 +1123,7 @@ func TestAssertCaseRejectsUndeclaredCatalogEvidence(t *testing.T) {
 		Context: "unattached evidence",
 	})
 	origExecute := c.Execute
-	c.Execute = func() (netsimtest.ExecutionResult, error) {
+	c.Execute = func() (simtest.ExecutionResult, error) {
 		res, err := origExecute()
 		if err != nil {
 			return res, err
@@ -1133,7 +1133,7 @@ func TestAssertCaseRejectsUndeclaredCatalogEvidence(t *testing.T) {
 	}
 
 	rec := &recordingTB{}
-	netsimtest.AssertCase(rec, c)
+	simtest.AssertCase(rec, c)
 
 	if !recordedErrorContains(rec, "result metadata does not match its exact structured expectation") {
 		t.Errorf("AssertCase errors = %v, want exact primary metadata evidence failure", rec.errors)
@@ -1141,11 +1141,11 @@ func TestAssertCaseRejectsUndeclaredCatalogEvidence(t *testing.T) {
 }
 
 func TestAssertCaseRequiresExactAssumptionMatch(t *testing.T) {
-	c := netsimtest.CaseShadowingPartialUnknownPort()
+	c := simtest.CaseShadowingPartialUnknownPort()
 	c.ExpectedMetadata.Assumptions[0].Statement = "aging_time: 300s"
 
 	rec := &recordingTB{}
-	netsimtest.AssertCase(rec, c)
+	simtest.AssertCase(rec, c)
 
 	if !recordedErrorContains(rec, "result metadata does not match its exact structured expectation") {
 		t.Errorf("AssertCase errors = %v, want exact primary assumption failure", rec.errors)
@@ -1153,9 +1153,9 @@ func TestAssertCaseRequiresExactAssumptionMatch(t *testing.T) {
 }
 
 func TestAssertCaseBindsTrustEvidenceToItsIssueAndAssumption(t *testing.T) {
-	c := netsimtest.CaseShadowingPartialUnknownPort()
+	c := simtest.CaseShadowingPartialUnknownPort()
 	origExecute := c.Execute
-	c.Execute = func() (netsimtest.ExecutionResult, error) {
+	c.Execute = func() (simtest.ExecutionResult, error) {
 		res, err := origExecute()
 		if err != nil {
 			return res, err
@@ -1170,16 +1170,16 @@ func TestAssertCaseBindsTrustEvidenceToItsIssueAndAssumption(t *testing.T) {
 	}
 
 	rec := &recordingTB{}
-	netsimtest.AssertCase(rec, c)
+	simtest.AssertCase(rec, c)
 	if !recordedErrorContains(rec, "result metadata does not match its exact structured expectation") {
 		t.Errorf("AssertCase errors = %v, want exact primary metadata binding failure", rec.errors)
 	}
 }
 
 func TestAssertCaseRejectsReorderedDecisiveSteps(t *testing.T) {
-	c := netsimtest.CaseTroubleshootingUnicastForwarding()
+	c := simtest.CaseTroubleshootingUnicastForwarding()
 	origExecute := c.Execute
-	c.Execute = func() (netsimtest.ExecutionResult, error) {
+	c.Execute = func() (simtest.ExecutionResult, error) {
 		res, err := origExecute()
 		if err != nil {
 			return res, err
@@ -1189,14 +1189,14 @@ func TestAssertCaseRejectsReorderedDecisiveSteps(t *testing.T) {
 	}
 
 	rec := &recordingTB{}
-	netsimtest.AssertCase(rec, c)
+	simtest.AssertCase(rec, c)
 	if !recordedErrorContains(rec, "step at index") {
 		t.Errorf("AssertCase errors = %v, want reordered-step failure", rec.errors)
 	}
 }
 
 func TestAssertCaseRejectsFactOnWrongStep(t *testing.T) {
-	c := netsimtest.CaseTroubleshootingUnicastForwarding()
+	c := simtest.CaseTroubleshootingUnicastForwarding()
 	baseline, err := c.Execute()
 	if err != nil {
 		t.Fatalf("execute baseline: %v", err)
@@ -1204,12 +1204,12 @@ func TestAssertCaseRejectsFactOnWrongStep(t *testing.T) {
 	if len(baseline.Steps) < 2 || len(baseline.Steps[0].Outputs) == 0 {
 		t.Fatal("baseline does not expose a movable output fact")
 	}
-	c.ExpectedFacts = []netsimtest.FactExpectation{
-		netsimtest.NewFactExpectation(baseline.Steps[0].Outputs[0]),
+	c.ExpectedFacts = []simtest.FactExpectation{
+		simtest.NewFactExpectation(baseline.Steps[0].Outputs[0]),
 	}
 
 	origExecute := c.Execute
-	c.Execute = func() (netsimtest.ExecutionResult, error) {
+	c.Execute = func() (simtest.ExecutionResult, error) {
 		res, err := origExecute()
 		if err != nil {
 			return res, err
@@ -1221,16 +1221,16 @@ func TestAssertCaseRejectsFactOnWrongStep(t *testing.T) {
 	}
 
 	rec := &recordingTB{}
-	netsimtest.AssertCase(rec, c)
+	simtest.AssertCase(rec, c)
 	if !recordedErrorContains(rec, "step at index") {
 		t.Errorf("AssertCase errors = %v, want wrong-step fact failure", rec.errors)
 	}
 }
 
 func TestAssertCaseRejectsBroaderIssueScope(t *testing.T) {
-	c := netsimtest.CaseShadowingPartialUnknownPort()
+	c := simtest.CaseShadowingPartialUnknownPort()
 	origExecute := c.Execute
-	c.Execute = func() (netsimtest.ExecutionResult, error) {
+	c.Execute = func() (simtest.ExecutionResult, error) {
 		res, err := origExecute()
 		if err != nil {
 			return res, err
@@ -1247,16 +1247,16 @@ func TestAssertCaseRejectsBroaderIssueScope(t *testing.T) {
 	}
 
 	rec := &recordingTB{}
-	netsimtest.AssertCase(rec, c)
+	simtest.AssertCase(rec, c)
 	if !recordedErrorContains(rec, "result metadata does not match its exact structured expectation") {
 		t.Errorf("AssertCase errors = %v, want exact primary issue-scope failure", rec.errors)
 	}
 }
 
 func TestAssertCaseRejectsWrongPrimaryMetadataScope(t *testing.T) {
-	c := netsimtest.CaseTroubleshootingUnicastForwarding()
+	c := simtest.CaseTroubleshootingUnicastForwarding()
 	origExecute := c.Execute
-	c.Execute = func() (netsimtest.ExecutionResult, error) {
+	c.Execute = func() (simtest.ExecutionResult, error) {
 		res, err := origExecute()
 		if err != nil {
 			return res, err
@@ -1266,16 +1266,16 @@ func TestAssertCaseRejectsWrongPrimaryMetadataScope(t *testing.T) {
 	}
 
 	rec := &recordingTB{}
-	netsimtest.AssertCase(rec, c)
+	simtest.AssertCase(rec, c)
 	if !recordedErrorContains(rec, "result metadata does not match its exact structured expectation") {
 		t.Errorf("AssertCase errors = %v, want primary metadata scope failure", rec.errors)
 	}
 }
 
 func TestAssertCaseRejectsWrongPrimaryMetadataStatus(t *testing.T) {
-	c := netsimtest.CaseTroubleshootingUnicastForwarding()
+	c := simtest.CaseTroubleshootingUnicastForwarding()
 	origExecute := c.Execute
-	c.Execute = func() (netsimtest.ExecutionResult, error) {
+	c.Execute = func() (simtest.ExecutionResult, error) {
 		res, err := origExecute()
 		if err != nil {
 			return res, err
@@ -1289,7 +1289,7 @@ func TestAssertCaseRejectsWrongPrimaryMetadataStatus(t *testing.T) {
 	}
 
 	rec := &recordingTB{}
-	netsimtest.AssertCase(rec, c)
+	simtest.AssertCase(rec, c)
 	if !recordedErrorContains(rec, "result metadata does not match its exact structured expectation") {
 		t.Errorf("AssertCase errors = %v, want primary metadata status failure", rec.errors)
 	}
@@ -1298,46 +1298,46 @@ func TestAssertCaseRejectsWrongPrimaryMetadataStatus(t *testing.T) {
 func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 	tests := []struct {
 		name      string
-		caseValue func() netsimtest.Case
-		mutate    func(*netsimtest.ExecutionResult)
+		caseValue func() simtest.Case
+		mutate    func(*simtest.ExecutionResult)
 		wantError string
 	}{
 		{
 			name:      "outcome",
-			caseValue: netsimtest.CaseTroubleshootingUnicastForwarding,
-			mutate: func(res *netsimtest.ExecutionResult) {
+			caseValue: simtest.CaseTroubleshootingUnicastForwarding,
+			mutate: func(res *simtest.ExecutionResult) {
 				res.Outcome = trace.Dropped
 			},
 			wantError: "non-deterministic outcome",
 		},
 		{
 			name:      "reason",
-			caseValue: netsimtest.CaseTroubleshootingUnicastForwarding,
-			mutate: func(res *netsimtest.ExecutionResult) {
+			caseValue: simtest.CaseTroubleshootingUnicastForwarding,
+			mutate: func(res *simtest.ExecutionResult) {
 				res.Reason = "changed-reason"
 			},
 			wantError: "non-deterministic reason",
 		},
 		{
 			name:      "steps with equal count",
-			caseValue: netsimtest.CaseTroubleshootingUnicastForwarding,
-			mutate: func(res *netsimtest.ExecutionResult) {
+			caseValue: simtest.CaseTroubleshootingUnicastForwarding,
+			mutate: func(res *simtest.ExecutionResult) {
 				res.Steps[0], res.Steps[1] = res.Steps[1], res.Steps[0]
 			},
 			wantError: "non-deterministic result step",
 		},
 		{
 			name:      "changes with equal count",
-			caseValue: netsimtest.CasePlanningPortVLANChange,
-			mutate: func(res *netsimtest.ExecutionResult) {
+			caseValue: simtest.CasePlanningPortVLANChange,
+			mutate: func(res *simtest.ExecutionResult) {
 				res.Changes[0].Field = "changed-field"
 			},
 			wantError: "non-deterministic change",
 		},
 		{
 			name:      "metadata status",
-			caseValue: netsimtest.CaseShadowingPartialUnknownPort,
-			mutate: func(res *netsimtest.ExecutionResult) {
+			caseValue: simtest.CaseShadowingPartialUnknownPort,
+			mutate: func(res *simtest.ExecutionResult) {
 				issues := res.Metadata.Issues()
 				issues[0].Status = analysis.Unsupported
 				res.Metadata = analysis.NewMetadata(res.Metadata.Scope(), issues, res.Metadata.Evidence(), res.Metadata.Assumptions())
@@ -1346,16 +1346,16 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "metadata scope",
-			caseValue: netsimtest.CaseShadowingPartialUnknownPort,
-			mutate: func(res *netsimtest.ExecutionResult) {
+			caseValue: simtest.CaseShadowingPartialUnknownPort,
+			mutate: func(res *simtest.ExecutionResult) {
 				res.Metadata = analysis.NewMetadata(analysis.WholeScope(), res.Metadata.Issues(), res.Metadata.Evidence(), res.Metadata.Assumptions())
 			},
 			wantError: "non-deterministic result metadata scope",
 		},
 		{
 			name:      "issues with equal count",
-			caseValue: netsimtest.CaseShadowingPartialUnknownPort,
-			mutate: func(res *netsimtest.ExecutionResult) {
+			caseValue: simtest.CaseShadowingPartialUnknownPort,
+			mutate: func(res *simtest.ExecutionResult) {
 				issues := res.Metadata.Issues()
 				issues[0].Code = "changed.issue.code"
 				res.Metadata = analysis.NewMetadata(res.Metadata.Scope(), issues, res.Metadata.Evidence(), res.Metadata.Assumptions())
@@ -1364,8 +1364,8 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "assumptions with equal count",
-			caseValue: netsimtest.CaseShadowingPartialUnknownPort,
-			mutate: func(res *netsimtest.ExecutionResult) {
+			caseValue: simtest.CaseShadowingPartialUnknownPort,
+			mutate: func(res *simtest.ExecutionResult) {
 				assumptions := res.Metadata.Assumptions()
 				assumptions[0].Statement = "changed assumption"
 				res.Metadata = analysis.NewMetadata(res.Metadata.Scope(), res.Metadata.Issues(), res.Metadata.Evidence(), assumptions)
@@ -1374,8 +1374,8 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "evidence contents with equal count",
-			caseValue: netsimtest.CaseShadowingPartialUnknownPort,
-			mutate: func(res *netsimtest.ExecutionResult) {
+			caseValue: simtest.CaseShadowingPartialUnknownPort,
+			mutate: func(res *simtest.ExecutionResult) {
 				var catalog analysis.EvidenceCatalog
 				for i, entry := range res.Metadata.Evidence().Entries() {
 					evidence := entry.Evidence
@@ -1390,24 +1390,24 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "comparison current axis",
-			caseValue: netsimtest.CasePlanningPortVLANChange,
-			mutate: func(res *netsimtest.ExecutionResult) {
+			caseValue: simtest.CasePlanningPortVLANChange,
+			mutate: func(res *simtest.ExecutionResult) {
 				res.Comparison.Current.Reason = "changed-current-reason"
 			},
 			wantError: "non-deterministic comparison current domain result",
 		},
 		{
 			name:      "comparison expected axis",
-			caseValue: netsimtest.CasePlanningPortVLANChange,
-			mutate: func(res *netsimtest.ExecutionResult) {
+			caseValue: simtest.CasePlanningPortVLANChange,
+			mutate: func(res *simtest.ExecutionResult) {
 				res.Comparison.Expected.Reason = "changed-expected-reason"
 			},
 			wantError: "non-deterministic comparison expected domain result",
 		},
 		{
 			name:      "model metadata axis",
-			caseValue: netsimtest.CaseShadowingPartialUnknownPort,
-			mutate: func(res *netsimtest.ExecutionResult) {
+			caseValue: simtest.CaseShadowingPartialUnknownPort,
+			mutate: func(res *simtest.ExecutionResult) {
 				metadata := res.ModelResult.Metadata
 				res.ModelResult.Metadata = analysis.NewMetadata(analysis.WholeScope(), metadata.Issues(), metadata.Evidence(), metadata.Assumptions())
 			},
@@ -1415,8 +1415,8 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "forward metadata axis",
-			caseValue: netsimtest.CaseShadowingPartialUnknownPort,
-			mutate: func(res *netsimtest.ExecutionResult) {
+			caseValue: simtest.CaseShadowingPartialUnknownPort,
+			mutate: func(res *simtest.ExecutionResult) {
 				metadata := res.Forward.Metadata
 				res.Forward.Metadata = analysis.NewMetadata(analysis.WholeScope(), metadata.Issues(), metadata.Evidence(), metadata.Assumptions())
 			},
@@ -1429,7 +1429,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 			c := tc.caseValue()
 			origExecute := c.Execute
 			executions := 0
-			c.Execute = func() (netsimtest.ExecutionResult, error) {
+			c.Execute = func() (simtest.ExecutionResult, error) {
 				res, err := origExecute()
 				if err != nil {
 					return res, err
@@ -1442,7 +1442,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 			}
 
 			rec := &recordingTB{}
-			netsimtest.AssertCase(rec, c)
+			simtest.AssertCase(rec, c)
 			if !recordedErrorContains(rec, tc.wantError) {
 				t.Errorf("AssertCase errors = %v, want one containing %q", rec.errors, tc.wantError)
 			}
@@ -1453,8 +1453,8 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 func TestCanonicalExpectationsDoNotRetainMutableFacts(t *testing.T) {
 	ids := []vlan.ID{10}
 	fact := bridge.VLANsFact(ids)
-	expectation := netsimtest.NewFactExpectation(fact)
-	stepExpectation := netsimtest.NewStepExpectation(trace.Step{Inputs: []trace.Fact{fact}})
+	expectation := simtest.NewFactExpectation(fact)
+	stepExpectation := simtest.NewStepExpectation(trace.Step{Inputs: []trace.Fact{fact}})
 
 	ids[0] = 20
 	if expectation.Canonical != "10" {

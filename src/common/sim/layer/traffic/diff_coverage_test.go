@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 )
 
@@ -33,7 +33,7 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		},
 	}
 
-	netsimtest.AssertDiffCoversConfig(t, seed, traffic.Config.Normalize, traffic.Diff, nil)
+	simtest.AssertDiffCoversConfig(t, seed, traffic.Config.Normalize, traffic.Diff, nil)
 }
 
 // TestDiffIgnoresMirrorSelectorOrder verifies traffic.Diff's self-normalization: two

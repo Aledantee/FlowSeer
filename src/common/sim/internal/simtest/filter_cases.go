@@ -1,4 +1,4 @@
-package netsimtest
+package simtest
 
 import (
 	"encoding/binary"
@@ -16,8 +16,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // RegisterFilterCases populates registry with the packet filter cases covering

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -55,5 +55,5 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 	}
 	normalize := func(c lag.Config) lag.Config { return c.Normalize(ports, systemID) }
 
-	netsimtest.AssertDiffCoversConfig(t, seed, normalize, lag.Diff, nil)
+	simtest.AssertDiffCoversConfig(t, seed, normalize, lag.Diff, nil)
 }

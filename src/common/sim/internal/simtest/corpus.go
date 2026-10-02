@@ -1,6 +1,6 @@
-// Package netsimtest provides a versioned conformance test corpus and execution helpers
+// Package simtest provides a versioned conformance test corpus and execution helpers
 // for verifying network simulation analysis contracts.
-package netsimtest
+package simtest
 
 import (
 	"cmp"

@@ -1,4 +1,4 @@
-package netsimtest
+package simtest
 
 import (
 	"fmt"
@@ -17,12 +17,12 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
-// diffCoveredPackages is the literal a person edits deliberately: every package under
-// src/common/sim/device/vswitch/, src/common/sim/device/vswitch/*/, and src/common/netsim/fabric/
-// that owns a diff.go. AssertEveryDiffPackageIsCovered walks those three locations and
-// fails when it finds a diff.go whose package path is absent here, so a new capability
-// package stops the suite rather than shipping without a coverage gate of its own. The
-// walk is what grows; this literal is what a person edits deliberately.
+// diffCoveredPackages is the literal a person edits deliberately: every package at
+// src/common/sim/device/vswitch, src/common/sim/port, src/common/sim/fabric, or directly
+// under src/common/sim/layer/ that owns a diff.go. AssertEveryDiffPackageIsCovered walks
+// those locations and fails when it finds a diff.go whose package path is absent here, so
+// a new capability package stops the suite rather than shipping without a coverage gate
+// of its own. The walk is what grows; this literal is what a person edits deliberately.
 var diffCoveredPackages = []string{
 	"src/common/sim/device/vswitch",
 	"src/common/sim/layer/bridge",
@@ -35,51 +35,50 @@ var diffCoveredPackages = []string{
 	"src/common/sim/layer/routing",
 	"src/common/sim/layer/stp",
 	"src/common/sim/layer/traffic",
-	"src/common/netsim/fabric",
+	"src/common/sim/fabric",
 }
 
-// AssertEveryDiffPackageIsCovered walks src/common/sim/device/vswitch/, its direct
-// subdirectories, and src/common/netsim/fabric/ for a file named diff.go, and fails on
-// every path it finds that is absent from diffCoveredPackages, and on every entry in
-// diffCoveredPackages the walk did not find. Go builds one test binary per package, so no
-// individual package's diff_coverage_test.go can see whether a sibling package's exists;
-// this enumeration is what proves the full set ran.
+// AssertEveryDiffPackageIsCovered walks src/common/sim/device/vswitch,
+// src/common/sim/port, src/common/sim/fabric, and the immediate subdirectories of
+// src/common/sim/layer/ for a file named diff.go, and fails on every path it finds that
+// is absent from diffCoveredPackages, and on every entry in diffCoveredPackages the walk
+// did not find. Go builds one test binary per package, so no individual package's
+// diff_coverage_test.go can see whether a sibling package's exists; this enumeration is
+// what proves the full set ran.
 func AssertEveryDiffPackageIsCovered(t *testing.T) {
 	t.Helper()
 
 	root := repoRoot(t)
-	found := diffGoPackagePaths(t, root, "src/common/sim/device/vswitch", "src/common/netsim/fabric")
+	found := diffGoPackagePaths(t, root,
+		[]string{"src/common/sim/device/vswitch", "src/common/sim/port", "src/common/sim/fabric"},
+		[]string{"src/common/sim/layer"})
 	assertCoverage(t, found, diffCoveredPackages)
 }
 
-// diffGoPackagePaths returns, relative to root, the sorted list of package paths under
-// vswitchRelDir (itself and its immediate subdirectories) and fabricRelDir that contain a
-// file named diff.go. Parameterized on root so a test can point it at a temporary tree
-// instead of the repository.
-func diffGoPackagePaths(t *testing.T, root, vswitchRelDir, fabricRelDir string) []string {
+// diffGoPackagePaths returns, relative to root, the sorted list of package paths that
+// contain a file named diff.go: each directory in packageDirs itself, and each immediate
+// subdirectory of every directory in parentDirs. Parameterized on root so a test can
+// point it at a temporary tree instead of the repository.
+func diffGoPackagePaths(t *testing.T, root string, packageDirs, parentDirs []string) []string {
 	t.Helper()
 
 	var found []string
-	vswitchDir := filepath.Join(root, vswitchRelDir)
-	if hasDiffGo(vswitchDir) {
-		found = append(found, filepath.ToSlash(vswitchRelDir))
-	}
-	entries, err := os.ReadDir(vswitchDir)
-	if err != nil {
-		t.Fatalf("read %s: %v", vswitchDir, err)
-	}
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		dir := filepath.Join(vswitchDir, e.Name())
-		if hasDiffGo(dir) {
-			found = append(found, filepath.ToSlash(filepath.Join(vswitchRelDir, e.Name())))
+	for _, rel := range packageDirs {
+		if hasDiffGo(filepath.Join(root, rel)) {
+			found = append(found, filepath.ToSlash(rel))
 		}
 	}
-	fabricDir := filepath.Join(root, fabricRelDir)
-	if hasDiffGo(fabricDir) {
-		found = append(found, filepath.ToSlash(fabricRelDir))
+	for _, rel := range parentDirs {
+		parent := filepath.Join(root, rel)
+		entries, err := os.ReadDir(parent)
+		if err != nil {
+			t.Fatalf("read %s: %v", parent, err)
+		}
+		for _, e := range entries {
+			if e.IsDir() && hasDiffGo(filepath.Join(parent, e.Name())) {
+				found = append(found, filepath.ToSlash(filepath.Join(rel, e.Name())))
+			}
+		}
 	}
 	slices.Sort(found)
 
@@ -132,7 +131,7 @@ func repoRoot(t *testing.T) string {
 	if !ok {
 		t.Fatal("locate diffcoverage.go source")
 	}
-	// this file lives at src/common/netsim/internal/netsimtest/diffcoverage.go
+	// this file lives at src/common/sim/internal/simtest/diffcoverage.go
 	return filepath.Join(filepath.Dir(source), "..", "..", "..", "..", "..")
 }
 

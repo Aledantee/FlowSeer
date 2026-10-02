@@ -3,11 +3,11 @@ package fabric_test
 import (
 	"testing"
 
-	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 )
 
 func BenchmarkFork(b *testing.B) {
-	fab := netsimtest.RepresentativeFabric()
+	fab := simtest.RepresentativeFabric()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = fab.Fork()
@@ -15,7 +15,7 @@ func BenchmarkFork(b *testing.B) {
 }
 
 func BenchmarkForkAndStep100(b *testing.B) {
-	fab := netsimtest.RepresentativeFabric()
+	fab := simtest.RepresentativeFabric()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		fork := fab.Fork()

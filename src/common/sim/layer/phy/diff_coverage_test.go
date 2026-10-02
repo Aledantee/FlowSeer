@@ -3,7 +3,7 @@ package phy_test
 import (
 	"testing"
 
-	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 )
 
@@ -46,5 +46,5 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		},
 	}
 
-	netsimtest.AssertDiffCoversConfig(t, seed, phy.Config.Normalize, phy.Diff, nil)
+	simtest.AssertDiffCoversConfig(t, seed, phy.Config.Normalize, phy.Diff, nil)
 }
