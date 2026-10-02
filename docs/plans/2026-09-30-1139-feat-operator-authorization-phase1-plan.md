@@ -373,3 +373,14 @@ go test ./test/conformance/proto/ ./src/services/device/internal/authn/ ./src/se
 - Requirement 11 sends `platform:flowseer#claimed`, and no record states
   the `platform` type's relations yet. Phase 2's model has to define
   `claimed` on it, or OpenFGA rejects every check that carries the tuple.
+- Parked by drive: how `TenantService` declares its rule, the first open
+  question above. Options: `RULE_MODE_PLATFORM` enforced in this phase (an
+  RPC class outside the membership gate, and a new row in the accepted
+  record's mode table) | the same mode refused by the interceptor until a
+  phase serves `TenantService` (a declared rule nothing enforces or tests) |
+  five modes with `TenantService` on loaded rules naming `platform#admin`
+  (tenant creation passes an unrelated tenant's membership gate and needs a
+  bootstrap tuple on `tenant:default`) | move `TenantService` out of
+  `flowseer.api.` (breaks the `api/` root's admission rule). Recommended:
+  `RULE_MODE_PLATFORM` enforced in this phase, because `CreateTenant` runs
+  before any tenant exists and the plan is already written for it.
