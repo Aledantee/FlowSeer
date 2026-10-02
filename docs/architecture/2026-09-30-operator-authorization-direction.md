@@ -450,3 +450,12 @@ rather than the device-scoped audit stream.
 The rule-mode table gains a platform row for global admin RPCs on
 `TenantService`. The interceptor checks `platform:flowseer#admin`, reads no
 tenant header, and sets no tenant in the context.
+
+The interceptor reads the rule before any membership check. A platform rule
+makes one check and no member check. This qualifies three places in this
+record: the sequence diagram under [The approach](#the-approach) (which
+depicted the member check before reading the rule), the tenant admission
+description under [Any OIDC provider, and a tenant the request names](#any-oidc-provider-and-a-tenant-the-request-names)
+(stating the interceptor admits only a member of the named tenant), and the
+checks consequence under [Consequences](#consequences) (stating every
+operator request makes two checks).

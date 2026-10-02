@@ -113,27 +113,25 @@ func TestRuleRules(t *testing.T) {
 			message: authzv1.Rule_builder{
 				Mode:       authzv1.RuleMode_RULE_MODE_PLATFORM.Enum(),
 				Relation:   proto.String("admin"),
-				ObjectType: proto.String("tenant"),
+				ObjectType: proto.String("device"),
 			}.Build(),
 			wantValid: false,
 		},
 		{
 			name: "unspecified mode",
 			message: authzv1.Rule_builder{
-				Mode:         authzv1.RuleMode_RULE_MODE_UNSPECIFIED.Enum(),
-				Relation:     proto.String("view"),
-				ObjectType:   proto.String("device"),
-				ObjectIdPath: proto.String("device.id"),
+				Mode:       authzv1.RuleMode_RULE_MODE_UNSPECIFIED.Enum(),
+				Relation:   proto.String("view"),
+				ObjectType: proto.String("device"),
 			}.Build(),
 			wantValid: false,
 		},
 		{
 			name: "mode 99",
 			message: authzv1.Rule_builder{
-				Mode:         authzv1.RuleMode(99).Enum(),
-				Relation:     proto.String("view"),
-				ObjectType:   proto.String("device"),
-				ObjectIdPath: proto.String("device.id"),
+				Mode:       authzv1.RuleMode(99).Enum(),
+				Relation:   proto.String("view"),
+				ObjectType: proto.String("device"),
 			}.Build(),
 			wantValid: false,
 		},
@@ -154,6 +152,40 @@ func TestRuleRules(t *testing.T) {
 				Relation:     proto.String("view"),
 				ObjectType:   proto.String("device"),
 				ObjectIdPath: proto.String("edges[0].id"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "object type Device",
+			message: authzv1.Rule_builder{
+				Mode:         authzv1.RuleMode_RULE_MODE_REQUEST.Enum(),
+				Relation:     proto.String("view"),
+				ObjectType:   proto.String("Device"),
+				ObjectIdPath: proto.String("device.device.id"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "filtered rule missing mode",
+			message: authzv1.Rule_builder{
+				Relation:   proto.String("view"),
+				ObjectType: proto.String("edge"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "filtered rule missing relation",
+			message: authzv1.Rule_builder{
+				Mode:       authzv1.RuleMode_RULE_MODE_FILTERED.Enum(),
+				ObjectType: proto.String("edge"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "filtered rule missing object type",
+			message: authzv1.Rule_builder{
+				Mode:     authzv1.RuleMode_RULE_MODE_FILTERED.Enum(),
+				Relation: proto.String("view"),
 			}.Build(),
 			wantValid: false,
 		},
