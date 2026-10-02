@@ -194,7 +194,7 @@ describe('useMotionFeedback', () => {
     })
   })
 
-  it('fills every transform key while leaving opacity-only feedback separate', () => {
+  it('compiles only supplied transform keys and keeps opacity in a separate effect', () => {
     const mounted = mountFeedback()
 
     mounted.feedback.play(mounted.element, { y: [-40, 0] }, 0.14)
@@ -239,6 +239,30 @@ describe('useMotionFeedback', () => {
     expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
   })
 
+  it('leaves a later write to an owned property untouched after every terminal path', async () => {
+    const mounted = mountFeedback()
+    mounted.element.style.transform = 'scale(0.72)'
+
+    mounted.feedback.play(mounted.element, { y: [-40, -20] }, 0.4)
+    mounted.feedback.cancel(mounted.element)
+    mounted.element.style.transform = 'translateX(50px)'
+    await nextFrame()
+    expect(mounted.element.style.transform).toBe('translateX(50px)')
+
+    mounted.feedback.play(mounted.element, { y: [-40, -20] }, 0.4)
+    window.dispatchEvent(new Event('resize'))
+    mounted.element.style.transform = 'translateX(60px)'
+    await nextFrame()
+    expect(mounted.element.style.transform).toBe('translateX(60px)')
+
+    mounted.element.style.opacity = '0.93'
+    mounted.feedback.play(mounted.element, { opacity: [0.2, 0.8] }, 0.4)
+    await finishAnimations(mounted.element)
+    mounted.element.style.opacity = '0.5'
+    await nextFrame()
+    expect(mounted.element.style.opacity).toBe('0.5')
+  })
+
   it('cancels and restores synchronously before replacing a play, through the next frame and completion', async () => {
     const mounted = mountFeedback()
     mounted.element.style.opacity = '0.93'
@@ -246,6 +270,7 @@ describe('useMotionFeedback', () => {
 
     mounted.feedback.play(mounted.element, { opacity: [0.1, 0.2] }, 0.4)
     const oldAnimations = [...mounted.element.getAnimations()]
+    mounted.element.style.opacity = '0.5'
     mounted.feedback.play(mounted.element, { y: [-40, -20] }, 0.24)
 
     expect(
@@ -286,10 +311,61 @@ describe('useMotionFeedback', () => {
     expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
   })
 
+  it('cancels into a play and keeps the original transform through the next frame and completion', async () => {
+    const mounted = mountFeedback()
+    mounted.element.style.opacity = '0.93'
+    mounted.element.style.transform = 'translateX(17px) scale(0.72)'
+
+    mounted.feedback.play(mounted.element, { y: [-40, -20] }, 0.4)
+    mounted.element.style.transform = 'translateY(-99px)'
+    mounted.feedback.cancel(mounted.element)
+    mounted.feedback.play(mounted.element, { opacity: [0.6, 1] }, 0.24)
+
+    expect(getNativeAnimations(mounted.element)).toHaveLength(1)
+    expect(
+      getPropertyKeyframes(mounted.element, 'opacity').effect.getKeyframes(),
+    ).toMatchObject([{ opacity: '0.6' }, { opacity: '1' }])
+    expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
+
+    await Promise.resolve()
+    expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
+
+    await nextFrame()
+    expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
+
+    await finishAnimations(mounted.element)
+    expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
+  })
+
+  it('resizes into a play and keeps the original transform through the next frame and completion', async () => {
+    const mounted = mountFeedback()
+    mounted.element.style.opacity = '0.93'
+    mounted.element.style.transform = 'translateX(17px) scale(0.72)'
+
+    mounted.feedback.play(mounted.element, { y: [-40, -20] }, 0.4)
+    mounted.element.style.transform = 'translateY(-99px)'
+    window.dispatchEvent(new Event('resize'))
+    mounted.feedback.play(mounted.element, { opacity: [0.6, 1] }, 0.24)
+
+    expect(getNativeAnimations(mounted.element)).toHaveLength(1)
+    expect(
+      getPropertyKeyframes(mounted.element, 'opacity').effect.getKeyframes(),
+    ).toMatchObject([{ opacity: '0.6' }, { opacity: '1' }])
+    expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
+
+    await Promise.resolve()
+    expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
+
+    await nextFrame()
+    expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
+
+    await finishAnimations(mounted.element)
+    expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
+  })
+
   it('ignores a stale completion queued before replacement', async () => {
     const mounted = mountFeedback()
     mounted.element.style.opacity = '0.93'
-
     mounted.feedback.play(mounted.element, { opacity: [0.1, 0.2] }, 0.4)
     const oldAnimations = [...mounted.element.getAnimations()]
     for (const animation of oldAnimations) animation.finish()
@@ -303,38 +379,133 @@ describe('useMotionFeedback', () => {
     expect(mounted.element.style.opacity).toBe('0.93')
   })
 
-  it('clears empty, undefined, repeated-cancel, resize, preference, and config paths', async () => {
+  it('ends a replacement play through cancel, resize, preference, config, and unmount', async () => {
     const mounted = mountFeedback()
     mounted.element.style.opacity = '0.93'
-    mounted.feedback.play(mounted.element, { opacity: [0.1, 0.2] }, 0.4)
-    mounted.feedback.play(mounted.element, {})
-    expect(mounted.element.getAnimations()).toHaveLength(0)
-    expectRestored(mounted.element, '0.93', '')
-
-    mounted.feedback.play(undefined, { opacity: [0.1, 0.2] })
-    expect(mounted.element.getAnimations()).toHaveLength(0)
-    mounted.feedback.cancel(mounted.element)
-    mounted.feedback.cancel(mounted.element)
+    mounted.element.style.transform = 'scale(0.72)'
 
     mounted.feedback.play(mounted.element, { opacity: [0.1, 0.2] }, 0.4)
+    const cancelReplaced = [...mounted.element.getAnimations()]
+    mounted.feedback.play(mounted.element, { y: [-40, -20] }, 0.4)
+    expect(cancelReplaced.every((a) => a.playState === 'idle')).toBe(true)
+    mounted.element.style.transform = 'translateX(50px)'
+    mounted.feedback.cancel(mounted.element)
+    expect(mounted.element.getAnimations()).toHaveLength(0)
+    expectRestored(mounted.element, '0.93', 'scale(0.72)')
+
+    mounted.feedback.play(mounted.element, { opacity: [0.1, 0.2] }, 0.4)
+    const resizeReplaced = [...mounted.element.getAnimations()]
+    mounted.feedback.play(mounted.element, { y: [-40, -20] }, 0.4)
+    expect(resizeReplaced.every((a) => a.playState === 'idle')).toBe(true)
+    mounted.element.style.transform = 'translateX(50px)'
     window.dispatchEvent(new Event('resize'))
     expect(mounted.element.getAnimations()).toHaveLength(0)
-    expectRestored(mounted.element, '0.93', '')
+    expectRestored(mounted.element, '0.93', 'scale(0.72)')
 
     mounted.feedback.play(mounted.element, { opacity: [0.1, 0.2] }, 0.4)
+    const preferenceReplaced = [...mounted.element.getAnimations()]
+    mounted.feedback.play(mounted.element, { y: [-40, -20] }, 0.4)
+    expect(preferenceReplaced.every((a) => a.playState === 'idle')).toBe(true)
+    mounted.element.style.transform = 'translateX(50px)'
     preference.matches = true
     preference.dispatchEvent(
       Object.assign(new Event('change'), { matches: true }),
     )
     await nextTick()
     expect(mounted.element.getAnimations()).toHaveLength(0)
+    expectRestored(mounted.element, '0.93', 'scale(0.72)')
 
     dispose()
     const configured = mountFeedback({ reducedMotion: 'never' })
+    configured.element.style.opacity = '0.93'
+    configured.element.style.transform = 'scale(0.72)'
     configured.feedback.play(configured.element, { opacity: [0.1, 0.2] }, 0.4)
+    const configReplaced = [...configured.element.getAnimations()]
+    configured.feedback.play(configured.element, { y: [-40, -20] }, 0.4)
+    expect(configReplaced.every((a) => a.playState === 'idle')).toBe(true)
+    configured.element.style.transform = 'translateX(50px)'
     configured.reducedMotion.value = 'always'
     await nextTick()
     expect(configured.element.getAnimations()).toHaveLength(0)
+    expectRestored(configured.element, '0.93', 'scale(0.72)')
+
+    dispose()
+    preference.matches = false
+    const unmounted = mountFeedback()
+    unmounted.element.style.opacity = '0.93'
+    unmounted.element.style.transform = 'scale(0.72)'
+    unmounted.feedback.play(unmounted.element, { opacity: [0.1, 0.2] }, 0.4)
+    const unmountReplaced = [...unmounted.element.getAnimations()]
+    unmounted.feedback.play(unmounted.element, { y: [-40, -20] }, 0.4)
+    expect(unmountReplaced.every((a) => a.playState === 'idle')).toBe(true)
+    unmounted.element.style.transform = 'translateX(50px)'
+    dispose()
+    expect(unmounted.element.getAnimations()).toHaveLength(0)
+    expectRestored(unmounted.element, '0.93', 'scale(0.72)')
+  })
+
+  it('clears empty, undefined, repeated-cancel, resize, preference, and config paths', async () => {
+    const mounted = mountFeedback()
+    mounted.element.style.opacity = '0.93'
+    mounted.element.style.transform = 'scale(0.72)'
+
+    mounted.feedback.play(
+      mounted.element,
+      { opacity: [0.1, 0.2], y: [-4, 0] },
+      0.4,
+    )
+    mounted.element.style.opacity = '0.5'
+    mounted.element.style.transform = 'translateY(-99px)'
+    mounted.feedback.play(mounted.element, {})
+    expect(mounted.element.getAnimations()).toHaveLength(0)
+    expectRestored(mounted.element, '0.93', 'scale(0.72)')
+
+    mounted.feedback.play(undefined, { opacity: [0.1, 0.2] })
+    expect(mounted.element.getAnimations()).toHaveLength(0)
+    mounted.feedback.cancel(mounted.element)
+    mounted.feedback.cancel(mounted.element)
+
+    mounted.feedback.play(
+      mounted.element,
+      { opacity: [0.1, 0.2], y: [-4, 0] },
+      0.4,
+    )
+    mounted.element.style.opacity = '0.5'
+    mounted.element.style.transform = 'translateY(-99px)'
+    window.dispatchEvent(new Event('resize'))
+    expect(mounted.element.getAnimations()).toHaveLength(0)
+    expectRestored(mounted.element, '0.93', 'scale(0.72)')
+
+    mounted.feedback.play(
+      mounted.element,
+      { opacity: [0.1, 0.2], y: [-4, 0] },
+      0.4,
+    )
+    mounted.element.style.opacity = '0.5'
+    mounted.element.style.transform = 'translateY(-99px)'
+    preference.matches = true
+    preference.dispatchEvent(
+      Object.assign(new Event('change'), { matches: true }),
+    )
+    await nextTick()
+    expect(mounted.element.getAnimations()).toHaveLength(0)
+    expectRestored(mounted.element, '0.93', 'scale(0.72)')
+
+    dispose()
+    const configured = mountFeedback({ reducedMotion: 'never' })
+    configured.element.style.opacity = '0.93'
+    configured.element.style.transform = 'scale(0.72)'
+    configured.feedback.play(
+      configured.element,
+      { opacity: [0.1, 0.2], y: [-4, 0] },
+      0.4,
+    )
+    configured.element.style.opacity = '0.5'
+    configured.element.style.transform = 'translateY(-99px)'
+    configured.reducedMotion.value = 'always'
+    await nextTick()
+    expect(configured.element.getAnimations()).toHaveLength(0)
+    expectRestored(configured.element, '0.93', 'scale(0.72)')
   })
 
   it('filters reduced movement, keeps reduced fades native, and restores their baseline', async () => {
@@ -367,6 +538,53 @@ describe('useMotionFeedback', () => {
     expectRestored(mounted.element, '', 'scale(0.72)')
   })
 
+  it('preserves a transform changed during an opacity-only play and unrelated native animations', () => {
+    const mounted = mountFeedback()
+    const unrelated = mounted.element.animate(
+      { transform: ['translateX(2px)', 'translateX(8px)'] },
+      { duration: 1000, fill: 'both' },
+    )
+
+    mounted.feedback.play(mounted.element, { opacity: [0.1, 0.2] }, 0.4)
+    mounted.element.style.transform = 'translateX(50px)'
+    mounted.feedback.cancel(mounted.element)
+
+    expect(mounted.element.style.transform).toBe('translateX(50px)')
+    expect(unrelated.playState).toBe('running')
+
+    mounted.feedback.cancel(mounted.element)
+    expect(mounted.element.style.transform).toBe('translateX(50px)')
+    expect(unrelated.playState).toBe('running')
+  })
+
+  it('removes movement under an always preference without the query and cancels a movement-only play', () => {
+    const mounted = mountFeedback({ reducedMotion: 'always' })
+    mounted.element.style.opacity = '0.93'
+    mounted.element.style.transform = 'scale(0.72)'
+
+    mounted.feedback.play(
+      mounted.element,
+      { y: [-40, 0], opacity: [0.2, 0.8] },
+      0.4,
+    )
+    const animations = getNativeAnimations(mounted.element)
+    expect(animations).toHaveLength(1)
+    expect(animations[0]?.effect.getKeyframes()).toMatchObject([
+      { opacity: '0.2' },
+      { opacity: '0.8' },
+    ])
+    expect(
+      animations[0]?.effect
+        .getKeyframes()
+        .every((keyframe) => !('transform' in keyframe)),
+    ).toBe(true)
+
+    mounted.element.style.opacity = '0.5'
+    mounted.feedback.play(mounted.element, { y: [-10, 0] }, 0.4)
+    expect(mounted.element.getAnimations()).toHaveLength(0)
+    expectRestored(mounted.element, '0.93', 'scale(0.72)')
+  })
+
   it('keeps two elements independent and leaves unrelated native animations alive', () => {
     const mounted = mountFeedback({ targetCount: 2 })
     const second = mounted.elements[1]
@@ -378,6 +596,7 @@ describe('useMotionFeedback', () => {
 
     mounted.feedback.play(mounted.element, { opacity: [0.1, 0.2] }, 0.4)
     mounted.feedback.play(second, { y: [-4, 0] }, 0.4)
+    mounted.element.style.opacity = '0.5'
     mounted.feedback.cancel(mounted.element)
     expect(unrelated.playState).toBe('running')
     expect(mounted.element.getAnimations()).toContain(unrelated)
@@ -385,16 +604,19 @@ describe('useMotionFeedback', () => {
     expectRestored(mounted.element, '', '')
   })
 
-  it('disposes active feedback and removes its resize cleanup', async () => {
+  it('disposes active feedback and ignores resize after disposal', async () => {
     const mounted = mountFeedback()
     mounted.element.style.opacity = '0.93'
     mounted.feedback.play(mounted.element, { opacity: [0.1, 0.2] }, 0.4)
+    mounted.element.style.opacity = '0.5'
     dispose()
 
     expect(mounted.element.getAnimations()).toHaveLength(0)
     expectRestored(mounted.element, '0.93', '')
+
+    mounted.feedback.play(mounted.element, { opacity: [0.1, 0.2] }, 0.4)
     window.dispatchEvent(new Event('resize'))
     await nextTick()
-    expectRestored(mounted.element, '0.93', '')
+    expect(getNativeAnimations(mounted.element)).toHaveLength(1)
   })
 })

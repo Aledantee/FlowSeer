@@ -330,6 +330,10 @@ describe('ThemeSwitcher', () => {
     expect(animationsFor(sun)).toHaveLength(2)
     expect(animationsFor(moon)).toHaveLength(2)
 
+    sun.style.opacity = '0.5'
+    sun.style.transform = 'rotate(9deg) scale(0.9)'
+    moon.style.opacity = '0.5'
+    moon.style.transform = 'rotate(9deg) scale(0.9)'
     window.dispatchEvent(new Event('resize'))
     await nextTick()
 
@@ -350,6 +354,10 @@ describe('ThemeSwitcher', () => {
     expect(animationsFor(sun)).toHaveLength(2)
     expect(animationsFor(moon)).toHaveLength(2)
 
+    sun.style.opacity = '0.5'
+    sun.style.transform = 'rotate(9deg) scale(0.9)'
+    moon.style.opacity = '0.5'
+    moon.style.transform = 'rotate(9deg) scale(0.9)'
     dispose()
     await nextTick()
 

@@ -155,7 +155,7 @@ motion, independent elements, and unrelated native animations. The named
 cases live in `frontend/web/src/ui/motion/useMotionFeedback.test.ts`:
 
 - `compiles typed pairs into ordered native effects with deterministic timing`
-- `fills every transform key while leaving opacity-only feedback separate`
+- `compiles only supplied transform keys and keeps opacity in a separate effect`
 - `cancels and restores synchronously before replacing a play, through the next frame and completion`
 - `ignores a stale completion queued before replacement`
 - `filters reduced movement, keeps reduced fades native, and restores their baseline`

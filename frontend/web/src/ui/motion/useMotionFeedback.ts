@@ -1,6 +1,5 @@
 import {
   animateMini,
-  frame,
   useMotionConfig,
   useReducedMotion,
   type AnimationPlaybackControlsWithThen,
@@ -75,7 +74,7 @@ export function useMotionFeedback() {
   )
   const active = new Map<HTMLElement, ActiveAnimation>()
 
-  function stop(element: HTMLElement, restore: boolean) {
+  function stop(element: HTMLElement) {
     const current = active.get(element)
     if (!current) return
     active.delete(element)
@@ -86,15 +85,11 @@ export function useMotionFeedback() {
     }
     void current.animation.finished.catch(() => {})
     current.animation.cancel()
-    if (restore) {
-      current.restore()
-      frame.render(current.restore)
-      frame.postRender(current.restore)
-    }
+    current.restore()
   }
 
   function cancel(element: HTMLElement) {
-    stop(element, true)
+    stop(element)
   }
 
   function clear() {
@@ -115,16 +110,14 @@ export function useMotionFeedback() {
       return
     }
 
-    if (current) stop(element, true)
+    if (current) stop(element)
 
     const ownedStyles: OwnedStyles = {}
     if (compiled.opacity !== undefined) {
-      ownedStyles.opacity =
-        current?.ownedStyles.opacity ?? element.style.opacity
+      ownedStyles.opacity = element.style.opacity
     }
     if (compiled.transform !== undefined) {
-      ownedStyles.transform =
-        current?.ownedStyles.transform ?? element.style.transform
+      ownedStyles.transform = element.style.transform
     }
     const restore = () => {
       if (ownedStyles.opacity !== undefined)
@@ -154,7 +147,7 @@ export function useMotionFeedback() {
 
     const finish = () => {
       if (active.get(element)?.animation !== animation) return
-      stop(element, true)
+      stop(element)
     }
     void animation.finished.then(finish).catch(() => {})
   }
