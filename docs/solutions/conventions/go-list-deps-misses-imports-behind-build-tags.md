@@ -79,5 +79,5 @@ go list -e -f '{{.ImportPath}}|{{join .Deps " "}} {{join .TestImports " "}} {{jo
 from `yang_integration_t1` files (`t1_main_test.go:1,14`), and that listing
 does not name the import. So a change to `src/protocol/netconf` does not
 target the integration package, and its tagged tests are not vetted. The
-same holds for the restconf, gnmi, and netsimload integration packages.
+same holds for the restconf, gnmi, and simload integration packages.
 Fixing it needs the per-tag listing in the fixpoint.

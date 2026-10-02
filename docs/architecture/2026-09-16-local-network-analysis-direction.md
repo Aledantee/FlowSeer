@@ -19,14 +19,14 @@ direction record models the switches well and lists "dynamic IP routing
 VLANs needs no routing protocol. What it needs is missing: a packet filter
 and a trunk attachment with tagged sub-interfaces on the firewall, and an
 endpoint that re-originates mDNS across VLANs. This record decides how
-those enter `src/common/netsim` without breaking the rules the virtual
+those enter `src/common/sim` without breaking the rules the virtual
 device record set: one package per capability, hosts without behavior, a
 trace that is a value, and no state between frames.
 
 ## Decision
 
 - **Filtering is a capability of the virtual switch.** Package
-  `src/common/netsim/vswitch/filter` holds rule sets and bindings; a
+  `src/common/sim/layer/filter` holds rule sets and bindings; a
   binding attaches a set to a routed interface in one direction. First
   match wins and a set carries an explicit default action, the RFC 8519
   shape. A drop by a filter is a Complete domain outcome, as a port-down
@@ -129,9 +129,9 @@ trace that is a value, and no state between frames.
   decision against this record, not an extension of the reflector.
 
 Landed 2026-09-16: the `udp`, `tcp`, and `icmp` codecs in `src/common/net`,
-the mDNS flooding conformance cases in `src/common/netsim/internal/netsimtest`,
-and routed sub-interfaces in `src/common/netsim/vswitch/routing` and
-`vswitch/netmodel`. Landed 2026-09-17: `fabric.Reflector` in
-`src/common/netsim/fabric`. Landed 2026-09-19: the filter capability in
-`src/common/netsim/vswitch/filter`, the `flowseer.net.filter.v1` schema, its
+the mDNS flooding conformance cases in `src/common/sim/internal/simtest`,
+and routed sub-interfaces in `src/common/sim/layer/routing` and
+`src/common/sim/netmodel`. Landed 2026-09-17: `fabric.Reflector` in
+`src/common/sim/fabric`. Landed 2026-09-19: the filter capability in
+`src/common/sim/layer/filter`, the `flowseer.net.filter.v1` schema, its
 `netmodel` translation, and the filter corpus cases.

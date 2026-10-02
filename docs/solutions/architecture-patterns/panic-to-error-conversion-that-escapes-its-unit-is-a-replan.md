@@ -2,7 +2,7 @@
 title: A Panic-to-Error Conversion That Reaches an API the Unit Did Not Scope Is a Re-Plan, Not a Wider Diff
 date: 2026-09-18
 category: architecture-patterns
-module: src/common/netsim/vswitch
+module: src/common/sim/device/vswitch
 problem_type: architecture_pattern
 component: refactor
 severity: medium
@@ -47,7 +47,7 @@ Each shape below replaced an error-threading conversion that escaped its unit.
   through a new method instead of returning it. `setOperStatus` runs under
   `Switch.Forward`/`Peek` (no error return); it calls `recordOperFault`, and
   callers learn of the fault through `Switch.Err`
-  (`src/common/netsim/vswitch/switch.go:3543-3556`). This keeps one fault shape
+  (`src/common/sim/device/vswitch/switch.go:3543-3556`). This keeps one fault shape
   for the type rather than threading an error through `applyLAGEffects →
   interceptLACP → forward → Forward`.
 

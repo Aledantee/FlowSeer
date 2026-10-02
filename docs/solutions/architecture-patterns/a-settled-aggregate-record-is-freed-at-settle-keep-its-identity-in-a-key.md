@@ -2,9 +2,9 @@
 title: A Settled Aggregate Record Is Freed at Settle; a Later Event's Identity Belongs in a Key, Not the Record
 date: 2026-09-23
 category: architecture-patterns
-module: src/common/netsim/fabric
+module: src/common/sim/fabric
 problem_type: architecture_pattern
-component: netsim
+component: sim
 severity: high
 applies_when:
   - "Implementing or reviewing a retention policy that frees a record only once some later event claims it, especially a frame a switch holds until a release."
@@ -25,7 +25,7 @@ the small identity a later event needs — a key, not the record.
 
 Phase 1 of offered-load streams settles a frame when its last in-flight copy
 leaves and, for `RetainAggregate`, folds its outcome into the flow and frees the
-journey (`src/common/netsim/fabric/flow.go:82-99`). A switch that routes a
+journey (`src/common/sim/fabric/flow.go:82-99`). A switch that routes a
 frame to an unresolved address holds it for neighbor resolution; the journey's
 last entry outcome becomes `trace.Held`, so the frame has settled even though no
 release has happened yet. The release marks the released frame as
@@ -37,15 +37,15 @@ could claim it, on the reasoning that the release needed the journey to name its
 holder. That rule produces two failures:
 
 - **Convergence never fires.** `Report` counts a held journey that no release has
-  named as `JourneyPending` (`src/common/netsim/fabric/journey.go:248-252`),
+  named as `JourneyPending` (`src/common/sim/fabric/journey.go:248-252`),
   `hasPendingJourneys` returns true for it
-  (`src/common/netsim/fabric/run.go:1646-1652`), and the convergence check
+  (`src/common/sim/fabric/run.go:1646-1652`), and the convergence check
   requires `!hasPendingJourneys()`
-  (`src/common/netsim/fabric/run.go:1581`, `src/common/netsim/fabric/compare.go:249`).
+  (`src/common/sim/fabric/run.go:1581`, `src/common/sim/fabric/compare.go:249`).
   A single abandoned hold therefore pinned the run out of `StopConverged`.
 - **Releases misattribute.** `findAndPopHeld` picks a candidate by payload
   match, then falls back to the lowest candidate ID
-  (`src/common/netsim/fabric/run.go:1289-1327`). With no journey for the freed
+  (`src/common/sim/fabric/run.go:1289-1327`). With no journey for the freed
   frame, the release either collapsed to a fresh injection or the fallback
   pinned it to a coexisting held journey — a wrong `Origin.Of`.
 
@@ -58,13 +58,13 @@ key. The record itself is gone.
 
 The shipped shape: `recordHeldAggregate` stores the freed frame's `FrameID`
 under the device of its last entry, ascending, and `settle` deletes the journey
-and its re-entry set (`src/common/netsim/fabric/flow.go:92-114`). The release's
-path adds those IDs to the candidate list (`src/common/netsim/fabric/run.go:1308-1312`),
+and its re-entry set (`src/common/sim/fabric/flow.go:92-114`). The release's
+path adds those IDs to the candidate list (`src/common/sim/fabric/run.go:1308-1312`),
 payload matching skips a placeholder because it has no journey
-(`src/common/netsim/fabric/run.go:1315-1319`), and `claimHeldAggregate` removes
+(`src/common/sim/fabric/run.go:1315-1319`), and `claimHeldAggregate` removes
 the claimed ID so a later release cannot name it twice
-(`src/common/netsim/fabric/flow.go:116-126`, called at
-`src/common/netsim/fabric/run.go:1258-1263`). The identity a release needs is a
+(`src/common/sim/fabric/flow.go:116-126`, called at
+`src/common/sim/fabric/run.go:1258-1263`). The identity a release needs is a
 `FrameID`; the journey was never the identity.
 
 ```go
@@ -80,7 +80,7 @@ if holdingFID := f.findAndPopHeld(device, em.Frame); holdingFID != 0 {
 ```
 
 `TestAggregateRetentionPreservesReleaseAttribution`
-(`src/common/netsim/fabric/flow_internal_test.go:676`) is the evidence: the same
+(`src/common/sim/fabric/flow_internal_test.go:676`) is the evidence: the same
 fixture runs retained and aggregated, and for every release the two runs name
 the same holder, the aggregated run keeps no `RetainAggregate` journey and no
 pending journey, and only the abandoned holds' placeholders remain. The

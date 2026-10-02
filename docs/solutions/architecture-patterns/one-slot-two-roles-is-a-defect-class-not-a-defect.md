@@ -3,9 +3,9 @@ title: A Slot That Carries Two Roles Produces a Defect Class, and Each Reader Is
 date: 2026-09-17
 last_verified: 2026-09-17
 category: architecture-patterns
-module: src/common/netsim/vswitch/stp
+module: src/common/sim/layer/stp
 problem_type: architecture_pattern
-component: netsim
+component: sim
 severity: high
 applies_when:
   - "Reusing an existing identifier, slot, or zero value to mean a second thing, so one field answers two questions depending on mode"
@@ -22,7 +22,7 @@ tags: [defect-class, invariant, reflection-test, executable-rule, netsim]
 
 Per-VLAN spanning tree gave VLAN 1's tree the CIST slot, so that every
 bridge-level accessor keeps answering about the common tree in all three modes
-(`src/common/netsim/vswitch/stp/layer.go:385`, and the direction record at
+(`src/common/sim/layer/stp/layer.go:385`, and the direction record at
 [`docs/architecture/2026-09-10-virtual-device-direction.md`](../../architecture/2026-09-10-virtual-device-direction.md)).
 The decision is sound and is not what this document argues with.
 
@@ -53,7 +53,7 @@ different line and the tests covered behaviour, not the rule.
 now live in their own struct, assigned wholesale:
 
 ```go
-// src/common/netsim/vswitch/stp/layer.go:150
+// src/common/sim/layer/stp/layer.go:150
 type linkState struct {
 	up           bool
 	pointToPoint bool
@@ -70,7 +70,7 @@ of the enclosing struct to a class, and a reflection walk asserts the class is
 true rather than merely recorded:
 
 ```go
-// src/common/netsim/vswitch/stp/link_state_internal_test.go:138
+// src/common/sim/layer/stp/link_state_internal_test.go:138
 func walkPortStateFields(t *testing.T, typ reflect.Type, inLinkState bool, seen map[string]bool) {
 ```
 
@@ -81,7 +81,7 @@ while reaching no tree.
 
 **Let a lookup that cannot answer say so.** `treeFor` returns `(*tree, bool)`
 and answers `false` rather than the CIST for a VLAN it does not run
-(`src/common/netsim/vswitch/stp/tree.go:86`). That converts defect 3 from a
+(`src/common/sim/layer/stp/tree.go:86`). That converts defect 3 from a
 wrong answer into a caller's decision.
 
 ## What this does not cover, which is the part worth knowing
@@ -92,7 +92,7 @@ per-field behaviour given correct input — it never reaches the call sites.
 Defect 6 was exactly that shape, and the repaired gate would still miss it:
 
 > `Mcheck` sets `p.sendRSTP` on the CIST's port and then calls `recomputeAll`,
-> which does not propagate. (`src/common/netsim/vswitch/stp/layer.go:904`)
+> which does not propagate. (`src/common/sim/layer/stp/layer.go:904`)
 
 So five of the six defects were misclassification or a wrong-copy read, which
 the gate now covers, and one was a missing call, which it does not. Writers of

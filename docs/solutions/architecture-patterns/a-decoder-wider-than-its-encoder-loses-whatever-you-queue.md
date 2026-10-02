@@ -5,7 +5,7 @@ last_verified: 2026-09-17
 category: architecture-patterns
 module: src/common/net/ip
 problem_type: architecture_pattern
-component: netsim
+component: sim
 severity: high
 applies_when:
   - "Storing a decoded value and re-encoding it later — a hold queue, a retry buffer, a scheduler, a replay log — rather than encoding it at the moment its caller is still there to be told"
@@ -78,15 +78,15 @@ whose Src is `::ffff:10.0.0.1`, and `Encode` on the decoded header returns
 
 The silent path and the fix:
 
-- `src/common/netsim/vswitch/routing/neighbor.go:306-310` — `finishHeld`
+- `src/common/sim/layer/routing/neighbor.go:306-310` — `finishHeld`
   re-encodes and returns `(HeldFrame{}, false)` when that fails, which appends
   nothing to the effects the caller drains.
-- `src/common/netsim/vswitch/routing/layer.go:816-822` (`Route`) and
+- `src/common/sim/layer/routing/layer.go:816-822` (`Route`) and
   `:1004-1010` (`Originate`) — both now encode before resolving the next hop.
 
 The property that catches it, rather than the instance:
 
-- `src/common/netsim/vswitch/routing/neighbor_internal_test.go` —
+- `src/common/sim/layer/routing/neighbor_internal_test.go` —
   `TestHoldQueueConservesEveryFrame` asserts that the frames observed in a
   hold queue and the frames the layer reported leaving one are the same
   multiset. Sequence `"an unencodable datagram via route never enters"`

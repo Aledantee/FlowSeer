@@ -23,25 +23,26 @@ forwarding question is answered.
 
 ## Decision
 
-`src/common/netsim` is the home of network simulation. The library divides
+`src/common/sim` is the home of network simulation. The library divides
 ownership across specialized packages:
 - `trace` is an import leaf defining typed execution steps, configuration diff
   changes, producer-owned rule IDs, and semantic facts.
 - `analysis` defines the trust contract: analysis readiness status, scoped
   issues, evidence catalogs, and assumptions.
-- `vswitch` composes capabilities over a port table, validates and normalizes
-  configurations, and returns forwarding results combining domain outcomes with
-  analysis trust metadata.
-- Capability packages under `vswitch/` (`port`, `phy`, `bridge`, `lag`, `stp`,
-  `mcast`, `routing`, `traffic`) own their respective configurations, validation,
-  normalization, cloning, diffs, and rule identifiers.
-- `vswitch/netmodel` translates FlowSeer network model messages into virtual
+- `device/vswitch` composes capabilities over a port table, validates and
+  normalizes configurations, and returns forwarding results combining domain
+  outcomes with analysis trust metadata.
+- `port` owns the port table. Capability packages under `layer/` (`phy`,
+  `bridge`, `lag`, `stp`, `mcast`, `routing`, `traffic`) own their respective
+  configurations, validation, normalization, cloning, diffs, and rule
+  identifiers.
+- `netmodel` translates FlowSeer network model messages into virtual
   switch construction specifications, loading reports, and readiness metadata.
 - `fabric` composes switches, hosts, and cables into a stepped network simulation
   recording traversal journeys.
 - `search` enumerates finite scenario domains against current-versus-candidate
   fabrics, minimizes causal counterexamples, and aligns traces.
-- `internal/netsimtest` maintains an admitted, versioned analysis conformance
+- `internal/simtest` maintains an admitted, versioned analysis conformance
   corpus.
 
 - The device is sized by its caller. A port table with caller-chosen names
@@ -843,7 +844,7 @@ capability enums. Tooling compares traces and diffs using typed equality.
 
 ### Conformance corpus admission
 
-The test corpus under `src/common/netsim/internal/netsimtest` locks simulation
+The test corpus under `src/common/sim/internal/simtest` locks simulation
 contracts through executable cases rather than golden-file snapshots. Every
 admitted case must define:
 - Stable case identifier.
@@ -882,15 +883,17 @@ admitted case must define:
 ## Consequences
 
 - `src/common/net/netaddr`, `src/common/net/vlan`, and `src/common/net/ethernet` hold
-  the value types and the codec; `src/common/netsim/trace` holds the step,
-  trace, and change records; `src/common/netsim/analysis` holds the trust
-  metadata, issue scopes, and evidence catalog; `src/common/netsim/vswitch`
-  holds `port`, `phy`, `bridge`, `stp`, `netmodel`, and the switch itself;
-  `src/common/netsim/fabric` holds switches, hosts, cables, the run,
+  the value types and the codec; `src/common/sim/trace` holds the step,
+  trace, and change records; `src/common/sim/analysis` holds the trust
+  metadata, issue scopes, and evidence catalog; `src/common/sim/device/vswitch`
+  holds the switch itself, while `src/common/sim/layer`,
+  `src/common/sim/port`, and `src/common/sim/netmodel` hold the capability
+  layers, the port table, and the protobuf boundary;
+  `src/common/sim/fabric` holds switches, hosts, cables, the run,
   journeys, snapshots, comparison, diff, and derivation;
-  `src/common/netsim/search` holds bounded differential search, counterexample
+  `src/common/sim/search` holds bounded differential search, counterexample
   minimization, and trace alignment;
-  `src/common/netsim/internal/netsimtest` holds the versioned conformance
+  `src/common/sim/internal/simtest` holds the versioned conformance
   corpus. A `service.Module` leaf is written with the first host.
 - The forwarding scope grows by capability: rapid spanning tree with
   `net/protocol/stp` as the first protocol layer, multicast filtering
@@ -960,7 +963,7 @@ record](2026-08-20-network-model-structure-direction.md#the-package-tree).
 
 ### 2026-09-18 — Current-against-candidate comparison
 
-Landed 2026-09-19: exact comparison across switch and fabric in `src/common/netsim/analysis`, `src/common/netsim/vswitch`, and `src/common/netsim/fabric`.
+Landed 2026-09-19: exact comparison across switch and fabric in `src/common/sim/analysis`, `src/common/sim/device/vswitch`, and `src/common/sim/fabric`.
 Added the [Current-against-candidate comparison](#current-against-candidate-comparison)
 subsection establishing exact switch and fabric comparison over behavioral
 observables with `Equivalent`, `Different`, and `Inconclusive` dispositions,
@@ -968,7 +971,7 @@ internal forking of inputs, and injection-ordinal journey pairing.
 
 ### 2026-09-19 — Bounded differential search
 
-Landed 2026-09-19: bounded differential search and conformance fixtures in `src/common/netsim/search` and `src/common/netsim/fabric`.
+Landed 2026-09-19: bounded differential search and conformance fixtures in `src/common/sim/search` and `src/common/sim/fabric`.
 Added the [Bounded differential search](#bounded-differential-search) subsection
 establishing finite domain enumeration with exact coverage and remainder
 accounting, deterministic replay-checked counterexample minimization,
@@ -986,13 +989,22 @@ cables, and in-flight traffic remain in place, while `vswitch.Derive` decides wh
 state and learned records the reconfigured switch keeps.
 
 Landed 2026-09-28: `Fabric.Configure` and the scenario action `ActionConfigure`
-in `src/common/netsim/fabric`. The "State ownership, forking, and snapshots"
+in `src/common/sim/fabric`. The "State ownership, forking, and snapshots"
 section now names the operation beside the other three.
 
 ### 2026-09-28 — Spanning tree and LACP leave the capability gaps
 
 Landed 2026-09-11: Rapid Spanning Tree with per-port 802.1D compatibility in
-`src/common/netsim/vswitch/stp`, and LACP with the bond modes in
-`src/common/netsim/vswitch/lag` over the codec in `src/common/net/lacp`. The
+`src/common/sim/layer/stp`, and LACP with the bond modes in
+`src/common/sim/layer/lag` over the codec in `src/common/net/lacp`. The
 "Protocol depth" gap above no longer lists either, and names what `lag` leaves
 out.
+
+### 2026-10-02: The packages moved to the package shape tree
+
+The packages this record's Decision names moved: `vswitch` to `device/vswitch`,
+its capability packages to `layer/`, `vswitch/port` to `port`, and
+`vswitch/netmodel` to `netmodel`, all under `src/common/sim`. The
+[simulation package shape record](2026-10-01-simulation-package-shape-direction.md)
+gives the tree and the reasons. The Decision's package list omits three
+packages that exist: `layer/filter`, `layer/loopprotect`, and `stream`.

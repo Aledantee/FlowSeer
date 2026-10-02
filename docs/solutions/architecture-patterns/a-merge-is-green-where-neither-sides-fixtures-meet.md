@@ -3,9 +3,9 @@ title: A Merge of Two Feature Branches Is Green Exactly Where Neither Side's Fix
 date: 2026-09-17
 last_verified: 2026-09-17
 category: architecture-patterns
-module: src/common/netsim/vswitch
+module: src/common/sim/device/vswitch
 problem_type: architecture_pattern
-component: netsim
+component: sim
 severity: high
 applies_when:
   - "Merging two branches that each added a feature to the same package, and deciding what the merged tree's green suite proves"
@@ -96,16 +96,16 @@ session, as a merge that was verified.
   `releaseHeldFrame`, the branch's untouched copy:
   `if egressIface.VLAN != 0 {` followed immediately by
   `res := s.bridge.Egress(...)`. Both in
-  `src/common/netsim/vswitch/switch.go` at merge commit `19b495c9`; the second
-  is now narrowed to match, at `src/common/netsim/vswitch/switch.go:2988`.
+  `src/common/sim/device/vswitch/switch.go` at merge commit `19b495c9`; the second
+  is now narrowed to match, at `src/common/sim/device/vswitch/switch.go:2988`.
 - Main's sub-interface fixture resolves its neighbor statically, so it never
   holds: `Neighbors: []routing.Neighbor{{Interface: "eth1.20", Addr: ipH2, MAC: neighbor20}}`
   in `TestRoutedSubInterfaceForwardingAndTagMiss`
-  (`src/common/netsim/vswitch/switch_test.go:4319-4321`).
+  (`src/common/sim/device/vswitch/switch_test.go:4319-4321`).
 - The branch's held-frame fixtures carry no sub-interface:
   `buildBaseRoutingSwitch` (`switch_test.go:3011`), `buildRoutedPortSwitch`
   (`:8170`), `buildHeldEgressSwitch` (`:8908`).
-- `go test -race ./src/common/netsim/... ./src/common/net/...` passed at the
+- `go test -race ./src/common/sim/... ./src/common/net/...` passed at the
   merge commit, watched on 2026-09-17, darwin/arm64.
 - The missing cell, once written, panics against that same commit:
   `TestARPObservationReleasesHeldFrameOnSubInterface`

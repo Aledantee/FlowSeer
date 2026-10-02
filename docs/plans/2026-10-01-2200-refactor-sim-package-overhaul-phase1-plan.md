@@ -4,13 +4,15 @@ type: refactor
 date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
 
 # Move the Simulator Tree to src/common/sim - Plan
+
+> Implemented. 2 units, 2026-10-02T08:46Z to 2026-10-02T08:52Z.
 
 ## Goal
 

@@ -126,7 +126,7 @@ unless a comment at its head states why it is one unit. Example:
 ### U1. Move the tree to `src/common/sim`
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase1-plan.md
 After: none
-Landed:
+Landed: `d2c52250..bd684278`
 Change: every package sits at its final path and every doc names it. No
 behaviour changes.
 Tests: the existing suites pass at the new paths.
