@@ -25,12 +25,18 @@ const (
 type RuleMode int32
 
 const (
+	// No mode specified. The interceptor rejects the zero value and refuses the call.
 	RuleMode_RULE_MODE_UNSPECIFIED RuleMode = 0
-	RuleMode_RULE_MODE_REQUEST     RuleMode = 1
-	RuleMode_RULE_MODE_TENANT      RuleMode = 2
-	RuleMode_RULE_MODE_LOADED      RuleMode = 3
-	RuleMode_RULE_MODE_FILTERED    RuleMode = 4
-	RuleMode_RULE_MODE_PLATFORM    RuleMode = 5
+	// Checks the relation on the object named in the request before the handler runs.
+	RuleMode_RULE_MODE_REQUEST RuleMode = 1
+	// Checks the relation on the admitted tenant before the handler runs.
+	RuleMode_RULE_MODE_TENANT RuleMode = 2
+	// Runs the handler with an obligation to check the loaded object before returning.
+	RuleMode_RULE_MODE_LOADED RuleMode = 3
+	// Runs the handler with an obligation to check filtered items before returning.
+	RuleMode_RULE_MODE_FILTERED RuleMode = 4
+	// Checks the relation on platform:flowseer before the handler runs, reading no tenant header.
+	RuleMode_RULE_MODE_PLATFORM RuleMode = 5
 )
 
 // Enum value maps for RuleMode.
@@ -225,9 +231,9 @@ type Rule_builder struct {
 
 	// The authorization enforcement mode. Must be present.
 	Mode *RuleMode
-	// The relation required on the object. Must match snake_case identifier format. Must be present.
+	// The relation required on the object. Must be present.
 	Relation *string
-	// The object type checked in the relationship engine. Must match snake_case identifier format. Must be present.
+	// The object type checked in the relationship engine. Must be present.
 	ObjectType *string
 	// Dot-separated path to the string object identifier within the request message. Must be present in request mode. Unset in every other mode.
 	ObjectIdPath *string
