@@ -35,13 +35,22 @@ The coordinating session runs the rounds; no skill runs them on its own, and
    against the source it claims to read, does each case fail for the rule it
    names, and is each exemption an argument no input can violate? A wrong
    invariant is worse than none, since the next reader trusts it and stops
-   looking.
+   looking. The brief asks for a required "New findings" section, written
+   as `none` when empty, for defects no earlier finding names.
+4. In the same round, dispatch one more reviewer over the round's changed
+   paths with the brief of a first review (`SKILL.md` step 3) and none of
+   the earlier findings. A reviewer handed the findings judges the fixes
+   against them and anchors there, so a defect a fix introduced elsewhere
+   goes unseen. Settle its findings with the briefed reviewer's under
+   `SKILL.md` step 4.
 
 ## When to stop
 
-- A round with no correctness findings ends the loop: list what remains in
-  the final report, set the verdict to `accept after fixes`, and end with
-  the `accept` row's question.
+- A round in which neither reviewer returns a correctness finding ends the
+  loop: list what remains in the final report, replace the recorded
+  `fixes needed` or `rework` with `accept after fixes` as `SKILL.md` step 5
+  records a verdict, and end with the `accept` row's question. No earlier
+  round writes `accept after fixes`, since the gates read it as passing.
 - The coordinator holds the rounds' history, so it is the one that sees a
   round find a defect in the previous round's fix for the same mechanism.
   Apply step 4's class rule before the next round, and read how an

@@ -5,8 +5,19 @@ before running the verifier. Those CLIs load none of the repository hooks
 (no format-on-edit, no guard on `generated/`, no Stop gate), so the
 coordinator's checks after the merge are the only gate the branch gets.
 
-1. Check that `git diff --name-only <base>..<branch> -- generated buf.lock`
-   prints nothing, with `<base>` the commit the lane was started from.
+1. Check that both commands print nothing, with `<base>` the commit the
+   lane was started from. The first lists hand-edits to generated output
+   and the policy surfaces `AGENTS.md` names, the second any file under
+   `spec/proto/` that is neither a `.proto` file nor a `README.md`. A
+   printed path stops the merge step: a policy-surface change goes to the
+   user for guardrail review, and the rest is reverted here, in a commit
+   after the merge.
+
+```bash
+git diff --name-only <base>..<branch> -- generated buf.lock AGENTS.md buf.yaml tools/hooks .claude/settings.json .codex/hooks.json
+git diff --name-only --diff-filter=d <base>..<branch> -- spec/proto ':!*.proto' ':!*/README.md'
+```
+
 2. Format what the branch changed and commit the result, since the
    verifier's format gate fails on what the hook would have fixed:
 

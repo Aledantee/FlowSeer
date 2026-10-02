@@ -186,8 +186,9 @@ repository guard's, which is passive for Bash in a linked worktree, and
 disabling the sandbox does not lift it. So `land` merges `main` into the
 branch inside the worktree, where the tests and the verifier already are,
 verifies the union with `--base main`, and emits the primary checkout's
-`git merge --ff-only <branch>` for the person; `--ff-only` lands exactly
-the verified commit and refuses if `main` moved again. The sandbox's deny
+`git merge --ff-only <sha>` for the person, naming the verified commit
+rather than a branch that may move on. `--ff-only` lands exactly that
+commit and refuses if `main` no longer leads to it. The sandbox's deny
 of writes under `.claude/skills/` and its link target `.agents/skills/`
 also covers git replaying a committed change, so that merge needs the
 bypass whenever `main` touched `.claude/` or `.agents/`;
@@ -313,9 +314,9 @@ before touching the receipt, the corpus tier carries `-count=1`,
 run names the verdict. A `--full` run could also block forever on a
 Docker daemon that had stopped answering, with a verdict line that did
 not say which gate had failed. The wrapper now bounds its `docker info` probe, and the
-verdict line names the gate that was running. The two invariant packages (`src/common/errs`,
-`test/conformance/proto`) run on every targeted root-module run for the
-same reason: a per-package gate cannot see a repository-wide namespace,
+verdict line names the gate that was running. The invariant packages (`src/common/errs` and
+everything under `test/conformance/`) run once on every targeted run that
+selects a Go module, whichever module it is, for the same reason: a per-package gate cannot see a repository-wide namespace,
 and a rule asking the implementer to remember that does not hold. `--full` bounds `go test -p` because a gate that fails for reasons
 the diff cannot cause teaches its readers to discount it. Three more
 failures of that kind live in the script rather than in prose: the lint
@@ -367,6 +368,15 @@ later reviewer can read, and the coordinator or `review` runs the
 mutation itself for any new test whose commit lacks one. A quoted failure
 can be checked by the next reader; "I watched it fail" cannot.
 
+Have the reviewer run a mutation of its own for every behavior change.
+The author's mutation shows the test catches the fault the author had in
+mind, which is the fault the author already guarded against. Meta's
+mutation-guided test generation (Foster et al. 2025,
+https://arxiv.org/abs/2501.12862) aims tests at faults the existing suite
+does not detect and reports engineers accepting 73% of the tests it
+produced. So `review`'s own reading picks one fault per behavior change
+and runs it, a quoted `--- FAIL` in the commit or not.
+
 Hand the class across the seam, and judge the remedy. A rule held inside
 one step gets lost at the handoff to the next. A fix briefed with the
 instance misses the class the review named. A verified finding can carry
@@ -380,6 +390,20 @@ subject is the new invariant, and a brief quotes plan requirements as not
 the worker's to restate. A ruling in `implement` is provisional until its
 unit lands, for the same reason: a comment written from a ruling that is
 later falsified cites it as though it were the source.
+
+Give every fix-loop round a reviewer that has not seen the findings, and
+record `accept after fixes` only once the fixes exist. A model checking
+work against its own earlier judgment rarely corrects it and sometimes
+makes it worse (Huang et al. 2023, "Large Language Models Cannot
+Self-Correct Reasoning Yet", https://arxiv.org/abs/2310.01798), and a
+survey of self-correction finds it works with reliable external feedback
+and not with feedback from a prompted model (Kamoi et al. 2024,
+https://arxiv.org/abs/2406.01297). A reviewer briefed with the previous
+findings judges each fix against them, so `fix-loop.md` adds a required
+"New findings" section to that brief and runs one more reviewer over the
+changed paths without them. A verdict written before the fixes reads as
+passing to `land`, `drive`, and `next`, so a review that wants fixes
+records `fixes needed`, which none of them accepts.
 
 Split large plans into phases and carry progress in a ledger, not in the
 conversation. Long-horizon coding degrades measurably: SWE-Bench Pro
@@ -434,8 +458,16 @@ One artifact format each. Every plan under `docs/plans/` carries
 and a row in `docs/solutions/README.md`. The skills describe these formats
 and nothing else.
 
-Name the model for every delegate. `repo-researcher` is pinned to Sonnet and
-`independent-reviewer` to Opus, `delegate` sends pure lookups to `Explore`
+Name the model for every delegate. `repo-researcher` and
+`independent-reviewer` run on `claude-opus-5-5` at `xhigh`, the level the
+registry gives that model in `research` and `review-unit`. The Agent tool
+takes a model and no effort, so the agent frontmatter carries the level.
+The frontmatter names the full id because the `opus` alias resolves to the
+session's own model whenever the session already runs an Opus model, and
+it accepts `xhigh` among `low` to `max`
+([Create custom subagents](https://code.claude.com/docs/en/sub-agents),
+checked 2026-10-02).
+`delegate` sends pure lookups to `Explore`
 on Haiku and resolves editing workers from the registry's fit set, taking
 the first model in its best-first order whose pool has room, and no agent uses `inherit` any more: the coordinating session
 may run the most expensive model, and none of the delegated work needs it. Anthropic's subagent guide recommends Haiku
@@ -478,13 +510,14 @@ the first three without orchestration: `orca terminal create --command` takes
 any CLI's launch line with the model on it, the wait is confirmed against
 the worker's screen, and a lane is a terminal and a branch with no token.
 `references/orca.md` says which lanes its described behavior was measured
-on. Read-only
-delegates stay native subagents, which load their definition and nothing
-else, where a runtime worker is a full agent session. The exception is a
-unit reviewer on the executor's vendor: a reviewer from the same vendor
-shares the executor's blind spots, and a seam worker that spawns its own
-subagents reviews with its own model, so `delegate` sends such a
-reviewer to another pool's CLI. Without Orca, `delegate` falls back to a native
+on. A read-only
+delegate that resolves to a Claude model stays a native subagent, which
+loads its definition and nothing else, where a runtime worker is a full
+agent session. One that resolves to another vendor's model goes to that
+pool's CLI, since a native subagent runs only on Claude. That covers the
+unit reviewer kept off the executor's vendor: a reviewer from the same
+vendor shares the executor's blind spots, and a seam worker that spawns
+its own subagents reviews with its own model. Without Orca, `delegate` falls back to a native
 subagent with worktree isolation only when the role's fit set holds a
 Claude model. Otherwise the coordinator works the units itself. A native
 subagent runs only on Claude, and a role whose fit set holds no Claude
@@ -508,13 +541,15 @@ starting point chosen so that the two lanes a pool may hold under 50%
 cannot push a window over its limit mid-run; tune it when a wave gets cut off or when quota sits
 idle.
 
-Orca reads usage only for the providers it has credentials for.
-`orca account list` can show a pool such as `antigravity` or `opencodeGo`
-as `unavailable` while it is signed in and nearly idle: the status
-describes Orca's view, not the pool. `delegate/scripts/pool-usage.sh` therefore reads each pool from its
-own source (`agy -p /quota` answers from the quota service without a model
-turn, and opencode's database records the dollar cost of every `opencode-go`
-message), and the skill forbids dropping a pool on Orca's word alone.
+Orca reads usage only for the providers it has credentials for. Its
+`unavailable` status describes its view, not the pool. The
+[`pool-usage.sh`](../.agents/skills/delegate/scripts/pool-usage.sh) reader uses
+each pool's own source. When Orca is absent or cannot supply Claude or Codex
+windows, native CLI queries read subscription usage through the CLI's own
+sign-in. This prevents an absent runtime from excluding installed, signed-in
+CLIs or hiding their exhausted windows. The
+[pool-row reference](../.agents/skills/delegate/references/pool-rows.md) names
+the interfaces and failure states.
 
 `AGENTS.md`, Investigation discipline, states once what counts as a source
 for a claim about external behavior. Each stage names only its own action.
@@ -568,6 +603,14 @@ more than none. `plan` therefore ends with an implementer's read and an
 independent review, and `implement` re-reads each unit before starting it.
 Units carry an `After` line so that `implement` can run independent units
 in parallel without guessing.
+
+Send every plan with more than one unit, and every schema change, to an
+independent reviewer. The planner's own three reads are self-review, which
+rarely catches the planner's own mistakes without outside feedback (Huang
+et al. 2023, https://arxiv.org/abs/2310.01798, and Kamoi et al. 2024,
+https://arxiv.org/abs/2406.01297). Two units already carry an `After` edge
+and a split of files that a fresh reader can find wrong, and a reviewer run
+costs less than an implement pass built on that mistake.
 
 Log process corrections in one place, apply them on request. Task Observer,
 a widely used meta-skill, keeps an observation log of corrections and skill
@@ -722,8 +765,9 @@ its place without it. A phase whose last commit is on `main` needs no stage, sin
 `compound` fields. A dependent phase waits until its predecessor's review
 and compound are done: a `Landed:` range records implementation only, and
 starting the dependent then lets the predecessor's review fix loop rewrite
-files both phases own. The skill stops before `land`, which stays a person's
-request like every other merge into `main`.
+files both phases own. A plan without phases stops before `land`, which
+stays a person's request like every other merge into `main`. A parent's
+phases land as each finishes, below.
 
 The integration branch is `main`. `--base master` and `master..HEAD` fail
 in this repository.
@@ -781,6 +825,19 @@ the cap leaves every one of them at least one worker; the parent's
 `Landed:` lines are the only file they both write. A decision that
 is the user's parks that plan in its Open questions and lets independent
 phases continue; the questions are asked together when the drive stops.
+
+Land a multi-phase plan phase by phase, the small-batch practice DORA's
+[working in small batches](https://dora.dev/capabilities/working-in-small-batches/)
+and [trunk-based development](https://dora.dev/capabilities/trunk-based-development/)
+describe. `land` states the rule and `drive` runs it for each finished
+phase, so the rule holds whether a person or a drive works the phases.
+`land` gates every plan the branch carries past `main`. A drive therefore
+starts no new phase while one is owed a land, lets phases already
+implemented here finish first, and parks partial work on a branch of its
+own. `plan-state.py` prints the owed land as a stage so a resumed drive
+finds it. A worktree-isolated session cannot move `main`, so the
+fast-forward of each phase may wait for the person. It names the verified
+commit, so running it late still lands only finished phases.
 
 Write hot-path text as procedure, and keep the story here. A pass over
 the skills and agent definitions against Anthropic's skill, subagent, and

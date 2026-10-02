@@ -49,3 +49,17 @@ committed as mode 100644 while every other skill script is 100755. The
 step does not mention the mode.
 Suggested change: the step sets the mode in the index with
 `git update-index --chmod=+x <path>`, which the sandbox allows.
+
+## 2026-10-02 hooks: proto source guard allows every dotfile
+Skill or agent: `tools/hooks/pre-tool-policy.sh`, the `spec/proto/` branch,
+and `test/conformance/proto/layout_test.go`, `protoPathViolation`.
+What happened: both checks explicitly allow every dotfile, including a hidden
+script such as `.audit.sh`. The tests pin that allowance, while `AGENTS.md`,
+Hard boundaries, permits only `.proto` files and package-boundary `README.md`
+files. The enforced source-only rule therefore has an exception its authority
+does not grant.
+Suggested change: remove the dotfile allowance in both checks and pin the
+rejection in the hook suite and conformance cases. The change is staged in
+`tools/hooks/pre-tool-policy.sh`, `tools/hooks/tests/run.sh`, and
+`test/conformance/proto/layout_test.go` for guardrail review. It remains pending
+until that review accepts it.

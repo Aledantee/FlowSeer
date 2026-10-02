@@ -24,7 +24,8 @@ Run several at once when the quota allows and the phases are independent:
   by keeping every landed range; send any other conflict back to the
   worker, as `implement/references/workers.md` describes.
 - Recompute the cap when a phase finishes or parks, and start the next
-  ready phase into the freed share.
+  ready phase into the freed share, unless a finished phase is owed a land
+  (`SKILL.md`, step 3).
 
 When the last phases landed concurrently, each implement worker saw the
 other still open and left the parent `planned`. Once both have merged, set

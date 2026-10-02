@@ -148,6 +148,12 @@ procedure, or a workaround forced by this task's circumstances. The test:
 would the entry still name a missing or wrong rule for another task using
 the same skill? If not, it is task context.
 
+An entry logged from another skill's step (`implement`, `review`, and the
+rest end that way) records no `compound:` field or checkpoint, since that
+field is the compound stage's outcome and `land` reads it as one. A
+`compound` run writes `compound: observation logged` only when it ends with
+an observation and no solution.
+
 Log it and stop. Do not edit the skill, agent, hook, or any policy surface
 from this mode; `steer` works the queue when a person asks and deletes each
 entry it applies or rejects. A lesson about the code is a solution, not an

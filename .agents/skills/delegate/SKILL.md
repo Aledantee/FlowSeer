@@ -30,7 +30,7 @@ and the report says the registry was missing.
 | Editing work that runs for minutes: an implementation unit, a solution refresh | `execute`; `execute-sensitive` when a changed path matches `sensitive_paths` | Orca worker when Orca is reachable, else see Orca or native |
 | Independent review of one unit's files | `review-unit` | `independent-reviewer` subagent, or the pool's CLI |
 | Review of the seams between units, and the verdict | `review-seam` | `independent-reviewer` subagent, or the pool's CLI |
-| Tie-break between reviewers, verdict on a hard plan | `judge` | native subagent; never on a `sensitive` unit |
+| Tie-break between reviewers, verdict on a hard plan | `judge` | native subagent or the pool's CLI, never on a `sensitive` unit |
 | Adversarial read of a plan | `critique` | the pool's CLI |
 | A whole plan handed to someone else | the user's choice | Orca full handoff |
 
@@ -45,7 +45,9 @@ lane in this order:
 1. Drop models whose pool row, as `scripts/pool-usage.sh` printed it for
    this wave (`~/.claude/models/host.yaml` holds the session-start rows),
    shows `signed_in` false or null, or at or over the pool's limit on a window that applies to
-   the model. Orca reporting a provider `unavailable` is not a pool row.
+   the model. A row with `signed_in: true`, `windows: null`, and an `error`
+   is usable with unknown headroom (`references/pool-rows.md`). Orca reporting a provider
+   `unavailable` is not a pool row.
 2. Drop models the role `exclude`s. For `review-unit`, also drop the
    `vendor` of the model that executed the unit under review; for
    `review-seam`, that model itself. Load `references/review-lanes.md` to
@@ -61,7 +63,7 @@ role has one and take a survivor by step 4; the report names the lane a
 last resort and the pools that were out. A review role left with no
 survivor because the executors cover its fit set splits by writer, as
 `references/review-lanes.md` describes. The report names every fitting
-prepaid pool (`claude`, `codex`, `google`, `synthetic`) the wave left idle
+prepaid pool (`claude`, `codex`, `google`, `synthetic`, `zai`) the wave left idle
 and why, since they are paid for either way.
 
 Name the model on every worker, never `inherit` or unset, one model per
@@ -69,15 +71,22 @@ task start to finish; the coordinator's model is an ordinary candidate.
 `scripts/orca-worker.sh` builds the launch line from `--cli`, `--model`,
 and `--effort`; the Agent tool takes `model`. `claude` and `codex` take
 `--model` and `--effort`; `google` takes `--model gemini-3.8-flash-<effort>`
-on `agy`; `synthetic` takes `--model <pool_id>` on `omp`, which has no agent
-profiles. A `fit` entry written `<model>@<level>` launches at that
+on `agy`; `synthetic` and `zai` take `--model <pool_id>` on `omp`, which
+has no agent profiles and passes `--effort` as `--thinking`. On
+`execute-sensitive`, a model with a `zai_pool_id` runs on the `zai` pool
+with `--model <zai_pool_id>`, and the `zai` row is its pool row in steps 1
+and 3, since Z.ai is that role's fallback. Every other role runs it on its
+`pool` with `pool_id`. A `fit` entry written `<model>@<level>` launches at that
 level, the one `tune` measured as the best tradeoff for the role: the model
 id goes to `--model` and the level to `--effort` (into the id on `agy`). A bare
 entry launches at the role's `effort`. A model whose `effort` list lacks
 that level gets its highest listed level: `execute` routes at `xhigh`, so a
 bare `gemini-3.8-flash` launches as `gemini-3.8-flash-high`. A role's
 `min_effort` is a floor under either. Load `references/sensitive.md`
-when a changed path matches `sensitive_paths`.
+when a changed path matches `sensitive_paths`. An effective registry with
+no `sensitive_paths` key is a blocker to report before routing any editing
+lane, not an empty match, since a missing list would route sensitive work
+to `execute`.
 
 ## Wave size
 
@@ -107,7 +116,7 @@ mkdir -p ~/.claude/models
 
 It records the agent CLIs, Orca reachability (`orca: reachable: true`
 opens the worker lane), each pool's sign-in state and windows, and the
-the synthetic model ids omp serves. Native subagents run only on Claude; an Orca
+synthetic model ids omp serves. Native subagents run only on Claude; an Orca
 worker runs on any installed agent whose pool is signed in.
 
 ## Dispatch by quota
@@ -124,17 +133,19 @@ is under the pool's limit; only the pool's own row counts. A 429 or "limit reach
 marks it hot for the rest of the wave. When no fitting pool is usable, do
 not dispatch: work sequentially or wait for the earliest `resetsAt`, and
 tell the user which window is exhausted. Load `references/pool-rows.md`
-when reading a `google` or `synthetic` row, a `fableWeekly` window, a window
+when reading a `google`, `synthetic`, or `zai` row, a `fableWeekly` window, a window
 at 0%, a row with an `error`, or when `claude` is past its limit. The
 coordinating session and every native subagent draw on the Claude pool, a
 Fable session also on `fableWeekly`.
 
 ## Orca or native
 
-`lookup`, `research`, and `judge` stay native subagents on every host. A
-review lane stays native only when its resolved model is a Claude model a
-native subagent can be pinned to; any other runs on its pool's CLI through
-`orca-worker.sh start --role <role>`. Editing work, including every stage
+A `lookup`, `research`, `judge`, or review lane stays a native subagent on
+every host when its resolved model is a Claude model a native subagent can
+be pinned to. A native lane runs at its agent's frontmatter `effort`,
+which overrides the role's, since the Agent tool takes a model but no
+effort. One that resolves to any other model runs on its pool's CLI
+through `orca-worker.sh start --role <role>`. Editing work, including every stage
 worker of `land` or `drive`, goes to an Orca worker. When `orca status
 --json` does not report `runtime.reachable: true`, load
 `references/no-orca.md` before routing any lane, review lanes included. Run every `orca` command with the sandbox
@@ -146,7 +157,7 @@ disabled; a sandboxed call reports the runtime as not running.
 s=.claude/skills/delegate/scripts/orca-worker.sh
 $s line --cli <cli> --model <id> [--effort <level>]
 $s start --lane <slug> --cli <claude|codex|agy> --model <id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file>
-$s start --lane <slug> --cli omp --model <pool_id> --role <role> [--plan <path>] [--unit <unit>] --brief <file>
+$s start --lane <slug> --cli omp --model <pool_id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file>
 $s wait <slug> [--until <command>] [--max <seconds>]  # blocks; prints idle, done, stalled, timeout, exited, or idle-children, then the screen
 $s read <slug>            # the worker's report, from its screen
 $s keys <slug> <text>     # a dialog answer, at most 200 characters
@@ -258,8 +269,11 @@ order:
    `generated/`, or `buf.lock`; no edit to a plan Decision marked
    `decided by the user` (a finding or unit that needs one changed is a
    blocker); no plan labels in code; no running a script
-   under `tools/hooks/` (it blocks on stdin; the focused tests, `go tool -modfile=tools/buf/go.mod buf lint`,
-   and the verifier on the changed paths are the checks); no lint or race
+   under `tools/hooks/` (it blocks on stdin). A unit worker's checks are
+   the focused tests and `go tool -modfile=tools/buf/go.mod buf lint`, and
+   the coordinator runs the verifier after the merge. A stage worker (a
+   `drive` stage) runs the verifier its skill names, since `ledger.py`
+   passes a unit only on a receipt in the worker's own git directory. No lint or race
    run over all of `generated/go/yang` (it exhausts host memory; lint two
    or three sample packages); no git write outside the worker's own
    checkout (the coordinator merges). Scratch files and set-aside work go

@@ -3,9 +3,9 @@ title: A Round Trip Through Your Own Codec Cannot Locate a Field on the Wire
 date: 2026-09-16
 last_verified: 2026-09-16
 category: conventions
-module: src/common/netsim/vswitch/stp
+module: src/common/sim/layer/stp
 problem_type: bug
-component: netsim
+component: sim
 severity: high
 symptoms:
   - "Every encoder/decoder test passes and simulated peers interoperate, but a real device or a capture reads two fields of the frame as each other"
@@ -13,7 +13,7 @@ symptoms:
 root_cause: "Encode wrote the CIST bridge identifier into the octets the MST shape reserves for the CIST regional root identifier, and the regional root into the bridge identifier's octets. Decode read the same two slots the same way round, so the swap cancelled: the round-trip tests compared a decoded struct against the struct that was encoded, and the fabric tests ran netsim against netsim, which is the same swapped codec on both ends."
 resolution_type: code_fix
 applies_when:
-  - "Adding or changing a packet encoder or decoder under src/common/net/ or src/common/netsim/, including a new encapsulation over an existing frame"
+  - "Adding or changing a packet encoder or decoder under src/common/net/ or src/common/sim/, including a new encapsulation over an existing frame"
   - "Deciding what tests a wire format needs, or reviewing a codec whose tests are round trips and refusals"
   - "A simulated protocol interoperates with itself but a real peer or a capture disagrees about a field"
 related_components: [stp, fabric, packet_capture]
@@ -43,7 +43,7 @@ literal, written from the specification rather than produced by the code under
 test. Absolute octet offsets are the cheap form:
 
 ```go
-// src/common/netsim/vswitch/stp/bpdu_test.go:931
+// src/common/sim/layer/stp/bpdu_test.go:931
 wantCISTRegionalRootOctets := []byte{0x12, 0x34, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66}
 if got := frame.Payload[20:28]; !bytes.Equal(got, wantCISTRegionalRootOctets) {
     t.Errorf("payload[20:28] = % x, want % x (CIST regional root identifier)", got, wantCISTRegionalRootOctets)
@@ -69,7 +69,7 @@ still earn their place for the fields the placement test does not name.
   regional root after `putBody` runs (`bpdu.go:461-462`), and `readMSTBody`
   reverses it with `b.RegionalRootID = b.BridgeID` (`bpdu.go:724`). Swap both
   and the pair stays consistent.
-- **The fabric is netsim on both ends.** `src/common/netsim/vswitch/stp` is the
+- **The fabric is netsim on both ends.** `src/common/sim/layer/stp` is the
   only wire codec netsim has, and every simulated bridge encodes and decodes
   with it, so no end-to-end scenario can disagree with itself.
 - **A doc comment is not a test.** `encodeMST`'s comment described the correct
@@ -81,15 +81,15 @@ still earn their place for the fields the placement test does not name.
 - The fix: commit `02ec81b0`, "correct MST BPDU field placement and encode
   bounds", which swapped the two writes back and added
   `TestMSTBPDUEncodePlacesBridgeAndRegionalRootSeparately`
-  (`src/common/netsim/vswitch/stp/bpdu_test.go:904`).
+  (`src/common/sim/layer/stp/bpdu_test.go:904`).
 - The current placement, matching the comment above it:
   `binary.BigEndian.PutUint16(payload[96:98], b.BridgeID.Priority)`
-  (`src/common/netsim/vswitch/stp/bpdu.go:491`) against
+  (`src/common/sim/layer/stp/bpdu.go:491`) against
   `binary.BigEndian.PutUint16(payload[20:22], b.RegionalRootID.Priority)`
-  (`src/common/netsim/vswitch/stp/bpdu.go:461`).
+  (`src/common/sim/layer/stp/bpdu.go:461`).
 - The gap the bug sat in: `TestBPDUCodecRoundTrip` (`bpdu_test.go:26`) and
   `TestMSTBPDUCodecRoundTrip` (`bpdu_test.go:688`) both compare structs, not
-  octets. `go test ./src/common/netsim/vswitch/stp/ -run 'TestMSTBPDU|TestBPDUCodecRoundTrip'`
+  octets. `go test ./src/common/sim/layer/stp/ -run 'TestMSTBPDU|TestBPDUCodecRoundTrip'`
   passes on 2026-09-16.
 - The same gap stands open elsewhere. `src/common/net/{ethernet,igmp,mld,lacp}`
   are tested by round trips and refusals; `igmp_test.go:29` and `mld_test.go:27`

@@ -204,7 +204,7 @@ Three reads, in this order; fix the plan after each.
    matching rule (anchor scope, tie-break) against the value and against
    every sibling it must not also match.
 
-For more than three units or a schema change, then dispatch one
+For more than one unit or a schema change, then dispatch one
 `independent-reviewer` as `delegate` describes, with the plan path and the
 question "what would block or mislead an implementer, what does the plan
 contradict in `docs/architecture/` or the conventions, and which cited
@@ -227,6 +227,11 @@ the options that fit:
   in a fresh session (recommended, since after a compaction the implementer
   would work from a summary of this session's research); implement now
   anyway; revise the plan.
+- A parent plan with phase plans: run `drive` on the parent (recommended,
+  since it takes each phase through implement, review, and compound and
+  lands it before the next); implement the ready phase plan, naming its
+  path, in a fresh session; stop here. `implement` does not run a parent
+  plan, whose units are plan files.
 - `artifact_readiness: needs-decisions`: ask the unresolved design questions
   instead; do not offer the plan for implementation until they are
   answered. Open questions alone do not block the offer: name them in the

@@ -77,7 +77,7 @@ reason in the commit message.
 
 ## Simulation and analysis
 
-- `src/common/netsim` simulates a network from virtual devices built on a
+- `src/common/sim` simulates a network from virtual devices built on a
   port table.
   [`virtual-device-direction`](docs/architecture/2026-09-10-virtual-device-direction.md),
   proposed.

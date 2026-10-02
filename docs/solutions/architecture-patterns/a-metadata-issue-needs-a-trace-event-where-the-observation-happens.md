@@ -3,9 +3,9 @@ title: A Metadata Issue Needs a Trace Event Where the Observation Happens, Not a
 date: 2026-09-24
 last_verified: 2026-09-24
 category: architecture-patterns
-module: src/common/netsim/fabric
+module: src/common/sim/fabric
 problem_type: architecture_pattern
-component: netsim
+component: sim
 severity: high
 applies_when:
   - "Attaching evidence to an analysis issue raised by a runtime condition (such as queue occupancy, resource limits, or protocol warnings) where no trace step currently exists."
@@ -28,7 +28,7 @@ exact site of the observation, paired with a trace step on the crossing frame.
 During offered-load streams phase 3, conformance case 13b
 (`planning/oversubscribed-trunk-unstated-buffer`) required an oversubscribed
 egress queue without a stated buffer to report `IssueQueueBufferUnstated` with
-`analysis.Incomplete` status. Under `netsimtest.ValidateCase`, every
+`analysis.Incomplete` status. Under `simtest.ValidateCase`, every
 non-Complete issue must cite resolvable evidence.
 
 Initially, `queueBufferUnstatedIssue` constructed the issue with no evidence.
@@ -89,19 +89,19 @@ behavioral entries.
 
 ## Evidence
 
-- The queue trace operation: `OpQueue` in `src/common/netsim/trace/trace.go:42`.
+- The queue trace operation: `OpQueue` in `src/common/sim/trace/trace.go:42`.
 - The typed fact and rule: `RuleQueueBufferUnstated` and `QueueThresholdFact` in
-  `src/common/netsim/vswitch/traffic/fact.go:16`, `:61-65`.
+  `src/common/sim/layer/traffic/fact.go:16`, `:61-65`.
 - Observation capture and step emission: `markQueueBufferUnstated` in
-  `src/common/netsim/fabric/fabric.go:1025-1064`.
+  `src/common/sim/fabric/fabric.go:1025-1064`.
 - Shared evidence reference in metadata issue: `queueBufferUnstatedIssue` in
-  `src/common/netsim/fabric/fabric.go:1002-1010`.
+  `src/common/sim/fabric/fabric.go:1002-1010`.
 - Diagnostic filtering during comparison: `diffJourney` in
-  `src/common/netsim/fabric/compare.go:453-454`.
+  `src/common/sim/fabric/compare.go:453-454`.
 - Verification of shared reference: `TestEgressUnstatedThresholdRecordsEvidenceAtEnqueue`
-  in `src/common/netsim/fabric/egress_buffer_internal_test.go:108-156`.
+  in `src/common/sim/fabric/egress_buffer_internal_test.go:108-156`.
 - Corpus validation: `planning/oversubscribed-trunk-unstated-buffer` in
-  `src/common/netsim/internal/netsimtest/load_cases.go:211-231`.
+  `src/common/sim/internal/simtest/load_cases.go:211-231`.
 
 ## What this does not cover
 

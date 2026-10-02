@@ -8,14 +8,21 @@ deviations off the tree instead. Usage:
     plan-deviations.py PLAN BASE [-- PATH...]
 
 PLAN is the plan file; its Files field under each `### U<n>` heading names
-what the unit may touch. BASE is the ref the branch is compared with; the
-diff covers tracked changes and untracked files alike. Explicit paths
-limit it to the task's own changes when the worktree holds others.
+what the unit may touch. BASE is the ref the branch forked from: the diff
+starts at its merge base with HEAD, so commits main gained since the fork
+are not read as this branch's changes. It covers tracked changes and
+untracked files alike, with renames split into a deletion and an addition
+so a unit naming the old path sees it changed. Explicit paths limit it to
+the task's own changes when the worktree holds others. `.claude/skills/`
+is a symlink to `.agents/skills/`, and git reports only the second, so
+entries and paths under the first are read as the second.
 
 Plans write the field two ways, `Files: ...` and `- **Files:**` with the
 paths on the following lines; the entries are comma separated,
 backtick-quoted or bare, may run over several lines, and a later quoted
-entry with no slash is a file in the directory of the entry before it. A
+entry with no slash is a file in the directory of the entry before it,
+unless that file is absent there and present at the tree root
+(`CONCEPTS.md`). A
 directory entry covers everything under it, `{a,b}` braces expand, and a
 word with neither a slash nor a dot is a symbol named in an aside, not a
 file. On a line with no backticks every entry is a full path, a
@@ -41,6 +48,16 @@ QUOTED = re.compile(r"`([^`]+)`")
 BRACES = re.compile(r"\{([^{}]*)\}")
 ASIDE = re.compile(r"\([^()]*\)")
 COMMA = re.compile(r",(?![^{}]*\})")
+SKILLS_LINK = ".claude/skills"
+SKILLS_DIR = ".agents/skills"
+
+
+def canonical(path: str) -> str:
+    """The path as git reports it, read through the `.claude/skills` symlink."""
+    path = path.removeprefix("./")
+    if path == SKILLS_LINK or path.startswith(SKILLS_LINK + "/"):
+        return SKILLS_DIR + path[len(SKILLS_LINK) :]
+    return path
 
 
 def entries(text: str) -> tuple[list[str], bool]:
@@ -64,7 +81,12 @@ def expand(entry: str) -> list[str]:
     ]
 
 
-def units(plan: Path) -> dict[str, list[str]]:
+def units(plan: Path, root: Path | None = None, fork: str | None = None) -> dict[str, list[str]]:
+    """Each unit's Files entries.
+
+    ROOT, the tree root, tells a quoted root file from a sibling, and FORK,
+    the commit the branch left from, does so for a sibling the work deleted.
+    """
     result: dict[str, list[str]] = {}
     current = None
     in_files = False
@@ -95,13 +117,34 @@ def units(plan: Path) -> dict[str, list[str]]:
                 continue
             # A bare list writes every path in full, so a root file in it
             # (`AGENTS.md`) is not a sibling of the entry before it.
-            if "/" not in item and last_dir and quoted:
+            if "/" not in item and last_dir and quoted and not root_file(root, last_dir, item, fork):
                 item = f"{last_dir}/{item}"
+            item = canonical(item)
             for expanded in expand(item):
                 result[current].append(expanded)
             parent = item if is_dir else str(Path(item).parent)
             last_dir = parent if parent != "." else ""
     return result
+
+
+def root_file(root: Path | None, last_dir: str, name: str, fork: str | None = None) -> bool:
+    """Whether a quoted NAME after an entry in LAST_DIR is the tree-root file of that name.
+
+    A plan quotes `CONCEPTS.md` after `src/a/a.go` as often as it quotes
+    `a_test.go`, and only the tree tells the two apart. A file in neither
+    place is a new sibling, the shorthand's usual use. A sibling the work
+    deleted is gone from the tree but still in FORK.
+    """
+    if root is None or any(c in name for c in "{*"):
+        return False
+    if not (root / name).exists() or (root / last_dir / name).exists():
+        return False
+    if fork is None:
+        return True
+    in_fork = subprocess.run(
+        ["git", "cat-file", "-e", f"{fork}:{last_dir}/{name}"], cwd=root, capture_output=True
+    )
+    return in_fork.returncode != 0
 
 
 def covers(entry: str, path: str) -> bool:
@@ -124,15 +167,17 @@ def main(argv: list[str]) -> int:
         return 2
     plan = Path(argv[1])
     base = argv[2]
-    paths = [p for p in argv[3:] if p != "--"]
+    paths = [canonical(p) for p in argv[3:] if p != "--"]
     if not plan.is_file():
         print(f"plan not found: {plan}", file=sys.stderr)
         return 2
-    unit_files = units(plan)
+    root = Path(git_lines("rev-parse", "--show-toplevel")[0])
+    fork = git_lines("merge-base", base, "HEAD")[0]
+    unit_files = units(plan, root, fork)
     if not any(unit_files.values()):
         print(f"no unit with a Files field in {plan}", file=sys.stderr)
         return 2
-    changed = git_lines("diff", "--name-only", base, "--", *paths)
+    changed = git_lines("diff", "--name-only", "--no-renames", fork, "--", *paths)
     changed += git_lines("ls-files", "--others", "--exclude-standard", "--", *paths)
 
     unnamed = [

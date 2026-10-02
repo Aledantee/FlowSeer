@@ -2,7 +2,7 @@
 title: Comparing Two Forked Executions Attributes Each Observable by Provenance, and What Has No Provenance Link Cannot Be Compared Per Item
 date: 2026-09-19
 category: architecture-patterns
-module: src/common/netsim/fabric
+module: src/common/sim/fabric
 problem_type: architecture_pattern
 component: comparison
 severity: high
@@ -41,7 +41,7 @@ Attribute each item by **provenance** — the causal chain back to the input und
 comparison — and pair by the *input's* ordinal, not the item's. netsim seeds the
 comparison set with the injected frame ids and takes the transitive closure over
 each journey's `Origin.Of` link (`collectScenarioJourneys`,
-`src/common/netsim/fabric/compare.go:155`), then pairs the nth injection's journey
+`src/common/sim/fabric/compare.go:155`), then pairs the nth injection's journey
 *group* on each side (`collectInjectionJourneys`, `compare.go:256`), reporting a
 group-size mismatch as a `multiplicity` difference. Pre-existing history and its
 during-run descendants are excluded because their provenance never reaches an

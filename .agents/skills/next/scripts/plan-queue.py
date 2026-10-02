@@ -8,8 +8,13 @@ Reads plan frontmatter, unit headings, and a parent plan's phase lines
 that touch a plan, and the plans this branch changed. Prints one line per
 plan with work left, grouped:
 
-  in-progress  partially-implemented, named by this worktree's ledger, or an
-               unblocked phase of a parent that has landed phases
+  land         implemented on this branch with an accepted review and a
+               compound field, still on disk. A phase also has its
+               `Landed:` range. land goes first, since it gates every plan
+               this branch carries past main
+  in-progress  partially-implemented, named by this worktree's ledger, an
+               unblocked phase of a parent that has landed phases, or a
+               finished phase whose `Landed:` line is still empty
   unchecked    implemented, with a review verdict that is not an accept, or
                implemented on this branch with no review or compound field
   replan       artifact_readiness needs-decisions, prerequisites landed; the
@@ -44,7 +49,7 @@ UNIT_ID = re.compile(r"U\d+[a-z]*")
 PLAN_PATH = re.compile(r"docs/plans/[\w.-]+-plan\.md")
 FIELD = re.compile(r"^(?:- )?\*{0,2}([A-Z][A-Za-z ]+):\*{0,2}")
 COMMIT_RANGE = re.compile(r"[0-9a-f]{7,}")
-ORDER = ["in-progress", "unchecked", "replan", "ready", "waiting", "stale", "retire"]
+ORDER = ["land", "in-progress", "unchecked", "replan", "ready", "waiting", "stale", "retire"]
 
 
 def git(*args: str) -> str:
@@ -200,9 +205,18 @@ def main() -> int:
             unfinished = (review and review not in ACCEPTED) or (
                 rel in changed_here and (not review or "compound" not in fm)
             )
-            if not unfinished:
+            if rel in changed_here and rel in phase_of and not all(u["landed"] for u in phase_of[rel][1]):
+                # plan-state.py reads a phase with an empty `Landed:` line
+                # as owed its implement, before any review or land.
+                group = "in-progress"
+            elif unfinished:
+                group = "unchecked"
+            elif rel not in changed_here:
                 continue
-            group = "unchecked"
+            else:
+                # Reviewed and compounded on this branch, still on disk:
+                # land has not run for it. plan-state.py prints `land`.
+                group = "land"
         elif status not in OPEN:
             continue
         elif missing:

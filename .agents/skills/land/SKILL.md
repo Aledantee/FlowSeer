@@ -1,6 +1,6 @@
 ---
 name: land
-description: Lands finished FlowSeer work by merging main into the current worktree's branch, retiring its plan into the direction records, verifying the result there, and leaving main one fast-forward away, the worktree and Orca card ready for deletion. Use when asked to close, land, finish, or wrap up work after implement, review, and compound have run. Not while any of the three lacks its checkpoint or the review verdict is not accept (offers to run the missing one); never removes its own worktree or the Orca session.
+description: Lands finished FlowSeer work by merging main into the current worktree's branch, retiring its plan into the direction records, verifying the result there, and leaving main one fast-forward away, the worktree and Orca card ready for deletion. Lands a multi-phase plan phase by phase. Use when asked to close, land, finish, or wrap up work after implement, review, and compound have run. Not while any of the three lacks its checkpoint or the review verdict is not accept (offers to run the missing one); never removes its own worktree or the Orca session.
 argument-hint: "[plan path]"
 ---
 
@@ -9,6 +9,12 @@ argument-hint: "[plan path]"
 Merge only on checkpoints on disk. Never remove this worktree: `orca worktree
 rm` kills the terminal that issues it and discards its history, so the person
 runs it after reading the report. Merged child worktrees are removed in step 2.
+
+A multi-phase plan lands phase by phase: run this skill once a phase's
+`implement`, `review`, and `compound` checkpoints are on disk, not once
+after the last phase. Each phase is then verified on top of `main`, with a
+fast-forward to a commit that holds only finished phases. The
+parent retires with its last phase (step 4).
 
 Merge inside this worktree, from `main` into the branch. The harness refuses a
 worktree-isolated session every git command that names the primary checkout
@@ -71,7 +77,7 @@ run the missing skill now, all missing signals in one question:
 | implementation, or a unit `pending` or `in_progress` | run `implement` on the remaining units; stop |
 | a unit `blocked` | take it back to `plan`; stop. Never `implement` again: the unit already failed three verifier rounds |
 | review verdict | run `review` on the branch now; stop |
-| review verdict is `rework` | fix the findings and review again (`review`, step 6); stop |
+| review verdict is `rework` or `fixes needed` | fix the findings and review again (`review`, step 6); stop |
 | compound outcome | run `compound` now; record `compound: no lesson` when the user says there is none; stop |
 
 On yes, load `references/missing-checkpoint.md`. A partial implementation is
@@ -185,7 +191,8 @@ Verify the union, sandbox disabled:
 This run clears the marks the merge left on files identical to `main`, and the
 `<Bash mutation; verify with --full>` line when every generated or module file
 it stands for came from `main`. When that line survives, the branch itself
-changed one of them: run `--full`. Report a red verifier as is, with the exact
+changed one of them: run `--full`. A run that stops on a `.golangci.yml`
+change and asks for `--full` gets the same. Report a red verifier as is, with the exact
 command and output, and stop.
 
 `main` itself moves only in the primary checkout, and only when the run's
@@ -198,13 +205,20 @@ Run it once; a worktree-isolated session is refused, and the report then
 carries the command verbatim for the person:
 
 ```bash
-git -C <primary> merge --ff-only <branch>   # <primary>: the parent of $(git rev-parse --git-common-dir)
+test "$(git -C <primary> symbolic-ref --short HEAD)" = main && git -C <primary> merge --ff-only <sha>
+# <primary>: the parent of $(git rev-parse --git-common-dir)
+# <sha>: git rev-parse HEAD, read after the three checks
 ```
 
-`--ff-only` lands exactly the commit the verifier passed, and refuses when
-`main` moved again in the meantime, in which case the skill runs again from
-step 3. Do not delete the branch; Orca deletes it with the worktree.
-Once `main` holds the branch, the plan status ledger and the checkpoints
+Name the verified commit, not the branch: a branch that keeps moving, as a
+`drive` of further phases does, would carry unverified commits into `main`
+when the person runs the command later. The branch test comes first because
+that run can come long after step 2 read the primary checkout's `HEAD`.
+`--ff-only` lands exactly that commit, and refuses when `main` no longer
+leads to it. On that refusal the skill runs again from step 3 when
+`git rev-list <sha>..HEAD` prints nothing, and from step 1 otherwise, since
+the branch then carries work step 1 has not gated. Do not delete the
+branch; Orca deletes it with the worktree. Once `main` holds the commit, the plan status ledger and the checkpoints
 file are removed; when the person runs the fast-forward, this goes into
 the report beside it (not `rm -f`, which Codex's command policy rejects):
 
@@ -216,7 +230,10 @@ find "$(git rev-parse --git-dir)" -maxdepth 1 \( -name flowseer-plan-status.json
 
 In Orca, mark the card as `references/orca-card.md` describes: `completed`
 with the merge sha, or `ready for main: <sha>` and `in-review` when the
-fast-forward is left for the person.
+fast-forward is left for the person. A phase land whose parent still has
+phases to run (the parent was not retired in step 4) appends
+`merged into main as <sha>` or `ready for main: <sha>` and keeps the card's
+status, since the worktree is still working.
 
 ## 7. Report
 
@@ -228,5 +245,6 @@ landed, the commands run with
 their results, whether the verifier ran on the merged tree, and the commands
 left for the user in the order to run them: the fast-forward, the ledger and
 checkpoints removal, any child worktree removal the harness refused, and
-`orca worktree rm --worktree active`. A correction to this procedure is
+`orca worktree rm --worktree active`, left out for a phase land whose parent
+still has phases to run. A correction to this procedure is
 logged as `compound`, Observe describes.
