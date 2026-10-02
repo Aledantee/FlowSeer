@@ -34,7 +34,7 @@ and `edge/` are boundary consumers that import `model/`, `errs/`, and
 `edge/audit` also imports `event/access` for the record it
 delivers, so a boundary consumer may import another when its own contract carries
 that other's record. A package that declares a Connect service is a sink and is
-imported by nothing. `store/` records embed models and primitives but are
+imported by nothing. `store/` records embed models, primitives, and `errs/` but are
 imported by no other package. `runtime/` sits outside the import order as a
 process-local runtime contract.
 
