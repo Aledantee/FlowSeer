@@ -1,6 +1,8 @@
 import json
 import os
 from pathlib import Path
+import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -56,6 +58,22 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "read":
         sys.exit(1)
     elif os.environ.get("ORCA_STUB_DIALOG") and Path(os.environ["ORCA_STUB_DIALOG"]).exists():
         print(Path(os.environ["ORCA_STUB_DIALOG"]).read_text())
+    elif os.environ.get("ORCA_STUB_SCREENS") and (Path(os.environ["ORCA_STUB_SCREENS"]) / args[args.index("--terminal") + 1]).exists():
+        term_handle = args[args.index("--terminal") + 1]
+        clock_val = int(Path(os.environ["ORCA_STUB_CLOCK"]).read_text() or "0")
+        if (
+            os.environ.get("ORCA_STUB_CHILD_SCREEN_AFTER")
+            and clock_val >= int(os.environ.get("ORCA_STUB_CHILD_SCREEN_AFTER_CLOCK", "0"))
+        ):
+            print(os.environ["ORCA_STUB_CHILD_SCREEN_AFTER"])
+        else:
+            print((Path(os.environ["ORCA_STUB_SCREENS"]) / term_handle).read_text())
+    elif (
+        os.environ.get("ORCA_STUB_SCREEN_AFTER")
+        and int(Path(os.environ["ORCA_STUB_CLOCK"]).read_text() or "0")
+        >= int(os.environ.get("ORCA_STUB_SCREEN_AFTER_CLOCK", "0"))
+    ):
+        print(os.environ["ORCA_STUB_SCREEN_AFTER"])
     elif os.environ.get("ORCA_STUB_SCREEN"):
         print(os.environ["ORCA_STUB_SCREEN"])
     else:
@@ -91,9 +109,12 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "create":
         exclude.mkdir()
     print(json.dumps({{"result": {{"terminal": {{"handle": "term-1"}}}}}}))
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "wait":
-    if failure in ("terminal-wait", "terminal-exited"):
+    if failure == "terminal-wait-exited":
+        print(json.dumps({{"result": {{"wait": {{"status": "exited"}}}}}}))
+    elif failure in ("terminal-wait", "terminal-exited"):
         sys.exit(1)
-    print(json.dumps({{"result": {{"wait": {{"status": "idle"}}}}}}))
+    else:
+        print(json.dumps({{"result": {{"wait": {{"status": "idle"}}}}}}))
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "show":
     if failure == "terminal-show":
         sys.exit(1)
@@ -101,6 +122,8 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "show":
     print(json.dumps({{"result": {{"terminal": {{"status": status}}}}}}))
 elif len(args) >= 2 and args[0] == "worktree" and args[1] == "show":
     # ORCA_STUB_CHILDREN_FROM: the query, counting from 1, that first reports the children.
+    if failure == "worktree-show":
+        sys.exit(1)
     shows = Path(str(log_file) + ".shows")
     count = int(shows.read_text()) + 1 if shows.exists() else 1
     shows.write_text(str(count))
@@ -154,10 +177,34 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
         stub_python.chmod(stub_python.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
 
         stub_sleep = self.bin_dir / "sleep"
-        stub_sleep.write_text("#!/bin/sh\nexit 0\n")
+        stub_sleep.write_text(f"""#!{sys.executable}
+import os
+import sys
+
+clock = os.environ["ORCA_STUB_CLOCK"]
+with open(clock, "r+") as stream:
+    elapsed = int(stream.read() or "0")
+    stream.seek(0)
+    stream.write(str(elapsed + int(sys.argv[1])))
+    stream.truncate()
+""")
         stub_sleep.chmod(stub_sleep.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
 
+        stub_date = self.bin_dir / "date"
+        stub_date.write_text(f"""#!{sys.executable}
+import os
+import sys
+
+if sys.argv[1:] == ["+%s"]:
+    print(open(os.environ["ORCA_STUB_CLOCK"]).read().strip() or "0")
+else:
+    os.execv(os.environ["ORCA_REAL_DATE"], [os.environ["ORCA_REAL_DATE"], *sys.argv[1:]])
+""")
+        stub_date.chmod(stub_date.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
         self.runlog = self.root / "runs.jsonl"
+        self.clock = self.root / "clock"
+        self.clock.write_text("0")
         self.state_dir = self.repo / ".git" / "orca-workers"
         self.state_dir.mkdir(parents=True, exist_ok=True)
 
@@ -170,6 +217,8 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
             "ORCA_STUB_POINTER_FILE": str(self.root / "pointer-sent"),
             "ORCA_STUB_STATE_DIR": str(self.state_dir),
             "ORCA_STUB_AT_RM": str(self.root / "runlog-at-rm.jsonl"),
+            "ORCA_STUB_CLOCK": str(self.clock),
+            "ORCA_REAL_DATE": shutil.which("date"),
         }
 
     def command(self, *args, cwd=None):
@@ -186,6 +235,11 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
         if not self.orca_log.exists():
             return ""
         return self.orca_log.read_text()
+
+    def assert_wait(self, result, lines, clock):
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines(), lines)
+        self.assertEqual(self.clock.read_text().strip(), str(clock))
 
     def start(self, cli="codex", model="gpt-6-sol"):
         brief = self.repo / "brief.md"
@@ -465,6 +519,110 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
         self.assertEqual(events[1]["verify"], "fail")
         self.assertEqual(events[1]["note"], "adjusted test")
 
+    def claude_lane_without_session(self):
+        lane_path = self.root / "claude-lane"
+        lane_path.mkdir(exist_ok=True)
+        self.config = self.root / "claude-config"
+        self.env["CLAUDE_CONFIG_DIR"] = str(self.config)
+        state_file = self.state_dir / "l1.json"
+        state_file.write_text(json.dumps({
+            "name": "l1", "cli": "claude", "terminal": "term-1",
+            "worktree": "wt-1", "path": str(lane_path), "branch": "main",
+            "run": "run-l1",
+        }))
+        self.runlog.write_text(json.dumps({
+            "v": 1, "event": "start", "run": "run-l1",
+            "at": "2026-09-30T10:00:00Z", "lane": "l1", "cli": "claude",
+            "model": "claude-opus-5-5", "role": "execute", "worktree": "wt-1",
+            "branch": "main", "base": "base-sha",
+        }) + "\n")
+
+    def test_grade_refuses_accepted_and_amended_when_model_check_fails(self):
+        for outcome in ("accepted", "amended"):
+            with self.subTest(outcome=outcome):
+                self.claude_lane_without_session()
+                result = self.command("grade", "l1", "--outcome", outcome, "--verify", "pass")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("no qualifying session file", result.stderr)
+                events = [json.loads(line) for line in self.runlog.read_text().splitlines()]
+                self.assertEqual([event["event"] for event in events], ["start"])
+
+    def test_grade_writes_rejected_and_blocked_when_model_check_fails(self):
+        for outcome in ("rejected", "blocked"):
+            with self.subTest(outcome=outcome):
+                self.claude_lane_without_session()
+                result = self.command("grade", "l1", "--outcome", outcome, "--verify", "none")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                events = [json.loads(line) for line in self.runlog.read_text().splitlines()]
+                self.assertEqual([event["event"] for event in events], ["start", "grade"])
+                self.assertEqual(events[-1]["outcome"], outcome)
+
+    def test_check_reports_non_claude_lanes_as_not_checked(self):
+        child_path = self.root / "child-l1"
+        child_path.mkdir()
+        (self.state_dir / "l1.json").write_text(json.dumps({
+            "name": "l1", "cli": "codex", "terminal": "term-1",
+            "worktree": "wt-1", "path": str(child_path), "branch": "main",
+            "run": "run-l1",
+        }))
+
+        result = self.command("check", "l1")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "not checked: codex")
+
+    def claude_lane_with_session(self):
+        lane_path = self.root / "claude-lane"
+        lane_path.mkdir(exist_ok=True)
+        self.env.pop("CLAUDE_CONFIG_DIR", None)
+        home = self.root / "home"
+        self.env["HOME"] = str(home)
+        session_dir = home / ".claude" / "projects" / re.sub(r"[^a-zA-Z0-9]", "-", str(lane_path))
+        session_dir.mkdir(parents=True, exist_ok=True)
+        (session_dir / "session.jsonl").write_text(json.dumps({
+            "type": "assistant",
+            "timestamp": "2026-09-30T10:05:00Z",
+            "message": {"model": "claude-opus-5-5"},
+        }) + "\n")
+        state_file = self.state_dir / "l1.json"
+        state_file.write_text(json.dumps({
+            "name": "l1", "cli": "claude", "terminal": "term-1",
+            "worktree": "wt-1", "path": str(lane_path), "branch": "main",
+            "run": "run-l1",
+        }))
+        self.runlog.write_text(json.dumps({
+            "v": 1, "event": "start", "run": "run-l1",
+            "at": "2026-09-30T10:00:00Z", "lane": "l1", "cli": "claude",
+            "model": "claude-opus-5-5", "role": "execute", "worktree": "wt-1",
+            "branch": "main", "base": "base-sha",
+        }) + "\n")
+
+    def test_check_passes_for_claude_lane_with_valid_session_using_home(self):
+        self.claude_lane_with_session()
+        result = self.command("check", "l1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "")
+
+    def test_grade_accepted_passes_for_claude_lane_with_valid_session_using_home(self):
+        self.claude_lane_with_session()
+        result = self.command("grade", "l1", "--outcome", "accepted", "--verify", "pass")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        events = [json.loads(line) for line in self.runlog.read_text().splitlines()]
+        self.assertEqual([event["event"] for event in events], ["start", "grade"])
+        self.assertEqual(events[-1]["outcome"], "accepted")
+
+    def test_grade_does_not_duplicate_orca_worker_prefix_when_model_check_fails(self):
+        self.claude_lane_without_session()
+        self.runlog.write_text(json.dumps({
+            "v": 1, "event": "start", "run": "run-l1",
+            "lane": "l1", "cli": "claude", "role": "execute",
+            "worktree": "wt-1", "branch": "main", "base": "base-sha",
+        }) + "\n")
+        result = self.command("grade", "l1", "--outcome", "accepted", "--verify", "pass")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("orca-worker: orca-worker:", result.stderr)
+
+
     def graded_lane(self):
         subprocess.run(["git", "checkout", "-b", "branch-l1"], cwd=self.repo, check=True, capture_output=True)
         (self.repo / "work.txt").write_text("lane output")
@@ -532,19 +690,40 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
         }))
         return child_path
 
+    def child_lane(self, child_id="wt-c1", name="c1", terminal="term-c1", screen="> child done"):
+        self.child_lanes((child_id, name, terminal, screen))
+
+    def child_lanes(self, *children):
+        screens = self.root / "screens"
+        screens.mkdir(exist_ok=True)
+        self.env["ORCA_STUB_SCREENS"] = str(screens)
+        self.env["ORCA_STUB_CHILDREN"] = ",".join(child_id for child_id, _, _, _ in children)
+        for child_id, name, terminal, screen in children:
+            (screens / terminal).write_text(screen)
+            (self.state_dir / f"{name}.json").write_text(json.dumps({
+                "name": name, "cli": "codex", "terminal": terminal,
+                "worktree": child_id, "path": str(self.root / f"child-{name}"),
+                "branch": f"branch-{name}", "run": f"run-{name}",
+            }))
+
+    def child_without_state(self, child_id="wt-c1", screen="esc to interrupt"):
+        screens = self.root / "screens"
+        screens.mkdir(exist_ok=True)
+        (screens / "term-c1").write_text(screen)
+        self.env["ORCA_STUB_SCREENS"] = str(screens)
+        self.env["ORCA_STUB_CHILDREN"] = child_id
+
     def test_wait_reads_agy_cancel_hint_as_working_and_reports_a_frozen_screen_stalled(self):
         self.live_lane()
         self.env["ORCA_STUB_SCREEN"] = "Thinking... (esc to cancel)"
-        result = self.command("wait", "l1", "--stall", "1")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines()[0], "stalled")
+        result = self.command("wait", "l1", "--stall", "5", "--max", "20")
+        self.assert_wait(result, ["stalled", "Thinking... (esc to cancel)"], 15)
 
     def test_wait_reports_idle_for_a_settled_screen(self):
         self.live_lane()
         self.env["ORCA_STUB_SCREEN"] = "> done"
-        result = self.command("wait", "l1")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines()[0], "idle")
+        result = self.command("wait", "l1", "--stall", "5", "--max", "10")
+        self.assert_wait(result, ["idle", "> done"], 5)
 
     def test_keys_refuses_text_the_terminal_would_truncate(self):
         self.live_lane()
@@ -567,9 +746,298 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
     def test_wait_reports_a_closed_terminal_as_exited(self):
         self.live_lane()
         self.env["ORCA_STUB_FAIL"] = "terminal-read"
-        result = self.command("wait", "l1")
+        result = self.command("wait", "l1", "--stall", "5", "--max", "10")
+        self.assert_wait(result, ["exited"], 0)
+
+    def test_wait_reports_an_exited_wait_with_the_screen(self):
+        self.live_lane()
+        self.env["ORCA_STUB_FAIL"] = "terminal-wait-exited"
+        self.env["ORCA_STUB_SCREEN"] = "worker exited unexpectedly"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "10")
+        self.assert_wait(result, ["exited", "worker exited unexpectedly"], 0)
+
+    def test_wait_times_out_when_an_idle_lane_has_a_working_child(self):
+        self.live_lane()
+        self.child_lane(screen="esc to interrupt")
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "20")
+        self.assert_wait(result, ["timeout", "> lane done"], 20)
+
+    def test_wait_keeps_waiting_when_one_of_multiple_children_works(self):
+        self.live_lane()
+        self.child_lanes(
+            ("wt-c1", "c1", "term-c1", "> child one done"),
+            ("wt-c2", "c2", "term-c2", "esc to interrupt"),
+        )
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "20")
+        self.assert_wait(result, ["timeout", "> lane done"], 20)
+
+    def test_wait_reports_idle_children_for_a_quiet_child(self):
+        self.live_lane()
+        self.child_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "20")
+        self.assert_wait(result, ["idle-children c1", "> lane done"], 15)
+
+    def test_wait_reports_all_quiet_children_by_lane_name(self):
+        self.live_lane()
+        self.child_lanes(
+            ("wt-c1", "c1", "term-c1", "> child one done"),
+            ("wt-c2", "c2", "term-c2", "> child two done"),
+        )
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "20")
+        self.assert_wait(result, ["idle-children c1 c2", "> lane done"], 15)
+
+    def test_wait_restarts_the_stall_clock_when_the_lane_screen_changes(self):
+        self.live_lane()
+        self.child_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> lane before"
+        self.env["ORCA_STUB_SCREEN_AFTER"] = "> lane after"
+        self.env["ORCA_STUB_SCREEN_AFTER_CLOCK"] = "5"
+        result = self.command("wait", "l1", "--stall", "10", "--max", "30")
+        self.assert_wait(result, ["idle-children c1", "> lane after"], 25)
+
+    def test_wait_reads_each_child_id_as_one_entry_and_holds_for_a_working_child(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        quiet_lists = (
+            (("plain-id", "plain", "term-plain", "> plain done"),),
+            (("worktree with space", "space", "term-space", "> space done"),),
+            (("01234567-89ab-cdef-0123-456789abcdef::/absolute/path", "shape", "term-shape", "> shape done"),),
+            (
+                ("wt-one", "one", "term-one", "> one done"),
+                ("wt two", "two", "term-two", "> two done"),
+            ),
+            (
+                ("wt-three", "three", "term-three", "> three done"),
+                ("wt four", "four", "term-four", "> four done"),
+                ("fedcba98-7654-3210-fedc-ba9876543210::/absolute/path", "shape-three", "term-shape-three", "> shape three done"),
+            ),
+        )
+
+        expected_clock = 0
+        for children in quiet_lists:
+            with self.subTest(child_ids=[child_id for child_id, _, _, _ in children]):
+                self.child_lanes(*children)
+                self.orca_log.write_text("")
+                result = self.command("wait", "l1", "--stall", "5", "--max", "20")
+                names = [name for _, name, _, _ in children]
+                expected_clock += 15
+                self.assert_wait(result, [f"idle-children {' '.join(names)}", "> lane done"], expected_clock)
+                reads = {
+                    line.split("--terminal ", 1)[1].split(" --screen", 1)[0]
+                    for line in self.orca_calls().splitlines()
+                    if line.startswith("terminal read")
+                }
+                self.assertEqual(reads, {"term-1", *(terminal for _, _, terminal, _ in children)})
+                outcome = result.stdout.splitlines()[0].split()[1:]
+                for name in names:
+                    self.assertEqual(outcome.count(name), 1)
+
+        working_children = (
+            ("wt quiet", "quiet", "term-quiet", "> quiet done"),
+            ("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee::/absolute/working-path", "working", "term-working", "esc to interrupt"),
+        )
+        self.child_lanes(*working_children)
+        self.orca_log.write_text("")
+        result = self.command("wait", "l1", "--stall", "5", "--max", "20")
+        expected_clock += 20
+        self.assert_wait(result, ["timeout", "> lane done"], expected_clock)
+        reads = {
+            line.split("--terminal ", 1)[1].split(" --screen", 1)[0]
+            for line in self.orca_calls().splitlines()
+            if line.startswith("terminal read")
+        }
+        self.assertEqual(reads, {"term-1", "term-quiet", "term-working"})
+
+    def test_wait_names_a_child_without_state_and_does_not_read_an_empty_handle(self):
+        self.live_lane()
+        self.child_without_state()
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "20")
+        self.assert_wait(result, ["idle-children wt-c1", "> lane done"], 15)
+        self.assertNotIn("terminal read --terminal  --screen", self.orca_calls())
+
+    def test_wait_names_an_unreadable_child_query(self):
+        self.live_lane()
+        self.env["ORCA_STUB_FAIL"] = "worktree-show"
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "20")
+        self.assert_wait(result, ["idle-children unreadable", "> lane done"], 15)
+
+    def test_wait_times_out_when_a_frozen_lane_has_a_working_child(self):
+        self.live_lane()
+        self.child_lane(screen="esc to interrupt")
+        self.env["ORCA_STUB_SCREEN"] = "esc to interrupt"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "20")
+        self.assert_wait(result, ["timeout", "esc to interrupt"], 20)
+
+    def test_wait_times_out_before_stall_for_a_quiet_child(self):
+        self.live_lane()
+        self.child_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command("wait", "l1", "--stall", "15", "--max", "10")
+        self.assert_wait(result, ["timeout", "> lane done"], 10)
+
+    def test_wait_times_out_before_stall_for_a_frozen_lane_without_children(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "esc to interrupt"
+        result = self.command("wait", "l1", "--stall", "15", "--max", "10")
+        self.assert_wait(result, ["timeout", "esc to interrupt"], 10)
+
+    def test_wait_until_reports_idle_when_the_command_fails(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command(
+            "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "10",
+        )
+        self.assert_wait(result, ["idle", "> lane done"], 5)
+
+    def test_wait_until_reports_stalled_before_running_a_command(self):
+        lane_path = self.live_lane()
+        (lane_path / "DONE").write_text("")
+        self.env["ORCA_STUB_SCREEN"] = "esc to interrupt"
+        result = self.command(
+            "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "20",
+        )
+        self.assert_wait(result, ["stalled", "esc to interrupt"], 15)
+
+    def test_wait_until_does_not_run_a_command_while_the_lane_is_working(self):
+        lane_path = self.live_lane()
+        marker = lane_path / "until-ran"
+        self.env["ORCA_STUB_SCREEN"] = "esc to interrupt"
+        result = self.command(
+            "wait", "l1", "--until", "touch until-ran", "--stall", "5", "--max", "20",
+        )
+        self.assert_wait(result, ["stalled", "esc to interrupt"], 15)
+        self.assertFalse(marker.exists())
+
+    def test_wait_until_reports_done_for_an_idle_lane(self):
+        lane_path = self.live_lane()
+        (lane_path / "DONE").write_text("")
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command(
+            "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "10",
+        )
+        self.assert_wait(result, ["done", "> lane done"], 5)
+
+    def test_wait_until_reports_done_for_a_quiet_child_without_stall_delay(self):
+        lane_path = self.live_lane()
+        (lane_path / "DONE").write_text("")
+        self.child_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command(
+            "wait", "l1", "--until", "test -f DONE", "--stall", "0", "--max", "10",
+        )
+        self.assert_wait(result, ["done", "> lane done"], 5)
+
+    def test_wait_until_reports_idle_children_when_the_command_fails(self):
+        self.live_lane()
+        self.child_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command(
+            "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "20",
+        )
+        self.assert_wait(result, ["idle-children c1", "> lane done"], 15)
+
+    def test_wait_until_times_out_while_a_child_works(self):
+        lane_path = self.live_lane()
+        (lane_path / "DONE").write_text("")
+        self.child_lane(screen="esc to interrupt")
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command(
+            "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "20",
+        )
+        self.assert_wait(result, ["timeout", "> lane done"], 20)
+
+    def test_wait_until_times_out_when_one_of_multiple_children_works(self):
+        lane_path = self.live_lane()
+        (lane_path / "DONE").write_text("")
+        self.child_lanes(
+            ("wt-c1", "c1", "term-c1", "> child one done"),
+            ("wt-c2", "c2", "term-c2", "esc to interrupt"),
+        )
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command(
+            "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "20",
+        )
+        self.assert_wait(result, ["timeout", "> lane done"], 20)
+
+    def test_wait_times_out_and_shows_the_screen_for_a_working_lane(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "esc to interrupt"
+        result = self.command("wait", "l1", "--stall", "0", "--max", "1")
+        self.assert_wait(result, ["timeout", "esc to interrupt"], 1)
+
+    def test_wait_with_stall_zero_checks_the_decision_before_a_non_multiple_ceiling(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "esc to interrupt"
+        result = self.command("wait", "l1", "--stall", "0", "--max", "7")
+        self.assert_wait(result, ["timeout", "esc to interrupt"], 7)
+
+    def test_wait_with_stall_zero_times_out_for_a_quiet_child(self):
+        self.live_lane()
+        self.child_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command("wait", "l1", "--stall", "0", "--max", "10")
+        self.assert_wait(result, ["timeout", "> lane done"], 10)
+
+    def test_wait_holds_for_a_child_working_until_clock_fifteen(self):
+        self.live_lane()
+        self.child_lane(screen="esc to interrupt")
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        self.env["ORCA_STUB_CHILD_SCREEN_AFTER"] = "> child done"
+        self.env["ORCA_STUB_CHILD_SCREEN_AFTER_CLOCK"] = "15"
+        result = self.command("wait", "l1", "--stall", "15", "--max", "50")
+        self.assert_wait(result, ["idle-children c1", "> lane done"], 35)
+
+    def test_wait_reports_idle_after_a_lane_screen_change_without_children(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> before"
+        self.env["ORCA_STUB_SCREEN_AFTER"] = "> after"
+        self.env["ORCA_STUB_SCREEN_AFTER_CLOCK"] = "5"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "20")
+        self.assert_wait(result, ["idle", "> after"], 15)
+
+    def test_wait_times_out_for_an_idle_lane_at_deadline(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> done"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "5")
+        self.assert_wait(result, ["timeout", "> done"], 5)
+
+    def test_wait_restarts_stall_when_lane_screen_changes_inside_one_pass(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "Thinking... (esc to cancel)"
+        self.env["ORCA_STUB_SCREEN_AFTER"] = "> done"
+        self.env["ORCA_STUB_SCREEN_AFTER_CLOCK"] = "15"
+        result = self.command("wait", "l1", "--stall", "10", "--max", "30")
+        self.assert_wait(result, ["idle", "> done"], 25)
+
+    def test_wait_rejects_the_removed_timeout_flag(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command("wait", "l1", "--timeout", "1000")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("replaced by --max", result.stderr)
+        self.assertEqual(self.clock.read_text().strip(), "0")
+
+    def test_wait_rejects_a_zero_maximum(self):
+        self.live_lane()
+        result = self.command("wait", "l1", "--max", "0")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("positive integer", result.stderr)
+        self.assertEqual(self.clock.read_text().strip(), "0")
+
+    def test_start_records_the_line_command_for_codex_with_the_poll_cap(self):
+        expected = self.command("line", "--cli", "codex", "--model", "gpt-6-sol").stdout.strip()
+        result = self.start()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines()[0], "exited")
+        terminal_create = next(call for call in self.orca_calls().splitlines() if "terminal create" in call)
+        command = terminal_create.split("--command ", 1)[1].rsplit(" --json", 1)[0]
+        self.assertEqual(command, expected)
+        self.assertIn("-c background_terminal_max_timeout=3600000", command)
 
     def test_tell_fails_when_the_pointer_count_does_not_grow(self):
         self.live_lane()
@@ -595,12 +1063,12 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
     def test_stop_refuses_a_lane_with_child_worktrees_and_removes_nothing(self):
         state_file, child_path, _ = self.graded_lane()
         (child_path / ".orca-brief.md").write_text("brief")
-        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/grandchild"
+        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/grandchild,repo::/lanes/second-child"
         result = self.command("stop", "l1")
         self.assertTrue((child_path / ".orca-brief.md").exists())
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("child worktrees", result.stderr)
-        self.assertIn("repo::/lanes/grandchild", result.stderr)
+        self.assertIn("repo::/lanes/grandchild repo::/lanes/second-child", result.stderr)
         self.assertTrue(state_file.exists())
         self.assertTrue(child_path.exists())
         calls = self.orca_calls()
@@ -610,11 +1078,12 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
     def test_stop_rechecks_children_after_a_stalled_terminal_closes(self):
         state_file, child_path, _ = self.graded_lane()
         self.env["ORCA_STUB_SCREEN"] = "esc to cancel"
-        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/late"
+        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/late,repo::/lanes/second-late"
         self.env["ORCA_STUB_CHILDREN_FROM"] = "2"
         result = self.command("stop", "l1", "--stalled")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("started child worktrees before its terminal closed", result.stderr)
+        self.assertIn("repo::/lanes/late repo::/lanes/second-late", result.stderr)
         self.assertTrue(state_file.exists())
         self.assertTrue(child_path.exists())
         calls = self.orca_calls()
@@ -623,10 +1092,10 @@ os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
 
     def test_start_rollback_keeps_a_lane_with_child_worktrees(self):
         self.env["ORCA_STUB_FAIL"] = "pointer"
-        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/grandchild"
+        self.env["ORCA_STUB_CHILDREN"] = "repo::/lanes/grandchild,repo::/lanes/second-child"
         result = self.start()
         self.assert_retained_lane(result, "term-1", True)
-        self.assertIn("it has child worktrees: repo::/lanes/grandchild", result.stderr)
+        self.assertIn("it has child worktrees: repo::/lanes/grandchild repo::/lanes/second-child", result.stderr)
         self.assertNotIn("worktree rm", self.orca_calls())
 
 

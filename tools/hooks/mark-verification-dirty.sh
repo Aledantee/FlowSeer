@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # Record source/config edits that require a successful verify-change run.
+# shellcheck source-path=SCRIPTDIR
 
 set -uo pipefail
 
-input=$(cat)
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=common.sh
+source "$script_dir/common.sh"
+
+input=$(hook_read_input)
 jq -e . >/dev/null 2>&1 <<<"$input" || exit 0
 file=$(jq -r '.tool_input.file_path // .tool_input.notebook_path // ""' <<<"$input")
 command=$(jq -r '.tool_input.command // ""' <<<"$input")

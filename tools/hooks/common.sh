@@ -2,8 +2,22 @@
 
 set -uo pipefail
 
+# Prints the hook's stdin. A bare `cat` returns only at end of input, so a
+# stdin left open with nothing written would hold the hook, and the tool call
+# behind it, forever. The first character gets 5 seconds to arrive, and the
+# rest is read to end of input. On timeout it prints nothing and returns 0,
+# so a caller under `set -e` reaches its own malformed-input handling. A
+# leading newline is taken as `read`'s delimiter and dropped, which JSON
+# does not notice.
+hook_read_input() {
+  local first
+  IFS= read -r -n 1 -t 5 first || return 0
+  printf '%s' "$first"
+  cat
+}
+
 hook_init() {
-  HOOK_INPUT=$(cat)
+  HOOK_INPUT=$(hook_read_input)
   jq -e . >/dev/null 2>&1 <<<"$HOOK_INPUT" || return 1
   HOOK_CWD=$(jq -r '.cwd // "."' <<<"$HOOK_INPUT")
   HOOK_ROOT=$(git -C "$HOOK_CWD" rev-parse --show-toplevel 2>/dev/null) || exit 0

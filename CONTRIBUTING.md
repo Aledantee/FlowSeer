@@ -52,6 +52,7 @@ whole set:
 | [`docs/conventions/protobuf.md`](docs/conventions/protobuf.md) | message shapes: the Config/State/Event triad, refs, tenancy, provenance |
 | [`docs/conventions/observability.md`](docs/conventions/observability.md) | logging, traces, metrics, and what must never reach them |
 | [`docs/conventions/testing.md`](docs/conventions/testing.md) | where a test lives and which module owns it |
+| [`docs/conventions/dependencies.md`](docs/conventions/dependencies.md) | how Go and npm dependencies are stated, pinned, aged, and inspected |
 | [`docs/doc-style.md`](docs/doc-style.md) | all prose, including commit messages and PR descriptions. Cite the tree, never an agent run |
 
 For work on the device service, inventory, discovery, or ingestion planes, read

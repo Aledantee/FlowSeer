@@ -2,7 +2,7 @@
 title: A Search Dimension That Produces No Behavioral Variation Is Dishonest Coverage
 date: 2026-09-19
 category: conventions
-module: src/common/netsim/search
+module: src/common/sim/search
 problem_type: convention
 component: search
 severity: high
@@ -23,7 +23,7 @@ coverage over what was really one run repeated.
 ## The trap, from the tree
 
 netsim's `TimedFaultDomain` enumerated `faults × times`, giving each candidate a
-tuple encoding the fault's declared time (`src/common/netsim/search/domain.go:24`,
+tuple encoding the fault's declared time (`src/common/sim/search/domain.go:24`,
 `TimedFault.At`). But `Search` applied every fault with `SetFault` at the
 fabric's start clock, ignoring `At`: `fabric.Compare` took only injections, with
 no channel to schedule a fault at a simulation time. So a domain of 3 faults × 4
@@ -36,7 +36,7 @@ The fix made the dimension real rather than hiding it: `fabric.Compare` now runs
 a timed `Scenario` (`Candidate.ToScenario`, `domain.go:83`, builds an
 `ActionFault` at each fault's `At`, `:111`), so a fault fires at its declared
 time on the same `applyAction` path `RunScenario` uses. `TestTimedFaultDomainBehavioralTime`
-(`src/common/netsim/search/search_test.go:290`) is the guard: the same fault at
+(`src/common/sim/search/search_test.go:290`) is the guard: the same fault at
 time T1 versus T2 now yields `Different` versus `Equivalent`, proving the time
 axis changes behavior.
 

@@ -1,0 +1,1 @@
+curl -fsS https://registry.npmjs.org/reka-ui | jq -c '{name, time: {"2.10.5": .time["2.10.5"]}}'

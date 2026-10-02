@@ -72,8 +72,10 @@ intent in code doing the opposite. Ask:
 - Does every behavior change have a test that would fail without it, and
   would that test still fail if the check moved to the wrong place? Commit
   bodies carry a mutation and a quoted `--- FAIL` line per new test
-  (`implement`, step 2.3). For a new test without one, load
-  `references/mutation-check.md` and run the mutation yourself. A test that
+  (`implement`, step 2.3). For each behavior change, load
+  `references/mutation-check.md` and run one mutation of your own choosing
+  against it, whether or not its commit quotes a failure, since the
+  author's mutation shows only the fault the author thought of. A test that
   passes against the defect is a correctness finding.
 - Does any comment narrate process, cite history, or carry a plan label?
 - For each line the verifier printed under `Test changes to account for:`,
@@ -124,8 +126,9 @@ Four findings need more than a re-read:
   a round finds a defect in the previous round's fix for the same mechanism,
   stop patching: state the property the mechanism must hold and make it
   executable (a generated state space, an invariant assertion the suite can
-  fail on) instead of reviewing the next rewrite. Step 6 says who notices
-  this across rounds.
+  fail on) instead of reviewing the next rewrite. See
+  [references/fix-loop.md](references/fix-loop.md) for the round limit and
+  who notices this across rounds.
 
 When the smallest fix rests on a claim about the code ("nothing else
 produces this", "no caller does that", "this path is unreachable"), open the
@@ -159,10 +162,13 @@ it in the report and carry on.
 
 ## 5. Report
 
-Verdict first (accept, accept after fixes, rework), then findings, most
-severe first: title, `path:line`, what goes wrong and when, and the smallest
-fix or the direction with its unchecked claim (step 4). Then the residual
-testing gap.
+Verdict first (accept, fixes needed, rework), then findings, most severe
+first: title, `path:line`, what goes wrong and when, and the smallest fix or
+the direction with its unchecked claim (step 4). Then the residual testing
+gap. `accept after fixes` is never the verdict of a review's initial
+report. It is written
+only once the fixes exist, since `land`, `drive`, and `next` all read it as
+passing.
 
 When the scope is this branch's work (the working tree, the branch, or its
 plan's paths), record the verdict where `land` reads it (`land`, step 1). With a plan, add
@@ -187,12 +193,13 @@ happens next (`AGENTS.md`, Agent behavior):
 | Verdict | Options, recommended first |
 | --- | --- |
 | accept | run `compound` now; stop here |
-| accept after fixes or rework, findings in one file group | apply the fixes here; fix and review again until clean (step 6); stop |
-| accept after fixes or rework, findings across file groups | fix and review again until clean (step 6); apply chosen findings only; stop |
+| fixes needed or rework, findings in one file group | apply the fixes here; fix and review again until clean (step 6); stop |
+| fixes needed or rework, findings across file groups | fix and review again until clean (step 6); apply chosen findings only; stop |
 | rework too large to fix in place | take what the review established to `plan`; stop |
 
 On "apply the fixes", make them, run the verifier on the changed paths,
-report what changed, and set the verdict to `review: accept after fixes`.
+report what changed, and only then replace the recorded verdict with
+`review: accept after fixes`, recorded as above.
 
 ## 6. Fix and re-review, when asked
 

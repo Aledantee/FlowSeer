@@ -1,0 +1,118 @@
+package inventory
+
+import (
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
+)
+
+// ModuleGraph is a directed graph whose direct nodes are module paths with
+// the versions they select. Edges point to selected transitive versions.
+type ModuleGraph struct {
+	Direct []string
+	Edges  map[string][]string
+}
+
+// TreeEntry reports the total and exclusive versions reachable from a direct
+// dependency.
+type TreeEntry struct {
+	Manifest string `json:"manifest"`
+	Name     string `json:"name"`
+	Versions int    `json:"versions"`
+	Only     int    `json:"only"`
+}
+
+// Tree reads each Go module graph and the pnpm snapshot graph, then returns
+// their direct dependency trees with the source manifest on every row.
+func Tree(root string) ([]TreeEntry, error) {
+	root, err := resolveRoot(root)
+	if err != nil {
+		return nil, err
+	}
+	modules, err := DiscoverModules(root)
+	if err != nil {
+		return nil, err
+	}
+	all := make(map[string]TreeEntry)
+	for _, module := range modules {
+		graph, err := readModuleGraph(module)
+		if err != nil {
+			return nil, err
+		}
+		for _, stat := range treeStatsForManifest(graph, module.Manifest) {
+			key := stat.Manifest + "\x00" + stat.Name
+			all[key] = stat
+		}
+	}
+	lockPath := filepath.Join(root, "frontend", "web", "pnpm-lock.yaml")
+	if _, err := os.Stat(lockPath); err == nil {
+		lock, err := readPnpmLock(lockPath, "frontend/web/pnpm-lock.yaml")
+		if err != nil {
+			return nil, err
+		}
+		for _, stat := range treeStatsForManifest(lock.Graph, "frontend/web/pnpm-lock.yaml") {
+			key := stat.Manifest + "\x00" + stat.Name
+			all[key] = stat
+		}
+	} else if !os.IsNotExist(err) {
+		return nil, errs.Wrap(err, "stat pnpm lockfile")
+	}
+	result := make([]TreeEntry, 0, len(all))
+	for _, stat := range all {
+		result = append(result, stat)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Manifest != result[j].Manifest {
+			return result[i].Manifest < result[j].Manifest
+		}
+		return result[i].Name < result[j].Name
+	})
+	return result, nil
+}
+
+func treeStatsForManifest(graph ModuleGraph, manifest string) []TreeEntry {
+	result := treeStats(graph)
+	for i := range result {
+		result[i].Manifest = manifest
+	}
+	return result
+}
+
+func treeStats(graph ModuleGraph) []TreeEntry {
+	result := make([]TreeEntry, 0, len(graph.Direct))
+	reachable := make(map[string]map[string]bool, len(graph.Direct))
+	for _, direct := range graph.Direct {
+		set := closure(graph.Edges, map[string]bool{direct: true})
+		reachable[direct] = set
+	}
+	for _, direct := range graph.Direct {
+		set := reachable[direct]
+		only := 0
+		for node := range set {
+			if node == direct {
+				continue
+			}
+			owners := 0
+			for _, other := range graph.Direct {
+				if reachable[other][node] {
+					owners++
+				}
+			}
+			if owners == 1 {
+				only++
+			}
+		}
+		result = append(result, TreeEntry{Name: nodeName(direct), Versions: len(set), Only: only})
+	}
+	return result
+}
+
+func nodeName(node string) string {
+	if index := strings.LastIndexByte(node, '@'); index >= 0 {
+		return node[:index]
+	}
+	return node
+}

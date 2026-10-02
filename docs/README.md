@@ -60,6 +60,7 @@ removes it after the merge.
 | [`conventions/`](conventions/) | Cross-cutting shapes and workflows, including protobuf and test layout. |
 | [`conventions/guarantees.md`](conventions/guarantees.md) | Package guarantee format, same-directory test citations, and relation to READMEs and doc comments. |
 | [`conventions/observability.md`](conventions/observability.md) | Binding logging, OpenTelemetry event, trace, metric, namespacing, and semantic-convention rules. |
+| [`conventions/dependencies.md`](conventions/dependencies.md) | Direct dependency statements, pin changes, the 14-day wait, and dependency inspection commands. |
 | [`code-style.md`](code-style.md) | Go API, error, concurrency, comment, and test conventions. |
 | [`code-style-proto.md`](code-style-proto.md) | Protobuf syntax, evolution, validation, and generation rules. |
 | [`code-style-web.md`](code-style-web.md) | Frontend TypeScript conventions. |
@@ -70,7 +71,9 @@ removes it after the merge.
 | [`solutions/`](solutions/README.md) | Verified lessons indexed by the conditions in which they apply. |
 | [`plans/`](plans/) | Implementation decision records for open work; `land` deletes each once its work lands. |
 | [`research/`](research/README.md) | Indexed evidence gathered before a design decision. |
+| [`dependencies/`](dependencies/README.md) | Direct dependency statements and the statement gate. |
 | [`benchmarks/`](benchmarks/) | Reproducible performance results and their test conditions. |
+| [`runbooks/`](runbooks/) | Procedures for live devices and production systems. |
 | [`attic/`](attic/) | Superseded material kept only for historical reference. |
 
 Specifications document their own provenance and update procedures under
@@ -86,6 +89,7 @@ the people who need it:
 - a reusable lesson from verified work goes under `solutions/` with the required
   frontmatter;
 - a cross-cutting rule belongs in an existing convention or style guide;
+- a dependency statement belongs under `dependencies/statements/`;
 - evidence gathered before a decision belongs under `research/`;
 - benchmark method and results belong together under `benchmarks/`;
 - a task-specific implementation decision record belongs under `plans/`.

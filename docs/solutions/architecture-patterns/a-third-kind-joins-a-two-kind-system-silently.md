@@ -3,7 +3,7 @@ title: A Third Kind Joins a Two-Kind System Silently, So Enumerate the Sites Bef
 date: 2026-09-17
 last_verified: 2026-09-17
 category: architecture-patterns
-module: src/common/netsim/fabric
+module: src/common/sim/fabric
 problem_type: architecture_pattern
 component: fabric
 severity: high
@@ -19,7 +19,7 @@ tags: [node-kind, classification, exhaustiveness, enumeration, fabric]
 
 ## The situation
 
-`src/common/netsim/fabric` held two node kinds, switches and hosts, as two maps
+`src/common/sim/fabric` held two node kinds, switches and hosts, as two maps
 on its configuration. Nothing dispatched through an interface or an enum. Every
 place that needed to know what a node was asked the two maps in turn, and
 everything that walked nodes walked both maps in sequence.
@@ -73,12 +73,12 @@ construction path.
 ## Evidence
 
 - The two-map shape and its classification sites:
-  `src/common/netsim/fabric/config.go`, `fabric.go`, and `run.go`. After the
+  `src/common/sim/fabric/config.go`, `fabric.go`, and `run.go`. After the
   change the reflector map is read at twenty non-test sites across the package.
-- The panicking lookup: `src/common/netsim/fabric/run.go` reads
+- The panicking lookup: `src/common/sim/fabric/run.go` reads
   `f.switches[arr.Device]` and dereferences it two lines later through
   `Ports()`, which returns `s.ports.Clone()`
-  (`src/common/netsim/vswitch/switch.go:390-392`).
+  (`src/common/sim/device/vswitch/switch.go:390-392`).
 - The dropped map: removing the reflector field from the construction-spec
   assembler fails the round-trip test with
   `cable 2 endpoint A: endpoint node "r1" not found`, watched on 2026-09-17.

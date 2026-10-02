@@ -5,7 +5,7 @@ last_verified: 2026-09-17
 category: conventions
 module: src/common/net/udp
 problem_type: convention
-component: netsim
+component: sim
 severity: high
 applies_when:
   - "Writing a test that asserts a function refuses, returning false, nil, or an error, where the function has more than one way to produce that outcome"

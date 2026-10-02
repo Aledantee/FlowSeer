@@ -1,0 +1,5 @@
+example.com/keep v1.2.3 h1:keep
+example.com/keep v1.2.3/go.mod h1:keep-mod
+example.com/modonly v1.0.0/go.mod h1:mod-only
+example.com/other v1.0.0 h1:other
+example.com/root v0.0.0 h1:owned

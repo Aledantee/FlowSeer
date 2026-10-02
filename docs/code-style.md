@@ -555,6 +555,15 @@ non-negotiable and checkable. (See sources below for the empirical basis.)
   if nothing equivalent exists.
 - Do not copy-paste logic; if it appears twice, extract a function.
 - Do not re-implement what the stdlib or an existing dependency already provides.
+- Never implement a cryptographic primitive (cipher, hash, HMAC, cipher mode,
+  constant-time compare). Use `crypto/*` first, and a well-known tested library
+  only where the stdlib lacks one. Composing stdlib primitives into a protocol
+  (SNMPv3 USM key localization, IV and salt layout) is serialization, not new
+  cryptography; prove it with independently sourced test vectors (Net-SNMP,
+  pysnmp), never vectors the same code derived.
+- Take a pointer to a value with `new(expr)` (`new(uint64(42))`, `new("Gi1/0/1")`),
+  not a `ptr[T]` helper or a `&local`. Generated proto enums keep their `.Enum()`
+  accessor. The `ptr` helpers left in older tests are not a pattern to extend.
 
 **Surgical changes**
 - Touch only the lines the task requires. Do not reformat or restructure adjacent

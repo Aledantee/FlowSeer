@@ -8,7 +8,7 @@ the customer network — as opposed to the control-plane services in
 | --------- | --------------------------------------------------------- |
 | `agent`   | The device access agent: enrolls with central, holds its dispatch stream, drives the local-network access lane. `cmd/agent` is its binary |
 | `netpen`  | L2/L3 security audit and attack tool, run by an operator   |
-| `netsimload` | Finite offered-load transmitter and capture comparison tool. `cmd/netsimload` is its binary |
+| `simload` | Finite offered-load transmitter and capture comparison tool. `cmd/simload` is its binary |
 
 "Edge" names what an application is *designed for*, not only where it ends up
 running. An agent that lives here because it can operate on a remote network may
@@ -33,7 +33,7 @@ family stay out of the main module's graph, and
 application with a heavy dependency family should do the same and extend that
 guard's allowlist.
 
-`netsimload` stays in the root module because it consumes the root-owned stream
+`simload` stays in the root module because it consumes the root-owned stream
 and fabric values. Its packet sender uses `golang.org/x/sys/unix` directly and
 does not import netpen's gopacket link. It needs `CAP_NET_RAW` (or equivalent
 raw-socket permission) for both named interfaces. It never selects a default

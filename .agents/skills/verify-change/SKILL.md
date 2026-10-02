@@ -28,7 +28,9 @@ the Go gates bind loopback listeners and the telemetry tier starts Docker.
   enough for documentation, hook, or single-module work.
 - Pass explicit paths when the worktree holds changes outside the task. A
   directory expands to the files it holds, so `-- src/edge/agent` and the
-  files under it select the same gates.
+  files under it select the same gates. A path through a linked directory
+  is rewritten to the one git tracks, so `.claude/skills/land` verifies
+  `.agents/skills/land`.
 - A `frontend/web/` path needs the web workspace's local binaries, which a
   fresh worktree lacks. Install them with
   `pnpm --dir frontend/web install --frozen-lockfile`, outside the sandbox
@@ -54,10 +56,13 @@ The last line is the verdict. Quote it; do not summarize it.
 | --- | --- |
 | `FlowSeer verification passed.` | every selected gate ran and passed |
 | `FlowSeer verification FAILED (exit N) in gate: <command>` | that gate failed |
-| `FlowSeer verification FAILED (exit N).` | no gate ran: a bad argument, a missing tool, or a path list that selects no gate; the reason is the line above |
+| `FlowSeer verification FAILED (exit N).` | no gate ran: a bad argument, a missing tool, no changed paths against the base, or a path list that selects no gate. The line above gives the reason |
 
 A pass always means a gate ran. A path list that selects nothing (a typo, a
-deleted file on its own, a file type nothing checks) exits non-zero. Anything
+deleted file on its own, a file type nothing checks) exits non-zero, and so
+does a run with no changed paths, since it would check nothing. A
+`.golangci.yml` change on a targeted run also exits non-zero and asks for
+`--full`, because the new configuration applies to every module. Anything
 that produces a pass without a gate having run (a cached test answer, a
 wrapper's exit code, a step with nothing to check) is a bug in the verifier;
 report it as one.
@@ -134,7 +139,7 @@ so it is the one caller that reaches the directory. The shape:
 | Field | Rule |
 | --- | --- |
 | `status` | one of `pending`, `in_progress`, `passed`, `blocked`; a `passed` unit carries its commit and the receipt's `verified_at` |
-| `base` | `HEAD` when the unit went `in_progress`; `ledger.py set <unit> passed` refuses a commit outside this branch or with nothing committed since the base |
+| `base` | `HEAD` when the unit went `in_progress`; `ledger.py set <unit> passed` refuses a commit outside this branch or with nothing committed since the base, and a receipt whose `verified_at` is older than the unit's commit |
 | `resume` | the `in_progress` units, or the next `pending` unit when none is in progress; empty once every unit is `passed` |
 | `note` | one line, only for a decision or pitfall the next unit needs |
 | `id` | unique |

@@ -29,7 +29,9 @@ if kill -0 "$docker_probe" 2>/dev/null; then
   # leaves the job table first: bash reports a killed job on stderr
   # (`Terminated: 15`), ahead of the message below.
   disown "$docker_probe" 2>/dev/null || true
-  kill "$docker_probe" 2>/dev/null
+  # The probe can exit after the check above, and under set -e a failed
+  # kill would replace the message below.
+  kill "$docker_probe" 2>/dev/null || true
   for ((tick = 0; tick < 10; tick++)); do
     kill -0 "$docker_probe" 2>/dev/null || break
     sleep 0.1

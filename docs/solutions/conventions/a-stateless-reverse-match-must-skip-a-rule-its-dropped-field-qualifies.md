@@ -3,9 +3,9 @@ title: A Stateless Reverse-Match Must Skip, Not Block On, a Rule Its Dropped Fie
 date: 2026-09-19
 last_verified: 2026-09-19
 category: conventions
-module: src/common/netsim/vswitch/filter
+module: src/common/sim/layer/filter
 problem_type: convention
-component: netsim
+component: sim
 severity: high
 applies_when:
   - "Reconstructing 'would the other side have accepted this?' from configuration alone — a stateful reverse-match, a reversed 5-tuple, a mirrored predicate — where the reconstructed input carries fewer fields than a rule can test"
@@ -57,14 +57,14 @@ flag-qualified `Drop` shadow one.
 ## Evidence
 
 - The skip lives in both reverse loops:
-  `src/common/netsim/vswitch/filter/filter.go:319` (`ResolveDeferred`, from
+  `src/common/sim/layer/filter/filter.go:319` (`ResolveDeferred`, from
   `:294`) and `:439` (`EvaluateEgress`, from `:375`), each
   `if rule.Match.ICMP != nil || rule.Match.TCPFlags != nil { continue }` inside
   the non-Accept branch. `tupleMatches` (`:620`) stays 5-tuple-only; forward
   evaluation keeps its own flag/ICMP checks.
 - The property is enumerated by
   `TestStatefulReverseMatchRuleEnumeration`
-  (`src/common/netsim/vswitch/filter/filter_test.go:597`) over both loops: plain
+  (`src/common/sim/layer/filter/filter_test.go:597`) over both loops: plain
   accept admits; a pure-5-tuple drop before an accept shadows (drops); a
   flag-qualified accept admits; a flag-qualified drop before an accept does
   **not** shadow (admits). Case two fails if the loop skips every non-Accept

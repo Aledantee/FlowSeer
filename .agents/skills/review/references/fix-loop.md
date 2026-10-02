@@ -13,10 +13,20 @@ The coordinating session runs the rounds; no skill runs them on its own, and
    description, a README), and the files of the other sites it finds, each
    listed in its report. It never edits a plan Decision marked
    `decided by the user` (`delegate`, Write the brief, item 6). The review's changed paths do not
-   bound the fix.
+   bound the fix. A fix worker that needs a file outside these classes
+   reports a blocker naming the file and reason. A comment, skipped or
+   weakened test, or partial change is not a fix. When that blocker returns,
+   the coordinator extends the allowed file list and dispatches the worker
+   again.
    The coordinating session does not make the fixes itself.
-2. Merge each worker's branch, then run the verifier once on the union of
-   the changed paths, before anything is reviewed again.
+2. Before each merge, run
+   `.claude/skills/delegate/scripts/orca-worker.sh check <slug>`. A non-zero
+   result stops the round. Merge each worker's branch. After the merge commit
+   exists, including a resolved conflict, run
+   `python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
+   A non-zero result also stops the round. Carry every `missing` block in the
+   report, then run the verifier once on the union of the changed paths,
+   before anything is reviewed again.
 3. Repeat `SKILL.md` steps 3 and 4 over the branch diff, briefing the
    reviewer with the previous round's findings and the changed paths, so it
    judges each fix against its finding instead of rediscovering it. When the
@@ -25,13 +35,22 @@ The coordinating session runs the rounds; no skill runs them on its own, and
    against the source it claims to read, does each case fail for the rule it
    names, and is each exemption an argument no input can violate? A wrong
    invariant is worse than none, since the next reader trusts it and stops
-   looking.
+   looking. The brief asks for a required "New findings" section, written
+   as `none` when empty, for defects no earlier finding names.
+4. In the same round, dispatch one more reviewer over the round's changed
+   paths with the brief of a first review (`SKILL.md` step 3) and none of
+   the earlier findings. A reviewer handed the findings judges the fixes
+   against them and anchors there, so a defect a fix introduced elsewhere
+   goes unseen. Settle its findings with the briefed reviewer's under
+   `SKILL.md` step 4.
 
 ## When to stop
 
-- A round with no correctness findings ends the loop: list what remains in
-  the final report, set the verdict to `accept after fixes`, and end with
-  the `accept` row's question.
+- A round in which neither reviewer returns a correctness finding ends the
+  loop: list what remains in the final report, replace the recorded
+  `fixes needed` or `rework` with `accept after fixes` as `SKILL.md` step 5
+  records a verdict, and end with the `accept` row's question. No earlier
+  round writes `accept after fixes`, since the gates read it as passing.
 - The coordinator holds the rounds' history, so it is the one that sees a
   round find a defect in the previous round's fix for the same mechanism.
   Apply step 4's class rule before the next round, and read how an
@@ -49,6 +68,8 @@ The coordinating session runs the rounds; no skill runs them on its own, and
     round has surfaced a new defect) or to run one more round. A fourth
     round runs only on that answer. A delegated worker does not ask: it
     sets the verdict to `rework` and states the round count as its blocker.
+    Under `drive`, that report names the limit, and `drive` step 4 parks it
+    with another round as an option.
 
   Example: rounds one and two rework an emission mechanism, and round three
   fixes its staging permissions and finds a rollback defect. That is three

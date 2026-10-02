@@ -66,6 +66,9 @@ while (($#)); do
       explicit=true
       shift
       while (($#)); do
+        # An empty word, usually an unset variable, would resolve to the
+        # root and select every module.
+        [[ -n $1 ]] || { echo "empty path argument after --" >&2; exit 2; }
         paths+=("$1")
         shift
       done
@@ -85,8 +88,35 @@ done
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 root=$(git rev-parse --show-toplevel)
 cd "$root"
+# An argument may be spelled through a symlinked directory: .claude/skills
+# links to .agents/skills, where git tracks the files. git lists nothing
+# beyond a symlink, so a directory spelled that way expands to no files, and
+# the dirty marker holds git's spelling, so a file verified under the other
+# one stays marked. The deepest existing directory of a relative argument is
+# resolved and the path rewritten against the root; an absolute path, or one
+# that resolves outside the tree, is kept as given.
+root_physical=$(pwd -P)
+canonical_path() {
+  local dir=$1 rest="" physical
+  [[ $dir == /* ]] && { printf '%s\n' "$dir"; return; }
+  while [[ ! -d $dir ]]; do
+    rest=${dir##*/}${rest:+/$rest}
+    if [[ $dir == */* ]]; then dir=${dir%/*}; else dir=.; fi
+  done
+  physical=$(cd "$dir" 2>/dev/null && pwd -P) || { printf '%s\n' "$1"; return; }
+  case "$physical" in
+    "$root_physical") physical="" ;;
+    "$root_physical"/*) physical=${physical#"$root_physical"/} ;;
+    *) printf '%s\n' "$1"; return ;;
+  esac
+  if [[ -n $physical && -n $rest ]]; then
+    printf '%s/%s\n' "$physical" "$rest"
+  else
+    printf '%s\n' "${physical:-${rest:-.}}"
+  fi
+}
 for index in "${!paths[@]}"; do
-  paths[index]=${paths[index]#./}
+  paths[index]=$(canonical_path "${paths[index]#./}")
 done
 add_path() {
   local candidate=${1#./}
@@ -121,8 +151,10 @@ if [[ $full == false && ${#paths[@]} -eq 0 ]]; then
     echo "service_otel_integration=false"
     exit 0
   fi
-  echo "No changed paths to verify."
-  exit 0
+  # Exits non-zero for the reason the no-gate exit below gives: a run that
+  # checked nothing must not read as a pass. It writes no receipt either.
+  echo "No changed paths to verify against $base. After a commit, use --base main, name paths after --, or use --full." >&2
+  exit 2
 fi
 
 # Expand a directory argument into the files it holds. The classification
@@ -152,6 +184,11 @@ if ((${#paths[@]})); then
     for path in "${expanded[@]}"; do
       add_path "$path"
     done
+  else
+    # Every argument was a directory holding no file git knows. Said here,
+    # since the classification below cannot loop over an empty list.
+    echo "FlowSeer verification found no files under the named paths." >&2
+    exit 2
   fi
 fi
 
@@ -455,6 +492,15 @@ if [[ $print_selection == true ]]; then
   exit 0
 fi
 
+# A lint configuration change applies to every Go module, and a targeted run
+# lints only the modules it selects, none at all for a config-only change,
+# yet would write a passing receipt. Refused before any gate runs, so the
+# receipt and marker stay as they were.
+if [[ $full == false ]] && contains_path .golangci.yml; then
+  echo ".golangci.yml changed; run with --full to lint every Go module under the new configuration." >&2
+  exit 2
+fi
+
 # Whether anything at all will run. A run that selects no gate is not a
 # passing run: it is an invocation that could not place its arguments, and
 # reporting it as a pass is what makes this script unable to tell "checked
@@ -587,6 +633,9 @@ if ((${#go_files[@]})); then
   fi
   [[ $format_failed == false ]] || {
     echo "Go formatting differs; run gofumpt and goimports." >&2
+    # These two run outside `run`, so the gate is named here for the
+    # verdict line.
+    printf 'gofumpt/goimports -d' >"$gate_file"
     exit 1
   }
 fi
@@ -914,13 +963,6 @@ if [[ $full == true ]]; then
   run git diff --check
 else
   run git diff --check "$base" -- "${paths[@]}"
-fi
-
-if contains_path .golangci.yml && [[ ${#modules[@]} -eq 0 ]]; then
-  echo "Note: .golangci.yml changed; use --full to lint every Go module."
-  # This path selects no module by design, and the note is the run's
-  # output, so the no-gate exit must not also fire for it.
-  gates_selected=true
 fi
 
 # Before the dirty marker is cleared and the receipt is written, because

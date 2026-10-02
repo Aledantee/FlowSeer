@@ -1,0 +1,1 @@
+{"id":"GO-2026-5932","summary":"The golang.org/x/crypto/openpgp package is unmaintained, unsafe by design, and has known security issues","affected":[{"ecosystem_specific":{"imports":[{"path":"golang.org/x/crypto/openpgp"}]}}]}

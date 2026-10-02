@@ -30,7 +30,7 @@ and the report says the registry was missing.
 | Editing work that runs for minutes: an implementation unit, a solution refresh | `execute`; `execute-sensitive` when a changed path matches `sensitive_paths` | Orca worker when Orca is reachable, else see Orca or native |
 | Independent review of one unit's files | `review-unit` | `independent-reviewer` subagent, or the pool's CLI |
 | Review of the seams between units, and the verdict | `review-seam` | `independent-reviewer` subagent, or the pool's CLI |
-| Tie-break between reviewers, verdict on a hard plan | `judge` | native subagent; never on a `sensitive` unit |
+| Tie-break between reviewers, verdict on a hard plan | `judge` | native subagent or the pool's CLI, never on a `sensitive` unit |
 | Adversarial read of a plan | `critique` | the pool's CLI |
 | A whole plan handed to someone else | the user's choice | Orca full handoff |
 
@@ -44,8 +44,10 @@ lane in this order:
 
 1. Drop models whose pool row, as `scripts/pool-usage.sh` printed it for
    this wave (`~/.claude/models/host.yaml` holds the session-start rows),
-   shows `signed_in` false or null, or over 85% on a window that applies to
-   the model. Orca reporting a provider `unavailable` is not a pool row.
+   shows `signed_in` false or null, or at or over the pool's limit on a window that applies to
+   the model. A row with `signed_in: true`, `windows: null`, and an `error`
+   is usable with unknown headroom (`references/pool-rows.md`). Orca reporting a provider
+   `unavailable` is not a pool row.
 2. Drop models the role `exclude`s. For `review-unit`, also drop the
    `vendor` of the model that executed the unit under review; for
    `review-seam`, that model itself. Load `references/review-lanes.md` to
@@ -61,7 +63,7 @@ role has one and take a survivor by step 4; the report names the lane a
 last resort and the pools that were out. A review role left with no
 survivor because the executors cover its fit set splits by writer, as
 `references/review-lanes.md` describes. The report names every fitting
-prepaid pool (`claude`, `codex`, `google`, `synthetic`) the wave left idle
+prepaid pool (`claude`, `codex`, `google`, `synthetic`, `zai`) the wave left idle
 and why, since they are paid for either way.
 
 Name the model on every worker, never `inherit` or unset, one model per
@@ -69,15 +71,22 @@ task start to finish; the coordinator's model is an ordinary candidate.
 `scripts/orca-worker.sh` builds the launch line from `--cli`, `--model`,
 and `--effort`; the Agent tool takes `model`. `claude` and `codex` take
 `--model` and `--effort`; `google` takes `--model gemini-3.8-flash-<effort>`
-on `agy`; `synthetic` takes `--model <pool_id>` on `omp`, which has no agent
-profiles. A `fit` entry written `<model>@<level>` launches at that
+on `agy`; `synthetic` and `zai` take `--model <pool_id>` on `omp`, which
+has no agent profiles and passes `--effort` as `--thinking`. On
+`execute-sensitive`, a model with a `zai_pool_id` runs on the `zai` pool
+with `--model <zai_pool_id>`, and the `zai` row is its pool row in steps 1
+and 3, since Z.ai is that role's fallback. Every other role runs it on its
+`pool` with `pool_id`. A `fit` entry written `<model>@<level>` launches at that
 level, the one `tune` measured as the best tradeoff for the role: the model
 id goes to `--model` and the level to `--effort` (into the id on `agy`). A bare
 entry launches at the role's `effort`. A model whose `effort` list lacks
 that level gets its highest listed level: `execute` routes at `xhigh`, so a
 bare `gemini-3.8-flash` launches as `gemini-3.8-flash-high`. A role's
 `min_effort` is a floor under either. Load `references/sensitive.md`
-when a changed path matches `sensitive_paths`.
+when a changed path matches `sensitive_paths`. An effective registry with
+no `sensitive_paths` key is a blocker to report before routing any editing
+lane, not an empty match, since a missing list would route sensitive work
+to `execute`.
 
 ## Wave size
 
@@ -85,8 +94,9 @@ Only independent work widens with quota: units of one wave (no `After`
 between them, no shared file), phases with no `After` between them and
 disjoint files, one solution per worker in a refresh, one reviewer per
 unit. Chained work runs in turn. A usable pool holds slots by the worst
-window that applies to the lane in its row: 2 under 50%, 1 from 50% to 85%
-or unknown (`windows: null`), 0 over 85% or signed out. The cap is the sum
+window that applies to the lane in its row: 2 under 50%, 1 from 50% to the
+pool's limit or unknown (`windows: null`), 0 at or over the limit or signed
+out. A pool's limit is its registry `usable_below` percent, 85 when unset. The cap is the sum
 over the pools that fit the role, at most six, never more than the
 independent tasks ready; the rest runs in rounds. Recompute before every
 wave; a 429 mid-wave removes that pool's slots for the rest of it.
@@ -106,34 +116,36 @@ mkdir -p ~/.claude/models
 
 It records the agent CLIs, Orca reachability (`orca: reachable: true`
 opens the worker lane), each pool's sign-in state and windows, and the
-the synthetic model ids omp serves. Native subagents run only on Claude; an Orca
+synthetic model ids omp serves. Native subagents run only on Claude; an Orca
 worker runs on any installed agent whose pool is signed in.
 
 ## Dispatch by quota
 
-Run this immediately before each wave, and first whenever a delegated
-session goes quiet:
+Run this immediately before each wave, and first on `timeout` (the
+quiet-worker check) or whenever a delegated session goes quiet:
 
 ```bash
 .claude/skills/delegate/scripts/pool-usage.sh    # unsandboxed
 ```
 
 A pool is usable when signed in and every window that applies to the lane
-is under 85%; only the pool's own row counts. A 429 or "limit reached"
+is under the pool's limit; only the pool's own row counts. A 429 or "limit reached"
 marks it hot for the rest of the wave. When no fitting pool is usable, do
 not dispatch: work sequentially or wait for the earliest `resetsAt`, and
 tell the user which window is exhausted. Load `references/pool-rows.md`
-when reading a `google` or `synthetic` row, a `fableWeekly` window, a window
-at 0%, a row with an `error`, or when `claude` is past 85%. The
+when reading a `google`, `synthetic`, or `zai` row, a `fableWeekly` window, a window
+at 0%, a row with an `error`, or when `claude` is past its limit. The
 coordinating session and every native subagent draw on the Claude pool, a
 Fable session also on `fableWeekly`.
 
 ## Orca or native
 
-`lookup`, `research`, and `judge` stay native subagents on every host. A
-review lane stays native only when its resolved model is a Claude model a
-native subagent can be pinned to; any other runs on its pool's CLI through
-`orca-worker.sh start --role <role>`. Editing work, including every stage
+A `lookup`, `research`, `judge`, or review lane stays a native subagent on
+every host when its resolved model is a Claude model a native subagent can
+be pinned to. A native lane runs at its agent's frontmatter `effort`,
+which overrides the role's, since the Agent tool takes a model but no
+effort. One that resolves to any other model runs on its pool's CLI
+through `orca-worker.sh start --role <role>`. Editing work, including every stage
 worker of `land` or `drive`, goes to an Orca worker. When `orca status
 --json` does not report `runtime.reachable: true`, load
 `references/no-orca.md` before routing any lane, review lanes included. Run every `orca` command with the sandbox
@@ -143,9 +155,10 @@ disabled; a sandboxed call reports the runtime as not running.
 
 ```bash
 s=.claude/skills/delegate/scripts/orca-worker.sh
+$s line --cli <cli> --model <id> [--effort <level>]
 $s start --lane <slug> --cli <claude|codex|agy> --model <id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file>
-$s start --lane <slug> --cli omp --model <pool_id> --role <role> [--plan <path>] [--unit <unit>] --brief <file>
-$s wait <slug>            # blocks; prints idle, exited, stalled, or timeout, then the screen
+$s start --lane <slug> --cli omp --model <pool_id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file>
+$s wait <slug> [--until <command>] [--max <seconds>]  # blocks; prints idle, done, stalled, timeout, exited, or idle-children, then the screen
 $s read <slug>            # the worker's report, from its screen
 $s keys <slug> <text>     # a dialog answer, at most 200 characters
 $s tell <slug> <file>     # a message over the 200 characters `keys` takes
@@ -156,15 +169,28 @@ $s stop <slug>            # after grade and merge: closes the terminal, removes 
 
 `start` exits 0 only when the worker runs in a child worktree branched from
 this branch with the brief on its screen; its JSON line names the branch
-(prefixed with the git user) and `run`. On `idle`, check the tree, then
-read the report. A permission dialog also reads as idle: answer one the
-brief anticipated with `keys`, otherwise report it. Then merge here, run
-the verifier on the changed paths, `grade`, and `stop`, which refuses an
-ungraded, mid-turn, dirty, or unmerged lane (removal deletes the branch).
-Load `references/orca.md` when a step fails, when `wait` prints anything
-but `idle` or keeps running on a quiet worker, when the screen shows an
-unanticipated dialog or a Claude model-switch prompt, and for an
-orchestration run or a full handoff.
+(prefixed with the git user) and `run`.
+
+A Claude coordinator runs `wait` once per lane with the Bash tool's
+`run_in_background` and `timeout: 7200000`, sandbox disabled, and acts on
+the completion notice. Nothing else is scheduled to check on the lane. A
+notice that the command hit its background time limit reads as `timeout`,
+and any other stop is reported as its notice says. A Codex coordinator
+(whose user sets `background_terminal_max_timeout = 3600000` in
+`~/.codex/config.toml` when starting it by hand) starts `wait` with
+`exec_command` and polls it with an empty `write_stdin` at
+`yield_time_ms: 3600000`. On `agy` or `omp`, shell tool limits are
+unmeasured (`references/orca.md`), so a coordinator there reruns a
+foreground `wait` the tool cut short.
+
+`done` and `idle` lead to the tree check, then read the report. A
+permission dialog also reads as idle: answer one the brief anticipated with
+`keys`, otherwise report it. Then merge here, run the verifier on the
+changed paths, `grade`, and `stop`, which refuses an ungraded, mid-turn,
+dirty, or unmerged lane (removal deletes the branch). Every other outcome
+routes to `references/orca.md`. Load `references/orca.md` as well when a
+step fails, when the screen shows an unanticipated dialog or a Claude
+model-switch prompt, and for an orchestration run or a full handoff.
 
 | Outcome | A lane that commits work | A lane that returns a report (`critique`, `research`, `review-unit` on a pool CLI) |
 | --- | --- | --- |
@@ -178,15 +204,32 @@ orchestration run or a full handoff.
 ### Reading a worker's report
 
 A worker runs its package's focused tests and commits; it does not run the
-verifier. Before reading the report as fact, check the tree:
+verifier. Before reading the report as fact or merging its branch, run the
+lane check:
+
+```bash
+.claude/skills/delegate/scripts/orca-worker.sh check <slug>
+```
+
+A non-zero check stops the merge. Grade the lane `rejected`, leave it
+unmerged, and dispatch it again through the model-switch rule. Then check the
+tree:
 `git -C <child> log --oneline -1` shows the commit the report names,
 `git -C <child> log -1 --format=%B` holds no literal `\n` where a line
 break was meant (`tell` the worker to amend it from standard input),
 `git -C <child> status --porcelain` is empty, and the two or three changes
 most expensive to get wrong are what the report says. An idle lane whose
 child has changes but no new commit stopped short: `tell` it to commit.
-Merge the branch here and run the verifier once, sandbox disabled, on the
-union of changed paths; for a worker on `agy` or `omp`, load
+Merge the branch here. After the merge commit exists, including a resolved
+conflict, run:
+
+```bash
+python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD
+```
+
+A non-zero result stops the merge step. Carry every `missing` block in the
+report, then run the verifier once, sandbox disabled, on the union of changed
+paths; for a worker on `agy` or `omp`, load
 `references/hookless-merge.md` after the merge, before the verifier. A child whose branch did not land stays,
 and the report names it with the reason. Never remove a child with a dirty
 tree; say what is there.
@@ -226,14 +269,21 @@ order:
    `generated/`, or `buf.lock`; no edit to a plan Decision marked
    `decided by the user` (a finding or unit that needs one changed is a
    blocker); no plan labels in code; no running a script
-   under `tools/hooks/` (it blocks on stdin; the focused tests, `go tool -modfile=tools/buf/go.mod buf lint`,
-   and the verifier on the changed paths are the checks); no lint or race
+   under `tools/hooks/` (it blocks on stdin). A unit worker's checks are
+   the focused tests and `go tool -modfile=tools/buf/go.mod buf lint`, and
+   the coordinator runs the verifier after the merge. A stage worker (a
+   `drive` stage) runs the verifier its skill names, since `ledger.py`
+   passes a unit only on a receipt in the worker's own git directory. No lint or race
    run over all of `generated/go/yang` (it exhausts host memory; lint two
    or three sample packages); no git write outside the worker's own
    checkout (the coordinator merges). Scratch files and set-aside work go
    under the worker's own `$TMPDIR` (a literal `/tmp` path prompts or is
    denied) or into a temporary commit, never `git stash`, whose stack every
    worktree and session shares.
+   A fix worker that needs a file outside the named files and the classes
+   allowed by `fix-loop.md` step 1 reports a blocker naming the file and
+   reason. A comment, skipped or weakened test, or partial change is not a
+   fix.
 7. For every runtime: no questions; state a blocker and stop. A requirement
    the worker believes the code cannot satisfy is a blocker, even when a
    weaker one is within reach. Editing subagents need worktree isolation,
