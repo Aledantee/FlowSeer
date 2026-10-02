@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 
-	authzv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/authz/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 )
@@ -12,13 +11,30 @@ import (
 const maxChecksPerBatch = 50
 
 type obligationTracker struct {
-	mu             sync.Mutex
+	mu             sync.Mutex // guards discharged and requireDenied
 	checker        Checker
 	principal      authn.Principal
 	admittedTenant string
-	mode           authzv1.RuleMode
 	discharged     bool
 	requireDenied  bool
+}
+
+func (t *obligationTracker) flags() (discharged, requireDenied bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.discharged, t.requireDenied
+}
+
+func (t *obligationTracker) discharge() {
+	t.mu.Lock()
+	t.discharged = true
+	t.mu.Unlock()
+}
+
+func (t *obligationTracker) recordRequireDenied() {
+	t.mu.Lock()
+	t.requireDenied = true
+	t.mu.Unlock()
 }
 
 type obligationKey struct{}
@@ -53,6 +69,11 @@ func contextualTuples(p authn.Principal) []Tuple {
 
 // Require evaluates relation and tenant constraints for an object, discharging
 // the deferred authorization obligation on the context.
+//
+// If ctx was not prepared by the interceptor or lacks an admitted tenant, Require
+// returns an Internal error. If authorization is denied, Require flags the tracker
+// and returns a PermissionDenied error. If the checker fails or returns an
+// unexpected answer count, Require returns an Unavailable error.
 func Require(ctx context.Context, relation, objectType, id string) error {
 	tracker := trackerFromContext(ctx)
 	if tracker == nil || tracker.admittedTenant == "" {
@@ -60,63 +81,14 @@ func Require(ctx context.Context, relation, objectType, id string) error {
 			Msg("require called on invalid context or without admitted tenant"))
 	}
 
-	tracker.mu.Lock()
-	tracker.discharged = true
-	tracker.mu.Unlock()
+	tracker.discharge()
 
-	tuples := contextualTuples(tracker.principal)
-
-	if objectType == "tenant" {
-		if id != tracker.admittedTenant {
-			tracker.mu.Lock()
-			tracker.requireDenied = true
-			tracker.mu.Unlock()
-			return permissionDenied(errs.New().Code(ErrCodeDenied).
-				Msg("tenant id does not match admitted tenant"))
-		}
-
-		q := Query{
-			Object:           "tenant:" + id,
-			Relation:         relation,
-			User:             "user:" + tracker.principal.ID,
-			ContextualTuples: tuples,
-		}
-		allowed, err := tracker.checker.Check(ctx, q)
-		if err != nil {
-			return unavailable(errs.New().Code(ErrCodeUnavailable).Cause(err).
-				Msg("authorization is unavailable"))
-		}
-		if !allowed {
-			tracker.mu.Lock()
-			tracker.requireDenied = true
-			tracker.mu.Unlock()
-			return permissionDenied(errs.New().Code(ErrCodeDenied).
-				Msg("permission denied"))
-		}
-		return nil
-	}
-
-	q1 := Query{
-		Object:           objectType + ":" + id,
-		Relation:         relation,
-		User:             "user:" + tracker.principal.ID,
-		ContextualTuples: tuples,
-	}
-	q2 := Query{
-		Object:           objectType + ":" + id,
-		Relation:         "tenant",
-		User:             "tenant:" + tracker.admittedTenant,
-		ContextualTuples: tuples,
-	}
-	answers, err := tracker.checker.BatchCheck(ctx, []Query{q1, q2})
+	allowed, err := checkObjects(ctx, tracker.checker, tracker.principal, tracker.admittedTenant, objectType, relation, []string{id})
 	if err != nil {
-		return unavailable(errs.New().Code(ErrCodeUnavailable).Cause(err).
-			Msg("authorization is unavailable"))
+		return err
 	}
-	if len(answers) < 2 || !answers[0] || !answers[1] {
-		tracker.mu.Lock()
-		tracker.requireDenied = true
-		tracker.mu.Unlock()
+	if len(allowed) == 0 {
+		tracker.recordRequireDenied()
 		return permissionDenied(errs.New().Code(ErrCodeDenied).
 			Msg("permission denied"))
 	}
@@ -124,7 +96,11 @@ func Require(ctx context.Context, relation, objectType, id string) error {
 }
 
 // Filter evaluates relation and tenant constraints across candidate object identifiers,
-// batching checks in groups of at most 50, and returns the permitted identifiers.
+// batching checks in groups of at most 50, and returns the permitted identifiers in input order.
+//
+// If ctx was not prepared by the interceptor or lacks an admitted tenant, Filter
+// returns an Internal error. If the checker fails or returns an unexpected answer
+// count, Filter returns an Unavailable error.
 func Filter(ctx context.Context, relation, objectType string, ids []string) ([]string, error) {
 	tracker := trackerFromContext(ctx)
 	if tracker == nil || tracker.admittedTenant == "" {
@@ -132,9 +108,7 @@ func Filter(ctx context.Context, relation, objectType string, ids []string) ([]s
 			Msg("filter called on invalid context or without admitted tenant"))
 	}
 
-	tracker.mu.Lock()
-	tracker.discharged = true
-	tracker.mu.Unlock()
+	tracker.discharge()
 
 	if len(ids) == 0 {
 		return []string{}, nil
@@ -149,24 +123,32 @@ func Filter(ctx context.Context, relation, objectType string, ids []string) ([]s
 		}
 	}
 
-	tuples := contextualTuples(tracker.principal)
+	return checkObjects(ctx, tracker.checker, tracker.principal, tracker.admittedTenant, objectType, relation, unique)
+}
+
+func checkObjects(ctx context.Context, checker Checker, p authn.Principal, admittedTenant, objectType, relation string, ids []string) ([]string, error) {
+	if len(ids) == 0 {
+		return []string{}, nil
+	}
+
+	tuples := contextualTuples(p)
 
 	if objectType == "tenant" {
 		var allowed []string
-		for _, id := range unique {
-			if id != tracker.admittedTenant {
+		for _, id := range ids {
+			if id != admittedTenant {
 				continue
 			}
 			q := Query{
 				Object:           "tenant:" + id,
 				Relation:         relation,
-				User:             "user:" + tracker.principal.ID,
+				User:             "user:" + p.ID,
 				ContextualTuples: tuples,
 			}
-			ok, err := tracker.checker.Check(ctx, q)
+			ok, err := checker.Check(ctx, q)
 			if err != nil {
 				return nil, unavailable(errs.New().Code(ErrCodeUnavailable).Cause(err).
-					Msg("authorization is unavailable"))
+					Retryable().Msg("authorization is unavailable"))
 			}
 			if ok {
 				allowed = append(allowed, id)
@@ -176,18 +158,18 @@ func Filter(ctx context.Context, relation, objectType string, ids []string) ([]s
 	}
 
 	var queries []Query
-	for _, id := range unique {
+	for _, id := range ids {
 		queries = append(queries,
 			Query{
 				Object:           objectType + ":" + id,
 				Relation:         relation,
-				User:             "user:" + tracker.principal.ID,
+				User:             "user:" + p.ID,
 				ContextualTuples: tuples,
 			},
 			Query{
 				Object:           objectType + ":" + id,
 				Relation:         "tenant",
-				User:             "tenant:" + tracker.admittedTenant,
+				User:             "tenant:" + admittedTenant,
 				ContextualTuples: tuples,
 			},
 		)
@@ -200,20 +182,20 @@ func Filter(ctx context.Context, relation, objectType string, ids []string) ([]s
 			end = len(queries)
 		}
 		batch := queries[start:end]
-		answers, err := tracker.checker.BatchCheck(ctx, batch)
+		answers, err := checker.BatchCheck(ctx, batch)
 		if err != nil {
 			return nil, unavailable(errs.New().Code(ErrCodeUnavailable).Cause(err).
-				Msg("authorization is unavailable"))
+				Retryable().Msg("authorization is unavailable"))
 		}
 		if len(answers) != len(batch) {
 			return nil, unavailable(errs.New().Code(ErrCodeUnavailable).
-				Msg("checker returned unexpected answer count"))
+				Retryable().Msg("checker returned unexpected answer count"))
 		}
 		allAnswers = append(allAnswers, answers...)
 	}
 
 	var allowed []string
-	for i, id := range unique {
+	for i, id := range ids {
 		relAllowed := allAnswers[2*i]
 		tenantAllowed := allAnswers[2*i+1]
 		if relAllowed && tenantAllowed {

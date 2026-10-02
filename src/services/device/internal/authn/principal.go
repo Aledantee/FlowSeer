@@ -6,6 +6,7 @@ import (
 )
 
 // Principal represents the authenticated caller identity.
+// A Principal is safe for concurrent use across goroutines.
 type Principal struct {
 	ID       string
 	Tenants  []string
