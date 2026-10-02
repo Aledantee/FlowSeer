@@ -138,10 +138,11 @@ imports anything FlowSeer-owned back.
 `edge/attach` imports `model/edge` for the entity, `model/credential` and
 `model/policy` for the handles and secret material its services hand out, and
 `net/addr` for the IP address a listed device reports. `api/edge` imports
-`model/edge` and `authz`. `api/capture` imports `model/capture` for the entity and the
-chunk frames, `model/edge` for the owning ref, `net/capture` for the values
-a capture observes, and `authz` for the rule each RPC declares. `edge/capture` imports `model/capture` and `model/edge` for
-the assignment stream and the assertion its upload stream re-verifies.
+`model/edge` and `authz`. `api/capture` imports `model/capture` for the entity
+and the chunk frames, `model/edge` for the owning ref, `net/capture` for the
+values a capture observes, and `authz` for the rule each RPC declares.
+`edge/capture` imports `model/capture` and `model/edge` for the assignment
+stream and the assertion its upload stream re-verifies.
 `model/inventory` imports `model/edge` because an integration names its hosting
 edge, `model/policy` because a device pins an access-policy handle, and
 `net/phy` because a component embeds the pluggable module and a cable names its

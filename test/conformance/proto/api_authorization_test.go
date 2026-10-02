@@ -237,7 +237,7 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 			ObjectIdPath: proto.String("edge.edge.id"),
 		}.Build()
 
-		apiFile := newSyntheticFileDescriptor(t, &descriptorpb.FileDescriptorProto{
+		apiFile1 := newSyntheticFileDescriptor(t, &descriptorpb.FileDescriptorProto{
 			Name:    proto.String("flowseer/api/test/v1/test_service.proto"),
 			Package: proto.String("flowseer.api.test.v1"),
 			Syntax:  proto.String("proto3"),
@@ -250,6 +250,10 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 					Name: proto.String("PrecedingService"),
 					Method: []*descriptorpb.MethodDescriptorProto{
 						syntheticMethod("FirstMethod",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							compliantRule),
+						syntheticMethod("SecondMethod",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
@@ -266,16 +270,41 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							nil),
-						syntheticMethod("TrailingMethod",
+					},
+				},
+			},
+		})
+
+		apiFile2 := newSyntheticFileDescriptor(t, &descriptorpb.FileDescriptorProto{
+			Name:    proto.String("flowseer/api/sample/v1/sample_service.proto"),
+			Package: proto.String("flowseer.api.sample.v1"),
+			Syntax:  proto.String("proto3"),
+			Dependency: []string{
+				"flowseer/authz/v1/rule.proto",
+				"flowseer/api/edge/v1/edge_admin_service.proto",
+			},
+			Service: []*descriptorpb.ServiceDescriptorProto{
+				{
+					Name: proto.String("AlphaService"),
+					Method: []*descriptorpb.MethodDescriptorProto{
+						syntheticMethod("AlphaOne",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							compliantRule),
+						syntheticMethod("AlphaTwo",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
 					},
 				},
 				{
-					Name: proto.String("TrailingService"),
+					Name: proto.String("BetaService"),
 					Method: []*descriptorpb.MethodDescriptorProto{
-						syntheticMethod("TrailingServiceMethod",
+						syntheticMethod("BetaOne",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							compliantRule),
+						syntheticMethod("BetaTwo",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
@@ -305,20 +334,45 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 		})
 
 		files := new(protoregistry.Files)
-		if err := files.RegisterFile(apiFile); err != nil {
-			t.Fatalf("register apiFile: %v", err)
+		if err := files.RegisterFile(apiFile1); err != nil {
+			t.Fatalf("register apiFile1: %v", err)
+		}
+		if err := files.RegisterFile(apiFile2); err != nil {
+			t.Fatalf("register apiFile2: %v", err)
 		}
 		if err := files.RegisterFile(otherFile); err != nil {
 			t.Fatalf("register otherFile: %v", err)
 		}
 
+		wantVisited := []string{
+			"flowseer.api.sample.v1.AlphaService.AlphaOne",
+			"flowseer.api.sample.v1.AlphaService.AlphaTwo",
+			"flowseer.api.sample.v1.BetaService.BetaOne",
+			"flowseer.api.sample.v1.BetaService.BetaTwo",
+			"flowseer.api.test.v1.PrecedingService.FirstMethod",
+			"flowseer.api.test.v1.PrecedingService.SecondMethod",
+			"flowseer.api.test.v1.TestService.Ping",
+			"flowseer.api.test.v1.TestService.RuledMethod",
+		}
+		slices.Sort(wantVisited)
+
+		var visited []string
 		var violations []string
-		forEachAPIMethod(files, func(method protoreflect.MethodDescriptor) {
+		count := forEachAPIMethod(files, func(method protoreflect.MethodDescriptor) {
+			visited = append(visited, string(method.FullName()))
 			violations = append(violations, checkAuthorizationRule(method)...)
 		})
-		want := []string{"flowseer.api.test.v1.TestService.Ping carries no authorization rule"}
-		if !slices.Equal(violations, want) {
-			t.Errorf("got violations %v, want %v", violations, want)
+		slices.Sort(visited)
+		if !slices.Equal(visited, wantVisited) {
+			t.Errorf("visited methods %v, want %v", visited, wantVisited)
+		}
+		if count != len(wantVisited) {
+			t.Errorf("forEachAPIMethod count = %d, want %d", count, len(wantVisited))
+		}
+
+		wantViolations := []string{"flowseer.api.test.v1.TestService.Ping carries no authorization rule"}
+		if !slices.Equal(violations, wantViolations) {
+			t.Errorf("got violations %v, want %v", violations, wantViolations)
 		}
 
 		t.Run("rule failing validation is reported", func(t *testing.T) {
