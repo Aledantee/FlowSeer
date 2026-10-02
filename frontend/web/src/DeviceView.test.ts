@@ -9,6 +9,7 @@ import type { Device } from './domain/fleet'
 import { createAiRegistry, createAiTargetDirective } from './ai'
 import type { AiRegistry } from './ai'
 import { aiRegistryKey } from './ui/ai/context'
+import { createWebI18n } from './i18n'
 
 let dispose = () => {}
 let registry: AiRegistry
@@ -57,6 +58,7 @@ async function mountDeviceView(device: Device, fleet: Device[]) {
     },
   })
   registry = createAiRegistry()
+  app.use(createWebI18n())
   app.provide(pageContext, page)
   app.provide(workspaceContext, workspace)
   app.provide(aiRegistryKey, registry)

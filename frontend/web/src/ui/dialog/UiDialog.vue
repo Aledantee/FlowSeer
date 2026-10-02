@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import {
   DialogClose,
   DialogContent,
@@ -10,6 +11,7 @@ import {
   DialogTrigger,
   VisuallyHidden,
 } from 'reka-ui'
+import { useI18n } from 'vue-i18n'
 import { tv } from 'tailwind-variants'
 
 export interface UiDialogProps {
@@ -18,15 +20,32 @@ export interface UiDialogProps {
   title?: string
   description?: string
   size?: 'sm' | 'md' | 'lg'
+  fallbackTitle?: string
+  fallbackDescription?: string
+  closeLabel?: string
 }
 
-withDefaults(defineProps<UiDialogProps>(), {
+const props = withDefaults(defineProps<UiDialogProps>(), {
   open: undefined,
   defaultOpen: false,
   title: undefined,
   description: undefined,
   size: 'md',
+  fallbackTitle: undefined,
+  fallbackDescription: undefined,
+  closeLabel: undefined,
 })
+
+const { t } = useI18n({ useScope: 'global' })
+const resolvedFallbackTitle = computed(
+  () => props.fallbackTitle ?? t('ui.dialog.fallbackTitle'),
+)
+const resolvedFallbackDescription = computed(
+  () => props.fallbackDescription ?? t('ui.dialog.fallbackDescription'),
+)
+const resolvedCloseLabel = computed(
+  () => props.closeLabel ?? t('ui.dialog.closeLabel'),
+)
 
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
@@ -66,11 +85,11 @@ const dialogVariants = tv({
         @close-auto-focus="emit('closeAutoFocus', $event)"
       >
         <VisuallyHidden v-if="!title && !$slots.title" as-child>
-          <DialogTitle>Dialog</DialogTitle>
+          <DialogTitle>{{ resolvedFallbackTitle }}</DialogTitle>
         </VisuallyHidden>
         <VisuallyHidden v-if="!description && !$slots.description" as-child>
           <DialogDescription>{{
-            title || 'Dialog description'
+            title || resolvedFallbackDescription
           }}</DialogDescription>
         </VisuallyHidden>
         <div
@@ -99,7 +118,7 @@ const dialogVariants = tv({
         </div>
         <DialogClose
           class="absolute top-4 right-4 inline-flex items-center justify-center rounded-xs p-1 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          aria-label="Close"
+          :aria-label="resolvedCloseLabel"
         >
           <svg
             width="16"

@@ -4,12 +4,14 @@ type: refactor
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
 ---
 
 # Web Component Contract Migration, Phase 3 - i18n Foundation and Ui Strings - Plan
+
+> Implemented. 5 units, 2026-10-02T20:19Z to 2026-10-02T21:18Z.
 
 ## Goal
 
@@ -41,9 +43,9 @@ Storybook's `setProjectAnnotations` in the happy-dom audit.
   which U1 and U5 edit too. Phase 2 also adds five test files that mount
   `UiAppRoot`, and `useI18n` throws `NOT_INSTALLED` in an app without the
   plugin, so U1 installs it in them. The parent's `After:` names only
-  phase 1, so this order is recorded here. This tree does not hold phase 2.
-  What this plan says about phase 2's files comes from its plan and is
-  unverified (Open questions).
+  phase 1, so this order is recorded here. This tree holds phase 2 through
+  `0a89dc0e`, and the five test files and the `UiAppRoot` shape below match
+  it.
 - Pin the added package exactly. Existing resolved versions in
   `frontend/web/pnpm-lock.yaml` are Vue 3.5.43, Reka UI 2.10.5,
   Storybook 10.6.0, happy-dom 20.14.5, Vitest 5.0.2, and Tailwind 4.3.3.
@@ -217,11 +219,11 @@ Review all 59 against requirement 3, including wrappers left unchanged.
 
 ### U1. Locale catalog and app installation
 
-Files: `frontend/web/package.json`, `frontend/web/pnpm-lock.yaml`, `frontend/web/src/i18n/index.ts`, `frontend/web/src/i18n/locales/en.json`, `frontend/web/src/i18n/locales/de.json`, `frontend/web/src/i18n/i18n.test.ts`, `frontend/web/src/main.ts`, `frontend/web/src/ui/app/UiAppRoot.vue`, `frontend/web/src/ui/app/UiAppRoot.test.ts`, `frontend/web/.storybook/preview.ts`, `frontend/web/.storybook/i18nDecorator.ts`, `frontend/web/.storybook/i18nDecorator.test.ts`, `frontend/web/.storybook/aiDecorator.test.ts`, `frontend/web/src/ui/a11y.test.ts`, `frontend/web/src/FleetView.test.ts`, `frontend/web/src/DeviceView.test.ts`, `frontend/web/src/components/GlobalSearch.test.ts`, `frontend/web/src/components/TenantSwitcher.test.ts`, `frontend/web/src/components/topology/TopologySemantics.test.ts`, `frontend/web/src/ui/motion/useMotionFeedback.test.ts`, `frontend/web/src/ui/motion/UiMotion.test.ts`, `frontend/web/src/ui/motion/UiMotion.reduced.test.ts`, `frontend/web/src/FleetView.motion.test.ts`, `frontend/web/src/components/ThemeSwitcher.test.ts`
+Files: `frontend/web/package.json`, `frontend/web/pnpm-lock.yaml`, `docs/dependencies/statements/npm/vue-i18n.md`, `frontend/web/src/i18n/index.ts`, `frontend/web/src/i18n/locales/en.json`, `frontend/web/src/i18n/locales/de.json`, `frontend/web/src/i18n/i18n.test.ts`, `frontend/web/src/main.ts`, `frontend/web/src/ui/app/UiAppRoot.vue`, `frontend/web/src/ui/app/UiAppRoot.test.ts`, `frontend/web/.storybook/preview.ts`, `frontend/web/.storybook/i18nDecorator.ts`, `frontend/web/.storybook/i18nDecorator.test.ts`, `frontend/web/.storybook/aiDecorator.test.ts`, `frontend/web/src/ui/a11y.test.ts`, `frontend/web/src/FleetView.test.ts`, `frontend/web/src/DeviceView.test.ts`, `frontend/web/src/components/GlobalSearch.test.ts`, `frontend/web/src/components/TenantSwitcher.test.ts`, `frontend/web/src/components/topology/TopologySemantics.test.ts`, `frontend/web/src/ui/motion/useMotionFeedback.test.ts`, `frontend/web/src/ui/motion/UiMotion.test.ts`, `frontend/web/src/ui/motion/UiMotion.reduced.test.ts`, `frontend/web/src/FleetView.motion.test.ts`, `frontend/web/src/components/ThemeSwitcher.test.ts`
 After: none
-Change: Add the approved exact dependency with pnpm, then restore lockfile formatting with the workspace Prettier. Create the catalog and fixed values in the String inventory in both locales. Export WebLocale, supportedLocales, and createWebI18n(locale = 'en') from src/i18n/index.ts. It returns a fresh legacy: false plugin with fallbackLocale: 'en', both message catalogs, decimal and integer number formats, and a percent format. main.ts installs one instance before mount. UiAppRoot reads the global Composer locale for ConfigProvider and removes its unused locale prop, retaining dir and scrollBody. Phase 2's plan puts UiMotionConfig inside TooltipProvider, a shape that is unverified until phase 2 merges. U1 edits the script block and ConfigProvider's locale binding and leaves that element and its props as merged. Storybook setup installs a fresh instance per app. withLocale watches reactive(context.globals).locale, with globals taking precedence over the initial plugin locale, and wraps stories in UiAppRoot, except when context.component === UiAppRoot, whose story already renders it. The locale toolbar offers en and de beside the existing theme toolbar. Direct createApp and createSSRApp mounts in the listed harnesses install a fresh instance explicitly. The last five listed files are phase 2's tests under src/ui/motion/, src/FleetView.motion.test.ts, and src/components/ThemeSwitcher.test.ts, named from its plan.
+Change: Add the approved exact dependency with pnpm, then restore lockfile formatting with the workspace Prettier. Create the catalog and fixed values in the String inventory in both locales. Export WebLocale, supportedLocales, and createWebI18n(locale = 'en') from src/i18n/index.ts. It returns a fresh legacy: false plugin with fallbackLocale: 'en', both message catalogs, decimal and integer number formats, and a percent format. main.ts installs one instance before mount. UiAppRoot reads the global Composer locale for ConfigProvider and removes its unused locale prop, retaining dir and scrollBody. Phase 2's merged UiAppRoot.vue puts UiMotionConfig inside TooltipProvider. U1 edits the script block and ConfigProvider's locale binding and leaves that element and its props as merged. Storybook setup installs a fresh instance per app. withLocale watches reactive(context.globals).locale, with globals taking precedence over the initial plugin locale, and wraps stories in UiAppRoot, except when context.component === UiAppRoot, whose story already renders it. The locale toolbar offers en and de beside the existing theme toolbar. Direct createApp and createSSRApp mounts in the listed harnesses install a fresh instance explicitly. The last five listed files are phase 2's tests under src/ui/motion/, src/FleetView.motion.test.ts, and src/components/ThemeSwitcher.test.ts. `rg -l UiAppRoot frontend/web/src frontend/web/.storybook -g '*.test.ts'` lists them with FleetView.test.ts and UiAppRoot.test.ts, all named above. U1 also writes docs/dependencies/statements/npm/vue-i18n.md in the shape of motion-v.md, with `approved:` left empty for a person's ruling, since `go test ./test/conformance/dependencies` fails a direct dependency without a statement.
 Tests: src/i18n/i18n.test.ts recursively compares sorted message leaf paths in both directions, rejects empty or non-string leaves, and proves deleting ui.pagination.nextText from either cloned catalog yields that missing path. Test Composition mode, German interpolation, plural selection for 0/1/2 through a test-local test.items message (No items | One item | {count} items, and Keine Einträge | Ein Eintrag | {count} Einträge), and en/de number formats. src/ui/app/UiAppRoot.test.ts observes Reka's injected locale changing en to de after a Composer update while retaining tooltip behavior. .storybook/i18nDecorator.test.ts uses setProjectAnnotations and composeStories to mount a translated probe in both locales, composes each locale with matching initialGlobals, changes reactive(Story.globals).locale without remounting, mounts en/de canvases together, and proves unmounting either leaves the other's translations usable. Existing AI document-scope and view/SSR tests retain their assertions with the real plugin, as do phase 2's five. Its UiMotion.reduced.test.ts fails when the UiAppRoot edit drops UiMotionConfig.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/package.json frontend/web/pnpm-lock.yaml frontend/web/src/i18n/index.ts frontend/web/src/i18n/locales/en.json frontend/web/src/i18n/locales/de.json frontend/web/src/i18n/i18n.test.ts frontend/web/src/main.ts frontend/web/src/ui/app/UiAppRoot.vue frontend/web/src/ui/app/UiAppRoot.test.ts frontend/web/.storybook/preview.ts frontend/web/.storybook/i18nDecorator.ts frontend/web/.storybook/i18nDecorator.test.ts frontend/web/.storybook/aiDecorator.test.ts frontend/web/src/ui/a11y.test.ts frontend/web/src/FleetView.test.ts frontend/web/src/DeviceView.test.ts frontend/web/src/components/GlobalSearch.test.ts frontend/web/src/components/TenantSwitcher.test.ts frontend/web/src/components/topology/TopologySemantics.test.ts frontend/web/src/ui/motion/useMotionFeedback.test.ts frontend/web/src/ui/motion/UiMotion.test.ts frontend/web/src/ui/motion/UiMotion.reduced.test.ts frontend/web/src/FleetView.motion.test.ts frontend/web/src/components/ThemeSwitcher.test.ts`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/package.json frontend/web/pnpm-lock.yaml docs/dependencies/statements/npm/vue-i18n.md frontend/web/src/i18n/index.ts frontend/web/src/i18n/locales/en.json frontend/web/src/i18n/locales/de.json frontend/web/src/i18n/i18n.test.ts frontend/web/src/main.ts frontend/web/src/ui/app/UiAppRoot.vue frontend/web/src/ui/app/UiAppRoot.test.ts frontend/web/.storybook/preview.ts frontend/web/.storybook/i18nDecorator.ts frontend/web/.storybook/i18nDecorator.test.ts frontend/web/.storybook/aiDecorator.test.ts frontend/web/src/ui/a11y.test.ts frontend/web/src/FleetView.test.ts frontend/web/src/DeviceView.test.ts frontend/web/src/components/GlobalSearch.test.ts frontend/web/src/components/TenantSwitcher.test.ts frontend/web/src/components/topology/TopologySemantics.test.ts frontend/web/src/ui/motion/useMotionFeedback.test.ts frontend/web/src/ui/motion/UiMotion.test.ts frontend/web/src/ui/motion/UiMotion.reduced.test.ts frontend/web/src/FleetView.motion.test.ts frontend/web/src/components/ThemeSwitcher.test.ts`
 
 ### U2. Control defaults and accessible labels
 
@@ -303,26 +305,15 @@ It does not mark the component migration implemented.
 
 ## Definition of done
 
-- [ ] All three unchanged requirements pass, including a read of every
+- [x] All three unchanged requirements pass, including a read of every
       `Ui*` template for visible literals.
-- [ ] Every changed path passes the diff-aware verifier.
-- [ ] Storybook's locale toolbar, German LongText, both themes, and open
+- [x] Every changed path passes the diff-aware verifier.
+- [x] Storybook's locale toolbar, German LongText, both themes, and open
       overlays pass the browser checks.
-- [ ] The README and i18n skill reference describe the implemented behavior.
-- [ ] This plan reads `status: implemented` with an outcome note.
-- [ ] Requirement and unit labels appear only in the plan.
+- [x] The README and i18n skill reference describe the implemented behavior.
+- [x] This plan reads `status: implemented` with an outcome note.
+- [x] Requirement and unit labels appear only in the plan.
 
 ## Open questions
 
-- Phase 2's shape is unverified until it merges. This plan takes two
-  things from phase 2's plan: `UiMotionConfig` inside `TooltipProvider` in
-  `UiAppRoot.vue`, and the five test files at the end of U1's `Files:`
-  line. Before U1 starts, list the harnesses that mount the app root and
-  correct U1's `Files:` and `Verify:` lines to the result:
-
-  ```bash
-  rg -l UiAppRoot frontend/web/src frontend/web/.storybook -g '*.test.ts'
-  ```
-
-  A harness the list misses fails the web gate's full Vitest run with
-  `Need to install with app.use function`.
+None.

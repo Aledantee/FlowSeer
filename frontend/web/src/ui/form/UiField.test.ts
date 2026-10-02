@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h } from 'vue'
 import UiField from './UiField.vue'
 import UiInput from './UiInput.vue'
+import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
@@ -11,7 +12,10 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function mountField(fieldProps: Record<string, unknown> = {}) {
+function mountField(
+  fieldProps: Record<string, unknown> = {},
+  locale: WebLocale = 'en',
+) {
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp({
@@ -21,12 +25,14 @@ function mountField(fieldProps: Record<string, unknown> = {}) {
       })
     },
   })
+  const i18n = createWebI18n(locale)
+  app.use(i18n)
   app.mount(host)
   dispose = () => app.unmount()
   const label = host.querySelector('label')
   const input = host.querySelector('input')
   const descriptions = host.querySelectorAll('p')
-  return { host, label, input, descriptions }
+  return { host, label, input, descriptions, i18n }
 }
 
 describe('UiField', () => {
@@ -64,5 +70,26 @@ describe('UiField', () => {
       error: 'Invalid site selection',
     })
     expect(input?.getAttribute('aria-invalid')).toBe('true')
+  })
+
+  it('renders default requiredMark from message catalog when required is true', () => {
+    const { label } = mountField({
+      label: 'Site',
+      required: true,
+    })
+    const mark = label?.querySelector('span')
+    expect(mark).not.toBeNull()
+    expect(mark?.textContent?.trim()).toBe('*')
+    expect(mark?.getAttribute('aria-hidden')).toBe('true')
+  })
+
+  it('renders custom requiredMark override when provided', () => {
+    const { label } = mountField({
+      label: 'Site',
+      required: true,
+      requiredMark: ' (mandatory)',
+    })
+    const mark = label?.querySelector('span')
+    expect(mark?.textContent?.trim()).toBe('(mandatory)')
   })
 })

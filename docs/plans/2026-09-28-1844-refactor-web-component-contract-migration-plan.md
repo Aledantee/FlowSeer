@@ -97,7 +97,7 @@ Landed: `7c101257..0a89dc0e`
 
 Files: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase3-plan.md`
 After: U1
-Landed:
+Landed: `51c253f5..0bdbc4d9`
 
 ### U4. View strings and locale formatting
 

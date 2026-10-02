@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import {
   AlertDialogAction,
   AlertDialogCancel,
@@ -10,6 +11,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from 'reka-ui'
+import { useI18n } from 'vue-i18n'
 import UiButton from '../button/UiButton.vue'
 
 export interface UiAlertDialogProps {
@@ -22,13 +24,21 @@ export interface UiAlertDialogProps {
   destructive?: boolean
 }
 
-withDefaults(defineProps<UiAlertDialogProps>(), {
+const props = withDefaults(defineProps<UiAlertDialogProps>(), {
   open: undefined,
   defaultOpen: false,
-  confirmText: 'Confirm',
-  cancelText: 'Cancel',
+  confirmText: undefined,
+  cancelText: undefined,
   destructive: false,
 })
+
+const { t } = useI18n({ useScope: 'global' })
+const resolvedConfirmText = computed(
+  () => props.confirmText ?? t('ui.alertDialog.confirmText'),
+)
+const resolvedCancelText = computed(
+  () => props.cancelText ?? t('ui.alertDialog.cancelText'),
+)
 
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
@@ -67,7 +77,7 @@ const emit = defineEmits<{
         <div class="flex items-center justify-end gap-3">
           <AlertDialogCancel as-child>
             <UiButton variant="secondary" @click="emit('cancel')">
-              {{ cancelText }}
+              {{ resolvedCancelText }}
             </UiButton>
           </AlertDialogCancel>
           <AlertDialogAction as-child>
@@ -75,7 +85,7 @@ const emit = defineEmits<{
               :variant="destructive ? 'danger' : 'primary'"
               @click="emit('confirm')"
             >
-              {{ confirmText }}
+              {{ resolvedConfirmText }}
             </UiButton>
           </AlertDialogAction>
         </div>

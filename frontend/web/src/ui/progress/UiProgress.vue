@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { ProgressIndicator, ProgressRoot } from 'reka-ui'
+import { useI18n } from 'vue-i18n'
 
 export interface UiProgressProps {
   modelValue?: number | null
@@ -8,6 +9,9 @@ export interface UiProgressProps {
   size?: 'sm' | 'md' | 'lg'
   variant?: 'default' | 'accent' | 'success' | 'warning' | 'danger'
   ariaLabel?: string
+  valueText?:
+    | ((value: number | null | undefined, max: number) => string | undefined)
+    | string
 }
 
 const props = withDefaults(defineProps<UiProgressProps>(), {
@@ -15,8 +19,30 @@ const props = withDefaults(defineProps<UiProgressProps>(), {
   max: 100,
   size: 'md',
   variant: 'default',
-  ariaLabel: 'Progress',
+  ariaLabel: undefined,
+  valueText: undefined,
 })
+
+const { n, t } = useI18n({ useScope: 'global' })
+const resolvedAriaLabel = computed(
+  () => props.ariaLabel ?? t('ui.progress.ariaLabel'),
+)
+
+function resolvedGetValueText(
+  value: number | null | undefined,
+  maxVal: number,
+): string | undefined {
+  if (typeof props.valueText === 'function') {
+    return props.valueText(value, maxVal)
+  }
+  if (typeof props.valueText === 'string') {
+    return props.valueText
+  }
+  if (typeof value !== 'number' || maxVal <= 0) {
+    return undefined
+  }
+  return n(value / maxVal, 'percent')
+}
 
 const sizeClass = computed(() => {
   switch (props.size) {
@@ -64,7 +90,9 @@ const indicatorStyle = computed(() => {
   <ProgressRoot
     :model-value="modelValue"
     :max="max"
-    :aria-label="ariaLabel"
+    :aria-label="resolvedAriaLabel"
+    :get-value-label="() => resolvedAriaLabel"
+    :get-value-text="resolvedGetValueText"
     :class="[
       'relative overflow-hidden rounded-full bg-subtle w-full',
       sizeClass,

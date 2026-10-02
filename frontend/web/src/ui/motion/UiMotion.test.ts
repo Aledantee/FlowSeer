@@ -9,6 +9,7 @@ import {
   type Component,
 } from 'vue'
 import { UiAppRoot, UiMotion as Motion } from '../index'
+import { createWebI18n } from '../../i18n'
 
 const UiMotion: Component = Motion
 
@@ -35,6 +36,7 @@ function mountMotion(props: Record<string, unknown> = {}) {
       )
     },
   })
+  app.use(createWebI18n())
   app.mount(host)
   dispose = () => {
     app.unmount()
@@ -160,6 +162,7 @@ describe('UiMotion', () => {
         return h(UiAppRoot, {}, () => h(Harness))
       },
     })
+    app.use(createWebI18n())
     installMotionClock()
     app.mount(host)
     dispose = () => {

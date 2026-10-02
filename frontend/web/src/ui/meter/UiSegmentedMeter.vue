@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 export type SegmentTone = 'success' | 'warning' | 'danger' | 'info' | 'empty'
 
@@ -12,6 +13,8 @@ export interface MeterSegment {
 export interface UiSegmentedMeterProps {
   segments?: MeterSegment[]
   counts?: Record<string, number>
+  labels?: Record<string, string>
+  segmentText?: (count: number, label: string) => string
   legend?: boolean
   label?: string
 }
@@ -19,13 +22,46 @@ export interface UiSegmentedMeterProps {
 const props = withDefaults(defineProps<UiSegmentedMeterProps>(), {
   segments: undefined,
   counts: undefined,
+  labels: undefined,
+  segmentText: undefined,
   legend: false,
   label: undefined,
 })
 
+const { t, n, locale } = useI18n({ useScope: 'global' })
+
+const defaultStatusKeys = {
+  Healthy: 'ui.segmentedMeter.healthy',
+  Degraded: 'ui.segmentedMeter.degraded',
+  Offline: 'ui.segmentedMeter.offline',
+} as const
+
+function resolveLabel(key: string): string {
+  if (props.labels?.[key]) {
+    return props.labels[key]
+  }
+  if (key in defaultStatusKeys) {
+    return t(defaultStatusKeys[key as keyof typeof defaultStatusKeys])
+  }
+  return key
+}
+
+function formatSegmentText(count: number, label: string): string {
+  if (props.segmentText) {
+    return props.segmentText(count, label)
+  }
+  return t('ui.segmentedMeter.segmentText', {
+    count: n(count, 'decimal'),
+    label,
+  })
+}
+
 const normalizedSegments = computed<MeterSegment[]>(() => {
   if (props.segments) {
-    return props.segments
+    return props.segments.map((seg) => ({
+      ...seg,
+      label: props.labels?.[seg.label] ?? seg.label,
+    }))
   }
   if (props.counts) {
     const defaultOrder: { key: string; tone: SegmentTone }[] = [
@@ -34,7 +70,7 @@ const normalizedSegments = computed<MeterSegment[]>(() => {
       { key: 'Offline', tone: 'danger' },
     ]
     return defaultOrder.map(({ key, tone }) => ({
-      label: key,
+      label: resolveLabel(key),
       count: props.counts?.[key] ?? 0,
       tone,
     }))
@@ -49,8 +85,13 @@ const total = computed(() =>
 const summary = computed(() => {
   if (props.label) return props.label
   const nonZero = normalizedSegments.value.filter((s) => s.count > 0)
-  if (nonZero.length === 0) return '0'
-  return nonZero.map((s) => `${s.count} ${s.label}`).join(', ')
+  if (nonZero.length === 0) return n(0, 'decimal')
+  const phrases = nonZero.map((s) => formatSegmentText(s.count, s.label))
+  const formatter = new Intl.ListFormat(locale.value, {
+    type: 'unit',
+    style: 'short',
+  })
+  return formatter.format(phrases)
 })
 
 function getToneClass(tone: SegmentTone): string {
@@ -86,7 +127,7 @@ function getToneClass(tone: SegmentTone): string {
               getToneClass(seg.tone),
             ]"
             :style="{ flexGrow: seg.count }"
-            :title="`${seg.count} ${seg.label}`"
+            :title="formatSegmentText(seg.count, seg.label)"
           />
         </template>
       </template>
@@ -109,7 +150,7 @@ function getToneClass(tone: SegmentTone): string {
         />
         <span>{{ seg.label }}</span>
         <strong class="font-semibold text-foreground ml-0.5">{{
-          seg.count
+          n(seg.count, 'decimal')
         }}</strong>
       </li>
     </ul>

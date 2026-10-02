@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, type ComponentPublicInstance } from 'vue'
+import { computed, ref, watch, type ComponentPublicInstance } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   ToastAction,
   ToastClose,
@@ -20,6 +21,7 @@ export interface UiToastProps {
   duration?: number
   actionText?: string
   actionAltText?: string
+  closeLabel?: string
 }
 
 const props = withDefaults(defineProps<UiToastProps>(), {
@@ -30,8 +32,18 @@ const props = withDefaults(defineProps<UiToastProps>(), {
   variant: 'default',
   duration: undefined,
   actionText: undefined,
-  actionAltText: 'Action',
+  actionAltText: undefined,
+  closeLabel: undefined,
 })
+
+const { t } = useI18n({ useScope: 'global' })
+
+const resolvedActionAltText = computed(
+  () => props.actionAltText ?? t('ui.toast.actionAltText'),
+)
+const resolvedCloseLabel = computed(
+  () => props.closeLabel ?? t('ui.toast.closeLabel'),
+)
 
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
@@ -130,7 +142,7 @@ const toastVariants = tv({
       <ToastAction
         v-if="actionText || $slots.action"
         as-child
-        :alt-text="actionAltText"
+        :alt-text="resolvedActionAltText"
       >
         <slot name="action">
           <UiButton size="sm" variant="secondary" @click="emit('action')">
@@ -140,7 +152,7 @@ const toastVariants = tv({
       </ToastAction>
       <ToastClose
         class="rounded-xs p-1 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        aria-label="Close"
+        :aria-label="resolvedCloseLabel"
       >
         <svg
           width="14"

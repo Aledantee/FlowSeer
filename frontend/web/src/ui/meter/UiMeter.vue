@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { I18nT, useI18n } from 'vue-i18n'
 
 export interface UiMeterThresholds {
   warning: number
@@ -13,6 +14,8 @@ export interface UiMeterProps {
   max?: number
   unit?: string
   detail?: string
+  detailSeparator?: string
+  valueText?: (value: number, unit?: string) => string
   tone?: 'normal' | 'warning' | 'critical' | 'auto'
   thresholds?: UiMeterThresholds
 }
@@ -20,11 +23,20 @@ export interface UiMeterProps {
 const props = withDefaults(defineProps<UiMeterProps>(), {
   min: 0,
   max: 100,
-  unit: '%',
+  unit: undefined,
   detail: undefined,
+  detailSeparator: undefined,
+  valueText: undefined,
   tone: 'auto',
   thresholds: () => ({ warning: 75, critical: 90 }),
 })
+
+const { t, n } = useI18n({ useScope: 'global' })
+
+const resolvedUnit = computed(() => props.unit ?? t('ui.meter.unit'))
+const resolvedDetailSeparator = computed(
+  () => props.detailSeparator ?? t('ui.meter.detailSeparator'),
+)
 
 const percentage = computed(() => {
   const range = props.max - props.min
@@ -63,10 +75,16 @@ const toneColorClass = computed(() => {
     <div class="flex items-center justify-between text-xs">
       <span class="font-medium text-foreground">{{ label }}</span>
       <span class="font-mono tabular-nums text-muted-foreground">
-        {{ value }} {{ unit
-        }}<span v-if="detail" class="font-sans text-muted-foreground">
-          · {{ detail }}</span
-        >
+        <template v-if="valueText">
+          {{ valueText(value, resolvedUnit) }}
+        </template>
+        <I18nT v-else scope="global" keypath="ui.meter.valueWithUnit">
+          <template #value>{{ n(value, 'decimal') }}</template>
+          <template #unit>{{ resolvedUnit }}</template>
+        </I18nT>
+        <span v-if="detail" class="font-sans text-muted-foreground">
+          {{ resolvedDetailSeparator }}{{ detail }}
+        </span>
       </span>
     </div>
     <span

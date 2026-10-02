@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, h, nextTick, ref } from 'vue'
 import UiCombobox, { type ComboboxOption } from './UiCombobox.vue'
+import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
@@ -9,12 +10,13 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
-function mountApp(renderFn: () => unknown) {
+function mountApp(renderFn: () => unknown, locale: WebLocale = 'en') {
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp({
     render: renderFn,
   })
+  app.use(createWebI18n(locale))
   app.mount(host)
   dispose = () => app.unmount()
   return host
@@ -541,5 +543,60 @@ describe('UiCombobox', () => {
     const visibleOptions = document.body.querySelectorAll('[role="option"]')
     expect(visibleOptions).toHaveLength(1)
     expect(visibleOptions[0]?.textContent).toContain('Hamburg Hafen')
+  })
+
+  it('renders default placeholder and empty text in en and de', async () => {
+    const hostEn = mountApp(
+      () =>
+        h(UiCombobox, {
+          options: [],
+          defaultOpen: true,
+        }),
+      'en',
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const inputEn = hostEn.querySelector('input')
+    expect(inputEn?.placeholder).toBe('Search...')
+    expect(document.body.textContent).toContain('No results found.')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const hostDe = mountApp(
+      () =>
+        h(UiCombobox, {
+          options: [],
+          defaultOpen: true,
+        }),
+      'de',
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const inputDe = hostDe.querySelector('input')
+    expect(inputDe?.placeholder).toBe('Suchen...')
+    expect(document.body.textContent).toContain('Keine Ergebnisse gefunden.')
+  })
+
+  it('preserves explicit placeholder and emptyText overrides across locales, including empty strings', async () => {
+    const host = mountApp(
+      () =>
+        h(UiCombobox, {
+          options: [],
+          defaultOpen: true,
+          placeholder: '',
+          emptyText: 'Keine Daten vorhanden',
+        }),
+      'en',
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const input = host.querySelector('input')
+    expect(input?.placeholder).toBe('')
+    expect(document.body.textContent).toContain('Keine Daten vorhanden')
+    expect(document.body.textContent).not.toContain('No results found.')
   })
 })

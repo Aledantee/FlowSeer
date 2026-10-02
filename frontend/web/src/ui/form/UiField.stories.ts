@@ -10,6 +10,7 @@ const meta: Meta<typeof UiField> = {
     description: { control: 'text' },
     error: { control: 'text' },
     required: { control: 'boolean' },
+    requiredMark: { control: 'text' },
   },
 }
 
@@ -66,6 +67,46 @@ export const Required: Story = {
     template: `
       <UiField v-bind="args">
         <UiInput required placeholder="Select or enter site..." />
+      </UiField>
+    `,
+  }),
+}
+
+export const LongText: Story = {
+  args: {
+    label:
+      'Fully qualified organizational domain name for edge telemetry endpoint integration',
+    description:
+      'Enter the canonical host name where edge gateways will transmit collected flow samples and device status reports.',
+    required: true,
+  },
+  render: (args) => ({
+    components: { UiField, UiInput },
+    setup() {
+      return { args }
+    },
+    template: `
+      <UiField v-bind="args">
+        <UiInput placeholder="edge-gateway-telemetry.corp.internal.example" />
+      </UiField>
+    `,
+  }),
+}
+
+export const CustomRequiredMark: Story = {
+  args: {
+    label: 'Primary Contact',
+    required: true,
+    requiredMark: ' (mandatory)',
+  },
+  render: (args) => ({
+    components: { UiField, UiInput },
+    setup() {
+      return { args }
+    },
+    template: `
+      <UiField v-bind="args">
+        <UiInput placeholder="admin@example.com" />
       </UiField>
     `,
   }),

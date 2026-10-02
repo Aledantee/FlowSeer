@@ -79,3 +79,32 @@ export const AccessibilityAudit: Story = {
     defaultOpen: true,
   },
 }
+
+export const DefaultPlaceholder: Story = {
+  name: 'Default Placeholder',
+  args: {
+    options: sampleOptions,
+    ariaLabel: 'Site location select',
+  },
+}
+
+export const LongText: Story = {
+  args: {
+    options: [
+      {
+        value: 'ham-dc01-cluster-alpha',
+        label:
+          'High-Density Redundant Metropolitan Gateway Node Hamburg Core Facility Cluster Alpha (Western Europe)',
+      },
+      {
+        value: 'ber-dc02-cluster-beta',
+        label:
+          'Primary Interconnect Aggregation Transit Facility Berlin Tier-IV Infrastructure Node Beta (Central Europe)',
+      },
+    ],
+    placeholder:
+      'Select an autonomous border gateway router, aggregation switch, or telemetry edge collector...',
+    ariaLabel:
+      'Autonomous network infrastructure telemetry ingestion endpoint selector',
+  },
+}
