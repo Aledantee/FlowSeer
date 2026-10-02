@@ -179,6 +179,7 @@ and `frontend/web/src/FleetView.motion.test.ts`. ThemeSwitcher covers:
 FleetView covers:
 
 - `leaves the nav opacity untouched when expanding at desktop width`
+- `starts no nav fade when expanding at desktop width`
 - `fades the pane scope when the tenant or site changes`
 - `fades nav on expand below desktop width and restores inline opacity`
 - `replaces mobile expand fades within one turn`
@@ -234,19 +235,22 @@ string (`:19-32`). motion-dom asked for `(prefers-reduced-motion)`
 (`motion-dom/dist/es/render/utils/reduced-motion/index.mjs:9`) and the
 composable asked for `(prefers-reduced-motion: reduce)`
 (`frontend/web/node_modules/motion-v/dist/es/animation/hooks/use-reduced-motion.mjs:4`),
-so these are two objects. The reduced-motion case dispatches `change` on the
-`reduce` object, which the composable listens to, and `FleetView.vue` gates its
-layout dependency on the composable's `reduced` (`toggleSidebar`). The case
-asserts that gate, not `UiMotion`'s reduced layout path. A file that only
-mounts the composable can hold both modes for the same reason, because the
-composable reads the query on each mount.
+so these are two objects. The reduced-motion and desktop-width cases dispatch
+`change` on the `reduce` object, which the composable listens to, and
+`FleetView.vue` gates its layout dependency on the composable's `reduced`
+(`toggleSidebar`). The reduced-motion case asserts that gate, not `UiMotion`'s
+reduced layout path. A file that only mounts the composable can hold both modes
+for the same reason, because the composable reads the query on each mount.
 
 Layout animation needs a controlled clock. motion's frame loop stamps each
 frame from `performance.now()`
 (`motion-dom/dist/es/frameloop/batcher.mjs:22-24`), so
 `FleetView.motion.test.ts`, `UiMotion.test.ts`, and `UiMotion.reduced.test.ts`
 install a mocked `performance.now` before the mount and advance it
-(`installMotionClock`, `advanceMotion`). A fixed wall-clock wait is not
+(`installMotionClock`, `advanceMotion`). Each file ends the spy in `afterEach`
+(`FleetView.motion.test.ts:86`, `UiMotion.test.ts:21`,
+`UiMotion.reduced.test.ts:33`), because a mocked clock left installed freezes
+`performance.now()` for every later case. A fixed wall-clock wait is not
 reliable: on a loaded host the 140 ms layout animation can finish before the
 test samples.
 

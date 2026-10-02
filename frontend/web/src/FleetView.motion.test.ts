@@ -102,8 +102,10 @@ function installMotionClock() {
 
 async function advanceMotion(milliseconds: number) {
   motionClock += milliseconds
-  // happy-dom runs requestAnimationFrame in a macrotask, so these turns let
-  // the frame loop read the advanced timestamp. The count is fixed, not timed.
+  // happy-dom implements requestAnimationFrame with setImmediate, so every
+  // awaited macrotask turn runs frame-loop batches that read the advanced
+  // timestamp. The batch count per turn is not fixed, so the callers below only
+  // sample mid-flight progress, never an exact progress.
   for (let turn = 0; turn < 3; turn += 1) {
     await wait(0)
   }
@@ -113,6 +115,16 @@ function keyframeEffect(animation: Animation) {
   if (!(animation.effect instanceof KeyframeEffect))
     throw new Error('Expected a native KeyframeEffect')
   return animation.effect
+}
+
+function opacityAnimations(element: HTMLElement) {
+  return element.getAnimations().filter((animation) => {
+    const effect = animation.effect
+    return (
+      effect instanceof KeyframeEffect &&
+      effect.getKeyframes().some((keyframe) => keyframe.opacity !== undefined)
+    )
+  })
 }
 
 async function finishAnimations(...elements: HTMLElement[]) {
@@ -278,6 +290,25 @@ describe('FleetView motion layout', () => {
     expect(nav.style.opacity).toBe('0.42')
   })
 
+  it('starts no nav fade when expanding at desktop width', async () => {
+    const { host } = await mountFleet()
+    const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
+    const nav = host.querySelector<HTMLElement>('nav')
+    if (!toggle || !nav) throw new Error('Missing navigation controls')
+
+    toggle.click()
+    await nextTick()
+    expect(opacityAnimations(nav)).toHaveLength(0)
+
+    toggle.click()
+    await nextTick()
+    // The nav's own layout animation rewrites its inline transform and clears
+    // an inline opacity (FleetView.vue:869-874), so only the native animations
+    // stay assertable. A fade started at desktop width is a native opacity
+    // animation that the layout write cannot hide.
+    expect(opacityAnimations(nav)).toHaveLength(0)
+  })
+
   it('fades the pane scope when the tenant or site changes', async () => {
     const { host, router } = await mountFleet()
     const pane = host.querySelector<HTMLElement>('.main-pane .pane-scroll')
@@ -287,16 +318,40 @@ describe('FleetView motion layout', () => {
     await router.push({ path: '/devices', query: { tenant: 'aurora-de' } })
     await nextTick()
 
-    const animations = pane.getAnimations()
-    expect(animations).toHaveLength(1)
-    const animation = animations[0]
-    if (!animation) throw new Error('Missing scope fade')
-    expect(animation.playState).toBe('running')
-    expect(keyframeEffect(animation).getKeyframes()).toMatchObject([
+    const tenantAnimations = pane.getAnimations()
+    expect(tenantAnimations).toHaveLength(1)
+    const tenantAnimation = tenantAnimations[0]
+    if (!tenantAnimation) throw new Error('Missing tenant scope fade')
+    expect(tenantAnimation.playState).toBe('running')
+    expect(keyframeEffect(tenantAnimation).getKeyframes()).toMatchObject([
       { opacity: '0.85' },
       { opacity: '1' },
     ])
-    expect(keyframeEffect(animation).getTiming()).toMatchObject({
+    expect(keyframeEffect(tenantAnimation).getTiming()).toMatchObject({
+      duration: 120,
+    })
+
+    await finishAnimations(pane)
+    expect(pane.getAnimations()).toHaveLength(0)
+    expect(pane.style.opacity).toBe('0.72')
+
+    // A site change inside the same tenant moves the site query only.
+    await router.push({
+      path: '/devices',
+      query: { tenant: 'aurora-de', site: 'berlin' },
+    })
+    await nextTick()
+
+    const siteAnimations = pane.getAnimations()
+    expect(siteAnimations).toHaveLength(1)
+    const siteAnimation = siteAnimations[0]
+    if (!siteAnimation) throw new Error('Missing site scope fade')
+    expect(siteAnimation.playState).toBe('running')
+    expect(keyframeEffect(siteAnimation).getKeyframes()).toMatchObject([
+      { opacity: '0.85' },
+      { opacity: '1' },
+    ])
+    expect(keyframeEffect(siteAnimation).getTiming()).toMatchObject({
       duration: 120,
     })
 
