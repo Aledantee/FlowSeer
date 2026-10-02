@@ -38,18 +38,36 @@ sequenceDiagram
     participant F as authorization engine
     C->>A: bearer token, X-FlowSeer-Tenant header
     A->>A: verify token against the configured OIDC issuer
-    A->>Z: principal = issuer + subject, org claims, acting tenant
-    Z->>F: Check tenant#member with token-derived claim context
-    F-->>Z: allowed or denied
+    A->>Z: principal = issuer + subject, org claims
     Z->>Z: read the RPC's authorization rule option
-    alt rule names the object in the request
-        Z->>F: Check relation on that object
-        Z->>H: call when allowed
-    else object known only after a load
-        Z->>H: call with an obligation in the context
-        H->>F: Check after loading the record
+    Note over Z: no rule, or a mode not implemented: PermissionDenied
+    Z->>Z: read the principal, Unauthenticated when absent
+    alt platform rule
+        Z->>F: Check relation on platform:flowseer, no tenant header read
+    else every other mode
+        Z->>Z: validate the tenant header, InvalidArgument when bad
+        Z->>F: Check tenant#member with token-derived claim context
+        F-->>Z: member or not, PermissionDenied when not
+    end
+    alt request or tenant rule
+        Z->>F: Check relation on the named object and its tenant, or on the tenant
+        F-->>Z: allowed or PermissionDenied before the handler
+        Z->>H: call
         H-->>Z: response
-        Z->>Z: drop the response if no check ran
+    else loaded or filtered rule
+        Z->>H: call with an obligation in the context
+        H->>F: Require or Filter after loading the record
+        H-->>Z: response
+    else platform rule
+        Z->>H: call when allowed
+        H-->>Z: response
+    end
+    alt context ended, no response at stake
+        Z-->>C: ctx.Err()
+    else no check ran, or a Require or Filter failed and the handler answered
+        Z-->>C: Internal, response dropped
+    else
+        Z-->>C: the handler's response or error
     end
 ```
 
@@ -356,8 +374,8 @@ option. One Connect interceptor enforces it:
 | The object is named in a request field | checks the relation on that object before the handler runs |
 | The object is the admitted tenant (creating an edge) | checks the relation on the tenant before the handler runs |
 | The object is the platform | checks the relation on `platform:flowseer` before the handler runs, reading no tenant header |
-| The object is known only after a load | runs the handler with an obligation in the context, and returns `Internal` and drops the response when the handler returned without a check |
-| The handler filters a list | same obligation as a load |
+| The object is known only after a load | runs the handler with an obligation in the context, and returns `Internal` and drops the response when the handler returned without a check or answered after a failed check |
+| The handler filters a list | same obligation as a load, with a failed `Filter` in place of a failed `Require` |
 | No rule | refuses the call |
 
 A conformance gate fails any operator RPC without a rule, so a forgotten
@@ -455,7 +473,50 @@ A tenant in a platform request is the object the RPC reads, never the
 tenant the call is admitted to, so the interceptor reads no tenant header,
 makes no membership check and no tenant-relation check, puts no tenant in
 the context, and makes one check on `platform:flowseer`, and `Require` and
-`Filter` refuse under it. The interceptor reads the rule before
-the membership check, which the diagram under
-[A request, end to end](#a-request-end-to-end) draws the other way round.
+`Filter` refuse under it.
 
+### 2026-10-02: failed checks and ended contexts
+
+A response is dropped after any error from `Require` or `Filter`, in every
+mode: a denial, a checker error, a short `BatchCheck` answer, or the refusal
+under a platform rule. The caller gets `Internal` with
+`authz/obligation-violation` and a retry disposition other than retryable,
+and the failure is sticky for the call, so a later successful check does not
+clear it. Without this a handler that ignores the error returns its response,
+and a `Filter` handler that ignores it can return the unfiltered list. The
+answer is `Internal` even when the ignored error was `Unavailable`, because
+the response exists only because a handler discarded an error and no retry
+repairs that. The interceptor cannot tell a retry of one check from a
+different check, and a handler that wants a retry returns the retryable error
+itself. The violation is not retryable because an `errs` chain reports the
+outermost disposition any link expressed (`retryOf` in
+`src/common/errs/retry.go`), so a violation that took the retryable
+`authz/unavailable` as its cause would tell the caller to retry. The earlier
+rule dropped a response only when the handler returned without a check, and
+the table's loaded and filtered rows say so now.
+
+A call whose context has ended answers with `ctx.Err()` itself, bare and
+outside `connecterr`, in two places. A checker error returned while
+`ctx.Err()` is non-nil yields it in place of `Unavailable`, from the
+interceptor, `Require`, and `Filter` alike. Under a loaded or filtered rule,
+a handler path that ends in an error with no check discharged while
+`ctx.Err()` is non-nil yields it in place of `Internal`. A response never
+passes on this ground, and a query the checker answered false stays
+`PermissionDenied`. The reasons:
+
+- `docs/code-style.md:255-256` has cancellation surface as the unwrapped
+  `ctx.Err()`, so `errors.Is(err, context.Canceled)` holds end to end.
+- Connect's `NewUnaryHandler` returns `ctx.Err()` without calling the handler
+  once the context has ended (`connectrpc.com/connect@v1.21.0`, `handler.go:44-46`),
+  so a loaded or filtered handler never runs and no check is discharged.
+- Connect codes a context error only when nothing has coded it. The close of
+  the handler connection runs `wrapIfContextError`, which returns a
+  `*connect.Error` as it is and otherwise maps `context.Canceled` to
+  `Canceled` and `context.DeadlineExceeded` to `DeadlineExceeded`
+  (`connectrpc.com/connect@v1.21.0`, `error.go:293-313`). Wrapping the
+  context error with `connecterr` would fix a code first.
+- The test is on `ctx.Err()` and not on the checker's error, because the
+  interceptor cannot tell a handler Connect skipped from one that ran and
+  failed before its check, and the second one's error could say whether an
+  object exists. `Checker` does not promise an error that unwraps to the
+  context's.
