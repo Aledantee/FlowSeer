@@ -25,7 +25,7 @@ const (
 type RuleMode int32
 
 const (
-	// No mode specified. The interceptor rejects the zero value and refuses the call.
+	// No mode named. A rule rejects the zero value.
 	RuleMode_RULE_MODE_UNSPECIFIED RuleMode = 0
 	// Checks the relation on the object named in the request before the handler runs.
 	RuleMode_RULE_MODE_REQUEST RuleMode = 1
@@ -35,7 +35,7 @@ const (
 	RuleMode_RULE_MODE_LOADED RuleMode = 3
 	// Runs the handler with an obligation to check filtered items before returning.
 	RuleMode_RULE_MODE_FILTERED RuleMode = 4
-	// Checks the relation on platform:flowseer before the handler runs, reading no tenant header.
+	// Checks the relation on the platform before the handler runs. Reads no tenant header.
 	RuleMode_RULE_MODE_PLATFORM RuleMode = 5
 )
 
