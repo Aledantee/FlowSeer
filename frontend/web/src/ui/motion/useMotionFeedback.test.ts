@@ -6,14 +6,6 @@ import { UiAppRoot } from '../index'
 import { UiMotionConfig } from './index'
 import { useMotionFeedback } from './useMotionFeedback'
 
-vi.hoisted(() => {
-  vi.stubGlobal(
-    'requestAnimationFrame',
-    (callback: (timestamp: number) => void) =>
-      setTimeout(() => callback(performance.now()), 16),
-  )
-})
-
 type Feedback = ReturnType<typeof useMotionFeedback>
 type OwnedKey = 'opacity' | 'transform'
 type InvariantId = 'restore' | 'later-write' | 'snapshot'
@@ -54,6 +46,7 @@ interface OwnedSet {
 interface TerminalPath {
   readonly name: string
   readonly mountOptions?: MountOptions
+  readonly reduced?: boolean
   readonly terminate: (
     mounted: MountedFeedback,
     owned: OwnedSet,
@@ -121,7 +114,10 @@ function mountFeedback(options: MountOptions = {}): MountedFeedback {
     },
   })
   app.mount(host)
+  let unmounted = false
   const unmount = () => {
+    if (unmounted) return
+    unmounted = true
     app.unmount()
   }
   dispose = unmount
@@ -179,9 +175,10 @@ function nextFrame() {
 }
 
 // motion-dom captures requestAnimationFrame when its frame loop module loads,
-// so the hoisted stub above is the only clock its batches follow. A wait on the
-// global frame can resolve before that batch, which is why the frame-batch
-// invariant waits on motion's own postRender step and then one global frame.
+// so a wait on the global frame alone does not prove motion's batch has run.
+// The frame-batch invariant waits on motion's own postRender step, which runs
+// after every render and postRender callback queued before it, and then one
+// global frame.
 function motionFrameBatch() {
   return new Promise<void>((resolve) => frame.postRender(() => resolve()))
 }
@@ -234,12 +231,20 @@ function unownedKeys(owned: OwnedSet) {
   return allKeys.filter((key) => !owned.keys.includes(key))
 }
 
+function expectKeysAtBaseline(
+  element: HTMLElement,
+  keys: readonly OwnedKey[],
+  baseline: Baseline,
+) {
+  for (const key of keys) expect(element.style[key]).toBe(baseline[key])
+}
+
 function expectOwnedValues(
   element: HTMLElement,
   owned: OwnedSet,
   baseline: Baseline,
 ) {
-  for (const key of owned.keys) expect(element.style[key]).toBe(baseline[key])
+  expectKeysAtBaseline(element, owned.keys, baseline)
 }
 
 function expectUnownedValuesKept(element: HTMLElement, owned: OwnedSet) {
@@ -251,7 +256,7 @@ const reducedFollowUp = (
   invariant: InvariantId,
   owned: OwnedSet,
 ): string | undefined =>
-  invariant === 'snapshot' && owned.name !== 'opacity'
+  invariant === 'snapshot' && owned.name === 'transform'
     ? 'the reduced mode the path selects drops movement from the next play'
     : undefined
 
@@ -270,6 +275,7 @@ const terminalPaths: readonly TerminalPath[] = [
   },
   {
     name: 'a reduced-motion preference change',
+    reduced: true,
     terminate: async () => {
       preference.matches = true
       preference.dispatchEvent(
@@ -282,6 +288,7 @@ const terminalPaths: readonly TerminalPath[] = [
   {
     name: 'a config change',
     mountOptions: { reducedMotion: 'never' },
+    reduced: true,
     terminate: async (mounted) => {
       mounted.reducedMotion.value = 'always'
       await nextTick()
@@ -325,6 +332,7 @@ const terminalPaths: readonly TerminalPath[] = [
   {
     name: 'a movement-only play under reduced motion',
     mountOptions: { reducedMotion: 'always' },
+    reduced: true,
     terminate: (mounted) => {
       mounted.feedback.play(mounted.element, { y: [-10, 0] })
     },
@@ -417,13 +425,16 @@ function registerTerminalCases(
         return
       }
 
+      const nextOwnedKeys = owned.keys.filter(
+        (key) => !path.reduced || key === 'opacity',
+      )
       const previous = [...mounted.element.getAnimations()]
       mounted.feedback.play(
         mounted.element,
         nextKeyframes[owned.name] as PlayKeyframes,
         0.24,
       )
-      expectOwnedValues(mounted.element, owned, baseline)
+      expectKeysAtBaseline(mounted.element, nextOwnedKeys, baseline)
       const createdNext = mounted.element
         .getAnimations()
         .filter((animation) => !previous.includes(animation))
@@ -432,7 +443,7 @@ function registerTerminalCases(
         createdNext.every((animation) => animation.playState === 'running'),
       ).toBe(true)
       await finishAnimations(mounted.element)
-      expectOwnedValues(mounted.element, owned, baseline)
+      expectKeysAtBaseline(mounted.element, nextOwnedKeys, baseline)
     })
   }
 }
