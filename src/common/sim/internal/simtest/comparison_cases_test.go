@@ -4,7 +4,7 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 )
 
 func TestComparisonCorpusInvariants(t *testing.T) {

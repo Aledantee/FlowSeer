@@ -8,10 +8,10 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/tcp"
-	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
-	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func makeTCPFrame(t *testing.T, srcIP, dstIP netip.Addr, srcPort, dstPort uint16, flags tcp.Flags) ethernet.Frame {

@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strconv"
 
-	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 // Priority is a PSE port's power-delivery priority when a group's budget is

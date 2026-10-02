@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 // PrimaryFact wraps a primary port name as a trace.Fact.

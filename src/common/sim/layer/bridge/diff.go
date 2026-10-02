@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 // VLANNameFact wraps a VLAN name string as a trace.Fact.

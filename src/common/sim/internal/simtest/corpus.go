@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
-	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
-	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 // SchemaVersion identifies the contract and schema version of the test corpus.

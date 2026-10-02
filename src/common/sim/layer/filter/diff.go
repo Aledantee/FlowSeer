@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 // BoolFact wraps a boolean configuration property as a trace.Fact.

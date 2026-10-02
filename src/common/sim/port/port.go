@@ -9,7 +9,7 @@ import (
 	"strconv"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 // Layer identifies an architectural or protocol layer in trace steps and diff subjects.

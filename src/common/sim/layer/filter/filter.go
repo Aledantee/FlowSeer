@@ -10,9 +10,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/tcp"
 	"go.aledante.io/FlowSeer/src/common/net/udp"
-	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
-	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 const (

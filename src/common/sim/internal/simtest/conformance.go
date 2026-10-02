@@ -71,7 +71,7 @@ var AllGroups = []Group{
 
 var conformanceGroupMarkerRe = regexp.MustCompile(`(?i)(?:conformance\s+group|covers\s+conformance\s+group):\s*([a-z0-9\-]+)`)
 
-// NetsimRootDir returns the absolute path to the src/common/netsim directory.
+// NetsimRootDir returns the absolute path to the src/common/sim directory.
 func NetsimRootDir() string {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {

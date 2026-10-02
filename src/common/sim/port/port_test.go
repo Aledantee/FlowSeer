@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestTableBuiltWithCanonicalNameOrder(t *testing.T) {

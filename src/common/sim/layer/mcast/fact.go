@@ -9,7 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
 	"go.aledante.io/FlowSeer/src/common/net/mld"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 type membershipDecisionFact string

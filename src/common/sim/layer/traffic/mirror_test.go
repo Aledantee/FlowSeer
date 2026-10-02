@@ -8,9 +8,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestCopiesToPortSelectsIngressAndTruncates(t *testing.T) {

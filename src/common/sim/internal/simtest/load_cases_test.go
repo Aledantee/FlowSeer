@@ -3,10 +3,10 @@ package simtest
 import (
 	"testing"
 
-	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
-	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
-	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestLoadCases(t *testing.T) {

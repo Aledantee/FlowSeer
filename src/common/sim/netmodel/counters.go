@@ -6,7 +6,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
-	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 )
 
 // InterfaceCounters converts cumulative per-port fabric counters into a typed network model

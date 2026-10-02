@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
-	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestRuntimeEvidenceIdentityDoesNotUseIssueMessage(t *testing.T) {

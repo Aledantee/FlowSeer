@@ -8,8 +8,8 @@ import (
 	"slices"
 	"sort"
 
-	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
-	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 )
 
 const reportContract = "netsimload/report/v1"

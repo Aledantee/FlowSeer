@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
 )
 

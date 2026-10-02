@@ -6,7 +6,7 @@ import (
 
 	"buf.build/go/protovalidate"
 
-	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 )
 

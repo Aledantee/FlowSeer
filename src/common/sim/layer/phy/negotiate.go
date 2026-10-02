@@ -3,7 +3,7 @@ package phy
 import (
 	"slices"
 
-	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 // Negotiation failure reasons recorded by [Negotiate].

@@ -1,7 +1,7 @@
 package port
 
 import (
-	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 // Diff computes the difference between two port tables, reporting added and removed
