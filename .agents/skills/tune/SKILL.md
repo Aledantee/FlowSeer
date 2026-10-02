@@ -177,7 +177,9 @@ than collapsing it to one verdict.
 
 ## 5. Write and report
 
-Update the machine-wide registry: `as_of`, changed fields, fit sets.
+Update the machine-wide registry: `as_of`, changed fields, fit sets. When
+the project file carries its own `as_of`, set that one too, since it
+replaces the machine-wide date (the overlay rule above).
 `delegate` takes the first fitting entry of a role's `fit` list after
 filtering hot and busy pools, so order decides routing. Build each list in
 two passes.

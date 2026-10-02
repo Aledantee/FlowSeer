@@ -142,7 +142,9 @@ Fable session also on `fableWeekly`.
 
 A `lookup`, `research`, `judge`, or review lane stays a native subagent on
 every host when its resolved model is a Claude model a native subagent can
-be pinned to. One that resolves to any other model runs on its pool's CLI
+be pinned to. A native lane runs at its agent's frontmatter `effort`,
+which overrides the role's, since the Agent tool takes a model but no
+effort. One that resolves to any other model runs on its pool's CLI
 through `orca-worker.sh start --role <role>`. Editing work, including every stage
 worker of `land` or `drive`, goes to an Orca worker. When `orca status
 --json` does not report `runtime.reachable: true`, load
@@ -267,8 +269,11 @@ order:
    `generated/`, or `buf.lock`; no edit to a plan Decision marked
    `decided by the user` (a finding or unit that needs one changed is a
    blocker); no plan labels in code; no running a script
-   under `tools/hooks/` (it blocks on stdin; the focused tests and `go tool -modfile=tools/buf/go.mod buf lint`
-   are the checks, and the coordinator runs the verifier after the merge); no lint or race
+   under `tools/hooks/` (it blocks on stdin). A unit worker's checks are
+   the focused tests and `go tool -modfile=tools/buf/go.mod buf lint`, and
+   the coordinator runs the verifier after the merge. A stage worker (a
+   `drive` stage) runs the verifier its skill names, since `ledger.py`
+   passes a unit only on a receipt in the worker's own git directory. No lint or race
    run over all of `generated/go/yang` (it exhausts host memory; lint two
    or three sample packages); no git write outside the worker's own
    checkout (the coordinator merges). Scratch files and set-aside work go

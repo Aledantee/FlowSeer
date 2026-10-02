@@ -102,7 +102,9 @@ def orca_pools():
             # takes every Claude model out of every fit set.
             # `codex` has had the same fallback all along, through
             # systemDefault.hasAuth.
-            signed_in = signed_in or claude_cli_signed_in()
+            # Without an Orca row, a missing token file is no proof of a
+            # sign-out either, so it reads as unknown, as orca_unreadable does.
+            signed_in = signed_in or claude_cli_signed_in() or (False if rl else None)
         note = rl.get("error")
         if pool == "claude" and signed_in and not windows and rl.get("status") != "ok":
             # Signed in on the CLI's own token, so the pool is usable, but

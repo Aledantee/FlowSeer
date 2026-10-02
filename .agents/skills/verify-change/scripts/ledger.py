@@ -22,8 +22,8 @@ receipt of the verifier run that just passed, unless `--commit` or
 unit's `base`, and `passed` refuses a commit that is not in this branch or
 holds nothing committed since that base: a commit from before the unit
 started cannot be the unit's work, whatever it touched. Without
-`--verified-at` it also refuses a receipt older than the base commit, since
-that run verified a tree from before the unit began. `resume` is recomputed on every write: the
+`--verified-at` it also refuses a receipt older than the unit's commit,
+since that run verified a tree without the unit's work. `resume` is recomputed on every write: the
 units in progress, else the first pending unit, else empty. A note is kept
 until `--note` replaces it; `--note ""` clears it.
 """
@@ -135,10 +135,11 @@ def check_unit_commit(unit: dict, commit: str) -> None:
 
 
 def check_receipt_fresh(unit: dict, verified_at: str) -> None:
-    # The ledger keeps no in_progress time, and the base commit is no newer
-    # than it, so a receipt older than the base is from before the unit.
-    base = unit.get("base")
-    if not base:
+    # implement commits a unit before it verifies, and a failed run writes
+    # no receipt, so a receipt older than the unit's commit is an earlier
+    # unit's run.
+    commit = unit.get("commit")
+    if not commit:
         return
     try:
         verified = datetime.datetime.strptime(verified_at, "%Y-%m-%dT%H:%M:%SZ").replace(
@@ -146,11 +147,11 @@ def check_receipt_fresh(unit: dict, verified_at: str) -> None:
         )
     except ValueError:
         fail(f"the receipt's verified_at {verified_at!r} is not YYYY-MM-DDTHH:MM:SSZ")
-    based = datetime.datetime.fromisoformat(git_output("log", "-1", "--format=%cI", base))
-    if verified < based:
+    committed = datetime.datetime.fromisoformat(git_output("log", "-1", "--format=%cI", commit))
+    if verified < committed:
         fail(
-            f"the receipt's verified_at {verified_at} is older than {unit['id']}'s base {base} "
-            f"({based.isoformat()}); run the verifier on the unit's tree first"
+            f"the receipt's verified_at {verified_at} is older than {unit['id']}'s commit {commit} "
+            f"({committed.isoformat()}); run the verifier on the unit's tree first"
         )
 
 

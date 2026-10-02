@@ -65,6 +65,14 @@ class OrcaMissingTest(unittest.TestCase):
         self.assertIs(rows["claude"]["signed_in"], True)
         self.assertEqual(rows["claude"]["error"], "unreadable account list")
 
+    def test_orca_without_a_claude_row_and_no_token_is_unknown(self):
+        # Orca answers but holds no Claude account. No token file is no
+        # proof of a sign-out, so the row must not read false.
+        (self.bin / "orca").write_text("#!/bin/sh\necho '{\"result\": {\"rateLimits\": {}}}'\n")
+        (self.bin / "orca").chmod(0o755)
+        rows = self.rows()
+        self.assertIsNone(rows["claude"]["signed_in"])
+
 
 if __name__ == "__main__":
     unittest.main()

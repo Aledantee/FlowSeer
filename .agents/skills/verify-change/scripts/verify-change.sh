@@ -153,7 +153,7 @@ if [[ $full == false && ${#paths[@]} -eq 0 ]]; then
   fi
   # Exits non-zero for the reason the no-gate exit below gives: a run that
   # checked nothing must not read as a pass. It writes no receipt either.
-  echo "No changed paths to verify against $base; name paths after -- or use --full." >&2
+  echo "No changed paths to verify against $base. After a commit, use --base main, name paths after --, or use --full." >&2
   exit 2
 fi
 
@@ -493,10 +493,11 @@ if [[ $print_selection == true ]]; then
 fi
 
 # A lint configuration change applies to every Go module, and a targeted run
-# that selects none would lint nothing yet write a passing receipt. Refused
-# before any gate runs, so the receipt and marker stay as they were.
-if [[ $full == false ]] && contains_path .golangci.yml && ((${#modules[@]} == 0)); then
-  echo ".golangci.yml changed and no Go module is selected; run with --full to lint every Go module." >&2
+# lints only the modules it selects, none at all for a config-only change,
+# yet would write a passing receipt. Refused before any gate runs, so the
+# receipt and marker stay as they were.
+if [[ $full == false ]] && contains_path .golangci.yml; then
+  echo ".golangci.yml changed; run with --full to lint every Go module under the new configuration." >&2
   exit 2
 fi
 

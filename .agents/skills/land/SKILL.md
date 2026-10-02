@@ -191,7 +191,8 @@ Verify the union, sandbox disabled:
 This run clears the marks the merge left on files identical to `main`, and the
 `<Bash mutation; verify with --full>` line when every generated or module file
 it stands for came from `main`. When that line survives, the branch itself
-changed one of them: run `--full`. Report a red verifier as is, with the exact
+changed one of them: run `--full`. A run that stops on a `.golangci.yml`
+change and asks for `--full` gets the same. Report a red verifier as is, with the exact
 command and output, and stop.
 
 `main` itself moves only in the primary checkout, and only when the run's

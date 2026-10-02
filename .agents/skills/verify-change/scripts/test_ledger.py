@@ -1,5 +1,5 @@
-import datetime
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -20,19 +20,21 @@ class LedgerCommitTest(unittest.TestCase):
         self.first = self.commit("plan")
         self.ledger("init", "docs/plans/example-plan.md", "U1", "U2")
 
-    def git(self, *args):
+    def git(self, *args, env=None):
         return subprocess.run(
             ["git", "-c", "user.name=Ledger", "-c", "user.email=ledger@example.invalid", *args],
             cwd=self.root,
             check=True,
             capture_output=True,
             text=True,
+            env=env,
         ).stdout.strip()
 
-    def commit(self, name):
+    def commit(self, name, committed_at=None):
         (self.root / f"{name}.txt").write_text(name)
         self.git("add", "-A")
-        self.git("commit", "-qm", name)
+        env = {**os.environ, "GIT_COMMITTER_DATE": committed_at} if committed_at else None
+        self.git("commit", "-qm", name, env=env)
         return self.git("rev-parse", "--short=8", "HEAD")
 
     def ledger(self, *args):
@@ -97,19 +99,20 @@ class LedgerCommitTest(unittest.TestCase):
     def receipt(self, verified_at):
         (self.root / ".git/flowseer-verification-receipt").write_text(f"verified_at={verified_at}\nbase=HEAD\n")
 
-    def test_passed_refuses_a_receipt_older_than_the_unit_base(self):
+    def test_passed_refuses_a_receipt_older_than_the_unit_commit(self):
         self.ledger("set", "U1", "in_progress")
-        self.commit("unit-one")
-        self.receipt("2000-01-01T00:00:00Z")
+        self.commit("unit-one", committed_at="2090-01-01T00:00:00Z")
+        # Newer than the base, older than the unit's commit: the previous
+        # unit's run, left behind when this unit's run failed.
+        self.receipt("2080-01-01T00:00:00Z")
 
         refused = self.ledger("set", "U1", "passed")
         self.assertEqual(refused.returncode, 1)
-        self.assertIn("is older than U1's base", refused.stderr)
+        self.assertIn("is older than U1's commit", refused.stderr)
 
-        fresh = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        self.receipt(fresh)
+        self.receipt("2091-01-01T00:00:00Z")
         self.assertEqual(self.ledger("set", "U1", "passed").returncode, 0)
-        self.assertEqual(self.unit("U1")["verified_at"], fresh)
+        self.assertEqual(self.unit("U1")["verified_at"], "2091-01-01T00:00:00Z")
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 name: independent-reviewer
 description: Review specified FlowSeer files independently for correctness, regressions, tests, and project-rule violations without editing them. Use with a diff, a plan path, or a named file set of standing code, plus the intended behavior; never for a plain question.
 tools: Read, Grep, Glob
-model: opus
+model: claude-opus-5-5
 effort: xhigh
 ---
 

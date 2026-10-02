@@ -114,6 +114,16 @@ class VerdictTest(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn("run with --full", result.stderr)
 
+    def test_lint_config_beside_a_go_file_still_asks_for_full(self):
+        # One selected module would be linted under the new configuration,
+        # the rest not, and the receipt would read as if all had passed.
+        (self.root / ".golangci.yml").write_text("version: \"2\"\n")
+        (self.root / "go.mod").write_text("module example.invalid/a\n\ngo 1.27\n")
+        (self.root / "a.go").write_text("package a\n")
+        result = self.verify("--", ".golangci.yml", "a.go")
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("run with --full", result.stderr)
+
     def test_format_failure_names_its_gate(self):
         # Stand-ins for go, gofumpt, and goimports: go builds an empty
         # checker, gofumpt reports a diff. The format gate runs before any

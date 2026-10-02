@@ -2,7 +2,7 @@
 name: repo-researcher
 description: Investigate one bounded, read-heavy FlowSeer repository question and return evidence without editing files. Use when the answer needs conventions read and evidence weighed across many files; a plain lookup goes to Explore.
 tools: Read, Grep, Glob
-model: opus
+model: claude-opus-5-5
 effort: xhigh
 ---
 

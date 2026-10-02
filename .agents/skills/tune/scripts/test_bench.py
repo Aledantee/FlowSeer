@@ -147,9 +147,9 @@ class BenchTest(unittest.TestCase):
         self.assertTrue(result["refused"])
         self.assertEqual(result["refuse_reason"], "stop_reason=refusal")
 
-    def test_claude_permission_denial_is_a_refusal(self):
-        # Under skip-permissions a denied tool call is the CLI declining
-        # the work, even though the turn ends normally.
+    def test_claude_permission_denial_is_recorded_not_refused(self):
+        # A hook in the lane's worktree can deny a tool call, so a denial is
+        # evidence to read, not a safety refusal.
         self._write_claude({
             "stop_reason": "end_turn", "total_cost_usd": 0.1,
             "usage": {"input_tokens": 10, "output_tokens": 20},
@@ -159,8 +159,8 @@ class BenchTest(unittest.TestCase):
         proc = self.run_bench(cli="claude", model="claude-opus-5-5")
         self.assertEqual(proc.returncode, 0, proc.stderr)
         result = json.loads(self.out.read_text())
-        self.assertTrue(result["refused"])
-        self.assertEqual(result["refuse_reason"], "permission_denials=1")
+        self.assertFalse(result["refused"])
+        self.assertEqual(result["denied_tools"], ["Bash"])
 
     def test_claude_empty_permission_denials_is_no_refusal(self):
         self._write_claude({

@@ -455,9 +455,14 @@ and a row in `docs/solutions/README.md`. The skills describe these formats
 and nothing else.
 
 Name the model for every delegate. `repo-researcher` and
-`independent-reviewer` run on Opus at `xhigh`, the level the registry gives
-`claude-opus-5-5` in `research` and `review-unit`. The Agent tool takes a
-model and no effort, so the agent frontmatter carries the level.
+`independent-reviewer` run on `claude-opus-5-5` at `xhigh`, the level the
+registry gives that model in `research` and `review-unit`. The Agent tool
+takes a model and no effort, so the agent frontmatter carries the level.
+The frontmatter names the full id because the `opus` alias resolves to the
+session's own model whenever the session already runs an Opus model, and
+it accepts `xhigh` among `low` to `max`
+([Create custom subagents](https://code.claude.com/docs/en/sub-agents),
+checked 2026-10-02).
 `delegate` sends pure lookups to `Explore`
 on Haiku and resolves editing workers from the registry's fit set, taking
 the first model in its best-first order whose pool has room, and no agent uses `inherit` any more: the coordinating session
@@ -501,13 +506,14 @@ the first three without orchestration: `orca terminal create --command` takes
 any CLI's launch line with the model on it, the wait is confirmed against
 the worker's screen, and a lane is a terminal and a branch with no token.
 `references/orca.md` says which lanes its described behavior was measured
-on. Read-only
-delegates stay native subagents, which load their definition and nothing
-else, where a runtime worker is a full agent session. The exception is a
-unit reviewer on the executor's vendor: a reviewer from the same vendor
-shares the executor's blind spots, and a seam worker that spawns its own
-subagents reviews with its own model, so `delegate` sends such a
-reviewer to another pool's CLI. Without Orca, `delegate` falls back to a native
+on. A read-only
+delegate that resolves to a Claude model stays a native subagent, which
+loads its definition and nothing else, where a runtime worker is a full
+agent session. One that resolves to another vendor's model goes to that
+pool's CLI, since a native subagent runs only on Claude. That covers the
+unit reviewer kept off the executor's vendor: a reviewer from the same
+vendor shares the executor's blind spots, and a seam worker that spawns
+its own subagents reviews with its own model. Without Orca, `delegate` falls back to a native
 subagent with worktree isolation only when the role's fit set holds a
 Claude model. Otherwise the coordinator works the units itself. A native
 subagent runs only on Claude, and a role whose fit set holds no Claude
