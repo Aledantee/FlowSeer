@@ -1,7 +1,7 @@
 ---
-title: A happy-dom Mount Test Installs the Reduced-Motion matchMedia Stub Before Its First Mount, and Normal-Motion Cases Live in a File Without It
+title: A happy-dom Motion Mount Test Stubs matchMedia Before the First Mount, and Supplies Its Own Geometry and Clock
 date: 2026-09-27
-last_verified: 2026-10-01
+last_verified: 2026-10-02
 category: conventions
 module: frontend/web
 problem_type: convention
@@ -10,12 +10,12 @@ severity: low
 applies_when:
   - "Writing or debugging component mount tests in frontend/web/ under Vitest with happy-dom that exercise motion-v surfaces (`UiMotion`, `UiMotionConfig`, `useMotionFeedback`)."
   - "A test needs the reduced-motion path of a mounted motion surface, or needs the normal path and the same file also holds reduced-motion cases."
-  - "A mount test asserts on a layout animation and happy-dom reports no geometry."
+  - "A mount test asserts on a layout animation and needs geometry or a controlled clock that happy-dom does not provide."
 related_components: [web-console, testing]
 tags: [vue, vitest, happy-dom, motion, animations, testing]
 ---
 
-# A happy-dom mount test installs the reduced-motion matchMedia stub before its first mount, and normal-motion cases live in a file without it
+# A happy-dom motion mount test stubs matchMedia before the first mount, and supplies its own geometry and clock
 
 ## The situation
 
@@ -35,19 +35,25 @@ to avoid a throw. The same goes for an `offsetParent` stub.
 | Fact | Source |
 | --- | --- |
 | The web workspace locks motion-v 2.5.1, motion-dom and framer-motion 13.4.5, @vueuse/core 14.4.0, and happy-dom 20.14.5. | `frontend/web/pnpm-lock.yaml` |
-| `useMotionFeedback` reads the user reduced-motion state when the composable mounts, so a `matchMedia` stub installed before that mount selects the path. | `frontend/web/src/ui/motion/useMotionFeedback.ts`, `frontend/web/src/ui/motion/useMotionFeedback.test.ts` |
+| A mounted `UiMotion` element reads the reduced-motion query through motion-dom once per test file. The first element whose config needs the dynamic value calls `initPrefersReducedMotion`, which listens to `(prefers-reduced-motion)`, and the element fixes its choice at mount from that read. | `motion-dom/dist/es/render/VisualElement.mjs:205-216` and `motion-dom/dist/es/render/utils/reduced-motion/index.mjs:4-13`, under `frontend/web/node_modules/.pnpm/motion-dom@13.4.5/node_modules/` |
+| `UiMotionConfig` reads no media query. It provides config and renders its slot. | `frontend/web/node_modules/motion-v/dist/es/components/motion-config/MotionConfig.vue_vue_type_script_setup_true_lang.mjs` |
+| `useMotionFeedback` watches `(prefers-reduced-motion: reduce)`, a different query from motion-dom's, and reads it when the composable mounts, so a `matchMedia` stub installed before that mount selects the path. | `frontend/web/src/ui/motion/useMotionFeedback.ts`, `frontend/web/node_modules/motion-v/dist/es/animation/hooks/use-reduced-motion.mjs:4`, `frontend/web/src/ui/motion/useMotionFeedback.test.ts` |
 | Under the reduced path the composable keeps the opacity fade and drops movement. | `frontend/web/src/ui/motion/useMotionFeedback.ts` (`play`'s reduced branch), `frontend/web/src/ui/motion/useMotionFeedback.test.ts` "filters reduced movement, keeps reduced fades native, and restores their baseline", `frontend/web/src/components/ThemeSwitcher.test.ts` "keeps reduced motion as one running opacity effect per icon" |
 | Native feedback tests inspect keyframe endpoints, timing, running state, cleanup, and replacement. | `frontend/web/src/ui/motion/useMotionFeedback.test.ts` "compiles typed pairs into ordered native effects with deterministic timing", "cancels and restores synchronously before replacing a play, through the next frame and completion", "ignores a stale completion queued before replacement" |
-| Under the reduced path `UiMotion` layout animations end at once with no fade. | `frontend/web/src/ui/motion/UiMotion.reduced.test.ts` "ends layout animation at once when the user prefers reduced motion" |
+| Under the reduced path `UiMotion` layout animations end at once with no fade. | `docs/architecture/2026-09-28-web-component-contract-direction.md`, section `2026-10-01`. `frontend/web/src/ui/motion/UiMotion.reduced.test.ts` "ends layout animation at once when the user prefers reduced motion" asserts no `scale` or `translate` remains. |
 | happy-dom has no layout, so layout tests provide geometry explicitly. | `frontend/web/src/FleetView.motion.test.ts`, `frontend/web/src/ui/motion/UiMotion.reduced.test.ts` |
+| motion's frame loop stamps each frame from `performance.now()`, so a layout-animation test installs a mocked clock before the mount and advances it. | `motion-dom/dist/es/frameloop/batcher.mjs:22-24`, under `frontend/web/node_modules/.pnpm/motion-dom@13.4.5/node_modules/`. `frontend/web/src/FleetView.motion.test.ts`, `frontend/web/src/ui/motion/UiMotion.test.ts`, `frontend/web/src/ui/motion/UiMotion.reduced.test.ts` |
 
 ## The rule
 
-A file that mounts motion components installs the stub before its first mount,
-because the locked motion-dom behavior keeps the first `MediaQueryList` it
-reads, as recorded in
-`docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase2-plan.md`.
-Cases on the normal path live in a file without the stub. The pair
+A file that mounts `UiMotion` installs the `matchMedia` stub before its first
+mount. The first mounted element whose config needs the dynamic value binds the
+reduced-motion listener once per file
+(`motion-dom/dist/es/render/VisualElement.mjs:205-216` and
+`motion-dom/dist/es/render/utils/reduced-motion/index.mjs:4-13`, under
+`frontend/web/node_modules/.pnpm/motion-dom@13.4.5/node_modules/`), so a stub
+installed after that mount cannot select the path. `UiMotionConfig` reads no
+query and mounts without a stub. The pair
 `frontend/web/src/ui/motion/UiMotion.test.ts` (no stub, layout and positional
 animation) and `UiMotion.reduced.test.ts` (stub in `beforeEach`) shows the split.
 
@@ -70,14 +76,31 @@ afterEach(() => {
 })
 ```
 
-A file that only mounts the composable can hold both modes, because
-`useMotionFeedback` re-reads the query per mount.
+A file can still hold both modes, but not by flipping a mounted `UiMotion`'s
+path. motion-dom watches `(prefers-reduced-motion)`
+(`reduced-motion/index.mjs:9`) and the element reads that preference at mount,
+so a `change` after the mount reaches only elements mounted afterwards.
+`useMotionFeedback` watches `(prefers-reduced-motion: reduce)`
+(`frontend/web/node_modules/motion-v/dist/es/animation/hooks/use-reduced-motion.mjs:4`)
+and re-reads it per mount.
+`frontend/web/src/FleetView.motion.test.ts` dispatches `change` on the `reduce`
+object (`:16-32`). Its reduced-motion case asserts `FleetView.vue`'s own gate,
+which skips the layout bump when the composable reports reduced
+(`toggleSidebar`), not `UiMotion`'s reduced layout path. A file that only mounts
+the composable can hold both modes for the same reason.
 `frontend/web/src/components/ThemeSwitcher.test.ts` does this through its
 `stubMatchMedia(reducedMotion)` helper.
 
 A test that needs a layout animation to run gives elements geometry with a
 stubbed `HTMLElement.prototype.getBoundingClientRect`, as
-`FleetView.motion.test.ts` does. Do not mock motion-v.
+`FleetView.motion.test.ts` does. It also installs a mocked `performance.now`
+before the mount and advances it, because motion's frame loop stamps each frame
+from `performance.now()`
+(`motion-dom/dist/es/frameloop/batcher.mjs:22-24`). `FleetView.motion.test.ts`,
+`UiMotion.test.ts`, and `UiMotion.reduced.test.ts` do this through
+`installMotionClock` and `advanceMotion`. A fixed wall-clock wait is not
+reliable: on a loaded host the 140 ms layout animation can finish before the
+test samples. Do not mock motion-v.
 
 ## What this does not cover
 
