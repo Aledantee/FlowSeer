@@ -1,44 +1,73 @@
 # i18n and the AI contract
 
 Both are decided in
-`docs/architecture/2026-09-28-web-component-contract-direction.md`. Both
-land through a migration plan, so first check what exists:
+`docs/architecture/2026-09-28-web-component-contract-direction.md`. AI
+registration lands through a migration plan, so first check what exists:
 
 ```bash
-ls frontend/web/src/i18n frontend/web/src/ai/catalog.ts 2>&1
+ls frontend/web/src/ai/catalog.ts 2>&1
 ```
 
-## While the migration has not landed
+## While the AI migration has not landed
 
-When `src/i18n/` or `useAiTarget` does not exist yet:
+When `src/ai/catalog.ts` or `useAiTarget` does not exist yet:
 
-- **Strings.** Collect every user-visible string of the component in one
-  `const` object at the top of the script, and expose each through a prop
-  that has that default. The migration then moves them mechanically.
 - **AI registration.** Register with `v-ai-target` on the root element,
   through `aiTarget()`. See the README's "AI targets" section.
-- **Report.** Say that the component awaits the migration.
+- **Report.** Say that generative AI catalog integration awaits the AI
+  migration.
 
-Do not install `vue-i18n` yourself. The approval covers the migration
-plan, not incidental use.
-
-## i18n, once `src/i18n/` exists
+## i18n
 
 - Messages live in `src/i18n/locales/en.json` and `de.json`, under the
-  key `ui.<component>.<key>`. Views use `view.<view>.<key>`.
-- The component calls `const { t, n, d } = useI18n()`. Each visible
-  string is a prop whose default is `t('ui.<component>.<key>')`, so a
-  caller can override it.
-- Plurals use vue-i18n plural messages, never `count === 1 ? … : …`.
+  key `ui.<owner>.<suffix>`. Views use `view.<view>.<key>`.
+- The component calls `const { t, n, d } = useI18n({ useScope: 'global' })`.
+- Optional text props resolve as `props.text ?? t('ui.<owner>.<suffix>')`
+  in computed state or the template, preserving runtime reactivity.
+  Never call `t` in a hoisted `withDefaults` default: Vue's
+  `checkInvalidScopeReference` rejects it and a one-time translation freezes
+  the locale. Structural defaults stay in `withDefaults`.
+- Plurals use vue-i18n plural messages, never ternary expressions.
 - Numbers use `n()`, and dates and times use `d()` with a named format.
   Relative times, lists, and units use the matching `Intl` API for the
   active locale.
 - Never build a sentence from fragments. Word order differs between
   English and German. Use one message with named interpolation.
-- German runs about 30% longer. The `LongText` story renders the German
-  locale, and the layout must hold.
+- German runs about 30% longer. LongText stories supply long content and
+  keep story-level `locale` unset in globals, avoiding story-level locale
+  overrides. The automated audit mounts every story in both English and
+  German, and browser checks inspect the layout with the German toolbar
+  selection.
 - Add every key to both locale files in the same change. A test fails on
   a key that is missing from one of them.
+
+### Working example
+
+`src/ui/command/UiCommandEmpty.vue` resolves its optional text prop
+reactively while exposing a default message and a customization slot:
+
+```vue
+<script setup lang="ts">
+import { computed } from 'vue'
+import { ComboboxEmpty } from 'reka-ui'
+import { useI18n } from 'vue-i18n'
+
+export interface UiCommandEmptyProps {
+  text?: string
+}
+
+const props = defineProps<UiCommandEmptyProps>()
+
+const { t } = useI18n({ useScope: 'global' })
+const resolvedText = computed(() => props.text ?? t('ui.commandEmpty.text'))
+</script>
+
+<template>
+  <ComboboxEmpty class="py-6 text-center text-sm text-muted-foreground">
+    <slot>{{ resolvedText }}</slot>
+  </ComboboxEmpty>
+</template>
+```
 
 ## AI contract, once `useAiTarget` exists
 
@@ -63,8 +92,9 @@ plan, not incidental use.
 
 ## Tests
 
-- **i18n:** the component renders with the `de` locale, and the
-  missing-key test passes.
+- **i18n:** the story audit mounts each story in `en` and `de`, failing on
+  any missing-key, fallback, or parent-scope warning. German pagination
+  renders `Zurück` and `Weiter`.
 - **AI:** with an `ai` prop, `registry.list()` includes the target, and
   `highlight(id)` sets `data-ai-selected`. Without the prop, nothing
   registers.
