@@ -149,16 +149,22 @@ the motion-v surface under `frontend/web/src/ui/motion/`.
 supplied movement keys into one ordered native transform effect and keeps
 opacity in its own native effect. Its happy-dom tests inspect native
 `KeyframeEffect` endpoints, computed offsets, timing duration and easing, and
-the running state before an effect is finished or paused. They also cover
+the running state before an effect is finished or cancelled. They also cover
 owned-style cleanup, cancellation, replacement, stale completions, reduced
 motion, independent elements, and unrelated native animations. The named
 cases live in `frontend/web/src/ui/motion/useMotionFeedback.test.ts`:
 
 - `compiles typed pairs into ordered native effects with deterministic timing`
 - `compiles only supplied transform keys and keeps opacity in a separate effect`
+- `leaves a later write to an owned property untouched after every terminal path`
 - `cancels and restores synchronously before replacing a play, through the next frame and completion`
+- `cancels into a play and keeps the original transform through the next frame and completion`
+- `resizes into a play and keeps the original transform through the next frame and completion`
 - `ignores a stale completion queued before replacement`
+- `ends a replacement play through cancel, resize, preference, config, and unmount`
 - `filters reduced movement, keeps reduced fades native, and restores their baseline`
+- `preserves a transform changed during an opacity-only play and unrelated native animations`
+- `removes movement under an always preference without the query and cancels a movement-only play`
 - `keeps two elements independent and leaves unrelated native animations alive`
 
 Component coverage is in `frontend/web/src/components/ThemeSwitcher.test.ts`
@@ -172,6 +178,8 @@ and `frontend/web/src/FleetView.motion.test.ts`. ThemeSwitcher covers:
 
 FleetView covers:
 
+- `leaves the nav opacity untouched when expanding at desktop width`
+- `fades the pane scope when the tenant or site changes`
 - `fades nav on expand below desktop width and restores inline opacity`
 - `replaces mobile expand fades within one turn`
 - `restores and replays a mobile fade after resize`
@@ -205,12 +213,33 @@ clicks. agent-browser clicks with real pointer events.
 
 happy-dom runs no layout and loads no app CSS. Stub
 `HTMLElement.prototype.getBoundingClientRect` when a test needs geometry for
-layout or positional motion. Do not mock motion-v. A file that mounts
-`UiMotion` or `UiMotionConfig` installs its reduced-motion `matchMedia` stub
-before the first mount, because motion-dom keeps the first media query it
-reads. Keep normal-motion cases in a file without that stub. A file that only
-mounts `useMotionFeedback` can exercise both modes because the composable
-reads the query on each mount.
+layout or positional motion. Do not mock motion-v.
+
+A mounted `UiMotion` element reads the reduced-motion query through motion-dom
+once per test file. The first element whose config needs the dynamic value
+calls `initPrefersReducedMotion`, and the `change` listener binds to the
+`MediaQueryList` that call returned
+(`motion-dom/dist/es/render/VisualElement.mjs:205-216` and
+`motion-dom/dist/es/render/utils/reduced-motion/index.mjs:4-13`, under
+`frontend/web/node_modules/.pnpm/motion-dom@13.4.5/node_modules/`). A stub
+installed after that first mount cannot select the path, so a file that mounts
+`UiMotion` installs its reduced-motion `matchMedia` stub before the first
+mount. `UiMotionConfig` reads no query, so it mounts without a stub.
+
+A file can hold both modes anyway. Its stub returns the same `MediaQueryList`
+for a query, and the reduced-motion case flips `matches` and dispatches
+`change` on it, as `frontend/web/src/FleetView.motion.test.ts` does. A file
+that only mounts `useMotionFeedback` can also hold both modes, because the
+composable reads the query on each mount.
+
+Layout animation needs a controlled clock. motion's frame loop stamps each
+frame from `performance.now()`
+(`motion-dom/dist/es/frameloop/batcher.mjs:22-24`), so
+`FleetView.motion.test.ts`, `UiMotion.test.ts`, and `UiMotion.reduced.test.ts`
+install a mocked `performance.now` before the mount and advance it
+(`installMotionClock`, `advanceMotion`). A fixed wall-clock wait is not
+reliable: on a loaded host the 140 ms layout animation can finish before the
+test samples.
 
 Reduced motion keeps feedback fades in `useMotionFeedback` and removes
 movement. `UiMotion` layout and positional animations end immediately with no
