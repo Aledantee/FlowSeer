@@ -52,7 +52,12 @@ interface TerminalPath {
   // a finished promise, and its titles say what restores the styles.
   readonly synchronous: boolean
   readonly mountOptions?: MountOptions
+  // The path ends with reduced motion on, so its snapshot play and any play
+  // the path starts own opacity alone.
   readonly reduced?: boolean
+  // The row's first play runs under reduced motion, so it owns opacity alone
+  // and the harness checks the keys it really owns, not the set's declared ones.
+  readonly startsReduced?: boolean
   readonly terminate: (
     mounted: MountedFeedback,
     owned: OwnedSet,
@@ -187,12 +192,7 @@ function nextFrame() {
 // motion-dom captures requestAnimationFrame when its frame loop module loads,
 // so a wait on the global frame alone does not prove motion's batch has run.
 // The frame-batch invariant waits on motion's own postRender step, which runs
-// after every render and postRender callback queued before it, then one global
-// frame, then a zero-delay timer. happy-dom groups zero-delay timeouts and
-// fires them in queue order (happy-dom/lib/window/BrowserWindow.js:1942-1975),
-// so that last wait runs after every timer a path queued before it. The
-// invariant therefore bounds all restores and writes queued through the next
-// frame batch and one timer.
+// after every render and postRender callback queued before it.
 function motionFrameBatch() {
   return new Promise<void>((resolve) => frame.postRender(() => resolve()))
 }
@@ -200,8 +200,13 @@ function motionFrameBatch() {
 async function settleFrames() {
   await motionFrameBatch()
   await nextFrame()
-  // Not a duration: happy-dom groups zero-delay timeouts and fires them in
-  // queue order, so this boundary runs every timer a path queued before it.
+  // Vitest's happy-dom environment runs Node's timers here, not happy-dom's
+  // zero-delay grouping. Node keeps one list per delay, appends each new timer
+  // to it, and drains the list from the head (lib/internal/timers.js, insert
+  // ends with L.append(list, item) and listOnTimeout loops on L.peek(list)). A
+  // zero-delay timer queued after a path's zero-delay timer therefore runs
+  // after it, so this boundary bounds the restores and writes the path queued
+  // with no delay. A timer the path queues with another delay is not bounded.
   await new Promise<void>((resolve) => setTimeout(resolve, 0))
 }
 
@@ -237,6 +242,17 @@ const nextKeyframes: Record<string, PlayKeyframes> = {
   opacity: { opacity: [0.6, 1] },
   transform: { y: [-4, 0] },
   both: { opacity: [0.6, 1], y: [-4, 0] },
+}
+
+// Mini stops a same-key predecessor itself
+// (framer-motion/dist/es/animation/animators/waapi/animate-elements.mjs:56-59),
+// so a same-key replacement cannot show the composable's cancel. A
+// single-property play is replaced on the other property, where only that
+// cancel stops the first play's native animation.
+const replacementKeyframes: Record<string, PlayKeyframes> = {
+  opacity: nextKeyframes.transform as PlayKeyframes,
+  transform: nextKeyframes.opacity as PlayKeyframes,
+  both: nextKeyframes.both as PlayKeyframes,
 }
 
 const writtenOffBaseline = { opacity: '0.11', transform: 'translateY(-99px)' }
@@ -403,7 +419,11 @@ const terminalPaths: readonly TerminalPath[] = [
     name: 'a replacement play while the first is still running',
     synchronous: true,
     terminate: (mounted, owned) => {
-      mounted.feedback.play(mounted.element, nextKeyframes[owned.name], 0.24)
+      mounted.feedback.play(
+        mounted.element,
+        replacementKeyframes[owned.name] as PlayKeyframes,
+        0.24,
+      )
     },
   },
   {
@@ -421,6 +441,7 @@ const terminalPaths: readonly TerminalPath[] = [
     synchronous: true,
     mountOptions: { reducedMotion: 'always' },
     reduced: true,
+    startsReduced: true,
     terminate: (mounted) => {
       mounted.feedback.play(mounted.element, { y: [-10, 0] })
     },
@@ -430,8 +451,6 @@ const terminalPaths: readonly TerminalPath[] = [
     exempt: (_invariant, owned) => {
       if (owned.name === 'transform')
         return 'reduced motion drops movement, so the play creates no animation at all'
-      if (owned.name === 'both')
-        return 'the reduced mount drops movement, so the play owns opacity alone'
       return undefined
     },
   },
@@ -445,7 +464,7 @@ const invariants = [
   {
     id: 'later-write',
     title:
-      'keeps a later write to an owned property through the next frame batch and the queued timer',
+      'keeps a later write to an owned property through the next frame batch and a zero-delay timer',
   },
   {
     id: 'snapshot',
@@ -499,9 +518,15 @@ function registerTerminalCases(
         : `${invariantTitle} (exempt: ${exemption})`
     register(title, async () => {
       const mounted = mountFeedback(path.mountOptions)
-      const created = startPlay(mounted, owned, baseline)
-      writeOwnedOffBaseline(mounted, owned, path)
-      for (const key of owned.keys)
+      // A play that starts under reduced motion owns opacity alone, whatever
+      // the set declares. Transform is unowned there, so the harness writes it
+      // off baseline during the play and reads its later value after the path.
+      const actualOwned: OwnedSet = path.startsReduced
+        ? { ...owned, keys: owned.keys.filter((key) => key === 'opacity') }
+        : owned
+      const created = startPlay(mounted, actualOwned, baseline)
+      writeOwnedOffBaseline(mounted, actualOwned, path)
+      for (const key of actualOwned.keys)
         expect(mounted.element.style[key]).not.toBe(baseline[key])
 
       const ended = path.terminate(mounted, owned)
@@ -511,10 +536,11 @@ function registerTerminalCases(
         await ended
       }
       path.afterPath?.(mounted, owned)
+      expect(mounted.feedback.reduced.value).toBe(path.reduced ?? false)
 
       if (invariant.id === 'restore') {
-        expectOwnedValues(mounted.element, owned, baseline)
-        expectUnownedValuesKept(mounted.element, owned)
+        expectOwnedValues(mounted.element, actualOwned, baseline)
+        expectUnownedValuesKept(mounted.element, actualOwned)
         expect(
           created.every((animation) => animation.playState !== 'running'),
         ).toBe(true)
@@ -522,15 +548,15 @@ function registerTerminalCases(
       }
 
       if (invariant.id === 'later-write') {
-        for (const key of owned.keys)
+        for (const key of actualOwned.keys)
           mounted.element.style[key] = writtenAfterPath[key]
         await settleFrames()
-        for (const key of owned.keys)
+        for (const key of actualOwned.keys)
           expect(mounted.element.style[key]).toBe(writtenAfterPath[key])
         return
       }
 
-      const nextOwnedKeys = owned.keys.filter(
+      const nextOwnedKeys = actualOwned.keys.filter(
         (key) => !path.reduced || key === 'opacity',
       )
       const previous = [...mounted.element.getAnimations()]

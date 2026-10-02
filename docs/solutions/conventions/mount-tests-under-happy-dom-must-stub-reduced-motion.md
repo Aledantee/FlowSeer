@@ -86,7 +86,9 @@ so a `change` after the mount reaches only elements mounted afterwards.
 (`frontend/web/node_modules/motion-v/dist/es/animation/hooks/use-reduced-motion.mjs:4`)
 and re-reads it per mount.
 `frontend/web/src/FleetView.motion.test.ts` dispatches `change` on the `reduce`
-object (`:204-206`, `:278-280`). Its reduced-motion case asserts
+object in `stops layout transforms after the user enables reduced motion` and
+`leaves the nav opacity untouched when expanding at desktop width`. Its
+reduced-motion case asserts
 `FleetView.vue`'s own gate, which skips the layout bump when the composable
 reports reduced (`toggleSidebar`), not `UiMotion`'s reduced layout path. A file
 that only mounts the composable can hold both modes for the same reason.

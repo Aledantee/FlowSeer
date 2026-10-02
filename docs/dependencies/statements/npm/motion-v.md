@@ -10,7 +10,7 @@ approved: 2026-10-02
 
 ## Why it is required
 
-`frontend/web/src/ui/motion/index.ts:1` imports `Motion` and `MotionConfig` from `motion-v` and exports them as `UiMotion` and `UiMotionConfig`. `frontend/web/src/ui/motion/useMotionFeedback.ts:1-7` imports `animateMini`, `frame`, `useMotionConfig`, and `useReducedMotion` from the same package. The pinned direct requirement is `motion-v` at `2.5.1` in `frontend/web/package.json`.
+`frontend/web/src/ui/motion/index.ts:1` imports `Motion` and `MotionConfig` from `motion-v` and exports them as `UiMotion` and `UiMotionConfig`. `frontend/web/src/ui/motion/useMotionFeedback.ts:1-6` imports `animateMini`, `useMotionConfig`, and `useReducedMotion` from the same package. The pinned direct requirement is `motion-v` at `2.5.1` in `frontend/web/package.json`.
 
 ## Why it is safe
 
