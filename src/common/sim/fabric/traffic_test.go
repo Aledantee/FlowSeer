@@ -572,7 +572,7 @@ func TestIngressPolicerDropsBeforeForwarding(t *testing.T) {
 		t.Fatal("policed drop has no forwarding result")
 	}
 	wantStep := trace.Step{
-		Layer:   traffic.Layer,
+		Layer:   traffic.LayerName,
 		Op:      trace.OpDrop,
 		RuleID:  traffic.RulePolicerRefuse,
 		Subject: trace.Subject{Kind: "port", Key: "1/1/1"},

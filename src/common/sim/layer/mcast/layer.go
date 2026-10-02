@@ -17,6 +17,17 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
+// LayerName identifies multicast snooping decisions.
+const LayerName trace.Layer = "mcast"
+
+// Rule constants produced by mcast.
+const (
+	RuleControlUnsupported trace.RuleID = "mcast.control.unsupported"
+	RuleControlBad         trace.RuleID = "mcast.control.bad"
+	RuleControlAdmit       trace.RuleID = "mcast.control.admit"
+	RuleGroupMembers       trace.RuleID = "group-members"
+)
+
 const (
 	// ReasonUnregistered indicates that flooding is disabled and no egress exists for an unregistered group.
 	ReasonUnregistered trace.Reason = "unregistered"

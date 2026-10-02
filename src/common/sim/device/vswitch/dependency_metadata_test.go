@@ -293,7 +293,7 @@ func TestForwardingMetadataIncludesOnlyConsultedProtocolScope(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "routed", AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "bridged", AdminStatus: port.Up, OperStatus: port.Up}))
-	stpScope := analysis.ProtocolScope("sw1", string(port.LayerSTP), "0")
+	stpScope := analysis.ProtocolScope("sw1", string(stp.LayerName), "0")
 	catalog, ref := analysis.EvidenceCatalog{}.Add(analysis.Evidence{
 		Kind:    "snapshot",
 		Origin:  "inventory",

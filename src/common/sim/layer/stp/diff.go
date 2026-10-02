@@ -8,7 +8,6 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -131,7 +130,7 @@ func Diff(a, b Config) []trace.Change {
 
 	var changes []trace.Change
 
-	layer := port.LayerSTP
+	layer := LayerName
 
 	if a.Address != b.Address {
 		changes = append(changes, trace.Change{
@@ -326,7 +325,7 @@ func Diff(a, b Config) []trace.Change {
 // diffMST computes the differences between two normalized MST region
 // configurations: name, revision, and maximum hop count at the region level,
 // then each instance's priority, VLAN membership, and per-port settings.
-func diffMST(a, b MST, layer port.Layer) []trace.Change {
+func diffMST(a, b MST, layer trace.Layer) []trace.Change {
 	var changes []trace.Change
 
 	bridge := trace.Subject{Kind: "bridge", Key: ""}
@@ -386,7 +385,7 @@ func diffMST(a, b MST, layer port.Layer) []trace.Change {
 
 // diffMSTInstance computes the differences between two normalized MST
 // instances identified by key (the MSTID as a decimal string).
-func diffMSTInstance(a, b Instance, key string, layer port.Layer) []trace.Change {
+func diffMSTInstance(a, b Instance, key string, layer trace.Layer) []trace.Change {
 	var changes []trace.Change
 
 	subject := trace.Subject{Kind: "mst_instance", Key: key}
@@ -449,7 +448,7 @@ func diffMSTInstance(a, b Instance, key string, layer port.Layer) []trace.Change
 // diffPVST computes the differences between two normalized PVST
 // configurations: each VLAN's tree added, removed, or changed in priority
 // and per-port settings, walked in VLAN ID order.
-func diffPVST(a, b PVST, layer port.Layer) []trace.Change {
+func diffPVST(a, b PVST, layer trace.Layer) []trace.Change {
 	var changes []trace.Change
 
 	for _, vid := range sortedVLANIDs(a.Trees) {
@@ -488,7 +487,7 @@ func diffPVST(a, b PVST, layer port.Layer) []trace.Change {
 
 // diffPVSTTree computes the differences between two normalized PVST trees
 // identified by key (the VLAN ID as a decimal string).
-func diffPVSTTree(a, b Tree, key string, layer port.Layer) []trace.Change {
+func diffPVSTTree(a, b Tree, key string, layer trace.Layer) []trace.Change {
 	var changes []trace.Change
 
 	subject := trace.Subject{Kind: "pvst_tree", Key: key}

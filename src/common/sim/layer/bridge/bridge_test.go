@@ -2098,7 +2098,7 @@ func TestBoundedTableEvictsOldestDynamicEntry(t *testing.T) {
 
 	foundEvictedStep := false
 	for _, step := range resC.Steps {
-		if step.Layer == port.LayerRelay && step.Op == trace.OpLearn && step.RuleID == "evict" && step.Subject.Key == macA.String() {
+		if step.Layer == bridge.LayerName && step.Op == trace.OpLearn && step.RuleID == "evict" && step.Subject.Key == macA.String() {
 			foundEvictedStep = true
 			break
 		}
@@ -2285,7 +2285,7 @@ func TestDiffReportsMaxEntriesChange(t *testing.T) {
 		t.Fatalf("Diff returned %d changes, want 1", len(changes))
 	}
 	ch := changes[0]
-	if ch.Field != "max_entries" || ch.From != bridge.IntFact(0) || ch.To != bridge.IntFact(2) || ch.Layer != port.LayerRelay {
+	if ch.Field != "max_entries" || ch.From != bridge.IntFact(0) || ch.To != bridge.IntFact(2) || ch.Layer != bridge.LayerName {
 		t.Errorf("Diff change = %+v, want max_entries From: 0 To: 2 at LayerRelay", ch)
 	}
 }
@@ -2337,7 +2337,7 @@ func TestFloodVLANFloodsWithoutLearning(t *testing.T) {
 
 	foundLookupStep := false
 	for _, step := range resB.Steps {
-		if step.Layer == port.LayerRelay && step.Op == trace.OpLookup && step.RuleID == "flood-vlan" {
+		if step.Layer == bridge.LayerName && step.Op == trace.OpLookup && step.RuleID == "flood-vlan" {
 			foundLookupStep = true
 			break
 		}
@@ -2558,7 +2558,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 			t.Fatalf("len(changes) = %d, want 1", len(changes))
 		}
 		ch := changes[0]
-		if ch.Field != "flood_vlans" || ch.Layer != port.LayerRelay {
+		if ch.Field != "flood_vlans" || ch.Layer != bridge.LayerName {
 			t.Errorf("change = %+v, want flood_vlans at LayerRelay", ch)
 		}
 		wantFrom := []vlan.ID{10, 20}
@@ -2584,7 +2584,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 			t.Fatalf("len(changes) = %d, want 1", len(changes))
 		}
 		ch := changes[0]
-		if ch.Field != "protected_ports" || ch.Layer != port.LayerRelay {
+		if ch.Field != "protected_ports" || ch.Layer != bridge.LayerName {
 			t.Errorf("change = %+v, want protected_ports at LayerRelay", ch)
 		}
 		wantFrom := []string{"1/1/1", "1/1/2"}
@@ -2602,7 +2602,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 			t.Fatalf("len(changes) = %d, want 1", len(changes))
 		}
 		ch := changes[0]
-		if ch.Field != "forward_bpdu" || ch.From != bridge.BoolFact(false) || ch.To != bridge.BoolFact(true) || ch.Layer != port.LayerRelay {
+		if ch.Field != "forward_bpdu" || ch.From != bridge.BoolFact(false) || ch.To != bridge.BoolFact(true) || ch.Layer != bridge.LayerName {
 			t.Errorf("change = %+v, want forward_bpdu From: false To: true at LayerRelay", ch)
 		}
 	})
@@ -2955,7 +2955,7 @@ func TestDiffTunnelAndPriorityTags(t *testing.T) {
 			t.Fatalf("len(changes) = %d, want 1", len(changes))
 		}
 		ch := changes[0]
-		if ch.Field != "tunnel" || ch.Layer != port.LayerVLAN {
+		if ch.Field != "tunnel" || ch.Layer != bridge.LayerNameVLAN {
 			t.Errorf("change = %+v, want field tunnel at LayerVLAN", ch)
 		}
 		if ch.From != nil {
@@ -3187,7 +3187,7 @@ func TestGroupResolverSelectsReplicationPorts(t *testing.T) {
 			"1/1/4": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
 		},
 	}}, ports)
-	br.SetGroupResolver(testGroupResolver{ports: []string{"1/1/2", "1/1/4"}, decided: true}, analysis.ProtocolScope("sw1", "mcast", "0"))
+	br.SetGroupResolver(testGroupResolver{ports: []string{"1/1/2", "1/1/4"}, decided: true}, analysis.ProtocolScope("sw1", "mcast", "0"), "mcast", "group-members")
 
 	res := br.Forward(testTime0, "1/1/1", ethernet.Frame{
 		Dst:       netaddr.MAC{0x01, 0x00, 0x5e, 0x01, 0x01, 0x01},
@@ -3214,7 +3214,7 @@ func TestGroupResolverSelectsReplicationPorts(t *testing.T) {
 
 func TestGroupResolverEmptyDecisionUsesUnregisteredReason(t *testing.T) {
 	br := mustNewBridge(t, bridge.Config{}, buildTestPorts(t, 2))
-	br.SetGroupResolver(testGroupResolver{decided: true}, analysis.ProtocolScope("sw1", "mcast", "0"))
+	br.SetGroupResolver(testGroupResolver{decided: true}, analysis.ProtocolScope("sw1", "mcast", "0"), "mcast", "group-members")
 
 	res := br.Forward(testTime0, "1/1/1", ethernet.Frame{
 		Dst: netaddr.MAC{0x01, 0x00, 0x5e, 0x02, 0x02, 0x02},

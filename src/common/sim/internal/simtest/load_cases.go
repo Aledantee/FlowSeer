@@ -187,7 +187,7 @@ func loadForwardSteps() []StepExpectation {
 func CasePlanningOversubscribedTrunkStatedBuffer() Case {
 	buffer := uint64(1518)
 	queueFact := NewFactExpectation(traffic.QueueDropFact(1018, buffer, 1018))
-	steps := append(loadForwardSteps(), expectedStep(traffic.Layer, trace.OpDrop, traffic.RuleQueueDrop,
+	steps := append(loadForwardSteps(), expectedStep(traffic.LayerName, trace.OpDrop, traffic.RuleQueueDrop,
 		trace.Subject{Kind: "port", Key: "1/1/2/0"}, []FactExpectation{queueFact}, nil))
 	return Case{
 		ID: "planning/oversubscribed-trunk-stated-buffer", UseCase: UseCasePlanning,
@@ -209,7 +209,7 @@ func CasePlanningOversubscribedTrunkUnstatedBuffer() Case {
 	context := `rule="traffic.queue.buffer-unstated";physical_node="sw1";physical_port="1/1/2";egress_port="1/1/2";pcp=0;frame_id=3;at="1970-01-01T00:00:00.000208304Z";depth_before_octets=1018;frame_octets=1018;threshold_octets=1518`
 	catalog, ref := analysis.EvidenceCatalog{}.Add(analysis.Evidence{Kind: "fabric.runtime", Origin: "egress-queue", Context: context})
 	queueFact := NewFactExpectation(traffic.QueueThresholdFact(1018, 1018, 1518))
-	queueStep := expectedStep(traffic.Layer, trace.OpQueue, traffic.RuleQueueBufferUnstated,
+	queueStep := expectedStep(traffic.LayerName, trace.OpQueue, traffic.RuleQueueBufferUnstated,
 		trace.Subject{Kind: "port", Key: "1/1/2/0"}, []FactExpectation{queueFact}, nil)
 	queueStep.Evidence = []trace.EvidenceRef{ref}
 	steps := append(loadForwardSteps(), queueStep,
@@ -253,7 +253,7 @@ func CasePlanningPolicedStream() Case {
 		ExpectedRules:    []trace.RuleID{traffic.RulePolicerRefuse},
 		ExpectedSubjects: []trace.Subject{{Kind: "port", Key: "1/1/1"}},
 		ExpectedFacts:    []FactExpectation{policerFact},
-		ExpectedSteps: []StepExpectation{expectedStep(traffic.Layer, trace.OpDrop, traffic.RulePolicerRefuse,
+		ExpectedSteps: []StepExpectation{expectedStep(traffic.LayerName, trace.OpDrop, traffic.RulePolicerRefuse,
 			trace.Subject{Kind: "port", Key: "1/1/1"}, nil, []FactExpectation{policerFact})},
 		Execute: func() (ExecutionResult, error) { return executeLoadCase(nil, true, traffic.RulePolicerRefuse) },
 	}

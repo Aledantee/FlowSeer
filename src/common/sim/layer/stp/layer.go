@@ -13,6 +13,20 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
+)
+
+// LayerName identifies the Rapid Spanning Tree Protocol layer.
+const LayerName trace.Layer = "stp"
+
+// Rule constants produced by stp.
+const (
+	RuleBPDUAdmit           trace.RuleID = "stp.bpdu.admit"
+	RuleSSTPVLANNotAdmitted trace.RuleID = "stp.sstp.vlan-not-admitted"
+	RuleSSTPVLANUntracked   trace.RuleID = "stp.sstp.vlan-untracked"
+	RuleSSTPAdmit           trace.RuleID = "stp.sstp.admit"
+	RuleBPDUPrefix                       = "stp.bpdu."
+	RuleSSTPPrefix                       = "stp.sstp."
 )
 
 // BlockReason names the guard holding a port out of the active topology. The

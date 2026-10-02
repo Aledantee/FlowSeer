@@ -10,7 +10,6 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -253,7 +252,7 @@ func Diff(a, b Config) []trace.Change {
 		switch {
 		case inA && !inB:
 			changes = append(changes, trace.Change{
-				Layer: port.LayerRouting,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "vrf",
 					Key:  vrfName,
@@ -264,7 +263,7 @@ func Diff(a, b Config) []trace.Change {
 			})
 		case !inA && inB:
 			changes = append(changes, trace.Change{
-				Layer: port.LayerRouting,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "vrf",
 					Key:  vrfName,
@@ -295,7 +294,7 @@ func Diff(a, b Config) []trace.Change {
 				switch {
 				case ifInA && !ifInB:
 					changes = append(changes, trace.Change{
-						Layer:   port.LayerRouting,
+						Layer:   LayerName,
 						Subject: trace.Subject{Kind: "interface", Key: key},
 						Field:   "",
 						From:    snapshotInterface(ifA),
@@ -303,7 +302,7 @@ func Diff(a, b Config) []trace.Change {
 					})
 				case !ifInA && ifInB:
 					changes = append(changes, trace.Change{
-						Layer:   port.LayerRouting,
+						Layer:   LayerName,
 						Subject: trace.Subject{Kind: "interface", Key: key},
 						Field:   "",
 						From:    nil,
@@ -312,7 +311,7 @@ func Diff(a, b Config) []trace.Change {
 				case ifInA && ifInB:
 					if ifA.VLAN != ifB.VLAN {
 						changes = append(changes, trace.Change{
-							Layer:   port.LayerRouting,
+							Layer:   LayerName,
 							Subject: trace.Subject{Kind: "interface", Key: key},
 							Field:   "vlan",
 							From:    VLANFact(ifA.VLAN),
@@ -321,7 +320,7 @@ func Diff(a, b Config) []trace.Change {
 					}
 					if ifA.Port != ifB.Port {
 						changes = append(changes, trace.Change{
-							Layer:   port.LayerRouting,
+							Layer:   LayerName,
 							Subject: trace.Subject{Kind: "interface", Key: key},
 							Field:   "port",
 							From:    PortFact(ifA.Port),
@@ -330,7 +329,7 @@ func Diff(a, b Config) []trace.Change {
 					}
 					if ifA.MAC != ifB.MAC {
 						changes = append(changes, trace.Change{
-							Layer:   port.LayerRouting,
+							Layer:   LayerName,
 							Subject: trace.Subject{Kind: "interface", Key: key},
 							Field:   "mac",
 							From:    MACFact(ifA.MAC),
@@ -339,7 +338,7 @@ func Diff(a, b Config) []trace.Change {
 					}
 					if !slices.Equal(ifA.Prefixes, ifB.Prefixes) {
 						changes = append(changes, trace.Change{
-							Layer:   port.LayerRouting,
+							Layer:   LayerName,
 							Subject: trace.Subject{Kind: "interface", Key: key},
 							Field:   "prefixes",
 							From:    PrefixesFact(slices.Clone(ifA.Prefixes)),
@@ -386,7 +385,7 @@ func Diff(a, b Config) []trace.Change {
 				switch {
 				case rInA && !rInB:
 					changes = append(changes, trace.Change{
-						Layer:   port.LayerRouting,
+						Layer:   LayerName,
 						Subject: trace.Subject{Kind: "route", Key: key},
 						Field:   "",
 						From:    rA,
@@ -394,7 +393,7 @@ func Diff(a, b Config) []trace.Change {
 					})
 				case !rInA && rInB:
 					changes = append(changes, trace.Change{
-						Layer:   port.LayerRouting,
+						Layer:   LayerName,
 						Subject: trace.Subject{Kind: "route", Key: key},
 						Field:   "",
 						From:    nil,
@@ -403,7 +402,7 @@ func Diff(a, b Config) []trace.Change {
 				case rInA && rInB:
 					if rA.Preference != rB.Preference {
 						changes = append(changes, trace.Change{
-							Layer:   port.LayerRouting,
+							Layer:   LayerName,
 							Subject: trace.Subject{Kind: "route", Key: key},
 							Field:   "preference",
 							From:    RoutePreferenceFact(rA.Preference),
@@ -412,7 +411,7 @@ func Diff(a, b Config) []trace.Change {
 					}
 					if rA.Metric != rB.Metric {
 						changes = append(changes, trace.Change{
-							Layer:   port.LayerRouting,
+							Layer:   LayerName,
 							Subject: trace.Subject{Kind: "route", Key: key},
 							Field:   "metric",
 							From:    RouteMetricFact(rA.Metric),
@@ -456,7 +455,7 @@ func Diff(a, b Config) []trace.Change {
 				switch {
 				case nInA && !nInB:
 					changes = append(changes, trace.Change{
-						Layer:   port.LayerRouting,
+						Layer:   LayerName,
 						Subject: trace.Subject{Kind: "neighbor", Key: key},
 						Field:   "",
 						From:    nA,
@@ -464,7 +463,7 @@ func Diff(a, b Config) []trace.Change {
 					})
 				case !nInA && nInB:
 					changes = append(changes, trace.Change{
-						Layer:   port.LayerRouting,
+						Layer:   LayerName,
 						Subject: trace.Subject{Kind: "neighbor", Key: key},
 						Field:   "",
 						From:    nil,
@@ -473,7 +472,7 @@ func Diff(a, b Config) []trace.Change {
 				case nInA && nInB:
 					if nA.MAC != nB.MAC {
 						changes = append(changes, trace.Change{
-							Layer:   port.LayerRouting,
+							Layer:   LayerName,
 							Subject: trace.Subject{Kind: "neighbor", Key: key},
 							Field:   "mac",
 							From:    MACFact(nA.MAC),
@@ -486,7 +485,7 @@ func Diff(a, b Config) []trace.Change {
 			policySubject := trace.Subject{Kind: "neighbor-policy", Key: vrfName}
 			if aVRF.NeighborPolicy.Mode != bVRF.NeighborPolicy.Mode {
 				changes = append(changes, trace.Change{
-					Layer:   port.LayerRouting,
+					Layer:   LayerName,
 					Subject: policySubject,
 					Field:   "mode",
 					From:    NeighborModeFact(aVRF.NeighborPolicy.Mode),
@@ -495,7 +494,7 @@ func Diff(a, b Config) []trace.Change {
 			}
 			if aVRF.NeighborPolicy.ReachableTime != bVRF.NeighborPolicy.ReachableTime {
 				changes = append(changes, trace.Change{
-					Layer:   port.LayerRouting,
+					Layer:   LayerName,
 					Subject: policySubject,
 					Field:   "reachable_time",
 					From:    ReachableTimeFact(aVRF.NeighborPolicy.ReachableTime),
@@ -504,7 +503,7 @@ func Diff(a, b Config) []trace.Change {
 			}
 			if aVRF.NeighborPolicy.ResolutionTimeout != bVRF.NeighborPolicy.ResolutionTimeout {
 				changes = append(changes, trace.Change{
-					Layer:   port.LayerRouting,
+					Layer:   LayerName,
 					Subject: policySubject,
 					Field:   "resolution_timeout",
 					From:    ResolutionTimeoutFact(aVRF.NeighborPolicy.ResolutionTimeout),
@@ -513,7 +512,7 @@ func Diff(a, b Config) []trace.Change {
 			}
 			if aVRF.NeighborPolicy.HoldDepth != bVRF.NeighborPolicy.HoldDepth {
 				changes = append(changes, trace.Change{
-					Layer:   port.LayerRouting,
+					Layer:   LayerName,
 					Subject: policySubject,
 					Field:   "hold_depth",
 					From:    HoldDepthFact(aVRF.NeighborPolicy.HoldDepth),

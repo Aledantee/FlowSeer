@@ -4,7 +4,15 @@ package phy
 
 import (
 	"slices"
+
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+// LayerName identifies the physical Ethernet speeds and auto-negotiation layer.
+const LayerName trace.Layer = "ethernet"
+
+// LayerNamePoE identifies the Power over Ethernet layer.
+const LayerNamePoE trace.Layer = "poe"
 
 // Config is the physical-layer configuration of a virtual switch, keyed by
 // port name. A nil Ethernet map is the Ethernet capability absent; a nil PoE

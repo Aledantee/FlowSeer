@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -166,7 +165,7 @@ func snapshotLAG(l LAG) lagSnapshotFact {
 // context by normalizing each configuration before calling Diff.
 func Diff(a, b Config) []trace.Change {
 	var changes []trace.Change
-	layer := port.LayerLAG
+	layer := LayerName
 
 	for _, lagName := range sortedKeys(a.LAGs) {
 		aLag := a.LAGs[lagName]

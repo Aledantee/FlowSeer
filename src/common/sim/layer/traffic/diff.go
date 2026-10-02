@@ -175,14 +175,14 @@ func Diff(a, b Config) []trace.Change {
 		bm, inB := bMirrors[name]
 		if !inA {
 			changes = append(changes, trace.Change{
-				Layer: Layer, Subject: trace.Subject{Kind: "mirror", Key: name}, Field: "", From: nil, To: snapshotMirror(bm),
+				Layer: LayerName, Subject: trace.Subject{Kind: "mirror", Key: name}, Field: "", From: nil, To: snapshotMirror(bm),
 			})
 
 			continue
 		}
 		if !inB {
 			changes = append(changes, trace.Change{
-				Layer: Layer, Subject: trace.Subject{Kind: "mirror", Key: name}, Field: "", From: snapshotMirror(am), To: nil,
+				Layer: LayerName, Subject: trace.Subject{Kind: "mirror", Key: name}, Field: "", From: snapshotMirror(am), To: nil,
 			})
 
 			continue
@@ -197,12 +197,12 @@ func Diff(a, b Config) []trace.Change {
 		subject := trace.Subject{Kind: "port", Key: name}
 		if ap.RateBPS != bp.RateBPS {
 			changes = append(changes, trace.Change{
-				Layer: Layer, Subject: subject, Field: "rate", From: RateFact(ap.RateBPS), To: RateFact(bp.RateBPS),
+				Layer: LayerName, Subject: subject, Field: "rate", From: RateFact(ap.RateBPS), To: RateFact(bp.RateBPS),
 			})
 		}
 		if ap.BurstOctets != bp.BurstOctets {
 			changes = append(changes, trace.Change{
-				Layer: Layer, Subject: subject, Field: "burst", From: BurstFact(ap.BurstOctets), To: BurstFact(bp.BurstOctets),
+				Layer: LayerName, Subject: subject, Field: "burst", From: BurstFact(ap.BurstOctets), To: BurstFact(bp.BurstOctets),
 			})
 		}
 	}
@@ -217,13 +217,13 @@ func Diff(a, b Config) []trace.Change {
 			}
 			if aRate, bRate := aQueues.MaxRateBPS[pcp], bQueues.MaxRateBPS[pcp]; aRate != bRate {
 				changes = append(changes, trace.Change{
-					Layer: Layer, Subject: subject, Field: "max_rate",
+					Layer: LayerName, Subject: subject, Field: "max_rate",
 					From: MaxRateFact(aRate), To: MaxRateFact(bRate),
 				})
 			}
 			if aBuffer, bBuffer := aQueues.BufferOctets[pcp], bQueues.BufferOctets[pcp]; aBuffer != bBuffer {
 				changes = append(changes, trace.Change{
-					Layer: Layer, Subject: subject, Field: "buffer_octets",
+					Layer: LayerName, Subject: subject, Field: "buffer_octets",
 					From: QueueBufferFact(aBuffer), To: QueueBufferFact(bBuffer),
 				})
 			}
@@ -237,7 +237,7 @@ func diffMirror(changes []trace.Change, name string, a, b Mirror) []trace.Change
 	subject := trace.Subject{Kind: "mirror", Key: name}
 	appendChange := func(field string, from, to trace.Fact) {
 		changes = append(changes, trace.Change{
-			Layer: Layer, Subject: subject, Field: field, From: from, To: to,
+			Layer: LayerName, Subject: subject, Field: field, From: from, To: to,
 		})
 	}
 

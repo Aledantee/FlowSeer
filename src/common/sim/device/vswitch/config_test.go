@@ -367,7 +367,7 @@ func TestDiffReportsFilterCapabilityChange(t *testing.T) {
 	changes := vswitch.Diff(cfgA, cfgB)
 	found := false
 	for _, ch := range changes {
-		if ch.Layer == port.LayerFilter && ch.Subject.Kind == "capability" && ch.Subject.Key == "filter" {
+		if ch.Layer == filter.LayerName && ch.Subject.Kind == "capability" && ch.Subject.Key == "filter" {
 			found = true
 			if ch.From != nil {
 				t.Errorf("From = %v, want nil", ch.From)

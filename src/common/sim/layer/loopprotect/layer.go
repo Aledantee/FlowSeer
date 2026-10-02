@@ -10,6 +10,16 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
+)
+
+// LayerName identifies netsim's loop-protection layer.
+const LayerName trace.Layer = "loopprotect"
+
+// Rule constants produced by loopprotect.
+const (
+	RuleProbeReturn trace.RuleID = "loopprotect.probe.return"
+	RulePortBlock   trace.RuleID = "loopprotect.port.block"
 )
 
 // Return describes a probe's arrival back at the switch that sent it.

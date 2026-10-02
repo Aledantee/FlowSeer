@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	// Layer identifies traffic configuration changes.
-	Layer trace.Layer = "traffic"
+	// LayerName identifies traffic configuration changes.
+	LayerName trace.Layer = "traffic"
 
 	// RulePolicerRefuse identifies a token-bucket decision that drops an ingress frame.
 	RulePolicerRefuse trace.RuleID = "traffic.policer.refuse"
@@ -23,6 +23,13 @@ const (
 	RuleMirrorCopy trace.RuleID = "traffic.mirror.copy"
 	// RuleMirrorCopyDrop identifies a mirror copy suppressed because its output cannot forward.
 	RuleMirrorCopyDrop trace.RuleID = "traffic.mirror.copy_drop"
+	// RuleMirrorOutputDrop identifies a frame dropped on a mirror output destination.
+	RuleMirrorOutputDrop trace.RuleID = "traffic.mirror.output_drop"
+	// RuleMirrorEgressDrop identifies a mirror frame suppressed by egress checks.
+	RuleMirrorEgressDrop trace.RuleID = "traffic.mirror.egress_drop"
+
+	// FactTypeMirrorDecision identifies a mirror decision fact in trace outputs.
+	FactTypeMirrorDecision = "traffic.mirror_decision"
 
 	// ReasonPoliced identifies a frame refused by an ingress policer.
 	ReasonPoliced trace.Reason = "policed"

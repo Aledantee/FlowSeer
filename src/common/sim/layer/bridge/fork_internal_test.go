@@ -47,6 +47,8 @@ var bridgeFieldClasses = map[string]forkClass{
 	"dynamic":       classDeepCopied,
 	"selector":      classResetOnFork,
 	"resolver":      classResetOnFork,
+	"resolverLayer": classResetOnFork,
+	"resolverRule":  classResetOnFork,
 }
 
 var bridgeDeepCopiedProbes = map[string]func(t *testing.T){
@@ -201,10 +203,10 @@ func newTestBridgeForFork(t *testing.T) *Bridge {
 	if err != nil {
 		t.Fatalf("New bridge: %v", err)
 	}
-	br.SetFDBScope(analysis.ProtocolScope("sw1", string(port.LayerRelay), "0"))
-	br.SetSelector(testSelector{}, analysis.ProtocolScope("sw1", string(port.LayerLAG), "0"))
-	br.SetGroupResolver(testResolver{}, analysis.ProtocolScope("sw1", string(port.LayerMcast), "0"))
-	br.SetGate(testGate{learns: true, forwards: true}, analysis.ProtocolScope("sw1", string(port.LayerSTP), "0"))
+	br.SetFDBScope(analysis.ProtocolScope("sw1", string(LayerName), "0"))
+	br.SetSelector(testSelector{}, analysis.ProtocolScope("sw1", "lag", "0"))
+	br.SetGroupResolver(testResolver{}, analysis.ProtocolScope("sw1", "mcast", "0"), "mcast", "group-members")
+	br.SetGate(testGate{learns: true, forwards: true}, analysis.ProtocolScope("sw1", "stp", "0"))
 
 	// Learn an entry so dynamic and fdb are non-empty.
 	frame := ethernet.Frame{Src: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}, Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}}

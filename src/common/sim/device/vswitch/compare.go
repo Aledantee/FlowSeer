@@ -198,7 +198,7 @@ func mirrorCopies(res ForwardResult) []string {
 		if step.RuleID == traffic.RuleMirrorCopy {
 			desc := step.Subject.Key
 			for _, fact := range step.Outputs {
-				if fact.TypeID() == "traffic.mirror_decision" {
+				if fact.TypeID() == traffic.FactTypeMirrorDecision {
 					desc = fact.Canonical()
 					break
 				}

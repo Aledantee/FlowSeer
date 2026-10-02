@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -134,7 +133,7 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 		be, exists := b[name]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				From:    snapshotEthernet(ae),
 			})
@@ -144,7 +143,7 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 
 		if from, to := settingSpeed(ae), settingSpeed(be); from != to {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "speed_bps",
 				From:    SpeedFact(from),
@@ -153,7 +152,7 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 		}
 		if from, to := settingDuplex(ae), settingDuplex(be); from != to {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "duplex",
 				From:    from,
@@ -162,7 +161,7 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 		}
 		if from, to := settingAutoNegotiation(ae), settingAutoNegotiation(be); from != to {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "auto_negotiation_enabled",
 				From:    BoolFact(from),
@@ -171,7 +170,7 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 		}
 		if !slices.Equal(ae.SupportedSpeedsBPS, be.SupportedSpeedsBPS) {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "supported_speeds_bps",
 				From:    SpeedsFact(ae.SupportedSpeedsBPS),
@@ -180,7 +179,7 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 		}
 		if ae.AutoNegotiationSupported != be.AutoNegotiationSupported {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "auto_negotiation_supported",
 				From:    ae.AutoNegotiationSupported,
@@ -189,7 +188,7 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 		}
 		if from, to := observedSpeed(ae), observedSpeed(be); from != to {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "observed_speed_bps",
 				From:    SpeedFact(from),
@@ -198,7 +197,7 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 		}
 		if from, to := observedDuplex(ae), observedDuplex(be); from != to {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "observed_duplex",
 				From:    from,
@@ -207,7 +206,7 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 		}
 		if from, to := ae.Resolve().Source, be.Resolve().Source; from != to {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "resolve_source",
 				From:    StringFact(from),
@@ -219,7 +218,7 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 	for _, name := range sortedKeys(b) {
 		if _, exists := a[name]; !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				To:      snapshotEthernet(b[name]),
 			})
@@ -246,7 +245,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		bg, exists := bGroups[name]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "pse_group", Key: name},
 				From:    ag,
 			})
@@ -255,7 +254,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if ag.PowerNanowatts != bg.PowerNanowatts {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "pse_group", Key: name},
 				Field:   "power_nanowatts",
 				From:    PowerFact(ag.PowerNanowatts),
@@ -266,7 +265,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 	for _, name := range sortedKeys(bGroups) {
 		if _, exists := aGroups[name]; !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "pse_group", Key: name},
 				To:      bGroups[name],
 			})
@@ -278,7 +277,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		bp, exists := bPorts[name]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				From:    snapshotPSEPort(ap),
 			})
@@ -288,7 +287,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 
 		if ap.Group != bp.Group {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "group",
 				From:    StringFact(ap.Group),
@@ -297,7 +296,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if ap.MaxClass != bp.MaxClass {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "max_class",
 				From:    ClassFact(ap.MaxClass),
@@ -306,7 +305,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if ap.Enabled != bp.Enabled {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "enabled",
 				From:    BoolFact(ap.Enabled),
@@ -315,7 +314,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if !equalUint64Ptr(ap.Limit, bp.Limit) {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "power_limit_nanowatts",
 				From:    limitFact(ap.Limit),
@@ -324,7 +323,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if ap.Priority != bp.Priority {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "priority",
 				From:    ap.Priority,
@@ -333,7 +332,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if ap.PD != bp.PD {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "pd",
 				From:    ap.PD,
@@ -342,7 +341,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if !equalUint8Ptr(ap.PDClass, bp.PDClass) {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "pd_class",
 				From:    pdClassFact(ap.PDClass),
@@ -353,7 +352,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 	for _, name := range sortedKeys(bPorts) {
 		if _, exists := aPorts[name]; !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				To:      snapshotPSEPort(bPorts[name]),
 			})

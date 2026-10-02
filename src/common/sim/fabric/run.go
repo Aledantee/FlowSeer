@@ -534,7 +534,7 @@ func (f *Fabric) Step() (Entry, bool) {
 					Outcome: trace.Dropped,
 					Reason:  traffic.ReasonPoliced,
 					Steps: []trace.Step{{
-						Layer:   traffic.Layer,
+						Layer:   traffic.LayerName,
 						Op:      trace.OpDrop,
 						RuleID:  traffic.RulePolicerRefuse,
 						Subject: trace.Subject{Kind: "port", Key: arr.Port},
@@ -980,7 +980,7 @@ func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string,
 					Port:   egressPort,
 					Reason: traffic.ReasonQueueFull,
 					Step: &trace.Step{
-						Layer:   traffic.Layer,
+						Layer:   traffic.LayerName,
 						Op:      trace.OpDrop,
 						RuleID:  traffic.RuleQueueDrop,
 						Subject: trace.Subject{Kind: "port", Key: fmt.Sprintf("%s/%d", egressPort, pcp)},

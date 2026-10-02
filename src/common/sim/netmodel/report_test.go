@@ -231,7 +231,7 @@ func TestLoad_PartialModel_SkipsAndDefaults(t *testing.T) {
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 
 	// Explicitly request only relay layer, skipping switchport/vlan facets
-	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerRelay})
+	res, err := netmodel.Load(now, src, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []trace.Layer{bridge.LayerName})
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}

@@ -343,7 +343,7 @@ func TestMirrorSnapshotFactIsLosslessAndImmutable(t *testing.T) {
 func assertChange(t *testing.T, changes []trace.Change, subject trace.Subject, field string, from, to trace.Fact) {
 	t.Helper()
 	for _, change := range changes {
-		if change.Layer == traffic.Layer && change.Subject == subject && change.Field == field && trace.CompareFact(change.From, from) == 0 && trace.CompareFact(change.To, to) == 0 {
+		if change.Layer == traffic.LayerName && change.Subject == subject && change.Field == field && trace.CompareFact(change.From, from) == 0 && trace.CompareFact(change.To, to) == 0 {
 			return
 		}
 	}

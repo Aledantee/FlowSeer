@@ -2084,14 +2084,14 @@ func CasePlanningECMPCandidatesRecorded() Case {
 		},
 		ExpectedFacts: []FactExpectation{lookup},
 		ExpectedSteps: []StepExpectation{
-			expectedStep(port.LayerRouting, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "in"},
+			expectedStep(routing.LayerName, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "in"},
 				[]FactExpectation{packetIn},
 				[]FactExpectation{expectedFact("routing.route.interface", "in")}),
-			expectedStep(port.LayerRouting, trace.OpLookup, "static", trace.Subject{Kind: "prefix", Key: "10.0.99.0/24"},
+			expectedStep(routing.LayerName, trace.OpLookup, "static", trace.Subject{Kind: "prefix", Key: "10.0.99.0/24"},
 				[]FactExpectation{packetIn}, []FactExpectation{lookup}),
-			expectedStep(port.LayerRouting, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "out-a"},
+			expectedStep(routing.LayerName, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "out-a"},
 				[]FactExpectation{neighbor, packetIn}, []FactExpectation{packetOut}),
-			expectedStep(port.LayerRouting, trace.OpTransmit, "routing.transmit", trace.Subject{Kind: "port", Key: "out-a"},
+			expectedStep(routing.LayerName, trace.OpTransmit, "routing.transmit", trace.Subject{Kind: "port", Key: "out-a"},
 				nil, []FactExpectation{expectedFact("routing.lookup_decision", `interface="out-a";port="out-a";member="";reason=""`)}),
 		},
 		ExpectedForwardMetadata: &MetadataExpectation{
@@ -2200,12 +2200,12 @@ func CaseTroubleshootingNeighborResolutionPending() Case {
 	}.Canonical()
 
 	expectedSteps := []StepExpectation{
-		expectedStep(port.LayerRouting, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "in"},
+		expectedStep(routing.LayerName, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "in"},
 			[]FactExpectation{packetIn},
 			[]FactExpectation{expectedFact("routing.route.interface", "in")}),
-		expectedStep(port.LayerRouting, trace.OpLookup, "connected", trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"},
+		expectedStep(routing.LayerName, trace.OpLookup, "connected", trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"},
 			[]FactExpectation{packetIn}, []FactExpectation{lookup}),
-		expectedStep(port.LayerRouting, trace.OpLookup, trace.RuleID(routing.ReasonNeighborPending), trace.Subject{Kind: "ip", Key: "10.0.20.77"},
+		expectedStep(routing.LayerName, trace.OpLookup, trace.RuleID(routing.ReasonNeighborPending), trace.Subject{Kind: "ip", Key: "10.0.20.77"},
 			[]FactExpectation{lookup}, []FactExpectation{neighborPending}),
 	}
 
@@ -2376,14 +2376,14 @@ func CaseTroubleshootingRecursiveRouteNotInstalled() Case {
 		},
 		ExpectedFacts: []FactExpectation{lookup},
 		ExpectedSteps: []StepExpectation{
-			expectedStep(port.LayerRouting, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "in"},
+			expectedStep(routing.LayerName, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "in"},
 				[]FactExpectation{packetIn},
 				[]FactExpectation{expectedFact("routing.route.interface", "in")}),
-			expectedStep(port.LayerRouting, trace.OpLookup, "static", trace.Subject{Kind: "prefix", Key: "10.0.0.0/8"},
+			expectedStep(routing.LayerName, trace.OpLookup, "static", trace.Subject{Kind: "prefix", Key: "10.0.0.0/8"},
 				[]FactExpectation{packetIn}, []FactExpectation{lookup}),
-			expectedStep(port.LayerRouting, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "out"},
+			expectedStep(routing.LayerName, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "out"},
 				[]FactExpectation{neighbor, packetIn}, []FactExpectation{packetOut}),
-			expectedStep(port.LayerRouting, trace.OpTransmit, "routing.transmit", trace.Subject{Kind: "port", Key: "out"},
+			expectedStep(routing.LayerName, trace.OpTransmit, "routing.transmit", trace.Subject{Kind: "port", Key: "out"},
 				nil, []FactExpectation{expectedFact("routing.lookup_decision", `interface="out";port="out";member="";reason=""`)}),
 		},
 		ExpectedForwardMetadata: &MetadataExpectation{

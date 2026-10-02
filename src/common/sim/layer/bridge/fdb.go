@@ -7,14 +7,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // FDBLookupScope returns the exact construction metadata scope for a forwarding
 // database lookup by filtering database ID and destination MAC address.
 func FDBLookupScope(nodeID string, fid vlan.ID, mac netaddr.MAC) analysis.Scope {
 	return fdbLookupScope(
-		analysis.ProtocolScope(nodeID, string(port.LayerRelay), "0"),
+		analysis.ProtocolScope(nodeID, string(LayerName), "0"),
 		fid,
 		mac,
 	)

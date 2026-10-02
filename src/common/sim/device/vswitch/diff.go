@@ -26,8 +26,8 @@ func (f DeviceMACFact) TypeID() string { return "vswitch.mac" }
 // Canonical returns the MAC address string.
 func (f DeviceMACFact) Canonical() string { return netaddr.MAC(f).String() }
 
-// LayerFact wraps a port.Layer capability as a trace.Fact.
-type LayerFact port.Layer
+// LayerFact wraps a trace.Layer capability as a trace.Fact.
+type LayerFact trace.Layer
 
 // TypeID returns the fact type identifier for LayerFact.
 func (f LayerFact) TypeID() string { return "vswitch.layer" }
@@ -48,7 +48,7 @@ func Diff(a, b Config) []trace.Change {
 
 	if a.MAC != b.MAC {
 		changes = append(changes, trace.Change{
-			Layer:   port.LayerPort,
+			Layer:   port.LayerName,
 			Subject: trace.Subject{Kind: "device", Key: ""},
 			Field:   "mac",
 			From:    DeviceMACFact(a.MAC),
@@ -163,7 +163,7 @@ func diffCapabilities(a, b Config) []trace.Change {
 	aCaps := a.Capabilities()
 	bCaps := b.Capabilities()
 
-	seen := make(map[port.Layer]struct{}, len(aCaps)+len(bCaps))
+	seen := make(map[trace.Layer]struct{}, len(aCaps)+len(bCaps))
 	for _, l := range aCaps {
 		seen[l] = struct{}{}
 	}
@@ -171,7 +171,7 @@ func diffCapabilities(a, b Config) []trace.Change {
 		seen[l] = struct{}{}
 	}
 
-	layers := make([]port.Layer, 0, len(seen))
+	layers := make([]trace.Layer, 0, len(seen))
 	for l := range seen {
 		layers = append(layers, l)
 	}

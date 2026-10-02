@@ -189,7 +189,7 @@ func Load(
 	addrs []*ipv1.InterfaceAddress,
 	neighbors []*ipv1.NeighborEntry,
 	filterSets []*filterv1.FilterRuleSet,
-	want []port.Layer,
+	want []trace.Layer,
 ) (Result, error) {
 	if len(ifaces) == 0 {
 		return Result{}, errs.New().Msg("interface list cannot be empty")
@@ -215,10 +215,10 @@ func Load(
 	portScope := func(portName string) analysis.Scope {
 		return analysis.PortScope(src.DeviceID, portName)
 	}
-	protocolScope := func(layer port.Layer, instance string) analysis.Scope {
+	protocolScope := func(layer trace.Layer, instance string) analysis.Scope {
 		return analysis.ProtocolScope(src.DeviceID, string(layer), instance)
 	}
-	stpScope := protocolScope(port.LayerSTP, "0")
+	stpScope := protocolScope(stp.LayerName, "0")
 	routingScope := routing.VRFScope(src.DeviceID, routing.DefaultVRF)
 	stpPortScope := func(portName string) analysis.Scope {
 		return analysis.FieldScope(stpScope, "ports", portName)
@@ -267,7 +267,7 @@ func Load(
 	}
 
 	report := Report{
-		CapabilitySources: make(map[port.Layer]string),
+		CapabilitySources: make(map[trace.Layer]string),
 	}
 
 	addDefaultAt := func(scope analysis.Scope, portName, field, value string) {
@@ -378,12 +378,12 @@ func Load(
 
 	explicitRequest := len(want) > 0
 	if explicitRequest {
-		requested := make([]port.Layer, 0, len(want))
-		seen := make(map[port.Layer]struct{}, len(want))
+		requested := make([]trace.Layer, 0, len(want))
+		seen := make(map[trace.Layer]struct{}, len(want))
 		for _, layer := range want {
 			switch layer {
-			case port.LayerRelay, port.LayerVLAN, port.LayerEthernet, port.LayerPoE,
-				port.LayerLAG, port.LayerSTP, port.LayerRouting, port.LayerFilter:
+			case bridge.LayerName, bridge.LayerNameVLAN, phy.LayerName, phy.LayerNamePoE,
+				lag.LayerName, stp.LayerName, routing.LayerName, filter.LayerName:
 			default:
 				addSkipped(
 					"",
@@ -591,7 +591,7 @@ func Load(
 				}
 			}
 			if iface.GetPhysical().HasSwitchport() && iface.GetPhysical().GetSwitchport() != nil {
-				routingWanted := !explicitRequest || slices.Contains(want, port.LayerRouting)
+				routingWanted := !explicitRequest || slices.Contains(want, routing.LayerName)
 				_, isRoutedSubParent := routedSubParents[iface.GetName()]
 				if !routingWanted || (iface.GetIp() == nil && !isRoutedSubParent) {
 					hasSwitchportFacet = true
@@ -600,7 +600,7 @@ func Load(
 		} else if iface.GetLag() != nil {
 			hasLag = true
 			if iface.GetLag().HasSwitchport() && iface.GetLag().GetSwitchport() != nil {
-				routingWanted := !explicitRequest || slices.Contains(want, port.LayerRouting)
+				routingWanted := !explicitRequest || slices.Contains(want, routing.LayerName)
 				_, isRoutedSubParent := routedSubParents[iface.GetName()]
 				if !routingWanted || (iface.GetIp() == nil && !isRoutedSubParent) {
 					hasSwitchportFacet = true
@@ -610,88 +610,88 @@ func Load(
 	}
 
 	if !explicitRequest {
-		report.Capabilities = append(report.Capabilities, port.LayerRelay)
-		report.CapabilitySources[port.LayerRelay] = "always"
+		report.Capabilities = append(report.Capabilities, bridge.LayerName)
+		report.CapabilitySources[bridge.LayerName] = "always"
 
 		if hasSwitchportFacet {
-			report.Capabilities = append(report.Capabilities, port.LayerVLAN)
-			report.CapabilitySources[port.LayerVLAN] = "inferred:switchport"
+			report.Capabilities = append(report.Capabilities, bridge.LayerNameVLAN)
+			report.CapabilitySources[bridge.LayerNameVLAN] = "inferred:switchport"
 		}
 		if hasEthernetFacet {
-			report.Capabilities = append(report.Capabilities, port.LayerEthernet)
-			report.CapabilitySources[port.LayerEthernet] = "inferred:ethernet"
+			report.Capabilities = append(report.Capabilities, phy.LayerName)
+			report.CapabilitySources[phy.LayerName] = "inferred:ethernet"
 		}
 		if hasPoeFacet {
-			report.Capabilities = append(report.Capabilities, port.LayerPoE)
-			report.CapabilitySources[port.LayerPoE] = "inferred:poe"
+			report.Capabilities = append(report.Capabilities, phy.LayerNamePoE)
+			report.CapabilitySources[phy.LayerNamePoE] = "inferred:poe"
 		} else if len(budgets) > 0 {
-			report.Capabilities = append(report.Capabilities, port.LayerPoE)
-			report.CapabilitySources[port.LayerPoE] = "inferred:pse_budget"
+			report.Capabilities = append(report.Capabilities, phy.LayerNamePoE)
+			report.CapabilitySources[phy.LayerNamePoE] = "inferred:pse_budget"
 		}
 		if hasLag {
-			report.Capabilities = append(report.Capabilities, port.LayerLAG)
-			report.CapabilitySources[port.LayerLAG] = "inferred:lag"
+			report.Capabilities = append(report.Capabilities, lag.LayerName)
+			report.CapabilitySources[lag.LayerName] = "inferred:lag"
 		}
 		if bridgeState != nil {
-			report.Capabilities = append(report.Capabilities, port.LayerSTP)
-			report.CapabilitySources[port.LayerSTP] = "inferred:stp"
+			report.Capabilities = append(report.Capabilities, stp.LayerName)
+			report.CapabilitySources[stp.LayerName] = "inferred:stp"
 		}
 		if hasIPFacet {
-			report.Capabilities = append(report.Capabilities, port.LayerRouting)
-			report.CapabilitySources[port.LayerRouting] = "inferred:ip"
+			report.Capabilities = append(report.Capabilities, routing.LayerName)
+			report.CapabilitySources[routing.LayerName] = "inferred:ip"
 		}
-		if hasRoutedIface && !slices.Contains(report.Capabilities, port.LayerVLAN) {
-			report.Capabilities = append(report.Capabilities, port.LayerVLAN)
-			report.CapabilitySources[port.LayerVLAN] = "implied:routing"
+		if hasRoutedIface && !slices.Contains(report.Capabilities, bridge.LayerNameVLAN) {
+			report.Capabilities = append(report.Capabilities, bridge.LayerNameVLAN)
+			report.CapabilitySources[bridge.LayerNameVLAN] = "implied:routing"
 		}
 		if hasFilterFacet {
-			report.Capabilities = append(report.Capabilities, port.LayerFilter)
-			report.CapabilitySources[port.LayerFilter] = "inferred:filter"
+			report.Capabilities = append(report.Capabilities, filter.LayerName)
+			report.CapabilitySources[filter.LayerName] = "inferred:filter"
 		} else if len(filterSets) > 0 {
-			report.Capabilities = append(report.Capabilities, port.LayerFilter)
-			report.CapabilitySources[port.LayerFilter] = "inferred:filter_rule_set"
+			report.Capabilities = append(report.Capabilities, filter.LayerName)
+			report.CapabilitySources[filter.LayerName] = "inferred:filter_rule_set"
 		}
 	} else {
-		report.Capabilities = make([]port.Layer, len(want))
+		report.Capabilities = make([]trace.Layer, len(want))
 		copy(report.Capabilities, want)
 		for _, l := range want {
 			report.CapabilitySources[l] = "wanted"
 		}
-		if slices.Contains(want, port.LayerVLAN) && !slices.Contains(want, port.LayerRelay) {
-			report.Capabilities = append(report.Capabilities, port.LayerRelay)
-			report.CapabilitySources[port.LayerRelay] = "implied:vlan"
+		if slices.Contains(want, bridge.LayerNameVLAN) && !slices.Contains(want, bridge.LayerName) {
+			report.Capabilities = append(report.Capabilities, bridge.LayerName)
+			report.CapabilitySources[bridge.LayerName] = "implied:vlan"
 		}
-		if slices.Contains(want, port.LayerSTP) && !slices.Contains(want, port.LayerRelay) && !slices.Contains(report.Capabilities, port.LayerRelay) {
-			report.Capabilities = append(report.Capabilities, port.LayerRelay)
-			report.CapabilitySources[port.LayerRelay] = "implied:stp"
+		if slices.Contains(want, stp.LayerName) && !slices.Contains(want, bridge.LayerName) && !slices.Contains(report.Capabilities, bridge.LayerName) {
+			report.Capabilities = append(report.Capabilities, bridge.LayerName)
+			report.CapabilitySources[bridge.LayerName] = "implied:stp"
 		}
-		if hasLag && !slices.Contains(want, port.LayerLAG) {
-			report.Capabilities = append(report.Capabilities, port.LayerLAG)
-			report.CapabilitySources[port.LayerLAG] = "present:lag"
+		if hasLag && !slices.Contains(want, lag.LayerName) {
+			report.Capabilities = append(report.Capabilities, lag.LayerName)
+			report.CapabilitySources[lag.LayerName] = "present:lag"
 		}
-		if slices.Contains(want, port.LayerFilter) && hasIPFacet {
-			if !slices.Contains(report.Capabilities, port.LayerRouting) {
-				report.Capabilities = append(report.Capabilities, port.LayerRouting)
-				report.CapabilitySources[port.LayerRouting] = "implied:filter"
+		if slices.Contains(want, filter.LayerName) && hasIPFacet {
+			if !slices.Contains(report.Capabilities, routing.LayerName) {
+				report.Capabilities = append(report.Capabilities, routing.LayerName)
+				report.CapabilitySources[routing.LayerName] = "implied:filter"
 			}
 		}
-		if (slices.Contains(want, port.LayerRouting) || slices.Contains(report.Capabilities, port.LayerRouting)) && hasRoutedIface {
-			if !slices.Contains(report.Capabilities, port.LayerVLAN) {
-				report.Capabilities = append(report.Capabilities, port.LayerVLAN)
-				report.CapabilitySources[port.LayerVLAN] = "implied:routing"
+		if (slices.Contains(want, routing.LayerName) || slices.Contains(report.Capabilities, routing.LayerName)) && hasRoutedIface {
+			if !slices.Contains(report.Capabilities, bridge.LayerNameVLAN) {
+				report.Capabilities = append(report.Capabilities, bridge.LayerNameVLAN)
+				report.CapabilitySources[bridge.LayerNameVLAN] = "implied:routing"
 			}
-			if !slices.Contains(report.Capabilities, port.LayerRelay) {
-				report.Capabilities = append(report.Capabilities, port.LayerRelay)
-				report.CapabilitySources[port.LayerRelay] = "implied:routing"
+			if !slices.Contains(report.Capabilities, bridge.LayerName) {
+				report.Capabilities = append(report.Capabilities, bridge.LayerName)
+				report.CapabilitySources[bridge.LayerName] = "implied:routing"
 			}
 		}
 	}
 
-	isWanted := func(l port.Layer) bool {
+	isWanted := func(l trace.Layer) bool {
 		return slices.Contains(report.Capabilities, l)
 	}
 
-	stpRequestedWithoutBridge := isWanted(port.LayerSTP) && bridgeState == nil
+	stpRequestedWithoutBridge := isWanted(stp.LayerName) && bridgeState == nil
 	if bridgeState == nil && (stpRequestedWithoutBridge || len(stpPorts) > 0) {
 		if stpRequestedWithoutBridge {
 			addSkippedAt(stpScope, "", "stp_bridge", "requested STP layer has no bridge state", analysis.Incomplete, IssueMissingSTPBridgeState)
@@ -702,13 +702,13 @@ func Load(
 			}
 			addSkippedAt(stpPortScope(ps.GetInterfaceName()), ps.GetInterfaceName(), "stp_port", "bridge state is missing", analysis.Incomplete, IssueMissingSTPBridgeState)
 		}
-		report.Capabilities = slices.DeleteFunc(report.Capabilities, func(layer port.Layer) bool {
-			return layer == port.LayerSTP
+		report.Capabilities = slices.DeleteFunc(report.Capabilities, func(layer trace.Layer) bool {
+			return layer == stp.LayerName
 		})
-		delete(report.CapabilitySources, port.LayerSTP)
+		delete(report.CapabilitySources, stp.LayerName)
 	}
 
-	if !isWanted(port.LayerVLAN) {
+	if !isWanted(bridge.LayerNameVLAN) {
 		for _, iface := range ifaces {
 			hasSw := false
 			if iface.GetPhysical() != nil && iface.GetPhysical().HasSwitchport() && iface.GetPhysical().GetSwitchport() != nil {
@@ -718,7 +718,7 @@ func Load(
 			}
 			if hasSw {
 				why := "layer not wanted"
-				if isWanted(port.LayerRouting) && iface.GetIp() != nil {
+				if isWanted(routing.LayerName) && iface.GetIp() != nil {
 					why = "interface is routed"
 				}
 				addSkipped(iface.GetName(), "switchport", why, analysis.Incomplete, IssueSkippedLayerNotWanted)
@@ -726,7 +726,7 @@ func Load(
 		}
 	}
 
-	if !isWanted(port.LayerEthernet) {
+	if !isWanted(phy.LayerName) {
 		for _, iface := range ifaces {
 			if iface.GetPhysical() != nil && iface.GetPhysical().HasEthernet() && iface.GetPhysical().GetEthernet() != nil {
 				addSkipped(iface.GetName(), "ethernet", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
@@ -734,7 +734,7 @@ func Load(
 		}
 	}
 
-	if !isWanted(port.LayerPoE) {
+	if !isWanted(phy.LayerNamePoE) {
 		for _, iface := range ifaces {
 			if iface.GetPhysical() != nil && iface.GetPhysical().HasEthernet() && iface.GetPhysical().GetEthernet() != nil {
 				if copper := iface.GetPhysical().GetEthernet().GetCopper(); copper != nil {
@@ -750,7 +750,7 @@ func Load(
 		}
 	}
 
-	if !isWanted(port.LayerSTP) && bridgeState != nil {
+	if !isWanted(stp.LayerName) && bridgeState != nil {
 		addSkippedAt(stpScope, "", "stp_bridge", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		for _, ps := range stpPorts {
 			if ps == nil {
@@ -760,7 +760,7 @@ func Load(
 		}
 	}
 
-	if !isWanted(port.LayerRouting) {
+	if !isWanted(routing.LayerName) {
 		for _, iface := range ifaces {
 			if iface.GetIp() != nil {
 				addSkippedAt(routingInterfaceLookupScope(iface), iface.GetName(), "ip", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
@@ -784,7 +784,7 @@ func Load(
 		}
 	}
 
-	if !isWanted(port.LayerFilter) {
+	if !isWanted(filter.LayerName) {
 		for _, iface := range ifaces {
 			if iface.GetFilter() != nil {
 				scope := routing.OwnershipScope(src.DeviceID, routing.DefaultVRF, iface.GetName())
@@ -815,9 +815,9 @@ func Load(
 		Ports: ports,
 	}
 
-	if isWanted(port.LayerEthernet) || isWanted(port.LayerPoE) {
+	if isWanted(phy.LayerName) || isWanted(phy.LayerNamePoE) {
 		phyCfg := &phy.Config{}
-		if isWanted(port.LayerEthernet) {
+		if isWanted(phy.LayerName) {
 			phyCfg.Ethernet = make(map[string]phy.Ethernet)
 			for _, iface := range ifaces {
 				if iface.GetPhysical() == nil || !iface.GetPhysical().HasEthernet() || iface.GetPhysical().GetEthernet() == nil {
@@ -878,7 +878,7 @@ func Load(
 			}
 		}
 
-		if isWanted(port.LayerPoE) {
+		if isWanted(phy.LayerNamePoE) {
 			poe := &phy.PoE{
 				Groups: make(map[string]phy.Group, len(budgets)),
 				Ports:  make(map[string]phy.PsePort),
@@ -1013,13 +1013,13 @@ func Load(
 		}
 	}
 
-	if isWanted(port.LayerRelay) {
+	if isWanted(bridge.LayerName) {
 		bridgeCfg := &bridge.Config{
 			AgingTime: 300 * time.Second,
 		}
 		addDefault("", "aging_time", "300s")
 
-		if isWanted(port.LayerVLAN) {
+		if isWanted(bridge.LayerNameVLAN) {
 			vlanCfg := &bridge.VLAN{
 				Table:       make(map[vlan.ID]string, len(vlans)),
 				Switchports: make(map[string]bridge.Switchport),
@@ -1075,7 +1075,7 @@ func Load(
 					continue
 				}
 				_, isRoutedSubParent := routedSubParents[iface.GetName()]
-				if isWanted(port.LayerRouting) && (iface.GetIp() != nil || isRoutedSubParent) {
+				if isWanted(routing.LayerName) && (iface.GetIp() != nil || isRoutedSubParent) {
 					addSkipped(iface.GetName(), "switchport", "interface is routed", analysis.Incomplete, IssueSkippedInterfaceRouted)
 					continue
 				}
@@ -1221,7 +1221,7 @@ func Load(
 		cfg.Bridge = bridgeCfg
 	}
 
-	if isWanted(port.LayerSTP) && bridgeState != nil {
+	if isWanted(stp.LayerName) && bridgeState != nil {
 		bridgeAddress := bridgeState.GetBridgeId().GetAddress()
 		mac, validBridgeAddress := parseEUI48(bridgeAddress)
 		prio := bridgeState.GetBridgeId().GetPriority()
@@ -1366,7 +1366,7 @@ func Load(
 					addSkippedAt(stpPortScope(portName), portName, "stp_port", "port is a LAG member", analysis.Incomplete, IssueSkippedLagMember)
 					return factKey{}, "", false
 				}
-				if isWanted(port.LayerRouting) {
+				if isWanted(routing.LayerName) {
 					_, isRoutedSubParent := routedSubParents[portName]
 					if ifaceByName[portName].GetIp() != nil || isRoutedSubParent {
 						addSkippedAt(stpPortScope(portName), portName, "stp_port", "interface is routed", analysis.Incomplete, IssueSkippedInterfaceRouted)
@@ -1454,11 +1454,11 @@ func Load(
 			cfg.STP = &stpCfg
 		}
 	}
-	if isWanted(port.LayerSTP) && cfg.STP == nil {
-		report.Capabilities = slices.DeleteFunc(report.Capabilities, func(layer port.Layer) bool {
-			return layer == port.LayerSTP
+	if isWanted(stp.LayerName) && cfg.STP == nil {
+		report.Capabilities = slices.DeleteFunc(report.Capabilities, func(layer trace.Layer) bool {
+			return layer == stp.LayerName
 		})
-		delete(report.CapabilitySources, port.LayerSTP)
+		delete(report.CapabilitySources, stp.LayerName)
 	}
 
 	aggByPort, aggConflicts := resolveFacts(lacpAggregators, func(agg *lacpv1.AggregatorState) (factKey, string, bool) {
@@ -1629,7 +1629,7 @@ func Load(
 		cfg.LAG = lagCfg
 	}
 
-	if isWanted(port.LayerRouting) {
+	if isWanted(routing.LayerName) {
 		vrf := routing.VRF{
 			Interfaces: make(map[string]routing.Interface),
 		}
@@ -1897,14 +1897,14 @@ func Load(
 				},
 			}
 		} else {
-			report.Capabilities = slices.DeleteFunc(report.Capabilities, func(l port.Layer) bool {
-				return l == port.LayerRouting
+			report.Capabilities = slices.DeleteFunc(report.Capabilities, func(l trace.Layer) bool {
+				return l == routing.LayerName
 			})
-			delete(report.CapabilitySources, port.LayerRouting)
+			delete(report.CapabilitySources, routing.LayerName)
 		}
 	}
 
-	if isWanted(port.LayerFilter) {
+	if isWanted(filter.LayerName) {
 		setByName := make(map[string]filter.RuleSet, len(filterSets))
 		// A set the IP-layer filter cannot evaluate is left out whole:
 		// translating a rule without its L2, PCP, or DSCP terms would widen
@@ -2066,10 +2066,10 @@ func Load(
 				Bindings: bindings,
 			}
 		} else {
-			report.Capabilities = slices.DeleteFunc(report.Capabilities, func(l port.Layer) bool {
-				return l == port.LayerFilter
+			report.Capabilities = slices.DeleteFunc(report.Capabilities, func(l trace.Layer) bool {
+				return l == filter.LayerName
 			})
-			delete(report.CapabilitySources, port.LayerFilter)
+			delete(report.CapabilitySources, filter.LayerName)
 		}
 	}
 

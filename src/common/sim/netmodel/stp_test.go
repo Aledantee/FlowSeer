@@ -24,6 +24,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func mustEncode(t *testing.T, b bpdu.BPDU, src netaddr.MAC) ethernet.Frame {
@@ -844,7 +845,7 @@ func TestStpLoadPreservesExplicitZeroPrioritiesAndReportsTimerDefaults(t *testin
 		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "zero-priorities"},
 		[]*interfacev1.Interface{plainPhysicalInterface(name)},
 		nil, nil, nil, bridgeState, []*stpv1.PortState{portState}, nil, nil, nil, nil, nil,
-		[]port.Layer{port.LayerSTP},
+		[]trace.Layer{stp.LayerName},
 	)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -910,7 +911,7 @@ func TestStpLoadDefaultsOnlyAbsentPriorities(t *testing.T) {
 		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "absent-priorities"},
 		[]*interfacev1.Interface{plainPhysicalInterface(name)},
 		nil, nil, nil, bridgeState, []*stpv1.PortState{portState}, nil, nil, nil, nil, nil,
-		[]port.Layer{port.LayerSTP},
+		[]trace.Layer{stp.LayerName},
 	)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -973,7 +974,7 @@ func TestStpLoadSkipsAdminPathCostAboveMaximum(t *testing.T) {
 		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "invalid-admin-path-cost"},
 		[]*interfacev1.Interface{plainPhysicalInterface(name), plainPhysicalInterface(validName)},
 		nil, nil, nil, bridgeState, []*stpv1.PortState{portState, validPortState}, nil, nil, nil, nil, nil,
-		[]port.Layer{port.LayerSTP},
+		[]trace.Layer{stp.LayerName},
 	)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -988,7 +989,7 @@ func TestStpLoadSkipsAdminPathCostAboveMaximum(t *testing.T) {
 		t.Errorf("valid sibling STP port = (%+v, present=%t), want maximum path cost", got, ok)
 	}
 
-	scope := analysis.FieldScope(analysis.ProtocolScope("sw1", string(port.LayerSTP), "0"), "ports", name)
+	scope := analysis.FieldScope(analysis.ProtocolScope("sw1", string(stp.LayerName), "0"), "ports", name)
 	if !slices.ContainsFunc(result.Report.Skipped, func(got netmodel.Skipped) bool {
 		return got.Scope == scope && got.Port == name && got.What == "stp_port" && len(got.Evidence) > 0
 	}) {
@@ -1027,7 +1028,7 @@ func TestStpLoadRecordsFallbackForInvalidTxHoldCount(t *testing.T) {
 		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "invalid-tx-hold-count"},
 		[]*interfacev1.Interface{plainPhysicalInterface(name)},
 		nil, nil, nil, bridgeState, nil, nil, nil, nil, nil, nil,
-		[]port.Layer{port.LayerSTP},
+		[]trace.Layer{stp.LayerName},
 	)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -1039,7 +1040,7 @@ func TestStpLoadRecordsFallbackForInvalidTxHoldCount(t *testing.T) {
 		t.Errorf("tx hold count = %d, want fallback %d", got, stp.DefaultTxHoldCount)
 	}
 	if !slices.ContainsFunc(result.Report.Skipped, func(got netmodel.Skipped) bool {
-		return got.Scope == analysis.ProtocolScope("sw1", string(port.LayerSTP), "0") &&
+		return got.Scope == analysis.ProtocolScope("sw1", string(stp.LayerName), "0") &&
 			got.What == "stp_tx_hold_count" && len(got.Evidence) > 0
 	}) {
 		t.Errorf("skipped = %+v, want evidenced invalid tx_hold_count", result.Report.Skipped)
@@ -1108,7 +1109,7 @@ func TestStpLoadClassifiesInvalidEffectiveTimerRelations(t *testing.T) {
 			if result.Spec.Config.STP != nil {
 				t.Errorf("STP config = %+v, want invalid layer omitted", result.Spec.Config.STP)
 			}
-			if slices.Contains(result.Report.Capabilities, port.LayerSTP) {
+			if slices.Contains(result.Report.Capabilities, stp.LayerName) {
 				t.Errorf("capabilities = %v, want STP omitted", result.Report.Capabilities)
 			}
 			if !slices.ContainsFunc(result.Report.Skipped, func(skipped netmodel.Skipped) bool {

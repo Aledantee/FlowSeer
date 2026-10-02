@@ -15,7 +15,7 @@ func Diff(a, b Table) []trace.Change {
 		bp, exists := nb.Port(ap.Name)
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  ap.Name,
@@ -30,7 +30,7 @@ func Diff(a, b Table) []trace.Change {
 
 		if ap.IfIndex != bp.IfIndex {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  ap.Name,
@@ -43,7 +43,7 @@ func Diff(a, b Table) []trace.Change {
 
 		if ap.Kind != bp.Kind {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  ap.Name,
@@ -56,7 +56,7 @@ func Diff(a, b Table) []trace.Change {
 
 		if ap.AdminStatus != bp.AdminStatus {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  ap.Name,
@@ -69,7 +69,7 @@ func Diff(a, b Table) []trace.Change {
 
 		if ap.OperStatus != bp.OperStatus {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  ap.Name,
@@ -82,7 +82,7 @@ func Diff(a, b Table) []trace.Change {
 
 		if ap.MTU != bp.MTU {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  ap.Name,
@@ -95,7 +95,7 @@ func Diff(a, b Table) []trace.Change {
 
 		if ap.LagParent != bp.LagParent {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  ap.Name,
@@ -110,7 +110,7 @@ func Diff(a, b Table) []trace.Change {
 	for _, bp := range nb.ports {
 		if _, exists := na.Port(bp.Name); !exists {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  bp.Name,

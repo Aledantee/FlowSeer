@@ -1000,8 +1000,8 @@ func TestDiff(t *testing.T) {
 			if changes[i].Field != field {
 				t.Errorf("change %d field: got %q, want %q", i, changes[i].Field, field)
 			}
-			if changes[i].Layer != port.LayerRouting {
-				t.Errorf("change %d layer: got %q, want %q", i, changes[i].Layer, port.LayerRouting)
+			if changes[i].Layer != routing.LayerName {
+				t.Errorf("change %d layer: got %q, want %q", i, changes[i].Layer, routing.LayerName)
 			}
 			wantTypeID, ok := wantTypeIDs[changes[i].Field]
 			if !ok {

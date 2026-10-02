@@ -10,7 +10,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -136,7 +135,7 @@ func forwardingScopeRelevant(nodeID string, scope analysis.Scope, consulted []an
 	return slices.ContainsFunc(consulted, scope.Overlaps)
 }
 
-func protocolScope(nodeID string, layer port.Layer) analysis.Scope {
+func protocolScope(nodeID string, layer trace.Layer) analysis.Scope {
 	return analysis.ProtocolScope(nodeID, string(layer), "0")
 }
 

@@ -12,45 +12,18 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// Layer identifies an architectural or protocol layer in trace steps and diff subjects.
-type Layer = trace.Layer
+// LayerName identifies the base port table layer.
+const LayerName trace.Layer = "port"
 
+// Rule constants produced by port.
 const (
-	// LayerPort identifies the base port table layer.
-	LayerPort trace.Layer = "port"
-
-	// LayerLAG identifies the link aggregation layer.
-	LayerLAG trace.Layer = "lag"
-
-	// LayerEthernet identifies the physical Ethernet speeds and auto-negotiation layer.
-	LayerEthernet trace.Layer = "ethernet"
-
-	// LayerPoE identifies the Power over Ethernet layer.
-	LayerPoE trace.Layer = "poe"
-
-	// LayerRelay identifies the bridge relay forwarding layer.
-	LayerRelay trace.Layer = "relay"
-
-	// LayerVLAN identifies the 802.1Q VLAN awareness and filtering layer.
-	LayerVLAN trace.Layer = "vlan"
-
-	// LayerSTP identifies the Rapid Spanning Tree Protocol layer.
-	LayerSTP trace.Layer = "stp"
-
-	// LayerLoopProtect identifies netsim's own loop-protection layer.
-	LayerLoopProtect trace.Layer = "loopprotect"
-
-	// LayerMcast identifies multicast snooping decisions.
-	LayerMcast trace.Layer = "mcast"
-
-	// LayerRouting identifies the layer 3 routing capability.
-	LayerRouting trace.Layer = "routing"
-
-	// LayerTraffic identifies mirroring, policing, and egress queue configuration.
-	LayerTraffic trace.Layer = "traffic"
-
-	// LayerFilter identifies the packet filter capability.
-	LayerFilter trace.Layer = "filter"
+	RuleStatusPrefix                   = "port.status."
+	RuleStatusDown        trace.RuleID = "port.status.down"
+	RuleStatusNotFound    trace.RuleID = "port.status.not_found"
+	RuleStatusMTUExceeded trace.RuleID = "port.status.mtu-exceeded"
+	RuleLAGParentNotFound trace.RuleID = "port.lag.parent_not_found"
+	RuleHubNoEgress       trace.RuleID = "port.hub.no_egress"
+	RuleHubReplicate      trace.RuleID = "port.hub.replicate"
 )
 
 const (
@@ -362,13 +335,12 @@ func (t Table) Receive(name string) ReceiveResult {
 
 // Transmit evaluates whether a frame of payloadLen can egress through the named port.
 // It returns [ReasonPortDown] if the port is unknown, does not forward, or is a LAG
-// with no forwarding members. Member selection is handled by the link aggregation layer,
-// so Transmit returns an empty member for both plain and LAG ports. It returns
-// [ReasonMTUExceeded] if the port has an MTU configured (> 0) and payloadLen exceeds it.
-func (t Table) Transmit(name string, payloadLen int) (string, trace.Reason) {
+// with no forwarding members. Transmit returns [ReasonMTUExceeded] if the port has an
+// MTU configured (> 0) and payloadLen exceeds it.
+func (t Table) Transmit(name string, payloadLen int) trace.Reason {
 	p, ok := t.Port(name)
 	if !ok || !p.Forwards() {
-		return "", ReasonPortDown
+		return ReasonPortDown
 	}
 
 	if p.Kind == LAG {
@@ -380,15 +352,15 @@ func (t Table) Transmit(name string, payloadLen int) (string, trace.Reason) {
 			}
 		}
 		if !hasFwd {
-			return "", ReasonPortDown
+			return ReasonPortDown
 		}
 	}
 
 	if p.MTU > 0 && payloadLen > p.MTU {
-		return "", ReasonMTUExceeded
+		return ReasonMTUExceeded
 	}
 
-	return "", ""
+	return ""
 }
 
 // Normalize returns an independent copy of the table with standard port defaults

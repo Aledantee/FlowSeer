@@ -170,19 +170,19 @@ func TestRouteIPv4Connected(t *testing.T) {
 
 	expectedSteps := []trace.Step{
 		{
-			Layer:   port.LayerRouting,
+			Layer:   routing.LayerName,
 			Op:      trace.OpClassify,
 			RuleID:  "classify",
 			Subject: trace.Subject{Kind: "interface", Key: "vlan10"},
 		},
 		{
-			Layer:   port.LayerRouting,
+			Layer:   routing.LayerName,
 			Op:      trace.OpLookup,
 			RuleID:  "connected",
 			Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"},
 		},
 		{
-			Layer:   port.LayerRouting,
+			Layer:   routing.LayerName,
 			Op:      trace.OpRewrite,
 			RuleID:  "decrement-ttl",
 			Subject: trace.Subject{Kind: "interface", Key: "vlan20"},
@@ -229,7 +229,7 @@ func TestRouteNeighborMiss(t *testing.T) {
 		t.Errorf("got egress payload length %d, want 0", len(res.Frame.Payload))
 	}
 	wantScope := analysis.FieldScope(
-		analysis.ProtocolScope("sw1", string(port.LayerRouting), routing.DefaultVRF),
+		analysis.ProtocolScope("sw1", string(routing.LayerName), routing.DefaultVRF),
 		"interfaces", "vlan20", "neighbors", "10.0.20.7",
 	)
 	if !slices.ContainsFunc(res.ConsultedScopes(), func(scope analysis.Scope) bool {
@@ -240,19 +240,19 @@ func TestRouteNeighborMiss(t *testing.T) {
 
 	expectedSteps := []trace.Step{
 		{
-			Layer:   port.LayerRouting,
+			Layer:   routing.LayerName,
 			Op:      trace.OpClassify,
 			RuleID:  "classify",
 			Subject: trace.Subject{Kind: "interface", Key: "vlan10"},
 		},
 		{
-			Layer:   port.LayerRouting,
+			Layer:   routing.LayerName,
 			Op:      trace.OpLookup,
 			RuleID:  "connected",
 			Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"},
 		},
 		{
-			Layer:   port.LayerRouting,
+			Layer:   routing.LayerName,
 			Op:      trace.OpDrop,
 			RuleID:  "neighbor-miss",
 			Subject: trace.Subject{Kind: "ip", Key: "10.0.20.7"},
@@ -1184,9 +1184,9 @@ func TestRouteUnknownInterface(t *testing.T) {
 		t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNoRoute)
 	}
 	want := []trace.Step{
-		{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: trace.RuleID("classify"), Subject: trace.Subject{Kind: "interface", Key: "vlan99"}},
-		{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "interface", Key: "vlan99"}},
-		{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: trace.RuleID("unknown-interface"), Subject: trace.Subject{Kind: "interface", Key: "vlan99"}},
+		{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: trace.RuleID("classify"), Subject: trace.Subject{Kind: "interface", Key: "vlan99"}},
+		{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "interface", Key: "vlan99"}},
+		{Layer: routing.LayerName, Op: trace.OpDrop, RuleID: trace.RuleID("unknown-interface"), Subject: trace.Subject{Kind: "interface", Key: "vlan99"}},
 	}
 	if len(res.Steps) != len(want) {
 		t.Fatalf("steps = %+v, want %+v", res.Steps, want)

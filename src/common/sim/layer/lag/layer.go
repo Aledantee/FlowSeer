@@ -18,6 +18,16 @@ import (
 // ReasonUnsupportedLACPDU indicates that an Ethernet frame carried an unparseable or unsupported LACPDU.
 const ReasonUnsupportedLACPDU trace.Reason = "unsupported-lacpdu"
 
+// LayerName identifies the link aggregation layer.
+const LayerName trace.Layer = "lag"
+
+// Rule constants produced by lag.
+const (
+	RuleEgressNoMember    trace.RuleID = "lag.egress.no_member"
+	RuleLACPDUUnsupported trace.RuleID = "lag.lacpdu.unsupported"
+	RuleLACPDUAdmit       trace.RuleID = "lag.lacpdu.admit"
+)
+
 // Info summarizes the runtime aggregation status of one link aggregation group.
 type Info struct {
 	Mode                  Mode

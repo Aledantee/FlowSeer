@@ -1071,7 +1071,7 @@ func (f *Fabric) markQueueBufferUnstated(now time.Time, ep Endpoint, egressPort 
 	f.record(journey, Entry{
 		At: now, Kind: EntryQueueThreshold, Device: ep.Node, Port: ep.Port, PCP: pcp,
 		Step: &trace.Step{
-			Layer: traffic.Layer, Op: trace.OpQueue, RuleID: traffic.RuleQueueBufferUnstated,
+			Layer: traffic.LayerName, Op: trace.OpQueue, RuleID: traffic.RuleQueueBufferUnstated,
 			Subject: subject,
 			Inputs:  []trace.Fact{fact}, Evidence: []trace.EvidenceRef{ref},
 		},

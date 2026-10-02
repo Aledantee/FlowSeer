@@ -13,9 +13,12 @@ import (
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 // Transcribed from docs/research/device-inventory/lab/labsw06-ruckus-icx7150.md "Feature inventory" table (lines 121-143).
@@ -392,13 +395,13 @@ func TestICX7150Load(t *testing.T) {
 		}
 	}
 
-	wantCaps := []port.Layer{
-		port.LayerEthernet,
-		port.LayerLAG,
-		port.LayerPoE,
-		port.LayerRelay,
-		port.LayerSTP,
-		port.LayerVLAN,
+	wantCaps := []trace.Layer{
+		phy.LayerName,
+		lag.LayerName,
+		phy.LayerNamePoE,
+		bridge.LayerName,
+		stp.LayerName,
+		bridge.LayerNameVLAN,
 	}
 	if !slices.Equal(report.Capabilities, wantCaps) {
 		t.Errorf("capabilities = %v, want %v", report.Capabilities, wantCaps)

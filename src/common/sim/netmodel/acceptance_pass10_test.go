@@ -14,15 +14,17 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestRequestedMissingSTPRemainsAForwardingDependency(t *testing.T) {
 	input := loadInput{
 		ifaces: []*interfacev1.Interface{reportedPhysical("in"), reportedPhysical("out")},
-		want:   []port.Layer{port.LayerRelay, port.LayerSTP},
+		want:   []trace.Layer{bridge.LayerName, stp.LayerName},
 	}
 	input.validate(t)
 	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"})
@@ -40,7 +42,7 @@ func TestRequestedMissingSTPRemainsAForwardingDependency(t *testing.T) {
 	}
 	assertForwardIssueEvidence(t, result.Metadata, netmodel.IssueMissingSTPBridgeState)
 
-	input.want = []port.Layer{port.LayerRelay}
+	input.want = []trace.Layer{bridge.LayerName}
 	withoutRequest := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"})
 	plain, err := vswitch.NewWithSpec(withoutRequest.Spec)
 	if err != nil {
@@ -58,7 +60,7 @@ func TestRequestedMissingSTPRemainsAForwardingDependency(t *testing.T) {
 func TestMissingMTUIsAnEvidencedForwardingAssumption(t *testing.T) {
 	input := loadInput{
 		ifaces: []*interfacev1.Interface{reportedPhysical("in"), physicalWithoutMTU("out")},
-		want:   []port.Layer{port.LayerRelay},
+		want:   []trace.Layer{bridge.LayerName},
 	}
 	input.validate(t)
 	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"})
@@ -156,7 +158,7 @@ func TestSVINeighborMissRetainsExactLoadedIssue(t *testing.T) {
 		t.Fatalf("reason = %s, want neighbor-pending", result.Reason)
 	}
 	wantScope := analysis.FieldScope(
-		analysis.ProtocolScope("sw1", string(port.LayerRouting), routing.DefaultVRF),
+		analysis.ProtocolScope("sw1", string(routing.LayerName), routing.DefaultVRF),
 		"interfaces", "vlan20", "neighbors", "198.51.100.7",
 	)
 	if !slices.ContainsFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {

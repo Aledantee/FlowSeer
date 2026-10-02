@@ -72,7 +72,7 @@ func TestForwardingDependenciesMatchConsultedPorts(t *testing.T) {
 			port.Port{Name: "unknown", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown},
 		)
 		br := mustNewBridge(t, bridge.Config{}, ports)
-		br.SetGroupResolver(testGroupResolver{ports: []string{"unknown"}, decided: true}, analysis.ProtocolScope("sw1", "mcast", "0"))
+		br.SetGroupResolver(testGroupResolver{ports: []string{"unknown"}, decided: true}, analysis.ProtocolScope("sw1", "mcast", "0"), "mcast", "group-members")
 
 		res := br.Forward(testTime0, "in", ethernet.Frame{Src: macA, Dst: netaddr.MAC{0x01, 0x00, 0x5e, 0x01, 0x01, 0x01}})
 

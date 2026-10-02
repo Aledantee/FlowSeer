@@ -448,7 +448,7 @@ func TestCapabilitiesFollowConfiguration(t *testing.T) {
 			Ports:  portsOnly,
 			Bridge: &bridge.Config{},
 		}
-		want := []port.Layer{port.LayerRelay}
+		want := []trace.Layer{bridge.LayerName}
 		if caps := cfg.Capabilities(); !slices.Equal(caps, want) {
 			t.Errorf("got capabilities %v, want %v", caps, want)
 		}
@@ -486,13 +486,13 @@ func TestCapabilitiesFollowConfiguration(t *testing.T) {
 			},
 		}
 
-		want := []port.Layer{
-			port.LayerEthernet,
-			port.LayerLAG,
-			port.LayerPoE,
-			port.LayerRelay,
-			port.LayerTraffic,
-			port.LayerVLAN,
+		want := []trace.Layer{
+			phy.LayerName,
+			lag.LayerName,
+			phy.LayerNamePoE,
+			bridge.LayerName,
+			traffic.LayerName,
+			bridge.LayerNameVLAN,
 		}
 		if caps := cfg.Capabilities(); !slices.Equal(caps, want) {
 			t.Errorf("got capabilities %v, want %v", caps, want)
@@ -555,8 +555,8 @@ func TestHubForwardingUntouched(t *testing.T) {
 		if step.Op == trace.OpLearn {
 			t.Errorf("frame 1: unexpected learn step in hub trace: %v", step)
 		}
-		if step.Layer != port.LayerPort {
-			t.Errorf("frame 1: got step layer %v, want %v", step.Layer, port.LayerPort)
+		if step.Layer != port.LayerName {
+			t.Errorf("frame 1: got step layer %v, want %v", step.Layer, port.LayerName)
 		}
 	}
 	if sw.Entries() != nil {
@@ -667,7 +667,7 @@ func TestSwitchReservesMirrorOutputAndCollectsCopies(t *testing.T) {
 	if dropped.Outcome != trace.Dropped || dropped.Reason != traffic.ReasonMirrorOutput {
 		t.Errorf("mirror output ingress trace = %+v, want mirror-output drop", dropped.Trace)
 	}
-	wantStep := trace.Step{Layer: port.LayerTraffic, Op: trace.OpDrop, RuleID: "traffic.mirror.output_drop", Subject: trace.Subject{Kind: "port", Key: "1/1/4"}}
+	wantStep := trace.Step{Layer: traffic.LayerName, Op: trace.OpDrop, RuleID: "traffic.mirror.output_drop", Subject: trace.Subject{Kind: "port", Key: "1/1/4"}}
 	if len(dropped.Steps) != 1 {
 		t.Errorf("mirror output ingress steps = %+v, want %+v", dropped.Steps, wantStep)
 	} else {
@@ -1151,7 +1151,7 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 		for _, ch := range changes {
 			if ch.Subject.Kind == "capability" && ch.Subject.Key == "vlan" {
 				foundCap = true
-				if ch.From != nil || trace.CompareFact(ch.To, vswitch.LayerFact(port.LayerVLAN)) != 0 {
+				if ch.From != nil || trace.CompareFact(ch.To, vswitch.LayerFact(bridge.LayerNameVLAN)) != 0 {
 					t.Errorf("unexpected capability change payload: %+v", ch)
 				}
 			}
@@ -1176,7 +1176,7 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 			t.Fatalf("got %d changes, want 1: %+v", len(changes), changes)
 		}
 		ch := changes[0]
-		if ch.Layer != port.LayerTraffic || ch.Subject.Kind != "mirror" || ch.Subject.Key != "m1" ||
+		if ch.Layer != traffic.LayerName || ch.Subject.Kind != "mirror" || ch.Subject.Key != "m1" ||
 			ch.Field != "snap_len" || trace.CompareFact(ch.From, traffic.SnapLenFact(64)) != 0 || trace.CompareFact(ch.To, traffic.SnapLenFact(128)) != 0 {
 			t.Errorf("unexpected mirror change: %+v", ch)
 		}
@@ -1679,7 +1679,7 @@ func TestCapabilitiesSTP(t *testing.T) {
 		},
 	}
 
-	want := []port.Layer{port.LayerRelay, port.LayerSTP}
+	want := []trace.Layer{bridge.LayerName, stp.LayerName}
 	if caps := cfg.Capabilities(); !slices.Equal(caps, want) {
 		t.Errorf("got capabilities %v, want %v", caps, want)
 	}
@@ -1753,7 +1753,7 @@ func TestBPDUConsumedWithEmissionDrained(t *testing.T) {
 	if res.Outcome != trace.Consumed {
 		t.Fatalf("res.Outcome = %q, want %q", res.Outcome, trace.Consumed)
 	}
-	if len(res.Steps) != 2 || res.Steps[0].Layer != port.LayerSTP || res.Steps[0].Op != trace.OpClassify {
+	if len(res.Steps) != 2 || res.Steps[0].Layer != stp.LayerName || res.Steps[0].Op != trace.OpClassify {
 		t.Errorf("res.Steps = %+v, want spanning-tree classification followed by the mirror decision", res.Steps)
 	}
 	if !traceHasFactType(res.Steps, "stp.bpdu_decision") {
@@ -1879,7 +1879,7 @@ func TestDiffSTPPriorityChange(t *testing.T) {
 	changes := vswitch.Diff(cfgA, cfgB)
 	found := false
 	for _, ch := range changes {
-		if ch.Layer == port.LayerSTP && ch.Subject.Kind == "bridge" && ch.Field == "priority" {
+		if ch.Layer == stp.LayerName && ch.Subject.Kind == "bridge" && ch.Field == "priority" {
 			found = true
 			if trace.CompareFact(ch.From, stp.PriorityFact(32768)) != 0 || trace.CompareFact(ch.To, stp.PriorityFact(4096)) != 0 {
 				t.Errorf("priority change = %+v, want 32768 -> 4096", ch)
@@ -3085,7 +3085,7 @@ func TestDiffLoopProtectCapabilityAndFieldChange(t *testing.T) {
 	capChanges := vswitch.Diff(base, withLoopProtect)
 	foundCap := false
 	for _, ch := range capChanges {
-		if ch.Layer == port.LayerLoopProtect && ch.Subject.Kind == "capability" {
+		if ch.Layer == loopprotect.LayerName && ch.Subject.Kind == "capability" {
 			foundCap = true
 		}
 	}
@@ -3106,7 +3106,7 @@ func TestDiffLoopProtectCapabilityAndFieldChange(t *testing.T) {
 	fieldChanges := vswitch.Diff(withLoopProtect, withNoLearn)
 	loopProtectChanges := 0
 	for _, ch := range fieldChanges {
-		if ch.Layer == port.LayerLoopProtect && ch.Subject.Kind == "port" {
+		if ch.Layer == loopprotect.LayerName && ch.Subject.Kind == "port" {
 			loopProtectChanges++
 		}
 	}
@@ -3241,7 +3241,7 @@ func TestCapabilitiesWithRouting(t *testing.T) {
 				},
 			},
 		}
-		want := []port.Layer{port.LayerRelay, port.LayerRouting, port.LayerVLAN}
+		want := []trace.Layer{bridge.LayerName, routing.LayerName, bridge.LayerNameVLAN}
 		if caps := cfg.Capabilities(); !slices.Equal(caps, want) {
 			t.Errorf("got capabilities %v, want %v", caps, want)
 		}
@@ -3261,7 +3261,7 @@ func TestCapabilitiesWithRouting(t *testing.T) {
 				},
 			},
 		}
-		want := []port.Layer{port.LayerRouting}
+		want := []trace.Layer{routing.LayerName}
 		if caps := cfg.Capabilities(); !slices.Equal(caps, want) {
 			t.Errorf("got capabilities %v, want %v", caps, want)
 		}
@@ -3591,14 +3591,14 @@ func TestVLANToVLANRouting(t *testing.T) {
 	res := sw.Forward(fixedTime, "1/1/1", frame)
 
 	wantSteps := []trace.Step{
-		{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
-		{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
-		{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
-		{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
-		{Layer: port.LayerRouting, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
-		{Layer: port.LayerRelay, Op: trace.OpLookup, RuleID: "unicast-hit", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:77"}},
-		{Layer: port.LayerVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
-		{Layer: port.LayerRelay, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+		{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+		{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
+		{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
+		{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
+		{Layer: routing.LayerName, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
+		{Layer: bridge.LayerName, Op: trace.OpLookup, RuleID: "unicast-hit", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:77"}},
+		{Layer: bridge.LayerNameVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+		{Layer: bridge.LayerName, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 	}
 	assertSteps(t, res.Steps, wantSteps)
 
@@ -3643,15 +3643,15 @@ func TestVLANToVLANRouting(t *testing.T) {
 	swEmpty := buildBaseRoutingSwitch(t)
 	resFlood := swEmpty.Forward(fixedTime, "1/1/1", frame)
 	wantFloodSteps := []trace.Step{
-		{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
-		{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
-		{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
-		{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
-		{Layer: port.LayerRouting, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
-		{Layer: port.LayerRelay, Op: trace.OpLookup, RuleID: "unicast-miss", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:77"}},
-		{Layer: port.LayerRelay, Op: trace.OpReplicate, RuleID: "flood", Subject: trace.Subject{Kind: "vlan", Key: "20"}},
-		{Layer: port.LayerVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
-		{Layer: port.LayerRelay, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+		{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+		{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
+		{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
+		{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
+		{Layer: routing.LayerName, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
+		{Layer: bridge.LayerName, Op: trace.OpLookup, RuleID: "unicast-miss", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:77"}},
+		{Layer: bridge.LayerName, Op: trace.OpReplicate, RuleID: "flood", Subject: trace.Subject{Kind: "vlan", Key: "20"}},
+		{Layer: bridge.LayerNameVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+		{Layer: bridge.LayerName, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 	}
 	assertSteps(t, resFlood.Steps, wantFloodSteps)
 	if resFlood.Outcome != trace.Flooded {
@@ -3711,11 +3711,11 @@ func TestNeighborPendingHolds(t *testing.T) {
 	res := sw.Forward(fixedTime, "1/1/1", frame)
 
 	wantSteps := []trace.Step{
-		{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
-		{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
-		{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
-		{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
-		{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "neighbor-pending", Subject: trace.Subject{Kind: "ip", Key: "10.0.20.7"}},
+		{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+		{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
+		{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
+		{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
+		{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "neighbor-pending", Subject: trace.Subject{Kind: "ip", Key: "10.0.20.7"}},
 	}
 	assertSteps(t, res.Steps, wantSteps)
 
@@ -3790,11 +3790,11 @@ func TestNeighborDisabledMisses(t *testing.T) {
 	res := sw.Forward(fixedTime, "1/1/1", frame)
 
 	wantSteps := []trace.Step{
-		{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
-		{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
-		{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
-		{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
-		{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: "neighbor-miss", Subject: trace.Subject{Kind: "ip", Key: "10.0.20.7"}},
+		{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+		{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
+		{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
+		{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
+		{Layer: routing.LayerName, Op: trace.OpDrop, RuleID: "neighbor-miss", Subject: trace.Subject{Kind: "ip", Key: "10.0.20.7"}},
 	}
 	assertSteps(t, res.Steps, wantSteps)
 
@@ -3897,10 +3897,10 @@ func TestRoutingTTLLocalBadHeaderAndNoRouteDrops(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
-			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
-			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
-			{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: "ttl-expired", Subject: trace.Subject{Kind: "ip", Key: "10.0.20.7"}},
+			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
+			{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
+			{Layer: routing.LayerName, Op: trace.OpDrop, RuleID: "ttl-expired", Subject: trace.Subject{Kind: "ip", Key: "10.0.20.7"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
 		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonTTLExpired {
@@ -3921,10 +3921,10 @@ func TestRoutingTTLLocalBadHeaderAndNoRouteDrops(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
-			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
-			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
-			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "local-delivery", Subject: trace.Subject{Kind: "ip", Key: "10.0.10.1"}},
+			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
+			{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
+			{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "local-delivery", Subject: trace.Subject{Kind: "ip", Key: "10.0.10.1"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
 		if res.Outcome != trace.Consumed || res.Reason != routing.ReasonNotRouted {
@@ -3943,10 +3943,10 @@ func TestRoutingTTLLocalBadHeaderAndNoRouteDrops(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
-			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
-			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
-			{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: "bad-header", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
+			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
+			{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
+			{Layer: routing.LayerName, Op: trace.OpDrop, RuleID: "bad-header", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
 		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonBadHeader {
@@ -3964,11 +3964,11 @@ func TestRoutingTTLLocalBadHeaderAndNoRouteDrops(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
-			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
-			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
-			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "no-route", Subject: trace.Subject{Kind: "ip", Key: "10.0.30.7"}},
-			{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: "no-route", Subject: trace.Subject{Kind: "vrf", Key: "default"}},
+			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
+			{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
+			{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "no-route", Subject: trace.Subject{Kind: "ip", Key: "10.0.30.7"}},
+			{Layer: routing.LayerName, Op: trace.OpDrop, RuleID: "no-route", Subject: trace.Subject{Kind: "vrf", Key: "default"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
 		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonNoRoute {
@@ -4050,14 +4050,14 @@ func TestIPv6Routing(t *testing.T) {
 
 		res := sw.Forward(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
-			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
-			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
-			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "2001:db8:20::/64"}},
-			{Layer: port.LayerRouting, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
-			{Layer: port.LayerRelay, Op: trace.OpLookup, RuleID: "unicast-hit", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:77"}},
-			{Layer: port.LayerVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
-			{Layer: port.LayerRelay, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
+			{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
+			{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "2001:db8:20::/64"}},
+			{Layer: routing.LayerName, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
+			{Layer: bridge.LayerName, Op: trace.OpLookup, RuleID: "unicast-hit", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:77"}},
+			{Layer: bridge.LayerNameVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+			{Layer: bridge.LayerName, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
 		if res.Outcome != trace.Forwarded {
@@ -4086,11 +4086,11 @@ func TestIPv6Routing(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
-			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
-			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
-			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "no-route", Subject: trace.Subject{Kind: "ip", Key: "2001:db8:30::7"}},
-			{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: "no-route", Subject: trace.Subject{Kind: "vrf", Key: "default"}},
+			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
+			{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
+			{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "no-route", Subject: trace.Subject{Kind: "ip", Key: "2001:db8:30::7"}},
+			{Layer: routing.LayerName, Op: trace.OpDrop, RuleID: "no-route", Subject: trace.Subject{Kind: "vrf", Key: "default"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
 		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonNoRoute {
@@ -4192,14 +4192,14 @@ func TestVRFIsolation(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/3", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "30"}},
-			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
-			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan30"}},
-			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
-			{Layer: port.LayerRouting, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan40"}},
-			{Layer: port.LayerRelay, Op: trace.OpLookup, RuleID: "unicast-hit", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:99"}},
-			{Layer: port.LayerVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/4"}},
-			{Layer: port.LayerRelay, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/4"}},
+			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "30"}},
+			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
+			{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan30"}},
+			{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
+			{Layer: routing.LayerName, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan40"}},
+			{Layer: bridge.LayerName, Op: trace.OpLookup, RuleID: "unicast-hit", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:99"}},
+			{Layer: bridge.LayerNameVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/4"}},
+			{Layer: bridge.LayerName, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/4"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
 		if res.Outcome != trace.Forwarded {
@@ -4237,11 +4237,11 @@ func TestVRFIsolation(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/3", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "30"}},
-			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
-			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan30"}},
-			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "no-route", Subject: trace.Subject{Kind: "ip", Key: "10.0.88.7"}},
-			{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: "no-route", Subject: trace.Subject{Kind: "vrf", Key: "tenant"}},
+			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "30"}},
+			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
+			{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan30"}},
+			{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "no-route", Subject: trace.Subject{Kind: "ip", Key: "10.0.88.7"}},
+			{Layer: routing.LayerName, Op: trace.OpDrop, RuleID: "no-route", Subject: trace.Subject{Kind: "vrf", Key: "tenant"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
 		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonNoRoute {
@@ -4312,12 +4312,12 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
-			{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
-			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
-			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.50.0/24"}},
-			{Layer: port.LayerRouting, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "1/1/5"}},
-			{Layer: port.LayerRouting, Op: trace.OpTransmit, RuleID: "routing.transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/5"}},
+			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
+			{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
+			{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.50.0/24"}},
+			{Layer: routing.LayerName, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "1/1/5"}},
+			{Layer: routing.LayerName, Op: trace.OpTransmit, RuleID: "routing.transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/5"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
 		if res.Outcome != trace.Forwarded {
@@ -4355,12 +4355,12 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/5", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "1/1/5"}},
-			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
-			{Layer: port.LayerRouting, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
-			{Layer: port.LayerRelay, Op: trace.OpLookup, RuleID: "unicast-hit", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:77"}},
-			{Layer: port.LayerVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
-			{Layer: port.LayerRelay, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+			{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "1/1/5"}},
+			{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
+			{Layer: routing.LayerName, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
+			{Layer: bridge.LayerName, Op: trace.OpLookup, RuleID: "unicast-hit", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:77"}},
+			{Layer: bridge.LayerNameVLAN, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+			{Layer: bridge.LayerName, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
 		if res.Outcome != trace.Forwarded {
@@ -4384,7 +4384,7 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/5", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: "routing.not_bridged", Subject: trace.Subject{Kind: "port", Key: "1/1/5"}},
+			{Layer: routing.LayerName, Op: trace.OpDrop, RuleID: "routing.not_bridged", Subject: trace.Subject{Kind: "port", Key: "1/1/5"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
 		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonNotBridged {
@@ -4407,7 +4407,7 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 		}
 		res := sw.Forward(fixedTime, "1/1/5", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: "port.status.down", Subject: trace.Subject{Kind: "port", Key: "1/1/5"}},
+			{Layer: routing.LayerName, Op: trace.OpDrop, RuleID: "port.status.down", Subject: trace.Subject{Kind: "port", Key: "1/1/5"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
 		if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown {
@@ -4451,10 +4451,10 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 		}
 		res := rSw.Forward(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
-			{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "1/1/1"}},
-			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
-			{Layer: port.LayerRouting, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "1/1/2"}},
-			{Layer: port.LayerRouting, Op: trace.OpTransmit, RuleID: "routing.transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+			{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "1/1/1"}},
+			{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
+			{Layer: routing.LayerName, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "1/1/2"}},
+			{Layer: routing.LayerName, Op: trace.OpTransmit, RuleID: "routing.transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 		}
 		assertSteps(t, res.Steps, wantSteps)
 		if res.Outcome != trace.Forwarded {
@@ -5161,7 +5161,7 @@ func TestARPToVLANInterfaceFloodedByRelay(t *testing.T) {
 		t.Errorf("res.FID = %d, want 10", res.FID)
 	}
 	for _, step := range res.Steps {
-		if step.Layer == port.LayerRouting {
+		if step.Layer == routing.LayerName {
 			t.Errorf("found routing step in ARP flood trace: %+v", step)
 		}
 	}
@@ -5179,7 +5179,7 @@ func TestDiffReportsDeviceMAC(t *testing.T) {
 		t.Fatalf("changes = %+v, want one", changes)
 	}
 	ch := changes[0]
-	if ch.Layer != port.LayerPort || ch.Subject != (trace.Subject{Kind: "device"}) || ch.Field != "mac" ||
+	if ch.Layer != port.LayerName || ch.Subject != (trace.Subject{Kind: "device"}) || ch.Field != "mac" ||
 		ch.From != vswitch.DeviceMACFact(cfgA.MAC) || ch.To != vswitch.DeviceMACFact(cfgB.MAC) {
 		t.Errorf("change = %+v, want layer port, subject device, field mac, %s to %s", ch, cfgA.MAC, cfgB.MAC)
 	}
@@ -5221,7 +5221,7 @@ func TestDiffRoutingNeighborChange(t *testing.T) {
 	changes := vswitch.Diff(cfgA, cfgB)
 	var foundNeighborChange bool
 	for _, c := range changes {
-		if c.Layer == port.LayerRouting && c.Subject.Kind == "neighbor" && c.Field == "mac" {
+		if c.Layer == routing.LayerName && c.Subject.Kind == "neighbor" && c.Field == "mac" {
 			foundNeighborChange = true
 			if c.From != routing.MACFact(macA) || c.To != routing.MACFact(macB) {
 				t.Errorf("neighbor diff from=%v to=%v, want %v -> %v", c.From, c.To, macA, macB)
@@ -5600,7 +5600,7 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 	if res.Outcome != trace.Consumed {
 		t.Errorf("res.Outcome = %s, want Consumed", res.Outcome)
 	}
-	if len(res.Steps) == 0 || res.Steps[0].Layer != port.LayerLAG || res.Steps[0].Op != trace.OpClassify || res.Steps[0].RuleID != "lag.lacpdu.admit" {
+	if len(res.Steps) == 0 || res.Steps[0].Layer != lag.LayerName || res.Steps[0].Op != trace.OpClassify || res.Steps[0].RuleID != "lag.lacpdu.admit" {
 		t.Errorf("res.Steps = %+v, want step with LayerLAG, OpClassify, rule lag.lacpdu.admit", res.Steps)
 	}
 	if !traceHasFactType(res.Steps, "lag.lacp_decision") {
@@ -6390,7 +6390,7 @@ func TestMulticastControlRunsThroughTrafficFinishing(t *testing.T) {
 
 func TestMulticastValidationAndDerivation(t *testing.T) {
 	base := mcastSwitchConfig(t, nil)
-	if caps := base.Capabilities(); !slices.Contains(caps, port.LayerMcast) {
+	if caps := base.Capabilities(); !slices.Contains(caps, mcast.LayerName) {
 		t.Errorf("Capabilities() = %v, want mcast", caps)
 	}
 
@@ -6881,7 +6881,7 @@ func TestMulticastLeaveTimingThroughForward(t *testing.T) {
 func routeLookupFact(t *testing.T, res vswitch.ForwardResult) string {
 	t.Helper()
 	for _, step := range res.Steps {
-		if step.Layer != port.LayerRouting || step.Op != trace.OpLookup {
+		if step.Layer != routing.LayerName || step.Op != trace.OpLookup {
 			continue
 		}
 		for _, f := range step.Outputs {
@@ -7553,7 +7553,7 @@ func TestPVSTBoundaryIssueIsRaisedPerVLANAndNotForVLAN1(t *testing.T) {
 		if issue.Code != vswitch.IssuePVSTBoundary {
 			continue
 		}
-		want := analysis.ProtocolScope("", string(port.LayerSTP), "1/1/1/10")
+		want := analysis.ProtocolScope("", string(stp.LayerName), "1/1/1/10")
 		if issue.Scope.Compare(want) != 0 {
 			t.Errorf("issue scope = %s, want %s", issue.Scope, want)
 		}
@@ -7891,7 +7891,7 @@ func TestSSTPFrameConsultsTheSTPScopeWhenSpanningTreeIsMissing(t *testing.T) {
 	peerMAC := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
 	vid := vlan.ID(1)
 
-	stpScope := analysis.ProtocolScope("sw1", string(port.LayerSTP), "0")
+	stpScope := analysis.ProtocolScope("sw1", string(stp.LayerName), "0")
 	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
 		Config: vswitch.Config{
 			MAC: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01},
@@ -8266,8 +8266,8 @@ func TestSSTPOnAPortTheLayerDoesNotTrackTracesAsPortDown(t *testing.T) {
 	if !ok {
 		t.Fatalf("no port.status.down step in the trace: %+v", res.Steps)
 	}
-	if step.Layer != port.LayerSTP {
-		t.Errorf("step layer = %s, want %s", step.Layer, port.LayerSTP)
+	if step.Layer != stp.LayerName {
+		t.Errorf("step layer = %s, want %s", step.Layer, stp.LayerName)
 	}
 }
 
@@ -9670,7 +9670,7 @@ func TestFilterIngressDropIsCompleteOutcomeAndSkipsRouting(t *testing.T) {
 		t.Fatalf("Status = %v, want Complete", res.Metadata.Status())
 	}
 	for _, step := range res.Steps {
-		if step.Layer == port.LayerRouting {
+		if step.Layer == routing.LayerName {
 			t.Errorf("found routing step %v in trace; want routing to be skipped", step)
 		}
 	}

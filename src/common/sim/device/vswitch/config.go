@@ -67,39 +67,39 @@ func ConfigFact(config Config) trace.Fact {
 }
 
 // Capabilities returns the sorted architectural layers implied by the present configuration.
-func (c Config) Capabilities() []port.Layer {
-	var caps []port.Layer
+func (c Config) Capabilities() []trace.Layer {
+	var caps []trace.Layer
 
 	if c.Bridge != nil {
-		caps = append(caps, port.LayerRelay)
+		caps = append(caps, bridge.LayerName)
 		if c.Bridge.VLAN != nil {
-			caps = append(caps, port.LayerVLAN)
+			caps = append(caps, bridge.LayerNameVLAN)
 		}
 	}
 	if c.STP != nil {
-		caps = append(caps, port.LayerSTP)
+		caps = append(caps, stp.LayerName)
 	}
 	if c.LoopProtect != nil {
-		caps = append(caps, port.LayerLoopProtect)
+		caps = append(caps, loopprotect.LayerName)
 	}
 	if c.Mcast != nil {
-		caps = append(caps, port.LayerMcast)
+		caps = append(caps, mcast.LayerName)
 	}
 	if c.Routing != nil {
-		caps = append(caps, port.LayerRouting)
+		caps = append(caps, routing.LayerName)
 	}
 	if c.Traffic != nil {
-		caps = append(caps, port.LayerTraffic)
+		caps = append(caps, traffic.LayerName)
 	}
 	if c.Filter != nil {
-		caps = append(caps, port.LayerFilter)
+		caps = append(caps, filter.LayerName)
 	}
 	if c.Phy != nil {
 		if c.Phy.Ethernet != nil {
-			caps = append(caps, port.LayerEthernet)
+			caps = append(caps, phy.LayerName)
 		}
 		if c.Phy.PoE != nil {
-			caps = append(caps, port.LayerPoE)
+			caps = append(caps, phy.LayerNamePoE)
 		}
 	}
 	hasLag := c.LAG != nil
@@ -112,7 +112,7 @@ func (c Config) Capabilities() []port.Layer {
 		}
 	}
 	if hasLag {
-		caps = append(caps, port.LayerLAG)
+		caps = append(caps, lag.LayerName)
 	}
 
 	slices.Sort(caps)
