@@ -11,18 +11,18 @@ import (
 const maxChecksPerBatch = 50
 
 type obligationTracker struct {
-	mu             sync.Mutex // guards discharged and requireDenied
+	mu             sync.Mutex // guards discharged and checkFailed
 	checker        Checker
 	principal      authn.Principal
 	admittedTenant string
 	discharged     bool
-	requireDenied  bool
+	checkFailed    bool
 }
 
-func (t *obligationTracker) flags() (discharged, requireDenied bool) {
+func (t *obligationTracker) flags() (discharged, checkFailed bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return t.discharged, t.requireDenied
+	return t.discharged, t.checkFailed
 }
 
 func (t *obligationTracker) discharge() {
@@ -31,9 +31,9 @@ func (t *obligationTracker) discharge() {
 	t.mu.Unlock()
 }
 
-func (t *obligationTracker) recordRequireDenied() {
+func (t *obligationTracker) recordCheckFailed() {
 	t.mu.Lock()
-	t.requireDenied = true
+	t.checkFailed = true
 	t.mu.Unlock()
 }
 
@@ -72,11 +72,19 @@ func contextualTuples(p authn.Principal) []Tuple {
 //
 // If ctx was not prepared by the interceptor or lacks an admitted tenant, Require
 // returns an Internal error. If authorization is denied, Require returns a
-// PermissionDenied error, and the interceptor answers Internal if the handler
-// returns a response. If the checker fails or returns an unexpected answer
-// count, Require returns an Unavailable error.
-func Require(ctx context.Context, relation, objectType, id string) error {
+// PermissionDenied error. If the checker fails while ctx.Err() is non-nil, Require
+// returns ctx.Err(); otherwise checker errors return Unavailable. If the handler
+// returns a response after Require returned any error, the interceptor answers
+// Internal with an obligation violation.
+func Require(ctx context.Context, relation, objectType, id string) (err error) {
 	tracker := trackerFromContext(ctx)
+	if tracker != nil {
+		defer func() {
+			if err != nil {
+				tracker.recordCheckFailed()
+			}
+		}()
+	}
 	if tracker == nil || tracker.admittedTenant == "" {
 		return internalError(errs.New().Code(ErrCodeObligationViolation).
 			Msg("require called on invalid context or without admitted tenant"))
@@ -89,7 +97,6 @@ func Require(ctx context.Context, relation, objectType, id string) error {
 		return err
 	}
 	if len(allowed) == 0 {
-		tracker.recordRequireDenied()
 		return permissionDenied(errs.New().Code(ErrCodeDenied).
 			Msg("permission denied"))
 	}
@@ -101,10 +108,19 @@ func Require(ctx context.Context, relation, objectType, id string) error {
 // the permitted unique identifiers in first-seen input order.
 //
 // If ctx was not prepared by the interceptor or lacks an admitted tenant, Filter
-// returns an Internal error. If the checker fails or returns an unexpected answer
-// count, Filter returns an Unavailable error.
-func Filter(ctx context.Context, relation, objectType string, ids []string) ([]string, error) {
+// returns an Internal error. If the checker fails while ctx.Err() is non-nil, Filter
+// returns ctx.Err(); otherwise checker errors return Unavailable. If the handler
+// returns a response after Filter returned any error, the interceptor answers
+// Internal with an obligation violation.
+func Filter(ctx context.Context, relation, objectType string, ids []string) (_ []string, err error) {
 	tracker := trackerFromContext(ctx)
+	if tracker != nil {
+		defer func() {
+			if err != nil {
+				tracker.recordCheckFailed()
+			}
+		}()
+	}
 	if tracker == nil || tracker.admittedTenant == "" {
 		return nil, internalError(errs.New().Code(ErrCodeObligationViolation).
 			Msg("filter called on invalid context or without admitted tenant"))
@@ -149,8 +165,7 @@ func checkObjects(ctx context.Context, checker Checker, p authn.Principal, admit
 			}
 			ok, err := checker.Check(ctx, q)
 			if err != nil {
-				return nil, unavailable(errs.New().Code(ErrCodeUnavailable).Cause(err).
-					Retryable().Msg("authorization is unavailable"))
+				return nil, checkerError(ctx, err, "authorization is unavailable")
 			}
 			if ok {
 				allowed = append(allowed, id)
@@ -186,12 +201,10 @@ func checkObjects(ctx context.Context, checker Checker, p authn.Principal, admit
 		batch := queries[start:end]
 		answers, err := checker.BatchCheck(ctx, batch)
 		if err != nil {
-			return nil, unavailable(errs.New().Code(ErrCodeUnavailable).Cause(err).
-				Retryable().Msg("authorization is unavailable"))
+			return nil, checkerError(ctx, err, "authorization is unavailable")
 		}
 		if len(answers) != len(batch) {
-			return nil, unavailable(errs.New().Code(ErrCodeUnavailable).
-				Retryable().Msg("checker returned unexpected answer count"))
+			return nil, checkerError(ctx, nil, "checker returned unexpected answer count")
 		}
 		allAnswers = append(allAnswers, answers...)
 	}

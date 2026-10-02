@@ -187,7 +187,14 @@ func buildSyntheticService(t *testing.T, name string, messages []*descriptorpb.D
 	return newSyntheticFileDescriptor(t, fdp).Services().Get(0)
 }
 
-func syntheticMethod(name, inputType, outputType string, rule *authzv1.Rule) *descriptorpb.MethodDescriptorProto {
+func syntheticMethod(t *testing.T, name, inputType, outputType string, rule *authzv1.Rule) *descriptorpb.MethodDescriptorProto {
+	t.Helper()
+
+	if rule != nil {
+		if err := protovalidate.Validate(rule); err != nil {
+			t.Fatalf("synthetic method %s rule fails validation: %v", name, err)
+		}
+	}
 	m := &descriptorpb.MethodDescriptorProto{
 		Name:       proto.String(name),
 		InputType:  proto.String(inputType),
@@ -249,7 +256,7 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 				{
 					Name: proto.String("PrecedingService"),
 					Method: []*descriptorpb.MethodDescriptorProto{
-						syntheticMethod("PrecedingMethod",
+						syntheticMethod(t, "PrecedingMethod",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
@@ -258,11 +265,11 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 				{
 					Name: proto.String("MiddleService"),
 					Method: []*descriptorpb.MethodDescriptorProto{
-						syntheticMethod("FirstMethod",
+						syntheticMethod(t, "FirstMethod",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
-						syntheticMethod("SecondMethod",
+						syntheticMethod(t, "SecondMethod",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
@@ -271,15 +278,15 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 				{
 					Name: proto.String("TestService"),
 					Method: []*descriptorpb.MethodDescriptorProto{
-						syntheticMethod("RuledMethod",
+						syntheticMethod(t, "RuledMethod",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
-						syntheticMethod("SecondRuledMethod",
+						syntheticMethod(t, "SecondRuledMethod",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
-						syntheticMethod("Ping",
+						syntheticMethod(t, "Ping",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							nil),
@@ -300,19 +307,19 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 				{
 					Name: proto.String("AlphaService"),
 					Method: []*descriptorpb.MethodDescriptorProto{
-						syntheticMethod("AlphaOne",
+						syntheticMethod(t, "AlphaOne",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
-						syntheticMethod("AlphaTwo",
+						syntheticMethod(t, "AlphaTwo",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
-						syntheticMethod("AlphaThree",
+						syntheticMethod(t, "AlphaThree",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
-						syntheticMethod("AlphaFour",
+						syntheticMethod(t, "AlphaFour",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
@@ -321,23 +328,23 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 				{
 					Name: proto.String("BetaService"),
 					Method: []*descriptorpb.MethodDescriptorProto{
-						syntheticMethod("BetaOne",
+						syntheticMethod(t, "BetaOne",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
-						syntheticMethod("BetaTwo",
+						syntheticMethod(t, "BetaTwo",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
-						syntheticMethod("BetaThree",
+						syntheticMethod(t, "BetaThree",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
-						syntheticMethod("BetaFour",
+						syntheticMethod(t, "BetaFour",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
-						syntheticMethod("BetaFive",
+						syntheticMethod(t, "BetaFive",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							compliantRule),
@@ -357,7 +364,7 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 				{
 					Name: proto.String("SiblingService"),
 					Method: []*descriptorpb.MethodDescriptorProto{
-						syntheticMethod("SiblingMethod",
+						syntheticMethod(t, "SiblingMethod",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							nil),
@@ -377,7 +384,7 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 				{
 					Name: proto.String("OtherService"),
 					Method: []*descriptorpb.MethodDescriptorProto{
-						syntheticMethod("OtherMethod",
+						syntheticMethod(t, "OtherMethod",
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							nil),
@@ -444,12 +451,33 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 				ObjectType: proto.String("tenant"),
 				Relation:   proto.String("INVALID_RELATION"),
 			}.Build()
-			svc := buildSyntheticService(t, "InvalidRuleService", nil,
-				syntheticMethod("InvalidRuleMethod",
-					".flowseer.api.edge.v1.GetEdgeRequest",
-					".flowseer.api.edge.v1.GetEdgeResponse",
-					invalidRule),
-			)
+
+			err := protovalidate.Validate(invalidRule)
+			if err == nil {
+				t.Fatalf("protovalidate.Validate(%v) = nil, want a violation on the relation field", invalidRule)
+			}
+			validationErr, ok := err.(*protovalidate.ValidationError)
+			if !ok {
+				t.Fatalf("protovalidate.Validate(%v) returned %T, want *protovalidate.ValidationError", invalidRule, err)
+			}
+			if len(validationErr.Violations) != 1 {
+				t.Fatalf("got %d violations (%v), want one on the relation field", len(validationErr.Violations), validationErr)
+			}
+			if got := validationErr.Violations[0].FieldDescriptor; got == nil || got.Name() != "relation" {
+				t.Errorf("violation field = %v, want relation", got)
+			}
+
+			// Attach the rule without the validity check syntheticMethod applies:
+			// this method must reach checkAuthorizationRule unchanged.
+			invalidOpts := &descriptorpb.MethodOptions{}
+			proto.SetExtension(invalidOpts, authzv1.E_Rule, invalidRule)
+			invalidMethod := &descriptorpb.MethodDescriptorProto{
+				Name:       proto.String("InvalidRuleMethod"),
+				InputType:  proto.String(".flowseer.api.edge.v1.GetEdgeRequest"),
+				OutputType: proto.String(".flowseer.api.edge.v1.GetEdgeResponse"),
+				Options:    invalidOpts,
+			}
+			svc := buildSyntheticService(t, "InvalidRuleService", nil, invalidMethod)
 			violations := checkAuthorizationRule(svc.Methods().Get(0))
 			assertViolations(t, violations, "authorization rule fails validation")
 		})
@@ -581,39 +609,39 @@ func TestAuthorizationRuleObjectPathResolves(t *testing.T) {
 
 		svc := buildSyntheticService(t, "PathResolutionService",
 			[]*descriptorpb.DescriptorProto{syntheticCarrierMsg},
-			syntheticMethod("CompliantPathMethod",
+			syntheticMethod(t, "CompliantPathMethod",
 				".flowseer.api.edge.v1.GetEdgeRequest",
 				".flowseer.api.edge.v1.GetEdgeResponse",
 				compliantRule),
-			syntheticMethod("NoSuchFieldMethod",
+			syntheticMethod(t, "NoSuchFieldMethod",
 				".flowseer.api.edge.v1.GetEdgeRequest",
 				".flowseer.api.edge.v1.GetEdgeResponse",
 				noSuchFieldRule),
-			syntheticMethod("MessageLeafMethod",
+			syntheticMethod(t, "MessageLeafMethod",
 				".flowseer.api.edge.v1.GetEdgeRequest",
 				".flowseer.api.edge.v1.GetEdgeResponse",
 				messageLeafRule),
-			syntheticMethod("Uint64LeafMethod",
+			syntheticMethod(t, "Uint64LeafMethod",
 				".flowseer.api.device.v1.AbandonMutationRequest",
 				".flowseer.api.device.v1.AbandonMutationResponse",
 				uint64LeafRule),
-			syntheticMethod("RepeatedIntermediateMethod",
+			syntheticMethod(t, "RepeatedIntermediateMethod",
 				".flowseer.api.edge.v1.RetireEdgeResponse",
 				".flowseer.api.edge.v1.RetireEdgeResponse",
 				repeatedIntermediateRule),
-			syntheticMethod("NonMessageIntermediateMethod",
+			syntheticMethod(t, "NonMessageIntermediateMethod",
 				".flowseer.api.edge.v1.GetEdgeRequest",
 				".flowseer.api.edge.v1.GetEdgeResponse",
 				nonMessageIntermediateRule),
-			syntheticMethod("MapIntermediateMethod",
+			syntheticMethod(t, "MapIntermediateMethod",
 				".flowseer.conformance.synthetic.v1.SyntheticCarrier",
 				".flowseer.conformance.synthetic.v1.SyntheticCarrier",
 				mapIntermediateRule),
-			syntheticMethod("RepeatedLeafMethod",
+			syntheticMethod(t, "RepeatedLeafMethod",
 				".flowseer.conformance.synthetic.v1.SyntheticCarrier",
 				".flowseer.conformance.synthetic.v1.SyntheticCarrier",
 				repeatedLeafRule),
-			syntheticMethod("MapLeafMethod",
+			syntheticMethod(t, "MapLeafMethod",
 				".flowseer.conformance.synthetic.v1.SyntheticCarrier",
 				".flowseer.conformance.synthetic.v1.SyntheticCarrier",
 				mapLeafRule),
@@ -732,15 +760,15 @@ func TestAuthorizationRuleNamesKnownRelation(t *testing.T) {
 		}.Build()
 
 		svc := buildSyntheticService(t, "KnownRelationService", nil,
-			syntheticMethod("CompliantRelationMethod",
+			syntheticMethod(t, "CompliantRelationMethod",
 				".flowseer.api.edge.v1.GetEdgeRequest",
 				".flowseer.api.edge.v1.GetEdgeResponse",
 				compliantRule),
-			syntheticMethod("UnknownRelationMethod",
+			syntheticMethod(t, "UnknownRelationMethod",
 				".flowseer.api.edge.v1.GetEdgeRequest",
 				".flowseer.api.edge.v1.GetEdgeResponse",
 				unknownRelationRule),
-			syntheticMethod("UnknownObjectTypeMethod",
+			syntheticMethod(t, "UnknownObjectTypeMethod",
 				".flowseer.api.edge.v1.GetEdgeRequest",
 				".flowseer.api.edge.v1.GetEdgeResponse",
 				unknownObjectTypeRule),
