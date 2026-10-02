@@ -1,6 +1,6 @@
-// Package netsimload runs finite offered-load sources on an edge host and
+// Package simload runs finite offered-load sources on an edge host and
 // compares their wire observations with simulator flow statistics.
-package netsimload
+package simload
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 )
 
-const reportContract = "netsimload/report/v1"
+const reportContract = "simload/report/v1"
 
 // Report combines simulator flow outcomes, lab observations, and the
 // normalized destination-host comparison. All slices are emitted in stable

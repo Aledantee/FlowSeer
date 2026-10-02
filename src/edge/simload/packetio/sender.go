@@ -8,16 +8,16 @@ import (
 )
 
 // ErrCodeSenderOpen identifies an interface open or send failure.
-var ErrCodeSenderOpen = errs.NewCode("netsimload/sender-open")
+var ErrCodeSenderOpen = errs.NewCode("simload/sender-open")
 
 // ErrCodeUnsupportedPlatform identifies a platform without raw packet send.
-var ErrCodeUnsupportedPlatform = errs.NewCode("netsimload/unsupported-platform")
+var ErrCodeUnsupportedPlatform = errs.NewCode("simload/unsupported-platform")
 
 // ErrUnsupportedPlatform is returned by OpenSender on non-Linux platforms.
 var ErrUnsupportedPlatform = errs.New().
 	Code(ErrCodeUnsupportedPlatform).
 	UserMsg("raw packet sending is not supported on this platform").
-	Hint("run on Linux, where netsimload uses AF_PACKET").
+	Hint("run on Linux, where simload uses AF_PACKET").
 	Msg("packet sender is linux-only")
 
 // ErrClosed is returned when a sender has already been closed.

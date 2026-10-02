@@ -1,4 +1,4 @@
-package netsimload
+package simload
 
 import (
 	"encoding/binary"

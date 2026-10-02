@@ -1,4 +1,4 @@
-//go:build netsimload_lab
+//go:build simload_lab
 
 package integration_test
 
@@ -18,13 +18,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
-	"go.aledante.io/FlowSeer/src/common/sim/stream"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
-	"go.aledante.io/FlowSeer/src/edge/netsimload"
+	"go.aledante.io/FlowSeer/src/common/sim/stream"
+	"go.aledante.io/FlowSeer/src/edge/simload"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
 )
 
@@ -212,7 +212,7 @@ func (source timedSource) Receive(ctx context.Context) <-chan rawsocket.Frame {
 			select {
 			case out <- frame:
 				if frame.Err == nil {
-					if signature, err := netsimload.DecodeWireSignature(frame.Data); err == nil {
+					if signature, err := simload.DecodeWireSignature(frame.Data); err == nil {
 						if _, ok := source.ids[signature.FlowID]; ok {
 							source.span.record(frame.CapturedAt)
 						}
@@ -356,7 +356,7 @@ func TestICX7150Comparison(t *testing.T) {
 			if err != nil {
 				t.Fatalf("build one-switch fabric: %v", err)
 			}
-			flows := make([]netsimload.FlowSource, 0, len(tc.counts))
+			flows := make([]simload.FlowSource, 0, len(tc.counts))
 			ids := make(map[fabric.FlowID]struct{}, len(tc.counts))
 			for i, count := range tc.counts {
 				id := tc.firstID + fabric.FlowID(i)
@@ -377,17 +377,17 @@ func TestICX7150Comparison(t *testing.T) {
 				if err := lab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "tx"}, Source: source.Clone(), Flow: id, Retention: fabric.RetainAggregate}); err != nil {
 					t.Fatalf("attach flow %d: %v", id, err)
 				}
-				flows = append(flows, netsimload.FlowSource{ID: id, Source: source.Clone()})
+				flows = append(flows, simload.FlowSource{ID: id, Source: source.Clone()})
 			}
 			if result := lab.Run(200_000); result.Stop != fabric.StopQueueDrained {
 				t.Fatalf("simulator stop = %s, error %v; want %s", result.Stop, result.Err, fabric.StopQueueDrained)
 			}
 
 			span := &captureSpan{}
-			observation, err := netsimload.RunWith(context.Background(), netsimload.Config{
+			observation, err := simload.RunWith(context.Background(), simload.Config{
 				TXInterface: config.txInterface, RXInterface: config.rxInterface,
 				Drain: 250 * time.Millisecond, Flows: flows,
-			}, netsimload.Dependencies{OpenReceiver: func(name string) (rawsocket.Source, error) {
+			}, simload.Dependencies{OpenReceiver: func(name string) (rawsocket.Source, error) {
 				receiver, err := rawsocket.OpenLocalInterface(name, false, nil)
 				if err != nil {
 					return nil, err
@@ -423,7 +423,7 @@ func TestICX7150Comparison(t *testing.T) {
 			if delta > want/100 {
 				t.Errorf("receive pacing deviation = %s, want <= %s", delta, want/100)
 			}
-			report := netsimload.NewReport(lab.Flows(), lab.Metadata(), observation, "rx")
+			report := simload.NewReport(lab.Flows(), lab.Metadata(), observation, "rx")
 			if len(report.Simulator.Issues) != len(lab.Metadata().Issues()) {
 				t.Fatalf("report simulator issues = %d, want %d", len(report.Simulator.Issues), len(lab.Metadata().Issues()))
 			}

@@ -1,4 +1,4 @@
-// Package main provides the netsimload transmit and comparison commands.
+// Package main provides the simload transmit and comparison commands.
 package main
 
 import (
@@ -14,7 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/stream"
-	"go.aledante.io/FlowSeer/src/edge/netsimload"
+	"go.aledante.io/FlowSeer/src/edge/simload"
 )
 
 const inputVersion = 1
@@ -41,19 +41,19 @@ type transmitFlow struct {
 }
 
 type compareDocument struct {
-	Version     int                        `json:"version"`
-	Destination string                     `json:"destination"`
-	Simulator   netsimload.SimulatorReport `json:"simulator"`
-	Lab         netsimload.Observation     `json:"lab"`
+	Version     int                     `json:"version"`
+	Destination string                  `json:"destination"`
+	Simulator   simload.SimulatorReport `json:"simulator"`
+	Lab         simload.Observation     `json:"lab"`
 }
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr, netsimload.Dependencies{}))
+	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr, simload.Dependencies{}))
 }
 
-func run(args []string, input io.Reader, output, diagnostics io.Writer, dependencies netsimload.Dependencies) int {
+func run(args []string, input io.Reader, output, diagnostics io.Writer, dependencies simload.Dependencies) int {
 	if len(args) != 1 {
-		fmt.Fprintln(diagnostics, "usage: netsimload transmit|compare")
+		fmt.Fprintln(diagnostics, "usage: simload transmit|compare")
 		return 2
 	}
 
@@ -75,7 +75,7 @@ func run(args []string, input io.Reader, output, diagnostics io.Writer, dependen
 	return 0
 }
 
-func transmit(input io.Reader, output io.Writer, dependencies netsimload.Dependencies) error {
+func transmit(input io.Reader, output io.Writer, dependencies simload.Dependencies) error {
 	var document transmitDocument
 	if err := decodeJSON(input, &document); err != nil {
 		return err
@@ -88,7 +88,7 @@ func transmit(input io.Reader, output io.Writer, dependencies netsimload.Depende
 		return err
 	}
 
-	flows := make([]netsimload.FlowSource, 0, len(document.Flows))
+	flows := make([]simload.FlowSource, 0, len(document.Flows))
 	for _, inputFlow := range document.Flows {
 		spec, err := streamSpec(inputFlow)
 		if err != nil {
@@ -98,10 +98,10 @@ func transmit(input io.Reader, output io.Writer, dependencies netsimload.Depende
 		if err != nil {
 			return errs.Wrapf(err, "flow %d", inputFlow.ID)
 		}
-		flows = append(flows, netsimload.FlowSource{ID: fabric.FlowID(inputFlow.ID), Source: source})
+		flows = append(flows, simload.FlowSource{ID: fabric.FlowID(inputFlow.ID), Source: source})
 	}
 
-	observation, err := netsimload.RunWith(context.Background(), netsimload.Config{
+	observation, err := simload.RunWith(context.Background(), simload.Config{
 		TXInterface: document.TXInterface,
 		RXInterface: document.RXInterface,
 		Drain:       drain,
@@ -142,7 +142,7 @@ func compare(input io.Reader, output io.Writer) error {
 		}
 	}
 
-	report := netsimload.NewReportFromSimulator(document.Simulator, document.Lab, document.Destination)
+	report := simload.NewReportFromSimulator(document.Simulator, document.Lab, document.Destination)
 	return report.WriteJSON(output)
 }
 

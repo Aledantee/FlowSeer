@@ -1,4 +1,4 @@
-//go:build linux && netsimload_linktest
+//go:build linux && simload_linktest
 
 package packetio
 

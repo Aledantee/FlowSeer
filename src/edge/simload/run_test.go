@@ -1,4 +1,4 @@
-package netsimload
+package simload
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/stream"
-	"go.aledante.io/FlowSeer/src/edge/netsimload/packetio"
+	"go.aledante.io/FlowSeer/src/edge/simload/packetio"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
 )
 

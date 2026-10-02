@@ -1,4 +1,4 @@
-package netsimload
+package simload
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/stream"
 	"go.aledante.io/FlowSeer/src/common/spawn"
-	"go.aledante.io/FlowSeer/src/edge/netsimload/packetio"
+	"go.aledante.io/FlowSeer/src/edge/simload/packetio"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
 )
 
@@ -246,7 +246,7 @@ func execute(ctx context.Context, config Config, clock Clock, sender packetio.Se
 	}
 
 	frames := receiver.Receive(runCtx)
-	spawn.Go(runCtx, "netsimload capture receiver", func() {
+	spawn.Go(runCtx, "simload capture receiver", func() {
 		var receiveErr error
 		for {
 			select {
