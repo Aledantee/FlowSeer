@@ -5,6 +5,7 @@ import { createApp, defineComponent, h, nextTick, ref, type Ref } from 'vue'
 import { UiAppRoot } from '../index'
 import { UiMotionConfig } from './index'
 import { useMotionFeedback } from './useMotionFeedback'
+import { createWebI18n } from '../../i18n'
 
 type Feedback = ReturnType<typeof useMotionFeedback>
 type OwnedKey = 'opacity' | 'transform'
@@ -128,6 +129,7 @@ function mountFeedback(options: MountOptions = {}): MountedFeedback {
       return h(UiAppRoot, {}, () => child)
     },
   })
+  app.use(createWebI18n())
   app.mount(host)
   let unmounted = false
   const unmount = () => {

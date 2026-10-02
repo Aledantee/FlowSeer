@@ -5,6 +5,7 @@ import { composeStories, setProjectAnnotations } from '@storybook/vue3-vite'
 import preview from './preview'
 import type { AiRequest } from '../src/ai'
 import { aiRegistry } from '../src/ai'
+import { createWebI18n } from '../src/i18n'
 
 setProjectAnnotations(preview)
 
@@ -60,6 +61,7 @@ function mountStory(component: Component) {
   const container = document.createElement('div')
   document.body.append(container)
   const app = createApp(component)
+  app.use(createWebI18n())
   app.mount(container)
   const root = container.querySelector<HTMLElement>('[data-ai-story-root]')
   if (root) setBox(root)

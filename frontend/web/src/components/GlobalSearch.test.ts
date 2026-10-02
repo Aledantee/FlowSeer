@@ -5,6 +5,7 @@ import { TooltipProvider } from 'reka-ui'
 import type { SearchResult } from '../domain/search'
 import { SHORTCUTS, isMac, keysOf } from '../navigation/shortcuts'
 import GlobalSearch, { type SearchPage } from './GlobalSearch.vue'
+import { createWebI18n } from '../i18n'
 
 const pages: SearchPage[] = [
   {
@@ -53,6 +54,7 @@ async function mountSearchClosed(handlers: SearchHandlers = {}) {
         }),
       ),
   })
+  app.use(createWebI18n())
   app.mount(host)
   dispose = () => app.unmount()
 

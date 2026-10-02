@@ -1,0 +1,129 @@
+{
+  "ui": {
+    "alertDialog": {
+      "cancelText": "Abbrechen",
+      "confirmText": "Bestätigen"
+    },
+    "aiActionLayer": {
+      "ai": "KI",
+      "ask": "Fragen",
+      "askAbout": "Frage zu {label}",
+      "asking": "Wird gefragt…",
+      "cancel": "Abbrechen",
+      "error": "Etwas ist schiefgelaufen.",
+      "heading": "Frage zu {label}",
+      "questionLabel": "Ihre Frage",
+      "questionPlaceholder": "Warum ist dieses Gerät offline?",
+      "unavailable": "KI ist nicht verfügbar"
+    },
+    "aiSummary": {
+      "error": "Etwas ist schiefgelaufen.",
+      "generate": "Zusammenfassung erstellen",
+      "generating": "Zusammenfassung wird erstellt…",
+      "retry": "Wiederholen",
+      "summaryLabel": "KI-Zusammenfassung für {label}",
+      "unavailable": "KI ist nicht verfügbar"
+    },
+    "breadcrumb": {
+      "ariaLabel": "Brotkrümelnavigation"
+    },
+    "breadcrumbEllipsis": {
+      "toggleLabel": "Eingeklappte Brotkrümel umschalten"
+    },
+    "breadcrumbSeparator": {
+      "separator": "/"
+    },
+    "combobox": {
+      "emptyText": "Keine Ergebnisse gefunden.",
+      "placeholder": "Suchen..."
+    },
+    "commandDialog": {
+      "description": "Such- und Befehlspalette",
+      "title": "Befehlspalette"
+    },
+    "commandEmpty": {
+      "text": "Keine Ergebnisse gefunden."
+    },
+    "commandInput": {
+      "label": "Befehle durchsuchen",
+      "placeholder": "Befehl eingeben oder suchen..."
+    },
+    "commandList": {
+      "label": "Befehle"
+    },
+    "dialog": {
+      "closeLabel": "Schließen",
+      "fallbackDescription": "Dialogbeschreibung",
+      "fallbackTitle": "Dialog"
+    },
+    "field": {
+      "requiredMark": "*"
+    },
+    "meter": {
+      "detailSeparator": " · ",
+      "unit": "%",
+      "valueWithUnit": "{value}\u00a0{unit}"
+    },
+    "metricCard": {
+      "valueWithUnit": "{value}\u00a0{unit}"
+    },
+    "pagination": {
+      "ellipsis": "…",
+      "firstLabel": "Erste Seite",
+      "firstMark": "«",
+      "lastLabel": "Letzte Seite",
+      "lastMark": "»",
+      "nextLabel": "Nächste Seite",
+      "nextMark": "›",
+      "nextText": "Weiter",
+      "pageLabel": "Seite {page}",
+      "previousLabel": "Vorherige Seite",
+      "previousMark": "‹",
+      "previousText": "Zurück"
+    },
+    "progress": {
+      "ariaLabel": "Fortschritt"
+    },
+    "segmentedMeter": {
+      "degraded": "Beeinträchtigt",
+      "healthy": "Gesund",
+      "offline": "Offline",
+      "segmentText": "{count} {label}"
+    },
+    "select": {
+      "placeholder": "Option auswählen..."
+    },
+    "statusBadge": {
+      "degraded": "Beeinträchtigt",
+      "healthy": "Gesund",
+      "offline": "Offline"
+    },
+    "tableHead": {
+      "ascendingMark": "↑",
+      "descendingMark": "↓"
+    },
+    "toast": {
+      "actionAltText": "Aktion",
+      "closeLabel": "Schließen"
+    },
+    "toastProvider": {
+      "announcementLabel": "Benachrichtigung",
+      "viewportLabel": "Benachrichtigungen ({hotkey})"
+    },
+    "tooltip": {
+      "alt": "Alt",
+      "backslashMark": "\\",
+      "commandMark": "⌘",
+      "control": "Strg",
+      "downMark": "↓",
+      "enterMark": "↵",
+      "escape": "Esc",
+      "leftMark": "←",
+      "optionMark": "⌥",
+      "rightMark": "→",
+      "shift": "Umschalt",
+      "shiftMark": "⇧",
+      "upMark": "↑"
+    }
+  }
+}

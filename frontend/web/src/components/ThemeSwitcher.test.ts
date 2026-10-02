@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import { UiAppRoot } from '../ui'
 import ThemeSwitcher from './ThemeSwitcher.vue'
+import { createWebI18n } from '../i18n'
 
 let dispose = () => {}
 
@@ -34,6 +35,7 @@ function mountSwitcher() {
       return h(UiAppRoot, {}, () => h(ThemeSwitcher))
     },
   })
+  app.use(createWebI18n())
   app.mount(host)
   dispose = () => {
     app.unmount()

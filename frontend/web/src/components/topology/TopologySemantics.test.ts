@@ -13,6 +13,7 @@ import { createAiRegistry, createAiTargetDirective } from '../../ai'
 import type { AiRegistry } from '../../ai'
 import TopologyLink from './TopologyLink.vue'
 import TopologyNode from './TopologyNode.vue'
+import { createWebI18n } from '../../i18n'
 
 vi.mock('@vue-flow/core', async () => {
   const vue = await import('vue')
@@ -76,6 +77,7 @@ function mount(component: Component, props: Record<string, unknown>) {
     }),
   )
   registry = createAiRegistry()
+  app.use(createWebI18n())
   app.directive('ai-target', createAiTargetDirective(registry))
   app.mount(host)
   dispose = () => app.unmount()
