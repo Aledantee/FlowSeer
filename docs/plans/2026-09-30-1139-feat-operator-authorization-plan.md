@@ -159,11 +159,14 @@ before phase 2 writes the model:
 
 | Object type | Relations a rule may name |
 | --- | --- |
+| `platform` | `admin` |
 | `tenant` | `member`, `admin`, `operator`, `capturer`, `viewer`, `full_payload` |
 | `edge` | `tenant`, `view`, `operate`, `capture`, `administer` |
 | `device` | `tenant`, `view`, `operate` |
 | `capture_session` | `tenant`, `manage`, `download` |
 
+`platform` has one object, `platform:flowseer`, and `TenantService`'s rules
+name it (`spec/proto/flowseer/api/identity/v1/tenant_service.proto`).
 `tenant` on a resource names its owning tenant. `capture_session#manage`
 derives from the session's stored edge (`capture from edge`), never from
 the edge a request names.
