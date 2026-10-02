@@ -296,4 +296,24 @@ Waves: U1 | U2 U3 | U4
 
 ## Open questions
 
-None.
+- Parked by drive: the fresh review ended in `rework` at the three-round
+  limit with no open defect in `useMotionFeedback.ts`, one untested defect
+  path (the skipped reduced-motion row for the `both` owned set in
+  `useMotionFeedback.test.ts`), and low test and citation items. The three
+  rounds of fixes are on `parked/wcc-p2-review` (`d7995d3d`), unmerged.
+  Options: run one more fix round from `parked/wcc-p2-review` on the open
+  findings (small, but each round so far surfaced a new test gap) | take
+  the cleanup-property tests to `plan` (what `review` prescribes after
+  three rounds on one mechanism, and slower) | accept with the gaps
+  recorded (releases phase 3 now, and overrides the review gate).
+  Recommended: one more fix round, because the remaining correctness item
+  is one skipped case with a known fix and the source has been stable
+  since round 1.
+- Parked by drive: should active plays clear on every preference or
+  config change, or only when effective reduced motion changes? Two test
+  rows on `parked/wcc-p2-review` assert the first, and this plan's
+  Decisions state the second. Options: every change clears (keeps the
+  code and rows, amends the Decision) | only an effective change clears
+  (matches the Decision, changes the watcher and drops the rows).
+  Recommended: every change clears, because it is what the code does
+  today and it cannot leave a play running under a stale configuration.
