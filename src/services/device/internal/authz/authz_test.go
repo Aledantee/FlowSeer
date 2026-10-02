@@ -194,15 +194,15 @@ func (t *testAuthnInterceptor) WrapStreamingHandler(next connect.StreamingHandle
 	}
 }
 
-func edgeRef(t *testing.T, id string) *edgemodelv1.EdgeGlobalRef {
+func edgeRef(t *testing.T) *edgemodelv1.EdgeGlobalRef {
 	t.Helper()
 	ref := edgemodelv1.EdgeGlobalRef_builder{
 		Edge: edgemodelv1.EdgeLocalRef_builder{
-			Id: proto.String(id),
+			Id: proto.String(validEdgeID),
 		}.Build(),
 	}.Build()
 	if err := protovalidate.Validate(ref); err != nil {
-		t.Fatalf("edgeRef(%q) fails protovalidate: %v", id, err)
+		t.Fatalf("edgeRef fails protovalidate: %v", err)
 	}
 	return ref
 }
@@ -210,7 +210,7 @@ func edgeRef(t *testing.T, id string) *edgemodelv1.EdgeGlobalRef {
 func sessionRef(t *testing.T, sessionID string) *capturemodelv1.CaptureSessionGlobalRef {
 	t.Helper()
 	ref := capturemodelv1.CaptureSessionGlobalRef_builder{
-		Edge: edgeRef(t, validEdgeID),
+		Edge: edgeRef(t),
 		CaptureSession: capturemodelv1.CaptureSessionLocalRef_builder{
 			Id: proto.String(sessionID),
 		}.Build(),
@@ -602,7 +602,7 @@ func TestNoPrincipalIsUnauthenticated(t *testing.T) {
 	env := setupTestEnv(t)
 
 	req := connect.NewRequest(edgev1.GetEdgeRequest_builder{
-		Edge: edgeRef(t, validEdgeID),
+		Edge: edgeRef(t),
 	}.Build())
 	req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 	req.Header().Set("X-Test-Omit-Principal", "true")
@@ -630,7 +630,7 @@ func TestNoPrincipalIsUnauthenticated(t *testing.T) {
 	t.Run("no rule method with no principal fails PermissionDenied", func(t *testing.T) {
 		env.checker.Reset()
 		noRuleReq := connect.NewRequest(edgev1.GetEdgeRequest_builder{
-			Edge: edgeRef(t, validEdgeID),
+			Edge: edgeRef(t),
 		}.Build())
 		noRuleReq.Header().Set("X-FlowSeer-Tenant", validTenantID)
 		noRuleReq.Header().Set("X-Test-Omit-Principal", "true")
@@ -659,7 +659,7 @@ func TestTenantHeaderValidation(t *testing.T) {
 		env.handlers.Reset()
 
 		req := connect.NewRequest(edgev1.GetEdgeRequest_builder{
-			Edge: edgeRef(t, validEdgeID),
+			Edge: edgeRef(t),
 		}.Build())
 
 		_, err := env.edgeCli.GetEdge(context.Background(), req)
@@ -688,7 +688,7 @@ func TestTenantHeaderValidation(t *testing.T) {
 		env.handlers.Reset()
 
 		req := connect.NewRequest(edgev1.GetEdgeRequest_builder{
-			Edge: edgeRef(t, validEdgeID),
+			Edge: edgeRef(t),
 		}.Build())
 		req.Header().Set("X-FlowSeer-Tenant", "Acme")
 
@@ -718,7 +718,7 @@ func TestTenantHeaderValidation(t *testing.T) {
 		env.handlers.Reset()
 
 		req := connect.NewRequest(edgev1.GetEdgeRequest_builder{
-			Edge: edgeRef(t, validEdgeID),
+			Edge: edgeRef(t),
 		}.Build())
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 
@@ -748,7 +748,7 @@ func TestMembershipDeniedRefused(t *testing.T) {
 	})
 
 	req := connect.NewRequest(edgev1.GetEdgeRequest_builder{
-		Edge: edgeRef(t, validEdgeID),
+		Edge: edgeRef(t),
 	}.Build())
 	req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 
@@ -968,7 +968,7 @@ func TestObligationAndDenialHandling(t *testing.T) {
 		})
 
 		req := connect.NewRequest(capturev1.CreateCaptureSessionRequest_builder{
-			Edge: edgeRef(t, validEdgeID),
+			Edge: edgeRef(t),
 		}.Build())
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 
@@ -1064,7 +1064,7 @@ func TestObligationAndDenialHandling(t *testing.T) {
 		})
 
 		req := connect.NewRequest(capturev1.CreateCaptureSessionRequest_builder{
-			Edge: edgeRef(t, validEdgeID),
+			Edge: edgeRef(t),
 		}.Build())
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 
@@ -1109,7 +1109,7 @@ func TestObligationAndDenialHandling(t *testing.T) {
 		})
 
 		req := connect.NewRequest(capturev1.CreateCaptureSessionRequest_builder{
-			Edge: edgeRef(t, validEdgeID),
+			Edge: edgeRef(t),
 		}.Build())
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 
@@ -1278,7 +1278,7 @@ func TestCheckerErrorBecomesUnavailable(t *testing.T) {
 		})
 
 		req := connect.NewRequest(edgev1.GetEdgeRequest_builder{
-			Edge: edgeRef(t, validEdgeID),
+			Edge: edgeRef(t),
 		}.Build())
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 
@@ -1399,7 +1399,7 @@ func TestCheckerErrorBecomesUnavailable(t *testing.T) {
 		})
 
 		req := connect.NewRequest(capturev1.CreateCaptureSessionRequest_builder{
-			Edge: edgeRef(t, validEdgeID),
+			Edge: edgeRef(t),
 		}.Build())
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 
@@ -1504,7 +1504,7 @@ func TestContextualTuplesSentOnEveryCheck(t *testing.T) {
 	t.Run("request rule call carries tuples on every query", func(t *testing.T) {
 		env.checker.Reset()
 		req := connect.NewRequest(edgev1.GetEdgeRequest_builder{
-			Edge: edgeRef(t, validEdgeID),
+			Edge: edgeRef(t),
 		}.Build())
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 		req.Header().Set("X-Test-Principal-Tenants", validTenantID+","+validTenantID2)
@@ -1648,7 +1648,7 @@ func TestUnsupportedOrMissingRuleRefused(t *testing.T) {
 	t.Run("unspecified mode refused with no query", func(t *testing.T) {
 		env.checker.Reset()
 		req := connect.NewRequest(edgev1.GetEdgeRequest_builder{
-			Edge: edgeRef(t, validEdgeID),
+			Edge: edgeRef(t),
 		}.Build())
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 
@@ -1670,7 +1670,7 @@ func TestUnsupportedOrMissingRuleRefused(t *testing.T) {
 	t.Run("mode 99 refused with no query", func(t *testing.T) {
 		env.checker.Reset()
 		req := connect.NewRequest(edgev1.GetEdgeRequest_builder{
-			Edge: edgeRef(t, validEdgeID),
+			Edge: edgeRef(t),
 		}.Build())
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 
@@ -1695,7 +1695,7 @@ func TestUnsupportedOrMissingRuleRefused(t *testing.T) {
 			env.setLoadedFn(nil)
 
 			req := connect.NewRequest(edgev1.GetEdgeRequest_builder{
-				Edge: edgeRef(t, validEdgeID),
+				Edge: edgeRef(t),
 			}.Build())
 			req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 
@@ -1723,7 +1723,7 @@ func TestUnsupportedOrMissingRuleRefused(t *testing.T) {
 			})
 
 			req := connect.NewRequest(edgev1.GetEdgeRequest_builder{
-				Edge: edgeRef(t, validEdgeID),
+				Edge: edgeRef(t),
 			}.Build())
 			req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 
@@ -1840,7 +1840,7 @@ func TestAdmittedTenantInContext(t *testing.T) {
 	env := setupTestEnv(t)
 
 	req := connect.NewRequest(edgev1.GetEdgeRequest_builder{
-		Edge: edgeRef(t, validEdgeID),
+		Edge: edgeRef(t),
 	}.Build())
 	req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 
@@ -1992,7 +1992,7 @@ func TestBatchCheckShortAnswerIsUnavailable(t *testing.T) {
 		})
 
 		req := connect.NewRequest(edgev1.GetEdgeRequest_builder{
-			Edge: edgeRef(t, validEdgeID),
+			Edge: edgeRef(t),
 		}.Build())
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 
