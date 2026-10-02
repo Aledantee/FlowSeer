@@ -161,18 +161,11 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 				}
 
 			case authzv1.RuleMode_RULE_MODE_TENANT:
-				q := Query{
-					Object:           "tenant:" + tenantHeader,
-					Relation:         rule.GetRelation(),
-					User:             "user:" + principal.ID,
-					ContextualTuples: tuples,
-				}
-				allowed, err := i.checker.Check(ctx, q)
+				allowed, err := checkObjects(ctx, i.checker, principal, tenantHeader, "tenant", rule.GetRelation(), []string{tenantHeader})
 				if err != nil {
-					return nil, unavailable(errs.New().Code(ErrCodeUnavailable).Cause(err).
-						Retryable().Msg("authorization is unavailable"))
+					return nil, err
 				}
-				if !allowed {
+				if len(allowed) == 0 {
 					return nil, permissionDenied(errs.New().Code(ErrCodeDenied).
 						Msg("permission denied"))
 				}

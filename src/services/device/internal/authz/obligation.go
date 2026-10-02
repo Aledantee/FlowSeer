@@ -71,9 +71,10 @@ func contextualTuples(p authn.Principal) []Tuple {
 // the deferred authorization obligation on the context.
 //
 // If ctx was not prepared by the interceptor or lacks an admitted tenant, Require
-// returns an Internal error. If authorization is denied, Require flags the tracker
-// and returns a PermissionDenied error. If the checker fails or returns an
-// unexpected answer count, Require returns an Unavailable error.
+// returns an Internal error. If authorization is denied, Require returns a
+// PermissionDenied error, and the interceptor answers Internal if the handler
+// returns a response. If the checker fails or returns an unexpected answer
+// count, Require returns an Unavailable error.
 func Require(ctx context.Context, relation, objectType, id string) error {
 	tracker := trackerFromContext(ctx)
 	if tracker == nil || tracker.admittedTenant == "" {
@@ -95,8 +96,9 @@ func Require(ctx context.Context, relation, objectType, id string) error {
 	return nil
 }
 
-// Filter evaluates relation and tenant constraints across candidate object identifiers,
-// batching checks in groups of at most 50, and returns the permitted identifiers in input order.
+// Filter deduplicates candidate object identifiers, evaluates relation and tenant
+// constraints across them, batching checks in groups of at most 50, and returns
+// the permitted unique identifiers in first-seen input order.
 //
 // If ctx was not prepared by the interceptor or lacks an admitted tenant, Filter
 // returns an Internal error. If the checker fails or returns an unexpected answer
