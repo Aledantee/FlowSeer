@@ -237,7 +237,7 @@ the edge a request names.
 
 Files: `docs/plans/2026-09-30-1139-feat-operator-authorization-phase1-plan.md`
 After: none
-Landed: `5b8a83e6..4ff91ca7`
+Landed: `5b8a83e6..6ebca6cb`
 
 ### U2. OIDC authentication, OpenFGA client, model, and deployment
 
