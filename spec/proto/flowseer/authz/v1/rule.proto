@@ -37,7 +37,7 @@ message Rule {
     expression: "(this.object_type == 'platform') == (this.mode == 5)"
   };
 
-  // The authorization enforcement mode. Must be specified.
+  // The authorization enforcement mode. Must be present.
   RuleMode mode = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).enum = {
@@ -45,16 +45,16 @@ message Rule {
       not_in: [0]
     }
   ];
-  // The relation required on the object. Must match snake_case identifier format.
+  // The relation required on the object. Must match snake_case identifier format. Must be present.
   string relation = 2 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.pattern = "^[a-z][a-z_]*$"
   ];
-  // The object type checked in the relationship engine. Must match snake_case identifier format.
+  // The object type checked in the relationship engine. Must match snake_case identifier format. Must be present.
   string object_type = 3 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.pattern = "^[a-z][a-z_]*$"
   ];
-  // Dot-separated path to the string object identifier within the request message. Unset outside request mode.
+  // Dot-separated path to the string object identifier within the request message. Must be present in request mode. Unset in every other mode.
   string object_id_path = 4 [(buf.validate.field).string.pattern = "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"];
 }

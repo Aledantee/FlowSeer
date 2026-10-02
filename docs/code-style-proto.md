@@ -365,8 +365,8 @@ response, not for the reviewer of this file.
 
 **Extension numbers**
 
-Two packages already use 50000 on different extended messages, and this table stops
-a third package from taking a number already used on the same message.
+Four packages already use 50000 on different extended messages, and this table stops
+another package from taking a number already used on the same message.
 
 | Extended message | Number | Extension name | File |
 | --- | --- | --- | --- |

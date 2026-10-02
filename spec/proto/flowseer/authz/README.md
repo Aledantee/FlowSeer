@@ -18,8 +18,8 @@ Imports: nothing FlowSeer-owned
 
 Imported by: api/capture, api/device, api/edge, api/identity
 
-The `authz/` root is a leaf: it imports nothing FlowSeer-owned. Any service root
-may import `authz/`.
+The `authz/` root is a leaf: it imports nothing FlowSeer-owned. Packages under
+`api/` may import `authz/`.
 
 ## Packages
 

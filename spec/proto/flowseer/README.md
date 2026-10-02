@@ -2,10 +2,10 @@
 
 Every package under `spec/proto/flowseer/` is organized along a single axis at
 the root: the kind of contract it declares. Roots answer what kind of boundary
-a schema governs — reusable primitives, domain models, northbound APIs,
-edge-plane services, durable events, integration fabrics, storage formats,
-errors, or local runtime mailboxes — before any reader needs to inspect a
-message.
+a schema governs (reusable primitives, domain models, authorization rule options,
+northbound APIs, edge-plane services, durable events, integration fabrics,
+storage formats, errors, or local runtime mailboxes) before any reader needs
+to inspect a message.
 
 ## The package tree
 
@@ -25,16 +25,17 @@ spec/proto/flowseer/
 
 ## Import order between roots
 
-Imports flow strictly upward across boundaries; lower roots never depend on
+Imports flow strictly upward across boundaries. Lower roots never depend on
 higher roots. Primitives under `net/`, error payloads under `errs/`, and
-authorization rule options under `authz/` are leaves. `model/` defines identity and shared values that upper boundaries
-embed. `event/`, `integration/`, `api/`, and `edge/` are boundary consumers
-that import `model/`, `errs/`, and `net/` as needed; `edge/audit` also imports
-`event/access` for the record it delivers, so a boundary consumer may import
-another when its own contract carries that other's record. A package that
-declares a Connect service is a sink and is imported by nothing. `store/`
-records embed models and primitives but are imported by no other package.
-`runtime/` sits outside the import order as a process-local runtime contract.
+authorization rule options under `authz/` are leaves. `model/` defines identity
+and shared values that upper boundaries embed. `event/`, `integration/`, `api/`,
+and `edge/` are boundary consumers that import `model/`, `errs/`, `authz/`, and
+`net/` as needed. `edge/audit` also imports `event/access` for the record it
+delivers, so a boundary consumer may import another when its own contract carries
+that other's record. A package that declares a Connect service is a sink and is
+imported by nothing. `store/` records embed models and primitives but are
+imported by no other package. `runtime/` sits outside the import order as a
+process-local runtime contract.
 
 The authoritative import order and layering constraints are documented in the
 [network model structure record](../../../docs/architecture/2026-08-20-network-model-structure-direction.md)

@@ -72,6 +72,7 @@ spec/proto/flowseer/
     dispatch/v1/        DispatchService, the execution envelope central and the edge hosting a device's lane exchange
     audit/v1/           AuditService, delivering the durable DeviceOperationEvent audit record
     capture/v1/         CaptureEdgeService, the upload stream for packet capture sessions
+  authz/v1/             the operator authorization rule option
   errs/v1/              the error wire payload
   event/
     access/v1/          DeviceOperationEvent, the durable audit record of lane operations
@@ -136,8 +137,8 @@ and `model/access` imports `model/identity` for the operator actor; none of them
 imports anything FlowSeer-owned back.
 `edge/attach` imports `model/edge` for the entity, `model/credential` and
 `model/policy` for the handles and secret material its services hand out, and
-`net/addr` for the IP address a listed device reports; `api/edge` imports
-`model/edge` alone. `api/capture` imports `model/capture` for the entity and the
+`net/addr` for the IP address a listed device reports. `api/edge` imports
+`model/edge` and `authz`. `api/capture` imports `model/capture` for the entity and the
 chunk frames, `model/edge` for the owning ref, and `net/capture` for the values
 a capture observes; `edge/capture` imports `model/capture` and `model/edge` for
 the assignment stream and the assertion its upload stream re-verifies.

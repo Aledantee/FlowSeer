@@ -77,8 +77,7 @@ var importOrder = map[string][]string{
 	"net/protocol/bfd":  protocolRows,
 
 	// The operator-facing service that creates, provisions, and retires an
-	// edge. It hands back EdgeRecord and takes EdgeGlobalRef, and needs
-	// nothing else.
+	// edge. It hands back EdgeRecord and takes EdgeGlobalRef.
 	"api/edge": {"model/edge", "authz"},
 
 	// The operator-facing service that creates, retrieves, and lists
@@ -116,10 +115,9 @@ var importOrder = map[string][]string{
 	// requester is a model/identity value, never the access plane.
 	"model/capture": {"model/edge", "model/identity", "net/capture", "net/key"},
 
-	// The two Connect services around a capture session: the one an operator
-	// calls to create, control, and read one back, and the one an edge calls
-	// to upload one. Neither adds an import model/capture does not already
-	// carry.
+	// The Connect service an operator calls to create, control, and read back
+	// a capture session. Adds authz for authorization rules beyond what
+	// model/capture carries.
 	"api/capture": {"model/capture", "model/edge", "net/capture", "authz"},
 
 	// The Connect service an edge calls to upload a running capture
@@ -150,8 +148,8 @@ var importOrder = map[string][]string{
 	// The operator API, the execution envelope, and the audit event are
 	// sibling boundary consumers of model/access. Each imports model/access
 	// directly. This row is an allowlist and is wider than the tree:
-	// api/device's files reach model/access and model/inventory, while
-	// model/policy and errs are permitted and unused. The envelope carries no
+	// api/device's files reach model/access, model/inventory, and authz,
+	// while model/policy and errs are permitted and unused. The envelope carries no
 	// device or edge ref at all (the transport already names both), and the
 	// audit event needs model/inventory directly because it is read outside
 	// any live transport context.
