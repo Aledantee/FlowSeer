@@ -4,13 +4,15 @@ type: feat
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 parent: docs/plans/2026-09-30-1139-feat-operator-authorization-plan.md
 ---
 
 # Operator Authorization Phase 1, Rule Schema and Enforcement Core - Plan
+
+> Implemented. 4 units, 2026-10-02T16:40Z to 2026-10-02T17:12Z.
 
 ## Goal
 
