@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 )
 
@@ -20,7 +21,7 @@ func TestWakeEmitsOnlyWhenTheProbeIntervalIsDue(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

@@ -9,8 +9,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/tcp"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -103,7 +103,7 @@ func TestEvaluateFirstMatch(t *testing.T) {
 		},
 	}
 
-	l, err := filter.New(cfg, port.Table{}, "sw1")
+	l, err := filter.New(cfg, layer.Env{NodeID: "sw1"})
 	if err != nil {
 		t.Fatalf("filter.New error = %v", err)
 	}
@@ -191,7 +191,7 @@ func TestStatefulReplyReverseMatchAcceptsAndNamesForwardRule(t *testing.T) {
 		},
 	}
 
-	l, err := filter.New(cfg, port.Table{}, "sw1")
+	l, err := filter.New(cfg, layer.Env{NodeID: "sw1"})
 	if err != nil {
 		t.Fatalf("filter.New error = %v", err)
 	}
@@ -300,7 +300,7 @@ func TestStatelessSetNeverConsultsCounterpart(t *testing.T) {
 		},
 	}
 
-	l, err := filter.New(cfg, port.Table{}, "sw1")
+	l, err := filter.New(cfg, layer.Env{NodeID: "sw1"})
 	if err != nil {
 		t.Fatalf("filter.New error = %v", err)
 	}
@@ -378,7 +378,7 @@ func TestResolveDeferredReverseMatchHonorsFirstMatch(t *testing.T) {
 		},
 	}
 
-	l, err := filter.New(cfg, port.Table{}, "sw1")
+	l, err := filter.New(cfg, layer.Env{NodeID: "sw1"})
 	if err != nil {
 		t.Fatalf("filter.New error = %v", err)
 	}
@@ -440,7 +440,7 @@ func TestEvaluateEgressReverseMatchHonorsFirstMatch(t *testing.T) {
 		},
 	}
 
-	l, err := filter.New(cfg, port.Table{}, "sw1")
+	l, err := filter.New(cfg, layer.Env{NodeID: "sw1"})
 	if err != nil {
 		t.Fatalf("filter.New error = %v", err)
 	}
@@ -490,7 +490,7 @@ func TestStatefulReplyMatchesFlagQualifiedForwardRule(t *testing.T) {
 		},
 	}
 
-	l, err := filter.New(cfg, port.Table{}, "sw1")
+	l, err := filter.New(cfg, layer.Env{NodeID: "sw1"})
 	if err != nil {
 		t.Fatalf("filter.New error = %v", err)
 	}
@@ -532,7 +532,7 @@ func TestEmptySetDefaultStep(t *testing.T) {
 		},
 	}
 
-	l, err := filter.New(cfg, port.Table{}, "sw1")
+	l, err := filter.New(cfg, layer.Env{NodeID: "sw1"})
 	if err != nil {
 		t.Fatalf("filter.New error = %v", err)
 	}
@@ -573,7 +573,7 @@ func TestDropIsCompleteDomainOutcome(t *testing.T) {
 		},
 	}
 
-	l, err := filter.New(cfg, port.Table{}, "sw1")
+	l, err := filter.New(cfg, layer.Env{NodeID: "sw1"})
 	if err != nil {
 		t.Fatalf("filter.New error = %v", err)
 	}
@@ -705,7 +705,7 @@ func TestStatefulReverseMatchRuleEnumeration(t *testing.T) {
 				},
 			}
 
-			l, err := filter.New(cfg, port.Table{}, "sw1")
+			l, err := filter.New(cfg, layer.Env{NodeID: "sw1"})
 			if err != nil {
 				t.Fatalf("filter.New error = %v", err)
 			}

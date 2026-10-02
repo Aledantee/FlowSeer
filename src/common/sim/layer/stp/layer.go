@@ -12,7 +12,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -346,13 +345,13 @@ func compareVectors(a, b priorityVector) int {
 	return cmp.Compare(a.portID, b.portID)
 }
 
-// New constructs a spanning tree layer from the given configuration and port table.
+// New constructs a spanning tree layer from the given configuration and environment.
 // It returns an error if the configuration is invalid against the ports.
-func New(cfg Config, ports port.Table) (*Layer, error) {
-	if err := cfg.Validate(ports); err != nil {
+func New(cfg Config, env layer.Env) (*Layer, error) {
+	if err := cfg.Validate(env); err != nil {
 		return nil, err
 	}
-	return newLayer(cfg.Normalize()), nil
+	return newLayer(cfg.Normalize(env)), nil
 }
 
 func newLayer(cfg Config) *Layer {
@@ -2578,12 +2577,12 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 // RetentionKey returns a canonical encoding of every normalized input the layer's
 // runtime state depends on: its own configuration as Diff sees it, port link states,
 // and resolved phy speeds.
-func RetentionKey(cfg Config, ports port.Table, speeds map[string]uint64) string {
+func RetentionKey(cfg Config, env layer.Env) string {
 	if len(cfg.Ports) == 0 && cfg.Address == (netaddr.MAC{}) && cfg.MST == nil && cfg.PVST == nil &&
 		cfg.Priority == 0 && cfg.HelloTime == 0 && cfg.MaxAge == 0 && cfg.ForwardDelay == 0 && cfg.TxHoldCount == 0 {
 		return ""
 	}
-	norm := cfg.Normalize()
+	norm := cfg.Normalize(env)
 	var b strings.Builder
 	b.WriteString("config=")
 	fmt.Fprintf(&b, "addr=%s;prio=%d;prio_pres=%t;hello=%s;max_age=%s;fwd_delay=%s;tx_hold=%d;",
@@ -2604,7 +2603,7 @@ func RetentionKey(cfg Config, ports port.Table, speeds map[string]uint64) string
 
 	b.WriteString("\nport-state=")
 	for _, name := range portNames {
-		if pt, ok := ports.Port(name); ok {
+		if pt, ok := env.Ports.Port(name); ok {
 			fmt.Fprintf(&b, "%s:admin=%s,oper=%s;", name, pt.AdminStatus, pt.OperStatus)
 		} else {
 			fmt.Fprintf(&b, "%s:absent;", name)
@@ -2613,7 +2612,7 @@ func RetentionKey(cfg Config, ports port.Table, speeds map[string]uint64) string
 
 	b.WriteString("\nresolved-speed=")
 	for _, name := range portNames {
-		sp := speeds[name]
+		sp := env.Speeds[name]
 		fmt.Fprintf(&b, "%s:%d;", name, sp)
 	}
 

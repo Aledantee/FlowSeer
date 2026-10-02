@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -118,8 +119,8 @@ func (f StringFact) String() string { return string(f) }
 // Diff computes the difference between two physical-layer configurations,
 // covering all behavior-bearing fields for Ethernet and PoE.
 func Diff(a, b Config) []trace.Change {
-	na := a.Normalize()
-	nb := b.Normalize()
+	na := a.Normalize(layer.Env{})
+	nb := b.Normalize(layer.Env{})
 	changes := diffEthernet(na.Ethernet, nb.Ethernet)
 
 	return append(changes, diffPoE(na.PoE, nb.PoE)...)

@@ -9,6 +9,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/tcp"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // Direction indicates whether a filter binding evaluates traffic entering
@@ -123,7 +124,7 @@ type Config struct {
 // Normalize returns a deep copy of c with canonical slice order and non-nil
 // maps. Rule order inside a set is preserved because first-match evaluation
 // is order-dependent.
-func (c Config) Normalize() Config {
+func (c Config) Normalize(_ layer.Env) Config {
 	out := Config{
 		Sets:     make(map[string]RuleSet, len(c.Sets)),
 		Bindings: make([]Binding, len(c.Bindings)),
@@ -185,11 +186,11 @@ func (c Config) Normalize() Config {
 
 // Clone returns an independent deep copy of c.
 func (c Config) Clone() Config {
-	return c.Normalize()
+	return c.Normalize(layer.Env{})
 }
 
 // Validate checks internal consistency of the configuration.
-func (c Config) Validate() error {
+func (c Config) Validate(_ layer.Env) error {
 	for name, set := range c.Sets {
 		if name == "" {
 			return errs.New().Attr("field", "sets").Msg("rule set name cannot be empty")
@@ -296,8 +297,8 @@ func (c Config) Validate() error {
 
 // Equal reports whether c and other are semantically identical.
 func (c Config) Equal(other Config) bool {
-	normA := c.Normalize()
-	normB := other.Normalize()
+	normA := c.Normalize(layer.Env{})
+	normB := other.Normalize(layer.Env{})
 
 	if len(normA.Sets) != len(normB.Sets) || len(normA.Bindings) != len(normB.Bindings) {
 		return false

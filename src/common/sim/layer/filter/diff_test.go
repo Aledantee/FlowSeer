@@ -6,6 +6,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/tcp"
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 )
 
@@ -187,5 +188,6 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		},
 	}
 
-	simtest.AssertDiffCoversConfig(t, seed, filter.Config.Normalize, filter.Diff, nil)
+	normalize := func(c filter.Config) filter.Config { return c.Normalize(layer.Env{}) }
+	simtest.AssertDiffCoversConfig(t, seed, normalize, filter.Diff, nil)
 }

@@ -6,6 +6,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -42,7 +43,7 @@ func TestConfigValidate(t *testing.T) {
 			"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{0: 100_000_000}, BufferOctets: map[vlan.PCP]uint64{0: 4096}},
 		},
 	}
-	if err := valid.Validate(ports); err != nil {
+	if err := valid.Validate(layer.Env{Ports: ports}); err != nil {
 		t.Fatalf("Validate failed for valid configuration: %v", err)
 	}
 
@@ -190,7 +191,7 @@ func TestConfigValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := tt.cfg.Validate(ports)
+			err := tt.cfg.Validate(layer.Env{Ports: ports})
 			if err == nil {
 				t.Fatal("Validate succeeded, want error")
 			}

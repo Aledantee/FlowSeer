@@ -42,7 +42,7 @@ func lagTwoPortTable(t *testing.T) port.Table {
 
 func mustNewLAG(t *testing.T, cfg lag.Config, ports port.Table, systemID netaddr.MAC) *lag.Layer {
 	t.Helper()
-	l, err := lag.New(cfg, ports, systemID)
+	l, err := lag.New(cfg, layer.Env{Ports: ports, MAC: systemID})
 	if err != nil {
 		t.Fatalf("lag.New: %v", err)
 	}
@@ -1262,5 +1262,20 @@ func TestCloneIsolatesBucketTable(t *testing.T) {
 	after := l1.Select(t1, "lag1", frame, 0)
 	if after.Member != before.Member || after.Cause != lag.CauseKept {
 		t.Fatalf("original layer's bucket changed after mutating the clone: got %+v, want member %q kept", after, before.Member)
+	}
+}
+
+func TestRetentionKeyDiffersOnMAC(t *testing.T) {
+	t.Parallel()
+
+	tbl := lagPortTable(t)
+	cfg := lag.Config{LAGs: map[string]lag.LAG{"lag1": {Mode: lag.ActiveBackup}}}
+	mac1 := mustMAC(t, "02:00:00:00:00:01")
+	mac2 := mustMAC(t, "02:00:00:00:00:02")
+
+	key1 := lag.RetentionKey(cfg, layer.Env{Ports: tbl, MAC: mac1})
+	key2 := lag.RetentionKey(cfg, layer.Env{Ports: tbl, MAC: mac2})
+	if key1 == key2 {
+		t.Errorf("RetentionKey did not differ when Env.MAC changed: %q", key1)
 	}
 }

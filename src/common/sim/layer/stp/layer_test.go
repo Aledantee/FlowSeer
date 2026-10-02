@@ -41,7 +41,7 @@ func mustMAC(t *testing.T, s string) netaddr.MAC {
 
 func mustNewSTP(t *testing.T, cfg stp.Config, ports port.Table) *stp.Layer {
 	t.Helper()
-	l, err := stp.New(cfg, ports)
+	l, err := stp.New(cfg, layer.Env{Ports: ports})
 	if err != nil {
 		t.Fatalf("stp.New: %v", err)
 	}
@@ -3146,4 +3146,28 @@ func TestATreesPortStartsAtTheBridgePortsConfiguredCost(t *testing.T) {
 			t.Errorf("MSTI 1 path cost before any LinkChange = %d, want the configured 100", got)
 		}
 	})
+}
+
+func TestRetentionKeyDiffersOnPortSpeed(t *testing.T) {
+	t.Parallel()
+
+	ports := mustPortTable(t, "1/1/1")
+	cfg := stp.Config{
+		Address: mustMAC(t, "00:11:22:33:44:01"),
+		Ports:   map[string]stp.Port{"1/1/1": {}},
+	}
+	env1 := layer.Env{
+		Ports:  ports,
+		Speeds: map[string]uint64{"1/1/1": 1_000_000_000},
+	}
+	env2 := layer.Env{
+		Ports:  ports,
+		Speeds: map[string]uint64{"1/1/1": 10_000_000_000},
+	}
+
+	key1 := stp.RetentionKey(cfg, env1)
+	key2 := stp.RetentionKey(cfg, env2)
+	if key1 == key2 {
+		t.Fatalf("RetentionKey() produced identical key %q for different port speeds", key1)
+	}
 }

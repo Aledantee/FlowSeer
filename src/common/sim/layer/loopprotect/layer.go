@@ -9,7 +9,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -93,15 +92,15 @@ type Layer struct {
 	nextProbeAt time.Time
 }
 
-// New constructs a loop-protection layer from the given configuration, port
-// table, and switch MAC. It returns an error if the configuration is invalid
-// against the ports.
-func New(cfg Config, ports port.Table, mac netaddr.MAC) (*Layer, error) {
-	if err := cfg.Validate(ports); err != nil {
+// New constructs a loop-protection layer from the given configuration and
+// environment. It returns an error if the configuration is invalid against
+// the ports.
+func New(cfg Config, env layer.Env) (*Layer, error) {
+	if err := cfg.Validate(env); err != nil {
 		return nil, err
 	}
 
-	normalized := cfg.Normalize()
+	normalized := cfg.Normalize(env)
 
 	names := make([]string, 0, len(normalized.Ports))
 	for name := range normalized.Ports {
@@ -110,7 +109,7 @@ func New(cfg Config, ports port.Table, mac netaddr.MAC) (*Layer, error) {
 	slices.Sort(names)
 
 	l := &Layer{
-		mac:         mac,
+		mac:         env.MAC,
 		interval:    normalized.Interval,
 		ports:       make(map[string]*portState, len(names)),
 		sortedNames: names,
@@ -397,11 +396,11 @@ func (l *Layer) Clear(_ time.Time, portName string) bool {
 // RetentionKey returns a canonical encoding of every normalized input the layer's
 // runtime state depends on: its own configuration as Diff sees it, port link states,
 // and the switch base MAC.
-func RetentionKey(cfg Config, ports port.Table, mac netaddr.MAC) string {
-	if len(cfg.Ports) == 0 && cfg.Interval == 0 && mac == (netaddr.MAC{}) {
+func RetentionKey(cfg Config, env layer.Env) string {
+	if len(cfg.Ports) == 0 && cfg.Interval == 0 && env.MAC == (netaddr.MAC{}) {
 		return ""
 	}
-	norm := cfg.Normalize()
+	norm := cfg.Normalize(env)
 	var b strings.Builder
 	b.WriteString("config=")
 	fmt.Fprintf(&b, "interval=%s;", norm.Interval)
@@ -413,7 +412,7 @@ func RetentionKey(cfg Config, ports port.Table, mac netaddr.MAC) string {
 
 	b.WriteString("\nport-state=")
 	for _, name := range portNames {
-		if pt, ok := ports.Port(name); ok {
+		if pt, ok := env.Ports.Port(name); ok {
 			fmt.Fprintf(&b, "%s:admin=%s,oper=%s;", name, pt.AdminStatus, pt.OperStatus)
 		} else {
 			fmt.Fprintf(&b, "%s:absent;", name)
@@ -421,7 +420,7 @@ func RetentionKey(cfg Config, ports port.Table, mac netaddr.MAC) string {
 	}
 
 	b.WriteString("\nmac=")
-	b.WriteString(mac.String())
+	b.WriteString(env.MAC.String())
 
 	return b.String()
 }

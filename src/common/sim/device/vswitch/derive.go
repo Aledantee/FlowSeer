@@ -39,10 +39,10 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	// Traffic retention
 	var curTrafficKey, nextTrafficKey string
 	if cur != nil && cur.traffic != nil {
-		curTrafficKey = traffic.RetentionKey(*cur.traffic)
+		curTrafficKey = traffic.RetentionKey(*cur.traffic, cur.env())
 	}
 	if next.traffic != nil {
-		nextTrafficKey = traffic.RetentionKey(*next.traffic)
+		nextTrafficKey = traffic.RetentionKey(*next.traffic, next.env())
 	}
 	if curTrafficKey == nextTrafficKey {
 		next.retention.Traffic = LayerRetention{Kept: true}
@@ -63,10 +63,10 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	// the switch assigned does not read as a change.
 	var curSTPKey, nextSTPKey string
 	if cur != nil && cur.stp != nil && cur.cfg.STP != nil {
-		curSTPKey = stp.RetentionKey(*cur.cfg.STP, cur.ports, resolvedSpeeds(cur))
+		curSTPKey = stp.RetentionKey(*cur.cfg.STP, cur.env())
 	}
 	if next.cfg.STP != nil {
-		nextSTPKey = stp.RetentionKey(*next.cfg.STP, next.ports, resolvedSpeeds(next))
+		nextSTPKey = stp.RetentionKey(*next.cfg.STP, next.env())
 	}
 	if curSTPKey == nextSTPKey {
 		next.retention.STP = LayerRetention{Kept: true}
@@ -121,10 +121,10 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	// LoopProtect retention
 	var curLPKey, nextLPKey string
 	if cur != nil && cur.loopprotect != nil && cur.cfg.LoopProtect != nil {
-		curLPKey = loopprotect.RetentionKey(*cur.cfg.LoopProtect, cur.ports, cur.cfg.MAC)
+		curLPKey = loopprotect.RetentionKey(*cur.cfg.LoopProtect, cur.env())
 	}
 	if next.cfg.LoopProtect != nil {
-		nextLPKey = loopprotect.RetentionKey(*next.cfg.LoopProtect, next.ports, next.cfg.MAC)
+		nextLPKey = loopprotect.RetentionKey(*next.cfg.LoopProtect, next.env())
 	}
 	if curLPKey == nextLPKey {
 		next.retention.LoopProtect = LayerRetention{Kept: true}
@@ -141,10 +141,10 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	// LAG retention
 	var curLAGKey, nextLAGKey string
 	if cur != nil && cur.lag != nil && cur.cfg.LAG != nil {
-		curLAGKey = lag.RetentionKey(*cur.cfg.LAG, cur.ports, cur.cfg.MAC)
+		curLAGKey = lag.RetentionKey(*cur.cfg.LAG, cur.env())
 	}
 	if next.cfg.LAG != nil {
-		nextLAGKey = lag.RetentionKey(*next.cfg.LAG, next.ports, next.cfg.MAC)
+		nextLAGKey = lag.RetentionKey(*next.cfg.LAG, next.env())
 	}
 	if curLAGKey == nextLAGKey {
 		next.retention.LAG = LayerRetention{Kept: true}
@@ -195,10 +195,10 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	// Routing retention
 	var curRoutingKey, nextRoutingKey string
 	if cur != nil && cur.routing != nil && cur.cfg.Routing != nil {
-		curRoutingKey = routing.RetentionKey(*cur.cfg.Routing, cur.ports)
+		curRoutingKey = routing.RetentionKey(*cur.cfg.Routing, cur.env())
 	}
 	if next.cfg.Routing != nil {
-		nextRoutingKey = routing.RetentionKey(*next.cfg.Routing, next.ports)
+		nextRoutingKey = routing.RetentionKey(*next.cfg.Routing, next.env())
 	}
 	if curRoutingKey == nextRoutingKey {
 		next.retention.Routing = LayerRetention{Kept: true}

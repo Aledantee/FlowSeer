@@ -19,6 +19,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
@@ -416,7 +417,7 @@ func Lacp(sw *vswitch.Switch) ([]*lacpv1.AggregatorState, []*lacpv1.PortState) {
 	if cfg.LAG != nil {
 		lagCfg = *cfg.LAG
 	}
-	effective := lagCfg.Defaults(ports, cfg.MAC)
+	effective := lagCfg.Normalize(layer.Env{Ports: ports, MAC: cfg.MAC})
 
 	aggregators := make([]*lacpv1.AggregatorState, 0, len(lagPortNames))
 	var portStates []*lacpv1.PortState

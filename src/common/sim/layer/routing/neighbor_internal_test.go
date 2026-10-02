@@ -10,7 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // The conservation property below is the one this package owes its callers: a frame that enters
@@ -97,7 +97,7 @@ func conservationLayer(t *testing.T, depth int) *Layer {
 			},
 			NeighborPolicy: NeighborPolicy{ResolutionTimeout: time.Second, HoldDepth: depth},
 		},
-	}}, port.Table{}, "sw1")
+	}}, layer.Env{NodeID: "sw1"})
 	if err != nil {
 		t.Fatalf("routing.New: %v", err)
 	}

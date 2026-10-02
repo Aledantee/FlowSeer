@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -57,7 +58,7 @@ func TestSpeedsResolvePerPort(t *testing.T) {
 			"1/1/1": {SupportedSpeedsBPS: gigabitCapable, Setting: &phy.Setting{SpeedBPS: 2_500_000_000}},
 		}}
 
-		err := cfg.Validate(tbl)
+		err := cfg.Validate(layer.Env{Ports: tbl})
 		if err == nil {
 			t.Fatal("Validate() error = nil, want error")
 		}
@@ -409,7 +410,7 @@ func TestValidate(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.cfg.Validate(tbl)
+			err := tc.cfg.Validate(layer.Env{Ports: tbl})
 			if tc.wantAttr == "" {
 				if err != nil {
 					t.Fatalf("Validate() error = %v, want nil", err)
@@ -689,8 +690,8 @@ func TestNormalize(t *testing.T) {
 			},
 		}
 
-		normRaw := raw.Normalize()
-		normExplicit := explicit.Normalize()
+		normRaw := raw.Normalize(layer.Env{})
+		normExplicit := explicit.Normalize(layer.Env{})
 
 		diffs := phy.Diff(normRaw, normExplicit)
 		if len(diffs) != 0 {
@@ -698,7 +699,7 @@ func TestNormalize(t *testing.T) {
 		}
 
 		// Idempotence
-		normTwice := normRaw.Normalize()
+		normTwice := normRaw.Normalize(layer.Env{})
 		if len(phy.Diff(normRaw, normTwice)) != 0 {
 			t.Errorf("Normalize() is not idempotent")
 		}
@@ -711,7 +712,7 @@ func TestNormalize(t *testing.T) {
 				"1/1/1": {SupportedSpeedsBPS: speeds, Setting: &phy.Setting{SpeedBPS: 100_000_000}},
 			},
 		}
-		_ = raw.Normalize()
+		_ = raw.Normalize(layer.Env{})
 		if speeds[0] != 1_000_000_000 || speeds[1] != 100_000_000 {
 			t.Errorf("caller speeds slice was mutated: %v", speeds)
 		}

@@ -26,6 +26,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -2235,7 +2236,7 @@ func normalizeLoadedFDBSeed(cfg vswitch.Config, seed bridge.Seed) (bridge.Seed, 
 		return bridge.Seed{}, "VLAN awareness is absent", IssueSkippedMissingFacet, false
 	}
 
-	normalized, err := bridge.NormalizeSeeds(*cfg.Bridge, cfg.Ports, []bridge.Seed{seed})
+	normalized, err := bridge.NormalizeSeeds(*cfg.Bridge, layer.Env{Ports: cfg.Ports}, []bridge.Seed{seed})
 	if err == nil {
 		return normalized[0], "", "", true
 	}

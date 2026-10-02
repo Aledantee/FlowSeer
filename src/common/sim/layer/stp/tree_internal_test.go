@@ -18,7 +18,7 @@ func TestTreeForAnswersForEveryVLAN(t *testing.T) {
 
 	l := newLayer(Config{
 		Ports: map[string]Port{"1/1/1": {}, "1/1/2": {}},
-	}.Normalize())
+	}.Normalize(layer.Env{}))
 
 	cist := l.cist()
 	if cist == nil {
@@ -50,7 +50,7 @@ func TestLoopGuardIgnoresAnEdgePort(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	l := newLayer(Config{
 		Ports: map[string]Port{"1/1/1": {LoopGuard: true}, "1/1/2": {}},
-	}.Normalize())
+	}.Normalize(layer.Env{}))
 
 	p := l.cist().ports["1/1/1"]
 	p.up = true
@@ -243,7 +243,7 @@ func TestPortNamesStayBridgeGlobal(t *testing.T) {
 
 	l := newLayer(Config{
 		Ports: map[string]Port{"1/1/3": {}, "1/1/1": {}, "1/1/2": {}},
-	}.Normalize())
+	}.Normalize(layer.Env{}))
 
 	want := []string{"1/1/1", "1/1/2", "1/1/3"}
 	if len(l.portNames) != len(want) {
@@ -288,7 +288,7 @@ func TestLoopGuardHoldsAnInternalMSTIPortOutOfForwarding(t *testing.T) {
 			"1/1/2": {},
 		},
 		MST: &region,
-	}.Normalize())
+	}.Normalize(layer.Env{}))
 
 	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
 	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
@@ -423,7 +423,7 @@ func TestDesignatedOrBlockedElectsDesignatedOnCISTInternalPortFacingAWorsePeer(t
 	l := newLayer(Config{
 		Priority: 4096,
 		Ports:    map[string]Port{"1/1/1": {}},
-	}.Normalize())
+	}.Normalize(layer.Env{}))
 
 	tr := l.cist()
 	tr.rootID = bpdu.BridgeID{Priority: 1024}
@@ -468,7 +468,7 @@ func TestExternalRootPortReportsItselfAsRegionalRoot(t *testing.T) {
 		Priority: 32768,
 		Ports:    map[string]Port{"1/1/1": {}},
 		MST:      &region,
-	}.Normalize())
+	}.Normalize(layer.Env{}))
 	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
 
 	// A plain RSTP peer (no bpdu.ConfigID at all) is unambiguously external.
@@ -517,7 +517,7 @@ func TestReceiveClearsInternalOnlyFieldsWhenAPortTurnsExternal(t *testing.T) {
 		Priority: 32768,
 		Ports:    map[string]Port{"1/1/1": {}},
 		MST:      &region,
-	}.Normalize())
+	}.Normalize(layer.Env{}))
 
 	cist := l.cist()
 	p := cist.ports["1/1/1"]
@@ -595,14 +595,14 @@ func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
 		Priority: 4096,
 		Ports:    map[string]Port{"p1": {}},
 		MST:      &region,
-	}.Normalize())
+	}.Normalize(layer.Env{}))
 	a.LinkChange(t0, "p1", true, true, 1_000_000_000)
 
 	b := newLayer(Config{
 		Priority: 32768,
 		Ports:    map[string]Port{"p1": {}, "p2": {}},
 		MST:      &region,
-	}.Normalize())
+	}.Normalize(layer.Env{}))
 	b.LinkChange(t0, "p1", true, true, 1_000_000_000)
 	b.LinkChange(t0, "p2", true, true, 1_000_000_000)
 
@@ -697,7 +697,7 @@ func TestBoundaryFlipClearsAStaleForwardDelayTimer(t *testing.T) {
 			"1/1/2": {},
 		},
 		MST: &region,
-	}.Normalize())
+	}.Normalize(layer.Env{}))
 
 	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
 	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
@@ -756,7 +756,7 @@ func TestPVSTTreeMappingCoversEveryVLAN(t *testing.T) {
 		Priority: 4096,
 		Ports:    map[string]Port{"l1": {}, "l2": {}},
 		PVST:     &PVST{Trees: map[vlan.ID]Tree{1: {}, 10: {}, 20: {}}},
-	}.Normalize())
+	}.Normalize(layer.Env{}))
 
 	wantOrder := []treeID{cistID, treeID(10), treeID(20)}
 	if !slices.Equal(l.treeOrder, wantOrder) {
@@ -798,7 +798,7 @@ func TestTransmitBudgetKeyingFollowsTheMode(t *testing.T) {
 			1: {VLANs: []vlan.ID{10}},
 			2: {VLANs: []vlan.ID{20}},
 		}},
-	}.Normalize())
+	}.Normalize(layer.Env{}))
 
 	if got := len(mstLayer.portTx); got != 2 {
 		t.Errorf("MST bridge holds %d transmit budgets over 2 ports and 3 trees, want 2", got)
@@ -812,7 +812,7 @@ func TestTransmitBudgetKeyingFollowsTheMode(t *testing.T) {
 	pvstLayer := newLayer(Config{
 		Ports: map[string]Port{"l1": {}, "l2": {}},
 		PVST:  &PVST{Trees: map[vlan.ID]Tree{1: {}, 10: {}, 20: {}}},
-	}.Normalize())
+	}.Normalize(layer.Env{}))
 
 	if got := len(pvstLayer.portTx); got != 6 {
 		t.Errorf("PVST bridge holds %d transmit budgets over 2 ports and 3 trees, want 6", got)

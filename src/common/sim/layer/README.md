@@ -5,9 +5,15 @@ network layer models in the switch pipeline.
 
 | Type | What it represents |
 | --- | --- |
+| `Env` | Environment inputs for layer normalization, validation, construction, and retention |
 | `Emission` | An Ethernet frame to transmit out a virtual switch port |
 | `FlushTarget` | A port whose learned forwarding table entries must be flushed, and which FIDs on it are stale |
 | `Effects` | Frames to emit, forwarding entries to flush, and LAGs whose enabled membership changed |
+
+## Env
+
+`Env` packages the device environment provided to layers: node identity, port
+table, base MAC address, and resolved port speeds. Each field is optional.
 
 ## Emission
 

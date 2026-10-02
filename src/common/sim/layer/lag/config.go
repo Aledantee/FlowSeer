@@ -9,6 +9,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -168,9 +169,9 @@ func (c Config) Clone() Config {
 	return cp
 }
 
-// Normalize returns the effective configuration for the supplied port table and
-// system ID. It adds entries for configured LAG ports and fills omitted defaults.
-func (c Config) Normalize(ports port.Table, systemID netaddr.MAC) Config {
+// Normalize returns the effective configuration for the supplied environment.
+// It adds entries for configured LAG ports and fills omitted defaults.
+func (c Config) Normalize(env layer.Env) Config {
 	cloned := c.Clone()
 	if cloned.LAGs == nil {
 		cloned.LAGs = make(map[string]LAG)
@@ -179,7 +180,7 @@ func (c Config) Normalize(ports port.Table, systemID netaddr.MAC) Config {
 	lagKeys := make(map[string]uint16)
 	lagMembers := make(map[string][]string)
 	var lagNames []string
-	for _, p := range ports.Ports() {
+	for _, p := range env.Ports.Ports() {
 		if p.Kind == port.LAG {
 			lagNames = append(lagNames, p.Name)
 		}
@@ -187,7 +188,7 @@ func (c Config) Normalize(ports port.Table, systemID netaddr.MAC) Config {
 	slices.Sort(lagNames)
 	for i, lagName := range lagNames {
 		lagKeys[lagName] = uint16(i + 1)
-		members := ports.Members(lagName)
+		members := env.Ports.Members(lagName)
 		names := make([]string, 0, len(members))
 		for _, member := range members {
 			names = append(names, member.Name)
@@ -211,7 +212,7 @@ func (c Config) Normalize(ports port.Table, systemID netaddr.MAC) Config {
 			lag.LACP.SystemPriority = DefaultSystemPriority
 		}
 		if lag.LACP.SystemID == (netaddr.MAC{}) {
-			lag.LACP.SystemID = systemID
+			lag.LACP.SystemID = env.MAC
 		}
 		if lag.LACP.Key == 0 {
 			lag.LACP.Key = lagKeys[lagName]
@@ -252,10 +253,10 @@ func (c Config) Normalize(ports port.Table, systemID netaddr.MAC) Config {
 // must exist as a LAG port in the port table, every configured member must be a member
 // of that LAG, Primary must be a member of the LAG, mode and LACP mode must be recognized,
 // delays must not be negative, and MinLinks must not exceed the member count.
-func (c Config) Validate(ports port.Table) error {
+func (c Config) Validate(env layer.Env) error {
 	for _, lagName := range sortedKeys(c.LAGs) {
 		lagCfg := c.LAGs[lagName]
-		p, ok := ports.Port(lagName)
+		p, ok := env.Ports.Port(lagName)
 		if !ok {
 			return errs.New().
 				Attr("field", "lags."+lagName).
@@ -319,7 +320,7 @@ func (c Config) Validate(ports port.Table) error {
 				Msg("rebalance interval cannot be negative")
 		}
 
-		members := ports.Members(lagName)
+		members := env.Ports.Members(lagName)
 		memberMap := make(map[string]struct{}, len(members))
 		for _, m := range members {
 			memberMap[m.Name] = struct{}{}
@@ -356,11 +357,6 @@ func (c Config) Validate(ports port.Table) error {
 	}
 
 	return nil
-}
-
-// Defaults returns the normalized effective configuration.
-func (c Config) Defaults(ports port.Table, systemID netaddr.MAC) Config {
-	return c.Normalize(ports, systemID)
 }
 
 func sortedKeys[V any](m map[string]V) []string {

@@ -9,6 +9,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -112,7 +113,7 @@ func (c Config) Clone() Config {
 }
 
 // Normalize returns a normalized copy of the configuration with mirror selectors sorted deterministically.
-func (c Config) Normalize() Config {
+func (c Config) Normalize(_ layer.Env) Config {
 	cp := c.Clone()
 	for i := range cp.Mirrors {
 		if len(cp.Mirrors[i].SelectSrcPorts) > 0 {
@@ -141,9 +142,10 @@ func (c Config) Normalize() Config {
 }
 
 // Validate checks mirror names and destinations, logical selector ports and
-// VLANs, policer bursts, and queue rates and buffers against the supplied port
-// table.
-func (c Config) Validate(ports port.Table) error {
+// VLANs, policer bursts, and queue rates and buffers against the supplied
+// environment.
+func (c Config) Validate(env layer.Env) error {
+	ports := env.Ports
 	mirrorNames := make(map[string]struct{}, len(c.Mirrors))
 	outputPorts := make(map[string]struct{}, len(c.Mirrors))
 	for mirrorIndex, mirror := range c.Mirrors {

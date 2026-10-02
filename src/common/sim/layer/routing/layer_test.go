@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -106,7 +107,7 @@ func mustNewRouting(t *testing.T, cfg routing.Config) *routing.Layer {
 
 func mustNewRoutingWithPorts(t *testing.T, cfg routing.Config, ports port.Table) *routing.Layer {
 	t.Helper()
-	l, err := routing.New(cfg, ports, "sw1")
+	l, err := routing.New(cfg, layer.Env{Ports: ports, NodeID: "sw1"})
 	if err != nil {
 		t.Fatalf("routing.New: %v", err)
 	}
@@ -920,7 +921,7 @@ func TestStaticRouteVRFBoundaries(t *testing.T) {
 			},
 		},
 	}
-	if err := validExplicitCfg.Validate(ports); err != nil {
+	if err := validExplicitCfg.Validate(layer.Env{Ports: ports}); err != nil {
 		t.Fatalf("got configuration error %v, want valid configuration", err)
 	}
 
@@ -1217,7 +1218,7 @@ func TestConstructorsNormalizeRoutePrefixesBeforeValidation(t *testing.T) {
 		},
 	}}
 
-	if _, err := routing.New(cfg, ports, "sw1"); err != nil {
+	if _, err := routing.New(cfg, layer.Env{Ports: ports, NodeID: "sw1"}); err != nil {
 		t.Errorf("routing.New: %v", err)
 	}
 }
@@ -1426,7 +1427,7 @@ func TestRecursiveRouteResolvesForwardingNextHop(t *testing.T) {
 		routing.Route{Prefix: recursivePfx, NextHop: viaAddr},
 		routing.Route{Prefix: viaPrefix, NextHop: gatewayC},
 	)
-	if err := cfg.Normalize().Validate(port.Table{}); err != nil {
+	if err := cfg.Normalize(layer.Env{}).Validate(layer.Env{}); err != nil {
 		t.Fatalf("Validate rejected an off-link next hop that resolves: %v", err)
 	}
 

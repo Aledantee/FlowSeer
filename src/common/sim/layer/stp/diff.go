@@ -8,6 +8,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -125,16 +126,16 @@ func (f VLANListFact) Canonical() string {
 // tx hold count, and per-port priority, admin path cost, admin edge,
 // point-to-point mode, auto edge, and the four guards.
 func Diff(a, b Config) []trace.Change {
-	a = a.Normalize()
-	b = b.Normalize()
+	a = a.Normalize(layer.Env{})
+	b = b.Normalize(layer.Env{})
 
 	var changes []trace.Change
 
-	layer := LayerName
+	lyr := LayerName
 
 	if a.Address != b.Address {
 		changes = append(changes, trace.Change{
-			Layer:   layer,
+			Layer:   lyr,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "address",
 			From:    MACFact(a.Address),
@@ -144,7 +145,7 @@ func Diff(a, b Config) []trace.Change {
 
 	if a.Priority != b.Priority {
 		changes = append(changes, trace.Change{
-			Layer:   layer,
+			Layer:   lyr,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "priority",
 			From:    PriorityFact(a.Priority),
@@ -154,7 +155,7 @@ func Diff(a, b Config) []trace.Change {
 
 	if a.HelloTime != b.HelloTime {
 		changes = append(changes, trace.Change{
-			Layer:   layer,
+			Layer:   lyr,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "hello_time",
 			From:    DurationFact(a.HelloTime),
@@ -164,7 +165,7 @@ func Diff(a, b Config) []trace.Change {
 
 	if a.MaxAge != b.MaxAge {
 		changes = append(changes, trace.Change{
-			Layer:   layer,
+			Layer:   lyr,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "max_age",
 			From:    DurationFact(a.MaxAge),
@@ -174,7 +175,7 @@ func Diff(a, b Config) []trace.Change {
 
 	if a.ForwardDelay != b.ForwardDelay {
 		changes = append(changes, trace.Change{
-			Layer:   layer,
+			Layer:   lyr,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "forward_delay",
 			From:    DurationFact(a.ForwardDelay),
@@ -184,7 +185,7 @@ func Diff(a, b Config) []trace.Change {
 
 	if a.TxHoldCount != b.TxHoldCount {
 		changes = append(changes, trace.Change{
-			Layer:   layer,
+			Layer:   lyr,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "tx_hold_count",
 			From:    TxHoldCountFact(a.TxHoldCount),
@@ -197,7 +198,7 @@ func Diff(a, b Config) []trace.Change {
 		bp, exists := b.Ports[name]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "",
 				From:    ap,
@@ -209,7 +210,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if ap.Priority != bp.Priority {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "priority",
 				From:    PortPriorityFact(ap.Priority),
@@ -219,7 +220,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if ap.PathCost != bp.PathCost {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "admin_path_cost",
 				From:    PathCostFact(ap.PathCost),
@@ -229,7 +230,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if ap.AdminEdge != bp.AdminEdge {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "admin_edge",
 				From:    BoolFact(ap.AdminEdge),
@@ -239,7 +240,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if ap.PointToPoint != bp.PointToPoint {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "admin_point_to_point",
 				From:    ap.PointToPoint,
@@ -249,7 +250,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if ap.AutoEdge != bp.AutoEdge {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "auto_edge",
 				From:    BoolFact(ap.AutoEdge),
@@ -271,7 +272,7 @@ func Diff(a, b Config) []trace.Change {
 				continue
 			}
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   guard.field,
 				From:    BoolFact(guard.from),
@@ -283,7 +284,7 @@ func Diff(a, b Config) []trace.Change {
 	for _, name := range sortedKeys(b.Ports) {
 		if _, exists := a.Ports[name]; !exists {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "",
 				From:    nil,
@@ -295,7 +296,7 @@ func Diff(a, b Config) []trace.Change {
 	if a.MST != nil || b.MST != nil {
 		if (a.MST == nil) != (b.MST == nil) {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "bridge", Key: ""},
 				Field:   "mst",
 				From:    BoolFact(a.MST != nil),
@@ -303,19 +304,19 @@ func Diff(a, b Config) []trace.Change {
 			})
 		}
 		if a.MST != nil && b.MST != nil {
-			changes = append(changes, diffMST(*a.MST, *b.MST, layer)...)
+			changes = append(changes, diffMST(*a.MST, *b.MST, lyr)...)
 		}
 	}
 
 	if a.PVST != nil || b.PVST != nil {
 		if (a.PVST == nil) != (b.PVST == nil) {
 			changes = append(changes, trace.Change{
-				Layer: layer, Subject: trace.Subject{Kind: "bridge", Key: ""}, Field: "pvst",
+				Layer: lyr, Subject: trace.Subject{Kind: "bridge", Key: ""}, Field: "pvst",
 				From: BoolFact(a.PVST != nil), To: BoolFact(b.PVST != nil),
 			})
 		}
 		if a.PVST != nil && b.PVST != nil {
-			changes = append(changes, diffPVST(*a.PVST, *b.PVST, layer)...)
+			changes = append(changes, diffPVST(*a.PVST, *b.PVST, lyr)...)
 		}
 	}
 
@@ -325,26 +326,26 @@ func Diff(a, b Config) []trace.Change {
 // diffMST computes the differences between two normalized MST region
 // configurations: name, revision, and maximum hop count at the region level,
 // then each instance's priority, VLAN membership, and per-port settings.
-func diffMST(a, b MST, layer trace.Layer) []trace.Change {
+func diffMST(a, b MST, lyr trace.Layer) []trace.Change {
 	var changes []trace.Change
 
 	bridge := trace.Subject{Kind: "bridge", Key: ""}
 
 	if a.Name != b.Name {
 		changes = append(changes, trace.Change{
-			Layer: layer, Subject: bridge, Field: "mst.name",
+			Layer: lyr, Subject: bridge, Field: "mst.name",
 			From: MSTNameFact(a.Name), To: MSTNameFact(b.Name),
 		})
 	}
 	if a.Revision != b.Revision {
 		changes = append(changes, trace.Change{
-			Layer: layer, Subject: bridge, Field: "mst.revision",
+			Layer: lyr, Subject: bridge, Field: "mst.revision",
 			From: MSTRevisionFact(a.Revision), To: MSTRevisionFact(b.Revision),
 		})
 	}
 	if a.MaxHops != b.MaxHops {
 		changes = append(changes, trace.Change{
-			Layer: layer, Subject: bridge, Field: "mst.max_hops",
+			Layer: lyr, Subject: bridge, Field: "mst.max_hops",
 			From: MaxHopsFact(a.MaxHops), To: MaxHopsFact(b.MaxHops),
 		})
 	}
@@ -355,7 +356,7 @@ func diffMST(a, b MST, layer trace.Layer) []trace.Change {
 		bi, exists := b.Instances[id]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "mst_instance", Key: key},
 				Field:   "",
 				From:    ai,
@@ -364,14 +365,14 @@ func diffMST(a, b MST, layer trace.Layer) []trace.Change {
 
 			continue
 		}
-		changes = append(changes, diffMSTInstance(ai, bi, key, layer)...)
+		changes = append(changes, diffMSTInstance(ai, bi, key, lyr)...)
 	}
 
 	for _, id := range sortedMSTIDs(b.Instances) {
 		if _, exists := a.Instances[id]; !exists {
 			key := strconv.FormatUint(uint64(id), 10)
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "mst_instance", Key: key},
 				Field:   "",
 				From:    nil,
@@ -384,21 +385,22 @@ func diffMST(a, b MST, layer trace.Layer) []trace.Change {
 }
 
 // diffMSTInstance computes the differences between two normalized MST
+// diffMSTInstance computes the differences between two normalized MST
 // instances identified by key (the MSTID as a decimal string).
-func diffMSTInstance(a, b Instance, key string, layer trace.Layer) []trace.Change {
+func diffMSTInstance(a, b Instance, key string, lyr trace.Layer) []trace.Change {
 	var changes []trace.Change
 
 	subject := trace.Subject{Kind: "mst_instance", Key: key}
 
 	if a.Priority != b.Priority {
 		changes = append(changes, trace.Change{
-			Layer: layer, Subject: subject, Field: "priority",
+			Layer: lyr, Subject: subject, Field: "priority",
 			From: PriorityFact(a.Priority), To: PriorityFact(b.Priority),
 		})
 	}
 	if !slices.Equal(a.VLANs, b.VLANs) {
 		changes = append(changes, trace.Change{
-			Layer: layer, Subject: subject, Field: "vlans",
+			Layer: lyr, Subject: subject, Field: "vlans",
 			From: VLANListFact(a.VLANs), To: VLANListFact(b.VLANs),
 		})
 	}
@@ -410,20 +412,20 @@ func diffMSTInstance(a, b Instance, key string, layer trace.Layer) []trace.Chang
 		bp, exists := b.Ports[name]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer: layer, Subject: portSubject, Field: "", From: ap, To: nil,
+				Layer: lyr, Subject: portSubject, Field: "", From: ap, To: nil,
 			})
 
 			continue
 		}
 		if ap.Priority != bp.Priority || ap.PriorityPresent != bp.PriorityPresent {
 			changes = append(changes, trace.Change{
-				Layer: layer, Subject: portSubject, Field: "priority",
+				Layer: lyr, Subject: portSubject, Field: "priority",
 				From: PortPriorityFact(ap.Priority), To: PortPriorityFact(bp.Priority),
 			})
 		}
 		if ap.PathCost != bp.PathCost {
 			changes = append(changes, trace.Change{
-				Layer: layer, Subject: portSubject, Field: "path_cost",
+				Layer: lyr, Subject: portSubject, Field: "path_cost",
 				From: PathCostFact(ap.PathCost), To: PathCostFact(bp.PathCost),
 			})
 		}
@@ -433,7 +435,7 @@ func diffMSTInstance(a, b Instance, key string, layer trace.Layer) []trace.Chang
 		if _, exists := a.Ports[name]; !exists {
 			portKey := key + "/" + name
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "mst_instance_port", Key: portKey},
 				Field:   "",
 				From:    nil,
@@ -448,7 +450,7 @@ func diffMSTInstance(a, b Instance, key string, layer trace.Layer) []trace.Chang
 // diffPVST computes the differences between two normalized PVST
 // configurations: each VLAN's tree added, removed, or changed in priority
 // and per-port settings, walked in VLAN ID order.
-func diffPVST(a, b PVST, layer trace.Layer) []trace.Change {
+func diffPVST(a, b PVST, lyr trace.Layer) []trace.Change {
 	var changes []trace.Change
 
 	for _, vid := range sortedVLANIDs(a.Trees) {
@@ -457,7 +459,7 @@ func diffPVST(a, b PVST, layer trace.Layer) []trace.Change {
 		bt, exists := b.Trees[vid]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "pvst_tree", Key: key},
 				Field:   "",
 				From:    at,
@@ -466,14 +468,14 @@ func diffPVST(a, b PVST, layer trace.Layer) []trace.Change {
 
 			continue
 		}
-		changes = append(changes, diffPVSTTree(at, bt, key, layer)...)
+		changes = append(changes, diffPVSTTree(at, bt, key, lyr)...)
 	}
 
 	for _, vid := range sortedVLANIDs(b.Trees) {
 		if _, exists := a.Trees[vid]; !exists {
 			key := strconv.FormatUint(uint64(vid), 10)
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "pvst_tree", Key: key},
 				Field:   "",
 				From:    nil,
@@ -487,14 +489,14 @@ func diffPVST(a, b PVST, layer trace.Layer) []trace.Change {
 
 // diffPVSTTree computes the differences between two normalized PVST trees
 // identified by key (the VLAN ID as a decimal string).
-func diffPVSTTree(a, b Tree, key string, layer trace.Layer) []trace.Change {
+func diffPVSTTree(a, b Tree, key string, lyr trace.Layer) []trace.Change {
 	var changes []trace.Change
 
 	subject := trace.Subject{Kind: "pvst_tree", Key: key}
 
 	if a.Priority != b.Priority {
 		changes = append(changes, trace.Change{
-			Layer: layer, Subject: subject, Field: "priority",
+			Layer: lyr, Subject: subject, Field: "priority",
 			From: PriorityFact(a.Priority), To: PriorityFact(b.Priority),
 		})
 	}
@@ -506,20 +508,20 @@ func diffPVSTTree(a, b Tree, key string, layer trace.Layer) []trace.Change {
 		bp, exists := b.Ports[name]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer: layer, Subject: portSubject, Field: "", From: ap, To: nil,
+				Layer: lyr, Subject: portSubject, Field: "", From: ap, To: nil,
 			})
 
 			continue
 		}
 		if ap.Priority != bp.Priority || ap.PriorityPresent != bp.PriorityPresent {
 			changes = append(changes, trace.Change{
-				Layer: layer, Subject: portSubject, Field: "priority",
+				Layer: lyr, Subject: portSubject, Field: "priority",
 				From: PortPriorityFact(ap.Priority), To: PortPriorityFact(bp.Priority),
 			})
 		}
 		if ap.PathCost != bp.PathCost {
 			changes = append(changes, trace.Change{
-				Layer: layer, Subject: portSubject, Field: "path_cost",
+				Layer: lyr, Subject: portSubject, Field: "path_cost",
 				From: PathCostFact(ap.PathCost), To: PathCostFact(bp.PathCost),
 			})
 		}
@@ -529,7 +531,7 @@ func diffPVSTTree(a, b Tree, key string, layer trace.Layer) []trace.Change {
 		if _, exists := a.Ports[name]; !exists {
 			portKey := key + "/" + name
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "pvst_tree_port", Key: portKey},
 				Field:   "",
 				From:    nil,

@@ -11,7 +11,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // DefaultInterval is netsim's own probe interval (5 s), used whenever a
@@ -126,7 +126,7 @@ func effectiveMode(m RecoveryMode, action Action) RecoveryMode {
 
 // Normalize returns a normalized copy of the loop-protection configuration,
 // filling unspecified fields with standard defaults.
-func (c Config) Normalize() Config {
+func (c Config) Normalize(_ layer.Env) Config {
 	cloned := c.Clone()
 	cloned.Interval = effectiveInterval(cloned.Interval)
 
@@ -149,7 +149,7 @@ func (c Config) Normalize() Config {
 // must not exceed the probe payload's 255-octet name-length field, and
 // LoopCleared cannot pair with Disable because a disabled port sends no
 // probes and can never observe the loop clearing.
-func (c Config) Validate(ports port.Table) error {
+func (c Config) Validate(env layer.Env) error {
 	if c.Interval < 0 {
 		return errs.New().
 			Attr("field", "interval").
@@ -167,7 +167,7 @@ func (c Config) Validate(ports port.Table) error {
 				Msgf("loop protection port name %q is %d octets, exceeds the %d-octet probe limit", name, len(name), maxProbePortNameLength)
 		}
 
-		p, ok := ports.Port(name)
+		p, ok := env.Ports.Port(name)
 		if !ok {
 			return errs.New().
 				Attr("field", "ports."+name).

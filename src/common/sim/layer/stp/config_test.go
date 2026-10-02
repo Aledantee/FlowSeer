@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -213,7 +214,7 @@ func TestValidate(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			err := tc.cfg.Validate(tbl)
+			err := tc.cfg.Validate(layer.Env{Ports: tbl})
 			if (err != nil) != tc.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tc.wantErr)
 			}
@@ -237,7 +238,7 @@ func TestNewRejectsPathCostAboveMaximum(t *testing.T) {
 			"1/1/1": {PathCost: 200_000_001},
 		},
 	}
-	_, err = stp.New(cfg, tbl)
+	_, err = stp.New(cfg, layer.Env{Ports: tbl})
 	if err == nil {
 		t.Fatal("New() error = nil, want path cost rejection")
 	}
@@ -246,7 +247,7 @@ func TestNewRejectsPathCostAboveMaximum(t *testing.T) {
 	}
 
 	cfg.Ports["1/1/1"] = stp.Port{PathCost: stp.MaxPathCost}
-	if _, err := stp.New(cfg, tbl); err != nil {
+	if _, err := stp.New(cfg, layer.Env{Ports: tbl}); err != nil {
 		t.Errorf("New() at maximum path cost: %v", err)
 	}
 }
@@ -302,7 +303,7 @@ func TestValidateUsesEffectiveTimerRelations(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			err := test.cfg.Validate(tbl)
+			err := test.cfg.Validate(layer.Env{Ports: tbl})
 			if (err != nil) != test.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %t", err, test.wantErr)
 			}
@@ -335,7 +336,7 @@ func TestNormalize(t *testing.T) {
 			"1/1/1": {},
 		},
 	}
-	norm := cfg.Normalize()
+	norm := cfg.Normalize(layer.Env{})
 
 	if norm.Priority != stp.DefaultBridgePriority {
 		t.Errorf("Priority: got %d, want %d", norm.Priority, stp.DefaultBridgePriority)
@@ -370,7 +371,7 @@ func TestNormalizePreservesExplicitZeroPriorities(t *testing.T) {
 		},
 	}
 
-	norm := cfg.Normalize()
+	norm := cfg.Normalize(layer.Env{})
 	if norm.Priority != 0 {
 		t.Errorf("bridge priority = %d, want explicit zero", norm.Priority)
 	}
@@ -561,7 +562,7 @@ func TestValidateRefusesContradictoryGuardCombinations(t *testing.T) {
 				Priority: 32768,
 				Ports:    map[string]stp.Port{"1/1/1": tc.p},
 			}
-			err := cfg.Validate(tbl)
+			err := cfg.Validate(layer.Env{Ports: tbl})
 			if err == nil {
 				t.Fatalf("Validate() = nil, want a rejection")
 			}
@@ -597,7 +598,7 @@ func TestValidateAcceptsEachGuardAlone(t *testing.T) {
 				Priority: 32768,
 				Ports:    map[string]stp.Port{"1/1/1": p},
 			}
-			if err := cfg.Validate(tbl); err != nil {
+			if err := cfg.Validate(layer.Env{Ports: tbl}); err != nil {
 				t.Errorf("Validate() = %v, want acceptance", err)
 			}
 		})
@@ -616,7 +617,7 @@ func TestNormalizeLeavesGuardsUntouched(t *testing.T) {
 		},
 	}
 
-	norm := cfg.Normalize()
+	norm := cfg.Normalize(layer.Env{})
 
 	if p := norm.Ports["1/1/1"]; p.BPDUGuard || p.RestrictedRole || p.RestrictedTCN || p.LoopGuard {
 		t.Errorf("unset guards normalized to %+v, want all off", p)
@@ -717,7 +718,7 @@ func TestNormalizeLeavesConfigWithoutMSTUnchanged(t *testing.T) {
 		},
 	}
 
-	norm := cfg.Normalize()
+	norm := cfg.Normalize(layer.Env{})
 	if norm.MST != nil {
 		t.Fatalf("MST = %+v, want nil", norm.MST)
 	}
@@ -872,7 +873,7 @@ func TestValidateRefusesMSTAndPVSTTogether(t *testing.T) {
 		PVST:     &stp.PVST{},
 	}
 
-	err = cfg.Validate(tbl)
+	err = cfg.Validate(layer.Env{Ports: tbl})
 	if err == nil {
 		t.Fatal("Validate() = nil, want rejection of MST and PVST both set")
 	}

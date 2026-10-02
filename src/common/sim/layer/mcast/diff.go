@@ -7,10 +7,9 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
-
-const layer trace.Layer = "mcast"
 
 // BoolFact represents a boolean multicast snooping setting.
 type BoolFact bool
@@ -92,8 +91,8 @@ func snapshotVLANSnooping(snooping VLANSnooping) trace.Fact {
 // Diff returns deterministic per-VLAN changes between a and b.
 // Defaulted intervals and router-port order do not create changes.
 func Diff(a, b Config) []trace.Change {
-	na := a.Normalize()
-	nb := b.Normalize()
+	na := a.Normalize(layer.Env{})
+	nb := b.Normalize(layer.Env{})
 	var changes []trace.Change
 
 	for _, vid := range sortedVLANIDs(na.VLANs) {
@@ -142,7 +141,7 @@ func Diff(a, b Config) []trace.Change {
 
 func vlanChange(vid vlan.ID, field string, from, to trace.Fact) trace.Change {
 	return trace.Change{
-		Layer:   layer,
+		Layer:   LayerName,
 		Subject: trace.Subject{Kind: "vlan", Key: strconv.Itoa(int(vid))},
 		Field:   field,
 		From:    from,

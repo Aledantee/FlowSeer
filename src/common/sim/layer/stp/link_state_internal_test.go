@@ -8,9 +8,9 @@ import (
 	"unsafe"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
-
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // propertyClass names one of the five roles a portState field can play in the
@@ -187,7 +187,7 @@ func syncTestLayer(t *testing.T) (l *Layer, cistP, mstP *portState) {
 				1: {VLANs: []vlan.ID{10}},
 			},
 		},
-	}.Normalize()
+	}.Normalize(layer.Env{})
 
 	l = newLayer(cfg)
 	l.LinkChange(time.Unix(0, 0), "p1", true, true, 1_000_000_000)
@@ -440,7 +440,7 @@ func TestPortLinkedAgreesWithReceiveSSTPsOwnPortDownCheck(t *testing.T) {
 			"p1": {PathCost: 100},
 			"p3": {PathCost: 100},
 		},
-	}.Normalize()
+	}.Normalize(layer.Env{})
 
 	l := newLayer(cfg)
 	t0 := time.Unix(0, 0)
@@ -498,7 +498,7 @@ func TestAnMSTIDoesNotElectThroughAGuardDisabledPort(t *testing.T) {
 				1: {VLANs: []vlan.ID{10}},
 			},
 		},
-	}.Normalize()
+	}.Normalize(layer.Env{})
 
 	l := newLayer(cfg)
 	l.LinkChange(t0, "l1", true, true, 1_000_000_000)

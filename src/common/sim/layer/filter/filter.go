@@ -11,7 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/tcp"
 	"go.aledante.io/FlowSeer/src/common/net/udp"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -167,14 +167,14 @@ type Layer struct {
 }
 
 // New constructs a new filter layer from cfg.
-func New(cfg Config, _ port.Table, nodeID string) (*Layer, error) {
-	norm := cfg.Normalize()
-	if err := norm.Validate(); err != nil {
+func New(cfg Config, env layer.Env) (*Layer, error) {
+	norm := cfg.Normalize(env)
+	if err := norm.Validate(env); err != nil {
 		return nil, err
 	}
 
 	l := &Layer{
-		nodeID:   nodeID,
+		nodeID:   env.NodeID,
 		cfg:      norm,
 		sets:     norm.Sets,
 		bindings: make(map[bindingKey]string, len(norm.Bindings)),

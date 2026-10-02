@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -12,10 +13,10 @@ import (
 // own; every PSE port's group must be a known group; no class may exceed 8;
 // enums must be in their declared domains; and a configured speed must be one
 // the port supports.
-func (c Config) Validate(ports port.Table) error {
+func (c Config) Validate(env layer.Env) error {
 	for _, name := range sortedKeys(c.Ethernet) {
 		e := c.Ethernet[name]
-		p, ok := ports.Port(name)
+		p, ok := env.Ports.Port(name)
 		if !ok {
 			return errs.New().
 				Attr("field", "ethernet."+name).
@@ -94,7 +95,7 @@ func (c Config) Validate(ports port.Table) error {
 
 	for _, name := range sortedKeys(c.PoE.Ports) {
 		pp := c.PoE.Ports[name]
-		p, ok := ports.Port(name)
+		p, ok := env.Ports.Port(name)
 		if !ok {
 			return errs.New().
 				Attr("field", "poe.ports."+name).

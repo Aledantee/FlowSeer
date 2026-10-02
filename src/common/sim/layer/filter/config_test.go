@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/tcp"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 )
 
@@ -151,7 +152,7 @@ func TestConfigValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.cfg.Validate()
+			err := tt.cfg.Validate(layer.Env{})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -183,7 +184,7 @@ func TestConfigNormalizeAndClone(t *testing.T) {
 		},
 	}
 
-	norm := cfg.Normalize()
+	norm := cfg.Normalize(layer.Env{})
 	if !norm.Equal(cfg) {
 		t.Errorf("norm.Equal(cfg) = false, want true")
 	}

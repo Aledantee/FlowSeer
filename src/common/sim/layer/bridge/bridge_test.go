@@ -50,7 +50,7 @@ func buildTestPorts(t *testing.T, count int) port.Table {
 
 func mustNewBridge(t *testing.T, cfg bridge.Config, ports port.Table) *bridge.Bridge {
 	t.Helper()
-	br, err := bridge.New(cfg, ports)
+	br, err := bridge.New(cfg, layer.Env{Ports: ports})
 	if err != nil {
 		t.Fatalf("bridge.New: %v", err)
 	}
@@ -978,7 +978,7 @@ func TestValidationRules(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.cfg.Validate(ports)
+			err := tc.cfg.Validate(layer.Env{Ports: ports})
 			if err == nil {
 				t.Fatalf("Validate() = nil, want error")
 			}
@@ -1053,7 +1053,7 @@ func TestValidateRejectsVLANReferencesAbsentFromTable(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.cfg.Validate(ports)
+			err := tc.cfg.Validate(layer.Env{Ports: ports})
 			if err == nil {
 				t.Fatal("Validate() = nil, want error")
 			}
@@ -1068,10 +1068,10 @@ func TestNegativeAgingTimeIsInvalid(t *testing.T) {
 	t.Parallel()
 
 	cfg := bridge.Config{AgingTime: -time.Second}
-	if got := cfg.Normalize().AgingTime; got != -time.Second {
+	if got := cfg.Normalize(layer.Env{}).AgingTime; got != -time.Second {
 		t.Errorf("Normalize().AgingTime = %s, want -1s", got)
 	}
-	err := cfg.Validate(buildTestPorts(t, 1))
+	err := cfg.Validate(layer.Env{Ports: buildTestPorts(t, 1)})
 	if err == nil {
 		t.Fatal("Validate() = nil, want error")
 	}
@@ -2248,7 +2248,7 @@ func TestValidateRefusesNegativeMaxEntries(t *testing.T) {
 
 	t.Run("with nil VLAN", func(t *testing.T) {
 		cfg := bridge.Config{MaxEntries: -1}
-		err := cfg.Validate(ports)
+		err := cfg.Validate(layer.Env{Ports: ports})
 		if err == nil {
 			t.Fatal("Validate with nil VLAN and MaxEntries -1 succeeded, want error")
 		}
@@ -2267,7 +2267,7 @@ func TestValidateRefusesNegativeMaxEntries(t *testing.T) {
 				},
 			},
 		}
-		err := cfg.Validate(ports)
+		err := cfg.Validate(layer.Env{Ports: ports})
 		if err == nil {
 			t.Fatal("Validate with VLAN table and MaxEntries -1 succeeded, want error")
 		}
@@ -2511,7 +2511,7 @@ func TestValidateFloodVLANsAndProtectedPorts(t *testing.T) {
 				FloodVLANs: []vlan.ID{0},
 				VLAN:       tc.vlan,
 			}
-			if err := cfgFlood.Validate(ports); err == nil {
+			if err := cfgFlood.Validate(layer.Env{Ports: ports}); err == nil {
 				t.Error("Validate with FloodVLANs {0} succeeded, want error")
 			}
 
@@ -2519,7 +2519,7 @@ func TestValidateFloodVLANsAndProtectedPorts(t *testing.T) {
 				ProtectedPorts: []string{"1/1/9"},
 				VLAN:           tc.vlan,
 			}
-			if err := cfgProt.Validate(ports); err == nil {
+			if err := cfgProt.Validate(layer.Env{Ports: ports}); err == nil {
 				t.Error("Validate with ProtectedPorts {1/1/9} succeeded, want error")
 			}
 		})
@@ -2535,7 +2535,7 @@ func TestValidateFloodVLANsAndProtectedPorts(t *testing.T) {
 			t.Fatal(err)
 		}
 		cfg := bridge.Config{ProtectedPorts: []string{"1/1/2"}}
-		if err := cfg.Validate(tbl); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Error("Validate with protected port naming LAG member succeeded, want error")
 		}
 	})
@@ -3079,7 +3079,7 @@ func TestValidateTunnelSwitchportAndPriorityTags(t *testing.T) {
 				PVID:   mustVLAN(10),
 			}),
 		}
-		if err := cfg.Validate(ports); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: ports}); err == nil {
 			t.Error("Validate with tunnel and PVID succeeded, want error")
 		}
 	})
@@ -3091,7 +3091,7 @@ func TestValidateTunnelSwitchportAndPriorityTags(t *testing.T) {
 				Tagged: []vlan.ID{10},
 			}),
 		}
-		if err := cfg.Validate(ports); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: ports}); err == nil {
 			t.Error("Validate with tunnel and Tagged succeeded, want error")
 		}
 	})
@@ -3103,7 +3103,7 @@ func TestValidateTunnelSwitchportAndPriorityTags(t *testing.T) {
 				Untagged: []vlan.ID{10},
 			}),
 		}
-		if err := cfg.Validate(ports); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: ports}); err == nil {
 			t.Error("Validate with tunnel and Untagged succeeded, want error")
 		}
 	})
@@ -3114,7 +3114,7 @@ func TestValidateTunnelSwitchportAndPriorityTags(t *testing.T) {
 				Tunnel: &bridge.Tunnel{VID: 0},
 			}),
 		}
-		if err := cfg.Validate(ports); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: ports}); err == nil {
 			t.Error("Validate with tunnel VID 0 succeeded, want error")
 		}
 	})
@@ -3125,7 +3125,7 @@ func TestValidateTunnelSwitchportAndPriorityTags(t *testing.T) {
 				Tunnel: &bridge.Tunnel{VID: 10, CustomerVIDs: []vlan.ID{0}},
 			}),
 		}
-		if err := cfg.Validate(ports); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: ports}); err == nil {
 			t.Error("Validate with customer VID 0 succeeded, want error")
 		}
 	})
@@ -3136,7 +3136,7 @@ func TestValidateTunnelSwitchportAndPriorityTags(t *testing.T) {
 				PriorityTags: "Sometimes",
 			}),
 		}
-		if err := cfg.Validate(ports); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: ports}); err == nil {
 			t.Error("Validate with PriorityTags 'Sometimes' succeeded, want error")
 		}
 	})
@@ -3308,7 +3308,7 @@ func TestNormalize(t *testing.T) {
 		},
 	}
 
-	norm := cfg.Normalize()
+	norm := cfg.Normalize(layer.Env{})
 	if norm.AgingTime != bridge.DefaultAgingTime {
 		t.Errorf("AgingTime: got %v, want %v", norm.AgingTime, bridge.DefaultAgingTime)
 	}
@@ -3363,7 +3363,7 @@ func TestValidateEnumDomains(t *testing.T) {
 			},
 		},
 	}
-	if err := cfg.Validate(ports); err == nil {
+	if err := cfg.Validate(layer.Env{Ports: ports}); err == nil {
 		t.Fatal("Validate() succeeded for invalid Admission, want error")
 	}
 }

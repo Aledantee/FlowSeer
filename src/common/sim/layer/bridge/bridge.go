@@ -145,13 +145,13 @@ type Bridge struct {
 	dynamic int
 }
 
-// New constructs a [Bridge] with the provided configuration and port table.
+// New constructs a [Bridge] with the provided configuration and environment.
 // It returns an error if the configuration is invalid against the ports.
-func New(cfg Config, ports port.Table) (*Bridge, error) {
-	if err := cfg.Validate(ports); err != nil {
+func New(cfg Config, env layer.Env) (*Bridge, error) {
+	if err := cfg.Validate(env); err != nil {
 		return nil, err
 	}
-	return newBridge(cfg.Normalize(), ports), nil
+	return newBridge(cfg.Normalize(env), env.Ports), nil
 }
 
 func newBridge(cfg Config, ports port.Table) *Bridge {
@@ -198,9 +198,9 @@ func (b *Bridge) Clone() *Bridge {
 	return cp
 }
 
-// Validate verifies the invariants of the bridge configuration against the given port table.
-func (b *Bridge) Validate(ports port.Table) error {
-	return b.cfg.Validate(ports)
+// Validate verifies the invariants of the bridge configuration against the given environment.
+func (b *Bridge) Validate(env layer.Env) error {
+	return b.cfg.Validate(env)
 }
 
 // SetGate installs g as the bridge forwarding and learning gate for scope,
@@ -339,7 +339,7 @@ func validateOperStatus(portName string, state port.LinkState) error {
 // Aging seeds count as learned and are bounded by MaxEntries, evicting the
 // oldest dynamic entry when the table exceeds the bound. Static seeds count nothing.
 func (b *Bridge) Learn(seeds []Seed) error {
-	normalized, err := NormalizeSeeds(b.cfg, b.ports, seeds)
+	normalized, err := NormalizeSeeds(b.cfg, layer.Env{Ports: b.ports}, seeds)
 	if err != nil {
 		return err
 	}

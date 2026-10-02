@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 )
 
@@ -78,5 +79,6 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		},
 	}
 
-	simtest.AssertDiffCoversConfig(t, seed, stp.Config.Normalize, stp.Diff, nil)
+	normalize := func(c stp.Config) stp.Config { return c.Normalize(layer.Env{}) }
+	simtest.AssertDiffCoversConfig(t, seed, normalize, stp.Diff, nil)
 }

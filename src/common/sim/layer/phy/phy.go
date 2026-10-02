@@ -5,6 +5,7 @@ package phy
 import (
 	"slices"
 
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -42,7 +43,7 @@ func (c Config) Clone() Config {
 // In the Ethernet configuration, supported speeds are sorted and deduplicated, and fixed settings
 // default Duplex to [Unknown] when unspecified. In the PoE configuration, unspecified port priority
 // defaults to [PriorityLow].
-func (c Config) Normalize() Config {
+func (c Config) Normalize(_ layer.Env) Config {
 	cp := Config{}
 	if c.Ethernet != nil {
 		cp.Ethernet = make(map[string]Ethernet, len(c.Ethernet))

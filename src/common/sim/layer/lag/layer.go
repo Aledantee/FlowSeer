@@ -167,14 +167,14 @@ type Layer struct {
 	members  map[string]*memberState
 }
 
-// New constructs a link aggregation layer from the given configuration, port table, and switch system ID.
+// New constructs a link aggregation layer from the given configuration and environment.
 // It returns an error if the configuration is invalid against the ports.
-func New(cfg Config, ports port.Table, systemID netaddr.MAC) (*Layer, error) {
-	norm := cfg.Normalize(ports, systemID)
-	if err := norm.Validate(ports); err != nil {
+func New(cfg Config, env layer.Env) (*Layer, error) {
+	norm := cfg.Normalize(env)
+	if err := norm.Validate(env); err != nil {
 		return nil, err
 	}
-	return newLayer(norm, ports, systemID), nil
+	return newLayer(norm, env.Ports, env.MAC), nil
 }
 
 func newLayer(cfg Config, ports port.Table, systemID netaddr.MAC) *Layer {
@@ -829,9 +829,9 @@ func (l *Layer) BadLACPDU(member string) {
 // RetentionKey returns a canonical encoding of every normalized input the layer's
 // runtime state depends on: its own configuration as Diff sees it, member link states,
 // and the switch system ID.
-func RetentionKey(cfg Config, ports port.Table, systemID netaddr.MAC) string {
+func RetentionKey(cfg Config, env layer.Env) string {
 	hasLagPorts := false
-	for _, p := range ports.Ports() {
+	for _, p := range env.Ports.Ports() {
 		if p.Kind == port.LAG {
 			hasLagPorts = true
 			break
@@ -840,7 +840,7 @@ func RetentionKey(cfg Config, ports port.Table, systemID netaddr.MAC) string {
 	if len(cfg.LAGs) == 0 && !hasLagPorts {
 		return ""
 	}
-	norm := cfg.Normalize(ports, systemID)
+	norm := cfg.Normalize(env)
 	var b strings.Builder
 	b.WriteString("config=")
 	for _, name := range sortedKeys(norm.LAGs) {
@@ -852,19 +852,19 @@ func RetentionKey(cfg Config, ports port.Table, systemID netaddr.MAC) string {
 
 	b.WriteString("\nmember-state=")
 	var memberNames []string
-	for _, p := range ports.Ports() {
+	for _, p := range env.Ports.Ports() {
 		if p.LagParent != "" {
 			memberNames = append(memberNames, p.Name)
 		}
 	}
 	slices.Sort(memberNames)
 	for _, name := range memberNames {
-		p, _ := ports.Port(name)
+		p, _ := env.Ports.Port(name)
 		fmt.Fprintf(&b, "%s:parent=%s,admin=%s,oper=%s;", name, p.LagParent, p.AdminStatus, p.OperStatus)
 	}
 
 	b.WriteString("\nsystem-id=")
-	b.WriteString(systemID.String())
+	b.WriteString(env.MAC.String())
 
 	return b.String()
 }

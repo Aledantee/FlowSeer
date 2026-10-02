@@ -15,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
@@ -512,11 +513,11 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 	for name, h := range cloned.Hosts {
 		if h.IP != nil {
 			rtCfg, tbl := HostRoutingConfig(name, h)
-			layer, err := routing.New(rtCfg, tbl, name)
+			rt, err := routing.New(rtCfg, layer.Env{Ports: tbl, NodeID: name})
 			if err != nil {
 				return nil, errs.Wrapf(err, "host %q routing", name)
 			}
-			hostStacks[name] = layer
+			hostStacks[name] = rt
 		}
 	}
 

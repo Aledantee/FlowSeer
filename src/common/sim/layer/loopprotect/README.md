@@ -52,7 +52,7 @@ func main() {
 			"1/1/1": {Action: loopprotect.Block},
 			"1/1/2": {Action: loopprotect.Block},
 		},
-	}, ports, mac)
+	}, layer.Env{Ports: ports, MAC: mac})
 	if err != nil {
 		panic(err)
 	}
@@ -188,7 +188,7 @@ also why pairing it with `LoopCleared` recovery is refused at construction.
 
 ## State retention
 
-`RetentionKey(cfg Config, ports port.Table, mac netaddr.MAC) string` encodes
+`RetentionKey(cfg Config, env layer.Env) string` encodes
 every normalized input the loop-protection runtime state depends on: its own
 configuration as `Diff` sees it, port administrative and operational states, and
 the switch's base MAC. `vswitch.Derive` retains the runtime layer only when both

@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -199,7 +200,7 @@ func newTestBridgeForFork(t *testing.T) *Bridge {
 			},
 		},
 	}
-	br, err := New(cfg, tbl)
+	br, err := New(cfg, layer.Env{Ports: tbl})
 	if err != nil {
 		t.Fatalf("New bridge: %v", err)
 	}

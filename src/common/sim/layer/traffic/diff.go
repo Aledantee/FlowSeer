@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -163,8 +164,8 @@ func writeQuotedStrings(b *strings.Builder, values []string) {
 // Diff computes field-level changes between two traffic configurations.
 // Mirror selector slices are sets, so their order does not produce a change.
 func Diff(a, b Config) []trace.Change {
-	a = a.Normalize()
-	b = b.Normalize()
+	a = a.Normalize(layer.Env{})
+	b = b.Normalize(layer.Env{})
 
 	var changes []trace.Change
 

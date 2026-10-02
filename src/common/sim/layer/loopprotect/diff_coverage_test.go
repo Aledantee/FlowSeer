@@ -6,6 +6,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 )
 
@@ -26,5 +27,8 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		},
 	}
 
-	simtest.AssertDiffCoversConfig(t, seed, loopprotect.Config.Normalize, loopprotect.Diff, nil)
+	normalize := func(c loopprotect.Config) loopprotect.Config {
+		return c.Normalize(layer.Env{})
+	}
+	simtest.AssertDiffCoversConfig(t, seed, normalize, loopprotect.Diff, nil)
 }

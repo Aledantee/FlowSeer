@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
 	"go.aledante.io/FlowSeer/src/common/net/mld"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -40,7 +41,7 @@ func mcastPortTable(t *testing.T) port.Table {
 
 func mustNewMcast(t *testing.T, cfg mcast.Config, ports port.Table) *mcast.Layer {
 	t.Helper()
-	m, err := mcast.New(cfg, ports)
+	m, err := mcast.New(cfg, layer.Env{Ports: ports})
 	if err != nil {
 		t.Fatalf("mcast.New: %v", err)
 	}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -132,8 +133,8 @@ func snapshotSwitchport(sw Switchport) switchportSnapshotFact {
 // tagged and untagged sets, ingress filtering, frame admission, tunnel, and priority tags),
 // aging time, maximum table entries, flood VLANs, protected ports, and BPDU forwarding.
 func Diff(a, b Config) []trace.Change {
-	a = a.Normalize()
-	b = b.Normalize()
+	a = a.Normalize(layer.Env{})
+	b = b.Normalize(layer.Env{})
 
 	var changes []trace.Change
 	if (a.VLAN == nil) != (b.VLAN == nil) {

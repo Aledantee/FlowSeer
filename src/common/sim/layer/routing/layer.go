@@ -15,7 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -297,12 +297,12 @@ type Layer struct {
 // table is built, and installs carrying the on-link next hop and interface it reached. One
 // that resolves to nothing is withdrawn rather than rejected, so forwarding answers from the
 // routes that remain; [Layer.WithdrawnRoutes] reports why.
-func New(cfg Config, ports port.Table, nodeID string) (*Layer, error) {
-	norm := cfg.Normalize()
-	if err := norm.Validate(ports); err != nil {
+func New(cfg Config, env layer.Env) (*Layer, error) {
+	norm := cfg.Normalize(env)
+	if err := norm.Validate(env); err != nil {
 		return nil, err
 	}
-	return newLayer(norm, nodeID), nil
+	return newLayer(norm, env.NodeID), nil
 }
 
 func newLayer(cfg Config, nodeID string) *Layer {
@@ -1145,11 +1145,11 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 // RetentionKey returns a canonical encoding of every normalized input the layer's
 // runtime state depends on: its own configuration as Diff sees it and the port link
 // states for interfaces that reference a port.
-func RetentionKey(cfg Config, ports port.Table) string {
+func RetentionKey(cfg Config, env layer.Env) string {
 	if len(cfg.VRFs) == 0 {
 		return ""
 	}
-	norm := cfg.Normalize()
+	norm := cfg.Normalize(env)
 	var b strings.Builder
 	b.WriteString("config=")
 	var ifacePorts []string
@@ -1176,7 +1176,7 @@ func RetentionKey(cfg Config, ports port.Table) string {
 
 	b.WriteString("\nport-state=")
 	for _, name := range ifacePorts {
-		if pt, ok := ports.Port(name); ok {
+		if pt, ok := env.Ports.Port(name); ok {
 			fmt.Fprintf(&b, "%s:admin=%s,oper=%s;", name, pt.AdminStatus, pt.OperStatus)
 		} else {
 			fmt.Fprintf(&b, "%s:absent;", name)

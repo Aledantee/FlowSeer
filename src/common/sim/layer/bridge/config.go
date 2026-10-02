@@ -7,7 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // DefaultAgingTime is the standard IEEE 802.1D recommended forwarding database aging time (300 seconds).
@@ -259,7 +259,7 @@ func (c Config) Clone() Config {
 // Normalize returns a normalized copy of the configuration,
 // filling unspecified fields with standard defaults, and sorting
 // and deduplicating slices for deterministic behavior.
-func (c Config) Normalize() Config {
+func (c Config) Normalize(_ layer.Env) Config {
 	cloned := c.Clone()
 	if cloned.AgingTime == 0 {
 		cloned.AgingTime = DefaultAgingTime
@@ -310,7 +310,7 @@ func (c Config) Normalize() Config {
 // tagged, or untagged VLANs configured, a tunnel or customer VLAN identifier outside 1 through 4094,
 // a VLAN in both tagged and untagged sets, a VLAN identifier outside 1 through 4094, and any
 // switchport when the VLAN table is absent or empty.
-func (c Config) Validate(ports port.Table) error {
+func (c Config) Validate(env layer.Env) error {
 	if c.AgingTime < 0 {
 		return errs.New().
 			Attr("field", "aging_time").
@@ -347,7 +347,7 @@ func (c Config) Validate(ports port.Table) error {
 	}
 
 	for _, name := range c.ProtectedPorts {
-		p, ok := ports.Port(name)
+		p, ok := env.Ports.Port(name)
 		if !ok {
 			return errs.New().
 				Attr("field", "protected_ports."+name).
@@ -399,7 +399,7 @@ func (c Config) Validate(ports port.Table) error {
 	for _, name := range portNames {
 		sw := c.VLAN.Switchports[name]
 
-		p, ok := ports.Port(name)
+		p, ok := env.Ports.Port(name)
 		if !ok {
 			return errs.New().
 				Attr("field", "vlan.switchports."+name).

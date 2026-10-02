@@ -45,7 +45,7 @@ func main() {
 			Priority: priority,
 			Address:  address,
 			Ports:    map[string]stp.Port{"1/1/1": {}},
-		}, ports)
+		}, layer.Env{Ports: ports})
 		if err != nil {
 			panic(err)
 		}
@@ -413,7 +413,7 @@ stale. Narrowing it would need a target that can say
 
 ## State retention
 
-`RetentionKey(cfg Config, ports port.Table, speeds map[string]uint64) string`
+`RetentionKey(cfg Config, env layer.Env) string`
 encodes every normalized input the spanning tree runtime state depends on: its
 own configuration as `Diff` sees it, the administrative and operational state of
 configured ports, and resolved physical link speeds. `vswitch.Derive` retains the

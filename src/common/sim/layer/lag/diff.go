@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -159,20 +160,21 @@ func snapshotLAG(l LAG) lagSnapshotFact {
 	return lagSnapshotFact(b.String())
 }
 
-// Diff computes the difference between two normalized link aggregation
-// configurations, reporting changes to LAG settings and per-member
-// administrative parameters. The caller supplies the port and system-ID
-// context by normalizing each configuration before calling Diff.
+// Diff computes the difference between two link aggregation configurations,
+// reporting changes to LAG settings and per-member administrative parameters.
 func Diff(a, b Config) []trace.Change {
+	a = a.Normalize(layer.Env{})
+	b = b.Normalize(layer.Env{})
+
 	var changes []trace.Change
-	layer := LayerName
+	lyr := LayerName
 
 	for _, lagName := range sortedKeys(a.LAGs) {
 		aLag := a.LAGs[lagName]
 		bLag, exists := b.LAGs[lagName]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "",
 				From:    snapshotLAG(aLag),
@@ -184,7 +186,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.Mode != bLag.Mode {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "mode",
 				From:    aLag.Mode,
@@ -194,7 +196,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.Primary != bLag.Primary {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "primary",
 				From:    PrimaryFact(aLag.Primary),
@@ -204,7 +206,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.UpDelay != bLag.UpDelay {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "up_delay",
 				From:    DurationFact(aLag.UpDelay),
@@ -214,7 +216,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.DownDelay != bLag.DownDelay {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "down_delay",
 				From:    DurationFact(aLag.DownDelay),
@@ -224,7 +226,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.HashBasis != bLag.HashBasis {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "hash_basis",
 				From:    HashBasisFact(aLag.HashBasis),
@@ -234,7 +236,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.MinLinks != bLag.MinLinks {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "min_links",
 				From:    MinLinksFact(aLag.MinLinks),
@@ -246,7 +248,7 @@ func Diff(a, b Config) []trace.Change {
 		bRebalance := snapshotRebalanceInterval(bLag.RebalanceInterval)
 		if aRebalance != bRebalance {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "rebalance_interval",
 				From:    aRebalance,
@@ -256,7 +258,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.LACP.Mode != bLag.LACP.Mode {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "lacp_mode",
 				From:    aLag.LACP.Mode,
@@ -266,7 +268,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.LACP.Fast != bLag.LACP.Fast {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "lacp_fast",
 				From:    BoolFact(aLag.LACP.Fast),
@@ -276,7 +278,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.LACP.SystemPriority != bLag.LACP.SystemPriority {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "lacp_system_priority",
 				From:    Uint16Fact(aLag.LACP.SystemPriority),
@@ -286,7 +288,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.LACP.SystemID != bLag.LACP.SystemID {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "lacp_system_id",
 				From:    MACFact(aLag.LACP.SystemID),
@@ -296,7 +298,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.LACP.Key != bLag.LACP.Key {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "lacp_key",
 				From:    Uint16Fact(aLag.LACP.Key),
@@ -306,7 +308,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.LACP.Fallback != bLag.LACP.Fallback {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "lacp_fallback",
 				From:    BoolFact(aLag.LACP.Fallback),
@@ -320,7 +322,7 @@ func Diff(a, b Config) []trace.Change {
 			subject := trace.Subject{Kind: "port", Key: memberSubjectKey(lagName, memName)}
 			if !memExists {
 				changes = append(changes, trace.Change{
-					Layer:   layer,
+					Layer:   lyr,
 					Subject: subject,
 					Field:   "",
 					From:    am,
@@ -332,7 +334,7 @@ func Diff(a, b Config) []trace.Change {
 
 			if am.Priority != bm.Priority {
 				changes = append(changes, trace.Change{
-					Layer:   layer,
+					Layer:   lyr,
 					Subject: subject,
 					Field:   "priority",
 					From:    PortPriorityFact(am.Priority),
@@ -342,7 +344,7 @@ func Diff(a, b Config) []trace.Change {
 
 			if am.Key != bm.Key {
 				changes = append(changes, trace.Change{
-					Layer:   layer,
+					Layer:   lyr,
 					Subject: subject,
 					Field:   "key",
 					From:    Uint16Fact(am.Key),
@@ -354,7 +356,7 @@ func Diff(a, b Config) []trace.Change {
 		for _, memName := range sortedKeys(bLag.Members) {
 			if _, memExists := aLag.Members[memName]; !memExists {
 				changes = append(changes, trace.Change{
-					Layer:   layer,
+					Layer:   lyr,
 					Subject: trace.Subject{Kind: "port", Key: memberSubjectKey(lagName, memName)},
 					Field:   "",
 					From:    nil,
@@ -367,7 +369,7 @@ func Diff(a, b Config) []trace.Change {
 	for _, lagName := range sortedKeys(b.LAGs) {
 		if _, exists := a.LAGs[lagName]; !exists {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "",
 				From:    nil,

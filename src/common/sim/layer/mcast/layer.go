@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
 	"go.aledante.io/FlowSeer/src/common/net/mld"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -121,11 +122,11 @@ type Layer struct {
 
 // New builds an empty snooping layer and installs valid static router ports from cfg.
 // It returns an error if the configuration is invalid against the ports.
-func New(cfg Config, ports port.Table) (*Layer, error) {
-	if err := cfg.Validate(ports); err != nil {
+func New(cfg Config, env layer.Env) (*Layer, error) {
+	if err := cfg.Validate(env); err != nil {
 		return nil, err
 	}
-	return newLayer(cfg.Normalize(), ports), nil
+	return newLayer(cfg.Normalize(env), env.Ports), nil
 }
 
 func newLayer(cfg Config, ports port.Table) *Layer {
@@ -509,11 +510,11 @@ func learnRouter(now time.Time, portName string, state *vlanState) {
 // RetentionKey returns a canonical encoding of every normalized input the layer's
 // runtime state depends on: its own configuration as Diff sees it and the port link
 // states for configured router ports.
-func RetentionKey(cfg Config, ports port.Table) string {
+func RetentionKey(cfg Config, env layer.Env) string {
 	if len(cfg.VLANs) == 0 {
 		return ""
 	}
-	norm := cfg.Normalize()
+	norm := cfg.Normalize(env)
 	var b strings.Builder
 	b.WriteString("config=")
 	var allRouterPorts []string
@@ -529,7 +530,7 @@ func RetentionKey(cfg Config, ports port.Table) string {
 
 	b.WriteString("\nport-state=")
 	for _, name := range allRouterPorts {
-		if pt, ok := ports.Port(name); ok {
+		if pt, ok := env.Ports.Port(name); ok {
 			fmt.Fprintf(&b, "%s:admin=%s,oper=%s;", name, pt.AdminStatus, pt.OperStatus)
 		} else {
 			fmt.Fprintf(&b, "%s:absent;", name)

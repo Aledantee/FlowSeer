@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -56,7 +57,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg.Validate(tbl); err != nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err != nil {
 			t.Fatalf("Validate failed for valid config: %v", err)
 		}
 	})
@@ -64,7 +65,7 @@ func TestValidate(t *testing.T) {
 	t.Run("absent LAG port accepted", func(t *testing.T) {
 		t.Parallel()
 		cfg := lag.Config{}
-		if err := cfg.Validate(tbl); err != nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err != nil {
 			t.Fatalf("Validate failed for empty config: %v", err)
 		}
 	})
@@ -76,7 +77,7 @@ func TestValidate(t *testing.T) {
 				"1/1/3": {},
 			},
 		}
-		if err := cfg.Validate(tbl); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded for physical port as LAG, want error")
 		}
 	})
@@ -90,7 +91,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg.Validate(tbl); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded with Primary naming non-member, want error")
 		}
 	})
@@ -106,7 +107,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg.Validate(tbl); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded with member key on non-member, want error")
 		}
 	})
@@ -120,7 +121,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg.Validate(tbl); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded with MinLinks 3 on 2 members, want error")
 		}
 	})
@@ -134,7 +135,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg.Validate(tbl); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded with negative UpDelay, want error")
 		}
 
@@ -145,7 +146,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg2.Validate(tbl); err == nil {
+		if err := cfg2.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded with negative DownDelay, want error")
 		}
 	})
@@ -158,7 +159,7 @@ func TestValidate(t *testing.T) {
 				"lag1": {RebalanceInterval: &interval},
 			},
 		}
-		err := cfg.Validate(tbl)
+		err := cfg.Validate(layer.Env{Ports: tbl})
 		if err == nil {
 			t.Fatal("Validate succeeded with negative RebalanceInterval, want error")
 		}
@@ -176,7 +177,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg.Validate(tbl); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded with unknown mode, want error")
 		}
 
@@ -187,7 +188,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg2.Validate(tbl); err == nil {
+		if err := cfg2.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded with unknown LACP mode, want error")
 		}
 	})
@@ -200,7 +201,7 @@ func TestValidate(t *testing.T) {
 				LACP: lag.LACPConfig{Mode: lag.Off, SystemID: netaddr.MAC{0x01, 0, 0, 0, 0, 1}},
 			},
 		}}
-		err := cfg.Validate(tbl)
+		err := cfg.Validate(layer.Env{Ports: tbl})
 		if err == nil {
 			t.Fatal("Validate() = nil, want error")
 		}
@@ -224,7 +225,7 @@ func TestDefaults(t *testing.T) {
 	}
 
 	sysMAC := mustMAC(t, "02:00:00:00:00:aa")
-	cfg := lag.Config{}.Defaults(tbl, sysMAC)
+	cfg := lag.Config{}.Normalize(layer.Env{Ports: tbl, MAC: sysMAC})
 
 	l1, ok := cfg.LAGs["lag1"]
 	if !ok {
@@ -322,7 +323,7 @@ func TestNormalize(t *testing.T) {
 			},
 		},
 	}
-	norm := cfg.Normalize(lagPortTable(t), mustMAC(t, "02:00:00:00:00:aa"))
+	norm := cfg.Normalize(layer.Env{Ports: lagPortTable(t), MAC: mustMAC(t, "02:00:00:00:00:aa")})
 	l := norm.LAGs["lag1"]
 	if l.Mode != lag.ActiveBackup {
 		t.Errorf("Mode: got %v, want %v", l.Mode, lag.ActiveBackup)
@@ -351,7 +352,7 @@ func TestRebalanceIntervalNormalization(t *testing.T) {
 
 	normalize := func(interval *time.Duration) *time.Duration {
 		cfg := lag.Config{LAGs: map[string]lag.LAG{"lag1": {RebalanceInterval: interval}}}
-		return cfg.Normalize(tbl, mac).LAGs["lag1"].RebalanceInterval
+		return cfg.Normalize(layer.Env{Ports: tbl, MAC: mac}).LAGs["lag1"].RebalanceInterval
 	}
 
 	zero := time.Duration(0)
@@ -417,7 +418,7 @@ func TestVSwitchStoresEffectiveLAGConfiguration(t *testing.T) {
 	ports := lagPortTable(t)
 	systemID := mustMAC(t, "02:00:00:00:00:aa")
 	omitted := vswitch.Config{MAC: systemID, Ports: ports}
-	effectiveLAG := lag.Config{}.Defaults(ports, systemID)
+	effectiveLAG := lag.Config{}.Normalize(layer.Env{Ports: ports, MAC: systemID})
 	explicit := vswitch.Config{MAC: systemID, Ports: ports, LAG: &effectiveLAG}
 
 	omittedNorm := omitted.Normalize()
@@ -437,6 +438,16 @@ func TestVSwitchStoresEffectiveLAGConfiguration(t *testing.T) {
 	}
 	if changes := vswitch.Diff(sw.Spec().Config, explicit.Normalize()); len(changes) != 0 {
 		t.Errorf("Diff(Switch.Spec().Config, explicit) = %+v, want no changes", changes)
+	}
+}
+
+func TestDiffOmittedModeMatchesActiveBackup(t *testing.T) {
+	t.Parallel()
+
+	a := lag.Config{LAGs: map[string]lag.LAG{"lag1": {Mode: ""}}}
+	b := lag.Config{LAGs: map[string]lag.LAG{"lag1": {Mode: lag.ActiveBackup}}}
+	if diffs := lag.Diff(a, b); len(diffs) != 0 {
+		t.Fatalf("Diff reported changes between omitted mode and ActiveBackup: %v", diffs)
 	}
 }
 

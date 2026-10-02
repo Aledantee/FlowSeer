@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -63,8 +64,8 @@ func (f VLANListFact) Canonical() string {
 // reporting changes to the probe interval and, per port, action, recovery
 // mode, recovery duration, and VLAN membership.
 func Diff(a, b Config) []trace.Change {
-	a = a.Normalize()
-	b = b.Normalize()
+	a = a.Normalize(layer.Env{})
+	b = b.Normalize(layer.Env{})
 
 	var changes []trace.Change
 

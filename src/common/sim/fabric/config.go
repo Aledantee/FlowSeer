@@ -15,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
@@ -787,7 +788,7 @@ func (c Config) Normalize() Config {
 
 // normalizedEthernet applies the normalization phy applies to a switch port's facts.
 func normalizedEthernet(e phy.Ethernet) phy.Ethernet {
-	return phy.Config{Ethernet: map[string]phy.Ethernet{"": e}}.Normalize().Ethernet[""]
+	return phy.Config{Ethernet: map[string]phy.Ethernet{"": e}}.Normalize(layer.Env{}).Ethernet[""]
 }
 
 func canonicalEvidence(refs []trace.EvidenceRef) []trace.EvidenceRef {
@@ -955,7 +956,7 @@ func (c Config) Validate() error {
 					Msgf("host %q with IP stack must configure at least one address", name)
 			}
 			rtCfg, tbl := HostRoutingConfig(name, h)
-			if err := rtCfg.Validate(tbl); err != nil {
+			if err := rtCfg.Validate(layer.Env{Ports: tbl}); err != nil {
 				return errs.Wrapf(err, "host %q", name)
 			}
 		}
@@ -1192,7 +1193,7 @@ func validateEthernet(field string, e phy.Ethernet) error {
 	tbl, _ := port.NewBuilder().
 		Add(port.Port{Name: name, Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Build()
-	err := phy.Config{Ethernet: map[string]phy.Ethernet{name: e}}.Validate(tbl)
+	err := phy.Config{Ethernet: map[string]phy.Ethernet{name: e}}.Validate(layer.Env{Ports: tbl})
 	if err == nil {
 		return nil
 	}

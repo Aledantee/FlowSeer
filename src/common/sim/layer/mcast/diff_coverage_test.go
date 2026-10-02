@@ -6,6 +6,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 )
 
@@ -27,5 +28,8 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		},
 	}
 
-	simtest.AssertDiffCoversConfig(t, seed, mcast.Config.Normalize, mcast.Diff, nil)
+	normalize := func(c mcast.Config) mcast.Config {
+		return c.Normalize(layer.Env{})
+	}
+	simtest.AssertDiffCoversConfig(t, seed, normalize, mcast.Diff, nil)
 }

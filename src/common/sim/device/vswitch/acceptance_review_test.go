@@ -16,6 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
@@ -493,7 +494,7 @@ func TestMirrorSelectorsRejectPhysicalLAGMembersAtSubmittedPaths(t *testing.T) {
 		SelectDstPorts: []string{"lag1"},
 		OutputPort:     "output",
 	}}}
-	if err := logical.Validate(ports); err != nil {
+	if err := logical.Validate(layer.Env{Ports: ports}); err != nil {
 		t.Fatalf("Validate rejected logical LAG selectors: %v", err)
 	}
 }

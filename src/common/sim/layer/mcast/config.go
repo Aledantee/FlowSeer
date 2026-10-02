@@ -9,7 +9,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // DefaultMembershipInterval is the membership and router-port lifetime used when an interval is unset.
@@ -30,7 +30,7 @@ type Config struct {
 // Normalize returns an independent copy of the configuration with standard defaults applied.
 // Unspecified FloodUnregistered defaults to true, zero intervals default to [DefaultMembershipInterval],
 // and router ports are sorted and deduplicated.
-func (c Config) Normalize() Config {
+func (c Config) Normalize(_ layer.Env) Config {
 	if c.VLANs == nil {
 		return Config{}
 	}
@@ -113,7 +113,7 @@ func (v VLANSnooping) Canonical() string {
 
 // Validate rejects invalid VLANs, physical LAG members used as router ports,
 // missing router ports, and negative aging intervals.
-func (c Config) Validate(ports port.Table) error {
+func (c Config) Validate(env layer.Env) error {
 	for _, vid := range sortedVLANIDs(c.VLANs) {
 		cfg := c.VLANs[vid]
 		if !vid.Valid() {
@@ -158,7 +158,7 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("vlan", vid).
 					Msg("router port name cannot be empty")
 			}
-			p, ok := ports.Port(name)
+			p, ok := env.Ports.Port(name)
 			if !ok {
 				return errs.New().
 					Attr("field", fmt.Sprintf("vlans.%d.router_ports", vid)).

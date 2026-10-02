@@ -76,7 +76,7 @@ func (s ConstructionSpec) Normalize() (ConstructionSpec, error) {
 	// Traffic field paths name submitted slice positions, which sorting and
 	// compaction would otherwise replace with normalized positions.
 	if owned.Config.Traffic != nil {
-		if err := owned.Config.Traffic.Validate(owned.Config.Ports.Normalize()); err != nil {
+		if err := owned.Config.Traffic.Validate(layer.Env{Ports: owned.Config.Ports.Normalize()}); err != nil {
 			return ConstructionSpec{}, err
 		}
 		if err := owned.Config.validateTrafficVLANs(); err != nil {
@@ -93,7 +93,7 @@ func (s ConstructionSpec) Normalize() (ConstructionSpec, error) {
 			Msg("forwarding database seeds require bridge configuration")
 	}
 	if owned.Config.Bridge != nil {
-		seeds, err := bridge.NormalizeSeeds(*owned.Config.Bridge, owned.Config.Ports, owned.Seeds)
+		seeds, err := bridge.NormalizeSeeds(*owned.Config.Bridge, owned.Config.env(), owned.Seeds)
 		if err != nil {
 			return ConstructionSpec{}, err
 		}
@@ -309,6 +309,18 @@ func NewWithSpec(spec ConstructionSpec) (*Switch, error) {
 	return newSwitch(norm.Config, norm.Seeds, norm.NodeID, norm.Metadata)
 }
 
+func (s *Switch) env() layer.Env {
+	if s == nil {
+		return layer.Env{}
+	}
+	return layer.Env{
+		NodeID: s.nodeID,
+		Ports:  s.ports,
+		MAC:    s.cfg.MAC,
+		Speeds: resolvedSpeeds(s),
+	}
+}
+
 func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysis.Metadata) (*Switch, error) {
 	sw := &Switch{
 		cfg:      norm,
@@ -323,8 +335,10 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		sw.power = norm.Phy.Allocate()
 	}
 
+	env := sw.env()
+
 	if norm.Bridge != nil {
-		b, err := bridge.New(*norm.Bridge, norm.Ports)
+		b, err := bridge.New(*norm.Bridge, env)
 		if err != nil {
 			return nil, err
 		}
@@ -337,7 +351,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		sw.bridge = b
 	}
 	if norm.Mcast != nil {
-		m, err := mcast.New(*norm.Mcast, norm.Ports)
+		m, err := mcast.New(*norm.Mcast, env)
 		if err != nil {
 			return nil, err
 		}
@@ -359,7 +373,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		if norm.LAG != nil {
 			lagCfg = *norm.LAG
 		}
-		l, err := lag.New(lagCfg, norm.Ports, norm.MAC)
+		l, err := lag.New(lagCfg, env)
 		if err != nil {
 			return nil, err
 		}
@@ -378,7 +392,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 	}
 
 	if norm.STP != nil {
-		st, err := stp.New(*norm.STP, norm.Ports)
+		st, err := stp.New(*norm.STP, env)
 		if err != nil {
 			return nil, err
 		}
@@ -389,7 +403,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 	}
 
 	if norm.LoopProtect != nil {
-		lp, err := loopprotect.New(*norm.LoopProtect, norm.Ports, norm.MAC)
+		lp, err := loopprotect.New(*norm.LoopProtect, env)
 		if err != nil {
 			return nil, err
 		}
@@ -400,14 +414,14 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 	}
 
 	if norm.Routing != nil {
-		rt, err := routing.New(*norm.Routing, norm.Ports, nodeID)
+		rt, err := routing.New(*norm.Routing, env)
 		if err != nil {
 			return nil, err
 		}
 		sw.routing = rt
 	}
 	if norm.Filter != nil {
-		flt, err := filter.New(*norm.Filter, norm.Ports, nodeID)
+		flt, err := filter.New(*norm.Filter, env)
 		if err != nil {
 			return nil, err
 		}
@@ -648,7 +662,7 @@ func (s *Switch) Learn(seeds []bridge.Seed) error {
 	}
 
 	combined := append(slices.Clone(s.seeds), seeds...)
-	normalized, err := bridge.NormalizeSeeds(*s.cfg.Bridge, s.ports, combined)
+	normalized, err := bridge.NormalizeSeeds(*s.cfg.Bridge, s.env(), combined)
 	if err != nil {
 		return err
 	}

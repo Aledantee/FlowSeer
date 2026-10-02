@@ -6,6 +6,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 )
 
@@ -93,10 +94,10 @@ func TestRetentionKeyTracksQueueBuffer(t *testing.T) {
 		BufferOctets: map[vlan.PCP]uint64{0: 4000},
 	}
 
-	if traffic.RetentionKey(base) == traffic.RetentionKey(changed) {
+	if traffic.RetentionKey(base, layer.Env{}) == traffic.RetentionKey(changed, layer.Env{}) {
 		t.Error("RetentionKey ignored a change confined to a queue buffer")
 	}
-	if traffic.RetentionKey(base) != traffic.RetentionKey(base.Clone()) {
+	if traffic.RetentionKey(base, layer.Env{}) != traffic.RetentionKey(base.Clone(), layer.Env{}) {
 		t.Error("RetentionKey differs between a configuration and its clone")
 	}
 }

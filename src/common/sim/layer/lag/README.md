@@ -199,7 +199,7 @@ Each member maintains an actor `lacp.Info`:
 
 - `SystemPriority`: LAG administrative priority (default 32768).
 - `SystemID`: Switch system MAC address.
-- `Key`: Operational aggregation key (default matches LAG port table index).
+- `Key`: Operational aggregation key (default follows the LAG's position and shifts when one is added).
 - `PortPriority`: Member administrative priority (default 32768).
 - `PortID`: 1-based index of the member in the LAG's sorted member list.
 - `State`: Bitmask containing:
@@ -265,9 +265,9 @@ the first one that applies:
 
 ## State retention
 
-`RetentionKey(cfg Config, ports port.Table, systemID netaddr.MAC) string` encodes
+`RetentionKey(cfg Config, env layer.Env) string` encodes
 every normalized input the link-aggregation runtime state depends on: its own
-configuration normalized against the port table and switch system ID, member port
+configuration normalized against the environment, member port
 administrative and operational states, and the switch's system ID. `vswitch.Derive`
 retains the runtime layer only when both keys match and rebuilds it otherwise.
 

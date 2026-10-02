@@ -7,6 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -45,7 +46,7 @@ func TestReceiveAppliesActionToNamedPort(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -75,7 +76,7 @@ func TestRecoveryLoopCleared(t *testing.T) {
 				Recovery: loopprotect.Recovery{Mode: loopprotect.LoopCleared, Duration: 15 * time.Second},
 			},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -124,7 +125,7 @@ func TestRecoveryTimer(t *testing.T) {
 				Recovery: loopprotect.Recovery{Mode: loopprotect.Timer, Duration: 15 * time.Second},
 			},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -176,7 +177,7 @@ func TestReceiveExpiresElapsedTimerWindowBeforeApplying(t *testing.T) {
 				Recovery: loopprotect.Recovery{Mode: loopprotect.Timer, Duration: 15 * time.Second},
 			},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -215,7 +216,7 @@ func TestClearResetsRecurrenceTracking(t *testing.T) {
 				Recovery: loopprotect.Recovery{Mode: loopprotect.Timer, Duration: 15 * time.Second},
 			},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -253,7 +254,7 @@ func TestReceiveFlushesOnTransitionIntoDenyingAction(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"block": {Action: loopprotect.Block, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -284,7 +285,7 @@ func TestReceiveNoLearnNeverFlushes(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"nolearn": {Action: loopprotect.NoLearn},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -322,7 +323,7 @@ func TestRecoveryManual(t *testing.T) {
 				Recovery: loopprotect.Recovery{Mode: loopprotect.Manual},
 			},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -362,7 +363,7 @@ func TestRecoveryManualClearedByClear(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -400,11 +401,11 @@ func TestRecoveryDefaultPerAction(t *testing.T) {
 			"disable": {Action: loopprotect.Disable},
 		},
 	}
-	if _, err := loopprotect.New(cfg, tbl, switchMAC); err != nil {
+	if _, err := loopprotect.New(cfg, layer.Env{Ports: tbl, MAC: switchMAC}); err != nil {
 		t.Fatalf("New: %v", err)
 	}
 
-	normalized := cfg.Normalize()
+	normalized := cfg.Normalize(layer.Env{})
 	tests := []struct {
 		port string
 		want loopprotect.RecoveryMode
@@ -428,7 +429,7 @@ func TestInterVLAN(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -451,7 +452,7 @@ func TestInterVLANFalseWhenMatching(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -481,7 +482,7 @@ func TestWakeEmitsProbesForProtectedPortsInSortedOrder(t *testing.T) {
 			"1/1/1": {Action: loopprotect.NoLearn},
 			"1/1/2": {Action: loopprotect.Disable},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -510,7 +511,7 @@ func TestWakeStopsProbingOnceDisableIsApplied(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Disable, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -543,7 +544,7 @@ func TestWakeEmitsPerVLAN(t *testing.T) {
 			"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{20, 10}},
 			"1/1/2": {Action: loopprotect.Block},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -580,7 +581,7 @@ func TestWakeSequenceNumbersIncreasePerPort(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -635,7 +636,7 @@ func TestGateForEachAction(t *testing.T) {
 			"nolearn": {Action: loopprotect.NoLearn},
 			"disable": {Action: loopprotect.Disable},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -698,7 +699,7 @@ func TestForwardingFactPerDenial(t *testing.T) {
 			"nolearn": {Action: loopprotect.NoLearn},
 			"disable": {Action: loopprotect.Disable},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -737,7 +738,7 @@ func TestBlockedPortKeepsProbingDisabledDoesNot(t *testing.T) {
 			"block":   {Action: loopprotect.Block},
 			"disable": {Action: loopprotect.Disable},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -778,7 +779,7 @@ func TestCloneIndependence(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -805,7 +806,7 @@ func TestReceiveIgnoresUntrackedPort(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

@@ -4,8 +4,20 @@ package layer
 
 import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
+
+// Env bundles the environment a layer needs for normalization, validation,
+// construction, and retention key computation. Each field is optional so
+// tests can supply only what matters.
+type Env struct {
+	NodeID string
+	Ports  port.Table
+	MAC    netaddr.MAC
+	Speeds map[string]uint64
+}
 
 // Emission describes an Ethernet frame to transmit out a virtual switch port.
 // A zero VID retains layer-specific egress semantics: for spanning tree protocol

@@ -12,7 +12,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 const (
@@ -197,7 +197,7 @@ func effectivePointToPoint(m PointToPointMode) PointToPointMode {
 
 // Normalize returns a normalized copy of the spanning tree configuration,
 // filling unspecified fields with standard defaults.
-func (c Config) Normalize() Config {
+func (c Config) Normalize(_ layer.Env) Config {
 	cloned := c.Clone()
 	cloned.Priority = effectivePriority(cloned.Priority, cloned.PriorityPresent)
 	cloned.PriorityPresent = true
@@ -290,7 +290,7 @@ func (c Config) ValidateTimers() error {
 // Validate checks the configuration against the port table: bridge priority must
 // be a multiple of 4096, effective timers must satisfy IEEE bounds, every configured
 // port must exist in the port table, and no configured port may be a LAG member.
-func (c Config) Validate(ports port.Table) error {
+func (c Config) Validate(env layer.Env) error {
 	if c.MST != nil && c.PVST != nil {
 		return errs.New().
 			Attr("field", "pvst").
@@ -326,7 +326,7 @@ func (c Config) Validate(ports port.Table) error {
 	}
 
 	for _, name := range sortedKeys(c.Ports) {
-		p, ok := ports.Port(name)
+		p, ok := env.Ports.Port(name)
 		if !ok {
 			return errs.New().
 				Attr("field", "ports."+name).
@@ -376,12 +376,12 @@ func (c Config) Validate(ports port.Table) error {
 	}
 
 	if c.MST != nil {
-		if err := c.MST.Validate(ports, c.Ports); err != nil {
+		if err := c.MST.Validate(env.Ports, c.Ports); err != nil {
 			return err
 		}
 	}
 	if c.PVST != nil {
-		if err := c.PVST.Validate(ports, c.Ports); err != nil {
+		if err := c.PVST.Validate(env.Ports, c.Ports); err != nil {
 			return err
 		}
 	}
