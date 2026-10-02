@@ -59,6 +59,7 @@ unsandboxed) the card carries the same entries; load
 | Verifier ran after the last edit | `$(git rev-parse --git-dir)/flowseer-verification-receipt` present, `flowseer-verification-dirty` absent | `verified_at` newer than the last commit |
 | Every unit landed | `$(git rev-parse --git-dir)/flowseer-plan-status.json`, when present | every `status` is `passed` |
 | Review verdict | plan `review` field, or the checkpoints file's `review:` line (in Orca also the card) | `accept` or `accept after fixes` |
+| Review gaps closed | the plan's `## Review gaps` section | absent, or no entry under it |
 | Lesson captured or declined | plan `compound` field, or the checkpoints file's `compound:` line (in Orca also the card) | a solution path, `no lesson`, or `observation logged` |
 
 A verdict or outcome in neither place is missing, whatever the conversation
@@ -67,7 +68,8 @@ the rows below do. An absent ledger is not a signal.
 
 A failed signal whose remedy is another skill's work (a plan not implemented,
 a `partially implemented:` entry, a ledger unit not `passed` even when the
-plan says `implemented`, no review verdict, no compound outcome) pauses the
+plan says `implemented`, no review verdict, a review gap still listed, no
+compound outcome) pauses the
 merge. Say which signal failed, and the ledger against the plan's `status`
 when they disagree, then ask the user (`AGENTS.md`, Agent behavior) whether to
 run the missing skill now, all missing signals in one question:
@@ -78,6 +80,7 @@ run the missing skill now, all missing signals in one question:
 | a unit `blocked` | take it back to `plan`; stop. Never `implement` again: the unit already failed three verifier rounds |
 | review verdict | run `review` on the branch now; stop |
 | review verdict is `rework` or `fixes needed` | fix the findings and review again (`review`, step 6); stop |
+| a review gap still listed | run the gap pass (`review`, `references/fix-loop.md`); stop |
 | compound outcome | run `compound` now; record `compound: no lesson` when the user says there is none; stop |
 
 On yes, load `references/missing-checkpoint.md`. A partial implementation is

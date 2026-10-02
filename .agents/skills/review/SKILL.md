@@ -85,7 +85,9 @@ intent in code doing the opposite. Ask:
   `references/mutation-check.md` and run one mutation of your own choosing
   against it, whether or not its commit quotes a failure, since the
   author's mutation shows only the fault the author thought of. A test that
-  passes against the defect is a correctness finding.
+  passes against the defect it names is a correctness finding. A mutation
+  that survives in behaviour no test names is a gap
+  (`references/fix-loop.md`).
 - Does any comment narrate process, cite history, or carry a plan label?
 - For each line the verifier printed under `Test changes to account for:`,
   does the implementer's reason hold against the diff, and does the suite
@@ -213,7 +215,10 @@ report what changed, and only then replace the recorded verdict with
 ## 6. Fix and re-review, when asked
 
 When the user chooses to fix the findings and review again until clean,
-load `references/fix-loop.md`. The coordinating session runs the rounds
-through fix workers and never makes the fixes itself.
+load `references/fix-loop.md`. Clean means no behaviour defect and no false
+test. A gap (behaviour no test names, a wrong comment or doc) is recorded
+in the plan and closed in one pass before the phase lands, with no further
+review round. The coordinating session runs the rounds through fix workers
+and never makes the fixes itself.
 
 A correction to this procedure is logged as `compound`, Observe describes.

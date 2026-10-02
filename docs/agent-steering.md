@@ -738,7 +738,7 @@ loop as a step the user asks for, because the coordinator is the only
 party that holds the rounds' history and so the only one that can see a
 round undo the previous round's fix: fixes are dispatched through
 `delegate`, the verifier runs on the union before each review round, the
-loop stops at a round with no correctness findings, and after three
+loop stops at a round with no behaviour or false-test findings, and after three
 rounds on one mechanism the work goes to `plan`, the cap `implement` puts
 on a red unit. The count covers every round, whatever it fixed: a cap
 counted per mechanism let a loop run a fourth round because each round
@@ -748,6 +748,26 @@ sends the coordinator to prior art before the next patch. Five rounds of
 local fixes to a multi-key uniqueness claim ended only when a re-plan
 replaced the protocol with the store's atomic batch
 (`docs/solutions/architecture-patterns/a-multi-key-uniqueness-claim-needs-one-conditional-batch.md`).
+
+A behaviour defect and a false test hold the loop open. A gap does not
+(`.claude/skills/review/references/fix-loop.md`). A false test is one that
+fails, flakes, or passes with the behaviour it names removed, and it is
+fixed in a reviewed round because the suite reports a guarantee it does not
+hold. A gap is a surviving mutation in behaviour no test names. It is
+recorded in the plan and closed in one unreviewed pass before the phase
+lands, and `land` refuses a plan that still lists one.
+
+The loop used to stop at a round with no correctness finding, and a gap
+counted as one. Each fix round then added tests for the next reviewer to
+mutate, so rounds kept finding gaps in the previous round's tests. Two
+phases reached the three-round cap that way with no defect open in the code
+under review (`d7995d3d`, `fdd1823c`). Google's mutation-testing practice
+makes the same split: surviving mutants are advisory findings in review,
+and tests written for unproductive ones are brittle
+(https://arxiv.org/abs/2102.11378). Gaps close per phase and not in a last
+phase of the parent, because cleanup deferred past the change that exposed
+it tends not to happen
+(https://google.github.io/eng-practices/review/reviewer/pushback.html).
 
 Sequence a parent plan's stages from the files, in a skill that owns only
 the order. A plan, implement, review, compound loop per phase, with each

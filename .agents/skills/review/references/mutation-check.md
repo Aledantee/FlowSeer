@@ -11,4 +11,5 @@ inverted. A new test whose commit body carries no mutation and quoted
 3. Run the focused test and quote the result.
 4. Restore from the copy, never with `git checkout` or `git restore`.
 
-A test that passes against the defect is a correctness finding.
+A test that passes against the defect it names is a correctness finding. A
+mutation that survives in behaviour no test names is a gap (`fix-loop.md`).

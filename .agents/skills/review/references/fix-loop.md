@@ -1,7 +1,42 @@
 # Fix and re-review rounds
 
 The coordinating session runs the rounds; no skill runs them on its own, and
-`implement` covers a plan's units, not a review's findings. One round:
+`implement` covers a plan's units, not a review's findings.
+
+## Which findings get a round
+
+Sort the settled findings (`SKILL.md` step 4) before dispatching anything:
+
+| Class | What it is | What it gets |
+| --- | --- | --- |
+| behaviour | shipped code does the wrong thing for some input, or contradicts a numbered Requirement | a round: steps 1 to 4 |
+| false test | a test fails, errors, or passes only on some runs, or its title, comment, or commit body names a behaviour and it passes with that behaviour removed | a round: steps 1 to 4 |
+| gap | a mutation survives in behaviour no test names, or a comment or doc is wrong | recorded now, closed in the gap pass below |
+
+A false test is as serious as a defect, because the suite reports a
+guarantee it does not hold and the next reader trusts it. A gap claims
+nothing. Reviewing gap fixes does not converge: each fix adds tests, and
+every new test is something the next reviewer can mutate.
+
+Record each gap when it is settled, as one line under a `## Review gaps`
+heading at the end of the plan: `path:line`, the surviving mutation, and the
+case that would fail on it. A gap whose only test would restate the
+implementation (a buffer capacity, a log string) is dropped with that reason
+in the report, not recorded. Planless work lists its gaps in the report and
+closes them in the same pass.
+
+### The gap pass
+
+Once the loop has ended, or straight away when the initial review holds
+gaps and nothing that needs a round, close the recorded gaps in one pass:
+steps 1 and 2, no review after. Each fix's commit body quotes the gap's
+mutation and its `--- FAIL` line (`implement`, step 2.3). The coordinator
+reruns each quoted mutation on the merged tree and deletes the gap's line
+only when the suite fails on it. A pass whose diff changes source outside
+tests, comments, and docs is a round after all, and steps 3 and 4 run on
+it. `land` refuses a plan that still lists a gap (`land`, step 1).
+
+## One round
 
 1. Dispatch the fixes as `delegate` describes, one worker per file group.
    Brief each with its findings' `path:line`, failure scenario, and smallest
@@ -46,11 +81,15 @@ The coordinating session runs the rounds; no skill runs them on its own, and
 
 ## When to stop
 
-- A round in which neither reviewer returns a correctness finding ends the
-  loop: list what remains in the final report, replace the recorded
-  `fixes needed` or `rework` with `accept after fixes` as `SKILL.md` step 5
-  records a verdict, and end with the `accept` row's question. No earlier
-  round writes `accept after fixes`, since the gates read it as passing.
+- A round in which neither reviewer returns a behaviour or false-test
+  finding ends the loop. Run the gap pass, list what remains in the final
+  report, replace the recorded `fixes needed` or `rework` with
+  `accept after fixes` as `SKILL.md` step 5 records a verdict, and end with
+  the `accept` row's question. No earlier round writes `accept after fixes`,
+  since the gates read it as passing.
+- A finding that needs a Requirement changed is neither class. It goes in
+  the final report as a decision for the plan's owner and does not hold the
+  loop open.
 - The coordinator holds the rounds' history, so it is the one that sees a
   round find a defect in the previous round's fix for the same mechanism.
   Apply step 4's class rule before the next round, and read how an
