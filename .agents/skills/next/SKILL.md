@@ -23,9 +23,9 @@ them:
 
 | Group | Meaning | Next skill |
 | --- | --- | --- |
-| `land` | `implemented` on this branch with an accepted `review` and a `compound` field, still on disk (a phase also has its `Landed:` range) | `land`, or `drive` on the parent for a phase |
+| `land` | `implemented` on this branch with an accepted `review`, a `compound` field, and no entry under `## Review gaps`, still on disk (a phase also has its `Landed:` range) | `land`, or `drive` on the parent for a phase |
 | `in-progress` | `partially-implemented`, named by the ledger here, an unblocked phase of a parent with landed phases, or a finished phase whose `Landed:` line is empty | `implement` |
-| `unchecked` | `implemented`, with a review verdict that is not an accept, or implemented on this branch with no `review` or `compound` field | `review` (step 6 for `rework` or `fixes needed`), or `compound` |
+| `unchecked` | `implemented`, with a review verdict that is not an accept, or implemented on this branch with no `review` or `compound` field, or with an entry listed under `## Review gaps` | `review` (step 6 for `rework` or `fixes needed`; the gap pass, `review` `references/fix-loop.md`, for a listed gap), or `compound` |
 | `replan` | `artifact_readiness: needs-decisions`, prerequisites landed | `plan`, then `implement` |
 | `ready` | `planned`, implementation-ready, nothing to wait for | `implement` |
 | `waiting` | a prerequisite phase has not landed; the line names it | none yet |

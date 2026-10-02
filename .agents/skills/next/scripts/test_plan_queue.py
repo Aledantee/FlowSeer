@@ -89,6 +89,28 @@ class PlanQueueTest(unittest.TestCase):
         self.commit("plain done")
         self.assertEqual(self.groups().get(PLAIN), "land")
 
+    def test_listed_review_gap_keeps_a_finished_phase_unchecked(self):
+        self.write(PARENT, self.parent("`abcdef0..abcdef1`"))
+        self.finish(PHASE, f"parent: {PARENT}\n")
+        with (self.root / PHASE).open("a", encoding="utf-8") as plan:
+            plan.write("## Review gaps\n\n- `a.go:1`: off by one survives\n")
+        self.commit("phase done, gap listed")
+        self.assertEqual(self.groups().get(PHASE), "unchecked")
+
+    def test_listed_review_gap_keeps_a_finished_plain_plan_unchecked(self):
+        self.finish(PLAIN)
+        with (self.root / PLAIN).open("a", encoding="utf-8") as plan:
+            plan.write("## Review gaps\n\n- `a.go:1`: off by one survives\n")
+        self.commit("plain done, gap listed")
+        self.assertEqual(self.groups().get(PLAIN), "unchecked")
+
+    def test_emptied_review_gaps_section_leaves_a_plan_owed_a_land(self):
+        self.finish(PLAIN)
+        with (self.root / PLAIN).open("a", encoding="utf-8") as plan:
+            plan.write("## Review gaps\n\n## Notes\n\n- not a gap\n")
+        self.commit("plain done, gaps closed")
+        self.assertEqual(self.groups().get(PLAIN), "land")
+
     def test_finished_plan_on_main_is_owed_a_retire(self):
         self.git("checkout", "-q", "main")
         self.finish(PLAIN)

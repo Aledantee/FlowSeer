@@ -12,6 +12,7 @@ Usage:
     plan-state.py                 every plan under docs/plans/ still open
 """
 
+import importlib.util
 import os
 import re
 import subprocess
@@ -27,6 +28,15 @@ COMMIT_RANGE = re.compile(r"\b[0-9a-f]{7,40}\.\.([0-9a-f]{7,40})\b")
 PLAN_PATH = re.compile(r"docs/plans/\S+-plan\.md")
 ACCEPTED = ("accept", "accept after fixes")
 
+# The one parser of a plan's `## Review gaps` entries, so every script that
+# decides whether a plan can land agrees with land's gate. Resolved from this
+# file, since the working directory differs between callers.
+_spec = importlib.util.spec_from_file_location(
+    "review_gaps", Path(__file__).resolve().parents[2] / "land/scripts/review-gaps.py"
+)
+review_gaps = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(review_gaps)
+
 
 def frontmatter(path):
     lines = path.read_text().splitlines()
@@ -40,25 +50,6 @@ def frontmatter(path):
         if sep:
             fields[key.strip()] = value.strip()
     return fields
-
-
-def open_gaps(path):
-    """How many review gaps the plan still lists.
-
-    The same entries land's review-gaps.py reads, so both agree on whether
-    a phase can land.
-    """
-    count, inside, fenced = 0, False, False
-    for line in path.read_text().splitlines():
-        if line.startswith("```"):
-            fenced = not fenced
-        if fenced:
-            continue
-        if line.startswith("## "):
-            inside = line.rstrip() == "## Review gaps"
-        elif inside and re.match(r"[-*] +\S", line):
-            count += 1
-    return count
 
 
 def is_phase(parent, unit):
@@ -142,9 +133,9 @@ def stage(unit, completed):
         return "implement (Landed: empty in the parent)"
     if fields.get("review") not in ACCEPTED:
         return "review" if "review" not in fields else f"review (verdict: {fields['review']})"
-    gaps = open_gaps(unit["plan"])
+    gaps = review_gaps.open_gaps(unit["plan"])
     if gaps:
-        return f"review (gaps: {gaps})"
+        return f"review (gaps: {len(gaps)})"
     if "compound" not in fields:
         return "compound"
     # land retires the plan, so a finished phase still on disk is owed one.
