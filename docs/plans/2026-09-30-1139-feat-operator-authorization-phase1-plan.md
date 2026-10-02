@@ -359,3 +359,14 @@ go test ./test/conformance/proto/ ./src/services/device/internal/authn/ ./src/se
 - Requirement 11 sends `platform:flowseer#claimed`, and no record states
   the `platform` type's relations yet. Phase 2's model has to define
   `claimed` on it, or OpenFGA rejects every check that carries the tuple.
+- Parked by drive: the review ended in `rework` at its three-round limit.
+  No defect was found in `interceptor.go` or `obligation.go`. Left are four
+  interceptor mutations and two gate mutations the tests do not catch, and
+  one sentence of the operator authorization record that says an RPC under a
+  platform rule names no tenant while `GetTenantRequest` names one. Options:
+  run one more fix round on those seven items (more worker quota, and a
+  fourth round may again end with findings) | accept the phase with the
+  seven items recorded here (phase 2 builds on tests with known gaps) | stop
+  the drive here (phases 2 to 4 stay waiting). Recommended: one more fix
+  round, because the list is short, each item names its file, and four
+  of them guard requirements 9 and 15.
