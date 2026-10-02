@@ -225,9 +225,13 @@ constants and `Transmit` change.
   `S/fabric/run.go:986`.
 - Tests and corpus files holding a key or fact identifier U7 changes:
   `V/switch_test.go`, `S/fabric/loopprotect_test.go`,
-  `S/fabric/egress_buffer_test.go`, `L/traffic/config_test.go`,
-  `L/stp/config_test.go`, and `cases.go`, `filter_cases.go`,
-  `mcast_cases.go`, `load_cases.go` under `S/internal/simtest`.
+  `S/fabric/egress_buffer_test.go`,
+  `S/fabric/queue_buffer_internal_test.go:348`, `L/traffic/config_test.go`,
+  `L/stp/config_test.go`, `L/filter/diff_test.go:113-138` (a `switch` on
+  the key, which a search for `Key:` literals misses), and `cases.go`,
+  `filter_cases.go`, `mcast_cases.go`, `load_cases.go` under
+  `S/internal/simtest`. The list is what a search found, and the suites
+  are the check.
 
 ### Dead exports
 
@@ -241,6 +245,11 @@ helper when it composes exported API (`Bridge.Forward` is `Ingress` then
 `Egress`), otherwise unexported with its tests in an internal test file. An
 exported field of an unexported type goes with the type. An identifier
 another package's test names is kept and struck here.
+
+Earlier units settle some entries, and U8 and U9 leave those alone:
+`analysis` (U2), `Table.Transmit` and `LayerLoopProtect` (U4),
+`Config.Defaults` (U5), `mcast.RetentionKey` (U6, which keeps it exported
+and gives it a caller in `V/derive.go`), and every fact type (U7).
 
 - `trace`: `Render`, `CompareStep`, `EqualChange`, `CompareChange`,
   `SortChanges`, `CanonicalChanges` (`render.go:12`, `trace.go:185-375`).
@@ -259,14 +268,14 @@ another package's test names is kept and struck here.
   `DefaultServiceTPID`, five fact types. Struck: `GateCount`
   (`V/derive_internal_test.go`), `DefaultAgingTime`
   (`V/trace_fact_semantics_test.go`).
-- `lag`: `Pending`, `PendingCause` and its constants, seven timing
-  constants (`config.go:17-38`), nine fact types. `Config.Defaults` is an
+- `lag`: `Pending`, `PendingCause` and its constants, seven default and
+  timing constants (`config.go:17-38`), nine fact types. `Config.Defaults` is an
   alias `S/netmodel` calls.
 - `stp`: `Layer.InstancePortInfo`, `DefaultPathCost`, `MigrateTime`,
   `DefaultMaxHops`, eleven fact types (`diff.go:16-106`).
 - `loopprotect`: `ReasonUnsupportedProbe`, `EtherType`, `LayerLoopProtect`,
   four fact types. Struck: `DefaultInterval` (`V/switch_test.go`).
-- `mcast`: `RetentionKey`, `DefaultLastMemberQueryInterval`,
+- `mcast`: `RetentionKey` (kept, U6), `DefaultLastMemberQueryInterval`,
   `DefaultLastMemberQueryCount`, three fact types. Struck:
   `ReasonNoRouterPort` and `ReasonBadControl` (`V/switch.go`).
 - `routing`: `Candidate`, `LocalAddressLookupScope`, `Layer.DiscardHeld`,
@@ -328,13 +337,14 @@ layer's meaning (Inventory), and the type's doc comment says so. `Wake` and
 `Age` are named `Advance` on all six layers, and `bridge` and `mcast` get no
 `NextWake`. `routing.Advance` ages, then settles. Exits wait in the layer in
 today's order, `DrainExits` returns and clears them, `Clone` copies them, and
-`FailHeld` returns `[]HeldFrame`. `loopprotect` emits the encoded probe, and
-the switch sets the VLAN it resolves through a `loopprotect` function that
-patches the payload without decoding. The probe group address becomes a
-function. `Switch.Age` and `Switch.Wake` advance the layers they age and wake
-today and apply routing's exits. Forced change: `routing` ages on the wake path
-and settles on the frame path, so an evicted frame or an expired resolution
-leaves at the next call on either path.
+`FailHeld` returns `[]HeldFrame` with any waiting exit first. `loopprotect`
+emits the encoded probe, and the switch sets the VLAN it resolves through a
+`loopprotect` function that patches the payload without decoding. The probe
+group address becomes a function. `Switch.Age`, `Switch.Wake`, and
+`observeAndRelease` (`V/switch.go:1529-1541`, after `Observe`) advance the
+layers they age and wake today and apply routing's exits. Forced change:
+`routing` ages and settles on all three paths, so an evicted frame or an
+expired resolution leaves at the next call on any of them.
 Tests: `routing.Advance` past a Reachable expiry and an Incomplete deadline
 leaves Stale and Failed, `DrainExits` returns the timed-out frame once, and a
 clone taken before the drain returns it too. A frame evicted from a full hold
@@ -366,10 +376,11 @@ After: U4
 Change: `layer.Env` exists. `Config.Normalize`, `Config.Validate`, `New`, and
 `RetentionKey` take it wherever they exist, and `bridge.NormalizeSeeds` takes
 it in place of the port table. `lag.Diff` normalizes, and `Config.Defaults` is
-deleted. The switch builds its `Env` from its normalized configuration, as
-`docs/solutions/architecture-patterns/validate-and-derive-judge-what-new-builds.md`
-requires of a retention key. No key's content changes. `L/lag/README.md` says a
-default key follows the LAG's position and shifts when one is added.
+deleted. The switch builds its `Env` from its normalized configuration, since
+`docs/architecture/2026-09-10-virtual-device-direction.md` computes both
+retention keys from constructed switches. No key's content changes.
+`L/lag/README.md` says a default key follows the LAG's position and shifts when
+one is added.
 Tests: `lag.Diff` reports nothing between `Mode: ""` and `Mode: ActiveBackup`,
 which it reports today. `stp.RetentionKey` differs when `Env.Speeds` differs
 for one port, and `lag.RetentionKey` when `Env.MAC` does. The diff-coverage
@@ -384,20 +395,19 @@ Change: `bridge.Bridge` is `bridge.Layer`, and `bridge.RetentionKey` encodes
 the normalized configuration and every port's admin and oper state in the
 sections `V/retention.go` parses. `filter.Layer` has `Clone`, and
 `filter.RetentionKey` covers the configuration and the node identity.
-`traffic.New` builds a `Layer` owning one bucket per policer, with `Admit`,
-`Clone`, `Copies`, and the bucket carry of `V/derive.go:52-59`. `Copies` takes
-values the switch builds in place of `bridge` types, so `traffic` imports no
-sibling. `mcast.Layer` loses its mutex and says the caller serializes. `Derive`
-names the mcast difference through `diffDependency` over `mcast.RetentionKey`
-of both sides, as for the four keyed layers. `Kept` keeps the rule at
-`V/derive.go:165-173`, the name stays `config` when both keys are empty, and no
-report changes until parent U9 decides `Kept` from the key.
+`traffic.New(cfg, env)` builds a `Layer` owning one bucket per policer, with
+`Admit`, `Clone`, `Copies`, and the bucket carry of `V/derive.go:52-59`.
+`Copies` takes values the switch builds in place of `bridge` types, so
+`traffic` imports no sibling. `mcast.Layer` loses its mutex and says the caller
+serializes. `Derive` names the mcast difference through `diffDependency` over
+`mcast.RetentionKey` of both sides, as for the four keyed layers. `Kept` keeps
+the rule at `V/derive.go:165-173`, the name stays `config` when both keys are
+empty, and no report changes until parent U9 decides `Kept` from the key.
 Tests: `AssertRetentionKeyCoversConfig`
 (`S/internal/simtest/diffcoverage.go:586`, unused today) runs for the two new
 keys. A cloned `traffic.Layer` admits independently of its source, and a cloned
 `filter.Layer` decides a frame as its source does. The mirror cases pass
-through the new parameters, and the derive suite passes unchanged. `go test
--race` over `L/mcast` and `V` is clean.
+through the new parameters, and the derive suite passes unchanged.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim`
 
 ### U7. Unexported fact types, one identifier per shape, one key form
@@ -415,15 +425,14 @@ shapes.
 Tests: failing first, `filter.Diff` gives set `a/b` with rule `c` and set `a`
 with rule `b/c` different subjects. The `trace` function is injective over the
 pairs of `L/lag/diff_injectivity_test.go:17-20`. Each renamed fact has a case
-asserting its `TypeID` differs from the one it shared. Tests that named a fact
-type assert `TypeID` and `Canonical`.
+asserting its `TypeID` differs from the one it shared.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim`
 
 ### U8. Trim the layer packages and `port`
 Files: src/common/sim/layer/phy/, src/common/sim/layer/bridge/, src/common/sim/layer/lag/, src/common/sim/layer/stp/, src/common/sim/layer/loopprotect/, src/common/sim/layer/mcast/, src/common/sim/layer/routing/, src/common/sim/layer/filter/, src/common/sim/layer/traffic/, src/common/sim/port/
 After: U7
-Change: every unstruck Dead exports entry of these packages takes its rule. No
-file outside these directories names the identifiers.
+Change: every unstruck Dead exports entry of these packages that no earlier
+unit settled takes its rule. No file outside these directories names them.
 Tests: no new test. Each suite passes, and a test that named a removed constant
 asserts its literal.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer src/common/sim/port`
@@ -431,10 +440,10 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim
 ### U9. Trim the device, the fabric, and the leaves
 Files: src/common/sim/device/vswitch/, src/common/sim/fabric/, src/common/sim/trace/, src/common/sim/stream/, src/common/sim/internal/simtest/
 After: U7
-Change: every unstruck Dead exports entry of these packages takes its rule. The
-switch satisfies `bridge.GroupResolver` through an unexported adapter, as
-`lagSelector` does for `bridge.Selector`. `simtest_test` reads a case from
-`DefaultRegistry().Get`.
+Change: every unstruck Dead exports entry of these packages that no earlier
+unit settled takes its rule. The switch satisfies `bridge.GroupResolver`
+through an unexported adapter, as `lagSelector` does for `bridge.Selector`.
+`simtest_test` reads a case from `DefaultRegistry().Get`.
 Tests: no new test. Each suite passes.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device src/common/sim/fabric src/common/sim/trace src/common/sim/stream src/common/sim/internal`
 
