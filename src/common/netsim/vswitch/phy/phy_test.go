@@ -6,7 +6,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 var gigabitCapable = []uint64{10_000_000, 100_000_000, 1_000_000_000}

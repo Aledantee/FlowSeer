@@ -11,7 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/filter"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 func makeTCPFrame(t *testing.T, srcIP, dstIP netip.Addr, srcPort, dstPort uint16, flags tcp.Flags) ethernet.Frame {

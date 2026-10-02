@@ -7,7 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 func TestTableBuiltWithCanonicalNameOrder(t *testing.T) {

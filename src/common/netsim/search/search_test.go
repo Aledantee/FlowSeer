@@ -13,7 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 func makeTestFabrics(t *testing.T) (cur, cand, curTwin, candTwin *fabric.Fabric, h1MAC, h2MAC netaddr.MAC) {

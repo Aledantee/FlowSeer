@@ -14,7 +14,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // diffCoveredPackages is the literal a person edits deliberately: every package under
@@ -31,7 +31,7 @@ var diffCoveredPackages = []string{
 	"src/common/netsim/vswitch/loopprotect",
 	"src/common/netsim/vswitch/mcast",
 	"src/common/netsim/vswitch/phy",
-	"src/common/netsim/vswitch/port",
+	"src/common/sim/port",
 	"src/common/netsim/vswitch/routing",
 	"src/common/netsim/vswitch/stp",
 	"src/common/netsim/vswitch/traffic",
@@ -565,7 +565,7 @@ func AssertDiffCoversPort(t *testing.T, seed port.Port, companions []port.Port, 
 // perturbation violates Table.Validate. The mutation strategies preserve that invariant
 // by toggling enums toward zero and retaining a companion LAG port for lag_parent. The
 // panic uses the proven handling answer: TestDiffCoversEveryConfigField in
-// src/common/netsim/vswitch/port/diff_coverage_test.go exercises every mutation on each
+// src/common/sim/port/diff_coverage_test.go exercises every mutation on each
 // test run.
 func mustBuildPortTable(p port.Port, companions []port.Port) port.Table {
 	b := port.NewBuilder()

@@ -10,7 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/mld"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // Every scenario in this file snoops one VLAN and watches one member port; the

@@ -7,7 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 func testPortTable(t *testing.T) port.Table {

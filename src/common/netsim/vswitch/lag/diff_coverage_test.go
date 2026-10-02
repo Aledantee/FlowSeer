@@ -7,7 +7,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // TestDiffCoversEveryConfigField verifies that every exported lag.Config field reaches

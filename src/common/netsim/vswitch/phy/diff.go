@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // SpeedFact represents a port speed in bits per second.

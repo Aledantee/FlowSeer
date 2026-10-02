@@ -15,7 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"

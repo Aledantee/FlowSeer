@@ -8,7 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // SourceContext describes stable source identity and caller context for model loading

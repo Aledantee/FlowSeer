@@ -9,7 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 func mustMAC(t *testing.T, s string) netaddr.MAC {

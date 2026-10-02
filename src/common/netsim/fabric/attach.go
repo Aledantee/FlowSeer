@@ -6,7 +6,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/netsim/stream"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // StreamAttachment gives the fabric ownership of a source at an origin. Start

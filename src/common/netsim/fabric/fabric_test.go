@@ -10,7 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // TestFabricSchedulesLoopProtectWakeWithNoSTPOrLAG proves that a fabric

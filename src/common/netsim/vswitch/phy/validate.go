@@ -4,7 +4,7 @@ import (
 	"slices"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // Validate checks the configuration against the port table: every named port

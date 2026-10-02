@@ -16,7 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/stream"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 func captureRecords(t *testing.T) []pcap.Record {

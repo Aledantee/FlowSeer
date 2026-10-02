@@ -14,7 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 func newLagTopology(t *testing.T, start time.Time, lagA, lagB *lag.Config) (*fabric.Fabric, netaddr.MAC, netaddr.MAC) {

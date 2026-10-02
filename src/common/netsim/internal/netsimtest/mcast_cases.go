@@ -13,7 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // mdnsIPv4Datagram is a minimal mDNS PTR query for _services._dns-sd._udp.local

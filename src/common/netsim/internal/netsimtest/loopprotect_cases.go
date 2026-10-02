@@ -14,7 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // RegisterLoopProtectCases populates registry with the case covering loop

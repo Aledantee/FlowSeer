@@ -9,7 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 func TestForwardingDependenciesMatchConsultedPorts(t *testing.T) {

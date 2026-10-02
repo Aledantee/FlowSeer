@@ -3,7 +3,7 @@ package fabric
 import (
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // Link represents the resolved operational link state of a cable connecting two endpoints. Its Cable

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 )
 

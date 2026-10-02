@@ -15,7 +15,7 @@ import (
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // Transcribed from docs/research/device-inventory/lab/labsw06-ruckus-icx7150.md "Feature inventory" table (lines 121-143).

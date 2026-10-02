@@ -20,7 +20,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 func newLacpFabric(t *testing.T, start time.Time, macA, macB netaddr.MAC, lagA, lagB *lag.Config) *fabric.Fabric {

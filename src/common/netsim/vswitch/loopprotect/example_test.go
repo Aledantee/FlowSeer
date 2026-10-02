@@ -6,7 +6,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // Example is the package README's example, compiled and run so the two cannot
