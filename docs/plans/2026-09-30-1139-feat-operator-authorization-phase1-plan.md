@@ -5,6 +5,7 @@ date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: rework
 execution: code
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 parent: docs/plans/2026-09-30-1139-feat-operator-authorization-plan.md
