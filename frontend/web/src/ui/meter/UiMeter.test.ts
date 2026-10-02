@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Component } from 'vue'
-import { createApp, h } from 'vue'
+import { createApp, h, nextTick } from 'vue'
 import UiMeter from './UiMeter.vue'
 import UiSegmentedMeter from './UiSegmentedMeter.vue'
 import { createWebI18n, type WebLocale } from '../../i18n'
@@ -34,6 +34,24 @@ function mount(
   }
   const el = host.firstElementChild as HTMLElement
   return { host, el, i18n }
+}
+
+function mountLive(children: () => ReturnType<typeof h>[]) {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const i18n = createWebI18n('en')
+  const app = createApp({
+    render() {
+      return h('div', children())
+    },
+  })
+  app.use(i18n)
+  app.mount(host)
+  dispose = () => {
+    app.unmount()
+    dispose = () => {}
+  }
+  return { host, i18n }
 }
 
 describe('UiMeter', () => {
@@ -175,5 +193,203 @@ describe('UiMeter', () => {
     expect(legendItems.length).toBe(2)
     expect(legendItems[0]?.textContent).toContain('Active')
     expect(legendItems[1]?.textContent).toContain('Standby')
+  })
+
+  it('renders a small fraction unrounded in en and de', () => {
+    const en = mount(UiMeter, { label: 'Loss', value: 0.0004 })
+    expect(en.el.textContent).toContain('0.0004\u00a0%')
+    dispose()
+
+    const de = mount(UiMeter, { label: 'Verlust', value: 0.0004 }, 'de')
+    expect(de.el.textContent).toContain('0,0004\u00a0%')
+  })
+
+  it('renders exactly the formatted value for an explicit empty unit', () => {
+    const { el } = mount(UiMeter, { label: 'Queue', value: 1234.5, unit: '' })
+    const valueEl = el.querySelector('.font-mono')
+    expect(valueEl?.textContent?.trim()).toBe('1,234.5')
+    expect(valueEl?.textContent).not.toContain('\u00a0')
+  })
+
+  it('takes the default unit from the catalog when unit is unset', () => {
+    const { el } = mount(UiMeter, { label: 'CPU', value: 42 })
+    expect(el.querySelector('.font-mono')?.textContent?.trim()).toBe(
+      '42\u00a0%',
+    )
+  })
+
+  it('follows a live locale switch for the number format and keeps explicit overrides', async () => {
+    const { host, i18n } = mountLive(() => [
+      h(UiMeter, { label: 'Default', value: 1234.5 }),
+      h(UiMeter, { label: 'Unit', value: 1234.5, unit: 'MB' }),
+      h(UiMeter, {
+        label: 'Custom',
+        value: 1234.5,
+        valueText: (value: number, unit?: string) => `Used: ${value} ${unit}`,
+      }),
+    ])
+    const values = () =>
+      Array.from(host.querySelectorAll('.font-mono')).map((el) =>
+        el.textContent?.trim(),
+      )
+    expect(values()).toEqual([
+      '1,234.5\u00a0%',
+      '1,234.5\u00a0MB',
+      'Used: 1234.5 %',
+    ])
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(values()).toEqual([
+      '1.234,5\u00a0%',
+      '1.234,5\u00a0MB',
+      'Used: 1234.5 %',
+    ])
+  })
+})
+
+describe('UiSegmentedMeter', () => {
+  it('keeps an empty caller label instead of the catalog label', () => {
+    const { el } = mount(UiSegmentedMeter, {
+      counts: { Healthy: 3, Degraded: 1 },
+      labels: { Healthy: '' },
+      legend: true,
+    })
+    const items = el.querySelectorAll('li')
+    expect(items[0]?.querySelector('span')?.textContent).toBe('')
+    expect(items[1]?.querySelector('span')?.textContent).toBe('Degraded')
+  })
+
+  it('keeps a data-derived segment label that names an Object.prototype member', () => {
+    const { el } = mount(UiSegmentedMeter, {
+      segments: [
+        { label: 'constructor', count: 2, tone: 'success' },
+        { label: 'toString', count: 1, tone: 'info' },
+      ],
+      labels: { Other: 'Unrelated' },
+      legend: true,
+    })
+    const track = el.querySelector('[role="img"]')
+    expect(track?.getAttribute('aria-label')).toBe('2 constructor, 1 toString')
+    const items = Array.from(el.querySelectorAll('li')).map(
+      (li) => li.querySelector('span')?.textContent,
+    )
+    expect(items).toEqual(['constructor', 'toString'])
+  })
+
+  it('does not resolve a prototype member as a counts key label', () => {
+    const { el } = mount(UiSegmentedMeter, {
+      counts: { Healthy: 1 },
+      labels: { Healthy: 'Up' },
+      legend: true,
+    })
+    const items = Array.from(el.querySelectorAll('li')).map(
+      (li) => li.querySelector('span')?.textContent,
+    )
+    expect(items).toEqual(['Up', 'Degraded', 'Offline'])
+  })
+
+  it('applies the labels map to explicit segments', () => {
+    const { el } = mount(UiSegmentedMeter, {
+      segments: [
+        { label: 'Active', count: 4, tone: 'success' },
+        { label: 'Standby', count: 1, tone: 'info' },
+      ],
+      labels: { Active: 'In service' },
+      legend: true,
+    })
+    expect(el.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe(
+      '4 In service, 1 Standby',
+    )
+    expect(el.querySelector('li span')?.textContent).toBe('In service')
+  })
+
+  it('titles each segment with the formatted count and translated label in en and de', () => {
+    const cases: { locale: WebLocale; titles: string[] }[] = [
+      { locale: 'en', titles: ['1,234 Healthy', '2 Degraded'] },
+      { locale: 'de', titles: ['1.234 Gesund', '2 Beeinträchtigt'] },
+    ]
+    for (const { locale, titles } of cases) {
+      const { el } = mount(
+        UiSegmentedMeter,
+        { counts: { Healthy: 1234, Degraded: 2 } },
+        locale,
+      )
+      const segments = Array.from(el.querySelectorAll('.health-segment'))
+      expect(segments.map((s) => s.getAttribute('title'))).toEqual(titles)
+      dispose()
+    }
+  })
+
+  it('formats the legend count in en and de', () => {
+    const cases: { locale: WebLocale; counts: string[] }[] = [
+      { locale: 'en', counts: ['1,234', '2', '0'] },
+      { locale: 'de', counts: ['1.234', '2', '0'] },
+    ]
+    for (const { locale, counts } of cases) {
+      const { el } = mount(
+        UiSegmentedMeter,
+        { counts: { Healthy: 1234, Degraded: 2 }, legend: true },
+        locale,
+      )
+      const shown = Array.from(el.querySelectorAll('li strong')).map(
+        (strong) => strong.textContent,
+      )
+      expect(shown).toEqual(counts)
+      dispose()
+    }
+  })
+
+  it('follows a live locale switch for labels, list joining, and counts', async () => {
+    const { host, i18n } = mountLive(() => [
+      h(UiSegmentedMeter, {
+        counts: { Healthy: 1234, Degraded: 2, Offline: 1 },
+        legend: true,
+      }),
+      h(UiSegmentedMeter, {
+        segments: [{ label: 'Active', count: 4, tone: 'success' }],
+        labels: { Active: 'In service' },
+        segmentText: (count: number, label: string) => `${label}: [${count}]`,
+        legend: true,
+      }),
+    ])
+    const read = (index: number) => {
+      const meter = host.children[0]!.children[index]!
+      return {
+        summary: meter
+          .querySelector('[role="img"]')
+          ?.getAttribute('aria-label'),
+        titles: Array.from(meter.querySelectorAll('.health-segment')).map((s) =>
+          s.getAttribute('title'),
+        ),
+        legend: Array.from(meter.querySelectorAll('li')).map(
+          (li) =>
+            `${li.querySelector('span')?.textContent} ${li.querySelector('strong')?.textContent}`,
+        ),
+      }
+    }
+
+    expect(read(0)).toEqual({
+      summary: '1,234 Healthy, 2 Degraded, 1 Offline',
+      titles: ['1,234 Healthy', '2 Degraded', '1 Offline'],
+      legend: ['Healthy 1,234', 'Degraded 2', 'Offline 1'],
+    })
+    const override = read(1)
+    expect(override).toEqual({
+      summary: 'In service: [4]',
+      titles: ['In service: [4]'],
+      legend: ['In service 4'],
+    })
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(read(0)).toEqual({
+      summary: '1.234 Gesund, 2 Beeinträchtigt und 1 Offline',
+      titles: ['1.234 Gesund', '2 Beeinträchtigt', '1 Offline'],
+      legend: ['Gesund 1.234', 'Beeinträchtigt 2', 'Offline 1'],
+    })
+    expect(read(1)).toEqual(override)
   })
 })

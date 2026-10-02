@@ -127,4 +127,23 @@ describe('i18n message catalogs and runtime', () => {
     expect(i18n.global.n(1234.5, 'integer')).toBe('1.235')
     expect(i18n.global.n(0.5, 'percent')).toBe('50\u00a0%')
   })
+
+  it('keeps every fraction digit of a decimal value and only localizes separators', () => {
+    const i18n = createWebI18n('en')
+    expect(i18n.global.n(0.0004, 'decimal')).toBe('0.0004')
+    expect(i18n.global.n(99.9996, 'decimal')).toBe('99.9996')
+    expect(i18n.global.n(12.34567, 'decimal')).toBe('12.34567')
+
+    i18n.global.locale.value = 'de'
+    expect(i18n.global.n(0.0004, 'decimal')).toBe('0,0004')
+    expect(i18n.global.n(99.9996, 'decimal')).toBe('99,9996')
+    expect(i18n.global.n(12.34567, 'decimal')).toBe('12,34567')
+  })
+
+  it('falls back to the en message when the active locale lacks a key', () => {
+    const i18n = createWebI18n('de')
+    i18n.global.mergeLocaleMessage('en', { test: { onlyEn: 'x' } })
+    expect(i18n.global.locale.value).toBe('de')
+    expect(i18n.global.t('test.onlyEn')).toBe('x')
+  })
 })

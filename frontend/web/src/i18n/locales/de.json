@@ -73,11 +73,11 @@
       "firstMark": "«",
       "lastLabel": "Letzte Seite",
       "lastMark": "»",
-      "nextLabel": "Nächste Seite",
+      "nextLabel": "Weiter zur nächsten Seite",
       "nextMark": "›",
       "nextText": "Weiter",
       "pageLabel": "Seite {page}",
-      "previousLabel": "Vorherige Seite",
+      "previousLabel": "Zurück zur vorherigen Seite",
       "previousMark": "‹",
       "previousText": "Zurück"
     },
