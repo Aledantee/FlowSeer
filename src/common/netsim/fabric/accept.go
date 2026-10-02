@@ -16,7 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 )
 
 // Host acceptance rules. An accepting rule names the clause that matched, so a

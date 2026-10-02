@@ -13,11 +13,11 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 )
 
 var fixedTime = time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)

@@ -11,10 +11,10 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 )
 
 func testPhyAssumption() *PhyAssumption {

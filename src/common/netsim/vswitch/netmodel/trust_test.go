@@ -21,12 +21,12 @@ import (
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 )
 
 var trustTestTime = time.Date(2026, 9, 12, 15, 0, 0, 0, time.UTC)

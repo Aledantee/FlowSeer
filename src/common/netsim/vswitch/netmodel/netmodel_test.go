@@ -20,12 +20,12 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/filter"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 )
 
 var testTime = time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)

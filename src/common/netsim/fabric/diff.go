@@ -14,7 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 )
 
 // LengthFact wraps a cable length in meters as a trace.Fact.

@@ -15,8 +15,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 

@@ -7,7 +7,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 )
 
 // TestReflectorDiffAdded proves that a reflector present only in the target

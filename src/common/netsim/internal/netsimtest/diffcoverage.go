@@ -25,16 +25,16 @@ import (
 // walk is what grows; this literal is what a person edits deliberately.
 var diffCoveredPackages = []string{
 	"src/common/netsim/vswitch",
-	"src/common/netsim/vswitch/bridge",
-	"src/common/netsim/vswitch/filter",
-	"src/common/netsim/vswitch/lag",
-	"src/common/netsim/vswitch/loopprotect",
-	"src/common/netsim/vswitch/mcast",
-	"src/common/netsim/vswitch/phy",
+	"src/common/sim/layer/bridge",
+	"src/common/sim/layer/filter",
+	"src/common/sim/layer/lag",
+	"src/common/sim/layer/loopprotect",
+	"src/common/sim/layer/mcast",
+	"src/common/sim/layer/phy",
 	"src/common/sim/port",
-	"src/common/netsim/vswitch/routing",
-	"src/common/netsim/vswitch/stp",
-	"src/common/netsim/vswitch/traffic",
+	"src/common/sim/layer/routing",
+	"src/common/sim/layer/stp",
+	"src/common/sim/layer/traffic",
 	"src/common/netsim/fabric",
 }
 

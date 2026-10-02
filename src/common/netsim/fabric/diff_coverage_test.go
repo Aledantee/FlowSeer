@@ -11,7 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 )
 
 // TestDiffCoversEveryConfigField verifies that every exported fabric.Config field reaches

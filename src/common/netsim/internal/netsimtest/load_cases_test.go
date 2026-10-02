@@ -6,7 +6,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 )
 
 func TestLoadCases(t *testing.T) {

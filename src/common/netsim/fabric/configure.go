@@ -3,7 +3,7 @@ package fabric
 import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 )
 
 // Configure changes switch node at f.clock to the provided configuration,

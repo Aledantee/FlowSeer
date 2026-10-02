@@ -6,7 +6,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 )
 
 // forkAllocationBaseline is the measured heap allocation count of Fabric.Fork
