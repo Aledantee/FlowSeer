@@ -98,8 +98,7 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 			}
 			allowed, err := i.checker.Check(ctx, q)
 			if err != nil {
-				return nil, unavailable(errs.New().Code(ErrCodeUnavailable).Cause(err).
-					Retryable().Msg("authorization is unavailable"))
+				return nil, checkerError(ctx, err, "authorization is unavailable")
 			}
 			if !allowed {
 				return nil, permissionDenied(errs.New().Code(ErrCodeDenied).
@@ -122,8 +121,7 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 			}
 			member, err := i.checker.Check(ctx, membershipQuery)
 			if err != nil {
-				return nil, unavailable(errs.New().Code(ErrCodeUnavailable).Cause(err).
-					Retryable().Msg("authorization is unavailable"))
+				return nil, checkerError(ctx, err, "authorization is unavailable")
 			}
 			if !member {
 				return nil, permissionDenied(errs.New().Code(ErrCodeDenied).Msg("permission denied"))
@@ -176,14 +174,17 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		}
 
 		resp, err := next(ctx, req)
-		discharged, requireDenied := tracker.flags()
+		discharged, checkFailed := tracker.flags()
 		if (mode == authzv1.RuleMode_RULE_MODE_LOADED || mode == authzv1.RuleMode_RULE_MODE_FILTERED) && !discharged {
+			if err != nil && ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 			return nil, internalError(errs.New().Code(ErrCodeObligationViolation).
 				Msg("handler returned without fulfilling authorization obligation"))
 		}
-		if err == nil && requireDenied {
+		if err == nil && checkFailed {
 			return nil, internalError(errs.New().Code(ErrCodeObligationViolation).
-				Msg("handler returned response after require denied"))
+				Msg("handler returned response after authorization check failed"))
 		}
 		return resp, err
 	}
