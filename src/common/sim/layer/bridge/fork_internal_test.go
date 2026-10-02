@@ -60,7 +60,7 @@ var bridgeDeepCopiedProbes = map[string]func(t *testing.T){
 }
 
 func TestBridgeFieldsAreClassifiedAndChecked(t *testing.T) {
-	typ := reflect.TypeOf(Bridge{})
+	typ := reflect.TypeOf(Layer{})
 	seen := make(map[string]bool, typ.NumField())
 
 	for i := 0; i < typ.NumField(); i++ {
@@ -178,7 +178,7 @@ func (r testResolver) Resolve(time.Time, vlan.ID, ethernet.Frame) ([]string, boo
 	return nil, false
 }
 
-func newTestBridgeForFork(t *testing.T) *Bridge {
+func newTestBridgeForFork(t *testing.T) *Layer {
 	t.Helper()
 	p1 := port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}
 	p2 := port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}

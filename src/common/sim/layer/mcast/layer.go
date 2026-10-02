@@ -7,7 +7,6 @@ import (
 	"net/netip"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
@@ -112,9 +111,9 @@ type vlanState struct {
 	routers            map[string]routerPortState
 }
 
-// Layer holds multicast snooping state. A Layer is safe for concurrent use.
+// Layer holds multicast snooping state. A Layer is not safe for concurrent use.
+// The caller must serialize calls.
 type Layer struct {
-	mu     sync.RWMutex // guards cfg, ports, and byVLAN
 	cfg    Config
 	ports  port.Table
 	byVLAN map[vlan.ID]*vlanState
@@ -158,9 +157,6 @@ func newLayer(cfg Config, ports port.Table) *Layer {
 
 // Clone returns an independent snapshot with all configuration, ports, entries, and timers preserved.
 func (l *Layer) Clone() *Layer {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-
 	cp := &Layer{
 		cfg:    l.cfg.Clone(),
 		ports:  l.ports.Clone(),
@@ -187,9 +183,6 @@ func (l *Layer) Clone() *Layer {
 
 // Snooped reports whether vid has multicast snooping configured.
 func (l *Layer) Snooped(vid vlan.ID) bool {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-
 	_, ok := l.byVLAN[vid]
 
 	return ok
@@ -198,9 +191,6 @@ func (l *Layer) Snooped(vid vlan.ID) bool {
 // Learn applies an IGMP message received from a logical ingress port.
 // Messages for unsnooped VLANs, unknown ports, and physical LAG members have no effect.
 func (l *Layer) Learn(now time.Time, vid vlan.ID, portName string, source netip.Addr, message igmp.Message) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
 	state, ok := l.byVLAN[vid]
 	if !ok || !logicalPort(l.ports, portName) {
 		return
@@ -226,9 +216,6 @@ func (l *Layer) Learn(now time.Time, vid vlan.ID, portName string, source netip.
 // LearnMLD applies an MLD message received from a logical ingress port.
 // Router-port learning requires an IPv6 link-local source.
 func (l *Layer) LearnMLD(now time.Time, vid vlan.ID, portName string, source netip.Addr, message mld.Message) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
 	state, ok := l.byVLAN[vid]
 	if !ok || !logicalPort(l.ports, portName) {
 		return
@@ -255,9 +242,6 @@ func (l *Layer) LearnMLD(now time.Time, vid vlan.ID, portName string, source net
 // expiry is not after now. It is the only place aging mutates stored state; Resolve computes
 // the same rules lazily against the now it is given, so a caller need not call Advance first.
 func (l *Layer) Advance(now time.Time) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
 	for _, state := range l.byVLAN {
 		for key, gps := range state.groups {
 			ageGroupPortState(gps, now)
@@ -309,9 +293,6 @@ func ageGroupPortState(gps *groupPortState, now time.Time) {
 // whether source is admitted on it. pending is true when a "Send Q" action has gone more than
 // LMQT without a matching observed query, which only happens when vid has a router port.
 func (l *Layer) Resolve(vid vlan.ID, group netip.Addr, source netip.Addr, now time.Time) (ports []string, registered, pending bool) {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-
 	state, ok := l.byVLAN[vid]
 	if !ok {
 		return nil, false, false
@@ -347,9 +328,6 @@ func (l *Layer) Resolve(vid vlan.ID, group netip.Addr, source netip.Addr, now ti
 
 // Groups returns a deterministic snapshot of router state on vid.
 func (l *Layer) Groups(vid vlan.ID) []Entry {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-
 	state, ok := l.byVLAN[vid]
 	if !ok || len(state.groups) == 0 {
 		return nil
@@ -384,9 +362,6 @@ func (l *Layer) Groups(vid vlan.ID) []Entry {
 
 // RouterPorts returns a deterministic snapshot of static and learned router ports on vid.
 func (l *Layer) RouterPorts(vid vlan.ID) []RouterPort {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-
 	state, ok := l.byVLAN[vid]
 	if !ok || len(state.routers) == 0 {
 		return nil
@@ -406,9 +381,6 @@ func (l *Layer) RouterPorts(vid vlan.ID) []RouterPort {
 // Retain replaces the port table and drops entries for which keep reports false.
 // Timers of retained entries are preserved.
 func (l *Layer) Retain(ports port.Table, keep func(vid vlan.ID, port string) bool) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
 	l.ports = ports.Clone()
 	for vid, state := range l.byVLAN {
 		for key := range state.groups {
@@ -432,9 +404,6 @@ func (l *Layer) Retain(ports port.Table, keep func(vid vlan.ID, port string) boo
 // from the VLAN's RouterPortInterval, so a caller carrying forward a record
 // from another layer can preserve its original deadline.
 func (l *Layer) InstallObserved(vid vlan.ID, portName string, expires time.Time) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
 	state, ok := l.byVLAN[vid]
 	if !ok || !logicalPort(l.ports, portName) {
 		return

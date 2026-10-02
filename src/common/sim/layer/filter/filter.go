@@ -187,6 +187,24 @@ func New(cfg Config, env layer.Env) (*Layer, error) {
 	return l, nil
 }
 
+// Clone returns an independent deep copy of the filter layer.
+func (l *Layer) Clone() *Layer {
+	if l == nil {
+		return nil
+	}
+	clonedCfg := l.cfg.Clone()
+	cp := &Layer{
+		nodeID:   l.nodeID,
+		cfg:      clonedCfg,
+		sets:     clonedCfg.Sets,
+		bindings: make(map[bindingKey]string, len(l.bindings)),
+	}
+	for k, v := range l.bindings {
+		cp.bindings[k] = v
+	}
+	return cp
+}
+
 // Binding returns the rule set bound to iface in direction dir, if any.
 func (l *Layer) Binding(iface string, dir Direction) (string, bool) {
 	set, ok := l.bindings[bindingKey{iface: iface, dir: dir}]

@@ -4,8 +4,10 @@ package filter
 
 import (
 	"cmp"
+	"fmt"
 	"net/netip"
 	"slices"
+	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/tcp"
@@ -368,4 +370,52 @@ func (m Match) Equal(other Match) bool {
 		return false
 	}
 	return true
+}
+
+// RetentionKey returns a canonical encoding of every normalized input the layer's
+// runtime state depends on: its own configuration and the node identity.
+func RetentionKey(cfg Config, env layer.Env) string {
+	if len(cfg.Sets) == 0 && len(cfg.Bindings) == 0 {
+		return ""
+	}
+	norm := cfg.Normalize(env)
+	var b strings.Builder
+	b.WriteString("config=")
+	b.WriteString("node_id=")
+	b.WriteString(env.NodeID)
+	b.WriteString(";sets=[")
+	setNames := sortedKeys(norm.Sets)
+	for i, name := range setNames {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		s := norm.Sets[name]
+		fmt.Fprintf(&b, "%s:{stateful=%t;default=%s;rules=[", name, s.Stateful, s.Default)
+		for j, r := range s.Rules {
+			if j > 0 {
+				b.WriteByte(',')
+			}
+			b.WriteString(SnapshotRule(r).Canonical())
+		}
+		b.WriteString("]}")
+	}
+	b.WriteString("];bindings=[")
+	for i, bind := range norm.Bindings {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		fmt.Fprintf(&b, "%s:%s->%s", bind.Interface, bind.Direction, bind.Set)
+	}
+	b.WriteString("]")
+
+	return b.String()
+}
+
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
 }

@@ -166,7 +166,7 @@ type Emission struct {
 	// would re-derive as 0 and overtake nothing, where the live, non-held
 	// path queues it at 5. A protocol frame leaves it at zero: a BPDU, an
 	// LACPDU and a loop-protect probe all go out either untagged or tagged at
-	// priority 0 by [bridge.Bridge.OriginateFrame].
+	// priority 0 by [bridge.Layer.OriginateFrame].
 	PCP vlan.PCP
 
 	// Protocol reports whether the frame is a BPDU, LACPDU, loop-protect
@@ -213,7 +213,7 @@ type NeighborDrop struct {
 type Switch struct {
 	cfg            Config
 	ports          port.Table
-	bridge         *bridge.Bridge
+	bridge         *bridge.Layer
 	speeds         map[string]phy.Resolved
 	power          phy.Allocation
 	stp            *stp.Layer
@@ -222,8 +222,7 @@ type Switch struct {
 	mcast          *mcast.Layer
 	routing        *routing.Layer
 	filter         *filter.Layer
-	traffic        *traffic.Config
-	buckets        map[string]*traffic.Bucket
+	traffic        *traffic.Layer
 	copies         []traffic.Copy
 	emissions      []Emission
 	portP2P        map[string]PointToPoint
@@ -428,15 +427,11 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		sw.filter = flt
 	}
 	if norm.Traffic != nil {
-		sw.traffic = norm.Traffic
-		sw.buckets = make(map[string]*traffic.Bucket, len(norm.Traffic.Policers))
-		for name, policer := range norm.Traffic.Policers {
-			bucket, err := traffic.NewBucket(policer)
-			if err != nil {
-				return nil, errs.Wrapf(err, "create policer bucket for %q", name)
-			}
-			sw.buckets[name] = bucket
+		traf, err := traffic.New(*norm.Traffic, env)
+		if err != nil {
+			return nil, err
 		}
+		sw.traffic = traf
 	}
 
 	if len(seeds) > 0 && sw.bridge != nil {
@@ -482,7 +477,6 @@ func (s *Switch) Fork() *Switch {
 		ports:      s.ports,
 		speeds:     s.speeds,
 		power:      s.power,
-		traffic:    s.traffic,
 		nodeID:     s.nodeID,
 		metadata:   s.metadata,
 		missingSTP: s.missingSTP,
@@ -509,11 +503,11 @@ func (s *Switch) Fork() *Switch {
 	if s.neighborFailures != nil {
 		cp.neighborFailures = slices.Clone(s.neighborFailures)
 	}
-	if s.buckets != nil {
-		cp.buckets = make(map[string]*traffic.Bucket, len(s.buckets))
-		for k, v := range s.buckets {
-			cp.buckets[k] = v.Clone()
-		}
+	if s.filter != nil {
+		cp.filter = s.filter.Clone()
+	}
+	if s.traffic != nil {
+		cp.traffic = s.traffic.Clone()
 	}
 	if s.stp != nil {
 		cp.stp = s.stp.Clone()
@@ -576,12 +570,11 @@ func (s *Switch) Copies() []traffic.Copy {
 // Police admits octets through the configured ingress policer for port. A port
 // without a policer always admits the traffic.
 func (s *Switch) Police(now time.Time, name string, octets int) bool {
-	bucket, ok := s.buckets[name]
-	if !ok {
+	if s.traffic == nil {
 		return true
 	}
 
-	return bucket.Admit(now, octets)
+	return s.traffic.Admit(now, name, octets)
 }
 
 // QueueMaxRate returns the configured maximum bit rate for a port and priority.
@@ -1832,15 +1825,32 @@ func (s *Switch) finishForward(now time.Time, ingress string, received ethernet.
 		res.Reason = traffic.ReasonMirrorOutput
 	}
 
-	var vlans *bridge.VLAN
-	if s.cfg.Bridge != nil {
-		vlans = s.cfg.Bridge.VLAN
+	var switchports map[string]traffic.Switchport
+	if s.cfg.Bridge != nil && s.cfg.Bridge.VLAN != nil {
+		switchports = make(map[string]traffic.Switchport, len(s.cfg.Bridge.VLAN.Switchports))
+		for name, sw := range s.cfg.Bridge.VLAN.Switchports {
+			tsw := traffic.Switchport{
+				Tagged:   slices.Clone(sw.Tagged),
+				Untagged: slices.Clone(sw.Untagged),
+			}
+			if sw.Tunnel != nil {
+				tsw.Tunnel = &traffic.Tunnel{VID: sw.Tunnel.VID}
+			}
+			switchports[name] = tsw
+		}
+	}
+	egress := make([]traffic.Egress, len(res.Egress))
+	for i, e := range res.Egress {
+		egress[i] = traffic.Egress{
+			Port:    e.Port,
+			Dropped: e.Dropped != "",
+		}
 	}
 	resolvedIngress := res.Ingress
 	if resolvedIngress == "" {
 		resolvedIngress = ingress
 	}
-	copies := traffic.Copies(*s.traffic, vlans, resolvedIngress, res.FID, received, res.Egress)
+	copies := s.traffic.Copies(switchports, resolvedIngress, res.FID, received, egress)
 	copies = s.readyMirrorCopies(now, &res, copies, mutate)
 	if mutate {
 		s.copies = copies
@@ -1911,7 +1921,7 @@ func (s *Switch) isMirrorOutputPort(name string) bool {
 	if s.traffic == nil {
 		return false
 	}
-	for _, mirror := range s.traffic.Mirrors {
+	for _, mirror := range s.traffic.Mirrors() {
 		if mirror.OutputPort == name {
 			return true
 		}
@@ -1924,7 +1934,7 @@ func (s *Switch) mirrorForOutput(name string) string {
 	if s.traffic == nil {
 		return ""
 	}
-	for _, mirror := range s.traffic.Mirrors {
+	for _, mirror := range s.traffic.Mirrors() {
 		if mirror.OutputPort == name {
 			return mirror.Name
 		}
@@ -2771,7 +2781,7 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 	}
 
 	// arrivalVID and tagged both come from one test of the outer tag's TPID,
-	// the same test bridge.Bridge.Ingress makes on its non-tunnel arm (a
+	// the same test bridge.Layer.Ingress makes on its non-tunnel arm (a
 	// tunnel port classifies into the tunnel VID regardless, but
 	// AdmitsVIDOnIngress refuses tunnel ports outright, so that arm never
 	// reaches here): a tag whose TPID names neither dot1Q nor no-TPID (the
@@ -3214,7 +3224,7 @@ func (s *Switch) recordHeldEgressDrop(hf routing.HeldFrame, egressPort, member s
 // releaseHeldFrame resolves the port a released frame for routed interface
 // hf.Interface leaves through, the same egress path [Switch.assembleRouteResult]
 // builds for a route resolved live: a VLAN interface with no parent port goes out
-// through [bridge.Bridge.Egress] with the synthetic ingress a routed frame already
+// through [bridge.Layer.Egress] with the synthetic ingress a routed frame already
 // uses, while a routed port's frame transmits directly, through its LAG member
 // selection if it has one, and a sub-interface takes that same direct path with
 // subInterfaceTag's C-TAG prepended. Every way out of here that is not an

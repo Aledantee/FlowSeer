@@ -3,9 +3,11 @@ package bridge
 
 import (
 	"bytes"
+	"fmt"
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -123,10 +125,10 @@ const (
 	RuleNoMember              trace.RuleID = "no-member"
 )
 
-// Bridge simulates an Ethernet transparent bridge with optional IEEE 802.1Q VLAN awareness.
+// Layer simulates an Ethernet transparent bridge with optional IEEE 802.1Q VLAN awareness.
 //
-// A Bridge is not safe for concurrent use.
-type Bridge struct {
+// A Layer is not safe for concurrent use.
+type Layer struct {
 	resolverLayer trace.Layer
 	resolverRule  trace.RuleID
 	cfg           Config
@@ -145,19 +147,19 @@ type Bridge struct {
 	dynamic int
 }
 
-// New constructs a [Bridge] with the provided configuration and environment.
+// New constructs a [Layer] with the provided configuration and environment.
 // It returns an error if the configuration is invalid against the ports.
-func New(cfg Config, env layer.Env) (*Bridge, error) {
+func New(cfg Config, env layer.Env) (*Layer, error) {
 	if err := cfg.Validate(env); err != nil {
 		return nil, err
 	}
-	return newBridge(cfg.Normalize(env), env.Ports), nil
+	return newLayer(cfg.Normalize(env), env.Ports), nil
 }
 
-func newBridge(cfg Config, ports port.Table) *Bridge {
+func newLayer(cfg Config, ports port.Table) *Layer {
 	aging := effectiveAgingTime(cfg.AgingTime)
 
-	return &Bridge{
+	return &Layer{
 		cfg:       cfg.Clone(),
 		ports:     ports.Clone(),
 		agingTime: aging,
@@ -166,7 +168,7 @@ func newBridge(cfg Config, ports port.Table) *Bridge {
 }
 
 // Counters returns a snapshot of the forwarding database lifecycle counters.
-func (b *Bridge) Counters() Counters {
+func (b *Layer) Counters() Counters {
 	return b.counters
 }
 
@@ -175,8 +177,8 @@ func (b *Bridge) Counters() Counters {
 // forwarding records, gates, counters, and dynamic entry counts are deep-copied.
 // Dynamic selector and resolver bindings are reset so the enclosing switch can
 // rebind them to its own layers.
-func (b *Bridge) Clone() *Bridge {
-	cp := &Bridge{
+func (b *Layer) Clone() *Layer {
+	cp := &Layer{
 		cfg:           b.cfg,
 		ports:         b.ports,
 		agingTime:     b.agingTime,
@@ -199,7 +201,7 @@ func (b *Bridge) Clone() *Bridge {
 }
 
 // Validate verifies the invariants of the bridge configuration against the given environment.
-func (b *Bridge) Validate(env layer.Env) error {
+func (b *Layer) Validate(env layer.Env) error {
 	return b.cfg.Validate(env)
 }
 
@@ -214,7 +216,7 @@ func (b *Bridge) Validate(env layer.Env) error {
 // does not end up consulting both the stale and the retained layer. A scope
 // SetGate has not seen before is appended as an additional gate, so more than
 // one capability layer can gate a port at once, keyed by scope.
-func (b *Bridge) SetGate(g Gate, scope analysis.Scope) {
+func (b *Layer) SetGate(g Gate, scope analysis.Scope) {
 	for i := range b.gates {
 		if b.gates[i].scope.Compare(scope) == 0 {
 			b.gates[i].gate = g
@@ -228,13 +230,13 @@ func (b *Bridge) SetGate(g Gate, scope analysis.Scope) {
 // GateCount reports the number of installed gate entries. It exists for
 // tests that must confirm [Bridge.SetGate]'s replacing semantics rather than
 // an appending one; production code has no use for the count.
-func (b *Bridge) GateCount() int {
+func (b *Layer) GateCount() int {
 	return len(b.gates)
 }
 
 // SetSelector installs sel as the member port selector for LAG egress. scope
 // contains the selector fields consulted by bridge forwarding.
-func (b *Bridge) SetSelector(sel Selector, scope analysis.Scope) {
+func (b *Layer) SetSelector(sel Selector, scope analysis.Scope) {
 	b.selector = sel
 	b.selectorScope = scope
 }
@@ -242,7 +244,7 @@ func (b *Bridge) SetSelector(sel Selector, scope analysis.Scope) {
 // SetGroupResolver installs resolver as the bridge's group destination lookup.
 // scope contains the membership fields consulted by bridge forwarding. A nil
 // resolver leaves every group frame on the ordinary flood path.
-func (b *Bridge) SetGroupResolver(resolver GroupResolver, scope analysis.Scope, layer trace.Layer, rule trace.RuleID) {
+func (b *Layer) SetGroupResolver(resolver GroupResolver, scope analysis.Scope, layer trace.Layer, rule trace.RuleID) {
 	b.resolverLayer = layer
 	b.resolverRule = rule
 	b.resolver = resolver
@@ -251,7 +253,7 @@ func (b *Bridge) SetGroupResolver(resolver GroupResolver, scope analysis.Scope, 
 
 // SetFDBScope installs the protocol scope beneath which exact forwarding
 // database lookup dependencies are recorded.
-func (b *Bridge) SetFDBScope(scope analysis.Scope) {
+func (b *Layer) SetFDBScope(scope analysis.Scope) {
 	b.fdbScope = scope
 }
 
@@ -262,7 +264,7 @@ func (b *Bridge) SetFDBScope(scope analysis.Scope) {
 // empty set on either side widens the port to every FID, so a caller that
 // builds its targets tree by tree does not silently lose the earlier tree's
 // flush.
-func (b *Bridge) Flush(targets []layer.FlushTarget) {
+func (b *Layer) Flush(targets []layer.FlushTarget) {
 	if len(targets) == 0 {
 		return
 	}
@@ -299,7 +301,7 @@ func (b *Bridge) Flush(targets []layer.FlushTarget) {
 // SetOperStatus updates the operational link state of the named port in the
 // bridge's port table. It returns a structured validation error when state is
 // outside the [port.LinkState] domain and leaves the table unchanged.
-func (b *Bridge) SetOperStatus(portName string, state port.LinkState) error {
+func (b *Layer) SetOperStatus(portName string, state port.LinkState) error {
 	if err := validateOperStatus(portName, state); err != nil {
 		return err
 	}
@@ -338,7 +340,7 @@ func validateOperStatus(portName string, state port.LinkState) error {
 // treats the aggregation as one port. Invalid or duplicate seeds leave the table unchanged.
 // Aging seeds count as learned and are bounded by MaxEntries, evicting the
 // oldest dynamic entry when the table exceeds the bound. Static seeds count nothing.
-func (b *Bridge) Learn(seeds []Seed) error {
+func (b *Layer) Learn(seeds []Seed) error {
 	normalized, err := NormalizeSeeds(b.cfg, layer.Env{Ports: b.ports}, seeds)
 	if err != nil {
 		return err
@@ -376,7 +378,7 @@ func (b *Bridge) Learn(seeds []Seed) error {
 }
 
 // Entries returns all active forwarding database entries sorted by filtering database ID then MAC address.
-func (b *Bridge) Entries() []Entry {
+func (b *Layer) Entries() []Entry {
 	entries := make([]Entry, 0, len(b.fdb))
 	for _, e := range b.fdb {
 		entries = append(entries, e)
@@ -395,7 +397,7 @@ func (b *Bridge) Entries() []Entry {
 
 // Forget removes a forwarding database entry with the given FID and MAC address,
 // regardless of whether it is static or dynamic. It reports whether an entry was present.
-func (b *Bridge) Forget(fid vlan.ID, mac netaddr.MAC) bool {
+func (b *Layer) Forget(fid vlan.ID, mac netaddr.MAC) bool {
 	key := fdbKey{fid: fid, mac: mac}
 	e, exists := b.fdb[key]
 	if !exists {
@@ -410,7 +412,7 @@ func (b *Bridge) Forget(fid vlan.ID, mac netaddr.MAC) bool {
 }
 
 // Advance removes dynamic forwarding database entries older than the configured aging time relative to now.
-func (b *Bridge) Advance(now time.Time) {
+func (b *Layer) Advance(now time.Time) {
 	for key, e := range b.fdb {
 		if e.Lifetime != Static && now.Sub(e.LearnedAt) > b.agingTime {
 			delete(b.fdb, key)
@@ -420,7 +422,7 @@ func (b *Bridge) Advance(now time.Time) {
 	}
 }
 
-func (b *Bridge) evictOldestDynamic() (Entry, bool) {
+func (b *Layer) evictOldestDynamic() (Entry, bool) {
 	var (
 		oldestKey fdbKey
 		oldest    Entry
@@ -457,16 +459,16 @@ func (b *Bridge) evictOldestDynamic() (Entry, bool) {
 }
 
 // Forward processes an ingress frame through the bridge pipeline and updates dynamic forwarding database entries.
-func (b *Bridge) Forward(now time.Time, ingress string, f ethernet.Frame) Result {
+func (b *Layer) Forward(now time.Time, ingress string, f ethernet.Frame) Result {
 	return b.forward(now, ingress, f, true)
 }
 
 // Peek processes an ingress frame through the bridge pipeline without mutating the forwarding database.
-func (b *Bridge) Peek(now time.Time, ingress string, f ethernet.Frame) Result {
+func (b *Layer) Peek(now time.Time, ingress string, f ethernet.Frame) Result {
 	return b.forward(now, ingress, f, false)
 }
 
-func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn bool) Result {
+func (b *Layer) forward(now time.Time, ingress string, f ethernet.Frame, learn bool) Result {
 	in, res, ok := b.Ingress(now, ingress, f, learn, learn)
 	if !ok {
 		return res
@@ -529,7 +531,7 @@ func (in *Ingress) ConsultScopes(scopes ...analysis.Scope) {
 // still reflect this call's caller.
 // It returns false and a populated Result on any drop; on success it returns true and an Ingress
 // descriptor for subsequent egress forwarding.
-func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn, commit bool) (Ingress, Result, bool) {
+func (b *Layer) Ingress(now time.Time, ingress string, f ethernet.Frame, learn, commit bool) (Ingress, Result, bool) {
 	var res Result
 	res.Outcome = trace.Dropped
 	b.consultForwardingPath(&res, ingress)
@@ -953,7 +955,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 // An Ingress with an empty Port is a frame the device itself emits; the same-port
 // rule and the flood's ingress exclusion then match no port; a port name is never
 // empty since [port.Table] refuses one.
-func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
+func (b *Layer) Egress(in Ingress, f ethernet.Frame) Result {
 	var res Result
 	res.Outcome = trace.Dropped
 	res.Ingress = in.Port
@@ -1221,7 +1223,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 
 // EgressTo replicates f to the requested logical ports after applying the same
 // eligibility, isolation, LAG, MTU, and tag rules as ordinary bridge flooding.
-func (b *Bridge) EgressTo(in Ingress, f ethernet.Frame, ports []string, emptyReason trace.Reason) Result {
+func (b *Layer) EgressTo(in Ingress, f ethernet.Frame, ports []string, emptyReason trace.Reason) Result {
 	res := Result{
 		Trace:   trace.Trace{Outcome: trace.Dropped},
 		Ingress: in.Port,
@@ -1236,7 +1238,7 @@ func (b *Bridge) EgressTo(in Ingress, f ethernet.Frame, ports []string, emptyRea
 	return b.replicate(res, in, f, ports, emptyReason, LayerName, RuleFlood, nil)
 }
 
-func (b *Bridge) replicate(
+func (b *Layer) replicate(
 	res Result,
 	in Ingress,
 	f ethernet.Frame,
@@ -1436,7 +1438,7 @@ func (b *Bridge) replicate(
 // gateFact takes the deciding gate as a parameter rather than reading a
 // field, since the bridge consults more than one gate and must attribute a
 // fact to whichever one decided.
-func (b *Bridge) gateFact(gate Gate, name string, vid vlan.ID, learns, forwards bool) trace.Fact {
+func (b *Layer) gateFact(gate Gate, name string, vid vlan.ID, learns, forwards bool) trace.Fact {
 	sg, ok := gate.(semanticGate)
 	if !ok {
 		return nil
@@ -1449,7 +1451,7 @@ func (b *Bridge) gateFact(gate Gate, name string, vid vlan.ID, learns, forwards 
 // port, recording an egress drop with no-member when there is no selector or
 // it names none; a port that is not a LAG has no member and always passes.
 // It commits the selector's choice exactly when in.Commit is true.
-func (b *Bridge) selectMember(res *Result, in Ingress, p port.Port, f ethernet.Frame, pcp vlan.PCP) (string, trace.Fact, bool) {
+func (b *Layer) selectMember(res *Result, in Ingress, p port.Port, f ethernet.Frame, pcp vlan.PCP) (string, trace.Fact, bool) {
 	if p.Kind != port.LAG {
 		return "", nil, true
 	}
@@ -1491,7 +1493,7 @@ func (b *Bridge) selectMember(res *Result, in Ingress, p port.Port, f ethernet.F
 	return "", selection, false
 }
 
-func (b *Bridge) consultForwardingPath(res *Result, name string) {
+func (b *Layer) consultForwardingPath(res *Result, name string) {
 	p, ok := b.ports.Port(name)
 	if !ok {
 		res.Consult((port.Port{Name: name}).Normalize())
@@ -1512,7 +1514,7 @@ func (b *Bridge) consultForwardingPath(res *Result, name string) {
 	res.ConsultScopes(analysis.FieldScope(b.selectorScope, "aggregators", p.LagParent))
 }
 
-func (b *Bridge) egressDependencies(p port.Port) []port.Port {
+func (b *Layer) egressDependencies(p port.Port) []port.Port {
 	path := []port.Port{p}
 	if p.Kind != port.LAG || !p.Forwards() {
 		return path
@@ -1521,7 +1523,7 @@ func (b *Bridge) egressDependencies(p port.Port) []port.Port {
 	return append(path, b.ports.Members(p.Name)...)
 }
 
-func (b *Bridge) buildEgressFrame(
+func (b *Layer) buildEgressFrame(
 	portName string,
 	vid vlan.ID,
 	f ethernet.Frame,
@@ -1607,14 +1609,94 @@ func (b *Bridge) buildEgressFrame(
 // classification, and no inherited TPID. It reports false when portName does
 // not carry vid; a VLAN-unaware bridge carries every VID untagged and always
 // reports true.
-func (b *Bridge) OriginateFrame(portName string, vid vlan.ID, f ethernet.Frame) (ethernet.Frame, bool) {
+func (b *Layer) OriginateFrame(portName string, vid vlan.ID, f ethernet.Frame) (ethernet.Frame, bool) {
 	return b.buildEgressFrame(portName, vid, f, 0, false, nil, 0)
 }
 
-func (b *Bridge) isFloodVLAN(fid vlan.ID) bool {
+func (b *Layer) isFloodVLAN(fid vlan.ID) bool {
 	return slices.Contains(b.cfg.FloodVLANs, fid)
 }
 
-func (b *Bridge) isProtected(port string) bool {
+func (b *Layer) isProtected(port string) bool {
 	return slices.Contains(b.cfg.ProtectedPorts, port)
+}
+
+// RetentionKey returns a canonical encoding of every normalized input the layer's
+// runtime state depends on: its own configuration as Diff sees it and port link
+// states.
+func RetentionKey(cfg Config, env layer.Env) string {
+	if cfg.AgingTime == 0 && cfg.MaxEntries == 0 && !cfg.ForwardBPDU &&
+		len(cfg.FloodVLANs) == 0 && len(cfg.ProtectedPorts) == 0 && cfg.VLAN == nil {
+		return ""
+	}
+	norm := cfg.Normalize(env)
+	var b strings.Builder
+	b.WriteString("config=")
+	fmt.Fprintf(&b, "aging_time=%s;max_entries=%d;forward_bpdu=%t;",
+		norm.AgingTime, norm.MaxEntries, norm.ForwardBPDU)
+
+	b.WriteString("flood_vlans=[")
+	b.WriteString(VLANsFact(norm.FloodVLANs).Canonical())
+	b.WriteString("];protected_ports=[")
+	b.WriteString(StringsFact(norm.ProtectedPorts).Canonical())
+	b.WriteString("];")
+
+	if norm.VLAN == nil {
+		b.WriteString("vlan=none;")
+	} else {
+		b.WriteString("vlan={table=[")
+		vlanIDs := make([]vlan.ID, 0, len(norm.VLAN.Table))
+		for vid := range norm.VLAN.Table {
+			vlanIDs = append(vlanIDs, vid)
+		}
+		slices.Sort(vlanIDs)
+		for i, vid := range vlanIDs {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			fmt.Fprintf(&b, "%d:%s", vid, strconv.Quote(norm.VLAN.Table[vid]))
+		}
+		b.WriteString("];switchports=[")
+		swPorts := make([]string, 0, len(norm.VLAN.Switchports))
+		for p := range norm.VLAN.Switchports {
+			swPorts = append(swPorts, p)
+		}
+		slices.Sort(swPorts)
+		for i, p := range swPorts {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			fmt.Fprintf(&b, "%s:{%s}", p, snapshotSwitchport(norm.VLAN.Switchports[p]).Canonical())
+		}
+		b.WriteString("]};")
+	}
+
+	portNames := make(map[string]struct{})
+	for _, p := range env.Ports.Ports() {
+		portNames[p.Name] = struct{}{}
+	}
+	for _, p := range norm.ProtectedPorts {
+		portNames[p] = struct{}{}
+	}
+	if norm.VLAN != nil {
+		for p := range norm.VLAN.Switchports {
+			portNames[p] = struct{}{}
+		}
+	}
+	sortedPorts := make([]string, 0, len(portNames))
+	for name := range portNames {
+		sortedPorts = append(sortedPorts, name)
+	}
+	slices.Sort(sortedPorts)
+
+	b.WriteString("\nport-state=")
+	for _, name := range sortedPorts {
+		if pt, ok := env.Ports.Port(name); ok {
+			fmt.Fprintf(&b, "%s:admin=%s,oper=%s;", name, pt.AdminStatus, pt.OperStatus)
+		} else {
+			fmt.Fprintf(&b, "%s:absent;", name)
+		}
+	}
+
+	return b.String()
 }

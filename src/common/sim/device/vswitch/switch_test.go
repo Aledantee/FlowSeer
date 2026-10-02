@@ -8276,7 +8276,7 @@ func TestSSTPOnAPortTheLayerDoesNotTrackTracesAsPortDown(t *testing.T) {
 // while tagged required a dot1Q-shaped TPID: a frame with an 0x88A8 outer tag
 // carrying VID 10 read as arrivalVID=10, tagged=false, which
 // AdmitsVIDOnIngress judges as an untagged VLAN 10 frame on a port whose
-// untagged VLAN is 1 and refuses — while bridge.Bridge.Ingress treats an
+// untagged VLAN is 1 and refuses — while bridge.Layer.Ingress treats an
 // outer tag whose TPID names neither dot1Q nor the codec's untagged zero
 // value as not a VLAN tag at all, and classifies the same frame into the
 // port's untagged VLAN 1.
@@ -9271,7 +9271,7 @@ func TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason(t *testing.
 
 // TestReleaseOntoFloodVLANWithNoMemberRecordsTheBridgesReason covers the arm
 // releaseHeldFrame's len(res.Egress) == 0 guard exists for: vlan20 is a
-// flood VLAN with no switchport carrying it at all, so [bridge.Bridge.Egress]
+// flood VLAN with no switchport carrying it at all, so [bridge.Layer.Egress]
 // never reaches a candidate port and returns with no Egress entry, naming
 // the reason on the result instead — the same shape
 // TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason covers for

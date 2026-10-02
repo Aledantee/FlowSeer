@@ -26,7 +26,7 @@ var switchDeepCopiedProbes = map[string]func(t *testing.T){
 	"lag":              probeSwitchLAG,
 	"mcast":            probeSwitchMcast,
 	"routing":          probeSwitchRouting,
-	"buckets":          probeSwitchBuckets,
+	"traffic":          probeSwitchTraffic,
 	"copies":           probeSwitchCopies,
 	"emissions":        probeSwitchEmissions,
 	"portP2P":          probeSwitchPortP2P,
@@ -175,7 +175,7 @@ func probeSwitchRouting(t *testing.T) {
 	}
 }
 
-func probeSwitchBuckets(t *testing.T) {
+func probeSwitchTraffic(t *testing.T) {
 	sw := newTestSwitchForFork(t)
 	fork := sw.Fork()
 

@@ -732,3 +732,52 @@ func TestStatefulReverseMatchRuleEnumeration(t *testing.T) {
 		})
 	}
 }
+
+func TestLayerCloneDecidesAsSource(t *testing.T) {
+	protoTCP := uint8(6)
+	cfg := filter.Config{
+		Sets: map[string]filter.RuleSet{
+			"in-set": {
+				Default: filter.Drop,
+				Rules: []filter.Rule{
+					{
+						Name:   "allow-http",
+						Action: filter.Accept,
+						Match: filter.Match{
+							Protocol: &protoTCP,
+							DstPorts: []filter.PortRange{{Start: 80, End: 80}},
+						},
+					},
+				},
+			},
+		},
+		Bindings: []filter.Binding{
+			{Interface: "vlan10", Direction: filter.In, Set: "in-set"},
+		},
+	}
+
+	l, err := filter.New(cfg, layer.Env{NodeID: "sw1"})
+	if err != nil {
+		t.Fatalf("filter.New: %v", err)
+	}
+
+	cloned := l.Clone()
+	if cloned == nil {
+		t.Fatal("cloned filter.Layer is nil")
+	}
+
+	frameHTTP := makeTCPFrame(t, netip.MustParseAddr("10.0.0.1"), netip.MustParseAddr("10.0.0.2"), 12345, 80, tcp.SYN)
+	frameBlocked := makeTCPFrame(t, netip.MustParseAddr("10.0.0.1"), netip.MustParseAddr("10.0.0.2"), 12345, 443, tcp.SYN)
+
+	resOrigHTTP := l.EvaluateIngress("vlan10", frameHTTP)
+	resCloneHTTP := cloned.EvaluateIngress("vlan10", frameHTTP)
+	if resOrigHTTP.Decision != resCloneHTTP.Decision {
+		t.Errorf("HTTP decision mismatch: orig=%v, clone=%v", resOrigHTTP.Decision, resCloneHTTP.Decision)
+	}
+
+	resOrigBlock := l.EvaluateIngress("vlan10", frameBlocked)
+	resCloneBlock := cloned.EvaluateIngress("vlan10", frameBlocked)
+	if resOrigBlock.Decision != resCloneBlock.Decision {
+		t.Errorf("blocked decision mismatch: orig=%v, clone=%v", resOrigBlock.Decision, resCloneBlock.Decision)
+	}
+}

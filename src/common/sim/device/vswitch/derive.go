@@ -38,11 +38,11 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 
 	// Traffic retention
 	var curTrafficKey, nextTrafficKey string
-	if cur != nil && cur.traffic != nil {
-		curTrafficKey = traffic.RetentionKey(*cur.traffic, cur.env())
+	if cur != nil && cur.traffic != nil && cur.cfg.Traffic != nil {
+		curTrafficKey = traffic.RetentionKey(*cur.cfg.Traffic, cur.env())
 	}
-	if next.traffic != nil {
-		nextTrafficKey = traffic.RetentionKey(*next.traffic, next.env())
+	if next.cfg.Traffic != nil {
+		nextTrafficKey = traffic.RetentionKey(*next.cfg.Traffic, next.env())
 	}
 	if curTrafficKey == nextTrafficKey {
 		next.retention.Traffic = LayerRetention{Kept: true}
@@ -50,13 +50,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 		next.retention.Traffic = LayerRetention{Kept: false, Difference: diffDependency(curTrafficKey, nextTrafficKey)}
 	}
 	if cur != nil && cur.traffic != nil && next.traffic != nil {
-		for name, policer := range next.traffic.Policers {
-			if current, ok := cur.traffic.Policers[name]; ok && current == policer {
-				if b, ok := cur.buckets[name]; ok {
-					next.buckets[name] = b.Clone()
-				}
-			}
-		}
+		next.traffic.Retain(cur.traffic)
 	}
 
 	// STP retention: both sides are compared as New filled them, so a bridge address
@@ -166,8 +160,19 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	// replays retained dynamic state into the new switch, filtered per-entry
 	// by port forwarding and VLAN membership. It reports kept when both switches
 	// have multicast enabled.
+	var curMcastKey, nextMcastKey string
+	if cur != nil && cur.mcast != nil && cur.cfg.Mcast != nil {
+		curMcastKey = mcast.RetentionKey(*cur.cfg.Mcast, cur.env())
+	}
+	if next.cfg.Mcast != nil {
+		nextMcastKey = mcast.RetentionKey(*next.cfg.Mcast, next.env())
+	}
+	diff := diffDependency(curMcastKey, nextMcastKey)
+	if curMcastKey == "" && nextMcastKey == "" {
+		diff = "config"
+	}
 	if (cur != nil && cur.mcast != nil) != (next.mcast != nil) {
-		next.retention.Mcast = LayerRetention{Kept: false, Difference: "config"}
+		next.retention.Mcast = LayerRetention{Kept: false, Difference: diff}
 	} else {
 		next.retention.Mcast = LayerRetention{Kept: true}
 	}

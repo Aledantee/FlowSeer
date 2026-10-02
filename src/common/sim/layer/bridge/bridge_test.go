@@ -48,7 +48,7 @@ func buildTestPorts(t *testing.T, count int) port.Table {
 	return tbl
 }
 
-func mustNewBridge(t *testing.T, cfg bridge.Config, ports port.Table) *bridge.Bridge {
+func mustNewBridge(t *testing.T, cfg bridge.Config, ports port.Table) *bridge.Layer {
 	t.Helper()
 	br, err := bridge.New(cfg, layer.Env{Ports: ports})
 	if err != nil {
@@ -57,7 +57,7 @@ func mustNewBridge(t *testing.T, cfg bridge.Config, ports port.Table) *bridge.Br
 	return br
 }
 
-func mustLearn(t *testing.T, br *bridge.Bridge, seeds []bridge.Seed) {
+func mustLearn(t *testing.T, br *bridge.Layer, seeds []bridge.Seed) {
 	t.Helper()
 	if err := br.Learn(seeds); err != nil {
 		t.Fatalf("Learn: %v", err)

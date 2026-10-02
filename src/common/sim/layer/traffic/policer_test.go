@@ -113,3 +113,42 @@ func TestNewBucketRejectsInvalidPolicer(t *testing.T) {
 		t.Errorf("field = %v, want %q", got, "burst_octets")
 	}
 }
+
+func TestLayerCloneAdmitsIndependently(t *testing.T) {
+	t.Parallel()
+
+	ports := trafficPortTable(t)
+	cfg := traffic.Config{
+		Policers: map[string]traffic.Policer{
+			"1/1/1": {RateBPS: 8, BurstOctets: 100},
+		},
+	}
+	l, err := traffic.New(cfg, layer.Env{Ports: ports})
+	if err != nil {
+		t.Fatalf("traffic.New: %v", err)
+	}
+
+	t0 := time.Date(2026, time.September, 11, 12, 0, 0, 0, time.UTC)
+	if !l.Admit(t0, "1/1/1", 60) {
+		t.Fatal("original layer refused frame, want admitted")
+	}
+
+	cloned := l.Clone()
+	if cloned == nil {
+		t.Fatal("cloned traffic.Layer is nil")
+	}
+
+	if !cloned.Admit(t0, "1/1/1", 40) {
+		t.Fatal("clone refused 40 octets, want admitted")
+	}
+	if cloned.Admit(t0, "1/1/1", 1) {
+		t.Fatal("clone admitted frame beyond its tokens, want refused")
+	}
+
+	if !l.Admit(t0, "1/1/1", 40) {
+		t.Fatal("original refused 40 octets after clone drained its bucket, want admitted")
+	}
+	if l.Admit(t0, "1/1/1", 1) {
+		t.Fatal("original admitted frame beyond its tokens, want refused")
+	}
+}

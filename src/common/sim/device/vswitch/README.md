@@ -499,7 +499,7 @@ Exported constructors validate and normalize configurations:
   shared, while mutable runtime state (forwarding tables, dynamic entries,
   seeds, counters, layer states) is deep-copied. Bridge back-pointers
   (STP/loop-protect gates, LAG selectors, multicast resolvers) are rebound to
-  the fork's own layers. [bridge.Bridge.Clone] provides the underlying bridge
+  the fork's own layers. [bridge.Layer.Clone] provides the underlying bridge
   copy, cloning FDB entries, dynamic counts, and counters while resetting
   bindings for the caller to rebind. Neither `Fork` nor `Clone` blocks or
   allocates goroutines.
