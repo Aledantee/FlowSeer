@@ -450,3 +450,11 @@ rather than the device-scoped audit stream.
 The rule-mode table gains a platform row for global admin RPCs on
 `TenantService`. The interceptor checks `platform:flowseer#admin`, reads no
 tenant header, and sets no tenant in the context.
+
+An RPC under a platform rule names no tenant, so the interceptor reads no
+tenant header, makes no membership check and no tenant-relation check, puts
+no tenant in the context, and makes one check on `platform:flowseer`, and
+`Require` and `Filter` refuse under it. The interceptor reads the rule before
+the membership check, which the diagram under
+[A request, end to end](#a-request-end-to-end) draws the other way round.
+

@@ -6,6 +6,7 @@ import (
 )
 
 // Principal represents the authenticated caller identity.
+// A Principal must not be modified once placed in a context.
 type Principal struct {
 	ID       string
 	Tenants  []string

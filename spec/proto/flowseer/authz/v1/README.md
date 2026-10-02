@@ -14,8 +14,8 @@ Imported by: api/capture, api/device, api/edge, api/identity
 
 Deliberately absent:
 
-- Any process-local or engine-specific configuration: OpenFGA store IDs,
-  model definitions, or Zanzibar tuple encodings. The rule declares what
-  relation and object an RPC requires, not which engine evaluates it.
+- Any engine-specific configuration: store ids, model definitions, tuple
+  encodings. The rule declares what relation and object an RPC requires, not
+  which engine evaluates it.
 - Client-side token or claim structures. Authentication verifies identity
   before the authorization interceptor inspects the rule.

@@ -17,6 +17,7 @@ import (
 
 // Interceptor enforces operator RPC authorization rules before delegating to
 // service handlers.
+// An Interceptor is safe for concurrent use.
 type Interceptor struct {
 	checker Checker
 }
@@ -81,11 +82,11 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 
 		tuples := contextualTuples(principal)
 
+		var tracker *obligationTracker
 		if mode == authzv1.RuleMode_RULE_MODE_PLATFORM {
-			tracker := &obligationTracker{
+			tracker = &obligationTracker{
 				checker:   i.checker,
 				principal: principal,
-				mode:      mode,
 			}
 			ctx = withTracker(ctx, tracker)
 
@@ -98,157 +99,93 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 			allowed, err := i.checker.Check(ctx, q)
 			if err != nil {
 				return nil, unavailable(errs.New().Code(ErrCodeUnavailable).Cause(err).
-					Msg("authorization is unavailable"))
+					Retryable().Msg("authorization is unavailable"))
 			}
 			if !allowed {
 				return nil, permissionDenied(errs.New().Code(ErrCodeDenied).
 					Msg("permission denied"))
 			}
-
-			resp, err := next(ctx, req)
-			if err == nil && tracker.requireDenied {
-				return nil, internalError(errs.New().Code(ErrCodeObligationViolation).
-					Msg("handler returned response after require denied"))
+		} else {
+			tenantHeader := req.Header().Get("X-FlowSeer-Tenant")
+			if tenantHeader == "" {
+				return nil, invalidTenant(errs.New().Code(ErrCodeNoTenant).Msg("no tenant named"))
 			}
-			return resp, err
-		}
-
-		tenantHeader := req.Header().Get("X-FlowSeer-Tenant")
-		if tenantHeader == "" {
-			return nil, invalidTenant(errs.New().Code(ErrCodeNoTenant).Msg("no tenant named"))
-		}
-		if err := tenant.Validate(tenantHeader); err != nil {
-			return nil, invalidTenant(errs.New().Code(ErrCodeNoTenant).Cause(err).Msg("no tenant named"))
-		}
-
-		membershipQuery := Query{
-			Object:           "tenant:" + tenantHeader,
-			Relation:         "member",
-			User:             "user:" + principal.ID,
-			ContextualTuples: tuples,
-		}
-		member, err := i.checker.Check(ctx, membershipQuery)
-		if err != nil {
-			return nil, unavailable(errs.New().Code(ErrCodeUnavailable).Cause(err).
-				Msg("authorization is unavailable"))
-		}
-		if !member {
-			return nil, permissionDenied(errs.New().Code(ErrCodeDenied).Msg("permission denied"))
-		}
-
-		ctx = tenant.WithTenant(ctx, tenantHeader)
-
-		tracker := &obligationTracker{
-			checker:        i.checker,
-			principal:      principal,
-			admittedTenant: tenantHeader,
-			mode:           mode,
-		}
-		ctx = withTracker(ctx, tracker)
-
-		switch mode {
-		case authzv1.RuleMode_RULE_MODE_REQUEST:
-			msg, ok := req.Any().(proto.Message)
-			if !ok || msg == nil {
-				return nil, permissionDenied(errs.New().Code(ErrCodeNoObjectID).
-					Msg("request is not a proto message"))
-			}
-			objectID, err := extractObjectID(msg, rule.GetObjectIdPath())
-			if err != nil || objectID == "" {
-				return nil, permissionDenied(errs.New().Code(ErrCodeNoObjectID).Cause(err).
-					Msg("request rule yielded no id"))
+			if err := tenant.Validate(tenantHeader); err != nil {
+				return nil, invalidTenant(errs.New().Code(ErrCodeNoTenant).Cause(err).Msg("no tenant named"))
 			}
 
-			if rule.GetObjectType() == "tenant" {
-				if objectID != tenantHeader {
-					return nil, permissionDenied(errs.New().Code(ErrCodeDenied).
-						Msg("tenant id does not match admitted tenant"))
-				}
-				q := Query{
-					Object:           "tenant:" + objectID,
-					Relation:         rule.GetRelation(),
-					User:             "user:" + principal.ID,
-					ContextualTuples: tuples,
-				}
-				allowed, err := i.checker.Check(ctx, q)
-				if err != nil {
-					return nil, unavailable(errs.New().Code(ErrCodeUnavailable).Cause(err).
-						Msg("authorization is unavailable"))
-				}
-				if !allowed {
-					return nil, permissionDenied(errs.New().Code(ErrCodeDenied).
-						Msg("permission denied"))
-				}
-			} else {
-				q1 := Query{
-					Object:           rule.GetObjectType() + ":" + objectID,
-					Relation:         rule.GetRelation(),
-					User:             "user:" + principal.ID,
-					ContextualTuples: tuples,
-				}
-				q2 := Query{
-					Object:           rule.GetObjectType() + ":" + objectID,
-					Relation:         "tenant",
-					User:             "tenant:" + tenantHeader,
-					ContextualTuples: tuples,
-				}
-				answers, err := i.checker.BatchCheck(ctx, []Query{q1, q2})
-				if err != nil {
-					return nil, unavailable(errs.New().Code(ErrCodeUnavailable).Cause(err).
-						Msg("authorization is unavailable"))
-				}
-				if len(answers) < 2 || !answers[0] || !answers[1] {
-					return nil, permissionDenied(errs.New().Code(ErrCodeDenied).
-						Msg("permission denied"))
-				}
-			}
-
-			resp, err := next(ctx, req)
-			if err == nil && tracker.requireDenied {
-				return nil, internalError(errs.New().Code(ErrCodeObligationViolation).
-					Msg("handler returned response after require denied"))
-			}
-			return resp, err
-
-		case authzv1.RuleMode_RULE_MODE_TENANT:
-			q := Query{
+			membershipQuery := Query{
 				Object:           "tenant:" + tenantHeader,
-				Relation:         rule.GetRelation(),
+				Relation:         "member",
 				User:             "user:" + principal.ID,
 				ContextualTuples: tuples,
 			}
-			allowed, err := i.checker.Check(ctx, q)
+			member, err := i.checker.Check(ctx, membershipQuery)
 			if err != nil {
 				return nil, unavailable(errs.New().Code(ErrCodeUnavailable).Cause(err).
-					Msg("authorization is unavailable"))
+					Retryable().Msg("authorization is unavailable"))
 			}
-			if !allowed {
-				return nil, permissionDenied(errs.New().Code(ErrCodeDenied).
-					Msg("permission denied"))
+			if !member {
+				return nil, permissionDenied(errs.New().Code(ErrCodeDenied).Msg("permission denied"))
 			}
 
-			resp, err := next(ctx, req)
-			if err == nil && tracker.requireDenied {
-				return nil, internalError(errs.New().Code(ErrCodeObligationViolation).
-					Msg("handler returned response after require denied"))
-			}
-			return resp, err
+			ctx = tenant.WithTenant(ctx, tenantHeader)
 
-		case authzv1.RuleMode_RULE_MODE_LOADED, authzv1.RuleMode_RULE_MODE_FILTERED:
-			resp, err := next(ctx, req)
-			if !tracker.discharged {
-				return nil, internalError(errs.New().Code(ErrCodeObligationViolation).
-					Msg("handler returned without fulfilling authorization obligation"))
+			tracker = &obligationTracker{
+				checker:        i.checker,
+				principal:      principal,
+				admittedTenant: tenantHeader,
 			}
-			if err == nil && tracker.requireDenied {
-				return nil, internalError(errs.New().Code(ErrCodeObligationViolation).
-					Msg("handler returned response after require denied"))
+			ctx = withTracker(ctx, tracker)
+
+			switch mode {
+			case authzv1.RuleMode_RULE_MODE_REQUEST:
+				msg, ok := req.Any().(proto.Message)
+				if !ok || msg == nil {
+					return nil, permissionDenied(errs.New().Code(ErrCodeNoObjectID).
+						Msg("request is not a proto message"))
+				}
+				objectID, err := extractObjectID(msg, rule.GetObjectIdPath())
+				if err != nil || objectID == "" {
+					return nil, permissionDenied(errs.New().Code(ErrCodeNoObjectID).Cause(err).
+						Msg("request rule yielded no id"))
+				}
+
+				allowed, err := checkObjects(ctx, i.checker, principal, tenantHeader, rule.GetObjectType(), rule.GetRelation(), []string{objectID})
+				if err != nil {
+					return nil, err
+				}
+				if len(allowed) == 0 {
+					return nil, permissionDenied(errs.New().Code(ErrCodeDenied).
+						Msg("permission denied"))
+				}
+
+			case authzv1.RuleMode_RULE_MODE_TENANT:
+				allowed, err := checkObjects(ctx, i.checker, principal, tenantHeader, "tenant", rule.GetRelation(), []string{tenantHeader})
+				if err != nil {
+					return nil, err
+				}
+				if len(allowed) == 0 {
+					return nil, permissionDenied(errs.New().Code(ErrCodeDenied).
+						Msg("permission denied"))
+				}
+
+			case authzv1.RuleMode_RULE_MODE_LOADED, authzv1.RuleMode_RULE_MODE_FILTERED:
+				// Handlers discharge obligations during execution.
 			}
-			return resp, err
 		}
 
-		return nil, permissionDenied(errs.New().Code(ErrCodeUnsupportedRule).
-			Msg("unhandled authorization rule mode"))
+		resp, err := next(ctx, req)
+		discharged, requireDenied := tracker.flags()
+		if (mode == authzv1.RuleMode_RULE_MODE_LOADED || mode == authzv1.RuleMode_RULE_MODE_FILTERED) && !discharged {
+			return nil, internalError(errs.New().Code(ErrCodeObligationViolation).
+				Msg("handler returned without fulfilling authorization obligation"))
+		}
+		if err == nil && requireDenied {
+			return nil, internalError(errs.New().Code(ErrCodeObligationViolation).
+				Msg("handler returned response after require denied"))
+		}
+		return resp, err
 	}
 }
 

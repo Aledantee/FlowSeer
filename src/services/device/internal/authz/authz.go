@@ -24,6 +24,7 @@ var (
 )
 
 // Tuple represents a single relationship between an object and a user.
+// A Tuple must not be modified once handed to a Checker.
 type Tuple struct {
 	Object   string
 	Relation string
@@ -32,6 +33,7 @@ type Tuple struct {
 
 // Query specifies an authorization check over an object and relation for a user,
 // carrying contextual tuples that hold for the duration of the check.
+// A Query must not be modified once handed to a Checker.
 type Query struct {
 	Object           string
 	Relation         string
@@ -40,8 +42,12 @@ type Query struct {
 }
 
 // Checker evaluates authorization queries against a relationship graph.
+// Implementations must be safe for concurrent use and must not modify a
+// query or its tuples.
 type Checker interface {
 	Check(ctx context.Context, q Query) (bool, error)
+	// BatchCheck evaluates queries in batch, returning one boolean answer per
+	// query in identical query order.
 	BatchCheck(ctx context.Context, queries []Query) ([]bool, error)
 }
 
