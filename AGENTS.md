@@ -79,10 +79,11 @@ no remote. The Claude worktree hook defaults to the sibling
   `land`, `drive`, and `steer` under `.claude/skills/` carry the
   multi-step workflows; each says when it applies and when to skip it.
   `next` picks the work, and `drive` takes a plan through `implement`,
-  `review`, and `compound` in worker sessions. `land` merges into `main`
-  only after `implement`, `review`, and `compound` have left their
-  checkpoints and leaves the worktree ready for removal; removing it is a
-  person's action. `steer` works the queue in `docs/agent-observations.md`
+  `review`, and `compound` in worker sessions, landing a parent's phases
+  one by one. `land` merges into `main` only after `implement`, `review`,
+  and `compound` have left their checkpoints, a multi-phase plan once per
+  phase, and leaves the worktree ready for removal after the last one;
+  removing it is a person's action. `steer` works the queue in `docs/agent-observations.md`
   on request and stops at a staged diff for any policy surface.
   `docs/agent-steering.md` records why they are shaped this way. Where a
   project skill covers the work, it wins over a globally installed plugin
