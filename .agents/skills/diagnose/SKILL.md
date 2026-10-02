@@ -33,6 +33,15 @@ fixed. Try these in order and take the first that reaches the bug:
 | The same input through the old and the new code | a throwaway test in `$TMPDIR` that diffs the two outputs |
 | A step only a person can take: a lab device, a browser, a power cycle | a copy of `.claude/skills/diagnose/scripts/hitl-loop.sh` |
 
+Two things make a healthy test fail before the bug is reached:
+
+- A package under a nested `go.mod` (`src/edge/netpen`, the `bench`
+  modules) is run from that module's directory. From the repository root
+  the run ends in `[setup failed]`.
+- A test that binds a listener or sends UDP runs with the sandbox disabled.
+  Inside it the bind fails with `operation not permitted`, which reads as
+  the test's own failure.
+
 A loop is ready when it has run at least once and all three hold:
 
 1. It asserts the reported symptom, not that the code runs without error.
