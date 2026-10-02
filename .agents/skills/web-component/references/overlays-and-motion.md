@@ -156,7 +156,7 @@ cases live in `frontend/web/src/ui/motion/useMotionFeedback.test.ts`:
 
 - `compiles typed pairs into ordered native effects with deterministic timing`
 - `compiles only supplied transform keys and keeps opacity in a separate effect`
-- `leaves a later write to an owned property untouched after every terminal path`
+- the terminal-path property of `useMotionFeedback.test.ts`: `restores the owned inline values in the same turn`, `keeps a later write to an owned property through the frame batch`, `lets the play started in the same turn snapshot the baseline`
 - `cancels and restores synchronously before replacing a play, through the next frame and completion`
 - `cancels into a play and keeps the original transform through the next frame and completion`
 - `resizes into a play and keeps the original transform through the next frame and completion`

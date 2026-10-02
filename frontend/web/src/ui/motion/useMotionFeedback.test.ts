@@ -1,17 +1,22 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createApp, defineComponent, h, nextTick, ref } from 'vue'
+import { frame } from 'motion-v'
+import { createApp, defineComponent, h, nextTick, ref, type Ref } from 'vue'
 import { UiAppRoot } from '../index'
 import { UiMotionConfig } from './index'
 import { useMotionFeedback } from './useMotionFeedback'
 
-vi.hoisted(() => {
-  vi.stubGlobal(
-    'requestAnimationFrame',
-    (callback: (timestamp: number) => void) =>
-      setTimeout(() => callback(performance.now()), 16),
-  )
-})
+type Feedback = ReturnType<typeof useMotionFeedback>
+type OwnedKey = 'opacity' | 'transform'
+type InvariantId = 'restore' | 'later-write' | 'snapshot'
+
+interface PlayKeyframes {
+  opacity?: [number, number]
+  x?: [number, number]
+  y?: [number, number]
+  rotate?: [number, number]
+  scale?: [number, number]
+}
 
 interface MountOptions {
   reducedMotion?: 'always' | 'never'
@@ -21,8 +26,36 @@ interface MountOptions {
 interface MountedFeedback {
   element: HTMLElement
   elements: HTMLElement[]
-  feedback: ReturnType<typeof useMotionFeedback>
-  reducedMotion: ReturnType<typeof ref<'always' | 'never' | undefined>>
+  feedback: Feedback
+  reducedMotion: Ref<'always' | 'never' | undefined>
+  dispose: () => void
+}
+
+interface Baseline {
+  readonly name: string
+  readonly opacity: string
+  readonly transform: string
+}
+
+interface OwnedSet {
+  readonly name: string
+  readonly keys: readonly OwnedKey[]
+  readonly keyframes: PlayKeyframes
+}
+
+interface TerminalPath {
+  readonly name: string
+  readonly mountOptions?: MountOptions
+  readonly reduced?: boolean
+  readonly terminate: (
+    mounted: MountedFeedback,
+    owned: OwnedSet,
+  ) => void | Promise<void>
+  readonly dirty?: (mounted: MountedFeedback, owned: OwnedSet) => void
+  readonly exempt?: (
+    invariant: InvariantId,
+    owned: OwnedSet,
+  ) => string | undefined
 }
 
 let dispose = () => {}
@@ -51,7 +84,7 @@ afterEach(() => {
 })
 
 function mountFeedback(options: MountOptions = {}): MountedFeedback {
-  let feedback: ReturnType<typeof useMotionFeedback> | undefined
+  let feedback: Feedback | undefined
   const reducedMotion = ref<'always' | 'never' | undefined>(
     options.reducedMotion,
   )
@@ -81,10 +114,13 @@ function mountFeedback(options: MountOptions = {}): MountedFeedback {
     },
   })
   app.mount(host)
-  dispose = () => {
+  let unmounted = false
+  const unmount = () => {
+    if (unmounted) return
+    unmounted = true
     app.unmount()
-    dispose = () => {}
   }
+  dispose = unmount
   const elements = [...host.querySelectorAll('.feedback-target')]
   if (
     !elements.every(
@@ -98,6 +134,7 @@ function mountFeedback(options: MountOptions = {}): MountedFeedback {
     elements,
     feedback,
     reducedMotion,
+    dispose: unmount,
   }
 }
 
@@ -137,6 +174,20 @@ function nextFrame() {
   return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
 }
 
+// motion-dom captures requestAnimationFrame when its frame loop module loads,
+// so a wait on the global frame alone does not prove motion's batch has run.
+// The frame-batch invariant waits on motion's own postRender step, which runs
+// after every render and postRender callback queued before it, and then one
+// global frame.
+function motionFrameBatch() {
+  return new Promise<void>((resolve) => frame.postRender(() => resolve()))
+}
+
+async function settleFrames() {
+  await motionFrameBatch()
+  await nextFrame()
+}
+
 function expectRestored(
   element: HTMLElement,
   opacity: string,
@@ -145,6 +196,267 @@ function expectRestored(
   expect(element.style.opacity).toBe(opacity)
   expect(element.style.transform).toBe(transform)
 }
+
+const baselines: readonly Baseline[] = [
+  { name: 'empty inline values', opacity: '', transform: '' },
+  {
+    name: 'a populated inline baseline',
+    opacity: '0.93',
+    transform: 'translateX(17px) scale(0.72) rotate(13deg)',
+  },
+]
+
+const ownedSets: readonly OwnedSet[] = [
+  { name: 'opacity', keys: ['opacity'], keyframes: { opacity: [0.2, 0.8] } },
+  { name: 'transform', keys: ['transform'], keyframes: { y: [-40, -20] } },
+  {
+    name: 'both',
+    keys: ['opacity', 'transform'],
+    keyframes: { opacity: [0.2, 0.8], y: [-40, -20] },
+  },
+]
+
+const nextKeyframes: Record<string, PlayKeyframes> = {
+  opacity: { opacity: [0.6, 1] },
+  transform: { y: [-4, 0] },
+  both: { opacity: [0.6, 1], y: [-4, 0] },
+}
+
+const writtenOffBaseline = { opacity: '0.11', transform: 'translateY(-99px)' }
+const writtenAfterPath = { opacity: '0.17', transform: 'translateX(123px)' }
+
+const allKeys: readonly OwnedKey[] = ['opacity', 'transform']
+
+function unownedKeys(owned: OwnedSet) {
+  return allKeys.filter((key) => !owned.keys.includes(key))
+}
+
+function expectKeysAtBaseline(
+  element: HTMLElement,
+  keys: readonly OwnedKey[],
+  baseline: Baseline,
+) {
+  for (const key of keys) expect(element.style[key]).toBe(baseline[key])
+}
+
+function expectOwnedValues(
+  element: HTMLElement,
+  owned: OwnedSet,
+  baseline: Baseline,
+) {
+  expectKeysAtBaseline(element, owned.keys, baseline)
+}
+
+function expectUnownedValuesKept(element: HTMLElement, owned: OwnedSet) {
+  for (const key of unownedKeys(owned))
+    expect(element.style[key]).toBe(writtenOffBaseline[key])
+}
+
+const reducedFollowUp = (
+  invariant: InvariantId,
+  owned: OwnedSet,
+): string | undefined =>
+  invariant === 'snapshot' && owned.name === 'transform'
+    ? 'the reduced mode the path selects drops movement from the next play'
+    : undefined
+
+const terminalPaths: readonly TerminalPath[] = [
+  {
+    name: 'a cancel',
+    terminate: (mounted) => {
+      mounted.feedback.cancel(mounted.element)
+    },
+  },
+  {
+    name: 'a window resize',
+    terminate: () => {
+      window.dispatchEvent(new Event('resize'))
+    },
+  },
+  {
+    name: 'a reduced-motion preference change',
+    reduced: true,
+    terminate: async () => {
+      preference.matches = true
+      preference.dispatchEvent(
+        Object.assign(new Event('change'), { matches: true }),
+      )
+      await nextTick()
+    },
+    exempt: reducedFollowUp,
+  },
+  {
+    name: 'a config change',
+    mountOptions: { reducedMotion: 'never' },
+    reduced: true,
+    terminate: async (mounted) => {
+      mounted.reducedMotion.value = 'always'
+      await nextTick()
+    },
+    exempt: reducedFollowUp,
+  },
+  {
+    name: 'an unmount',
+    terminate: (mounted) => {
+      mounted.dispose()
+    },
+    exempt: (invariant) =>
+      invariant === 'snapshot'
+        ? 'the scope is disposed, so no later play shares it'
+        : undefined,
+  },
+  {
+    name: 'a native completion',
+    terminate: async (mounted) => {
+      await finishAnimations(mounted.element)
+    },
+  },
+  {
+    name: 'a replacement play',
+    // A native finish writes the play's final value inline and queues its
+    // completion, so the replacement runs against the value the play left.
+    dirty: (mounted) => {
+      for (const animation of [...mounted.element.getAnimations()])
+        animation.finish()
+    },
+    terminate: (mounted, owned) => {
+      mounted.feedback.play(mounted.element, nextKeyframes[owned.name], 0.24)
+    },
+  },
+  {
+    name: 'an empty play',
+    terminate: (mounted) => {
+      mounted.feedback.play(mounted.element, {})
+    },
+  },
+  {
+    name: 'a movement-only play under reduced motion',
+    mountOptions: { reducedMotion: 'always' },
+    reduced: true,
+    terminate: (mounted) => {
+      mounted.feedback.play(mounted.element, { y: [-10, 0] })
+    },
+    exempt: (_invariant, owned) =>
+      owned.name === 'opacity'
+        ? undefined
+        : 'reduced motion drops movement before the play can own it',
+  },
+]
+
+const invariants = [
+  {
+    id: 'restore',
+    title: 'restores the owned inline values in the same turn',
+  },
+  {
+    id: 'later-write',
+    title: 'keeps a later write to an owned property through the frame batch',
+  },
+  {
+    id: 'snapshot',
+    title: 'lets the play started in the same turn snapshot the baseline',
+  },
+] as const satisfies readonly { id: InvariantId; title: string }[]
+
+function startPlay(
+  mounted: MountedFeedback,
+  owned: OwnedSet,
+  baseline: Baseline,
+) {
+  mounted.element.style.opacity = baseline.opacity
+  mounted.element.style.transform = baseline.transform
+  mounted.feedback.play(mounted.element, owned.keyframes, 0.4)
+  const created = [...mounted.element.getAnimations()]
+  expect(created.length).toBeGreaterThan(0)
+  expect(created.every((animation) => animation.playState === 'running')).toBe(
+    true,
+  )
+  for (const key of unownedKeys(owned))
+    mounted.element.style[key] = writtenOffBaseline[key]
+  return created
+}
+
+function writeOwnedOffBaseline(
+  mounted: MountedFeedback,
+  owned: OwnedSet,
+  path: TerminalPath,
+) {
+  if (path.dirty) {
+    path.dirty(mounted, owned)
+    return
+  }
+  for (const key of owned.keys)
+    mounted.element.style[key] = writtenOffBaseline[key]
+}
+
+function registerTerminalCases(
+  path: TerminalPath,
+  owned: OwnedSet,
+  baseline: Baseline,
+) {
+  for (const invariant of invariants) {
+    const exemption = path.exempt?.(invariant.id, owned)
+    const register = exemption === undefined ? it : it.skip
+    const title =
+      exemption === undefined
+        ? invariant.title
+        : `${invariant.title} (exempt: ${exemption})`
+    register(title, async () => {
+      const mounted = mountFeedback(path.mountOptions)
+      const created = startPlay(mounted, owned, baseline)
+      writeOwnedOffBaseline(mounted, owned, path)
+      await path.terminate(mounted, owned)
+
+      if (invariant.id === 'restore') {
+        expectOwnedValues(mounted.element, owned, baseline)
+        expectUnownedValuesKept(mounted.element, owned)
+        expect(
+          created.every((animation) => animation.playState !== 'running'),
+        ).toBe(true)
+        return
+      }
+
+      if (invariant.id === 'later-write') {
+        for (const key of owned.keys)
+          mounted.element.style[key] = writtenAfterPath[key]
+        await settleFrames()
+        for (const key of owned.keys)
+          expect(mounted.element.style[key]).toBe(writtenAfterPath[key])
+        return
+      }
+
+      const nextOwnedKeys = owned.keys.filter(
+        (key) => !path.reduced || key === 'opacity',
+      )
+      const previous = [...mounted.element.getAnimations()]
+      mounted.feedback.play(
+        mounted.element,
+        nextKeyframes[owned.name] as PlayKeyframes,
+        0.24,
+      )
+      expectKeysAtBaseline(mounted.element, nextOwnedKeys, baseline)
+      const createdNext = mounted.element
+        .getAnimations()
+        .filter((animation) => !previous.includes(animation))
+      expect(createdNext.length).toBeGreaterThan(0)
+      expect(
+        createdNext.every((animation) => animation.playState === 'running'),
+      ).toBe(true)
+      await finishAnimations(mounted.element)
+      expectKeysAtBaseline(mounted.element, nextOwnedKeys, baseline)
+    })
+  }
+}
+
+describe('useMotionFeedback across its terminal paths', () => {
+  describe.each(terminalPaths)('$name', (path) => {
+    describe.each(ownedSets)('owning $name', (owned) => {
+      describe.each(baselines)('from $name', (baseline) => {
+        registerTerminalCases(path, owned, baseline)
+      })
+    })
+  })
+})
 
 describe('useMotionFeedback', () => {
   it('compiles typed pairs into ordered native effects with deterministic timing', () => {
@@ -239,30 +551,6 @@ describe('useMotionFeedback', () => {
     expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
   })
 
-  it('leaves a later write to an owned property untouched after every terminal path', async () => {
-    const mounted = mountFeedback()
-    mounted.element.style.transform = 'scale(0.72)'
-
-    mounted.feedback.play(mounted.element, { y: [-40, -20] }, 0.4)
-    mounted.feedback.cancel(mounted.element)
-    mounted.element.style.transform = 'translateX(50px)'
-    await nextFrame()
-    expect(mounted.element.style.transform).toBe('translateX(50px)')
-
-    mounted.feedback.play(mounted.element, { y: [-40, -20] }, 0.4)
-    window.dispatchEvent(new Event('resize'))
-    mounted.element.style.transform = 'translateX(60px)'
-    await nextFrame()
-    expect(mounted.element.style.transform).toBe('translateX(60px)')
-
-    mounted.element.style.opacity = '0.93'
-    mounted.feedback.play(mounted.element, { opacity: [0.2, 0.8] }, 0.4)
-    await finishAnimations(mounted.element)
-    mounted.element.style.opacity = '0.5'
-    await nextFrame()
-    expect(mounted.element.style.opacity).toBe('0.5')
-  })
-
   it('cancels and restores synchronously before replacing a play, through the next frame and completion', async () => {
     const mounted = mountFeedback()
     mounted.element.style.opacity = '0.93'
@@ -294,7 +582,7 @@ describe('useMotionFeedback', () => {
 
     await Promise.resolve()
     expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
-    await nextFrame()
+    await settleFrames()
     expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
 
     await finishAnimations(mounted.element)
@@ -319,6 +607,8 @@ describe('useMotionFeedback', () => {
     mounted.feedback.play(mounted.element, { y: [-40, -20] }, 0.4)
     mounted.element.style.transform = 'translateY(-99px)'
     mounted.feedback.cancel(mounted.element)
+    expect(mounted.element.getAnimations()).toHaveLength(0)
+    expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
     mounted.feedback.play(mounted.element, { opacity: [0.6, 1] }, 0.24)
 
     expect(getNativeAnimations(mounted.element)).toHaveLength(1)
@@ -330,7 +620,7 @@ describe('useMotionFeedback', () => {
     await Promise.resolve()
     expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
 
-    await nextFrame()
+    await settleFrames()
     expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
 
     await finishAnimations(mounted.element)
@@ -345,6 +635,8 @@ describe('useMotionFeedback', () => {
     mounted.feedback.play(mounted.element, { y: [-40, -20] }, 0.4)
     mounted.element.style.transform = 'translateY(-99px)'
     window.dispatchEvent(new Event('resize'))
+    expect(mounted.element.getAnimations()).toHaveLength(0)
+    expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
     mounted.feedback.play(mounted.element, { opacity: [0.6, 1] }, 0.24)
 
     expect(getNativeAnimations(mounted.element)).toHaveLength(1)
@@ -356,7 +648,7 @@ describe('useMotionFeedback', () => {
     await Promise.resolve()
     expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
 
-    await nextFrame()
+    await settleFrames()
     expectRestored(mounted.element, '0.93', 'translateX(17px) scale(0.72)')
 
     await finishAnimations(mounted.element)
@@ -376,6 +668,9 @@ describe('useMotionFeedback', () => {
 
     expect(getNativeAnimations(mounted.element)).toHaveLength(1)
     expect(mounted.element.getAnimations()[0]?.playState).toBe('running')
+    expect(mounted.element.style.opacity).toBe('0.93')
+
+    await finishAnimations(mounted.element)
     expect(mounted.element.style.opacity).toBe('0.93')
   })
 
@@ -618,5 +913,6 @@ describe('useMotionFeedback', () => {
     window.dispatchEvent(new Event('resize'))
     await nextTick()
     expect(getNativeAnimations(mounted.element)).toHaveLength(1)
+    mounted.feedback.cancel(mounted.element)
   })
 })
