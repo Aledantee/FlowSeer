@@ -72,6 +72,8 @@ beforeEach(() =>
 afterEach(() => {
   dispose()
   document.body.replaceChildren()
+  // Restores spies too, so the mocked clock cannot leak into a later case.
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 ```
@@ -84,10 +86,10 @@ so a `change` after the mount reaches only elements mounted afterwards.
 (`frontend/web/node_modules/motion-v/dist/es/animation/hooks/use-reduced-motion.mjs:4`)
 and re-reads it per mount.
 `frontend/web/src/FleetView.motion.test.ts` dispatches `change` on the `reduce`
-object (`:16-32`). Its reduced-motion case asserts `FleetView.vue`'s own gate,
-which skips the layout bump when the composable reports reduced
-(`toggleSidebar`), not `UiMotion`'s reduced layout path. A file that only mounts
-the composable can hold both modes for the same reason.
+object (`:204-206`, `:278-280`). Its reduced-motion case asserts
+`FleetView.vue`'s own gate, which skips the layout bump when the composable
+reports reduced (`toggleSidebar`), not `UiMotion`'s reduced layout path. A file
+that only mounts the composable can hold both modes for the same reason.
 `frontend/web/src/components/ThemeSwitcher.test.ts` does this through its
 `stubMatchMedia(reducedMotion)` helper.
 
@@ -98,8 +100,11 @@ before the mount and advances it, because motion's frame loop stamps each frame
 from `performance.now()`
 (`motion-dom/dist/es/frameloop/batcher.mjs:22-24`). `FleetView.motion.test.ts`,
 `UiMotion.test.ts`, and `UiMotion.reduced.test.ts` do this through
-`installMotionClock` and `advanceMotion`. A fixed wall-clock wait is not
-reliable: on a loaded host the 140 ms layout animation can finish before the
+`installMotionClock` and `advanceMotion`, and undo the spy in `afterEach`
+(`FleetView.motion.test.ts:86`, `UiMotion.test.ts:21`,
+`UiMotion.reduced.test.ts:33`), because a leaked mocked clock freezes
+`performance.now()` for every later case in the file. A fixed wall-clock wait is
+not reliable: on a loaded host the 140 ms layout animation can finish before the
 test samples. Do not mock motion-v.
 
 ## What this does not cover
