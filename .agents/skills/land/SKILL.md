@@ -59,7 +59,7 @@ unsandboxed) the card carries the same entries; load
 | Verifier ran after the last edit | `$(git rev-parse --git-dir)/flowseer-verification-receipt` present, `flowseer-verification-dirty` absent | `verified_at` newer than the last commit |
 | Every unit landed | `$(git rev-parse --git-dir)/flowseer-plan-status.json`, when present | every `status` is `passed` |
 | Review verdict | plan `review` field, or the checkpoints file's `review:` line (in Orca also the card) | `accept` or `accept after fixes` |
-| Review gaps closed | the plan's `## Review gaps` section | absent, or no entry under it |
+| Review gaps closed | `python3 .claude/skills/land/scripts/review-gaps.py <plan>`, with every plan this branch carries | exit 0 |
 | Lesson captured or declined | plan `compound` field, or the checkpoints file's `compound:` line (in Orca also the card) | a solution path, `no lesson`, or `observation logged` |
 
 A verdict or outcome in neither place is missing, whatever the conversation

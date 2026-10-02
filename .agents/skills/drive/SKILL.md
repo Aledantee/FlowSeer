@@ -57,7 +57,7 @@ this branch's `HEAD`, started with `orca-worker.sh start` with the table's
 | --- | --- | --- | --- | --- |
 | re-plan | `artifact_readiness: needs-decisions` | `plan` on this plan, against this tree | `plan` | the plan reads `implementation-ready` |
 | implement | `status` is not `implemented` | `implement` on the plan | `execute`, or `execute-sensitive` by path | the plan reads `implemented`, a phase's `Landed:` line in its parent carries the range, and every unit in the worker's ledger is `passed` |
-| review | `review` is absent or not an accept | `review` of the worker's branch against `<base>`, with the plan path, and step 6's fix loop | `review-seam` | the plan's `review` field reads `accept` or `accept after fixes` |
+| review | `review` is absent or not an accept, or the plan lists a review gap (`review (gaps: N)`) | `review` of the worker's branch against `<base>`, with the plan path, and step 6's fix loop. With an accept on record and gaps listed, only the gap pass of `review`'s `references/fix-loop.md` | `review-seam` | the plan's `review` field reads `accept` or `accept after fixes` and its `## Review gaps` section lists nothing |
 | compound | `compound` is absent | `compound` on the plan | `execute` | the plan's `compound` field is set |
 
 `$base` is the commit a lane's branch forked from, read from the `start`

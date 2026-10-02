@@ -42,6 +42,25 @@ def frontmatter(path):
     return fields
 
 
+def open_gaps(path):
+    """How many review gaps the plan still lists.
+
+    The same entries land's review-gaps.py reads, so both agree on whether
+    a phase can land.
+    """
+    count, inside, fenced = 0, False, False
+    for line in path.read_text().splitlines():
+        if line.startswith("```"):
+            fenced = not fenced
+        if fenced:
+            continue
+        if line.startswith("## "):
+            inside = line.rstrip() == "## Review gaps"
+        elif inside and re.match(r"[-*] +\S", line):
+            count += 1
+    return count
+
+
 def is_phase(parent, unit):
     """Whether the plan a unit names is a phase of this parent.
 
@@ -123,6 +142,9 @@ def stage(unit, completed):
         return "implement (Landed: empty in the parent)"
     if fields.get("review") not in ACCEPTED:
         return "review" if "review" not in fields else f"review (verdict: {fields['review']})"
+    gaps = open_gaps(unit["plan"])
+    if gaps:
+        return f"review (gaps: {gaps})"
     if "compound" not in fields:
         return "compound"
     # land retires the plan, so a finished phase still on disk is owed one.

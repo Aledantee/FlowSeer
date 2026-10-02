@@ -35,6 +35,15 @@ class PlanStateTest(unittest.TestCase):
                 self.assertEqual(plan_state.stage(first_unit, set()), "land")
                 self.assertEqual(plan_state.stage(second_unit, {"U1"}), "implement")
 
+                accepted = first.read_text()
+                first.write_text(
+                    accepted + "## Review gaps\n\n- `a.go:1`: off by one survives\n"
+                    "- `b.go:2`: inverted branch survives\n\n## Notes\n- not a gap\n"
+                )
+                self.assertEqual(plan_state.stage(first_unit, set()), "review (gaps: 2)")
+                first.write_text(accepted + "## Review gaps\n\n## Notes\n- not a gap\n")
+                self.assertEqual(plan_state.stage(first_unit, set()), "land")
+
             with patch.object(plan_state, "on_main", return_value=True):
                 first.write_text("---\nstatus: planned\n---\n")
                 self.assertEqual(
