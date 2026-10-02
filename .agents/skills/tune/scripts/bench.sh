@@ -107,6 +107,12 @@ else:
                     served.add(mu["canonicalModel"])
             if d.get("stop_reason") == "refusal" or d.get("subtype") == "refusal":
                 refused, refuse_reason = True, "stop_reason=refusal"
+            # The lane skips permission prompts, so a denial left in the
+            # result's `permission_denials` list (claude 2.1.287 result
+            # schema) is the CLI declining a tool call, not a user's answer.
+            elif d.get("permission_denials"):
+                refused = True
+                refuse_reason = "permission_denials=%d" % len(d["permission_denials"])
         except json.JSONDecodeError:
             pass
     elif cli == "codex":

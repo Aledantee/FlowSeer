@@ -21,7 +21,9 @@ receipt of the verifier run that just passed, unless `--commit` or
 `--verified-at` overrides them. `set ... in_progress` records `HEAD` as the
 unit's `base`, and `passed` refuses a commit that is not in this branch or
 holds nothing committed since that base: a commit from before the unit
-started cannot be the unit's work, whatever it touched. `resume` is recomputed on every write: the
+started cannot be the unit's work, whatever it touched. Without
+`--verified-at` it also refuses a receipt older than the base commit, since
+that run verified a tree from before the unit began. `resume` is recomputed on every write: the
 units in progress, else the first pending unit, else empty. A note is kept
 until `--note` replaces it; `--note ""` clears it.
 """
@@ -29,6 +31,7 @@ until `--note` replaces it; `--note ""` clears it.
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import os
 import subprocess
@@ -131,6 +134,26 @@ def check_unit_commit(unit: dict, commit: str) -> None:
         )
 
 
+def check_receipt_fresh(unit: dict, verified_at: str) -> None:
+    # The ledger keeps no in_progress time, and the base commit is no newer
+    # than it, so a receipt older than the base is from before the unit.
+    base = unit.get("base")
+    if not base:
+        return
+    try:
+        verified = datetime.datetime.strptime(verified_at, "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=datetime.timezone.utc
+        )
+    except ValueError:
+        fail(f"the receipt's verified_at {verified_at!r} is not YYYY-MM-DDTHH:MM:SSZ")
+    based = datetime.datetime.fromisoformat(git_output("log", "-1", "--format=%cI", base))
+    if verified < based:
+        fail(
+            f"the receipt's verified_at {verified_at} is older than {unit['id']}'s base {base} "
+            f"({based.isoformat()}); run the verifier on the unit's tree first"
+        )
+
+
 def cmd_init(args: argparse.Namespace) -> None:
     root = Path(git_output("rev-parse", "--show-toplevel"))
     if not (root / args.plan).is_file():
@@ -175,7 +198,11 @@ def cmd_set(args: argparse.Namespace) -> None:
     if args.status == "passed":
         unit["commit"] = args.commit or head()
         check_unit_commit(unit, unit["commit"])
-        unit["verified_at"] = args.verified_at or receipt_verified_at(directory)
+        if args.verified_at:
+            unit["verified_at"] = args.verified_at
+        else:
+            unit["verified_at"] = receipt_verified_at(directory)
+            check_receipt_fresh(unit, unit["verified_at"])
     else:
         if args.status == "pending":
             # The way out for a unit marked in progress after its commit.

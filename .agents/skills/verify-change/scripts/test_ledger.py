@@ -1,3 +1,4 @@
+import datetime
 import json
 import subprocess
 import sys
@@ -92,6 +93,23 @@ class LedgerCommitTest(unittest.TestCase):
         refused = self.passed("U1", "--commit", side)
         self.assertEqual(refused.returncode, 1)
         self.assertIn("is not in this branch's history", refused.stderr)
+
+    def receipt(self, verified_at):
+        (self.root / ".git/flowseer-verification-receipt").write_text(f"verified_at={verified_at}\nbase=HEAD\n")
+
+    def test_passed_refuses_a_receipt_older_than_the_unit_base(self):
+        self.ledger("set", "U1", "in_progress")
+        self.commit("unit-one")
+        self.receipt("2000-01-01T00:00:00Z")
+
+        refused = self.ledger("set", "U1", "passed")
+        self.assertEqual(refused.returncode, 1)
+        self.assertIn("is older than U1's base", refused.stderr)
+
+        fresh = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        self.receipt(fresh)
+        self.assertEqual(self.ledger("set", "U1", "passed").returncode, 0)
+        self.assertEqual(self.unit("U1")["verified_at"], fresh)
 
 
 if __name__ == "__main__":
