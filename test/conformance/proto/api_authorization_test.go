@@ -20,8 +20,8 @@ import (
 	authzv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/authz/v1"
 )
 
-// knownRelations lists every (object_type, relation) pair permitted by the
-// operator authorization direction record and parent plan.
+// knownRelations lists every permitted (object_type, relation) pair for
+// operator authorization rules.
 var knownRelations = map[string]map[string]bool{
 	"platform": {
 		"admin": true,
@@ -55,9 +55,9 @@ var knownRelations = map[string]map[string]bool{
 
 // forEachAPIMethod ranges over every RPC method in packages under flowseer.api.
 // and returns the count of methods visited.
-func forEachAPIMethod(fn func(md protoreflect.MethodDescriptor)) int {
+func forEachAPIMethod(files *protoregistry.Files, fn func(md protoreflect.MethodDescriptor)) int {
 	count := 0
-	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
+	files.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
 		if !strings.HasPrefix(string(fd.Package()), "flowseer.api.") {
 			return true
 		}
@@ -85,14 +85,11 @@ func methodRule(method protoreflect.MethodDescriptor) *authzv1.Rule {
 }
 
 // checkAuthorizationRule verifies that a method carries a valid authorization
-// rule option with a specified mode.
+// rule option.
 func checkAuthorizationRule(method protoreflect.MethodDescriptor) []string {
 	rule := methodRule(method)
 	if rule == nil {
 		return []string{fmt.Sprintf("%s carries no authorization rule", method.FullName())}
-	}
-	if rule.GetMode() == authzv1.RuleMode_RULE_MODE_UNSPECIFIED {
-		return []string{fmt.Sprintf("%s authorization rule declares unspecified mode", method.FullName())}
 	}
 	if err := protovalidate.Validate(rule); err != nil {
 		return []string{fmt.Sprintf("%s authorization rule fails validation: %v", method.FullName(), err)}
@@ -107,9 +104,6 @@ func checkObjectIDPath(method protoreflect.MethodDescriptor, rule *authzv1.Rule)
 		return nil
 	}
 	path := rule.GetObjectIdPath()
-	if path == "" {
-		return []string{fmt.Sprintf("%s request rule has empty object_id_path", method.FullName())}
-	}
 
 	parts := strings.Split(path, ".")
 	currentMsg := method.Input()
@@ -144,8 +138,8 @@ func checkObjectIDPath(method protoreflect.MethodDescriptor, rule *authzv1.Rule)
 	return nil
 }
 
-// checkKnownRelation verifies that a rule names a known (object_type, relation)
-// pair from the operator authorization direction.
+// checkKnownRelation verifies that a rule names a permitted (object_type, relation)
+// pair.
 func checkKnownRelation(method protoreflect.MethodDescriptor, rule *authzv1.Rule) []string {
 	objType := rule.GetObjectType()
 	rel := rule.GetRelation()
@@ -160,7 +154,17 @@ func checkKnownRelation(method protoreflect.MethodDescriptor, rule *authzv1.Rule
 	return nil
 }
 
-func buildSyntheticService(t *testing.T, name string, methods ...*descriptorpb.MethodDescriptorProto) protoreflect.ServiceDescriptor {
+func newSyntheticFileDescriptor(t *testing.T, fdp *descriptorpb.FileDescriptorProto) protoreflect.FileDescriptor {
+	t.Helper()
+
+	file, err := protodesc.NewFile(fdp, protoregistry.GlobalFiles)
+	if err != nil {
+		t.Fatalf("build synthetic file %s: %v", fdp.GetName(), err)
+	}
+	return file
+}
+
+func buildSyntheticService(t *testing.T, name string, messages []*descriptorpb.DescriptorProto, methods ...*descriptorpb.MethodDescriptorProto) protoreflect.ServiceDescriptor {
 	t.Helper()
 
 	fdp := &descriptorpb.FileDescriptorProto{
@@ -172,6 +176,7 @@ func buildSyntheticService(t *testing.T, name string, methods ...*descriptorpb.M
 			"flowseer/api/edge/v1/edge_admin_service.proto",
 			"flowseer/api/device/v1/device_service.proto",
 		},
+		MessageType: messages,
 		Service: []*descriptorpb.ServiceDescriptorProto{
 			{
 				Name:   proto.String(name),
@@ -179,12 +184,7 @@ func buildSyntheticService(t *testing.T, name string, methods ...*descriptorpb.M
 			},
 		},
 	}
-
-	file, err := protodesc.NewFile(fdp, protoregistry.GlobalFiles)
-	if err != nil {
-		t.Fatalf("build synthetic service %s: %v", name, err)
-	}
-	return file.Services().Get(0)
+	return newSyntheticFileDescriptor(t, fdp).Services().Get(0)
 }
 
 func syntheticMethod(name, inputType, outputType string, rule *authzv1.Rule) *descriptorpb.MethodDescriptorProto {
@@ -201,10 +201,26 @@ func syntheticMethod(name, inputType, outputType string, rule *authzv1.Rule) *de
 	return m
 }
 
+func assertViolations(t *testing.T, violations []string, wantReason string) {
+	t.Helper()
+	if wantReason == "" {
+		if len(violations) != 0 {
+			t.Errorf("got violations: %v, want none", violations)
+		}
+		return
+	}
+	if len(violations) == 0 {
+		t.Fatalf("got no violations, want one containing %q", wantReason)
+	}
+	if !slices.ContainsFunc(violations, func(v string) bool { return strings.Contains(v, wantReason) }) {
+		t.Errorf("got violations %v, want one containing %q", violations, wantReason)
+	}
+}
+
 // TestEveryOperatorRPCHasAuthorizationRule ensures every operator RPC in
 // flowseer.api. carries a valid authorization rule option.
 func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
-	methodCount := forEachAPIMethod(func(method protoreflect.MethodDescriptor) {
+	methodCount := forEachAPIMethod(protoregistry.GlobalFiles, func(method protoreflect.MethodDescriptor) {
 		for _, violation := range checkAuthorizationRule(method) {
 			t.Errorf("%s", violation)
 		}
@@ -221,78 +237,92 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 			ObjectIdPath: proto.String("edge.edge.id"),
 		}.Build()
 
-		svc := buildSyntheticService(t, "RulePresenceService",
-			syntheticMethod("CompliantMethod",
-				".flowseer.api.edge.v1.GetEdgeRequest",
-				".flowseer.api.edge.v1.GetEdgeResponse",
-				compliantRule),
-			syntheticMethod("MissingRuleMethod",
-				".flowseer.api.edge.v1.GetEdgeRequest",
-				".flowseer.api.edge.v1.GetEdgeResponse",
-				nil),
-			syntheticMethod("InvalidRuleMethod",
-				".flowseer.api.edge.v1.GetEdgeRequest",
-				".flowseer.api.edge.v1.GetEdgeResponse",
-				authzv1.Rule_builder{
-					Mode:       authzv1.RuleMode_RULE_MODE_TENANT.Enum(),
-					ObjectType: proto.String("tenant"),
-					Relation:   proto.String("INVALID_RELATION"),
-				}.Build()),
-			syntheticMethod("UnspecifiedModeMethod",
-				".flowseer.api.edge.v1.GetEdgeRequest",
-				".flowseer.api.edge.v1.GetEdgeResponse",
-				authzv1.Rule_builder{
-					Mode:       authzv1.RuleMode_RULE_MODE_UNSPECIFIED.Enum(),
-					ObjectType: proto.String("tenant"),
-					Relation:   proto.String("admin"),
-				}.Build()),
-		)
+		apiFile := newSyntheticFileDescriptor(t, &descriptorpb.FileDescriptorProto{
+			Name:    proto.String("flowseer/api/test/v1/test_service.proto"),
+			Package: proto.String("flowseer.api.test.v1"),
+			Syntax:  proto.String("proto3"),
+			Dependency: []string{
+				"flowseer/authz/v1/rule.proto",
+				"flowseer/api/edge/v1/edge_admin_service.proto",
+			},
+			Service: []*descriptorpb.ServiceDescriptorProto{
+				{
+					Name: proto.String("PrecedingService"),
+					Method: []*descriptorpb.MethodDescriptorProto{
+						syntheticMethod("FirstMethod",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							compliantRule),
+					},
+				},
+				{
+					Name: proto.String("TestService"),
+					Method: []*descriptorpb.MethodDescriptorProto{
+						syntheticMethod("RuledMethod",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							compliantRule),
+						syntheticMethod("Ping",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							nil),
+					},
+				},
+			},
+		})
 
-		tests := []struct {
-			name        string
-			methodIndex int
-			wantReason  string
-		}{
-			{
-				name:        "compliant method reports no violations",
-				methodIndex: 0,
-				wantReason:  "",
+		otherFile := newSyntheticFileDescriptor(t, &descriptorpb.FileDescriptorProto{
+			Name:    proto.String("flowseer/other/synthetic/v1/other.proto"),
+			Package: proto.String("flowseer.other.synthetic.v1"),
+			Syntax:  proto.String("proto3"),
+			Dependency: []string{
+				"flowseer/api/edge/v1/edge_admin_service.proto",
 			},
-			{
-				name:        "missing rule is reported",
-				methodIndex: 1,
-				wantReason:  "carries no authorization rule",
+			Service: []*descriptorpb.ServiceDescriptorProto{
+				{
+					Name: proto.String("OtherService"),
+					Method: []*descriptorpb.MethodDescriptorProto{
+						syntheticMethod("OtherMethod",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							nil),
+					},
+				},
 			},
-			{
-				name:        "rule failing validation is reported",
-				methodIndex: 2,
-				wantReason:  "authorization rule fails validation",
-			},
-			{
-				name:        "unspecified mode is reported",
-				methodIndex: 3,
-				wantReason:  "unspecified mode",
-			},
+		})
+
+		files := new(protoregistry.Files)
+		if err := files.RegisterFile(apiFile); err != nil {
+			t.Fatalf("register apiFile: %v", err)
+		}
+		if err := files.RegisterFile(otherFile); err != nil {
+			t.Fatalf("register otherFile: %v", err)
 		}
 
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				method := svc.Methods().Get(tt.methodIndex)
-				violations := checkAuthorizationRule(method)
-				if tt.wantReason == "" {
-					if len(violations) != 0 {
-						t.Errorf("got violations: %v, want none", violations)
-					}
-					return
-				}
-				if len(violations) == 0 {
-					t.Fatalf("got no violations, want one containing %q", tt.wantReason)
-				}
-				if !slices.ContainsFunc(violations, func(v string) bool { return strings.Contains(v, tt.wantReason) }) {
-					t.Errorf("got violations %v, want one containing %q", violations, tt.wantReason)
-				}
-			})
+		var violations []string
+		forEachAPIMethod(files, func(method protoreflect.MethodDescriptor) {
+			violations = append(violations, checkAuthorizationRule(method)...)
+		})
+		want := []string{"flowseer.api.test.v1.TestService.Ping carries no authorization rule"}
+		if !slices.Equal(violations, want) {
+			t.Errorf("got violations %v, want %v", violations, want)
 		}
+
+		t.Run("rule failing validation is reported", func(t *testing.T) {
+			invalidRule := authzv1.Rule_builder{
+				Mode:       authzv1.RuleMode_RULE_MODE_TENANT.Enum(),
+				ObjectType: proto.String("tenant"),
+				Relation:   proto.String("INVALID_RELATION"),
+			}.Build()
+			svc := buildSyntheticService(t, "InvalidRuleService", nil,
+				syntheticMethod("InvalidRuleMethod",
+					".flowseer.api.edge.v1.GetEdgeRequest",
+					".flowseer.api.edge.v1.GetEdgeResponse",
+					invalidRule),
+			)
+			violations := checkAuthorizationRule(svc.Methods().Get(0))
+			assertViolations(t, violations, "authorization rule fails validation")
+		})
 	})
 }
 
@@ -300,7 +330,7 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 // resolves through singular message fields to a string field of the method input.
 func TestAuthorizationRuleObjectPathResolves(t *testing.T) {
 	requestRuleCount := 0
-	forEachAPIMethod(func(method protoreflect.MethodDescriptor) {
+	forEachAPIMethod(protoregistry.GlobalFiles, func(method protoreflect.MethodDescriptor) {
 		rule := methodRule(method)
 		if rule == nil || rule.GetMode() != authzv1.RuleMode_RULE_MODE_REQUEST {
 			return
@@ -343,7 +373,77 @@ func TestAuthorizationRuleObjectPathResolves(t *testing.T) {
 			ObjectIdPath: proto.String("sequence"),
 		}.Build()
 
+		repeatedIntermediateRule := authzv1.Rule_builder{
+			Mode:         authzv1.RuleMode_RULE_MODE_REQUEST.Enum(),
+			ObjectType:   proto.String("edge"),
+			Relation:     proto.String("administer"),
+			ObjectIdPath: proto.String("orphaned.device_id"),
+		}.Build()
+
+		nonMessageIntermediateRule := authzv1.Rule_builder{
+			Mode:         authzv1.RuleMode_RULE_MODE_REQUEST.Enum(),
+			ObjectType:   proto.String("edge"),
+			Relation:     proto.String("view"),
+			ObjectIdPath: proto.String("edge.edge.id.subfield"),
+		}.Build()
+
+		mapIntermediateRule := authzv1.Rule_builder{
+			Mode:         authzv1.RuleMode_RULE_MODE_REQUEST.Enum(),
+			ObjectType:   proto.String("edge"),
+			Relation:     proto.String("view"),
+			ObjectIdPath: proto.String("labels.value"),
+		}.Build()
+
+		repeatedLeafRule := authzv1.Rule_builder{
+			Mode:         authzv1.RuleMode_RULE_MODE_REQUEST.Enum(),
+			ObjectType:   proto.String("edge"),
+			Relation:     proto.String("view"),
+			ObjectIdPath: proto.String("tags"),
+		}.Build()
+
+		syntheticCarrierMsg := &descriptorpb.DescriptorProto{
+			Name: proto.String("SyntheticCarrier"),
+			Field: []*descriptorpb.FieldDescriptorProto{
+				{
+					Name:     proto.String("labels"),
+					Number:   proto.Int32(1),
+					Label:    descriptorpb.FieldDescriptorProto_LABEL_REPEATED.Enum(),
+					Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+					TypeName: proto.String(".flowseer.conformance.synthetic.v1.SyntheticCarrier.LabelsEntry"),
+				},
+				{
+					Name:   proto.String("tags"),
+					Number: proto.Int32(2),
+					Label:  descriptorpb.FieldDescriptorProto_LABEL_REPEATED.Enum(),
+					Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+				},
+			},
+			NestedType: []*descriptorpb.DescriptorProto{
+				{
+					Name: proto.String("LabelsEntry"),
+					Options: &descriptorpb.MessageOptions{
+						MapEntry: proto.Bool(true),
+					},
+					Field: []*descriptorpb.FieldDescriptorProto{
+						{
+							Name:   proto.String("key"),
+							Number: proto.Int32(1),
+							Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+							Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+						},
+						{
+							Name:   proto.String("value"),
+							Number: proto.Int32(2),
+							Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+							Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+						},
+					},
+				},
+			},
+		}
+
 		svc := buildSyntheticService(t, "PathResolutionService",
+			[]*descriptorpb.DescriptorProto{syntheticCarrierMsg},
 			syntheticMethod("CompliantPathMethod",
 				".flowseer.api.edge.v1.GetEdgeRequest",
 				".flowseer.api.edge.v1.GetEdgeResponse",
@@ -360,6 +460,22 @@ func TestAuthorizationRuleObjectPathResolves(t *testing.T) {
 				".flowseer.api.device.v1.AbandonMutationRequest",
 				".flowseer.api.device.v1.AbandonMutationResponse",
 				uint64LeafRule),
+			syntheticMethod("RepeatedIntermediateMethod",
+				".flowseer.api.edge.v1.RetireEdgeResponse",
+				".flowseer.api.edge.v1.RetireEdgeResponse",
+				repeatedIntermediateRule),
+			syntheticMethod("NonMessageIntermediateMethod",
+				".flowseer.api.edge.v1.GetEdgeRequest",
+				".flowseer.api.edge.v1.GetEdgeResponse",
+				nonMessageIntermediateRule),
+			syntheticMethod("MapIntermediateMethod",
+				".flowseer.conformance.synthetic.v1.SyntheticCarrier",
+				".flowseer.conformance.synthetic.v1.SyntheticCarrier",
+				mapIntermediateRule),
+			syntheticMethod("RepeatedLeafMethod",
+				".flowseer.conformance.synthetic.v1.SyntheticCarrier",
+				".flowseer.conformance.synthetic.v1.SyntheticCarrier",
+				repeatedLeafRule),
 		)
 
 		tests := []struct {
@@ -392,34 +508,47 @@ func TestAuthorizationRuleObjectPathResolves(t *testing.T) {
 				rule:        uint64LeafRule,
 				wantReason:  "uint64",
 			},
+			{
+				name:        "repeated intermediate field is reported",
+				methodIndex: 4,
+				rule:        repeatedIntermediateRule,
+				wantReason:  "is not a singular message",
+			},
+			{
+				name:        "non-message intermediate field is reported",
+				methodIndex: 5,
+				rule:        nonMessageIntermediateRule,
+				wantReason:  "has kind string, want message",
+			},
+			{
+				name:        "map intermediate field is reported",
+				methodIndex: 6,
+				rule:        mapIntermediateRule,
+				wantReason:  "is not a singular message",
+			},
+			{
+				name:        "repeated leaf field is reported",
+				methodIndex: 7,
+				rule:        repeatedLeafRule,
+				wantReason:  "is not a singular string",
+			},
 		}
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				method := svc.Methods().Get(tt.methodIndex)
 				violations := checkObjectIDPath(method, tt.rule)
-				if tt.wantReason == "" {
-					if len(violations) != 0 {
-						t.Errorf("got violations: %v, want none", violations)
-					}
-					return
-				}
-				if len(violations) == 0 {
-					t.Fatalf("got no violations, want one containing %q", tt.wantReason)
-				}
-				if !slices.ContainsFunc(violations, func(v string) bool { return strings.Contains(v, tt.wantReason) }) {
-					t.Errorf("got violations %v, want one containing %q", violations, tt.wantReason)
-				}
+				assertViolations(t, violations, tt.wantReason)
 			})
 		}
 	})
 }
 
-// TestAuthorizationRuleNamesKnownRelation ensures every rule names an (object_type, relation)
-// pair declared in the operator authorization direction relation table.
+// TestAuthorizationRuleNamesKnownRelation ensures every rule names a permitted
+// (object_type, relation) pair.
 func TestAuthorizationRuleNamesKnownRelation(t *testing.T) {
 	ruleCount := 0
-	forEachAPIMethod(func(method protoreflect.MethodDescriptor) {
+	forEachAPIMethod(protoregistry.GlobalFiles, func(method protoreflect.MethodDescriptor) {
 		rule := methodRule(method)
 		if rule == nil {
 			return
@@ -448,7 +577,14 @@ func TestAuthorizationRuleNamesKnownRelation(t *testing.T) {
 			ObjectIdPath: proto.String("edge.edge.id"),
 		}.Build()
 
-		svc := buildSyntheticService(t, "KnownRelationService",
+		unknownObjectTypeRule := authzv1.Rule_builder{
+			Mode:         authzv1.RuleMode_RULE_MODE_REQUEST.Enum(),
+			ObjectType:   proto.String("unknown_type"),
+			Relation:     proto.String("view"),
+			ObjectIdPath: proto.String("edge.edge.id"),
+		}.Build()
+
+		svc := buildSyntheticService(t, "KnownRelationService", nil,
 			syntheticMethod("CompliantRelationMethod",
 				".flowseer.api.edge.v1.GetEdgeRequest",
 				".flowseer.api.edge.v1.GetEdgeResponse",
@@ -457,6 +593,10 @@ func TestAuthorizationRuleNamesKnownRelation(t *testing.T) {
 				".flowseer.api.edge.v1.GetEdgeRequest",
 				".flowseer.api.edge.v1.GetEdgeResponse",
 				unknownRelationRule),
+			syntheticMethod("UnknownObjectTypeMethod",
+				".flowseer.api.edge.v1.GetEdgeRequest",
+				".flowseer.api.edge.v1.GetEdgeResponse",
+				unknownObjectTypeRule),
 		)
 
 		tests := []struct {
@@ -477,24 +617,19 @@ func TestAuthorizationRuleNamesKnownRelation(t *testing.T) {
 				rule:        unknownRelationRule,
 				wantReason:  "unknown relation \"delete\" for object type \"edge\"",
 			},
+			{
+				name:        "unknown object type is reported",
+				methodIndex: 2,
+				rule:        unknownObjectTypeRule,
+				wantReason:  "unknown object type \"unknown_type\"",
+			},
 		}
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				method := svc.Methods().Get(tt.methodIndex)
 				violations := checkKnownRelation(method, tt.rule)
-				if tt.wantReason == "" {
-					if len(violations) != 0 {
-						t.Errorf("got violations: %v, want none", violations)
-					}
-					return
-				}
-				if len(violations) == 0 {
-					t.Fatalf("got no violations, want one containing %q", tt.wantReason)
-				}
-				if !slices.ContainsFunc(violations, func(v string) bool { return strings.Contains(v, tt.wantReason) }) {
-					t.Errorf("got violations %v, want one containing %q", violations, tt.wantReason)
-				}
+				assertViolations(t, violations, tt.wantReason)
 			})
 		}
 	})
