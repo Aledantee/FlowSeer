@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Component } from 'vue'
-import { createApp, h } from 'vue'
+import { createApp, h, nextTick } from 'vue'
 import UiBadge from './UiBadge.vue'
 import UiStatusBadge from './UiStatusBadge.vue'
 import { createWebI18n, type WebLocale } from '../../i18n'
@@ -144,5 +144,43 @@ describe('UiBadge', () => {
       'de',
     )
     expect(el.textContent?.trim()).toBe('Slot Content')
+  })
+
+  it('follows a live locale switch for status labels and keeps an explicit label', async () => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    const i18n = createWebI18n('en')
+    const app = createApp({
+      render() {
+        return h('div', [
+          h(UiStatusBadge, { status: 'Healthy' }),
+          h(UiStatusBadge, { status: 'Degraded' }),
+          h(UiStatusBadge, { status: 'Offline' }),
+          h(UiStatusBadge, { status: 'Healthy', label: 'Operational' }),
+        ])
+      },
+    })
+    app.use(i18n)
+    app.mount(host)
+    dispose = () => {
+      app.unmount()
+      dispose = () => {}
+    }
+
+    const labels = () =>
+      Array.from(host.firstElementChild!.children).map((el) =>
+        el.textContent?.trim(),
+      )
+    expect(labels()).toEqual(['Healthy', 'Degraded', 'Offline', 'Operational'])
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(labels()).toEqual([
+      'Gesund',
+      'Beeinträchtigt',
+      'Offline',
+      'Operational',
+    ])
   })
 })

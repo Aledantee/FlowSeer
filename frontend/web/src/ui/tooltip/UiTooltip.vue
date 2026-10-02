@@ -56,7 +56,7 @@ function resolveKey(key: string): string {
   if (props.keyLabel) {
     return props.keyLabel(key)
   }
-  if (key in defaultKeyMap) {
+  if (Object.hasOwn(defaultKeyMap, key)) {
     return t(defaultKeyMap[key])
   }
   return key

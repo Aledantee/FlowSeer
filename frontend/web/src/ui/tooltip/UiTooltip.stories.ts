@@ -89,8 +89,8 @@ export const ShortcutObject: Story = {
 export const LongText: Story = {
   args: {
     label:
-      'Detaillierte Telemetrie- und Leistungskennzahlen für ausgewählte Netzwerkknoten anzeigen',
-    hint: 'Öffnet die erweiterte Überwachungsansicht mit historischen Daten',
+      'Show detailed telemetry and performance metrics for the selected network nodes',
+    hint: 'Opens the extended monitoring view with historical data',
     shortcut: { code: 'KeyK', mod: true, shift: true },
     side: 'bottom',
     defaultOpen: true,
