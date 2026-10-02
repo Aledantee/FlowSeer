@@ -3438,12 +3438,13 @@ func TestDeferredObligationDischarge(t *testing.T) {
 										t.Fatal("expected error, got nil")
 									}
 									wantCode := connect.CodeNotFound
-									if tcCheck.kind == checkRequireDenied {
+									switch tcCheck.kind {
+									case checkRequireDenied:
 										wantCode = connect.CodePermissionDenied
 										if got := errCodeOf(t, err); got != authz.ErrCodeDenied.String() {
 											t.Errorf("got error code %q, want %q", got, authz.ErrCodeDenied)
 										}
-									} else if tcCheck.kind == checkRequireCheckerError || tcCheck.kind == checkFilterCheckerError || tcCheck.kind == checkShortBatchCheckAnswer {
+									case checkRequireCheckerError, checkFilterCheckerError, checkShortBatchCheckAnswer:
 										wantCode = connect.CodeUnavailable
 										if got := errCodeOf(t, err); got != authz.ErrCodeUnavailable.String() {
 											t.Errorf("got error code %q, want %q", got, authz.ErrCodeUnavailable)
@@ -3575,9 +3576,7 @@ func setupCancellableTestEnv(t *testing.T) *cancellableTestEnv {
 func TestContextCancellation(t *testing.T) {
 	t.Run("membership check cancels context while answering true", func(t *testing.T) {
 		env := setupCancellableTestEnv(t)
-		env.outerInterceptor.setDeriveCtx(func(ctx context.Context) (context.Context, context.CancelFunc) {
-			return context.WithCancel(ctx)
-		})
+		env.outerInterceptor.setDeriveCtx(context.WithCancel)
 		env.checker.SetFail(func(q authz.Query) error {
 			if q.Relation == "member" {
 				env.outerInterceptor.Cancel()
@@ -3678,9 +3677,7 @@ func TestContextCancellation(t *testing.T) {
 
 	t.Run("membership check cancels and fails yields Canceled", func(t *testing.T) {
 		env := setupCancellableTestEnv(t)
-		env.outerInterceptor.setDeriveCtx(func(ctx context.Context) (context.Context, context.CancelFunc) {
-			return context.WithCancel(ctx)
-		})
+		env.outerInterceptor.setDeriveCtx(context.WithCancel)
 		env.checker.SetFail(func(q authz.Query) error {
 			if q.Relation == "member" {
 				env.outerInterceptor.Cancel()
@@ -3735,9 +3732,7 @@ func TestContextCancellation(t *testing.T) {
 
 	t.Run("Require under canceled context checker fails yields Canceled", func(t *testing.T) {
 		env := setupCancellableTestEnv(t)
-		env.outerInterceptor.setDeriveCtx(func(ctx context.Context) (context.Context, context.CancelFunc) {
-			return context.WithCancel(ctx)
-		})
+		env.outerInterceptor.setDeriveCtx(context.WithCancel)
 		env.checker.SetFail(func(q authz.Query) error {
 			if strings.HasPrefix(q.Object, "edge:") {
 				env.outerInterceptor.Cancel()
@@ -3775,9 +3770,7 @@ func TestContextCancellation(t *testing.T) {
 
 	t.Run("Filter under canceled context checker fails yields Canceled", func(t *testing.T) {
 		env := setupCancellableTestEnv(t)
-		env.outerInterceptor.setDeriveCtx(func(ctx context.Context) (context.Context, context.CancelFunc) {
-			return context.WithCancel(ctx)
-		})
+		env.outerInterceptor.setDeriveCtx(context.WithCancel)
 		env.checker.SetFail(func(q authz.Query) error {
 			if strings.HasPrefix(q.Object, "edge:") {
 				env.outerInterceptor.Cancel()
@@ -3815,9 +3808,7 @@ func TestContextCancellation(t *testing.T) {
 
 	t.Run("platform check cancels and fails yields Canceled", func(t *testing.T) {
 		env := setupCancellableTestEnv(t)
-		env.outerInterceptor.setDeriveCtx(func(ctx context.Context) (context.Context, context.CancelFunc) {
-			return context.WithCancel(ctx)
-		})
+		env.outerInterceptor.setDeriveCtx(context.WithCancel)
 		env.checker.SetFail(func(q authz.Query) error {
 			if q.Object == "platform:flowseer" {
 				env.outerInterceptor.Cancel()
@@ -3843,9 +3834,7 @@ func TestContextCancellation(t *testing.T) {
 
 	t.Run("checker cancels and answers membership query false yields PermissionDenied", func(t *testing.T) {
 		env := setupCancellableTestEnv(t)
-		env.outerInterceptor.setDeriveCtx(func(ctx context.Context) (context.Context, context.CancelFunc) {
-			return context.WithCancel(ctx)
-		})
+		env.outerInterceptor.setDeriveCtx(context.WithCancel)
 		env.checker.SetFail(func(q authz.Query) error {
 			if q.Relation == "member" {
 				env.outerInterceptor.Cancel()
@@ -3873,10 +3862,8 @@ func TestContextCancellation(t *testing.T) {
 
 	t.Run("deferred rule handler cancels context and returns response yields Internal", func(t *testing.T) {
 		env := setupCancellableTestEnv(t)
-		env.outerInterceptor.setDeriveCtx(func(ctx context.Context) (context.Context, context.CancelFunc) {
-			return context.WithCancel(ctx)
-		})
-		env.handlers.SetListCaptureFn(func(ctx context.Context, _ *connect.Request[capturev1.ListCaptureSessionsRequest]) (*connect.Response[capturev1.ListCaptureSessionsResponse], error) {
+		env.outerInterceptor.setDeriveCtx(context.WithCancel)
+		env.handlers.SetListCaptureFn(func(_ context.Context, _ *connect.Request[capturev1.ListCaptureSessionsRequest]) (*connect.Response[capturev1.ListCaptureSessionsResponse], error) {
 			env.outerInterceptor.Cancel()
 			return validResponse(t, capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
 		})
@@ -3901,11 +3888,9 @@ func TestContextCancellation(t *testing.T) {
 
 	t.Run("deferred rule handler cancels context and returns sentinel yields Canceled", func(t *testing.T) {
 		env := setupCancellableTestEnv(t)
-		env.outerInterceptor.setDeriveCtx(func(ctx context.Context) (context.Context, context.CancelFunc) {
-			return context.WithCancel(ctx)
-		})
+		env.outerInterceptor.setDeriveCtx(context.WithCancel)
 		sentinelErr := connect.NewError(connect.CodeNotFound, errors.New("sentinel missing object"))
-		env.handlers.SetListCaptureFn(func(ctx context.Context, _ *connect.Request[capturev1.ListCaptureSessionsRequest]) (*connect.Response[capturev1.ListCaptureSessionsResponse], error) {
+		env.handlers.SetListCaptureFn(func(_ context.Context, _ *connect.Request[capturev1.ListCaptureSessionsRequest]) (*connect.Response[capturev1.ListCaptureSessionsResponse], error) {
 			env.outerInterceptor.Cancel()
 			return nil, sentinelErr
 		})
