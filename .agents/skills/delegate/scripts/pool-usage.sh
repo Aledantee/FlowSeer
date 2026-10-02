@@ -66,17 +66,23 @@ def iso(ms):
     return datetime.datetime.fromtimestamp(ms / 1000, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def orca_unreadable(error):
+    # Without Orca's rows the claude pool still has the CLI's own token.
+    # A token found is signed in. No token file is not a sign-out, since
+    # the CLI may keep it elsewhere, so the state stays unknown (null).
+    emit("claude", claude_cli_signed_in() or None, "orca", error=error)
+    emit("codex", None, "orca", error=error)
+
+
 def orca_pools():
     if not shutil.which("orca"):
-        for pool in ("claude", "codex"):
-            emit(pool, None, "orca", error="orca not installed")
+        orca_unreadable("orca not installed")
         return
     out, err = run(["orca", "account", "list", "--json"])
     try:
         result = json.loads(out)["result"]
     except (TypeError, ValueError, KeyError):
-        for pool in ("claude", "codex"):
-            emit(pool, None, "orca", error=err or "unreadable account list")
+        orca_unreadable(err or "unreadable account list")
         return
     for pool in ("claude", "codex"):
         rl = result.get("rateLimits", {}).get(pool) or {}

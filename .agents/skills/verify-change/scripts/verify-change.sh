@@ -151,8 +151,10 @@ if [[ $full == false && ${#paths[@]} -eq 0 ]]; then
     echo "service_otel_integration=false"
     exit 0
   fi
-  echo "No changed paths to verify."
-  exit 0
+  # Exits non-zero for the reason the no-gate exit below gives: a run that
+  # checked nothing must not read as a pass. It writes no receipt either.
+  echo "No changed paths to verify against $base; name paths after -- or use --full." >&2
+  exit 2
 fi
 
 # Expand a directory argument into the files it holds. The classification
@@ -490,6 +492,14 @@ if [[ $print_selection == true ]]; then
   exit 0
 fi
 
+# A lint configuration change applies to every Go module, and a targeted run
+# that selects none would lint nothing yet write a passing receipt. Refused
+# before any gate runs, so the receipt and marker stay as they were.
+if [[ $full == false ]] && contains_path .golangci.yml && ((${#modules[@]} == 0)); then
+  echo ".golangci.yml changed and no Go module is selected; run with --full to lint every Go module." >&2
+  exit 2
+fi
+
 # Whether anything at all will run. A run that selects no gate is not a
 # passing run: it is an invocation that could not place its arguments, and
 # reporting it as a pass is what makes this script unable to tell "checked
@@ -622,6 +632,9 @@ if ((${#go_files[@]})); then
   fi
   [[ $format_failed == false ]] || {
     echo "Go formatting differs; run gofumpt and goimports." >&2
+    # These two run outside `run`, so the gate is named here for the
+    # verdict line.
+    printf 'gofumpt/goimports -d' >"$gate_file"
     exit 1
   }
 fi
@@ -949,13 +962,6 @@ if [[ $full == true ]]; then
   run git diff --check
 else
   run git diff --check "$base" -- "${paths[@]}"
-fi
-
-if contains_path .golangci.yml && [[ ${#modules[@]} -eq 0 ]]; then
-  echo "Note: .golangci.yml changed; use --full to lint every Go module."
-  # This path selects no module by design, and the note is the run's
-  # output, so the no-gate exit must not also fire for it.
-  gates_selected=true
 fi
 
 # Before the dirty marker is cleared and the receipt is written, because

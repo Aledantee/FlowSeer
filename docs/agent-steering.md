@@ -310,9 +310,9 @@ before touching the receipt, the corpus tier carries `-count=1`,
 run names the verdict. A `--full` run could also block forever on a
 Docker daemon that had stopped answering, with a verdict line that did
 not say which gate had failed. The wrapper now bounds its `docker info` probe, and the
-verdict line names the gate that was running. The two invariant packages (`src/common/errs`,
-`test/conformance/proto`) run on every targeted root-module run for the
-same reason: a per-package gate cannot see a repository-wide namespace,
+verdict line names the gate that was running. The invariant packages (`src/common/errs` and
+everything under `test/conformance/`) run once on every targeted run that
+selects a Go module, whichever module it is, for the same reason: a per-package gate cannot see a repository-wide namespace,
 and a rule asking the implementer to remember that does not hold. `--full` bounds `go test -p` because a gate that fails for reasons
 the diff cannot cause teaches its readers to discount it. Three more
 failures of that kind live in the script rather than in prose: the lint
@@ -454,8 +454,11 @@ One artifact format each. Every plan under `docs/plans/` carries
 and a row in `docs/solutions/README.md`. The skills describe these formats
 and nothing else.
 
-Name the model for every delegate. `repo-researcher` is pinned to Sonnet and
-`independent-reviewer` to Opus, `delegate` sends pure lookups to `Explore`
+Name the model for every delegate. `repo-researcher` and
+`independent-reviewer` run on Opus at `xhigh`, the level the registry gives
+`claude-opus-5-5` in `research` and `review-unit`. The Agent tool takes a
+model and no effort, so the agent frontmatter carries the level.
+`delegate` sends pure lookups to `Explore`
 on Haiku and resolves editing workers from the registry's fit set, taking
 the first model in its best-first order whose pool has room, and no agent uses `inherit` any more: the coordinating session
 may run the most expensive model, and none of the delegated work needs it. Anthropic's subagent guide recommends Haiku

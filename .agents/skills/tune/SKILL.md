@@ -15,7 +15,7 @@ resolves it here. Every number written carries a source and a date in
 | --- | --- | --- |
 | `~/.claude/models/registry.yaml` | The registry every project on this machine reads | this skill |
 | `~/.claude/models/evidence.md` | Source and date per registry number | this skill |
-| `~/.claude/models/host.yaml` | CLIs, Orca reachability, pool sign-in and windows | step 1, `pool-usage.sh` refreshes |
+| `~/.claude/models/host.yaml` | CLIs, Orca reachability, pool sign-in and windows | step 1, through `discover-host.sh` (`pool-usage.sh` prints fresh rows and writes no file) |
 | `.claude/models/registry.yaml` in a project | Overrides for that project, committed | a person, or this skill on request |
 
 The effective registry is the machine-wide file with the project file laid
@@ -23,12 +23,15 @@ over it. Under `pools`, `models`, and `roles` a project entry replaces the
 machine-wide entry of the same name and adds the ones it lacks; any other
 top-level key in the project file (`sensitive_paths`, `as_of`) replaces the
 machine-wide key whole. Either file may be absent; with neither, write the
-machine-wide one. Write a result to the project file only when it holds for
+machine-wide one. With only the project file, create the machine-wide file
+for results that hold on every project. Write a result to the project file only when it holds for
 that project alone, such as its `sensitive_paths` or a fit set the project
-narrows.
+narrows. A project file that carries `as_of` sets the effective date, so a
+run that refreshes the registry also writes today's date there.
 
 Inputs: the effective registry, the network, the installed CLIs.
-Completion: the machine-wide `as_of` is today, `host.yaml` is regenerated,
+Completion: the effective `as_of` is today (the machine-wide one, and the
+project one when that file carries it), `host.yaml` is regenerated,
 and the report names every changed field with its evidence and the file it
 changed in. Failure: a step that cannot reach its source says so and leaves
 the previous value with its old date; never guess.
@@ -82,8 +85,9 @@ python3 .claude/skills/tune/scripts/catalogue.py ~/.claude/models/registry.yaml 
 ```
 
 It reads models.dev and OpenRouter, prints per registry model the vendor
-price and context beside the registry's, and lists ids on either feed that
-the registry lacks. Vendor price wins over broker price; where they differ
+price and context beside the registry's, and lists OpenRouter ids from the
+last 60 days, of vendors the registry already names, that the registry
+lacks. A new id that only models.dev carries does not show there. Vendor price wins over broker price; where they differ
 by more than 20%, report both and write the vendor's. An id missing from the
 vendor feed means the model is gone: mark it `retired: <date>` and do not
 delete it, since a plan ledger may name it.
@@ -95,8 +99,8 @@ pass for: the vendor's launch note, the effort levels the vendor documents
 and what each changes (thinking budget, default level, levels a CLI does
 not expose), Terminal-Bench 2.1 and SWE-bench Verified with the harness and
 effort level named, and refusal reports for security tooling. The model's
-`effort` list holds the levels its CLI accepts, checked against the vendor. Append to `evidence.md` as `model — claim —
-source URL — date`. Record conflicting numbers as conflicting. Do not
+`effort` list holds the levels its CLI accepts, checked against the vendor.
+Append to `evidence.md` as `model — claim — source URL — date`. Record conflicting numbers as conflicting. Do not
 compare benchmarks run on different harnesses in the registry; fill `terminal_bench` only
 from a run whose harness is named.
 

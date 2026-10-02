@@ -147,6 +147,32 @@ class BenchTest(unittest.TestCase):
         self.assertTrue(result["refused"])
         self.assertEqual(result["refuse_reason"], "stop_reason=refusal")
 
+    def test_claude_permission_denial_is_a_refusal(self):
+        # Under skip-permissions a denied tool call is the CLI declining
+        # the work, even though the turn ends normally.
+        self._write_claude({
+            "stop_reason": "end_turn", "total_cost_usd": 0.1,
+            "usage": {"input_tokens": 10, "output_tokens": 20},
+            "modelUsage": {"claude-opus-5-5": {}},
+            "permission_denials": [{"tool_name": "Bash", "tool_use_id": "t1", "tool_input": {}}],
+        })
+        proc = self.run_bench(cli="claude", model="claude-opus-5-5")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        result = json.loads(self.out.read_text())
+        self.assertTrue(result["refused"])
+        self.assertEqual(result["refuse_reason"], "permission_denials=1")
+
+    def test_claude_empty_permission_denials_is_no_refusal(self):
+        self._write_claude({
+            "stop_reason": "end_turn", "total_cost_usd": 0.1,
+            "usage": {"input_tokens": 10, "output_tokens": 20},
+            "modelUsage": {"claude-opus-5-5": {}},
+            "permission_denials": [],
+        })
+        proc = self.run_bench(cli="claude", model="claude-opus-5-5")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertFalse(json.loads(self.out.read_text())["refused"])
+
     def test_agy_filter_refusal_detected(self):
         # Google's filter returns status SUCCESS, exit 0, zero usage, with the
         # refusal in response text. The exit code alone reports it as clean.
