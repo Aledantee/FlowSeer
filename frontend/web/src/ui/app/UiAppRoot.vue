@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ConfigProvider, TooltipProvider } from 'reka-ui'
 import { UiMotionConfig } from '../motion'
 
@@ -8,16 +9,16 @@ const motionTransition = {
 }
 
 export interface UiAppRootProps {
-  locale?: string
   dir?: 'ltr' | 'rtl'
   scrollBody?: boolean
 }
 
 withDefaults(defineProps<UiAppRootProps>(), {
-  locale: 'en',
   dir: 'ltr',
   scrollBody: undefined,
 })
+
+const { locale } = useI18n({ useScope: 'global' })
 </script>
 
 <template>

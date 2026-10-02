@@ -7,6 +7,7 @@ import { createAiRegistry, createAiTargetDirective } from './ai'
 import type { AiRegistry } from './ai'
 import { UiAppRoot } from './ui'
 import { aiRegistryKey } from './ui/ai/context'
+import { createWebI18n } from './i18n'
 
 let dispose = () => {}
 let preference: (EventTarget & { matches: boolean }) | undefined
@@ -156,6 +157,7 @@ async function mountFleet() {
       return h(UiAppRoot, {}, () => h(FleetView))
     },
   })
+  app.use(createWebI18n())
   await router.push('/dashboard')
   app.use(router)
   app.directive('ai-target', createAiTargetDirective(registry))

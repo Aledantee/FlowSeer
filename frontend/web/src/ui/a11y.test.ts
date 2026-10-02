@@ -5,6 +5,7 @@ import axe from 'axe-core'
 import { composeStories, setProjectAnnotations } from '@storybook/vue3-vite'
 import preview from '../../.storybook/preview'
 import UiInput from './form/UiInput.vue'
+import { createWebI18n } from '../i18n'
 
 setProjectAnnotations(preview)
 
@@ -281,6 +282,7 @@ describe('accessibility (axe-core)', () => {
         return h(UiInput)
       },
     })
+    app.use(createWebI18n())
     app.mount(container)
     cleanups.push(() => {
       app.unmount()
@@ -311,6 +313,7 @@ describe('accessibility (axe-core)', () => {
           document.body.append(container)
 
           const app = createApp(StoryComponent as Component)
+          app.use(createWebI18n())
           app.mount(container)
           cleanups.push(() => {
             app.unmount()
