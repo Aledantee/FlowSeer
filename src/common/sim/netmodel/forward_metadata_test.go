@@ -16,7 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
+	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 )
 
 func TestForwardCarriesRelevantLoadConflictWithEvidence(t *testing.T) {

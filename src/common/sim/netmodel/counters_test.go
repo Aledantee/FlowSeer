@@ -7,7 +7,7 @@ import (
 	"buf.build/go/protovalidate"
 
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
+	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 )
 
 func TestInterfaceCountersExportDistinctValues(t *testing.T) {
