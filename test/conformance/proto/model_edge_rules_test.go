@@ -337,6 +337,9 @@ func TestEdgeAssertionHeaderVector(t *testing.T) {
 		Payload:   payload,
 		Signature: ed25519.Sign(private, payload),
 	}.Build()
+	if err := protovalidate.Validate(signed); err != nil {
+		t.Fatalf("validate signed assertion fixture: %v", err)
+	}
 	wire, err := proto.MarshalOptions{Deterministic: true}.Marshal(signed)
 	if err != nil {
 		t.Fatalf("marshal signed assertion: %v", err)
@@ -400,6 +403,9 @@ func TestEdgeAssertionStreamOpenVector(t *testing.T) {
 		Payload:   payload,
 		Signature: ed25519.Sign(private, payload),
 	}.Build()
+	if err := protovalidate.Validate(signed); err != nil {
+		t.Fatalf("validate signed assertion fixture: %v", err)
+	}
 	wire, err := proto.MarshalOptions{Deterministic: true}.Marshal(signed)
 	if err != nil {
 		t.Fatalf("marshal signed assertion: %v", err)
