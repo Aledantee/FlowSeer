@@ -1,8 +1,7 @@
 # Agent knowledge boundaries
 
-FlowSeer keeps durable knowledge in the repository and treats tool-specific
-memory as a private convenience. Use the narrowest durable location that fits the
-information.
+FlowSeer keeps durable knowledge in the repository, not in any tool's memory.
+Use the narrowest durable location that fits the information.
 
 | Knowledge | Location | Lifetime and audience |
 | --- | --- | --- |
@@ -15,16 +14,16 @@ information.
 | Repeatable agent workflows | `.agents/skills/` (`.claude/skills/` links here) | Durable; task procedures with scripts when useful |
 | Narrow specialist behavior | `.claude/agents/` | Durable; bounded delegation roles |
 | Observed gaps in skills, agents, or hooks | `docs/agent-observations.md` | Queue; `steer` applies or rejects each entry on a maintainer's request and deletes it |
-| Claude auto-memory | Claude's local memory directory | Personal, machine-local, advisory, and potentially stale |
 | Scratch notes and findings | Current conversation or worktree | Temporary; discard or promote before handoff |
 
-Do not copy auto-memory into the repository wholesale. Before promoting a memory,
-verify it against the current code and place it in the appropriate shared document.
-Never store secrets, credentials, personal data, transient branches, absolute
-machine paths, or unverified guesses in shared knowledge.
+Claude auto-memory is off for this repository (`autoMemoryEnabled: false` in
+`.claude/settings.json`). Several people work on FlowSeer from several machines,
+and a machine-local memory reaches none of the others. A fact worth keeping goes
+into one of the documents above.
 
-When shared guidance and auto-memory disagree, the repository wins. Update or
-remove the stale memory; do not weaken a project rule to preserve it.
+Before writing one down, verify it against the current code. Never store
+secrets, credentials, personal data, transient branches, absolute machine
+paths, or unverified guesses in shared knowledge.
 
 Before promoting a recurring instruction, use
 [`agent-steering.md`](agent-steering.md) to choose its scope. Put behavior that
