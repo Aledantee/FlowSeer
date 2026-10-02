@@ -70,12 +70,14 @@ const shortcutKeys = computed<string[]>(() => {
   return keysOf(props.shortcut).map(resolveKey)
 })
 
-const tooltipAriaLabel = computed(() => {
-  const parts = [props.label]
-  if (props.hint) parts.push(props.hint)
-  if (shortcutKeys.value.length) parts.push(shortcutKeys.value.join(''))
-  return parts.join('')
-})
+// Reka derives the hidden tooltip text from the rendered element's
+// textContent once, so it keeps the previous locale's keys. An explicit
+// label tracks the translated keys.
+const tooltipAriaLabel = computed(() =>
+  [props.label, props.hint, shortcutKeys.value.join(' ')]
+    .filter(Boolean)
+    .join(' '),
+)
 </script>
 
 <template>
