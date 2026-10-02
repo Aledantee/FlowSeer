@@ -5,7 +5,7 @@ required_by:
   - frontend/web/package.json
 criteria: deploy
 verdict: keep
-approved:
+approved: 2026-10-02
 ---
 
 ## Why it is required

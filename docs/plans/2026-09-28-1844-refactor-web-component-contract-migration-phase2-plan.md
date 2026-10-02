@@ -74,14 +74,26 @@ Report the failing case before changing dependencies or the layout mechanism.
   Why: the lifecycle sources below define different cancel and finish paths.
 - Keep `useMotionConfig` and `useReducedMotion` as the source of
   `reduced`. Mini's native path has no config lookup or reduced-motion
-  branch. The composable filters movement itself, clears active plays when
-  effective reduced motion changes, and keeps fades. Source:
+  branch. The composable filters movement itself, clears active plays on
+  every preference or config change, and keeps fades. Source:
   `motion-v/dist/es/animation/hooks/use-reduced-motion.mjs` and Mini below.
 - Keep FleetView's layout sidebar, highlight, and position-only children,
   the inferred `UiMotion` prop type, and the app-root config. Keep
   `UiMotionConfig` out of `src/ui/index.ts`. Their existing tests remain
   acceptance checks. Phase 3 stays held until phase 2's review accepts this
   rework, because its U1 edits `UiAppRoot.vue` and all five motion test files.
+- **Every preference or config change clears active plays**, including a
+  change that leaves effective reduced motion as it was. The watcher on the
+  raw config and preference pair stays, and the test rows that assert it
+  stay. Why: a play never keeps running under a stale configuration.
+  (decided by the user, 2026-10-02)
+- **The review gets one more fix round** past its three-round limit,
+  resumed from `parked/wcc-p2-review` (`d7995d3d`). It covers the skipped
+  reduced-motion row for the `both` owned set, the two rows weaker than
+  their titles, the `settleFrames` timer citation, and the stale line
+  citation in the happy-dom solution. Why: the source has no open defect
+  and the remaining correctness item is one skipped case with a known fix.
+  (decided by the user, 2026-10-02)
 
 ```mermaid
 flowchart LR
