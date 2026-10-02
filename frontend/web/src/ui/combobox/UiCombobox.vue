@@ -15,6 +15,7 @@ import {
   Primitive,
   useId,
 } from 'reka-ui'
+import { useI18n } from 'vue-i18n'
 
 export interface ComboboxOption {
   value: string
@@ -30,6 +31,7 @@ export interface UiComboboxProps {
   options?: ComboboxOption[]
   ignoreFilter?: boolean
   placeholder?: string
+  emptyText?: string
   open?: boolean
   defaultOpen?: boolean
   side?: 'top' | 'right' | 'bottom' | 'left'
@@ -41,13 +43,22 @@ const props = withDefaults(defineProps<UiComboboxProps>(), {
   modelValue: undefined,
   options: () => [],
   ignoreFilter: false,
-  placeholder: 'Search...',
+  placeholder: undefined,
+  emptyText: undefined,
   open: undefined,
   defaultOpen: false,
   side: 'bottom',
   align: 'start',
   sideOffset: 4,
 })
+
+const { t } = useI18n({ useScope: 'global' })
+const resolvedPlaceholder = computed(
+  () => props.placeholder ?? t('ui.combobox.placeholder'),
+)
+const resolvedEmptyText = computed(
+  () => props.emptyText ?? t('ui.combobox.emptyText'),
+)
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string | string[]): void
@@ -226,7 +237,7 @@ function UiCustomComboboxTrigger(
     </UiCustomComboboxTrigger>
     <slot v-else name="input">
       <ComboboxInput
-        :placeholder="placeholder"
+        :placeholder="resolvedPlaceholder"
         :display-value="displayValue"
         class="flex h-9 w-full rounded-control border border-border bg-input px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
       />
@@ -242,14 +253,14 @@ function UiCustomComboboxTrigger(
       >
         <div v-if="$slots.trigger" class="p-1 border-b border-border mb-1">
           <ComboboxInput
-            :placeholder="placeholder"
+            :placeholder="resolvedPlaceholder"
             :display-value="displayValue"
             class="flex h-8 w-full rounded-xs border border-border bg-input px-2 py-1 text-xs shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
           />
         </div>
         <ComboboxViewport class="p-1">
           <ComboboxEmpty class="py-6 text-center text-sm text-muted-foreground">
-            <slot name="empty">No results found.</slot>
+            <slot name="empty">{{ resolvedEmptyText }}</slot>
           </ComboboxEmpty>
           <template
             v-for="[groupName, opts] in groupedOptions"

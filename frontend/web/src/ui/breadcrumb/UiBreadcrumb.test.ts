@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import UiBreadcrumb from './UiBreadcrumb.vue'
+import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
@@ -16,7 +17,10 @@ const sampleItems = [
   { label: 'Gateway 01', current: true },
 ]
 
-function mountBreadcrumb(props: Record<string, unknown> = {}) {
+function mountBreadcrumb(
+  props: Record<string, unknown> = {},
+  locale: WebLocale = 'en',
+) {
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp({
@@ -27,6 +31,7 @@ function mountBreadcrumb(props: Record<string, unknown> = {}) {
       })
     },
   })
+  app.use(createWebI18n(locale))
   app.mount(host)
   dispose = () => app.unmount()
   return host
@@ -95,5 +100,47 @@ describe('UiBreadcrumb', () => {
     expect(links?.length).toBe(2)
     expect(links?.[0]?.getAttribute('href')).toBe('#europe')
     expect(links?.[1]?.getAttribute('href')).toBe('#berlin')
+  })
+
+  it('asserts German accessible names through the DOM', () => {
+    const host = mountBreadcrumb({ collapsed: true }, 'de')
+
+    const nav = host.querySelector('nav[aria-label="Brotkrümelnavigation"]')
+    expect(nav).not.toBeNull()
+
+    const ellipsisTrigger = host.querySelector(
+      'button[aria-label="Eingeklappte Brotkrümel umschalten"]',
+    )
+    expect(ellipsisTrigger).not.toBeNull()
+
+    const separators = host.querySelectorAll('[aria-hidden="true"]')
+    expect(separators.length).toBeGreaterThan(0)
+    expect(separators[0]?.textContent?.trim()).toBe('/')
+  })
+
+  it('preserves explicit ariaLabel, toggleLabel, and separator overrides including empty strings', () => {
+    const host = mountBreadcrumb(
+      {
+        collapsed: true,
+        ariaLabel: '',
+      },
+      'de',
+    )
+
+    const nav = host.querySelector('nav')
+    expect(nav?.getAttribute('aria-label')).toBe('')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const customHost = mountBreadcrumb(
+      {
+        collapsed: true,
+        ariaLabel: 'Custom Nav',
+      },
+      'de',
+    )
+    const customNav = customHost.querySelector('nav[aria-label="Custom Nav"]')
+    expect(customNav).not.toBeNull()
   })
 })

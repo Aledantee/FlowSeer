@@ -69,3 +69,29 @@ export const Composed: Story = {
     `,
   }),
 }
+
+export const LongText: Story = {
+  args: {
+    items: [
+      {
+        label:
+          'Global Infrastructure Operations and Autonomous Fabric Management',
+        href: '#infra',
+      },
+      {
+        label: 'Continental Western European Telemetry Zone eu-west-01',
+        href: '#zone',
+      },
+      {
+        label: 'Metropolitan Core Data Center Berlin Tier-IV Facility',
+        href: '#dc',
+      },
+      {
+        label:
+          'Redundant Autonomous Border Gateway Router Cluster Node gw-ber-dc01-cluster-alpha',
+        current: true,
+      },
+    ],
+    collapsed: false,
+  },
+}

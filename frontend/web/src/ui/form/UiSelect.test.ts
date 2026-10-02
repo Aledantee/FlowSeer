@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, nextTick, ref } from 'vue'
 import UiSelect from './UiSelect.vue'
+import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
@@ -18,12 +19,14 @@ const options = [
 function mountSelect(
   props: Record<string, unknown> = {},
   parentContainer?: HTMLElement,
+  locale: WebLocale = 'en',
 ) {
   const host = parentContainer ?? document.createElement('div')
   if (!parentContainer) {
     document.body.append(host)
   }
   const app = createApp(UiSelect, props)
+  app.use(createWebI18n(locale))
   app.mount(host)
   dispose = () => {
     app.unmount()
@@ -197,5 +200,36 @@ describe('UiSelect', () => {
     expect(emittedEvent).not.toBeNull()
     expect(document.activeElement).toBe(customButton)
     customButton.remove()
+  })
+
+  it('renders default placeholder in en and de', async () => {
+    const hostEn = mountSelect({ options }, undefined, 'en')
+    const triggerEn = hostEn.querySelector('button')
+    expect(triggerEn?.textContent).toContain('Select an option...')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const hostDe = mountSelect({ options }, undefined, 'de')
+    const triggerDe = hostDe.querySelector('button')
+    expect(triggerDe?.textContent).toContain('Option auswählen...')
+  })
+
+  it('preserves explicit placeholder overrides across locales, including empty strings', async () => {
+    const hostEmpty = mountSelect({ options, placeholder: '' }, undefined, 'de')
+    const triggerEmpty = hostEmpty.querySelector('button')
+    expect(triggerEmpty?.textContent?.trim()).toBe('')
+    expect(triggerEmpty?.textContent).not.toContain('Option auswählen...')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const hostCustom = mountSelect(
+      { options, placeholder: 'Custom Site Selection' },
+      undefined,
+      'de',
+    )
+    const triggerCustom = hostCustom.querySelector('button')
+    expect(triggerCustom?.textContent).toContain('Custom Site Selection')
   })
 })

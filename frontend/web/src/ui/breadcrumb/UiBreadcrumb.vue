@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, provide, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import UiBreadcrumbList from './UiBreadcrumbList.vue'
 import UiBreadcrumbItem from './UiBreadcrumbItem.vue'
 import UiBreadcrumbLink from './UiBreadcrumbLink.vue'
@@ -18,13 +19,20 @@ export interface UiBreadcrumbProps {
   items?: BreadcrumbItemData[]
   collapsed?: boolean
   collapseWidth?: number
+  ariaLabel?: string
 }
 
 const props = withDefaults(defineProps<UiBreadcrumbProps>(), {
   items: () => [],
   collapsed: undefined,
   collapseWidth: 380,
+  ariaLabel: undefined,
 })
+
+const { t } = useI18n({ useScope: 'global' })
+const resolvedAriaLabel = computed(
+  () => props.ariaLabel ?? t('ui.breadcrumb.ariaLabel'),
+)
 
 const navRef = ref<HTMLElement | null>(null)
 const autoCollapsed = ref(false)
@@ -67,7 +75,7 @@ const middleItems = computed(() =>
 </script>
 
 <template>
-  <nav ref="navRef" aria-label="Breadcrumb">
+  <nav ref="navRef" :aria-label="resolvedAriaLabel">
     <slot :collapsed="isCollapsed">
       <UiBreadcrumbList v-if="items && items.length">
         <template v-if="isCollapsed && items.length > 2">

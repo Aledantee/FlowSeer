@@ -100,3 +100,46 @@ export const Open: Story = {
     `,
   }),
 }
+
+export const DefaultLabelsOpen: Story = {
+  name: 'Default Labels (Open)',
+  args: {
+    title: 'Discard Changes',
+    description:
+      'Are you sure you want to discard unsaved telemetry profile adjustments?',
+    destructive: false,
+    defaultOpen: true,
+  },
+  render: (args) => ({
+    components: { UiAlertDialog },
+    setup() {
+      return { args }
+    },
+    template: `
+      <UiAlertDialog v-bind="args" />
+    `,
+  }),
+}
+
+export const LongText: Story = {
+  args: {
+    title:
+      'Permanent Network Core Infrastructure Decommissioning and Route Evacuation Notice for Gateway Node gw-dc01-cluster-alpha',
+    description:
+      'This critical operation will permanently detach the selected redundant gateway cluster node from live autonomous telemetry routing, tear down all active BGP peering sessions, flush ephemeral routing table caches across upstream fabrics, and invalidate active tenant interconnect tunnels immediately.',
+    confirmText:
+      'Permanently Decommission Core Gateway Node and Drain Peer Routes',
+    cancelText: 'Retain Active Cluster Node and Cancel Evacuation',
+    destructive: true,
+    defaultOpen: true,
+  },
+  render: (args) => ({
+    components: { UiAlertDialog },
+    setup() {
+      return { args }
+    },
+    template: `
+      <UiAlertDialog v-bind="args" />
+    `,
+  }),
+}

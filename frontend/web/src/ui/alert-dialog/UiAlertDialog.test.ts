@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, h, nextTick, ref } from 'vue'
 import UiAlertDialog, { type UiAlertDialogProps } from './UiAlertDialog.vue'
+import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
@@ -12,6 +13,7 @@ afterEach(() => {
 function mountAlertDialog(
   props: Partial<UiAlertDialogProps> & Record<string, unknown> = {},
   slots: Record<string, () => unknown> = {},
+  locale: WebLocale = 'en',
 ) {
   const host = document.createElement('div')
   document.body.append(host)
@@ -20,6 +22,7 @@ function mountAlertDialog(
       return h(UiAlertDialog, props as UiAlertDialogProps, slots)
     },
   })
+  app.use(createWebI18n(locale))
   app.mount(host)
   dispose = () => app.unmount()
   return host
@@ -158,5 +161,74 @@ describe('UiAlertDialog', () => {
     expect(emittedEvent).not.toBeNull()
     expect(document.activeElement).toBe(customButton)
     customButton.remove()
+  })
+
+  it('renders default confirm and cancel button text in en and de', async () => {
+    mountAlertDialog(
+      {
+        title: 'Default Action',
+        description: 'Testing default labels',
+        defaultOpen: true,
+      },
+      {},
+      'en',
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const buttonsEn = Array.from(document.body.querySelectorAll('button'))
+    expect(buttonsEn.some((b) => b.textContent?.trim() === 'Confirm')).toBe(
+      true,
+    )
+    expect(buttonsEn.some((b) => b.textContent?.trim() === 'Cancel')).toBe(true)
+
+    dispose()
+    document.body.replaceChildren()
+
+    mountAlertDialog(
+      {
+        title: 'Standardaktion',
+        description: 'Test der Standardbeschriftungen',
+        defaultOpen: true,
+      },
+      {},
+      'de',
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const buttonsDe = Array.from(document.body.querySelectorAll('button'))
+    expect(buttonsDe.some((b) => b.textContent?.trim() === 'Bestätigen')).toBe(
+      true,
+    )
+    expect(buttonsDe.some((b) => b.textContent?.trim() === 'Abbrechen')).toBe(
+      true,
+    )
+  })
+
+  it('preserves explicit confirmText and cancelText overrides across locales, including empty strings', async () => {
+    mountAlertDialog(
+      {
+        title: 'Custom Action',
+        description: 'Testing overrides',
+        confirmText: 'Proceed',
+        cancelText: '',
+        defaultOpen: true,
+      },
+      {},
+      'de',
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const buttons = Array.from(document.body.querySelectorAll('button'))
+    expect(buttons.some((b) => b.textContent?.trim() === 'Proceed')).toBe(true)
+    expect(buttons.some((b) => b.textContent?.trim() === '')).toBe(true)
+    expect(buttons.some((b) => b.textContent?.trim() === 'Bestätigen')).toBe(
+      false,
+    )
+    expect(buttons.some((b) => b.textContent?.trim() === 'Abbrechen')).toBe(
+      false,
+    )
   })
 })

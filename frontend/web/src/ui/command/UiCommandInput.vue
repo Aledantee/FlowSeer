@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { injectComboboxRootContext, useId } from 'reka-ui'
-import { ComboboxInput } from 'reka-ui'
+import { computed } from 'vue'
+import { ComboboxInput, injectComboboxRootContext, useId } from 'reka-ui'
+import { useI18n } from 'vue-i18n'
 
 defineOptions({
   inheritAttrs: false,
@@ -13,12 +14,18 @@ export interface UiCommandInputProps {
   autoFocus?: boolean
 }
 
-withDefaults(defineProps<UiCommandInputProps>(), {
+const props = withDefaults(defineProps<UiCommandInputProps>(), {
   modelValue: undefined,
-  placeholder: 'Type a command or search...',
-  label: 'Search commands',
+  placeholder: undefined,
+  label: undefined,
   autoFocus: false,
 })
+
+const { t } = useI18n({ useScope: 'global' })
+const resolvedPlaceholder = computed(
+  () => props.placeholder ?? t('ui.commandInput.placeholder'),
+)
+const resolvedLabel = computed(() => props.label ?? t('ui.commandInput.label'))
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
@@ -47,8 +54,8 @@ rootContext.contentId ||= useId(undefined, 'reka-command-content')
     </svg>
     <ComboboxInput
       :model-value="modelValue"
-      :placeholder="placeholder"
-      :aria-label="label"
+      :placeholder="resolvedPlaceholder"
+      :aria-label="resolvedLabel"
       :auto-focus="autoFocus"
       v-bind="$attrs"
       class="flex h-11 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
