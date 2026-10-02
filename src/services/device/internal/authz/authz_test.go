@@ -1,6 +1,7 @@
 package authz_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -57,6 +58,7 @@ type fakeChecker struct {
 	mu           sync.Mutex
 	recorded     []authz.Query
 	batches      [][]authz.Query
+	groups       [][]authz.Query
 	deny         func(q authz.Query) bool
 	fail         func(q authz.Query) error
 	batchAnswers func(queries []authz.Query) []bool
@@ -65,6 +67,7 @@ type fakeChecker struct {
 func (f *fakeChecker) Check(_ context.Context, q authz.Query) (bool, error) {
 	f.mu.Lock()
 	f.recorded = append(f.recorded, q)
+	f.groups = append(f.groups, []authz.Query{q})
 	denyFn := f.deny
 	failFn := f.fail
 	f.mu.Unlock()
@@ -84,6 +87,7 @@ func (f *fakeChecker) BatchCheck(_ context.Context, queries []authz.Query) ([]bo
 	f.mu.Lock()
 	f.recorded = append(f.recorded, queries...)
 	f.batches = append(f.batches, queries)
+	f.groups = append(f.groups, slices.Clone(queries))
 	denyFn := f.deny
 	failFn := f.fail
 	batchAnswersFn := f.batchAnswers
@@ -134,6 +138,20 @@ func (f *fakeChecker) Batches() [][]authz.Query {
 	return copied
 }
 
+func (f *fakeChecker) Groups() [][]authz.Query {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	copied := make([][]authz.Query, len(f.groups))
+	for i, g := range f.groups {
+		copied[i] = make([]authz.Query, len(g))
+		for j, q := range g {
+			copied[i][j] = q
+			copied[i][j].ContextualTuples = slices.Clone(q.ContextualTuples)
+		}
+	}
+	return copied
+}
+
 func (f *fakeChecker) SetDeny(fn func(q authz.Query) bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -157,6 +175,7 @@ func (f *fakeChecker) Reset() {
 	defer f.mu.Unlock()
 	f.recorded = nil
 	f.batches = nil
+	f.groups = nil
 	f.deny = nil
 	f.fail = nil
 	f.batchAnswers = nil
@@ -238,6 +257,79 @@ func validRequest[T any](t *testing.T, msg *T) *connect.Request[T] {
 	return connect.NewRequest(msg)
 }
 
+func validResponse[T any](t *testing.T, msg *T) *connect.Response[T] {
+	t.Helper()
+	if protoMsg, ok := any(msg).(proto.Message); ok && protoMsg != nil {
+		if err := protovalidate.Validate(protoMsg); err != nil {
+			t.Fatalf("response %T fails protovalidate: %v", msg, err)
+		}
+	}
+	return connect.NewResponse(msg)
+}
+
+func validEdgeRecord(t *testing.T) *edgemodelv1.EdgeRecord {
+	t.Helper()
+	rec := edgemodelv1.EdgeRecord_builder{
+		Config: edgemodelv1.EdgeConfig_builder{
+			Ref: edgeRef(t),
+		}.Build(),
+		State: edgemodelv1.EdgeState_builder{
+			Ref:       edgeRef(t),
+			Lifecycle: edgemodelv1.EdgeLifecycle_EDGE_LIFECYCLE_PENDING.Enum(),
+		}.Build(),
+	}.Build()
+	if err := protovalidate.Validate(rec); err != nil {
+		t.Fatalf("validEdgeRecord fails protovalidate: %v", err)
+	}
+	return rec
+}
+
+func validEdgeProvisioning(t *testing.T) *edgemodelv1.EdgeProvisioning {
+	t.Helper()
+	anchor := bytes.Repeat([]byte{3}, 32)
+	prov := edgemodelv1.EdgeProvisioning_builder{
+		CentralUrl:   proto.String("https://central.example.net"),
+		SetupKey:     proto.String("fse1_abcdefghijklmnopqrstuvwxyz_abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst"),
+		TrustAnchors: [][]byte{anchor},
+	}.Build()
+	if err := protovalidate.Validate(prov); err != nil {
+		t.Fatalf("validEdgeProvisioning fails protovalidate: %v", err)
+	}
+	return prov
+}
+
+func validCaptureSessionRecord(t *testing.T) *capturemodelv1.CaptureSessionRecord {
+	t.Helper()
+	rec := capturemodelv1.CaptureSessionRecord_builder{
+		Config: capturemodelv1.CaptureSessionConfig_builder{
+			Ref: sessionRef(t, validSessionID),
+			Source: capturemodelv1.CaptureSource_builder{
+				LocalInterface: capturemodelv1.LocalInterfaceSource_builder{
+					InterfaceName: proto.String("eth0"),
+				}.Build(),
+			}.Build(),
+			Budget: capturemodelv1.CaptureBudget_builder{
+				MaxPackets: proto.Uint64(100),
+			}.Build(),
+			Authorization: capturemodelv1.CaptureAuthorization_builder{
+				RequestedBy: identitymodelv1.OperatorRef_builder{
+					Subject: proto.String(testPrincipalID),
+				}.Build(),
+				Reason:               proto.String("authorized test session"),
+				FullPayloadRequested: proto.Bool(false),
+			}.Build(),
+		}.Build(),
+		State: capturemodelv1.CaptureSessionState_builder{
+			Ref:       sessionRef(t, validSessionID),
+			Lifecycle: capturemodelv1.CaptureLifecycle_CAPTURE_LIFECYCLE_PENDING.Enum(),
+		}.Build(),
+	}.Build()
+	if err := protovalidate.Validate(rec); err != nil {
+		t.Fatalf("validCaptureSessionRecord fails protovalidate: %v", err)
+	}
+	return rec
+}
+
 func validCreateCaptureSessionRequest(t *testing.T) *capturev1.CreateCaptureSessionRequest {
 	t.Helper()
 	return capturev1.CreateCaptureSessionRequest_builder{
@@ -309,6 +401,7 @@ func retryDispositionOf(t *testing.T, err error) errsv1.RetryDisposition {
 }
 
 type testHandlers struct {
+	t *testing.T
 	capturev1connect.UnimplementedCaptureServiceHandler
 	edgev1connect.UnimplementedEdgeAdminServiceHandler
 	identityv1connect.UnimplementedTenantServiceHandler
@@ -325,8 +418,9 @@ type testHandlers struct {
 	admittedTenants map[string]string
 }
 
-func newTestHandlers() *testHandlers {
+func newTestHandlers(t *testing.T) *testHandlers {
 	return &testHandlers{
+		t:               t,
 		ranHandlers:     make(map[string]bool),
 		admittedTenants: make(map[string]string),
 	}
@@ -410,8 +504,8 @@ func (h *testHandlers) CreateCaptureSession(ctx context.Context, req *connect.Re
 	if fn != nil {
 		return fn(ctx, req)
 	}
-	return connect.NewResponse(capturev1.CreateCaptureSessionResponse_builder{
-		Session: capturemodelv1.CaptureSessionRecord_builder{}.Build(),
+	return validResponse(h.t, capturev1.CreateCaptureSessionResponse_builder{
+		Session: validCaptureSessionRecord(h.t),
 	}.Build()), nil
 }
 
@@ -423,8 +517,8 @@ func (h *testHandlers) GetCaptureSession(ctx context.Context, req *connect.Reque
 	if fn != nil {
 		return fn(ctx, req)
 	}
-	return connect.NewResponse(capturev1.GetCaptureSessionResponse_builder{
-		Session: capturemodelv1.CaptureSessionRecord_builder{}.Build(),
+	return validResponse(h.t, capturev1.GetCaptureSessionResponse_builder{
+		Session: validCaptureSessionRecord(h.t),
 	}.Build()), nil
 }
 
@@ -436,7 +530,7 @@ func (h *testHandlers) ListCaptureSessions(ctx context.Context, req *connect.Req
 	if fn != nil {
 		return fn(ctx, req)
 	}
-	return connect.NewResponse(capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
+	return validResponse(h.t, capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
 }
 
 func (h *testHandlers) DownloadCaptureSession(ctx context.Context, _ *connect.Request[capturev1.DownloadCaptureSessionRequest], _ *connect.ServerStream[capturev1.DownloadCaptureSessionResponse]) error {
@@ -452,8 +546,9 @@ func (h *testHandlers) CreateEdge(ctx context.Context, req *connect.Request[edge
 	if fn != nil {
 		return fn(ctx, req)
 	}
-	return connect.NewResponse(edgev1.CreateEdgeResponse_builder{
-		Edge: edgemodelv1.EdgeRecord_builder{}.Build(),
+	return validResponse(h.t, edgev1.CreateEdgeResponse_builder{
+		Edge:         validEdgeRecord(h.t),
+		Provisioning: validEdgeProvisioning(h.t),
 	}.Build()), nil
 }
 
@@ -465,8 +560,8 @@ func (h *testHandlers) GetEdge(ctx context.Context, req *connect.Request[edgev1.
 	if fn != nil {
 		return fn(ctx, req)
 	}
-	return connect.NewResponse(edgev1.GetEdgeResponse_builder{
-		Edge: edgemodelv1.EdgeRecord_builder{}.Build(),
+	return validResponse(h.t, edgev1.GetEdgeResponse_builder{
+		Edge: validEdgeRecord(h.t),
 	}.Build()), nil
 }
 
@@ -478,7 +573,7 @@ func (h *testHandlers) ListTenants(ctx context.Context, req *connect.Request[ide
 	if fn != nil {
 		return fn(ctx, req)
 	}
-	return connect.NewResponse(identityv1.ListTenantsResponse_builder{}.Build()), nil
+	return validResponse(h.t, identityv1.ListTenantsResponse_builder{}.Build()), nil
 }
 
 func buildSyntheticMethod(t *testing.T, name string, rule *authzv1.Rule) protoreflect.MethodDescriptor {
@@ -535,7 +630,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 	t.Helper()
 
 	checker := &fakeChecker{}
-	handlers := newTestHandlers()
+	handlers := newTestHandlers(t)
 	authzInterceptor := authz.NewInterceptor(checker)
 	authnInterceptor := &testAuthnInterceptor{
 		defaultPrincipal: authn.Principal{
@@ -564,7 +659,9 @@ func setupTestEnv(t *testing.T) *testEnv {
 	mux.Handle(unspecifiedProc, connect.NewUnaryHandler(
 		unspecifiedProc,
 		func(_ context.Context, _ *connect.Request[edgev1.GetEdgeRequest]) (*connect.Response[edgev1.GetEdgeResponse], error) {
-			return connect.NewResponse(edgev1.GetEdgeResponse_builder{}.Build()), nil
+			return validResponse(t, edgev1.GetEdgeResponse_builder{
+				Edge: validEdgeRecord(t),
+			}.Build()), nil
 		},
 		connect.WithSchema(unspecifiedMD),
 		connect.WithInterceptors(authnInterceptor, authzInterceptor),
@@ -579,7 +676,9 @@ func setupTestEnv(t *testing.T) *testEnv {
 	mux.Handle(mode99Proc, connect.NewUnaryHandler(
 		mode99Proc,
 		func(_ context.Context, _ *connect.Request[edgev1.GetEdgeRequest]) (*connect.Response[edgev1.GetEdgeResponse], error) {
-			return connect.NewResponse(edgev1.GetEdgeResponse_builder{}.Build()), nil
+			return validResponse(t, edgev1.GetEdgeResponse_builder{
+				Edge: validEdgeRecord(t),
+			}.Build()), nil
 		},
 		connect.WithSchema(mode99MD),
 		connect.WithInterceptors(authnInterceptor, authzInterceptor),
@@ -602,7 +701,9 @@ func setupTestEnv(t *testing.T) *testEnv {
 			if fn != nil {
 				return fn(ctx, req)
 			}
-			return connect.NewResponse(edgev1.GetEdgeResponse_builder{}.Build()), nil
+			return validResponse(t, edgev1.GetEdgeResponse_builder{
+				Edge: validEdgeRecord(t),
+			}.Build()), nil
 		},
 		connect.WithSchema(loadedMD),
 		connect.WithInterceptors(authnInterceptor, authzInterceptor),
@@ -613,7 +714,9 @@ func setupTestEnv(t *testing.T) *testEnv {
 	mux.Handle(noRuleProc, connect.NewUnaryHandler(
 		noRuleProc,
 		func(_ context.Context, _ *connect.Request[edgev1.GetEdgeRequest]) (*connect.Response[edgev1.GetEdgeResponse], error) {
-			return connect.NewResponse(edgev1.GetEdgeResponse_builder{}.Build()), nil
+			return validResponse(t, edgev1.GetEdgeResponse_builder{
+				Edge: validEdgeRecord(t),
+			}.Build()), nil
 		},
 		connect.WithSchema(noRuleMD),
 		connect.WithInterceptors(authnInterceptor, authzInterceptor),
@@ -1036,8 +1139,8 @@ func TestObligationAndDenialHandling(t *testing.T) {
 		env.handlers.SetCreateCaptureFn(func(ctx context.Context, _ *connect.Request[capturev1.CreateCaptureSessionRequest]) (*connect.Response[capturev1.CreateCaptureSessionResponse], error) {
 			admitted, _ := tenant.FromContext(ctx)
 			_ = authz.Require(ctx, "full_payload", "tenant", admitted)
-			return connect.NewResponse(capturev1.CreateCaptureSessionResponse_builder{
-				Session: capturemodelv1.CaptureSessionRecord_builder{}.Build(),
+			return validResponse(t, capturev1.CreateCaptureSessionResponse_builder{
+				Session: validCaptureSessionRecord(t),
 			}.Build()), nil
 		})
 
@@ -1067,8 +1170,9 @@ func TestObligationAndDenialHandling(t *testing.T) {
 
 		env.handlers.SetCreateEdgeFn(func(ctx context.Context, _ *connect.Request[edgev1.CreateEdgeRequest]) (*connect.Response[edgev1.CreateEdgeResponse], error) {
 			_ = authz.Require(ctx, "view", "edge", validEdgeID)
-			return connect.NewResponse(edgev1.CreateEdgeResponse_builder{
-				Edge: edgemodelv1.EdgeRecord_builder{}.Build(),
+			return validResponse(t, edgev1.CreateEdgeResponse_builder{
+				Edge:         validEdgeRecord(t),
+				Provisioning: validEdgeProvisioning(t),
 			}.Build()), nil
 		})
 
@@ -1100,7 +1204,7 @@ func TestObligationAndDenialHandling(t *testing.T) {
 
 		env.handlers.SetListCaptureFn(func(ctx context.Context, _ *connect.Request[capturev1.ListCaptureSessionsRequest]) (*connect.Response[capturev1.ListCaptureSessionsResponse], error) {
 			_ = authz.Require(ctx, "view", "edge", validEdgeID)
-			return connect.NewResponse(capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
+			return validResponse(t, capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
 		})
 
 		req := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
@@ -1132,7 +1236,9 @@ func TestObligationAndDenialHandling(t *testing.T) {
 			if err := authz.Require(ctx, "full_payload", "tenant", admitted); err != nil {
 				return nil, err
 			}
-			return connect.NewResponse(capturev1.CreateCaptureSessionResponse_builder{}.Build()), nil
+			return validResponse(t, capturev1.CreateCaptureSessionResponse_builder{
+				Session: validCaptureSessionRecord(t),
+			}.Build()), nil
 		})
 
 		req := validRequest(t, validCreateCaptureSessionRequest(t))
@@ -1175,7 +1281,9 @@ func TestObligationAndDenialHandling(t *testing.T) {
 			if err := authz.Require(ctx, "full_payload", "tenant", otherTenantID); err != nil {
 				return nil, err
 			}
-			return connect.NewResponse(capturev1.CreateCaptureSessionResponse_builder{}.Build()), nil
+			return validResponse(t, capturev1.CreateCaptureSessionResponse_builder{
+				Session: validCaptureSessionRecord(t),
+			}.Build()), nil
 		})
 
 		req := validRequest(t, validCreateCaptureSessionRequest(t))
@@ -1206,7 +1314,7 @@ func TestObligationAndDenialHandling(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return connect.NewResponse(capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
+			return validResponse(t, capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
 		})
 
 		req := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
@@ -1247,7 +1355,7 @@ func TestObligationAndDenialHandling(t *testing.T) {
 				if err := authz.Require(ctx, "capture", "edge", validEdgeID); err != nil {
 					return nil, err
 				}
-				return connect.NewResponse(capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
+				return validResponse(t, capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
 			})
 
 			req := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
@@ -1287,7 +1395,7 @@ func TestObligationAndDenialHandling(t *testing.T) {
 				if err := authz.Require(ctx, "capture", "edge", validEdgeID); err != nil {
 					return nil, err
 				}
-				return connect.NewResponse(capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
+				return validResponse(t, capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
 			})
 
 			req := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
@@ -1315,7 +1423,7 @@ func TestObligationAndDenialHandling(t *testing.T) {
 				if err := authz.Require(ctx, "capture", "edge", validEdgeID); err != nil {
 					return nil, err
 				}
-				return connect.NewResponse(capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
+				return validResponse(t, capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
 			})
 
 			req := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
@@ -1335,21 +1443,43 @@ func TestObligationAndDenialHandling(t *testing.T) {
 	})
 }
 
+func tuplesMatch(a, b []authz.Tuple) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	counts := make(map[authz.Tuple]int, len(a))
+	for _, t := range a {
+		counts[t]++
+	}
+	for _, t := range b {
+		counts[t]--
+		if counts[t] < 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func queryEquals(a, b authz.Query) bool {
 	if a.Object != b.Object || a.Relation != b.Relation || a.User != b.User {
 		return false
 	}
-	return slices.Equal(a.ContextualTuples, b.ContextualTuples)
+	return tuplesMatch(a.ContextualTuples, b.ContextualTuples)
 }
 
-func assertTuplesMatch(t *testing.T, queryIndex int, gotTuples, wantTuples []authz.Tuple) {
+func assertGroupsEqual(t *testing.T, got, want [][]authz.Query) {
 	t.Helper()
-	if len(gotTuples) != len(wantTuples) {
-		t.Fatalf("query %d got %d tuples, want %d", queryIndex, len(gotTuples), len(wantTuples))
+	if len(got) != len(want) {
+		t.Fatalf("got %d query groups, want %d: got=%+v want=%+v", len(got), len(want), got, want)
 	}
-	for _, want := range wantTuples {
-		if !slices.Contains(gotTuples, want) {
-			t.Errorf("query %d tuples %v do not contain %+v", queryIndex, gotTuples, want)
+	for g := range want {
+		if len(got[g]) != len(want[g]) {
+			t.Fatalf("group %d got %d queries, want %d: got=%+v want=%+v", g, len(got[g]), len(want[g]), got[g], want[g])
+		}
+		for j := range want[g] {
+			if !queryEquals(got[g][j], want[g][j]) {
+				t.Errorf("group %d query %d = %+v, want %+v", g, j, got[g][j], want[g][j])
+			}
 		}
 	}
 }
@@ -1367,7 +1497,8 @@ type callShape struct {
 	wantQueries        []authz.Query
 	interceptorQueries int
 	usesFilter         bool
-	run                func(t *testing.T, env *testEnv) shapeOutcome
+	usesRequire        bool
+	run                func(t *testing.T, env *testEnv, defaultPrincipal bool) shapeOutcome
 }
 
 func TestQueryPropertyEnumeration(t *testing.T) {
@@ -1402,7 +1533,8 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 			},
 			interceptorQueries: 1,
 			usesFilter:         false,
-			run: func(t *testing.T, env *testEnv) shapeOutcome {
+			usesRequire:        false,
+			run: func(t *testing.T, env *testEnv, defaultPrincipal bool) shapeOutcome {
 				var (
 					mu         sync.Mutex
 					handlerRan bool
@@ -1411,11 +1543,13 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 					mu.Lock()
 					handlerRan = true
 					mu.Unlock()
-					return connect.NewResponse(identityv1.ListTenantsResponse_builder{}.Build()), nil
+					return validResponse(t, identityv1.ListTenantsResponse_builder{}.Build()), nil
 				})
 				req := validRequest(t, identityv1.ListTenantsRequest_builder{}.Build())
-				req.Header().Set("X-Test-Principal-Tenants", validTenantID+","+validTenantID2)
-				req.Header().Set("X-Test-Principal-Platform", "true")
+				if !defaultPrincipal {
+					req.Header().Set("X-Test-Principal-Tenants", validTenantID+","+validTenantID2)
+					req.Header().Set("X-Test-Principal-Platform", "true")
+				}
 				_, err := env.tenantCli.ListTenants(context.Background(), req)
 				mu.Lock()
 				ran := handlerRan
@@ -1441,7 +1575,8 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 			},
 			interceptorQueries: 2,
 			usesFilter:         false,
-			run: func(t *testing.T, env *testEnv) shapeOutcome {
+			usesRequire:        false,
+			run: func(t *testing.T, env *testEnv, defaultPrincipal bool) shapeOutcome {
 				var (
 					mu         sync.Mutex
 					handlerRan bool
@@ -1450,16 +1585,19 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 					mu.Lock()
 					handlerRan = true
 					mu.Unlock()
-					return connect.NewResponse(edgev1.CreateEdgeResponse_builder{
-						Edge: edgemodelv1.EdgeRecord_builder{}.Build(),
+					return validResponse(t, edgev1.CreateEdgeResponse_builder{
+						Edge:         validEdgeRecord(t),
+						Provisioning: validEdgeProvisioning(t),
 					}.Build()), nil
 				})
 				req := validRequest(t, edgev1.CreateEdgeRequest_builder{
 					Name: proto.String("edge-alpha"),
 				}.Build())
 				req.Header().Set("X-FlowSeer-Tenant", validTenantID)
-				req.Header().Set("X-Test-Principal-Tenants", validTenantID+","+validTenantID2)
-				req.Header().Set("X-Test-Principal-Platform", "true")
+				if !defaultPrincipal {
+					req.Header().Set("X-Test-Principal-Tenants", validTenantID+","+validTenantID2)
+					req.Header().Set("X-Test-Principal-Platform", "true")
+				}
 				_, err := env.edgeCli.CreateEdge(context.Background(), req)
 				mu.Lock()
 				ran := handlerRan
@@ -1491,7 +1629,8 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 			},
 			interceptorQueries: 3,
 			usesFilter:         false,
-			run: func(t *testing.T, env *testEnv) shapeOutcome {
+			usesRequire:        false,
+			run: func(t *testing.T, env *testEnv, defaultPrincipal bool) shapeOutcome {
 				var (
 					mu         sync.Mutex
 					handlerRan bool
@@ -1500,16 +1639,18 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 					mu.Lock()
 					handlerRan = true
 					mu.Unlock()
-					return connect.NewResponse(edgev1.GetEdgeResponse_builder{
-						Edge: edgemodelv1.EdgeRecord_builder{}.Build(),
+					return validResponse(t, edgev1.GetEdgeResponse_builder{
+						Edge: validEdgeRecord(t),
 					}.Build()), nil
 				})
 				req := validRequest(t, edgev1.GetEdgeRequest_builder{
 					Edge: edgeRef(t),
 				}.Build())
 				req.Header().Set("X-FlowSeer-Tenant", validTenantID)
-				req.Header().Set("X-Test-Principal-Tenants", validTenantID+","+validTenantID2)
-				req.Header().Set("X-Test-Principal-Platform", "true")
+				if !defaultPrincipal {
+					req.Header().Set("X-Test-Principal-Tenants", validTenantID+","+validTenantID2)
+					req.Header().Set("X-Test-Principal-Platform", "true")
+				}
 				_, err := env.edgeCli.GetEdge(context.Background(), req)
 				mu.Lock()
 				ran := handlerRan
@@ -1547,7 +1688,8 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 			},
 			interceptorQueries: 3,
 			usesFilter:         false,
-			run: func(t *testing.T, env *testEnv) shapeOutcome {
+			usesRequire:        true,
+			run: func(t *testing.T, env *testEnv, defaultPrincipal bool) shapeOutcome {
 				var (
 					mu         sync.Mutex
 					handlerRan bool
@@ -1563,14 +1705,16 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 					if rErr != nil {
 						return nil, rErr
 					}
-					return connect.NewResponse(capturev1.CreateCaptureSessionResponse_builder{
-						Session: capturemodelv1.CaptureSessionRecord_builder{}.Build(),
+					return validResponse(t, capturev1.CreateCaptureSessionResponse_builder{
+						Session: validCaptureSessionRecord(t),
 					}.Build()), nil
 				})
 				req := validRequest(t, validCreateCaptureSessionRequest(t))
 				req.Header().Set("X-FlowSeer-Tenant", validTenantID)
-				req.Header().Set("X-Test-Principal-Tenants", validTenantID+","+validTenantID2)
-				req.Header().Set("X-Test-Principal-Platform", "true")
+				if !defaultPrincipal {
+					req.Header().Set("X-Test-Principal-Tenants", validTenantID+","+validTenantID2)
+					req.Header().Set("X-Test-Principal-Platform", "true")
+				}
 				_, err := env.captureCli.CreateCaptureSession(context.Background(), req)
 				mu.Lock()
 				ran := handlerRan
@@ -1603,7 +1747,8 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 			},
 			interceptorQueries: 1,
 			usesFilter:         true,
-			run: func(t *testing.T, env *testEnv) shapeOutcome {
+			usesRequire:        false,
+			run: func(t *testing.T, env *testEnv, defaultPrincipal bool) shapeOutcome {
 				var (
 					mu          sync.Mutex
 					handlerRan  bool
@@ -1620,12 +1765,14 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 					if fErr != nil {
 						return nil, fErr
 					}
-					return connect.NewResponse(capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
+					return validResponse(t, capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
 				})
 				req := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
 				req.Header().Set("X-FlowSeer-Tenant", validTenantID)
-				req.Header().Set("X-Test-Principal-Tenants", validTenantID+","+validTenantID2)
-				req.Header().Set("X-Test-Principal-Platform", "true")
+				if !defaultPrincipal {
+					req.Header().Set("X-Test-Principal-Tenants", validTenantID+","+validTenantID2)
+					req.Header().Set("X-Test-Principal-Platform", "true")
+				}
 				_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 				mu.Lock()
 				ran := handlerRan
@@ -1659,7 +1806,8 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 			},
 			interceptorQueries: 1,
 			usesFilter:         false,
-			run: func(t *testing.T, env *testEnv) shapeOutcome {
+			usesRequire:        true,
+			run: func(t *testing.T, env *testEnv, defaultPrincipal bool) shapeOutcome {
 				var (
 					mu         sync.Mutex
 					handlerRan bool
@@ -1674,12 +1822,14 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 					if rErr != nil {
 						return nil, rErr
 					}
-					return connect.NewResponse(capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
+					return validResponse(t, capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
 				})
 				req := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
 				req.Header().Set("X-FlowSeer-Tenant", validTenantID)
-				req.Header().Set("X-Test-Principal-Tenants", validTenantID+","+validTenantID2)
-				req.Header().Set("X-Test-Principal-Platform", "true")
+				if !defaultPrincipal {
+					req.Header().Set("X-Test-Principal-Tenants", validTenantID+","+validTenantID2)
+					req.Header().Set("X-Test-Principal-Platform", "true")
+				}
 				_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 				mu.Lock()
 				ran := handlerRan
@@ -1712,7 +1862,8 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 			},
 			interceptorQueries: 1,
 			usesFilter:         false,
-			run: func(t *testing.T, env *testEnv) shapeOutcome {
+			usesRequire:        true,
+			run: func(t *testing.T, env *testEnv, defaultPrincipal bool) shapeOutcome {
 				var (
 					mu         sync.Mutex
 					handlerRan bool
@@ -1727,14 +1878,18 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 					if rErr != nil {
 						return nil, rErr
 					}
-					return connect.NewResponse(edgev1.GetEdgeResponse_builder{}.Build()), nil
+					return validResponse(t, edgev1.GetEdgeResponse_builder{
+						Edge: validEdgeRecord(t),
+					}.Build()), nil
 				})
 				req := validRequest(t, edgev1.GetEdgeRequest_builder{
 					Edge: edgeRef(t),
 				}.Build())
 				req.Header().Set("X-FlowSeer-Tenant", validTenantID)
-				req.Header().Set("X-Test-Principal-Tenants", validTenantID+","+validTenantID2)
-				req.Header().Set("X-Test-Principal-Platform", "true")
+				if !defaultPrincipal {
+					req.Header().Set("X-Test-Principal-Tenants", validTenantID+","+validTenantID2)
+					req.Header().Set("X-Test-Principal-Platform", "true")
+				}
 				_, err := env.loadedCli.CallUnary(context.Background(), req)
 				mu.Lock()
 				ran := handlerRan
@@ -1748,12 +1903,25 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 	for _, shape := range shapes {
 		t.Run(shape.name, func(t *testing.T) {
 			allowAllEnv := setupTestEnv(t)
-			allowAllOut := shape.run(t, allowAllEnv)
+			allowAllOut := shape.run(t, allowAllEnv, false)
 			if allowAllOut.callErr != nil {
 				t.Fatalf("allow-all call failed: %v", allowAllOut.callErr)
 			}
 			if !allowAllOut.handlerRan {
 				t.Fatal("allow-all handler did not run")
+			}
+			if shape.usesFilter {
+				if !slices.Equal(allowAllOut.filteredIDs, []string{validEdgeID}) {
+					t.Errorf("allow-all filtered IDs = %v, want [%s]", allowAllOut.filteredIDs, validEdgeID)
+				}
+				if allowAllOut.filterErr != nil {
+					t.Errorf("allow-all filter error = %v, want nil", allowAllOut.filterErr)
+				}
+			}
+			if shape.usesRequire {
+				if allowAllOut.requireErr != nil {
+					t.Errorf("allow-all require error = %v, want nil", allowAllOut.requireErr)
+				}
 			}
 
 			recorded := allowAllEnv.checker.Recorded()
@@ -1766,13 +1934,63 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 				}
 			}
 
-			for i, q := range recorded {
-				assertTuplesMatch(t, i, q.ContextualTuples, wantTuples)
+			allowAllGroups := allowAllEnv.checker.Groups()
+
+			// Second allow-all pass with the default principal (one tenant, no platform claim).
+			defaultAllowAllEnv := setupTestEnv(t)
+			defaultAllowAllOut := shape.run(t, defaultAllowAllEnv, true)
+			if defaultAllowAllOut.callErr != nil {
+				t.Fatalf("default-principal allow-all call failed: %v", defaultAllowAllOut.callErr)
+			}
+			if !defaultAllowAllOut.handlerRan {
+				t.Fatal("default-principal allow-all handler did not run")
+			}
+			if shape.usesFilter {
+				if !slices.Equal(defaultAllowAllOut.filteredIDs, []string{validEdgeID}) {
+					t.Errorf("default-principal allow-all filtered IDs = %v, want [%s]", defaultAllowAllOut.filteredIDs, validEdgeID)
+				}
+				if defaultAllowAllOut.filterErr != nil {
+					t.Errorf("default-principal allow-all filter error = %v, want nil", defaultAllowAllOut.filterErr)
+				}
+			}
+			if shape.usesRequire {
+				if defaultAllowAllOut.requireErr != nil {
+					t.Errorf("default-principal allow-all require error = %v, want nil", defaultAllowAllOut.requireErr)
+				}
+			}
+			wantDefaultTuples := []authz.Tuple{
+				{
+					Object:   "tenant:" + validTenantID,
+					Relation: "claimed",
+					User:     "user:" + testPrincipalID,
+				},
+			}
+			defaultRecorded := defaultAllowAllEnv.checker.Recorded()
+			if len(defaultRecorded) != len(shape.wantQueries) {
+				t.Fatalf("default-principal allow-all recorded %d queries, want %d", len(defaultRecorded), len(shape.wantQueries))
+			}
+			for i, q := range defaultRecorded {
+				if !tuplesMatch(q.ContextualTuples, wantDefaultTuples) {
+					t.Errorf("default-principal query %d tuples = %+v, want %+v", i, q.ContextualTuples, wantDefaultTuples)
+				}
 			}
 
 			for i, targetQuery := range recorded {
 				isInterceptor := i < shape.interceptorQueries
 				target := targetQuery
+
+				targetGroupIdx := -1
+				queryCursor := 0
+				for gIdx, group := range allowAllGroups {
+					if i >= queryCursor && i < queryCursor+len(group) {
+						targetGroupIdx = gIdx
+						break
+					}
+					queryCursor += len(group)
+				}
+				if targetGroupIdx == -1 {
+					t.Fatalf("query %d not found in allow-all groups", i)
+				}
 
 				t.Run(fmt.Sprintf("query_%d_fails", i), func(t *testing.T) {
 					failEnv := setupTestEnv(t)
@@ -1785,11 +2003,14 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 						return nil
 					})
 
-					out := shape.run(t, failEnv)
+					out := shape.run(t, failEnv, false)
 
 					if got := matchCount.Load(); got != 1 {
 						t.Fatalf("fail hook matched %d queries, want 1", got)
 					}
+
+					wantFailGroups := allowAllGroups[:targetGroupIdx+1]
+					assertGroupsEqual(t, failEnv.checker.Groups(), wantFailGroups)
 
 					switch {
 					case isInterceptor:
@@ -1824,6 +2045,12 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 						if !strings.Contains(out.filterErr.Error(), "authorization is unavailable") {
 							t.Errorf("Filter message = %q, want containing 'authorization is unavailable'", out.filterErr.Error())
 						}
+						if connect.CodeOf(out.callErr) != connect.CodeUnavailable {
+							t.Errorf("call code = %v, want %v", connect.CodeOf(out.callErr), connect.CodeUnavailable)
+						}
+						if got := errCodeOf(t, out.callErr); got != authz.ErrCodeUnavailable.String() {
+							t.Errorf("call error code = %q, want %q", got, authz.ErrCodeUnavailable)
+						}
 					default:
 						if !out.handlerRan {
 							t.Error("handler did not run, want run")
@@ -1840,6 +2067,12 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 						if !strings.Contains(out.requireErr.Error(), "authorization is unavailable") {
 							t.Errorf("Require message = %q, want containing 'authorization is unavailable'", out.requireErr.Error())
 						}
+						if connect.CodeOf(out.callErr) != connect.CodeUnavailable {
+							t.Errorf("call code = %v, want %v", connect.CodeOf(out.callErr), connect.CodeUnavailable)
+						}
+						if got := errCodeOf(t, out.callErr); got != authz.ErrCodeUnavailable.String() {
+							t.Errorf("call error code = %q, want %q", got, authz.ErrCodeUnavailable)
+						}
 					}
 				})
 
@@ -1854,11 +2087,19 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 						return false
 					})
 
-					out := shape.run(t, denyEnv)
+					out := shape.run(t, denyEnv, false)
 
 					if got := matchCount.Load(); got != 1 {
 						t.Fatalf("deny hook matched %d queries, want 1", got)
 					}
+
+					var wantDenyGroups [][]authz.Query
+					if shape.usesFilter && !isInterceptor {
+						wantDenyGroups = allowAllGroups
+					} else {
+						wantDenyGroups = allowAllGroups[:targetGroupIdx+1]
+					}
+					assertGroupsEqual(t, denyEnv.checker.Groups(), wantDenyGroups)
 
 					switch {
 					case isInterceptor:
@@ -1893,6 +2134,12 @@ func TestQueryPropertyEnumeration(t *testing.T) {
 						}
 						if got := errCodeOf(t, out.requireErr); got != authz.ErrCodeDenied.String() {
 							t.Errorf("Require error code = %q, want %q", got, authz.ErrCodeDenied)
+						}
+						if connect.CodeOf(out.callErr) != connect.CodePermissionDenied {
+							t.Errorf("call code = %v, want %v", connect.CodeOf(out.callErr), connect.CodePermissionDenied)
+						}
+						if got := errCodeOf(t, out.callErr); got != authz.ErrCodeDenied.String() {
+							t.Errorf("call error code = %q, want %q", got, authz.ErrCodeDenied)
 						}
 					}
 				})
@@ -2028,8 +2275,8 @@ func TestUnsupportedOrMissingRuleRefused(t *testing.T) {
 				if err := authz.Require(ctx, "view", "edge", validEdgeID); err != nil {
 					return nil, err
 				}
-				return connect.NewResponse(edgev1.GetEdgeResponse_builder{
-					Edge: edgemodelv1.EdgeRecord_builder{}.Build(),
+				return validResponse(t, edgev1.GetEdgeResponse_builder{
+					Edge: validEdgeRecord(t),
 				}.Build()), nil
 			})
 
@@ -2100,7 +2347,7 @@ func TestPlatformRuleAuthorization(t *testing.T) {
 			tenantErr = tErr
 			requireErr = rErr
 			mu.Unlock()
-			return connect.NewResponse(identityv1.ListTenantsResponse_builder{}.Build()), nil
+			return validResponse(t, identityv1.ListTenantsResponse_builder{}.Build()), nil
 		})
 
 		req := validRequest(t, identityv1.ListTenantsRequest_builder{}.Build())
@@ -2145,7 +2392,7 @@ func TestPlatformRuleAuthorization(t *testing.T) {
 			mu.Lock()
 			filterErr = fErr
 			mu.Unlock()
-			return connect.NewResponse(identityv1.ListTenantsResponse_builder{}.Build()), nil
+			return validResponse(t, identityv1.ListTenantsResponse_builder{}.Build()), nil
 		})
 
 		req := validRequest(t, identityv1.ListTenantsRequest_builder{}.Build())
@@ -2245,7 +2492,7 @@ func TestFilterBatchingAndDeduplication(t *testing.T) {
 			mu.Lock()
 			filteredIDs = res
 			mu.Unlock()
-			return connect.NewResponse(capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
+			return validResponse(t, capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
 		})
 
 		req := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
@@ -2325,7 +2572,7 @@ func TestFilterBatchingAndDeduplication(t *testing.T) {
 			mu.Lock()
 			filteredIDs = res
 			mu.Unlock()
-			return connect.NewResponse(capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
+			return validResponse(t, capturev1.ListCaptureSessionsResponse_builder{}.Build()), nil
 		})
 
 		req := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())

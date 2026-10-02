@@ -24,7 +24,7 @@ var (
 )
 
 // Tuple represents a single relationship between an object and a user.
-// Its values are not modified after construction and are safe to read concurrently.
+// A Tuple must not be modified once handed to a Checker.
 type Tuple struct {
 	Object   string
 	Relation string
@@ -33,7 +33,7 @@ type Tuple struct {
 
 // Query specifies an authorization check over an object and relation for a user,
 // carrying contextual tuples that hold for the duration of the check.
-// Its values are not modified after construction and are safe to read concurrently.
+// A Query must not be modified once handed to a Checker.
 type Query struct {
 	Object           string
 	Relation         string
