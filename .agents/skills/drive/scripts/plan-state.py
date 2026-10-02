@@ -125,7 +125,8 @@ def stage(unit, completed):
         return "review" if "review" not in fields else f"review (verdict: {fields['review']})"
     if "compound" not in fields:
         return "compound"
-    return "done"
+    # land retires the plan, so a finished phase still on disk is owed one.
+    return "land"
 
 
 def report(parent):
@@ -140,7 +141,7 @@ def report(parent):
         newly_completed = {
             u["id"]
             for u in units
-            if (state := stage(u, completed)).startswith(("done", "on main"))
+            if (state := stage(u, completed)).startswith(("land", "done", "on main"))
         }
         if newly_completed == completed:
             break
@@ -152,11 +153,15 @@ def report(parent):
         print(f"  {unit['id']:<4} {stages[-1]:<28}  {unit['plan']}")
         if unit.get("landed"):
             print(f"      Landed: {unit['landed']}")
-    settled = ("done", "on main", "waits", "landed")
+    settled = ("land", "done", "on main", "waits", "landed")
     ready = [u["id"] for u, s in zip(units, stages) if not s.startswith(settled)]
-    # Only a phase that finished on this branch leaves something to land.
-    rest = "land" if any(s.startswith("done") for s in stages) else "nothing"
-    print("next: " + (", ".join(ready) if ready else rest))
+    # A phase owed a land goes before any new stage, since land gates every
+    # plan this branch carries past main.
+    owed = [u["id"] for u, s in zip(units, stages) if s == "land"]
+    if owed:
+        print("next: land " + ", ".join(owed))
+    else:
+        print("next: " + (", ".join(ready) if ready else "nothing"))
     return 0
 
 

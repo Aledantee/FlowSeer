@@ -1,6 +1,6 @@
 ---
 name: drive
-description: Takes a FlowSeer plan to ready-to-land without the user starting each step. Runs plan (when re-planning is needed), implement, review with its fix loop, and compound in worker sessions, merging and verifying between them; drives a parent plan's phases in dependency order. Parks a plan that needs the user, continues with independent ones, resumes from the plan files. Use to drive a plan, when `next` offers it, or to continue a drive. Not for picking work (`next`), planless work, or landing on main (`land`).
+description: Takes a FlowSeer plan to ready-to-land without the user starting each step. Runs plan (when re-planning is needed), implement, review with its fix loop, and compound in worker sessions, merging and verifying between them; drives a parent plan's phases in dependency order and lands each finished phase through `land`. Parks a plan that needs the user, continues with independent ones, resumes from the plan files. Use to drive a plan, when `next` offers it, or to continue a drive. Not for picking work (`next`), planless work, or landing a plan without phases (`land`).
 argument-hint: "[plan or parent plan path]"
 ---
 
@@ -23,11 +23,14 @@ python3 .claude/skills/drive/scripts/plan-state.py <plan>
 ```
 
 - A parent plan: it prints, per phase, the next stage (`plan`, `implement`,
-  `review`, `compound`), or done on this branch, on `main`, or waiting for
-  other phases; its last line names the phases that can run now. Run step 2
-  once per phase, in step 3's order.
+  `review`, `compound`, `land`), or done (landed here, fast-forward
+  pending), on `main`, or waiting for other phases; its last line names the
+  phases owed a land, or else the phases that can run now. Run step 2 once
+  per phase, in step 3's order.
 - "not a parent plan": drive it by step 2, its stages read off its own
   frontmatter.
+- "not a plan file" for a parent that a `docs(plans): retire <slug>` commit
+  deleted: its last phase landed; go to step 5.
 - With `status` as the request, report that output and stop.
 
 Before the first dispatch:
@@ -155,10 +158,21 @@ a phase named in another's `After:` releases that dependent once its review
 and compound stages also read done. The parent has no stage; its `status`
 follows its last phase, as `implement` writes it.
 
+When the state command's last line reads `next: land <phases>`, land them
+before any new stage, as `land` describes for multi-phase plans. `land`
+stops while a lane is live and gates every plan this branch carries past
+`main`. From then on start no phase whose implement has not merged here.
+A phase whose implement has merged runs its review and compound stages to
+done or parks; once no lane is live, run `land` once in this session on
+the phases owed. A phase that parks after its implement merged holds that
+land until its question is answered, so the drive goes to step 5. A
+fast-forward the harness refuses goes into step 5's
+report and the drive continues. Any other stop in `land` stops the drive.
+
 A Claude coordinator hands off to a successor between phases when four
 conditions hold:
 
-1. A phase's last stage reads done.
+1. A phase's `land` has run.
 2. The state command still names a phase that can run.
 3. No lane of this session is live.
 4. No plan in scope holds a `Parked by drive:` line.
@@ -197,21 +211,23 @@ lines first and asks them before anything else.
 
 Stop when every plan in scope has its three fields set, when only parked or
 waiting plans remain, when no pool is usable, or when the verifier is red on
-a merged union. Landing stays with `land`, started by the user from the
-question below, since a merge into `main` lands for every worktree; a
-policy-surface change stays a parked question.
+a merged union. Asking `drive` to run a parent is the user's answer for its
+phase lands (step 3). A plan without phases lands only from the question
+below, since a merge into `main` lands for every worktree; a policy-surface
+change stays a parked question.
 
 Report, outcome first: plans landed with their commit ranges, review
 verdicts, and per-unit ledger result; plans parked with the question each
 waits on; phases still waiting and on what; which phases ran at once and the
 cap each round read; the pools used and left idle; the commands run with
-results; the child worktrees that remain, with the reason.
+results; the fast-forwards `land` left for the person, in order; the child
+worktrees that remain, with the reason.
 
 Then ask the user (`AGENTS.md`, Agent behavior), in one call:
 
 - every parked question, with its options and the recommendation;
-- when everything in scope landed: run `land` now (recommended), or stop
-  here;
+- when a plan without phases has its three fields set: run `land` now
+  (recommended), or stop here;
 - when plans remain and a question was answered: continue the drive now, or
   stop here.
 

@@ -182,8 +182,9 @@ repository guard's, which is passive for Bash in a linked worktree, and
 disabling the sandbox does not lift it. So `land` merges `main` into the
 branch inside the worktree, where the tests and the verifier already are,
 verifies the union with `--base main`, and emits the primary checkout's
-`git merge --ff-only <branch>` for the person; `--ff-only` lands exactly
-the verified commit and refuses if `main` moved again. The sandbox's deny
+`git merge --ff-only <sha>` for the person, naming the verified commit
+rather than a branch that may move on; `--ff-only` lands exactly that
+commit and refuses if `main` moved again. The sandbox's deny
 of writes under `.claude/skills/` and its link target `.agents/skills/`
 also covers git replaying a committed change, so that merge needs the
 bypass whenever `main` touched `.claude/` or `.agents/`;
@@ -718,8 +719,9 @@ its place without it. A phase whose last commit is on `main` needs no stage, sin
 `compound` fields. A dependent phase waits until its predecessor's review
 and compound are done: a `Landed:` range records implementation only, and
 starting the dependent then lets the predecessor's review fix loop rewrite
-files both phases own. The skill stops before `land`, which stays a person's
-request like every other merge into `main`.
+files both phases own. A plan without phases stops before `land`, which
+stays a person's request like every other merge into `main`; a parent's
+phases land as each finishes, below.
 
 The integration branch is `main`. `--base master` and `master..HEAD` fail
 in this repository.
@@ -777,6 +779,18 @@ the cap leaves every one of them at least one worker; the parent's
 `Landed:` lines are the only file they both write. A decision that
 is the user's parks that plan in its Open questions and lets independent
 phases continue; the questions are asked together when the drive stops.
+
+Land a multi-phase plan phase by phase, the small-batch practice DORA's
+[working in small batches](https://dora.dev/capabilities/working-in-small-batches/)
+and [trunk-based development](https://dora.dev/capabilities/trunk-based-development/)
+describe. `land` states the rule and `drive` runs it when a phase's compound
+stage reads done, so the rule holds whether a person or a drive works the
+phases. `land` gates every plan the branch carries past `main`, so a drive
+starts no new phase while one is owed a land, and `plan-state.py` prints
+that owed land as a stage so a resumed drive finds it. A
+worktree-isolated session cannot move `main`, so the fast-forward of each
+phase may wait for the person; it names the verified commit, so running it
+late still lands only finished phases.
 
 Write hot-path text as procedure, and keep the story here. A pass over
 the skills and agent definitions against Anthropic's skill, subagent, and

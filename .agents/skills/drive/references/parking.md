@@ -14,7 +14,10 @@ plan path so the receipt post-dates the commit:
 ```
 
 Merge what the worker landed before it stopped only when the verifier passes
-on it. A parked phase and every phase whose `After:` reaches it leave the
+on it, and never for a phase of a parent: `land` gates every plan this
+branch carries past `main`, so a merged partial phase would hold up every
+other phase's land. Keep that child worktree and name its branch in the
+question. A parked phase and every phase whose `After:` reaches it leave the
 round; independent phases continue. A plan without phases that parks ends
 the drive at step 5.
 
