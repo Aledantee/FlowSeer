@@ -26,3 +26,26 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-10-02 delegate: a long report from a report-only lane scrolls off the screen
+Skill or agent: `.claude/skills/delegate/SKILL.md`, Orca worker, `read`, and
+Write the brief, item 4.
+What happened: a `review-unit` lane on `agy` returned six findings.
+`orca-worker.sh read` printed `warning: older output is no longer retained`
+and showed only findings 4 to 6. The first three were recovered by a
+`tell` asking the worker to write the report to a file in the scratchpad
+directory. The step was followed as written.
+Suggested change: brief item 4 names a scratchpad file for the report of a
+lane that returns one, and the coordinator reads that file, with `read`
+kept for the status line.
+
+## 2026-10-02 steer: a script in a new skill lands without its executable bit
+Skill or agent: `.claude/skills/steer/SKILL.md`, step 3, new skill
+candidate.
+What happened: `diagnose/scripts/hitl-loop.sh` was created through the
+editor tools and `chmod +x` failed with `Operation not permitted`, since
+the sandbox denies writes under the skills directory. The script was
+committed as mode 100644 while every other skill script is 100755. The
+step does not mention the mode.
+Suggested change: the step sets the mode in the index with
+`git update-index --chmod=+x <path>`, which the sandbox allows.
