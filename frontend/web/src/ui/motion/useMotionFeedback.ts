@@ -46,11 +46,7 @@ function fillTransformKeyframes(
   return [endpoint(0), endpoint(1)]
 }
 
-function compileKeyframes(
-  keyframes: MotionKeyframes | undefined,
-  reduced: boolean,
-) {
-  if (!keyframes) return {}
+function compileKeyframes(keyframes: MotionKeyframes, reduced: boolean) {
   const compiled: CompiledKeyframes = {}
   if (keyframes.opacity !== undefined) compiled.opacity = keyframes.opacity
   if (!reduced) {
@@ -98,7 +94,7 @@ export function useMotionFeedback() {
 
   function play(
     element: HTMLElement | undefined,
-    keyframes?: MotionKeyframes,
+    keyframes: MotionKeyframes,
     duration = 0.14,
   ) {
     if (!element) return

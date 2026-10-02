@@ -18,8 +18,10 @@ interface PlayKeyframes {
   scale?: [number, number]
 }
 
+type ReducedMotionSetting = 'always' | 'never' | 'user'
+
 interface MountOptions {
-  reducedMotion?: 'always' | 'never'
+  reducedMotion?: ReducedMotionSetting
   targetCount?: number
 }
 
@@ -27,7 +29,7 @@ interface MountedFeedback {
   element: HTMLElement
   elements: HTMLElement[]
   feedback: Feedback
-  reducedMotion: Ref<'always' | 'never' | undefined>
+  reducedMotion: Ref<ReducedMotionSetting | undefined>
   dispose: () => void
 }
 
@@ -45,6 +47,10 @@ interface OwnedSet {
 
 interface TerminalPath {
   readonly name: string
+  // A synchronous path settles in the turn that runs it, so the cases must not
+  // yield before they assert. An asynchronous path settles through a watcher or
+  // a finished promise, and its titles say what restores the styles.
+  readonly synchronous: boolean
   readonly mountOptions?: MountOptions
   readonly reduced?: boolean
   readonly terminate: (
@@ -52,6 +58,10 @@ interface TerminalPath {
     owned: OwnedSet,
   ) => void | Promise<void>
   readonly dirty?: (mounted: MountedFeedback, owned: OwnedSet) => void
+  // Runs after the path and before the invariant, so a row can assert what the
+  // path left on the element that no owned-style check covers.
+  readonly afterPath?: (mounted: MountedFeedback, owned: OwnedSet) => void
+  readonly titles?: Partial<Record<InvariantId, string>>
   readonly exempt?: (
     invariant: InvariantId,
     owned: OwnedSet,
@@ -85,7 +95,7 @@ afterEach(() => {
 
 function mountFeedback(options: MountOptions = {}): MountedFeedback {
   let feedback: Feedback | undefined
-  const reducedMotion = ref<'always' | 'never' | undefined>(
+  const reducedMotion = ref<ReducedMotionSetting | undefined>(
     options.reducedMotion,
   )
   const Harness = defineComponent({
@@ -177,8 +187,12 @@ function nextFrame() {
 // motion-dom captures requestAnimationFrame when its frame loop module loads,
 // so a wait on the global frame alone does not prove motion's batch has run.
 // The frame-batch invariant waits on motion's own postRender step, which runs
-// after every render and postRender callback queued before it, and then one
-// global frame.
+// after every render and postRender callback queued before it, then one global
+// frame, then a zero-delay timer. happy-dom groups zero-delay timeouts and
+// fires them in queue order (happy-dom/lib/window/BrowserWindow.js:1942-1975),
+// so that last wait runs after every timer a path queued before it. The
+// invariant therefore bounds all restores and writes queued through the next
+// frame batch and one timer.
 function motionFrameBatch() {
   return new Promise<void>((resolve) => frame.postRender(() => resolve()))
 }
@@ -186,6 +200,9 @@ function motionFrameBatch() {
 async function settleFrames() {
   await motionFrameBatch()
   await nextFrame()
+  // Not a duration: happy-dom groups zero-delay timeouts and fires them in
+  // queue order, so this boundary runs every timer a path queued before it.
+  await new Promise<void>((resolve) => setTimeout(resolve, 0))
 }
 
 function expectRestored(
@@ -263,18 +280,21 @@ const reducedFollowUp = (
 const terminalPaths: readonly TerminalPath[] = [
   {
     name: 'a cancel',
+    synchronous: true,
     terminate: (mounted) => {
       mounted.feedback.cancel(mounted.element)
     },
   },
   {
     name: 'a window resize',
+    synchronous: true,
     terminate: () => {
       window.dispatchEvent(new Event('resize'))
     },
   },
   {
     name: 'a reduced-motion preference change',
+    synchronous: false,
     reduced: true,
     terminate: async () => {
       preference.matches = true
@@ -283,36 +303,90 @@ const terminalPaths: readonly TerminalPath[] = [
       )
       await nextTick()
     },
+    titles: {
+      restore:
+        'restores the owned inline values when the preference watcher clears',
+      snapshot: 'lets the next play snapshot the baseline the watcher restored',
+    },
     exempt: reducedFollowUp,
   },
   {
+    name: 'a preference change under a never config',
+    synchronous: false,
+    mountOptions: { reducedMotion: 'never' },
+    terminate: async () => {
+      preference.matches = true
+      preference.dispatchEvent(
+        Object.assign(new Event('change'), { matches: true }),
+      )
+      await nextTick()
+    },
+    titles: {
+      restore:
+        'restores the owned inline values when the preference watcher clears',
+      snapshot: 'lets the next play snapshot the baseline the watcher restored',
+    },
+  },
+  {
     name: 'a config change',
+    synchronous: false,
     mountOptions: { reducedMotion: 'never' },
     reduced: true,
     terminate: async (mounted) => {
       mounted.reducedMotion.value = 'always'
       await nextTick()
     },
+    titles: {
+      restore:
+        'restores the owned inline values when the config watcher clears',
+      snapshot: 'lets the next play snapshot the baseline the watcher restored',
+    },
     exempt: reducedFollowUp,
   },
   {
+    name: 'a config change to user without the query',
+    synchronous: false,
+    mountOptions: { reducedMotion: 'never' },
+    terminate: async (mounted) => {
+      mounted.reducedMotion.value = 'user'
+      await nextTick()
+    },
+    titles: {
+      restore:
+        'restores the owned inline values when the config watcher clears',
+      snapshot: 'lets the next play snapshot the baseline the watcher restored',
+    },
+  },
+  {
     name: 'an unmount',
+    synchronous: true,
     terminate: (mounted) => {
       mounted.dispose()
     },
-    exempt: (invariant) =>
-      invariant === 'snapshot'
-        ? 'the scope is disposed, so no later play shares it'
-        : undefined,
+    // Disposal removed the resize listener, so a play started afterwards must
+    // survive a resize the disposed scope no longer observes. A fresh element
+    // keeps this probe from stopping the play the row's own invariants read.
+    afterPath: (mounted) => {
+      const probe = document.createElement('div')
+      mounted.feedback.play(probe, { opacity: [0.1, 0.2] }, 0.4)
+      window.dispatchEvent(new Event('resize'))
+      expect(getNativeAnimations(probe)).toHaveLength(1)
+    },
   },
   {
     name: 'a native completion',
+    synchronous: false,
     terminate: async (mounted) => {
       await finishAnimations(mounted.element)
+    },
+    titles: {
+      restore: 'restores the owned inline values once the play completes',
+      snapshot: 'lets the next play snapshot the baseline completion restored',
     },
   },
   {
     name: 'a replacement play',
+    synchronous: true,
     // A native finish writes the play's final value inline and queues its
     // completion, so the replacement runs against the value the play left.
     dirty: (mounted) => {
@@ -324,22 +398,37 @@ const terminalPaths: readonly TerminalPath[] = [
     },
   },
   {
+    name: 'a replacement play while the first is still running',
+    synchronous: true,
+    terminate: (mounted, owned) => {
+      mounted.feedback.play(mounted.element, nextKeyframes[owned.name], 0.24)
+    },
+  },
+  {
     name: 'an empty play',
+    synchronous: true,
     terminate: (mounted) => {
       mounted.feedback.play(mounted.element, {})
+    },
+    afterPath: (mounted) => {
+      expect(mounted.element.getAnimations()).toHaveLength(0)
     },
   },
   {
     name: 'a movement-only play under reduced motion',
+    synchronous: true,
     mountOptions: { reducedMotion: 'always' },
     reduced: true,
     terminate: (mounted) => {
       mounted.feedback.play(mounted.element, { y: [-10, 0] })
     },
+    afterPath: (mounted) => {
+      expect(mounted.element.getAnimations()).toHaveLength(0)
+    },
     exempt: (_invariant, owned) =>
-      owned.name === 'opacity'
-        ? undefined
-        : 'reduced motion drops movement before the play can own it',
+      owned.keys.includes('transform')
+        ? 'the reduced mount drops movement, so the play owns opacity alone'
+        : undefined,
   },
 ]
 
@@ -350,7 +439,8 @@ const invariants = [
   },
   {
     id: 'later-write',
-    title: 'keeps a later write to an owned property through the frame batch',
+    title:
+      'keeps a later write to an owned property through the next frame batch and the queued timer',
   },
   {
     id: 'snapshot',
@@ -397,15 +487,25 @@ function registerTerminalCases(
   for (const invariant of invariants) {
     const exemption = path.exempt?.(invariant.id, owned)
     const register = exemption === undefined ? it : it.skip
+    const invariantTitle = path.titles?.[invariant.id] ?? invariant.title
     const title =
       exemption === undefined
-        ? invariant.title
-        : `${invariant.title} (exempt: ${exemption})`
+        ? invariantTitle
+        : `${invariantTitle} (exempt: ${exemption})`
     register(title, async () => {
       const mounted = mountFeedback(path.mountOptions)
       const created = startPlay(mounted, owned, baseline)
       writeOwnedOffBaseline(mounted, owned, path)
-      await path.terminate(mounted, owned)
+      for (const key of owned.keys)
+        expect(mounted.element.style[key]).not.toBe(baseline[key])
+
+      const ended = path.terminate(mounted, owned)
+      if (path.synchronous) {
+        expect(ended).toBeUndefined()
+      } else {
+        await ended
+      }
+      path.afterPath?.(mounted, owned)
 
       if (invariant.id === 'restore') {
         expectOwnedValues(mounted.element, owned, baseline)

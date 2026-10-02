@@ -156,7 +156,7 @@ cases live in `frontend/web/src/ui/motion/useMotionFeedback.test.ts`:
 
 - `compiles typed pairs into ordered native effects with deterministic timing`
 - `compiles only supplied transform keys and keeps opacity in a separate effect`
-- the terminal-path property of `useMotionFeedback.test.ts`: `restores the owned inline values in the same turn`, `keeps a later write to an owned property through the frame batch`, `lets the play started in the same turn snapshot the baseline`
+- the terminal-path property of `useMotionFeedback.test.ts`, whose rows run `keeps a later write to an owned property through the next frame batch and the queued timer`, `restores the owned inline values in the same turn`, and `lets the play started in the same turn snapshot the baseline`. A non-synchronous row's restore and snapshot titles name the watcher or completion that settles the path instead of "the same turn".
 - `cancels and restores synchronously before replacing a play, through the next frame and completion`
 - `cancels into a play and keeps the original transform through the next frame and completion`
 - `resizes into a play and keeps the original transform through the next frame and completion`
@@ -235,12 +235,15 @@ string (`:19-32`). motion-dom asked for `(prefers-reduced-motion)`
 (`motion-dom/dist/es/render/utils/reduced-motion/index.mjs:9`) and the
 composable asked for `(prefers-reduced-motion: reduce)`
 (`frontend/web/node_modules/motion-v/dist/es/animation/hooks/use-reduced-motion.mjs:4`),
-so these are two objects. The reduced-motion and desktop-width cases dispatch
-`change` on the `reduce` object, which the composable listens to, and
-`FleetView.vue` gates its layout dependency on the composable's `reduced`
-(`toggleSidebar`). The reduced-motion case asserts that gate, not `UiMotion`'s
-reduced layout path. A file that only mounts the composable can hold both modes
-for the same reason, because the composable reads the query on each mount.
+so these are two objects. The cases `stops layout transforms after the user
+enables reduced motion` and `leaves the nav opacity untouched when expanding at
+desktop width` dispatch `change` on the `reduce` object, which the composable
+listens to, while `starts no nav fade when expanding at desktop width`
+dispatches nothing. `FleetView.vue` gates its layout dependency on the
+composable's `reduced` (`toggleSidebar`). The reduced-motion case asserts that
+gate, not `UiMotion`'s reduced layout path. A file that only mounts the
+composable can hold both modes for the same reason, because the composable reads
+the query on each mount.
 
 Layout animation needs a controlled clock. motion's frame loop stamps each
 frame from `performance.now()`

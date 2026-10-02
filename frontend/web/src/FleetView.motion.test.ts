@@ -102,10 +102,12 @@ function installMotionClock() {
 
 async function advanceMotion(milliseconds: number) {
   motionClock += milliseconds
-  // happy-dom implements requestAnimationFrame with setImmediate, so every
-  // awaited macrotask turn runs frame-loop batches that read the advanced
-  // timestamp. The batch count per turn is not fixed, so the callers below only
-  // sample mid-flight progress, never an exact progress.
+  // happy-dom implements requestAnimationFrame with setImmediate, so an
+  // awaited macrotask turn lets a pending frame-loop batch read the advanced
+  // timestamp. A batch runs only while one is scheduled
+  // (motion-dom/dist/es/frameloop/batcher.mjs:43-54), and the batch count per
+  // turn is not fixed, so the callers below read whatever progress the clock
+  // has reached, mid-flight or final.
   for (let turn = 0; turn < 3; turn += 1) {
     await wait(0)
   }
