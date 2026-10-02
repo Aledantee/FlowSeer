@@ -6,10 +6,13 @@ skipped the plan, or when running in Orca.
 ## Phase plan (`parent:` field)
 
 Fill this phase's `Landed:` line in the parent with the commit range in
-backticks, first commit to last, as `` `601e6e03..7cdc35dd` ``. The ledger
-check reads the last commit of that range to prove a later phase's worktree
-holds this one, and a `Landed:` written as prose fails it. Set the parent to
-`implemented` when this was its last phase, in the same commit.
+backticks, as `` `601e6e03..7cdc35dd` ``: the first unit's commit, then the
+last unit's commit as the ledger records it. The outcome commit that writes
+this line comes after both and is not in the range, since no commit can
+name its own SHA. The ledger check reads the last commit of that range to
+prove a later phase's worktree holds this one, and a `Landed:` written as
+prose fails it. Set the parent to `implemented` when this was its last
+phase, in the same outcome commit.
 
 ## Planless request
 

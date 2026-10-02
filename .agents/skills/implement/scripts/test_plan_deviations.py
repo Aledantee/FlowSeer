@@ -1,4 +1,8 @@
+import contextlib
 import importlib.util
+import io
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -51,6 +55,90 @@ class FilesFieldTest(unittest.TestCase):
     def test_quoted_line_ignores_its_bare_words(self):
         found = units("### U1. Quoted\n\nFiles: `pkg/a/a.go` and docs/aside.md (`Symbol` aside)\n")
         self.assertEqual(found["U1"], ["pkg/a/a.go"])
+
+    def test_quoted_root_file_is_not_a_sibling_of_the_entry_before_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "CONCEPTS.md").write_text("")
+            (root / "src/a").mkdir(parents=True)
+            plan = root / "example-plan.md"
+            plan.write_text("### U1. Quoted root file\n\nFiles: `src/a/a.go`, `a_test.go`, `CONCEPTS.md`\n")
+            found = plan_deviations.units(plan, root)
+        self.assertEqual(found["U1"], ["src/a/a.go", "src/a/a_test.go", "CONCEPTS.md"])
+
+    def test_skills_symlink_entries_read_as_the_directory_git_reports(self):
+        found = units("### U1. Skills\n\nFiles: `.claude/skills/implement/SKILL.md`, `.agents/skills/x/y.py`\n")
+        self.assertEqual(found["U1"], [".agents/skills/implement/SKILL.md", ".agents/skills/x/y.py"])
+
+
+class DiffTest(unittest.TestCase):
+    """main() against a scratch repository whose main moved on after the fork."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.root = Path(self.directory.name)
+        self.git("init", "-q", "-b", "main")
+        body = "".join(f"line {n}\n" for n in range(20))
+        self.write(".agents/skills/s/old.md", body)
+        self.write("src/a/a.go")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "base")
+        self.git("checkout", "-qb", "work")
+        self.git("mv", ".agents/skills/s/old.md", ".agents/skills/s/new.md")
+        # Similar enough that git pairs the two paths as a rename.
+        self.write(".agents/skills/s/new.md", body + "one more line\n")
+        self.git("commit", "-qam", "rename")
+        self.git("checkout", "-q", "main")
+        self.write("src/main_only.go")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "main moves on")
+        self.git("checkout", "-q", "work")
+        self.plan = self.root / "docs/plans/p.md"
+        self.write(
+            "docs/plans/p.md",
+            "### U1. Rename\n\nFiles: `.claude/skills/s/old.md`, `.claude/skills/s/new.md`\n",
+        )
+        self.git("add", "-A")
+        self.git("commit", "-qm", "plan")
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def git(self, *args):
+        subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
+            cwd=self.root,
+            check=True,
+            capture_output=True,
+        )
+
+    def write(self, path, text="x\n"):
+        target = self.root / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+
+    def run_main(self, *paths):
+        out = io.StringIO()
+        cwd = os.getcwd()
+        os.chdir(self.root)
+        try:
+            with contextlib.redirect_stdout(out):
+                code = plan_deviations.main(["plan-deviations.py", str(self.plan), "main", *paths])
+        finally:
+            os.chdir(cwd)
+        self.assertEqual(code, 0)
+        return out.getvalue()
+
+    def test_diff_starts_at_the_fork_point(self):
+        self.assertNotIn("src/main_only.go", self.run_main())
+
+    def test_rename_counts_as_both_paths_changed(self):
+        report = self.run_main()
+        self.assertIn("Named by a unit, unchanged:\n  none\n", report)
+
+    def test_skills_symlink_path_argument_limits_the_diff(self):
+        report = self.run_main("--", ".claude/skills/s")
+        self.assertIn("Named by a unit, unchanged:\n  none\n", report)
 
 
 if __name__ == "__main__":
