@@ -10,24 +10,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 // ReasonUnsupportedLACPDU indicates that an Ethernet frame carried an unparseable or unsupported LACPDU.
 const ReasonUnsupportedLACPDU trace.Reason = "unsupported-lacpdu"
-
-// Emission describes an Ethernet frame to transmit out a member port.
-type Emission struct {
-	Port  string
-	Frame ethernet.Frame
-}
-
-// Effects lists frames to emit and LAGs whose set of enabled members changed.
-type Effects struct {
-	Emissions []Emission
-	Changed   []string
-}
 
 // Info summarizes the runtime aggregation status of one link aggregation group.
 type Info struct {
@@ -430,7 +419,7 @@ func (l *Layer) activeBackupSelect(lag *lagState, _ time.Time, commit bool) Sele
 	return Selection{Member: member, OK: true, Prior: prior, Cause: cause}
 }
 
-func (l *Layer) emitLACPDU(m *memberState) Emission {
+func (l *Layer) emitLACPDU(m *memberState) layer.Emission {
 	lag := l.lags[m.lagName]
 	pdu := lacp.PDU{
 		Actor:             m.actor,
@@ -446,7 +435,7 @@ func (l *Layer) emitLACPDU(m *memberState) Emission {
 	m.hasTxActor = true
 	m.lacpdusTx++
 
-	return Emission{
+	return layer.Emission{
 		Port:  m.name,
 		Frame: frame,
 	}
@@ -454,17 +443,17 @@ func (l *Layer) emitLACPDU(m *memberState) Emission {
 
 // LinkChange informs the layer that a member port's link transitioned up or down.
 // A zero delay applies immediately; a non-zero delay arms a timer.
-func (l *Layer) LinkChange(now time.Time, member string, up bool) Effects {
+func (l *Layer) LinkChange(now time.Time, member string, up bool) layer.Effects {
 	l.now = now
 	m, ok := l.members[member]
 	if !ok {
-		return Effects{}
+		return layer.Effects{}
 	}
 	lag := l.lags[m.lagName]
 
 	// The carrier drives the protocol at once; the delay only decides when
 	// the member carries traffic, so a partner is heard during an up delay.
-	var fx Effects
+	var fx layer.Effects
 	if m.carrier != up {
 		m.carrier = up
 		fx = l.setCarrier(now, m, up)
@@ -502,8 +491,8 @@ func (l *Layer) LinkChange(now time.Time, member string, up bool) Effects {
 	return fx
 }
 
-func mergeEffects(a, b Effects) Effects {
-	out := Effects{
+func mergeEffects(a, b layer.Effects) layer.Effects {
+	out := layer.Effects{
 		Emissions: append(a.Emissions, b.Emissions...),
 		Changed:   append(a.Changed, b.Changed...),
 	}
@@ -515,13 +504,13 @@ func mergeEffects(a, b Effects) Effects {
 
 // setCarrier starts or stops the protocol on a member as its carrier comes
 // and goes; the member's enablement follows the delayed link separately.
-func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) Effects {
+func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) layer.Effects {
 	lag := l.lags[m.lagName]
 	if lag.cfg.LACP.Mode == Off {
-		return Effects{}
+		return layer.Effects{}
 	}
 
-	var emissions []Emission
+	var emissions []layer.Emission
 	var changed []string
 
 	if !up {
@@ -535,7 +524,7 @@ func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) Effects {
 			changed = append(changed, lag.name)
 		}
 
-		return Effects{Changed: changed}
+		return layer.Effects{Changed: changed}
 	}
 
 	m.status = Current
@@ -564,7 +553,7 @@ func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) Effects {
 		}
 	}
 
-	return Effects{
+	return layer.Effects{
 		Emissions: emissions,
 		Changed:   changed,
 	}
@@ -572,9 +561,9 @@ func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) Effects {
 
 // applyLinkChange moves the member's delayed link to its carrier and
 // re-evaluates what the LAG carries.
-func (l *Layer) applyLinkChange(m *memberState) Effects {
+func (l *Layer) applyLinkChange(m *memberState) layer.Effects {
 	if m.linkUp == m.carrier {
-		return Effects{}
+		return layer.Effects{}
 	}
 	m.linkUp = m.carrier
 	lag := l.lags[m.lagName]
@@ -584,20 +573,20 @@ func (l *Layer) applyLinkChange(m *memberState) Effects {
 		changed = append(changed, lag.name)
 	}
 
-	return Effects{Changed: changed}
+	return layer.Effects{Changed: changed}
 }
 
 // Receive processes an incoming LACPDU on the named member port.
-func (l *Layer) Receive(now time.Time, member string, pdu lacp.PDU) Effects {
+func (l *Layer) Receive(now time.Time, member string, pdu lacp.PDU) layer.Effects {
 	l.now = now
 	m, ok := l.members[member]
 	if !ok {
-		return Effects{}
+		return layer.Effects{}
 	}
 	m.lacpdusRx++
 	lag := l.lags[m.lagName]
 	if !m.carrier || lag.cfg.LACP.Mode == Off {
-		return Effects{}
+		return layer.Effects{}
 	}
 
 	m.partner = pdu.Actor
@@ -616,7 +605,7 @@ func (l *Layer) Receive(now time.Time, member string, pdu lacp.PDU) Effects {
 		changed = append(changed, lag.name)
 	}
 
-	var emissions []Emission
+	var emissions []layer.Emission
 	for _, name := range lag.memberNames {
 		mem := l.members[name]
 		if mem.mayTx(lag) && (!mem.hasTxActor || mem.actor != mem.lastTxActor) {
@@ -625,16 +614,16 @@ func (l *Layer) Receive(now time.Time, member string, pdu lacp.PDU) Effects {
 		}
 	}
 
-	return Effects{
+	return layer.Effects{
 		Emissions: emissions,
 		Changed:   changed,
 	}
 }
 
-// Wake advances timer-driven state to now, applying expired delays and timeouts.
-func (l *Layer) Wake(now time.Time) Effects {
+// Advance advances timer-driven state to now, applying expired delays and timeouts.
+func (l *Layer) Advance(now time.Time) layer.Effects {
 	l.now = now
-	var emissions []Emission
+	var emissions []layer.Emission
 	changedMap := make(map[string]struct{})
 
 	for _, name := range sortedKeys(l.members) {
@@ -713,7 +702,7 @@ func (l *Layer) Wake(now time.Time) Effects {
 	}
 	slices.Sort(changed)
 
-	return Effects{
+	return layer.Effects{
 		Emissions: emissions,
 		Changed:   changed,
 	}

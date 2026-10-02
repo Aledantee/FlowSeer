@@ -26,8 +26,8 @@ func TestEncodeOffsets(t *testing.T) {
 
 	f := loopprotect.Encode(p, src)
 
-	if f.Dst != loopprotect.GroupAddress {
-		t.Errorf("Dst = %s, want %s", f.Dst, loopprotect.GroupAddress)
+	if f.Dst != loopprotect.GroupAddress() {
+		t.Errorf("Dst = %s, want %s", f.Dst, loopprotect.GroupAddress())
 	}
 	if f.Dst.String() != "03:46:53:4c:50:00" {
 		t.Errorf("Dst = %s, want 03:46:53:4c:50:00", f.Dst)
@@ -174,7 +174,7 @@ func TestDecodeRefusals(t *testing.T) {
 			t.Parallel()
 
 			f := ethernet.Frame{
-				Dst:       loopprotect.GroupAddress,
+				Dst:       loopprotect.GroupAddress(),
 				Src:       netaddr.MAC{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
 				EtherType: loopprotect.EtherType,
 				Payload:   tc.payload,
@@ -201,7 +201,7 @@ func TestDecodeFieldsReadBack(t *testing.T) {
 	}
 
 	f := ethernet.Frame{
-		Dst:       loopprotect.GroupAddress,
+		Dst:       loopprotect.GroupAddress(),
 		Src:       netaddr.MAC{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
 		EtherType: loopprotect.EtherType,
 		Payload:   payload,
@@ -220,5 +220,35 @@ func TestDecodeFieldsReadBack(t *testing.T) {
 	}
 	if got != want {
 		t.Errorf("Decode() = %+v, want %+v", got, want)
+	}
+}
+
+func TestSetProbeVID(t *testing.T) {
+	t.Parallel()
+
+	p := loopprotect.Probe{
+		OriginMAC: netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x55},
+		VID:       0,
+		Sequence:  42,
+		Port:      "1/1/1",
+	}
+	f := loopprotect.Encode(p, netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x55})
+
+	patched := loopprotect.SetProbeVID(f, 100)
+	decoded, err := loopprotect.Decode(patched)
+	if err != nil {
+		t.Fatalf("Decode(patched): %v", err)
+	}
+	if decoded.VID != 100 {
+		t.Errorf("decoded.VID = %d, want 100", decoded.VID)
+	}
+	if decoded.Sequence != 42 || decoded.Port != "1/1/1" {
+		t.Errorf("decoded non-VID fields corrupted: %+v", decoded)
+	}
+
+	// Short frame is returned unmodified
+	short := ethernet.Frame{Payload: []byte{1, 2, 3}}
+	if got := loopprotect.SetProbeVID(short, 100); len(got.Payload) != 3 {
+		t.Errorf("short payload modified: len = %d", len(got.Payload))
 	}
 }

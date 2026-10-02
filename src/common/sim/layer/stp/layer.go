@@ -11,36 +11,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
-
-// Emission describes an Ethernet frame to transmit out a virtual switch port.
-// A zero VID means the frame leaves as the layer built it, untagged and with
-// no VLAN membership check. A non-zero VID names the VLAN the frame rides, and
-// the switch resolves the tag through the port's ordinary egress rules, which
-// is where the native-versus-tagged decision for an SSTP bpdu.BPDU is made.
-type Emission struct {
-	Port  string
-	VID   vlan.ID
-	Frame ethernet.Frame
-}
-
-// Effects lists frames to emit and ports whose learned forwarding table entries
-// must be flushed as a result of a spanning tree transition.
-type Effects struct {
-	Emissions []Emission
-	Flush     []FlushTarget
-}
-
-// FlushTarget names a port whose learned forwarding table entries must be
-// flushed, and which FIDs on it are stale. An empty FIDs means every FID: a
-// link going down leaves every entry on it stale regardless of tree, and a
-// topology change raised from the CIST reaches VLANs no MSTI claims, a set
-// this layer never enumerates.
-type FlushTarget struct {
-	Port string
-	FIDs []vlan.ID
-}
 
 // BlockReason names the guard holding a port out of the active topology. The
 // empty value means no guard is holding the port, whatever its role and state.
@@ -117,7 +90,7 @@ type Layer struct {
 
 	// treeOrder lists the trees in the deterministic order every walk visits
 	// them: the CIST first, then MSTIDs ascending. A map range would let
-	// Effects order vary between runs of the same input, which the corpus's
+	// layer.Effects order vary between runs of the same input, which the corpus's
 	// deterministic-re-execution test would catch.
 	treeOrder []treeID
 
@@ -904,11 +877,11 @@ func (l *Layer) BadBPDU(port string) {
 // Mcheck triggers protocol migration checking on the named port, forcing it
 // to transmit RSTP BPDUs and restarting the migration delay. If the port is
 // unknown or down, Mcheck has no effect.
-func (l *Layer) Mcheck(now time.Time, port string) Effects {
+func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
 	t := l.cist()
 	p, ok := t.ports[port]
 	if !ok || !p.up {
-		return Effects{}
+		return layer.Effects{}
 	}
 
 	p.sendRSTP = true
@@ -920,7 +893,7 @@ func (l *Layer) Mcheck(now time.Time, port string) Effects {
 	// would stay silenced after an operator forces the CIST back to RSTP.
 	l.syncInstancePorts(port, p)
 
-	var flushes []FlushTarget
+	var flushes []layer.FlushTarget
 
 	emissions := l.recomputeAll(now, &flushes)
 
@@ -940,7 +913,7 @@ func (l *Layer) Mcheck(now time.Time, port string) Effects {
 		}
 	}
 
-	return Effects{
+	return layer.Effects{
 		Emissions: emissions,
 		Flush:     flushes,
 	}
@@ -994,7 +967,7 @@ const (
 	emissionAgreement
 )
 
-func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, emissions *[]Emission) {
+func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, emissions *[]layer.Emission) {
 	// SSTP has no legacy shape: EncodeSSTP forces a version of at least 2 and
 	// DecodeSSTP refuses anything else, so a non-CIST tree that migrated to
 	// legacy STP has no frame it can send. It builds and meters nothing
@@ -1035,7 +1008,7 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 		}
 
 		for _, f := range built {
-			*emissions = append(*emissions, Emission{Port: p.name, VID: f.vid, Frame: f.frame})
+			*emissions = append(*emissions, layer.Emission{Port: p.name, VID: f.vid, Frame: f.frame})
 		}
 		p.txBPDUs++
 		wasZero := tx.count == 0
@@ -1130,7 +1103,7 @@ func (l *Layer) isSynced(t *tree, rootPort string) bool {
 	return true
 }
 
-func (l *Layer) raiseTopologyChange(t *tree, originPort string, now time.Time, flushes *[]FlushTarget) {
+func (l *Layer) raiseTopologyChange(t *tree, originPort string, now time.Time, flushes *[]layer.FlushTarget) {
 	t.topologyChangeCount++
 	t.lastTopologyChange = now
 	t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
@@ -1151,7 +1124,7 @@ func (l *Layer) raiseTopologyChange(t *tree, originPort string, now time.Time, f
 // narrower fids unchanged, and a narrower existing FIDs is widened to empty
 // when fids itself is empty. The result stays sorted and free of duplicates
 // so Effects.Flush is deterministic.
-func mergeFlushTarget(flushes *[]FlushTarget, port string, fids []vlan.ID) {
+func mergeFlushTarget(flushes *[]layer.FlushTarget, port string, fids []vlan.ID) {
 	for i := range *flushes {
 		target := &(*flushes)[i]
 		if target.Port != port {
@@ -1178,7 +1151,7 @@ func mergeFlushTarget(flushes *[]FlushTarget, port string, fids []vlan.ID) {
 	if len(fids) > 0 {
 		vids = slices.Clone(fids)
 	}
-	*flushes = append(*flushes, FlushTarget{Port: port, FIDs: vids})
+	*flushes = append(*flushes, layer.FlushTarget{Port: port, FIDs: vids})
 }
 
 // boundary reports whether the named port is a boundary port: the CIST's most
@@ -1261,8 +1234,8 @@ func (l *Layer) clearPending(name string) {
 // instance, and the MSTI records ride the CIST's own bpdu.BPDU. Under PVST every
 // tree emits, because each VLAN's bpdu.BPDU is a frame of its own metered against
 // that tree's own budget.
-func (l *Layer) recomputeAll(now time.Time, flushes *[]FlushTarget) []Emission {
-	var emissions []Emission
+func (l *Layer) recomputeAll(now time.Time, flushes *[]layer.FlushTarget) []layer.Emission {
+	var emissions []layer.Emission
 
 	for _, id := range l.treeOrder {
 		emissions = append(emissions, l.recompute(l.trees[id], now, flushes, l.pvst != nil || id == cistID)...)
@@ -1355,7 +1328,7 @@ func (l *Layer) gatherMSTIRecords(now time.Time, p *portState) []bpdu.MSTIRecord
 // address and the CIST port identifier's index half, since MSTI bridge and
 // port identifiers differ from the CIST's only in their priority nibble
 // (clause 13.7).
-func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[]FlushTarget) {
+func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[]layer.FlushTarget) {
 	for _, rec := range b.MSTIs {
 		mt, ok := l.trees[treeID(rec.MSTID)]
 		if !ok {
@@ -1580,8 +1553,8 @@ func designatedVector(t *tree, p *portState) priorityVector {
 // Master; no separate bpdu.Role value exists for it). emit gates the proposal
 // emissions a root change triggers: only the CIST emits, so an MSTI's caller
 // passes false and recompute returns no emissions for it.
-func (l *Layer) recompute(t *tree, now time.Time, flushes *[]FlushTarget, emit bool) []Emission {
-	var emissions []Emission
+func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, emit bool) []layer.Emission {
+	var emissions []layer.Emission
 
 	oldRootID := t.rootID
 	oldRootCost := t.rootPathCost
@@ -1849,21 +1822,21 @@ func (l *Layer) designatedOrBlocked(t *tree, p *portState, now time.Time) bpdu.R
 // A port coming up point-to-point transmits a proposal immediately in the
 // returned emissions. A link down clears received information and moves the
 // port to Disabled.
-func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, speedBPS uint64) Effects {
+func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, speedBPS uint64) layer.Effects {
 	t := l.cist()
 	p, ok := t.ports[port]
 	if !ok {
-		return Effects{}
+		return layer.Effects{}
 	}
 
-	var flushes []FlushTarget
-	var emissions []Emission
+	var flushes []layer.FlushTarget
+	var emissions []layer.Emission
 
 	l.armHelloTimers(now)
 
 	if !up {
 		if !p.up {
-			return Effects{}
+			return layer.Effects{}
 		}
 		oldState := p.state
 		p.up = false
@@ -1888,7 +1861,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		// The entries learned on the dead port are the ones certainly stale
 		// whatever tree they belong to; the topology change below flushes
 		// every other port by its own tree's VLANs.
-		flushes = append(flushes, FlushTarget{Port: p.name})
+		flushes = append(flushes, layer.FlushTarget{Port: p.name})
 		if oldState == StateForwarding && !p.edge {
 			l.raiseTopologyChange(t, p.name, now, &flushes)
 		}
@@ -1897,7 +1870,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 
 		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 
-		return Effects{
+		return layer.Effects{
 			Emissions: emissions,
 			Flush:     flushes,
 		}
@@ -1936,7 +1909,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 			emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 		}
 
-		return Effects{
+		return layer.Effects{
 			Emissions: emissions,
 			Flush:     flushes,
 		}
@@ -1988,7 +1961,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		}
 	}
 
-	return Effects{
+	return layer.Effects{
 		Emissions: emissions,
 		Flush:     flushes,
 	}
@@ -2001,7 +1974,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 // against the CIST's port state, which is where those link properties live.
 // done reports that the frame must not reach a tree at all, either because
 // the guard just fired or because it had already disabled the port.
-func (l *Layer) receiveLink(now time.Time, p *portState, b bpdu.BPDU, flushes *[]FlushTarget) (emissions []Emission, done bool) {
+func (l *Layer) receiveLink(now time.Time, p *portState, b bpdu.BPDU, flushes *[]layer.FlushTarget) (emissions []layer.Emission, done bool) {
 	t := l.cist()
 
 	// Any bpdu.BPDU on the port is evidence the link carries traffic both ways,
@@ -2027,7 +2000,7 @@ func (l *Layer) receiveLink(now time.Time, p *portState, b bpdu.BPDU, flushes *[
 		// to recompute, which raises it from the same transition with the
 		// same origin and timestamp; raising it here as well would count one
 		// event twice.
-		*flushes = append(*flushes, FlushTarget{Port: p.name})
+		*flushes = append(*flushes, layer.FlushTarget{Port: p.name})
 
 		return l.recomputeAll(now, flushes), true
 	}
@@ -2072,18 +2045,18 @@ func (l *Layer) receiveLink(now time.Time, p *portState, b bpdu.BPDU, flushes *[
 // records from it, and a PVST bridge keeps VLAN 1's tree there. An SSTP bpdu.BPDU
 // goes to ReceiveSSTP instead, which is the only entry point that classifies
 // a bpdu.BPDU by VLAN.
-func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) Effects {
+func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 	t := l.cist()
 	p, ok := t.ports[port]
 	if !ok || !p.up {
-		return Effects{}
+		return layer.Effects{}
 	}
 
 	p.rxBPDUs++
 
 	l.armHelloTimers(now)
 
-	var flushes []FlushTarget
+	var flushes []layer.FlushTarget
 
 	// An MST bpdu.BPDU on a PVST bridge is the boundary this layer reports rather
 	// than models: its RST prefix still drives VLAN 1's tree below, but no
@@ -2094,7 +2067,7 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) Effects {
 
 	emissions, done := l.receiveLink(now, p, b, &flushes)
 	if done {
-		return Effects{Emissions: emissions, Flush: flushes}
+		return layer.Effects{Emissions: emissions, Flush: flushes}
 	}
 
 	if b.Type == bpdu.TypeTopologyChangeNotification {
@@ -2112,7 +2085,7 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) Effects {
 
 		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 
-		return Effects{
+		return layer.Effects{
 			Emissions: emissions,
 			Flush:     flushes,
 		}
@@ -2120,7 +2093,7 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) Effects {
 
 	emissions = append(emissions, l.applyBPDU(t, p, now, b, &flushes)...)
 
-	return Effects{
+	return layer.Effects{
 		Emissions: emissions,
 		Flush:     flushes,
 	}
@@ -2140,7 +2113,7 @@ type SSTPArrival struct {
 }
 
 // SSTPOutcome names what ReceiveSSTP did with one SSTP bpdu.BPDU, beyond the
-// Effects it returns alongside.
+// layer.Effects it returns alongside.
 type SSTPOutcome string
 
 const (
@@ -2178,15 +2151,15 @@ const (
 // arrival.ArrivalVID sees an up-to-date link even though the change was made
 // on the CIST's port state. The returned SSTPOutcome describes the tree half
 // alone: what, if anything, happened to arrival.ArrivalVID's own tree.
-func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b bpdu.BPDU) (Effects, SSTPOutcome) {
+func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b bpdu.BPDU) (layer.Effects, SSTPOutcome) {
 	cistP, ok := l.cist().ports[port]
 	if !ok || !cistP.up {
-		return Effects{}, SSTPPortDown
+		return layer.Effects{}, SSTPPortDown
 	}
 
 	cistP.rxBPDUs++
 
-	var flushes []FlushTarget
+	var flushes []layer.FlushTarget
 
 	// receiveLink is the link-level half of a receive: bpdu.BPDU guard, the
 	// loop-guard clear, protocol migration, and auto-edge loss all belong to
@@ -2202,7 +2175,7 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 	}
 
 	if done {
-		return Effects{Emissions: emissions, Flush: flushes}, SSTPGuarded
+		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPGuarded
 	}
 
 	l.armHelloTimers(now)
@@ -2212,7 +2185,7 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 		// vector into it would elect a root from a tree it is not running.
 		// The neighbor relationship still converges, because a PVST+ bridge
 		// sends VLAN 1's tree to the IEEE address as well.
-		return Effects{Emissions: emissions, Flush: flushes}, SSTPBoundary
+		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPBoundary
 	}
 
 	// receiveLink may have changed link properties every tree tracks its own
@@ -2220,17 +2193,17 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 	l.syncInstancePorts(port, cistP)
 
 	if !arrival.Admitted {
-		return Effects{Emissions: emissions, Flush: flushes}, SSTPNotAdmitted
+		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPNotAdmitted
 	}
 
 	t, ok := l.treeFor(arrival.ArrivalVID)
 	if !ok {
-		return Effects{Emissions: emissions, Flush: flushes}, SSTPUntrackedVLAN
+		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPUntrackedVLAN
 	}
 
 	p, ok := t.ports[port]
 	if !ok {
-		return Effects{Emissions: emissions, Flush: flushes}, SSTPUntrackedVLAN
+		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPUntrackedVLAN
 	}
 
 	// Cisco blocks the traffic of the VLAN the frame arrived on, not of the
@@ -2240,13 +2213,13 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 		p.pvidInconsistent = true
 		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 
-		return Effects{Emissions: emissions, Flush: flushes}, SSTPPVIDInconsistent
+		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPPVIDInconsistent
 	}
 	p.pvidInconsistent = false
 
 	emissions = append(emissions, l.applyBPDU(t, p, now, b, &flushes)...)
 
-	return Effects{Emissions: emissions, Flush: flushes}, SSTPApplied
+	return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPApplied
 }
 
 // applyBPDU applies one received bpdu.BPDU to one tree: the classification, the
@@ -2256,8 +2229,8 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 // on the tree of the VLAN an SSTP bpdu.BPDU arrived on. The link-level half of a
 // receive, which runs once per frame whatever tree it belongs to, stays with
 // the two callers.
-func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flushes *[]FlushTarget) []Emission {
-	var emissions []Emission
+func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flushes *[]layer.FlushTarget) []layer.Emission {
+	var emissions []layer.Emission
 
 	// A bpdu.BPDU is internal when it names this bridge's own region: an MST bpdu.BPDU
 	// (bpdu.ConfigID set) whose configuration identifier equals this bridge's. An
@@ -2435,13 +2408,13 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 	return emissions
 }
 
-// Wake advances timer-driven state to now, firing due hellos, forward delays,
+// Advance advances timer-driven state to now, firing due hellos, forward delays,
 // topology change timers, and information age-outs.
-func (l *Layer) Wake(now time.Time) Effects {
+func (l *Layer) Advance(now time.Time) layer.Effects {
 	t := l.cist()
 
-	var flushes []FlushTarget
-	var emissions []Emission
+	var flushes []layer.FlushTarget
+	var emissions []layer.Emission
 
 	autoEdgeFired := false
 	for _, name := range l.portNames {
@@ -2582,7 +2555,7 @@ func (l *Layer) Wake(now time.Time) Effects {
 		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 	}
 
-	return Effects{
+	return layer.Effects{
 		Emissions: emissions,
 		Flush:     flushes,
 	}

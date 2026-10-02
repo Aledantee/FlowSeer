@@ -11,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -597,7 +598,7 @@ func TestDynamicEntriesAgeAndStaticEntriesPersist(t *testing.T) {
 	})
 
 	t299 := testTime0.Add(299 * time.Second)
-	br.Age(t299)
+	br.Advance(t299)
 
 	queryDynamic := ethernet.Frame{
 		Dst:       macA,
@@ -611,7 +612,7 @@ func TestDynamicEntriesAgeAndStaticEntriesPersist(t *testing.T) {
 	}
 
 	t301 := testTime0.Add(301 * time.Second)
-	br.Age(t301)
+	br.Advance(t301)
 
 	res301 := br.Peek(t301, "1/1/3", queryDynamic)
 	if res301.Outcome != trace.Flooded {
@@ -1749,7 +1750,7 @@ func TestMultiGateConsultedScopesAreTheUnion(t *testing.T) {
 }
 
 // TestFlushWithEmptyFIDsRemovesEveryFIDOnThePort is evidence that a
-// [bridge.FlushTarget] with no FIDs, the shape a link down or a CIST-wide
+// [layer.FlushTarget] with no FIDs, the shape a link down or a CIST-wide
 // change produces, removes every dynamic entry on its port regardless of FID.
 func TestFlushWithEmptyFIDsRemovesEveryFIDOnThePort(t *testing.T) {
 	ports := buildTestPorts(t, 3)
@@ -1761,14 +1762,14 @@ func TestFlushWithEmptyFIDsRemovesEveryFIDOnThePort(t *testing.T) {
 		t.Fatalf("initial entries count = %d, want 2", len(br.Entries()))
 	}
 
-	br.Flush([]bridge.FlushTarget{{Port: "1/1/1"}})
+	br.Flush([]layer.FlushTarget{{Port: "1/1/1"}})
 	entries := br.Entries()
 	if len(entries) != 1 || entries[0].Port != "1/1/2" {
 		t.Fatalf("after Flush Entries() = %+v, want 1 entry on 1/1/2", entries)
 	}
 }
 
-// TestFlushWithFIDsFiltersToTheNamedFIDs is evidence that a [bridge.FlushTarget]
+// TestFlushWithFIDsFiltersToTheNamedFIDs is evidence that a [layer.FlushTarget]
 // naming FIDs removes only entries on that port carrying one of them, which is
 // the shape a per-tree topology change produces: the other FIDs on the same
 // port survive.
@@ -1790,7 +1791,7 @@ func TestFlushWithFIDsFiltersToTheNamedFIDs(t *testing.T) {
 		{FID: 10, MAC: macC, Port: "1/1/2", LearnedAt: now},
 	})
 
-	br.Flush([]bridge.FlushTarget{{Port: "1/1/1", FIDs: []vlan.ID{10}}})
+	br.Flush([]layer.FlushTarget{{Port: "1/1/1", FIDs: []vlan.ID{10}}})
 
 	entries := br.Entries()
 	if len(entries) != 2 {
@@ -1835,7 +1836,7 @@ func TestFlushUnionsTargetsNamingTheSamePort(t *testing.T) {
 		br := mustNewBridge(t, bridge.Config{VLAN: vlanCfg()}, buildTestPorts(t, 3))
 		mustLearn(t, br, seeds())
 
-		br.Flush([]bridge.FlushTarget{
+		br.Flush([]layer.FlushTarget{
 			{Port: "1/1/1", FIDs: []vlan.ID{10}},
 			{Port: "1/1/1", FIDs: []vlan.ID{20}},
 		})
@@ -1852,7 +1853,7 @@ func TestFlushUnionsTargetsNamingTheSamePort(t *testing.T) {
 
 		// The empty target comes first, so a later target replacing an earlier
 		// one would narrow the flush to FID 10 rather than widening it.
-		br.Flush([]bridge.FlushTarget{
+		br.Flush([]layer.FlushTarget{
 			{Port: "1/1/1"},
 			{Port: "1/1/1", FIDs: []vlan.ID{10}},
 		})
@@ -2177,7 +2178,7 @@ func TestStaticEntriesSurviveAgingAndTheBound(t *testing.T) {
 		t.Fatalf("len(Entries()) = %d, want 2", len(entries))
 	}
 
-	br.Age(testTime0.Add(301 * time.Second))
+	br.Advance(testTime0.Add(301 * time.Second))
 	counters = br.Counters()
 	if counters.Expired != 1 {
 		t.Errorf("Counters().Expired = %d, want 1", counters.Expired)
@@ -2218,7 +2219,7 @@ func TestAgeActsOnLifetimeNotOrigin(t *testing.T) {
 		{MAC: macD, Port: "1/1/4", Origin: bridge.Observed, Lifetime: bridge.Aging, LearnedAt: testTime0},
 	})
 
-	br.Age(testTime0.Add(301 * time.Second))
+	br.Advance(testTime0.Add(301 * time.Second))
 
 	entries := br.Entries()
 	if len(entries) != 2 {

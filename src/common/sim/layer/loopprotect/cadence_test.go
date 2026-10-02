@@ -33,16 +33,16 @@ func TestWakeEmitsOnlyWhenTheProbeIntervalIsDue(t *testing.T) {
 		t.Fatalf("NextWake after LinkChange: no timer")
 	}
 
-	if fx := l.Wake(t0.Add(time.Second)); len(fx.Emissions) != 0 {
+	if fx := l.Advance(t0.Add(time.Second)); len(fx.Emissions) != 0 {
 		t.Errorf("Wake one second in: %d emissions, want 0", len(fx.Emissions))
 	}
-	if fx := l.Wake(due); len(fx.Emissions) != 1 {
+	if fx := l.Advance(due); len(fx.Emissions) != 1 {
 		t.Fatalf("Wake at the due time: %d emissions, want 1", len(fx.Emissions))
 	}
-	if fx := l.Wake(due.Add(time.Second)); len(fx.Emissions) != 0 {
+	if fx := l.Advance(due.Add(time.Second)); len(fx.Emissions) != 0 {
 		t.Errorf("Wake one second after the due time: %d emissions, want 0", len(fx.Emissions))
 	}
-	if fx := l.Wake(due.Add(5 * time.Second)); len(fx.Emissions) != 1 {
+	if fx := l.Advance(due.Add(5 * time.Second)); len(fx.Emissions) != 1 {
 		t.Errorf("Wake one interval after the due time: %d emissions, want 1", len(fx.Emissions))
 	}
 }

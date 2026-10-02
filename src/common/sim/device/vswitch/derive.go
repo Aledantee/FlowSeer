@@ -208,8 +208,8 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	} else {
 		next.retention.Routing = LayerRetention{Kept: false, Difference: diffDependency(curRoutingKey, nextRoutingKey)}
 		if cur != nil && cur.routing != nil {
-			eff := cur.routing.Clone().FailHeld()
-			next.applyRoutingEffects(time.Time{}, eff)
+			exits := cur.routing.Clone().FailHeld()
+			next.applyRoutingExits(time.Time{}, exits)
 		}
 	}
 

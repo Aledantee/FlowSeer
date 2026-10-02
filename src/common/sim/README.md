@@ -17,6 +17,7 @@ goroutines or wall-clock dependencies.
 | `stream`               | Finite Ethernet frame sources with deterministic timing      |
 | `port`                 | Port table, administrative state, and MTU                    |
 | `device/vswitch`       | Virtual switch composing pipeline capabilities               |
+| `layer`                | Shared emission, flush target, and effect types for pipeline layers |
 | `layer/lag`            | Bond modes, the 256-bucket member selection table, member delays, LACP |
 | `layer/phy`            | Physical Ethernet speeds and PoE budget allocation           |
 | `layer/bridge`         | Filtering database, VLAN classification, and tagging         |

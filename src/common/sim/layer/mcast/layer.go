@@ -62,11 +62,11 @@ const (
 type Lifetime string
 
 const (
-	// Aging is the zero value: [Layer.Age] removes the record once its
+	// Aging is the zero value: [Layer.Advance] removes the record once its
 	// Expires has passed.
 	Aging Lifetime = ""
 
-	// Static is a record [Layer.Age] never removes; its Expires is the
+	// Static is a record [Layer.Advance] never removes; its Expires is the
 	// zero value.
 	Static Lifetime = "static"
 )
@@ -239,10 +239,10 @@ func (l *Layer) LearnMLD(now time.Time, vid vlan.ID, portName string, source net
 	}
 }
 
-// Age applies the RFC 3376 §6.5 timer-expiry rules and removes learned router ports whose
+// Advance applies the RFC 3376 §6.5 timer-expiry rules and removes learned router ports whose
 // expiry is not after now. It is the only place aging mutates stored state; Resolve computes
-// the same rules lazily against the now it is given, so a caller need not call Age first.
-func (l *Layer) Age(now time.Time) {
+// the same rules lazily against the now it is given, so a caller need not call Advance first.
+func (l *Layer) Advance(now time.Time) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 

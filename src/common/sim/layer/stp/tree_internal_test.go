@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
-
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // TestTreeForAnswersForEveryVLAN pins the mapping this phase lands: one tree
@@ -62,7 +62,7 @@ func TestLoopGuardIgnoresAnEdgePort(t *testing.T) {
 	p.rcvTime = t0
 
 	// Three hello times of silence expire the information.
-	l.Wake(t0.Add(7 * time.Second))
+	l.Advance(t0.Add(7 * time.Second))
 
 	if p.loopInconsistent {
 		t.Error("loop guard held an edge port, which is where Cisco and Arista rule it out")
@@ -82,7 +82,7 @@ func TestLoopGuardIgnoresAnEdgePort(t *testing.T) {
 	q.rcvHelloTime = 2 * time.Second
 	q.rcvTime = t0.Add(7 * time.Second)
 
-	l.Wake(t0.Add(14 * time.Second))
+	l.Advance(t0.Add(14 * time.Second))
 
 	if !q.loopInconsistent {
 		t.Fatal("the control port did not arm the guard; the edge assertion proves nothing")
@@ -298,8 +298,8 @@ func TestLoopGuardHoldsAnInternalMSTIPortOutOfForwarding(t *testing.T) {
 	// delay ladders to Forwarding: two forward delays carries both there,
 	// which is what makes the later assertion about MSTI 1 evidence rather
 	// than a port that was never forwarding in the first place.
-	l.Wake(t0.Add(16 * time.Second))
-	l.Wake(t0.Add(32 * time.Second))
+	l.Advance(t0.Add(16 * time.Second))
+	l.Advance(t0.Add(32 * time.Second))
 	if !l.Forwards("1/1/1", 10) {
 		t.Fatalf("MSTI 1 does not forward VLAN 10 before the CIST hears a peer")
 	}
@@ -330,7 +330,7 @@ func TestLoopGuardHoldsAnInternalMSTIPortOutOfForwarding(t *testing.T) {
 
 	// Silence past three hello times expires the information and arms the
 	// guard.
-	l.Wake(t0.Add(33 * time.Second).Add(7 * time.Second))
+	l.Advance(t0.Add(33 * time.Second).Add(7 * time.Second))
 
 	cistInfo := l.PortInfo("1/1/1")
 	if cistInfo.Role != bpdu.RoleAlternate || cistInfo.State != StateDiscarding {
@@ -612,7 +612,7 @@ func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
 	now := t0
 	for i := 0; i < 20; i++ {
 		now = now.Add(2 * time.Second)
-		fx := a.Wake(now)
+		fx := a.Advance(now)
 		for _, e := range fx.Emissions {
 			dec, err := bpdu.Decode(e.Frame)
 			if err != nil {
@@ -620,7 +620,7 @@ func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
 			}
 			b.Receive(now, "p1", dec)
 		}
-		b.Wake(now)
+		b.Advance(now)
 	}
 
 	if info := b.PortInfo("p1"); info.Role != bpdu.RoleRoot {
@@ -633,7 +633,7 @@ func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
 	a.trees[treeID(1)].topologyChangeTimer = now.Add(10 * time.Second)
 
 	now = now.Add(2 * time.Second)
-	fx := a.Wake(now)
+	fx := a.Advance(now)
 	if len(fx.Emissions) == 0 {
 		t.Fatal("no hello emission at the scheduled hello time")
 	}
@@ -660,7 +660,7 @@ func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
 
 	fxB := b.Receive(now, "p1", dec)
 
-	var target *FlushTarget
+	var target *layer.FlushTarget
 	for i := range fxB.Flush {
 		if fxB.Flush[i].Port == "p2" {
 			target = &fxB.Flush[i]
@@ -734,7 +734,7 @@ func TestBoundaryFlipClearsAStaleForwardDelayTimer(t *testing.T) {
 	before := l.trees[treeID(1)].topologyChangeCount
 
 	// Past the deadline the stale timer would have fired at, had it survived.
-	l.Wake(t0.Add(20 * time.Second))
+	l.Advance(t0.Add(20 * time.Second))
 
 	if got := l.trees[treeID(1)].topologyChangeCount; got != before {
 		t.Errorf("MSTI 1 topology change count = %d, want unchanged at %d: no timer should have fired", got, before)

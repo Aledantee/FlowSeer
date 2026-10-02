@@ -12,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -49,7 +50,7 @@ func mustNewSTP(t *testing.T, cfg stp.Config, ports port.Table) *stp.Layer {
 
 // flushPorts extracts the port names named by a flush list, in order, for
 // tests that only care which ports were named and not their FIDs.
-func flushPorts(targets []stp.FlushTarget) []string {
+func flushPorts(targets []layer.FlushTarget) []string {
 	names := make([]string, len(targets))
 	for i, target := range targets {
 		names[i] = target.Port
@@ -59,13 +60,13 @@ func flushPorts(targets []stp.FlushTarget) []string {
 
 // flushTarget returns the flush target for the named port and whether one
 // exists.
-func flushTarget(targets []stp.FlushTarget, port string) (stp.FlushTarget, bool) {
+func flushTarget(targets []layer.FlushTarget, port string) (layer.FlushTarget, bool) {
 	for _, target := range targets {
 		if target.Port == port {
 			return target, true
 		}
 	}
-	return stp.FlushTarget{}, false
+	return layer.FlushTarget{}, false
 }
 
 func TestTwoBridgesExchange(t *testing.T) {
@@ -353,7 +354,7 @@ func TestThreeBridgeRingConvergence(t *testing.T) {
 
 		now = earliestWake
 		for i, l := range layers {
-			fx := l.Wake(now)
+			fx := l.Advance(now)
 			for _, em := range fx.Emissions {
 				peerSw, peerPort, ok := findPeer(i, em.Port)
 				if ok {
@@ -449,7 +450,7 @@ func TestSharedPortForwardDelay(t *testing.T) {
 			break
 		}
 		now = next
-		l.Wake(now)
+		l.Advance(now)
 
 		info = l.PortInfo("1/1/1")
 		if info.State == stp.StateLearning && reachedLearningAt.IsZero() {
@@ -537,7 +538,7 @@ func TestInformationAging(t *testing.T) {
 
 	// Advance 5 seconds: not yet aged out (3 * 2s = 6s)
 	now = now.Add(5 * time.Second)
-	l.Wake(now)
+	l.Advance(now)
 
 	rootID, _, _ = l.Root()
 	if rootID.Priority != 4096 {
@@ -546,7 +547,7 @@ func TestInformationAging(t *testing.T) {
 
 	// Advance past 6 seconds
 	now = startTime.Add(6 * time.Second)
-	l.Wake(now)
+	l.Advance(now)
 
 	rootID, _, rootPort = l.Root()
 	if rootID.Priority != 32768 || rootPort != "" {
@@ -639,15 +640,15 @@ func TestDesignatedPointToPointForwardsWithoutAgreement(t *testing.T) {
 		t.Fatalf("after link up: role %v state %v, want Designated Discarding", info.Role, info.State)
 	}
 
-	l.Wake(now.Add(stp.DefaultForwardDelay - time.Millisecond))
+	l.Advance(now.Add(stp.DefaultForwardDelay - time.Millisecond))
 	if info := l.PortInfo("1/1/1"); info.State != stp.StateDiscarding {
 		t.Fatalf("just before the forward delay: state %v, want Discarding", info.State)
 	}
-	l.Wake(now.Add(stp.DefaultForwardDelay))
+	l.Advance(now.Add(stp.DefaultForwardDelay))
 	if info := l.PortInfo("1/1/1"); info.State != stp.StateLearning {
 		t.Fatalf("after one forward delay: state %v, want Learning", info.State)
 	}
-	l.Wake(now.Add(2 * stp.DefaultForwardDelay))
+	l.Advance(now.Add(2 * stp.DefaultForwardDelay))
 	if info := l.PortInfo("1/1/1"); info.State != stp.StateForwarding {
 		t.Fatalf("after two forward delays: state %v, want Forwarding", info.State)
 	}
@@ -778,7 +779,7 @@ func TestCompatibilityOnLegacyBPDU(t *testing.T) {
 		t.Error("reply BPDU unexpectedly has proposal set")
 	}
 
-	w6 := l.Wake(t0.Add(6 * time.Second))
+	w6 := l.Advance(t0.Add(6 * time.Second))
 	for _, em := range w6.Emissions {
 		b, err := bpdu.Decode(em.Frame)
 		if err != nil {
@@ -803,9 +804,9 @@ func TestCompatibilityOnLegacyBPDU(t *testing.T) {
 		t.Errorf("PortInfo(1/1/1).SendRSTP = true, want false")
 	}
 
-	l.Wake(t0.Add(15 * time.Second))
+	l.Advance(t0.Add(15 * time.Second))
 
-	w29 := l.Wake(t0.Add(29 * time.Second))
+	w29 := l.Advance(t0.Add(29 * time.Second))
 	for _, em := range w29.Emissions {
 		if b, err := bpdu.Decode(em.Frame); err == nil && em.Port == "1/1/1" && b.Proposal() {
 			t.Errorf("wake 29s emission on %s has proposal set", em.Port)
@@ -815,7 +816,7 @@ func TestCompatibilityOnLegacyBPDU(t *testing.T) {
 		t.Errorf("1/1/1 state at 29s = %v, want not Forwarding", state)
 	}
 
-	w30 := l.Wake(t0.Add(30 * time.Second))
+	w30 := l.Advance(t0.Add(30 * time.Second))
 	for _, em := range w30.Emissions {
 		if b, err := bpdu.Decode(em.Frame); err == nil && em.Port == "1/1/1" && b.Proposal() {
 			t.Errorf("wake 30s emission on %s has proposal set", em.Port)
@@ -888,7 +889,7 @@ func TestProtocolMigrationReturnToRSTP(t *testing.T) {
 			t.Error("after Mcheck: SendRSTP = false, want true")
 		}
 
-		w12 := l.Wake(t0.Add(12 * time.Second))
+		w12 := l.Advance(t0.Add(12 * time.Second))
 		found := false
 		for _, em := range w12.Emissions {
 			if em.Port == "1/1/1" {
@@ -933,7 +934,7 @@ func TestProtocolMigrationReturnToRSTP(t *testing.T) {
 			t.Error("SendRSTP remained false after delay expired at 10s")
 		}
 
-		w12 := l.Wake(t0.Add(12 * time.Second))
+		w12 := l.Advance(t0.Add(12 * time.Second))
 		found := false
 		for _, em := range w12.Emissions {
 			if em.Port == "1/1/1" {
@@ -1014,12 +1015,12 @@ func TestAutoEdgeDetection(t *testing.T) {
 	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
 	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
 
-	l.Wake(t0.Add(2 * time.Second))
+	l.Advance(t0.Add(2 * time.Second))
 	if info := l.PortInfo("1/1/2"); info.Edge || info.State == stp.StateForwarding {
 		t.Fatalf("at 2s: 1/1/2 edge %v state %v, want not edge and discarding", info.Edge, info.State)
 	}
 
-	l.Wake(t0.Add(3 * time.Second))
+	l.Advance(t0.Add(3 * time.Second))
 	if info := l.PortInfo("1/1/2"); !info.Edge || info.State != stp.StateForwarding {
 		t.Fatalf("at 3s: 1/1/2 edge %v state %v, want edge and forwarding", info.Edge, info.State)
 	}
@@ -1045,7 +1046,7 @@ func TestAutoEdgeDetection(t *testing.T) {
 		t.Fatalf("at 5s after BPDU: 1/1/2 edge %v state %v, want non-edge and discarding", info.Edge, info.State)
 	}
 
-	l.Wake(t0.Add(8 * time.Second))
+	l.Advance(t0.Add(8 * time.Second))
 	if info := l.PortInfo("1/1/2"); !info.Edge || info.State != stp.StateForwarding {
 		t.Fatalf("at 8s without BPDU: 1/1/2 edge %v state %v, want edge and forwarding", info.Edge, info.State)
 	}
@@ -1071,10 +1072,10 @@ func TestTransmitHoldCountGating(t *testing.T) {
 	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
 	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
 
-	l.Wake(t0.Add(2 * time.Second))
+	l.Advance(t0.Add(2 * time.Second))
 	// The hello due at 4 s is the first of the two transmissions the bound
 	// allows within the second that follows.
-	l.Wake(t0.Add(4 * time.Second))
+	l.Advance(t0.Add(4 * time.Second))
 
 	inferiorConfig := bpdu.BPDU{
 		Version:      0,
@@ -1103,7 +1104,7 @@ func TestTransmitHoldCountGating(t *testing.T) {
 		t.Fatalf("NextWake = (%v, %v), want (%v, true)", next, hasTimer, t0.Add(5*time.Second))
 	}
 
-	w5 := l.Wake(t0.Add(5 * time.Second))
+	w5 := l.Advance(t0.Add(5 * time.Second))
 	if len(w5.Emissions) != 1 || w5.Emissions[0].Port != "1/1/1" {
 		t.Fatalf("Wake(5s) emissions = %+v, want 1 on 1/1/1", w5.Emissions)
 	}
@@ -1158,7 +1159,7 @@ func TestMigratedRootPortClimbsTheLadder(t *testing.T) {
 		if s%2 == 0 {
 			l.Receive(now, "1/1/1", superior)
 		}
-		l.Wake(now)
+		l.Advance(now)
 		if info := l.PortInfo("1/1/1"); s < 30 && info.State == stp.StateForwarding {
 			t.Fatalf("at t0+%ds the migrated root port is forwarding; want the ladder to hold it", s)
 		}
@@ -1294,7 +1295,7 @@ func TestAutoEdgeTimerRestartsWhenAPortBecomesDesignatedAgain(t *testing.T) {
 	// Three hellos without a BPDU age the information out and the port is
 	// designated again; its edge delay must count from then.
 	now := t0.Add(8 * time.Second)
-	l.Wake(now)
+	l.Advance(now)
 	if l.PortInfo("1/1/1").Role != bpdu.RoleDesignated {
 		t.Fatalf("role after aging = %v, want designated", l.PortInfo("1/1/1").Role)
 	}
@@ -1570,7 +1571,7 @@ func convergeLayers(t *testing.T, start time.Time, layers []*stp.Layer, cables [
 
 		now = earliestWake
 		for i, l := range layers {
-			fx := l.Wake(now)
+			fx := l.Advance(now)
 			for _, em := range fx.Emissions {
 				if peerSw, peerPort, ok := findPeer(i, em.Port); ok {
 					queue = append(queue, packet{targetSw: peerSw, targetPort: peerPort, frame: em.Frame})
@@ -1693,7 +1694,7 @@ func TestMSTBridgeMigratedPortEmitsPlainConfigurationBPDU(t *testing.T) {
 		t.Fatal("port did not migrate to legacy STP")
 	}
 
-	w := l.Wake(t0.Add(6 * time.Second))
+	w := l.Advance(t0.Add(6 * time.Second))
 	var emitted *bpdu.BPDU
 	for _, em := range w.Emissions {
 		if em.Port != "1/1/1" {
@@ -1880,7 +1881,7 @@ func TestAutoEdgeReachesAnMSTIAtTheSameWake(t *testing.T) {
 	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
 
 	// MigrateTime (3s) is the auto-edge delay on a point-to-point link.
-	fx := l.Wake(t0.Add(3 * time.Second))
+	fx := l.Advance(t0.Add(3 * time.Second))
 
 	if info := l.PortInfo("1/1/1"); !info.Edge || info.State != stp.StateForwarding {
 		t.Fatalf("CIST 1/1/1 = edge %v state %v, want edge and forwarding at this wake", info.Edge, info.State)
@@ -1946,7 +1947,7 @@ func convergePVSTLayers(t *testing.T, start time.Time, layers []*stp.Layer, cabl
 	}
 
 	var queue []packet
-	enqueue := func(sw int, emissions []stp.Emission) {
+	enqueue := func(sw int, emissions []layer.Emission) {
 		for _, em := range emissions {
 			if peerSw, peerPort, ok := findPeer(sw, em.Port); ok {
 				queue = append(queue, packet{targetSw: peerSw, targetPort: peerPort, vid: em.VID, frame: em.Frame})
@@ -2022,7 +2023,7 @@ func convergePVSTLayers(t *testing.T, start time.Time, layers []*stp.Layer, cabl
 
 		now = earliestWake
 		for i, l := range layers {
-			enqueue(i, l.Wake(now).Emissions)
+			enqueue(i, l.Advance(now).Emissions)
 		}
 	}
 
@@ -2116,7 +2117,7 @@ func pvstLayer(t *testing.T, addr string, vids ...vlan.ID) *stp.Layer {
 
 // emissionShape renders one emission as the VID the layer named and the group
 // address the frame carries, which is what the switch routes on.
-func emissionShape(em stp.Emission) string {
+func emissionShape(em layer.Emission) string {
 	kind := "ieee"
 	if em.Frame.Dst == bpdu.GroupAddressSSTP() {
 		kind = "sstp"
@@ -2125,7 +2126,7 @@ func emissionShape(em stp.Emission) string {
 	return fmt.Sprintf("%s/%d/%s", em.Port, em.VID, kind)
 }
 
-func emissionShapes(emissions []stp.Emission) []string {
+func emissionShapes(emissions []layer.Emission) []string {
 	shapes := make([]string, len(emissions))
 	for i, em := range emissions {
 		shapes[i] = emissionShape(em)
@@ -2155,7 +2156,7 @@ func TestPVSTHelloEmitsEveryVLANAndOneIEEEFrame(t *testing.T) {
 	if !ok {
 		t.Fatal("NextWake() reported no timer after a link came up")
 	}
-	fx := l.Wake(wake)
+	fx := l.Advance(wake)
 
 	got := emissionShapes(fx.Emissions)
 	want := []string{"l1/1/sstp", "l1/0/ieee", "l1/10/sstp"}
@@ -2204,7 +2205,7 @@ func TestPVSTEveryVLANKeepsItsOwnTransmitBudget(t *testing.T) {
 	if !ok {
 		t.Fatal("NextWake() reported no timer after a link came up")
 	}
-	fx := l.Wake(wake)
+	fx := l.Advance(wake)
 
 	sent := make(map[vlan.ID]int, len(vids))
 	for _, em := range fx.Emissions {
@@ -2238,14 +2239,14 @@ func TestPVSTVLAN1FlushNamesVLAN1Only(t *testing.T) {
 
 	// l2 reaching Forwarding raises VLAN 1's topology change, which flushes
 	// every other port by VLAN 1's own FID list.
-	var target stp.FlushTarget
+	var target layer.FlushTarget
 	found := false
 	for range 20 {
 		wake, ok := l.NextWake()
 		if !ok {
 			break
 		}
-		fx := l.Wake(wake)
+		fx := l.Advance(wake)
 		if got, ok := flushTarget(fx.Flush, "l1"); ok {
 			target, found = got, true
 
@@ -2279,7 +2280,7 @@ func TestPVSTPVIDInconsistencyBlocksTheArrivalVLAN(t *testing.T) {
 	// classifies into VLAN 10.
 	now := start.Add(2 * time.Second)
 	var vlan20BPDU bpdu.BPDU
-	for _, em := range peer.Wake(now).Emissions {
+	for _, em := range peer.Advance(now).Emissions {
 		if em.Frame.Dst == bpdu.GroupAddressSSTP() && em.VID == 20 {
 			b, _, err := bpdu.DecodeSSTP(em.Frame)
 			if err != nil {
@@ -2314,7 +2315,7 @@ func TestPVSTPVIDInconsistencyBlocksTheArrivalVLAN(t *testing.T) {
 	// A BPDU naming the VLAN it arrived on clears the port.
 	var vlan10BPDU bpdu.BPDU
 	now = now.Add(2 * time.Second)
-	for _, em := range peer.Wake(now).Emissions {
+	for _, em := range peer.Advance(now).Emissions {
 		if em.Frame.Dst == bpdu.GroupAddressSSTP() && em.VID == 10 {
 			b, _, err := bpdu.DecodeSSTP(em.Frame)
 			if err != nil {
@@ -2400,7 +2401,7 @@ func establishLoopInconsistent(t *testing.T, l *stp.Layer, port string, t0 time.
 	}
 
 	now := t0.Add(8 * time.Second)
-	l.Wake(now)
+	l.Advance(now)
 	if info := l.PortInfo(port); info.BlockReason != stp.BlockReasonLoopInconsistent {
 		t.Fatalf("block reason before the row's own call = %q, want %q", info.BlockReason, stp.BlockReasonLoopInconsistent)
 	}
@@ -2576,7 +2577,7 @@ func TestSSTPOnANonPVSTBridgeRunsTheLinkHalfAndAppliesNoVector(t *testing.T) {
 
 	now := start.Add(2 * time.Second)
 	var sstpBPDU bpdu.BPDU
-	for _, em := range peer.Wake(now).Emissions {
+	for _, em := range peer.Advance(now).Emissions {
 		if em.Frame.Dst == bpdu.GroupAddressSSTP() && em.VID == 20 {
 			b, _, err := bpdu.DecodeSSTP(em.Frame)
 			if err != nil {
@@ -2784,7 +2785,7 @@ func TestPVSTTopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	// is due at 2s; a wake before that finds nothing to send.
 	now := start.Add(2 * time.Second)
 	var vlan20BPDU bpdu.BPDU
-	for _, em := range peer.Wake(now).Emissions {
+	for _, em := range peer.Advance(now).Emissions {
 		if em.Frame.Dst == bpdu.GroupAddressSSTP() && em.VID == 20 {
 			b, _, err := bpdu.DecodeSSTP(em.Frame)
 			if err != nil {
@@ -3022,7 +3023,7 @@ func TestPVSTMigrationReachesEveryTreeAndSilencesSSTP(t *testing.T) {
 	if !ok {
 		t.Fatal("NextWake() reported no timer after the migration")
 	}
-	fx := l.Wake(wake)
+	fx := l.Advance(wake)
 
 	var sstpCount, ieeeCount int
 	for _, em := range fx.Emissions {
@@ -3071,8 +3072,8 @@ func TestSpeedOnlyLinkChangeReachesEveryTreesCostWithoutBouncing(t *testing.T) {
 	// No peer ever agrees, so the port climbs the forward delay ladder to
 	// Forwarding across two forward delays.
 	const fwdDelay = 15 * time.Second
-	l.Wake(start.Add(fwdDelay))
-	l.Wake(start.Add(2 * fwdDelay))
+	l.Advance(start.Add(fwdDelay))
+	l.Advance(start.Add(2 * fwdDelay))
 
 	before := l.PortInfo("l1")
 	if before.State != stp.StateForwarding {

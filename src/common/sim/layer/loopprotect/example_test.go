@@ -41,11 +41,11 @@ func Example() {
 	layer.LinkChange(t0, "1/1/2", true)
 
 	// The first probes go out one interval after the links came up.
-	fx := layer.Wake(t0.Add(5 * time.Second))
+	fx := layer.Advance(t0.Add(5 * time.Second))
 
 	// The unmanaged hub loops 1/1/1's probe back onto the switch; the
 	// switch decodes it and finds it names this switch as sender.
-	probe, err := loopprotect.Decode(loopprotect.Encode(fx.Emissions[0].Probe, mac))
+	probe, err := loopprotect.Decode(fx.Emissions[0].Frame)
 	if err != nil {
 		panic(err)
 	}

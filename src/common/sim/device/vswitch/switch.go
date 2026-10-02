@@ -23,6 +23,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -1153,7 +1154,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		return s.finishForward(now, ingress, f, res, mutate)
 	}
 
-	if s.loopprotect != nil && f.Dst == loopprotect.GroupAddress {
+	if s.loopprotect != nil && f.Dst == loopprotect.GroupAddress() {
 		if res, handled := s.interceptLoopProtect(now, ingress, f, mutate); handled {
 			s.forwardingDependencies(ingress).consult(&res)
 			return s.finishForward(now, ingress, f, res, mutate)
@@ -1536,7 +1537,8 @@ func (s *Switch) observeAndRelease(now time.Time, adv routing.Advertisement) {
 	s.neighborUnresolvedHits = nil
 
 	s.routing.Observe(now, adv)
-	s.applyRoutingEffects(now, s.routing.Wake(now))
+	s.routing.Advance(now)
+	s.applyRoutingExits(now, s.routing.DrainExits())
 
 	s.lagRebalanceHits = savedLAGRebalanceHits
 	s.neighborUnresolvedHits = savedNeighborUnresolvedHits
@@ -2218,16 +2220,18 @@ func (s *Switch) routingForwardingDependencies(name string) forwardingDependenci
 }
 
 // Age removes dynamic forwarding database entries older than the configured
-// aging time relative to now. It is a no-op when the switch has no bridge subsystem.
+// aging time relative to now, advances multicast router and group expiry, and
+// advances the routing layer's neighbor table, applying any hold-queue exits.
 func (s *Switch) Age(now time.Time) {
 	if s.bridge != nil {
-		s.bridge.Age(now)
+		s.bridge.Advance(now)
 	}
 	if s.mcast != nil {
-		s.mcast.Age(now)
+		s.mcast.Advance(now)
 	}
 	if s.routing != nil {
-		s.routing.Age(now)
+		s.routing.Advance(now)
+		s.applyRoutingExits(now, s.routing.DrainExits())
 	}
 }
 
@@ -2782,7 +2786,7 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 
 	var outcome stp.SSTPOutcome
 	if mutate {
-		var fx stp.Effects
+		var fx layer.Effects
 		fx, outcome = s.stp.ReceiveSSTP(now, resolvedPort, stp.SSTPArrival{
 			ArrivalVID: arrivalVID,
 			TLVVID:     tlvVID,
@@ -2997,13 +3001,9 @@ func (s *Switch) linkSpeed(p port.Port) uint64 {
 	return best
 }
 
-func (s *Switch) applySTPEffects(fx stp.Effects) {
+func (s *Switch) applySTPEffects(fx layer.Effects) {
 	if len(fx.Flush) > 0 && s.bridge != nil {
-		targets := make([]bridge.FlushTarget, len(fx.Flush))
-		for i, t := range fx.Flush {
-			targets[i] = bridge.FlushTarget{Port: t.Port, FIDs: t.FIDs}
-		}
-		s.bridge.Flush(targets)
+		s.bridge.Flush(fx.Flush)
 	}
 	for _, em := range fx.Emissions {
 		// A zero VID is a frame the layer built whole: an IEEE-addressed BPDU
@@ -3035,13 +3035,9 @@ func (s *Switch) applySTPEffects(fx stp.Effects) {
 // What the loop-protection layer itself says about the port is deliberately
 // not consulted, which is what lets a blocked port keep probing and a
 // LoopCleared recovery see the loop persist.
-func (s *Switch) applyLoopProtectEffects(fx loopprotect.Effects) {
+func (s *Switch) applyLoopProtectEffects(fx layer.Effects) {
 	if len(fx.Flush) > 0 && s.bridge != nil {
-		targets := make([]bridge.FlushTarget, len(fx.Flush))
-		for i, t := range fx.Flush {
-			targets[i] = bridge.FlushTarget{Port: t.Port, FIDs: t.FIDs}
-		}
-		s.bridge.Flush(targets)
+		s.bridge.Flush(fx.Flush)
 	}
 	for _, em := range fx.Emissions {
 		p, ok := s.ports.Port(em.Port)
@@ -3060,12 +3056,9 @@ func (s *Switch) applyLoopProtectEffects(fx loopprotect.Effects) {
 		// The payload must name the VLAN the probe actually rides. em.VID is
 		// 0 for a port with no configured VLANs, encoded that way because
 		// the layer does not know the port's PVID; now that vid is resolved,
-		// re-encode so the wire frame agrees with what the switch classifies
-		// a returning copy into, instead of leaving the payload at VID 0 and
-		// reporting a false inter-VLAN loop when it returns.
-		probe := em.Probe
-		probe.VID = vid
-		frame := loopprotect.Encode(probe, probe.OriginMAC)
+		// patch the frame without decoding so the wire frame agrees with what
+		// the switch classifies a returning copy into.
+		frame := loopprotect.SetProbeVID(em.Frame, vid)
 
 		egress, ok := s.bridge.OriginateFrame(em.Port, vid, frame)
 		if !ok {
@@ -3123,7 +3116,7 @@ func (s *Switch) sameUntaggedDomain(name string, sent, classified vlan.ID) bool 
 	return slices.Contains(sw.Untagged, sent) && slices.Contains(sw.Untagged, classified)
 }
 
-func (s *Switch) applyLAGEffects(now time.Time, fx lag.Effects) {
+func (s *Switch) applyLAGEffects(now time.Time, fx layer.Effects) {
 	for _, em := range fx.Emissions {
 		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: em.Frame, Protocol: true})
 	}
@@ -3132,8 +3125,8 @@ func (s *Switch) applyLAGEffects(now time.Time, fx lag.Effects) {
 	}
 }
 
-// applyRoutingEffects turns the routing layer's hold-queue exits into what
-// [Switch.Wake]'s caller can observe: a released frame becomes an Emission
+// applyRoutingExits turns the routing layer's hold-queue exits into what
+// [Switch.Wake]'s or [Switch.Age]'s caller can observe: a released frame becomes an Emission
 // with Protocol false, since it is ordinary data the switch is finally able
 // to send rather than a protocol frame of the switch's own, and a frame that
 // left the queue any other way becomes a [NeighborDrop] under the reason its
@@ -3143,8 +3136,8 @@ func (s *Switch) applyLAGEffects(now time.Time, fx lag.Effects) {
 // next hop, which is what that reason says. An eviction gets its own, because
 // the neighbor it was queued for may well have resolved, often on this very
 // call.
-func (s *Switch) applyRoutingEffects(now time.Time, fx routing.Effects) {
-	for _, hf := range fx.Exits {
+func (s *Switch) applyRoutingExits(now time.Time, exits []routing.HeldFrame) {
+	for _, hf := range exits {
 		switch hf.Cause {
 		case routing.HeldReleased:
 			s.releaseHeldFrame(now, hf)
@@ -3491,23 +3484,23 @@ func (s *Switch) Times() (maxAge, hello, forwardDelay time.Duration) {
 
 // Wake advances the protocol layers to now, firing due timers, flushing bridge entries,
 // and triggering periodic transmissions.
-// On a switch without spanning tree or link aggregation, Wake is a no-op.
+// On a switch without spanning tree, link aggregation, loop protection, or routing, Wake is a no-op.
 func (s *Switch) Wake(now time.Time) {
 	if s.stp != nil {
-		fx := s.stp.Wake(now)
+		fx := s.stp.Advance(now)
 		s.applySTPEffects(fx)
 	}
 	if s.lag != nil {
-		fx := s.lag.Wake(now)
+		fx := s.lag.Advance(now)
 		s.applyLAGEffects(now, fx)
 	}
 	if s.loopprotect != nil {
-		fx := s.loopprotect.Wake(now)
+		fx := s.loopprotect.Advance(now)
 		s.applyLoopProtectEffects(fx)
 	}
 	if s.routing != nil {
-		fx := s.routing.Wake(now)
-		s.applyRoutingEffects(now, fx)
+		s.routing.Advance(now)
+		s.applyRoutingExits(now, s.routing.DrainExits())
 	}
 }
 

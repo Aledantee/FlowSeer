@@ -79,7 +79,7 @@ func TestMessageAgeAtMaxAgeIsDiscarded(t *testing.T) {
 
 	// Three hello times after the last accepted BPDU, and not after the
 	// discarded one, the information ages out and this bridge is root again.
-	l.Wake(t0.Add(time.Second).Add(6 * time.Second))
+	l.Advance(t0.Add(time.Second).Add(6 * time.Second))
 	root, _, rootPort = l.Root()
 	if root.Priority != 32768 || rootPort != "" {
 		t.Errorf("root = %v via %q, want this bridge once the stale information aged out", root, rootPort)
@@ -172,7 +172,7 @@ func TestBPDUGuardDisablesPortUntilLinkBounce(t *testing.T) {
 	}
 
 	// A wake with no further BPDU does not recover the port.
-	l.Wake(t0.Add(30 * time.Second))
+	l.Advance(t0.Add(30 * time.Second))
 	if l.PortInfo("1/1/1").BlockReason != stp.BlockReasonBPDUGuard {
 		t.Error("a wake recovered the guarded port; only a link bounce may")
 	}
@@ -210,8 +210,8 @@ func TestBPDUGuardCountsOneTopologyChange(t *testing.T) {
 	// Two forward delays carry the guarded port to Forwarding, so the BPDU
 	// below takes it out of the active topology rather than finding it already
 	// discarding.
-	l.Wake(t0.Add(16 * time.Second))
-	l.Wake(t0.Add(32 * time.Second))
+	l.Advance(t0.Add(16 * time.Second))
+	l.Advance(t0.Add(32 * time.Second))
 	if got := l.PortInfo("1/1/1").State; got != stp.StateForwarding {
 		t.Fatalf("port state = %v, want Forwarding before the guard trips", got)
 	}
@@ -302,7 +302,7 @@ func TestLoopGuardHoldsPortDiscardingWhenBPDUsStop(t *testing.T) {
 	}
 
 	// Silence past three hello times expires the information.
-	l.Wake(t0.Add(time.Second).Add(7 * time.Second))
+	l.Advance(t0.Add(time.Second).Add(7 * time.Second))
 
 	info := l.PortInfo("1/1/1")
 	if info.Role != bpdu.RoleAlternate || info.State != stp.StateDiscarding {
@@ -337,7 +337,7 @@ func TestWithoutLoopGuardTheQuietPortBecomesDesignated(t *testing.T) {
 	})
 
 	l.Receive(t0.Add(time.Second), "1/1/1", superiorBPDU(0, 20*time.Second))
-	l.Wake(t0.Add(time.Second).Add(7 * time.Second))
+	l.Advance(t0.Add(time.Second).Add(7 * time.Second))
 
 	info := l.PortInfo("1/1/1")
 	if info.Role != bpdu.RoleDesignated {
@@ -378,8 +378,8 @@ func TestBPDUGuardHoldsAnMSTIOutOfForwarding(t *testing.T) {
 	// Two forward delays carry both the CIST's and MSTI 1's copy of the port
 	// to Forwarding, so the BPDU below takes a forwarding port out of the
 	// topology rather than finding it already discarding.
-	l.Wake(t0.Add(16 * time.Second))
-	l.Wake(t0.Add(32 * time.Second))
+	l.Advance(t0.Add(16 * time.Second))
+	l.Advance(t0.Add(32 * time.Second))
 	if !l.Forwards("1/1/1", 10) {
 		t.Fatalf("MSTI 1 does not forward VLAN 10 before the guard trips")
 	}
@@ -417,7 +417,7 @@ func TestLoopGuardIsInactiveWhereVendorsExcludeIt(t *testing.T) {
 	shared.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
 
 	shared.Receive(t0.Add(time.Second), "1/1/1", superiorBPDU(0, 20*time.Second))
-	shared.Wake(t0.Add(time.Second).Add(7 * time.Second))
+	shared.Advance(t0.Add(time.Second).Add(7 * time.Second))
 	if got := shared.PortInfo("1/1/1").BlockReason; got != "" {
 		t.Errorf("shared-link port block reason = %q, want none: loop guard does not watch it", got)
 	}

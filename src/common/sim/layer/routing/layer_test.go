@@ -331,10 +331,10 @@ func TestRouteNeighborLifecycle(t *testing.T) {
 		if _, ok := l.NextWake(); ok {
 			t.Fatal("NextWake reports a timer after two peeks, want none: a peek must not create an entry")
 		}
-		// If either peek had created an entry or queued a frame, Wake would report it.
-		eff := l.Wake(testNow.Add(time.Hour))
-		if len(eff.Exits) != 0 {
-			t.Fatalf("exits = %+v, want none: a peek must not create an entry or queue a frame", eff.Exits)
+		// If either peek had created an entry or queued a frame, Advance would report it.
+		l.Advance(testNow.Add(time.Hour))
+		if exits := l.DrainExits(); len(exits) != 0 {
+			t.Fatalf("exits = %+v, want none: a peek must not create an entry or queue a frame", exits)
 		}
 	})
 }

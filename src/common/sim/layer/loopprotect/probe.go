@@ -2,6 +2,7 @@ package loopprotect
 
 import (
 	"encoding/binary"
+	"slices"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -28,9 +29,13 @@ const probeHeaderLength = 14
 // would emit an undecodable probe for that port.
 const maxProbePortNameLength = 255
 
-// GroupAddress is the destination address of a loop-protection probe, a
+var groupAddress = netaddr.MAC{0x03, 0x46, 0x53, 0x4c, 0x50, 0x00}
+
+// GroupAddress returns the destination address of a loop-protection probe, a
 // locally administered group MAC.
-var GroupAddress = netaddr.MAC{0x03, 0x46, 0x53, 0x4c, 0x50, 0x00}
+func GroupAddress() netaddr.MAC {
+	return groupAddress
+}
 
 // EtherType is the loop-protection probe EtherType, IEEE Std 802 Local
 // Experimental EtherType 1.
@@ -62,11 +67,23 @@ func Encode(p Probe, src netaddr.MAC) ethernet.Frame {
 	copy(payload[probeHeaderLength:], name)
 
 	return ethernet.Frame{
-		Dst:       GroupAddress,
+		Dst:       groupAddress,
 		Src:       src,
 		EtherType: EtherType,
 		Payload:   payload,
 	}
+}
+
+// SetProbeVID returns a copy of f with its loop-protection probe VID field patched
+// to vid without decoding the remainder of the payload.
+func SetProbeVID(f ethernet.Frame, vid vlan.ID) ethernet.Frame {
+	if len(f.Payload) < probeHeaderLength {
+		return f
+	}
+	payload := slices.Clone(f.Payload)
+	binary.BigEndian.PutUint16(payload[7:9], uint16(vid))
+	f.Payload = payload
+	return f
 }
 
 // Decode parses f's payload as a loop-protection probe. It refuses a wrong

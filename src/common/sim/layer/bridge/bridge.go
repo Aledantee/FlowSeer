@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -211,14 +212,6 @@ func (b *Bridge) SetFDBScope(scope analysis.Scope) {
 	b.fdbScope = scope
 }
 
-// FlushTarget names a port whose learned forwarding database entries must be
-// flushed, and which FIDs on it are stale. An empty FIDs flushes every FID on
-// the port.
-type FlushTarget struct {
-	Port string
-	FIDs []vlan.ID
-}
-
 // Flush removes dynamic forwarding database entries matching the given
 // targets: a target's Port must match the entry's port, and either its FIDs
 // is empty or contains the entry's FID. Two targets may name the same port;
@@ -226,7 +219,7 @@ type FlushTarget struct {
 // empty set on either side widens the port to every FID, so a caller that
 // builds its targets tree by tree does not silently lose the earlier tree's
 // flush.
-func (b *Bridge) Flush(targets []FlushTarget) {
+func (b *Bridge) Flush(targets []layer.FlushTarget) {
 	if len(targets) == 0 {
 		return
 	}
@@ -373,8 +366,8 @@ func (b *Bridge) Forget(fid vlan.ID, mac netaddr.MAC) bool {
 	return true
 }
 
-// Age removes dynamic forwarding database entries older than the configured aging time relative to now.
-func (b *Bridge) Age(now time.Time) {
+// Advance removes dynamic forwarding database entries older than the configured aging time relative to now.
+func (b *Bridge) Advance(now time.Time) {
 	for key, e := range b.fdb {
 		if e.Lifetime != Static && now.Sub(e.LearnedAt) > b.agingTime {
 			delete(b.fdb, key)

@@ -2518,9 +2518,59 @@ func TestLoopProtectTrunkWithPVIDEmitsAProbe(t *testing.T) {
 		if em.Port != "1/1/1" {
 			continue
 		}
-		if _, err := loopprotect.Decode(em.Frame); err == nil {
+		probe, err := loopprotect.Decode(em.Frame)
+		if err == nil {
+			if probe.VID != 10 {
+				t.Fatalf("probe VID = %d, want port PVID 10", probe.VID)
+			}
 			found = true
 		}
+	}
+	if !found {
+		t.Fatalf("emissions after Wake = %+v, want a decodable loop-protection probe on 1/1/1", emissions)
+	}
+}
+
+func TestLoopProtectProbeWithNoConfiguredVLANCarriesPortPVID(t *testing.T) {
+	pvid := vlan.ID(10)
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	sw := mustSwitch(t, vswitch.Config{
+		Ports: tbl,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "a", 20: "b"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: &pvid, Untagged: []vlan.ID{10}, Tagged: []vlan.ID{20}},
+			},
+		}},
+		LoopProtect: &loopprotect.Config{
+			Ports: map[string]loopprotect.Port{
+				"1/1/1": {Action: loopprotect.Block},
+			},
+		},
+	})
+
+	now := fixedTime
+	sw.Start(now)
+	sw.Drain()
+
+	sw.Wake(now.Add(loopprotect.DefaultInterval))
+	emissions := sw.Drain()
+
+	found := false
+	for _, em := range emissions {
+		if em.Port != "1/1/1" {
+			continue
+		}
+		probe, err := loopprotect.Decode(em.Frame)
+		if err != nil {
+			continue
+		}
+		if probe.VID != 10 {
+			t.Fatalf("probe VID = %d, want port PVID 10", probe.VID)
+		}
+		found = true
 	}
 	if !found {
 		t.Fatalf("emissions after Wake = %+v, want a decodable loop-protection probe on 1/1/1", emissions)
@@ -9329,6 +9379,72 @@ func TestEvictedHeldFrameIsNotReportedAsANeighborMiss(t *testing.T) {
 	}
 	if drops[0].Port != "" {
 		t.Errorf("port = %q, want empty: vlan20 is an SVI, which owns no single port", drops[0].Port)
+	}
+}
+
+func TestFrameEvictedFromHoldQueueDrainedAfterAgeWithNoWake(t *testing.T) {
+	sw := buildHeldEgressSwitch(t, 2)
+
+	dst := netip.MustParseAddr("10.0.20.77")
+	for i, payload := range [][]byte{[]byte("first"), []byte("second"), []byte("third")} {
+		holdFrameToward(t, sw, fixedTime.Add(time.Duration(i)*time.Millisecond), dst, payload)
+	}
+
+	// Age with no Wake between drains the evicted frame into neighborFailures.
+	sw.Age(fixedTime.Add(time.Second))
+
+	drops := sw.DrainNeighborFailures()
+	if len(drops) != 1 {
+		t.Fatalf("neighbor drops = %d, want 1: %+v", len(drops), drops)
+	}
+	if drops[0].Reason != routing.ReasonNeighborHoldOverflow {
+		t.Errorf("reason = %v, want %v", drops[0].Reason, routing.ReasonNeighborHoldOverflow)
+	}
+	if drops[0].Step.RuleID != trace.RuleID(routing.ReasonNeighborHoldOverflow) {
+		t.Errorf("rule = %v, want %v", drops[0].Step.RuleID, routing.ReasonNeighborHoldOverflow)
+	}
+}
+
+func TestWakeAgeForwardStopConditionInvariance(t *testing.T) {
+	setup := func() (*vswitch.Switch, ethernet.Frame, time.Time) {
+		sw := buildBaseRoutingSwitch(t)
+		dst := netip.MustParseAddr("10.0.20.77")
+		learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x77}
+		pkt := makeIPv4Packet(t, ipH1, dst, 64, []byte("hello"))
+		frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
+
+		if held := sw.Forward(fixedTime, "1/1/1", frame); held.Outcome != trace.Held {
+			t.Fatalf("outcome = %v, want Held", held.Outcome)
+		}
+		reply := makeARPReply(t, dst, netip.MustParseAddr("10.0.20.1"), learnedMAC, macRouter)
+		sw.Forward(fixedTime.Add(time.Millisecond), "1/1/2", reply)
+		sw.Wake(fixedTime.Add(time.Millisecond))
+		sw.Drain()
+
+		expT := fixedTime.Add(time.Millisecond + 30*time.Second)
+		return sw, frame, expT
+	}
+
+	sw1, frame1, expT := setup()
+	sw2, frame2, _ := setup()
+
+	sw1.Wake(expT)
+	sw1.Age(expT)
+	res1 := sw1.Forward(expT, "1/1/1", frame1)
+	em1 := sw1.Drain()
+
+	sw2.Age(expT)
+	res2 := sw2.Forward(expT, "1/1/1", frame2)
+	em2 := sw2.Drain()
+
+	if res1.Outcome != res2.Outcome {
+		t.Fatalf("res1 outcome = %v, res2 outcome = %v, want equal", res1.Outcome, res2.Outcome)
+	}
+	if !reflect.DeepEqual(sw1.Neighbors(), sw2.Neighbors()) {
+		t.Fatalf("sw1 neighbors = %+v, sw2 neighbors = %+v, want equal", sw1.Neighbors(), sw2.Neighbors())
+	}
+	if len(em1) != len(em2) {
+		t.Fatalf("em1 count = %d, em2 count = %d, want equal", len(em1), len(em2))
 	}
 }
 

@@ -223,7 +223,8 @@ func runConservation(t *testing.T, depth int, ops []conservationOp) conservation
 		}
 	}
 	drain := func(at time.Time) {
-		for _, hf := range l.Wake(at).Exits {
+		l.Advance(at)
+		for _, hf := range l.DrainExits() {
 			run.exited = append(run.exited, hf.Frame.Payload[len(hf.Frame.Payload)-1])
 			run.causes[hf.Cause]++
 			// A released frame carries a resolved destination; the two failure causes carry

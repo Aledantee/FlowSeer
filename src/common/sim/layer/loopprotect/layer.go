@@ -8,42 +8,9 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
-
-// Emission describes a probe frame to transmit out one virtual switch port
-// carrying one VLAN. The VID rides alongside Probe because the switch, not
-// this layer, applies the port's VLAN egress tagging; a caller that resolves
-// VID 0 to a real VLAN (the switch does, for a port with no configured
-// VLANs) must set Probe.VID to that resolved value before calling Encode, so
-// the payload names the VLAN the probe actually rides rather than the VID 0
-// it was built with.
-type Emission struct {
-	Port  string
-	VID   vlan.ID
-	Probe Probe
-}
-
-// Effects lists the probe frames a Wake call emits and the ports whose
-// learned forwarding table entries must be flushed as a result of a
-// loop-protection action taking effect.
-type Effects struct {
-	Emissions []Emission
-	Flush     []FlushTarget
-}
-
-// FlushTarget names a port whose learned forwarding table entries must be
-// flushed, and which FIDs on it are stale. An empty FIDs means every FID.
-// Receive returns one target, naming the port whose action it just applied,
-// only on the transition into a forwarding-denying action (Block or
-// Disable): the entries the loop taught that port are stale, exactly as
-// spanning tree flushes on a topology change. NoLearn keeps forwarding, so
-// it flushes nothing, and a repeat probe for a port already carrying an
-// applied action flushes nothing either.
-type FlushTarget struct {
-	Port string
-	FIDs []vlan.ID
-}
 
 // Return describes a probe's arrival back at the switch that sent it.
 type Return struct {
@@ -223,10 +190,10 @@ func (l *Layer) PortInfo(portName string) PortInfo {
 // delivered at or after the window's expiry sees the action as already
 // lifted rather than reading a stale applied state that Wake alone would
 // have caught later.
-func (l *Layer) Receive(now time.Time, ret Return, p Probe) Effects {
+func (l *Layer) Receive(now time.Time, ret Return, p Probe) layer.Effects {
 	ps, ok := l.ports[p.Port]
 	if !ok {
-		return Effects{}
+		return layer.Effects{}
 	}
 
 	ps.interVLAN = ret.VID != p.VID && !ret.SameUntaggedDomain
@@ -268,13 +235,13 @@ func (l *Layer) Receive(now time.Time, ret Return, p Probe) Effects {
 	}
 
 	if !wasApplied && ps.applied && ps.cfg.Action != NoLearn {
-		return Effects{Flush: []FlushTarget{{Port: p.Port}}}
+		return layer.Effects{Flush: []layer.FlushTarget{{Port: p.Port}}}
 	}
 
-	return Effects{}
+	return layer.Effects{}
 }
 
-// Wake advances every port's Timer and LoopCleared recovery windows past
+// Advance advances every port's Timer and LoopCleared recovery windows past
 // now, lifting an action whose wait has elapsed, and emits one probe per
 // protected port per VLAN, walking ports in sorted order so the emissions
 // are ordered, except for a port currently applying Disable: that port
@@ -287,7 +254,7 @@ func (l *Layer) Receive(now time.Time, ret Return, p Probe) Effects {
 // layers together, so this runs at every spanning tree hello and at every
 // recovery expiry as well; emitting on each of those would probe far faster
 // than the configuration asks for.
-func (l *Layer) Wake(now time.Time) Effects {
+func (l *Layer) Advance(now time.Time) layer.Effects {
 	if !l.armed {
 		l.armed = true
 		l.nextProbeAt = now.Add(l.interval)
@@ -308,10 +275,10 @@ func (l *Layer) Wake(now time.Time) Effects {
 	}
 
 	if now.Before(l.nextProbeAt) {
-		return Effects{}
+		return layer.Effects{}
 	}
 
-	var emissions []Emission
+	var emissions []layer.Emission
 
 	for _, name := range l.sortedNames {
 		ps := l.ports[name]
@@ -334,17 +301,17 @@ func (l *Layer) Wake(now time.Time) Effects {
 				Sequence:  seq,
 				Port:      name,
 			}
-			emissions = append(emissions, Emission{
+			emissions = append(emissions, layer.Emission{
 				Port:  name,
 				VID:   vid,
-				Probe: probe,
+				Frame: Encode(probe, l.mac),
 			})
 		}
 	}
 
 	l.nextProbeAt = now.Add(l.interval)
 
-	return Effects{Emissions: emissions}
+	return layer.Effects{Emissions: emissions}
 }
 
 // NextWake returns the earliest scheduled time at which the layer needs to
@@ -379,7 +346,7 @@ func (l *Layer) NextWake() (time.Time, bool) {
 // action clears on the down transition, which is what makes a link cycle
 // (down, then up) its recovery; an up report with no preceding down leaves
 // the action applied. A port this layer does not track is otherwise ignored.
-func (l *Layer) LinkChange(now time.Time, portName string, up bool) Effects {
+func (l *Layer) LinkChange(now time.Time, portName string, up bool) layer.Effects {
 	if !l.armed {
 		l.armed = true
 		l.nextProbeAt = now.Add(l.interval)
@@ -387,7 +354,7 @@ func (l *Layer) LinkChange(now time.Time, portName string, up bool) Effects {
 
 	ps, ok := l.ports[portName]
 	if !ok {
-		return Effects{}
+		return layer.Effects{}
 	}
 
 	if !up && ps.applied && ps.cfg.Recovery.Mode == Manual {
@@ -395,7 +362,7 @@ func (l *Layer) LinkChange(now time.Time, portName string, up bool) Effects {
 		ps.waitUntil = time.Time{}
 	}
 
-	return Effects{}
+	return layer.Effects{}
 }
 
 // Clear manually lifts the action applied to the named port and resets its
