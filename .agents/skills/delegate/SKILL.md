@@ -44,9 +44,9 @@ lane in this order:
 
 1. Drop models whose pool row, as `scripts/pool-usage.sh` printed it for
    this wave (`~/.claude/models/host.yaml` holds the session-start rows),
-   shows `signed_in: false`, or at or over the pool's limit on a window that applies to
-   the model. A row with `signed_in: null` and an `error` is signed in with
-   unknown headroom (`references/pool-rows.md`). Orca reporting a provider
+   shows `signed_in` false or null, or at or over the pool's limit on a window that applies to
+   the model. A row with `signed_in: true`, `windows: null`, and an `error`
+   is usable with unknown headroom (`references/pool-rows.md`). Orca reporting a provider
    `unavailable` is not a pool row.
 2. Drop models the role `exclude`s. For `review-unit`, also drop the
    `vendor` of the model that executed the unit under review; for
