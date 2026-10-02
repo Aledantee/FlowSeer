@@ -29,8 +29,9 @@ Imports flow strictly upward across boundaries. Lower roots never depend on
 higher roots. Primitives under `net/`, error payloads under `errs/`, and
 authorization rule options under `authz/` are leaves. `model/` defines identity
 and shared values that upper boundaries embed. `event/`, `integration/`, `api/`,
-and `edge/` are boundary consumers that import `model/`, `errs/`, `authz/`, and
-`net/` as needed. `edge/audit` also imports `event/access` for the record it
+and `edge/` are boundary consumers that import `model/`, `errs/`, and
+`net/` as needed. `api/` also imports `authz/` for the rule each RPC declares.
+`edge/audit` also imports `event/access` for the record it
 delivers, so a boundary consumer may import another when its own contract carries
 that other's record. A package that declares a Connect service is a sink and is
 imported by nothing. `store/` records embed models and primitives but are

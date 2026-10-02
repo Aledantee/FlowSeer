@@ -119,7 +119,7 @@ func checkObjectIDPath(method protoreflect.MethodDescriptor, rule *authzv1.Rule)
 				return []string{fmt.Sprintf("%s object_id_path %q: intermediate field %s is not a singular message",
 					method.FullName(), path, field.FullName())}
 			}
-			if field.Kind() != protoreflect.MessageKind || field.Message() == nil {
+			if field.Kind() != protoreflect.MessageKind {
 				return []string{fmt.Sprintf("%s object_id_path %q: intermediate field %s has kind %v, want message",
 					method.FullName(), path, field.FullName(), field.Kind())}
 			}
@@ -266,6 +266,19 @@ func TestEveryOperatorRPCHasAuthorizationRule(t *testing.T) {
 							".flowseer.api.edge.v1.GetEdgeRequest",
 							".flowseer.api.edge.v1.GetEdgeResponse",
 							nil),
+						syntheticMethod("TrailingMethod",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							compliantRule),
+					},
+				},
+				{
+					Name: proto.String("TrailingService"),
+					Method: []*descriptorpb.MethodDescriptorProto{
+						syntheticMethod("TrailingServiceMethod",
+							".flowseer.api.edge.v1.GetEdgeRequest",
+							".flowseer.api.edge.v1.GetEdgeResponse",
+							compliantRule),
 					},
 				},
 			},
@@ -401,6 +414,13 @@ func TestAuthorizationRuleObjectPathResolves(t *testing.T) {
 			ObjectIdPath: proto.String("tags"),
 		}.Build()
 
+		mapLeafRule := authzv1.Rule_builder{
+			Mode:         authzv1.RuleMode_RULE_MODE_REQUEST.Enum(),
+			ObjectType:   proto.String("edge"),
+			Relation:     proto.String("view"),
+			ObjectIdPath: proto.String("labels"),
+		}.Build()
+
 		syntheticCarrierMsg := &descriptorpb.DescriptorProto{
 			Name: proto.String("SyntheticCarrier"),
 			Field: []*descriptorpb.FieldDescriptorProto{
@@ -476,6 +496,10 @@ func TestAuthorizationRuleObjectPathResolves(t *testing.T) {
 				".flowseer.conformance.synthetic.v1.SyntheticCarrier",
 				".flowseer.conformance.synthetic.v1.SyntheticCarrier",
 				repeatedLeafRule),
+			syntheticMethod("MapLeafMethod",
+				".flowseer.conformance.synthetic.v1.SyntheticCarrier",
+				".flowseer.conformance.synthetic.v1.SyntheticCarrier",
+				mapLeafRule),
 		)
 
 		tests := []struct {
@@ -530,6 +554,12 @@ func TestAuthorizationRuleObjectPathResolves(t *testing.T) {
 				name:        "repeated leaf field is reported",
 				methodIndex: 7,
 				rule:        repeatedLeafRule,
+				wantReason:  "is not a singular string",
+			},
+			{
+				name:        "map leaf field is reported",
+				methodIndex: 8,
+				rule:        mapLeafRule,
 				wantReason:  "is not a singular string",
 			},
 		}

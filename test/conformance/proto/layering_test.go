@@ -148,7 +148,7 @@ var importOrder = map[string][]string{
 	// The operator API, the execution envelope, and the audit event are
 	// sibling boundary consumers of model/access. Each imports model/access
 	// directly. This row is an allowlist and is wider than the tree:
-	// api/device's files reach model/access, model/inventory, and authz,
+	// api/device's files reach model/access, model/inventory, net/key, and authz,
 	// while model/policy and errs are permitted and unused. The envelope carries no
 	// device or edge ref at all (the transport already names both), and the
 	// audit event needs model/inventory directly because it is read outside
