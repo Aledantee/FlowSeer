@@ -97,3 +97,13 @@ configuration diffs. It is internal and imported by this tree's own tests only:
 the conformance tests of `device/vswitch`, `netmodel`, and `fabric`, and the
 diff-coverage tests of every `layer/` package, `port`, `device/vswitch`, and
 `fabric`; see `internal/simtest/README.md` for the admitted cases and admission bar.
+
+## Layer architecture contract
+
+Every pipeline layer under `layer/` adheres to a uniform package contract:
+
+- **Universal members**: Every layer package exports `LayerName`, `Config`, `Config.Normalize`, `Config.Validate`, `Config.Clone`, and `Diff`.
+- **Stateful layer runtime shape**: Layers maintaining runtime state export `New(cfg, env)`, `(*Layer).Clone`, and `RetentionKey(cfg, env)`. Stateful layers advance time through `Advance` or `Tick`, leaving `Wake` and `Age` to the host virtual switch.
+- **Isolation boundaries**: No layer package imports a sibling layer package, `sim/device`, or `sim/fabric`. Shared interaction types live in `layer`. Trace facts remain unexported within their declaring layer package.
+
+The conformance gate under `test/conformance/sim` mechanically verifies these invariants across all layer packages.

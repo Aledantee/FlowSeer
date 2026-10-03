@@ -30,3 +30,35 @@ A zero VID retains layer-specific egress semantics:
 Layer state changes and timer advances produce `Effects`. Virtual switch
 integrations collect these effects to dispatch frame transmissions, invalidate
 filtering database entries, or update port state.
+
+## Layer architecture contract
+
+Every package under `src/common/sim/layer/` implements a uniform contract.
+
+### Universal members
+
+Every layer package exports:
+- `const LayerName`: the layer identifier for trace records.
+- `type Config`: the package configuration struct.
+- `Config.Normalize(layer.Env) Config`: returns a deep copy with standard defaults and sorting applied.
+- `Config.Validate(layer.Env) error`: checks configuration consistency and references against the environment.
+- `Config.Clone() Config`: returns an independent deep copy of the configuration.
+- `Diff(prev, next Config) []trace.Change`: computes configuration differences between two revisions.
+
+### Stateful layer runtime shape
+
+Packages maintaining runtime state (`bridge`, `filter`, `lag`, `loopprotect`, `mcast`, `routing`, `stp`, `traffic`) export:
+- `New(cfg Config, env layer.Env) (*Layer, error)`: constructs an active layer instance.
+- `(*Layer).Clone() *Layer`: deep copies runtime state for branching or non-mutating preview.
+- `RetentionKey(cfg Config, env layer.Env) string`: produces an exact key determining when active state may be retained across switch reconfiguration.
+
+Stateful layers advance simulated time through `Advance` or `Tick` methods. Method names `Wake` and `Age` belong to the host virtual switch and are forbidden on layer types.
+
+### Isolation boundaries
+
+Layers are strictly decoupled:
+- No layer package imports a sibling layer package under `layer/`. Inter-layer coordination occurs through virtual switch orchestration and types in `layer`.
+- No layer package imports `sim/device` or `sim/fabric`.
+- Trace step facts remain unexported within their declaring layer package.
+
+The conformance gate in `test/conformance/sim` mechanically validates these invariants across every layer package.
