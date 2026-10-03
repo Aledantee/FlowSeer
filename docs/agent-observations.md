@@ -26,3 +26,13 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-10-03 review: fix rounds reopened on behavior changes until bounded to tests and records against a fixed mutation set
+Skill or agent: `.claude/skills/review/references/fix-loop.md`, step 1.
+What happened: Fix workers in rounds 4 and 5 introduced production code modifications that produced new edge-case findings during re-review, reopening the review loop. The loop closed in round 6 only after a recorded decision bounded fixes to test assertions and documentation alignments against the fixed list of 13 remaining mutations, freezing production behavior.
+Suggested change: in `.claude/skills/review/references/fix-loop.md`, after requirements are settled or when a loop exceeds three rounds, instruct fix briefs to freeze production code and restrict changes to tests and documentation against the identified defect set.
+
+## 2026-10-03 delegate: orca-worker wait reads idle while an agy background verifier runs
+Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh`, `wait` command.
+What happened: `agy` workers can end their turn while their verifier command continues in a background task. The terminal screen settles without a working indicator, so `orca-worker.sh wait` reports `idle` before verification finishes and before changes are committed. This occurred twice in this drive: once during implementation and once in round 6 fix lane A.
+Suggested change: in `orca-worker.sh wait`, check for active background tasks or inspect git worktree commit status before declaring the lane idle, or instruct `agy` worker briefs to run verifier commands synchronously with an adequate timeout.
