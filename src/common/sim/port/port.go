@@ -24,6 +24,7 @@ const (
 	RuleLAGParentNotFound trace.RuleID = "port.lag.parent_not_found"
 	RuleHubNoEgress       trace.RuleID = "port.hub.no_egress"
 	RuleHubReplicate      trace.RuleID = "port.hub.replicate"
+	RuleEgressNoMember    trace.RuleID = "lag.egress.no_member"
 )
 
 const (

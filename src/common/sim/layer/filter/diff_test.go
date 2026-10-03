@@ -8,7 +8,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
-	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestDiffReportsRuleAndBindingChanges(t *testing.T) {
@@ -113,15 +112,15 @@ func TestDiffReportsRuleAndBindingChanges(t *testing.T) {
 	for _, c := range changes {
 		if c.Subject.Kind == "rule" {
 			switch c.Subject.Key {
-			case trace.CompositeKey("set1", "rule-to-remove"):
+			case `"set1"/"rule-to-remove"`:
 				if c.From != nil && c.To == nil {
 					foundRemovedRule = true
 				}
-			case trace.CompositeKey("set1", "rule-to-change"):
+			case `"set1"/"rule-to-change"`:
 				if c.From != nil && c.To != nil {
 					foundChangedRule = true
 				}
-			case trace.CompositeKey("set1", "rule-to-add"):
+			case `"set1"/"rule-to-add"`:
 				if c.From == nil && c.To != nil {
 					foundAddedRule = true
 				}
@@ -129,11 +128,11 @@ func TestDiffReportsRuleAndBindingChanges(t *testing.T) {
 		}
 		if c.Subject.Kind == "binding" {
 			switch c.Subject.Key {
-			case trace.CompositeKey("vlan20", "out"):
+			case `"vlan20"/"out"`:
 				if c.From != nil && c.To != nil && c.Field == "set" {
 					foundChangedBinding = true
 				}
-			case trace.CompositeKey("vlan30", "in"):
+			case `"vlan30"/"in"`:
 				if c.From == nil && c.To != nil {
 					foundAddedBinding = true
 				}

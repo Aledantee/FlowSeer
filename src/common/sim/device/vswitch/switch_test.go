@@ -1129,7 +1129,8 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 		}
 		ch := changes[0]
 		if ch.Subject.Kind != "pse_group" || ch.Subject.Key != "g1" || ch.Field != "power_nanowatts" ||
-			ch.From.Canonical() != "60000000000" || ch.To.Canonical() != "90000000000" {
+			ch.From.TypeID() != "phy.power_nw" || ch.From.Canonical() != "60000000000" ||
+			ch.To.TypeID() != "phy.power_nw" || ch.To.Canonical() != "90000000000" {
 			t.Errorf("unexpected pse_group change: %+v", ch)
 		}
 	})
@@ -1151,7 +1152,7 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 		for _, ch := range changes {
 			if ch.Subject.Kind == "capability" && ch.Subject.Key == "vlan" {
 				foundCap = true
-				if ch.From != nil || ch.To.Canonical() != string(bridge.LayerNameVLAN) {
+				if ch.From != nil || ch.To.TypeID() != "vswitch.layer" || ch.To.Canonical() != string(bridge.LayerNameVLAN) {
 					t.Errorf("unexpected capability change payload: %+v", ch)
 				}
 			}
@@ -1177,7 +1178,9 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 		}
 		ch := changes[0]
 		if ch.Layer != traffic.LayerName || ch.Subject.Kind != "mirror" || ch.Subject.Key != "m1" ||
-			ch.Field != "snap_len" || ch.From.Canonical() != "64" || ch.To.Canonical() != "128" {
+			ch.Field != "snap_len" ||
+			ch.From.TypeID() != "traffic.snap_len" || ch.From.Canonical() != "64" ||
+			ch.To.TypeID() != "traffic.snap_len" || ch.To.Canonical() != "128" {
 			t.Errorf("unexpected mirror change: %+v", ch)
 		}
 	})
@@ -1875,7 +1878,8 @@ func TestDiffSTPPriorityChange(t *testing.T) {
 	for _, ch := range changes {
 		if ch.Layer == stp.LayerName && ch.Subject.Kind == "bridge" && ch.Field == "priority" {
 			found = true
-			if ch.From.Canonical() != "32768" || ch.To.Canonical() != "4096" {
+			if ch.From.TypeID() != "stp.priority" || ch.From.Canonical() != "32768" ||
+				ch.To.TypeID() != "stp.priority" || ch.To.Canonical() != "4096" {
 				t.Errorf("priority change = %+v, want 32768 -> 4096", ch)
 			}
 		}
@@ -5174,7 +5178,8 @@ func TestDiffReportsDeviceMAC(t *testing.T) {
 	}
 	ch := changes[0]
 	if ch.Layer != port.LayerName || ch.Subject != (trace.Subject{Kind: "device"}) || ch.Field != "mac" ||
-		ch.From.Canonical() != cfgA.MAC.String() || ch.To.Canonical() != cfgB.MAC.String() {
+		ch.From.TypeID() != "vswitch.mac" || ch.From.Canonical() != cfgA.MAC.String() ||
+		ch.To.TypeID() != "vswitch.mac" || ch.To.Canonical() != cfgB.MAC.String() {
 		t.Errorf("change = %+v, want layer port, subject device, field mac, %s to %s", ch, cfgA.MAC, cfgB.MAC)
 	}
 	if got := vswitch.Diff(cfgA, cfgA); len(got) != 0 {
@@ -5217,7 +5222,8 @@ func TestDiffRoutingNeighborChange(t *testing.T) {
 	for _, c := range changes {
 		if c.Layer == routing.LayerName && c.Subject.Kind == "neighbor" && c.Field == "mac" {
 			foundNeighborChange = true
-			if c.From.Canonical() != macA.String() || c.To.Canonical() != macB.String() {
+			if c.From.TypeID() != "routing.mac" || c.From.Canonical() != macA.String() ||
+				c.To.TypeID() != "routing.mac" || c.To.Canonical() != macB.String() {
 				t.Errorf("neighbor diff from=%v to=%v, want %v -> %v", c.From, c.To, macA, macB)
 			}
 		}
@@ -6478,10 +6484,6 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 	}
 }
 
-// TestLinkChangeRecordsInvalidOperStatusAsFault proves LinkChange records an
-// invalid operational state on the sticky Err() channel instead of panicking:
-// a bogus state leaves the switch alive and Err() naming the port, a second
-// bogus state does not displace the first, and a valid transition records
 // balancedLAGConfig builds a switch with one flat (untagged, VLAN-unaware)
 // ingress port "in" and a two-member BalanceSLB lag1, so a flooded frame
 // always exercises LAG member selection.
@@ -9362,9 +9364,9 @@ func TestFrameEvictedFromHoldQueueDrainedAfterAgeWithNoWake(t *testing.T) {
 }
 
 func TestWakeAgeForwardStopConditionInvariance(t *testing.T) {
+	dst := netip.MustParseAddr("10.0.20.77")
 	setup := func() (*vswitch.Switch, ethernet.Frame, time.Time) {
 		sw := buildBaseRoutingSwitch(t)
-		dst := netip.MustParseAddr("10.0.20.77")
 		learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x77}
 		pkt := makeIPv4Packet(t, ipH1, dst, 64, []byte("hello"))
 		frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
@@ -9381,8 +9383,25 @@ func TestWakeAgeForwardStopConditionInvariance(t *testing.T) {
 		return sw, frame, expT
 	}
 
+	neighborState := func(sw *vswitch.Switch, addr netip.Addr) routing.NeighborState {
+		for _, n := range sw.Neighbors() {
+			if n.Addr == addr {
+				return n.State
+			}
+		}
+		t.Fatalf("neighbor %v not found", addr)
+		return ""
+	}
+
 	sw1, frame1, expT := setup()
 	sw2, frame2, _ := setup()
+
+	if st := neighborState(sw1, dst); st != routing.NeighborReachable {
+		t.Fatalf("sw1 neighbor state before = %v, want %v", st, routing.NeighborReachable)
+	}
+	if st := neighborState(sw2, dst); st != routing.NeighborReachable {
+		t.Fatalf("sw2 neighbor state before = %v, want %v", st, routing.NeighborReachable)
+	}
 
 	sw1.Wake(expT)
 	sw1.Age(expT)
@@ -9393,8 +9412,21 @@ func TestWakeAgeForwardStopConditionInvariance(t *testing.T) {
 	res2 := sw2.Forward(expT, "1/1/1", frame2)
 	em2 := sw2.Drain()
 
+	if st := neighborState(sw1, dst); st != routing.NeighborStale {
+		t.Fatalf("sw1 neighbor state after = %v, want %v", st, routing.NeighborStale)
+	}
+	if st := neighborState(sw2, dst); st != routing.NeighborStale {
+		t.Fatalf("sw2 neighbor state after = %v, want %v", st, routing.NeighborStale)
+	}
+
 	if res1.Outcome != res2.Outcome {
 		t.Fatalf("res1 outcome = %v, res2 outcome = %v, want equal", res1.Outcome, res2.Outcome)
+	}
+	if res1.Reason != res2.Reason {
+		t.Fatalf("res1 reason = %v, res2 reason = %v, want equal", res1.Reason, res2.Reason)
+	}
+	if !reflect.DeepEqual(res1.Egress, res2.Egress) {
+		t.Fatalf("res1 egress = %+v, res2 egress = %+v, want equal", res1.Egress, res2.Egress)
 	}
 	if !reflect.DeepEqual(sw1.Neighbors(), sw2.Neighbors()) {
 		t.Fatalf("sw1 neighbors = %+v, sw2 neighbors = %+v, want equal", sw1.Neighbors(), sw2.Neighbors())

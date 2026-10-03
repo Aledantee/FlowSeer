@@ -1,7 +1,6 @@
 package traffic
 
 import (
-	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -14,7 +13,7 @@ import (
 // A Layer is not safe for concurrent use.
 type Layer struct {
 	cfg     Config
-	buckets map[string]*Bucket
+	buckets map[string]*bucket
 }
 
 // New builds a traffic layer with one bucket per configured policer.
@@ -23,9 +22,9 @@ func New(cfg Config, env layer.Env) (*Layer, error) {
 	if err := norm.Validate(env); err != nil {
 		return nil, err
 	}
-	buckets := make(map[string]*Bucket, len(norm.Policers))
+	buckets := make(map[string]*bucket, len(norm.Policers))
 	for name, policer := range norm.Policers {
-		b, err := NewBucket(policer)
+		b, err := newBucket(policer)
 		if err != nil {
 			return nil, errs.Wrapf(err, "create policer bucket for %q", name)
 		}
@@ -57,7 +56,7 @@ func (l *Layer) Clone() *Layer {
 	}
 	cp := &Layer{
 		cfg:     l.cfg.Clone(),
-		buckets: make(map[string]*Bucket, len(l.buckets)),
+		buckets: make(map[string]*bucket, len(l.buckets)),
 	}
 	for k, b := range l.buckets {
 		cp.buckets[k] = b.Clone()
@@ -85,15 +84,7 @@ func (l *Layer) Copies(switchports map[string]Switchport, ingress string, vid vl
 	if l == nil {
 		return nil
 	}
-	return Copies(l.cfg, switchports, ingress, vid, received, egress)
-}
-
-// Config returns the normalized configuration of the layer.
-func (l *Layer) Config() Config {
-	if l == nil {
-		return Config{}
-	}
-	return l.cfg.Clone()
+	return copies(l.cfg, switchports, ingress, vid, received, egress)
 }
 
 // MaxRate returns the configured maximum rate in bits per second for the queue on port
@@ -114,10 +105,16 @@ func (l *Layer) QueueBuffer(name string, pcp vlan.PCP) (uint64, bool) {
 	return l.cfg.QueueBuffer(name, pcp)
 }
 
-// Mirrors returns a shallow clone of the configured mirrors.
-func (l *Layer) Mirrors() []Mirror {
+// MirrorForOutput reports whether port is configured as the output port for a mirror,
+// returning the mirror name.
+func (l *Layer) MirrorForOutput(port string) (name string, ok bool) {
 	if l == nil {
-		return nil
+		return "", false
 	}
-	return slices.Clone(l.cfg.Mirrors)
+	for _, m := range l.cfg.Mirrors {
+		if m.OutputPort == port {
+			return m.Name, true
+		}
+	}
+	return "", false
 }

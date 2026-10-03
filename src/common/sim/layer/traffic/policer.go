@@ -9,17 +9,17 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
-// Bucket is a lazily refilled ingress token bucket whose tokens are octets.
+// bucket is a lazily refilled ingress token bucket whose tokens are octets.
 // It starts full and is not safe for concurrent use.
-type Bucket struct {
+type bucket struct {
 	cfg    Policer
 	tokens float64
 	last   time.Time
 	primed bool
 }
 
-// NewBucket returns a full bucket after validating cfg.
-func NewBucket(cfg Policer) (*Bucket, error) {
+// newBucket returns a full bucket after validating cfg.
+func newBucket(cfg Policer) (*bucket, error) {
 	if cfg.RateBPS > 0 && cfg.BurstOctets < 1 {
 		return nil, errs.New().
 			Attr("field", "burst_octets").
@@ -28,12 +28,12 @@ func NewBucket(cfg Policer) (*Bucket, error) {
 			Msg("a rate-limited policer requires a positive burst")
 	}
 
-	return &Bucket{cfg: cfg, tokens: float64(cfg.BurstOctets)}, nil
+	return &bucket{cfg: cfg, tokens: float64(cfg.BurstOctets)}, nil
 }
 
 // Admit refills the bucket through now and takes octets when they fit. A
 // refusal consumes no tokens. A zero-rate bucket admits every frame.
-func (b *Bucket) Admit(now time.Time, octets int) bool {
+func (b *bucket) Admit(now time.Time, octets int) bool {
 	if b.cfg.RateBPS == 0 {
 		return true
 	}
@@ -56,7 +56,7 @@ func (b *Bucket) Admit(now time.Time, octets int) bool {
 }
 
 // Clone returns an independent bucket with the same configuration and state.
-func (b *Bucket) Clone() *Bucket {
+func (b *bucket) Clone() *bucket {
 	cp := *b
 
 	return &cp
