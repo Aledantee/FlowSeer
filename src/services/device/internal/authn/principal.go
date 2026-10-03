@@ -3,14 +3,28 @@ package authn
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 )
 
 // Principal represents the authenticated caller identity.
 // A Principal must not be modified once placed in a context.
 type Principal struct {
 	ID       string
+	Issuer   string
+	Subject  string
 	Tenants  []string
 	Platform bool
+}
+
+// ComputePrincipalID returns the lowercase hex-encoded SHA-256 digest
+// of issuer, a zero byte, and subject.
+func ComputePrincipalID(issuer, subject string) string {
+	h := sha256.New()
+	h.Write([]byte(issuer))
+	h.Write([]byte{0})
+	h.Write([]byte(subject))
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 type principalKey struct{}
