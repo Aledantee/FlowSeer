@@ -10,13 +10,20 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
-function mountApp(renderFn: () => unknown, locale: WebLocale = 'en') {
+function mountApp(
+  renderFn: () => unknown,
+  localeOrI18n: WebLocale | ReturnType<typeof createWebI18n> = 'en',
+) {
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp({
     render: renderFn,
   })
-  app.use(createWebI18n(locale))
+  if (typeof localeOrI18n === 'string') {
+    app.use(createWebI18n(localeOrI18n))
+  } else {
+    app.use(localeOrI18n)
+  }
   app.mount(host)
   dispose = () => app.unmount()
   return host
@@ -598,5 +605,55 @@ describe('UiCombobox', () => {
     expect(input?.placeholder).toBe('')
     expect(document.body.textContent).toContain('Keine Daten vorhanden')
     expect(document.body.textContent).not.toContain('No results found.')
+  })
+
+  it('updates combobox placeholder and emptyText on live locale change and preserves explicit overrides', async () => {
+    const i18n = createWebI18n('en')
+    const host = mountApp(
+      () =>
+        h(UiCombobox, {
+          options: [],
+          defaultOpen: true,
+        }),
+      i18n,
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const input = host.querySelector('input')
+    expect(input?.placeholder).toBe('Search...')
+    expect(document.body.textContent).toContain('No results found.')
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(input?.placeholder).toBe('Suchen...')
+    expect(document.body.textContent).toContain('Keine Ergebnisse gefunden.')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const hostOverride = mountApp(
+      () =>
+        h(UiCombobox, {
+          options: [],
+          defaultOpen: true,
+          placeholder: 'Custom Filter',
+          emptyText: 'Custom Empty',
+        }),
+      i18n,
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const inputOverride = hostOverride.querySelector('input')
+    expect(inputOverride?.placeholder).toBe('Custom Filter')
+    expect(document.body.textContent).toContain('Custom Empty')
+
+    i18n.global.locale.value = 'en'
+    await nextTick()
+
+    expect(inputOverride?.placeholder).toBe('Custom Filter')
+    expect(document.body.textContent).toContain('Custom Empty')
   })
 })

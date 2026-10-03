@@ -9,13 +9,8 @@ import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
-  const cleanup = dispose
+  dispose()
   dispose = () => {}
-  try {
-    cleanup()
-  } catch {
-    // ignore unmount failure
-  }
   const { toasts } = useToast()
   toasts.value = []
   document.body.replaceChildren()
@@ -404,6 +399,13 @@ describe('UiToast', () => {
     )
     expect(closeBtn).not.toBeNull()
 
+    const actionEl = document.body.querySelector(
+      '[data-reka-toast-announce-alt]',
+    )
+    expect(actionEl?.getAttribute('data-reka-toast-announce-alt')).toBe(
+      'Retry Operation',
+    )
+
     dispose()
     document.body.replaceChildren()
 
@@ -425,24 +427,172 @@ describe('UiToast', () => {
     expect(emptyCloseBtn).not.toBeNull()
   })
 
-  it('retains explicit overrides after changing locale', async () => {
+  it('renders default actionAltText on UiToast in en and de', async () => {
+    mountApp(
+      () =>
+        h(ToastProvider, null, () => [
+          h(UiToast, {
+            open: true,
+            title: 'Default Action Alt Text',
+            actionText: 'Retry',
+          }),
+          h(ToastViewport),
+        ]),
+      'en',
+    )
+    await nextTick()
+
+    const actionEn = document.body.querySelector(
+      '[data-reka-toast-announce-alt]',
+    )
+    expect(actionEn?.getAttribute('data-reka-toast-announce-alt')).toBe(
+      'Action',
+    )
+
+    dispose()
+    document.body.replaceChildren()
+
+    mountApp(
+      () =>
+        h(ToastProvider, null, () => [
+          h(UiToast, {
+            open: true,
+            title: 'Standard-Aktion Alt-Text',
+            actionText: 'Wiederholen',
+          }),
+          h(ToastViewport),
+        ]),
+      'de',
+    )
+    await nextTick()
+
+    const actionDe = document.body.querySelector(
+      '[data-reka-toast-announce-alt]',
+    )
+    expect(actionDe?.getAttribute('data-reka-toast-announce-alt')).toBe(
+      'Aktion',
+    )
+  })
+
+  it('falls back to action label when dispatched with empty altText', async () => {
+    mountApp(() => h(UiToastProvider))
+    const { toast } = useToast()
+    toast({
+      title: 'Action with empty altText',
+      action: {
+        label: 'Undo',
+        altText: '',
+        onClick: () => {},
+      },
+    })
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const actionEl = document.body.querySelector(
+      '[data-reka-toast-announce-alt]',
+    )
+    expect(actionEl).not.toBeNull()
+    expect(actionEl?.textContent?.trim()).toBe('Undo')
+    expect(actionEl?.getAttribute('data-reka-toast-announce-alt')).toBe('Undo')
+  })
+
+  it('updates toast and provider defaults on live locale change and preserves explicit overrides', async () => {
     const i18n = createWebI18n('en')
     mountApp(
       () =>
-        h(UiToastProvider, {
-          viewportLabel: 'Persistent ({hotkey})',
-          announcementLabel: 'Persistent Notice',
-        }),
+        h(UiToastProvider, null, () => [
+          h(UiToast, {
+            open: true,
+            title: 'Live Toast',
+            actionText: 'Retry',
+          }),
+        ]),
       i18n,
     )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
 
     const viewport = document.body.querySelector('div[role="region"]')
-    expect(viewport?.getAttribute('aria-label')).toBe('Persistent (F8)')
+    expect(viewport?.getAttribute('aria-label')).toBe('Notifications (F8)')
+    expect(document.body.textContent).toContain('Notification ')
+    const closeBtn = document.body.querySelector('button[aria-label="Close"]')
+    expect(closeBtn).not.toBeNull()
+    const actionEl = document.body.querySelector(
+      '[data-reka-toast-announce-alt]',
+    )
+    expect(actionEl?.getAttribute('data-reka-toast-announce-alt')).toBe(
+      'Action',
+    )
 
     i18n.global.locale.value = 'de'
     await nextTick()
 
-    expect(viewport?.getAttribute('aria-label')).toBe('Persistent (F8)')
+    expect(viewport?.getAttribute('aria-label')).toBe('Benachrichtigungen (F8)')
+    expect(document.body.textContent).toContain('Benachrichtigung ')
+    const closeBtnDe = document.body.querySelector(
+      'button[aria-label="Schließen"]',
+    )
+    expect(closeBtnDe).not.toBeNull()
+    expect(actionEl?.getAttribute('data-reka-toast-announce-alt')).toBe(
+      'Aktion',
+    )
+
+    dispose()
+    document.body.replaceChildren()
+
+    mountApp(
+      () =>
+        h(
+          UiToastProvider,
+          {
+            viewportLabel: 'Custom Viewport ({hotkey})',
+            announcementLabel: 'Custom Notice',
+          },
+          () => [
+            h(UiToast, {
+              open: true,
+              title: 'Custom Toast',
+              actionText: 'Action',
+              actionAltText: 'Explicit Alt',
+              closeLabel: 'Explicit Close',
+            }),
+          ],
+        ),
+      i18n,
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const customViewport = document.body.querySelector('div[role="region"]')
+    expect(customViewport?.getAttribute('aria-label')).toBe(
+      'Custom Viewport (F8)',
+    )
+    expect(document.body.textContent).toContain('Custom Notice ')
+    const customClose = document.body.querySelector(
+      'button[aria-label="Explicit Close"]',
+    )
+    expect(customClose).not.toBeNull()
+    const customAction = document.body.querySelector(
+      '[data-reka-toast-announce-alt]',
+    )
+    expect(customAction?.getAttribute('data-reka-toast-announce-alt')).toBe(
+      'Explicit Alt',
+    )
+
+    i18n.global.locale.value = 'en'
+    await nextTick()
+
+    expect(customViewport?.getAttribute('aria-label')).toBe(
+      'Custom Viewport (F8)',
+    )
+    expect(document.body.textContent).toContain('Custom Notice ')
+    expect(
+      document.body.querySelector('button[aria-label="Explicit Close"]'),
+    ).not.toBeNull()
+    expect(customAction?.getAttribute('data-reka-toast-announce-alt')).toBe(
+      'Explicit Alt',
+    )
   })
 
   it("asserts Reka rejects actionAltText: '' for an action", async () => {
