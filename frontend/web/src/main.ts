@@ -9,6 +9,7 @@ import {
   vAiTarget,
 } from './ai'
 import { createWebI18n } from './i18n'
+import { bindDocumentLang, initialLocale } from './i18n/locale'
 import '@fontsource-variable/inter/standard.css'
 import '@fontsource-variable/dm-sans'
 import './theme/tailwind.css'
@@ -28,8 +29,10 @@ const router = createRouter({
 installFlowSeerAi()
 // No model backend exists yet; the preview answers summaries from fixtures.
 aiRegistry.onRequest(createMockAiHandler())
+const i18n = createWebI18n(initialLocale())
+bindDocumentLang(i18n.global)
 createApp(App)
-  .use(createWebI18n())
+  .use(i18n)
   .use(router)
   .directive('ai-target', vAiTarget)
   .mount('#app')

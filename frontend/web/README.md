@@ -92,7 +92,10 @@ The icon-only theme switch at the top right crossfades and rotates between
 sun and moon over 160 ms. It has an accessible state label and a tooltip. Under
 reduced motion the icons crossfade without rotating. The theme follows the system preference until
 a choice is saved in local browser storage. The navigation frame stays connected in both themes: neutral gray in light mode
-and charcoal in dark mode. Help opens a keyboard-accessible dialog explaining
+and charcoal in dark mode. The language switch beside it is one button of the same size. It shows the
+active language code, and its tooltip and accessible name offer the other language by its own name,
+such as `Switch language to Deutsch`. Pressing it changes every view without a reload and announces
+the change in a status region. Help opens a keyboard-accessible dialog explaining
 scope, device lookup, and site assignment. The adjacent bug button
 opens a report form and copies its summary, description, and page path for sharing.
 It does not submit to a service or include tenant/site query parameters.
@@ -245,7 +248,7 @@ Favor concise status summaries and touch-friendly controls. Dense table tooling,
 full topology exploration, bulk configuration, and configurable OLAP dashboards
 can remain desktop workflows. The skeleton shows device count and health first on phones, hides topology
 navigation and secondary traffic summaries, and offers one-tap device details.
-The theme, help, and account controls join the brand row, the bug report
+The theme, language, help, and account controls join the brand row, the bug report
 button is left to desktop, and the Dashboard keeps its site list with a health
 bar per site.
 Further quick actions need their own service contracts.
@@ -291,7 +294,9 @@ control. Motion lifecycle tests cover these cleanup paths and rapid replacement.
 FlowSeer uses vue-i18n in Composition mode with English and German catalogs:
 
 - `src/i18n/index.ts` exports `createWebI18n(locale = 'en')` with `fallbackLocale: 'en'`, `en.json` and `de.json` catalogs, and decimal, integer, and percent number formats. Each call returns a fresh plugin instance because vue-i18n binds its lifecycle to the app: `install` wraps `app.unmount` to call `i18n.dispose()`, so sharing an instance disposes it when the first app unmounts.
-- `src/main.ts` installs one plugin instance on the Vue application before mount. Storybook's `setup` callback registers a fresh instance per app, and tests mount components with their own instance.
+- `src/main.ts` installs one plugin instance on the Vue application before mount, created with the locale `initialLocale()` resolves. Storybook's `setup` callback registers a fresh instance per app, and tests mount components with their own instance.
+- `src/i18n/locale.ts` picks the starting locale. A saved choice wins, then the first entry of `navigator.languages` whose primary subtag is `en` or `de` without regard to case, then `en`. A tag such as `den` does not match, since only its first letters equal `de`. The choice lives in `localStorage` under `flowseer.locale`, and blocked storage reads as nothing saved. `bindDocumentLang` keeps `<html lang>` equal to the Composer locale, including after a switch.
+- `src/components/LocaleSwitcher.vue` sets the Composer locale and saves it. When the browser refuses to save, the locale still changes and the status region says the choice was not saved. Storybook keeps its own locale toolbar and does not read `flowseer.locale`.
 - Locale state lives in the global Composer. `UiAppRoot` reads the active Composer locale and passes it to Reka's `ConfigProvider`. That keeps translated template text and headless primitives synchronized.
 - In Storybook, the `withLocale` decorator watches `reactive(context.globals).locale` and updates the active Composer. The Storybook toolbar provides English and German options without per-story provider wrappers.
 - Component defaults belong to `ui.<owner>.<suffix>` in `src/i18n/locales/en.json` and `de.json`. Identifiers, keys, and slot content remain caller data, while the owning component renders localized display text.
@@ -321,6 +326,74 @@ const resolvedText = computed(() => props.text ?? t('ui.commandEmpty.text'))
   </ComboboxEmpty>
 </template>
 ```
+
+#### View messages
+
+Views and the components under `src/components/` keep their strings in `view.<owner>.<key>` messages in both catalogs. The owner is the file's area: `fleet`, `dock`, `search`, `workspace`, `devices`, `sites`, `dashboard`, `device`, `clients`, `devicePorts`, `topology`, `topologyInspector`, and the like. Words that two owners share live under `view.common`, so a page name, a health word, or a unit reads the same everywhere. Fixture data under `src/domain/` stays untranslated because it stands in for service data. A value typed as a union of literals (`Health`, `PortStatus`, `Band`) is an identifier, and its display text is a message.
+
+Two composables keep formatting out of the views:
+
+- `useFormat()` in `src/i18n/format.ts` formats values for the active locale. `quantity` and `rate` print a number and its unit, `speed` prints `10G`, `counted` picks a plural form, `ago` and `clock` print relative and clock times, and `facts` joins parts with the separator message.
+- `useLabels()` in `src/i18n/labels.ts` names identifiers and page ids, and builds a rollup's health line.
+
+Unit labels are messages. `Intl.NumberFormat` prints `Mb/s` for megabits per second in every locale, while the catalogs read `Mbit/s`. Relative times come from `Intl.RelativeTimeFormat` and clock times from `d()`, so both follow the locale without a message.
+
+`src/components/DevicePorts.vue` shows the pieces together. `n()` formats each count, `quantity` joins the PoE power with its unit, and `facts` drops the PoE part when no port has power:
+
+```ts
+const summary = computed(() =>
+  format.facts([
+    t('view.devicePorts.summary', {
+      active: n(active.value.length, 'integer'),
+      total: n(props.ports.length, 'integer'),
+    }),
+    props.ports.some((port) => port.poe) &&
+      t('view.devicePorts.poe', { power: format.quantity(power.value, 'w') }),
+  ]),
+)
+```
+
+The port count is a plural message that `counted` selects by the raw count, formatted by `n()` for display:
+
+```vue
+    <ol
+      class="port-map"
+      :aria-label="format.counted('view.devicePorts.ports', ports.length)"
+    >
+```
+
+The catalogs hold the matching messages in `view.devicePorts`:
+
+```json
+"devicePorts": {
+  "poe": "{power} PoE",
+  "ports": "{count} port | {count} ports",
+  "summary": "{active} of {total} up"
+},
+```
+
+```json
+"devicePorts": {
+  "poe": "{power} PoE",
+  "ports": "{count} Port | {count} Ports",
+  "summary": "{active} von {total} verbunden"
+},
+```
+
+Names of devices, clients, sites, tenants, addresses, serials, port names, and models carry `translate="no"`, so a page translator leaves them alone:
+
+```vue
+        <button
+          translate="no"
+          class="port-name font-mono justify-self-start p-0 border-0 bg-transparent text-foreground text-left hover:text-accent-foreground hover:underline cursor-pointer"
+          @click="emit('port', port.name)"
+        >
+          {{ port.name }}
+```
+
+A message read into a top-level `const` keeps the locale the module was set up in, because `t()` runs once. A table of labels is a `computed`, or it moves into the template, and every view test switches the locale on a mounted app to catch the difference. Do not build a sentence from fragments, since word order differs between English and German. One message carries named values, and `I18nT` with `scope="global"` carries inline markup.
+
+`src/i18n/templates.test.ts` reads every `.vue` file directly under `src/`, every one under `src/components/` and `src/navigation/`, and the `Ui*` files under `src/ui/`. It fails with the file and line for a literal text node and for a static `aria-label`, `title`, `placeholder`, or similar attribute. It cannot see a string built in `<script>` or inside a bound expression, so a reviewer reads those. `src/FleetView.locale.test.ts` mounts the dashboard, devices, a device, clients, and sites in both locales, switches between them on one mount, fails on any `vue-i18n` warning, and verifies with `unmarkedIdentifiers` that fixture identifiers carry `translate="no"` across rendered views, dock states, and switchers. The property inspects text nodes only and ignores attributes such as `aria-label` or `title`. Tooltips sit inside the property: `UiTooltip` exposes `label` and `hint` slots so callers can mark identifier spans with `translate="no"` while leaving message text unmarked.
 
 ## AI targets
 

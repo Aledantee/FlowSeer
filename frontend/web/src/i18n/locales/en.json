@@ -125,5 +125,465 @@
       "shiftMark": "⇧",
       "upMark": "↑"
     }
+  },
+  "view": {
+    "accountMenu": {
+      "initials": "OP",
+      "label": "Operator account",
+      "logout": "Log out",
+      "logoutUnavailable": "Logout is unavailable until sign-in is connected",
+      "operator": "Operator"
+    },
+    "clients": {
+      "accessPoint": "Access point",
+      "allAccessPoints": "All access points",
+      "allBands": "All bands",
+      "band": "Band",
+      "client": "Client",
+      "emptyDescription": "Try a different search or band.",
+      "emptyTitle": "No clients match this view",
+      "filterBand": "Filter by band",
+      "search": "Search clients",
+      "searchPlaceholder": "Search hostname, IP, or MAC address…",
+      "signal": "Signal",
+      "stopFiltering": "Stop filtering by {name}"
+    },
+    "common": {
+      "allSites": "All sites",
+      "allTenants": "All tenants",
+      "band": {
+        "ghz2": "2.4 GHz",
+        "ghz5": "5 GHz",
+        "ghz6": "6 GHz"
+      },
+      "clients": "{count} client | {count} clients",
+      "columns": {
+        "clients": "Clients",
+        "devices": "Devices",
+        "health": "Health",
+        "site": "Site",
+        "traffic": "Traffic"
+      },
+      "connectedClients": "Connected clients",
+      "devices": "{count} device | {count} devices",
+      "duplex": {
+        "full": "Full duplex",
+        "half": "Half duplex"
+      },
+      "factSeparator": " · ",
+      "health": {
+        "degraded": "Degraded",
+        "healthy": "Healthy",
+        "offline": "Offline"
+      },
+      "healthLine": {
+        "allHealthy": "All healthy",
+        "degraded": "{count} degraded",
+        "offline": "{count} offline"
+      },
+      "ipAddress": "IP address",
+      "lifecycle": {
+        "active": "Active",
+        "retired": "Retired"
+      },
+      "macAddress": "MAC address",
+      "medium": {
+        "copper": "Copper",
+        "fiber": "Fiber"
+      },
+      "mode": {
+        "access": "Access",
+        "routed": "Routed",
+        "trunk": "Trunk"
+      },
+      "needAttention": "{count} need attention",
+      "needsAttention": "Needs attention",
+      "noReading": "—",
+      "noSearch": "none",
+      "openBeside": "Open side by side",
+      "openBesideLabel": "Open {label} side by side",
+      "openNamed": "Open {name}",
+      "pages": {
+        "clients": "Clients",
+        "dashboard": "Dashboard",
+        "device": "Device",
+        "devices": "Devices",
+        "sites": "Sites",
+        "topology": "Topology"
+      },
+      "pair": "{first} + {second}",
+      "portStatus": {
+        "disabled": "Disabled",
+        "down": "Down",
+        "up": "Up"
+      },
+      "reachability": {
+        "reachable": "Reachable",
+        "unreachable": "Unreachable"
+      },
+      "results": "{count} result | {count} results",
+      "severity": {
+        "critical": "Critical",
+        "info": "Info",
+        "warning": "Warning"
+      },
+      "signal": {
+        "fair": "Fair",
+        "strong": "Strong",
+        "weak": "Weak"
+      },
+      "signalReading": "{reading} ({quality})",
+      "sites": "{count} site | {count} sites",
+      "speed": {
+        "gigabit": "{value}G",
+        "megabit": "{value}M"
+      },
+      "status": "Status",
+      "units": {
+        "celsius": "°C",
+        "dbm": "dBm",
+        "gb": "GB",
+        "gbps": "Gbit/s",
+        "mbps": "Mbit/s",
+        "ms": "ms",
+        "w": "W"
+      },
+      "updateFailed": "Could not update this view. Try again.",
+      "unknownDevice": "Unknown device",
+      "unknownSite": "Unknown site",
+      "unknownTenant": "Unknown tenant",
+      "valueWithUnit": "{value} {unit}"
+    },
+    "dashboard": {
+      "aiSummary": "AI summary",
+      "allHealthy": "Every device in this scope is healthy.",
+      "attentionCount": "{count} of {total} device | {count} of {total} devices",
+      "attentionItem": "{name} ({health})",
+      "chartLabelAll": "Hourly aggregate traffic for all sites in scope",
+      "chartLabelSite": "Hourly aggregate traffic for {site}",
+      "events": "Recent events",
+      "eventsNone": "No events in the last 24 hours.",
+      "eventsPeriod": "Last 24 hours in this scope",
+      "healthAcross": "Health across the scope",
+      "lastAnswered": "last answered {age}",
+      "listSeparator": ", ",
+      "noDevices": "No devices in this scope.",
+      "noEventExplains": "No event explains this yet",
+      "peakContext": "{rate} at {time}",
+      "peakSummary": "Aggregate device throughput · peak {rate} at {time}",
+      "scopeSite": "{name}, {location}",
+      "selectSite": "Select a site to focus the dashboard on it.",
+      "summaryForAll": "Health, attention, and traffic for all sites",
+      "summaryForSite": "Health, attention, and traffic for {site}",
+      "targetLabel": "Dashboard · {site}",
+      "targetLabelAll": "Dashboard · all sites",
+      "trafficTitle": "Traffic, last 24 hours"
+    },
+    "device": {
+      "allDevices": "All devices",
+      "checked": "checked {age}",
+      "clientsNoneAccessPoint": "No clients are connected right now.",
+      "clientsNoneOther": "Clients connect through access points, not this device.",
+      "copied": "Summary copied. Paste it into the ticket or message.",
+      "copyEscalation": "Copy escalation summary",
+      "copyFailed": "Could not copy. Select the summary below.",
+      "downlinks": "Downlinks",
+      "downlinksNone": "Nothing connects through this device.",
+      "escalation": {
+        "bindingReachable": "- {name}: reachable, checked {age}",
+        "bindingUnreachable": "- {name}: unreachable, checked {age}",
+        "headline": {
+          "degraded": "{name} ({kind}, {address}) is degraded.",
+          "healthy": "{name} ({kind}, {address}) is healthy.",
+          "offline": "{name} ({kind}, {address}) is offline."
+        },
+        "issue": "- {summary} ({age})",
+        "neighbours": "{answering} of {total} other device at the site is answering. | {answering} of {total} other devices at the site are answering.",
+        "site": "Site: {site}, {tenant}."
+      },
+      "issuesHealthy": "Every path to this device answered its last poll.",
+      "issuesNoEvent": "No event explains this status yet.",
+      "issuesTitle": "Why it needs attention",
+      "issuesTitleHealthy": "No open issues",
+      "lastAnswered": "Last answered {age}",
+      "lifecycle": "Lifecycle",
+      "moveButton": "Move device",
+      "moveField": "Site within this tenant",
+      "moveIntro": "A device belongs to one site. Moving it replaces its current assignment.",
+      "moveNoSite": "{tenant} has no other site to move this device to.",
+      "moveSummary": "Move to another site",
+      "neighbours": {
+        "all": "The only other device at {site} is answering, so the fault is likely this device or its link. | The other {count} devices at {site} are answering, so the fault is likely this device or its link.",
+        "none": "No other device at {site} is answering; the whole site may be down.",
+        "some": "{answering} of {count} other devices at {site} are answering."
+      },
+      "openDashboard": "Open {site} dashboard",
+      "paths": {
+        "reachableAll": "All paths are reachable.",
+        "reachableOne": "Its path is reachable.",
+        "unreachableAll": "All {total} paths are unreachable.",
+        "unreachableBoth": "Both paths are unreachable.",
+        "unreachableOnly": "Its only path is unreachable.",
+        "unreachableSome": "{down} of {total} paths are unreachable."
+      },
+      "pathsTitle": "How {brand} reaches it",
+      "poll": "Poll now",
+      "pollAnswered": {
+        "degraded": "Answered just now. Still degraded.",
+        "healthy": "Answered just now. Still healthy.",
+        "offline": "Answered just now. Still offline."
+      },
+      "pollUnanswered": "Still not answering. {paths} (Last answer {age})",
+      "polling": "Polling…",
+      "siteEdge": "Site edge",
+      "uplink": "Uplink",
+      "viewAll": "View all"
+    },
+    "devicePorts": {
+      "poe": "{power} PoE",
+      "ports": "{count} port | {count} ports",
+      "summary": "{active} of {total} up"
+    },
+    "devices": {
+      "allStatuses": "All statuses",
+      "answered": "answered {age}",
+      "clearFilters": "Clear search and status",
+      "details": "Details",
+      "detailsFor": "Details for {name}",
+      "deviceName": "Device name",
+      "deviceStatus": "Device status",
+      "emptyDescription": "Try a different search, status, or site.",
+      "emptyTitle": "No devices match this view",
+      "filterStatus": "Filter by status",
+      "inventory": "Device inventory",
+      "lastAnswered": "Last answered",
+      "needsAttentionOption": "{label} ({count})",
+      "peekAt": "Peek at {name} beside this list",
+      "peekBeside": "Peek beside",
+      "peekHint": "Shift-click a name does the same; ↑ ↓ step through the list, Esc closes.",
+      "search": "Search devices",
+      "searchPlaceholder": "Search name, type, or IP address…",
+      "showing": "Showing {shown} of {total} device | Showing {shown} of {total} devices",
+      "siteTenant": "Site / tenant",
+      "viewStatus": "View status"
+    },
+    "dock": {
+      "close": "Close {label}",
+      "minimizedPages": "Minimized pages",
+      "remove": "Remove from dock",
+      "shiftHint": "Shift-click opens it side by side"
+    },
+    "fleet": {
+      "assignFailed": "Could not assign site.",
+      "closeSide": "Close side page",
+      "closeSideLabel": "Close the side page",
+      "collapseSidebar": "Collapse sidebar",
+      "deviceSwitcher": "Device",
+      "devicesLink": "{page}, {count} in scope",
+      "dockPair": "Dock both as a pair",
+      "dockPairLabel": "Dock both pages as a pair",
+      "docked": "Docked",
+      "dockedPair": "Docked pair",
+      "documentTitle": "{pages} · {brand}",
+      "dragToResize": "Drag to resize",
+      "expandSidebar": "Expand sidebar",
+      "linkClicksHint": "On",
+      "linkClicksLabel": "Open links from the main page in the side page",
+      "linkClicksOff": "Open links from the left here",
+      "linkClicksOn": "Links on the left open here",
+      "mainNavigation": "Main navigation",
+      "minimizeHint": "The shortcut minimizes whichever pane is focused.",
+      "minimizeMain": "Minimize this page to the dock",
+      "minimizeSide": "Minimize the side page to the dock",
+      "minimizeToDock": "Minimize to dock",
+      "openFailed": "Could not open that page. Try again.",
+      "page": "Page",
+      "resizeHint": "Double-click to reset to half and half.",
+      "resizeSplit": "Resize split view",
+      "searchDevices": "Search devices…",
+      "searchPage": "Page",
+      "searchSites": "Search sites…",
+      "sideSiteScope": "Side page site",
+      "siteScope": "Site scope",
+      "skipToMain": "Skip to main content",
+      "splitView": "Split view",
+      "swapPages": "Swap the two pages",
+      "swapSides": "Swap sides",
+      "workspace": "WORKSPACE"
+    },
+    "help": {
+      "findBody": "Devices that need attention are listed first. Search by name, type, or IP address, or filter by status, then select a device to see why it needs attention and how {brand} reaches it.",
+      "findHeading": "Find a device",
+      "moveBody": "Open device details, expand Move to another site, and choose a site within its tenant. The move replaces the previous assignment once it is observed, and the notice offers Undo.",
+      "moveHeading": "Move a device",
+      "scopeBody": "Use the tenant and site selectors in the breadcrumb at the top of the page to focus on a customer or location.",
+      "scopeHeading": "Choose your scope",
+      "title": "Workspace help",
+      "trigger": "Help"
+    },
+    "localeSwitcher": {
+      "changed": "Language set to {language}.",
+      "label": "Switch language to {language}",
+      "unsaved": "Language changed for this page. Your browser could not save the preference."
+    },
+    "reportBug": {
+      "copied": "Report copied. Share it with your support team.",
+      "copy": "Copy report",
+      "copyUnavailable": "Copying was unavailable. Select and copy the report below.",
+      "description": "What happened?",
+      "descriptionPlaceholder": "Steps to reproduce and what you expected to happen",
+      "intro": "Describe the issue, then copy the report to share with your support team.",
+      "pageLine": "Page: {page}",
+      "report": "{summary}\n\nPage: {page}\n\n{description}",
+      "reportText": "Report text",
+      "summary": "Summary",
+      "title": "Report a bug",
+      "trigger": "Report a bug",
+      "triggerLabel": "Report bug"
+    },
+    "scopeSwitcher": {
+      "searchPlaceholder": "Search…",
+      "triggerLabel": "{label}: {name}",
+      "unavailable": "Unavailable selection"
+    },
+    "search": {
+      "clear": "Clear",
+      "clientDetail": "{address} · {mac} · via {device}",
+      "emptyHint": "Type a name, IP address, MAC address, or port.",
+      "groups": {
+        "client": "Clients",
+        "device": "Devices",
+        "interface": "Interfaces",
+        "page": "Pages",
+        "site": "Sites",
+        "tenant": "Tenants"
+      },
+      "hints": {
+        "close": "close",
+        "move": "move",
+        "open": "open",
+        "sideBySide": "side by side",
+        "toDock": "to dock"
+      },
+      "interfaceFarEnd": "to {device}",
+      "keys": {
+        "alt": "⌥",
+        "down": "↓",
+        "enter": "↵",
+        "escape": "esc",
+        "shift": "⇧",
+        "up": "↑"
+      },
+      "label": "Search tenants, sites, devices, clients, and interfaces",
+      "noMatch": "Nothing matches “{query}”.",
+      "placeholder": "Search tenants, sites, devices, clients, interfaces…",
+      "recent": "Recent",
+      "resultsLabel": "Search results",
+      "sendToDock": "Send to dock",
+      "sendToDockLabel": "Send {title} to the dock",
+      "trigger": "Search"
+    },
+    "sites": {
+      "devicesAtSite": "Devices at this site",
+      "none": "None",
+      "openIssue": "Open issue"
+    },
+    "tenantSwitcher": {
+      "none": "No tenants available",
+      "scopeLabel": "Tenant scope",
+      "searchPlaceholder": "Search tenants…"
+    },
+    "themeSwitcher": {
+      "enabledDark": "Dark mode enabled.",
+      "enabledLight": "Light mode enabled.",
+      "label": "Dark mode",
+      "switchToDark": "Switch to dark mode",
+      "switchToLight": "Switch to light mode",
+      "unsaved": "Theme changed for this page. Your browser could not save the preference."
+    },
+    "topology": {
+      "assumption": "Assumed link, not yet discovered",
+      "fitToView": "Fit to view",
+      "fitView": "Fit view",
+      "layoutError": "The topology could not be laid out. Reload to try again.",
+      "linkLabel": "{assumption}. {source} to {target}, {speed}, {throughput}, {health}",
+      "linkTarget": "{speed} link",
+      "nodeLabel": "{name}, {kind}, {health}",
+      "portLabel": "Port {name}",
+      "siteDevices": "Devices at {site}"
+    },
+    "topologyInspector": {
+      "back": "Back to {name}",
+      "capacityDetail": "of {capacity}",
+      "channel": "Channel {channel}",
+      "close": "Close details",
+      "deviceLabel": "{name} details",
+      "duration": {
+        "daysHours": "{days}d {hours}h",
+        "hoursMinutes": "{hours}h {minutes}m"
+      },
+      "fields": {
+        "connectedTo": "Connected to",
+        "crcErrors": "CRC errors",
+        "downstream": "Downstream",
+        "errors": "Errors",
+        "firmware": "Firmware",
+        "lastChange": "Last change",
+        "latency": "Latency",
+        "medium": "Medium",
+        "model": "Model",
+        "mtu": "MTU",
+        "poe": "PoE",
+        "received": "Received",
+        "sent": "Sent",
+        "speed": "Speed",
+        "upstream": "Upstream",
+        "uptime": "Uptime",
+        "vlans": "VLANs"
+      },
+      "linkEnds": "{source} → {target}",
+      "linkLabel": "Link details",
+      "meters": {
+        "cpu": "CPU",
+        "memory": "Memory",
+        "utilization": "Utilization"
+      },
+      "nothing": "Nothing",
+      "off": "Off",
+      "openDevice": "Open device",
+      "portLabel": "{device} {port} details",
+      "portMode": "{mode} port",
+      "sections": {
+        "ports": "Ports",
+        "radios": "Radios",
+        "resources": "Resources",
+        "trafficLive": "Traffic, live"
+      },
+      "serial": "serial {serial}",
+      "trafficSamples": "Traffic over the last sample | Traffic over the last {count} samples",
+      "uptimeDown": "Down"
+    },
+    "trafficChart": {
+      "describe": "{label}. Use the arrow keys to read hourly values.",
+      "hour": "Hour",
+      "now": "Now",
+      "traffic": "Traffic ({unit})"
+    },
+    "workspace": {
+      "asOf": "as of {time}",
+      "backToDevices": "Back to devices",
+      "clearSiteFilter": "Clear site filter",
+      "deviceMissingDescription": "It may have been removed from the fleet.",
+      "deviceMissingTitle": "This device does not exist",
+      "dismissNotification": "Dismiss notification",
+      "moveReverted": "Move reverted. {name} is back at {to}.",
+      "moved": "{name} is now at {to} (was {from}).",
+      "moving": "Moving {name} from {from} to {to}…",
+      "resetFailed": "Could not reset filters. Try again.",
+      "scopeAcrossAll": "{count} site across all tenants | {count} sites across all tenants",
+      "scopeAcrossTenant": "{count} site across {tenant} | {count} sites across {tenant}",
+      "scopeNotFound": "Scope not found: \"{site}\". It may have been removed or belongs to another tenant.",
+      "undo": "Undo"
+    }
   }
 }

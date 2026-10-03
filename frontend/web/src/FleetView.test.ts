@@ -9,6 +9,8 @@ import { createAiRegistry, createAiTargetDirective } from './ai'
 import type { AiRegistry } from './ai'
 import { aiRegistryKey } from './ui/ai/context'
 import { createWebI18n } from './i18n'
+import * as clientsDomain from './domain/clients'
+import type { Band } from './domain/clients'
 
 let dispose = () => {}
 let registry: AiRegistry
@@ -343,7 +345,7 @@ describe('fleet view', () => {
     const { host } = await mountAt('/devices?search=cologne-ap-02')
     const cell = host.querySelector('tbody .traffic')
     expect(cell?.textContent).toContain('—')
-    expect(cell?.textContent).not.toContain('Mbps')
+    expect(cell?.textContent).not.toContain('Mbit/s')
   })
 
   it('clears search and status but keeps the tenant and site', async () => {
@@ -463,8 +465,29 @@ describe('fleet view', () => {
     const first = host.querySelector('tbody tr')
     expect(first?.querySelector('strong')?.textContent).toBe('cologne-ap-02')
     expect(first?.querySelector('.seen')?.textContent?.trim()).toBe(
-      '38 min ago',
+      new Intl.RelativeTimeFormat('en', {
+        numeric: 'auto',
+        style: 'short',
+      }).format(-38, 'minute'),
     )
+  })
+
+  it('renders a single sort indicator in sorted table headers without duplicate arrow spans', async () => {
+    const { host } = await mountAt('/devices')
+    const labels = ['Device name', 'Status', 'Last answered', 'Site / tenant']
+    for (const label of labels) {
+      const header = [...host.querySelectorAll('th button')].find((item) =>
+        item.textContent?.includes(label),
+      ) as HTMLButtonElement | undefined
+      if (!header) throw new Error(`Missing sort header for ${label}`)
+      header.click()
+      await nextTick()
+      const th = header.closest('th')
+      if (!th) throw new Error(`Missing th for ${label}`)
+      expect(th.textContent).toContain('↑')
+      const count = (th.textContent?.match(/[↑↓]/g) ?? []).length
+      expect(count).toBe(1)
+    }
   })
 
   it('lets a phone device card announce its health, site, and age', async () => {
@@ -473,7 +496,12 @@ describe('fleet view', () => {
     expect(card?.getAttribute('aria-label')).toBeNull()
     expect(card?.textContent).toContain('Offline')
     expect(card?.textContent).toContain('Cologne Central')
-    expect(card?.textContent).toContain('38 min ago')
+    expect(card?.textContent).toContain(
+      new Intl.RelativeTimeFormat('en', {
+        numeric: 'auto',
+        style: 'short',
+      }).format(-38, 'minute'),
+    )
   })
 })
 
@@ -618,44 +646,73 @@ describe('AI target coverage', () => {
   })
 
   it('updates the clients view context when the band filter changes', async () => {
-    const { host } = await mountAt('/clients')
-    const id = 'a:clients:view:all'
-    const before = registry.view(id)?.target.context
-    expect(before).toMatchObject({ band: 'all', matching: before?.count })
-
-    const trigger = host.querySelector<HTMLButtonElement>(
-      '[aria-label="Filter by band"]',
-    )
-    expect(trigger).not.toBeNull()
-    trigger?.dispatchEvent(
-      new PointerEvent('pointerdown', {
-        bubbles: true,
-        cancelable: true,
-        button: 0,
+    const fakeClients: clientsDomain.Client[] = Array.from(
+      { length: 1000 },
+      (_, i) => ({
+        id: `client-${i}`,
+        hostname: `host-${i}`,
+        mac: `00:11:22:33:44:${(i % 256).toString(16).padStart(2, '0')}`,
+        address: `10.0.0.${i % 250}`,
+        deviceId: 'dev-1',
+        band: (i % 4 === 0 ? '2.4 GHz' : '5 GHz') as Band,
+        signal: -50,
+        throughput: 10,
       }),
     )
-    trigger?.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
-    )
-    await settle()
-    const option = [
-      ...document.querySelectorAll<HTMLElement>('[role="option"]'),
-    ].find((item) => item.textContent?.includes('2.4 GHz'))
-    expect(option).toBeDefined()
-    option?.focus()
-    option?.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'Enter',
-        bubbles: true,
-        cancelable: true,
-      }),
-    )
-    await settle()
+    const spy = vi
+      .spyOn(clientsDomain, 'clientsOf')
+      .mockReturnValue(fakeClients)
+    try {
+      const { host } = await mountAt('/clients')
+      const id = 'a:clients:view:all'
+      const before = registry.view(id)?.target.context
+      // The context reads as the screen does, so counts carry the locale's
+      // grouping, the same text the heading badge shows.
+      expect(before).toMatchObject({
+        band: 'all',
+        count: '1,000',
+        matching: '1,000',
+      })
+      expect(
+        host.querySelector('#clients-title span')?.textContent?.trim(),
+      ).toBe(before?.count)
 
-    const after = registry.view(id)?.target.context
-    expect(after?.band).toBe('2.4 GHz')
-    expect(Number(after?.matching)).toBeLessThan(Number(after?.count))
-    expect(registry.view(id)?.target.id).toBe(id)
+      const trigger = host.querySelector<HTMLButtonElement>(
+        '[aria-label="Filter by band"]',
+      )
+      expect(trigger).not.toBeNull()
+      trigger?.dispatchEvent(
+        new PointerEvent('pointerdown', {
+          bubbles: true,
+          cancelable: true,
+          button: 0,
+        }),
+      )
+      trigger?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+      )
+      await settle()
+      const option = [
+        ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+      ].find((item) => item.textContent?.includes('2.4 GHz'))
+      expect(option).toBeDefined()
+      option?.focus()
+      option?.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          bubbles: true,
+          cancelable: true,
+        }),
+      )
+      await settle()
+
+      const after = registry.view(id)?.target.context
+      expect(after?.band).toBe('2.4 GHz')
+      expect(after).toMatchObject({ count: '1,000', matching: '250' })
+      expect(registry.view(id)?.target.id).toBe(id)
+    } finally {
+      spy.mockRestore()
+    }
   })
 
   it('qualifies a view root by physical slot in each pane', async () => {

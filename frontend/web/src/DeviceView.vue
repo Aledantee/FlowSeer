@@ -1,22 +1,25 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppLink from './navigation/AppLink.vue'
 import { scopeOf, usePage } from './navigation/page'
 import { useWorkspace } from './navigation/workspace'
-import type { Device, Site } from './domain/fleet'
+import type { Device, Health, Site } from './domain/fleet'
 import {
   downlinks,
   integrations,
-  pathSummary,
   pollDevice,
   siteNeighbours,
   uplinkOf,
 } from './domain/fleet'
 import { clientsOf, signalQuality } from './domain/clients'
 import type { Client } from './domain/clients'
-import { formatAgo, openIssues } from './domain/overview'
+import { openIssues } from './domain/overview'
 import AppIcon from './components/AppIcon.vue'
 import DeviceIcon from './components/DeviceIcon.vue'
+import { useFormat } from './i18n/format'
+import { useLabels } from './i18n/labels'
+import { BRAND } from './brand'
 import { aiTarget, useAiSlot } from './ai'
 import type { AiTarget } from './ai'
 import {
@@ -39,6 +42,52 @@ const emit = defineEmits<{ reassign: [siteId: string] }>()
 const page = usePage()
 const workspace = useWorkspace()
 const slot = useAiSlot()
+const { t, n } = useI18n({ useScope: 'global' })
+const format = useFormat()
+const labels = useLabels()
+const separator = computed(() => t('view.common.factSeparator'))
+
+// Sentences that embed a health word are one message per value.
+const HEADLINE = {
+  Healthy: 'view.device.escalation.headline.healthy',
+  Degraded: 'view.device.escalation.headline.degraded',
+  Offline: 'view.device.escalation.headline.offline',
+} as const satisfies Record<Health, string>
+const POLL_ANSWERED = {
+  Healthy: 'view.device.pollAnswered.healthy',
+  Degraded: 'view.device.pollAnswered.degraded',
+  Offline: 'view.device.pollAnswered.offline',
+} as const satisfies Record<Health, string>
+
+// The reading and its quality word as one message, shown to an operator and
+// carried in an AI target's context.
+function signalReading(client: Client) {
+  return t('view.common.signalReading', {
+    reading: format.quantity(client.signal, 'dbm'),
+    quality: labels.signal(signalQuality(client.signal)),
+  })
+}
+
+// Says how many of a device's paths are down in words an operator can repeat,
+// so "still not answering" comes with what FlowSeer actually observed.
+function pathLine(device: Device): string {
+  const down = device.bindings.filter(
+    (binding) => binding.reachability === 'Unreachable',
+  ).length
+  const total = device.bindings.length
+  const counts = { down: n(down, 'integer'), total: n(total, 'integer') }
+  if (!down) {
+    return t(
+      total === 1
+        ? 'view.device.paths.reachableOne'
+        : 'view.device.paths.reachableAll',
+    )
+  }
+  if (down < total) return t('view.device.paths.unreachableSome', counts)
+  if (total === 1) return t('view.device.paths.unreachableOnly')
+  if (total === 2) return t('view.device.paths.unreachableBoth')
+  return t('view.device.paths.unreachableAll', counts)
+}
 
 const viewTarget = computed(() =>
   aiTarget({
@@ -69,7 +118,7 @@ function clientTarget(client: Client): AiTarget {
       address: client.address,
       mac: client.mac,
       band: client.band,
-      signal: `${client.signal} dBm (${signalQuality(client.signal)})`,
+      signal: signalReading(client),
       accessPoint: props.device.name,
     },
   })
@@ -99,10 +148,12 @@ const uplink = computed(() => uplinkOf(props.fleet, props.device))
 const links = computed(() => downlinks(props.fleet, props.device))
 const clients = computed(() => clientsOf([props.device]).slice(0, 8))
 const siteOptions = computed(() =>
-  props.allowedSites.map((s) => ({ value: s.id, label: s.name })),
+  props.allowedSites.map((s) => ({
+    value: s.id,
+    label: s.name,
+    identifier: true,
+  })),
 )
-
-const severityLabel = { critical: 'Critical', warning: 'Warning', info: 'Info' }
 
 const selectedIssues = computed(() =>
   props.device
@@ -117,25 +168,57 @@ function integration(id: string) {
 }
 
 const neighbours = computed(() => siteNeighbours(props.fleet, props.device))
+const neighbourKey = computed(() => {
+  const { answering, total } = neighbours.value
+  if (answering === total) return 'view.device.neighbours.all'
+  return answering === 0
+    ? 'view.device.neighbours.none'
+    : 'view.device.neighbours.some'
+})
 
 // A plain-text summary an operator can paste into a ticket or a call to the
 // site, built only from what FlowSeer observed.
 const escalation = computed(() => {
   const device = props.device
   return [
-    `${device.name} (${device.kind}, ${device.address}) is ${device.health.toLowerCase()}.`,
-    `Site: ${props.siteName(device.siteId)}, ${props.tenantName(device.siteId)}.`,
-    `Last answered ${formatAgo(device.lastSeenMinutes)}. ${pathSummary(device)}`,
-    ...device.bindings.map(
-      (binding) =>
-        `- ${integration(binding.integrationId)?.name}: ${binding.reachability.toLowerCase()}, checked ${formatAgo(binding.observedMinutesAgo)}`,
+    t(HEADLINE[device.health], {
+      name: device.name,
+      kind: device.kind,
+      address: device.address,
+    }),
+    t('view.device.escalation.site', {
+      site: props.siteName(device.siteId),
+      tenant: props.tenantName(device.siteId),
+    }),
+    t('view.device.lastAnswered', {
+      age: format.ago(device.lastSeenMinutes),
+    }),
+    pathLine(device),
+    ...device.bindings.map((binding) =>
+      t(
+        binding.reachability === 'Reachable'
+          ? 'view.device.escalation.bindingReachable'
+          : 'view.device.escalation.bindingUnreachable',
+        {
+          name: integration(binding.integrationId)?.name ?? '',
+          age: format.ago(binding.observedMinutesAgo),
+        },
+      ),
     ),
-    ...selectedIssues.value.map(
-      (event) => `- ${event.summary} (${formatAgo(event.minutesAgo)})`,
+    ...selectedIssues.value.map((event) =>
+      t('view.device.escalation.issue', {
+        summary: event.summary,
+        age: format.ago(event.minutesAgo),
+      }),
     ),
-    neighbours.value
-      ? `${neighbours.value.answering} of ${neighbours.value.total} other devices at the site are answering.`
-      : '',
+    t(
+      'view.device.escalation.neighbours',
+      {
+        answering: n(neighbours.value.answering, 'integer'),
+        total: n(neighbours.value.total, 'integer'),
+      },
+      neighbours.value.total,
+    ),
   ]
     .filter(Boolean)
     .join('\n')
@@ -153,14 +236,25 @@ async function copyEscalation() {
 
 const polling = ref(false)
 const pollFailed = ref(false)
-const pollResult = ref('')
+// The polled device, not its sentence, so the result follows a locale switch.
+const pollResult = ref<Device>()
+const pollText = computed(() => {
+  const updated = pollResult.value
+  if (!updated) return ''
+  return updated.lastSeenMinutes === 0
+    ? t(POLL_ANSWERED[updated.health])
+    : t('view.device.pollUnanswered', {
+        paths: pathLine(updated),
+        age: format.ago(updated.lastSeenMinutes),
+      })
+})
 let pollTimer: ReturnType<typeof setTimeout> | undefined
 
 function poll() {
   const current = props.device
   if (!current || polling.value) return
   polling.value = true
-  pollResult.value = ''
+  pollResult.value = undefined
   pollTimer = setTimeout(() => {
     const updated = pollDevice(current)
     workspace.fleet.value = workspace.fleet.value.map((item) =>
@@ -168,10 +262,7 @@ function poll() {
     )
     polling.value = false
     pollFailed.value = updated.lastSeenMinutes !== 0
-    pollResult.value =
-      updated.lastSeenMinutes === 0
-        ? `Answered just now. Still ${updated.health.toLowerCase()}.`
-        : `Still not answering. ${pathSummary(updated)} Last answer ${formatAgo(updated.lastSeenMinutes)}.`
+    pollResult.value = updated
   }, 1200)
 }
 
@@ -196,7 +287,9 @@ function to(path: string, extra: Record<string, string> = {}) {
       class="inline-flex items-center gap-1.5 justify-self-start text-xs text-muted-foreground hover:text-accent-foreground"
       :to="to('/devices')"
     >
-      <AppIcon name="back" class="w-3.5 h-3.5" />All devices
+      <AppIcon name="back" class="w-3.5 h-3.5" />{{
+        t('view.device.allDevices')
+      }}
     </AppLink>
     <header class="flex items-center gap-4">
       <DeviceIcon
@@ -204,18 +297,26 @@ function to(path: string, extra: Record<string, string> = {}) {
         class="w-12 h-12 text-accent-foreground"
       />
       <div class="flex-1 min-w-0">
-        <h1 class="text-2xl font-bold text-foreground my-1">
+        <h1 translate="no" class="text-2xl font-bold text-foreground my-1">
           {{ device.name }}
         </h1>
         <p class="text-xs text-muted-foreground">
-          {{ device.kind }} · {{ device.address }} ·
-          {{ siteName(device.siteId) }} · {{ tenantName(device.siteId) }}
+          {{ device.kind }}{{ separator
+          }}<span translate="no">{{ device.address }}</span
+          >{{ separator
+          }}<span translate="no">{{ siteName(device.siteId) }}</span
+          >{{ separator
+          }}<span translate="no">{{ tenantName(device.siteId) }}</span>
         </p>
       </div>
       <div class="flex flex-col items-end gap-1">
         <UiStatusBadge :status="device.health" />
         <span class="text-2xs text-muted-foreground">
-          Last answered {{ formatAgo(device.lastSeenMinutes) }}
+          {{
+            t('view.device.lastAnswered', {
+              age: format.ago(device.lastSeenMinutes),
+            })
+          }}
         </span>
       </div>
     </header>
@@ -225,8 +326,8 @@ function to(path: string, extra: Record<string, string> = {}) {
         <h2 id="issues-title" class="text-base font-semibold text-foreground">
           {{
             device.health === 'Healthy'
-              ? 'No open issues'
-              : 'Why it needs attention'
+              ? t('view.device.issuesTitleHealthy')
+              : t('view.device.issuesTitle')
           }}
         </h2>
       </template>
@@ -254,9 +355,9 @@ function to(path: string, extra: Record<string, string> = {}) {
                 event.summary
               }}</strong>
               <small class="text-2xs text-muted-foreground"
-                >{{ formatAgo(event.minutesAgo) }} ·
-                <span class="text-sm font-medium text-foreground">{{
-                  severityLabel[event.severity]
+                >{{ format.ago(event.minutesAgo) }}{{ separator
+                }}<span class="text-sm font-medium text-foreground">{{
+                  labels.severity(event.severity)
                 }}</span></small
               >
             </div>
@@ -266,10 +367,10 @@ function to(path: string, extra: Record<string, string> = {}) {
           v-else-if="device.health === 'Healthy'"
           class="text-xs text-muted-foreground"
         >
-          Every path to this device answered its last poll.
+          {{ t('view.device.issuesHealthy') }}
         </p>
         <p v-else class="text-xs text-muted-foreground">
-          No event explains this status yet.
+          {{ t('view.device.issuesNoEvent') }}
         </p>
 
         <div v-if="device.health !== 'Healthy'" class="flex items-center gap-3">
@@ -278,14 +379,14 @@ function to(path: string, extra: Record<string, string> = {}) {
             :disabled="polling"
             @click="poll"
           >
-            {{ polling ? 'Polling…' : 'Poll now' }}
+            {{ polling ? t('view.device.polling') : t('view.device.poll') }}
           </UiButton>
           <p
-            v-if="pollResult"
+            v-if="pollText"
             role="status"
             class="text-xs text-muted-foreground"
           >
-            {{ pollResult }}
+            {{ pollText }}
           </p>
         </div>
 
@@ -293,22 +394,28 @@ function to(path: string, extra: Record<string, string> = {}) {
           v-if="device.health === 'Offline' && neighbours"
           class="mt-4 p-4 rounded-panel bg-subtle border border-border text-xs"
         >
-          <p class="text-foreground">
-            {{
-              neighbours.answering === neighbours.total
-                ? `The other ${neighbours.total} devices at ${siteName(device.siteId)} are answering, so the fault is likely this device or its link.`
-                : neighbours.answering === 0
-                  ? `No other device at ${siteName(device.siteId)} is answering; the whole site may be down.`
-                  : `${neighbours.answering} of ${neighbours.total} other devices at ${siteName(device.siteId)} are answering.`
-            }}
-          </p>
+          <I18nT
+            scope="global"
+            tag="p"
+            class="text-foreground"
+            :keypath="neighbourKey"
+            :plural="neighbours.total"
+          >
+            <template #count>{{ n(neighbours.total, 'integer') }}</template>
+            <template #answering>{{
+              n(neighbours.answering, 'integer')
+            }}</template>
+            <template #site>
+              <span translate="no">{{ siteName(device.siteId) }}</span>
+            </template>
+          </I18nT>
           <div class="flex items-center gap-2.5 mt-3">
             <UiButton
               :variant="pollFailed ? 'primary' : 'secondary'"
               size="sm"
               @click="copyEscalation"
             >
-              Copy escalation summary
+              {{ t('view.device.copyEscalation') }}
             </UiButton>
             <AppLink
               class="text-xs text-accent-foreground hover:underline"
@@ -321,7 +428,11 @@ function to(path: string, extra: Record<string, string> = {}) {
                 })
               "
             >
-              Open {{ siteName(device.siteId) }} dashboard
+              <I18nT scope="global" keypath="view.device.openDashboard">
+                <template #site>
+                  <span translate="no">{{ siteName(device.siteId) }}</span>
+                </template>
+              </I18nT>
             </AppLink>
           </div>
           <p
@@ -329,14 +440,15 @@ function to(path: string, extra: Record<string, string> = {}) {
             role="status"
             class="text-2xs text-muted-foreground mt-2"
           >
-            Summary copied. Paste it into the ticket or message.
+            {{ t('view.device.copied') }}
           </p>
           <template v-else-if="copyState === 'failed'">
             <p role="status" class="text-2xs text-danger mt-2">
-              Could not copy. Select the summary below.
+              {{ t('view.device.copyFailed') }}
             </p>
             <pre
               class="mt-2 p-2 bg-card rounded text-2xs font-mono whitespace-pre-wrap"
+              translate="no"
               >{{ escalation }}</pre>
           </template>
         </div>
@@ -347,7 +459,11 @@ function to(path: string, extra: Record<string, string> = {}) {
     <UiCard as="section" aria-labelledby="paths-title">
       <template #header>
         <h2 id="paths-title" class="text-base font-semibold text-foreground">
-          How FlowSeer reaches it
+          <I18nT scope="global" keypath="view.device.pathsTitle">
+            <template #brand>
+              <span translate="no">{{ BRAND }}</span>
+            </template>
+          </I18nT>
         </h2>
       </template>
       <ul class="m-0 p-0 list-none border-t border-border">
@@ -357,9 +473,11 @@ function to(path: string, extra: Record<string, string> = {}) {
           class="flex items-center justify-between gap-3 py-2.5 px-1 border-b border-border text-xs"
         >
           <span>
-            <strong class="block font-semibold text-foreground">{{
-              integration(binding.integrationId)?.name
-            }}</strong>
+            <strong
+              translate="no"
+              class="block font-semibold text-foreground"
+              >{{ integration(binding.integrationId)?.name }}</strong
+            >
             <small class="text-2xs text-muted-foreground">{{
               integration(binding.integrationId)?.kind
             }}</small>
@@ -372,11 +490,13 @@ function to(path: string, extra: Record<string, string> = {}) {
                   binding.reachability === 'Unreachable',
                 'text-foreground': binding.reachability !== 'Unreachable',
               }"
-              >{{ binding.reachability }}</strong
+              >{{ labels.reachability(binding.reachability) }}</strong
             >
-            <small class="text-2xs text-muted-foreground"
-              >checked {{ formatAgo(binding.observedMinutesAgo) }}</small
-            >
+            <small class="text-2xs text-muted-foreground">{{
+              t('view.device.checked', {
+                age: format.ago(binding.observedMinutesAgo),
+              })
+            }}</small>
           </span>
         </li>
       </ul>
@@ -386,40 +506,57 @@ function to(path: string, extra: Record<string, string> = {}) {
       class="grid grid-cols-4 max-[800px]:grid-cols-2 max-[500px]:grid-cols-1 m-0 border border-border rounded-panel bg-card overflow-hidden"
     >
       <div class="p-4 border-border">
-        <dt class="text-xs text-muted-foreground">Lifecycle</dt>
+        <dt class="text-xs text-muted-foreground">
+          {{ t('view.device.lifecycle') }}
+        </dt>
         <dd class="mt-1.5 text-base font-semibold text-foreground">
-          {{ device.lifecycle }}
+          {{ labels.lifecycle(device.lifecycle) }}
         </dd>
       </div>
       <div
         class="p-4 border-border border-l max-[500px]:border-l-0 max-[500px]:border-t"
       >
-        <dt class="text-xs text-muted-foreground">Clients</dt>
+        <dt class="text-xs text-muted-foreground">
+          {{ t('view.common.columns.clients') }}
+        </dt>
         <dd class="mt-1.5 text-base font-semibold text-foreground">
-          {{ device.health === 'Offline' ? '—' : device.clients }}
+          {{
+            device.health === 'Offline'
+              ? t('view.common.noReading')
+              : n(device.clients, 'integer')
+          }}
         </dd>
       </div>
       <div
         class="p-4 border-border border-l max-[800px]:border-l-0 max-[800px]:border-t"
       >
-        <dt class="text-xs text-muted-foreground">Traffic</dt>
+        <dt class="text-xs text-muted-foreground">
+          {{ t('view.common.columns.traffic') }}
+        </dt>
         <dd class="mt-1.5 text-base font-semibold text-foreground">
-          {{ device.health === 'Offline' ? '—' : `${device.throughput} Mbps` }}
+          {{
+            device.health === 'Offline'
+              ? t('view.common.noReading')
+              : format.rate(device.throughput)
+          }}
         </dd>
       </div>
       <div
         class="p-4 border-border border-l max-[500px]:border-l-0 max-[800px]:border-t"
       >
-        <dt class="text-xs text-muted-foreground">Uplink</dt>
+        <dt class="text-xs text-muted-foreground">
+          {{ t('view.device.uplink') }}
+        </dt>
         <dd class="mt-1.5 text-base font-semibold text-foreground">
           <AppLink
             v-if="uplink"
+            translate="no"
             class="text-accent-foreground hover:underline"
             :to="to(`/devices/${uplink.id}`)"
           >
             {{ uplink.name }}
           </AppLink>
-          <template v-else>Site edge</template>
+          <template v-else>{{ t('view.device.siteEdge') }}</template>
         </dd>
       </div>
     </dl>
@@ -436,11 +573,11 @@ function to(path: string, extra: Record<string, string> = {}) {
             id="clients-title"
             class="text-base font-semibold text-foreground"
           >
-            Connected clients
+            {{ t('view.common.connectedClients') }}
             <span
               class="text-xs bg-subtle px-1.5 py-0.5 rounded text-muted-foreground ml-1.5 font-medium"
             >
-              {{ device.clients }}
+              {{ n(device.clients, 'integer') }}
             </span>
           </h2>
           <AppLink
@@ -448,7 +585,8 @@ function to(path: string, extra: Record<string, string> = {}) {
             class="inline-flex items-center gap-1 text-xs text-accent-foreground hover:underline"
             :to="to('/clients', { ap: device.id })"
           >
-            View all <AppIcon name="arrow" class="w-3.5 h-3.5" />
+            {{ t('view.device.viewAll')
+            }}<AppIcon name="arrow" class="w-3.5 h-3.5" />
           </AppLink>
         </div>
         <ul v-if="clients.length" class="m-0 p-0 list-none">
@@ -459,25 +597,34 @@ function to(path: string, extra: Record<string, string> = {}) {
             class="flex items-center justify-between gap-3 px-5 py-2.5 border-t border-border text-xs"
           >
             <span>
-              <strong class="block font-semibold text-foreground">
+              <strong
+                translate="no"
+                class="block font-semibold text-foreground"
+              >
                 {{ client.hostname }}
               </strong>
               <small
+                translate="no"
                 class="block font-mono text-2xs text-muted-foreground mt-0.5"
               >
                 {{ client.address }}
               </small>
             </span>
             <span class="text-2xs text-muted-foreground">
-              {{ client.band }} · {{ signalQuality(client.signal) }}
+              {{
+                format.facts([
+                  labels.band(client.band),
+                  labels.signal(signalQuality(client.signal)),
+                ])
+              }}
             </span>
           </li>
         </ul>
         <p v-else class="px-5 pt-1 pb-5 text-xs text-muted-foreground">
           {{
             device.role === 'access-point'
-              ? 'No clients are connected right now.'
-              : 'Clients connect through access points, not this device.'
+              ? t('view.device.clientsNoneAccessPoint')
+              : t('view.device.clientsNoneOther')
           }}
         </p>
       </section>
@@ -492,11 +639,11 @@ function to(path: string, extra: Record<string, string> = {}) {
               id="links-title"
               class="text-base font-semibold text-foreground"
             >
-              Downlinks
+              {{ t('view.device.downlinks') }}
               <span
                 class="text-xs bg-subtle px-1.5 py-0.5 rounded text-muted-foreground ml-1.5 font-medium"
               >
-                {{ links.length }}
+                {{ n(links.length, 'integer') }}
               </span>
             </h2>
           </div>
@@ -509,6 +656,7 @@ function to(path: string, extra: Record<string, string> = {}) {
             >
               <AppLink class="group" :to="to(`/devices/${link.id}`)">
                 <strong
+                  translate="no"
                   class="block font-semibold text-foreground group-hover:text-accent-foreground"
                 >
                   {{ link.name }}
@@ -521,7 +669,7 @@ function to(path: string, extra: Record<string, string> = {}) {
             </li>
           </ul>
           <p v-else class="px-5 pt-1 pb-5 text-xs text-muted-foreground">
-            Nothing connects through this device.
+            {{ t('view.device.downlinksNone') }}
           </p>
         </section>
 
@@ -533,17 +681,16 @@ function to(path: string, extra: Record<string, string> = {}) {
           <summary
             class="font-semibold text-sm text-foreground cursor-pointer select-none"
           >
-            Move to another site
+            {{ t('view.device.moveSummary') }}
           </summary>
           <form
             class="mt-4 space-y-4"
             @submit.prevent="emit('reassign', destination)"
           >
             <p class="text-xs text-muted-foreground">
-              A device belongs to one site. Moving it replaces its current
-              assignment.
+              {{ t('view.device.moveIntro') }}
             </p>
-            <UiField id="destination" label="Site within this tenant">
+            <UiField id="destination" :label="t('view.device.moveField')">
               <UiSelect v-model="destination" :options="siteOptions" />
             </UiField>
             <UiButton
@@ -552,17 +699,21 @@ function to(path: string, extra: Record<string, string> = {}) {
               class="w-full"
               :disabled="destination === device.siteId"
             >
-              Move device
+              {{ t('view.device.moveButton') }}
             </UiButton>
           </form>
         </details>
-        <p
+        <I18nT
           v-else
+          scope="global"
+          tag="p"
           class="text-xs text-muted-foreground p-4 rounded-panel bg-card border border-border"
+          keypath="view.device.moveNoSite"
         >
-          {{ tenantName(device.siteId) }} has no other site to move this device
-          to.
-        </p>
+          <template #tenant>
+            <span translate="no">{{ tenantName(device.siteId) }}</span>
+          </template>
+        </I18nT>
       </div>
     </div>
   </div>

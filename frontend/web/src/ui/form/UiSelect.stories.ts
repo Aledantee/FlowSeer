@@ -32,7 +32,7 @@ export const Default: Story = {
 export const Selected: Story = {
   args: {
     modelValue: 'ber',
-    options: sampleOptions,
+    options: sampleOptions.map((opt) => ({ ...opt, identifier: true })),
     placeholder: 'Choose site location...',
     ariaLabel: 'Site location select',
   },

@@ -27,6 +27,8 @@ export interface SelectOption {
   value: string
   label: string
   disabled?: boolean
+  // The label is a name from the data, which a page translator leaves alone.
+  identifier?: boolean
 }
 
 export interface UiSelectProps {
@@ -116,9 +118,11 @@ const currentValue = computed<string>(() =>
   props.modelValue !== undefined ? props.modelValue : internalValue.value,
 )
 
-const selectedLabel = computed(
-  () => props.options.find((opt) => opt.value === currentValue.value)?.label,
+const selectedOption = computed(() =>
+  props.options.find((opt) => opt.value === currentValue.value),
 )
+
+const selectedLabel = computed(() => selectedOption.value?.label)
 
 let initialValue = ''
 onMounted(() => {
@@ -159,7 +163,9 @@ function handleUpdate(val: string | null | undefined) {
       :class="selectTriggerVariants({ invalid: isInvalid })"
     >
       <SelectValue :placeholder="resolvedPlaceholder">
-        {{ selectedLabel || resolvedPlaceholder }}
+        <span :translate="selectedOption?.identifier ? 'no' : undefined">{{
+          selectedLabel || resolvedPlaceholder
+        }}</span>
       </SelectValue>
       <svg
         class="h-4 w-4 opacity-50 shrink-0"
@@ -210,7 +216,11 @@ function handleUpdate(val: string | null | undefined) {
                 </svg>
               </SelectItemIndicator>
             </span>
-            <SelectItemText>{{ opt.label }}</SelectItemText>
+            <SelectItemText>
+              <span :translate="opt.identifier ? 'no' : undefined">{{
+                opt.label
+              }}</span>
+            </SelectItemText>
           </SelectItem>
         </SelectViewport>
       </SelectContent>

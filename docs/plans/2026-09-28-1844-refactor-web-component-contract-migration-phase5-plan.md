@@ -39,3 +39,12 @@ applying `v-ai-target`. One shared rule draws `[data-ai-selected]`, and
    is decided when this phase is re-planned.
 3. Layout-only components (separators, scroll areas, skeletons) take no
    `ai` prop.
+
+## Open questions
+
+- The `ui-table--default` Storybook story scrolls the page at a 320 px
+  viewport. Wrapping it in `UiScrollArea`, as the `Dense`, `Sortable`,
+  `RowSelection`, and `LongText` stories are, made the happy-dom story
+  audit in `frontend/web/src/ui/a11y.test.ts` find no Ask action for its
+  `v-ai-target` rows; the cause is unverified. Phase 4 assigns it here,
+  since this phase is the next change to `src/ui/table/` stories.

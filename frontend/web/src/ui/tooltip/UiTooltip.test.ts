@@ -63,6 +63,31 @@ function mountTooltip(
   return { host, trigger, i18n }
 }
 
+function mountWith(
+  props: { label: string } & Record<string, unknown>,
+  slots: Record<string, () => unknown> = {},
+) {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const app = createApp({
+    render() {
+      return h(TooltipProvider, {}, () =>
+        h(
+          UiTooltip,
+          { delayDuration: 0, ...props },
+          { default: () => h('button', 'Target Button'), ...slots },
+        ),
+      )
+    },
+  })
+  app.use(createWebI18n('en'))
+  app.mount(host)
+  dispose = () => {
+    app.unmount()
+    dispose = () => {}
+  }
+}
+
 async function settle() {
   await nextTick()
   await new Promise((resolve) => setTimeout(resolve, 50))
@@ -442,5 +467,90 @@ describe('UiTooltip', () => {
     const content = tooltipNamed('Quick action')
     expect(content.className).toContain('max-w-72')
     expect(content.className).toContain('flex-wrap')
+  })
+
+  it('overrides prop text with label and hint slots', async () => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    const app = createApp({
+      render() {
+        return h(TooltipProvider, {}, () =>
+          h(
+            UiTooltip,
+            {
+              label: 'Fallback label',
+              hint: 'Fallback hint',
+              defaultOpen: true,
+              delayDuration: 0,
+            },
+            {
+              default: () => h('button', 'Target Button'),
+              label: () =>
+                h('span', { class: 'custom-label-slot' }, 'Slot Label'),
+              hint: () => h('span', { class: 'custom-hint-slot' }, 'Slot Hint'),
+            },
+          ),
+        )
+      },
+    })
+    const i18n = createWebI18n('en')
+    app.use(i18n)
+    app.mount(host)
+    dispose = () => {
+      app.unmount()
+      dispose = () => {}
+    }
+    await settle()
+
+    const content = tooltipNamed('Fallback label')
+    const labelEl = content.querySelector('.custom-label-slot')
+    if (!labelEl) throw new Error('Missing custom label slot')
+    // The slot replaces the prop text in the visible span.
+    expect(labelEl.parentElement?.textContent).toBe('Slot Label')
+
+    const hintEl = content.querySelector('.custom-hint-slot')
+    if (!hintEl) throw new Error('Missing custom hint slot')
+    expect(hintEl.parentElement?.textContent).toBe('Slot Hint')
+  })
+
+  it('renders a hint slot without a hint prop', async () => {
+    mountWith(
+      { label: 'Quick action', defaultOpen: true },
+      {
+        hint: () => h('span', { class: 'only-hint-slot' }, 'Slot only'),
+      },
+    )
+    await settle()
+
+    const content = tooltipNamed('Quick action')
+    expect(content.querySelector('.only-hint-slot')?.textContent).toBe(
+      'Slot only',
+    )
+  })
+
+  it('keeps the hidden accessible text from translation only for identifiers', async () => {
+    mountWith({
+      label: 'Open cologne-ap-02',
+      defaultOpen: true,
+      identifier: true,
+    })
+    await settle()
+    const marked = document.body.querySelector('[role="tooltip"]')
+    expect(marked?.textContent).toContain('cologne-ap-02')
+    expect(marked?.getAttribute('translate')).toBe('no')
+    expect(
+      tooltipNamed('Open cologne-ap-02')
+        .querySelector('.font-medium')
+        ?.closest('[translate]'),
+    ).toBeNull()
+    dispose()
+
+    mountWith({ label: 'Quick action', defaultOpen: true })
+    await settle()
+    expect(
+      document.body
+        .querySelector('[role="tooltip"]')
+        ?.getAttribute('translate'),
+    ).toBeNull()
   })
 })

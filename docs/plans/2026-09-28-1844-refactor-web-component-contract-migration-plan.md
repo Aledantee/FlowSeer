@@ -103,7 +103,7 @@ Landed: `51c253f5..0bdbc4d9`
 
 Files: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase4-plan.md`
 After: U3
-Landed:
+Landed: `014ceda3..ea17148b`
 
 ### U5. The ai prop and shared highlight
 

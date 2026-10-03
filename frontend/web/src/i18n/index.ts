@@ -34,6 +34,21 @@ export const numberFormats = {
   },
 } as const
 
+export const datetimeFormats = {
+  en: {
+    time: {
+      hour: 'numeric',
+      minute: '2-digit',
+    },
+  },
+  de: {
+    time: {
+      hour: 'numeric',
+      minute: '2-digit',
+    },
+  },
+} as const
+
 export function createWebI18n(locale: WebLocale = 'en') {
   return createI18n({
     legacy: false,
@@ -44,5 +59,6 @@ export function createWebI18n(locale: WebLocale = 'en') {
       de: structuredClone(de),
     },
     numberFormats: structuredClone(numberFormats),
+    datetimeFormats: structuredClone(datetimeFormats),
   })
 }

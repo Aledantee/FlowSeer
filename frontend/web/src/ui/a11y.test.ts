@@ -7,30 +7,12 @@ import preview from '../../.storybook/preview'
 import { useI18n } from 'vue-i18n'
 import UiInput from './form/UiInput.vue'
 import { createWebI18n, type WebLocale } from '../i18n'
+import { i18nWarnings } from '../i18n/testing'
 
 setProjectAnnotations(preview)
 
 const AUDIT_LOCALES: readonly WebLocale[] = ['en', 'de']
 const GERMAN_PAGINATION_STORY = './pagination/UiPagination.stories.ts:Default'
-
-function extractI18nWarnings(calls: unknown[][]): string[] {
-  const issues: string[] = []
-  for (const args of calls) {
-    const text = args
-      .map((a) =>
-        typeof a === 'string' ? a : a instanceof Error ? a.message : String(a),
-      )
-      .join(' ')
-    if (
-      (text.includes('[intlify]') &&
-        (text.includes('Not found') || text.includes('Fall back to'))) ||
-      text.includes('Not found parent scope')
-    ) {
-      issues.push(text)
-    }
-  }
-  return issues
-}
 
 function assertNoI18nWarnings(
   calls: unknown[][],
@@ -39,7 +21,7 @@ function assertNoI18nWarnings(
   locale: WebLocale,
   phase: string,
 ) {
-  const warnings = extractI18nWarnings(calls)
+  const warnings = i18nWarnings(calls)
   expect(
     warnings,
     `Expected no i18n warnings after ${phase} in ${path} -> ${storyName} (${locale}), but found:\n${warnings.join('\n')}`,
@@ -359,7 +341,7 @@ describe('accessibility (axe-core)', () => {
       container.remove()
     })
 
-    const warnings = extractI18nWarnings(warnSpy.mock.calls)
+    const warnings = i18nWarnings(warnSpy.mock.calls)
     expect(
       warnings.some(
         (w) =>
