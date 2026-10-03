@@ -179,9 +179,8 @@ function reassign(deviceId: string, destination: string, reverted = false) {
       if (move.value?.deviceId === updated.id) move.value.observed = true
       void nextTick(() => refocus(updated.id))
     }, 1200)
-  } catch (error: unknown) {
-    message.value =
-      error instanceof Error ? error.message : t('view.fleet.assignFailed')
+  } catch {
+    message.value = 'view.fleet.assignFailed'
   }
 }
 
@@ -273,7 +272,7 @@ async function navigateMain(location: PageLocation) {
   try {
     await panes.navigateMain(location)
   } catch {
-    message.value = t('view.fleet.openFailed')
+    message.value = 'view.fleet.openFailed'
   }
 }
 // Opening a page on the right keeps the page already there by docking it.
@@ -323,7 +322,7 @@ async function follow(
   try {
     await page.go(target)
   } catch {
-    message.value = t('view.fleet.openFailed')
+    message.value = 'view.fleet.openFailed'
   }
 }
 // Links outside the panes, such as the sidebar, belong to the main pane.
@@ -413,7 +412,7 @@ async function setQuery(key: string, value: string) {
       { replace: true },
     )
   } catch {
-    message.value = t('view.fleet.updateFailed')
+    message.value = 'view.common.updateFailed'
   }
 }
 // A site without its tenant in the URL would leave the breadcrumb reading
@@ -441,7 +440,11 @@ const deviceOptions = computed(() =>
       : []),
   ]
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map((device) => ({ value: device.id, label: device.name })),
+    .map((device) => ({
+      value: device.id,
+      label: device.name,
+      identifier: true,
+    })),
 )
 async function openDevice(id: string) {
   await follow(mainPage, {
@@ -654,6 +657,12 @@ function describe(location: PageLocation) {
     icon: VIEW_ICONS[pageView] ?? 'dashboard',
     health: device?.health,
     attention: attention || undefined,
+    labelName: pageView === 'device' && Boolean(device?.name),
+    detailName: Boolean(
+      device
+        ? sites.some((s) => s.id === device.siteId)
+        : (site?.name ?? tenant?.name),
+    ),
   }
 }
 function tabTitle(tab: DockTab) {
@@ -670,6 +679,12 @@ function tabTitle(tab: DockTab) {
       first.health ??
       second.health,
     attention: (first.attention ?? 0) + (second.attention ?? 0) || undefined,
+    labelName: false,
+    detailName: first.detailName,
+    pair: {
+      first: { label: first.label, name: first.labelName },
+      second: { label: second.label, name: second.labelName },
+    },
   }
 }
 const sideTitle = computed(() =>
@@ -693,6 +708,11 @@ const searchPages = computed(() => [
         described.detail,
       ]),
       icon: described.icon,
+      identifier: described.labelName,
+      detailFacts: [
+        { text: t(tab.beside ? 'view.fleet.dockedPair' : 'view.fleet.docked') },
+        { text: described.detail, identifier: described.detailName },
+      ],
     }
   }),
 ])
@@ -937,7 +957,7 @@ onUnmounted(() => clearInterval(timer))
             v-if="item === 'devices'"
             class="nav-count ml-auto bg-chrome-hover rounded px-1.5 py-px text-2xs"
           >
-            {{ scope.length }}
+            {{ n(scope.length, 'integer') }}
           </span>
         </AppLink>
       </UiMotion>
@@ -1019,6 +1039,7 @@ onUnmounted(() => clearInterval(timer))
                     ...scopedSites.map((site) => ({
                       value: site.id,
                       label: site.name,
+                      identifier: true,
                     })),
                   ]"
                   @change="setQuery('site', $event)"
@@ -1169,7 +1190,10 @@ onUnmounted(() => clearInterval(timer))
                 <AppIcon :name="sideTitle.icon" class="shrink-0 w-3.5" />
                 <span
                   class="pane-title shrink-0 max-w-[30%] truncate text-foreground font-semibold"
-                  ><strong>{{ sideTitle.label }}</strong></span
+                  ><strong
+                    :translate="sideTitle.labelName ? 'no' : undefined"
+                    >{{ sideTitle.label }}</strong
+                  ></span
                 >
                 <div
                   class="pane-scope flex items-center gap-0.5 min-w-0 mr-auto"
@@ -1199,6 +1223,7 @@ onUnmounted(() => clearInterval(timer))
                             ...sideScopedSites.map((site) => ({
                               value: site.id,
                               label: site.name,
+                              identifier: true,
                             })),
                           ]"
                           @change="setSideScope('site', $event)"

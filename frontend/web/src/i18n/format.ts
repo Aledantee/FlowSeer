@@ -1,7 +1,6 @@
 import { useI18n } from 'vue-i18n'
 
-export type Unit =
-  'celsius' | 'dbm' | 'gb' | 'gbps' | 'ghz' | 'mbps' | 'ms' | 'w'
+export type Unit = 'celsius' | 'dbm' | 'gb' | 'gbps' | 'mbps' | 'ms' | 'w'
 
 const MINUTES_PER_HOUR = 60
 const MINUTES_PER_DAY = 1440

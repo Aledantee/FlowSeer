@@ -6,6 +6,7 @@ import FleetView from './FleetView.vue'
 import { UiAppRoot } from './ui'
 import { isMac } from './navigation/shortcuts'
 import { DOCK_KEY } from './navigation/dock'
+import * as fleetDomain from './domain/fleet'
 import { devices, filterDevices } from './domain/fleet'
 import { clientsOf, signalQuality } from './domain/clients'
 import type { Port } from './domain/telemetry'
@@ -138,7 +139,7 @@ describe('FleetView shell in German', () => {
       'Standorte',
     ])
     const count = host.querySelector('.nav-count')?.textContent?.trim()
-    expect(count).toBeTruthy()
+    expect(count).toBe(new Intl.NumberFormat('de').format(devices.length))
     expect(labelsOf(host.querySelectorAll('nav[aria-label] > a'))).toEqual([
       'Dashboard',
       `Geräte, ${count} im Bereich`,
@@ -524,10 +525,12 @@ describe('inventory in German', () => {
 
   it('follows a locale switch', async () => {
     const { host, setLocale } = await mountLocale('/devices', 'de')
+    expect(host.querySelector('h1')?.textContent?.trim()).toBe('Geräte')
     expect(resultCount(host)).toBe('16 Ergebnisse')
 
     await setLocale('en')
 
+    expect(host.querySelector('h1')?.textContent?.trim()).toBe('Devices')
     expect(host.querySelector('#inventory-title')?.textContent).toContain(
       'Device inventory',
     )
@@ -541,6 +544,7 @@ describe('inventory in German', () => {
 
     await setLocale('de')
 
+    expect(host.querySelector('h1')?.textContent?.trim()).toBe('Geräte')
     expect(resultCount(host)).toBe('16 Ergebnisse')
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
@@ -550,16 +554,20 @@ describe('language switch in the top bar', () => {
   it('turns the navigation and heading German with no remount', async () => {
     const { host } = await mountLocale('/devices', 'en')
     const inventory = host.querySelector('#inventory-title')
+    const heading = host.querySelector('h1')
     const button = host.querySelector<HTMLButtonElement>(
       '.topbar-tools button.locale-switcher',
     )
     if (!button) throw new Error('Missing language switch')
+    expect(heading?.textContent?.trim()).toBe('Devices')
     expect(inventory?.textContent).toContain('Device inventory')
 
     button.click()
     await settle()
 
     expect(host.querySelector('#inventory-title')).toBe(inventory)
+    expect(host.querySelector('h1')).toBe(heading)
+    expect(heading?.textContent?.trim()).toBe('Geräte')
     expect(inventory?.textContent).toContain('Geräteinventar')
     expect(text(host.querySelectorAll('.nav-text'))).toEqual([
       'Dashboard',
@@ -570,6 +578,12 @@ describe('language switch in the top bar', () => {
     ])
     expect(button.textContent).toContain('Sprache auf English umstellen')
     expect(localStorage.getItem('flowseer.locale')).toBe('de')
+
+    button.click()
+    await settle()
+
+    expect(heading?.textContent?.trim()).toBe('Devices')
+    expect(inventory?.textContent).toContain('Device inventory')
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 })
@@ -750,6 +764,35 @@ describe('device route in German', () => {
     expect(host.textContent).toContain('Gerät verschieben')
     expect(host.querySelector('#links-title')?.textContent).toContain(
       'Downlinks',
+    )
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('shows a translated notice when moving a device fails and updates it on locale switch', async () => {
+    vi.spyOn(fleetDomain, 'moveDevice').mockImplementation(() => {
+      throw new Error('Choose a site owned by the same tenant.')
+    })
+    const { host, setLocale } = await mountLocale('/devices/dev-2', 'de')
+    const form = host.querySelector('form')
+    form?.dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true }),
+    )
+    await settle()
+
+    const notice = host.querySelector('main [role="status"]')
+    expect(notice?.textContent).toContain(
+      'Der Standort konnte nicht zugewiesen werden.',
+    )
+    expect(notice?.textContent).not.toContain(
+      'Choose a site owned by the same tenant.',
+    )
+
+    await setLocale('en')
+    expect(notice?.textContent).toContain('Could not assign site.')
+
+    await setLocale('de')
+    expect(notice?.textContent).toContain(
+      'Der Standort konnte nicht zugewiesen werden.',
     )
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })

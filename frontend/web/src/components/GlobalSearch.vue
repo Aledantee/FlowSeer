@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useI18n } from 'vue-i18n'
+import { I18nT, useI18n } from 'vue-i18n'
 import {
   type UiCommandItemSelectEvent,
   UiCommandDialog,
@@ -37,6 +37,8 @@ export interface SearchPage {
   title: string
   detail: string
   icon: string
+  identifier?: boolean
+  detailFacts?: { text: string; identifier?: boolean }[]
 }
 
 const props = defineProps<{
@@ -52,9 +54,25 @@ const emit = defineEmits<{
 
 // A result and the text shown under its title, built at render from the
 // current data and locale.
+interface RowFact {
+  text: string
+  identifier?: boolean
+}
+
 interface Row {
   result: SearchResult
   detail: string
+  facts?: RowFact[]
+  client?: {
+    address: string
+    mac: string
+    device: string
+  }
+  interfaceDetail?: {
+    status: string
+    neighbor?: string
+    endpoint?: string
+  }
 }
 
 const { t } = useI18n({ useScope: 'global' })
@@ -84,6 +102,7 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
       page && {
         result: { kind, id, title: page.title },
         detail: page.detail,
+        facts: page.detailFacts,
       }
     )
   }
@@ -118,18 +137,29 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
           mac: client.mac,
           device: deviceName(client.deviceId),
         }),
+        client: {
+          address: client.address,
+          mac: client.mac,
+          device: deviceName(client.deviceId),
+        },
       }
     )
   }
   const device = props.fleet.find((item) => item.id === id)
   if (!device) return undefined
   if (kind === 'device') {
+    const isKnownSite = sites.some((site) => site.id === device.siteId)
     const siteName =
       sites.find((site) => site.id === device.siteId)?.name ??
       t('view.common.unknownSite')
     return {
       result: { kind, id, title: device.name },
       detail: format.facts([device.kind, device.address, siteName]),
+      facts: [
+        { text: device.kind },
+        { text: device.address, identifier: true },
+        { text: siteName, identifier: isKnownSite },
+      ],
     }
   }
   const found = portsOf(props.fleet, device).find((item) => item.name === port)
@@ -149,7 +179,19 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
           })
         : found.endpoint,
     ]),
+    interfaceDetail: {
+      status: labels.portStatus(found.status),
+      neighbor: found.neighborId ? deviceName(found.neighborId) : undefined,
+      endpoint: found.endpoint,
+    },
   }
+}
+
+function isTitleIdentifier(result: SearchResult): boolean {
+  return (
+    result.kind !== 'page' ||
+    Boolean(props.pages.find((p) => p.id === result.id)?.identifier)
+  )
 }
 
 const showingRecent = computed(() => !query.value.trim())
@@ -372,7 +414,13 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
           </div>
 
           <UiCommandItem
-            v-for="{ result, detail } in group.items"
+            v-for="{
+              result,
+              detail,
+              facts,
+              client,
+              interfaceDetail,
+            } in group.items"
             :key="resultKey(result)"
             :value="resultKey(result)"
             class="search-result"
@@ -380,15 +428,59 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
           >
             <AppIcon :name="iconFor(result, group.icon)" />
             <span>
-              <strong :translate="result.kind === 'page' ? undefined : 'no'">{{
-                result.title
-              }}</strong>
-              <small>{{ detail }}</small>
+              <strong
+                :translate="isTitleIdentifier(result) ? 'no' : undefined"
+                >{{ result.title }}</strong
+              >
+              <small>
+                <I18nT
+                  v-if="client"
+                  scope="global"
+                  tag="span"
+                  keypath="view.search.clientDetail"
+                >
+                  <template #address>
+                    <span translate="no">{{ client.address }}</span>
+                  </template>
+                  <template #mac>
+                    <span translate="no">{{ client.mac }}</span>
+                  </template>
+                  <template #device>
+                    <span translate="no">{{ client.device }}</span>
+                  </template>
+                </I18nT>
+                <template v-else-if="interfaceDetail">
+                  <span>{{ interfaceDetail.status }}</span>
+                  <span>{{ t('view.common.factSeparator') }}</span>
+                  <I18nT
+                    v-if="interfaceDetail.neighbor"
+                    scope="global"
+                    tag="span"
+                    keypath="view.search.interfaceFarEnd"
+                  >
+                    <template #device>
+                      <span translate="no">{{ interfaceDetail.neighbor }}</span>
+                    </template>
+                  </I18nT>
+                  <span v-else>{{ interfaceDetail.endpoint }}</span>
+                </template>
+                <template v-else-if="facts">
+                  <template v-for="(fact, idx) in facts" :key="idx">
+                    <span v-if="idx > 0">{{
+                      t('view.common.factSeparator')
+                    }}</span>
+                    <span :translate="fact.identifier ? 'no' : undefined">{{
+                      fact.text
+                    }}</span>
+                  </template>
+                </template>
+                <span v-else>{{ detail }}</span>
+              </small>
             </span>
             <span class="search-result-actions ml-auto flex items-center gap-1">
               <UiTooltip
                 v-if="canSplit"
-                :label="t('view.search.openBeside')"
+                :label="t('view.common.openBeside')"
                 :shortcut="{ code: 'Enter', shift: true }"
                 side="left"
                 inline

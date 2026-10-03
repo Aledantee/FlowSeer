@@ -55,10 +55,16 @@ interface SearchHandlers {
 interface SearchOptions extends SearchHandlers {
   locale?: WebLocale
   fleet?: Device[]
+  pages?: SearchPage[]
 }
 
 async function mountSearchClosed(options: SearchOptions = {}) {
-  const { locale, fleet = [], ...handlers } = options
+  const {
+    locale,
+    fleet = [],
+    pages: customPages = pages,
+    ...handlers
+  } = options
   const host = document.createElement('div')
   document.body.append(host)
   const i18n = createWebI18n(locale)
@@ -67,7 +73,7 @@ async function mountSearchClosed(options: SearchOptions = {}) {
       h(TooltipProvider, null, () =>
         h(GlobalSearch, {
           fleet,
-          pages,
+          pages: customPages,
           canSplit: true,
           ...handlers,
         }),
@@ -458,5 +464,55 @@ describe('global search in German', () => {
     expect(textOf('.search-empty')).toEqual([
       'Name, IP-Adresse, MAC-Adresse oder Port eingeben.',
     ])
+  })
+
+  it('marks docked device page titles and identifier details with translate="no"', async () => {
+    const dockedDevicePage: SearchPage = {
+      id: 'tab:dev-1',
+      title: 'berlin-gw-01',
+      detail: 'Docked · Berlin Mitte',
+      icon: 'device',
+      identifier: true,
+      detailFacts: [
+        { text: 'Docked' },
+        { text: 'Berlin Mitte', identifier: true },
+      ],
+    }
+    const { host } = await mountSearchClosed({
+      locale: 'en',
+      fleet: devices,
+      pages: [...pages, dockedDevicePage],
+    })
+
+    await openSearch(host)
+    await typeQuery('berlin-gw-01')
+
+    const pageItem = [...document.body.querySelectorAll('.search-result')].find(
+      (item) => item.textContent?.includes('Docked · Berlin Mitte'),
+    )
+    expect(pageItem).toBeDefined()
+    expect(pageItem?.querySelector('strong')?.getAttribute('translate')).toBe(
+      'no',
+    )
+    const pageDetailFacts = [
+      ...(pageItem?.querySelectorAll('small span[translate="no"]') ?? []),
+    ]
+    expect(pageDetailFacts.map((s) => s.textContent)).toContain('Berlin Mitte')
+
+    const deviceItem = [
+      ...document.body.querySelectorAll('.search-result'),
+    ].find(
+      (item) =>
+        item.textContent?.includes('Gateway') &&
+        item.textContent?.includes('berlin-gw-01'),
+    )
+    expect(deviceItem).toBeDefined()
+    const deviceDetailNoTrans = [
+      ...(deviceItem?.querySelectorAll('small span[translate="no"]') ?? []),
+    ]
+    expect(deviceDetailNoTrans.map((s) => s.textContent)).toContain('10.20.0.1')
+    expect(deviceDetailNoTrans.map((s) => s.textContent)).toContain(
+      'Berlin Mitte',
+    )
   })
 })

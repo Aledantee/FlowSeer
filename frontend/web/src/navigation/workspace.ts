@@ -18,6 +18,7 @@ export type PaneId = 'main' | 'side'
 // that change the fleet, and how panes hand work to each other.
 export interface Workspace {
   fleet: Ref<Device[]>
+  // The message key for the notice line, or an empty string when clear.
   message: Ref<string>
   move: Ref<Move | undefined>
   undoMove: () => void

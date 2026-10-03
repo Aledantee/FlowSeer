@@ -82,6 +82,7 @@ function siteName(id: string): string {
 interface MountOptions {
   locale?: WebLocale
   selection?: Selection
+  fleet?: Device[]
 }
 
 function mount(
@@ -91,8 +92,9 @@ function mount(
 ) {
   const host = document.createElement('div')
   document.body.append(host)
-  const fleet = computed(() => devices)
-  const links = linksOf(devices)
+  const currentDevices = options.fleet ?? devices
+  const fleet = computed(() => currentDevices)
+  const links = linksOf(currentDevices)
   const selection = ref<Selection | undefined>(options.selection)
   const hovered = ref<string>()
   const location = computed(() => ({ path: '/topology', query: {} }))
@@ -102,7 +104,7 @@ function mount(
     async () => {},
   )
   const workspace = {
-    fleet: ref(devices),
+    fleet: ref(currentDevices),
     message: ref(''),
     reassign: () => {},
     move: ref(undefined),
@@ -411,16 +413,28 @@ describe('topology AI targets', () => {
     const device = devices.find((item) => item.role === 'access-point')
     if (!device) throw new Error('Missing device fixture')
 
-    mount(TopologyNode, { data: { deviceId: device.id } })
+    const customDevice: Device = {
+      ...device,
+      id: 'dev-custom',
+      name: 'custom-dev',
+      clients: 1250,
+    }
 
-    const node = registry.view(`standalone:topology:device:${device.id}`)
+    mount(
+      TopologyNode,
+      { data: { deviceId: customDevice.id } },
+      { locale: 'de', fleet: [customDevice] },
+    )
+
+    const node = registry.view(`standalone:topology:device:${customDevice.id}`)
     expect(node?.target.kind).toBe('device')
-    expect(node?.target.label).toBe(device.name)
+    expect(node?.target.label).toBe(customDevice.name)
     expect(node?.target.context).toMatchObject({
-      name: device.name,
-      role: device.role,
-      health: device.health,
-      address: device.address,
+      name: customDevice.name,
+      role: customDevice.role,
+      health: customDevice.health,
+      address: customDevice.address,
+      clients: '1.250',
     })
   })
 
