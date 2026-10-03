@@ -53,7 +53,7 @@ func TestInterceptorUnaryCases(t *testing.T) {
 	}
 	validToken := signRSAToken(t, srv.rsaKey, srv.rsaKID, claims)
 
-	// 1. No header -> Unauthenticated "authentication required"
+	// Missing authorization header yields Unauthenticated.
 	unaryHandler := interceptor.WrapUnary(func(_ context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&emptypb.Empty{}), nil
 	})
@@ -70,7 +70,7 @@ func TestInterceptorUnaryCases(t *testing.T) {
 		t.Fatalf("got error message %q, want 'unauthenticated: authentication required'", err.Error())
 	}
 
-	// 2. Lowercase "bearer" -> succeeds, principal in context
+	// Lowercase "bearer" scheme succeeds and populates principal in context.
 	var receivedPrincipal authn.Principal
 	var handlerCalled bool
 	recordingHandler := interceptor.WrapUnary(func(ctx context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
@@ -93,7 +93,7 @@ func TestInterceptorUnaryCases(t *testing.T) {
 		t.Fatalf("handler not called or wrong principal: %+v", receivedPrincipal)
 	}
 
-	// 3. Malformed scheme Basic
+	// Non-Bearer scheme yields Unauthenticated.
 	basicReq := connect.NewRequest(&emptypb.Empty{})
 	basicReq.Header().Set("Authorization", "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==")
 	_, err = unaryHandler(context.Background(), basicReq)
@@ -134,7 +134,7 @@ func TestInterceptorStreamingHandler(t *testing.T) {
 	}
 	validToken := signRSAToken(t, srv.rsaKey, srv.rsaKID, claims)
 
-	// 1. Streaming call without header -> Unauthenticated
+	// Streaming call without header yields Unauthenticated.
 	streamHandler := interceptor.WrapStreamingHandler(func(_ context.Context, _ connect.StreamingHandlerConn) error {
 		return nil
 	})
@@ -148,7 +148,7 @@ func TestInterceptorStreamingHandler(t *testing.T) {
 		t.Fatalf("got code %v, want Unauthenticated", connect.CodeOf(err))
 	}
 
-	// 2. Streaming call with Bearer -> succeeds, principal in context
+	// Streaming call with Bearer succeeds and populates principal in context.
 	var streamPrincipal authn.Principal
 	var streamCalled bool
 	recordingStream := interceptor.WrapStreamingHandler(func(ctx context.Context, _ connect.StreamingHandlerConn) error {
@@ -172,5 +172,69 @@ func TestInterceptorStreamingHandler(t *testing.T) {
 	}
 	if !streamCalled || streamPrincipal.Subject != "u1" {
 		t.Fatalf("stream handler not called or wrong principal: %+v", streamPrincipal)
+	}
+}
+
+func TestInterceptorUnavailableYieldsConnectUnavailable(t *testing.T) {
+	srv := newTestOidcServer(t)
+	now := time.Now().Truncate(time.Second)
+
+	verifier, err := authn.NewVerifier(authn.Options{
+		Issuers: []authn.IssuerConfig{
+			{
+				Issuer:   srv.server.URL,
+				Audience: "flowseer-device",
+			},
+		},
+		Client: srv.server.Client(),
+		Clock:  func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatalf("NewVerifier: %v", err)
+	}
+
+	interceptor := authn.NewInterceptor(verifier)
+
+	srv.discoveryErr.Store(true)
+
+	claims := map[string]any{
+		"iss": srv.server.URL,
+		"aud": "flowseer-device",
+		"sub": "u1",
+		"exp": now.Add(time.Hour).Unix(),
+	}
+	token := signRSAToken(t, srv.rsaKey, srv.rsaKID, claims)
+
+	unaryHandler := interceptor.WrapUnary(func(_ context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	})
+	req := connect.NewRequest(&emptypb.Empty{})
+	req.Header().Set("Authorization", "Bearer "+token)
+	_, err = unaryHandler(context.Background(), req)
+	if err == nil {
+		t.Fatal("expected error on verifier unavailable")
+	}
+	if connect.CodeOf(err) != connect.CodeUnavailable {
+		t.Fatalf("got code %v, want Unavailable", connect.CodeOf(err))
+	}
+	if err.Error() != "unavailable: authentication unavailable" {
+		t.Fatalf("got error %q, want 'unavailable: authentication unavailable'", err.Error())
+	}
+
+	streamHandler := interceptor.WrapStreamingHandler(func(_ context.Context, _ connect.StreamingHandlerConn) error {
+		return nil
+	})
+	conn := &dummyStreamingConn{
+		header: http.Header{"Authorization": []string{"Bearer " + token}},
+	}
+	err = streamHandler(context.Background(), conn)
+	if err == nil {
+		t.Fatal("expected streaming error on verifier unavailable")
+	}
+	if connect.CodeOf(err) != connect.CodeUnavailable {
+		t.Fatalf("got code %v, want Unavailable", connect.CodeOf(err))
+	}
+	if err.Error() != "unavailable: authentication unavailable" {
+		t.Fatalf("got error %q, want 'unavailable: authentication unavailable'", err.Error())
 	}
 }
