@@ -107,23 +107,16 @@ below restate the choices made for it or are local to the work.
 Work the edge syslog source phase left for a later plan. Each needs a plan
 of its own, and none blocks a phase below.
 
-- The last-seen-active rule for a device id listed twice at different
-  addresses. Such an id resolves at the address the device was last seen
-  active on (decided by the user, 2026-10-03). Today `ApplyListing` lets the
-  last row of an id win (`src/edge/agent/internal/lanehost/index.go`) while
-  `onboard` lets the first row win
-  (`src/edge/agent/internal/lanehost/onboard.go`), and
-  `TestSync_DuplicateDeviceInListingPinsCurrentBehavior`
-  (`src/edge/agent/internal/lanehost/onboard_test.go`) pins that. To plan:
-  what "active" means, the state that records it, and the rule that picks
-  the address.
 - Validation of `ListDevicesResponse`, with a uniqueness rule on device ids
   in `spec/proto/flowseer/edge/attach/v1/device.proto` and a check in the
   agent's client path. Nothing validates a listing before its ids and
   bindings enter the index, and an invalid id or binding from central makes
   each datagram from that address fail envelope validation and end `Run`
-  (`src/edge/agent/internal/syslogsource/source.go`). Whether the registry
-  guarantees unique ids is unverified.
+  (`src/edge/agent/internal/syslogsource/source.go`). Central sends one row
+  per id today: `ListDevices` builds a row for each id the registry returns
+  (`src/services/device/internal/edgeapi/service.go`), and the registry
+  keys devices by id (`src/services/device/internal/registry/registry.go`,
+  `spec/proto/flowseer/store/device/v1/registry.proto`).
 - Vendor parse options against real device output. The source passes the
   parser no option beyond `CaptureRaw`
   (`src/edge/agent/internal/syslogsource/source.go`), so well-formed vendor

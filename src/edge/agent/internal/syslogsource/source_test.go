@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"strings"
 	"sync"
 	"testing"
@@ -19,9 +20,11 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"google.golang.org/protobuf/proto"
 
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
+	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	netlogv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/log/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/secret"
@@ -74,6 +77,33 @@ func startLeaf(t *testing.T, dir string, hub *edgebus.Hub) *edgebus.Leaf {
 	}
 	t.Cleanup(leaf.Close)
 	return leaf
+}
+
+// listedAt is a listed device answering at an IPv4 management address, built
+// the way central lists it.
+func listedAt(t *testing.T, address, deviceID string) *attachv1.ListedDevice {
+	t.Helper()
+	octets := netip.MustParseAddr(address).As4()
+	return attachv1.ListedDevice_builder{
+		DeviceId:  proto.String(deviceID),
+		BindingId: proto.String(testBindingID),
+		Ip:        addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: octets[:]}.Build()}.Build(),
+		AccessPolicy: policyv1.AccessPolicyHandle_builder{
+			Key: proto.String("icx7150-lab"), Version: proto.Uint64(3),
+		}.Build(),
+	}.Build()
+}
+
+// seedListing applies every row of one listing to the index in one call, as
+// the onboarder does after central answers, with no lane involved.
+func seedListing(t *testing.T, index *lanehost.DeviceIndex, rows ...*attachv1.ListedDevice) {
+	t.Helper()
+	for _, row := range rows {
+		if err := protovalidate.Validate(row); err != nil {
+			t.Fatalf("listed device %s: %v", row.GetDeviceId(), err)
+		}
+	}
+	index.ApplyListing(rows)
 }
 
 func waitFor(t *testing.T, what string, timeout time.Duration, cond func() bool) {
@@ -144,10 +174,7 @@ func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 	meter := mp.Meter("test")
 
 	index := lanehost.NewDeviceIndex()
-	bindRef := inventoryv1.BindingGlobalRef_builder{
-		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build(),
-	}.Build()
-	index.Add("192.0.2.1", testDeviceID, bindRef)
+	seedListing(t, index, listedAt(t, "192.0.2.1", testDeviceID))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -191,7 +218,7 @@ func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 		t.Errorf("dropped reason = %q (found=%t), want unknown_source", reason, ok)
 	}
 
-	index.Add("127.0.0.1", testDeviceID, bindRef)
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
 
 	hostedPayload := []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - hosted link down")
 	if _, err := conn.Write(hostedPayload); err != nil {
@@ -248,9 +275,7 @@ func TestSource_DualStackListenerResolvesAnIPv4Device(t *testing.T) {
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
 
 	index := lanehost.NewDeviceIndex()
-	index.Add("127.0.0.1", testDeviceID, inventoryv1.BindingGlobalRef_builder{
-		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build(),
-	}.Build())
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -327,10 +352,7 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
 
 	index := lanehost.NewDeviceIndex()
-	bindRef := inventoryv1.BindingGlobalRef_builder{
-		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build(),
-	}.Build()
-	index.Add("127.0.0.1", testDeviceID, bindRef)
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -455,10 +477,7 @@ func TestSource_OctetCounted65535ByteFrameIsCutAndKeepsRaw(t *testing.T) {
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
 
 	index := lanehost.NewDeviceIndex()
-	bindRef := inventoryv1.BindingGlobalRef_builder{
-		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build(),
-	}.Build()
-	index.Add("127.0.0.1", testDeviceID, bindRef)
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -567,10 +586,7 @@ func TestSource_PublisherRetryWithBackoff(t *testing.T) {
 	meter := mp.Meter("test")
 
 	index := lanehost.NewDeviceIndex()
-	bindRef := inventoryv1.BindingGlobalRef_builder{
-		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build(),
-	}.Build()
-	index.Add("127.0.0.1", testDeviceID, bindRef)
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
 
 	stub := &retryPublisherStub{done: make(chan struct{})}
 
@@ -717,10 +733,7 @@ func TestSource_RunReturnsNilOnCancellationDuringRetry(t *testing.T) {
 	defer cancel()
 
 	index := lanehost.NewDeviceIndex()
-	bindRef := inventoryv1.BindingGlobalRef_builder{
-		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build(),
-	}.Build()
-	index.Add("127.0.0.1", testDeviceID, bindRef)
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
 
 	stub := &retryFailingPublisherStub{called: make(chan struct{})}
 
@@ -801,10 +814,7 @@ func TestSource_RunReturnsNilWhenCanceledInsidePublish(t *testing.T) {
 	defer cancel()
 
 	index := lanehost.NewDeviceIndex()
-	bindRef := inventoryv1.BindingGlobalRef_builder{
-		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build(),
-	}.Build()
-	index.Add("127.0.0.1", testDeviceID, bindRef)
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
 
 	stub := &blockingPublisherStub{called: make(chan struct{})}
 	src, err := syslogsource.Listen(ctx, syslogsource.Config{
@@ -895,10 +905,7 @@ func TestSource_RawPolicySuppressionAndMetrics(t *testing.T) {
 	meter := mp.Meter("test")
 
 	index := lanehost.NewDeviceIndex()
-	bindRef := inventoryv1.BindingGlobalRef_builder{
-		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build(),
-	}.Build()
-	index.Add("127.0.0.1", testDeviceID, bindRef)
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
 
 	stub := &capturingPublisherStub{}
 	policy := syslogsource.NewRawPolicy(1, 3, nil)
@@ -1030,14 +1037,10 @@ func TestSource_DatagramFromSharedAddressYieldsNoEnvelopeAndAmbiguousDroppedCoun
 	meter := mp.Meter("test")
 
 	index := lanehost.NewDeviceIndex()
-	bindRef := inventoryv1.BindingGlobalRef_builder{
-		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build(),
-	}.Build()
-	if err := protovalidate.Validate(bindRef); err != nil {
-		t.Fatalf("bindRef: %v", err)
-	}
-	index.Add("127.0.0.1", testDeviceID, bindRef)
-	index.Add("127.0.0.1", "0192e6a0-0000-7000-8000-0000000000d2", bindRef)
+	seedListing(t, index,
+		listedAt(t, "127.0.0.1", testDeviceID),
+		listedAt(t, "127.0.0.1", "0192e6a0-0000-7000-8000-0000000000d2"),
+	)
 
 	stub := &capturingPublisherStub{}
 
@@ -1091,5 +1094,54 @@ func TestSource_DatagramFromSharedAddressYieldsNoEnvelopeAndAmbiguousDroppedCoun
 
 	if count := stub.count(); count != 0 {
 		t.Fatalf("published %d messages, want 0", count)
+	}
+}
+
+func TestSource_PublishesARecordForAListedDeviceTheLaneNeverOnboarded(t *testing.T) {
+	t.Parallel()
+
+	index := lanehost.NewDeviceIndex()
+	seedListing(t, index, listedAt(t, "127.0.0.1", testDeviceID))
+
+	stub := &capturingPublisherStub{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	src, err := syslogsource.Listen(ctx, syslogsource.Config{
+		Listeners: []syslog.ListenConfig{
+			{Transport: syslog.UDP, Address: "127.0.0.1:0"},
+		},
+		Index:     index,
+		Publisher: stub,
+		EdgeRef:   testEdgeRef(),
+	})
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	defer func() { _ = src.Close() }()
+
+	spawn.Go(ctx, "syslog-source-runner", func() {
+		_ = src.Run(ctx)
+	})
+
+	conn, err := net.Dial("udp", src.Receiver().Addresses()[0].Address)
+	if err != nil {
+		t.Fatalf("Dial UDP: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	if _, err := conn.Write([]byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - listed only")); err != nil {
+		t.Fatalf("write UDP: %v", err)
+	}
+
+	waitFor(t, "published record", 5*time.Second, func() bool { return stub.count() == 1 })
+
+	record := stub.recordAt(0)
+	if got := record.GetSyslog().GetDevice().GetDevice().GetId(); got != testDeviceID {
+		t.Errorf("record device = %q, want the listed device %q", got, testDeviceID)
+	}
+	if got := record.GetProvenance().GetBinding().GetBinding().GetId(); got != testBindingID {
+		t.Errorf("record binding = %q, want the listed binding %q", got, testBindingID)
 	}
 }

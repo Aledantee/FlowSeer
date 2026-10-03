@@ -329,7 +329,7 @@ func registerContactInstruments(ctx context.Context, contact *subscribeloop.Cont
 
 // onboardConfig declares the onboarder over the lane. Its index is the one the
 // syslog module resolves senders through, so a device is a known sender from
-// the moment it is onboarded.
+// the moment it is listed.
 func (a *assembly) onboardConfig(lane *access.Lane, log *slog.Logger) lanehost.OnboardConfig {
 	return lanehost.OnboardConfig{
 		Client: a.edge,
