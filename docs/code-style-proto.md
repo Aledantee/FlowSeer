@@ -1,6 +1,6 @@
 ---
 name: Protobuf Style
-last_updated: 2026-09-25
+last_updated: 2026-10-03
 ---
 
 # FlowSeer — Protobuf Style
@@ -182,8 +182,12 @@ That covers casing. The rules the compiler does not check still stand:
 
 **Evolution**
 
-- Never reuse or renumber a field. On removal, `reserved` the number *and* the name
-  in the same change. One dated exception: on 2026-08-26, inside the pre-release
+- Never reuse or renumber a field. Until the first stable release, a removal leaves
+  no `reserved` line, for the number or for the name, because nothing outside this
+  repository reads the schemas and a tombstone would protect no consumer. The
+  `reserved` lines already in the tree stay. From the first stable release on, a
+  removal `reserved` the number *and* the name in the same change. One dated
+  exception to renumbering: on 2026-08-26, inside the pre-release
   window while breaking checks are suspended, a one-time reviewed collapse removed
   every reserved tombstone under `spec/proto/flowseer/` and renumbered the remaining
   fields and enum values to contiguous
@@ -195,8 +199,7 @@ That covers casing. The rules the compiler does not check still stand:
   Nothing external consumes the FlowSeer module yet, so the only cost of a break is
   the regenerated code and tests in the same change, and the cost of carrying a
   wrong shape grows with every consumer added. Record the break as a fact in the
-  plan; it is not a review blocker. The `reserved` rule above still applies to
-  removals within that window so history stays readable.
+  plan. It is not a review blocker.
 - Prefer adding a field over changing a field's meaning. A semantic change behind an
   unchanged field number is invisible on the wire and is the worst class of schema bug.
 - **A feature change is a schema change.** Editions add a failure mode proto3 did not

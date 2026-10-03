@@ -1009,3 +1009,19 @@ operation vocabulary into callers that only need identity. `OperatorRef` keeps
 its fields and `Actor.operator` keeps field 1, so encoded intents decode
 unchanged; the message's full name, its `.proto` import, and its Go import
 path move.
+
+### 2026-10-03 — a removal before the first stable release leaves no `reserved` line
+
+Before the first stable release, a deleted field number or enum value leaves
+no `reserved` line, for the number or for the name, and is still never reused.
+This replaces the last clause of convention 10, "Deleted numbers are
+`reserved`, never reused", and the cost the `IpAddress` zone paragraph names
+for removing a field, "a permanent `reserved`". Nothing outside this
+repository reads the schemas, so a tombstone protects no consumer. From the
+first stable release on, a removal is `reserved` by number and by name as
+before.
+
+Breaking checks are suspended for the module (`buf.yaml`), so nothing checks
+that a number is not reused. Review holds the rule, as
+[`docs/code-style-proto.md`](../code-style-proto.md), Evolution, says of the
+others. The `reserved` lines earlier removals left stay.
