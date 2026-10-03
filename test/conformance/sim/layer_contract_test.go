@@ -362,6 +362,178 @@ func TestLayerContractReportsViolations(t *testing.T) {
 				"test/conformance/sim/testdata/wrong_layer_clone_val_recv: missing (*Layer).Clone method",
 			},
 		},
+		{
+			name:       "wrong Validate parameter list is reported",
+			fixtureDir: "wrong_validate_params",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_validate_params: missing Config.Validate(layer.Env) method",
+			},
+		},
+		{
+			name:       "New second parameter not layer.Env is reported",
+			fixtureDir: "wrong_new_env_param",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_new_env_param: missing New(cfg, layer.Env) constructor",
+			},
+		},
+		{
+			name:       "New second result not error is reported",
+			fixtureDir: "wrong_new_second_result",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_new_second_result: missing New(cfg, layer.Env) constructor",
+			},
+		},
+		{
+			name:       "New first result not *Layer is reported",
+			fixtureDir: "wrong_new_first_result",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_new_first_result: missing New(cfg, layer.Env) constructor",
+			},
+		},
+		{
+			name:       "Normalize returning pointer to Config is reported",
+			fixtureDir: "wrong_normalize_result_ptr",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_normalize_result_ptr: missing Config.Normalize(layer.Env) method",
+			},
+		},
+		{
+			name:       "Config methods on wrong receiver type are reported",
+			fixtureDir: "wrong_config_receiver",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_config_receiver: missing Config.Normalize(layer.Env) method",
+				"test/conformance/sim/testdata/wrong_config_receiver: missing Config.Validate(layer.Env) method",
+				"test/conformance/sim/testdata/wrong_config_receiver: missing Config.Clone method",
+			},
+		},
+		{
+			name:       "wrong selector name in Normalize parameter is reported",
+			fixtureDir: "wrong_normalize_sel_name",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_normalize_sel_name: missing Config.Normalize(layer.Env) method",
+			},
+		},
+		{
+			name:       "wrong selector name in Advance parameter is reported",
+			fixtureDir: "wrong_advance_time_sel_name",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_advance_time_sel_name/fixture.go:44: invalid (*Layer).Advance signature, want Advance(time.Time) layer.Effects",
+			},
+		},
+		{
+			name:       "wrong selector name in Advance results is reported",
+			fixtureDir: "wrong_advance_effects_sel_name",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_advance_effects_sel_name/fixture.go:44: invalid (*Layer).Advance signature, want Advance(time.Time) layer.Effects",
+			},
+		},
+		{
+			name:       "wrong selector name in Diff results is reported",
+			fixtureDir: "wrong_diff_sel_name",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_diff_sel_name: missing Diff function",
+			},
+		},
+		{
+			name:       "Diff first parameter not Config is reported",
+			fixtureDir: "wrong_diff_first_param",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_diff_first_param: missing Diff function",
+			},
+		},
+		{
+			name:       "Diff second parameter not Config is reported",
+			fixtureDir: "wrong_diff_second_param",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_diff_second_param: missing Diff function",
+			},
+		},
+		{
+			name:       "Diff array result not slice is reported",
+			fixtureDir: "wrong_diff_array_result",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_diff_array_result: missing Diff function",
+			},
+		},
+		{
+			name:       "Diff result bare identifier not slice is reported",
+			fixtureDir: "wrong_diff_result_bare_ident",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_diff_result_bare_ident: missing Diff function",
+			},
+		},
+		{
+			name:       "Layer.Clone selector result type is reported",
+			fixtureDir: "wrong_layer_clone_sel_layer",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_layer_clone_sel_layer: missing (*Layer).Clone method",
+			},
+		},
+		{
+			name:       "New selector Layer result type is reported",
+			fixtureDir: "wrong_new_sel_layer",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_new_sel_layer: missing New(cfg, layer.Env) constructor",
+			},
+		},
+		{
+			name:       "New selector error result type is reported",
+			fixtureDir: "wrong_new_sel_error",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_new_sel_error: missing New(cfg, layer.Env) constructor",
+			},
+		},
+		{
+			name:       "members declared only in subdirectory are reported missing",
+			fixtureDir: "sub_members_only",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/sub_members_only: missing const LayerName",
+				"test/conformance/sim/testdata/sub_members_only: missing Config type",
+				"test/conformance/sim/testdata/sub_members_only: missing Config.Normalize(layer.Env) method",
+				"test/conformance/sim/testdata/sub_members_only: missing Config.Validate(layer.Env) method",
+				"test/conformance/sim/testdata/sub_members_only: missing Config.Clone method",
+				"test/conformance/sim/testdata/sub_members_only: missing Diff function",
+			},
+		},
+		{
+			name:       "forbidden Layer.Wake method on value receiver is reported",
+			fixtureDir: "wake_method_val_recv",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wake_method_val_recv/fixture.go:38: forbidden Layer method Wake",
+			},
+		},
+		{
+			name:       "forbidden Layer.Age method on value receiver is reported",
+			fixtureDir: "age_method_val_recv",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/age_method_val_recv/fixture.go:38: forbidden Layer method Age",
+			},
+		},
+		{
+			name:       "Layer declaration alone makes package stateful",
+			fixtureDir: "stateful_layer_only",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/stateful_layer_only: missing New(cfg, layer.Env) constructor",
+				"test/conformance/sim/testdata/stateful_layer_only: missing (*Layer).Clone method",
+				"test/conformance/sim/testdata/stateful_layer_only: missing RetentionKey(cfg, layer.Env) function",
+			},
+		},
+		{
+			name:       "New constructor alone makes package stateful",
+			fixtureDir: "stateful_new_only",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/stateful_new_only: missing (*Layer).Clone method",
+				"test/conformance/sim/testdata/stateful_new_only: missing RetentionKey(cfg, layer.Env) function",
+			},
+		},
+		{
+			name:       "RetentionKey function alone makes package stateful",
+			fixtureDir: "stateful_retention_key_only",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/stateful_retention_key_only: missing New(cfg, layer.Env) constructor",
+				"test/conformance/sim/testdata/stateful_retention_key_only: missing (*Layer).Clone method",
+			},
+		},
 	}
 
 	fset := token.NewFileSet()

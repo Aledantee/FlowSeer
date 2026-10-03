@@ -327,7 +327,7 @@ func firstDuplicate(s []byte) byte {
 // TestResolveNeighborStoredZeroStateIsAMiss tests that [vrfState.resolveNeighbor] treats a stored
 // zero state as a miss rather than silently starting to hold frames for a neighbor nothing ever looked up.
 // [NeighborState]'s zero value, [NeighborUnobserved], is meaningful only as a lookup answer, but [neighborEntry]{}
-// is a legal Go zero value too. No exported path stores one; this reaches into the package to reproduce it directly.
+// is a legal Go zero value too. No exported path stores one. This reaches into the package to reproduce it directly.
 func TestResolveNeighborStoredZeroStateIsAMiss(t *testing.T) {
 	t.Parallel()
 
