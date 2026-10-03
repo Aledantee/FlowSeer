@@ -1,6 +1,7 @@
 package vswitch_test
 
 import (
+	"net/netip"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -49,7 +50,7 @@ func TestRepresentativeProductionTraceFactsAreTyped(t *testing.T) {
 
 func TestCapabilityFactsAreImmutableAndDecisionSensitive(t *testing.T) {
 	ports := []string{"one", "two"}
-	membership := mcast.MembershipDecisionFact(10, ipH2, ports, true, true)
+	membership := mcast.MembershipFact(10, ipH2, netip.Addr{}, ports, true, true)
 	before := membership.Canonical()
 	ports[0] = "changed"
 	if got := membership.Canonical(); got != before {

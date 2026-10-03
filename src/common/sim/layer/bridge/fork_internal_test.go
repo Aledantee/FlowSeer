@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -47,6 +48,8 @@ var bridgeFieldClasses = map[string]forkClass{
 	"dynamic":       classDeepCopied,
 	"selector":      classResetOnFork,
 	"resolver":      classResetOnFork,
+	"resolverLayer": classResetOnFork,
+	"resolverRule":  classResetOnFork,
 }
 
 var bridgeDeepCopiedProbes = map[string]func(t *testing.T){
@@ -57,7 +60,7 @@ var bridgeDeepCopiedProbes = map[string]func(t *testing.T){
 }
 
 func TestBridgeFieldsAreClassifiedAndChecked(t *testing.T) {
-	typ := reflect.TypeOf(Bridge{})
+	typ := reflect.TypeOf(Layer{})
 	seen := make(map[string]bool, typ.NumField())
 
 	for i := 0; i < typ.NumField(); i++ {
@@ -175,7 +178,7 @@ func (r testResolver) Resolve(time.Time, vlan.ID, ethernet.Frame) ([]string, boo
 	return nil, false
 }
 
-func newTestBridgeForFork(t *testing.T) *Bridge {
+func newTestBridgeForFork(t *testing.T) *Layer {
 	t.Helper()
 	p1 := port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}
 	p2 := port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}
@@ -197,14 +200,14 @@ func newTestBridgeForFork(t *testing.T) *Bridge {
 			},
 		},
 	}
-	br, err := New(cfg, tbl)
+	br, err := New(cfg, layer.Env{Ports: tbl})
 	if err != nil {
 		t.Fatalf("New bridge: %v", err)
 	}
-	br.SetFDBScope(analysis.ProtocolScope("sw1", string(port.LayerRelay), "0"))
-	br.SetSelector(testSelector{}, analysis.ProtocolScope("sw1", string(port.LayerLAG), "0"))
-	br.SetGroupResolver(testResolver{}, analysis.ProtocolScope("sw1", string(port.LayerMcast), "0"))
-	br.SetGate(testGate{learns: true, forwards: true}, analysis.ProtocolScope("sw1", string(port.LayerSTP), "0"))
+	br.SetFDBScope(analysis.ProtocolScope("sw1", string(LayerName), "0"))
+	br.SetSelector(testSelector{}, analysis.ProtocolScope("sw1", "lag", "0"))
+	br.SetGroupResolver(testResolver{}, analysis.ProtocolScope("sw1", "mcast", "0"), "mcast", "group-members")
+	br.SetGate(testGate{learns: true, forwards: true}, analysis.ProtocolScope("sw1", "stp", "0"))
 
 	// Learn an entry so dynamic and fdb are non-empty.
 	frame := ethernet.Frame{Src: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}, Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}}

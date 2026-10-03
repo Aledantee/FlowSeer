@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // Bucket is a lazily refilled ingress token bucket whose tokens are octets.
@@ -54,11 +55,6 @@ func (b *Bucket) Admit(now time.Time, octets int) bool {
 	return true
 }
 
-// Tokens returns the current token count without refilling the bucket.
-func (b *Bucket) Tokens() float64 {
-	return b.tokens
-}
-
 // Clone returns an independent bucket with the same configuration and state.
 func (b *Bucket) Clone() *Bucket {
 	cp := *b
@@ -68,11 +64,11 @@ func (b *Bucket) Clone() *Bucket {
 
 // RetentionKey returns a canonical encoding of every normalized input the layer's
 // runtime state depends on: its own configuration as Diff sees it.
-func RetentionKey(cfg Config) string {
+func RetentionKey(cfg Config, env layer.Env) string {
 	if len(cfg.Mirrors) == 0 && len(cfg.Policers) == 0 && len(cfg.Queues) == 0 {
 		return ""
 	}
-	norm := cfg.Normalize()
+	norm := cfg.Normalize(env)
 	var b strings.Builder
 	b.WriteString("config=")
 	b.WriteString("mirrors=[")

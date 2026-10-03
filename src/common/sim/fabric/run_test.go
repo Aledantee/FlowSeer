@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
@@ -1532,7 +1533,7 @@ func TestHostRoutingConfigDefaultRoutesPresent(t *testing.T) {
 	}
 
 	rtCfg, tbl := fabric.HostRoutingConfig("h1", h)
-	if err := rtCfg.Validate(tbl); err != nil {
+	if err := rtCfg.Validate(layer.Env{Ports: tbl}); err != nil {
 		t.Fatalf("HostRoutingConfig failed Validate: %v", err)
 	}
 

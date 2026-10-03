@@ -185,33 +185,33 @@ const (
 	// remaining budget.
 	ReasonBudget trace.Reason = "budget"
 
-	// ReasonLimit denies power because the class power exceeds the port's
+	// reasonLimit denies power because the class power exceeds the port's
 	// configured limit.
-	ReasonLimit trace.Reason = "limit"
+	reasonLimit trace.Reason = "limit"
 
-	// ReasonClassUnsupported denies power because the attached device's class
+	// reasonClassUnsupported denies power because the attached device's class
 	// is above the port's maximum class.
-	ReasonClassUnsupported trace.Reason = "class-unsupported"
+	reasonClassUnsupported trace.Reason = "class-unsupported"
 )
 
-// classPowerNanowatts is the power a powered device of each IEEE 802.3
+// classPowerLevels is the power a powered device of each IEEE 802.3
 // class draws at the PSE, per the 802.3bt power levels.
-var classPowerNanowatts = [...]uint64{
+var classPowerLevels = [...]uint64{
 	15_400_000_000, 4_000_000_000, 7_000_000_000, 15_400_000_000, 30_000_000_000,
 	45_000_000_000, 60_000_000_000, 75_000_000_000, 90_000_000_000,
 }
 
 // maxClass is the highest class IEEE 802.3bt defines.
-const maxClass = uint8(len(classPowerNanowatts) - 1)
+const maxClass = uint8(len(classPowerLevels) - 1)
 
-// ClassPowerNanowatts returns the power in nanowatts a powered device of
+// classPowerNanowatts returns the power in nanowatts a powered device of
 // class draws at the PSE. It reports false for a class above 8.
-func ClassPowerNanowatts(class uint8) (uint64, bool) {
+func classPowerNanowatts(class uint8) (uint64, bool) {
 	if class > maxClass {
 		return 0, false
 	}
 
-	return classPowerNanowatts[class], true
+	return classPowerLevels[class], true
 }
 
 // PowerState represents the power allocation state of a PSE port.
@@ -282,9 +282,9 @@ type GroupAllocation struct {
 //   - Disabled ports with uncertain device state yield [PowerUnknown] 0..0 nW.
 //   - Enabled ports with no attached device yield [PowerNoDevice] 0..0 nW.
 //   - Enabled ports with an attached device whose class exceeds the port's maximum class
-//     yield [PowerDenied] with [ReasonClassUnsupported] 0..0 nW.
+//     yield [PowerDenied] with reason "class-unsupported" 0..0 nW.
 //   - Enabled ports with an attached device whose class power exceeds the port's configured
-//     limit yield [PowerDenied] with [ReasonLimit] 0..0 nW.
+//     limit yield [PowerDenied] with reason "limit" 0..0 nW.
 //   - Enabled ports with an attached device whose class power fits the group's minimum remainder
 //     yield [PowerDelivered] with power delivered and both remainders decremented.
 //   - Enabled ports with an attached device whose class power exceeds the group's maximum remainder
@@ -359,14 +359,14 @@ func (c Config) Allocate() Allocation {
 
 				class := *p.PDClass
 				if class > p.MaxClass {
-					result.Ports[name] = PortAllocation{State: PowerDenied, Denial: ReasonClassUnsupported}
+					result.Ports[name] = PortAllocation{State: PowerDenied, Denial: reasonClassUnsupported}
 
 					continue
 				}
 
-				power, _ := ClassPowerNanowatts(class)
+				power, _ := classPowerNanowatts(class)
 				if p.Limit != nil && power > *p.Limit {
-					result.Ports[name] = PortAllocation{State: PowerDenied, Denial: ReasonLimit}
+					result.Ports[name] = PortAllocation{State: PowerDenied, Denial: reasonLimit}
 
 					continue
 				}
@@ -419,8 +419,8 @@ func (c Config) Allocate() Allocation {
 
 func maxFittingPower(maxClass uint8, limit *uint64) uint64 {
 	var d uint64
-	for c := uint8(0); c <= maxClass && int(c) < len(classPowerNanowatts); c++ {
-		power := classPowerNanowatts[c]
+	for c := uint8(0); c <= maxClass && int(c) < len(classPowerLevels); c++ {
+		power := classPowerLevels[c]
 		if limit == nil || power <= *limit {
 			if power > d {
 				d = power

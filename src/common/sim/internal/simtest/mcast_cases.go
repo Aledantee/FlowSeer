@@ -57,12 +57,12 @@ func mdnsCaseVLANSwitchports() map[string]bridge.Switchport {
 	return switchports
 }
 
-// CaseTroubleshootingMDNSIPv4FloodsUnderSnooping returns the case evaluating
+// caseTroubleshootingMDNSIPv4FloodsUnderSnooping returns the case evaluating
 // whether a snooping switch treats IPv4 mDNS, addressed to a group in
 // 224.0.0.0/24, as an unregistered multicast group to drop, rather than a
 // reserved local-network control range that always floods (RFC 4541
 // section 2.1.2).
-func CaseTroubleshootingMDNSIPv4FloodsUnderSnooping() Case {
+func caseTroubleshootingMDNSIPv4FloodsUnderSnooping() Case {
 	hostMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	groupMAC := netaddr.MAC{0x01, 0x00, 0x5e, 0x00, 0x00, 0xfb}
 	frame := expectedFact("bridge.frame", `src="00:11:22:33:44:01";dst="01:00:5e:00:00:fb";ether_type=2048;tags=[];payload_len=74`)
@@ -184,17 +184,17 @@ func CaseTroubleshootingMDNSIPv4FloodsUnderSnooping() Case {
 	}
 }
 
-// CaseTroubleshootingMDNSIPv6UnregisteredRouterPorts returns the case
+// caseTroubleshootingMDNSIPv6UnregisteredRouterPorts returns the case
 // evaluating whether a snooping switch floods an IPv6 mDNS query addressed
 // to a link-scope group with no member, rather than restricting it to the
 // configured router ports (RFC 4541 section 3).
-func CaseTroubleshootingMDNSIPv6UnregisteredRouterPorts() Case {
+func caseTroubleshootingMDNSIPv6UnregisteredRouterPorts() Case {
 	hostMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 	groupMAC := netaddr.MAC{0x33, 0x33, 0x00, 0x00, 0x00, 0xfb}
 	frame := expectedFact("bridge.frame", `src="00:11:22:33:44:02";dst="33:33:00:00:00:fb";ether_type=34525;tags=[];payload_len=94`)
 	fdbLearned := expectedFact("bridge.fdb_decision", `fid=10;mac="00:11:22:33:44:02";present=true;port="p1";static=false`)
 	groupDestination := expectedFact("bridge.egress_decision", `port="";member="";fid=10;eligible=true;reason="group-destination"`)
-	membership := expectedFact("vswitch.mcast_membership", `fid=10;group="ff02::fb";source="fe80::1";registered=false;decided=true;ports=["p9"]`)
+	membership := expectedFact("mcast.membership_decision", `fid=10;group="ff02::fb";source="fe80::1";registered=false;decided=true;ports=["p9"]`)
 
 	expectedSteps := []StepExpectation{
 		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "10"},
@@ -319,6 +319,6 @@ func mdnsCaseExecute(hostMAC, groupMAC netaddr.MAC, hdr ip.Header, datagram []by
 // MLD snooping treat mDNS's reserved IPv4 control range and its unregistered
 // IPv6 link-scope group.
 func RegisterMDNSCases(registry *Registry) {
-	registry.MustRegister(CaseTroubleshootingMDNSIPv4FloodsUnderSnooping())
-	registry.MustRegister(CaseTroubleshootingMDNSIPv6UnregisteredRouterPorts())
+	registry.MustRegister(caseTroubleshootingMDNSIPv4FloodsUnderSnooping())
+	registry.MustRegister(caseTroubleshootingMDNSIPv6UnregisteredRouterPorts())
 }

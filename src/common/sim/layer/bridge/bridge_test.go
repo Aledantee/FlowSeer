@@ -11,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -47,16 +48,16 @@ func buildTestPorts(t *testing.T, count int) port.Table {
 	return tbl
 }
 
-func mustNewBridge(t *testing.T, cfg bridge.Config, ports port.Table) *bridge.Bridge {
+func mustNewBridge(t *testing.T, cfg bridge.Config, ports port.Table) *bridge.Layer {
 	t.Helper()
-	br, err := bridge.New(cfg, ports)
+	br, err := bridge.New(cfg, layer.Env{Ports: ports})
 	if err != nil {
 		t.Fatalf("bridge.New: %v", err)
 	}
 	return br
 }
 
-func mustLearn(t *testing.T, br *bridge.Bridge, seeds []bridge.Seed) {
+func mustLearn(t *testing.T, br *bridge.Layer, seeds []bridge.Seed) {
 	t.Helper()
 	if err := br.Learn(seeds); err != nil {
 		t.Fatalf("Learn: %v", err)
@@ -177,7 +178,7 @@ func TestDiffDistinguishesVLANAwareness(t *testing.T) {
 	if len(changes) != 1 {
 		t.Fatalf("len(Diff()) = %d, want 1: %+v", len(changes), changes)
 	}
-	if got := changes[0]; got.Field != "vlan_awareness" || got.From != bridge.BoolFact(false) || got.To != bridge.BoolFact(true) {
+	if got := changes[0]; got.Field != "vlan_awareness" || got.From.Canonical() != "false" || got.To.Canonical() != "true" {
 		t.Errorf("Diff()[0] = %+v, want vlan_awareness false -> true", got)
 	}
 }
@@ -597,7 +598,7 @@ func TestDynamicEntriesAgeAndStaticEntriesPersist(t *testing.T) {
 	})
 
 	t299 := testTime0.Add(299 * time.Second)
-	br.Age(t299)
+	br.Advance(t299)
 
 	queryDynamic := ethernet.Frame{
 		Dst:       macA,
@@ -611,7 +612,7 @@ func TestDynamicEntriesAgeAndStaticEntriesPersist(t *testing.T) {
 	}
 
 	t301 := testTime0.Add(301 * time.Second)
-	br.Age(t301)
+	br.Advance(t301)
 
 	res301 := br.Peek(t301, "1/1/3", queryDynamic)
 	if res301.Outcome != trace.Flooded {
@@ -977,7 +978,7 @@ func TestValidationRules(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.cfg.Validate(ports)
+			err := tc.cfg.Validate(layer.Env{Ports: ports})
 			if err == nil {
 				t.Fatalf("Validate() = nil, want error")
 			}
@@ -1052,7 +1053,7 @@ func TestValidateRejectsVLANReferencesAbsentFromTable(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.cfg.Validate(ports)
+			err := tc.cfg.Validate(layer.Env{Ports: ports})
 			if err == nil {
 				t.Fatal("Validate() = nil, want error")
 			}
@@ -1067,10 +1068,10 @@ func TestNegativeAgingTimeIsInvalid(t *testing.T) {
 	t.Parallel()
 
 	cfg := bridge.Config{AgingTime: -time.Second}
-	if got := cfg.Normalize().AgingTime; got != -time.Second {
+	if got := cfg.Normalize(layer.Env{}).AgingTime; got != -time.Second {
 		t.Errorf("Normalize().AgingTime = %s, want -1s", got)
 	}
-	err := cfg.Validate(buildTestPorts(t, 1))
+	err := cfg.Validate(layer.Env{Ports: buildTestPorts(t, 1)})
 	if err == nil {
 		t.Fatal("Validate() = nil, want error")
 	}
@@ -1749,7 +1750,7 @@ func TestMultiGateConsultedScopesAreTheUnion(t *testing.T) {
 }
 
 // TestFlushWithEmptyFIDsRemovesEveryFIDOnThePort is evidence that a
-// [bridge.FlushTarget] with no FIDs, the shape a link down or a CIST-wide
+// [layer.FlushTarget] with no FIDs, the shape a link down or a CIST-wide
 // change produces, removes every dynamic entry on its port regardless of FID.
 func TestFlushWithEmptyFIDsRemovesEveryFIDOnThePort(t *testing.T) {
 	ports := buildTestPorts(t, 3)
@@ -1761,14 +1762,14 @@ func TestFlushWithEmptyFIDsRemovesEveryFIDOnThePort(t *testing.T) {
 		t.Fatalf("initial entries count = %d, want 2", len(br.Entries()))
 	}
 
-	br.Flush([]bridge.FlushTarget{{Port: "1/1/1"}})
+	br.Flush([]layer.FlushTarget{{Port: "1/1/1"}})
 	entries := br.Entries()
 	if len(entries) != 1 || entries[0].Port != "1/1/2" {
 		t.Fatalf("after Flush Entries() = %+v, want 1 entry on 1/1/2", entries)
 	}
 }
 
-// TestFlushWithFIDsFiltersToTheNamedFIDs is evidence that a [bridge.FlushTarget]
+// TestFlushWithFIDsFiltersToTheNamedFIDs is evidence that a [layer.FlushTarget]
 // naming FIDs removes only entries on that port carrying one of them, which is
 // the shape a per-tree topology change produces: the other FIDs on the same
 // port survive.
@@ -1790,7 +1791,7 @@ func TestFlushWithFIDsFiltersToTheNamedFIDs(t *testing.T) {
 		{FID: 10, MAC: macC, Port: "1/1/2", LearnedAt: now},
 	})
 
-	br.Flush([]bridge.FlushTarget{{Port: "1/1/1", FIDs: []vlan.ID{10}}})
+	br.Flush([]layer.FlushTarget{{Port: "1/1/1", FIDs: []vlan.ID{10}}})
 
 	entries := br.Entries()
 	if len(entries) != 2 {
@@ -1835,7 +1836,7 @@ func TestFlushUnionsTargetsNamingTheSamePort(t *testing.T) {
 		br := mustNewBridge(t, bridge.Config{VLAN: vlanCfg()}, buildTestPorts(t, 3))
 		mustLearn(t, br, seeds())
 
-		br.Flush([]bridge.FlushTarget{
+		br.Flush([]layer.FlushTarget{
 			{Port: "1/1/1", FIDs: []vlan.ID{10}},
 			{Port: "1/1/1", FIDs: []vlan.ID{20}},
 		})
@@ -1852,7 +1853,7 @@ func TestFlushUnionsTargetsNamingTheSamePort(t *testing.T) {
 
 		// The empty target comes first, so a later target replacing an earlier
 		// one would narrow the flush to FID 10 rather than widening it.
-		br.Flush([]bridge.FlushTarget{
+		br.Flush([]layer.FlushTarget{
 			{Port: "1/1/1"},
 			{Port: "1/1/1", FIDs: []vlan.ID{10}},
 		})
@@ -2097,7 +2098,7 @@ func TestBoundedTableEvictsOldestDynamicEntry(t *testing.T) {
 
 	foundEvictedStep := false
 	for _, step := range resC.Steps {
-		if step.Layer == port.LayerRelay && step.Op == trace.OpLearn && step.RuleID == "evict" && step.Subject.Key == macA.String() {
+		if step.Layer == bridge.LayerName && step.Op == trace.OpLearn && step.RuleID == "evict" && step.Subject.Key == macA.String() {
 			foundEvictedStep = true
 			break
 		}
@@ -2177,7 +2178,7 @@ func TestStaticEntriesSurviveAgingAndTheBound(t *testing.T) {
 		t.Fatalf("len(Entries()) = %d, want 2", len(entries))
 	}
 
-	br.Age(testTime0.Add(301 * time.Second))
+	br.Advance(testTime0.Add(301 * time.Second))
 	counters = br.Counters()
 	if counters.Expired != 1 {
 		t.Errorf("Counters().Expired = %d, want 1", counters.Expired)
@@ -2218,7 +2219,7 @@ func TestAgeActsOnLifetimeNotOrigin(t *testing.T) {
 		{MAC: macD, Port: "1/1/4", Origin: bridge.Observed, Lifetime: bridge.Aging, LearnedAt: testTime0},
 	})
 
-	br.Age(testTime0.Add(301 * time.Second))
+	br.Advance(testTime0.Add(301 * time.Second))
 
 	entries := br.Entries()
 	if len(entries) != 2 {
@@ -2247,7 +2248,7 @@ func TestValidateRefusesNegativeMaxEntries(t *testing.T) {
 
 	t.Run("with nil VLAN", func(t *testing.T) {
 		cfg := bridge.Config{MaxEntries: -1}
-		err := cfg.Validate(ports)
+		err := cfg.Validate(layer.Env{Ports: ports})
 		if err == nil {
 			t.Fatal("Validate with nil VLAN and MaxEntries -1 succeeded, want error")
 		}
@@ -2266,7 +2267,7 @@ func TestValidateRefusesNegativeMaxEntries(t *testing.T) {
 				},
 			},
 		}
-		err := cfg.Validate(ports)
+		err := cfg.Validate(layer.Env{Ports: ports})
 		if err == nil {
 			t.Fatal("Validate with VLAN table and MaxEntries -1 succeeded, want error")
 		}
@@ -2284,7 +2285,7 @@ func TestDiffReportsMaxEntriesChange(t *testing.T) {
 		t.Fatalf("Diff returned %d changes, want 1", len(changes))
 	}
 	ch := changes[0]
-	if ch.Field != "max_entries" || ch.From != bridge.IntFact(0) || ch.To != bridge.IntFact(2) || ch.Layer != port.LayerRelay {
+	if ch.Field != "max_entries" || ch.From.Canonical() != "0" || ch.To.Canonical() != "2" || ch.Layer != bridge.LayerName {
 		t.Errorf("Diff change = %+v, want max_entries From: 0 To: 2 at LayerRelay", ch)
 	}
 }
@@ -2336,7 +2337,7 @@ func TestFloodVLANFloodsWithoutLearning(t *testing.T) {
 
 	foundLookupStep := false
 	for _, step := range resB.Steps {
-		if step.Layer == port.LayerRelay && step.Op == trace.OpLookup && step.RuleID == "flood-vlan" {
+		if step.Layer == bridge.LayerName && step.Op == trace.OpLookup && step.RuleID == "flood-vlan" {
 			foundLookupStep = true
 			break
 		}
@@ -2510,7 +2511,7 @@ func TestValidateFloodVLANsAndProtectedPorts(t *testing.T) {
 				FloodVLANs: []vlan.ID{0},
 				VLAN:       tc.vlan,
 			}
-			if err := cfgFlood.Validate(ports); err == nil {
+			if err := cfgFlood.Validate(layer.Env{Ports: ports}); err == nil {
 				t.Error("Validate with FloodVLANs {0} succeeded, want error")
 			}
 
@@ -2518,7 +2519,7 @@ func TestValidateFloodVLANsAndProtectedPorts(t *testing.T) {
 				ProtectedPorts: []string{"1/1/9"},
 				VLAN:           tc.vlan,
 			}
-			if err := cfgProt.Validate(ports); err == nil {
+			if err := cfgProt.Validate(layer.Env{Ports: ports}); err == nil {
 				t.Error("Validate with ProtectedPorts {1/1/9} succeeded, want error")
 			}
 		})
@@ -2534,7 +2535,7 @@ func TestValidateFloodVLANsAndProtectedPorts(t *testing.T) {
 			t.Fatal(err)
 		}
 		cfg := bridge.Config{ProtectedPorts: []string{"1/1/2"}}
-		if err := cfg.Validate(tbl); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Error("Validate with protected port naming LAG member succeeded, want error")
 		}
 	})
@@ -2557,7 +2558,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 			t.Fatalf("len(changes) = %d, want 1", len(changes))
 		}
 		ch := changes[0]
-		if ch.Field != "flood_vlans" || ch.Layer != port.LayerRelay {
+		if ch.Field != "flood_vlans" || ch.Layer != bridge.LayerName {
 			t.Errorf("change = %+v, want flood_vlans at LayerRelay", ch)
 		}
 		wantFrom := []vlan.ID{10, 20}
@@ -2583,7 +2584,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 			t.Fatalf("len(changes) = %d, want 1", len(changes))
 		}
 		ch := changes[0]
-		if ch.Field != "protected_ports" || ch.Layer != port.LayerRelay {
+		if ch.Field != "protected_ports" || ch.Layer != bridge.LayerName {
 			t.Errorf("change = %+v, want protected_ports at LayerRelay", ch)
 		}
 		wantFrom := []string{"1/1/1", "1/1/2"}
@@ -2601,7 +2602,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 			t.Fatalf("len(changes) = %d, want 1", len(changes))
 		}
 		ch := changes[0]
-		if ch.Field != "forward_bpdu" || ch.From != bridge.BoolFact(false) || ch.To != bridge.BoolFact(true) || ch.Layer != port.LayerRelay {
+		if ch.Field != "forward_bpdu" || ch.From.Canonical() != "false" || ch.To.Canonical() != "true" || ch.Layer != bridge.LayerName {
 			t.Errorf("change = %+v, want forward_bpdu From: false To: true at LayerRelay", ch)
 		}
 	})
@@ -2654,7 +2655,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 			t.Errorf("Egress port = %q, want 1/1/3", eg.Port)
 		}
 		wantTags := []vlan.Tag{
-			{TPID: bridge.DefaultServiceTPID, VID: 10},
+			{TPID: 0x88A8, VID: 10},
 			{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 100},
 		}
 		if !slices.Equal(eg.Frame.Tags, wantTags) {
@@ -2735,7 +2736,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 			t.Errorf("Egress port = %q, want 1/1/3", eg.Port)
 		}
 		wantTags := []vlan.Tag{
-			{TPID: bridge.DefaultServiceTPID, VID: 10},
+			{TPID: 0x88A8, VID: 10},
 		}
 		if !slices.Equal(eg.Frame.Tags, wantTags) {
 			t.Errorf("Egress tags = %+v, want %+v", eg.Frame.Tags, wantTags)
@@ -2954,7 +2955,7 @@ func TestDiffTunnelAndPriorityTags(t *testing.T) {
 			t.Fatalf("len(changes) = %d, want 1", len(changes))
 		}
 		ch := changes[0]
-		if ch.Field != "tunnel" || ch.Layer != port.LayerVLAN {
+		if ch.Field != "tunnel" || ch.Layer != bridge.LayerNameVLAN {
 			t.Errorf("change = %+v, want field tunnel at LayerVLAN", ch)
 		}
 		if ch.From != nil {
@@ -3078,7 +3079,7 @@ func TestValidateTunnelSwitchportAndPriorityTags(t *testing.T) {
 				PVID:   mustVLAN(10),
 			}),
 		}
-		if err := cfg.Validate(ports); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: ports}); err == nil {
 			t.Error("Validate with tunnel and PVID succeeded, want error")
 		}
 	})
@@ -3090,7 +3091,7 @@ func TestValidateTunnelSwitchportAndPriorityTags(t *testing.T) {
 				Tagged: []vlan.ID{10},
 			}),
 		}
-		if err := cfg.Validate(ports); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: ports}); err == nil {
 			t.Error("Validate with tunnel and Tagged succeeded, want error")
 		}
 	})
@@ -3102,7 +3103,7 @@ func TestValidateTunnelSwitchportAndPriorityTags(t *testing.T) {
 				Untagged: []vlan.ID{10},
 			}),
 		}
-		if err := cfg.Validate(ports); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: ports}); err == nil {
 			t.Error("Validate with tunnel and Untagged succeeded, want error")
 		}
 	})
@@ -3113,7 +3114,7 @@ func TestValidateTunnelSwitchportAndPriorityTags(t *testing.T) {
 				Tunnel: &bridge.Tunnel{VID: 0},
 			}),
 		}
-		if err := cfg.Validate(ports); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: ports}); err == nil {
 			t.Error("Validate with tunnel VID 0 succeeded, want error")
 		}
 	})
@@ -3124,7 +3125,7 @@ func TestValidateTunnelSwitchportAndPriorityTags(t *testing.T) {
 				Tunnel: &bridge.Tunnel{VID: 10, CustomerVIDs: []vlan.ID{0}},
 			}),
 		}
-		if err := cfg.Validate(ports); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: ports}); err == nil {
 			t.Error("Validate with customer VID 0 succeeded, want error")
 		}
 	})
@@ -3135,7 +3136,7 @@ func TestValidateTunnelSwitchportAndPriorityTags(t *testing.T) {
 				PriorityTags: "Sometimes",
 			}),
 		}
-		if err := cfg.Validate(ports); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: ports}); err == nil {
 			t.Error("Validate with PriorityTags 'Sometimes' succeeded, want error")
 		}
 	})
@@ -3186,7 +3187,7 @@ func TestGroupResolverSelectsReplicationPorts(t *testing.T) {
 			"1/1/4": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
 		},
 	}}, ports)
-	br.SetGroupResolver(testGroupResolver{ports: []string{"1/1/2", "1/1/4"}, decided: true}, analysis.ProtocolScope("sw1", "mcast", "0"))
+	br.SetGroupResolver(testGroupResolver{ports: []string{"1/1/2", "1/1/4"}, decided: true}, analysis.ProtocolScope("sw1", "mcast", "0"), "mcast", "group-members")
 
 	res := br.Forward(testTime0, "1/1/1", ethernet.Frame{
 		Dst:       netaddr.MAC{0x01, 0x00, 0x5e, 0x01, 0x01, 0x01},
@@ -3213,7 +3214,7 @@ func TestGroupResolverSelectsReplicationPorts(t *testing.T) {
 
 func TestGroupResolverEmptyDecisionUsesUnregisteredReason(t *testing.T) {
 	br := mustNewBridge(t, bridge.Config{}, buildTestPorts(t, 2))
-	br.SetGroupResolver(testGroupResolver{decided: true}, analysis.ProtocolScope("sw1", "mcast", "0"))
+	br.SetGroupResolver(testGroupResolver{decided: true}, analysis.ProtocolScope("sw1", "mcast", "0"), "mcast", "group-members")
 
 	res := br.Forward(testTime0, "1/1/1", ethernet.Frame{
 		Dst: netaddr.MAC{0x01, 0x00, 0x5e, 0x02, 0x02, 0x02},
@@ -3307,7 +3308,7 @@ func TestNormalize(t *testing.T) {
 		},
 	}
 
-	norm := cfg.Normalize()
+	norm := cfg.Normalize(layer.Env{})
 	if norm.AgingTime != bridge.DefaultAgingTime {
 		t.Errorf("AgingTime: got %v, want %v", norm.AgingTime, bridge.DefaultAgingTime)
 	}
@@ -3335,8 +3336,8 @@ func TestNormalize(t *testing.T) {
 	if !slices.Equal(sw.Untagged, wantUntagged) {
 		t.Errorf("Untagged: got %v, want %v", sw.Untagged, wantUntagged)
 	}
-	if sw.Tunnel.TPID != bridge.DefaultServiceTPID {
-		t.Errorf("Tunnel TPID: got 0x%04x, want 0x%04x", sw.Tunnel.TPID, bridge.DefaultServiceTPID)
+	if sw.Tunnel.TPID != 0x88A8 {
+		t.Errorf("Tunnel TPID: got 0x%04x, want 0x%04x", sw.Tunnel.TPID, 0x88A8)
 	}
 	wantCust := []vlan.ID{100, 200}
 	if !slices.Equal(sw.Tunnel.CustomerVIDs, wantCust) {
@@ -3362,7 +3363,7 @@ func TestValidateEnumDomains(t *testing.T) {
 			},
 		},
 	}
-	if err := cfg.Validate(ports); err == nil {
+	if err := cfg.Validate(layer.Env{Ports: ports}); err == nil {
 		t.Fatal("Validate() succeeded for invalid Admission, want error")
 	}
 }

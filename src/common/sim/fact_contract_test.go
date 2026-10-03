@@ -5,10 +5,13 @@ import (
 	"reflect"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
@@ -199,4 +202,57 @@ func firstRemovedFact(t *testing.T, changes []trace.Change) trace.Fact {
 	t.Fatal("no removed fact change")
 
 	return nil
+}
+
+func TestRenamedFactTypeIDsDifferFromShared(t *testing.T) {
+	t.Parallel()
+
+	memberTransition := lag.MemberTransitionFact("p1", "attached", lag.MemberInfo{}, lag.MemberInfo{})
+	lacpDecision := lag.LACPDecisionFact(lacp.PDU{}, lag.MemberInfo{}, lag.MemberInfo{})
+	if memberTransition.TypeID() == lacpDecision.TypeID() {
+		t.Errorf("lag.MemberTransitionFact TypeID = %q shares TypeID with LACPDecisionFact", memberTransition.TypeID())
+	}
+	if got := memberTransition.TypeID(); got != "lag.member_transition" {
+		t.Errorf("lag.MemberTransitionFact TypeID = %q, want lag.member_transition", got)
+	}
+
+	egressFact := routing.EgressFact("eth0", "1/1/1", "", "")
+	if got := egressFact.TypeID(); got != "routing.egress_decision" {
+		t.Errorf("routing.EgressFact TypeID = %q, want routing.egress_decision", got)
+	}
+	if egressFact.TypeID() == "routing.lookup_decision" {
+		t.Errorf("routing.EgressFact TypeID still has routing.lookup_decision")
+	}
+
+	membershipFact := mcast.MembershipFact(10, netip.MustParseAddr("239.1.1.1"), netip.MustParseAddr("10.0.0.1"), []string{"1/1/1"}, true, true)
+	if got := membershipFact.TypeID(); got != "mcast.membership_decision" {
+		t.Errorf("mcast.MembershipFact TypeID = %q, want mcast.membership_decision", got)
+	}
+	if membershipFact.TypeID() == "vswitch.mcast_membership_decision" {
+		t.Errorf("mcast.MembershipFact TypeID still has vswitch.mcast_membership_decision")
+	}
+
+	probeFact := loopprotect.ProbeFact(loopprotect.Probe{})
+	if got := probeFact.TypeID(); got != "loopprotect.probe" {
+		t.Errorf("loopprotect.ProbeFact TypeID = %q, want loopprotect.probe", got)
+	}
+	if probeFact.TypeID() == "vswitch.loopprotect_decision" {
+		t.Errorf("loopprotect.ProbeFact TypeID still has vswitch.loopprotect_decision")
+	}
+
+	returnFact := loopprotect.ReturnFact(loopprotect.Probe{}, 10, loopprotect.PortInfo{}, loopprotect.PortInfo{})
+	if got := returnFact.TypeID(); got != "loopprotect.probe_return" {
+		t.Errorf("loopprotect.ReturnFact TypeID = %q, want loopprotect.probe_return", got)
+	}
+	if returnFact.TypeID() == "vswitch.loopprotect_decision" {
+		t.Errorf("loopprotect.ReturnFact TypeID still has vswitch.loopprotect_decision")
+	}
+
+	transitionFact := loopprotect.TransitionFact("1/1/1", loopprotect.PortInfo{}, loopprotect.PortInfo{})
+	if got := transitionFact.TypeID(); got != "loopprotect.port_transition" {
+		t.Errorf("loopprotect.TransitionFact TypeID = %q, want loopprotect.port_transition", got)
+	}
+	if transitionFact.TypeID() == "vswitch.loopprotect_decision" {
+		t.Errorf("loopprotect.TransitionFact TypeID still has vswitch.loopprotect_decision")
+	}
 }

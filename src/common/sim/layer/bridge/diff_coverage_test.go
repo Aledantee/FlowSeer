@@ -6,6 +6,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 )
 
@@ -41,5 +42,42 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		},
 	}
 
-	simtest.AssertDiffCoversConfig(t, seed, bridge.Config.Normalize, bridge.Diff, nil)
+	normalize := func(c bridge.Config) bridge.Config { return c.Normalize(layer.Env{}) }
+	simtest.AssertDiffCoversConfig(t, seed, normalize, bridge.Diff, nil)
+}
+
+// TestRetentionKeyCoversEveryConfigField verifies that every exported bridge.Config field
+// affects bridge.RetentionKey.
+func TestRetentionKeyCoversEveryConfigField(t *testing.T) {
+	pvid := vlan.ID(10)
+	seed := bridge.Config{
+		AgingTime:      300 * time.Second,
+		MaxEntries:     1024,
+		FloodVLANs:     []vlan.ID{10},
+		ProtectedPorts: []string{"1/1/1"},
+		ForwardBPDU:    true,
+		VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "ten"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {
+					PVID:             &pvid,
+					Tagged:           []vlan.ID{20},
+					Untagged:         []vlan.ID{10},
+					IngressFiltering: true,
+					Admission:        bridge.TaggedOnly,
+					Tunnel: &bridge.Tunnel{
+						VID:          30,
+						CustomerVIDs: []vlan.ID{100},
+						TPID:         0x88a8,
+					},
+					PriorityTags: bridge.PriorityTagsIfNonzero,
+				},
+			},
+		},
+	}
+
+	keyFn := func(c bridge.Config) string {
+		return bridge.RetentionKey(c, layer.Env{})
+	}
+	simtest.AssertRetentionKeyCoversConfig(t, seed, keyFn, nil)
 }

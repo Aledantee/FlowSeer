@@ -17,23 +17,23 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// DeviceMACFact wraps a netaddr.MAC as a trace.Fact.
-type DeviceMACFact netaddr.MAC
+// deviceMACFact wraps a netaddr.MAC as a trace.Fact.
+type deviceMACFact netaddr.MAC
 
-// TypeID returns the fact type identifier for DeviceMACFact.
-func (f DeviceMACFact) TypeID() string { return "vswitch.mac" }
+// TypeID returns the fact type identifier for deviceMACFact.
+func (f deviceMACFact) TypeID() string { return "vswitch.mac" }
 
 // Canonical returns the MAC address string.
-func (f DeviceMACFact) Canonical() string { return netaddr.MAC(f).String() }
+func (f deviceMACFact) Canonical() string { return netaddr.MAC(f).String() }
 
-// LayerFact wraps a port.Layer capability as a trace.Fact.
-type LayerFact port.Layer
+// layerFact wraps a trace.Layer capability as a trace.Fact.
+type layerFact trace.Layer
 
-// TypeID returns the fact type identifier for LayerFact.
-func (f LayerFact) TypeID() string { return "vswitch.layer" }
+// TypeID returns the fact type identifier for layerFact.
+func (f layerFact) TypeID() string { return "vswitch.layer" }
 
 // Canonical returns the layer string.
-func (f LayerFact) Canonical() string { return string(f) }
+func (f layerFact) Canonical() string { return string(f) }
 
 // Diff computes the difference between two switch configurations, concatenating
 // device-level MAC differences, port table differences, capability presence changes,
@@ -48,11 +48,11 @@ func Diff(a, b Config) []trace.Change {
 
 	if a.MAC != b.MAC {
 		changes = append(changes, trace.Change{
-			Layer:   port.LayerPort,
+			Layer:   port.LayerName,
 			Subject: trace.Subject{Kind: "device", Key: ""},
 			Field:   "mac",
-			From:    DeviceMACFact(a.MAC),
-			To:      DeviceMACFact(b.MAC),
+			From:    deviceMACFact(a.MAC),
+			To:      deviceMACFact(b.MAC),
 		})
 	}
 
@@ -163,7 +163,7 @@ func diffCapabilities(a, b Config) []trace.Change {
 	aCaps := a.Capabilities()
 	bCaps := b.Capabilities()
 
-	seen := make(map[port.Layer]struct{}, len(aCaps)+len(bCaps))
+	seen := make(map[trace.Layer]struct{}, len(aCaps)+len(bCaps))
 	for _, l := range aCaps {
 		seen[l] = struct{}{}
 	}
@@ -171,7 +171,7 @@ func diffCapabilities(a, b Config) []trace.Change {
 		seen[l] = struct{}{}
 	}
 
-	layers := make([]port.Layer, 0, len(seen))
+	layers := make([]trace.Layer, 0, len(seen))
 	for l := range seen {
 		layers = append(layers, l)
 	}
@@ -189,7 +189,7 @@ func diffCapabilities(a, b Config) []trace.Change {
 					Key:  string(l),
 				},
 				Field: "",
-				From:  LayerFact(l),
+				From:  layerFact(l),
 				To:    nil,
 			})
 		} else if !inA && inB {
@@ -201,7 +201,7 @@ func diffCapabilities(a, b Config) []trace.Change {
 				},
 				Field: "",
 				From:  nil,
-				To:    LayerFact(l),
+				To:    layerFact(l),
 			})
 		}
 	}

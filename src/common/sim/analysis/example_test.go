@@ -9,11 +9,11 @@ import (
 )
 
 func ExampleMetadata_invalidAndPartial() {
-	if _, err := exampleAnalysis(analysis.InputInvalid); err != nil {
+	if _, err := exampleAnalysis(false); err != nil {
 		fmt.Println(err)
 	}
 
-	metadata, err := exampleAnalysis(analysis.InputValid)
+	metadata, err := exampleAnalysis(true)
 	if err != nil {
 		panic(err)
 	}
@@ -28,8 +28,8 @@ func ExampleMetadata_invalidAndPartial() {
 	// complete
 }
 
-func exampleAnalysis(validity analysis.InputValidity) (analysis.Metadata, error) {
-	if validity == analysis.InputInvalid {
+func exampleAnalysis(valid bool) (analysis.Metadata, error) {
+	if !valid {
 		return analysis.Metadata{}, errors.New("invalid input")
 	}
 

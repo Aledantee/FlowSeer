@@ -64,7 +64,7 @@ func (m *memberState) updateActorInfo(lag *lagState) {
 	}
 	prio := m.cfg.Priority
 	if prio == 0 {
-		prio = DefaultPortPriority
+		prio = defaultPortPriority
 	}
 
 	m.actor = lacp.Info{

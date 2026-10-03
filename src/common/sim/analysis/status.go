@@ -1,26 +1,5 @@
 package analysis
 
-// InputValidity reports whether an input can be analyzed at all. It is separate
-// from [Status], which describes how much trust to place in a completed analysis.
-// The zero value is [InputValid]. InputValidity is safe for concurrent use.
-type InputValidity uint8
-
-const (
-	// InputValid means the input satisfies the producer's construction rules.
-	InputValid InputValidity = iota
-
-	// InputInvalid means the producer must reject the input without an analysis result.
-	InputInvalid
-)
-
-// String returns the stable lowercase name of the input validity.
-func (v InputValidity) String() string {
-	if v == InputValid {
-		return "valid"
-	}
-	return "invalid"
-}
-
 // Status describes the trustworthiness of an analysis over a declared [Scope].
 // Higher-valued constants take conservative precedence when statuses combine.
 // The zero value is [Complete]. Status is safe for concurrent use.

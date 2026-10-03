@@ -57,7 +57,7 @@ func main() {
 		},
 	}}
 
-	layer, err := routing.New(cfg, port.Table{}, "sw1")
+	layer, err := routing.New(cfg, layer.Env{NodeID: "sw1"})
 	if err != nil {
 		panic(err)
 	}
@@ -422,7 +422,7 @@ address it was not told about: every miss there is `neighbor-miss`, never
 
 ## State retention
 
-`RetentionKey(cfg Config, ports port.Table) string` encodes every normalized
+`RetentionKey(cfg Config, env layer.Env) string` encodes every normalized
 input the routing runtime state depends on: its own configuration as `Diff`
 sees it and the administrative and operational state of interfaces that reference
 a port. When `vswitch.Derive` finds the routing retention key unchanged, it

@@ -64,7 +64,7 @@ issue. Later crossings on another PCP of the same member create no second event.
 
 ## State retention
 
-`RetentionKey(cfg Config) string` encodes the normalized traffic configuration
+`RetentionKey(cfg Config, env layer.Env) string` encodes the normalized traffic configuration
 as `Diff` sees it, each queue's rate and stated buffer included.
 `vswitch.Derive` retains active token buckets per matching policer when the
 layer's retention key is unchanged.

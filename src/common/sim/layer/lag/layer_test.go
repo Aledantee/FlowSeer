@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -41,7 +42,7 @@ func lagTwoPortTable(t *testing.T) port.Table {
 
 func mustNewLAG(t *testing.T, cfg lag.Config, ports port.Table, systemID netaddr.MAC) *lag.Layer {
 	t.Helper()
-	l, err := lag.New(cfg, ports, systemID)
+	l, err := lag.New(cfg, layer.Env{Ports: ports, MAC: systemID})
 	if err != nil {
 		t.Fatalf("lag.New: %v", err)
 	}
@@ -106,15 +107,15 @@ func convergeLACP(t *testing.T, a, b *lag.Layer, t0 time.Time) time.Time {
 	cur := t0
 	for step := 0; step < 30; step++ {
 		cur = cur.Add(100 * time.Millisecond)
-		fxA := a.Wake(cur)
-		fxB := b.Wake(cur)
+		fxA := a.Advance(cur)
+		fxB := b.Advance(cur)
 		exchangeEmissions(t, cur, a, b, fxA.Emissions, fxB.Emissions)
 	}
 
 	return cur
 }
 
-func exchangeEmissions(t *testing.T, now time.Time, layerA, layerB *lag.Layer, emsA, emsB []lag.Emission) {
+func exchangeEmissions(t *testing.T, now time.Time, layerA, layerB *lag.Layer, emsA, emsB []layer.Emission) {
 	t.Helper()
 	queueA := slices.Clone(emsA)
 	queueB := slices.Clone(emsB)
@@ -354,7 +355,7 @@ func TestDelays(t *testing.T) {
 	if !hasTimer || w0 != t0.Add(2*time.Second) {
 		t.Fatalf("NextWake = (%v, %v), want (%v, true)", w0, hasTimer, t0.Add(2*time.Second))
 	}
-	l.Wake(t0.Add(2 * time.Second))
+	l.Advance(t0.Add(2 * time.Second))
 
 	chosen, ok := selectOK(l, t0.Add(2*time.Second), "lag1", f, 0)
 	if !ok || chosen != "1/1/1" {
@@ -375,7 +376,7 @@ func TestDelays(t *testing.T) {
 		t.Fatalf("NextWake = (%v, %v), want (%v, true)", next, okTimer, t1.Add(1*time.Second))
 	}
 
-	l.Wake(t1.Add(1 * time.Second))
+	l.Advance(t1.Add(1 * time.Second))
 	chosen, ok = selectOK(l, t1.Add(1*time.Second), "lag1", f, 0)
 	if !ok || chosen != "1/1/2" {
 		t.Fatalf("Select after Wake(t1+1s) = (%q, %t), want (1/1/2, true)", chosen, ok)
@@ -389,7 +390,7 @@ func TestDelays(t *testing.T) {
 		t.Fatal("1/1/1 is enabled before UpDelay expires")
 	}
 
-	l.Wake(t2.Add(2 * time.Second))
+	l.Advance(t2.Add(2 * time.Second))
 	if !l.PortInfo("1/1/1").Enabled {
 		t.Fatal("1/1/1 is not enabled after Wake(t2+2s)")
 	}
@@ -439,8 +440,8 @@ func TestLACPConvergence(t *testing.T) {
 	cur := t0
 	for step := 0; step < 30; step++ {
 		cur = cur.Add(100 * time.Millisecond)
-		fxA := layerA.Wake(cur)
-		fxB := layerB.Wake(cur)
+		fxA := layerA.Advance(cur)
+		fxB := layerB.Advance(cur)
 		exchangeEmissions(t, cur, layerA, layerB, fxA.Emissions, fxB.Emissions)
 	}
 
@@ -484,8 +485,8 @@ func TestLACPConvergence(t *testing.T) {
 	cur = t0
 	for step := 0; step < 30; step++ {
 		cur = cur.Add(100 * time.Millisecond)
-		fxA := layerA2.Wake(cur)
-		fxB := layerB2.Wake(cur)
+		fxA := layerA2.Advance(cur)
+		fxB := layerB2.Advance(cur)
 		exchangeEmissions(t, cur, layerA2, layerB2, fxA.Emissions, fxB.Emissions)
 	}
 
@@ -524,7 +525,7 @@ func TestFallback(t *testing.T) {
 		l.LinkChange(t0, "1/1/2", true)
 
 		// Before 6s, members are not enabled by fallback.
-		l.Wake(t0.Add(3 * time.Second))
+		l.Advance(t0.Add(3 * time.Second))
 		if l.PortInfo("1/1/1").Status != lag.Expired {
 			t.Fatalf("status at 3s = %v, want Expired", l.PortInfo("1/1/1").Status)
 		}
@@ -532,7 +533,7 @@ func TestFallback(t *testing.T) {
 			t.Fatal("Select succeeded at 3s before defaulting, want false")
 		}
 
-		l.Wake(t0.Add(6 * time.Second))
+		l.Advance(t0.Add(6 * time.Second))
 		if l.PortInfo("1/1/1").Status != lag.Defaulted {
 			t.Fatalf("status at 6s = %v, want Defaulted", l.PortInfo("1/1/1").Status)
 		}
@@ -560,7 +561,7 @@ func TestFallback(t *testing.T) {
 		l.LinkChange(t0, "1/1/1", true)
 		l.LinkChange(t0, "1/1/2", true)
 
-		l.Wake(t0.Add(6 * time.Second))
+		l.Advance(t0.Add(6 * time.Second))
 		if _, ok := selectOK(l, t0.Add(6*time.Second), "lag1", ethernet.Frame{}, 0); ok {
 			t.Fatal("Select succeeded with Fallback=false after 6s, want false")
 		}
@@ -637,15 +638,15 @@ func TestPassive(t *testing.T) {
 		cur := t0
 		for step := 0; step < 50; step++ {
 			cur = cur.Add(100 * time.Millisecond)
-			fxA := lA.Wake(cur)
-			fxB := lB.Wake(cur)
+			fxA := lA.Advance(cur)
+			fxB := lB.Advance(cur)
 			if len(fxA.Emissions) != 0 || len(fxB.Emissions) != 0 {
 				t.Fatalf("passive emitted within 5s at %v", cur)
 			}
 		}
 
-		lA.Wake(t0.Add(6 * time.Second))
-		lB.Wake(t0.Add(6 * time.Second))
+		lA.Advance(t0.Add(6 * time.Second))
+		lB.Advance(t0.Add(6 * time.Second))
 		if lA.PortInfo("1/1/1").Status != lag.Defaulted || lB.PortInfo("1/1/1").Status != lag.Defaulted {
 			t.Fatalf("status at 6s: A=%v, B=%v, want Defaulted", lA.PortInfo("1/1/1").Status, lB.PortInfo("1/1/1").Status)
 		}
@@ -681,8 +682,8 @@ func TestCounters(t *testing.T) {
 	cur := t0
 	for step := 0; step < 30; step++ {
 		cur = cur.Add(100 * time.Millisecond)
-		fxA := layerA.Wake(cur)
-		fxB := layerB.Wake(cur)
+		fxA := layerA.Advance(cur)
+		fxB := layerB.Advance(cur)
 		exchangeEmissions(t, cur, layerA, layerB, fxA.Emissions, fxB.Emissions)
 	}
 
@@ -741,12 +742,12 @@ func TestExpiredHoldsForThreePeriods(t *testing.T) {
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	l.LinkChange(t0, "1/1/1", true)
 	for _, s := range []int{3, 4, 5} {
-		l.Wake(t0.Add(time.Duration(s) * time.Second))
+		l.Advance(t0.Add(time.Duration(s) * time.Second))
 		if st := l.PortInfo("1/1/1").Status; st != lag.Expired {
 			t.Fatalf("status at %ds = %v, want Expired", s, st)
 		}
 	}
-	l.Wake(t0.Add(6 * time.Second))
+	l.Advance(t0.Add(6 * time.Second))
 	if st := l.PortInfo("1/1/1").Status; st != lag.Defaulted {
 		t.Fatalf("status at 6s = %v, want Defaulted", st)
 	}
@@ -801,7 +802,7 @@ func TestUpDelayDoesNotHoldTheProtocol(t *testing.T) {
 	var now time.Time
 	for s := 1; s <= 2; s++ {
 		now = t0.Add(time.Duration(s) * time.Second)
-		fa, fb = a.Wake(now), b.Wake(now)
+		fa, fb = a.Advance(now), b.Advance(now)
 		exchangeEmissions(t, now, a, b, fa.Emissions, fb.Emissions)
 	}
 	if _, ok := selectOK(a, now, "lag1", ethernet.Frame{}, 0); !ok {
@@ -1159,82 +1160,6 @@ func TestEnableOrderTies(t *testing.T) {
 	}
 }
 
-func findPending(pending []lag.Pending, member string) *lag.Pending {
-	for i := range pending {
-		if pending[i].Member == member {
-			return &pending[i]
-		}
-	}
-
-	return nil
-}
-
-// TestPendingForEachCause is evidence that Info.Pending reports a member for
-// each of the three documented reasons it may still change state on its own.
-func TestPendingForEachCause(t *testing.T) {
-	t.Parallel()
-
-	t.Run("link delay", func(t *testing.T) {
-		t.Parallel()
-		tbl := lagTwoPortTable(t)
-		mac := mustMAC(t, "02:00:00:00:00:01")
-		cfg := lag.Config{LAGs: map[string]lag.LAG{"lag1": {UpDelay: 2 * time.Second}}}
-		l := mustNewLAG(t, cfg, tbl, mac)
-		t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
-		l.LinkChange(t0, "1/1/1", true)
-
-		found := findPending(l.Info("lag1").Pending, "1/1/1")
-		if found == nil || found.Cause != lag.PendingLinkDelay || !found.At.Equal(t0.Add(2*time.Second)) {
-			t.Fatalf("Pending = %+v, want link-delay at %v", found, t0.Add(2*time.Second))
-		}
-	})
-
-	t.Run("partner expired", func(t *testing.T) {
-		t.Parallel()
-		tbl := lagTwoPortTable(t)
-		mac := mustMAC(t, "02:00:00:00:00:0a")
-		cfg := lag.Config{LAGs: map[string]lag.LAG{"lag1": {LACP: lag.LACPConfig{Mode: lag.Active, Fast: true}}}}
-		l := mustNewLAG(t, cfg, tbl, mac)
-		t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
-		l.LinkChange(t0, "1/1/1", true)
-		l.Wake(t0.Add(3 * time.Second))
-
-		found := findPending(l.Info("lag1").Pending, "1/1/1")
-		if found == nil || found.Cause != lag.PendingPartnerExpired || !found.At.After(t0.Add(3*time.Second)) {
-			t.Fatalf("Pending = %+v, want partner-expired after t0+3s", found)
-		}
-	})
-
-	t.Run("attached without synchronization", func(t *testing.T) {
-		t.Parallel()
-		tbl := lagTwoPortTable(t)
-		mac := mustMAC(t, "02:00:00:00:00:0a")
-		cfg := lag.Config{LAGs: map[string]lag.LAG{"lag1": {LACP: lag.LACPConfig{Mode: lag.Active, Fast: true}}}}
-		l := mustNewLAG(t, cfg, tbl, mac)
-		t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
-		l.LinkChange(t0, "1/1/1", true)
-
-		partner := lacp.Info{
-			SystemPriority: 1,
-			SystemID:       mustMAC(t, "02:00:00:00:00:0b"),
-			Key:            1,
-			PortPriority:   1,
-			PortID:         1,
-			State:          lacp.StateAggregation, // no StateSynchronization
-		}
-		l.Receive(t0, "1/1/1", lacp.PDU{Actor: partner})
-
-		info := l.Info("lag1")
-		found := findPending(info.Pending, "1/1/1")
-		if found == nil || found.Cause != lag.PendingUnsynchronized {
-			t.Fatalf("Pending = %+v, want unsynchronized", found)
-		}
-		if len(info.Attached) != 1 || info.Attached[0] != "1/1/1" || len(info.Enabled) != 0 {
-			t.Fatalf("Attached = %v, Enabled = %v, want attached and not enabled", info.Attached, info.Enabled)
-		}
-	})
-}
-
 // TestCloneIsolatesBucketTable is evidence that Clone deep-copies the bucket
 // table: mutating the clone's buckets leaves the original's unchanged.
 func TestCloneIsolatesBucketTable(t *testing.T) {
@@ -1261,5 +1186,20 @@ func TestCloneIsolatesBucketTable(t *testing.T) {
 	after := l1.Select(t1, "lag1", frame, 0)
 	if after.Member != before.Member || after.Cause != lag.CauseKept {
 		t.Fatalf("original layer's bucket changed after mutating the clone: got %+v, want member %q kept", after, before.Member)
+	}
+}
+
+func TestRetentionKeyDiffersOnMAC(t *testing.T) {
+	t.Parallel()
+
+	tbl := lagPortTable(t)
+	cfg := lag.Config{LAGs: map[string]lag.LAG{"lag1": {Mode: lag.ActiveBackup}}}
+	mac1 := mustMAC(t, "02:00:00:00:00:01")
+	mac2 := mustMAC(t, "02:00:00:00:00:02")
+
+	key1 := lag.RetentionKey(cfg, layer.Env{Ports: tbl, MAC: mac1})
+	key2 := lag.RetentionKey(cfg, layer.Env{Ports: tbl, MAC: mac2})
+	if key1 == key2 {
+		t.Errorf("RetentionKey did not differ when Env.MAC changed: %q", key1)
 	}
 }

@@ -38,11 +38,11 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 
 	// Traffic retention
 	var curTrafficKey, nextTrafficKey string
-	if cur != nil && cur.traffic != nil {
-		curTrafficKey = traffic.RetentionKey(*cur.traffic)
+	if cur != nil && cur.traffic != nil && cur.cfg.Traffic != nil {
+		curTrafficKey = traffic.RetentionKey(*cur.cfg.Traffic, cur.env())
 	}
-	if next.traffic != nil {
-		nextTrafficKey = traffic.RetentionKey(*next.traffic)
+	if next.cfg.Traffic != nil {
+		nextTrafficKey = traffic.RetentionKey(*next.cfg.Traffic, next.env())
 	}
 	if curTrafficKey == nextTrafficKey {
 		next.retention.Traffic = LayerRetention{Kept: true}
@@ -50,30 +50,24 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 		next.retention.Traffic = LayerRetention{Kept: false, Difference: diffDependency(curTrafficKey, nextTrafficKey)}
 	}
 	if cur != nil && cur.traffic != nil && next.traffic != nil {
-		for name, policer := range next.traffic.Policers {
-			if current, ok := cur.traffic.Policers[name]; ok && current == policer {
-				if b, ok := cur.buckets[name]; ok {
-					next.buckets[name] = b.Clone()
-				}
-			}
-		}
+		next.traffic.Retain(cur.traffic)
 	}
 
 	// STP retention: both sides are compared as New filled them, so a bridge address
 	// the switch assigned does not read as a change.
 	var curSTPKey, nextSTPKey string
 	if cur != nil && cur.stp != nil && cur.cfg.STP != nil {
-		curSTPKey = stp.RetentionKey(*cur.cfg.STP, cur.ports, resolvedSpeeds(cur))
+		curSTPKey = stp.RetentionKey(*cur.cfg.STP, cur.env())
 	}
 	if next.cfg.STP != nil {
-		nextSTPKey = stp.RetentionKey(*next.cfg.STP, next.ports, resolvedSpeeds(next))
+		nextSTPKey = stp.RetentionKey(*next.cfg.STP, next.env())
 	}
 	if curSTPKey == nextSTPKey {
 		next.retention.STP = LayerRetention{Kept: true}
 		if cur != nil && cur.stp != nil {
 			next.stp = cur.stp.Clone()
 			if next.bridge != nil {
-				next.bridge.SetGate(next.stp, protocolScope(next.nodeID, port.LayerSTP))
+				next.bridge.SetGate(next.stp, protocolScope(next.nodeID, stp.LayerName))
 			}
 		}
 	} else {
@@ -121,17 +115,17 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	// LoopProtect retention
 	var curLPKey, nextLPKey string
 	if cur != nil && cur.loopprotect != nil && cur.cfg.LoopProtect != nil {
-		curLPKey = loopprotect.RetentionKey(*cur.cfg.LoopProtect, cur.ports, cur.cfg.MAC)
+		curLPKey = loopprotect.RetentionKey(*cur.cfg.LoopProtect, cur.env())
 	}
 	if next.cfg.LoopProtect != nil {
-		nextLPKey = loopprotect.RetentionKey(*next.cfg.LoopProtect, next.ports, next.cfg.MAC)
+		nextLPKey = loopprotect.RetentionKey(*next.cfg.LoopProtect, next.env())
 	}
 	if curLPKey == nextLPKey {
 		next.retention.LoopProtect = LayerRetention{Kept: true}
 		if cur != nil && cur.loopprotect != nil {
 			next.loopprotect = cur.loopprotect.Clone()
 			if next.bridge != nil {
-				next.bridge.SetGate(next.loopprotect, protocolScope(next.nodeID, port.LayerLoopProtect))
+				next.bridge.SetGate(next.loopprotect, protocolScope(next.nodeID, loopprotect.LayerName))
 			}
 		}
 	} else {
@@ -141,17 +135,17 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	// LAG retention
 	var curLAGKey, nextLAGKey string
 	if cur != nil && cur.lag != nil && cur.cfg.LAG != nil {
-		curLAGKey = lag.RetentionKey(*cur.cfg.LAG, cur.ports, cur.cfg.MAC)
+		curLAGKey = lag.RetentionKey(*cur.cfg.LAG, cur.env())
 	}
 	if next.cfg.LAG != nil {
-		nextLAGKey = lag.RetentionKey(*next.cfg.LAG, next.ports, next.cfg.MAC)
+		nextLAGKey = lag.RetentionKey(*next.cfg.LAG, next.env())
 	}
 	if curLAGKey == nextLAGKey {
 		next.retention.LAG = LayerRetention{Kept: true}
 		if cur != nil && cur.lag != nil {
 			next.lag = cur.lag.Clone()
 			if next.bridge != nil {
-				next.bridge.SetSelector(lagSelector{sw: next}, protocolScope(next.nodeID, port.LayerLAG))
+				next.bridge.SetSelector(lagSelector{sw: next}, protocolScope(next.nodeID, lag.LayerName))
 			}
 		}
 	} else {
@@ -166,8 +160,19 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	// replays retained dynamic state into the new switch, filtered per-entry
 	// by port forwarding and VLAN membership. It reports kept when both switches
 	// have multicast enabled.
+	var curMcastKey, nextMcastKey string
+	if cur != nil && cur.mcast != nil && cur.cfg.Mcast != nil {
+		curMcastKey = mcast.RetentionKey(*cur.cfg.Mcast, cur.env())
+	}
+	if next.cfg.Mcast != nil {
+		nextMcastKey = mcast.RetentionKey(*next.cfg.Mcast, next.env())
+	}
+	diff := diffDependency(curMcastKey, nextMcastKey)
+	if curMcastKey == "" && nextMcastKey == "" {
+		diff = "config"
+	}
 	if (cur != nil && cur.mcast != nil) != (next.mcast != nil) {
-		next.retention.Mcast = LayerRetention{Kept: false, Difference: "config"}
+		next.retention.Mcast = LayerRetention{Kept: false, Difference: diff}
 	} else {
 		next.retention.Mcast = LayerRetention{Kept: true}
 	}
@@ -195,10 +200,10 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	// Routing retention
 	var curRoutingKey, nextRoutingKey string
 	if cur != nil && cur.routing != nil && cur.cfg.Routing != nil {
-		curRoutingKey = routing.RetentionKey(*cur.cfg.Routing, cur.ports)
+		curRoutingKey = routing.RetentionKey(*cur.cfg.Routing, cur.env())
 	}
 	if next.cfg.Routing != nil {
-		nextRoutingKey = routing.RetentionKey(*next.cfg.Routing, next.ports)
+		nextRoutingKey = routing.RetentionKey(*next.cfg.Routing, next.env())
 	}
 	if curRoutingKey == nextRoutingKey {
 		next.retention.Routing = LayerRetention{Kept: true}
@@ -208,8 +213,8 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	} else {
 		next.retention.Routing = LayerRetention{Kept: false, Difference: diffDependency(curRoutingKey, nextRoutingKey)}
 		if cur != nil && cur.routing != nil {
-			eff := cur.routing.Clone().FailHeld()
-			next.applyRoutingEffects(time.Time{}, eff)
+			exits := cur.routing.Clone().FailHeld()
+			next.applyRoutingExits(time.Time{}, exits)
 		}
 	}
 

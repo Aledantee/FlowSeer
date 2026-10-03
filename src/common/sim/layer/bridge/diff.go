@@ -8,30 +8,33 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// VLANNameFact wraps a VLAN name string as a trace.Fact.
-type VLANNameFact string
+// vlanNameFact wraps a VLAN name string as a trace.Fact.
+type vlanNameFact string
 
-// TypeID returns the fact type identifier for VLANNameFact.
-func (f VLANNameFact) TypeID() string { return "bridge.vlan_name" }
+// TypeID returns the fact type identifier for vlanNameFact.
+func (f vlanNameFact) TypeID() string { return "bridge.vlan_name" }
 
 // Canonical returns the VLAN name string.
-func (f VLANNameFact) Canonical() string { return string(f) }
+func (f vlanNameFact) Canonical() string { return string(f) }
 
-// PVIDFact wraps a PVID as a trace.Fact.
-type PVIDFact vlan.ID
+// pvidFact wraps a PVID as a trace.Fact.
+type pvidFact vlan.ID
 
-// TypeID returns the fact type identifier for PVIDFact.
-func (f PVIDFact) TypeID() string { return "bridge.pvid" }
+// TypeID returns the fact type identifier for pvidFact.
+func (f pvidFact) TypeID() string { return "bridge.pvid" }
 
 // Canonical returns the decimal string of the PVID.
-func (f PVIDFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f pvidFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
 // VID returns the underlying vlan.ID.
-func (f PVIDFact) VID() vlan.ID { return vlan.ID(f) }
+func (f pvidFact) VID() vlan.ID { return vlan.ID(f) }
+
+// PVIDFact returns a trace.Fact wrapping a PVID.
+func PVIDFact(vid vlan.ID) trace.Fact { return pvidFact(vid) }
 
 type vlansFact string
 
@@ -48,32 +51,32 @@ func VLANsFact(ids []vlan.ID) trace.Fact {
 	return vlansFact(strings.Join(values, ","))
 }
 
-// BoolFact wraps a boolean value as a trace.Fact.
-type BoolFact bool
+// boolFact wraps a boolean value as a trace.Fact.
+type boolFact bool
 
-// TypeID returns the fact type identifier for BoolFact.
-func (f BoolFact) TypeID() string { return "bridge.bool" }
+// TypeID returns the fact type identifier for boolFact.
+func (f boolFact) TypeID() string { return "bridge.bool" }
 
 // Canonical returns "true" or "false".
-func (f BoolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
+func (f boolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
 
-// DurationFact wraps a time.Duration as a trace.Fact.
-type DurationFact time.Duration
+// durationFact wraps a time.Duration as a trace.Fact.
+type durationFact time.Duration
 
-// TypeID returns the fact type identifier for DurationFact.
-func (f DurationFact) TypeID() string { return "bridge.duration" }
+// TypeID returns the fact type identifier for durationFact.
+func (f durationFact) TypeID() string { return "bridge.duration" }
 
 // Canonical returns the formatted duration string.
-func (f DurationFact) Canonical() string { return time.Duration(f).String() }
+func (f durationFact) Canonical() string { return time.Duration(f).String() }
 
-// IntFact wraps an integer as a trace.Fact.
-type IntFact int
+// intFact wraps an integer as a trace.Fact.
+type intFact int
 
-// TypeID returns the fact type identifier for IntFact.
-func (f IntFact) TypeID() string { return "bridge.int" }
+// TypeID returns the fact type identifier for intFact.
+func (f intFact) TypeID() string { return "bridge.int" }
 
 // Canonical returns the decimal string of the integer.
-func (f IntFact) Canonical() string { return strconv.Itoa(int(f)) }
+func (f intFact) Canonical() string { return strconv.Itoa(int(f)) }
 
 type stringsFact string
 
@@ -133,17 +136,17 @@ func snapshotSwitchport(sw Switchport) switchportSnapshotFact {
 // tagged and untagged sets, ingress filtering, frame admission, tunnel, and priority tags),
 // aging time, maximum table entries, flood VLANs, protected ports, and BPDU forwarding.
 func Diff(a, b Config) []trace.Change {
-	a = a.Normalize()
-	b = b.Normalize()
+	a = a.Normalize(layer.Env{})
+	b = b.Normalize(layer.Env{})
 
 	var changes []trace.Change
 	if (a.VLAN == nil) != (b.VLAN == nil) {
 		changes = append(changes, trace.Change{
-			Layer:   port.LayerVLAN,
+			Layer:   LayerNameVLAN,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "vlan_awareness",
-			From:    BoolFact(a.VLAN != nil),
-			To:      BoolFact(b.VLAN != nil),
+			From:    boolFact(a.VLAN != nil),
+			To:      boolFact(b.VLAN != nil),
 		})
 	}
 
@@ -173,13 +176,13 @@ func Diff(a, b Config) []trace.Change {
 		bName, exists := bTable[id]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVLAN,
+				Layer: LayerNameVLAN,
 				Subject: trace.Subject{
 					Kind: "vlan",
 					Key:  strconv.Itoa(int(id)),
 				},
 				Field: "",
-				From:  VLANNameFact(aName),
+				From:  vlanNameFact(aName),
 				To:    nil,
 			})
 
@@ -188,14 +191,14 @@ func Diff(a, b Config) []trace.Change {
 
 		if aName != bName {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVLAN,
+				Layer: LayerNameVLAN,
 				Subject: trace.Subject{
 					Kind: "vlan",
 					Key:  strconv.Itoa(int(id)),
 				},
 				Field: "name",
-				From:  VLANNameFact(aName),
-				To:    VLANNameFact(bName),
+				From:  vlanNameFact(aName),
+				To:    vlanNameFact(bName),
 			})
 		}
 	}
@@ -210,14 +213,14 @@ func Diff(a, b Config) []trace.Change {
 
 	for _, id := range bIDs {
 		changes = append(changes, trace.Change{
-			Layer: port.LayerVLAN,
+			Layer: LayerNameVLAN,
 			Subject: trace.Subject{
 				Kind: "vlan",
 				Key:  strconv.Itoa(int(id)),
 			},
 			Field: "",
 			From:  nil,
-			To:    VLANNameFact(bTable[id]),
+			To:    vlanNameFact(bTable[id]),
 		})
 	}
 
@@ -232,7 +235,7 @@ func Diff(a, b Config) []trace.Change {
 		bSw, exists := bPorts[name]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVLAN,
+				Layer: LayerNameVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
@@ -260,7 +263,7 @@ func Diff(a, b Config) []trace.Change {
 				toVal = PVIDFact(*bSw.PVID)
 			}
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVLAN,
+				Layer: LayerNameVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
@@ -273,7 +276,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if !slices.Equal(aSw.Tagged, bSw.Tagged) {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVLAN,
+				Layer: LayerNameVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
@@ -286,7 +289,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if !slices.Equal(aSw.Untagged, bSw.Untagged) {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVLAN,
+				Layer: LayerNameVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
@@ -299,20 +302,20 @@ func Diff(a, b Config) []trace.Change {
 
 		if aSw.IngressFiltering != bSw.IngressFiltering {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVLAN,
+				Layer: LayerNameVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
 				},
 				Field: "ingress_filtering",
-				From:  BoolFact(aSw.IngressFiltering),
-				To:    BoolFact(bSw.IngressFiltering),
+				From:  boolFact(aSw.IngressFiltering),
+				To:    boolFact(bSw.IngressFiltering),
 			})
 		}
 
 		if aSw.Admission != bSw.Admission {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVLAN,
+				Layer: LayerNameVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
@@ -345,7 +348,7 @@ func Diff(a, b Config) []trace.Change {
 				toTunnel = snapshotTunnel(bSw.Tunnel)
 			}
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVLAN,
+				Layer: LayerNameVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
@@ -358,7 +361,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aSw.PriorityTags != bSw.PriorityTags {
 			changes = append(changes, trace.Change{
-				Layer: port.LayerVLAN,
+				Layer: LayerNameVLAN,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  name,
@@ -380,7 +383,7 @@ func Diff(a, b Config) []trace.Change {
 
 	for _, name := range bPortNames {
 		changes = append(changes, trace.Change{
-			Layer: port.LayerVLAN,
+			Layer: LayerNameVLAN,
 			Subject: trace.Subject{
 				Kind: "port",
 				Key:  name,
@@ -393,33 +396,33 @@ func Diff(a, b Config) []trace.Change {
 
 	if a.AgingTime != b.AgingTime {
 		changes = append(changes, trace.Change{
-			Layer: port.LayerRelay,
+			Layer: LayerName,
 			Subject: trace.Subject{
 				Kind: "bridge",
 				Key:  "",
 			},
 			Field: "aging_time",
-			From:  DurationFact(a.AgingTime),
-			To:    DurationFact(b.AgingTime),
+			From:  durationFact(a.AgingTime),
+			To:    durationFact(b.AgingTime),
 		})
 	}
 
 	if a.MaxEntries != b.MaxEntries {
 		changes = append(changes, trace.Change{
-			Layer: port.LayerRelay,
+			Layer: LayerName,
 			Subject: trace.Subject{
 				Kind: "bridge",
 				Key:  "",
 			},
 			Field: "max_entries",
-			From:  IntFact(a.MaxEntries),
-			To:    IntFact(b.MaxEntries),
+			From:  intFact(a.MaxEntries),
+			To:    intFact(b.MaxEntries),
 		})
 	}
 
 	if !slices.Equal(a.FloodVLANs, b.FloodVLANs) {
 		changes = append(changes, trace.Change{
-			Layer: port.LayerRelay,
+			Layer: LayerName,
 			Subject: trace.Subject{
 				Kind: "bridge",
 				Key:  "",
@@ -432,7 +435,7 @@ func Diff(a, b Config) []trace.Change {
 
 	if !slices.Equal(a.ProtectedPorts, b.ProtectedPorts) {
 		changes = append(changes, trace.Change{
-			Layer: port.LayerRelay,
+			Layer: LayerName,
 			Subject: trace.Subject{
 				Kind: "bridge",
 				Key:  "",
@@ -445,14 +448,14 @@ func Diff(a, b Config) []trace.Change {
 
 	if a.ForwardBPDU != b.ForwardBPDU {
 		changes = append(changes, trace.Change{
-			Layer: port.LayerRelay,
+			Layer: LayerName,
 			Subject: trace.Subject{
 				Kind: "bridge",
 				Key:  "",
 			},
 			Field: "forward_bpdu",
-			From:  BoolFact(a.ForwardBPDU),
-			To:    BoolFact(b.ForwardBPDU),
+			From:  boolFact(a.ForwardBPDU),
+			To:    boolFact(b.ForwardBPDU),
 		})
 	}
 

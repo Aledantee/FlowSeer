@@ -160,6 +160,6 @@ surviving records via `InstallObserved` and group learning to keep expiries
 intact. Derivation reports `Retention().Mcast` as kept with per-entry drops rather
 than an all-or-nothing rebuild.
 
-`RetentionKey(cfg Config, ports port.Table) string` encodes every normalized
+`RetentionKey(cfg Config, env layer.Env) string` encodes every normalized
 input the multicast snooping runtime state depends on: its own configuration as
 `Diff` sees it and port states for configured router ports.

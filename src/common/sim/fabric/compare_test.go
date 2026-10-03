@@ -3,6 +3,7 @@ package fabric_test
 import (
 	"net/netip"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -492,10 +493,10 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 		var foundLen, foundSpeed bool
 		for _, ch := range changes {
 			if ch.Subject.Kind == "cable" && ch.Subject.Key == "h1:-sw1:1/1/1" {
-				if ch.Field == "length" && ch.From == fabric.LengthFact(0) && ch.To == fabric.LengthFact(50) {
+				if ch.Field == "length" && ch.From.Canonical() == "0" && ch.To.Canonical() == "50" {
 					foundLen = true
 				}
-				if ch.Field == "top_speed" && ch.From == fabric.TopSpeedFact(0) && ch.To == fabric.TopSpeedFact(100_000_000) {
+				if ch.Field == "top_speed" && ch.From.Canonical() == "0" && ch.To.Canonical() == "100000000" {
 					foundSpeed = true
 				}
 			}
@@ -535,7 +536,7 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 				if ch.Field == "medium" && ch.From == fabric.TwistedPair && ch.To == fabric.SinglemodeFiber {
 					foundMedium = true
 				}
-				if ch.Field == "delay" && ch.From == nil && ch.To == fabric.DelayFact(1*time.Microsecond) {
+				if ch.Field == "delay" && ch.From == nil && ch.To.Canonical() == (1*time.Microsecond).String() {
 					foundDelay = true
 				}
 			}
@@ -591,10 +592,10 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 					ch.To == (fabric.Endpoint{Node: "sw1", Port: "1/1/2"}) {
 					foundPort = true
 				}
-				if ch.Field == "address" && ch.From == fabric.MACFact(macH1) && ch.To == fabric.MACFact(macH1New) {
+				if ch.Field == "address" && ch.From.Canonical() == macH1.String() && ch.To.Canonical() == macH1New.String() {
 					foundAddr = true
 				}
-				if ch.Field == "vlan" && ch.From == fabric.VLANFact(vid10) && ch.To == fabric.VLANFact(vid20) {
+				if ch.Field == "vlan" && ch.From.Canonical() == strconv.Itoa(int(vid10)) && ch.To.Canonical() == strconv.Itoa(int(vid20)) {
 					foundVLAN = true
 				}
 			}
@@ -730,13 +731,13 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 				}
 				if ch.Field == "gateway" {
 					foundGW = true
-					if ch.From != fabric.GatewayFact(gw1) || ch.To != fabric.GatewayFact(gw2) {
+					if ch.From.Canonical() != gw1.String() || ch.To.Canonical() != gw2.String() {
 						t.Errorf("gateway diff = %v -> %v, want %v -> %v", ch.From, ch.To, gw1, gw2)
 					}
 				}
 				if ch.Field == "neighbors.10.0.10.3" {
 					foundNbr = true
-					if ch.From != nil || ch.To != fabric.MACFact(mac2) {
+					if ch.From != nil || ch.To.Canonical() != mac2.String() {
 						t.Errorf("neighbor diff = %v -> %v, want nil -> %v", ch.From, ch.To, mac2)
 					}
 				}
@@ -1627,7 +1628,7 @@ func TestCompareEquivalentComplete(t *testing.T) {
 	if cmp.Disposition != analysis.Equivalent {
 		t.Errorf("Disposition = %v, want Equivalent", cmp.Disposition)
 	}
-	if cmp.Difference != (fabric.Difference{}) {
+	if cmp.Difference != (analysis.Difference{}) {
 		t.Errorf("Difference = %v, want empty", cmp.Difference)
 	}
 }
@@ -1666,7 +1667,7 @@ func TestCompareInconclusiveIncomplete(t *testing.T) {
 	if cmp.Disposition != analysis.Inconclusive {
 		t.Errorf("Disposition = %v, want Inconclusive", cmp.Disposition)
 	}
-	if cmp.Difference != (fabric.Difference{}) {
+	if cmp.Difference != (analysis.Difference{}) {
 		t.Errorf("Difference = %v, want empty", cmp.Difference)
 	}
 }

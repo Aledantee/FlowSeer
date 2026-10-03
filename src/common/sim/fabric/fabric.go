@@ -15,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
@@ -512,11 +513,11 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 	for name, h := range cloned.Hosts {
 		if h.IP != nil {
 			rtCfg, tbl := HostRoutingConfig(name, h)
-			layer, err := routing.New(rtCfg, tbl, name)
+			rt, err := routing.New(rtCfg, layer.Env{Ports: tbl, NodeID: name})
 			if err != nil {
 				return nil, errs.Wrapf(err, "host %q routing", name)
 			}
-			hostStacks[name] = layer
+			hostStacks[name] = rt
 		}
 	}
 
@@ -901,13 +902,13 @@ func (f *Fabric) Links() []Link {
 	return cp
 }
 
-// Unlinked returns one link end per non-LAG port of the named switch that has
+// unlinked returns one link end per non-LAG port of the named switch that has
 // no cable, in port name order: Down with reason no-cable for a port
 // [Config.Uncabled] lists, Unknown with reason adjacency-unresolved for any
 // other. A port without a cable has no Link, so this is where that reason is
 // carried. It returns nil for a node that is not a switch or a switch whose
 // ports are all cabled.
-func (f *Fabric) Unlinked(node string) []LinkEnd {
+func (f *Fabric) unlinked(node string) []LinkEnd {
 	swCfg, ok := f.cfg.Switches[node]
 	if !ok {
 		return nil
@@ -1032,7 +1033,7 @@ func (f *Fabric) mergeRaised(base analysis.Metadata, issues []analysis.Issue) an
 		return base
 	}
 
-	return mergeMetadata(base, analysis.NewMetadata(analysis.WholeScope(), issues, f.evidence, nil))
+	return base.Merge(analysis.NewMetadata(analysis.WholeScope(), issues, f.evidence, nil))
 }
 
 // markQueueBufferUnstated records the first threshold crossing per physical
@@ -1048,10 +1049,10 @@ func (f *Fabric) markQueueBufferUnstated(now time.Time, ep Endpoint, egressPort 
 		f.unstatedBacked = make(map[Endpoint]trace.EvidenceRef)
 	}
 	target := egressPort
-	subject := trace.Subject{Kind: "port", Key: fmt.Sprintf("%s/%d", egressPort, pcp)}
+	subject := trace.Subject{Kind: "port", Key: trace.CompositeKey(egressPort, strconv.Itoa(int(pcp)))}
 	if egressPort == "" {
 		target = ep.Node
-		subject = trace.Subject{Kind: "host", Key: fmt.Sprintf("%s/%d", ep.Node, pcp)}
+		subject = trace.Subject{Kind: "host", Key: trace.CompositeKey(ep.Node, strconv.Itoa(int(pcp)))}
 	}
 	fact := traffic.QueueThresholdFact(depthBefore, frameOctets, threshold)
 	context := "rule=" + strconv.Quote(string(traffic.RuleQueueBufferUnstated)) +
@@ -1071,7 +1072,7 @@ func (f *Fabric) markQueueBufferUnstated(now time.Time, ep Endpoint, egressPort 
 	f.record(journey, Entry{
 		At: now, Kind: EntryQueueThreshold, Device: ep.Node, Port: ep.Port, PCP: pcp,
 		Step: &trace.Step{
-			Layer: traffic.Layer, Op: trace.OpQueue, RuleID: traffic.RuleQueueBufferUnstated,
+			Layer: traffic.LayerName, Op: trace.OpQueue, RuleID: traffic.RuleQueueBufferUnstated,
 			Subject: subject,
 			Inputs:  []trace.Fact{fact}, Evidence: []trace.EvidenceRef{ref},
 		},
@@ -1386,11 +1387,11 @@ func endpointPhyAndAdmin(ep Endpoint, cfg Config) (phy.Ethernet, port.LinkState)
 	return eth, admin
 }
 
-// Mcheck forces protocol migration checking on a switch port at the current
+// mcheck forces protocol migration checking on a switch port at the current
 // fabric clock, then queues what the spanning tree layer emitted and its next
 // wake, as every other switch call inside the run does. It returns an error
 // when the node is not a switch.
-func (f *Fabric) Mcheck(node, portName string) error {
+func (f *Fabric) mcheck(node, portName string) error {
 	sw, ok := f.switches[node]
 	if !ok {
 		return errs.New().

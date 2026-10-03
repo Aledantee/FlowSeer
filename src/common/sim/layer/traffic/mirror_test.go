@@ -8,9 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
-	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestCopiesToPortSelectsIngressAndTruncates(t *testing.T) {
@@ -106,11 +104,11 @@ func TestCopiesSelectsSuccessfulEgressAndVLAN(t *testing.T) {
 		OutputPort:     "1/1/4",
 	}}}
 
-	forwarded := []bridge.Egress{{Port: "1/1/24"}}
+	forwarded := []traffic.Egress{{Port: "1/1/24"}}
 	if got := traffic.Copies(cfg, nil, "1/1/1", vlan.ID(20), received, forwarded); len(got) != 1 {
 		t.Errorf("Copies returned %d copies for selected egress, want 1", len(got))
 	}
-	dropped := []bridge.Egress{{Port: "1/1/24", Dropped: trace.Reason("filtered")}}
+	dropped := []traffic.Egress{{Port: "1/1/24", Dropped: true}}
 	if got := traffic.Copies(cfg, nil, "1/1/1", vlan.ID(20), received, dropped); len(got) != 0 {
 		t.Errorf("Copies returned %d copies for dropped egress, want 0", len(got))
 	}
@@ -135,13 +133,13 @@ func TestCopiesToVLANUsesEachSwitchportTagForm(t *testing.T) {
 		SelectSrcPorts: []string{"1/1/1"},
 		OutputVLAN:     &outputVLAN,
 	}}}
-	vlans := &bridge.VLAN{Switchports: map[string]bridge.Switchport{
+	switchports := map[string]traffic.Switchport{
 		"1/1/1":  {Untagged: []vlan.ID{99}},
 		"1/1/24": {Tagged: []vlan.ID{99}},
 		"1/1/4":  {Untagged: []vlan.ID{99}},
-	}}
+	}
 
-	copies := traffic.Copies(cfg, vlans, "1/1/1", vlan.ID(10), received, nil)
+	copies := traffic.Copies(cfg, switchports, "1/1/1", vlan.ID(10), received, nil)
 	if len(copies) != 2 {
 		t.Fatalf("Copies returned %d copies, want 2", len(copies))
 	}
@@ -167,7 +165,7 @@ func TestCopiesToVLANUsesEachSwitchportTagForm(t *testing.T) {
 
 	reserved := received
 	reserved.Dst = netaddr.MAC{0x01, 0x80, 0xc2, 0, 0, 0x0e}
-	if got := traffic.Copies(cfg, vlans, "1/1/1", vlan.ID(10), reserved, nil); len(got) != 0 {
+	if got := traffic.Copies(cfg, switchports, "1/1/1", vlan.ID(10), reserved, nil); len(got) != 0 {
 		t.Errorf("Copies returned %d VLAN copies for reserved destination, want 0", len(got))
 	}
 }
@@ -186,11 +184,11 @@ func TestCopiesToVLANUsesTunnelAndKeepsInnerTags(t *testing.T) {
 	cfg := traffic.Config{Mirrors: []traffic.Mirror{{
 		Name: "m2", SelectAll: true, OutputVLAN: &outputVLAN,
 	}}}
-	vlans := &bridge.VLAN{Switchports: map[string]bridge.Switchport{
-		"1/1/24": {Tunnel: &bridge.Tunnel{VID: 99}},
-	}}
+	switchports := map[string]traffic.Switchport{
+		"1/1/24": {Tunnel: &traffic.Tunnel{VID: 99}},
+	}
 
-	copies := traffic.Copies(cfg, vlans, "1/1/1", vlan.ID(10), received, nil)
+	copies := traffic.Copies(cfg, switchports, "1/1/1", vlan.ID(10), received, nil)
 	if len(copies) != 1 {
 		t.Fatalf("Copies returned %d copies, want 1", len(copies))
 	}

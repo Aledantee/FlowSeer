@@ -342,7 +342,7 @@ func TestLACPConsultsAggregatorAfterPhysicalAdmission(t *testing.T) {
 
 func exactAggregatorScope() analysis.Scope {
 	return analysis.FieldScope(
-		analysis.ProtocolScope("sw1", string(port.LayerLAG), "0"),
+		analysis.ProtocolScope("sw1", string(lag.LayerName), "0"),
 		"aggregators", "lag1",
 	)
 }

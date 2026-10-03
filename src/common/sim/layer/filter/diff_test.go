@@ -6,7 +6,9 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/tcp"
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestDiffReportsRuleAndBindingChanges(t *testing.T) {
@@ -111,15 +113,15 @@ func TestDiffReportsRuleAndBindingChanges(t *testing.T) {
 	for _, c := range changes {
 		if c.Subject.Kind == "rule" {
 			switch c.Subject.Key {
-			case "set1/rule-to-remove":
+			case trace.CompositeKey("set1", "rule-to-remove"):
 				if c.From != nil && c.To == nil {
 					foundRemovedRule = true
 				}
-			case "set1/rule-to-change":
+			case trace.CompositeKey("set1", "rule-to-change"):
 				if c.From != nil && c.To != nil {
 					foundChangedRule = true
 				}
-			case "set1/rule-to-add":
+			case trace.CompositeKey("set1", "rule-to-add"):
 				if c.From == nil && c.To != nil {
 					foundAddedRule = true
 				}
@@ -127,11 +129,11 @@ func TestDiffReportsRuleAndBindingChanges(t *testing.T) {
 		}
 		if c.Subject.Kind == "binding" {
 			switch c.Subject.Key {
-			case "vlan20/out":
+			case trace.CompositeKey("vlan20", "out"):
 				if c.From != nil && c.To != nil && c.Field == "set" {
 					foundChangedBinding = true
 				}
-			case "vlan30/in":
+			case trace.CompositeKey("vlan30", "in"):
 				if c.From == nil && c.To != nil {
 					foundAddedBinding = true
 				}
@@ -187,5 +189,51 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		},
 	}
 
-	simtest.AssertDiffCoversConfig(t, seed, filter.Config.Normalize, filter.Diff, nil)
+	normalize := func(c filter.Config) filter.Config { return c.Normalize(layer.Env{}) }
+	simtest.AssertDiffCoversConfig(t, seed, normalize, filter.Diff, nil)
+}
+
+// TestRetentionKeyCoversEveryConfigField verifies that every exported filter.Config field
+// affects filter.RetentionKey.
+func TestRetentionKeyCoversEveryConfigField(t *testing.T) {
+	protoTCP := uint8(6)
+	icmpCode := uint8(0)
+
+	seed := filter.Config{
+		Sets: map[string]filter.RuleSet{
+			"set1": {
+				Stateful: true,
+				Default:  filter.Drop,
+				Rules: []filter.Rule{
+					{
+						Name:   "rule1",
+						Action: filter.Accept,
+						Match: filter.Match{
+							Protocol: &protoTCP,
+							Src:      []netip.Prefix{netip.MustParsePrefix("10.0.1.0/24")},
+							Dst:      []netip.Prefix{netip.MustParsePrefix("10.0.2.0/24")},
+							SrcPorts: []filter.PortRange{{Start: 1000, End: 2000}},
+							DstPorts: []filter.PortRange{{Start: 80, End: 80}},
+							ICMP:     &filter.ICMPMatch{Type: 8, Code: &icmpCode},
+							TCPFlags: &filter.FlagMatch{Mask: tcp.SYN | tcp.ACK, Value: tcp.SYN},
+						},
+					},
+				},
+			},
+		},
+		Bindings: []filter.Binding{
+			{Interface: "vlan10", Direction: filter.In, Set: "set1"},
+		},
+	}
+
+	keyFn := func(c filter.Config) string {
+		return filter.RetentionKey(c, layer.Env{NodeID: "node-1"})
+	}
+	simtest.AssertRetentionKeyCoversConfig(t, seed, keyFn, nil)
+
+	key1 := filter.RetentionKey(seed, layer.Env{NodeID: "node-1"})
+	key2 := filter.RetentionKey(seed, layer.Env{NodeID: "node-2"})
+	if key1 == key2 {
+		t.Errorf("RetentionKey produced same key for different node IDs: %q", key1)
+	}
 }

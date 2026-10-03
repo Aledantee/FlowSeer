@@ -9,13 +9,14 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 const (
-	// Layer identifies traffic configuration changes.
-	Layer trace.Layer = "traffic"
+	// LayerName identifies traffic configuration changes.
+	LayerName trace.Layer = "traffic"
 
 	// RulePolicerRefuse identifies a token-bucket decision that drops an ingress frame.
 	RulePolicerRefuse trace.RuleID = "traffic.policer.refuse"
@@ -23,6 +24,13 @@ const (
 	RuleMirrorCopy trace.RuleID = "traffic.mirror.copy"
 	// RuleMirrorCopyDrop identifies a mirror copy suppressed because its output cannot forward.
 	RuleMirrorCopyDrop trace.RuleID = "traffic.mirror.copy_drop"
+	// RuleMirrorOutputDrop identifies a frame dropped on a mirror output destination.
+	RuleMirrorOutputDrop trace.RuleID = "traffic.mirror.output_drop"
+	// RuleMirrorEgressDrop identifies a mirror frame suppressed by egress checks.
+	RuleMirrorEgressDrop trace.RuleID = "traffic.mirror.egress_drop"
+
+	// FactTypeMirrorDecision identifies a mirror decision fact in trace outputs.
+	FactTypeMirrorDecision = "traffic.mirror_decision"
 
 	// ReasonPoliced identifies a frame refused by an ingress policer.
 	ReasonPoliced trace.Reason = "policed"
@@ -105,7 +113,7 @@ func (c Config) Clone() Config {
 }
 
 // Normalize returns a normalized copy of the configuration with mirror selectors sorted deterministically.
-func (c Config) Normalize() Config {
+func (c Config) Normalize(_ layer.Env) Config {
 	cp := c.Clone()
 	for i := range cp.Mirrors {
 		if len(cp.Mirrors[i].SelectSrcPorts) > 0 {
@@ -134,9 +142,10 @@ func (c Config) Normalize() Config {
 }
 
 // Validate checks mirror names and destinations, logical selector ports and
-// VLANs, policer bursts, and queue rates and buffers against the supplied port
-// table.
-func (c Config) Validate(ports port.Table) error {
+// VLANs, policer bursts, and queue rates and buffers against the supplied
+// environment.
+func (c Config) Validate(env layer.Env) error {
+	ports := env.Ports
 	mirrorNames := make(map[string]struct{}, len(c.Mirrors))
 	outputPorts := make(map[string]struct{}, len(c.Mirrors))
 	for mirrorIndex, mirror := range c.Mirrors {
@@ -351,8 +360,8 @@ func (c Config) QueueBuffer(name string, pcp vlan.PCP) (uint64, bool) {
 	return buffer, ok
 }
 
-// OutputPorts returns the sorted set of ports reserved for mirror output.
-func (c Config) OutputPorts() []string {
+// outputPorts returns the sorted set of ports reserved for mirror output.
+func (c Config) outputPorts() []string {
 	ports := make(map[string]struct{}, len(c.Mirrors))
 	for _, mirror := range c.Mirrors {
 		if mirror.OutputPort != "" {

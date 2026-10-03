@@ -217,7 +217,7 @@ func acceptReflector(name string, refl Reflector, arrivalPort string, frame ethe
 		return decide(EntryRejection, ruleReflectorVLANForm, ReasonReflectorTagFormNotAccepted)
 	}
 
-	inputs = append(inputs, MACFact(frame.Dst))
+	inputs = append(inputs, macFact(frame.Dst))
 	if frame.Dst != mdnsIPv4MAC && frame.Dst != mdnsIPv6MAC {
 		return decide(EntryRejection, ruleReflectorMACGroup, ReasonReflectorMACNotGroup)
 	}
@@ -313,7 +313,7 @@ func (f *Fabric) accept(name string, frame ethernet.Frame) (EntryKind, trace.Ste
 		return decide(EntryRejection, ruleHostVLANForm, ReasonHostVLANNotAccepted)
 	}
 
-	inputs = append(inputs, MACFact(frame.Dst))
+	inputs = append(inputs, macFact(frame.Dst))
 	if host.Accept.Promiscuous {
 		return decide(EntryDelivery, ruleHostMACPromiscuous, "")
 	}

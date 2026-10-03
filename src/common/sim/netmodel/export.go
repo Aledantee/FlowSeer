@@ -15,9 +15,11 @@ import (
 	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
@@ -291,15 +293,15 @@ func Stp(now time.Time, sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortSt
 
 		var role stpv1.PortRole
 		switch info.Role {
-		case stp.RoleRoot:
+		case bpdu.RoleRoot:
 			role = stpv1.PortRole_PORT_ROLE_ROOT
-		case stp.RoleDesignated:
+		case bpdu.RoleDesignated:
 			role = stpv1.PortRole_PORT_ROLE_DESIGNATED
-		case stp.RoleAlternate:
+		case bpdu.RoleAlternate:
 			role = stpv1.PortRole_PORT_ROLE_ALTERNATE
-		case stp.RoleBackup:
+		case bpdu.RoleBackup:
 			role = stpv1.PortRole_PORT_ROLE_BACKUP
-		case stp.RoleDisabled:
+		case bpdu.RoleDisabled:
 			role = stpv1.PortRole_PORT_ROLE_DISABLED
 		default:
 			role = stpv1.PortRole_PORT_ROLE_UNSPECIFIED
@@ -362,10 +364,10 @@ func Stp(now time.Time, sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortSt
 			BadBpdus:            &badBpdus,
 		}
 
-		if info.DesignatedRoot != (stp.BridgeID{}) {
+		if info.DesignatedRoot != (bpdu.BridgeID{}) {
 			pb.DesignatedRoot = bridgeIDMessage(info.DesignatedRoot)
 		}
-		if info.Designated != (stp.BridgeID{}) {
+		if info.Designated != (bpdu.BridgeID{}) {
 			pb.DesignatedBridge = bridgeIDMessage(info.Designated)
 		}
 
@@ -381,7 +383,7 @@ func Stp(now time.Time, sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortSt
 }
 
 // bridgeIDMessage builds a fresh message per call, so no two rows share one.
-func bridgeIDMessage(id stp.BridgeID) *stpv1.BridgeId {
+func bridgeIDMessage(id bpdu.BridgeID) *stpv1.BridgeId {
 	prio := uint32(id.Priority)
 
 	return stpv1.BridgeId_builder{
@@ -415,7 +417,7 @@ func Lacp(sw *vswitch.Switch) ([]*lacpv1.AggregatorState, []*lacpv1.PortState) {
 	if cfg.LAG != nil {
 		lagCfg = *cfg.LAG
 	}
-	effective := lagCfg.Defaults(ports, cfg.MAC)
+	effective := lagCfg.Normalize(layer.Env{Ports: ports, MAC: cfg.MAC})
 
 	aggregators := make([]*lacpv1.AggregatorState, 0, len(lagPortNames))
 	var portStates []*lacpv1.PortState

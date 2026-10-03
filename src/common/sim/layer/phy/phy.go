@@ -4,7 +4,16 @@ package phy
 
 import (
 	"slices"
+
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+// LayerName identifies the physical Ethernet speeds and auto-negotiation layer.
+const LayerName trace.Layer = "ethernet"
+
+// LayerNamePoE identifies the Power over Ethernet layer.
+const LayerNamePoE trace.Layer = "poe"
 
 // Config is the physical-layer configuration of a virtual switch, keyed by
 // port name. A nil Ethernet map is the Ethernet capability absent; a nil PoE
@@ -34,7 +43,7 @@ func (c Config) Clone() Config {
 // In the Ethernet configuration, supported speeds are sorted and deduplicated, and fixed settings
 // default Duplex to [Unknown] when unspecified. In the PoE configuration, unspecified port priority
 // defaults to [PriorityLow].
-func (c Config) Normalize() Config {
+func (c Config) Normalize(_ layer.Env) Config {
 	cp := Config{}
 	if c.Ethernet != nil {
 		cp.Ethernet = make(map[string]Ethernet, len(c.Ethernet))

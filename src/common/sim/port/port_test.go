@@ -7,7 +7,6 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
-	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestTableBuiltWithCanonicalNameOrder(t *testing.T) {
@@ -244,8 +243,8 @@ func TestDiff(t *testing.T) {
 		}
 
 		c0 := diffs[0]
-		if c0.Layer != port.LayerPort {
-			t.Errorf("c0.Layer = %q, want %q", c0.Layer, port.LayerPort)
+		if c0.Layer != port.LayerName {
+			t.Errorf("c0.Layer = %q, want %q", c0.Layer, port.LayerName)
 		}
 		if c0.Subject.Kind != "port" || c0.Subject.Key != "1/1/1" {
 			t.Errorf("c0.Subject = %+v, want port:1/1/1", c0.Subject)
@@ -261,8 +260,8 @@ func TestDiff(t *testing.T) {
 		}
 
 		c1 := diffs[1]
-		if c1.Layer != port.LayerPort {
-			t.Errorf("c1.Layer = %q, want %q", c1.Layer, port.LayerPort)
+		if c1.Layer != port.LayerName {
+			t.Errorf("c1.Layer = %q, want %q", c1.Layer, port.LayerName)
 		}
 		if c1.Subject.Kind != "port" || c1.Subject.Key != "1/1/2" {
 			t.Errorf("c1.Subject = %+v, want port:1/1/2", c1.Subject)
@@ -302,10 +301,10 @@ func TestDiff(t *testing.T) {
 			t.Fatalf("len(diffs) = %d, want %d", got, want)
 		}
 
-		if diffs[0].Field != "mtu" || diffs[0].From != port.MTUFact(1500) || diffs[0].To != port.MTUFact(9000) {
+		if diffs[0].Field != "mtu" || diffs[0].From.Canonical() != "1500" || diffs[0].To.Canonical() != "9000" {
 			t.Errorf("diffs[0] = %+v, want mtu change 1500 -> 9000", diffs[0])
 		}
-		if diffs[1].Field != "lag_parent" || diffs[1].From != port.LagParentFact("lag1") || diffs[1].To != port.LagParentFact("") {
+		if diffs[1].Field != "lag_parent" || diffs[1].From.Canonical() != "lag1" || diffs[1].To.Canonical() != "" {
 			t.Errorf("diffs[1] = %+v, want lag_parent change lag1 -> \"\"", diffs[1])
 		}
 		if diffs[2].Field != "" || diffs[2].Subject.Key != "1/1/2" || diffs[2].To != nil {
@@ -448,26 +447,6 @@ func TestMembersOfANameThatIsNotALag(t *testing.T) {
 	}
 	if got := tbl.Members("lag1"); len(got) != 1 || got[0].Name != "1/1/2" {
 		t.Errorf("Members(lag1) = %v, want [1/1/2]", got)
-	}
-}
-
-func TestLayerConstants(t *testing.T) {
-	layers := []struct {
-		constant trace.Layer
-		expected string
-	}{
-		{port.LayerPort, "port"},
-		{port.LayerLAG, "lag"},
-		{port.LayerEthernet, "ethernet"},
-		{port.LayerPoE, "poe"},
-		{port.LayerRelay, "relay"},
-		{port.LayerVLAN, "vlan"},
-	}
-
-	for _, l := range layers {
-		if string(l.constant) != l.expected {
-			t.Errorf("layer constant %q != expected %q", l.constant, l.expected)
-		}
 	}
 }
 
@@ -742,62 +721,44 @@ func TestTableTransmit(t *testing.T) {
 	}
 
 	t.Run("up port", func(t *testing.T) {
-		member, reason := tbl.Transmit("1/1/1", 1000)
+		reason := tbl.Transmit("1/1/1", 1000)
 		if reason != "" {
 			t.Errorf("Transmit(\"1/1/1\", 1000) reason = %q, want empty", reason)
-		}
-		if member != "" {
-			t.Errorf("Transmit(\"1/1/1\", 1000) member = %q, want empty", member)
 		}
 	})
 
 	t.Run("down port", func(t *testing.T) {
-		member, reason := tbl.Transmit("1/1/2", 1000)
+		reason := tbl.Transmit("1/1/2", 1000)
 		if reason != port.ReasonPortDown {
 			t.Errorf("Transmit(\"1/1/2\", 1000) reason = %q, want %q", reason, port.ReasonPortDown)
 		}
-		if member != "" {
-			t.Errorf("Transmit(\"1/1/2\", 1000) member = %q, want empty", member)
-		}
 	})
 
-	t.Run("lag forwarding returns empty member", func(t *testing.T) {
-		member, reason := tbl.Transmit("lag1", 1000)
+	t.Run("lag forwarding returns empty reason", func(t *testing.T) {
+		reason := tbl.Transmit("lag1", 1000)
 		if reason != "" {
 			t.Errorf("Transmit(\"lag1\", 1000) reason = %q, want empty", reason)
-		}
-		if member != "" {
-			t.Errorf("Transmit(\"lag1\", 1000) member = %q, want empty", member)
 		}
 	})
 
 	t.Run("lag with none forwarding", func(t *testing.T) {
-		member, reason := tbl.Transmit("lag-down-mems", 1000)
+		reason := tbl.Transmit("lag-down-mems", 1000)
 		if reason != port.ReasonPortDown {
 			t.Errorf("Transmit(\"lag-down-mems\", 1000) reason = %q, want %q", reason, port.ReasonPortDown)
-		}
-		if member != "" {
-			t.Errorf("Transmit(\"lag-down-mems\", 1000) member = %q, want empty", member)
 		}
 	})
 
 	t.Run("mtu of 0 admitting any size", func(t *testing.T) {
-		member, reason := tbl.Transmit("1/1/3", 9000)
+		reason := tbl.Transmit("1/1/3", 9000)
 		if reason != "" {
 			t.Errorf("Transmit(\"1/1/3\", 9000) reason = %q, want empty", reason)
-		}
-		if member != "" {
-			t.Errorf("Transmit(\"1/1/3\", 9000) member = %q, want empty", member)
 		}
 	})
 
 	t.Run("mtu one byte short", func(t *testing.T) {
-		member, reason := tbl.Transmit("1/1/1", 1501)
+		reason := tbl.Transmit("1/1/1", 1501)
 		if reason != port.ReasonMTUExceeded {
 			t.Errorf("Transmit(\"1/1/1\", 1501) reason = %q, want %q", reason, port.ReasonMTUExceeded)
-		}
-		if member != "" {
-			t.Errorf("Transmit(\"1/1/1\", 1501) member = %q, want empty", member)
 		}
 	})
 }

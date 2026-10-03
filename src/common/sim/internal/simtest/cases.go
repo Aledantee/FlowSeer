@@ -29,8 +29,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// CasePlanningPortVLANChange returns the baseline planning case evaluating a prospective port VLAN change.
-func CasePlanningPortVLANChange() Case {
+// casePlanningPortVLANChange returns the baseline planning case evaluating a prospective port VLAN change.
+func casePlanningPortVLANChange() Case {
 	vid10 := vlan.ID(10)
 	vid20 := vlan.ID(20)
 	frame := expectedFact("bridge.frame", `src="00:11:22:33:44:01";dst="00:11:22:33:44:02";ether_type=2048;tags=[];payload_len=13`)
@@ -201,10 +201,10 @@ var (
 	candForkH2 = netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x07, 0x02}
 )
 
-// CasePlanningCandidateForkDiverges returns the planning case evaluating that
+// casePlanningCandidateForkDiverges returns the planning case evaluating that
 // a candidate fork diverging mid-run leaves the original simulation's forwarding
 // state and outcome untouched.
-func CasePlanningCandidateForkDiverges() Case {
+func casePlanningCandidateForkDiverges() Case {
 	gigabit := gigabitAuto()
 
 	frame := expectedFact("bridge.frame", `src="02:00:00:00:07:01";dst="02:00:00:00:07:02";ether_type=2048;tags=[];payload_len=9`)
@@ -334,8 +334,8 @@ func CasePlanningCandidateForkDiverges() Case {
 	}
 }
 
-// CaseShadowingPartialUnknownPort returns the baseline topology shadowing case evaluating a partial model with an unknown port.
-func CaseShadowingPartialUnknownPort() Case {
+// caseShadowingPartialUnknownPort returns the baseline topology shadowing case evaluating a partial model with an unknown port.
+func caseShadowingPartialUnknownPort() Case {
 	var cat analysis.EvidenceCatalog
 	var refOperUnknown, refAgingDefault trace.EvidenceRef
 	operUnknownEvidence := analysis.Evidence{
@@ -511,8 +511,8 @@ func CaseShadowingPartialUnknownPort() Case {
 	}
 }
 
-// CaseTroubleshootingUnicastForwarding returns the baseline troubleshooting case evaluating decisive forwarding rules and trace progression.
-func CaseTroubleshootingUnicastForwarding() Case {
+// caseTroubleshootingUnicastForwarding returns the baseline troubleshooting case evaluating decisive forwarding rules and trace progression.
+func caseTroubleshootingUnicastForwarding() Case {
 	vid10 := vlan.ID(10)
 	frame := expectedFact("bridge.frame", `src="00:11:22:33:44:01";dst="00:11:22:33:44:02";ether_type=2048;tags=[];payload_len=17`)
 	taggedFrame := expectedFact("bridge.frame", `src="00:11:22:33:44:01";dst="00:11:22:33:44:02";ether_type=2048;tags=[{tpid=33024;pcp=0;dei=false;vid=10}];payload_len=17`)
@@ -705,10 +705,10 @@ var (
 // whose medium is unresolved. The link still carries the frame, since both ends agree on the
 // same observed speed, but its timing rests on an unidentified transceiver, so the journey is
 // Incomplete with propagation-unknown scoped to that link. Registered alongside
-// [CaseTopologyShadowingUnresolvedTransceiverKnownDelivery], whose journey over the sibling
+// [caseTopologyShadowingUnresolvedTransceiverKnownDelivery], whose journey over the sibling
 // resolved host stays Complete: one [Case] asserts one journey, so the two beside-each-other
 // deliveries the acceptance example describes are two cases sharing this fixture.
-func CaseTopologyShadowingUnresolvedTransceiver() Case {
+func caseTopologyShadowingUnresolvedTransceiver() Case {
 	linkScope := analysis.LinkScope("h2:-sw1:1/1/2")
 	cat, ref := analysis.EvidenceCatalog{}.Add(unresolvedTransceiverEvidence)
 	issue := IssueExpectation{
@@ -799,8 +799,8 @@ func CaseTopologyShadowingUnresolvedTransceiver() Case {
 // CaseTopologyShadowingUnresolvedTransceiverKnownDelivery returns the companion case sharing
 // [unresolvedTransceiverSpec]: h1's known-unicast delivery to h3 crosses only resolved,
 // stated-medium links, so it stays Complete beside the Incomplete h2 delivery in
-// [CaseTopologyShadowingUnresolvedTransceiver].
-func CaseTopologyShadowingUnresolvedTransceiverKnownDelivery() Case {
+// [caseTopologyShadowingUnresolvedTransceiver].
+func caseTopologyShadowingUnresolvedTransceiverKnownDelivery() Case {
 	frame := expectedFact("bridge.frame", `src="02:00:00:00:01:01";dst="02:00:00:00:01:03";ether_type=2048;tags=[];payload_len=0`)
 	fdbHit := expectedFact("bridge.fdb_decision", `fid=0;mac="02:00:00:00:01:03";present=true;port="1/1/3";static=true`)
 	macFact := expectedFact("fabric.mac", "02:00:00:00:01:03")
@@ -935,7 +935,7 @@ var (
 // [Fabric.Metadata] carries adjacency-unresolved on them; the journey to port 3 never depends
 // on that state, so it stays unaffected, which [ExecutionResult.FabricMetadata] exposes for
 // direct inspection beside the admitted journey.
-func CaseTopologyShadowingUncabledPortDefiniteDrop() Case {
+func caseTopologyShadowingUncabledPortDefiniteDrop() Case {
 	gigabit := gigabitAuto()
 	uncabledEvidence := analysis.Evidence{Kind: "survey", Origin: "rack-walk", Context: "sw1 port 3 has no cable"}
 	cat, uncabledRef := analysis.EvidenceCatalog{}.Add(uncabledEvidence)
@@ -1042,13 +1042,13 @@ var (
 	unreportedNegotiationH2 = netaddr.MAC{0x02, 0, 0, 0, 1, 0x02}
 )
 
-// CaseTopologyShadowingUnreportedNegotiation returns the case for a host that states no
+// caseTopologyShadowingUnreportedNegotiation returns the case for a host that states no
 // Ethernet facts at all: h2's link is Unknown with capability-unknown instead of the false
 // answer of an assumed 1 Gb/s full-duplex default. A static forwarding entry makes the frame to
 // h2 known unicast; the hop still cannot transmit through the Unknown port and drops with
 // port-down, carrying both the switch's own unknown-operational-status issue and the fabric
 // link's capability-unknown issue.
-func CaseTopologyShadowingUnreportedNegotiation() Case {
+func caseTopologyShadowingUnreportedNegotiation() Case {
 	gigabit := gigabitAuto()
 	linkEvidence := analysis.Evidence{Kind: "survey", Origin: "rack-walk", Context: "h2 reports no negotiation facts"}
 	specCat, linkRef := analysis.EvidenceCatalog{}.Add(linkEvidence)
@@ -1197,13 +1197,13 @@ func unknownUplinkRuntimeEvidence(node, portName string) analysis.Evidence {
 	}
 }
 
-// CaseTopologyShadowingUnknownUplinkSTP returns the case for an Unknown link that spanning tree
+// caseTopologyShadowingUnknownUplinkSTP returns the case for an Unknown link that spanning tree
 // depends on: sw2's port 1/1/2 reports no Ethernet facts, so the redundant sw1-sw2 uplink over
 // it is Unknown. Spanning tree can no longer trust any port's role on either switch, so
 // [vswitch.IssueProtocolLinkUnknown] marks every STP port; a known-unicast journey forwarded
 // over the other uplink still consults two of those ports per switch and carries their issues,
 // Incomplete, even though it never crosses the Unknown link itself.
-func CaseTopologyShadowingUnknownUplinkSTP() Case {
+func caseTopologyShadowingUnknownUplinkSTP() Case {
 	gigabit := gigabitAuto()
 
 	var cat analysis.EvidenceCatalog
@@ -1366,10 +1366,10 @@ var (
 // resolved and Complete, so it isolates the host-layer decision from topology uncertainty: h2's
 // switch forwards a known-unicast frame addressed to a foreign MAC onto h2's port, and h2
 // refuses it because the destination is neither its own address nor broadcast.
-// [CaseTopologyShadowingUnreportedNegotiation] and its siblings cover rejection through an
+// [caseTopologyShadowingUnreportedNegotiation] and its siblings cover rejection through an
 // uncertain network path; this one shows the same host check deciding a rejection, not a
 // delivery, when the network path itself is not in question.
-func CaseTroubleshootingHostRejectsForeignUnicast() Case {
+func caseTroubleshootingHostRejectsForeignUnicast() Case {
 	gigabit := gigabitAuto()
 
 	frame := expectedFact("bridge.frame", `src="02:00:00:00:01:01";dst="02:00:00:00:01:09";ether_type=2048;tags=[];payload_len=5`)
@@ -1472,11 +1472,11 @@ func CaseTroubleshootingHostRejectsForeignUnicast() Case {
 	}
 }
 
-// CasePlanningLAGMemberFaultKeepsSurvivingFlows returns the case evaluating
+// casePlanningLAGMemberFaultKeepsSurvivingFlows returns the case evaluating
 // OVS-style bucket persistence: a member fault reassigns only the buckets
 // that were assigned to the faulted member, and every other bucket keeps its
 // member.
-func CasePlanningLAGMemberFaultKeepsSurvivingFlows() Case {
+func casePlanningLAGMemberFaultKeepsSurvivingFlows() Case {
 	frame := expectedFact("bridge.frame", `src="02:00:00:00:00:52";dst="02:00:00:00:00:d2";ether_type=2048;tags=[];payload_len=5`)
 	fdbLearned := expectedFact("bridge.fdb_decision", `fid=0;mac="02:00:00:00:00:52";present=true;port="in";static=false`)
 	fdbHit := expectedFact("bridge.fdb_decision", `fid=0;mac="02:00:00:00:00:d2";present=true;port="lag1";static=true`)
@@ -1591,10 +1591,10 @@ func CasePlanningLAGMemberFaultKeepsSurvivingFlows() Case {
 	}
 }
 
-// CaseTroubleshootingActiveBackupNoFailback returns the case evaluating that
+// caseTroubleshootingActiveBackupNoFailback returns the case evaluating that
 // active-backup keeps carrying traffic on the member it last chose once a
 // higher-named member recovers, rather than returning to it.
-func CaseTroubleshootingActiveBackupNoFailback() Case {
+func caseTroubleshootingActiveBackupNoFailback() Case {
 	frame := expectedFact("bridge.frame", `src="02:00:00:00:00:01";dst="02:00:00:00:00:d1";ether_type=2048;tags=[];payload_len=1`)
 	fdbLearned := expectedFact("bridge.fdb_decision", `fid=0;mac="02:00:00:00:00:01";present=true;port="in";static=false`)
 	fdbHit := expectedFact("bridge.fdb_decision", `fid=0;mac="02:00:00:00:00:d1";present=true;port="lag1";static=true`)
@@ -1698,14 +1698,14 @@ func CaseTroubleshootingActiveBackupNoFailback() Case {
 	}
 }
 
-// CaseTroubleshootingSSMRejectsUnjoinedSource returns the case evaluating
+// caseTroubleshootingSSMRejectsUnjoinedSource returns the case evaluating
 // that per-source multicast admission rejects a source no port has joined,
 // rather than admitting every source to a group any port has joined.
-func CaseTroubleshootingSSMRejectsUnjoinedSource() Case {
+func caseTroubleshootingSSMRejectsUnjoinedSource() Case {
 	frame := expectedFact("bridge.frame", `src="00:11:22:33:44:fe";dst="01:00:5e:01:01:01";ether_type=2048;tags=[];payload_len=24`)
 	fdbLearned := expectedFact("bridge.fdb_decision", `fid=10;mac="00:11:22:33:44:fe";present=true;port="p9";static=false`)
 	groupDestination := expectedFact("bridge.egress_decision", `port="";member="";fid=10;eligible=true;reason="group-destination"`)
-	membership := expectedFact("vswitch.mcast_membership", `fid=10;group="232.1.1.1";source="10.0.0.2";registered=true;decided=true;ports=[]`)
+	membership := expectedFact("mcast.membership_decision", `fid=10;group="232.1.1.1";source="10.0.0.2";registered=true;decided=true;ports=[]`)
 	dropDecision := expectedFact("bridge.egress_decision", `port="";member="";fid=10;eligible=false;reason="unregistered"`)
 
 	expectedSteps := []StepExpectation{
@@ -1837,15 +1837,15 @@ func CaseTroubleshootingSSMRejectsUnjoinedSource() Case {
 	}
 }
 
-// CaseTroubleshootingLeaveLastMemberQuery returns the case evaluating that a
+// caseTroubleshootingLeaveLastMemberQuery returns the case evaluating that a
 // non-fast leave with an observed group-specific query stops forwarding
 // after the last member query time, rather than after the full membership
 // interval.
-func CaseTroubleshootingLeaveLastMemberQuery() Case {
+func caseTroubleshootingLeaveLastMemberQuery() Case {
 	frame := expectedFact("bridge.frame", `src="00:11:22:33:44:fe";dst="01:00:5e:06:06:06";ether_type=2048;tags=[];payload_len=24`)
 	fdbLearned := expectedFact("bridge.fdb_decision", `fid=10;mac="00:11:22:33:44:fe";present=true;port="p9";static=false`)
 	groupDestination := expectedFact("bridge.egress_decision", `port="";member="";fid=10;eligible=true;reason="group-destination"`)
-	membership := expectedFact("vswitch.mcast_membership", `fid=10;group="239.6.6.6";source="10.9.9.9";registered=true;decided=true;ports=["p9"]`)
+	membership := expectedFact("mcast.membership_decision", `fid=10;group="239.6.6.6";source="10.9.9.9";registered=true;decided=true;ports=["p9"]`)
 	dropDecision := expectedFact("bridge.egress_decision", `port="";member="";fid=10;eligible=false;reason="no-egress"`)
 
 	expectedSteps := []StepExpectation{
@@ -2034,9 +2034,9 @@ func routedECMPPorts() (port.Table, error) {
 		Build()
 }
 
-// CasePlanningECMPCandidatesRecorded returns the case evaluating whether a lookup
+// casePlanningECMPCandidatesRecorded returns the case evaluating whether a lookup
 // over two equal-cost static routes records the path the packet did not take.
-func CasePlanningECMPCandidatesRecorded() Case {
+func casePlanningECMPCandidatesRecorded() Case {
 	routerMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0x01}
 	hostMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0x51}
 	nextHopMACA := netaddr.MAC{0x02, 0, 0, 0, 0, 0xa1}
@@ -2084,15 +2084,15 @@ func CasePlanningECMPCandidatesRecorded() Case {
 		},
 		ExpectedFacts: []FactExpectation{lookup},
 		ExpectedSteps: []StepExpectation{
-			expectedStep(port.LayerRouting, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "in"},
+			expectedStep(routing.LayerName, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "in"},
 				[]FactExpectation{packetIn},
 				[]FactExpectation{expectedFact("routing.route.interface", "in")}),
-			expectedStep(port.LayerRouting, trace.OpLookup, "static", trace.Subject{Kind: "prefix", Key: "10.0.99.0/24"},
+			expectedStep(routing.LayerName, trace.OpLookup, "static", trace.Subject{Kind: "prefix", Key: "10.0.99.0/24"},
 				[]FactExpectation{packetIn}, []FactExpectation{lookup}),
-			expectedStep(port.LayerRouting, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "out-a"},
+			expectedStep(routing.LayerName, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "out-a"},
 				[]FactExpectation{neighbor, packetIn}, []FactExpectation{packetOut}),
-			expectedStep(port.LayerRouting, trace.OpTransmit, "routing.transmit", trace.Subject{Kind: "port", Key: "out-a"},
-				nil, []FactExpectation{expectedFact("routing.lookup_decision", `interface="out-a";port="out-a";member="";reason=""`)}),
+			expectedStep(routing.LayerName, trace.OpTransmit, "routing.transmit", trace.Subject{Kind: "port", Key: "out-a"},
+				nil, []FactExpectation{expectedFact("routing.egress_decision", `interface="out-a";port="out-a";member="";reason=""`)}),
 		},
 		ExpectedForwardMetadata: &MetadataExpectation{
 			Status: analysis.Complete,
@@ -2157,10 +2157,10 @@ func CasePlanningECMPCandidatesRecorded() Case {
 	}
 }
 
-// CaseTroubleshootingNeighborResolutionPending returns the case evaluating what a
+// caseTroubleshootingNeighborResolutionPending returns the case evaluating what a
 // routed forward does when its next hop has no configured or observed neighbor entry:
 // whether it is indistinguishable from a definite drop, or a hold netsim can still release.
-func CaseTroubleshootingNeighborResolutionPending() Case {
+func caseTroubleshootingNeighborResolutionPending() Case {
 	routerMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0x01}
 	hostMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0x51}
 	learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0xa1}
@@ -2200,12 +2200,12 @@ func CaseTroubleshootingNeighborResolutionPending() Case {
 	}.Canonical()
 
 	expectedSteps := []StepExpectation{
-		expectedStep(port.LayerRouting, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "in"},
+		expectedStep(routing.LayerName, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "in"},
 			[]FactExpectation{packetIn},
 			[]FactExpectation{expectedFact("routing.route.interface", "in")}),
-		expectedStep(port.LayerRouting, trace.OpLookup, "connected", trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"},
+		expectedStep(routing.LayerName, trace.OpLookup, "connected", trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"},
 			[]FactExpectation{packetIn}, []FactExpectation{lookup}),
-		expectedStep(port.LayerRouting, trace.OpLookup, trace.RuleID(routing.ReasonNeighborPending), trace.Subject{Kind: "ip", Key: "10.0.20.77"},
+		expectedStep(routing.LayerName, trace.OpLookup, trace.RuleID(routing.ReasonNeighborPending), trace.Subject{Kind: "ip", Key: "10.0.20.77"},
 			[]FactExpectation{lookup}, []FactExpectation{neighborPending}),
 	}
 
@@ -2326,9 +2326,9 @@ func CaseTroubleshootingNeighborResolutionPending() Case {
 	}
 }
 
-// CaseTroubleshootingRecursiveRouteNotInstalled returns the case evaluating what a
+// caseTroubleshootingRecursiveRouteNotInstalled returns the case evaluating what a
 // static route whose next hop resolves to nothing does to the packets it would match.
-func CaseTroubleshootingRecursiveRouteNotInstalled() Case {
+func caseTroubleshootingRecursiveRouteNotInstalled() Case {
 	routerMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0x01}
 	hostMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0x51}
 	nextHopMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0xa1}
@@ -2376,15 +2376,15 @@ func CaseTroubleshootingRecursiveRouteNotInstalled() Case {
 		},
 		ExpectedFacts: []FactExpectation{lookup},
 		ExpectedSteps: []StepExpectation{
-			expectedStep(port.LayerRouting, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "in"},
+			expectedStep(routing.LayerName, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "in"},
 				[]FactExpectation{packetIn},
 				[]FactExpectation{expectedFact("routing.route.interface", "in")}),
-			expectedStep(port.LayerRouting, trace.OpLookup, "static", trace.Subject{Kind: "prefix", Key: "10.0.0.0/8"},
+			expectedStep(routing.LayerName, trace.OpLookup, "static", trace.Subject{Kind: "prefix", Key: "10.0.0.0/8"},
 				[]FactExpectation{packetIn}, []FactExpectation{lookup}),
-			expectedStep(port.LayerRouting, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "out"},
+			expectedStep(routing.LayerName, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "out"},
 				[]FactExpectation{neighbor, packetIn}, []FactExpectation{packetOut}),
-			expectedStep(port.LayerRouting, trace.OpTransmit, "routing.transmit", trace.Subject{Kind: "port", Key: "out"},
-				nil, []FactExpectation{expectedFact("routing.lookup_decision", `interface="out";port="out";member="";reason=""`)}),
+			expectedStep(routing.LayerName, trace.OpTransmit, "routing.transmit", trace.Subject{Kind: "port", Key: "out"},
+				nil, []FactExpectation{expectedFact("routing.egress_decision", `interface="out";port="out";member="";reason=""`)}),
 		},
 		ExpectedForwardMetadata: &MetadataExpectation{
 			Status: analysis.Complete,
@@ -2452,39 +2452,39 @@ func CaseTroubleshootingRecursiveRouteNotInstalled() Case {
 
 // RegisterBaselineCases populates registry with the baseline cases.
 func RegisterBaselineCases(registry *Registry) {
-	registry.MustRegister(CasePlanningPortVLANChange())
-	registry.MustRegister(CasePlanningCandidateForkDiverges())
-	registry.MustRegister(CaseShadowingPartialUnknownPort())
-	registry.MustRegister(CaseTroubleshootingUnicastForwarding())
+	registry.MustRegister(casePlanningPortVLANChange())
+	registry.MustRegister(casePlanningCandidateForkDiverges())
+	registry.MustRegister(caseShadowingPartialUnknownPort())
+	registry.MustRegister(caseTroubleshootingUnicastForwarding())
 }
 
 // RegisterPhysicalTopologyCases populates registry with the cases covering tri-state physical
 // facts, topology-derived link and port state, protocol link-state input, and host acceptance.
 func RegisterPhysicalTopologyCases(registry *Registry) {
-	registry.MustRegister(CaseTopologyShadowingUnresolvedTransceiver())
-	registry.MustRegister(CaseTopologyShadowingUnresolvedTransceiverKnownDelivery())
-	registry.MustRegister(CaseTopologyShadowingUncabledPortDefiniteDrop())
-	registry.MustRegister(CaseTopologyShadowingUnreportedNegotiation())
-	registry.MustRegister(CaseTopologyShadowingUnknownUplinkSTP())
-	registry.MustRegister(CaseTroubleshootingHostRejectsForeignUnicast())
+	registry.MustRegister(caseTopologyShadowingUnresolvedTransceiver())
+	registry.MustRegister(caseTopologyShadowingUnresolvedTransceiverKnownDelivery())
+	registry.MustRegister(caseTopologyShadowingUncabledPortDefiniteDrop())
+	registry.MustRegister(caseTopologyShadowingUnreportedNegotiation())
+	registry.MustRegister(caseTopologyShadowingUnknownUplinkSTP())
+	registry.MustRegister(caseTroubleshootingHostRejectsForeignUnicast())
 }
 
 // RegisterLAGMulticastCases populates registry with the cases covering LAG
 // bucket persistence across a member fault, active-backup failback, and
 // per-source multicast admission and leave timing.
 func RegisterLAGMulticastCases(registry *Registry) {
-	registry.MustRegister(CasePlanningLAGMemberFaultKeepsSurvivingFlows())
-	registry.MustRegister(CaseTroubleshootingActiveBackupNoFailback())
-	registry.MustRegister(CaseTroubleshootingSSMRejectsUnjoinedSource())
-	registry.MustRegister(CaseTroubleshootingLeaveLastMemberQuery())
+	registry.MustRegister(casePlanningLAGMemberFaultKeepsSurvivingFlows())
+	registry.MustRegister(caseTroubleshootingActiveBackupNoFailback())
+	registry.MustRegister(caseTroubleshootingSSMRejectsUnjoinedSource())
+	registry.MustRegister(caseTroubleshootingLeaveLastMemberQuery())
 }
 
 // RegisterRoutingCases populates registry with the cases covering the equal-cost
 // candidate set a lookup records and the withdrawal of an unresolvable static route.
 func RegisterRoutingCases(registry *Registry) {
-	registry.MustRegister(CasePlanningECMPCandidatesRecorded())
-	registry.MustRegister(CaseTroubleshootingNeighborResolutionPending())
-	registry.MustRegister(CaseTroubleshootingRecursiveRouteNotInstalled())
+	registry.MustRegister(casePlanningECMPCandidatesRecorded())
+	registry.MustRegister(caseTroubleshootingNeighborResolutionPending())
+	registry.MustRegister(caseTroubleshootingRecursiveRouteNotInstalled())
 }
 
 // DefaultRegistry returns a newly allocated registry containing every admitted case.
@@ -2500,8 +2500,8 @@ func DefaultRegistry() *Registry {
 	RegisterMDNSCases(r)
 	RegisterReflectorCases(r)
 	RegisterFilterCases(r)
-	r.MustRegister(CasePlanningOversubscribedTrunkStatedBuffer())
-	r.MustRegister(CasePlanningOversubscribedTrunkUnstatedBuffer())
-	r.MustRegister(CasePlanningPolicedStream())
+	r.MustRegister(casePlanningOversubscribedTrunkStatedBuffer())
+	r.MustRegister(casePlanningOversubscribedTrunkUnstatedBuffer())
+	r.MustRegister(casePlanningPolicedStream())
 	return r
 }

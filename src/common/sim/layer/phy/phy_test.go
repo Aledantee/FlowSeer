@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -45,7 +46,7 @@ func TestSpeedsResolvePerPort(t *testing.T) {
 			Setting:            &phy.Setting{SpeedBPS: 100_000_000, Duplex: phy.Full},
 		}
 		got := e.Resolve()
-		want := phy.Resolved{SpeedBPS: 100_000_000, Duplex: phy.Full, Source: phy.SourceSetting}
+		want := phy.Resolved{SpeedBPS: 100_000_000, Duplex: phy.Full, Source: "setting"}
 		if got != want {
 			t.Errorf("Resolve() = %+v, want %+v", got, want)
 		}
@@ -57,7 +58,7 @@ func TestSpeedsResolvePerPort(t *testing.T) {
 			"1/1/1": {SupportedSpeedsBPS: gigabitCapable, Setting: &phy.Setting{SpeedBPS: 2_500_000_000}},
 		}}
 
-		err := cfg.Validate(tbl)
+		err := cfg.Validate(layer.Env{Ports: tbl})
 		if err == nil {
 			t.Fatal("Validate() error = nil, want error")
 		}
@@ -128,8 +129,8 @@ func TestPoeAllocationHonoursBudgetPriorityAndLimit(t *testing.T) {
 		}}
 
 		got := cfg.Allocate()
-		if pa := got.Ports["1/1/1"]; pa.Denial != phy.ReasonLimit || pa.MaxNanowatts != 0 || pa.State != phy.PowerDenied {
-			t.Errorf("Ports[\"1/1/1\"] = %+v, want denial %q", pa, phy.ReasonLimit)
+		if pa := got.Ports["1/1/1"]; pa.Denial != "limit" || pa.MaxNanowatts != 0 || pa.State != phy.PowerDenied {
+			t.Errorf("Ports[\"1/1/1\"] = %+v, want denial %q", pa, "limit")
 		}
 		if g := got.Groups["1"]; g.RemainderNanowatts != 60_000_000_000 {
 			t.Errorf("Groups[\"1\"].RemainderNanowatts = %d, want 60000000000", g.RemainderNanowatts)
@@ -164,8 +165,8 @@ func TestClassAbovePortMaximum(t *testing.T) {
 	}}
 
 	got := cfg.Allocate()
-	if pa := got.Ports["1/1/1"]; pa.Denial != phy.ReasonClassUnsupported || pa.MaxNanowatts != 0 || pa.State != phy.PowerDenied {
-		t.Errorf("Ports[\"1/1/1\"] = %+v, want denial %q", pa, phy.ReasonClassUnsupported)
+	if pa := got.Ports["1/1/1"]; pa.Denial != "class-unsupported" || pa.MaxNanowatts != 0 || pa.State != phy.PowerDenied {
+		t.Errorf("Ports[\"1/1/1\"] = %+v, want denial %q", pa, "class-unsupported")
 	}
 	if g := got.Groups["1"]; g.RemainderNanowatts != 90_000_000_000 {
 		t.Errorf("Groups[\"1\"].RemainderNanowatts = %d, want 90000000000", g.RemainderNanowatts)
@@ -236,22 +237,6 @@ func TestConfigResolve(t *testing.T) {
 			t.Errorf("Config{}.Resolve() = %v, want nil", got)
 		}
 	})
-}
-
-func TestClassPowerNanowatts(t *testing.T) {
-	powers := []uint64{
-		15_400_000_000, 4_000_000_000, 7_000_000_000, 15_400_000_000, 30_000_000_000,
-		45_000_000_000, 60_000_000_000, 75_000_000_000, 90_000_000_000,
-	}
-	for class, want := range powers {
-		got, ok := phy.ClassPowerNanowatts(uint8(class))
-		if !ok || got != want {
-			t.Errorf("ClassPowerNanowatts(%d) = %d, %v; want %d, true", class, got, ok, want)
-		}
-	}
-	if got, ok := phy.ClassPowerNanowatts(9); ok || got != 0 {
-		t.Errorf("ClassPowerNanowatts(9) = %d, %v; want 0, false", got, ok)
-	}
 }
 
 func TestValidate(t *testing.T) {
@@ -409,7 +394,7 @@ func TestValidate(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.cfg.Validate(tbl)
+			err := tc.cfg.Validate(layer.Env{Ports: tbl})
 			if tc.wantAttr == "" {
 				if err != nil {
 					t.Fatalf("Validate() error = %v, want nil", err)
@@ -444,18 +429,18 @@ func TestDiff(t *testing.T) {
 		}
 
 		c0 := diffs[0]
-		if c0.Layer != port.LayerPoE || c0.Subject.Kind != "pse_group" || c0.Subject.Key != "1" {
+		if c0.Layer != phy.LayerNamePoE || c0.Subject.Kind != "pse_group" || c0.Subject.Key != "1" {
 			t.Errorf("diffs[0] = %+v, want poe pse_group:1", c0)
 		}
-		if c0.Field != "power_nanowatts" || c0.From != phy.PowerFact(60_000_000_000) || c0.To != phy.PowerFact(90_000_000_000) {
+		if c0.Field != "power_nanowatts" || c0.From.Canonical() != "60000000000" || c0.To.Canonical() != "90000000000" {
 			t.Errorf("diffs[0] = %+v, want power_nanowatts 60000000000 -> 90000000000", c0)
 		}
 
 		c1 := diffs[1]
-		if c1.Layer != port.LayerPoE || c1.Subject.Kind != "port" || c1.Subject.Key != "1/1/1" {
+		if c1.Layer != phy.LayerNamePoE || c1.Subject.Kind != "port" || c1.Subject.Key != "1/1/1" {
 			t.Errorf("diffs[1] = %+v, want poe port:1/1/1", c1)
 		}
-		if c1.Field != "enabled" || c1.From != phy.BoolFact(true) || c1.To != phy.BoolFact(false) {
+		if c1.Field != "enabled" || c1.From.Canonical() != "true" || c1.To.Canonical() != "false" {
 			t.Errorf("diffs[1] = %+v, want enabled true -> false", c1)
 		}
 	})
@@ -473,7 +458,7 @@ func TestDiff(t *testing.T) {
 		}
 
 		c0 := diffs[0]
-		if c0.Layer != port.LayerEthernet || c0.Field != "" || c0.To != nil {
+		if c0.Layer != phy.LayerName || c0.Field != "" || c0.To != nil {
 			t.Errorf("diffs[0] = %+v, want removed ethernet port with empty field and nil To", c0)
 		}
 		if c0.From == nil || c0.From.TypeID() != "phy.ethernet" || !strings.Contains(c0.From.Canonical(), "1000000000") {
@@ -481,7 +466,7 @@ func TestDiff(t *testing.T) {
 		}
 
 		c1 := diffs[1]
-		if c1.Layer != port.LayerPoE || c1.Subject.Kind != "pse_group" || c1.Field != "" || c1.To != nil {
+		if c1.Layer != phy.LayerNamePoE || c1.Subject.Kind != "pse_group" || c1.Field != "" || c1.To != nil {
 			t.Errorf("diffs[1] = %+v, want removed pse group with empty field and nil To", c1)
 		}
 
@@ -506,13 +491,13 @@ func TestDiff(t *testing.T) {
 		if got, want := len(diffs), 3; got != want {
 			t.Fatalf("len(diffs) = %d, want %d", got, want)
 		}
-		if diffs[0].Field != "speed_bps" || diffs[0].From != phy.SpeedFact(100_000_000) || diffs[0].To != phy.SpeedFact(0) {
+		if diffs[0].Field != "speed_bps" || diffs[0].From.Canonical() != "100000000" || diffs[0].To.Canonical() != "0" {
 			t.Errorf("diffs[0] = %+v, want speed_bps 100000000 -> 0", diffs[0])
 		}
-		if diffs[1].Field != "auto_negotiation_enabled" || diffs[1].From != phy.BoolFact(false) || diffs[1].To != phy.BoolFact(true) {
+		if diffs[1].Field != "auto_negotiation_enabled" || diffs[1].From.Canonical() != "false" || diffs[1].To.Canonical() != "true" {
 			t.Errorf("diffs[1] = %+v, want auto_negotiation_enabled false -> true", diffs[1])
 		}
-		if diffs[2].Field != "resolve_source" || diffs[2].From != phy.StringFact(phy.SourceSetting) || diffs[2].To != phy.StringFact(phy.SourceUnresolved) {
+		if diffs[2].Field != "resolve_source" || diffs[2].From.Canonical() != "setting" || diffs[2].To.Canonical() != string(phy.SourceUnresolved) {
 			t.Errorf("diffs[2] = %+v, want resolve_source setting -> unresolved", diffs[2])
 		}
 	})
@@ -525,7 +510,7 @@ func TestDiff(t *testing.T) {
 		if len(diffs) != 1 {
 			t.Fatalf("len(Diff()) = %d, want 1: %+v", len(diffs), diffs)
 		}
-		if got := diffs[0]; got.Field != "resolve_source" || got.From != phy.StringFact(phy.SourceUnresolved) || got.To != phy.StringFact(phy.SourceObserved) {
+		if got := diffs[0]; got.Field != "resolve_source" || got.From.Canonical() != string(phy.SourceUnresolved) || got.To.Canonical() != string(phy.SourceObserved) {
 			t.Errorf("Diff()[0] = %+v, want resolve_source unresolved -> observed", got)
 		}
 	})
@@ -602,13 +587,13 @@ func TestDiff(t *testing.T) {
 			if d.From.TypeID() == "" || d.To.TypeID() == "" {
 				t.Errorf("field %q fact has empty TypeID", d.Field)
 			}
-			if d.Layer == port.LayerEthernet {
+			if d.Layer == phy.LayerName {
 				ethFields[d.Field] = true
 			}
-			if d.Layer == port.LayerPoE && d.Subject.Kind == "port" {
+			if d.Layer == phy.LayerNamePoE && d.Subject.Kind == "port" {
 				poePortFields[d.Field] = true
 			}
-			if d.Layer == port.LayerPoE && d.Subject.Kind == "pse_group" {
+			if d.Layer == phy.LayerNamePoE && d.Subject.Kind == "pse_group" {
 				poeGroupFields[d.Field] = true
 			}
 		}
@@ -689,8 +674,8 @@ func TestNormalize(t *testing.T) {
 			},
 		}
 
-		normRaw := raw.Normalize()
-		normExplicit := explicit.Normalize()
+		normRaw := raw.Normalize(layer.Env{})
+		normExplicit := explicit.Normalize(layer.Env{})
 
 		diffs := phy.Diff(normRaw, normExplicit)
 		if len(diffs) != 0 {
@@ -698,7 +683,7 @@ func TestNormalize(t *testing.T) {
 		}
 
 		// Idempotence
-		normTwice := normRaw.Normalize()
+		normTwice := normRaw.Normalize(layer.Env{})
 		if len(phy.Diff(normRaw, normTwice)) != 0 {
 			t.Errorf("Normalize() is not idempotent")
 		}
@@ -711,7 +696,7 @@ func TestNormalize(t *testing.T) {
 				"1/1/1": {SupportedSpeedsBPS: speeds, Setting: &phy.Setting{SpeedBPS: 100_000_000}},
 			},
 		}
-		_ = raw.Normalize()
+		_ = raw.Normalize(layer.Env{})
 		if speeds[0] != 1_000_000_000 || speeds[1] != 100_000_000 {
 			t.Errorf("caller speeds slice was mutated: %v", speeds)
 		}
@@ -847,7 +832,7 @@ func TestPoeAllocateTruthTable(t *testing.T) {
 			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: true, MaxClass: 3, PD: phy.PDAttached, PDClass: phy.Class(4)}},
 		}}
 		got := cfg.Allocate().Ports["1/1/1"]
-		want := phy.PortAllocation{State: phy.PowerDenied, Denial: phy.ReasonClassUnsupported, MinNanowatts: 0, MaxNanowatts: 0}
+		want := phy.PortAllocation{State: phy.PowerDenied, Denial: "class-unsupported", MinNanowatts: 0, MaxNanowatts: 0}
 		if got != want {
 			t.Errorf("Allocate() port = %+v, want %+v", got, want)
 		}
@@ -859,7 +844,7 @@ func TestPoeAllocateTruthTable(t *testing.T) {
 			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: true, MaxClass: 8, Limit: &limit15k, PD: phy.PDAttached, PDClass: phy.Class(4)}},
 		}}
 		got := cfg.Allocate().Ports["1/1/1"]
-		want := phy.PortAllocation{State: phy.PowerDenied, Denial: phy.ReasonLimit, MinNanowatts: 0, MaxNanowatts: 0}
+		want := phy.PortAllocation{State: phy.PowerDenied, Denial: "limit", MinNanowatts: 0, MaxNanowatts: 0}
 		if got != want {
 			t.Errorf("Allocate() port = %+v, want %+v", got, want)
 		}

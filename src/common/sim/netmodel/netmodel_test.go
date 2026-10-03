@@ -22,10 +22,11 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 var testTime = time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
@@ -208,15 +209,15 @@ func TestInferCapabilitiesAndReportDefaults(t *testing.T) {
 	cfg := res.Spec.Config
 	report := res.Report
 
-	wantCaps := []port.Layer{port.LayerRelay, port.LayerVLAN}
+	wantCaps := []trace.Layer{bridge.LayerName, bridge.LayerNameVLAN}
 	if !slices.Equal(report.Capabilities, wantCaps) {
 		t.Errorf("capabilities = %v, want %v", report.Capabilities, wantCaps)
 	}
-	if report.CapabilitySources[port.LayerRelay] != "always" {
-		t.Errorf("relay source = %q, want always", report.CapabilitySources[port.LayerRelay])
+	if report.CapabilitySources[bridge.LayerName] != "always" {
+		t.Errorf("relay source = %q, want always", report.CapabilitySources[bridge.LayerName])
 	}
-	if report.CapabilitySources[port.LayerVLAN] != "inferred:switchport" {
-		t.Errorf("vlan source = %q, want inferred:switchport", report.CapabilitySources[port.LayerVLAN])
+	if report.CapabilitySources[bridge.LayerNameVLAN] != "inferred:switchport" {
+		t.Errorf("vlan source = %q, want inferred:switchport", report.CapabilitySources[bridge.LayerNameVLAN])
 	}
 
 	// Verify PVID 30 and admission ALL in config.
@@ -247,7 +248,7 @@ func TestInferCapabilitiesAndReportDefaults(t *testing.T) {
 	}
 
 	// Part 2: Wanted set of {relay} drops every switchport facet and lists each as skipped.
-	resRelayOnly, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerRelay})
+	resRelayOnly, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []trace.Layer{bridge.LayerName})
 	if err != nil {
 		t.Fatalf("netmodel.Load with relay failed: %v", err)
 	}
@@ -781,7 +782,7 @@ func TestLoadImpliesRelayForVlanAndKeepsLagPresent(t *testing.T) {
 			LagParentInterfaceName: &lagParent,
 		}.Build()}.Build(),
 	}
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerVLAN})
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, []trace.Layer{bridge.LayerNameVLAN})
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -793,7 +794,7 @@ func TestLoadImpliesRelayForVlanAndKeepsLagPresent(t *testing.T) {
 	if !slices.Equal(report.Capabilities, cfg.Capabilities()) {
 		t.Errorf("report.Capabilities = %v, cfg.Capabilities() = %v; want them equal", report.Capabilities, cfg.Capabilities())
 	}
-	if report.CapabilitySources[port.LayerRelay] != "implied:vlan" || report.CapabilitySources[port.LayerLAG] != "present:lag" {
+	if report.CapabilitySources[bridge.LayerName] != "implied:vlan" || report.CapabilitySources[lag.LayerName] != "present:lag" {
 		t.Errorf("CapabilitySources = %v", report.CapabilitySources)
 	}
 }
@@ -982,7 +983,7 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 			ifaces = append(ifaces, iface)
 		}
 
-		res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, budgets, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerPoE})
+		res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, budgets, nil, nil, nil, nil, nil, nil, nil, []trace.Layer{phy.LayerNamePoE})
 		if err != nil {
 			t.Fatalf("netmodel.Load failed: %v", err)
 		}
@@ -1204,7 +1205,7 @@ func TestLoad_PoeLimitInNanowatts(t *testing.T) {
 	}.Build()
 	budget := phyv1.PseBudget_builder{PseGroup: &grp, PowerNanowatts: &power}.Build()
 
-	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{iface}, nil, nil, []*phyv1.PseBudget{budget}, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerPoE})
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{iface}, nil, nil, []*phyv1.PseBudget{budget}, nil, nil, nil, nil, nil, nil, nil, []trace.Layer{phy.LayerNamePoE})
 	if err != nil {
 		t.Fatalf("netmodel.Load: %v", err)
 	}
@@ -1360,8 +1361,8 @@ func TestLoad_FilterFacetWithIPFacet(t *testing.T) {
 		t.Errorf("bindings = %+v, want vlan10 in->in-set and out->out-set", cfg.Filter.Bindings)
 	}
 
-	if !slices.Contains(res.Report.Capabilities, port.LayerFilter) {
-		t.Errorf("capabilities = %v, want to contain port.LayerFilter", res.Report.Capabilities)
+	if !slices.Contains(res.Report.Capabilities, filter.LayerName) {
+		t.Errorf("capabilities = %v, want to contain filter.LayerName", res.Report.Capabilities)
 	}
 }
 
@@ -1594,7 +1595,7 @@ func TestLoad_RequestLayerFilterAccepted(t *testing.T) {
 		[]*interfacev1.Interface{vlan10},
 		nil, nil, nil, nil, nil, nil, nil, nil, nil,
 		[]*filterv1.FilterRuleSet{inSet},
-		[]port.Layer{port.LayerFilter},
+		[]trace.Layer{filter.LayerName},
 	)
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
@@ -1606,8 +1607,8 @@ func TestLoad_RequestLayerFilterAccepted(t *testing.T) {
 		}
 	}
 
-	if !slices.Contains(res.Report.Capabilities, port.LayerFilter) {
-		t.Errorf("capabilities = %v, want to contain port.LayerFilter", res.Report.Capabilities)
+	if !slices.Contains(res.Report.Capabilities, filter.LayerName) {
+		t.Errorf("capabilities = %v, want to contain filter.LayerName", res.Report.Capabilities)
 	}
 }
 

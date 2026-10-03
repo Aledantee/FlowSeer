@@ -3,6 +3,7 @@ package stp
 import (
 	"strconv"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -20,8 +21,8 @@ func (f forwardingDecisionFact) Canonical() string { return string(f) }
 
 // BPDUDecisionFact returns an immutable snapshot of a BPDU and the port state
 // before and after applying it.
-func BPDUDecisionFact(bpdu BPDU, before, after PortInfo) trace.Fact {
-	return bpduDecisionFact("bpdu=" + bpduSnapshot(bpdu) +
+func BPDUDecisionFact(b bpdu.BPDU, before, after PortInfo) trace.Fact {
+	return bpduDecisionFact("bpdu=" + bpduSnapshot(b) +
 		";before=" + portInfoSnapshot(before) +
 		";after=" + portInfoSnapshot(after))
 }
@@ -65,18 +66,18 @@ func PortTransitionFact(port, action string, before, after PortInfo) trace.Fact 
 		";after=" + portInfoSnapshot(after))
 }
 
-func bpduSnapshot(bpdu BPDU) string {
-	return "{version=" + strconv.FormatUint(uint64(bpdu.Version), 10) +
-		";type=" + strconv.FormatUint(uint64(bpdu.Type), 10) +
-		";flags=" + strconv.FormatUint(uint64(bpdu.Flags), 10) +
-		";root=" + strconv.Quote(bpdu.RootID.String()) +
-		";root_cost=" + strconv.FormatUint(uint64(bpdu.RootPathCost), 10) +
-		";bridge=" + strconv.Quote(bpdu.BridgeID.String()) +
-		";port_id=" + strconv.FormatUint(uint64(bpdu.PortID), 10) +
-		";message_age=" + strconv.FormatInt(int64(bpdu.MessageAge), 10) +
-		";max_age=" + strconv.FormatInt(int64(bpdu.MaxAge), 10) +
-		";hello=" + strconv.FormatInt(int64(bpdu.HelloTime), 10) +
-		";forward_delay=" + strconv.FormatInt(int64(bpdu.ForwardDelay), 10) + "}"
+func bpduSnapshot(b bpdu.BPDU) string {
+	return "{version=" + strconv.FormatUint(uint64(b.Version), 10) +
+		";type=" + strconv.FormatUint(uint64(b.Type), 10) +
+		";flags=" + strconv.FormatUint(uint64(b.Flags), 10) +
+		";root=" + strconv.Quote(b.RootID.String()) +
+		";root_cost=" + strconv.FormatUint(uint64(b.RootPathCost), 10) +
+		";bridge=" + strconv.Quote(b.BridgeID.String()) +
+		";port_id=" + strconv.FormatUint(uint64(b.PortID), 10) +
+		";message_age=" + strconv.FormatInt(int64(b.MessageAge), 10) +
+		";max_age=" + strconv.FormatInt(int64(b.MaxAge), 10) +
+		";hello=" + strconv.FormatInt(int64(b.HelloTime), 10) +
+		";forward_delay=" + strconv.FormatInt(int64(b.ForwardDelay), 10) + "}"
 }
 
 func portInfoSnapshot(info PortInfo) string {

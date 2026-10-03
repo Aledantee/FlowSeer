@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -17,17 +18,15 @@ import (
 // ReasonUnsupportedLACPDU indicates that an Ethernet frame carried an unparseable or unsupported LACPDU.
 const ReasonUnsupportedLACPDU trace.Reason = "unsupported-lacpdu"
 
-// Emission describes an Ethernet frame to transmit out a member port.
-type Emission struct {
-	Port  string
-	Frame ethernet.Frame
-}
+// LayerName identifies the link aggregation layer.
+const LayerName trace.Layer = "lag"
 
-// Effects lists frames to emit and LAGs whose set of enabled members changed.
-type Effects struct {
-	Emissions []Emission
-	Changed   []string
-}
+// Rule constants produced by lag.
+const (
+	RuleEgressNoMember    trace.RuleID = "lag.egress.no_member"
+	RuleLACPDUUnsupported trace.RuleID = "lag.lacpdu.unsupported"
+	RuleLACPDUAdmit       trace.RuleID = "lag.lacpdu.admit"
+)
 
 // Info summarizes the runtime aggregation status of one link aggregation group.
 type Info struct {
@@ -39,11 +38,11 @@ type Info struct {
 	PartnerKey            uint16
 	Up                    bool
 
-	// Pending names member ports that may still change state on their own
+	// pending names member ports that may still change state on their own
 	// (a running link delay, an Expired partner, or an attached partner
 	// without synchronization) and when. A pending member changes no other
 	// field of Info; the answer above is definite as of now.
-	Pending []Pending
+	pending []pending
 }
 
 // MemberInfo summarizes the runtime status of one member port in a link aggregation group.
@@ -59,27 +58,27 @@ type MemberInfo struct {
 	BadLACPDUs uint64
 }
 
-// PendingCause identifies why a member port may still change state.
-type PendingCause string
+// pendingCause identifies why a member port may still change state.
+type pendingCause string
 
 const (
-	// PendingLinkDelay marks a member whose up or down delay timer is running.
-	PendingLinkDelay PendingCause = "link-delay"
+	// pendingLinkDelay marks a member whose up or down delay timer is running.
+	pendingLinkDelay pendingCause = "link-delay"
 
-	// PendingPartnerExpired marks a member whose partner information is Expired
+	// pendingPartnerExpired marks a member whose partner information is Expired
 	// and will move to Defaulted when its receive timer elapses.
-	PendingPartnerExpired PendingCause = "partner-expired"
+	pendingPartnerExpired pendingCause = "partner-expired"
 
-	// PendingUnsynchronized marks a member attached to the lead partner that has
+	// pendingUnsynchronized marks a member attached to the lead partner that has
 	// not yet advertised synchronization.
-	PendingUnsynchronized PendingCause = "unsynchronized"
+	pendingUnsynchronized pendingCause = "unsynchronized"
 )
 
-// Pending names one member port that may still change state on its own, and
+// pending names one member port that may still change state on its own, and
 // the time at which that is currently scheduled to happen.
-type Pending struct {
+type pending struct {
 	Member string
-	Cause  PendingCause
+	Cause  pendingCause
 	At     time.Time
 }
 
@@ -168,14 +167,14 @@ type Layer struct {
 	members  map[string]*memberState
 }
 
-// New constructs a link aggregation layer from the given configuration, port table, and switch system ID.
+// New constructs a link aggregation layer from the given configuration and environment.
 // It returns an error if the configuration is invalid against the ports.
-func New(cfg Config, ports port.Table, systemID netaddr.MAC) (*Layer, error) {
-	norm := cfg.Normalize(ports, systemID)
-	if err := norm.Validate(ports); err != nil {
+func New(cfg Config, env layer.Env) (*Layer, error) {
+	norm := cfg.Normalize(env)
+	if err := norm.Validate(env); err != nil {
 		return nil, err
 	}
-	return newLayer(norm, ports, systemID), nil
+	return newLayer(norm, env.Ports, env.MAC), nil
 }
 
 func newLayer(cfg Config, ports port.Table, systemID netaddr.MAC) *Layer {
@@ -203,9 +202,9 @@ func newLayer(cfg Config, ports port.Table, systemID netaddr.MAC) *Layer {
 		}
 		layer.lags[lagName] = ls
 
-		txPeriod := SlowPeriod
+		txPeriod := slowPeriod
 		if lagCfg.LACP.Fast {
-			txPeriod = FastPeriod
+			txPeriod = fastPeriod
 		}
 
 		for idx, memName := range memNames {
@@ -430,7 +429,7 @@ func (l *Layer) activeBackupSelect(lag *lagState, _ time.Time, commit bool) Sele
 	return Selection{Member: member, OK: true, Prior: prior, Cause: cause}
 }
 
-func (l *Layer) emitLACPDU(m *memberState) Emission {
+func (l *Layer) emitLACPDU(m *memberState) layer.Emission {
 	lag := l.lags[m.lagName]
 	pdu := lacp.PDU{
 		Actor:             m.actor,
@@ -446,7 +445,7 @@ func (l *Layer) emitLACPDU(m *memberState) Emission {
 	m.hasTxActor = true
 	m.lacpdusTx++
 
-	return Emission{
+	return layer.Emission{
 		Port:  m.name,
 		Frame: frame,
 	}
@@ -454,17 +453,17 @@ func (l *Layer) emitLACPDU(m *memberState) Emission {
 
 // LinkChange informs the layer that a member port's link transitioned up or down.
 // A zero delay applies immediately; a non-zero delay arms a timer.
-func (l *Layer) LinkChange(now time.Time, member string, up bool) Effects {
+func (l *Layer) LinkChange(now time.Time, member string, up bool) layer.Effects {
 	l.now = now
 	m, ok := l.members[member]
 	if !ok {
-		return Effects{}
+		return layer.Effects{}
 	}
 	lag := l.lags[m.lagName]
 
 	// The carrier drives the protocol at once; the delay only decides when
 	// the member carries traffic, so a partner is heard during an up delay.
-	var fx Effects
+	var fx layer.Effects
 	if m.carrier != up {
 		m.carrier = up
 		fx = l.setCarrier(now, m, up)
@@ -502,8 +501,8 @@ func (l *Layer) LinkChange(now time.Time, member string, up bool) Effects {
 	return fx
 }
 
-func mergeEffects(a, b Effects) Effects {
-	out := Effects{
+func mergeEffects(a, b layer.Effects) layer.Effects {
+	out := layer.Effects{
 		Emissions: append(a.Emissions, b.Emissions...),
 		Changed:   append(a.Changed, b.Changed...),
 	}
@@ -515,13 +514,13 @@ func mergeEffects(a, b Effects) Effects {
 
 // setCarrier starts or stops the protocol on a member as its carrier comes
 // and goes; the member's enablement follows the delayed link separately.
-func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) Effects {
+func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) layer.Effects {
 	lag := l.lags[m.lagName]
 	if lag.cfg.LACP.Mode == Off {
-		return Effects{}
+		return layer.Effects{}
 	}
 
-	var emissions []Emission
+	var emissions []layer.Emission
 	var changed []string
 
 	if !up {
@@ -535,14 +534,14 @@ func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) Effects {
 			changed = append(changed, lag.name)
 		}
 
-		return Effects{Changed: changed}
+		return layer.Effects{Changed: changed}
 	}
 
 	m.status = Current
 	m.partnerDefaulted = true
 	m.partner = lacp.Info{State: lacp.StateDefaulted}
 	m.rxPeriod = m.txPeriod
-	m.rxTimer = now.Add(time.Duration(TimeoutMultiplier) * m.rxPeriod)
+	m.rxTimer = now.Add(time.Duration(timeoutMultiplier) * m.rxPeriod)
 
 	if l.updateLag(lag) {
 		changed = append(changed, lag.name)
@@ -564,7 +563,7 @@ func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) Effects {
 		}
 	}
 
-	return Effects{
+	return layer.Effects{
 		Emissions: emissions,
 		Changed:   changed,
 	}
@@ -572,9 +571,9 @@ func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) Effects {
 
 // applyLinkChange moves the member's delayed link to its carrier and
 // re-evaluates what the LAG carries.
-func (l *Layer) applyLinkChange(m *memberState) Effects {
+func (l *Layer) applyLinkChange(m *memberState) layer.Effects {
 	if m.linkUp == m.carrier {
-		return Effects{}
+		return layer.Effects{}
 	}
 	m.linkUp = m.carrier
 	lag := l.lags[m.lagName]
@@ -584,20 +583,20 @@ func (l *Layer) applyLinkChange(m *memberState) Effects {
 		changed = append(changed, lag.name)
 	}
 
-	return Effects{Changed: changed}
+	return layer.Effects{Changed: changed}
 }
 
 // Receive processes an incoming LACPDU on the named member port.
-func (l *Layer) Receive(now time.Time, member string, pdu lacp.PDU) Effects {
+func (l *Layer) Receive(now time.Time, member string, pdu lacp.PDU) layer.Effects {
 	l.now = now
 	m, ok := l.members[member]
 	if !ok {
-		return Effects{}
+		return layer.Effects{}
 	}
 	m.lacpdusRx++
 	lag := l.lags[m.lagName]
 	if !m.carrier || lag.cfg.LACP.Mode == Off {
-		return Effects{}
+		return layer.Effects{}
 	}
 
 	m.partner = pdu.Actor
@@ -605,18 +604,18 @@ func (l *Layer) Receive(now time.Time, member string, pdu lacp.PDU) Effects {
 	m.status = Current
 
 	if pdu.Actor.State&lacp.StateShortTimeout != 0 {
-		m.rxPeriod = FastPeriod
+		m.rxPeriod = fastPeriod
 	} else {
-		m.rxPeriod = SlowPeriod
+		m.rxPeriod = slowPeriod
 	}
-	m.rxTimer = now.Add(time.Duration(TimeoutMultiplier) * m.rxPeriod)
+	m.rxTimer = now.Add(time.Duration(timeoutMultiplier) * m.rxPeriod)
 
 	var changed []string
 	if l.updateLag(lag) {
 		changed = append(changed, lag.name)
 	}
 
-	var emissions []Emission
+	var emissions []layer.Emission
 	for _, name := range lag.memberNames {
 		mem := l.members[name]
 		if mem.mayTx(lag) && (!mem.hasTxActor || mem.actor != mem.lastTxActor) {
@@ -625,16 +624,16 @@ func (l *Layer) Receive(now time.Time, member string, pdu lacp.PDU) Effects {
 		}
 	}
 
-	return Effects{
+	return layer.Effects{
 		Emissions: emissions,
 		Changed:   changed,
 	}
 }
 
-// Wake advances timer-driven state to now, applying expired delays and timeouts.
-func (l *Layer) Wake(now time.Time) Effects {
+// Advance advances timer-driven state to now, applying expired delays and timeouts.
+func (l *Layer) Advance(now time.Time) layer.Effects {
 	l.now = now
-	var emissions []Emission
+	var emissions []layer.Emission
 	changedMap := make(map[string]struct{})
 
 	for _, name := range sortedKeys(l.members) {
@@ -665,7 +664,7 @@ func (l *Layer) Wake(now time.Time) Effects {
 			switch m.status {
 			case Current:
 				m.status = Expired
-				m.rxTimer = now.Add(time.Duration(TimeoutMultiplier) * m.rxPeriod)
+				m.rxTimer = now.Add(time.Duration(timeoutMultiplier) * m.rxPeriod)
 				lagNeedsUpdate = true
 			case Expired:
 				m.status = Defaulted
@@ -713,7 +712,7 @@ func (l *Layer) Wake(now time.Time) Effects {
 	}
 	slices.Sort(changed)
 
-	return Effects{
+	return layer.Effects{
 		Emissions: emissions,
 		Changed:   changed,
 	}
@@ -764,10 +763,10 @@ func (l *Layer) Info(lagName string) Info {
 		return Info{}
 	}
 
-	var pending []Pending
+	var pendingList []pending
 	for _, name := range lag.memberNames {
 		if p, ok := pendingEntry(l.members[name]); ok {
-			pending = append(pending, p)
+			pendingList = append(pendingList, p)
 		}
 	}
 
@@ -779,7 +778,7 @@ func (l *Layer) Info(lagName string) Info {
 		PartnerSystemPriority: lag.partnerSysPrio,
 		PartnerKey:            lag.partnerKey,
 		Up:                    len(lag.enabledOrder) > 0,
-		Pending:               pending,
+		pending:               pendingList,
 	}
 }
 
@@ -787,16 +786,16 @@ func (l *Layer) Info(lagName string) Info {
 // still change state on its own. A member matching more than one condition
 // reports the one checked first below, since Info carries one entry per
 // member.
-func pendingEntry(m *memberState) (Pending, bool) {
+func pendingEntry(m *memberState) (pending, bool) {
 	switch {
 	case m.hasPendingLink:
-		return Pending{Member: m.name, Cause: PendingLinkDelay, At: m.linkDelayTimer}, true
+		return pending{Member: m.name, Cause: pendingLinkDelay, At: m.linkDelayTimer}, true
 	case m.status == Expired:
-		return Pending{Member: m.name, Cause: PendingPartnerExpired, At: m.rxTimer}, true
+		return pending{Member: m.name, Cause: pendingPartnerExpired, At: m.rxTimer}, true
 	case m.attached && m.partner.State&lacp.StateSynchronization == 0:
-		return Pending{Member: m.name, Cause: PendingUnsynchronized, At: m.rxTimer}, true
+		return pending{Member: m.name, Cause: pendingUnsynchronized, At: m.rxTimer}, true
 	default:
-		return Pending{}, false
+		return pending{}, false
 	}
 }
 
@@ -830,9 +829,9 @@ func (l *Layer) BadLACPDU(member string) {
 // RetentionKey returns a canonical encoding of every normalized input the layer's
 // runtime state depends on: its own configuration as Diff sees it, member link states,
 // and the switch system ID.
-func RetentionKey(cfg Config, ports port.Table, systemID netaddr.MAC) string {
+func RetentionKey(cfg Config, env layer.Env) string {
 	hasLagPorts := false
-	for _, p := range ports.Ports() {
+	for _, p := range env.Ports.Ports() {
 		if p.Kind == port.LAG {
 			hasLagPorts = true
 			break
@@ -841,7 +840,7 @@ func RetentionKey(cfg Config, ports port.Table, systemID netaddr.MAC) string {
 	if len(cfg.LAGs) == 0 && !hasLagPorts {
 		return ""
 	}
-	norm := cfg.Normalize(ports, systemID)
+	norm := cfg.Normalize(env)
 	var b strings.Builder
 	b.WriteString("config=")
 	for _, name := range sortedKeys(norm.LAGs) {
@@ -853,19 +852,19 @@ func RetentionKey(cfg Config, ports port.Table, systemID netaddr.MAC) string {
 
 	b.WriteString("\nmember-state=")
 	var memberNames []string
-	for _, p := range ports.Ports() {
+	for _, p := range env.Ports.Ports() {
 		if p.LagParent != "" {
 			memberNames = append(memberNames, p.Name)
 		}
 	}
 	slices.Sort(memberNames)
 	for _, name := range memberNames {
-		p, _ := ports.Port(name)
+		p, _ := env.Ports.Port(name)
 		fmt.Fprintf(&b, "%s:parent=%s,admin=%s,oper=%s;", name, p.LagParent, p.AdminStatus, p.OperStatus)
 	}
 
 	b.WriteString("\nsystem-id=")
-	b.WriteString(systemID.String())
+	b.WriteString(env.MAC.String())
 
 	return b.String()
 }

@@ -21,7 +21,7 @@ import (
 // protection breaking a physical loop that spanning tree never sees because
 // nothing runs it.
 func RegisterLoopProtectCases(registry *Registry) {
-	registry.MustRegister(CaseTroubleshootingLoopProtectContainsAccessLoop())
+	registry.MustRegister(caseTroubleshootingLoopProtectContainsAccessLoop())
 }
 
 var (
@@ -143,11 +143,11 @@ var (
 		`port="1/1/1";vid=0;action="Block";inter_vlan=false;recurrences=0;learns=false;forwards=false`)
 )
 
-// CaseTroubleshootingLoopProtectContainsAccessLoop returns the case
+// caseTroubleshootingLoopProtectContainsAccessLoop returns the case
 // evaluating that loop protection, on its own and with no spanning tree
 // running anywhere in the fabric, stops a physical loop between two switches
 // from circulating a broadcast forever.
-func CaseTroubleshootingLoopProtectContainsAccessLoop() Case {
+func caseTroubleshootingLoopProtectContainsAccessLoop() Case {
 	steps := []StepExpectation{
 		expectedStep("relay", trace.OpClassify, "default-vlan", trace.Subject{Kind: "vlan", Key: "0"},
 			[]FactExpectation{loopProtectCaseFrame},

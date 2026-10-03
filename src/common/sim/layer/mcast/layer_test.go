@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
 	"go.aledante.io/FlowSeer/src/common/net/mld"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -40,7 +41,7 @@ func mcastPortTable(t *testing.T) port.Table {
 
 func mustNewMcast(t *testing.T, cfg mcast.Config, ports port.Table) *mcast.Layer {
 	t.Helper()
-	m, err := mcast.New(cfg, ports)
+	m, err := mcast.New(cfg, layer.Env{Ports: ports})
 	if err != nil {
 		t.Fatalf("mcast.New: %v", err)
 	}
@@ -173,7 +174,7 @@ func TestStaticRouterPortsNeverExpire(t *testing.T) {
 	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
 		vid: {RouterPorts: []string{"1/1/4"}},
 	}}, mcastPortTable(t))
-	layer.Age(time.Unix(1_000_000, 0))
+	layer.Advance(time.Unix(1_000_000, 0))
 
 	routers := layer.RouterPorts(vid)
 	if len(routers) != 1 || routers[0].Port != "1/1/4" || routers[0].Origin != mcast.Configured ||
@@ -726,7 +727,7 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 	})
 }
 
-// --- §6.5: timer expiry, applied by Age ---
+// --- §6.5: timer expiry, applied by Advance ---
 
 func TestGroupTimerExpiryMovesExcludeToInclude(t *testing.T) {
 	t.Parallel()
@@ -748,7 +749,7 @@ func TestGroupTimerExpiryMovesExcludeToInclude(t *testing.T) {
 		igmpRecord(t1, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
 		// EXCLUDE(X={s1: t1+gmi}, Y={s2: 0}), group timer still t0+gmi (t1+gmi outlives it)
 
-		layer.Age(t0.Add(gmi))
+		layer.Advance(t0.Add(gmi))
 
 		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Include {
@@ -771,7 +772,7 @@ func TestGroupTimerExpiryMovesExcludeToInclude(t *testing.T) {
 		layer.Learn(t0, vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.ReportV2, Group: group})
 		// EXCLUDE({},{}), group timer t0+gmi
 
-		layer.Age(t0.Add(gmi))
+		layer.Advance(t0.Add(gmi))
 
 		if entries := layer.Groups(vid); entryExists(entries) {
 			t.Errorf("Groups() = %+v, want 1/1/1 removed", entries)
@@ -794,7 +795,7 @@ func TestSourceTimerExpiry(t *testing.T) {
 		t0 := time.Unix(42_000, 0)
 		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
 
-		layer.Age(t0.Add(gmi))
+		layer.Advance(t0.Add(gmi))
 
 		if entries := layer.Groups(vid); entryExists(entries) {
 			t.Errorf("Groups() = %+v, want 1/1/1 removed", entries)
@@ -813,7 +814,7 @@ func TestSourceTimerExpiry(t *testing.T) {
 		igmpRecord(t1, layer, igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
 		// EXCLUDE(X={s1: t0+1000s}, Y={s2: 0}), group timer far in the future
 
-		layer.Age(t0.Add(1000 * time.Second))
+		layer.Advance(t0.Add(1000 * time.Second))
 
 		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Exclude {

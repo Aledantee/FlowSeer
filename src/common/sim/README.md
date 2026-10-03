@@ -6,6 +6,7 @@ goroutines or wall-clock dependencies.
 
 | Package                | What it does                                              |
 | ---------------------- | ------------------------------------------------------------ |
+| `../net/bpdu`          | IEEE 802.1D Spanning Tree and Cisco SSTP BPDU wire codecs   |
 | `../net/igmp`          | IGMPv1, IGMPv2, and IGMPv3 message codec                    |
 | `../net/mld`           | MLDv1 and MLDv2 message codec                               |
 | `../net/udp`           | UDP header codec with pseudo-header checksums               |
@@ -16,13 +17,14 @@ goroutines or wall-clock dependencies.
 | `stream`               | Finite Ethernet frame sources with deterministic timing      |
 | `port`                 | Port table, administrative state, and MTU                    |
 | `device/vswitch`       | Virtual switch composing pipeline capabilities               |
+| `layer`                | Shared emission, flush target, and effect types for pipeline layers |
 | `layer/lag`            | Bond modes, the 256-bucket member selection table, member delays, LACP |
 | `layer/phy`            | Physical Ethernet speeds and PoE budget allocation           |
 | `layer/bridge`         | Filtering database, VLAN classification, and tagging         |
 | `layer/mcast`          | Per-port RFC 3376/MLDv2 router state, router ports, and aging |
 | `layer/routing`        | Routed interfaces, per-VRF tables, equal-cost selection, recursive next hops |
 | `layer/filter`         | Interface-bound access-control rules and stateful reverse matches |
-| `layer/stp`            | Rapid Spanning Tree Protocol state machine, BPDUs, and port guards |
+| `layer/stp`            | Rapid Spanning Tree Protocol state machine and port guards   |
 | `layer/loopprotect`    | netsim's own loop-protection probe and per-port block/no-learn action, independent of spanning tree |
 | `layer/traffic`        | Mirrors, ingress policers, and per-PCP queue limits          |
 | `netmodel`             | Translation boundary for FlowSeer network model protos       |
@@ -95,3 +97,13 @@ configuration diffs. It is internal and imported by this tree's own tests only:
 the conformance tests of `device/vswitch`, `netmodel`, and `fabric`, and the
 diff-coverage tests of every `layer/` package, `port`, `device/vswitch`, and
 `fabric`; see `internal/simtest/README.md` for the admitted cases and admission bar.
+
+## Layer architecture contract
+
+Every pipeline layer under `layer/` adheres to a uniform package contract:
+
+- **Universal members**: Every layer package exports `LayerName`, `Config`, `Config.Normalize`, `Config.Validate`, `Config.Clone`, and `Diff`.
+- **Stateful layer runtime shape**: Layers maintaining runtime state export `New(cfg, env)`, `(*Layer).Clone`, and `RetentionKey(cfg, env)`. Stateful layers advance time through `Advance` or `Tick`, leaving `Wake` and `Age` to the host virtual switch.
+- **Isolation boundaries**: No layer package imports a sibling layer package, `sim/device`, or `sim/fabric`. Shared interaction types live in `layer`. Trace facts remain unexported within their declaring layer package.
+
+The conformance gate under `test/conformance/sim` mechanically verifies these invariants across all layer packages.

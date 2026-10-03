@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -67,39 +68,39 @@ func ConfigFact(config Config) trace.Fact {
 }
 
 // Capabilities returns the sorted architectural layers implied by the present configuration.
-func (c Config) Capabilities() []port.Layer {
-	var caps []port.Layer
+func (c Config) Capabilities() []trace.Layer {
+	var caps []trace.Layer
 
 	if c.Bridge != nil {
-		caps = append(caps, port.LayerRelay)
+		caps = append(caps, bridge.LayerName)
 		if c.Bridge.VLAN != nil {
-			caps = append(caps, port.LayerVLAN)
+			caps = append(caps, bridge.LayerNameVLAN)
 		}
 	}
 	if c.STP != nil {
-		caps = append(caps, port.LayerSTP)
+		caps = append(caps, stp.LayerName)
 	}
 	if c.LoopProtect != nil {
-		caps = append(caps, port.LayerLoopProtect)
+		caps = append(caps, loopprotect.LayerName)
 	}
 	if c.Mcast != nil {
-		caps = append(caps, port.LayerMcast)
+		caps = append(caps, mcast.LayerName)
 	}
 	if c.Routing != nil {
-		caps = append(caps, port.LayerRouting)
+		caps = append(caps, routing.LayerName)
 	}
 	if c.Traffic != nil {
-		caps = append(caps, port.LayerTraffic)
+		caps = append(caps, traffic.LayerName)
 	}
 	if c.Filter != nil {
-		caps = append(caps, port.LayerFilter)
+		caps = append(caps, filter.LayerName)
 	}
 	if c.Phy != nil {
 		if c.Phy.Ethernet != nil {
-			caps = append(caps, port.LayerEthernet)
+			caps = append(caps, phy.LayerName)
 		}
 		if c.Phy.PoE != nil {
-			caps = append(caps, port.LayerPoE)
+			caps = append(caps, phy.LayerNamePoE)
 		}
 	}
 	hasLag := c.LAG != nil
@@ -112,12 +113,19 @@ func (c Config) Capabilities() []port.Layer {
 		}
 	}
 	if hasLag {
-		caps = append(caps, port.LayerLAG)
+		caps = append(caps, lag.LayerName)
 	}
 
 	slices.Sort(caps)
 
 	return caps
+}
+
+func (c Config) env() layer.Env {
+	return layer.Env{
+		Ports: c.Ports,
+		MAC:   c.MAC,
+	}
 }
 
 // Validate verifies the invariants of the configuration by validating the port table
@@ -132,18 +140,19 @@ func (c Config) Validate() error {
 			Attr("mac", c.MAC).
 			Msgf("switch MAC %s cannot be a group MAC", c.MAC)
 	}
+	env := c.env()
 	if c.Phy != nil {
-		if err := c.Phy.Validate(c.Ports); err != nil {
+		if err := c.Phy.Validate(env); err != nil {
 			return err
 		}
 	}
 	if c.Traffic != nil {
-		if err := c.Traffic.Validate(c.Ports); err != nil {
+		if err := c.Traffic.Validate(env); err != nil {
 			return err
 		}
 	}
 	if c.Bridge != nil {
-		if err := c.Bridge.Validate(c.Ports); err != nil {
+		if err := c.Bridge.Validate(env); err != nil {
 			return err
 		}
 	}
@@ -151,7 +160,7 @@ func (c Config) Validate() error {
 		return err
 	}
 	if c.LAG != nil {
-		if err := c.LAG.Validate(c.Ports); err != nil {
+		if err := c.LAG.Validate(env); err != nil {
 			return err
 		}
 	}
@@ -159,7 +168,7 @@ func (c Config) Validate() error {
 		if c.Bridge == nil {
 			return errs.New().Attr("field", "stp").Msg("spanning tree requires bridge configuration")
 		}
-		if err := c.STP.Validate(c.Ports); err != nil {
+		if err := c.STP.Validate(env); err != nil {
 			return err
 		}
 		if err := c.validatePVSTCoversEveryVLAN(); err != nil {
@@ -170,7 +179,7 @@ func (c Config) Validate() error {
 		if c.Bridge == nil {
 			return errs.New().Attr("field", "loop_protect").Msg("loop protection requires bridge configuration")
 		}
-		if err := c.LoopProtect.Validate(c.Ports); err != nil {
+		if err := c.LoopProtect.Validate(env); err != nil {
 			return err
 		}
 
@@ -238,7 +247,7 @@ func (c Config) Validate() error {
 		}
 	}
 	if c.Mcast != nil {
-		if err := c.Mcast.Validate(c.Ports); err != nil {
+		if err := c.Mcast.Validate(env); err != nil {
 			return err
 		}
 		if c.Bridge == nil || c.Bridge.VLAN == nil {
@@ -272,7 +281,7 @@ func (c Config) Validate() error {
 		}
 	}
 	if c.Routing != nil {
-		if err := c.Routing.Validate(c.Ports); err != nil {
+		if err := c.Routing.Validate(env); err != nil {
 			return err
 		}
 
@@ -375,7 +384,7 @@ func (c Config) Validate() error {
 		if c.Routing == nil {
 			return errs.New().Attr("field", "filter").Msg("filter requires routing configuration")
 		}
-		if err := c.Filter.Validate(); err != nil {
+		if err := c.Filter.Validate(env); err != nil {
 			return err
 		}
 		routedIfaces := make(map[string]struct{})
@@ -510,12 +519,13 @@ func (c Config) Normalize() Config {
 		}
 	}
 
+	env := norm.env()
 	if norm.Phy != nil {
-		p := norm.Phy.Normalize()
+		p := norm.Phy.Normalize(env)
 		norm.Phy = &p
 	}
 	if norm.Bridge != nil {
-		b := norm.Bridge.Normalize()
+		b := norm.Bridge.Normalize(env)
 		norm.Bridge = &b
 	}
 	hasLAG := norm.LAG != nil
@@ -532,22 +542,22 @@ func (c Config) Normalize() Config {
 		if norm.LAG != nil {
 			cfg = *norm.LAG
 		}
-		l := cfg.Normalize(norm.Ports, norm.MAC)
+		l := cfg.Normalize(env)
 		norm.LAG = &l
 	}
 	if norm.STP != nil {
 		if norm.STP.Address == (netaddr.MAC{}) {
 			norm.STP.Address = norm.MAC
 		}
-		s := norm.STP.Normalize()
+		s := norm.STP.Normalize(env)
 		norm.STP = &s
 	}
 	if norm.LoopProtect != nil {
-		lp := norm.LoopProtect.Normalize()
+		lp := norm.LoopProtect.Normalize(env)
 		norm.LoopProtect = &lp
 	}
 	if norm.Mcast != nil {
-		m := norm.Mcast.Normalize()
+		m := norm.Mcast.Normalize(env)
 		norm.Mcast = &m
 	}
 	if norm.Routing != nil {
@@ -560,15 +570,15 @@ func (c Config) Normalize() Config {
 			}
 			norm.Routing.VRFs[vrfName] = vrf
 		}
-		r := norm.Routing.Normalize()
+		r := norm.Routing.Normalize(env)
 		norm.Routing = &r
 	}
 	if norm.Traffic != nil {
-		t := norm.Traffic.Normalize()
+		t := norm.Traffic.Normalize(env)
 		norm.Traffic = &t
 	}
 	if norm.Filter != nil {
-		f := norm.Filter.Normalize()
+		f := norm.Filter.Normalize(env)
 		norm.Filter = &f
 	}
 

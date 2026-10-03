@@ -106,7 +106,7 @@ It cannot follow a custom variation whose effect on the IP packet is unknown.
 The port variation preserves bytes after the IP packet, including Ethernet
 padding, and refuses fragmented IPv4 templates.
 
-MAC and UDP variations can draw an offset from `SplitMix64` instead of stepping.
+MAC and UDP variations can draw an offset from the generator instead of stepping.
 `Spec.Seed` sets the sequence, so two sources built from the same spec emit the
 same bytes. A source clone copies the cursor and generator state. `Spec.Clone`
 copies the variation list; the frame template and variation values, including

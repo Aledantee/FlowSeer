@@ -11,7 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/tcp"
 	"go.aledante.io/FlowSeer/src/common/net/udp"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -73,13 +73,8 @@ func Scope(nodeID, iface string, dir Direction) analysis.Scope {
 	return analysis.FieldScope(rootScope(nodeID), "interfaces", iface, string(dir))
 }
 
-// BindingScope returns the evaluation scope for a filter binding on iface and direction.
-func BindingScope(nodeID, iface string, dir Direction) analysis.Scope {
-	return Scope(nodeID, iface, dir)
-}
-
-// Tuple captures the layer 3 and layer 4 5-tuple used for matching and stateful inspection.
-type Tuple struct {
+// tuple captures the layer 3 and layer 4 5-tuple used for matching and stateful inspection.
+type tuple struct {
 	Proto   uint8
 	Src     netip.Addr
 	Dst     netip.Addr
@@ -87,9 +82,9 @@ type Tuple struct {
 	DstPort uint16
 }
 
-// Reverse returns the inverted 5-tuple with source and destination addresses and ports swapped.
-func (t Tuple) Reverse() Tuple {
-	return Tuple{
+// reverse returns the inverted 5-tuple with source and destination addresses and ports swapped.
+func (t tuple) reverse() tuple {
+	return tuple{
 		Proto:   t.Proto,
 		Src:     t.Dst,
 		Dst:     t.Src,
@@ -119,7 +114,7 @@ type Result struct {
 	Reason          trace.Reason
 	Steps           []trace.Step
 	consultedScopes []analysis.Scope
-	tuple           Tuple
+	tuple           tuple
 	deferredIface   string
 	deferredSet     string
 }
@@ -167,14 +162,14 @@ type Layer struct {
 }
 
 // New constructs a new filter layer from cfg.
-func New(cfg Config, _ port.Table, nodeID string) (*Layer, error) {
-	norm := cfg.Normalize()
-	if err := norm.Validate(); err != nil {
+func New(cfg Config, env layer.Env) (*Layer, error) {
+	norm := cfg.Normalize(env)
+	if err := norm.Validate(env); err != nil {
 		return nil, err
 	}
 
 	l := &Layer{
-		nodeID:   nodeID,
+		nodeID:   env.NodeID,
 		cfg:      norm,
 		sets:     norm.Sets,
 		bindings: make(map[bindingKey]string, len(norm.Bindings)),
@@ -187,16 +182,28 @@ func New(cfg Config, _ port.Table, nodeID string) (*Layer, error) {
 	return l, nil
 }
 
+// Clone returns an independent deep copy of the filter layer.
+func (l *Layer) Clone() *Layer {
+	if l == nil {
+		return nil
+	}
+	clonedCfg := l.cfg.Clone()
+	cp := &Layer{
+		nodeID:   l.nodeID,
+		cfg:      clonedCfg,
+		sets:     clonedCfg.Sets,
+		bindings: make(map[bindingKey]string, len(l.bindings)),
+	}
+	for k, v := range l.bindings {
+		cp.bindings[k] = v
+	}
+	return cp
+}
+
 // Binding returns the rule set bound to iface in direction dir, if any.
 func (l *Layer) Binding(iface string, dir Direction) (string, bool) {
 	set, ok := l.bindings[bindingKey{iface: iface, dir: dir}]
 	return set, ok
-}
-
-// HasBinding reports whether a rule set is bound to iface in direction dir.
-func (l *Layer) HasBinding(iface string, dir Direction) bool {
-	_, ok := l.bindings[bindingKey{iface: iface, dir: dir}]
-	return ok
 }
 
 // Config returns a copy of the layer's configuration.
@@ -311,7 +318,7 @@ func (l *Layer) ResolveDeferred(ingressRes Result, egressIface string) Result {
 	if egressSetName, ok := l.Binding(egressIface, In); ok {
 		egressSet, ok := l.sets[egressSetName]
 		if ok && egressSet.Stateful {
-			revTuple := tuple.Reverse()
+			revTuple := tuple.reverse()
 			for idx, rule := range egressSet.Rules {
 				if !tupleMatches(rule.Match, revTuple) {
 					continue
@@ -431,7 +438,7 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 		if ingressSetName, ok := l.Binding(ingressIface, Out); ok {
 			ingressSet, ok := l.sets[ingressSetName]
 			if ok && ingressSet.Stateful {
-				revTuple := tuple.Reverse()
+				revTuple := tuple.reverse()
 				for idx, rule := range ingressSet.Rules {
 					if !tupleMatches(rule.Match, revTuple) {
 						continue
@@ -492,13 +499,13 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 	return res
 }
 
-func extractPacket(f ethernet.Frame) (ip.Header, Tuple, *icmp.Header, *tcp.Header, bool) {
+func extractPacket(f ethernet.Frame) (ip.Header, tuple, *icmp.Header, *tcp.Header, bool) {
 	hdr, payload, err := ip.Decode(f.Payload)
 	if err != nil {
-		return ip.Header{}, Tuple{}, nil, nil, false
+		return ip.Header{}, tuple{}, nil, nil, false
 	}
 
-	tuple := Tuple{
+	tuple := tuple{
 		Proto: hdr.Protocol,
 		Src:   hdr.Src,
 		Dst:   hdr.Dst,
@@ -528,7 +535,7 @@ func extractPacket(f ethernet.Frame) (ip.Header, Tuple, *icmp.Header, *tcp.Heade
 	return hdr, tuple, icmpHdr, tcpHdr, true
 }
 
-func ruleMatches(m Match, decoded bool, hdr ip.Header, tuple Tuple, icmpHdr *icmp.Header, tcpHdr *tcp.Header) bool {
+func ruleMatches(m Match, decoded bool, hdr ip.Header, tuple tuple, icmpHdr *icmp.Header, tcpHdr *tcp.Header) bool {
 	if !decoded {
 		return m.Protocol == nil && len(m.Src) == 0 && len(m.Dst) == 0 &&
 			len(m.SrcPorts) == 0 && len(m.DstPorts) == 0 &&
@@ -618,7 +625,7 @@ func ruleMatches(m Match, decoded bool, hdr ip.Header, tuple Tuple, icmpHdr *icm
 	return true
 }
 
-func tupleMatches(m Match, tuple Tuple) bool {
+func tupleMatches(m Match, tuple tuple) bool {
 	if m.Protocol != nil && *m.Protocol != tuple.Proto {
 		return false
 	}

@@ -2,75 +2,14 @@ package vswitch
 
 import (
 	"fmt"
-	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
-
-func cloneMetadata(metadata analysis.Metadata) analysis.Metadata {
-	catalog := analysis.EvidenceCatalog{}
-	for _, entry := range metadata.Evidence().Entries() {
-		catalog, _ = catalog.Add(entry.Evidence)
-	}
-
-	return analysis.NewMetadata(
-		metadata.Scope(),
-		metadata.Issues(),
-		catalog,
-		metadata.Assumptions(),
-	)
-}
-
-func metadataEqual(a, b analysis.Metadata) bool {
-	return a.Scope().Compare(b.Scope()) == 0 &&
-		a.Status() == b.Status() &&
-		issueListsEqual(a.Issues(), b.Issues()) &&
-		slices.Equal(a.Evidence().Entries(), b.Evidence().Entries()) &&
-		slices.EqualFunc(a.Assumptions(), b.Assumptions(), assumptionEqual)
-}
-
-func issueEqual(a, b analysis.Issue) bool {
-	return a.Code == b.Code &&
-		a.Status == b.Status &&
-		a.Scope.Compare(b.Scope) == 0 &&
-		slices.Equal(a.Evidence, b.Evidence)
-}
-
-func issueListsEqual(a, b []analysis.Issue) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	matched := make([]bool, len(b))
-	for _, issue := range a {
-		found := -1
-		for i, candidate := range b {
-			if !matched[i] && issueEqual(issue, candidate) {
-				found = i
-				break
-			}
-		}
-		if found < 0 {
-			return false
-		}
-		matched[found] = true
-	}
-
-	return true
-}
-
-func assumptionEqual(a, b analysis.Assumption) bool {
-	return a.Scope.Compare(b.Scope) == 0 &&
-		a.Statement == b.Statement &&
-		slices.Equal(a.Evidence, b.Evidence)
-}
 
 func forwardingMetadata(
 	nodeID string,
@@ -127,33 +66,6 @@ type runtimeIssue struct {
 	facts []trace.Fact
 }
 
-type membershipFact string
-
-func (f membershipFact) TypeID() string    { return "vswitch.mcast_membership" }
-func (f membershipFact) Canonical() string { return string(f) }
-
-// newMembershipFact returns an immutable snapshot of a multicast membership
-// lookup naming the frame's IP source: ports is already that source's
-// admitted egress set, so the fact records which source produced it rather
-// than only the group and the resulting port list.
-func newMembershipFact(vid vlan.ID, group, source netip.Addr, ports []string, registered, decided bool) trace.Fact {
-	sorted := slices.Clone(ports)
-	slices.Sort(sorted)
-
-	var b strings.Builder
-	fmt.Fprintf(&b, "fid=%d;group=%q;source=%q;registered=%t;decided=%t;ports=[",
-		vid, group.String(), source.String(), registered, decided)
-	for i, name := range sorted {
-		if i > 0 {
-			b.WriteByte(',')
-		}
-		fmt.Fprintf(&b, "%q", name)
-	}
-	b.WriteByte(']')
-
-	return membershipFact(b.String())
-}
-
 type runtimeFact struct {
 	typeID    string
 	canonical string
@@ -194,7 +106,7 @@ func forwardingScopeRelevant(nodeID string, scope analysis.Scope, consulted []an
 	return slices.ContainsFunc(consulted, scope.Overlaps)
 }
 
-func protocolScope(nodeID string, layer port.Layer) analysis.Scope {
+func protocolScope(nodeID string, layer trace.Layer) analysis.Scope {
 	return analysis.ProtocolScope(nodeID, string(layer), "0")
 }
 

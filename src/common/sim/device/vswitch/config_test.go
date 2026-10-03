@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
@@ -32,7 +33,7 @@ func TestCloneMSTRegionIsIndependent(t *testing.T) {
 			Ports: map[string]stp.Port{"a": {}},
 			MST: &stp.MST{
 				Name: "region-1",
-				Instances: map[stp.MSTID]stp.Instance{
+				Instances: map[bpdu.MSTID]stp.Instance{
 					1: {
 						VLANs: []vlan.ID{10, 20},
 						Ports: map[string]stp.InstancePort{"a": {}},
@@ -366,7 +367,7 @@ func TestDiffReportsFilterCapabilityChange(t *testing.T) {
 	changes := vswitch.Diff(cfgA, cfgB)
 	found := false
 	for _, ch := range changes {
-		if ch.Layer == port.LayerFilter && ch.Subject.Kind == "capability" && ch.Subject.Key == "filter" {
+		if ch.Layer == filter.LayerName && ch.Subject.Kind == "capability" && ch.Subject.Key == "filter" {
 			found = true
 			if ch.From != nil {
 				t.Errorf("From = %v, want nil", ch.From)

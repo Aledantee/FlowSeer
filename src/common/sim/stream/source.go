@@ -22,7 +22,7 @@ type specSource struct {
 	n         int
 	numerator uint64
 	rate      uint64
-	rng       SplitMix64
+	rng       splitMix64
 }
 
 func (s *specSource) Next() (time.Duration, ethernet.Frame, bool) {

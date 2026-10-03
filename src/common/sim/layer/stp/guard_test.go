@@ -5,26 +5,28 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 )
 
 // superiorBPDU builds an RST BPDU from a bridge better than any this file
 // configures, so receiving it always makes the port's information superior.
-func superiorBPDU(messageAge, maxAge time.Duration) stp.BPDU {
-	b := stp.BPDU{
+func superiorBPDU(messageAge, maxAge time.Duration) bpdu.BPDU {
+	b := bpdu.BPDU{
 		Version:      2,
-		Type:         stp.BPDUTypeRapid,
-		RootID:       stp.BridgeID{Priority: 4096},
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096},
 		RootPathCost: 10,
-		BridgeID:     stp.BridgeID{Priority: 4096},
+		BridgeID:     bpdu.BridgeID{Priority: 4096},
 		PortID:       0x8001,
 		MessageAge:   messageAge,
 		MaxAge:       maxAge,
 		HelloTime:    2 * time.Second,
 		ForwardDelay: 15 * time.Second,
 	}
-	b.SetRole(stp.RoleDesignated)
+	b.SetRole(bpdu.RoleDesignated)
 
 	return b
 }
@@ -77,7 +79,7 @@ func TestMessageAgeAtMaxAgeIsDiscarded(t *testing.T) {
 
 	// Three hello times after the last accepted BPDU, and not after the
 	// discarded one, the information ages out and this bridge is root again.
-	l.Wake(t0.Add(time.Second).Add(6 * time.Second))
+	l.Advance(t0.Add(time.Second).Add(6 * time.Second))
 	root, _, rootPort = l.Root()
 	if root.Priority != 32768 || rootPort != "" {
 		t.Errorf("root = %v via %q, want this bridge once the stale information aged out", root, rootPort)
@@ -155,7 +157,7 @@ func TestBPDUGuardDisablesPortUntilLinkBounce(t *testing.T) {
 	l.Receive(t0.Add(time.Second), "1/1/1", superiorBPDU(0, 20*time.Second))
 
 	info := l.PortInfo("1/1/1")
-	if info.Role != stp.RoleDisabled || info.State != stp.StateDiscarding {
+	if info.Role != bpdu.RoleDisabled || info.State != stp.StateDiscarding {
 		t.Errorf("guarded port = %v/%v, want Disabled/Discarding", info.Role, info.State)
 	}
 	if info.BlockReason != stp.BlockReasonBPDUGuard {
@@ -170,7 +172,7 @@ func TestBPDUGuardDisablesPortUntilLinkBounce(t *testing.T) {
 	}
 
 	// A wake with no further BPDU does not recover the port.
-	l.Wake(t0.Add(30 * time.Second))
+	l.Advance(t0.Add(30 * time.Second))
 	if l.PortInfo("1/1/1").BlockReason != stp.BlockReasonBPDUGuard {
 		t.Error("a wake recovered the guarded port; only a link bounce may")
 	}
@@ -208,8 +210,8 @@ func TestBPDUGuardCountsOneTopologyChange(t *testing.T) {
 	// Two forward delays carry the guarded port to Forwarding, so the BPDU
 	// below takes it out of the active topology rather than finding it already
 	// discarding.
-	l.Wake(t0.Add(16 * time.Second))
-	l.Wake(t0.Add(32 * time.Second))
+	l.Advance(t0.Add(16 * time.Second))
+	l.Advance(t0.Add(32 * time.Second))
 	if got := l.PortInfo("1/1/1").State; got != stp.StateForwarding {
 		t.Fatalf("port state = %v, want Forwarding before the guard trips", got)
 	}
@@ -242,7 +244,7 @@ func TestRestrictedRoleKeepsPortOutOfRootSelection(t *testing.T) {
 	if root.Priority != 32768 || rootPort != "" {
 		t.Errorf("root = %v via %q, want this bridge unchanged by a restricted port", root, rootPort)
 	}
-	if info := l.PortInfo("1/1/1"); info.Role != stp.RoleAlternate {
+	if info := l.PortInfo("1/1/1"); info.Role != bpdu.RoleAlternate {
 		t.Errorf("restricted port role = %v, want Alternate: superior information still blocks it", info.Role)
 	}
 
@@ -263,7 +265,7 @@ func TestRestrictedTCNDoesNotPropagate(t *testing.T) {
 		"1/1/2": {},
 		"1/1/3": {},
 	})
-	fx := restricted.Receive(t0.Add(4*time.Second), "1/1/1", stp.BPDU{Type: stp.BPDUTypeTopologyChangeNotification})
+	fx := restricted.Receive(t0.Add(4*time.Second), "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
 	if len(fx.Flush) != 0 {
 		t.Errorf("Flush = %v, want nothing: a restricted port does not propagate the change", fx.Flush)
 	}
@@ -275,7 +277,7 @@ func TestRestrictedTCNDoesNotPropagate(t *testing.T) {
 		"1/1/2": {},
 		"1/1/3": {},
 	})
-	fx = plain.Receive(t0.Add(4*time.Second), "1/1/1", stp.BPDU{Type: stp.BPDUTypeTopologyChangeNotification})
+	fx = plain.Receive(t0.Add(4*time.Second), "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
 	got := flushPorts(fx.Flush)
 	if !slices.Contains(got, "1/1/2") || !slices.Contains(got, "1/1/3") {
 		t.Errorf("Flush = %v, want the other two ports without the guard", fx.Flush)
@@ -295,15 +297,15 @@ func TestLoopGuardHoldsPortDiscardingWhenBPDUsStop(t *testing.T) {
 
 	// A better bridge on 1/1/1 makes it the root port.
 	l.Receive(t0.Add(time.Second), "1/1/1", superiorBPDU(0, 20*time.Second))
-	if info := l.PortInfo("1/1/1"); info.Role != stp.RoleRoot {
+	if info := l.PortInfo("1/1/1"); info.Role != bpdu.RoleRoot {
 		t.Fatalf("role = %v, want Root before the peer goes quiet", info.Role)
 	}
 
 	// Silence past three hello times expires the information.
-	l.Wake(t0.Add(time.Second).Add(7 * time.Second))
+	l.Advance(t0.Add(time.Second).Add(7 * time.Second))
 
 	info := l.PortInfo("1/1/1")
-	if info.Role != stp.RoleAlternate || info.State != stp.StateDiscarding {
+	if info.Role != bpdu.RoleAlternate || info.State != stp.StateDiscarding {
 		t.Errorf("guarded port = %v/%v, want Alternate/Discarding", info.Role, info.State)
 	}
 	if info.BlockReason != stp.BlockReasonLoopInconsistent {
@@ -319,7 +321,7 @@ func TestLoopGuardHoldsPortDiscardingWhenBPDUsStop(t *testing.T) {
 	if info.BlockReason != "" {
 		t.Errorf("block reason after recovery = %q, want none", info.BlockReason)
 	}
-	if info.Role != stp.RoleRoot {
+	if info.Role != bpdu.RoleRoot {
 		t.Errorf("role after recovery = %v, want Root", info.Role)
 	}
 }
@@ -335,10 +337,10 @@ func TestWithoutLoopGuardTheQuietPortBecomesDesignated(t *testing.T) {
 	})
 
 	l.Receive(t0.Add(time.Second), "1/1/1", superiorBPDU(0, 20*time.Second))
-	l.Wake(t0.Add(time.Second).Add(7 * time.Second))
+	l.Advance(t0.Add(time.Second).Add(7 * time.Second))
 
 	info := l.PortInfo("1/1/1")
-	if info.Role != stp.RoleDesignated {
+	if info.Role != bpdu.RoleDesignated {
 		t.Errorf("unguarded port role = %v, want Designated", info.Role)
 	}
 	if info.BlockReason != "" {
@@ -365,7 +367,7 @@ func TestBPDUGuardHoldsAnMSTIOutOfForwarding(t *testing.T) {
 		},
 		MST: &stp.MST{
 			Name: "region-1",
-			Instances: map[stp.MSTID]stp.Instance{
+			Instances: map[bpdu.MSTID]stp.Instance{
 				1: {VLANs: []vlan.ID{10}},
 			},
 		},
@@ -376,21 +378,21 @@ func TestBPDUGuardHoldsAnMSTIOutOfForwarding(t *testing.T) {
 	// Two forward delays carry both the CIST's and MSTI 1's copy of the port
 	// to Forwarding, so the BPDU below takes a forwarding port out of the
 	// topology rather than finding it already discarding.
-	l.Wake(t0.Add(16 * time.Second))
-	l.Wake(t0.Add(32 * time.Second))
+	l.Advance(t0.Add(16 * time.Second))
+	l.Advance(t0.Add(32 * time.Second))
 	if !l.Forwards("1/1/1", 10) {
 		t.Fatalf("MSTI 1 does not forward VLAN 10 before the guard trips")
 	}
 
 	l.Receive(t0.Add(33*time.Second), "1/1/1", superiorBPDU(0, 20*time.Second))
 
-	if info := l.PortInfo("1/1/1"); info.Role != stp.RoleDisabled {
+	if info := l.PortInfo("1/1/1"); info.Role != bpdu.RoleDisabled {
 		t.Fatalf("CIST role = %v, want Disabled once BPDU guard trips", info.Role)
 	}
 	if l.Forwards("1/1/1", 10) {
 		t.Error("BPDU guard tripped on the CIST but MSTI 1 still forwards VLAN 10")
 	}
-	if info := l.InstancePortInfo(1, "1/1/1"); info.State == stp.StateForwarding {
+	if info := l.VLANPortInfo(10, "1/1/1"); info.State == stp.StateForwarding {
 		t.Errorf("MSTI 1 port state = %v, want not Forwarding once BPDU guard trips", info.State)
 	}
 }
@@ -415,7 +417,7 @@ func TestLoopGuardIsInactiveWhereVendorsExcludeIt(t *testing.T) {
 	shared.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
 
 	shared.Receive(t0.Add(time.Second), "1/1/1", superiorBPDU(0, 20*time.Second))
-	shared.Wake(t0.Add(time.Second).Add(7 * time.Second))
+	shared.Advance(t0.Add(time.Second).Add(7 * time.Second))
 	if got := shared.PortInfo("1/1/1").BlockReason; got != "" {
 		t.Errorf("shared-link port block reason = %q, want none: loop guard does not watch it", got)
 	}
