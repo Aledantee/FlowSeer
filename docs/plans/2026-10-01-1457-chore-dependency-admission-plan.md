@@ -241,10 +241,9 @@ exhausts host memory.
   rule that third-party services are self-hostable and deployed in the EU.
   The alternative is matching against OSV's downloadable data locally, which
   moves version-range matching into owned code.
-- Other open plans change the dependency set:
-  `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase2-plan.md`
-  swaps `motion` for `motion-v` and adds `@vueuse/core`, and its phase 3
-  adds `vue-i18n`. Whichever lands second writes or deletes the statements.
+- Other open plans change the dependency set: the web component contract
+  migration's phase 2 (landed 2026-10-03) swaps `motion` for `motion-v` and
+  adds `@vueuse/core`, and its phase 3 adds `vue-i18n`. Whichever lands second writes or deletes the statements.
   Once the record is accepted, those additions need an approved statement
   like any other.
 - The host runs pnpm 12.6.0 and `frontend/web/package.json` pins
