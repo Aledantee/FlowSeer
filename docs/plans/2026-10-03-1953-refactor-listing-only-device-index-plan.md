@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: no lesson
 execution: mixed
 amends: docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md
 ---
