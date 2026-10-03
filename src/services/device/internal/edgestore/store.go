@@ -212,6 +212,29 @@ func (s *Store) Keys(ctx context.Context, tenantID string) ([]string, error) {
 	return edges, nil
 }
 
+// All returns every stored edge ID mapped to its tenant ID across all tenants.
+// An empty bucket returns a nil map and no error.
+func (s *Store) All(ctx context.Context) (map[string]string, error) {
+	keys, err := s.kv.Keys(ctx)
+	if errors.Is(err, jetstream.ErrNoKeysFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeStore).Msg("list all edge records")
+	}
+	edges := make(map[string]string)
+	for _, key := range keys {
+		parts := strings.SplitN(key, ".", 2)
+		if len(parts) == 2 {
+			tenantID, edgeID := parts[0], parts[1]
+			if tenant.Validate(tenantID) == nil && edgeID != "" {
+				edges[edgeID] = tenantID
+			}
+		}
+	}
+	return edges, nil
+}
+
 // Mutate runs fn against the edge's record under compare-and-set, retrying on
 // a revision conflict. fn receives the current record, or nil when the edge
 // has none, and returns the record to store. Returning ErrSkip stores nothing.

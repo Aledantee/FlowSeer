@@ -1000,3 +1000,62 @@ func TestSweepExpiredReportsUnparseableKeysAsFailures(t *testing.T) {
 		t.Fatal("SweepExpired returned nil error for unparseable key, want failure")
 	}
 }
+
+func TestStoreEachSessionTwoTenants(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	var emptyCount int
+	err := store.EachSession(ctx, func(_ string, _ *modelcapturev1.CaptureSessionRecord) error {
+		emptyCount++
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("EachSession on empty store: %v", err)
+	}
+	if emptyCount != 0 {
+		t.Fatalf("EachSession on empty store saw %d sessions, want 0", emptyCount)
+	}
+
+	tenant1 := "0192e6a0-0000-7000-8000-000000000001"
+	tenant2 := "0192e6a0-0000-7000-8000-000000000002"
+	session1 := "0192e6a0-0000-7000-8000-000000000011"
+	session2 := "0192e6a0-0000-7000-8000-000000000022"
+
+	cfg1 := newSessionConfig(t, session1)
+	if _, err := store.CreateSession(ctx, tenant1, cfg1); err != nil {
+		t.Fatalf("CreateSession tenant1: %v", err)
+	}
+
+	cfg2 := newSessionConfig(t, session2)
+	if _, err := store.CreateSession(ctx, tenant2, cfg2); err != nil {
+		t.Fatalf("CreateSession tenant2: %v", err)
+	}
+
+	seen := make(map[string]string)
+	err = store.EachSession(ctx, func(tID string, rec *modelcapturev1.CaptureSessionRecord) error {
+		sID := rec.GetConfig().GetRef().GetCaptureSession().GetId()
+		seen[sID] = tID
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("EachSession: %v", err)
+	}
+	if len(seen) != 2 {
+		t.Fatalf("EachSession saw %d sessions, want 2: %v", len(seen), seen)
+	}
+	if got := seen[session1]; got != tenant1 {
+		t.Errorf("session1 tenant = %q, want %q", got, tenant1)
+	}
+	if got := seen[session2]; got != tenant2 {
+		t.Errorf("session2 tenant = %q, want %q", got, tenant2)
+	}
+
+	sentinel := errors.New("stop")
+	err = store.EachSession(ctx, func(string, *modelcapturev1.CaptureSessionRecord) error {
+		return sentinel
+	})
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("EachSession err = %v, want sentinel %v", err, sentinel)
+	}
+}
