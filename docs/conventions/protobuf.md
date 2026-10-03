@@ -212,11 +212,13 @@ can lie about it.
 event*, not a stored thing. One provenance message is defined beside `Binding`
 in `model/inventory/v1`, and is embedded by value in the integration,
 service-response, and event envelopes. It also names the protocol that
-produced the payload, the edge that performed the observation, and the
-device's firmware fingerprint at that moment, because a route is chosen per
-operation and two observations from different firmware epochs must be
-tellable apart. There is one such message; a boundary package that needs
-more provenance extends it here rather than defining a sibling.
+produced the payload through a required `oneof protocol` with `ManagementProtocol
+management` and `LogProtocol log` arms, the edge that performed the observation,
+and the device's firmware fingerprint at that moment, because a route is chosen
+per operation, non-management sources (such as syslog) need to name their
+protocol, and two observations from different firmware epochs must be tellable
+apart. There is one such message; a boundary package that needs more provenance
+extends it here rather than defining a sibling.
 
 It is never a field of an `<Entity>State` and never a field of a Primitive. This
 keeps `net/` packages independent of entity and binding packages, and a `Vlan`

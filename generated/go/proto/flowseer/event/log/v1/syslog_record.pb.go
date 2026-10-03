@@ -33,7 +33,6 @@ const (
 type SyslogRecord struct {
 	state                       protoimpl.MessageState          `protogen:"opaque.v1"`
 	xxx_hidden_Device           *v1.DeviceGlobalRef             `protobuf:"bytes,1,opt,name=device"`
-	xxx_hidden_RecordId         *string                         `protobuf:"bytes,2,opt,name=record_id,json=recordId"`
 	xxx_hidden_ReceivedAt       *timestamppb.Timestamp          `protobuf:"bytes,3,opt,name=received_at,json=receivedAt"`
 	xxx_hidden_SentAt           *timestamppb.Timestamp          `protobuf:"bytes,4,opt,name=sent_at,json=sentAt"`
 	xxx_hidden_Severity         v11.SyslogSeverity              `protobuf:"varint,5,opt,name=severity,enum=flowseer.net.log.v1.SyslogSeverity"`
@@ -84,16 +83,6 @@ func (x *SyslogRecord) GetDevice() *v1.DeviceGlobalRef {
 	return nil
 }
 
-func (x *SyslogRecord) GetRecordId() string {
-	if x != nil {
-		if x.xxx_hidden_RecordId != nil {
-			return *x.xxx_hidden_RecordId
-		}
-		return ""
-	}
-	return ""
-}
-
 func (x *SyslogRecord) GetReceivedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.xxx_hidden_ReceivedAt
@@ -110,7 +99,7 @@ func (x *SyslogRecord) GetSentAt() *timestamppb.Timestamp {
 
 func (x *SyslogRecord) GetSeverity() v11.SyslogSeverity {
 	if x != nil {
-		if protoimpl.X.Present(&(x.XXX_presence[0]), 4) {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 3) {
 			return x.xxx_hidden_Severity
 		}
 	}
@@ -119,7 +108,7 @@ func (x *SyslogRecord) GetSeverity() v11.SyslogSeverity {
 
 func (x *SyslogRecord) GetFacility() v11.SyslogFacility {
 	if x != nil {
-		if protoimpl.X.Present(&(x.XXX_presence[0]), 5) {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 4) {
 			return x.xxx_hidden_Facility
 		}
 	}
@@ -200,11 +189,6 @@ func (x *SyslogRecord) SetDevice(v *v1.DeviceGlobalRef) {
 	x.xxx_hidden_Device = v
 }
 
-func (x *SyslogRecord) SetRecordId(v string) {
-	x.xxx_hidden_RecordId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 14)
-}
-
 func (x *SyslogRecord) SetReceivedAt(v *timestamppb.Timestamp) {
 	x.xxx_hidden_ReceivedAt = v
 }
@@ -215,32 +199,32 @@ func (x *SyslogRecord) SetSentAt(v *timestamppb.Timestamp) {
 
 func (x *SyslogRecord) SetSeverity(v v11.SyslogSeverity) {
 	x.xxx_hidden_Severity = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 13)
 }
 
 func (x *SyslogRecord) SetFacility(v v11.SyslogFacility) {
 	x.xxx_hidden_Facility = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 13)
 }
 
 func (x *SyslogRecord) SetHostname(v string) {
 	x.xxx_hidden_Hostname = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 13)
 }
 
 func (x *SyslogRecord) SetAppName(v string) {
 	x.xxx_hidden_AppName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 13)
 }
 
 func (x *SyslogRecord) SetProcId(v string) {
 	x.xxx_hidden_ProcId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 13)
 }
 
 func (x *SyslogRecord) SetMsgId(v string) {
 	x.xxx_hidden_MsgId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 13)
 }
 
 func (x *SyslogRecord) SetStructuredData(v []*SyslogStructuredDataElement) {
@@ -252,7 +236,7 @@ func (x *SyslogRecord) SetMessage(v []byte) {
 		v = []byte{}
 	}
 	x.xxx_hidden_Message = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 10, 13)
 }
 
 func (x *SyslogRecord) SetSourceAddress(v *v12.IpAddress) {
@@ -261,7 +245,7 @@ func (x *SyslogRecord) SetSourceAddress(v *v12.IpAddress) {
 
 func (x *SyslogRecord) SetMessageTruncated(v bool) {
 	x.xxx_hidden_MessageTruncated = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 13, 14)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 12, 13)
 }
 
 func (x *SyslogRecord) HasDevice() bool {
@@ -269,13 +253,6 @@ func (x *SyslogRecord) HasDevice() bool {
 		return false
 	}
 	return x.xxx_hidden_Device != nil
-}
-
-func (x *SyslogRecord) HasRecordId() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
 func (x *SyslogRecord) HasReceivedAt() bool {
@@ -296,49 +273,49 @@ func (x *SyslogRecord) HasSeverity() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
 func (x *SyslogRecord) HasFacility() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
 func (x *SyslogRecord) HasHostname() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 6)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
 }
 
 func (x *SyslogRecord) HasAppName() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 7)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 6)
 }
 
 func (x *SyslogRecord) HasProcId() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 8)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 7)
 }
 
 func (x *SyslogRecord) HasMsgId() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 9)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 8)
 }
 
 func (x *SyslogRecord) HasMessage() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 11)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 10)
 }
 
 func (x *SyslogRecord) HasSourceAddress() bool {
@@ -352,16 +329,11 @@ func (x *SyslogRecord) HasMessageTruncated() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 13)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 12)
 }
 
 func (x *SyslogRecord) ClearDevice() {
 	x.xxx_hidden_Device = nil
-}
-
-func (x *SyslogRecord) ClearRecordId() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_RecordId = nil
 }
 
 func (x *SyslogRecord) ClearReceivedAt() {
@@ -373,37 +345,37 @@ func (x *SyslogRecord) ClearSentAt() {
 }
 
 func (x *SyslogRecord) ClearSeverity() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
 	x.xxx_hidden_Severity = v11.SyslogSeverity_SYSLOG_SEVERITY_EMERGENCY
 }
 
 func (x *SyslogRecord) ClearFacility() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
 	x.xxx_hidden_Facility = v11.SyslogFacility_SYSLOG_FACILITY_KERN
 }
 
 func (x *SyslogRecord) ClearHostname() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 6)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
 	x.xxx_hidden_Hostname = nil
 }
 
 func (x *SyslogRecord) ClearAppName() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 7)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 6)
 	x.xxx_hidden_AppName = nil
 }
 
 func (x *SyslogRecord) ClearProcId() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 8)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 7)
 	x.xxx_hidden_ProcId = nil
 }
 
 func (x *SyslogRecord) ClearMsgId() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 9)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 8)
 	x.xxx_hidden_MsgId = nil
 }
 
 func (x *SyslogRecord) ClearMessage() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 11)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 10)
 	x.xxx_hidden_Message = nil
 }
 
@@ -412,7 +384,7 @@ func (x *SyslogRecord) ClearSourceAddress() {
 }
 
 func (x *SyslogRecord) ClearMessageTruncated() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 13)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 12)
 	x.xxx_hidden_MessageTruncated = false
 }
 
@@ -421,17 +393,16 @@ type SyslogRecord_builder struct {
 
 	// The device that emitted this log record. Must be present.
 	Device *v1.DeviceGlobalRef
-	// FlowSeer-assigned UUID identifying this record, for deduplication. Must
-	// be present.
-	RecordId *string
 	// Timestamp when the record was received by the collector. Must be present.
 	ReceivedAt *timestamppb.Timestamp
 	// Timestamp from the message header (RFC 5424 TIMESTAMP). Unset when the
 	// sender emitted NILVALUE.
 	SentAt *timestamppb.Timestamp
-	// Severity of the record (RFC 5424 severity). Must be present.
+	// Severity of the record (RFC 5424 severity). Unset means the message carried
+	// no PRI.
 	Severity *v11.SyslogSeverity
-	// Facility that generated the record (RFC 5424 facility). Must be present.
+	// Facility that generated the record (RFC 5424 facility). Unset means the
+	// message carried no PRI.
 	Facility *v11.SyslogFacility
 	// Hostname from the message header (RFC 5424 HOSTNAME). Unset when omitted
 	// or sent as NILVALUE.
@@ -461,44 +432,40 @@ func (b0 SyslogRecord_builder) Build() *SyslogRecord {
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_Device = b.Device
-	if b.RecordId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 14)
-		x.xxx_hidden_RecordId = b.RecordId
-	}
 	x.xxx_hidden_ReceivedAt = b.ReceivedAt
 	x.xxx_hidden_SentAt = b.SentAt
 	if b.Severity != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 13)
 		x.xxx_hidden_Severity = *b.Severity
 	}
 	if b.Facility != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 13)
 		x.xxx_hidden_Facility = *b.Facility
 	}
 	if b.Hostname != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 13)
 		x.xxx_hidden_Hostname = b.Hostname
 	}
 	if b.AppName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 13)
 		x.xxx_hidden_AppName = b.AppName
 	}
 	if b.ProcId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 13)
 		x.xxx_hidden_ProcId = b.ProcId
 	}
 	if b.MsgId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 13)
 		x.xxx_hidden_MsgId = b.MsgId
 	}
 	x.xxx_hidden_StructuredData = &b.StructuredData
 	if b.Message != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 10, 13)
 		x.xxx_hidden_Message = b.Message
 	}
 	x.xxx_hidden_SourceAddress = b.SourceAddress
 	if b.MessageTruncated != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 13, 14)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 12, 13)
 		x.xxx_hidden_MessageTruncated = *b.MessageTruncated
 	}
 	return m0
@@ -719,15 +686,14 @@ var File_flowseer_event_log_v1_syslog_record_proto protoreflect.FileDescriptor
 
 const file_flowseer_event_log_v1_syslog_record_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/event/log/v1/syslog_record.proto\x12\x15flowseer.event.log.v1\x1a(flowseer/model/inventory/v1/device.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a)flowseer/net/log/v1/syslog_facility.proto\x1a)flowseer/net/log/v1/syslog_severity.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9c\a\n" +
+	")flowseer/event/log/v1/syslog_record.proto\x12\x15flowseer.event.log.v1\x1a(flowseer/model/inventory/v1/device.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a)flowseer/net/log/v1/syslog_facility.proto\x1a)flowseer/net/log/v1/syslog_severity.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xec\x06\n" +
 	"\fSyslogRecord\x12L\n" +
-	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12(\n" +
-	"\trecord_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\brecordId\x12C\n" +
+	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12C\n" +
 	"\vreceived_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\n" +
 	"receivedAt\x123\n" +
-	"\asent_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x06sentAt\x12L\n" +
-	"\bseverity\x18\x05 \x01(\x0e2#.flowseer.net.log.v1.SyslogSeverityB\v\xbaH\b\xc8\x01\x01\x82\x01\x02\x10\x01R\bseverity\x12L\n" +
-	"\bfacility\x18\x06 \x01(\x0e2#.flowseer.net.log.v1.SyslogFacilityB\v\xbaH\b\xc8\x01\x01\x82\x01\x02\x10\x01R\bfacility\x12&\n" +
+	"\asent_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x06sentAt\x12I\n" +
+	"\bseverity\x18\x05 \x01(\x0e2#.flowseer.net.log.v1.SyslogSeverityB\b\xbaH\x05\x82\x01\x02\x10\x01R\bseverity\x12I\n" +
+	"\bfacility\x18\x06 \x01(\x0e2#.flowseer.net.log.v1.SyslogFacilityB\b\xbaH\x05\x82\x01\x02\x10\x01R\bfacility\x12&\n" +
 	"\bhostname\x18\a \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\bhostname\x12$\n" +
 	"\bapp_name\x18\b \x01(\tB\t\xbaH\x06r\x04\x10\x01\x180R\aappName\x12#\n" +

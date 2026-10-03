@@ -122,6 +122,15 @@ func TestDeviceOperationEventKindRules(t *testing.T) {
 		},
 		{name: "route selected without a protocol is rejected", message: eventaccessv1.RouteSelected_builder{}.Build()},
 		{
+			name: "route selected with undefined protocol 7 fails defined_only",
+			message: func() *eventaccessv1.RouteSelected {
+				p := inventoryv1.ManagementProtocol(7)
+				return eventaccessv1.RouteSelected_builder{
+					Protocol: &p,
+				}.Build()
+			}(),
+		},
+		{
 			name:      "discovery completed is valid",
 			message:   eventaccessv1.DiscoveryCompleted_builder{FirmwareFingerprint: proto.String(fingerprint)}.Build(),
 			wantValid: true,

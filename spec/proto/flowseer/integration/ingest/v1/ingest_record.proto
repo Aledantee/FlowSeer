@@ -1,0 +1,55 @@
+edition = "2024";
+
+package flowseer.integration.ingest.v1;
+
+import "flowseer/event/log/v1/syslog_record.proto";
+import "flowseer/model/inventory/v1/provenance.proto";
+import option "buf/validate/validate.proto";
+
+// An ingested observation record published from an edge or centrally hosted
+// adapter to the ingestion pipeline.
+message IngestRecord {
+  // FlowSeer-assigned UUID identifying this ingest record, used as the bus
+  // message id for deduplication. Must be present.
+  string record_id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  // The observation's provenance. Must be present.
+  flowseer.model.inventory.v1.Provenance provenance = 2 [(buf.validate.field).required = true];
+  // Optional raw payload evidence attached on parse failure or during a raw
+  // window.
+  RawEvidence raw = 3;
+
+  // The typed record payload. Exactly one arm is present.
+  oneof payload {
+    option (buf.validate.oneof).required = true;
+
+    // An observed syslog record.
+    flowseer.event.log.v1.SyslogRecord syslog = 10;
+  }
+}
+
+// Raw payload bytes and suppression metrics attached to an ingest record.
+message RawEvidence {
+  // Raw payload bytes from the source. Unset or empty means the device sent an
+  // empty datagram. Bounded at 65535 octets.
+  bytes data = 1 [(buf.validate.field).bytes.max_len = 65535];
+  // The reason raw evidence was attached. Must be present; unspecified is invalid.
+  RawReason reason = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // Number of raw-bearing failures suppressed since the last kept failure.
+  uint64 suppressed_since_last = 3;
+}
+
+// The reason raw evidence was attached to an ingest record.
+enum RawReason {
+  RAW_REASON_UNSPECIFIED = 0;
+  RAW_REASON_PARSE_FAILURE = 1;
+  RAW_REASON_WINDOW = 2;
+}

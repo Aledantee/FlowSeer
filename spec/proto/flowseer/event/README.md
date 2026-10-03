@@ -19,7 +19,7 @@ like `TagEvent` fails admission and belongs beside its triad in `model/inventory
 
 Imports: model/access, model/inventory, net/addr, net/log
 
-Imported by: edge/audit
+Imported by: edge/audit, integration/ingest
 
 Packages under `event/` may import `model/` entities and handles, `net/`
 primitives, and `errs/`. `event/` holds records that a delivering service
