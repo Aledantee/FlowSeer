@@ -52,8 +52,7 @@ func LoadConfig(path string) (*Config, error) {
 
 func parseConfig(data []byte, path string) (*Config, error) {
 	msg := &storev1.DeviceServiceConfig{}
-	opts := prototext.UnmarshalOptions{DiscardUnknown: true}
-	if err := opts.Unmarshal(data, msg); err != nil {
+	if err := prototext.Unmarshal(data, msg); err != nil {
 		return nil, errs.From(err).Code(ErrCodeConfigLoad).Attr("path", path).
 			Msg("parse service configuration prototext")
 	}
