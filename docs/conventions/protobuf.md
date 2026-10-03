@@ -1,6 +1,6 @@
 ---
 name: Protobuf Model Conventions
-last_updated: 2026-09-25
+last_updated: 2026-10-03
 ---
 
 # FlowSeer — Protobuf Model Conventions
@@ -212,11 +212,13 @@ can lie about it.
 event*, not a stored thing. One provenance message is defined beside `Binding`
 in `model/inventory/v1`, and is embedded by value in the integration,
 service-response, and event envelopes. It also names the protocol that
-produced the payload, the edge that performed the observation, and the
-device's firmware fingerprint at that moment, because a route is chosen per
-operation and two observations from different firmware epochs must be
-tellable apart. There is one such message; a boundary package that needs
-more provenance extends it here rather than defining a sibling.
+produced the payload through a required `oneof protocol` with `ManagementProtocol
+management` and `LogProtocol log` arms, the edge that performed the observation,
+and the device's firmware fingerprint at that moment, because a route is chosen
+per operation, non-management sources (such as syslog) need to name their
+protocol, and two observations from different firmware epochs must be tellable
+apart. There is one such message; a boundary package that needs more provenance
+extends it here rather than defining a sibling.
 
 It is never a field of an `<Entity>State` and never a field of a Primitive. This
 keeps `net/` packages independent of entity and binding packages, and a `Vlan`
@@ -377,8 +379,11 @@ holds the rationale and standards grounding for each rule.
 ## Field numbering
 
 Numbers 1–15 encode as a single-byte tag; they go to the fields every consumer
-reads. A removed number is `reserved` — with its name, in the same change —
-and never reused.
+reads. Until the first stable release a removed number leaves no `reserved`
+line, for the number or for the name, and is never reused. From the first
+stable release on, a removed number is `reserved` with its name in the same
+change, and never reused. [`code-style-proto.md`](../code-style-proto.md),
+Evolution, gives the reason.
 
 Where a `oneof` sits **alongside other fields** — an interface whose kind
 selector shares the message with its identity and facets — its arms start at

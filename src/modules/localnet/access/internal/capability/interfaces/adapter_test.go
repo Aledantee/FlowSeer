@@ -95,7 +95,7 @@ func TestRead_SNMPCompleteNeverOpensTheShell(t *testing.T) {
 		t.Errorf("completeness = %v, want COMPLETE", got)
 	}
 
-	if got := obs.GetProvenance().GetProtocol(); got != inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SNMP {
+	if got := obs.GetProvenance().GetManagement(); got != inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SNMP {
 		t.Errorf("provenance protocol = %v, want SNMP", got)
 	}
 
@@ -120,7 +120,7 @@ func TestRead_SNMPPartialFallsThroughToSSH(t *testing.T) {
 		t.Errorf("completeness = %v, want COMPLETE", got)
 	}
 
-	if got := obs.GetProvenance().GetProtocol(); got != inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SSH {
+	if got := obs.GetProvenance().GetManagement(); got != inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SSH {
 		t.Errorf("provenance protocol = %v, want SSH", got)
 	}
 

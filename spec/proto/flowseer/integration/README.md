@@ -20,10 +20,10 @@ before one exists.
 
 ## Boundaries
 
-Imports: nothing FlowSeer-owned
+Imports: event/log, model/inventory
 
 Imported by: nothing
 
 ## Packages
 
-None yet; the root is reserved for the fabric contract above.
+- `ingest/v1`: IngestRecord envelope carrying typed payload and raw evidence.

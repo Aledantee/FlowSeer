@@ -22,15 +22,57 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// The protocol of an observed log record.
+type LogProtocol int32
+
+const (
+	LogProtocol_LOG_PROTOCOL_UNSPECIFIED LogProtocol = 0
+	LogProtocol_LOG_PROTOCOL_SYSLOG      LogProtocol = 1
+)
+
+// Enum value maps for LogProtocol.
+var (
+	LogProtocol_name = map[int32]string{
+		0: "LOG_PROTOCOL_UNSPECIFIED",
+		1: "LOG_PROTOCOL_SYSLOG",
+	}
+	LogProtocol_value = map[string]int32{
+		"LOG_PROTOCOL_UNSPECIFIED": 0,
+		"LOG_PROTOCOL_SYSLOG":      1,
+	}
+)
+
+func (x LogProtocol) Enum() *LogProtocol {
+	p := new(LogProtocol)
+	*p = x
+	return p
+}
+
+func (x LogProtocol) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (LogProtocol) Descriptor() protoreflect.EnumDescriptor {
+	return file_flowseer_model_inventory_v1_provenance_proto_enumTypes[0].Descriptor()
+}
+
+func (LogProtocol) Type() protoreflect.EnumType {
+	return &file_flowseer_model_inventory_v1_provenance_proto_enumTypes[0]
+}
+
+func (x LogProtocol) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // The origin of one live response or event. Embedded by value in response
 // and event envelopes.
 type Provenance struct {
 	state                          protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Binding             *BindingGlobalRef      `protobuf:"bytes,1,opt,name=binding"`
 	xxx_hidden_ObservedAt          *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=observed_at,json=observedAt"`
-	xxx_hidden_Protocol            ManagementProtocol     `protobuf:"varint,3,opt,name=protocol,enum=flowseer.model.inventory.v1.ManagementProtocol"`
 	xxx_hidden_Edge                *v1.EdgeGlobalRef      `protobuf:"bytes,4,opt,name=edge"`
 	xxx_hidden_FirmwareFingerprint *string                `protobuf:"bytes,5,opt,name=firmware_fingerprint,json=firmwareFingerprint"`
+	xxx_hidden_Protocol            isProvenance_Protocol  `protobuf_oneof:"protocol"`
 	XXX_raceDetectHookData         protoimpl.RaceDetectHookData
 	XXX_presence                   [1]uint32
 	unknownFields                  protoimpl.UnknownFields
@@ -76,15 +118,6 @@ func (x *Provenance) GetObservedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-func (x *Provenance) GetProtocol() ManagementProtocol {
-	if x != nil {
-		if protoimpl.X.Present(&(x.XXX_presence[0]), 2) {
-			return x.xxx_hidden_Protocol
-		}
-	}
-	return ManagementProtocol_MANAGEMENT_PROTOCOL_UNSPECIFIED
-}
-
 func (x *Provenance) GetEdge() *v1.EdgeGlobalRef {
 	if x != nil {
 		return x.xxx_hidden_Edge
@@ -102,6 +135,24 @@ func (x *Provenance) GetFirmwareFingerprint() string {
 	return ""
 }
 
+func (x *Provenance) GetManagement() ManagementProtocol {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Protocol.(*provenance_Management); ok {
+			return x.Management
+		}
+	}
+	return ManagementProtocol_MANAGEMENT_PROTOCOL_UNSPECIFIED
+}
+
+func (x *Provenance) GetLog() LogProtocol {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Protocol.(*provenance_Log); ok {
+			return x.Log
+		}
+	}
+	return LogProtocol_LOG_PROTOCOL_UNSPECIFIED
+}
+
 func (x *Provenance) SetBinding(v *BindingGlobalRef) {
 	x.xxx_hidden_Binding = v
 }
@@ -110,18 +161,21 @@ func (x *Provenance) SetObservedAt(v *timestamppb.Timestamp) {
 	x.xxx_hidden_ObservedAt = v
 }
 
-func (x *Provenance) SetProtocol(v ManagementProtocol) {
-	x.xxx_hidden_Protocol = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
-}
-
 func (x *Provenance) SetEdge(v *v1.EdgeGlobalRef) {
 	x.xxx_hidden_Edge = v
 }
 
 func (x *Provenance) SetFirmwareFingerprint(v string) {
 	x.xxx_hidden_FirmwareFingerprint = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+}
+
+func (x *Provenance) SetManagement(v ManagementProtocol) {
+	x.xxx_hidden_Protocol = &provenance_Management{v}
+}
+
+func (x *Provenance) SetLog(v LogProtocol) {
+	x.xxx_hidden_Protocol = &provenance_Log{v}
 }
 
 func (x *Provenance) HasBinding() bool {
@@ -138,13 +192,6 @@ func (x *Provenance) HasObservedAt() bool {
 	return x.xxx_hidden_ObservedAt != nil
 }
 
-func (x *Provenance) HasProtocol() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
-}
-
 func (x *Provenance) HasEdge() bool {
 	if x == nil {
 		return false
@@ -156,7 +203,30 @@ func (x *Provenance) HasFirmwareFingerprint() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *Provenance) HasProtocol() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Protocol != nil
+}
+
+func (x *Provenance) HasManagement() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Protocol.(*provenance_Management)
+	return ok
+}
+
+func (x *Provenance) HasLog() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Protocol.(*provenance_Log)
+	return ok
 }
 
 func (x *Provenance) ClearBinding() {
@@ -167,18 +237,47 @@ func (x *Provenance) ClearObservedAt() {
 	x.xxx_hidden_ObservedAt = nil
 }
 
-func (x *Provenance) ClearProtocol() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
-	x.xxx_hidden_Protocol = ManagementProtocol_MANAGEMENT_PROTOCOL_UNSPECIFIED
-}
-
 func (x *Provenance) ClearEdge() {
 	x.xxx_hidden_Edge = nil
 }
 
 func (x *Provenance) ClearFirmwareFingerprint() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
 	x.xxx_hidden_FirmwareFingerprint = nil
+}
+
+func (x *Provenance) ClearProtocol() {
+	x.xxx_hidden_Protocol = nil
+}
+
+func (x *Provenance) ClearManagement() {
+	if _, ok := x.xxx_hidden_Protocol.(*provenance_Management); ok {
+		x.xxx_hidden_Protocol = nil
+	}
+}
+
+func (x *Provenance) ClearLog() {
+	if _, ok := x.xxx_hidden_Protocol.(*provenance_Log); ok {
+		x.xxx_hidden_Protocol = nil
+	}
+}
+
+const Provenance_Protocol_not_set_case case_Provenance_Protocol = 0
+const Provenance_Management_case case_Provenance_Protocol = 10
+const Provenance_Log_case case_Provenance_Protocol = 11
+
+func (x *Provenance) WhichProtocol() case_Provenance_Protocol {
+	if x == nil {
+		return Provenance_Protocol_not_set_case
+	}
+	switch x.xxx_hidden_Protocol.(type) {
+	case *provenance_Management:
+		return Provenance_Management_case
+	case *provenance_Log:
+		return Provenance_Log_case
+	default:
+		return Provenance_Protocol_not_set_case
+	}
 }
 
 type Provenance_builder struct {
@@ -190,19 +289,25 @@ type Provenance_builder struct {
 	// read is live as the platform saw it, and this is when the platform saw
 	// it. Must be present.
 	ObservedAt *timestamppb.Timestamp
-	// The protocol that produced the payload. A route is chosen per
-	// operation, so this can differ between two responses over one binding.
-	// Must be present; the zero value is rejected.
-	Protocol *ManagementProtocol
 	// The edge whose process performed the observation. Unset means a
 	// cloud-mediated integration answered centrally, with no hosting edge.
 	Edge *v1.EdgeGlobalRef
 	// The device's exact firmware fingerprint at observation time, as the
-	// identity probe reports it. Unset means no identity probe has run;
+	// identity probe reports it. Unset means the producer holds no fingerprint;
 	// otherwise 1 to 128 characters, and a consumer comparing two
 	// observations treats a different fingerprint as a different device
 	// epoch.
 	FirmwareFingerprint *string
+	// The protocol that produced the payload. A route is chosen per
+	// operation, so this can differ between two responses over one binding.
+	// Must be present; exactly one arm is set, and zero values are rejected.
+
+	// Fields of oneof xxx_hidden_Protocol:
+	// A management protocol that produced the payload.
+	Management *ManagementProtocol
+	// A log protocol that produced the payload.
+	Log *LogProtocol
+	// -- end of xxx_hidden_Protocol
 }
 
 func (b0 Provenance_builder) Build() *Provenance {
@@ -211,53 +316,95 @@ func (b0 Provenance_builder) Build() *Provenance {
 	_, _ = b, x
 	x.xxx_hidden_Binding = b.Binding
 	x.xxx_hidden_ObservedAt = b.ObservedAt
-	if b.Protocol != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
-		x.xxx_hidden_Protocol = *b.Protocol
-	}
 	x.xxx_hidden_Edge = b.Edge
 	if b.FirmwareFingerprint != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
 		x.xxx_hidden_FirmwareFingerprint = b.FirmwareFingerprint
+	}
+	if b.Management != nil {
+		x.xxx_hidden_Protocol = &provenance_Management{*b.Management}
+	}
+	if b.Log != nil {
+		x.xxx_hidden_Protocol = &provenance_Log{*b.Log}
 	}
 	return m0
 }
+
+type case_Provenance_Protocol protoreflect.FieldNumber
+
+func (x case_Provenance_Protocol) String() string {
+	md := file_flowseer_model_inventory_v1_provenance_proto_msgTypes[0].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isProvenance_Protocol interface {
+	isProvenance_Protocol()
+}
+
+type provenance_Management struct {
+	// A management protocol that produced the payload.
+	Management ManagementProtocol `protobuf:"varint,10,opt,name=management,enum=flowseer.model.inventory.v1.ManagementProtocol,oneof"`
+}
+
+type provenance_Log struct {
+	// A log protocol that produced the payload.
+	Log LogProtocol `protobuf:"varint,11,opt,name=log,enum=flowseer.model.inventory.v1.LogProtocol,oneof"`
+}
+
+func (*provenance_Management) isProvenance_Protocol() {}
+
+func (*provenance_Log) isProvenance_Protocol() {}
 
 var File_flowseer_model_inventory_v1_provenance_proto protoreflect.FileDescriptor
 
 const file_flowseer_model_inventory_v1_provenance_proto_rawDesc = "" +
 	"\n" +
-	",flowseer/model/inventory/v1/provenance.proto\x12\x1bflowseer.model.inventory.v1\x1a!flowseer/model/edge/v1/edge.proto\x1a)flowseer/model/inventory/v1/binding.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf8\x02\n" +
+	",flowseer/model/inventory/v1/provenance.proto\x12\x1bflowseer.model.inventory.v1\x1a!flowseer/model/edge/v1/edge.proto\x1a)flowseer/model/inventory/v1/binding.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd8\x03\n" +
 	"\n" +
 	"Provenance\x12O\n" +
 	"\abinding\x18\x01 \x01(\v2-.flowseer.model.inventory.v1.BindingGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\abinding\x12C\n" +
 	"\vobserved_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\n" +
-	"observedAt\x12Z\n" +
-	"\bprotocol\x18\x03 \x01(\x0e2/.flowseer.model.inventory.v1.ManagementProtocolB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\bprotocol\x129\n" +
+	"observedAt\x129\n" +
 	"\x04edge\x18\x04 \x01(\v2%.flowseer.model.edge.v1.EdgeGlobalRefR\x04edge\x12=\n" +
 	"\x14firmware_fingerprint\x18\x05 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x13firmwareFingerprintB\x93\x02\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x13firmwareFingerprint\x12]\n" +
+	"\n" +
+	"management\x18\n" +
+	" \x01(\x0e2/.flowseer.model.inventory.v1.ManagementProtocolB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00H\x00R\n" +
+	"management\x12H\n" +
+	"\x03log\x18\v \x01(\x0e2(.flowseer.model.inventory.v1.LogProtocolB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00H\x00R\x03logB\x11\n" +
+	"\bprotocol\x12\x05\xbaH\x02\b\x01*D\n" +
+	"\vLogProtocol\x12\x1c\n" +
+	"\x18LOG_PROTOCOL_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13LOG_PROTOCOL_SYSLOG\x10\x01B\x93\x02\n" +
 	"\x1fcom.flowseer.model.inventory.v1B\x0fProvenanceProtoZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1;inventoryv1\xa2\x02\x03FMI\xaa\x02\x1bFlowseer.Model.Inventory.V1\xca\x02\x1bFlowseer\\Model\\Inventory\\V1\xe2\x02'Flowseer\\Model\\Inventory\\V1\\GPBMetadata\xea\x02\x1eFlowseer::Model::Inventory::V1b\beditionsp\xe9\a"
 
+var file_flowseer_model_inventory_v1_provenance_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_model_inventory_v1_provenance_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_model_inventory_v1_provenance_proto_goTypes = []any{
-	(*Provenance)(nil),            // 0: flowseer.model.inventory.v1.Provenance
-	(*BindingGlobalRef)(nil),      // 1: flowseer.model.inventory.v1.BindingGlobalRef
-	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
-	(ManagementProtocol)(0),       // 3: flowseer.model.inventory.v1.ManagementProtocol
+	(LogProtocol)(0),              // 0: flowseer.model.inventory.v1.LogProtocol
+	(*Provenance)(nil),            // 1: flowseer.model.inventory.v1.Provenance
+	(*BindingGlobalRef)(nil),      // 2: flowseer.model.inventory.v1.BindingGlobalRef
+	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
 	(*v1.EdgeGlobalRef)(nil),      // 4: flowseer.model.edge.v1.EdgeGlobalRef
+	(ManagementProtocol)(0),       // 5: flowseer.model.inventory.v1.ManagementProtocol
 }
 var file_flowseer_model_inventory_v1_provenance_proto_depIdxs = []int32{
-	1, // 0: flowseer.model.inventory.v1.Provenance.binding:type_name -> flowseer.model.inventory.v1.BindingGlobalRef
-	2, // 1: flowseer.model.inventory.v1.Provenance.observed_at:type_name -> google.protobuf.Timestamp
-	3, // 2: flowseer.model.inventory.v1.Provenance.protocol:type_name -> flowseer.model.inventory.v1.ManagementProtocol
-	4, // 3: flowseer.model.inventory.v1.Provenance.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	2, // 0: flowseer.model.inventory.v1.Provenance.binding:type_name -> flowseer.model.inventory.v1.BindingGlobalRef
+	3, // 1: flowseer.model.inventory.v1.Provenance.observed_at:type_name -> google.protobuf.Timestamp
+	4, // 2: flowseer.model.inventory.v1.Provenance.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
+	5, // 3: flowseer.model.inventory.v1.Provenance.management:type_name -> flowseer.model.inventory.v1.ManagementProtocol
+	0, // 4: flowseer.model.inventory.v1.Provenance.log:type_name -> flowseer.model.inventory.v1.LogProtocol
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_model_inventory_v1_provenance_proto_init() }
@@ -266,18 +413,23 @@ func file_flowseer_model_inventory_v1_provenance_proto_init() {
 		return
 	}
 	file_flowseer_model_inventory_v1_binding_proto_init()
+	file_flowseer_model_inventory_v1_provenance_proto_msgTypes[0].OneofWrappers = []any{
+		(*provenance_Management)(nil),
+		(*provenance_Log)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_model_inventory_v1_provenance_proto_rawDesc), len(file_flowseer_model_inventory_v1_provenance_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_flowseer_model_inventory_v1_provenance_proto_goTypes,
 		DependencyIndexes: file_flowseer_model_inventory_v1_provenance_proto_depIdxs,
+		EnumInfos:         file_flowseer_model_inventory_v1_provenance_proto_enumTypes,
 		MessageInfos:      file_flowseer_model_inventory_v1_provenance_proto_msgTypes,
 	}.Build()
 	File_flowseer_model_inventory_v1_provenance_proto = out.File

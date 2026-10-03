@@ -209,3 +209,15 @@ its own service later changes the host and not the module.
   Hardware: <https://docs.risingwave.com/deploy/hardware-requirements>.
 - Materialize licence: <https://materialize.com/docs/license/>.
 - JetStream key-value store: <https://docs.nats.io/nats-concepts/jetstream/key-value-store>.
+
+## Amendments
+
+### 2026-10-03 — payload messages drop their ids, and provenance widens its protocol
+
+A payload message carried inside an `IngestRecord` (beginning with
+`SyslogRecord`) holds no id of its own; deduplication and record identity
+belong to `IngestRecord.record_id`. `flowseer.model.inventory.v1.Provenance`
+widens its protocol field to a required `oneof protocol` with
+`ManagementProtocol management = 10` and `LogProtocol log = 11`, so that
+observation sources beyond management protocols (such as syslog) can name
+their protocol without fabricating a management protocol value.
