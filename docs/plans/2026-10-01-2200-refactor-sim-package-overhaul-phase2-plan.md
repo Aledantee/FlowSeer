@@ -3,8 +3,8 @@ title: Capability Contract and Surface Trim - Plan
 type: refactor
 date: 2026-10-01
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: implemented
+artifact_readiness: implementation-ready
+status: partially-implemented
 review: rework
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
@@ -12,7 +12,11 @@ parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 
 # Capability Contract and Surface Trim - Plan
 
-> Implemented. 10 units, 2026-10-02T17:41Z to 2026-10-03T09:28Z.
+> Partially implemented: U1 to U9, commits `414ffd79..69906c50`. U10 remains.
+> Its gate landed in `48814812`, and the review ended `rework` on it after
+> three fix rounds (`1ad57013`): the checker holds guards that no fixture
+> refuses, and the fork gate's reset rows fail by panic (Inventory, Gate
+> guards). U10 below replaces that gate.
 
 ## Goal
 
@@ -82,6 +86,29 @@ same instant, the two verbs stay and the record is amended.
   rounds with sixteen guards no fixture refuses and a fork row that fails by
   panic. The re-plan starts from `parked/sim-p2-review`, which holds every
   fix commit, and U1 to U9 stay landed. (decided by the user, 2026-10-03)
+- The gate holds its guards as a table, and each row names the fixture
+  directory that breaks it alone. The gate's own test drops each row in turn
+  and requires that row's fixture to pass. Why: the merged checker's guards
+  are operands of nested conditions over syntax nodes, its 66 fixture
+  directories leave the 23 of Inventory, Gate guards, unheld, and a table
+  turns a missing fixture into a failing test.
+- The gate compares declarations as text, one line each. Why: a member then
+  needs one comparison, where `returnsLayerAndError` holds six operands
+  (`test/conformance/sim/layer_contract_test.go:914-929`).
+  `go/types.ExprString` prints an identifier, a selector, a pointer, and a
+  slice or array type as the source writes them, and shortens only function
+  and composite literals (`go/types/exprstring.go` in Go 1.27.1, the cases
+  for `*ast.Ident`, `*ast.SelectorExpr`, `*ast.StarExpr`, `*ast.ArrayType`,
+  `*ast.FuncLit`, and `*ast.CompositeLit`).
+- The gate calls a package stateful when it declares `Layer`, `New`, or
+  `RetentionKey`, which is wider than the `New` rule above. Why: under `New`
+  alone no package can be reported for lacking `New`, and the merged gate
+  decides this way (`layer_contract_test.go:754`).
+- The gate's fixtures are rebuilt, and the merged ones are deleted in the
+  commit that adds the table. Why: 18 rows need 18 fixtures and two that
+  pass, and a directory no row names is a fixture nothing accounts for.
+  `03246c8e` rewrote five fixtures in place while it added 24, so U10 runs
+  the new gate over the old directories before it deletes them.
 
 ## Requirements
 
@@ -306,6 +333,90 @@ and gives it a caller in `V/derive.go`), and every fact type (U7).
 - `simtest`: 39 `Case*` constructors. Struck: `PermuteOrder`
   (`V/conformance_test.go`, `S/fabric/conformance_test.go`).
 
+### Gate guards
+
+`G` is `test/conformance/sim/layer_contract_test.go` as of `3247dcf7`, its
+last change. A guard is unheld when every row of
+`TestLayerContractReportsViolations` stays green with the guard removed. The
+review's verdict counts sixteen and lists none (`1ad57013`). Counted by
+operand of `G` there are 23:
+
+| Line of `G` | Guard | Source no fixture declares |
+| --- | --- | --- |
+| 583 | a file that does not parse is reported | a syntax error |
+| 592 | an import of `sim/device` itself | that import |
+| 594 | an import below `sim/fabric/` | that import |
+| 650 | `LayerName` is a constant | `var LayerName` |
+| 654 | a constant is named `LayerName` | another constant and no `LayerName` |
+| 664 | a type is named `Config` | another type and no `Config` |
+| 674 | `Diff`, `New`, and `RetentionKey` are functions | a method of that name |
+| 716 | the receiver of `Clone` is `Layer` | `Clone() *Layer` on another type |
+| 789, 798, 807, 898 | the qualifier of `layer.Env`, `time.Time`, `layer.Effects`, `trace.Change` | the name from another package |
+| 837 | an unnamed parameter counts | `Clone(int)` |
+| 868, 877, 886, 903, 933 | one result for `Normalize` and `Config.Clone`, `Validate`, `Diff`, `(*Layer).Clone`, `RetentionKey` | `Normalize(layer.Env) (Config, error)` |
+| 872 | the result of `Normalize` and `Config.Clone` is `Config` | another named type |
+| 881, 937 | the result of `Validate` and of `RetentionKey` is an identifier | a pointer or slice result |
+| 911 | `(*Layer).Clone` returns `*Layer` | `Clone() *Config` |
+| 916 | two results for `New` | a third result |
+
+Five more conditions let honest source through, and no fixture declares that
+source. `TestLayerContract` over the nine layer packages holds the first two.
+Nothing holds the other three.
+
+- An unexported type whose name ends in `Fact` (`G:609`).
+- An `Advance` with the contract's signature (`G:723`). `valid` declares none.
+- A `testdata` directory (`G:573`).
+- An import of the layer's own package from a file below it, and an import of
+  a package below the layer (`G:598`, two operands).
+
+The fork gate formats a non-zero `resetOnFork` field with `vDst.Interface()`
+(`V/fork_internal_test.go:116-119`). `vDst` is read from an unexported field,
+and `Interface` "panics if the Value was obtained by accessing unexported
+struct fields" (`go doc reflect.Value.Interface`), so each of the five reset
+rows of `switchFieldClasses` fails by panic.
+
+The table U10 builds. A row's name is its fixture directory under
+`test/conformance/sim/testdata/`. A fixture is one file holding what the
+merged `valid/fixture.go` declares, a whole stateful layer, with the one
+change named. The three `stateful_` rows start from `valid_stateless`.
+
+| Row and fixture | Rule | The fixture's change |
+| --- | --- | --- |
+| `layer_name` | requires `const LayerName` | declares it with `var` |
+| `normalize` | requires `func (Config) Normalize(layer.Env) (Config)` | returns `(Config, error)` |
+| `validate` | requires `func (Config) Validate(layer.Env) (error)` | takes no parameter |
+| `config_clone` | requires `func (Config) Clone() (Config)` | has a pointer receiver |
+| `diff` | requires `func Diff(Config, Config) ([]trace.Change)` | is a method of `Config` with the same parameters |
+| `stateful_layer` | `type Layer` makes the package stateful | adds `type Layer struct{}` |
+| `stateful_new` | `func New` makes the package stateful | adds `func New(cfg Config) Config` |
+| `stateful_retention_key` | `func RetentionKey` makes the package stateful | adds the contract's `RetentionKey` |
+| `new` | a stateful package has `func New(Config, layer.Env) (*Layer, error)` | returns `*Layer` alone |
+| `layer_clone` | a stateful package has `func (*Layer) Clone() (*Layer)` | declares `Clone` on another type |
+| `retention_key` | a stateful package has `func RetentionKey(Config, layer.Env) (string)` | takes `Config` alone |
+| `advance` | a package with `func Layer.Advance` has `func (*Layer) Advance(time.Time) (layer.Effects)` | returns nothing |
+| `wake` | refuses `func Layer.Wake` | adds it with a pointer receiver |
+| `age` | refuses `func Layer.Age` | adds it with a value receiver |
+| `exported_fact` | refuses an exported type whose name ends in `Fact` | adds `type FooFact string` |
+| `import_sibling` | refuses an import below `sim/layer/` whose first element is not the directory's name | a file in `sub/` imports `sim/layer/bridge` |
+| `import_device` | refuses an import of `sim/device` or below it | imports `sim/device/vswitch` |
+| `import_fabric` | refuses an import of `sim/fabric` or below it | imports `sim/fabric` |
+
+`valid` keeps those declarations, passes every row, and adds what the gate
+lets through. A gate that read any of these differently would refuse `valid`:
+
+- a `_test.go` file that imports `sim/layer/bridge`,
+- a text file,
+- a `testdata/` file declaring `type ForeignFact string`,
+- an import of `sim/layer/valid/sub`,
+- `type fixtureFact string`,
+- a method `Age` with no result on a type other than `Layer`,
+- a file in `sub/` declaring its own `Layer` with a `Wake` method,
+- an `Advance` with the contract's signature,
+- an unnamed parameter, and two parameter names sharing one type.
+
+`valid_stateless` declares the five members every layer has and nothing
+else, as `phy` does.
+
 ## Units
 
 ### U1. Move the BPDU and SSTP codecs to `net/bpdu`
@@ -455,17 +566,46 @@ through an unexported adapter, as `lagSelector` does for `bridge.Selector`.
 Tests: no new test. Each suite passes.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device src/common/sim/fabric src/common/sim/trace src/common/sim/stream src/common/sim/internal`
 
-### U10. Contract gate
-Files: test/conformance/sim/, src/common/sim/layer/README.md, src/common/sim/README.md
+### U10. Contract gate and fork gate reset rows
+Files: test/conformance/sim/, src/common/sim/device/vswitch/fork_internal_test.go, src/common/sim/layer/README.md, src/common/sim/README.md
 After: U8, U9
-Change: `test/conformance/sim` parses each directory under
-`src/common/sim/layer/` by path, as `test/conformance/panic` does. It reports
-each missing member of R1, a non-test import of a sibling, of `sim/device`, or
-of `sim/fabric`, an exported type whose name ends in `Fact`, and a `Layer`
-method named `Wake` or `Age`. The READMEs describe the contract.
-Tests: `TestLayerContract` passes on the tree.
-`TestLayerContractReportsViolations` runs the checker over one fixture package
-per rule under `testdata/`, among them `type FooFact string`.
+Change: `test/conformance/sim` reads each directory under
+`src/common/sim/layer/` by path, as `test/conformance/panic` does, and writes
+the declarations in the directory's own non-test files as lines of text. Each
+declaration gets a name line (`const LayerName`, `type Layer`, `func New`,
+`func Layer.Wake`, a pointer receiver's star dropped). Each function also
+gets a signature line with its receiver type, one type per parameter, and its
+results in parentheses (`func (*Layer) Clone() (*Layer)`). Parameter names do
+not appear. The checker takes a list of guards and applies the 18 rows of
+Inventory, Gate guards. A row tests one literal against those lines, or
+against the imports and type names of every non-test file under the
+directory, and a finding quotes the literal. Three things change for a layer.
+`Advance` needs its pointer receiver. An aliased import of `layer`, `trace`,
+or `time` reads as a missing member, and no layer aliases one. The `Config`
+type and an empty directory lose their own findings, since the five member
+rows report both. A file that does not parse stops the gate with an error.
+The 20 directories the Inventory names replace the 66 merged ones, once the
+new gate has refused the 65 of those that are not `valid`. The fork gate
+formats a reset field through `exportValue`, as
+`assertPointerOrValueIdentical` does. The READMEs name the table as the list
+of what is enforced and say a guard arrives with its fixture.
+Tests: `TestLayerContract` passes on the tree and fails when it scanned no
+package. `TestLayerContractGuardsRefuseTheirFixtures` runs the whole list
+over each row's fixture and requires exactly the row's findings, written as
+literals. It then runs the list without that row and requires none. It fails
+for a directory under `testdata/` that no row names, other than `valid` and
+`valid_stateless`. `TestLayerContractPassesValidFixtures` requires no finding
+for those two. `valid` holds every item of the Inventory's list, and for each
+item the commit body quotes the `--- FAIL` line that removing its exemption
+produces. `TestLayerContractStopsOnUnparsableFile` writes a broken file into
+`t.TempDir()`, since the verifier runs `gofumpt` over every changed Go file
+(`.claude/skills/verify-change/scripts/verify-change.sh:620`) and `gofumpt`
+v0.11.0 exits 2 on one. The commit body records that the new gate refused all
+65 old directories. With `Fork` changed to copy `filter`
+(`V/switch.go:495-505`), `TestSwitchFieldsAreClassifiedAndChecked` fails on
+its `resetOnFork` line with the field's name and without a panic, and the
+commit body quotes that line. No test shows the table covers R1 to R3. A
+reader checks its 18 rows against them.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- test/conformance/sim src/common/sim`
 
 Waves: U1 | U2 | U3 | U4 | U5 | U6 | U7 | U8 U9 | U10
