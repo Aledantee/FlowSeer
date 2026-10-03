@@ -36,3 +36,13 @@ Suggested change: in `.claude/skills/review/references/fix-loop.md`, after requi
 Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh`, `wait` command.
 What happened: `agy` workers can end their turn while their verifier command continues in a background task. The terminal screen settles without a working indicator, so `orca-worker.sh wait` reports `idle` before verification finishes and before changes are committed. This occurred twice in this drive: once during implementation and once in round 6 fix lane A.
 Suggested change: in `orca-worker.sh wait`, check for active background tasks or inspect git worktree commit status before declaring the lane idle, or instruct `agy` worker briefs to run verifier commands synchronously with an adequate timeout.
+
+## 2026-10-03 review: parallel fix briefs touching shared test files trigger merge-check lost change failure on equivalent resolution
+Skill or agent: `.claude/skills/review/references/fix-loop.md`, steps 1 and 2.
+What happened: In round 1, two parallel fix workers were dispatched concurrently. One worker's brief included an instruction to clean up plan labels in integration tests, causing both workers to edit comment lines in `src/services/device/test/integration/openfga_model_test.go`. Although both changes were equivalent resolutions removing the same obsolete comment syntax, `merge-check.py` on the merge commit (`f4f121d3`) reported a lost change for the second parent and exited non-zero, stopping the round.
+Suggested change: in `.claude/skills/review/references/fix-loop.md` step 1, instruct coordinators to enforce disjoint file sets across parallel fix workers and forbid broad style or comment cleanup outside a worker's assigned finding files. In `merge-check.py`, recognize equivalent comment-only removals between parents.
+
+## 2026-10-03 delegate: orca-worker terminal wait times out during concurrent Claude lane startup
+Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh`, `start` command.
+What happened: During heavy multi-lane dispatch, `orca terminal wait --for tui-idle --timeout-ms 90000` timed out three times while Claude CLI initialized and queried models, causing lane startup failures before the brief pointer could be sent.
+Suggested change: in `orca-worker.sh start`, increase the startup wait timeout or add a retry loop around `orca terminal wait` before declaring terminal initialization failed.
