@@ -1581,6 +1581,10 @@ func convergeLayers(t *testing.T, start time.Time, layers []*stp.Layer, cables [
 		}
 	}
 
+	if stableRounds < 2 || len(queue) > 0 {
+		t.Fatalf("convergeLayers did not converge after 400 rounds: snapshot %q, queue %d", snapshot(), len(queue))
+	}
+
 	return now
 }
 
@@ -1642,16 +1646,16 @@ func TestMSTInstancesSelectIndependentRoots(t *testing.T) {
 	convergeLayers(t, start, layers, cables, snapshot)
 
 	msti1 := sw2.VLANPortInfo(10, "l2")
-	if msti1.Role != bpdu.RoleRoot {
-		t.Errorf("sw2 MSTI 1 on l2 = %v, want Root (l1 costs 200000 for MSTI 1)", msti1.Role)
+	if msti1.Role != bpdu.RoleRoot || msti1.State != stp.StateForwarding || !sw2.Forwards("l2", 10) {
+		t.Errorf("sw2 MSTI 1 on l2 = (role %v, state %v, forwards %t), want Root Forwarding true", msti1.Role, msti1.State, sw2.Forwards("l2", 10))
 	}
 	if got := sw2.VLANPortInfo(10, "l1").Role; got != bpdu.RoleAlternate && got != bpdu.RoleDesignated {
 		t.Errorf("sw2 MSTI 1 on l1 = %v, want Alternate or Designated, not Root", got)
 	}
 
 	msti2 := sw2.VLANPortInfo(20, "l1")
-	if msti2.Role != bpdu.RoleRoot {
-		t.Errorf("sw2 MSTI 2 on l1 = %v, want Root (l2 costs 200000 for MSTI 2)", msti2.Role)
+	if msti2.Role != bpdu.RoleRoot || msti2.State != stp.StateForwarding || !sw2.Forwards("l1", 20) {
+		t.Errorf("sw2 MSTI 2 on l1 = (role %v, state %v, forwards %t), want Root Forwarding true", msti2.Role, msti2.State, sw2.Forwards("l1", 20))
 	}
 	if got := sw2.VLANPortInfo(20, "l2").Role; got != bpdu.RoleAlternate && got != bpdu.RoleDesignated {
 		t.Errorf("sw2 MSTI 2 on l2 = %v, want Alternate or Designated, not Root", got)
@@ -3547,5 +3551,287 @@ func TestZeroHelloTimeAcceptedAndStoredAsOneSecond(t *testing.T) {
 	l.Advance(now.Add(3100 * time.Millisecond))
 	if l.PortInfo("1/1/1").Role != bpdu.RoleDesignated {
 		t.Errorf("role did not age out at +3.1s, got %v, want Designated", l.PortInfo("1/1/1").Role)
+	}
+}
+
+func TestAgreementLeavesDesignatedPortDiscardingWhenInvalid(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	mac := mustMAC(t, "00:11:22:33:44:01")
+	peerMAC := mustMAC(t, "00:aa:bb:cc:dd:ee")
+	tbl := mustPortTable(t, "1/1/1")
+
+	newLayer := func(p2p stp.PointToPointMode, restrictedRole bool) *stp.Layer {
+		return mustNewSTP(t, stp.Config{
+			Priority: 32768,
+			Address:  mac,
+			Ports: map[string]stp.Port{
+				"1/1/1": {
+					PathCost:       100,
+					PointToPoint:   p2p,
+					RestrictedRole: restrictedRole,
+				},
+			},
+		}, tbl)
+	}
+
+	// 1. Shared link: agreement on a shared link must not open the Designated port.
+	{
+		l := newLayer(stp.PointToPointForceFalse, false)
+		l.LinkChange(now, "1/1/1", true, false, 1_000_000_000)
+		b := bpdu.BPDU{
+			Version:      2,
+			Type:         bpdu.TypeRapid,
+			RootID:       bpdu.BridgeID{Priority: 32768, Address: mac},
+			BridgeID:     bpdu.BridgeID{Priority: 61440, Address: peerMAC},
+			PortID:       0x8001,
+			HelloTime:    2 * time.Second,
+			MaxAge:       20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+		}
+		b.SetRole(bpdu.RoleRoot)
+		b.SetAgreement(true)
+
+		l.Receive(now, "1/1/1", b)
+		if st := l.PortInfo("1/1/1").State; st != stp.StateDiscarding {
+			t.Errorf("shared link agreement moved Designated port to %v, want Discarding", st)
+		}
+	}
+
+	// 2. STP mode: agreement received on a port that migrated to legacy STP must not open it.
+	{
+		l := newLayer(stp.PointToPointForceTrue, false)
+		l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+		now2 := now.Add(4 * time.Second)
+		legacy := bpdu.BPDU{
+			Version:      0,
+			Type:         bpdu.TypeConfiguration,
+			RootID:       bpdu.BridgeID{Priority: 32768, Address: peerMAC},
+			BridgeID:     bpdu.BridgeID{Priority: 61440, Address: peerMAC},
+			PortID:       0x8001,
+			HelloTime:    2 * time.Second,
+			MaxAge:       20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+		}
+		legacy.SetRole(bpdu.RoleDesignated)
+		l.Receive(now2, "1/1/1", legacy)
+
+		b := bpdu.BPDU{
+			Version:      2,
+			Type:         bpdu.TypeRapid,
+			RootID:       bpdu.BridgeID{Priority: 32768, Address: mac},
+			BridgeID:     bpdu.BridgeID{Priority: 61440, Address: peerMAC},
+			PortID:       0x8001,
+			HelloTime:    2 * time.Second,
+			MaxAge:       20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+		}
+		b.SetRole(bpdu.RoleRoot)
+		b.SetAgreement(true)
+
+		l.Receive(now2.Add(time.Second), "1/1/1", b)
+		if st := l.PortInfo("1/1/1").State; st != stp.StateDiscarding {
+			t.Errorf("STP mode agreement moved Designated port to %v, want Discarding", st)
+		}
+	}
+
+	// 3. Designated sender with worse vector: agreement from a Designated sender whose vector
+	// is worse than this port's must not open the Designated port.
+	{
+		l := newLayer(stp.PointToPointForceTrue, false)
+		l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+		b := bpdu.BPDU{
+			Version:      2,
+			Type:         bpdu.TypeRapid,
+			RootID:       bpdu.BridgeID{Priority: 61440, Address: peerMAC},
+			BridgeID:     bpdu.BridgeID{Priority: 61440, Address: peerMAC},
+			PortID:       0x8001,
+			HelloTime:    2 * time.Second,
+			MaxAge:       20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+		}
+		b.SetRole(bpdu.RoleDesignated)
+		b.SetAgreement(true)
+
+		l.Receive(now, "1/1/1", b)
+		if st := l.PortInfo("1/1/1").State; st != stp.StateDiscarding {
+			t.Errorf("worse vector Designated agreement moved port to %v, want Discarding", st)
+		}
+	}
+
+	// 4. Root sender with better vector: agreement from a Root sender whose vector is better
+	// than this port's must not open the Designated port.
+	{
+		l := newLayer(stp.PointToPointForceTrue, true)
+		l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+		b := bpdu.BPDU{
+			Version:      2,
+			Type:         bpdu.TypeRapid,
+			RootID:       bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+			BridgeID:     bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+			PortID:       0x8001,
+			HelloTime:    2 * time.Second,
+			MaxAge:       20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+		}
+		b.SetRole(bpdu.RoleRoot)
+		b.SetAgreement(true)
+
+		l.Receive(now, "1/1/1", b)
+		if st := l.PortInfo("1/1/1").State; st != stp.StateDiscarding {
+			t.Errorf("better vector Root agreement moved port to %v, want Discarding", st)
+		}
+		if trans := l.PortInfo("1/1/1").ForwardTransitions; trans != 0 {
+			t.Errorf("better vector Root agreement caused %d forward transitions, want 0", trans)
+		}
+	}
+
+	// 5. Valid agreement baseline: point-to-point RSTP with Root sender and worse vector opens port.
+	{
+		l := newLayer(stp.PointToPointForceTrue, false)
+		l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+		b := bpdu.BPDU{
+			Version:      2,
+			Type:         bpdu.TypeRapid,
+			RootID:       bpdu.BridgeID{Priority: 32768, Address: mac},
+			BridgeID:     bpdu.BridgeID{Priority: 61440, Address: peerMAC},
+			PortID:       0x8001,
+			HelloTime:    2 * time.Second,
+			MaxAge:       20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+		}
+		b.SetRole(bpdu.RoleRoot)
+		b.SetAgreement(true)
+
+		l.Receive(now, "1/1/1", b)
+		if st := l.PortInfo("1/1/1").State; st != stp.StateForwarding {
+			t.Errorf("valid agreement did not open Designated port: got %v, want Forwarding", st)
+		}
+	}
+}
+
+func TestMSTIProposalAndAgreementExchange(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	mac1 := mustMAC(t, "00:11:22:33:44:01")
+	mac2 := mustMAC(t, "00:11:22:33:44:02")
+	tbl := mustPortTable(t, "1/1/1")
+
+	mstCfg := func(cistPrio uint16, msti1Prio uint16, mac netaddr.MAC) stp.Config {
+		return stp.Config{
+			Priority: cistPrio,
+			Address:  mac,
+			Ports: map[string]stp.Port{
+				"1/1/1": {PathCost: 100},
+			},
+			MST: &stp.MST{
+				Name:     "region-1",
+				Revision: 1,
+				Instances: map[bpdu.MSTID]stp.Instance{
+					1: {
+						Priority: msti1Prio,
+						VLANs:    []vlan.ID{10},
+					},
+				},
+			},
+		}
+	}
+
+	// Two bridges in one region on a point-to-point link bring an MSTI Designated port
+	// to Forwarding in the same exchange that brings the CIST there, with no Advance.
+	sw1 := mustNewSTP(t, mstCfg(4096, 32768, mac1), tbl)
+	sw2 := mustNewSTP(t, mstCfg(32768, 4096, mac2), tbl)
+
+	fx1 := sw1.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+	sw2.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+
+	if len(fx1.Emissions) == 0 {
+		t.Fatal("sw1 LinkChange produced no emissions")
+	}
+
+	b1, err := bpdu.Decode(fx1.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("Decode sw1 BPDU: %v", err)
+	}
+
+	fx2Rx := sw2.Receive(now, "1/1/1", b1)
+	if len(fx2Rx.Emissions) == 0 {
+		t.Fatal("sw2 Receive produced no agreement emissions")
+	}
+
+	b2Resp, err := bpdu.Decode(fx2Rx.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("Decode sw2 response BPDU: %v", err)
+	}
+
+	fx1Rx := sw1.Receive(now, "1/1/1", b2Resp)
+
+	// sw1 CIST Designated port received CIST agreement and forwarded
+	if st := sw1.PortInfo("1/1/1").State; st != stp.StateForwarding {
+		t.Errorf("sw1 CIST port state = %v, want Forwarding", st)
+	}
+
+	// sw1 MSTI 1 Root port received MSTI 1 proposal and forwarded, emitting MSTI 1 agreement
+	if st := sw1.VLANPortInfo(10, "1/1/1").State; st != stp.StateForwarding {
+		t.Errorf("sw1 MSTI 1 port state = %v, want Forwarding", st)
+	}
+
+	if len(fx1Rx.Emissions) == 0 {
+		t.Fatal("sw1 Receive produced no MSTI agreement emission")
+	}
+
+	b1MstiAgr, err := bpdu.Decode(fx1Rx.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("Decode sw1 MSTI agreement BPDU: %v", err)
+	}
+
+	sw2.Receive(now, "1/1/1", b1MstiAgr)
+
+	// sw2 MSTI 1 Designated port received MSTI 1 agreement and forwarded
+	if st := sw2.VLANPortInfo(10, "1/1/1").State; st != stp.StateForwarding {
+		t.Errorf("sw2 MSTI 1 Designated port state = %v, want Forwarding", st)
+	}
+
+	// Test: An MSTI agreement whose CIST message names another regional root is not recorded.
+	{
+		cfgA := mstCfg(4096, 4096, mac1)
+		swA := mustNewSTP(t, cfgA, tbl)
+		swA.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+
+		// swA is Designated on MSTI 1, Discarding
+		cid := cfgA.MST.ConfigID()
+		badCISTAgreement := bpdu.BPDU{
+			Version:        3,
+			Type:           bpdu.TypeRapid,
+			RootID:         bpdu.BridgeID{Priority: 4096, Address: mac1},
+			RegionalRootID: bpdu.BridgeID{Priority: 4096, Address: mustMAC(t, "00:99:99:99:99:99")}, // mismatch!
+			BridgeID:       bpdu.BridgeID{Priority: 32768, Address: mac2},
+			PortID:         0x8001,
+			HelloTime:      2 * time.Second,
+			MaxAge:         20 * time.Second,
+			ForwardDelay:   15 * time.Second,
+			RemainingHops:  20,
+			ConfigID:       &cid,
+			MSTIs: []bpdu.MSTIRecord{
+				{
+					MSTID:                1,
+					Flags:                0x40 | 0x08, // Agreement + RoleRoot
+					RegionalRootID:       bpdu.BridgeID{Priority: 4096 | 1, Address: mac1},
+					InternalRootPathCost: 10,
+					BridgePriority:       0x80,
+					PortPriority:         0x80,
+					RemainingHops:        20,
+				},
+			},
+		}
+		badCISTAgreement.SetRole(bpdu.RoleRoot)
+		badCISTAgreement.SetAgreement(true)
+
+		swA.Receive(now, "1/1/1", badCISTAgreement)
+		if st := swA.VLANPortInfo(10, "1/1/1").State; st != stp.StateDiscarding {
+			t.Errorf("MSTI agreement with mismatched CIST regional root moved port to %v, want Discarding", st)
+		}
 	}
 }

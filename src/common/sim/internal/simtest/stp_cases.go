@@ -615,7 +615,7 @@ func casePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate() Case {
 		`port="l1";vid=10;state={mstid=1;role="Alternate";state="Discarding";block_reason="";priority=128;`+
 			`path_cost=200000;designated_root="32769/02:00:00:00:04:01";designated="32769/02:00:00:00:04:01";`+
 			`designated_port=32769;designated_cost=0;point_to_point=true;edge=false;forward_transitions=1;`+
-			`tx_bpdus=0;rx_bpdus=164;bad_bpdus=0;send_rstp=true};learns=false;forwards=false`)
+			`tx_bpdus=0;rx_bpdus=165;bad_bpdus=0;send_rstp=true};learns=false;forwards=false`)
 
 	expectedSteps := []StepExpectation{
 		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "10"},

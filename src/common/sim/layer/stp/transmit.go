@@ -170,6 +170,7 @@ func (l *Layer) instanceRemainingHops(t *tree) uint8 {
 // because a port is classified internal or external only on reception.
 func (l *Layer) gatherMSTIRecords(now time.Time, p *portState) []bpdu.MSTIRecord {
 	var recs []bpdu.MSTIRecord
+	link := l.links[p.name]
 
 	for _, id := range l.treeOrder {
 		if id == cistID {
@@ -192,6 +193,9 @@ func (l *Layer) gatherMSTIRecords(now time.Time, p *portState) []bpdu.MSTIRecord
 		// methods never gets encoded itself.
 		var flags bpdu.BPDU
 		flags.SetRole(mp.role)
+		if link.pointToPoint && link.sendRSTP && mp.role == bpdu.RoleDesignated && mp.state == StateDiscarding && !mp.agreed {
+			flags.SetProposal(true)
+		}
 		flags.SetLearning(mp.state == StateLearning || mp.state == StateForwarding)
 		flags.SetForwarding(mp.state == StateForwarding)
 		if !mt.topologyChangeTimer.IsZero() && mt.topologyChangeTimer.After(now) {
@@ -280,12 +284,26 @@ func (l *Layer) makeAgreementBPDU(t *tree, p *portState, now time.Time) bpdu.BPD
 	link := l.links[p.name]
 	b := l.makeBPDU(t, p, now, false)
 	b.SetRole(p.role)
-	if link.sendRSTP {
+	if link.sendRSTP && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate) && l.isSynced(t, p.name) {
 		b.SetAgreement(true)
 	}
 	b.SetProposal(false)
 	b.SetLearning(p.state == StateLearning || p.state == StateForwarding)
 	b.SetForwarding(p.state == StateForwarding)
+
+	if link.sendRSTP && link.pointToPoint {
+		for i := range b.MSTIs {
+			rec := &b.MSTIs[i]
+			if mt, ok := l.trees[treeID(rec.MSTID)]; ok {
+				if mp, ok := mt.ports[p.name]; ok {
+					if (mp.role == bpdu.RoleRoot || mp.role == bpdu.RoleAlternate) && l.isSynced(mt, p.name) {
+						rec.Flags |= 0x40
+						rec.Flags &^= 0x02
+					}
+				}
+			}
+		}
+	}
 
 	return b
 }

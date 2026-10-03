@@ -20,8 +20,85 @@ import (
 // address and the CIST port identifier's index half, since MSTI bridge and
 // port identifiers differ from the CIST's only in their priority nibble
 // (clause 13.7).
-func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[]layer.FlushTarget) {
+func (l *Layer) syncTree(t *tree, rootPort string, now time.Time, flushes *[]layer.FlushTarget) {
+	for _, otherName := range l.portNames {
+		if otherName == rootPort {
+			continue
+		}
+		otherP := t.ports[otherName]
+		if otherP == nil {
+			continue
+		}
+		otherLink := l.links[otherName]
+		if otherP.role == bpdu.RoleDesignated && !otherLink.edge {
+			otherP.agreed = false
+			otherP.proposing = otherLink.pointToPoint && otherLink.sendRSTP
+			if otherP.state != StateDiscarding {
+				wasFwd := otherP.state == StateForwarding
+				otherP.state = StateDiscarding
+				if wasFwd {
+					l.raiseTopologyChange(t, otherP.name, now, flushes)
+				}
+			}
+		}
+	}
+}
+
+func (l *Layer) handleProposal(t *tree, p *portState, link *linkRecord, now time.Time, flushes *[]layer.FlushTarget) {
+	l.syncTree(t, p.name, now, flushes)
+	if p.role == bpdu.RoleRoot && link.pointToPoint && l.isSynced(t, p.name) && link.sendRSTP {
+		if p.state != StateForwarding {
+			p.state = StateForwarding
+			p.forwardTransitions++
+			if !link.edge {
+				l.raiseTopologyChange(t, p.name, now, flushes)
+			}
+		}
+	}
+}
+
+func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incoming priorityVector, role bpdu.Role, agreement bool, now time.Time, flushes *[]layer.FlushTarget) {
+	if !link.pointToPoint || !link.sendRSTP || !agreement {
+		p.agreed = false
+		return
+	}
+
+	portVec := designatedVector(t, p, link.external)
+	cmp := compareVectors(incoming, portVec)
+	if role == bpdu.RoleDesignated {
+		p.agreed = cmp <= 0
+	} else {
+		p.agreed = cmp >= 0
+	}
+	if p.agreed {
+		p.proposing = false
+		if p.role == bpdu.RoleDesignated && p.state != StateForwarding {
+			p.state = StateForwarding
+			p.forwardTransitions++
+			if !link.edge {
+				l.raiseTopologyChange(t, p.name, now, flushes)
+			}
+		}
+	}
+}
+
+func (l *Layer) cistPortVector(p *portState) priorityVector {
+	cist := l.cist()
+	link := l.links[p.name]
+	if p.role == bpdu.RoleDesignated {
+		return designatedVector(cist, p, link.external)
+	}
+	return rawVector(cist, p, link.external)
+}
+
+func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVec priorityVector, flushes *[]layer.FlushTarget) []bpdu.MSTID {
 	link := l.links[port]
+	cistConsistent := b.RootID == heldCISTVec.rootID &&
+		b.RootPathCost == heldCISTVec.externalRootPathCost &&
+		b.RegionalRootID == heldCISTVec.regionalRootID
+
+	var proposals []bpdu.MSTID
+
 	for _, rec := range b.MSTIs {
 		mt, ok := l.trees[treeID(rec.MSTID)]
 		if !ok {
@@ -32,7 +109,8 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[
 			continue
 		}
 
-		if (bpdu.BPDU{Flags: rec.Flags}).TopologyChange() && !mp.cfg.RestrictedTCN {
+		recFlags := bpdu.BPDU{Flags: rec.Flags}
+		if recFlags.TopologyChange() && !mp.cfg.RestrictedTCN {
 			mt.topologyChangeTimer = now.Add(l.helloTime + time.Second)
 			fids := l.treeVLANs[mt.id]
 			for _, name := range l.portNames {
@@ -62,6 +140,11 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[
 			}
 		}
 		if !sameSource && !isSuperior {
+			if cistConsistent {
+				l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes)
+			} else {
+				mp.agreed = false
+			}
 			continue
 		}
 
@@ -82,7 +165,18 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[
 		mp.rcvRemainingHops = rec.RemainingHops
 		mp.rcvHelloTime = rcvHello
 		mp.rcvTime = now
+
+		if cistConsistent {
+			l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes)
+			if recFlags.Proposal() && recFlags.Role() == bpdu.RoleDesignated {
+				proposals = append(proposals, rec.MSTID)
+			}
+		} else {
+			mp.agreed = false
+		}
 	}
+
+	return proposals
 }
 
 // Receive processes an incoming BPDU received on a port. It applies the BPDU
@@ -367,49 +461,35 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		link.external = !internal
 	}
 
+	heldCISTVec := l.cistPortVector(p)
+
 	if sameSource || isSuperior {
-		p.rcvInfoValid = true
-		p.rcvRootID = b.RootID
-		p.rcvRootPathCost = b.RootPathCost
-		p.rcvBridgeID = b.BridgeID
-		p.rcvPortID = b.PortID
-		p.rcvMessageAge = b.MessageAge
-		p.rcvMaxAge = b.MaxAge
-		rcvHello := b.HelloTime
-		if rcvHello < time.Second {
-			rcvHello = time.Second
-		}
-		p.rcvHelloTime = rcvHello
-		p.rcvForwardDelay = b.ForwardDelay
-		p.rcvTime = now
-		if internal {
-			p.rcvRegionalRootID = b.RegionalRootID
-			p.rcvInternalRootPathCost = b.InternalRootPathCost
-			p.rcvRemainingHops = b.RemainingHops
-		} else {
-			// A port classified external carries no internal-only state: a
-			// stale regional root, internal cost, or hop count left over from
-			// an earlier internal BPDU would otherwise survive the flip and
-			// this bridge would re-originate a decreasing hop count instead
-			// of MaxHops.
-			p.rcvRegionalRootID = bpdu.BridgeID{}
-			p.rcvInternalRootPathCost = 0
-			p.rcvRemainingHops = 0
-		}
+		l.recordReceivedBPDU(p, b, internal, now)
 	}
 
+	var mstiProposals []bpdu.MSTID
 	if internal {
-		l.receiveMSTIs(now, p.name, b, flushes)
+		mstiProposals = l.receiveMSTIs(now, p.name, b, heldCISTVec, flushes)
 	}
 
-	if p.role == bpdu.RoleDesignated && b.Agreement() {
-		p.agreed = true
-		p.proposing = false
-		if p.state != StateForwarding {
-			p.state = StateForwarding
-			p.forwardTransitions++
-			if !link.edge {
-				l.raiseTopologyChange(t, p.name, now, flushes)
+	l.recordAgreement(t, p, link, incoming, b.Role(), b.Agreement(), now, flushes)
+	if link.external {
+		for _, mt := range l.trees {
+			if mt.id == cistID {
+				continue
+			}
+			if mp, ok := mt.ports[p.name]; ok {
+				mp.agreed = p.agreed
+				if mp.agreed {
+					mp.proposing = false
+					if mp.role == bpdu.RoleDesignated && mp.state != StateForwarding {
+						mp.state = StateForwarding
+						mp.forwardTransitions++
+						if !link.edge {
+							l.raiseTopologyChange(mt, mp.name, now, flushes)
+						}
+					}
+				}
 			}
 		}
 	}
@@ -425,36 +505,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 
 	emissions = append(emissions, l.recomputeAll(now, flushes)...)
 
-	if b.Proposal() && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate) {
-		for _, otherName := range l.portNames {
-			if otherName == p.name {
-				continue
-			}
-			otherP := t.ports[otherName]
-			otherLink := l.links[otherName]
-			if otherP.role == bpdu.RoleDesignated && !otherLink.edge {
-				otherP.agreed = false
-				otherP.proposing = otherLink.pointToPoint && otherLink.sendRSTP
-				if otherP.state != StateDiscarding {
-					wasFwd := otherP.state == StateForwarding
-					otherP.state = StateDiscarding
-					if wasFwd {
-						l.raiseTopologyChange(t, otherP.name, now, flushes)
-					}
-				}
-			}
-		}
-
-		if p.role == bpdu.RoleRoot && link.pointToPoint && l.isSynced(t, p.name) && link.sendRSTP {
-			if p.state != StateForwarding {
-				p.state = StateForwarding
-				p.forwardTransitions++
-				if !link.edge {
-					l.raiseTopologyChange(t, p.name, now, flushes)
-				}
-			}
-		}
-
+	if l.answerProposals(t, p, link, b, mstiProposals, now, flushes) {
 		l.emit(t, p, now, emissionAgreement, &emissions)
 	} else if p.role == bpdu.RoleDesignated && !b.Agreement() {
 		if compareVectors(incoming, designatedVector(t, p, link.external)) > 0 {
@@ -463,4 +514,62 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 	}
 
 	return emissions
+}
+
+func (l *Layer) recordReceivedBPDU(p *portState, b bpdu.BPDU, internal bool, now time.Time) {
+	p.rcvInfoValid = true
+	p.rcvRootID = b.RootID
+	p.rcvRootPathCost = b.RootPathCost
+	p.rcvBridgeID = b.BridgeID
+	p.rcvPortID = b.PortID
+	p.rcvMessageAge = b.MessageAge
+	p.rcvMaxAge = b.MaxAge
+	rcvHello := b.HelloTime
+	if rcvHello < time.Second {
+		rcvHello = time.Second
+	}
+	p.rcvHelloTime = rcvHello
+	p.rcvForwardDelay = b.ForwardDelay
+	p.rcvTime = now
+	if internal {
+		p.rcvRegionalRootID = b.RegionalRootID
+		p.rcvInternalRootPathCost = b.InternalRootPathCost
+		p.rcvRemainingHops = b.RemainingHops
+	} else {
+		// A port classified external carries no internal-only state: a
+		// stale regional root, internal cost, or hop count left over from
+		// an earlier internal BPDU would otherwise survive the flip and
+		// this bridge would re-originate a decreasing hop count instead
+		// of MaxHops.
+		p.rcvRegionalRootID = bpdu.BridgeID{}
+		p.rcvInternalRootPathCost = 0
+		p.rcvRemainingHops = 0
+	}
+}
+
+func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.BPDU, mstiProposals []bpdu.MSTID, now time.Time, flushes *[]layer.FlushTarget) bool {
+	answered := false
+	if b.Proposal() && b.Role() == bpdu.RoleDesignated && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate) {
+		answered = true
+		l.handleProposal(t, p, link, now, flushes)
+		if link.external {
+			for _, mt := range l.trees {
+				if mt.id == cistID {
+					continue
+				}
+				if mp, ok := mt.ports[p.name]; ok && (mp.role == bpdu.RoleRoot || mp.role == bpdu.RoleAlternate) {
+					l.handleProposal(mt, mp, link, now, flushes)
+				}
+			}
+		}
+	}
+	for _, mstid := range mstiProposals {
+		if mt, ok := l.trees[treeID(mstid)]; ok {
+			if mp, ok := mt.ports[p.name]; ok && (mp.role == bpdu.RoleRoot || mp.role == bpdu.RoleAlternate) {
+				l.handleProposal(mt, mp, link, now, flushes)
+				answered = true
+			}
+		}
+	}
+	return answered
 }
