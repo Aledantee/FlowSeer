@@ -5,6 +5,7 @@ date: 2026-10-03
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: fixes needed
 execution: mixed
 amends: docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md
 ---
@@ -266,3 +267,7 @@ Waves: U1
       last-seen-active rule.
 - [ ] This plan's `status` is set with an outcome note under its title.
 - [ ] No plan labels in code.
+
+## Review gaps
+
+- src/edge/agent/host/syslog_test.go:38: `listedAt` is a helper with one caller (line 269), against `docs/code-style.md` "No abstraction with a single caller"; fails: the row is built inline in `TestSyslogAssembly_SetupPublishesAnIngestRecordNamingThisEdge`
