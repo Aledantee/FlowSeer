@@ -5,6 +5,7 @@ date: 2026-10-03
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: fixes needed
 execution: docs
 ---
 
@@ -298,4 +299,18 @@ third prints nothing.
 
 ## Open questions
 
-None.
+- Requirement 10 names `d7995d3d` for the cap reached on coverage alone.
+  Its message lists "One defect no test catches" and "Two cases weaker than
+  their titles" open at round three, so the citation at
+  `docs/agent-steering.md:784` claims more than the commit says. Cite
+  `fb724477` alone, or name another commit?
+- Requirement 7 and the Decision capping a review at three rounds do not
+  say what happens when a gap pass changes source after three rounds have
+  already run, the third one clean, or what "one more gap pass" starts: a
+  new review with a fresh count, or a second pass in this one
+  (`.agents/skills/review/references/fix-loop.md:72`, `:79`).
+
+## Review gaps
+
+- `docs/agent-steering.md:778`: "and the Orca card" is in neither `c65f3804` nor `e83b1305`; fails: a reader checking the two cited commits for that reader of the gap list
+- `.agents/skills/review/SKILL.md:277`: "with no further review round" contradicts `references/fix-loop.md:72`, where a pass that changes source is a round; fails: a pass that edits a helper is written up as an accept without steps 3 and 4
