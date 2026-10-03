@@ -183,8 +183,8 @@ Operator calls run as `dev_tenant` (or `default` when unset) through
 An edge belongs to the tenant that created it (the `edge_<id>` index). Restarting
 central with a different `dev_tenant` makes existing edges, capture sessions,
 and lanes `NotFound` to operators, while drift and dispatch continue under each
-edge's tenant. `platform_admin` is validated in configuration but not yet
-enforced.
+edge's tenant. `platform_admin`, `authentication`, and `authorization` sections
+are validated in configuration and not yet enforced.
 
 The edge-facing services — `EdgeService`, `DispatchService`, `AuditService`,
 `CaptureEdgeService` — are verified: every call carries a fresh assertion
@@ -269,7 +269,8 @@ the record is what an audit needs, the payload is what an audit is about.
 | `internal/centralaudit` | the audit records central writes on its own behalf |
 | `internal/drift` | the poll that compares a managed interface against its expectation |
 | `internal/connecterr` | the errs-to-Connect mapping every handler answers through |
-| `internal/authn` | the caller identity carrier |
-| `internal/authz` | the operator authorization interceptor and relation check obligations |
+| `internal/authn` | the token verifier, interceptor, and caller identity carrier |
+| `internal/authz` | the operator authorization obligations and model |
+| `internal/authz/openfga` | the OpenFGA authorization engine checker and embedded model |
 | `internal/telemetry` | this service's instrumentation scope |
 | `internal/host` | configuration, certificate, interceptors, and the module assembly |

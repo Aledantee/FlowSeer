@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: openfga
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  openfga-migrate:
+    image: openfga/openfga:v1.21.0@sha256:2113c664a486b5da8d7a2cdab479e0d4e30639c80fd2c000540f645c1dbc1e55
+    command: ["migrate"]
+    environment:
+      OPENFGA_DATASTORE_ENGINE: postgres
+      OPENFGA_DATASTORE_URI: postgres://postgres:password@postgres:5432/openfga?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  openfga:
+    image: openfga/openfga:v1.21.0@sha256:2113c664a486b5da8d7a2cdab479e0d4e30639c80fd2c000540f645c1dbc1e55
+    command: ["run"]
+    environment:
+      OPENFGA_DATASTORE_ENGINE: postgres
+      OPENFGA_DATASTORE_URI: postgres://postgres:password@postgres:5432/openfga?sslmode=disable
+      OPENFGA_AUTHN_METHOD: preshared
+      OPENFGA_GRPC_TLS_ENABLED: "true"
+      OPENFGA_GRPC_TLS_CERT: /etc/openfga/tls.crt
+      OPENFGA_GRPC_TLS_KEY: /etc/openfga/tls.key
+      OPENFGA_HTTP_TLS_ENABLED: "true"
+      OPENFGA_HTTP_TLS_CERT: /etc/openfga/tls.crt
+      OPENFGA_HTTP_TLS_KEY: /etc/openfga/tls.key
+      OPENFGA_PLAYGROUND_ENABLED: "false"
+      OPENFGA_CHECK_QUERY_CACHE_ENABLED: "false"
+      OPENFGA_CACHE_CONTROLLER_ENABLED: "false"
+    env_file:
+      - path: ./secrets/openfga.env
+        required: false
+    volumes:
+      - ./secrets/server.crt:/etc/openfga/tls.crt:ro
+      - ./secrets/server.key:/etc/openfga/tls.key:ro
+      - ./secrets/ca.crt:/etc/openfga/ca.crt:ro
+    ports:
+      - "127.0.0.1:8081:8081"
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=localhost:8081", "-tls", "-tls-ca-cert=/etc/openfga/ca.crt", "-tls-server-name=localhost"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      openfga-migrate:
+        condition: service_completed_successfully
+
+  dex:
+    image: dexidp/dex:v2.45.1@sha256:8499afd690c437f52301efd2b05b2455da5bd2dfc20332cd697dc9937f808462
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    volumes:
+      - ./dex/config.yaml:/etc/dex/config.yaml:ro
+      - ./secrets/server.crt:/etc/dex/tls.crt:ro
+      - ./secrets/server.key:/etc/dex/tls.key:ro
+    env_file:
+      - path: ./secrets/dex.env
+        required: false
+    ports:
+      - "127.0.0.1:8445:8445"

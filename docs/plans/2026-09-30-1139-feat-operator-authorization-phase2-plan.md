@@ -4,13 +4,15 @@ type: feat
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-30-operator-authorization-direction.md
 parent: docs/plans/2026-09-30-1139-feat-operator-authorization-plan.md
 ---
 
 # Operator Authorization Phase 2, OIDC, OpenFGA Client, Model, and Deployment - Plan
+
+> Implemented. 6 units, 2026-10-03T11:58Z to 2026-10-03T13:12Z.
 
 ## Goal
 

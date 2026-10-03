@@ -1,38 +1,80 @@
 # Lab deployment files
 
-The four files one lab run needs, with placeholders in every position that
-takes a real value. Nothing here is a secret and no address here resolves.
+The files needed to run a local lab deployment with OpenFGA and Dex. Placeholders appear in every position that takes an environment-specific value.
 
 | File | What it is |
 | --- | --- |
-| `central.textproto` | `DeviceServiceConfig` — the device service's own deployment |
-| `registry.textproto` | `DeviceRegistry` — the one switch central serves, and the policy it resolves |
-| `agent.textproto` | `AgentConfig` — where the agent's state lives and which provisioning file it reads |
-| `provisioning.textproto` | `EdgeProvisioning` — the shape of what central hands you at issue time |
+| `central.textproto` | `DeviceServiceConfig`: the device service deployment |
+| `registry.textproto` | `DeviceRegistry`: the switch central serves and the policy it resolves |
+| `agent.textproto` | `AgentConfig`: where edge agent state lives and which provisioning file it reads |
+| `provisioning.textproto` | `EdgeProvisioning`: the credentials central issues to an edge |
+| `compose.yaml` | Container definitions for Postgres, OpenFGA, and Dex |
+| `dex/config.yaml` | Dex identity provider configuration |
+| `write-lab-secrets.sh` | Generates TLS certificates, keys, and user credentials under `secrets/` |
+| `write-openfga-store.sh` | Creates the OpenFGA store and writes the authorization model |
 
-Four rather than three, because `AgentConfig` names a provisioning file
-instead of restating where central is, how to trust it, and the key that
-joins. That was deliberate: copying those into the agent's own configuration
-would make two sources of truth for the same three facts with nothing keeping
-them equal.
+The provisioning file is the only file that holds an edge credential. Its placeholders fail validation deliberately so an agent given an unedited file refuses it at load rather than failing later during operations.
 
-The provisioning file is the only one that ever holds a credential, and its
-placeholders are invalid on purpose — the setup key fails its schema pattern
-and the trust anchor is the wrong length — so an agent given the file
-unedited refuses it at load rather than starting and failing later somewhere
-less obvious. A file that fails loudly when unfilled is worth more than one
-that looks filled.
+`registry.textproto` fails similarly when management address or `ssh_host_key_sha256` retain placeholder values.
 
-`registry.textproto` fails the same way for the two positions that describe a
-device rather than the deployment: the management address and
-`ssh_host_key_sha256`. Both ship as placeholders and `write-registry.sh`
-refuses to render the shipped file while either is still there. Neither
-failure is one a reader would diagnose from what it produces — an unfilled
-address makes the edge agent log a timed-out identity probe, which is what it also
-logs when the switch is off, and an unfilled digest is a pin that fails at the
-moment a mutation opens its shell.
+## Lab run
 
-Read [the runbook](../../docs/runbooks/lab-icx7150-first-write.md) before
-using any of this. Two values here cannot be copied from a document because
-they are measurements — the delayed-apply horizon and the switch's SSH host
-key — and one of them decides more than its name suggests.
+1. Generate secrets and certificates:
+
+```bash
+./write-lab-secrets.sh
+```
+
+2. Start the local containers:
+
+```bash
+docker compose up -d
+```
+
+3. Create the OpenFGA store and authorization model:
+
+```bash
+./write-openfga-store.sh
+```
+
+4. Request an operator token by password grant with the cross-client audience scope:
+
+```bash
+curl -sS --cacert secrets/ca.crt \
+  -d "grant_type=password" \
+  -d "client_id=flowseer-lab" \
+  -d "client_secret=$(cat secrets/dex_client.secret)" \
+  -d "username=alice@flowseer.local" \
+  -d "password=$(grep 'Dex User alice:' secrets/credentials.txt | cut -d: -f2 | tr -d ' ')" \
+  -d "scope=openid groups audience:server:client_id:flowseer-device" \
+  https://127.0.0.1:8445/dex/token | jq -r .id_token
+```
+
+5. Verify OpenFGA preshared key enforcement:
+
+On the HTTP listener:
+- A request with no `Authorization` header returns HTTP 401 with `bearer_token_missing`:
+
+```bash
+curl -i --cacert secrets/ca.crt https://127.0.0.1:8080/stores
+```
+
+- A request with a wrong preshared key returns HTTP 401 with `unauthenticated`:
+
+```bash
+curl -i --cacert secrets/ca.crt -H "Authorization: Bearer wrong-key" https://127.0.0.1:8080/stores
+```
+
+Over gRPC, calling `openfga.v1.OpenFGAService/ListStores` without `authorization` metadata fails with code 1010, and calling with a wrong key fails with code 1500.
+
+## User groups and key rotation
+
+A user leaves a group by editing `dex/config.yaml` and restarting the container. Dex stores state in memory, so each restart generates new signing keys and invalidates previously issued tokens.
+
+## Testing
+
+The issuer integration suite in [`lab_issuer_test.go`](../../src/services/device/test/integration/lab_issuer_test.go) runs against a containerized Dex instance:
+
+```bash
+DOCKER_HOST="unix:///Users/aledante/.colima/default/docker.sock" TMPDIR="$HOME/tmp" TESTCONTAINERS_RYUK_DISABLED=true go test -v -tags=authz_integration -run TestLabDexIssuer ./src/services/device/test/integration/
+```

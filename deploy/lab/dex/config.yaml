@@ -1,0 +1,39 @@
+issuer: https://127.0.0.1:8445/dex
+
+storage:
+  type: memory
+
+web:
+  https: 0.0.0.0:8445
+  tlsCert: /etc/dex/tls.crt
+  tlsKey: /etc/dex/tls.key
+
+oauth2:
+  passwordConnector: local
+
+enablePasswordDB: true
+
+staticClients:
+  - id: flowseer-device
+    name: "FlowSeer Device Service"
+    public: true
+    trustedPeers:
+      - flowseer-lab
+  - id: flowseer-lab
+    name: "FlowSeer Lab CLI"
+    secretEnv: DEX_LAB_CLIENT_SECRET
+
+staticPasswords:
+  - email: "alice@flowseer.local"
+    hashFromEnv: DEX_USER_ALICE_HASH
+    username: "alice"
+    userID: "00000000-0000-0000-0000-000000000001"
+    groups:
+      - acme
+      - globex
+  - email: "admin@flowseer.local"
+    hashFromEnv: DEX_USER_ADMIN_HASH
+    username: "admin"
+    userID: "00000000-0000-0000-0000-000000000002"
+    groups:
+      - flowseer-platform
