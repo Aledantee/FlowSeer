@@ -21,9 +21,10 @@ List the changed files. Read the intended behavior from the plan under
 
 Read the record of open items an earlier review left: the plan's
 `## Review gaps` section, or for planless work the last `gaps:` line of
-`$(git rev-parse --git-dir)/flowseer-checkpoints`. Step 3 carries its items
-into the reviewer briefs as the previous round's findings, so a fresh
-session judges them instead of rediscovering them. Also read each plan
+`$(git rev-parse --git-dir)/flowseer-checkpoints`. A run on a scope with a
+recorded verdict is a new review with a fresh round count. Step 3 carries
+its items into the reviewer briefs as the previous round's findings, so a
+fresh session judges them instead of rediscovering them. Also read each plan
 Decision ending `decided by the user` that settles a Requirement question.
 Judge that Requirement by the Decision's text, and remove the matching item
 from the plan's Open questions.
@@ -252,12 +253,12 @@ asking the user what happens next (`AGENTS.md`, Agent behavior):
 | accept | run `compound` now; stop here |
 | fixes needed or rework, findings in one file group | apply the fixes here; fix and review again until clean, gaps included (step 6); stop |
 | fixes needed or rework, findings across file groups | fix and review again until clean, gaps included (step 6); apply chosen findings only; stop |
-| fixes needed, an item survived the gap pass | one more gap pass, or stop |
+| fixes needed, an item still recorded once the pass has run | one more gap pass (runs `review` again from step 1 with step 6), or stop |
 | fixes needed, a Requirement question is open | take the Requirement to `plan`, or stop |
 | rework too large to fix in place | take what the review established to `plan`; stop |
 
 A delegated reviewer does not ask. It states a Requirement-change finding,
-and each surviving item's `path:line` and mutation, as its blocker.
+and each item's `path:line` and its mutation or wrong text, as its blocker.
 
 On "apply the fixes here" and "apply chosen findings only", make the fixes,
 run the verifier on the changed paths, and report what changed. Before it
@@ -267,14 +268,16 @@ recorded mutation on the merged tree and deletes the item only when the
 suite fails, and it deletes a convention item when the corrected lines
 stand at its `path:line`. Then it replaces the recorded verdict with
 `review: accept after fixes`, recorded as above. An item still recorded
-leaves `fixes needed`, and so does an open Requirement question.
+leaves `fixes needed`, and so does a behavior or false-test finding left
+unfixed, or an open Requirement question.
 
 ## 6. Fix and re-review, when asked
 
 When the user chooses to fix the findings and review again until clean,
 load `references/fix-loop.md`. Clean means no behavior defect and no false
-test. The gap pass follows before the accept verdict, inside this review and
-with no further review round. The coordinating session runs the rounds and
-the pass through fix workers and never makes the fixes itself.
+test. The gap pass follows before the accept verdict, inside this review.
+A pass that changes source outside tests, comments, and docs is a round,
+as `references/fix-loop.md` describes. The coordinating session runs the
+rounds and the pass through fix workers and never makes the fixes itself.
 
 A correction to this procedure is logged as `compound`, Observe describes.
