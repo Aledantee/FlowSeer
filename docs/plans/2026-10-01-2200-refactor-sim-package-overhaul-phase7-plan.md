@@ -226,8 +226,8 @@ the file for their subject.
    (`Fb/run.go:525`). A data frame reads the LAG's queue (`:619,974`), and a
    protocol frame sent on a member reads the member's (`:1376`), so one
    physical queue answers to two statements, and an LACPDU on a member of a
-   LAG with a stated buffer raises `queue-buffer-unstated`. Test: R7's
-   example.
+   LAG with a stated buffer is queued as if none were stated
+   (`:998-1003`). Test: R7's example.
 10. Struck. `NormalizeSeeds` admits a seed on a port whose PVID is the FID
     and which does not carry the VID on egress (`B/seed.go:109-114`), and a
     frame for that address drops as `not-member`. `Q2003` specifies both
@@ -385,9 +385,10 @@ which counts one expiry and one learn, and a call that does not learn
 writes nothing. `Entries` and `Counters` report the table as of its last
 write. `Ingress` learns only when a switchport carries the frame's VLAN,
 and a relay without VLAN awareness learns as today. `Configured` and
-`Aging` take their names, `NormalizeSeeds` fills an empty `Origin` and
-`Lifetime` with them and refuses any other value at `seeds.<i>.origin` and
-`seeds.<i>.lifetime`. `README.md` states the four rules with `Q2003`
+`Aging` take their names. `NormalizeSeeds` fills an empty `Origin` with
+`Configured` and an empty `Lifetime` with `Aging`. It refuses an origin
+outside `Configured` and `Observed` at `seeds.<i>.origin` and a lifetime
+outside `Aging` and `Static` at `seeds.<i>.lifetime`. `README.md` states the four rules with `Q2003`
 8.10.1, 8.10.3, and 8.8, and gains the seed Limit. Outside `B`, only tests
 and corpus cases change, where one compares an entry against the empty
 string, looks an entry up past its aging time, or learns in a VLAN no
@@ -407,24 +408,29 @@ After: U3
 Change: one function decides a transmission port for the unicast and the
 replication path, in this order: the port is down, the port does not carry
 the VLAN, a gate does not forward, both ports are protected, the payload
-exceeds the MTU, a LAG has no member. A down port is a `relay` step with
-rule `port-down`, the port's forwarding fact as input, and an egress
-decision as output on both paths. The unicast path records each refusal in
-`Egress`. A flood skips a port outside the VLAN without a step and records
-a down port's step without an `Egress`, and its reason when nothing is
+exceeds the MTU, a LAG has no member. A flood hands it the ports that carry
+the VLAN and no other, as it selects them today
+(`B/bridge.go:1247-1250`), so a port outside the VLAN gets no step on a
+flood whatever its state, and the second check decides on the unicast path
+alone. A down port is a `relay` step with rule `port-down`, the port's
+forwarding fact as input, and an egress decision as output on both paths.
+The unicast path records each refusal in `Egress`. A flood records a down
+port's step without an `Egress`, and its reason when nothing is
 transmitted stays the first candidate's drop, or the reason it reports
 today when no candidate remains. The same-port rule stays ahead of the
 function on both paths. The two branches that cannot run go. A drop before classification
 names the port the caller passed when the table holds none. `Ingress`,
 `Egress`, and `replicate` are each under 150 lines, cut at the stages the
-README's diagram names. `README.md` states the order with `Q2003` 8.6.2 to
-8.6.4. No test outside `B` pins the flood's old step: `port.status.down`
+README's diagram names. `README.md` states the order with `Q2003` 8.4.1
+for a down port and 8.6.2 to 8.6.4 for the rest. No test outside `B` pins the flood's old step: `port.status.down`
 appears in `V/switch_test.go` under layers `stp` and `routing` alone.
 Tests: entries 2 and 5. The flood of R3 with `1/1/2` blocked by a gate
 reports `port-blocked`, and with every other member down reports
-`no-egress`. The tests U1 moved pass unchanged, and so does every test
-under `V`, `Fb`, and the corpus, which is what the stop condition watches.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/bridge src/common/sim/device/vswitch src/common/sim/fabric src/common/sim/internal/simtest`
+`no-egress`. With `1/1/3` down and outside VLAN 10, the flood records no
+step for it. The tests U1 moved pass unchanged, and so does every test
+under `V`, `Fb`, and the corpus, which the verifier runs as importers of
+`B` and the stop condition watches.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/bridge`
 
 ### U5. Relay configuration and bindings
 Files: src/common/sim/layer/bridge/, src/common/sim/device/vswitch/
@@ -453,12 +459,17 @@ Files: src/common/sim/layer/traffic/, src/common/sim/device/vswitch/, src/common
 After: none
 Change: a VLAN-output copy removes the outer tag only when its TPID is
 `0x8100` or unset and the ingress port is no tunnel, and takes its priority
-from an outer C-tag on either kind of port. A mirror with an output port
+from an outer C-tag on either kind of port. The ingress port's switchport
+decides that, which `copies` holds beside the output's
+(`T/mirror.go:46,66`). The output's tunnel decides the output form alone,
+as today. A mirror with an output port
 makes no copy of a frame that arrived on it. `Validate` refuses a policer
 on a LAG at `policers.<name>` and a queue on a LAG member at
 `queues.<name>`, and is cut into one function each for mirrors, policers,
 and queues, each under 150 lines. `Layer.MaxRate` and `Layer.QueueBuffer`
-answer a member's name with its LAG's statement. `README.md` states the tag
+answer a member's name with its LAG's statement. `New` keeps each member's
+LAG from `env.Ports`, which it drops today (`T/layer.go:20-37`), and
+`Clone` copies it. `README.md` states the tag
 rule, which port a policer and a queue name with `OVS`'s tables, and the
 two Limits. Under `V` and `Fb` only tests change, where one pins
 `queue-buffer-unstated` for a protocol frame on a member of a LAG that
