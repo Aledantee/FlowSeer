@@ -52,6 +52,7 @@ export type {
   AiImpact,
   AiMetric,
   AiNextStep,
+  AiRef,
   AiRequest,
   AiRequestKind,
   AiResult,

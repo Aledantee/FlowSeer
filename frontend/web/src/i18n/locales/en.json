@@ -16,11 +16,56 @@
       "questionPlaceholder": "Why is this device offline?",
       "unavailable": "AI is unavailable"
     },
+    "aiEntityChip": {
+      "remove": "Remove"
+    },
+    "aiLabel": {
+      "ariaLabel": "AI generation context",
+      "badge": "AI",
+      "context": "Context",
+      "disclaimer": "AI output can be wrong; check the linked items.",
+      "sources": "Sources",
+      "targets": "Targets",
+      "title": "Context sent"
+    },
+    "aiResult": {
+      "cause": "Likely cause",
+      "confidence": "{confidence} confidence",
+      "confidenceHigh": "high",
+      "confidenceLow": "low",
+      "confidenceMedium": "medium",
+      "error": "The AI returned a result FlowSeer cannot show.",
+      "impact": "Impact",
+      "nextSteps": "Next steps",
+      "statusDone": "Summary complete",
+      "statusError": "Error generating summary",
+      "statusGenerating": "Generating summary…",
+      "statusStopped": "Generation stopped",
+      "statusUnavailable": "AI is unavailable",
+      "stop": "Stop",
+      "stopped": "Stopped",
+      "tone": {
+        "critical": "Critical",
+        "ok": "Healthy",
+        "unknown": "Unknown",
+        "warning": "Needs attention"
+      },
+      "unavailable": "AI is unavailable"
+    },
+    "aiResultActions": {
+      "copied": "Copied",
+      "copy": "Copy",
+      "regenerate": "Regenerate",
+      "thumbsDown": "Poor response",
+      "thumbsUp": "Good response"
+    },
     "aiSummary": {
       "error": "Something went wrong.",
       "generate": "Generate summary",
       "generating": "Generating summary…",
       "retry": "Retry",
+      "stop": "Stop",
+      "summarize": "Summarize {label}",
       "summaryLabel": "AI summary for {label}",
       "unavailable": "AI is unavailable"
     },

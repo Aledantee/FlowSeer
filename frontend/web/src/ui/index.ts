@@ -138,6 +138,17 @@ export type { UiScrollAreaProps } from './scroll-area/UiScrollArea.vue'
 
 export { default as UiAiSummary } from './ai/UiAiSummary.vue'
 export type { UiAiSummaryLabels, UiAiSummaryProps } from './ai/UiAiSummary.vue'
+export { default as UiAiEntityChip } from './ai/UiAiEntityChip.vue'
+export type { UiAiEntityChipProps } from './ai/UiAiEntityChip.vue'
+export { default as UiAiLabel } from './ai/UiAiLabel.vue'
+export type { UiAiLabelProps } from './ai/UiAiLabel.vue'
+export { default as UiAiResult } from './ai/UiAiResult.vue'
+export type { UiAiResultProps, UiAiResultState } from './ai/UiAiResult.vue'
+export {
+  default as UiAiResultActions,
+  serializeAiResultToText,
+} from './ai/UiAiResultActions.vue'
+export type { UiAiResultActionsProps } from './ai/UiAiResultActions.vue'
 export { default as UiAiActionLayer } from './ai/UiAiActionLayer.vue'
 export type {
   UiAiActionLayerLabels,

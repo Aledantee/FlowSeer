@@ -16,11 +16,56 @@
       "questionPlaceholder": "Warum ist dieses Gerät offline?",
       "unavailable": "KI ist nicht verfügbar"
     },
+    "aiEntityChip": {
+      "remove": "Entfernen"
+    },
+    "aiLabel": {
+      "ariaLabel": "KI-Generierungskontext",
+      "badge": "KI",
+      "context": "Kontext",
+      "disclaimer": "KI-Ausgaben können fehlerhaft sein; verlinkte Einträge prüfen.",
+      "sources": "Quellen",
+      "targets": "Ziele",
+      "title": "Gesendeter Kontext"
+    },
+    "aiResult": {
+      "cause": "Wahrscheinliche Ursache",
+      "confidence": "{confidence} Zuversicht",
+      "confidenceHigh": "hohe",
+      "confidenceLow": "niedrige",
+      "confidenceMedium": "mittlere",
+      "error": "Die KI hat ein Ergebnis zurückgegeben, das FlowSeer nicht anzeigen kann.",
+      "impact": "Auswirkung",
+      "nextSteps": "Nächste Schritte",
+      "statusDone": "Zusammenfassung abgeschlossen",
+      "statusError": "Fehler beim Erstellen der Zusammenfassung",
+      "statusGenerating": "Zusammenfassung wird erstellt…",
+      "statusStopped": "Generierung angehalten",
+      "statusUnavailable": "KI ist nicht verfügbar",
+      "stop": "Anhalten",
+      "stopped": "Angehalten",
+      "tone": {
+        "critical": "Kritisch",
+        "ok": "Gesund",
+        "unknown": "Unbekannt",
+        "warning": "Aufmerksamkeit erforderlich"
+      },
+      "unavailable": "KI ist nicht verfügbar"
+    },
+    "aiResultActions": {
+      "copied": "Kopiert",
+      "copy": "Kopieren",
+      "regenerate": "Neu generieren",
+      "thumbsDown": "Schlechte Antwort",
+      "thumbsUp": "Gute Antwort"
+    },
     "aiSummary": {
       "error": "Etwas ist schiefgelaufen.",
       "generate": "Zusammenfassung erstellen",
       "generating": "Zusammenfassung wird erstellt…",
       "retry": "Wiederholen",
+      "stop": "Anhalten",
+      "summarize": "Zusammenfassung für {label}",
       "summaryLabel": "KI-Zusammenfassung für {label}",
       "unavailable": "KI ist nicht verfügbar"
     },

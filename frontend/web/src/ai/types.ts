@@ -18,6 +18,8 @@ export interface AiEntityRef {
   label: string
 }
 
+export type AiRef = AiEntityRef
+
 export interface AiFinding {
   severity: AiSeverity
   title: string
