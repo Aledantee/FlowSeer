@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -9,6 +10,8 @@ import {
 import { linkDetailsOf } from '../../domain/telemetry'
 import { aiTarget, useAiSlot } from '../../ai'
 import type { AiTarget } from '../../ai'
+import { useFormat } from '../../i18n/format'
+import { useLabels } from '../../i18n/labels'
 import { useTopologyLive } from './live'
 defineOptions({ inheritAttrs: false })
 const props = defineProps<{
@@ -21,6 +24,9 @@ const props = defineProps<{
   targetPosition: Position
   data: { linkId: string }
 }>()
+const { t } = useI18n({ useScope: 'global' })
+const format = useFormat()
+const labels = useLabels()
 const live = useTopologyLive()
 const link = computed(() => live.link(props.data.linkId))
 const selected = computed(
@@ -57,8 +63,32 @@ const ends = computed(() =>
     : [],
 )
 const speed = computed(() =>
-  link.value ? `${link.value.capacity / 1000}G` : '',
+  link.value ? format.speed(link.value.capacity) : '',
 )
+// The same sentence the legend shows, then the link's ends and reading.
+const ariaLabel = computed(() => {
+  const current = link.value
+  if (!current) return ''
+  return t('view.topology.linkLabel', {
+    assumption: t('view.topology.assumption'),
+    source: details.value?.sourcePort?.name ?? '',
+    target: details.value?.targetPort?.name ?? '',
+    speed: speed.value,
+    throughput: format.rate(current.throughput),
+    health: labels.health(current.health),
+  })
+})
+// A downed link reads as the port state it shows at both ends.
+const reading = computed(() => {
+  const current = link.value
+  if (!current) return ''
+  return format.facts([
+    speed.value,
+    current.health === 'Offline'
+      ? labels.portStatus('Down')
+      : format.rate(current.throughput),
+  ])
+})
 const slot = useAiSlot()
 const target = computed<AiTarget | undefined>(() => {
   const current = link.value
@@ -68,13 +98,15 @@ const target = computed<AiTarget | undefined>(() => {
     view: 'topology',
     kind: 'link',
     entityId: current.id,
-    label: `${speed.value} link`,
+    label: t('view.topology.linkTarget', { speed: speed.value }),
     context: {
       health: current.health,
-      capacity: `${current.capacity / 1000}G`,
-      throughput: `${current.throughput} Mbps`,
-      source: live.device(current.sourceId)?.name ?? 'Unknown',
-      target: live.device(current.targetId)?.name ?? 'Unknown',
+      capacity: speed.value,
+      throughput: format.rate(current.throughput),
+      source:
+        live.device(current.sourceId)?.name ?? t('view.common.unknownDevice'),
+      target:
+        live.device(current.targetId)?.name ?? t('view.common.unknownDevice'),
       sourcePort: details.value?.sourcePort?.name ?? '',
       targetPort: details.value?.targetPort?.name ?? '',
     },
@@ -137,16 +169,12 @@ const width = computed(() => {
       :style="{
         transform: `translate(calc(-100% - 6px), -50%) translate(${drop.x}px, ${(drop.top + drop.bottom) / 2}px)`,
       }"
-      :aria-label="`Assumed link, not yet discovered. ${details?.sourcePort?.name ?? ''} to ${details?.targetPort?.name ?? ''}, ${speed}, ${link.throughput} Mbps, ${link.health}`"
+      :aria-label="ariaLabel"
       @click="live.select({ kind: 'link', id: link.id })"
       @mouseenter="hover(true)"
       @mouseleave="hover(false)"
     >
-      {{
-        link.health === 'Offline'
-          ? `${speed} · Down`
-          : `${speed} · ${link.throughput} Mbps`
-      }}
+      {{ reading }}
     </button>
     <template v-for="end in ends" :key="end.side">
       <button
@@ -160,7 +188,8 @@ const width = computed(() => {
         :style="{ transform: `translate(${drop.x + 6}px, ${end.y}px)` }"
         :tabindex="showPorts ? 0 : -1"
         :aria-hidden="!showPorts"
-        :aria-label="`Port ${end.port.name}`"
+        translate="no"
+        :aria-label="t('view.topology.portLabel', { name: end.port.name })"
         @mouseenter="hover(true)"
         @mouseleave="hover(false)"
         @click="

@@ -502,6 +502,73 @@
       "switchToLight": "Switch to light mode",
       "unsaved": "Theme changed for this page. Your browser could not save the preference."
     },
+    "topology": {
+      "assumption": "Assumed link, not yet discovered",
+      "fitToView": "Fit to view",
+      "fitView": "Fit view",
+      "layoutError": "The topology could not be laid out. Reload to try again.",
+      "linkLabel": "{assumption}. {source} to {target}, {speed}, {throughput}, {health}",
+      "linkTarget": "{speed} link",
+      "nodeLabel": "{name}, {kind}, {health}",
+      "portLabel": "Port {name}",
+      "siteDevices": "Devices at {site}"
+    },
+    "topologyInspector": {
+      "back": "Back to {name}",
+      "capacityDetail": "of {capacity}",
+      "channel": "Channel {channel}",
+      "close": "Close details",
+      "deviceLabel": "{name} details",
+      "duration": {
+        "daysHours": "{days}d {hours}h",
+        "hoursMinutes": "{hours}h {minutes}m"
+      },
+      "fields": {
+        "connectedTo": "Connected to",
+        "crcErrors": "CRC errors",
+        "downstream": "Downstream",
+        "errors": "Errors",
+        "firmware": "Firmware",
+        "ipAddress": "IP address",
+        "lastChange": "Last change",
+        "latency": "Latency",
+        "macAddress": "MAC address",
+        "medium": "Medium",
+        "model": "Model",
+        "mtu": "MTU",
+        "poe": "PoE",
+        "received": "Received",
+        "sent": "Sent",
+        "speed": "Speed",
+        "status": "Status",
+        "traffic": "Traffic",
+        "upstream": "Upstream",
+        "uptime": "Uptime",
+        "vlans": "VLANs"
+      },
+      "linkEnds": "{source} → {target}",
+      "linkLabel": "Link details",
+      "meters": {
+        "cpu": "CPU",
+        "memory": "Memory",
+        "utilization": "Utilization"
+      },
+      "nothing": "Nothing",
+      "off": "Off",
+      "openDevice": "Open device",
+      "openNamed": "Open {name}",
+      "portLabel": "{device} {port} details",
+      "portMode": "{mode} port",
+      "sections": {
+        "ports": "Ports",
+        "radios": "Radios",
+        "resources": "Resources",
+        "trafficLive": "Traffic, live"
+      },
+      "serial": "serial {serial}",
+      "trafficSamples": "Traffic over the last sample | Traffic over the last {count} samples",
+      "uptimeDown": "Down"
+    },
     "trafficChart": {
       "describe": "{label}. Use the arrow keys to read hourly values.",
       "hour": "Hour",

@@ -1,13 +1,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Handle, Position } from '@vue-flow/core'
 import { UiStatusBadge } from '../../ui'
 import DeviceIcon from '../DeviceIcon.vue'
 import { aiTarget, useAiSlot } from '../../ai'
 import type { AiTarget } from '../../ai'
+import { useFormat } from '../../i18n/format'
+import { useLabels } from '../../i18n/labels'
 import { useTopologyLive } from './live'
 defineOptions({ inheritAttrs: false })
 const props = defineProps<{ data: { deviceId: string } }>()
+const { t } = useI18n({ useScope: 'global' })
+const format = useFormat()
+const labels = useLabels()
 const live = useTopologyLive()
 const device = computed(() => live.device(props.data.deviceId))
 const slot = useAiSlot()
@@ -27,7 +33,7 @@ const target = computed<AiTarget | undefined>(() => {
       address: current.address,
       role: current.role,
       clients: String(current.clients),
-      throughput: `${current.throughput} Mbps`,
+      throughput: format.rate(current.throughput),
     },
   })
 })
@@ -48,13 +54,21 @@ const selected = computed(
       device.health.toLowerCase(),
       { selected: selected, peeked: live.highlighted.value === data.deviceId },
     ]"
-    :aria-label="`${device.name}, ${device.kind}, ${device.health}`"
+    :aria-label="
+      t('view.topology.nodeLabel', {
+        name: device.name,
+        kind: device.kind,
+        health: labels.health(device.health),
+      })
+    "
   >
     <Handle type="target" :position="Position.Top" :connectable="false" />
     <DeviceIcon :role="device.role" />
     <span class="topology-node-text">
-      <strong>{{ device.name }}</strong>
-      <small>{{ device.kind }} · {{ device.address }}</small>
+      <strong translate="no">{{ device.name }}</strong>
+      <small translate="no">{{
+        format.facts([device.kind, device.address])
+      }}</small>
     </span>
     <UiStatusBadge
       v-if="device.health !== 'Healthy'"
@@ -63,9 +77,10 @@ const selected = computed(
       size="sm"
     />
     <span class="topology-node-stats">
-      <span v-if="device.role === 'access-point'"
-        >{{ device.clients }} clients</span
-      ><span>{{ device.throughput }} Mbps</span>
+      <span v-if="device.role === 'access-point'">{{
+        format.counted('view.common.clients', device.clients)
+      }}</span
+      ><span>{{ format.rate(device.throughput) }}</span>
     </span>
     <Handle type="source" :position="Position.Bottom" :connectable="false" />
   </div>

@@ -502,6 +502,73 @@
       "switchToLight": "Zum hellen Modus wechseln",
       "unsaved": "Darstellung für diese Seite geändert. Der Browser konnte die Einstellung nicht speichern."
     },
+    "topology": {
+      "assumption": "Angenommene Verbindung, noch nicht ermittelt",
+      "fitToView": "Ansicht einpassen",
+      "fitView": "Ansicht einpassen",
+      "layoutError": "Die Topologie konnte nicht angeordnet werden. Zum erneuten Versuch neu laden.",
+      "linkLabel": "{assumption}. {source} zu {target}, {speed}, {throughput}, {health}",
+      "linkTarget": "{speed}-Verbindung",
+      "nodeLabel": "{name}, {kind}, {health}",
+      "portLabel": "Port {name}",
+      "siteDevices": "Geräte bei {site}"
+    },
+    "topologyInspector": {
+      "back": "Zurück zu {name}",
+      "capacityDetail": "von {capacity}",
+      "channel": "Kanal {channel}",
+      "close": "Details schließen",
+      "deviceLabel": "Details zu {name}",
+      "duration": {
+        "daysHours": "{days} T. {hours} Std.",
+        "hoursMinutes": "{hours} Std. {minutes} Min."
+      },
+      "fields": {
+        "connectedTo": "Verbunden mit",
+        "crcErrors": "CRC-Fehler",
+        "downstream": "Downstream",
+        "errors": "Fehler",
+        "firmware": "Firmware",
+        "ipAddress": "IP-Adresse",
+        "lastChange": "Letzte Änderung",
+        "latency": "Latenz",
+        "macAddress": "MAC-Adresse",
+        "medium": "Medium",
+        "model": "Modell",
+        "mtu": "MTU",
+        "poe": "PoE",
+        "received": "Empfangen",
+        "sent": "Gesendet",
+        "speed": "Geschwindigkeit",
+        "status": "Status",
+        "traffic": "Datenverkehr",
+        "upstream": "Upstream",
+        "uptime": "Betriebszeit",
+        "vlans": "VLANs"
+      },
+      "linkEnds": "{source} → {target}",
+      "linkLabel": "Verbindungsdetails",
+      "meters": {
+        "cpu": "CPU",
+        "memory": "Arbeitsspeicher",
+        "utilization": "Auslastung"
+      },
+      "nothing": "Nichts",
+      "off": "Aus",
+      "openDevice": "Gerät öffnen",
+      "openNamed": "{name} öffnen",
+      "portLabel": "Details zu {device} {port}",
+      "portMode": "Port-Modus {mode}",
+      "sections": {
+        "ports": "Ports",
+        "radios": "Funkmodule",
+        "resources": "Ressourcen",
+        "trafficLive": "Datenverkehr, live"
+      },
+      "serial": "Seriennummer {serial}",
+      "trafficSamples": "Datenverkehr der letzten Messung | Datenverkehr der letzten {count} Messungen",
+      "uptimeDown": "Ausgefallen"
+    },
     "trafficChart": {
       "describe": "{label}. Stundenwerte mit den Pfeiltasten lesen.",
       "hour": "Stunde",

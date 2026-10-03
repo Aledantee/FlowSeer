@@ -22,6 +22,11 @@ const checked = import.meta.glob<string>(
     '../DeviceView.vue',
     '../ClientsView.vue',
     '../components/DevicePorts.vue',
+    '../components/topology/TopologyGraph.vue',
+    '../components/topology/TopologyInspector.vue',
+    '../components/topology/TopologyLink.vue',
+    '../components/topology/TopologyNode.vue',
+    '../components/topology/TopologySiteNode.vue',
   ],
   {
     eager: true,

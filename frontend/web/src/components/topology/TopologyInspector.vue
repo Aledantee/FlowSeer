@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { I18nT, useI18n } from 'vue-i18n'
 import AppLink from '../../navigation/AppLink.vue'
 import { scopeOf, usePage } from '../../navigation/page'
 import AppIcon from '../AppIcon.vue'
@@ -14,11 +15,16 @@ import {
   radiosOf,
   telemetryOf,
 } from '../../domain/telemetry'
+import { useFormat } from '../../i18n/format'
+import { useLabels } from '../../i18n/labels'
 import { useTopologyLive } from './live'
 const props = defineProps<{
   history: Record<string, number[]>
   siteName: (id: string) => string
 }>()
+const { t, n } = useI18n({ useScope: 'global' })
+const format = useFormat()
+const labels = useLabels()
 const live = useTopologyLive()
 const page = usePage()
 const device = computed(() =>
@@ -62,24 +68,53 @@ const details = computed(() =>
   link.value ? linkDetailsOf(live.fleet.value, link.value) : undefined,
 )
 const radios = computed(() => (device.value ? radiosOf(device.value) : []))
+const label = computed(() => {
+  if (device.value) {
+    return t('view.topologyInspector.deviceLabel', { name: device.value.name })
+  }
+  if (port.value) {
+    return t('view.topologyInspector.portLabel', {
+      device: port.value.owner.name,
+      port: port.value.details.port.name,
+    })
+  }
+  return t('view.topologyInspector.linkLabel')
+})
+const samplesLabel = computed(() =>
+  format.counted('view.topologyInspector.trafficSamples', samples.value.length),
+)
 const now = ref(Date.now())
 let clock: ReturnType<typeof setInterval> | undefined
 onMounted(() => (clock = setInterval(() => (now.value = Date.now()), 30_000)))
 onUnmounted(() => clearInterval(clock))
 function uptime(bootedAt: number | undefined) {
-  if (bootedAt === undefined) return 'Down'
+  if (bootedAt === undefined) return t('view.topologyInspector.uptimeDown')
   const minutes = Math.max(0, Math.floor((now.value - bootedAt) / 60_000))
   const days = Math.floor(minutes / 1440)
   const hours = Math.floor((minutes % 1440) / 60)
-  return days ? `${days}d ${hours}h` : `${hours}h ${minutes % 60}m`
+  return days
+    ? t('view.topologyInspector.duration.daysHours', {
+        days: n(days, 'integer'),
+        hours: n(hours, 'integer'),
+      })
+    : t('view.topologyInspector.duration.hoursMinutes', {
+        hours: n(hours, 'integer'),
+        minutes: n(minutes % 60, 'integer'),
+      })
 }
-function ago(at: number) {
-  const hours = Math.max(0, Math.floor((now.value - at) / 3_600_000))
-  return hours >= 24 ? `${Math.floor(hours / 24)}d ago` : `${hours}h ago`
+function lastChange(at: number) {
+  return format.ago(Math.max(0, (now.value - at) / 60_000))
 }
-function rate(mbps: number | undefined) {
-  if (!mbps) return '—'
-  return mbps >= 1000 ? `${mbps / 1000} Gbps` : `${mbps} Mbps`
+function speedOf(mbps: number | undefined) {
+  return mbps ? format.rate(mbps, true) : t('view.common.noReading')
+}
+// The port facing one end of the selected link, source first.
+function endPort(index: number) {
+  return index ? details.value?.targetPort : details.value?.sourcePort
+}
+function endStatus(index: number) {
+  const status = endPort(index)?.status
+  return status ? labels.portStatus(status) : ''
 }
 function deviceLink(id: string) {
   return { path: `/devices/${id}`, query: scopeOf(page.location.value) }
@@ -91,48 +126,60 @@ function deviceLink(id: string) {
     v-if="device || link || port"
     class="topology-inspector"
     aria-live="polite"
-    :aria-label="
-      device
-        ? `${device.name} details`
-        : port
-          ? `${port.owner.name} ${port.details.port.name} details`
-          : 'Link details'
-    "
+    :aria-label="label"
   >
     <header>
       <template v-if="device">
         <DeviceIcon :role="device.role" />
         <span
-          ><strong>{{ device.name }}</strong
-          ><small
-            >{{ device.kind }} · {{ siteName(device.siteId) }}</small
-          ></span
+          ><strong translate="no">{{ device.name }}</strong
+          ><small translate="no">{{
+            format.facts([device.kind, siteName(device.siteId)])
+          }}</small></span
         >
       </template>
       <template v-else-if="port">
         <button
           class="icon-button"
-          :aria-label="`Back to ${port.owner.name}`"
+          :aria-label="
+            t('view.topologyInspector.back', { name: port.owner.name })
+          "
           @click="live.select({ kind: 'device', id: port.owner.id })"
         >
           <AppIcon name="back" />
         </button>
         <span
-          ><strong class="mono">{{ port.details.port.name }}</strong
+          ><strong class="mono" translate="no">{{
+            port.details.port.name
+          }}</strong
           ><small
-            >{{ port.owner.name }} · {{ port.details.mode }} port</small
+            ><span translate="no">{{ port.owner.name }}</span
+            >{{ t('view.common.factSeparator')
+            }}{{
+              t('view.topologyInspector.portMode', {
+                mode: labels.mode(port.details.mode),
+              })
+            }}</small
           ></span
         >
       </template>
       <span v-else-if="link"
-        ><strong>{{ ends[0]?.name }} → {{ ends[1]?.name }}</strong
-        ><small
-          >{{ link.medium }} · {{ link.capacity / 1000 }} Gbps</small
-        ></span
+        ><strong translate="no">{{
+          t('view.topologyInspector.linkEnds', {
+            source: ends[0]?.name ?? '',
+            target: ends[1]?.name ?? '',
+          })
+        }}</strong
+        ><small>{{
+          format.facts([
+            labels.medium(link.medium),
+            format.rate(link.capacity, true),
+          ])
+        }}</small></span
       >
       <button
         class="icon-button"
-        aria-label="Close details"
+        :aria-label="t('view.topologyInspector.close')"
         @click="live.select(undefined)"
       >
         <AppIcon name="close" />
@@ -142,65 +189,80 @@ function deviceLink(id: string) {
       <template v-if="device && telemetry">
         <dl>
           <div>
-            <dt>Status</dt>
+            <dt>{{ t('view.topologyInspector.fields.status') }}</dt>
             <dd><UiStatusBadge :status="device.health" /></dd>
           </div>
           <div>
-            <dt>Uptime</dt>
+            <dt>{{ t('view.topologyInspector.fields.uptime') }}</dt>
             <dd>{{ uptime(telemetry.bootedAt) }}</dd>
           </div>
           <div>
-            <dt>IP address</dt>
-            <dd class="mono">{{ device.address }}</dd>
+            <dt>{{ t('view.topologyInspector.fields.ipAddress') }}</dt>
+            <dd class="mono" translate="no">{{ device.address }}</dd>
           </div>
           <div>
-            <dt>Traffic</dt>
-            <dd>{{ device.throughput }} Mbps</dd>
+            <dt>{{ t('view.topologyInspector.fields.traffic') }}</dt>
+            <dd>{{ format.rate(device.throughput) }}</dd>
           </div>
           <div>
-            <dt>Model</dt>
-            <dd>{{ telemetry.model }}</dd>
+            <dt>{{ t('view.topologyInspector.fields.model') }}</dt>
+            <dd translate="no">{{ telemetry.model }}</dd>
           </div>
           <div>
-            <dt>Firmware</dt>
-            <dd>{{ telemetry.firmware }}</dd>
+            <dt>{{ t('view.topologyInspector.fields.firmware') }}</dt>
+            <dd translate="no">{{ telemetry.firmware }}</dd>
           </div>
         </dl>
         <section class="topology-inspector-section">
-          <h3>Traffic, live</h3>
-          <TrafficSparkline
-            :values="samples"
-            :label="`Traffic over the last ${samples.length} samples`"
-          />
+          <h3>{{ t('view.topologyInspector.sections.trafficLive') }}</h3>
+          <TrafficSparkline :values="samples" :label="samplesLabel" />
         </section>
         <section
           v-if="telemetry.bootedAt !== undefined"
           class="topology-inspector-section"
         >
-          <h3>Resources</h3>
-          <UiMeter label="CPU" :value="telemetry.cpu" />
+          <h3>{{ t('view.topologyInspector.sections.resources') }}</h3>
           <UiMeter
-            label="Memory"
+            :label="t('view.topologyInspector.meters.cpu')"
+            :value="telemetry.cpu"
+          />
+          <UiMeter
+            :label="t('view.topologyInspector.meters.memory')"
             :value="telemetry.memory"
-            :detail="`${telemetry.memoryTotal / 1024} GB`"
+            :detail="format.quantity(telemetry.memoryTotal / 1024, 'gb')"
           />
           <p class="topology-inspector-note">
-            {{ telemetry.temperature }} °C · serial
-            <span class="mono">{{ telemetry.serial }}</span>
+            {{ format.quantity(telemetry.temperature, 'celsius')
+            }}{{ t('view.common.factSeparator') }}
+            <I18nT
+              scope="global"
+              tag="span"
+              keypath="view.topologyInspector.serial"
+            >
+              <template #serial>
+                <span class="mono" translate="no">{{ telemetry.serial }}</span>
+              </template>
+            </I18nT>
           </p>
         </section>
         <section v-if="radios.length" class="topology-inspector-section">
-          <h3>Radios</h3>
+          <h3>{{ t('view.topologyInspector.sections.radios') }}</h3>
           <ul class="radio-list">
             <li v-for="radio in radios" :key="radio.band">
-              <strong>{{ radio.band }}</strong
-              ><span>Channel {{ radio.channel }}</span
-              ><span>{{ radio.clients }} clients</span>
+              <strong>{{ labels.band(radio.band) }}</strong
+              ><span>{{
+                t('view.topologyInspector.channel', {
+                  channel: n(radio.channel, 'integer'),
+                })
+              }}</span
+              ><span>{{
+                format.counted('view.common.clients', radio.clients)
+              }}</span>
             </li>
           </ul>
         </section>
         <section class="topology-inspector-section">
-          <h3>Ports</h3>
+          <h3>{{ t('view.topologyInspector.sections.ports') }}</h3>
           <DevicePorts
             :ports="ports"
             :device="live.device"
@@ -215,92 +277,96 @@ function deviceLink(id: string) {
             <button
               v-if="end"
               class="port-neighbor"
+              translate="no"
               @click="live.select({ kind: 'device', id: end.id })"
             >
               {{ end.name }}
             </button>
             <button
-              v-if="end && (index ? details.targetPort : details.sourcePort)"
+              v-if="end && endPort(index)"
               class="port-name mono"
+              translate="no"
               @click="
                 live.select({
                   kind: 'port',
                   id: end.id,
-                  port:
-                    (index ? details.targetPort : details.sourcePort)?.name ??
-                    '',
+                  port: endPort(index)?.name ?? '',
                 })
               "
             >
-              {{ (index ? details.targetPort : details.sourcePort)?.name }}
+              {{ endPort(index)?.name }}
             </button>
-            <span v-else class="mono">—</span>
+            <span v-else class="mono">{{ t('view.common.noReading') }}</span>
             <span
-              :class="[
-                'port-state',
-                (index
-                  ? details.targetPort
-                  : details.sourcePort
-                )?.status.toLowerCase(),
-              ]"
-              >{{
-                (index ? details.targetPort : details.sourcePort)?.status
-              }}</span
+              :class="['port-state', endPort(index)?.status.toLowerCase()]"
+              >{{ endStatus(index) }}</span
             >
           </li>
         </ul>
         <dl>
           <div>
-            <dt>Status</dt>
+            <dt>{{ t('view.topologyInspector.fields.status') }}</dt>
             <dd><UiStatusBadge :status="link.health" /></dd>
           </div>
           <div>
-            <dt>Speed</dt>
-            <dd>{{ link.capacity / 1000 }} Gbps · {{ details.duplex }}</dd>
-          </div>
-          <div>
-            <dt>Downstream</dt>
-            <dd>{{ details.down }} Mbps</dd>
-          </div>
-          <div>
-            <dt>Upstream</dt>
-            <dd>{{ details.up }} Mbps</dd>
-          </div>
-          <div>
-            <dt>Latency</dt>
+            <dt>{{ t('view.topologyInspector.fields.speed') }}</dt>
             <dd>
-              {{ link.health === 'Offline' ? '—' : `${details.latency} ms` }}
+              {{
+                format.facts([
+                  format.rate(link.capacity, true),
+                  labels.duplex(details.duplex),
+                ])
+              }}
             </dd>
           </div>
           <div>
-            <dt>CRC errors</dt>
-            <dd>{{ details.errors }}</dd>
+            <dt>{{ t('view.topologyInspector.fields.downstream') }}</dt>
+            <dd>{{ format.rate(details.down) }}</dd>
           </div>
           <div>
-            <dt>Medium</dt>
-            <dd>{{ link.medium }}</dd>
+            <dt>{{ t('view.topologyInspector.fields.upstream') }}</dt>
+            <dd>{{ format.rate(details.up) }}</dd>
           </div>
           <div>
-            <dt>MTU</dt>
+            <dt>{{ t('view.topologyInspector.fields.latency') }}</dt>
+            <dd>
+              {{
+                link.health === 'Offline'
+                  ? t('view.common.noReading')
+                  : format.quantity(details.latency, 'ms')
+              }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ t('view.topologyInspector.fields.crcErrors') }}</dt>
+            <dd>{{ n(details.errors, 'integer') }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('view.topologyInspector.fields.medium') }}</dt>
+            <dd>{{ labels.medium(link.medium) }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('view.topologyInspector.fields.mtu') }}</dt>
             <dd>{{ details.mtu }}</dd>
           </div>
           <div class="wide">
-            <dt>VLANs</dt>
+            <dt>{{ t('view.topologyInspector.fields.vlans') }}</dt>
             <dd>{{ details.vlans }}</dd>
           </div>
         </dl>
         <section class="topology-inspector-section">
-          <h3>Traffic, live</h3>
-          <TrafficSparkline
-            :values="samples"
-            :label="`Traffic over the last ${samples.length} samples`"
-          />
+          <h3>{{ t('view.topologyInspector.sections.trafficLive') }}</h3>
+          <TrafficSparkline :values="samples" :label="samplesLabel" />
         </section>
         <section class="topology-inspector-section">
           <UiMeter
-            label="Utilization"
+            :label="t('view.topologyInspector.meters.utilization')"
             :value="details.utilization"
-            :detail="`of ${link.capacity.toLocaleString()} Mbps`"
+            :detail="
+              t('view.topologyInspector.capacityDetail', {
+                capacity: format.rate(link.capacity),
+              })
+            "
           />
         </section>
       </template>
@@ -308,29 +374,32 @@ function deviceLink(id: string) {
       <template v-if="port">
         <dl>
           <div>
-            <dt>Status</dt>
+            <dt>{{ t('view.topologyInspector.fields.status') }}</dt>
             <dd>
               <span
                 :class="['port-state', port.details.port.status.toLowerCase()]"
-                >{{ port.details.port.status }}</span
+                >{{ labels.portStatus(port.details.port.status) }}</span
               >
             </dd>
           </div>
           <div>
-            <dt>Speed</dt>
+            <dt>{{ t('view.topologyInspector.fields.speed') }}</dt>
             <dd>
-              {{ rate(port.details.port.speed)
-              }}<template v-if="port.details.duplex">
-                · {{ port.details.duplex }}</template
-              >
+              {{
+                format.facts([
+                  speedOf(port.details.port.speed),
+                  port.details.duplex && labels.duplex(port.details.duplex),
+                ])
+              }}
             </dd>
           </div>
           <div class="wide">
-            <dt>Connected to</dt>
+            <dt>{{ t('view.topologyInspector.fields.connectedTo') }}</dt>
             <dd>
               <button
                 v-if="port.details.port.neighborId"
                 class="port-neighbor"
+                translate="no"
                 @click="
                   live.select({
                     kind: 'device',
@@ -341,58 +410,60 @@ function deviceLink(id: string) {
                 {{ live.device(port.details.port.neighborId)?.name }}
               </button>
               <template v-else>{{
-                port.details.port.endpoint ?? 'Nothing'
+                port.details.port.endpoint ??
+                t('view.topologyInspector.nothing')
               }}</template>
             </dd>
           </div>
           <div>
-            <dt>Received</dt>
-            <dd>{{ port.details.rx }} Mbps</dd>
+            <dt>{{ t('view.topologyInspector.fields.received') }}</dt>
+            <dd>{{ format.rate(port.details.rx) }}</dd>
           </div>
           <div>
-            <dt>Sent</dt>
-            <dd>{{ port.details.tx }} Mbps</dd>
+            <dt>{{ t('view.topologyInspector.fields.sent') }}</dt>
+            <dd>{{ format.rate(port.details.tx) }}</dd>
           </div>
           <div>
-            <dt>PoE</dt>
+            <dt>{{ t('view.topologyInspector.fields.poe') }}</dt>
             <dd>
-              {{ port.details.port.poe ? `${port.details.port.poe} W` : 'Off' }}
+              {{
+                port.details.port.poe
+                  ? format.quantity(port.details.port.poe, 'w')
+                  : t('view.topologyInspector.off')
+              }}
             </dd>
           </div>
           <div>
-            <dt>Errors</dt>
-            <dd>{{ port.details.errors }}</dd>
+            <dt>{{ t('view.topologyInspector.fields.errors') }}</dt>
+            <dd>{{ n(port.details.errors, 'integer') }}</dd>
           </div>
           <div>
-            <dt>VLANs</dt>
+            <dt>{{ t('view.topologyInspector.fields.vlans') }}</dt>
             <dd>{{ port.details.vlans }}</dd>
           </div>
           <div>
-            <dt>MTU</dt>
+            <dt>{{ t('view.topologyInspector.fields.mtu') }}</dt>
             <dd>{{ port.details.mtu }}</dd>
           </div>
           <div>
-            <dt>MAC address</dt>
-            <dd class="mono">{{ port.details.mac }}</dd>
+            <dt>{{ t('view.topologyInspector.fields.macAddress') }}</dt>
+            <dd class="mono" translate="no">{{ port.details.mac }}</dd>
           </div>
           <div>
-            <dt>Last change</dt>
-            <dd>{{ ago(port.details.lastChange) }}</dd>
+            <dt>{{ t('view.topologyInspector.fields.lastChange') }}</dt>
+            <dd>{{ lastChange(port.details.lastChange) }}</dd>
           </div>
         </dl>
         <section v-if="port.details.link" class="topology-inspector-section">
-          <h3>Traffic, live</h3>
-          <TrafficSparkline
-            :values="samples"
-            :label="`Traffic over the last ${samples.length} samples`"
-          />
+          <h3>{{ t('view.topologyInspector.sections.trafficLive') }}</h3>
+          <TrafficSparkline :values="samples" :label="samplesLabel" />
         </section>
       </template>
 
       <footer>
         <template v-if="device">
           <AppLink class="panel-link" :to="deviceLink(device.id)"
-            >Open device <AppIcon name="arrow"
+            >{{ t('view.topologyInspector.openDevice') }} <AppIcon name="arrow"
           /></AppLink>
           <AppLink
             v-if="device.clients"
@@ -401,14 +472,23 @@ function deviceLink(id: string) {
               path: '/clients',
               query: { ...scopeOf(page.location.value), ap: device.id },
             }"
-            >Clients <AppIcon name="arrow"
+            >{{ labels.page('clients') }} <AppIcon name="arrow"
           /></AppLink>
         </template>
         <AppLink
           v-else-if="port"
           class="panel-link"
           :to="deviceLink(port.owner.id)"
-          >Open {{ port.owner.name }} <AppIcon name="arrow"
+          ><I18nT
+            scope="global"
+            tag="span"
+            keypath="view.topologyInspector.openNamed"
+          >
+            <template #name>
+              <span translate="no">{{ port.owner.name }}</span>
+            </template>
+          </I18nT>
+          <AppIcon name="arrow"
         /></AppLink>
         <template v-else>
           <AppLink
@@ -416,7 +496,7 @@ function deviceLink(id: string) {
             :key="end.id"
             class="panel-link"
             :to="deviceLink(end.id)"
-            >{{ end.name }} <AppIcon name="arrow"
+            ><span translate="no">{{ end.name }}</span> <AppIcon name="arrow"
           /></AppLink>
         </template>
       </footer>
