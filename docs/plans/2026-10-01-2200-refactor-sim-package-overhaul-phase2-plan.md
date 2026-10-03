@@ -380,14 +380,17 @@ since `Fork` resets all five such fields. A `Fork` that kept one would panic
 the test where it should fail with a message.
 
 The table U10 builds. A row's name is its fixture directory under
-`test/conformance/sim/testdata/`. A fixture is one file holding what the
-merged `valid/fixture.go` declares, a whole stateful layer, with the one
-change named. Fifteen rows refuse, each with one finding that quotes its
-literal. The three `stateful_` rows report nothing themselves. Each marks the
-package stateful, their fixtures start from `valid_stateless`, and what the
-gate reports there are the findings of `new`, `layer_clone`, and
-`retention_key` for the members the fixture lacks. With its `stateful_` row
-dropped the fixture is stateless and passes.
+`test/conformance/sim/testdata/`. The five member rows are held by a stateful
+and a stateless fixture (`<name>_stateless`). Every other row is held by one.
+A stateful fixture is one file holding what `valid/fixture.go` declares, a
+whole stateful layer, with the one change named. A stateless fixture is one
+file holding what `valid_stateless/fixture.go` declares, with the same change.
+Fourteen rows refuse, each with one finding that quotes its literal, and
+`exported_fact` with one per level. The three `stateful_` rows report nothing
+themselves. Each marks the package stateful, their fixtures start from
+`valid_stateless`, and what the gate reports there are the findings of `new`,
+`layer_clone`, and `retention_key` for the members the fixture lacks. With
+its `stateful_` row dropped the fixture is stateless and passes.
 
 | Row and fixture | Rule | The fixture's change |
 | --- | --- | --- |
@@ -405,7 +408,7 @@ dropped the fixture is stateless and passes.
 | `advance` | a package with `func Layer.Advance` has `func (*Layer) Advance(time.Time) (layer.Effects)` | returns nothing |
 | `wake` | refuses `func Layer.Wake` | adds it with a pointer receiver |
 | `age` | refuses `func Layer.Age` | adds it with a value receiver |
-| `exported_fact` | refuses an exported type whose name ends in `Fact` | adds `type FooFact string` |
+| `exported_fact` | refuses an exported type whose name ends in `Fact` | declares `type FooFact string` in the directory and in `sub/` |
 | `import_sibling` | refuses an import below `sim/layer/` whose first element is not the directory's name | a file in `sub/` imports `sim/layer/bridge` |
 | `import_device` | refuses an import of `sim/device` or below it | imports `sim/device/vswitch` |
 | `import_fabric` | refuses an import of `sim/fabric` or below it | imports `sim/fabric` |
@@ -417,6 +420,7 @@ lets through. A gate that read any of these differently would refuse `valid`:
 - a text file,
 - a `testdata/` file declaring `type ForeignFact string`,
 - an import of `sim/layer/valid/sub`,
+- imports of `sim/devicex` and `sim/fabricx` that begin with a refused root and are not below it,
 - `type fixtureFact string`,
 - a method `Age` with no result on a type other than `Layer`,
 - a file in `sub/` declaring its own `Layer` with a `Wake` method,
@@ -603,10 +607,11 @@ formats a reset field through `exportValue`, as
 of what is enforced and say a guard arrives with its fixture.
 Tests: `TestLayerContract` passes on the tree and fails when it scanned no
 package. `TestLayerContractGuardsRefuseTheirFixtures` runs the whole list
-over each row's fixture and requires exactly the findings its table lists
-for that row, written as literals. It then runs the list without that row
-and requires none. It fails for a directory under `testdata/` that no row
-names, other than `valid` and `valid_stateless`.
+over each row's fixtures (a stateful and a stateless fixture for each member
+row, and one fixture for every other row) and requires exactly the findings
+its table lists for that row, written as literals. It then runs the list
+without that row and requires none. It fails for a directory under `testdata/`
+that no row names, other than `valid` and `valid_stateless`.
 `TestLayerContractPassesValidFixtures` requires no finding for those two.
 `valid` holds every item of the Inventory's list, and for each item the
 commit body quotes the `--- FAIL` line that removing its exemption produces.

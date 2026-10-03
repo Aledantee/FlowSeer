@@ -5,9 +5,10 @@
 // declarations of a layer package as lines of text, one name line and one
 // signature line for a function, and each guard tests one literal against
 // those lines or against the package's imports and type names. A guard
-// arrives with a fixture directory under testdata/ that it refuses, and
-// TestLayerContractGuardsRefuseTheirFixtures fails for a guard whose
-// fixture passes without it.
+// arrives with a fixture directory under testdata/ (and a second stateless
+// fixture for each of the five member rows), and
+// TestLayerContractGuardsRefuseTheirFixtures requires each fixture to produce
+// the findings listed for it, and none once the row is dropped.
 package conformance
 
 import (
@@ -20,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -45,16 +47,16 @@ const (
 	// marksStateful makes the package stateful when it holds the literal
 	// line. It reports nothing itself.
 	marksStateful
-	// refuseImport reports each import of a non-test file under the
-	// directory for which refuses returns true.
+	// refuseImport reports each import of a non-test file outside
+	// testdata under the directory for which refuses returns true.
 	refuseImport
-	// refuseTypeName reports each type of a non-test file under the
-	// directory for which refuses returns true.
+	// refuseTypeName reports each type of a non-test file outside
+	// testdata under the directory for which refuses returns true.
 	refuseTypeName
 )
 
 // guard is one row of the contract. Its name is the fixture directory the
-// gate refuses.
+// gate refuses, with a second stateless fixture for each member row.
 type guard struct {
 	name    string
 	kind    guardKind
@@ -151,17 +153,32 @@ var refusedFindings = map[string][]string{
 	"layer_name": {
 		`test/conformance/sim/testdata/layer_name: missing "const LayerName"`,
 	},
+	"layer_name_stateless": {
+		`test/conformance/sim/testdata/layer_name_stateless: missing "const LayerName"`,
+	},
 	"normalize": {
 		`test/conformance/sim/testdata/normalize: missing "func (Config) Normalize(layer.Env) (Config)"`,
+	},
+	"normalize_stateless": {
+		`test/conformance/sim/testdata/normalize_stateless: missing "func (Config) Normalize(layer.Env) (Config)"`,
 	},
 	"validate": {
 		`test/conformance/sim/testdata/validate: missing "func (Config) Validate(layer.Env) (error)"`,
 	},
+	"validate_stateless": {
+		`test/conformance/sim/testdata/validate_stateless: missing "func (Config) Validate(layer.Env) (error)"`,
+	},
 	"config_clone": {
 		`test/conformance/sim/testdata/config_clone: missing "func (Config) Clone() (Config)"`,
 	},
+	"config_clone_stateless": {
+		`test/conformance/sim/testdata/config_clone_stateless: missing "func (Config) Clone() (Config)"`,
+	},
 	"diff": {
 		`test/conformance/sim/testdata/diff: missing "func Diff(Config, Config) ([]trace.Change)"`,
+	},
+	"diff_stateless": {
+		`test/conformance/sim/testdata/diff_stateless: missing "func Diff(Config, Config) ([]trace.Change)"`,
 	},
 	"stateful_layer": {
 		`test/conformance/sim/testdata/stateful_layer: missing "func New(Config, layer.Env) (*Layer, error)"`,
@@ -197,6 +214,7 @@ var refusedFindings = map[string][]string{
 	},
 	"exported_fact": {
 		`test/conformance/sim/testdata/exported_fact/fixture.go:42: declares type "FooFact"`,
+		`test/conformance/sim/testdata/exported_fact/sub/x.go:3: declares type "FooFact"`,
 	},
 	"import_sibling": {
 		`test/conformance/sim/testdata/import_sibling/sub/x.go:4: imports "go.aledante.io/FlowSeer/src/common/sim/layer/bridge"`,
@@ -209,46 +227,62 @@ var refusedFindings = map[string][]string{
 	},
 }
 
+// fixtureDirs returns the fixture directories that hold guard name. The five
+// member rows are held by both a stateful and a stateless fixture.
+func fixtureDirs(name string) []string {
+	switch name {
+	case "layer_name", "normalize", "validate", "config_clone", "diff":
+		return []string{name, name + "_stateless"}
+	default:
+		return []string{name}
+	}
+}
+
 // TestLayerContractGuardsRefuseTheirFixtures runs the whole list over each
-// row's fixture and requires the findings above. It then drops the row and
-// requires none, which fails a row whose fixture another row also refuses.
+// row's fixtures and requires the findings listed for it, and none once the
+// row is dropped.
 func TestLayerContractGuardsRefuseTheirFixtures(t *testing.T) {
 	root := repoRoot(t)
 	fset := token.NewFileSet()
 
 	named := map[string]bool{"valid": true, "valid_stateless": true}
 	for _, g := range layerGuards {
-		if named[g.name] {
-			t.Errorf("row %q repeats a fixture directory", g.name)
-		}
-		named[g.name] = true
-
-		t.Run(g.name, func(t *testing.T) {
-			want, ok := refusedFindings[g.name]
-			if !ok {
-				t.Fatalf("refusedFindings lists nothing for row %q", g.name)
+		for _, name := range fixtureDirs(g.name) {
+			if named[name] {
+				t.Errorf("row %q repeats a fixture directory %q", g.name, name)
 			}
-			dir := filepath.Join(root, filepath.FromSlash(fixtureRoot), g.name)
+			named[name] = true
 
-			got, err := checkLayerDir(fset, root, dir, layerGuards)
-			if err != nil {
-				t.Fatalf("checking fixture: %v", err)
-			}
-			if !slices.Equal(got, want) {
-				t.Errorf("findings with every row:\ngot  %q\nwant %q", got, want)
-			}
+			t.Run(name, func(t *testing.T) {
+				want, ok := refusedFindings[name]
+				if !ok {
+					t.Fatalf("refusedFindings lists nothing for row %q", name)
+				}
+				if g.kind != marksStateful && len(want) == 0 {
+					t.Fatalf("refusedFindings lists no findings for row %q", name)
+				}
+				dir := filepath.Join(root, filepath.FromSlash(fixtureRoot), name)
 
-			without := slices.DeleteFunc(slices.Clone(layerGuards), func(other guard) bool {
-				return other.name == g.name
+				got, err := checkLayerDir(fset, root, dir, layerGuards)
+				if err != nil {
+					t.Fatalf("checking fixture: %v", err)
+				}
+				if !slices.Equal(got, want) {
+					t.Errorf("findings with every row:\ngot  %q\nwant %q", got, want)
+				}
+
+				without := slices.DeleteFunc(slices.Clone(layerGuards), func(other guard) bool {
+					return other.name == g.name
+				})
+				got, err = checkLayerDir(fset, root, dir, without)
+				if err != nil {
+					t.Fatalf("checking fixture without row %q: %v", g.name, err)
+				}
+				if len(got) != 0 {
+					t.Errorf("findings without row %q, want none: %q", g.name, got)
+				}
 			})
-			got, err = checkLayerDir(fset, root, dir, without)
-			if err != nil {
-				t.Fatalf("checking fixture without the row: %v", err)
-			}
-			if len(got) != 0 {
-				t.Errorf("findings without row %q, want none: %q", g.name, got)
-			}
-		})
+		}
 	}
 
 	for name := range refusedFindings {
@@ -271,6 +305,8 @@ func TestLayerContractGuardsRefuseTheirFixtures(t *testing.T) {
 // TestLayerContractPassesValidFixtures holds what the gate lets through.
 // valid_stateless is a package with the five members every layer has, as phy
 // is, and valid is a whole stateful layer with the source honest packages hold.
+// Its imports of sim/devicex and sim/fabricx begin with a refused root and
+// are not below it.
 func TestLayerContractPassesValidFixtures(t *testing.T) {
 	root := repoRoot(t)
 	fset := token.NewFileSet()
@@ -308,14 +344,73 @@ func TestLayerContractStopsOnUnparsableFile(t *testing.T) {
 	}
 }
 
+// TestLayerContractReadsEmptyReceiverList holds that func () New() {} is
+// read as a plain function. The package comment of go/parser/parser.go says
+// the parser accepts a larger language than is syntactically permitted by
+// the Go spec, so go/parser accepts the declaration and returns a non-nil
+// receiver list with no entry.
+func TestLayerContractReadsEmptyReceiverList(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "stray")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatalf("creating directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "stray.go"), []byte("package stray\n\nfunc () New() {}\n"), 0o600); err != nil {
+		t.Fatalf("writing stray file: %v", err)
+	}
+
+	got, err := checkLayerDir(token.NewFileSet(), root, dir, layerGuards)
+	if err != nil {
+		t.Fatalf("checking directory: %v", err)
+	}
+
+	want := []string{
+		`stray: missing "const LayerName"`,
+		`stray: missing "func (Config) Normalize(layer.Env) (Config)"`,
+		`stray: missing "func (Config) Validate(layer.Env) (error)"`,
+		`stray: missing "func (Config) Clone() (Config)"`,
+		`stray: missing "func Diff(Config, Config) ([]trace.Change)"`,
+		`stray: missing "func New(Config, layer.Env) (*Layer, error)"`,
+		`stray: missing "func (*Layer) Clone() (*Layer)"`,
+		`stray: missing "func RetentionKey(Config, layer.Env) (string)"`,
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("findings:\ngot  %q\nwant %q", got, want)
+	}
+}
+
+// TestLayerContractRefusesBackquotedImport holds that import paths written
+// as backquoted raw string literals are read with strconv.Unquote and refused.
+func TestLayerContractRefusesBackquotedImport(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "stray")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatalf("creating directory: %v", err)
+	}
+	src := "package stray\n\nimport _ `go.aledante.io/FlowSeer/src/common/sim/device/vswitch`\n"
+	if err := os.WriteFile(filepath.Join(dir, "stray.go"), []byte(src), 0o600); err != nil {
+		t.Fatalf("writing stray file: %v", err)
+	}
+
+	got, err := checkLayerDir(token.NewFileSet(), root, dir, layerGuards)
+	if err != nil {
+		t.Fatalf("checking directory: %v", err)
+	}
+
+	wantFinding := `stray/stray.go:3: imports "go.aledante.io/FlowSeer/src/common/sim/device/vswitch"`
+	if !slices.Contains(got, wantFinding) {
+		t.Errorf("findings %q do not include %q", got, wantFinding)
+	}
+}
+
 // layerFacts is what checkLayerDir reads from one layer package directory.
 type layerFacts struct {
 	dirName string
 	// lines holds a name line and, for a function, a signature line for
 	// each declaration of the non-test files in the directory itself.
 	lines map[string]bool
-	// imports and types come from every non-test file under the directory,
-	// subdirectories included.
+	// imports and types come from every non-test file outside testdata
+	// under the directory, subdirectories included.
 	imports []sourceValue
 	types   []sourceValue
 }
@@ -387,7 +482,7 @@ func readLayerDir(fset *token.FileSet, root, dir string) (layerFacts, error) {
 			return err
 		}
 		if d.IsDir() {
-			if path != dir && d.Name() == "testdata" {
+			if d.Name() == "testdata" {
 				return filepath.SkipDir
 			}
 
@@ -403,14 +498,18 @@ func readLayerDir(fset *token.FileSet, root, dir string) (layerFacts, error) {
 		}
 
 		for _, imp := range file.Imports {
+			val, err := strconv.Unquote(imp.Path.Value)
+			if err != nil {
+				return fmt.Errorf("reading import path %s in %s: %w", imp.Path.Value, relativePath(root, path), err)
+			}
 			facts.imports = append(facts.imports, sourceValue{
 				pos:   filePos(fset, root, imp.Pos()),
-				value: strings.Trim(imp.Path.Value, `"`),
+				value: val,
 			})
 		}
 		for _, decl := range file.Decls {
 			gen, ok := decl.(*ast.GenDecl)
-			if !ok || gen.Tok != token.TYPE {
+			if !ok {
 				continue
 			}
 			for _, spec := range gen.Specs {
@@ -466,8 +565,6 @@ func genDeclLines(decl *ast.GenDecl) []string {
 		keyword = "var"
 	case token.TYPE:
 		keyword = "type"
-	default:
-		return nil
 	}
 
 	var lines []string
@@ -488,7 +585,7 @@ func genDeclLines(decl *ast.GenDecl) []string {
 func funcLines(fn *ast.FuncDecl) []string {
 	name := "func " + fn.Name.Name
 	signature := "func "
-	if fn.Recv != nil && len(fn.Recv.List) == 1 {
+	if fn.Recv.NumFields() > 0 {
 		recv := types.ExprString(fn.Recv.List[0].Type)
 		name = "func " + strings.TrimPrefix(recv, "*") + "." + fn.Name.Name
 		signature += "(" + recv + ") "
