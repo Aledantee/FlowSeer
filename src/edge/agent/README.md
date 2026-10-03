@@ -214,4 +214,3 @@ evaluates whether to attach the raw payload. The first 20 failures per device
 per minute retain raw bytes under reason `RAW_REASON_PARSE_FAILURE`, and 1 in
 100 thereafter, recording the suppressed count. Oversized messages beyond 65,527
 bytes are truncated and marked with `message_truncated`.
-
