@@ -1,7 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick, ref } from 'vue'
-import UiAiSummary, { type UiAiSummaryProps } from './UiAiSummary.vue'
+import UiAiSummary, {
+  type UiAiSummaryLabels,
+  type UiAiSummaryProps,
+} from './UiAiSummary.vue'
 import { aiRegistryKey } from './context'
 import { createAiRegistry } from '../../ai'
 import { AiUnavailableError } from '../../ai'
@@ -435,5 +438,199 @@ describe('UiAiSummary', () => {
     errorMount.i18n.global.locale.value = 'de'
     await nextTick()
     expect(lastAlert?.textContent).toContain('Explicit server error')
+  })
+
+  it('renders an empty-string override for every label key verbatim', async () => {
+    let rejectRequest: ((err: unknown) => void) | undefined
+    const emptyLabels: UiAiSummaryLabels = {
+      summaryLabel: '',
+      generate: '',
+      generating: '',
+      unavailable: '',
+      retry: '',
+      error: '',
+    }
+    mount(
+      () =>
+        new Promise<string>((_, reject) => {
+          rejectRequest = reject
+        }),
+      'en',
+      { labels: emptyLabels },
+    )
+    await settle()
+
+    const section = document.querySelector('section')
+    expect(section?.getAttribute('aria-label')).toBe('')
+    const genButton = button('')
+    expect(genButton).toBeDefined()
+    expect(genButton?.textContent?.trim()).toBe('')
+
+    genButton?.click()
+    await nextTick()
+    const loadingStatus = document.querySelector('[role="status"]')
+    expect(loadingStatus?.textContent?.trim()).toBe('')
+
+    rejectRequest?.(new AiUnavailableError())
+    await settle()
+    const unavailStatus = document.querySelector('[role="status"]')
+    expect(unavailStatus?.textContent?.trim()).toBe('')
+    const retryBtn1 = button('')
+    expect(retryBtn1).toBeDefined()
+    expect(retryBtn1?.textContent?.trim()).toBe('')
+
+    retryBtn1?.click()
+    await nextTick()
+    rejectRequest?.('generic failure')
+    await settle()
+    const alert = document.querySelector('[role="alert"]')
+    expect(alert?.textContent?.trim()).toBe('')
+    const retryBtn2 = button('')
+    expect(retryBtn2).toBeDefined()
+    expect(retryBtn2?.textContent?.trim()).toBe('')
+  })
+
+  it('updates catalog defaults on locale switch while preserving explicit overrides in the same DOM across all states', async () => {
+    let mode: 'pending' | 'unavailable' | 'error' = 'pending'
+    const pendingRejections: ((err: unknown) => void)[] = []
+    const registry = createAiRegistry({
+      viewport: () => ({ wide: true, narrow: false }),
+    })
+    const el1 = document.createElement('div')
+    const el2 = document.createElement('div')
+    document.body.append(el1, el2)
+    const target1: AiTarget = {
+      id: 'a:summary:default',
+      kind: 'summary',
+      label: 'Target Default',
+      context: {},
+    }
+    const target2: AiTarget = {
+      id: 'a:summary:override',
+      kind: 'summary',
+      label: 'Target Override',
+      context: {},
+    }
+    registry.register(el1, target1)
+    registry.register(el2, target2)
+    registry.onRequest(async () => {
+      if (mode === 'pending') {
+        return new Promise<string>((_, reject) => {
+          pendingRejections.push(reject)
+        })
+      }
+      if (mode === 'unavailable') throw new AiUnavailableError()
+      throw 'generic failure'
+    })
+
+    const host = document.createElement('div')
+    document.body.append(host)
+    const i18n = createWebI18n('en')
+    const overrideLabels: UiAiSummaryLabels = {
+      summaryLabel: 'Custom summary for target',
+      generate: 'Custom generate',
+      generating: 'Custom generating…',
+      unavailable: 'Custom unavailable',
+      retry: 'Custom retry',
+      error: 'Custom error',
+    }
+    const app = createApp({
+      render: () =>
+        h('div', [
+          h(UiAiSummary, { target: target1 }),
+          h(UiAiSummary, { target: target2, labels: overrideLabels }),
+        ]),
+    })
+    app.use(i18n)
+    app.provide(aiRegistryKey, registry)
+    app.mount(host)
+    disposers.push(() => app.unmount())
+    await settle()
+
+    const sections = host.querySelectorAll('section')
+    expect(sections).toHaveLength(2)
+    const [secDefault, secOverride] = [sections[0]!, sections[1]!]
+
+    // 1. Idle state in English
+    expect(secDefault.getAttribute('aria-label')).toBe(
+      'AI summary for Target Default',
+    )
+    expect(secDefault.querySelector('button')?.textContent?.trim()).toBe(
+      'Generate summary',
+    )
+    expect(secOverride.getAttribute('aria-label')).toBe(
+      'Custom summary for target',
+    )
+    expect(secOverride.querySelector('button')?.textContent?.trim()).toBe(
+      'Custom generate',
+    )
+
+    // Switch locale to German
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    // Defaults changed, overrides stayed
+    expect(secDefault.getAttribute('aria-label')).toBe(
+      'KI-Zusammenfassung für Target Default',
+    )
+    expect(secDefault.querySelector('button')?.textContent?.trim()).toBe(
+      'Zusammenfassung erstellen',
+    )
+    expect(secOverride.getAttribute('aria-label')).toBe(
+      'Custom summary for target',
+    )
+    expect(secOverride.querySelector('button')?.textContent?.trim()).toBe(
+      'Custom generate',
+    )
+
+    // 2. Loading state
+    secDefault.querySelector('button')?.click()
+    secOverride.querySelector('button')?.click()
+    await nextTick()
+
+    expect(secDefault.querySelector('[role="status"]')?.textContent).toContain(
+      'Zusammenfassung wird erstellt…',
+    )
+    expect(secOverride.querySelector('[role="status"]')?.textContent).toContain(
+      'Custom generating…',
+    )
+
+    // 3. Unavailable state
+    mode = 'unavailable'
+    for (const rej of pendingRejections) rej(new AiUnavailableError())
+    pendingRejections.length = 0
+    await settle()
+
+    expect(secDefault.querySelector('[role="status"]')?.textContent).toContain(
+      'KI ist nicht verfügbar',
+    )
+    expect(secDefault.querySelector('button')?.textContent?.trim()).toBe(
+      'Wiederholen',
+    )
+    expect(secOverride.querySelector('[role="status"]')?.textContent).toContain(
+      'Custom unavailable',
+    )
+    expect(secOverride.querySelector('button')?.textContent?.trim()).toBe(
+      'Custom retry',
+    )
+
+    // 4. Generic error state
+    mode = 'error'
+    secDefault.querySelector('button')?.click()
+    secOverride.querySelector('button')?.click()
+    await settle()
+
+    expect(secDefault.querySelector('[role="alert"]')?.textContent).toContain(
+      'Etwas ist schiefgelaufen.',
+    )
+    expect(secDefault.querySelector('button')?.textContent?.trim()).toBe(
+      'Wiederholen',
+    )
+    expect(secOverride.querySelector('[role="alert"]')?.textContent).toContain(
+      'Custom error',
+    )
+    expect(secOverride.querySelector('button')?.textContent?.trim()).toBe(
+      'Custom retry',
+    )
   })
 })

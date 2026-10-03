@@ -340,7 +340,7 @@ function submit() {
           @submit.prevent="submit"
         >
           <p class="text-xs font-medium text-foreground">
-            <template v-if="props.labels?.heading">
+            <template v-if="props.labels?.heading != null">
               {{ props.labels.heading }}
             </template>
             <I18nT v-else keypath="ui.aiActionLayer.heading" scope="global">

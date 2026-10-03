@@ -446,11 +446,12 @@ describe('accessibility (axe-core)', () => {
             const { selected, element, componentTarget } =
               await selectTarget(label)
 
-            const ask = document.querySelector<HTMLElement>('.ai-ask')
+            const asks = document.querySelectorAll<HTMLElement>('.ai-ask')
             expect(
-              ask,
-              `Expected ${label} to mount the Ask action for its selected target`,
-            ).not.toBeNull()
+              asks,
+              `Expected ${label} to mount exactly one Ask action for its selected target`,
+            ).toHaveLength(1)
+            const ask = asks[0]
             ask?.click()
             await settle()
             expect(
