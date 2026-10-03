@@ -1,6 +1,7 @@
 package authn_test
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/ecdsa"
@@ -15,11 +16,15 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"slices"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"google.golang.org/protobuf/proto"
 
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
@@ -100,8 +105,8 @@ func newTestOidcServer(t *testing.T) *testOidcServer {
 					"kid": ts.ecKID,
 					"use": "sig",
 					"alg": "ES256",
-					"x":   base64.RawURLEncoding.EncodeToString(ecKey.X.Bytes()),
-					"y":   base64.RawURLEncoding.EncodeToString(ecKey.Y.Bytes()),
+					"x":   base64.RawURLEncoding.EncodeToString(ecKey.X.FillBytes(make([]byte, 32))),
+					"y":   base64.RawURLEncoding.EncodeToString(ecKey.Y.FillBytes(make([]byte, 32))),
 				},
 			},
 		})
@@ -166,6 +171,31 @@ func unsignedToken(t *testing.T, header, claims map[string]any) string {
 		t.Fatalf("marshal claims: %v", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(hJSON) + "." + base64.RawURLEncoding.EncodeToString(cJSON) + "."
+}
+
+// settableClock is a clock a test moves while the verifier's goroutines read
+// it. The verifier reads the clock from its discovery goroutine and from
+// go-oidc's key-fetch goroutine, so a plain variable would race.
+type settableClock struct {
+	nanos atomic.Int64
+}
+
+func newSettableClock(t time.Time) *settableClock {
+	c := &settableClock{}
+	c.nanos.Store(t.UnixNano())
+	return c
+}
+
+func (c *settableClock) Now() time.Time {
+	return time.Unix(0, c.nanos.Load()).UTC()
+}
+
+func (c *settableClock) Set(t time.Time) {
+	c.nanos.Store(t.UnixNano())
+}
+
+func (c *settableClock) Advance(d time.Duration) {
+	c.nanos.Add(int64(d))
 }
 
 func TestVerifierAcceptedTokens(t *testing.T) {
@@ -610,6 +640,32 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 		t.Fatal("expected Platform true when platform claim name differs and value matches")
 	}
 
+	// A platform claim under its own name that is neither a string, an array
+	// of strings, nor an object refuses the token, and the error names it.
+	platformClaimRefusals := []struct {
+		name  string
+		claim any
+	}{
+		{name: "null", claim: nil},
+		{name: "number", claim: 42},
+		{name: "boolean", claim: true},
+		{name: "array with a non-string item", claim: []any{"platform-ops", 7}},
+	}
+	for _, tc := range platformClaimRefusals {
+		claims := cloneMap(diffClaims)
+		claims["groups"] = tc.claim
+		_, err := platDiffVerifier.Verify(context.Background(), signRSAToken(t, srv.rsaKey, srv.rsaKID, claims))
+		if err == nil {
+			t.Fatalf("platform claim %s: expected error, got nil", tc.name)
+		}
+		if code, ok := errs.CodeOf(err); !ok || code != authn.ErrCodeTokenInvalid {
+			t.Fatalf("platform claim %s: got code %v, want authn/token-invalid (err: %v)", tc.name, code, err)
+		}
+		if !strings.Contains(err.Error(), "platform claim") || strings.Contains(err.Error(), "organization claim") {
+			t.Fatalf("platform claim %s: error names the wrong claim: %v", tc.name, err)
+		}
+	}
+
 	// Platform issuer differs from token's issuer yields Platform false
 	otherIssuerVerifier, err := authn.NewVerifier(authn.Options{
 		Issuers: []authn.IssuerConfig{
@@ -643,7 +699,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 func TestVerifierReplayTransportAndKeyOutage(t *testing.T) {
 	srv := newTestOidcServer(t)
 	now := time.Now().Truncate(time.Second)
-	curTime := now
+	clock := newSettableClock(now)
 
 	otherKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -658,7 +714,7 @@ func TestVerifierReplayTransportAndKeyOutage(t *testing.T) {
 			},
 		},
 		Client: srv.server.Client(),
-		Clock:  func() time.Time { return curTime },
+		Clock:  clock.Now,
 	})
 	if err != nil {
 		t.Fatalf("NewVerifier: %v", err)
@@ -684,7 +740,7 @@ func TestVerifierReplayTransportAndKeyOutage(t *testing.T) {
 	}
 
 	// Key endpoint answering 500 yields Unavailable for unknown kid.
-	curTime = curTime.Add(15 * time.Second)
+	clock.Advance(15 * time.Second)
 	srv.keysErr.Store(true)
 	tokUnknown500 := signRSAToken(t, otherKey, "unknown-kid-fail", claims)
 	_, err = verifier.Verify(context.Background(), tokUnknown500)
@@ -716,7 +772,7 @@ func TestVerifierReplayTransportAndKeyOutage(t *testing.T) {
 
 	// Healthy keys endpoint yields Unauthenticated with authn/token-invalid.
 	srv.keysErr.Store(false)
-	curTime = curTime.Add(15 * time.Second)
+	clock.Advance(15 * time.Second)
 	tokUnknownHealthy := signRSAToken(t, otherKey, "unknown-kid-healthy", claims)
 	_, err = verifier.Verify(context.Background(), tokUnknownHealthy)
 	if err == nil {
@@ -789,7 +845,7 @@ func TestVerifierKeyOutageOnSeparateHost(t *testing.T) {
 func TestVerifierDiscoveryFailureRecoveryAndTimeout(t *testing.T) {
 	srv := newTestOidcServer(t)
 	now := time.Now().Truncate(time.Second)
-	curTime := now
+	clock := newSettableClock(now)
 
 	verifier, err := authn.NewVerifier(authn.Options{
 		Issuers: []authn.IssuerConfig{
@@ -799,7 +855,7 @@ func TestVerifierDiscoveryFailureRecoveryAndTimeout(t *testing.T) {
 			},
 		},
 		Client: srv.server.Client(),
-		Clock:  func() time.Time { return curTime },
+		Clock:  clock.Now,
 	})
 	if err != nil {
 		t.Fatalf("NewVerifier: %v", err)
@@ -833,7 +889,7 @@ func TestVerifierDiscoveryFailureRecoveryAndTimeout(t *testing.T) {
 	}
 
 	// Advance past replay window: discovers and verifies successfully.
-	curTime = curTime.Add(15 * time.Second)
+	clock.Advance(15 * time.Second)
 	p, err := verifier.Verify(context.Background(), tok)
 	if err != nil {
 		t.Fatalf("verify after recovery and replay window: %v", err)
@@ -843,10 +899,16 @@ func TestVerifierDiscoveryFailureRecoveryAndTimeout(t *testing.T) {
 	}
 
 	// Hanging server yields Unavailable once client timeout passes.
-	hangingServer := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
-		time.Sleep(200 * time.Millisecond)
+	// The handler answers nothing until the client gives up or the test ends.
+	releaseHanging := make(chan struct{})
+	hangingServer := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-releaseHanging:
+		}
 	}))
 	defer hangingServer.Close()
+	defer close(releaseHanging)
 
 	slowClient := &http.Client{Timeout: 20 * time.Millisecond}
 	hangingVerifier, err := authn.NewVerifier(authn.Options{
@@ -872,6 +934,192 @@ func TestVerifierDiscoveryFailureRecoveryAndTimeout(t *testing.T) {
 	code, ok = errs.CodeOf(err)
 	if !ok || code != authn.ErrCodeUnavailable {
 		t.Fatalf("got code %v, want authn/unavailable on timeout", code)
+	}
+	if !errs.Retryable(err) {
+		t.Fatalf("discovery timeout must be retryable: %v", err)
+	}
+
+	// The caller's context is live, so the client's timeout stays in the text
+	// and out of the chain.
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		t.Fatalf("live caller's discovery timeout carries a context error in its chain: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Client.Timeout") && !strings.Contains(err.Error(), "deadline exceeded") {
+		t.Fatalf("discovery timeout lost its text: %v", err)
+	}
+
+	// The replay cache hands the same failure to the next caller in the window.
+	_, err = hangingVerifier.Verify(context.Background(), hangingTok)
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		t.Fatalf("replayed discovery timeout carries a context error in its chain: %v", err)
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != authn.ErrCodeUnavailable {
+		t.Fatalf("replayed discovery timeout got code %v, want authn/unavailable (err: %v)", code, err)
+	}
+}
+
+// panicOnceTransport panics on its first round trip and delegates afterward.
+type panicOnceTransport struct {
+	base     http.RoundTripper
+	panicked atomic.Bool
+}
+
+func (p *panicOnceTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if p.panicked.CompareAndSwap(false, true) {
+		panic("transport panicked on the discovery request")
+	}
+	return p.base.RoundTrip(req)
+}
+
+func TestVerifierDiscoveryPanicReleasesWaiters(t *testing.T) {
+	srv := newTestOidcServer(t)
+	now := time.Now().Truncate(time.Second)
+	tok := signRSAToken(t, srv.rsaKey, srv.rsaKID, map[string]any{
+		"iss": srv.server.URL,
+		"aud": "flowseer-device",
+		"sub": "u1",
+		"exp": now.Add(time.Hour).Unix(),
+	})
+
+	verifier, err := authn.NewVerifier(authn.Options{
+		Issuers: []authn.IssuerConfig{{Issuer: srv.server.URL, Audience: "flowseer-device"}},
+		Client:  &http.Client{Transport: &panicOnceTransport{base: srv.server.Client().Transport}},
+		Clock:   func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatalf("NewVerifier: %v", err)
+	}
+
+	// The deadline only bounds a failing run: a waiter that is never released
+	// returns the context's error instead of a coded outage.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err = verifier.Verify(ctx, tok)
+	if code, ok := errs.CodeOf(err); !ok || code != authn.ErrCodeUnavailable {
+		t.Fatalf("got code %v, want authn/unavailable after a panic during discovery (err: %v)", code, err)
+	}
+	if !errs.Retryable(err) {
+		t.Fatalf("panic during discovery must be retryable: %v", err)
+	}
+	if ctx.Err() != nil {
+		t.Fatalf("waiter was held until its deadline: %v", ctx.Err())
+	}
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		t.Fatalf("live caller's result carries a context error in its chain: %v", err)
+	}
+
+	// The panic left no inflight discovery behind, so the next caller discovers.
+	p, err := verifier.Verify(ctx, tok)
+	if err != nil {
+		t.Fatalf("verify after the panicked discovery: %v", err)
+	}
+	if p.Subject != "u1" {
+		t.Fatalf("got subject %q, want u1", p.Subject)
+	}
+}
+
+// TestVerifierDiscoveryClockPanicLeavesNoLockHeld panics the caller-supplied
+// clock at the replay transport's cache check, where the transport must not
+// hold its lock while it runs caller code.
+func TestVerifierDiscoveryClockPanicLeavesNoLockHeld(t *testing.T) {
+	srv := newTestOidcServer(t)
+	now := time.Now().Truncate(time.Second)
+	clock := newSettableClock(now)
+	tok := signRSAToken(t, srv.rsaKey, srv.rsaKID, map[string]any{
+		"iss": srv.server.URL,
+		"aud": "flowseer-device",
+		"sub": "u1",
+		"exp": now.Add(time.Hour).Unix(),
+	})
+
+	var panicNext atomic.Bool
+	verifier, err := authn.NewVerifier(authn.Options{
+		Issuers: []authn.IssuerConfig{{Issuer: srv.server.URL, Audience: "flowseer-device"}},
+		Client:  srv.server.Client(),
+		Clock: func() time.Time {
+			if panicNext.CompareAndSwap(true, false) {
+				panic("clock panicked during the replay transport's cache check")
+			}
+			return clock.Now()
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewVerifier: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// The failed discovery lands in the replay cache, so the next attempt's
+	// cache check finds an entry and reads the clock to age it.
+	srv.discoveryErr.Store(true)
+	if _, err := verifier.Verify(ctx, tok); err == nil {
+		t.Fatal("expected the failed discovery to be refused")
+	}
+
+	panicNext.Store(true)
+	_, err = verifier.Verify(ctx, tok)
+	if code, ok := errs.CodeOf(err); !ok || code != authn.ErrCodeUnavailable {
+		t.Fatalf("got code %v, want authn/unavailable after the clock panicked (err: %v)", code, err)
+	}
+	if panicNext.Load() {
+		t.Fatal("the clock was never read, so the panic did not fire")
+	}
+
+	// The endpoint recovers and the failure leaves the window. A transport that
+	// kept its lock held would block this discovery until the deadline.
+	srv.discoveryErr.Store(false)
+	clock.Advance(15 * time.Second)
+	if _, err := verifier.Verify(ctx, tok); err != nil {
+		t.Fatalf("verify after the clock panic: %v", err)
+	}
+}
+
+type requestScopedKey struct{}
+
+// contextValueTransport records whether a request's context carries the value
+// a caller attached to its own context.
+type contextValueTransport struct {
+	base   http.RoundTripper
+	leaked atomic.Bool
+}
+
+func (c *contextValueTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.Context().Value(requestScopedKey{}) != nil {
+		c.leaked.Store(true)
+	}
+	return c.base.RoundTrip(req)
+}
+
+func TestVerifierDiscoveryDoesNotInheritRequestScope(t *testing.T) {
+	srv := newTestOidcServer(t)
+	now := time.Now().Truncate(time.Second)
+	tok := signRSAToken(t, srv.rsaKey, srv.rsaKID, map[string]any{
+		"iss": srv.server.URL,
+		"aud": "flowseer-device",
+		"sub": "u1",
+		"exp": now.Add(time.Hour).Unix(),
+	})
+
+	transport := &contextValueTransport{base: srv.server.Client().Transport}
+	verifier, err := authn.NewVerifier(authn.Options{
+		Issuers: []authn.IssuerConfig{{Issuer: srv.server.URL, Audience: "flowseer-device"}},
+		Client:  &http.Client{Transport: transport},
+		Clock:   func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatalf("NewVerifier: %v", err)
+	}
+
+	// The discovery every waiter shares outlives the caller that started it, so
+	// the caller's span and values must not ride along.
+	ctx := context.WithValue(context.Background(), requestScopedKey{}, "the leader's span")
+	if _, err := verifier.Verify(ctx, tok); err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if transport.leaked.Load() {
+		t.Fatal("a request-scoped value reached the shared discovery request")
 	}
 }
 
@@ -916,16 +1164,18 @@ func TestVerifierCallerCancellationNotCached(t *testing.T) {
 	}
 	rsaKID := "test-rsa-key-1"
 
-	var cancelFirstRequest context.CancelFunc
+	var cancelFirstRequest atomic.Pointer[context.CancelFunc]
 	var discCalls atomic.Int64
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/.well-known/openid-configuration":
 			n := discCalls.Add(1)
-			if n == 1 && cancelFirstRequest != nil {
-				cancelFirstRequest()
-				time.Sleep(50 * time.Millisecond)
+			if n == 1 {
+				if cancel := cancelFirstRequest.Load(); cancel != nil {
+					(*cancel)()
+					time.Sleep(50 * time.Millisecond)
+				}
 			}
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
@@ -978,7 +1228,7 @@ func TestVerifierCallerCancellationNotCached(t *testing.T) {
 
 	// Caller drops connection during discovery.
 	callerCtx, cancel := context.WithCancel(context.Background())
-	cancelFirstRequest = cancel
+	cancelFirstRequest.Store(&cancel)
 	_, err = verifier.Verify(callerCtx, tok)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context.Canceled bare, got %v", err)
@@ -1081,36 +1331,54 @@ func TestVerifierInjectedClockDecidesExpiry(t *testing.T) {
 	}
 }
 
+// endpointBehavior is what one of the issuer's endpoints does with a request.
 type endpointBehavior string
 
 const (
 	behaviorAnswersCorrectly endpointBehavior = "answers-correctly"
 	behaviorAnswers500       endpointBehavior = "answers-500"
-	behaviorRefusesConn      endpointBehavior = "refuses-connection"
-	behaviorNeverAnswers     endpointBehavior = "never-answers-until-timeout"
+	behaviorClosesConnection endpointBehavior = "closes-connection-without-response"
+	behaviorNeverAnswers     endpointBehavior = "never-answers"
 )
 
+// propertyTokenKind names a token for what it is. Whether the verifier holds
+// the key a token needs is a property of the prior state, never of the token.
 type propertyTokenKind string
 
 const (
-	tokenValidCachedKID   propertyTokenKind = "valid-with-cached-key-id"
-	tokenValidUnknownKID  propertyTokenKind = "valid-with-unknown-key-id"
-	tokenKnownKIDWrongSig propertyTokenKind = "known-key-id-wrong-signature"
-	tokenAudOther         propertyTokenKind = "correct-signature-aud-other"
-	tokenAudFetchingKeys  propertyTokenKind = "correct-signature-aud-fetching-keys"
-	tokenExpired          propertyTokenKind = "expired"
-	tokenMalformed        propertyTokenKind = "malformed"
+	tokenSignedByServedKey   propertyTokenKind = "signed-by-served-key"
+	tokenSignedByUnservedKey propertyTokenKind = "signed-by-unserved-key"
+	tokenServedKIDWrongSig   propertyTokenKind = "served-key-id-wrong-signature"
+	tokenAudOther            propertyTokenKind = "served-key-aud-other"
+	tokenAudFetchingKeys     propertyTokenKind = "served-key-aud-fetching-keys"
+	tokenExpired             propertyTokenKind = "served-key-expired"
+	tokenMalformed           propertyTokenKind = "malformed"
 )
 
+// propertyPriorState is the history a verifier has before the caller under
+// test calls it. The states that name a cached key really cache it: they verify
+// a token signed by the served key against healthy endpoints first.
 type propertyPriorState string
 
 const (
 	priorFresh                    propertyPriorState = "fresh-verifier"
-	priorKeyFetchFailedInWindow   propertyPriorState = "key-fetch-failed-in-window"
-	priorKeyFetchFailedPastWindow propertyPriorState = "key-fetch-failed-past-window"
-	priorCanceledMidDiscovery     propertyPriorState = "caller-canceled-mid-discovery"
-	priorCanceledMidKeyFetch      propertyPriorState = "caller-canceled-mid-key-fetch"
+	priorKeyCached                propertyPriorState = "key-cached"
+	priorKeyFetchFailedInWindow   propertyPriorState = "key-cached-then-key-fetch-failed-in-window"
+	priorKeyFetchFailedPastWindow propertyPriorState = "key-cached-then-key-fetch-failed-past-window"
+	priorCanceledMidDiscovery     propertyPriorState = "other-caller-canceled-mid-discovery"
+	priorCanceledMidKeyFetch      propertyPriorState = "key-cached-then-other-caller-canceled-mid-key-fetch"
 )
+
+// cachesKey reports whether the prior state leaves the served key in the
+// verifier's key set.
+func (p propertyPriorState) cachesKey() bool {
+	switch p {
+	case priorKeyCached, priorKeyFetchFailedInWindow, priorKeyFetchFailedPastWindow, priorCanceledMidKeyFetch:
+		return true
+	default:
+		return false
+	}
+}
 
 type propertyCallerContext string
 
@@ -1120,145 +1388,93 @@ const (
 	ctxCanceledMidReq propertyCallerContext = "canceled-mid-request"
 )
 
-type propertyHarness struct {
-	rsaKey      *rsa.PrivateKey
-	otherRSAKey *rsa.PrivateKey
-	rsaKID      string
-	otherKID    string
-
-	discServer *httptest.Server
-	keysServer *httptest.Server
-
-	currentDiscBehavior atomic.Pointer[endpointBehavior]
-	currentKeysBehavior atomic.Pointer[endpointBehavior]
-
-	cancelMidRequest atomic.Pointer[context.CancelFunc]
-
-	discHook atomic.Pointer[func()]
-	keysHook atomic.Pointer[func()]
-
-	frozenNanos atomic.Int64
+// propertyRow is one combination of the matrix.
+type propertyRow struct {
+	disc  endpointBehavior
+	keys  endpointBehavior
+	tok   propertyTokenKind
+	prior propertyPriorState
+	ctx   propertyCallerContext
 }
 
-func (h *propertyHarness) now() time.Time {
-	return time.Unix(0, h.frozenNanos.Load()).UTC()
+func (r propertyRow) name() string {
+	return fmt.Sprintf("disc=%s,keys=%s,tok=%s,prior=%s,ctx=%s", r.disc, r.keys, r.tok, r.prior, r.ctx)
 }
 
-func (h *propertyHarness) setNow(t time.Time) {
-	h.frozenNanos.Store(t.UnixNano())
+// noRequestRules lists the token and prior-state combinations whose
+// verification sends no request to either endpoint, so a caller canceled
+// "mid-request" has no request to be canceled in. The live-context rows assert
+// the claim by counting the requests the endpoints receive.
+var noRequestRules = []struct {
+	priors []propertyPriorState
+	tokens []propertyTokenKind
+	reason string
+}{
+	{
+		priors: []propertyPriorState{
+			priorFresh, priorKeyCached, priorKeyFetchFailedInWindow,
+			priorKeyFetchFailedPastWindow, priorCanceledMidDiscovery, priorCanceledMidKeyFetch,
+		},
+		tokens: []propertyTokenKind{tokenMalformed},
+		reason: "the token is refused before any request is sent",
+	},
+	{
+		priors: []propertyPriorState{
+			priorKeyCached, priorKeyFetchFailedInWindow, priorKeyFetchFailedPastWindow, priorCanceledMidKeyFetch,
+		},
+		tokens: []propertyTokenKind{tokenSignedByServedKey, tokenAudOther, tokenAudFetchingKeys, tokenExpired},
+		reason: "the cached key verifies the signature, so no request is sent",
+	},
+	{
+		priors: []propertyPriorState{priorKeyFetchFailedInWindow},
+		tokens: []propertyTokenKind{tokenSignedByUnservedKey, tokenServedKIDWrongSig},
+		reason: "the key fetch is replayed from the failure the replay window holds, so no request reaches the endpoint",
+	},
 }
 
-func newPropertyHarness(t *testing.T) *propertyHarness {
+// noRequestReason returns why a verification sends no request, or "" when it
+// sends at least one.
+func noRequestReason(prior propertyPriorState, tok propertyTokenKind) string {
+	for _, rule := range noRequestRules {
+		if slices.Contains(rule.priors, prior) && slices.Contains(rule.tokens, tok) {
+			return rule.reason
+		}
+	}
+	return ""
+}
+
+// propertySigning holds the keys every row shares: one the issuer serves and
+// one it does not.
+type propertySigning struct {
+	served    *rsa.PrivateKey
+	unserved  *rsa.PrivateKey
+	servedKID string
+	otherKID  string
+}
+
+func newPropertySigning(t *testing.T) *propertySigning {
 	t.Helper()
 
-	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	served, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		t.Fatalf("generate rsa key: %v", err)
+		t.Fatalf("generate served rsa key: %v", err)
 	}
-	otherRSAKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	unserved, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		t.Fatalf("generate other rsa key: %v", err)
+		t.Fatalf("generate unserved rsa key: %v", err)
 	}
 
-	h := &propertyHarness{
-		rsaKey:      rsaKey,
-		otherRSAKey: otherRSAKey,
-		rsaKID:      "test-rsa-key-1",
-		otherKID:    "test-unknown-kid-1",
+	return &propertySigning{
+		served:    served,
+		unserved:  unserved,
+		servedKID: "test-rsa-key-1",
+		otherKID:  "test-unserved-kid-1",
 	}
-
-	behOK := behaviorAnswersCorrectly
-	h.currentDiscBehavior.Store(&behOK)
-	h.currentKeysBehavior.Store(&behOK)
-
-	discMux := http.NewServeMux()
-	discMux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
-		if fn := h.cancelMidRequest.Swap(nil); fn != nil {
-			(*fn)()
-		}
-		if hook := h.discHook.Load(); hook != nil && *hook != nil {
-			(*hook)()
-		}
-		if fn := h.cancelMidRequest.Swap(nil); fn != nil {
-			(*fn)()
-		}
-
-		beh := *h.currentDiscBehavior.Load()
-		switch beh {
-		case behaviorAnswersCorrectly:
-			jwksURI := h.keysServer.URL + "/keys"
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"issuer":                                h.discServer.URL,
-				"jwks_uri":                              jwksURI,
-				"id_token_signing_alg_values_supported": []string{"RS256"},
-				"response_types_supported":              []string{"id_token"},
-				"subject_types_supported":               []string{"public"},
-			})
-		case behaviorAnswers500:
-			http.Error(w, "discovery 500 error", http.StatusInternalServerError)
-		case behaviorNeverAnswers:
-			time.Sleep(250 * time.Millisecond)
-		case behaviorRefusesConn:
-			hj, ok := w.(http.Hijacker)
-			if ok {
-				conn, _, _ := hj.Hijack()
-				_ = conn.Close()
-			}
-		}
-	})
-	h.discServer = httptest.NewServer(discMux)
-	t.Cleanup(h.discServer.Close)
-
-	keysMux := http.NewServeMux()
-	keysMux.HandleFunc("/keys", func(w http.ResponseWriter, r *http.Request) {
-		if fn := h.cancelMidRequest.Swap(nil); fn != nil {
-			(*fn)()
-		}
-		if hook := h.keysHook.Load(); hook != nil && *hook != nil {
-			(*hook)()
-		}
-		if fn := h.cancelMidRequest.Swap(nil); fn != nil {
-			(*fn)()
-		}
-
-		beh := *h.currentKeysBehavior.Load()
-		switch beh {
-		case behaviorAnswersCorrectly:
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"keys": []map[string]any{
-					{
-						"kty": "RSA",
-						"kid": h.rsaKID,
-						"use": "sig",
-						"alg": "RS256",
-						"n":   base64.RawURLEncoding.EncodeToString(rsaKey.N.Bytes()),
-						"e":   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(rsaKey.E)).Bytes()),
-					},
-				},
-			})
-		case behaviorAnswers500:
-			http.Error(w, "keys 500 error", http.StatusInternalServerError)
-		case behaviorNeverAnswers:
-			time.Sleep(250 * time.Millisecond)
-		case behaviorRefusesConn:
-			hj, ok := w.(http.Hijacker)
-			if ok {
-				conn, _, _ := hj.Hijack()
-				_ = conn.Close()
-			}
-		}
-	})
-	h.keysServer = httptest.NewServer(keysMux)
-	t.Cleanup(h.keysServer.Close)
-
-	return h
 }
 
-func (h *propertyHarness) makeToken(t *testing.T, kind propertyTokenKind, issuerURL string) string {
+func (s *propertySigning) token(t *testing.T, kind propertyTokenKind, issuerURL string, now time.Time) string {
 	t.Helper()
-	now := h.now()
+
 	baseClaims := map[string]any{
 		"iss": issuerURL,
 		"aud": "flowseer-device",
@@ -1268,24 +1484,24 @@ func (h *propertyHarness) makeToken(t *testing.T, kind propertyTokenKind, issuer
 	}
 
 	switch kind {
-	case tokenValidCachedKID:
-		return signRSAToken(t, h.rsaKey, h.rsaKID, baseClaims)
-	case tokenValidUnknownKID:
-		return signRSAToken(t, h.otherRSAKey, h.otherKID, baseClaims)
-	case tokenKnownKIDWrongSig:
-		return signRSAToken(t, h.otherRSAKey, h.rsaKID, baseClaims)
+	case tokenSignedByServedKey:
+		return signRSAToken(t, s.served, s.servedKID, baseClaims)
+	case tokenSignedByUnservedKey:
+		return signRSAToken(t, s.unserved, s.otherKID, baseClaims)
+	case tokenServedKIDWrongSig:
+		return signRSAToken(t, s.unserved, s.servedKID, baseClaims)
 	case tokenAudOther:
 		c := cloneMap(baseClaims)
 		c["aud"] = "other"
-		return signRSAToken(t, h.rsaKey, h.rsaKID, c)
+		return signRSAToken(t, s.served, s.servedKID, c)
 	case tokenAudFetchingKeys:
 		c := cloneMap(baseClaims)
 		c["aud"] = "aud with fetching keys text"
-		return signRSAToken(t, h.rsaKey, h.rsaKID, c)
+		return signRSAToken(t, s.served, s.servedKID, c)
 	case tokenExpired:
 		c := cloneMap(baseClaims)
 		c["exp"] = now.Add(-time.Hour).Unix()
-		return signRSAToken(t, h.rsaKey, h.rsaKID, c)
+		return signRSAToken(t, s.served, s.servedKID, c)
 	case tokenMalformed:
 		return "header.malformed.payload"
 	default:
@@ -1302,6 +1518,257 @@ func cloneMap(m map[string]any) map[string]any {
 	return out
 }
 
+// propertyEndpoint is one endpoint of a row's issuer.
+type propertyEndpoint struct {
+	env      *propertyEnv
+	behavior atomic.Pointer[endpointBehavior]
+	hook     atomic.Pointer[func()]
+	answer   func(w http.ResponseWriter)
+}
+
+func (e *propertyEndpoint) set(b endpointBehavior) {
+	e.behavior.Store(&b)
+}
+
+func (e *propertyEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	e.env.requests.Add(1)
+
+	if hook := e.hook.Load(); hook != nil {
+		(*hook)()
+	}
+	if gate := e.env.gate.Load(); gate != nil {
+		gate.onRequest(r.Context(), e.env.release)
+	}
+
+	switch *e.behavior.Load() {
+	case behaviorAnswersCorrectly:
+		e.answer(w)
+	case behaviorAnswers500:
+		http.Error(w, "endpoint answers 500", http.StatusInternalServerError)
+	case behaviorClosesConnection:
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			panic("response writer is not an http.Hijacker")
+		}
+		conn, _, err := hj.Hijack()
+		if err != nil {
+			panic(err)
+		}
+		_ = conn.Close()
+	case behaviorNeverAnswers:
+		select {
+		case <-r.Context().Done():
+		case <-e.env.release:
+		}
+	}
+}
+
+// keyRefreshFrame is the frame of go-oidc's key-set refresh goroutine.
+const keyRefreshFrame = "oidc.(*RemoteKeySet).keysFromRemote.func1"
+
+// keyRefreshInFlight reports whether any goroutine is inside go-oidc's key-set
+// refresh.
+func keyRefreshInFlight() bool {
+	buf := make([]byte, 1<<16)
+	for {
+		n := runtime.Stack(buf, true)
+		if n < len(buf) {
+			return bytes.Contains(buf[:n], []byte(keyRefreshFrame))
+		}
+		buf = make([]byte, 2*len(buf))
+	}
+}
+
+// waitForKeyRefreshToFinish blocks until no key-set refresh goroutine is left.
+// That goroutine wakes its waiters before it clears its own in-flight record
+// (oidc@v3.21.0/oidc/jwks.go:209-226), so a fetch that starts in the gap is
+// answered with the finished result and sends no request. A harness that needs
+// its next fetch to reach the endpoint waits here after the previous one.
+func waitForKeyRefreshToFinish(t *testing.T) {
+	t.Helper()
+
+	deadline := time.Now().Add(10 * time.Second)
+	for keyRefreshInFlight() {
+		if time.Now().After(deadline) {
+			t.Fatal("go-oidc key-set refresh goroutine did not finish")
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func TestKeyRefreshWitnessSeesTheRefreshGoroutine(t *testing.T) {
+	signing := newPropertySigning(t)
+	env := newPropertyEnv(t, signing)
+	env.keys.set(behaviorNeverAnswers)
+
+	keySet := oidc.NewRemoteKeySet(context.Background(), env.keysURL)
+	ctx, cancel := context.WithCancel(context.Background())
+	started := make(chan struct{})
+	var once sync.Once
+	hook := func() { once.Do(func() { close(started) }) }
+	env.keys.hook.Store(&hook)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, _ = keySet.VerifySignature(ctx, signing.token(t, tokenSignedByServedKey, env.discURL, time.Now()))
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(10 * time.Second):
+		t.Fatal("key request never reached the endpoint")
+	}
+	if !keyRefreshInFlight() {
+		t.Fatalf("no goroutine in frame %q while a key fetch is in flight: go-oidc renamed it, so the settle wait no longer waits", keyRefreshFrame)
+	}
+
+	cancel()
+	<-done
+	env.releaseHandlers()
+	waitForKeyRefreshToFinish(t)
+}
+
+// propertyEnv is the issuer, clock, and transport of one row. Each row owns its
+// own, so a handler left running by one row cannot reach the next.
+type propertyEnv struct {
+	disc      *propertyEndpoint
+	keys      *propertyEndpoint
+	discURL   string
+	keysURL   string
+	clock     *settableClock
+	transport *http.Transport
+	requests  atomic.Int64
+	gate      atomic.Pointer[cancelGate]
+
+	// release is closed when the row ends and frees every handler that waits.
+	release     chan struct{}
+	releaseOnce sync.Once
+}
+
+func (env *propertyEnv) releaseHandlers() {
+	env.releaseOnce.Do(func() { close(env.release) })
+}
+
+func newPropertyEnv(t *testing.T, signing *propertySigning) *propertyEnv {
+	t.Helper()
+
+	env := &propertyEnv{
+		clock:     newSettableClock(time.Time{}),
+		transport: &http.Transport{},
+		release:   make(chan struct{}),
+	}
+	t.Cleanup(env.transport.CloseIdleConnections)
+
+	env.disc = &propertyEndpoint{env: env, answer: func(w http.ResponseWriter) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"issuer":                                env.discURL,
+			"jwks_uri":                              env.keysURL,
+			"id_token_signing_alg_values_supported": []string{"RS256"},
+			"response_types_supported":              []string{"id_token"},
+			"subject_types_supported":               []string{"public"},
+		})
+	}}
+	env.keys = &propertyEndpoint{env: env, answer: func(w http.ResponseWriter) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"keys": []map[string]any{
+				{
+					"kty": "RSA",
+					"kid": signing.servedKID,
+					"use": "sig",
+					"alg": "RS256",
+					"n":   base64.RawURLEncoding.EncodeToString(signing.served.N.Bytes()),
+					"e":   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(signing.served.E)).Bytes()),
+				},
+			},
+		})
+	}}
+	env.disc.set(behaviorAnswersCorrectly)
+	env.keys.set(behaviorAnswersCorrectly)
+
+	discServer := httptest.NewServer(env.disc)
+	t.Cleanup(discServer.Close)
+	keysServer := httptest.NewServer(env.keys)
+	t.Cleanup(keysServer.Close)
+	env.discURL = discServer.URL
+	env.keysURL = keysServer.URL + "/keys"
+
+	// Cleanups run last in, first out: the release must come before the
+	// servers close, because Close waits for every handler to return.
+	t.Cleanup(env.releaseHandlers)
+
+	return env
+}
+
+// cancelGate fires the caller's cancel from inside an endpoint handler, so the
+// cancel lands while the request the caller waits on is in flight. The handler
+// that claims the gate holds its response until the caller's Verify has
+// returned, so the response cannot race the cancel.
+type cancelGate struct {
+	cancel context.CancelFunc
+
+	// armed is closed by the test just before the caller calls Verify.
+	armed chan struct{}
+	// waiting is closed when the verifier first asks the caller's context for
+	// its Done channel, which it does only to wait on a request.
+	waiting chan struct{}
+	// returned is closed by the test once the caller's Verify has returned.
+	returned chan struct{}
+
+	claimed atomic.Bool
+	fired   atomic.Bool
+}
+
+func newCancelGate(cancel context.CancelFunc) *cancelGate {
+	return &cancelGate{
+		cancel:   cancel,
+		armed:    make(chan struct{}),
+		waiting:  make(chan struct{}),
+		returned: make(chan struct{}),
+	}
+}
+
+func (g *cancelGate) onRequest(reqCtx context.Context, release <-chan struct{}) {
+	if !g.claimed.CompareAndSwap(false, true) {
+		return
+	}
+
+	for _, stage := range []<-chan struct{}{g.armed, g.waiting} {
+		select {
+		case <-stage:
+		case <-reqCtx.Done():
+			return
+		case <-release:
+			return
+		}
+	}
+
+	// The flag goes up before the cancel: the caller returns as soon as it
+	// sees the cancel and reads the flag.
+	g.fired.Store(true)
+	g.cancel()
+
+	select {
+	case <-g.returned:
+	case <-reqCtx.Done():
+	case <-release:
+	}
+}
+
+// watchedContext tells the gate when the verifier starts waiting on it.
+type watchedContext struct {
+	context.Context
+	waiting chan struct{}
+	once    sync.Once
+}
+
+func (c *watchedContext) Done() <-chan struct{} {
+	c.once.Do(func() { close(c.waiting) })
+	return c.Context.Done()
+}
+
 type propertyExpectedResult struct {
 	errCode    errs.Code
 	retryable  bool
@@ -1309,151 +1776,265 @@ type propertyExpectedResult struct {
 	success    bool
 }
 
-func propertyExpectedOutcome(
-	disc endpointBehavior,
-	keys endpointBehavior,
-	tok propertyTokenKind,
-	prior propertyPriorState,
-	callerCtx propertyCallerContext,
-) propertyExpectedResult {
-	if callerCtx == ctxCanceledBefore {
+func propertyExpectedOutcome(row propertyRow) propertyExpectedResult {
+	unavailable := propertyExpectedResult{errCode: authn.ErrCodeUnavailable, retryable: true}
+
+	if row.ctx == ctxCanceledBefore || row.ctx == ctxCanceledMidReq {
 		return propertyExpectedResult{contextErr: context.Canceled}
 	}
 
-	if tok == tokenMalformed {
+	if row.tok == tokenMalformed {
 		return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
 	}
 
-	discoveryCached := (prior == priorKeyFetchFailedInWindow ||
-		prior == priorKeyFetchFailedPastWindow ||
-		prior == priorCanceledMidKeyFetch)
-	validKeyCached := discoveryCached
-
-	if validKeyCached {
-		switch tok {
-		case tokenValidCachedKID:
-			return propertyExpectedResult{success: true}
-		case tokenAudOther:
-			return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
-		case tokenAudFetchingKeys:
-			return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
-		case tokenExpired:
-			return propertyExpectedResult{errCode: authn.ErrCodeTokenExpired}
+	if !row.prior.cachesKey() {
+		if row.disc != behaviorAnswersCorrectly || row.keys != behaviorAnswersCorrectly {
+			return unavailable
 		}
 	}
 
-	if prior == priorKeyFetchFailedInWindow && (tok == tokenValidUnknownKID || tok == tokenKnownKIDWrongSig) {
-		return propertyExpectedResult{errCode: authn.ErrCodeUnavailable, retryable: true}
-	}
-
-	if callerCtx == ctxCanceledMidReq {
-		return propertyExpectedResult{contextErr: context.Canceled}
-	}
-
-	if !discoveryCached {
-		if disc != behaviorAnswersCorrectly {
-			return propertyExpectedResult{errCode: authn.ErrCodeUnavailable, retryable: true}
-		}
-		if keys != behaviorAnswersCorrectly {
-			return propertyExpectedResult{errCode: authn.ErrCodeUnavailable, retryable: true}
-		}
-		switch tok {
-		case tokenValidCachedKID:
-			return propertyExpectedResult{success: true}
-		case tokenValidUnknownKID:
-			return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
-		case tokenKnownKIDWrongSig:
-			return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
-		case tokenAudOther:
-			return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
-		case tokenAudFetchingKeys:
-			return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
-		case tokenExpired:
-			return propertyExpectedResult{errCode: authn.ErrCodeTokenExpired}
-		}
-	}
-
-	if tok == tokenAudOther {
+	switch row.tok {
+	case tokenSignedByServedKey:
+		return propertyExpectedResult{success: true}
+	case tokenAudOther, tokenAudFetchingKeys:
 		return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
-	}
-	if tok == tokenAudFetchingKeys {
-		return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
-	}
-	if tok == tokenExpired {
+	case tokenExpired:
 		return propertyExpectedResult{errCode: authn.ErrCodeTokenExpired}
 	}
 
-	if prior == priorKeyFetchFailedInWindow {
-		return propertyExpectedResult{errCode: authn.ErrCodeUnavailable, retryable: true}
+	// A token the cached key set cannot verify needs a key fetch.
+	if !row.prior.cachesKey() {
+		return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
 	}
-
-	if keys != behaviorAnswersCorrectly {
-		return propertyExpectedResult{errCode: authn.ErrCodeUnavailable, retryable: true}
+	if row.prior == priorKeyFetchFailedInWindow || row.keys != behaviorAnswersCorrectly {
+		return unavailable
 	}
 
 	return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
 }
 
-func checkCaseResult(t *testing.T, caseKey string, expected propertyExpectedResult, p authn.Principal, err error) {
+func checkCaseResult(t *testing.T, expected propertyExpectedResult, p authn.Principal, err error) {
 	t.Helper()
+
 	if expected.contextErr != nil {
 		if !errors.Is(err, expected.contextErr) {
-			t.Fatalf("[%s] want context error %v bare, got %v", caseKey, expected.contextErr, err)
+			t.Fatalf("want context error %v bare, got %v", expected.contextErr, err)
 		}
 		if err != context.Canceled && err != context.DeadlineExceeded {
-			t.Fatalf("[%s] want bare context error, got %T: %v", caseKey, err, err)
+			t.Fatalf("want bare context error, got %T: %v", err, err)
 		}
 		return
 	}
 
 	if expected.success {
 		if err != nil {
-			t.Fatalf("[%s] expected success, got error: %v", caseKey, err)
+			t.Fatalf("expected success, got error: %v", err)
 		}
 		if p.Subject != "u1" {
-			t.Fatalf("[%s] got subject %q, want u1", caseKey, p.Subject)
+			t.Fatalf("got subject %q, want u1", p.Subject)
 		}
 		return
 	}
 
 	if err == nil {
-		t.Fatalf("[%s] expected error %v, got success (principal: %+v)", caseKey, expected.errCode, p)
+		t.Fatalf("expected error %v, got success (principal: %+v)", expected.errCode, p)
 	}
 
 	code, ok := errs.CodeOf(err)
 	if !ok || code != expected.errCode {
-		t.Fatalf("[%s] got code %v, want %v (err: %v)", caseKey, code, expected.errCode, err)
+		t.Fatalf("got code %v, want %v (err: %v)", code, expected.errCode, err)
 	}
 
 	if expected.retryable && !errs.Retryable(err) {
-		t.Fatalf("[%s] expected retryable error, got non-retryable: %v", caseKey, err)
+		t.Fatalf("expected retryable error, got non-retryable: %v", err)
 	}
 	if !expected.retryable && errs.Retryable(err) {
-		t.Fatalf("[%s] expected non-retryable error, got retryable: %v", caseKey, err)
+		t.Fatalf("expected non-retryable error, got retryable: %v", err)
+	}
+
+	// The caller's own context is live, so neither a cancellation nor a
+	// deadline may appear in the chain. An endpoint's timeout is a fact about
+	// the endpoint, and the replay cache hands it to every caller in the window.
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("live caller's result carries a context error in its chain: %v", err)
 	}
 }
 
-func TestVerifierOutageClassificationProperty(t *testing.T) {
-	h := newPropertyHarness(t)
+// startCanceledLeader starts a verification whose context ends when its request
+// reaches ep, and returns a channel closed once that verification has returned.
+// The request stays in flight for the caller under test to join.
+func (env *propertyEnv) startCanceledLeader(t *testing.T, v *authn.Verifier, token string, ep *propertyEndpoint, gate *cancelGate) <-chan struct{} {
+	t.Helper()
 
-	discBehaviors := []endpointBehavior{
-		behaviorAnswersCorrectly,
-		behaviorAnswers500,
-		behaviorRefusesConn,
-		behaviorNeverAnswers,
+	started := make(chan struct{})
+	done := make(chan struct{})
+	leaderCtx, cancelLeader := context.WithCancel(context.Background())
+	t.Cleanup(cancelLeader)
+
+	var once sync.Once
+	hook := func() {
+		once.Do(func() {
+			cancelLeader()
+			close(started)
+		})
+	}
+	ep.hook.Store(&hook)
+	if gate != nil {
+		env.gate.Store(gate)
 	}
 
-	keysBehaviors := []endpointBehavior{
+	go func() {
+		defer close(done)
+		_, _ = v.Verify(leaderCtx, token)
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(10 * time.Second):
+		t.Fatal("leader's request never reached the endpoint")
+	}
+	ep.hook.Store(nil)
+
+	return done
+}
+
+// run executes the row and reports whether the caller's cancel was fired from
+// an endpoint handler.
+func (r propertyRow) run(t *testing.T, signing *propertySigning) (cancelFired bool) {
+	t.Helper()
+
+	env := newPropertyEnv(t, signing)
+	t0 := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
+	env.clock.Set(t0)
+
+	// A row that waits on an endpoint that never answers waits for the client
+	// timeout, so it gets a short one. A canceled-mid-request row never waits
+	// for it: the gate holds the request open until the caller is gone. Every
+	// other row gets a long timeout, so a stalled test process cannot turn an
+	// answer into a timeout.
+	timeout := 2 * time.Second
+	if r.ctx != ctxCanceledMidReq && (r.disc == behaviorNeverAnswers || r.keys == behaviorNeverAnswers) {
+		timeout = 200 * time.Millisecond
+	}
+
+	v, err := authn.NewVerifier(authn.Options{
+		Issuers: []authn.IssuerConfig{{Issuer: env.discURL, Audience: "flowseer-device"}},
+		Client:  &http.Client{Transport: env.transport, Timeout: timeout},
+		Clock:   env.clock.Now,
+	})
+	if err != nil {
+		t.Fatalf("NewVerifier: %v", err)
+	}
+
+	servedTok := signing.token(t, tokenSignedByServedKey, env.discURL, t0)
+	unservedTok := signing.token(t, tokenSignedByUnservedKey, env.discURL, t0)
+	testToken := signing.token(t, r.tok, env.discURL, t0)
+
+	var callCtx context.Context
+	var gate *cancelGate
+	switch r.ctx {
+	case ctxLive:
+		callCtx = context.Background()
+	case ctxCanceledBefore:
+		c, cancel := context.WithCancel(context.Background())
+		cancel()
+		callCtx = c
+	case ctxCanceledMidReq:
+		c, cancel := context.WithCancel(context.Background())
+		t.Cleanup(cancel)
+		gate = newCancelGate(cancel)
+		callCtx = &watchedContext{Context: c, waiting: gate.waiting}
+	}
+
+	cacheKey := func() {
+		if _, err := v.Verify(context.Background(), servedTok); err != nil {
+			t.Fatalf("setup: verify token signed by the served key: %v", err)
+		}
+		waitForKeyRefreshToFinish(t)
+		env.clock.Advance(15 * time.Second)
+	}
+	failKeyFetch := func() {
+		env.keys.set(behaviorAnswers500)
+		_, err := v.Verify(context.Background(), unservedTok)
+		if code, _ := errs.CodeOf(err); code != authn.ErrCodeUnavailable {
+			t.Fatalf("setup: key fetch against a 500 endpoint gave %v, want authn/unavailable", err)
+		}
+		waitForKeyRefreshToFinish(t)
+	}
+	useRowBehaviors := func() {
+		env.disc.set(r.disc)
+		env.keys.set(r.keys)
+	}
+
+	var leaderDone <-chan struct{}
+	switch r.prior {
+	case priorFresh:
+	case priorKeyCached:
+		cacheKey()
+	case priorKeyFetchFailedInWindow:
+		cacheKey()
+		failKeyFetch()
+	case priorKeyFetchFailedPastWindow:
+		cacheKey()
+		failKeyFetch()
+		env.clock.Advance(15 * time.Second)
+	case priorCanceledMidDiscovery:
+		useRowBehaviors()
+		leaderDone = env.startCanceledLeader(t, v, servedTok, env.disc, gate)
+	case priorCanceledMidKeyFetch:
+		cacheKey()
+		useRowBehaviors()
+		leaderDone = env.startCanceledLeader(t, v, unservedTok, env.keys, gate)
+	}
+	useRowBehaviors()
+
+	if gate != nil {
+		env.gate.Store(gate)
+		close(gate.armed)
+	}
+
+	requestsBefore := env.requests.Load()
+	p, callErr := v.Verify(callCtx, testToken)
+	if gate != nil {
+		close(gate.returned)
+	}
+	if leaderDone != nil {
+		<-leaderDone
+	}
+
+	// A canceled leader's own request can still be retried by the transport
+	// after the call returns, when the endpoint closes its connection, so the
+	// count is asserted only where no other request is in flight.
+	if reason := noRequestReason(r.prior, r.tok); reason != "" && r.ctx == ctxLive && leaderDone == nil {
+		if sent := env.requests.Load() - requestsBefore; sent != 0 {
+			t.Errorf("verification sent %d request(s), want none: %s", sent, reason)
+		}
+	}
+
+	checkCaseResult(t, propertyExpectedOutcome(r), p, callErr)
+
+	cancelFired = gate != nil && gate.fired.Load()
+	if r.ctx == ctxCanceledMidReq && !cancelFired {
+		t.Errorf("no endpoint handler fired the caller's cancel, so the row did not cancel mid-request")
+	}
+
+	return cancelFired
+}
+
+func TestVerifierOutageClassificationProperty(t *testing.T) {
+	signing := newPropertySigning(t)
+
+	endpointBehaviors := []endpointBehavior{
 		behaviorAnswersCorrectly,
 		behaviorAnswers500,
-		behaviorRefusesConn,
+		behaviorClosesConnection,
 		behaviorNeverAnswers,
 	}
 
 	tokens := []propertyTokenKind{
-		tokenValidCachedKID,
-		tokenValidUnknownKID,
-		tokenKnownKIDWrongSig,
+		tokenSignedByServedKey,
+		tokenSignedByUnservedKey,
+		tokenServedKIDWrongSig,
 		tokenAudOther,
 		tokenAudFetchingKeys,
 		tokenExpired,
@@ -1462,6 +2043,7 @@ func TestVerifierOutageClassificationProperty(t *testing.T) {
 
 	priorStates := []propertyPriorState{
 		priorFresh,
+		priorKeyCached,
 		priorKeyFetchFailedInWindow,
 		priorKeyFetchFailedPastWindow,
 		priorCanceledMidDiscovery,
@@ -1474,184 +2056,71 @@ func TestVerifierOutageClassificationProperty(t *testing.T) {
 		ctxCanceledMidReq,
 	}
 
-	totalProduct := len(discBehaviors) * len(keysBehaviors) * len(tokens) * len(priorStates) * len(callerContexts)
+	// The expected counts are written out. Each is the product of the axes
+	// above, so an axis value deleted or added changes the rows that run and
+	// fails here until the number is updated on purpose:
+	// 4 disc * 4 keys * 7 tokens * 6 prior states * 3 contexts = 2016 rows,
+	// of which 24 token/prior combinations * 16 endpoint pairs = 384 are
+	// canceled-mid-request rows with no request to cancel in, leaving 1632.
+	// The other 18 * 16 = 288 canceled-mid-request rows each fire the cancel
+	// from an endpoint handler.
+	const (
+		wantRowsRun      = 1632
+		wantImpossible   = 384
+		wantCancelsFired = 288
+	)
+
 	impossibleCases := map[string]string{}
+	for _, rule := range noRequestRules {
+		for _, prior := range rule.priors {
+			for _, tok := range rule.tokens {
+				for _, disc := range endpointBehaviors {
+					for _, keys := range endpointBehaviors {
+						row := propertyRow{disc: disc, keys: keys, tok: tok, prior: prior, ctx: ctxCanceledMidReq}
+						impossibleCases[row.name()] = rule.reason
+					}
+				}
+			}
+		}
+	}
+	if len(impossibleCases) != wantImpossible {
+		t.Fatalf("listed %d impossible combinations, want %d", len(impossibleCases), wantImpossible)
+	}
+
 	runCount := 0
 	skippedCount := 0
+	cancelsFired := 0
 
-	behOK := behaviorAnswersCorrectly
-	beh500 := behaviorAnswers500
-
-	for _, disc := range discBehaviors {
-		for _, keys := range keysBehaviors {
-			for _, tokKind := range tokens {
+	for _, disc := range endpointBehaviors {
+		for _, keys := range endpointBehaviors {
+			for _, tok := range tokens {
 				for _, prior := range priorStates {
 					for _, ctxKind := range callerContexts {
-						caseKey := fmt.Sprintf("disc=%s/keys=%s/tok=%s/prior=%s/ctx=%s", disc, keys, tokKind, prior, ctxKind)
-						if _, skip := impossibleCases[caseKey]; skip {
+						row := propertyRow{disc: disc, keys: keys, tok: tok, prior: prior, ctx: ctxKind}
+						if _, impossible := impossibleCases[row.name()]; impossible {
 							skippedCount++
 							continue
 						}
 						runCount++
 
-						t0 := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
-						h.setNow(t0)
-
-						issuerURL := h.discServer.URL
-
-						tokValidCached := h.makeToken(t, tokenValidCachedKID, issuerURL)
-						tokValidUnknown := h.makeToken(t, tokenValidUnknownKID, issuerURL)
-
-						v, err := authn.NewVerifier(authn.Options{
-							Issuers: []authn.IssuerConfig{
-								{
-									Issuer:   issuerURL,
-									Audience: "flowseer-device",
-								},
-							},
-							Client: &http.Client{
-								Timeout: 100 * time.Millisecond,
-							},
-							Clock: h.now,
+						t.Run(row.name(), func(t *testing.T) {
+							if row.run(t, signing) {
+								cancelsFired++
+							}
 						})
-						if err != nil {
-							t.Fatalf("NewVerifier %s: %v", caseKey, err)
-						}
-
-						testToken := h.makeToken(t, tokKind, issuerURL)
-
-						var callCtx context.Context
-						var callCancel context.CancelFunc
-						switch ctxKind {
-						case ctxLive:
-							callCtx = context.Background()
-						case ctxCanceledBefore:
-							c, cancel := context.WithCancel(context.Background())
-							cancel()
-							callCtx = c
-						case ctxCanceledMidReq:
-							c, cancel := context.WithCancel(context.Background())
-							callCancel = cancel
-							callCtx = c
-						}
-
-						var leaderDone chan struct{}
-						switch prior {
-						case priorFresh:
-						case priorKeyFetchFailedInWindow:
-							h.currentDiscBehavior.Store(&behOK)
-							h.currentKeysBehavior.Store(&behOK)
-							if _, err := v.Verify(context.Background(), tokValidCached); err != nil {
-								t.Fatalf("setup %s verify valid: %v", caseKey, err)
-							}
-							t1 := t0.Add(15 * time.Second)
-							h.setNow(t1)
-							h.currentKeysBehavior.Store(&beh500)
-							if _, err := v.Verify(context.Background(), tokValidUnknown); err == nil {
-								t.Fatalf("setup %s expected failure for unknown kid", caseKey)
-							}
-						case priorKeyFetchFailedPastWindow:
-							h.currentDiscBehavior.Store(&behOK)
-							h.currentKeysBehavior.Store(&behOK)
-							if _, err := v.Verify(context.Background(), tokValidCached); err != nil {
-								t.Fatalf("setup %s verify valid: %v", caseKey, err)
-							}
-							t1 := t0.Add(15 * time.Second)
-							h.setNow(t1)
-							h.currentKeysBehavior.Store(&beh500)
-							if _, err := v.Verify(context.Background(), tokValidUnknown); err == nil {
-								t.Fatalf("setup %s expected failure for unknown kid", caseKey)
-							}
-							h.setNow(t1.Add(15 * time.Second))
-						case priorCanceledMidDiscovery:
-							discBeh := disc
-							keysBeh := keys
-							h.currentDiscBehavior.Store(&discBeh)
-							h.currentKeysBehavior.Store(&keysBeh)
-							if ctxKind == ctxCanceledMidReq && tokKind != tokenMalformed {
-								h.cancelMidRequest.Store(&callCancel)
-							}
-							leaderStarted := make(chan struct{})
-							done := make(chan struct{})
-							leaderDone = done
-							ctxPrior, cancelPrior := context.WithCancel(context.Background())
-							hook := func() {
-								cancelPrior()
-								close(leaderStarted)
-							}
-							h.discHook.Store(&hook)
-							go func() {
-								_, _ = v.Verify(ctxPrior, tokValidCached)
-								close(done)
-							}()
-							<-leaderStarted
-							h.discHook.Store(nil)
-						case priorCanceledMidKeyFetch:
-							h.currentDiscBehavior.Store(&behOK)
-							h.currentKeysBehavior.Store(&behOK)
-							if _, err := v.Verify(context.Background(), tokValidCached); err != nil {
-								t.Fatalf("setup %s verify valid: %v", caseKey, err)
-							}
-							t1 := t0.Add(15 * time.Second)
-							h.setNow(t1)
-							keysBeh := keys
-							h.currentKeysBehavior.Store(&keysBeh)
-							if ctxKind == ctxCanceledMidReq && (tokKind == tokenValidUnknownKID || tokKind == tokenKnownKIDWrongSig) {
-								h.cancelMidRequest.Store(&callCancel)
-							}
-							leaderStarted := make(chan struct{})
-							done := make(chan struct{})
-							leaderDone = done
-							ctxPrior, cancelPrior := context.WithCancel(context.Background())
-							hook := func() {
-								cancelPrior()
-								close(leaderStarted)
-							}
-							h.keysHook.Store(&hook)
-							go func() {
-								_, _ = v.Verify(ctxPrior, tokValidUnknown)
-								close(done)
-							}()
-							<-leaderStarted
-							h.keysHook.Store(nil)
-						}
-
-						discBeh := disc
-						keysBeh := keys
-						h.currentDiscBehavior.Store(&discBeh)
-						h.currentKeysBehavior.Store(&keysBeh)
-						if ctxKind == ctxCanceledMidReq && prior != priorCanceledMidDiscovery && prior != priorCanceledMidKeyFetch {
-							validKeyCached := (prior == priorKeyFetchFailedInWindow || prior == priorKeyFetchFailedPastWindow || prior == priorCanceledMidKeyFetch)
-							willMakeNetworkCall := tokKind != tokenMalformed
-							if validKeyCached && (tokKind == tokenValidCachedKID || tokKind == tokenAudOther || tokKind == tokenAudFetchingKeys || tokKind == tokenExpired) {
-								willMakeNetworkCall = false
-							}
-							if prior == priorKeyFetchFailedInWindow && (tokKind == tokenValidUnknownKID || tokKind == tokenKnownKIDWrongSig) {
-								willMakeNetworkCall = false
-							}
-							if willMakeNetworkCall {
-								h.cancelMidRequest.Store(&callCancel)
-							}
-						}
-
-						p, callErr := v.Verify(callCtx, testToken)
-						h.cancelMidRequest.Store(nil)
-						if callCancel != nil {
-							callCancel()
-						}
-						if leaderDone != nil {
-							<-leaderDone
-						}
-
-						expected := propertyExpectedOutcome(disc, keys, tokKind, prior, ctxKind)
-						checkCaseResult(t, caseKey, expected, p, callErr)
 					}
 				}
 			}
 		}
 	}
 
-	if runCount < totalProduct-skippedCount {
-		t.Fatalf("ran %d cases, want at least %d (%d total minus %d impossible)", runCount, totalProduct-skippedCount, totalProduct, skippedCount)
+	if skippedCount != len(impossibleCases) {
+		t.Errorf("matrix holds %d of the %d listed impossible combinations", skippedCount, len(impossibleCases))
+	}
+	if runCount != wantRowsRun {
+		t.Errorf("ran %d rows, want %d", runCount, wantRowsRun)
+	}
+	if cancelsFired != wantCancelsFired {
+		t.Errorf("fired the caller's cancel from an endpoint handler in %d rows, want %d", cancelsFired, wantCancelsFired)
 	}
 }
