@@ -40,8 +40,8 @@ export function createWebI18n(locale: WebLocale = 'en') {
     locale,
     fallbackLocale: 'en',
     messages: {
-      en,
-      de,
+      en: structuredClone(en),
+      de: structuredClone(de),
     },
     numberFormats,
   })

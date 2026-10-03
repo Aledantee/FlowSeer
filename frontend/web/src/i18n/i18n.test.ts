@@ -146,4 +146,28 @@ describe('i18n message catalogs and runtime', () => {
     expect(i18n.global.locale.value).toBe('de')
     expect(i18n.global.t('test.onlyEn')).toBe('x')
   })
+
+  it('isolates messages set or merged into one instance from other instances and imported catalogs', () => {
+    const first = createWebI18n('en')
+    const second = createWebI18n('en')
+
+    first.global.mergeLocaleMessage('en', { probe: { custom: 'probe-en' } })
+    expect(first.global.t('probe.custom')).toBe('probe-en')
+    expect(second.global.te('probe.custom', 'en')).toBe(false)
+    expect(
+      (second.global.getLocaleMessage('en') as Record<string, unknown>).probe,
+    ).toBeUndefined()
+    expect((en as Record<string, unknown>).probe).toBeUndefined()
+
+    first.global.setLocaleMessage('de', {
+      ...de,
+      probe: { custom: 'probe-de' },
+    })
+    expect(first.global.t('probe.custom', 1, { locale: 'de' })).toBe('probe-de')
+    expect(second.global.te('probe.custom', 'de')).toBe(false)
+    expect(
+      (second.global.getLocaleMessage('de') as Record<string, unknown>).probe,
+    ).toBeUndefined()
+    expect((de as Record<string, unknown>).probe).toBeUndefined()
+  })
 })

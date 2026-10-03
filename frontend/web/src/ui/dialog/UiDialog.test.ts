@@ -232,13 +232,7 @@ describe('UiDialog', () => {
     await nextTick()
     await new Promise((r) => setTimeout(r, 20))
 
-    try {
-      expect(document.body.querySelector('h2')?.textContent).toBe('Probe title')
-    } finally {
-      i18n.global.mergeLocaleMessage('en', {
-        ui: { dialog: { fallbackTitle: 'Dialog' } },
-      })
-    }
+    expect(document.body.querySelector('h2')?.textContent).toBe('Probe title')
   })
 
   it('updates dialog defaults on live locale change and preserves explicit overrides', async () => {
