@@ -1,13 +1,4 @@
 import { parse } from 'vue/compiler-sfc'
-import {
-  devices,
-  sites,
-  tenants,
-  type Device,
-  type Site,
-  type Tenant,
-} from '../domain/fleet'
-import { clientsOf } from '../domain/clients'
 
 // The `vue-i18n` warnings a missing key, a missing format, or a missing
 // parent scope prints. Tests spy on `console.warn` and pass its calls here.
@@ -112,33 +103,6 @@ export function templateLiterals(source: string): TemplateLiteral[] {
   return found
 }
 
-// Builds the set of fixture identifiers: device names and addresses,
-// site names, tenant names, and client hostnames, MACs, and addresses.
-// location, kind, endpoint, VLAN, and model strings are not in the set.
-export function fixtureIdentifiers(
-  allDevices: Device[] = devices,
-  allSites: Site[] = sites,
-  allTenants: Tenant[] = tenants,
-): Set<string> {
-  const set = new Set<string>()
-  for (const device of allDevices) {
-    if (device.name) set.add(device.name)
-    if (device.address) set.add(device.address)
-  }
-  for (const site of allSites) {
-    if (site.name) set.add(site.name)
-  }
-  for (const tenant of allTenants) {
-    if (tenant.name) set.add(tenant.name)
-  }
-  for (const client of clientsOf(allDevices)) {
-    if (client.hostname) set.add(client.hostname)
-    if (client.mac) set.add(client.mac)
-    if (client.address) set.add(client.address)
-  }
-  return set
-}
-
 export interface UnmarkedIdentifier {
   identifier: string
   text: string
@@ -162,14 +126,8 @@ function containsWholeIdentifier(text: string, identifier: string): boolean {
       idx + identifier.length < text.length ? text[idx + identifier.length] : ''
 
     const isMac = identifier.includes(':')
-    const badBefore =
-      /[a-zA-Z0-9_-]/.test(before) ||
-      (/\d/.test(identifier[0]) && before === '.') ||
-      (isMac && before === ':')
-    const badAfter =
-      /[a-zA-Z0-9_-]/.test(after) ||
-      (/\d/.test(identifier[identifier.length - 1]) && after === '.') ||
-      (isMac && after === ':')
+    const badBefore = /[a-zA-Z0-9_-]/.test(before) || (isMac && before === ':')
+    const badAfter = /[a-zA-Z0-9_-]/.test(after) || (isMac && after === ':')
 
     if (!badBefore && !badAfter) {
       return true

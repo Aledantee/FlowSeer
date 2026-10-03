@@ -1,6 +1,9 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest'
-import { fixtureIdentifiers, unmarkedIdentifiers } from './testing'
+import { devices } from '../domain/fleet'
+import { clientsOf } from '../domain/clients'
+import { fixtureIdentifiers } from '../domain/testing'
+import { unmarkedIdentifiers } from './testing'
 
 describe('fixtureIdentifiers', () => {
   it('collects names and addresses from fixtures without locations or kinds', () => {
@@ -11,10 +14,19 @@ describe('fixtureIdentifiers', () => {
     expect(identifiers.has('Berlin Mitte')).toBe(true)
     expect(identifiers.has('Aurora Hospitality')).toBe(true)
 
-    // Locations and kinds are excluded from fixture identifiers
     expect(identifiers.has('Berlin, DE')).toBe(false)
     expect(identifiers.has('Gateway')).toBe(false)
     expect(identifiers.has('Core switch')).toBe(false)
+  })
+
+  it('collects client hostnames, MACs, and addresses', () => {
+    const identifiers = fixtureIdentifiers()
+    const [client] = clientsOf(devices)
+    if (!client) throw new Error('Fixture has no sample client')
+
+    expect(identifiers.has(client.hostname)).toBe(true)
+    expect(identifiers.has(client.mac)).toBe(true)
+    expect(identifiers.has(client.address)).toBe(true)
   })
 })
 
@@ -32,6 +44,35 @@ describe('unmarkedIdentifiers', () => {
       },
     ])
   })
+
+  it.each([
+    ['berlin-gw-01 + Devices', 'berlin-gw-01'],
+    ['Berlin Mitte edge', 'Berlin Mitte'],
+    ['(Gateway, 10.20.0.1)', '10.20.0.1'],
+    ['über berlin-ap-01', 'berlin-ap-01'],
+    ['Could not reach berlin-gw-01.', 'berlin-gw-01'],
+    ['Reached 10.20.0.1.', '10.20.0.1'],
+  ])(
+    'reports an unmarked identifier inside longer text: %s',
+    (text, identifier) => {
+      const container = document.createElement('div')
+      container.innerHTML = `<p><span>${text}</span></p>`
+      const found = unmarkedIdentifiers(container, [
+        'berlin-gw-01',
+        'Berlin Mitte',
+        '10.20.0.1',
+        'berlin-ap-01',
+      ])
+
+      expect(found).toEqual([
+        {
+          identifier,
+          text,
+          path: 'div > p > span',
+        },
+      ])
+    },
+  )
 
   it('ignores an identifier marked directly with translate="no"', () => {
     const container = document.createElement('div')

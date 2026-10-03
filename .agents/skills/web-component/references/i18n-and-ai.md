@@ -47,18 +47,18 @@ reactively while exposing a default message and a customization slot:
 
 ```vue
 <script setup lang="ts">
-import { computed } from 'vue'
-import { ComboboxEmpty } from 'reka-ui'
-import { useI18n } from 'vue-i18n'
+import { computed } from "vue";
+import { ComboboxEmpty } from "reka-ui";
+import { useI18n } from "vue-i18n";
 
 export interface UiCommandEmptyProps {
-  text?: string
+  text?: string;
 }
 
-const props = defineProps<UiCommandEmptyProps>()
+const props = defineProps<UiCommandEmptyProps>();
 
-const { t } = useI18n({ useScope: 'global' })
-const resolvedText = computed(() => props.text ?? t('ui.commandEmpty.text'))
+const { t } = useI18n({ useScope: "global" });
+const resolvedText = computed(() => props.text ?? t("ui.commandEmpty.text"));
 </script>
 
 <template>
@@ -97,11 +97,13 @@ from `src/components/DevicePorts.vue`.
   migrate for quoted capitalized words, template literals with English
   text, and ternaries that choose between two plural forms.
 - **Executable identifier property.** `unmarkedIdentifiers(root, identifiers)`
-  in `src/i18n/testing.ts` verifies that rendered fixture identifiers (device
-  names, addresses, client hostnames, MACs, sites, tenants) sit inside
-  `translate="no"` elements. `src/FleetView.locale.test.ts` and
-  `src/components/GlobalSearch.test.ts` run it across view routes, switchers,
-  dock states, and search results.
+  in `src/i18n/testing.ts` verifies that rendered text nodes containing fixture
+  identifiers sit inside `translate="no"` elements. The fixture set in
+  `src/domain/testing.ts` covers device names, addresses, client hostnames,
+  MACs, sites, tenants, serials, models, firmware versions, port names, and
+  the brand. The property checks text nodes only, so `aria-label`, `title`,
+  and detached tooltip elements (such as `UiTooltip` on the dock) sit outside
+  it. Each new surface requires an explicit test call.
 
 ## AI contract, once `useAiTarget` exists
 

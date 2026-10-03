@@ -147,7 +147,11 @@ const uplink = computed(() => uplinkOf(props.fleet, props.device))
 const links = computed(() => downlinks(props.fleet, props.device))
 const clients = computed(() => clientsOf([props.device]).slice(0, 8))
 const siteOptions = computed(() =>
-  props.allowedSites.map((s) => ({ value: s.id, label: s.name })),
+  props.allowedSites.map((s) => ({
+    value: s.id,
+    label: s.name,
+    identifier: true,
+  })),
 )
 
 const selectedIssues = computed(() =>
@@ -443,6 +447,7 @@ function to(path: string, extra: Record<string, string> = {}) {
             </p>
             <pre
               class="mt-2 p-2 bg-card rounded text-2xs font-mono whitespace-pre-wrap"
+              translate="no"
               >{{ escalation }}</pre>
           </template>
         </div>
@@ -453,7 +458,11 @@ function to(path: string, extra: Record<string, string> = {}) {
     <UiCard as="section" aria-labelledby="paths-title">
       <template #header>
         <h2 id="paths-title" class="text-base font-semibold text-foreground">
-          {{ t('view.device.pathsTitle') }}
+          <I18nT scope="global" keypath="view.device.pathsTitle">
+            <template #brand>
+              <span translate="no">{{ 'FlowSeer' }}</span>
+            </template>
+          </I18nT>
         </h2>
       </template>
       <ul class="m-0 p-0 list-none border-t border-border">

@@ -15,21 +15,12 @@ import { createAiRegistry, createAiTargetDirective } from './ai'
 import { aiRegistryKey } from './ui/ai/context'
 import { createWebI18n } from './i18n'
 import type { WebLocale } from './i18n'
-import {
-  fixtureIdentifiers,
-  i18nWarnings,
-  unmarkedIdentifiers,
-} from './i18n/testing'
+import { i18nWarnings, unmarkedIdentifiers } from './i18n/testing'
+import { fixtureIdentifiers } from './domain/testing'
 import enCatalog from './i18n/locales/en.json'
 import deCatalog from './i18n/locales/de.json'
 
 const identifiers = fixtureIdentifiers()
-// UiTooltip label/hint renders string in an inaccessible span (PageDock.vue:63-71, UiTooltip.vue:101-102);
-// UiSelect option labels render string in an inaccessible SelectItemText (DeviceView.vue:149-151, UiSelect.vue:180-216).
-const exemptSelectors = [
-  '[data-reka-tooltip-content]',
-  '[data-reka-select-content]',
-]
 
 let dispose = () => {}
 let warn: ReturnType<typeof vi.spyOn>
@@ -212,11 +203,16 @@ describe('FleetView shell in German', () => {
         { id: 'one', location: { path: '/devices', query: {} } },
         {
           id: 'two',
+          location: { path: '/clients', query: {} },
+          beside: { path: '/sites', query: {} },
+        },
+        {
+          id: 'three',
           location: { path: `/devices/${offline.id}`, query: {} },
           beside: { path: '/clients', query: {} },
         },
         {
-          id: 'three',
+          id: 'four',
           location: { path: `/devices/${offline.id}`, query: {} },
         },
       ]),
@@ -224,15 +220,22 @@ describe('FleetView shell in German', () => {
     const { host } = await mountLocale('/dashboard', 'de')
 
     const dock = host.querySelector('.page-dock')
-    expect(dock?.getAttribute('aria-label')).toBe('Minimierte Seiten')
-    const tabs = [...(dock?.querySelectorAll('.dock-tab') ?? [])]
+    if (!dock) throw new Error('Missing page dock')
+    expect(dock.getAttribute('aria-label')).toBe('Minimierte Seiten')
+    const tabs = [...dock.querySelectorAll('.dock-tab')]
     expect(tabs.map((tab) => tab.querySelector('strong')?.textContent)).toEqual(
-      ['Geräte', `${offline.name} + Clients`, offline.name],
+      [
+        'Geräte',
+        'Clients + Standorte',
+        `${offline.name} + Clients`,
+        offline.name,
+      ],
     )
     expect(
       tabs.map((tab) => labelsOf(tab.querySelectorAll('.dock-action'))),
     ).toEqual([
       ['Geräte nebeneinander öffnen', 'Geräte schließen'],
+      ['Clients + Standorte schließen'],
       [`${offline.name} + Clients schließen`],
       [`${offline.name} nebeneinander öffnen`, `${offline.name} schließen`],
     ])
@@ -240,14 +243,22 @@ describe('FleetView shell in German', () => {
       tabs.map((tab) =>
         tab.querySelector('.dock-badge')?.getAttribute('aria-label'),
       ),
-    ).toEqual([`${attention} mit Handlungsbedarf`, 'Offline', 'Offline'])
+    ).toEqual([
+      `${attention} mit Handlungsbedarf`,
+      `${attention * 2} mit Handlungsbedarf`,
+      'Offline',
+      'Offline',
+    ])
     expect(tabs[0]?.querySelector('small')?.textContent).toBe('Alle Standorte')
 
-    expect(
-      unmarkedIdentifiers(dock!, identifiers, { exemptSelectors }),
-    ).toEqual([])
+    expect(unmarkedIdentifiers(dock, identifiers)).toEqual([])
 
-    // Reverse assertion: the page tab label and Alle Standorte detail have no translate attribute
+    const clientsSpan = [
+      ...(tabs[2]?.querySelectorAll('strong span') ?? []),
+    ].find((s) => s.textContent?.trim() === 'Clients')
+    expect(clientsSpan).toBeDefined()
+    expect(clientsSpan?.getAttribute('translate')).toBeNull()
+
     expect(
       tabs[0]?.querySelector('strong')?.getAttribute('translate'),
     ).toBeNull()
@@ -272,9 +283,41 @@ describe('FleetView shell in German', () => {
     const { host } = await mountLocale('/devices', 'de')
 
     expect(document.querySelector('.panes.split')).not.toBeNull()
-    expect(unmarkedIdentifiers(host, identifiers, { exemptSelectors })).toEqual(
-      [],
+    expect(unmarkedIdentifiers(host, identifiers)).toEqual([])
+
+    const paneButtons = [
+      ...host.querySelectorAll<HTMLButtonElement>(
+        '.pane-scope button[aria-haspopup="listbox"]',
+      ),
+    ]
+    const siteTrigger = paneButtons[paneButtons.length - 1]
+    if (!siteTrigger) throw new Error('Missing pane-scope site trigger')
+    siteTrigger.click()
+    await settle()
+    expect(
+      document.body.querySelectorAll('[role="option"]').length,
+    ).toBeGreaterThan(0)
+    expect(unmarkedIdentifiers(document.body, identifiers)).toEqual([])
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
     )
+    await settle()
+
+    const tenantTrigger = host.querySelector<HTMLButtonElement>(
+      '.breadcrumb .tenant-switcher button[aria-haspopup="listbox"]',
+    )
+    if (!tenantTrigger) throw new Error('Missing tenant switcher trigger')
+    tenantTrigger.click()
+    await settle()
+    expect(
+      document.body.querySelectorAll('[role="option"]').length,
+    ).toBeGreaterThan(0)
+    expect(unmarkedIdentifiers(document.body, identifiers)).toEqual([])
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    )
+    await settle()
+
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -290,9 +333,7 @@ describe('FleetView shell in German', () => {
     siteTrigger.click()
     await settle()
 
-    expect(
-      unmarkedIdentifiers(document.body, identifiers, { exemptSelectors }),
-    ).toEqual([])
+    expect(unmarkedIdentifiers(document.body, identifiers)).toEqual([])
 
     window.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
@@ -312,14 +353,24 @@ describe('FleetView shell in German', () => {
     deviceTrigger.click()
     await settle()
 
-    expect(
-      unmarkedIdentifiers(document.body, identifiers, { exemptSelectors }),
-    ).toEqual([])
+    expect(unmarkedIdentifiers(document.body, identifiers)).toEqual([])
 
     window.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
     )
     await settle()
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('marks identifiers in a breadcrumb with site and tenant selected', async () => {
+    const { host } = await mountLocale(
+      '/devices?tenant=aurora&site=berlin',
+      'de',
+    )
+    const breadcrumb = host.querySelector('.breadcrumb')
+    expect(breadcrumb?.textContent).toContain('Aurora Hospitality')
+    expect(breadcrumb?.textContent).toContain('Berlin Mitte')
+    expect(unmarkedIdentifiers(breadcrumb ?? host, identifiers)).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -786,9 +837,11 @@ describe('clients in German', () => {
     const stop = clientsSection(host)?.querySelector(
       'button[aria-label^="Filter nach"]',
     )
-    expect(stop?.getAttribute('aria-label')).toBe(
+    if (!stop) throw new Error('Missing stop filtering button')
+    expect(stop.getAttribute('aria-label')).toBe(
       'Filter nach berlin-ap-01 aufheben',
     )
+    expect(unmarkedIdentifiers(stop, identifiers)).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -851,6 +904,49 @@ describe('device route in German', () => {
     expect(host.querySelector('#links-title')?.textContent).toContain(
       'Downlinks',
     )
+
+    const details = host.querySelector<HTMLDetailsElement>('details')
+    if (!details) throw new Error('Missing move details')
+    details.open = true
+    details.dispatchEvent(new Event('toggle'))
+    await settle()
+
+    const select = host.querySelector<HTMLButtonElement>('button#destination')
+    if (!select) throw new Error('Missing destination select trigger')
+    expect(unmarkedIdentifiers(host, identifiers)).toEqual([])
+
+    select.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+      }),
+    )
+    select.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    )
+    await settle()
+    const hamburgOption = [
+      ...document.querySelectorAll('[role="option"]'),
+    ].find((item) => item.textContent?.includes('Hamburg'))
+    if (!hamburgOption) throw new Error('Missing Hamburg option')
+    expect(unmarkedIdentifiers(document.body, identifiers)).toEqual([])
+    hamburgOption.dispatchEvent(
+      new PointerEvent('pointerup', { bubbles: true, cancelable: true }),
+    )
+    await settle()
+
+    const form = host.querySelector('form')
+    form?.dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true }),
+    )
+    await settle()
+
+    const notice = host.querySelector('main [role="status"]')
+    if (!notice) throw new Error('Missing move notice')
+    expect(notice.textContent).toContain('berlin-sw-01')
+    expect(unmarkedIdentifiers(notice, identifiers)).toEqual([])
+
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -971,6 +1067,7 @@ describe('device ports in German', () => {
     expect(
       host.querySelector('.port-neighbor')?.closest('[translate="no"]'),
     ).not.toBe(null)
+    expect(unmarkedIdentifiers(host, identifiers)).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -1095,9 +1192,7 @@ describe.each(sweepRoutes)('locale sweep of $name', (route) => {
     expect(headingText(host, route.heading)).toContain(route.words.de)
     const english = englishOnlyTexts()
     expect(visibleTexts(host).filter((item) => english.has(item))).toEqual([])
-    expect(unmarkedIdentifiers(host, identifiers, { exemptSelectors })).toEqual(
-      [],
-    )
+    expect(unmarkedIdentifiers(host, identifiers)).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -1108,9 +1203,7 @@ describe.each(sweepRoutes)('locale sweep of $name', (route) => {
     expect(host.querySelector('.nav-label')?.textContent?.trim()).toBe(
       'WORKSPACE',
     )
-    expect(unmarkedIdentifiers(host, identifiers, { exemptSelectors })).toEqual(
-      [],
-    )
+    expect(unmarkedIdentifiers(host, identifiers)).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
