@@ -479,11 +479,7 @@ function deviceLink(id: string) {
           v-else-if="port"
           class="panel-link"
           :to="deviceLink(port.owner.id)"
-          ><I18nT
-            scope="global"
-            tag="span"
-            keypath="view.topologyInspector.openNamed"
-          >
+          ><I18nT scope="global" tag="span" keypath="view.common.openNamed">
             <template #name>
               <span translate="no">{{ port.owner.name }}</span>
             </template>

@@ -202,6 +202,7 @@
       "noSearch": "keine",
       "openBeside": "Nebeneinander öffnen",
       "openBesideLabel": "{label} nebeneinander öffnen",
+      "openNamed": "{name} öffnen",
       "pages": {
         "clients": "Clients",
         "dashboard": "Dashboard",
@@ -325,7 +326,7 @@
         "unreachableOnly": "Der einzige Pfad ist nicht erreichbar.",
         "unreachableSome": "{down} von {total} Pfaden sind nicht erreichbar."
       },
-      "pathsTitle": "Wie FlowSeer es erreicht",
+      "pathsTitle": "Wie {brand} es erreicht",
       "poll": "Jetzt abfragen",
       "pollAnswered": {
         "degraded": "Gerade eben geantwortet. Weiterhin beeinträchtigt.",
@@ -369,7 +370,6 @@
     "dock": {
       "close": "{label} schließen",
       "minimizedPages": "Minimierte Seiten",
-      "open": "{label} öffnen",
       "remove": "Aus dem Dock entfernen",
       "shiftHint": "Umschalt-Klick öffnet nebeneinander"
     },
@@ -412,7 +412,7 @@
       "workspace": "ARBEITSBEREICH"
     },
     "help": {
-      "findBody": "Geräte mit Handlungsbedarf stehen zuerst in der Liste. Die Suche nach Name, Typ oder IP-Adresse und der Statusfilter grenzen sie ein. Ein ausgewähltes Gerät zeigt, warum es Handlungsbedarf hat und wie FlowSeer es erreicht.",
+      "findBody": "Geräte mit Handlungsbedarf stehen zuerst in der Liste. Die Suche nach Name, Typ oder IP-Adresse und der Statusfilter grenzen sie ein. Ein ausgewähltes Gerät zeigt, warum es Handlungsbedarf hat und wie {brand} es erreicht.",
       "findHeading": "Gerät finden",
       "moveBody": "In den Gerätedetails „Zu einem anderen Standort verschieben“ aufklappen und einen Standort innerhalb des Mandanten des Geräts wählen. Die Verschiebung ersetzt die bisherige Zuordnung, sobald sie beobachtet wird, und die Meldung bietet „Rückgängig“ an.",
       "moveHeading": "Gerät verschieben",
@@ -551,7 +551,6 @@
       "nothing": "Nichts",
       "off": "Aus",
       "openDevice": "Gerät öffnen",
-      "openNamed": "{name} öffnen",
       "portLabel": "Details zu {device} {port}",
       "portMode": "Port-Modus {mode}",
       "sections": {

@@ -32,16 +32,27 @@ import {
   typingIn,
 } from '../navigation/shortcuts'
 
-export interface RowPart {
+export interface TextPart {
+  kind?: 'text'
   text: string
   identifier?: boolean
-  client?: {
+}
+
+export interface ClientPart {
+  kind: 'client'
+  client: {
     address: string
     mac: string
     device: string
   }
-  neighbor?: string
 }
+
+export interface NeighborPart {
+  kind: 'neighbor'
+  neighbor: string
+}
+
+export type RowPart = TextPart | ClientPart | NeighborPart
 
 export interface SearchPage {
   id: string
@@ -52,7 +63,7 @@ export interface SearchPage {
     first: { label: string; name?: boolean }
     second: { label: string; name?: boolean }
   }
-  parts: RowPart[]
+  parts: TextPart[]
 }
 
 const props = defineProps<{
@@ -96,9 +107,18 @@ function deviceName(id: string) {
 }
 
 function cleanParts(parts: (RowPart | undefined | null | false)[]): RowPart[] {
-  return parts.filter((part): part is RowPart =>
-    Boolean(part && part.text && part.text.trim()),
-  )
+  return parts.filter((part): part is RowPart => {
+    if (!part) return false
+    if ('client' in part) {
+      return Boolean(
+        part.client.address && part.client.mac && part.client.device,
+      )
+    }
+    if ('neighbor' in part) {
+      return Boolean(part.neighbor && part.neighbor.trim())
+    }
+    return Boolean(part.text && part.text.trim())
+  })
 }
 
 // Looks an entry up in the current data. Nothing is resolved for an object
@@ -110,7 +130,7 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
       page && {
         result: { kind, id, title: page.title },
         pair: page.pair,
-        parts: page.parts,
+        parts: cleanParts(page.parts),
       }
     )
   }
@@ -147,11 +167,7 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
       result: { kind, id, title: client.hostname },
       parts: [
         {
-          text: t('view.search.clientDetail', {
-            address: client.address,
-            mac: client.mac,
-            device: devName,
-          }),
+          kind: 'client',
           client: {
             address: client.address,
             mac: client.mac,
@@ -179,11 +195,9 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
   }
   const found = portsOf(props.fleet, device).find((item) => item.name === port)
   if (!found) return undefined
-  const farEnd = found.neighborId
+  const farEnd: RowPart | undefined = found.neighborId
     ? {
-        text: t('view.search.interfaceFarEnd', {
-          device: deviceName(found.neighborId),
-        }),
+        kind: 'neighbor',
         neighbor: deviceName(found.neighborId),
       }
     : found.endpoint
@@ -213,7 +227,7 @@ const pageMatches = computed(() => {
   const needle = query.value.trim().toLowerCase()
   return props.pages
     .filter((page) => {
-      const detail = (page.parts ?? []).map((p) => p.text).join(' ')
+      const detail = format.facts(page.parts.map((p) => p.text))
       return `${page.title} ${detail}`.toLowerCase().includes(needle)
     })
     .slice(0, 6)
@@ -466,7 +480,7 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
                     t('view.common.factSeparator')
                   }}</span>
                   <I18nT
-                    v-if="part.client"
+                    v-if="'client' in part"
                     scope="global"
                     tag="span"
                     keypath="view.search.clientDetail"
@@ -482,7 +496,7 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
                     </template>
                   </I18nT>
                   <I18nT
-                    v-else-if="part.neighbor"
+                    v-else-if="'neighbor' in part"
                     scope="global"
                     tag="span"
                     keypath="view.search.interfaceFarEnd"

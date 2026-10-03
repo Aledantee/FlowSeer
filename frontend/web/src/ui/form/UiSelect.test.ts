@@ -276,4 +276,34 @@ describe('UiSelect', () => {
     expect(defaultTrigger.textContent).toContain('Option auswählen...')
     expect(customTrigger.textContent).toContain('Custom Site Selection')
   })
+
+  it('marks identifier option label with translate="no"', async () => {
+    const identOptions = [
+      { value: 'ham', label: 'Hamburg Site', identifier: true },
+      { value: 'plain', label: 'Plain Option' },
+    ]
+    const host = mountSelect({
+      modelValue: 'ham',
+      options: identOptions,
+      defaultOpen: true,
+    })
+    await nextTick()
+
+    const triggerLabel = host.querySelector('button [translate="no"]')
+    expect(triggerLabel?.textContent?.trim()).toBe('Hamburg Site')
+
+    const optionsInDom = document.querySelectorAll('[role="option"]')
+    expect(optionsInDom.length).toBe(2)
+    const identOption = [...optionsInDom].find((el) =>
+      el.textContent?.includes('Hamburg Site'),
+    )
+    expect(
+      identOption?.querySelector('[translate="no"]')?.textContent?.trim(),
+    ).toBe('Hamburg Site')
+
+    const plainOption = [...optionsInDom].find((el) =>
+      el.textContent?.includes('Plain Option'),
+    )
+    expect(plainOption?.querySelector('[translate="no"]')).toBeNull()
+  })
 })

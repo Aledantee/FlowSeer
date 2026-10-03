@@ -17,11 +17,8 @@ import { SHORTCUTS, isMac, keysOf } from '../navigation/shortcuts'
 import GlobalSearch, { type SearchPage } from './GlobalSearch.vue'
 import { createWebI18n } from '../i18n'
 import type { WebLocale } from '../i18n'
-import {
-  fixtureIdentifiers,
-  i18nWarnings,
-  unmarkedIdentifiers,
-} from '../i18n/testing'
+import { fixtureIdentifiers } from '../domain/testing'
+import { i18nWarnings, unmarkedIdentifiers } from '../i18n/testing'
 import { rememberRecent } from './recentSearches'
 
 const pages: SearchPage[] = [
@@ -552,7 +549,7 @@ describe('global search in German', () => {
     const { device, port } = idlePort()
     rememberRecent({ kind: 'interface', id: device.id, port: port.name })
     const { host } = await mountSearchClosed({
-      locale: 'en',
+      locale: 'de',
       fleet: devices,
     })
 
@@ -562,7 +559,7 @@ describe('global search in German', () => {
     )
     expect(result).toBeDefined()
     const detail = result?.querySelector('small')?.textContent?.trim()
-    expect(detail).toBe('Down')
+    expect(detail).toBe('Getrennt')
     expect(detail).not.toContain('·')
   })
 
@@ -571,16 +568,16 @@ describe('global search in German', () => {
       id: 'bespoke',
       title: 'Bespoke Title',
       icon: 'dashboard',
-      parts: [{ text: 'BespokeKeyword' }],
+      parts: [{ text: 'Im Dock' }, { text: 'Alle' }],
     }
     const { host } = await mountSearchClosed({
-      locale: 'en',
+      locale: 'de',
       fleet: devices,
       pages: [...pages, bespokePage],
     })
 
     await openSearch(host)
-    await typeQuery('bespokekeyword')
+    await typeQuery('im dock · alle')
     expect(
       [...document.body.querySelectorAll('.search-result strong')].map((el) =>
         el.textContent?.trim(),
@@ -600,7 +597,7 @@ describe('global search in German', () => {
       parts: [{ text: 'Docked' }],
     }
     const { host } = await mountSearchClosed({
-      locale: 'en',
+      locale: 'de',
       fleet: devices,
       pages: [...pages, pairPage],
     })
@@ -681,38 +678,42 @@ describe('global search in German', () => {
     await settle()
 
     const identifiers = fixtureIdentifiers()
-    const exemptSelectors = [
-      '[data-reka-tooltip-content]',
-      '[data-reka-select-content]',
-    ]
 
     const probes = [
-      offline.name,
-      sampleClient.hostname,
-      upPort.name,
-      downPort.name,
-      'aurora',
-      'berlin',
+      { query: offline.name, group: 'Geräte' },
+      { query: sampleClient.hostname, group: 'Clients' },
+      { query: upPort.name, group: 'Schnittstellen' },
+      { query: downPort.name, group: 'Schnittstellen' },
+      { query: 'aurora', group: 'Mandanten' },
+      { query: 'berlin', group: 'Standorte' },
     ]
 
-    for (const query of probes) {
+    for (const { query, group } of probes) {
       await typeQuery(query)
-      expect(
-        unmarkedIdentifiers(document.body, identifiers, { exemptSelectors }),
-      ).toEqual([])
+      const groupEl = [
+        ...document.body.querySelectorAll('[role="group"]'),
+      ].find(
+        (el) =>
+          el
+            .querySelector('[data-reka-combobox-label]')
+            ?.textContent?.trim() === group,
+      )
+      expect(groupEl?.querySelector('.search-result')).not.toBeNull()
+      expect(unmarkedIdentifiers(document.body, identifiers)).toEqual([])
     }
 
-    // Docked pair holding a device
     await typeQuery(offline.name)
     const pairResult = [
       ...document.body.querySelectorAll('.search-result'),
-    ].find((item) => item.textContent?.includes(offline.name))
+    ].find((item) => item.textContent?.includes('Paar im Dock'))
     expect(pairResult).toBeDefined()
-    expect(
-      unmarkedIdentifiers(document.body, identifiers, { exemptSelectors }),
-    ).toEqual([])
+    const clientsSpan = [
+      ...(pairResult?.querySelectorAll('strong span') ?? []),
+    ].find((s) => s.textContent?.trim() === 'Clients')
+    expect(clientsSpan).toBeDefined()
+    expect(clientsSpan?.getAttribute('translate')).toBeNull()
+    expect(unmarkedIdentifiers(document.body, identifiers)).toEqual([])
 
-    // Reverse assertion: page tab label and Alle Standorte detail have no translate attribute
     await typeQuery('geräte')
     const pageTab = [...document.body.querySelectorAll('.search-result')].find(
       (item) => item.textContent?.includes('Alle Standorte'),

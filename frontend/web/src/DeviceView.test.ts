@@ -11,7 +11,10 @@ import type { AiRegistry } from './ai'
 import { aiRegistryKey } from './ui/ai/context'
 import { createWebI18n } from './i18n'
 import type { WebLocale } from './i18n'
-import { i18nWarnings } from './i18n/testing'
+import { i18nWarnings, unmarkedIdentifiers } from './i18n/testing'
+import { fixtureIdentifiers } from './domain/testing'
+
+const identifiers = fixtureIdentifiers()
 
 let dispose = () => {}
 let registry: AiRegistry
@@ -283,6 +286,7 @@ describe('DeviceView in German', () => {
     expect(host.querySelector('pre')?.textContent).toContain(
       `${offline.name} (${offline.kind}, ${offline.address}) ist offline.`,
     )
+    expect(unmarkedIdentifiers(host, identifiers)).toEqual([])
   })
 
   it('words the neighbour sentence and the poll result', async () => {

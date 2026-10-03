@@ -19,8 +19,8 @@ import HelpButton from './components/HelpButton.vue'
 import ThemeSwitcher from './components/ThemeSwitcher.vue'
 import LocaleSwitcher from './components/LocaleSwitcher.vue'
 import GlobalSearch, {
-  type RowPart,
   type SearchPage,
+  type TextPart,
 } from './components/GlobalSearch.vue'
 import TenantSwitcher from './components/TenantSwitcher.vue'
 import ScopeSwitcher from './components/ScopeSwitcher.vue'
@@ -701,11 +701,9 @@ const searchPages = computed<SearchPage[]>(() => [
   })),
   ...tabs.value.map((tab) => {
     const described = tabTitle(tab)
-    const parts: RowPart[] = [
+    const parts: TextPart[] = [
       { text: t(tab.beside ? 'view.fleet.dockedPair' : 'view.fleet.docked') },
-      ...(described.detail
-        ? [{ text: described.detail, identifier: described.detailName }]
-        : []),
+      { text: described.detail ?? '', identifier: described.detailName },
     ]
     return {
       id: `tab:${tab.id}`,

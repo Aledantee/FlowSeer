@@ -30,9 +30,9 @@ import TopologyInspector from './TopologyInspector.vue'
 import TopologyLink from './TopologyLink.vue'
 import TopologyNode from './TopologyNode.vue'
 import en from '../../i18n/locales/en.json'
-import { createWebI18n } from '../../i18n'
-import type { WebLocale } from '../../i18n'
-import { i18nWarnings } from '../../i18n/testing'
+import { createWebI18n, type WebLocale } from '../../i18n'
+import { i18nWarnings, unmarkedIdentifiers } from '../../i18n/testing'
+import { fixtureIdentifiers } from '../../domain/testing'
 
 vi.mock('@vue-flow/core', async () => {
   const vue = await import('vue')
@@ -310,6 +310,7 @@ describe('topology in German', () => {
     expect(
       host.querySelector('header strong')?.closest('[translate="no"]'),
     ).not.toBeNull()
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -339,6 +340,7 @@ describe('topology in German', () => {
     expect(host.querySelector('aside')?.getAttribute('aria-label')).toBe(
       'Verbindungsdetails',
     )
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -377,6 +379,7 @@ describe('topology in German', () => {
         (cell) => cell.closest('[translate="no"]') !== null,
       ),
     ).toBe(true)
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 

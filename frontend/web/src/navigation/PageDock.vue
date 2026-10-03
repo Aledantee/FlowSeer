@@ -64,7 +64,7 @@ function formatAttention(attention: number | undefined): string {
           :class="{ pair: tab.beside }"
         >
           <UiTooltip
-            :label="t('view.dock.open', { label: title(tab).label })"
+            :label="t('view.common.openNamed', { name: title(tab).label })"
             :hint="
               format.facts([
                 title(tab).detail,

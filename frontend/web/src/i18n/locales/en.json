@@ -202,6 +202,7 @@
       "noSearch": "none",
       "openBeside": "Open side by side",
       "openBesideLabel": "Open {label} side by side",
+      "openNamed": "Open {name}",
       "pages": {
         "clients": "Clients",
         "dashboard": "Dashboard",
@@ -325,7 +326,7 @@
         "unreachableOnly": "Its only path is unreachable.",
         "unreachableSome": "{down} of {total} paths are unreachable."
       },
-      "pathsTitle": "How FlowSeer reaches it",
+      "pathsTitle": "How {brand} reaches it",
       "poll": "Poll now",
       "pollAnswered": {
         "degraded": "Answered just now. Still degraded.",
@@ -369,7 +370,6 @@
     "dock": {
       "close": "Close {label}",
       "minimizedPages": "Minimized pages",
-      "open": "Open {label}",
       "remove": "Remove from dock",
       "shiftHint": "Shift-click opens it side by side"
     },
@@ -412,7 +412,7 @@
       "workspace": "WORKSPACE"
     },
     "help": {
-      "findBody": "Devices that need attention are listed first. Search by name, type, or IP address, or filter by status, then select a device to see why it needs attention and how FlowSeer reaches it.",
+      "findBody": "Devices that need attention are listed first. Search by name, type, or IP address, or filter by status, then select a device to see why it needs attention and how {brand} reaches it.",
       "findHeading": "Find a device",
       "moveBody": "Open device details, expand Move to another site, and choose a site within its tenant. The move replaces the previous assignment once it is observed, and the notice offers Undo.",
       "moveHeading": "Move a device",
@@ -551,7 +551,6 @@
       "nothing": "Nothing",
       "off": "Off",
       "openDevice": "Open device",
-      "openNamed": "Open {name}",
       "portLabel": "{device} {port} details",
       "portMode": "{mode} port",
       "sections": {
