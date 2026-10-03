@@ -110,4 +110,4 @@ The conformance gate under `test/conformance/sim` verifies these invariants acro
 - No layer package imports a sibling layer package under `layer/`, `sim/device`, or `sim/fabric`.
 - Step fact types remain unexported within their declaring layer package.
 
-The table `layerGuards` in `test/conformance/sim/layer_contract_test.go` is the list of what the gate enforces, and a guard arrives with its fixture under `test/conformance/sim/testdata/`. Its test drops each row in turn and requires that row's fixture to pass, so a guard no fixture refuses fails the gate.
+The table `layerGuards` in `test/conformance/sim/layer_contract_test.go` is the list of what the gate enforces, and a guard arrives with its fixture under `test/conformance/sim/testdata/`. Its test requires each fixture to produce the findings listed in `refusedFindings`, which fails a guard that refuses nothing. It then drops that row and requires the fixture to pass, which fails a fixture a second row also reports on.

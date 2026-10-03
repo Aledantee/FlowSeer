@@ -377,12 +377,12 @@ the test where it should fail with a message.
 The table U10 builds. A row's name is its fixture directory under
 `test/conformance/sim/testdata/`. A fixture is one file holding what the
 merged `valid/fixture.go` declares, a whole stateful layer, with the one
-change named. Fifteen rows refuse, each with one finding that quotes its
-literal. The three `stateful_` rows report nothing themselves. Each marks the
-package stateful, their fixtures start from `valid_stateless`, and what the
-gate reports there are the findings of `new`, `layer_clone`, and
-`retention_key` for the members the fixture lacks. With its `stateful_` row
-dropped the fixture is stateless and passes.
+change named. Fourteen rows refuse, each with one finding that quotes its
+literal, and `exported_fact` with one per level. The three `stateful_` rows
+report nothing themselves. Each marks the package stateful, their fixtures
+start from `valid_stateless`, and what the gate reports there are the findings
+of `new`, `layer_clone`, and `retention_key` for the members the fixture lacks.
+With its `stateful_` row dropped the fixture is stateless and passes.
 
 | Row and fixture | Rule | The fixture's change |
 | --- | --- | --- |
@@ -400,7 +400,7 @@ dropped the fixture is stateless and passes.
 | `advance` | a package with `func Layer.Advance` has `func (*Layer) Advance(time.Time) (layer.Effects)` | returns nothing |
 | `wake` | refuses `func Layer.Wake` | adds it with a pointer receiver |
 | `age` | refuses `func Layer.Age` | adds it with a value receiver |
-| `exported_fact` | refuses an exported type whose name ends in `Fact` | adds `type FooFact string` |
+| `exported_fact` | refuses an exported type whose name ends in `Fact` | declares `type FooFact string` in the directory and in `sub/` |
 | `import_sibling` | refuses an import below `sim/layer/` whose first element is not the directory's name | a file in `sub/` imports `sim/layer/bridge` |
 | `import_device` | refuses an import of `sim/device` or below it | imports `sim/device/vswitch` |
 | `import_fabric` | refuses an import of `sim/fabric` or below it | imports `sim/fabric` |

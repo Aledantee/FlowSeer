@@ -38,3 +38,5 @@ func (l *Layer) Clone() *Layer {
 func RetentionKey(cfg Config, env layer.Env) string {
 	return "key"
 }
+
+type FooFact string
