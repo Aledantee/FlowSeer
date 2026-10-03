@@ -182,9 +182,9 @@ func TestDeviceIndex_ApplyListing_SharerReplacedRemainsAmbiguous(t *testing.T) {
 
 	spawn.Go(ctx, "sharer-reader", func() {
 		for ctx.Err() == nil {
-			entry, res := idx.Lookup("192.0.2.1")
-			if res == lanehost.LookupFound {
-				t.Errorf("Lookup resolved to %s during sharer replacement, want LookupAmbiguous throughout", entry.DeviceID)
+			_, res := idx.Lookup("192.0.2.1")
+			if res != lanehost.LookupAmbiguous {
+				t.Errorf("Lookup resolved to %v during sharer replacement, want LookupAmbiguous throughout", res)
 				break
 			}
 		}
@@ -397,6 +397,9 @@ func TestDeviceIndex_RowWithUnusableAddressClaimsNothingAndOthersApply(t *testin
 	}
 	if entry, res := idx.Lookup("192.0.2.2"); res != lanehost.LookupFound || entry.DeviceID != deviceTwo {
 		t.Errorf("Lookup(\"192.0.2.2\") = (%v, %v), want (%s, LookupFound)", entry, res, deviceTwo)
+	}
+	if entry, res := idx.Lookup(""); res != lanehost.LookupUnknown {
+		t.Errorf("Lookup(\"\") = (%v, %v), want LookupUnknown", entry, res)
 	}
 }
 
