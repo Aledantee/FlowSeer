@@ -203,7 +203,7 @@ func (l *Layer) gatherMSTIRecords(now time.Time, p *portState) []bpdu.MSTIRecord
 			Flags:                flags.Flags,
 			RegionalRootID:       mt.rootID,
 			InternalRootPathCost: mt.rootPathCost,
-			BridgePriority:       uint8(mt.bridgeID.Priority >> 12),
+			BridgePriority:       uint8(mt.bridgeID.Priority >> 8),
 			PortPriority:         uint8(mp.portID >> 8),
 			RemainingHops:        l.instanceRemainingHops(mt),
 		})

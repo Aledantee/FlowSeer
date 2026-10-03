@@ -377,10 +377,10 @@ func TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries(t *testing.T) {
 		t.Fatalf("port.Builder.Build: %v", err)
 	}
 
-	// 4091 records is the most the version 3 length field can name; the MSTID
-	// space runs to 4094, so a region can ask for more than the wire allows.
-	instances := make(map[bpdu.MSTID]stp.Instance, 4092)
-	for id := bpdu.MSTID(1); id <= 4092; id++ {
+	// 64 records is the most an MST BPDU can carry; the MSTID space runs to
+	// 4094, so a region can ask for more than the wire allows.
+	instances := make(map[bpdu.MSTID]stp.Instance, 65)
+	for id := bpdu.MSTID(1); id <= 65; id++ {
 		instances[id] = stp.Instance{Priority: 4096}
 	}
 

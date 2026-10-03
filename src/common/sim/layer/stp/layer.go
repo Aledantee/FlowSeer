@@ -170,7 +170,7 @@ func newLayer(cfg Config) *Layer {
 
 	for i, name := range sortedNames {
 		pCfg := cfg.Ports[name]
-		portPrio := effectivePortPriority(pCfg.Priority, pCfg.PriorityPresent)
+		portPrio := pCfg.Priority
 
 		cost := pCfg.PathCost
 		if cost == 0 {
@@ -180,9 +180,7 @@ func newLayer(cfg Config) *Layer {
 		fixed := false
 
 		if treePort, ok := cistTreePorts[name]; ok {
-			if treePort.PriorityPresent {
-				portPrio = treePort.Priority
-			}
+			portPrio = treePort.Priority
 			if treePort.PathCost != 0 {
 				cost = treePort.PathCost
 				fixed = true
@@ -300,8 +298,8 @@ func (l *Layer) addTree(id treeID, vid vlan.ID, bridgeID bpdu.BridgeID, treePort
 		pCfg := l.cfg.Ports[name]
 		treePort, hasTreePort := treePorts[name]
 
-		portPrio := effectivePortPriority(pCfg.Priority, pCfg.PriorityPresent)
-		if hasTreePort && treePort.PriorityPresent {
+		portPrio := pCfg.Priority
+		if hasTreePort {
 			portPrio = treePort.Priority
 		}
 

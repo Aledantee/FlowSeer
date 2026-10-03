@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"math"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -339,11 +338,8 @@ const (
 	// (3 + mstBodyLength).
 	minMSTPayloadLength = 105
 
-	// MaxMSTIRecords is the most MSTI records [Encode] can fit in an MST
-	// BPDU: the version 3 length field carries 64 plus 16 octets per
-	// record in a uint16, so the record count is capped at
-	// (math.MaxUint16-64)/mstiRecordLength.
-	MaxMSTIRecords = (math.MaxUint16 - 64) / mstiRecordLength
+	// MaxMSTIRecords is the most MSTI records an MST BPDU may carry (IEEE 802.1Q-2003 clause 13.14).
+	MaxMSTIRecords = 64
 )
 
 // Encode serializes b into an untagged IEEE 802.3 LLC frame addressed to the
@@ -502,8 +498,8 @@ func putMSTBody(payload []byte, b BPDU) {
 		binary.BigEndian.PutUint16(payload[off+1:off+3], priority)
 		copy(payload[off+3:off+9], rec.RegionalRootID.Address[:])
 		binary.BigEndian.PutUint32(payload[off+9:off+13], rec.InternalRootPathCost)
-		payload[off+13] = rec.BridgePriority
-		payload[off+14] = rec.PortPriority
+		payload[off+13] = rec.BridgePriority & 0xF0
+		payload[off+14] = rec.PortPriority & 0xF0
 		payload[off+15] = rec.RemainingHops
 	}
 }
@@ -573,8 +569,8 @@ func Decode(f ethernet.Frame) (BPDU, error) {
 	version := f.Payload[5]
 	bpduType := f.Payload[6]
 
-	switch {
-	case (version == 0 || version == 1) && bpduType == bpduTypeWireConfig:
+	switch bpduType {
+	case bpduTypeWireConfig:
 		if len(f.Payload) < 38 {
 			return BPDU{}, errs.From(ErrUnsupported).
 				Attr("have", len(f.Payload)).
@@ -582,24 +578,25 @@ func Decode(f ethernet.Frame) (BPDU, error) {
 				Msgf("BPDU payload length %d is too short", len(f.Payload))
 		}
 
-		b, err := readBody(f.Payload)
-		if err != nil {
-			return BPDU{}, err
-		}
-
+		b := readBody(f.Payload)
 		b.Version = version
 		b.Type = TypeConfiguration
 		b.Flags = f.Payload[7] & (flagTopologyChange | flagTopologyChangeAck)
 
 		return b, nil
 
-	case (version == 0 || version == 1) && bpduType == bpduTypeWireTCN:
+	case bpduTypeWireTCN:
 		return BPDU{
 			Version: version,
 			Type:    TypeTopologyChangeNotification,
 		}, nil
 
-	case version >= 2 && bpduType == bpduTypeWireRST:
+	case bpduTypeWireRST:
+		if version < 2 {
+			return BPDU{}, errs.From(ErrUnsupported).
+				Attr("version", version).
+				Msgf("unsupported BPDU version %d, want at least 2", version)
+		}
 		if len(f.Payload) < 39 {
 			return BPDU{}, errs.From(ErrUnsupported).
 				Attr("have", len(f.Payload)).
@@ -607,34 +604,27 @@ func Decode(f ethernet.Frame) (BPDU, error) {
 				Msgf("BPDU payload length %d is too short", len(f.Payload))
 		}
 
-		b, err := readBody(f.Payload)
-		if err != nil {
-			return BPDU{}, err
-		}
-
+		b := readBody(f.Payload)
 		b.Version = version
 		b.Type = TypeRapid
 		b.Flags = f.Payload[7]
 
-		if version == mstProtocolVersion && len(f.Payload) >= minMSTPayloadLength {
-			if err := readMSTBody(f.Payload, &b); err != nil {
-				return BPDU{}, err
+		// IEEE 802.1Q-2003 clause 14.4 d), e):
+		// An MST BPDU requires version 3 or greater, wire type 2, zero Version 1 Length,
+		// and a version 3 length that names 0 to 64 whole MSTI records. Any other
+		// frame of that version and at least 35 octets is decoded as an RST BPDU.
+		if version >= mstProtocolVersion && len(f.Payload) >= 41 && f.Payload[38] == 0 {
+			v3Len := binary.BigEndian.Uint16(f.Payload[39:41])
+			if v3Len >= 64 && (v3Len-64)%mstiRecordLength == 0 && (v3Len-64)/mstiRecordLength <= MaxMSTIRecords {
+				if err := readMSTBody(f.Payload, &b); err != nil {
+					return BPDU{}, err
+				}
 			}
 		}
 
 		return b, nil
 
 	default:
-		if bpduType == bpduTypeWireRST {
-			return BPDU{}, errs.From(ErrUnsupported).
-				Attr("version", version).
-				Msgf("unsupported BPDU version %d, want at least 2", version)
-		}
-		if version >= 2 {
-			return BPDU{}, errs.From(ErrUnsupported).
-				Attr("type", bpduType).
-				Msgf("unsupported BPDU type %d, want 2", bpduType)
-		}
 		return BPDU{}, errs.From(ErrUnsupported).
 			Attr("version", version).
 			Attr("type", bpduType).
@@ -657,15 +647,8 @@ func putBody(payload []byte, b BPDU) {
 	binary.BigEndian.PutUint16(payload[36:38], encodeDuration(b.ForwardDelay))
 }
 
-// readBody reads the fields putBody writes. Received information ages on the
-// sender's hello time, so a zero one would be stale the instant it arrived and
-// never elect anything; it is refused.
-func readBody(payload []byte) (BPDU, error) {
-	if binary.BigEndian.Uint16(payload[34:36]) == 0 {
-		return BPDU{}, errs.From(ErrUnsupported).
-			Msg("BPDU hello time is zero")
-	}
-
+// readBody reads the fields putBody writes.
+func readBody(payload []byte) BPDU {
 	var rootAddr, bridgeAddr netaddr.MAC
 	copy(rootAddr[:], payload[10:16])
 	copy(bridgeAddr[:], payload[22:28])
@@ -679,24 +662,24 @@ func readBody(payload []byte) (BPDU, error) {
 		MaxAge:       decodeDuration(binary.BigEndian.Uint16(payload[32:34])),
 		HelloTime:    decodeDuration(binary.BigEndian.Uint16(payload[34:36])),
 		ForwardDelay: decodeDuration(binary.BigEndian.Uint16(payload[36:38])),
-	}, nil
+	}
 }
 
 // readMSTBody reads the MST body [putMSTBody] writes and fills in b's MST
 // fields, including taking b.RegionalRootID from the RST prefix's bridge
 // identifier field and b.BridgeID from the MST body's [96:104] (see
 // [encodeMST]). The caller has already checked that payload holds at least
-// minMSTPayloadLength octets.
+// minMSTPayloadLength octets and that the version 3 length names a valid MSTI record count.
 func readMSTBody(payload []byte, b *BPDU) error {
 	v3Len := binary.BigEndian.Uint16(payload[39:41])
-	if v3Len < 64 || (v3Len-64)%mstiRecordLength != 0 {
-		return errs.From(ErrUnsupported).
-			Attr("version3_length", v3Len).
-			Msgf("MST BPDU version 3 length %d is not 64 plus a multiple of %d", v3Len, mstiRecordLength)
-	}
-
 	n := int(v3Len-64) / mstiRecordLength
 	want := minMSTPayloadLength + mstiRecordLength*n
+	if len(payload) < want {
+		return errs.From(ErrUnsupported).
+			Attr("have", len(payload)).
+			Attr("want", want).
+			Msgf("MST BPDU payload length %d is too short for %d MSTI record(s)", len(payload), n)
+	}
 	if len(payload) != want {
 		return errs.From(ErrUnsupported).
 			Attr("have", len(payload)).
@@ -744,8 +727,8 @@ func readMSTBody(payload []byte, b *BPDU) error {
 			Flags:                payload[off],
 			RegionalRootID:       BridgeID{Priority: priority, Address: addr},
 			InternalRootPathCost: binary.BigEndian.Uint32(payload[off+9 : off+13]),
-			BridgePriority:       payload[off+13],
-			PortPriority:         payload[off+14],
+			BridgePriority:       payload[off+13] & 0xF0,
+			PortPriority:         payload[off+14] & 0xF0,
 			RemainingHops:        payload[off+15],
 		}
 	}

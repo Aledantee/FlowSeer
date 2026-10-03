@@ -43,10 +43,10 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[
 		}
 
 		recBridgeID := bpdu.BridgeID{
-			Priority: (uint16(rec.BridgePriority) << 12) | uint16(rec.MSTID),
+			Priority: (uint16(rec.BridgePriority) << 8) | uint16(rec.MSTID),
 			Address:  b.BridgeID.Address,
 		}
-		recPortID := (uint16(rec.PortPriority) << 8) | (b.PortID & 0x00FF)
+		recPortID := (uint16(rec.PortPriority&0xF0) << 8) | (b.PortID & 0x0FFF)
 
 		incoming := priorityVector{
 			rootID: rec.RegionalRootID, regionalRootID: rec.RegionalRootID,
@@ -69,13 +69,18 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[
 			continue
 		}
 
+		rcvHello := b.HelloTime
+		if rcvHello < time.Second {
+			rcvHello = time.Second
+		}
+
 		mp.rcvInfoValid = true
 		mp.rcvRootID = rec.RegionalRootID
 		mp.rcvRootPathCost = rec.InternalRootPathCost
 		mp.rcvBridgeID = recBridgeID
 		mp.rcvPortID = recPortID
 		mp.rcvRemainingHops = rec.RemainingHops
-		mp.rcvHelloTime = b.HelloTime
+		mp.rcvHelloTime = rcvHello
 		mp.rcvTime = now
 	}
 }
@@ -370,7 +375,11 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		p.rcvPortID = b.PortID
 		p.rcvMessageAge = b.MessageAge
 		p.rcvMaxAge = b.MaxAge
-		p.rcvHelloTime = b.HelloTime
+		rcvHello := b.HelloTime
+		if rcvHello < time.Second {
+			rcvHello = time.Second
+		}
+		p.rcvHelloTime = rcvHello
 		p.rcvForwardDelay = b.ForwardDelay
 		p.rcvTime = now
 		if internal {

@@ -1,6 +1,7 @@
 package stp_test
 
 import (
+	"encoding/binary"
 	"fmt"
 	"slices"
 	"strings"
@@ -3385,5 +3386,166 @@ func TestSpeedChangeOnForwardingRSTPPortDoesNotRestartHandshake(t *testing.T) {
 	}
 	if len(fx.Emissions) != 0 {
 		t.Errorf("Emissions on speed change = %+v, want none (no new handshake)", fx.Emissions)
+	}
+}
+
+func TestMSTIRecordBridgePriorityOctetPlacedAtHighNibble(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	mac := mustMAC(t, "00:11:22:33:44:01")
+	tbl := mustPortTable(t, "1/1/1")
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mac,
+		Ports: map[string]stp.Port{
+			"1/1/1": {PathCost: 100},
+		},
+		MST: &stp.MST{
+			Name: "region-1",
+			Instances: map[bpdu.MSTID]stp.Instance{
+				1: {
+					Priority: 0x4000,
+					VLANs:    []vlan.ID{10},
+				},
+			},
+		},
+	}, tbl)
+
+	fx := l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+	if len(fx.Emissions) == 0 {
+		t.Fatal("LinkChange produced no emissions")
+	}
+
+	payload := fx.Emissions[0].Frame.Payload
+	const bridgePriorityOctetOffset = 105 + 13
+	if len(payload) <= bridgePriorityOctetOffset {
+		t.Fatalf("payload length %d too short for MSTI record", len(payload))
+	}
+	got := payload[bridgePriorityOctetOffset]
+	if got != 0x40 {
+		t.Errorf("MSTI record bridge priority octet = 0x%02x, want 0x40", got)
+	}
+}
+
+func TestReceiveMSTIPortPriorityHighNibbleAnd12BitPortID(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	mac := mustMAC(t, "00:11:22:33:44:01")
+	peerMAC := mustMAC(t, "00:aa:bb:cc:dd:ee")
+	tbl := mustPortTable(t, "1/1/1")
+
+	mstCfg := &stp.MST{
+		Name: "region-1",
+		Instances: map[bpdu.MSTID]stp.Instance{
+			1: {
+				Priority: 32768,
+				VLANs:    []vlan.ID{10},
+			},
+		},
+	}
+	cid := mstCfg.ConfigID()
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mac,
+		Ports: map[string]stp.Port{
+			"1/1/1": {PathCost: 100},
+		},
+		MST: mstCfg,
+	}, tbl)
+
+	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+
+	b := bpdu.BPDU{
+		Version:       3,
+		Type:          bpdu.TypeRapid,
+		RootID:        bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+		BridgeID:      bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+		PortID:        0x8103,
+		HelloTime:     2 * time.Second,
+		MaxAge:        20 * time.Second,
+		ForwardDelay:  15 * time.Second,
+		RemainingHops: 20,
+		ConfigID:      &cid,
+		MSTIs: []bpdu.MSTIRecord{
+			{
+				MSTID:                1,
+				RegionalRootID:       bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+				InternalRootPathCost: 10,
+				BridgePriority:       0x10,
+				PortPriority:         0x8F,
+				RemainingHops:        20,
+			},
+		},
+	}
+	b.SetRole(bpdu.RoleDesignated)
+
+	l.Receive(now.Add(time.Second), "1/1/1", b)
+
+	info := l.VLANPortInfo(10, "1/1/1")
+	if info.DesignatedPort != 0x8103 {
+		t.Errorf("MSTI 1 designated port = 0x%04x, want 0x8103", info.DesignatedPort)
+	}
+}
+
+func TestZeroHelloTimeAcceptedAndStoredAsOneSecond(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	mac := mustMAC(t, "00:11:22:33:44:01")
+	peerMAC := mustMAC(t, "00:aa:bb:cc:dd:ee")
+	tbl := mustPortTable(t, "1/1/1")
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mac,
+		Ports: map[string]stp.Port{
+			"1/1/1": {PathCost: 100},
+		},
+	}, tbl)
+
+	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+
+	b := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	b.SetRole(bpdu.RoleDesignated)
+
+	frame, err := bpdu.Encode(b, peerMAC)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	binary.BigEndian.PutUint16(frame.Payload[34:36], 0)
+
+	decoded, err := bpdu.Decode(frame)
+	if err != nil {
+		t.Fatalf("Decode(hello 0): %v", err)
+	}
+
+	l.Receive(now, "1/1/1", decoded)
+
+	info := l.PortInfo("1/1/1")
+	if info.Role != bpdu.RoleRoot {
+		t.Fatalf("port role = %v, want Root", info.Role)
+	}
+
+	l.Advance(now.Add(2900 * time.Millisecond))
+	if l.PortInfo("1/1/1").Role != bpdu.RoleRoot {
+		t.Errorf("role aged out early at +2.9s, want still Root")
+	}
+
+	l.Advance(now.Add(3100 * time.Millisecond))
+	if l.PortInfo("1/1/1").Role != bpdu.RoleDesignated {
+		t.Errorf("role did not age out at +3.1s, got %v, want Designated", l.PortInfo("1/1/1").Role)
 	}
 }

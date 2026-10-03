@@ -1104,7 +1104,7 @@ func TestPVSTCanonicalIncludesTrees(t *testing.T) {
 
 	p := stp.PVST{
 		Trees: map[vlan.ID]stp.Tree{
-			1:  {Priority: 4096, Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 100}}},
+			1:  {Priority: 4096, Ports: map[string]stp.InstancePort{"1/1/1": {Priority: 128, PathCost: 100}}},
 			10: {Priority: 8192},
 		},
 	}
@@ -1187,4 +1187,76 @@ func TestDiffPVSTTreePortCost(t *testing.T) {
 		}
 	}
 	t.Fatalf("Diff() reported no pvst_tree_port path_cost change: %+v", changes)
+}
+
+func TestInstancePortPriorityInheritanceDiffAndRetentionKey(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	env := layer.Env{}
+
+	baseConfig := func(instPort stp.InstancePort) stp.Config {
+		return stp.Config{
+			Priority: 32768,
+			Address:  mac,
+			Ports: map[string]stp.Port{
+				"1/1/1": {Priority: 32, PriorityPresent: true},
+			},
+			MST: &stp.MST{
+				Name: "region-1",
+				Instances: map[bpdu.MSTID]stp.Instance{
+					1: {
+						Priority: 32768,
+						VLANs:    []vlan.ID{10},
+						Ports: map[string]stp.InstancePort{
+							"1/1/1": instPort,
+						},
+					},
+				},
+			},
+		}
+	}
+
+	cfgA := baseConfig(stp.InstancePort{Priority: 0, PriorityPresent: false})
+	cfgB := baseConfig(stp.InstancePort{Priority: 128, PriorityPresent: true})
+	cfgC := baseConfig(stp.InstancePort{Priority: 32, PriorityPresent: false})
+	cfgD := baseConfig(stp.InstancePort{Priority: 32, PriorityPresent: true})
+
+	normA := cfgA.Normalize(env)
+	normB := cfgB.Normalize(env)
+	normC := cfgC.Normalize(env)
+	normD := cfgD.Normalize(env)
+
+	keyA := stp.RetentionKey(normA, env)
+	keyB := stp.RetentionKey(normB, env)
+	if keyA == keyB {
+		t.Errorf("retention key for {0, false} and {128, true} are equal (%q), want different keys", keyA)
+	}
+
+	diffAB := stp.Diff(normA, normB)
+	var foundDiffAB bool
+	for _, c := range diffAB {
+		if c.Field == "priority" && c.Subject.Kind == "mst_instance_port" {
+			foundDiffAB = true
+			if factCanonical(c.From) != "stp.port_priority=32" || factCanonical(c.To) != "stp.port_priority=128" {
+				t.Errorf("Diff({0, false}, {128, true}) priority change = (%s, %s), want (32, 128)", factCanonical(c.From), factCanonical(c.To))
+			}
+		}
+	}
+	if !foundDiffAB {
+		t.Errorf("Diff({0, false}, {128, true}) reported no priority change, want from 32 to 128: %+v", diffAB)
+	}
+
+	keyC := stp.RetentionKey(normC, env)
+	keyD := stp.RetentionKey(normD, env)
+	if keyC != keyD {
+		t.Errorf("retention key for {32, false} (%q) != {32, true} (%q), want equal keys", keyC, keyD)
+	}
+
+	diffCD := stp.Diff(normC, normD)
+	for _, c := range diffCD {
+		if c.Field == "priority" && c.Subject.Kind == "mst_instance_port" {
+			t.Errorf("Diff({32, false}, {32, true}) reported unexpected priority change: %+v", c)
+		}
+	}
 }
