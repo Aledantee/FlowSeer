@@ -40,3 +40,45 @@ rejection in the hook suite and conformance cases. The change is staged in
 `tools/hooks/pre-tool-policy.sh`, `tools/hooks/tests/run.sh`, and
 `test/conformance/proto/layout_test.go` for guardrail review. It remains pending
 until that review accepts it.
+
+## 2026-10-03 review: the round cap and the fourth round disagree
+Skill or agent: `.claude/skills/review/references/fix-loop.md`, When to stop.
+What happened: the cap reads "A review runs at most three rounds in total",
+and the same bullet says "A fourth round runs only on that answer". A
+fourth round that is not clean has no stated outcome. Under `drive` the
+same answer starts a new review with a fresh count, while interactively it
+is one more round. The step was followed as written and gives two readings.
+Suggested change: make the user's answer start a new review, as "one more
+gap pass" does, or state the outcome of a fourth round that is not clean.
+
+## 2026-10-03 land, next: a `fixes needed` plan is sent to review step 6, not step 1
+Skill or agent: `.claude/skills/land/SKILL.md`, the missing-checkpoint
+table, and `.claude/skills/next/SKILL.md`, the `unchecked` row.
+What happened: both send a plan whose verdict is `fixes needed` to
+"`review`, step 6". `review` step 1 now reads the record of open items and
+calls every run on a scope with a recorded verdict a new review. A session
+entering at step 6 skips that read and has no stated round count.
+Suggested change: both rows say to run `review` from step 1 with step 6.
+
+## 2026-10-03 review: the record and the verdict are lost on two worker paths
+Skill or agent: `.claude/skills/drive/references/parking.md` and
+`.claude/skills/land/references/missing-checkpoint.md`.
+What happened: the record of open review items travels only with the plan
+file or the checkpoints file. A phase of a parent that `drive` parks
+without merging the stage worker's branch loses it, and so does a planless
+review run in a `land` worker's own git directory. The next review there
+starts fresh. Both paths lose behavior findings the same way.
+Suggested change: merge or copy the verdict commit and the checkpoints
+lines back before the worker's checkout is released.
+
+## 2026-10-03 delegate: a reviewer on a pool CLI ran the verifier and sat idle
+Skill or agent: `.claude/skills/delegate/SKILL.md`, Write the brief, items
+4 and 6.
+What happened: a `review-unit` lane on `agy` started
+`verify-change.sh --base main` as a background task before reviewing and
+then waited on it. `orca-worker.sh wait` printed `idle` twice with no
+report written, and the lane continued only after a `tell`. Item 6 keeps
+the verifier from a unit worker and says nothing for a lane that returns a
+report. The brief named no check the coordinator had already run.
+Suggested change: item 6 says a report lane runs no verifier, and item 4's
+"name the checks the coordinator already ran" is required for review lanes.
