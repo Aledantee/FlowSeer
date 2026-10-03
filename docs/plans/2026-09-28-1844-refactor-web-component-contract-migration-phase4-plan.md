@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/conventions/rendered-identifier-translation-guards-require-an-executable-dom-property.md
 execution: code
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
 ---

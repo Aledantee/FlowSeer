@@ -8,9 +8,9 @@ problem_type: convention
 component: web-console
 severity: high
 applies_when:
-  - "Configuring vue-i18n in Composition mode with imported JSON message catalogs or shared number format definitions."
+  - "Configuring vue-i18n in Composition mode with imported JSON message catalogs or shared number and datetime format definitions."
   - "Investigating message overrides or format changes in one Vue app or test instance leaking into subsequent instances."
-  - "Writing or reviewing cross-instance isolation tests for vue-i18n message catalogs and number formats."
+  - "Writing or reviewing cross-instance isolation tests for vue-i18n message catalogs, number formats, and datetime formats."
 related_components: [testing]
 tags: [vue, vue-i18n, i18n, catalogs, structured-clone, immutability, vitest]
 ---
@@ -80,7 +80,9 @@ expect(de.ui.dialog.fallbackTitle).toBe('Dialog')
 - `frontend/web/src/i18n/index.ts:58-62` passes `structuredClone` copies of `en`, `de`, `numberFormats`, and `datetimeFormats` to `createI18n`.
 - `frontend/web/src/i18n/i18n.test.ts:150-182` tests catalog isolation across instances and against imported catalogs for `en` and `de`.
 - `frontend/web/src/i18n/i18n.test.ts:184-224` tests number format isolation across instances and against exported formats for `en` and `de`.
+- `frontend/web/src/i18n/i18n.test.ts:226-260` tests date format isolation across instances and against exported formats for `en` and `de`.
 - `node_modules/vue-i18n/dist/vue-i18n.node.mjs:151-158` and `:644` show in-place message catalog reference retention and mutation.
+- `node_modules/vue-i18n/dist/vue-i18n.node.mjs:291-294` and `:658-662` show in-place datetime format reference retention and mutation.
 - `node_modules/vue-i18n/dist/vue-i18n.node.mjs:296-299` and `:674-678` show in-place format reference retention and mutation.
 - `node_modules/@intlify/shared/dist/shared.mjs:325-355` demonstrates `deepCopy` in-place object mutation.
 - Commit `2887d581` clones the imported catalogs per instance and adds the catalog isolation test.
