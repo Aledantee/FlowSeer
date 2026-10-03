@@ -5,6 +5,7 @@ date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+compound: docs/solutions/conventions/custom-method-options-extension-resolves-only-where-linked.md
 review: accept after fixes
 execution: code
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
