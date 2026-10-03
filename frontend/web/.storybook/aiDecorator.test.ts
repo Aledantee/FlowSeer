@@ -26,6 +26,18 @@ const storyModule = {
     },
     render: () => h('div', 'Beta body'),
   },
+  WithOverrides: {
+    parameters: {
+      ai: {
+        handler: (request: AiRequest) => `overrides:${request.targetId}`,
+        labels: {
+          ai: 'Bot',
+          askAbout: 'Custom inquire',
+        },
+      },
+    },
+    render: () => h('div', 'Overrides body'),
+  },
 }
 
 const stories = composeStories(storyModule)
@@ -188,5 +200,32 @@ describe('AI decorator document scope', () => {
     await select(window.flowseerAi?.listTargets()[0]?.id ?? '')
     expect(document.querySelectorAll('.ai-ask')).toHaveLength(1)
     expect(warn).toHaveBeenCalled()
+  })
+
+  it('renders one layer with story label overrides across host canvas boundary', async () => {
+    mountStory(stories.Alpha)
+    mountStory(stories.WithOverrides)
+    await settle()
+
+    const targets = window.flowseerAi?.listTargets() ?? []
+    const overridesId = targets.find((item) =>
+      item.id.includes('with-overrides'),
+    )?.id
+    expect(overridesId).toBeDefined()
+
+    await select(overridesId ?? '')
+    const asks = document.querySelectorAll<HTMLButtonElement>('.ai-ask')
+    expect(asks).toHaveLength(1)
+    expect(asks[0]?.textContent?.trim()).toBe('Bot')
+    expect(asks[0]?.getAttribute('aria-label')).toBe('Custom inquire')
+
+    const alphaId = targets.find((item) => item.id.includes('alpha'))?.id
+    expect(alphaId).toBeDefined()
+    await select(alphaId ?? '')
+    expect(document.querySelectorAll('.ai-ask')).toHaveLength(1)
+    expect(askButton()?.textContent?.trim()).toBe('AI')
+    expect(askButton()?.getAttribute('aria-label')).toBe(
+      'Ask about Lifecycle/DocumentScope',
+    )
   })
 })

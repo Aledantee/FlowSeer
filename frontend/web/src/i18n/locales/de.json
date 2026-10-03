@@ -7,12 +7,12 @@
     "aiActionLayer": {
       "ai": "KI",
       "ask": "Fragen",
-      "askAbout": "Frage zu {label}",
-      "asking": "Wird gefragt…",
+      "askAbout": "Frage zu {label} stellen",
+      "asking": "Frage wird gesendet…",
       "cancel": "Abbrechen",
       "error": "Etwas ist schiefgelaufen.",
       "heading": "Frage zu {label}",
-      "questionLabel": "Ihre Frage",
+      "questionLabel": "Frage",
       "questionPlaceholder": "Warum ist dieses Gerät offline?",
       "unavailable": "KI ist nicht verfügbar"
     },

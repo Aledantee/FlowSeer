@@ -159,10 +159,11 @@ function cancelButton(label = 'Cancel'): HTMLButtonElement {
     ...document.querySelectorAll<HTMLButtonElement>('form button'),
   ].find(
     (candidate) =>
-      candidate.textContent?.trim() === label ||
-      (candidate.type !== 'submit' && !candidate.classList.contains('ai-ask')),
+      candidate.textContent?.trim() === label &&
+      candidate.type !== 'submit' &&
+      !candidate.classList.contains('ai-ask'),
   )
-  if (!button) throw new Error('Missing cancel button')
+  if (!button) throw new Error(`Missing cancel button: ${label}`)
   return button
 }
 
@@ -208,15 +209,25 @@ describe('AiActionLayer selection and Ask', () => {
   it('submits only a nonempty prompt and shows the answer', async () => {
     const { registry } = setup()
     const seen: AiRequest[] = []
+    let resolvePending: ((val: string) => void) | undefined
     registry.onRequest((request) => {
       seen.push(request)
-      return 'It stopped answering its last poll.'
+      return new Promise<string>((resolve) => {
+        resolvePending = resolve
+      })
     })
     registry.highlight('a:devices:device:d1')
     await settle()
 
     askButton()?.click()
     await settle()
+
+    const textarea = document.querySelector('textarea')
+    expect(textarea?.getAttribute('aria-label')).toBe('Your question')
+    expect(textarea?.getAttribute('placeholder')).toBe(
+      'Why is this device offline?',
+    )
+    expect(submitButton().textContent?.trim()).toBe('Ask')
 
     type('   ')
     await settle()
@@ -226,6 +237,11 @@ describe('AiActionLayer selection and Ask', () => {
     type('Why offline?')
     await settle()
     submitButton().click()
+    await nextTick()
+    const pendingStatus = document.querySelector('[role="status"]')
+    expect(pendingStatus?.textContent).toContain('Asking…')
+
+    resolvePending?.('It stopped answering its last poll.')
     await settle()
 
     expect(seen).toHaveLength(1)
@@ -523,7 +539,7 @@ describe('AiActionLayer selection and Ask', () => {
     await settle()
 
     const button = askButton()
-    expect(button?.getAttribute('aria-label')).toBe('Frage zu d1')
+    expect(button?.getAttribute('aria-label')).toBe('Frage zu d1 stellen')
     expect(button?.textContent?.trim()).toBe('KI')
 
     button?.click()
@@ -534,7 +550,7 @@ describe('AiActionLayer selection and Ask', () => {
     expect(heading?.querySelector('strong')?.textContent).toBe('d1')
 
     const textarea = document.querySelector('textarea')
-    expect(textarea?.getAttribute('aria-label')).toBe('Ihre Frage')
+    expect(textarea?.getAttribute('aria-label')).toBe('Frage')
     expect(textarea?.getAttribute('placeholder')).toBe(
       'Warum ist dieses Gerät offline?',
     )
@@ -547,7 +563,7 @@ describe('AiActionLayer selection and Ask', () => {
     submitButton().click()
     await nextTick()
     const pendingStatus = document.querySelector('[role="status"]')
-    expect(pendingStatus?.textContent).toContain('Wird gefragt…')
+    expect(pendingStatus?.textContent).toContain('Frage wird gesendet…')
 
     resolvePending?.('Erledigt')
     await settle()
@@ -583,7 +599,7 @@ describe('AiActionLayer selection and Ask', () => {
       'en',
       {
         labels: {
-          askAbout: 'Inquire about {label}',
+          askAbout: 'Inquire about target',
           heading: 'Custom Heading for d1',
           ai: 'Bot',
           questionLabel: 'Custom question label',
@@ -607,7 +623,7 @@ describe('AiActionLayer selection and Ask', () => {
     await settle()
 
     const button = askButton()
-    expect(button?.getAttribute('aria-label')).toBe('Inquire about {label}')
+    expect(button?.getAttribute('aria-label')).toBe('Inquire about target')
     expect(button?.textContent?.trim()).toBe('Bot')
 
     button?.click()
@@ -736,6 +752,183 @@ describe('AiActionLayer selection and Ask', () => {
     errSetup.i18n.global.locale.value = 'de'
     await nextTick()
     expect(specificAlert?.textContent).toContain('Specific failure detail')
+  })
+
+  it('renders an empty-string override for every label key verbatim', async () => {
+    let isUnavailable = false
+    let shouldFail = false
+    let resolvePending: ((val: string) => void) | undefined
+    const { registry } = setup(
+      box,
+      () => ({ wide: true, narrow: false }),
+      {},
+      'en',
+      {
+        labels: {
+          askAbout: '',
+          heading: '',
+          ai: '',
+          questionLabel: '',
+          questionPlaceholder: '',
+          cancel: '',
+          ask: '',
+          asking: '',
+          unavailable: '',
+          error: '',
+        },
+      },
+    )
+    registry.onRequest(async () => {
+      if (isUnavailable) throw new AiUnavailableError()
+      if (shouldFail) throw 'non-error failure'
+      return new Promise<string>((res) => {
+        resolvePending = res
+      })
+    })
+    registry.highlight('a:devices:device:d1')
+    await settle()
+
+    const button = askButton()
+    expect(button?.getAttribute('aria-label')).toBe('')
+    expect(button?.textContent?.trim()).toBe('')
+
+    button?.click()
+    await settle()
+
+    const heading = document.querySelector('form p')
+    expect(heading?.textContent?.trim()).toBe('')
+
+    const textarea = document.querySelector('textarea')
+    expect(textarea?.getAttribute('aria-label')).toBe('')
+    expect(textarea?.getAttribute('placeholder')).toBe('')
+
+    expect(cancelButton('').textContent?.trim()).toBe('')
+    expect(submitButton().textContent?.trim()).toBe('')
+
+    type('Empty question')
+    await settle()
+    submitButton().click()
+    await nextTick()
+
+    const pendingStatus = document.querySelector('[role="status"]')
+    expect(pendingStatus?.textContent?.trim()).toBe('')
+
+    resolvePending?.('Done')
+    await settle()
+
+    // Unavailable state
+    isUnavailable = true
+    type('Next question')
+    await settle()
+    submitButton().click()
+    await settle()
+    const unavailableStatus = document.querySelector('[role="status"]')
+    expect(unavailableStatus?.textContent?.trim()).toBe('')
+
+    // Generic error state
+    isUnavailable = false
+    shouldFail = true
+    type('Third question')
+    await settle()
+    submitButton().click()
+    await settle()
+    const alert = document.querySelector('[role="alert"]')
+    expect(alert?.textContent?.trim()).toBe('')
+  })
+
+  it('updates catalog defaults on locale switch while preserving explicit overrides in the same DOM', async () => {
+    let isUnavailable = false
+    let shouldFail = false
+    let resolvePending: ((val: string) => void) | undefined
+    const { registry, i18n } = setup(
+      box,
+      () => ({ wide: true, narrow: false }),
+      {},
+      'en',
+      {
+        labels: {
+          askAbout: 'Custom inquire',
+          ai: 'Bot',
+          cancel: 'Dismiss',
+          unavailable: 'Custom offline',
+          error: 'Custom error',
+        },
+      },
+    )
+    registry.onRequest(async () => {
+      if (isUnavailable) throw new AiUnavailableError()
+      if (shouldFail) throw 'non-error failure'
+      return new Promise<string>((res) => {
+        resolvePending = res
+      })
+    })
+    registry.highlight('a:devices:device:d1')
+    await settle()
+
+    // Open panel in English
+    const button = askButton()
+    expect(button?.getAttribute('aria-label')).toBe('Custom inquire')
+    expect(button?.textContent?.trim()).toBe('Bot')
+
+    button?.click()
+    await settle()
+
+    const heading = document.querySelector('form p')
+    expect(heading?.textContent).toContain('Ask about d1')
+
+    const textarea = document.querySelector('textarea')
+    expect(textarea?.getAttribute('aria-label')).toBe('Your question')
+    expect(textarea?.getAttribute('placeholder')).toBe(
+      'Why is this device offline?',
+    )
+
+    expect(cancelButton('Dismiss').textContent?.trim()).toBe('Dismiss')
+    expect(submitButton().textContent?.trim()).toBe('Ask')
+
+    // Switch locale to German
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    // Defaults changed, overrides stayed
+    expect(button?.getAttribute('aria-label')).toBe('Custom inquire')
+    expect(button?.textContent?.trim()).toBe('Bot')
+    expect(heading?.textContent).toContain('Frage zu d1')
+    expect(textarea?.getAttribute('aria-label')).toBe('Frage')
+    expect(textarea?.getAttribute('placeholder')).toBe(
+      'Warum ist dieses Gerät offline?',
+    )
+    expect(cancelButton('Dismiss').textContent?.trim()).toBe('Dismiss')
+    expect(submitButton().textContent?.trim()).toBe('Fragen')
+
+    // Pending state (default asking label changed)
+    type('Frage')
+    await settle()
+    submitButton().click()
+    await nextTick()
+    const pendingStatus = document.querySelector('[role="status"]')
+    expect(pendingStatus?.textContent).toContain('Frage wird gesendet…')
+
+    resolvePending?.('Fertig')
+    await settle()
+
+    // Unavailable state (explicit override preserved)
+    isUnavailable = true
+    type('Zweite Frage')
+    await settle()
+    submitButton().click()
+    await settle()
+    expect(document.body.textContent).toContain('Custom offline')
+
+    // Generic error state (explicit override preserved)
+    isUnavailable = false
+    shouldFail = true
+    type('Dritte Frage')
+    await settle()
+    submitButton().click()
+    await settle()
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain(
+      'Custom error',
+    )
   })
 })
 
