@@ -5,7 +5,7 @@ date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: fixes needed
+review: rework
 execution: code
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
 ---
@@ -370,33 +370,53 @@ names the pages for a person to look at.
 
 ## Open questions
 
-Neither blocks a unit.
+Neither of the first two blocks a unit.
 
 1. Unverified: why the story audit lost the AI action once
    `ui-table--default` was wrapped in `UiScrollArea`. See Out of scope.
 2. Unverified: whether a browser's ICU abbreviates relative times as
    Node 22.14.0 does. Tests do not pin those strings, and the browser
    check is where a difference would show.
+3. Requirement 6: does a name inside a component that takes a string and
+   renders it itself count? The dock tooltip
+   (`frontend/web/src/navigation/PageDock.vue:67`) shows `cologne-ap-02
+   öffnen` and a site name through `UiTooltip`'s `label` and `hint`
+   (`frontend/web/src/ui/tooltip/UiTooltip.vue:101-102`) with no
+   `translate="no"`. Marking it needs a change to `UiTooltip`, a kit
+   primitive outside this phase's Files. An accept needs the Requirement
+   to say whether such a sink is in or out.
 
 ## Review gaps
 
-- frontend/web/src/i18n/format.ts:35: `mbps >= MBPS_PER_GBPS` in `speed` becomes `>`; fails: `speed(1000)` reads `1G`
+- frontend/web/src/i18n/format.ts:34: `mbps >= MBPS_PER_GBPS` in `speed` becomes `>`; fails: `speed(1000)` reads `1G`
 - frontend/web/src/main.ts:32: `createWebI18n(initialLocale())` becomes `createWebI18n()`; fails: with nothing saved and `navigator.languages` of `['fr-FR', 'de-AT']` the app starts in `de`
 - frontend/web/src/main.ts:33: the `bindDocumentLang(i18n.global)` call is removed; fails: `<html lang>` equals the starting locale and follows the switch
 - frontend/web/src/components/TrafficChart.vue:50: `format.clock(new Date(2000, 0, 1, hour))` becomes `String(hour)`; fails: a chart hour label reads what `Intl.DateTimeFormat` prints for that hour in each locale
 - frontend/web/src/WorkspacePage.vue:268: `time: format.clock(asOf.value)` becomes `time: ''`; fails: the dashboard heading line holds the clock time after `Stand`
 - frontend/web/src/components/LocaleSwitcher.vue:41: `translate="no"` is removed from the language name; fails: the name element in the accessible name carries `translate="no"`
 - frontend/web/src/WorkspacePage.vue:852: `t('view.devices.detailsFor', { name: device.name })` becomes `'Details for ' + device.name`; fails: the German sweep of `/devices` finds no English in a parameterized message
-- frontend/web/src/FleetView.test.ts:665: `Number(after?.matching)` and `Number(after?.count)` read `n()` output, which is `NaN` in `en` from 1,000; fails: the comparison uses raw counts
+- frontend/web/src/FleetView.test.ts:679: `Number(after?.matching)` and `Number(after?.count)` read `n()` output, which is `NaN` in `en` from 1,000; fails: the comparison uses raw counts
 - .agents/skills/web-component/references/i18n-and-ai.md:32: says units and lists use the matching `Intl` API, while unit labels and the list separator are messages (`frontend/web/src/i18n/format.ts:15-22`); fails: the rule matches the code
 - .agents/skills/web-component/references/i18n-and-ai.md:82: says a view never calls `toUpperCase`, while `LocaleSwitcher.vue:37` and `DashboardView.vue:86` change case; fails: the rule is scoped to translated text or the calls are gone
 - docs/solutions/conventions/vue-i18n-instances-mutate-catalogs-and-formats-in-place.md:42: cites `index.ts:37-48` as `createWebI18n`, which now sits at `index.ts:52-64` and also clones `datetimeFormats`; fails: the citation and snippet match the file
 - docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase4-plan.md:60: the Decision lists three English exceptions, while the escalation `Last answered` line and the unanswered-poll text also changed (`frontend/web/src/DeviceView.vue:188-191`, `:241`); fails: the Decision names both changes and why
-- frontend/web/src/FleetView.vue:446: `identifier: true` is removed from a device option, or from a site option at `:1042` or `:1226`; fails: a switcher option that shows a device or site name carries `translate="no"`
-- frontend/web/src/navigation/PageDock.vue:134: the `labelName`, `detailName`, or pair-part `translate` binding is removed; fails: a docked device tab's name, its site, and a device in a docked pair carry `translate="no"`, and a page label carries none
-- frontend/web/src/FleetView.vue:1194: the `translate` binding on the side pane header is removed; fails: a device name in the side pane header carries `translate="no"`
-- frontend/web/src/components/GlobalSearch.vue:446: `translate="no"` is removed from the client address, MAC, or device span, or from the interface far end at `:462`; fails: each carries `translate="no"` in a search row
-- frontend/web/src/FleetView.vue:275: `message.value = t('view.fleet.openFailed')` stores text again, likewise at `:325`, `:415`, and `WorkspacePage.vue:321`, `:340`; fails: each notice follows a locale switch
+- frontend/web/src/FleetView.vue:276: `message.value = t('view.fleet.openFailed')` stores text again, likewise at `:325`, `:415`, and `WorkspacePage.vue:321`, `:340`; fails: each notice follows a locale switch
 - frontend/web/src/WorkspacePage.vue:527: `{{ t(message) }}` becomes `{{ message }}`; fails: the notice on a list page reads the message, not its key
 - frontend/web/src/WorkspacePage.vue:699: a literal sort arrow returns beside the status, last-answered, or site header label; fails: each sorted header shows one mark
-
+- frontend/web/src/components/GlobalSearch.test.ts:693: the probe loop finds its group through `[data-reka-combobox-label]`, which reka-ui 2.10.5 never renders (`Combobox/ComboboxLabel.js:32-37` sets only an `id`), so `expect(undefined).not.toBeNull()` passes; fails: with the client branch of `resolve` deleted, the client probe finds no row
+- frontend/web/src/components/HelpButton.vue:45: `{{ 'FlowSeer' }}` is a literal in a bound expression, likewise `frontend/web/src/DeviceView.vue:463`, with `BRAND` defined again in `frontend/web/src/FleetView.vue:85` and `frontend/web/src/domain/testing.ts:12`; fails: one production constant, bound in the three templates and read by the test set
+- frontend/web/src/domain/testing.ts:20: `set.add(BRAND)`, the serial, model, and firmware adds, or the port loop is deleted; fails: a unit case asserts each class is in the set
+- frontend/web/src/components/HelpButton.vue:45: `translate="no"` or the `#brand` slot is removed; fails: the open help dialog passes the identifier property and its body text is asserted
+- frontend/web/src/ui/form/UiSelect.vue:165: the `translate` binding becomes a static `translate="no"`; fails: a trigger showing a plain option or the placeholder holds no `[translate]`
+- frontend/web/src/navigation/PageDock.vue:109: `translate="no"` is added to the pair `I18nT`; fails: the page part of a docked pair has no ancestor with `translate`
+- frontend/web/src/components/GlobalSearch.vue:112: the client branch of `cleanParts` is unreachable, since client and tenant rows build `parts` without it; fails: a client row with an empty field renders no dangling separator
+- frontend/web/src/i18n/testing.ts:129: `badBefore` becomes `false`, or `pos = idx + 1` at `:135` becomes `return false`; fails: `xberlin-gw-01` is not reported and `berlin-gw-01-backup, berlin-gw-01` is
+- frontend/web/src/i18n/testing.ts:112: `exemptSelectors` has no caller outside its own unit case; fails: the option, its guards, and the case are gone
+- frontend/web/src/FleetView.locale.test.ts:333: the switcher `.click()` here or at `:353` is deleted; fails: an option holding a known site or device name is asserted before the property call
+- frontend/web/src/WorkspacePage.vue:480: the `translate` binding on a scope name in the page heading is removed; fails: the property call at `frontend/web/src/FleetView.locale.test.ts:373` walks the page, not only `.breadcrumb`
+- frontend/web/src/components/topology/TopologyNode.vue:68: `translate="no"` is removed from the node name, from `TopologySiteNode.vue:50`, or from a port label in `TopologyLink.vue:191`; fails: the node, site node, and link mounts in `TopologySemantics.test.ts` pass the identifier property
+- .agents/skills/web-component/references/i18n-and-ai.md:104: says tooltips sit outside the property because it reads text nodes, likewise `frontend/web/README.md:396`, while `UiTooltip.vue:101` renders the label as a text node and no test opens the dock tooltip; fails: the docs give that reason
+- .agents/skills/web-component/references/i18n-and-ai.md:50: the `UiCommandEmpty.vue` example gained double quotes and semicolons the file does not have, and `frontend/web/README.md:396` lost its sentence on the locale sweep; fails: both read as before
+- frontend/web/src/ui/form/UiSelect.vue:30: `identifier` has no comment and no story passes it; fails: the field is described as `ScopeSwitcher.vue:13` is and one story marks its options
+- frontend/web/src/FleetView.vue:706: `described.detail ?? ''` guards a `string`, and `kind` on the search parts (`frontend/web/src/components/GlobalSearch.vue:35-55`) is written and never read; fails: both are gone
+- frontend/web/src/i18n/testing.test.ts:8: the `fixtureIdentifiers` cases sit away from `frontend/web/src/domain/testing.ts`; fails: they live in `frontend/web/src/domain/testing.test.ts`
