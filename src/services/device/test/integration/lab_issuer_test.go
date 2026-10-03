@@ -79,10 +79,15 @@ func TestLabDexIssuer(t *testing.T) {
 		},
 		Started: true,
 	})
+	t.Cleanup(func() {
+		if dexCtr == nil {
+			return
+		}
+		_ = dexCtr.Terminate(context.Background())
+	})
 	if err != nil {
 		t.Fatalf("start dex container: %v", err)
 	}
-	t.Cleanup(func() { _ = dexCtr.Terminate(context.Background()) })
 
 	host, err := dexCtr.Host(ctx)
 	if err != nil {

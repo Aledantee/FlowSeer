@@ -4,18 +4,10 @@ package integration_test
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
 	"fmt"
-	"math/big"
 	"net"
-	"os"
-	"path/filepath"
 	"slices"
 	"sync"
 	"testing"
@@ -86,14 +78,17 @@ func BenchmarkOpenFGA(b *testing.B) {
 			Name: netName,
 		},
 	})
-	if err != nil {
-		b.Fatalf("create network: %v", err)
-	}
 	b.Cleanup(func() {
+		if network == nil {
+			return
+		}
 		if err := network.Remove(context.Background()); err != nil {
 			b.Errorf("remove network: %v", err)
 		}
 	})
+	if err != nil {
+		b.Fatalf("create network: %v", err)
+	}
 
 	pgCtr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
@@ -114,10 +109,14 @@ func BenchmarkOpenFGA(b *testing.B) {
 		},
 		Started: true,
 	})
+	b.Cleanup(func() {
+		if pgCtr != nil {
+			terminateBenchContainer(b, pgCtr, "postgres")
+		}
+	})
 	if err != nil {
 		b.Fatalf("start postgres container: %v", err)
 	}
-	b.Cleanup(func() { terminateBenchContainer(b, pgCtr, "postgres") })
 
 	migrateCtr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
@@ -134,10 +133,14 @@ func BenchmarkOpenFGA(b *testing.B) {
 		},
 		Started: true,
 	})
+	b.Cleanup(func() {
+		if migrateCtr != nil {
+			terminateBenchContainer(b, migrateCtr, "openfga migrate")
+		}
+	})
 	if err != nil {
 		b.Fatalf("start openfga migrate container: %v", err)
 	}
-	b.Cleanup(func() { terminateBenchContainer(b, migrateCtr, "openfga migrate") })
 	migrateState, err := migrateCtr.State(ctx)
 	if err != nil {
 		b.Fatalf("read openfga migrate state: %v", err)
@@ -147,7 +150,7 @@ func BenchmarkOpenFGA(b *testing.B) {
 	}
 
 	tempDir := b.TempDir()
-	certPath, keyPath, certPEM := benchGenerateTLSCert(b, tempDir)
+	certPath, keyPath, certPEM := generateTestTLSCert(b, tempDir)
 
 	openfgaCtr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
@@ -168,7 +171,8 @@ func BenchmarkOpenFGA(b *testing.B) {
 				"OPENFGA_HTTP_ENABLED":         "false",
 				"OPENFGA_PLAYGROUND_ENABLED":   "false",
 				// Ten writers of 100 tuples can pass the 3s default on a
-				// shared host; the measured single Checks stay well under it.
+				// shared host. The measured checks must stay below it, and
+				// the benchmark fails when a sample reaches it.
 				"OPENFGA_REQUEST_TIMEOUT": "30s",
 			},
 			Files: []testcontainers.ContainerFile{
@@ -178,10 +182,14 @@ func BenchmarkOpenFGA(b *testing.B) {
 		},
 		Started: true,
 	})
+	b.Cleanup(func() {
+		if openfgaCtr != nil {
+			terminateBenchContainer(b, openfgaCtr, "openfga")
+		}
+	})
 	if err != nil {
 		b.Fatalf("start openfga run container: %v", err)
 	}
-	b.Cleanup(func() { terminateBenchContainer(b, openfgaCtr, "openfga") })
 
 	host, err := openfgaCtr.Host(ctx)
 	if err != nil {
@@ -209,7 +217,7 @@ func BenchmarkOpenFGA(b *testing.B) {
 	})
 
 	healthClient := grpc_health_v1.NewHealthClient(conn)
-	benchWaitForServing(b, healthClient)
+	waitForServing(b, healthClient)
 
 	client := openfgav1.NewOpenFGAServiceClient(conn)
 	authCtx := metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+testPresharedKey)
@@ -235,7 +243,7 @@ func BenchmarkOpenFGA(b *testing.B) {
 	}
 	modelID := modelResp.GetAuthorizationModelId()
 
-	keyFile := benchWriteKeyFile(b, testPresharedKey)
+	keyFile := writeTempKeyFile(b, testPresharedKey)
 	checker, err := openfga.New(ctx, openfga.Options{
 		Endpoint: "https://" + endpoint,
 		StoreID:  storeID,
@@ -557,9 +565,18 @@ func benchBatch(b *testing.B, want int, run func() ([]bool, error)) {
 	reportBenchLatency(b, durations)
 }
 
+// openFGADefaultRequestTimeout is OpenFGA's DefaultRequestTimeout
+// (github.com/openfga/openfga@v1.21.0/pkg/server/config/config.go:89). The
+// benchmark raises the server's request timeout for the fixture load, so this
+// is the bound a measured call must stay under.
+const openFGADefaultRequestTimeout = 3 * time.Second
+
 func reportBenchLatency(b *testing.B, durations []time.Duration) {
 	b.Helper()
 	slices.Sort(durations)
+	if slowest := durations[len(durations)-1]; slowest >= openFGADefaultRequestTimeout {
+		b.Fatalf("slowest sample %v reaches OpenFGA's default request timeout %v", slowest, openFGADefaultRequestTimeout)
+	}
 	b.ReportMetric(latencyMillis(durations, 50), "p50_ms")
 	b.ReportMetric(latencyMillis(durations, 99), "p99_ms")
 }
@@ -569,8 +586,7 @@ func latencyMillis(sorted []time.Duration, percentile int) float64 {
 }
 
 // percentileIndex returns the nearest-rank index of percentile over n samples,
-// ceil(percentile*n/100)-1, clamped to the sample range. The arithmetic index
-// put p99 at n-1 and ignored b.N when the sample count was fixed.
+// ceil(percentile*n/100)-1, clamped to the sample range.
 func percentileIndex(percentile, n int) int {
 	idx := (percentile*n+99)/100 - 1
 	if idx < 0 {
@@ -609,93 +625,4 @@ func terminateBenchContainer(b *testing.B, ctr testcontainers.Container, what st
 	if err := ctr.Terminate(ctx); err != nil {
 		b.Errorf("terminate %s container: %v", what, err)
 	}
-}
-
-func benchWaitForServing(b *testing.B, healthClient grpc_health_v1.HealthClient) {
-	b.Helper()
-	deadline := time.Now().Add(30 * time.Second)
-	for time.Now().Before(deadline) {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		resp, err := healthClient.Check(ctx, &grpc_health_v1.HealthCheckRequest{
-			Service: "openfga.v1.OpenFGAService",
-		})
-		cancel()
-		if err == nil && resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING {
-			return
-		}
-		ctx2, cancel2 := context.WithTimeout(context.Background(), 2*time.Second)
-		resp2, err2 := healthClient.Check(ctx2, &grpc_health_v1.HealthCheckRequest{
-			Service: "",
-		})
-		cancel2()
-		if err2 == nil && resp2.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING {
-			return
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-	b.Fatal("timed out waiting for OpenFGA health check to report SERVING")
-}
-
-func benchGenerateTLSCert(b *testing.B, dir string) (certPath, keyPath string, certPEM []byte) {
-	b.Helper()
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		b.Fatalf("generate key: %v", err)
-	}
-
-	notBefore := time.Now().Add(-1 * time.Hour)
-	notAfter := time.Now().Add(24 * time.Hour)
-
-	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
-	if err != nil {
-		b.Fatalf("generate serial: %v", err)
-	}
-
-	template := x509.Certificate{
-		SerialNumber: serialNumber,
-		Subject: pkix.Name{
-			Organization: []string{"FlowSeer Test"},
-			CommonName:   "localhost",
-		},
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		DNSNames:              []string{"localhost", "host.docker.internal"},
-		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")},
-	}
-
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
-	if err != nil {
-		b.Fatalf("create certificate: %v", err)
-	}
-
-	certPEM = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-	keyBytes, err := x509.MarshalECPrivateKey(priv)
-	if err != nil {
-		b.Fatalf("marshal ec private key: %v", err)
-	}
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
-
-	certPath = filepath.Join(dir, "server.crt")
-	keyPath = filepath.Join(dir, "server.key")
-	if err := os.WriteFile(certPath, certPEM, 0o644); err != nil {
-		b.Fatalf("write cert: %v", err)
-	}
-	if err := os.WriteFile(keyPath, keyPEM, 0o644); err != nil {
-		b.Fatalf("write key: %v", err)
-	}
-	return certPath, keyPath, certPEM
-}
-
-func benchWriteKeyFile(b *testing.B, content string) string {
-	b.Helper()
-	dir := b.TempDir()
-	p := filepath.Join(dir, "psk.key")
-	if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
-		b.Fatalf("write key file: %v", err)
-	}
-	return p
 }

@@ -87,17 +87,19 @@ func startOpenFGAEnv(t *testing.T, extraEnv map[string]string) *openFGAEnv {
 		},
 		Started: true,
 	})
-	if err != nil {
-		t.Fatalf("start OpenFGA container: %v", err)
-	}
-
 	t.Cleanup(func() {
+		if ctr == nil {
+			return
+		}
 		termCtx, termCancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer termCancel()
 		if err := ctr.Terminate(termCtx); err != nil {
 			t.Errorf("terminate OpenFGA container: %v", err)
 		}
 	})
+	if err != nil {
+		t.Fatalf("start OpenFGA container: %v", err)
+	}
 
 	host, err := ctr.Host(context.Background())
 	if err != nil {
@@ -239,7 +241,7 @@ func (e *openFGAEnv) ListObjects(ctx context.Context, user, relation, objectType
 	return resp.GetObjects(), nil
 }
 
-func waitForServing(t *testing.T, healthClient grpc_health_v1.HealthClient) {
+func waitForServing(t testing.TB, healthClient grpc_health_v1.HealthClient) {
 	t.Helper()
 	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
@@ -260,7 +262,7 @@ func waitForServing(t *testing.T, healthClient grpc_health_v1.HealthClient) {
 // same value Container.Host returns after start. The certificate must name it
 // because a client that verifies against the endpoint host rather than
 // localhost reaches the server only if the name matches.
-func dockerDaemonHost(t *testing.T) string {
+func dockerDaemonHost(t testing.TB) string {
 	t.Helper()
 	provider, err := testcontainers.NewDockerProvider()
 	if err != nil {
@@ -278,7 +280,7 @@ func dockerDaemonHost(t *testing.T) string {
 // names localhost, the loopback addresses, and the Docker daemon host, because
 // a client that verifies against the endpoint host rather than localhost
 // reaches the server only if the name matches.
-func generateTestTLSCert(t *testing.T, dir string) (certPath, keyPath string, certPEM []byte) {
+func generateTestTLSCert(t testing.TB, dir string) (certPath, keyPath string, certPEM []byte) {
 	t.Helper()
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {

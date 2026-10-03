@@ -46,10 +46,12 @@ runs `openfga migrate`, writes the embedded authorization model, and loads:
 
 The checks run through `openfga.New`, the same checker the device service
 uses. OpenFGA's check query cache and cache controller stay at their defaults,
-both off (`openfga@/pkg/server/config/config.go`), so every Check and
-BatchCheck reaches the datastore uncached. The benchmark raises
+both off (`github.com/openfga/openfga@v1.21.0/pkg/server/config/config.go`), so
+every Check and BatchCheck reaches the datastore uncached. The benchmark raises
 `OPENFGA_REQUEST_TIMEOUT` to 30s so the 100-tuple fixture writes finish on a
-shared host. The measured one-query calls stay far below that ceiling.
+shared host. A measured sub-benchmark fails when its slowest sample reaches
+OpenFGA's default 3s `requestTimeout`, so a run that prints metrics held every
+call under that bound.
 
 ## What the output means
 
@@ -68,8 +70,8 @@ custom metrics:
 
 Each sub-benchmark takes one latency sample per iteration, so a path records
 `b.N` samples (1000 under `-benchtime=1000x`). The `ns/op` column the testing
-framework prints is the wall time of the whole sub-benchmark, including its
-sample slice, and is not a measurement. Read `p50_ms` and `p99_ms`.
+framework prints is the timed section divided by `b.N`, which includes the
+timing overhead the sampler adds. Read `p50_ms` and `p99_ms`.
 
 Every path states its expected answer, and the benchmark fails on an error or
 an answer that differs. From the embedded model and the fixture:
@@ -93,8 +95,8 @@ sends at most 50 checks per call.
 
 ## Reading the numbers
 
-The host is a shared laptop running Docker under Colima alongside other work.
-Treat these numbers as supporting evidence for the workload rather than
-capacity figures: the check cache is off and one caller runs at a time. The
+The benchmark's output depends on the host and the load on it, so treat the
+reported latencies as supporting evidence for the workload rather than
+capacity figures. The check cache is off and one caller runs at a time, so the
 spread across paths matters more than any single value. See
-[`docs/solutions/conventions/a-comparison-spike-needs-controls-row-provenance-and-noise-bounds.md`](../../../../docs/solutions/conventions/a-comparison-spike-needs-controls-row-provenance-and-noise-bounds.md).
+[`docs/solutions/conventions/a-comparison-spike-needs-controls-row-provenance-and-noise-bounds.md`](../../../../../docs/solutions/conventions/a-comparison-spike-needs-controls-row-provenance-and-noise-bounds.md).
