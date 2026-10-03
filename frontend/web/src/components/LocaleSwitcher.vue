@@ -26,15 +26,15 @@ function toggleLocale() {
 </script>
 
 <template>
-  <UiTooltip :label="t('view.localeSwitcher.label', { language: nameOf(other) })">
+  <UiTooltip
+    :label="t('view.localeSwitcher.label', { language: nameOf(other) })"
+  >
     <button
       class="locale-switcher grid place-items-center w-11 h-11 p-0 bg-transparent text-chrome-foreground border-0 rounded hover:bg-chrome-hover cursor-pointer text-xs font-semibold"
       type="button"
       @click="toggleLocale"
     >
-      <span translate="no" aria-hidden="true">{{
-        current.toUpperCase()
-      }}</span>
+      <span translate="no" aria-hidden="true">{{ current.toUpperCase() }}</span>
       <span class="sr-only">
         <I18nT keypath="view.localeSwitcher.label" scope="global">
           <template #language>
