@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -30,92 +29,8 @@ import (
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn/authntest"
 )
-
-type testOidcServer struct {
-	server              *httptest.Server
-	rsaKey              *rsa.PrivateKey
-	ecKey               *ecdsa.PrivateKey
-	rsaKID              string
-	ecKID               string
-	keyFetchCount       atomic.Int64
-	discoveryFetchCount atomic.Int64
-	discoveryErr        atomic.Bool
-	keysErr             atomic.Bool
-}
-
-func newTestOidcServer(t *testing.T) *testOidcServer {
-	t.Helper()
-
-	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("generate rsa key: %v", err)
-	}
-
-	ecKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatalf("generate ecdsa key: %v", err)
-	}
-
-	ts := &testOidcServer{
-		rsaKey: rsaKey,
-		ecKey:  ecKey,
-		rsaKID: "test-rsa-key-1",
-		ecKID:  "test-ec-key-1",
-	}
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, _ *http.Request) {
-		ts.discoveryFetchCount.Add(1)
-		if ts.discoveryErr.Load() {
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"issuer":                                ts.server.URL,
-			"jwks_uri":                              ts.server.URL + "/keys",
-			"id_token_signing_alg_values_supported": []string{"RS256", "ES256"},
-			"response_types_supported":              []string{"id_token"},
-			"subject_types_supported":               []string{"public"},
-		})
-	})
-
-	mux.HandleFunc("/keys", func(w http.ResponseWriter, _ *http.Request) {
-		ts.keyFetchCount.Add(1)
-		if ts.keysErr.Load() {
-			http.Error(w, "jwks error", http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"keys": []map[string]any{
-				{
-					"kty": "RSA",
-					"kid": ts.rsaKID,
-					"use": "sig",
-					"alg": "RS256",
-					"n":   base64.RawURLEncoding.EncodeToString(rsaKey.N.Bytes()),
-					"e":   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(rsaKey.E)).Bytes()),
-				},
-				{
-					"kty": "EC",
-					"crv": "P-256",
-					"kid": ts.ecKID,
-					"use": "sig",
-					"alg": "ES256",
-					"x":   base64.RawURLEncoding.EncodeToString(ecKey.X.FillBytes(make([]byte, 32))),
-					"y":   base64.RawURLEncoding.EncodeToString(ecKey.Y.FillBytes(make([]byte, 32))),
-				},
-			},
-		})
-	})
-
-	ts.server = httptest.NewServer(mux)
-	t.Cleanup(ts.server.Close)
-	return ts
-}
 
 func signRSAToken(t *testing.T, priv *rsa.PrivateKey, kid string, claims map[string]any) string {
 	t.Helper()
@@ -199,18 +114,18 @@ func (c *settableClock) Advance(d time.Duration) {
 }
 
 func TestVerifierAcceptedTokens(t *testing.T) {
-	srv := newTestOidcServer(t)
+	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
 
 	verifier, err := authn.NewVerifier(authn.Options{
 		Issuers: []authn.IssuerConfig{
 			{
-				Issuer:                srv.server.URL,
+				Issuer:                srv.Server.URL,
 				Audience:              "flowseer-device",
 				OrganizationClaimName: "org",
 			},
 		},
-		Client: srv.server.Client(),
+		Client: srv.Server.Client(),
 		Clock:  func() time.Time { return now },
 	})
 	if err != nil {
@@ -218,7 +133,7 @@ func TestVerifierAcceptedTokens(t *testing.T) {
 	}
 
 	acceptedClaims := map[string]any{
-		"iss": srv.server.URL,
+		"iss": srv.Server.URL,
 		"aud": "flowseer-device",
 		"sub": "u1",
 		"exp": now.Add(time.Hour).Unix(),
@@ -226,24 +141,24 @@ func TestVerifierAcceptedTokens(t *testing.T) {
 	}
 
 	// RSA token
-	rsaTok := signRSAToken(t, srv.rsaKey, srv.rsaKID, acceptedClaims)
+	rsaTok := signRSAToken(t, srv.RSAKey, srv.RSAKID, acceptedClaims)
 	p, err := verifier.Verify(context.Background(), rsaTok)
 	if err != nil {
 		t.Fatalf("verify accepted RSA token: %v", err)
 	}
-	if p.Issuer != srv.server.URL {
-		t.Errorf("got Issuer %q, want %q", p.Issuer, srv.server.URL)
+	if p.Issuer != srv.Server.URL {
+		t.Errorf("got Issuer %q, want %q", p.Issuer, srv.Server.URL)
 	}
 	if p.Subject != "u1" {
 		t.Errorf("got Subject %q, want u1", p.Subject)
 	}
-	expectedID := authn.ComputePrincipalID(srv.server.URL, "u1")
+	expectedID := authn.ComputePrincipalID(srv.Server.URL, "u1")
 	if p.ID != expectedID || len(p.ID) != 64 {
 		t.Errorf("got ID %q, want 64-char %q", p.ID, expectedID)
 	}
 
 	// ECDSA token
-	ecTok := signECDSAToken(t, srv.ecKey, srv.ecKID, acceptedClaims)
+	ecTok := signECDSAToken(t, srv.ECKey, srv.ECKID, acceptedClaims)
 	pEC, err := verifier.Verify(context.Background(), ecTok)
 	if err != nil {
 		t.Fatalf("verify accepted ECDSA token: %v", err)
@@ -254,7 +169,7 @@ func TestVerifierAcceptedTokens(t *testing.T) {
 }
 
 func TestVerifierRefusalCases(t *testing.T) {
-	srv := newTestOidcServer(t)
+	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
 
 	otherRSAKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -265,12 +180,12 @@ func TestVerifierRefusalCases(t *testing.T) {
 	verifier, err := authn.NewVerifier(authn.Options{
 		Issuers: []authn.IssuerConfig{
 			{
-				Issuer:                srv.server.URL,
+				Issuer:                srv.Server.URL,
 				Audience:              "flowseer-device",
 				OrganizationClaimName: "org",
 			},
 		},
-		Client: srv.server.Client(),
+		Client: srv.Server.Client(),
 		Clock:  func() time.Time { return now },
 	})
 	if err != nil {
@@ -279,7 +194,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 
 	baseClaims := func() map[string]any {
 		return map[string]any{
-			"iss": srv.server.URL,
+			"iss": srv.Server.URL,
 			"aud": "flowseer-device",
 			"sub": "u1",
 			"exp": now.Add(time.Hour).Unix(),
@@ -297,7 +212,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 			makeTok: func() string {
 				c := baseClaims()
 				c["aud"] = "other"
-				return signRSAToken(t, srv.rsaKey, srv.rsaKID, c)
+				return signRSAToken(t, srv.RSAKey, srv.RSAKID, c)
 			},
 			wantCode: authn.ErrCodeTokenInvalid,
 		},
@@ -306,7 +221,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 			makeTok: func() string {
 				c := baseClaims()
 				c["iss"] = "https://unknown.issuer.example.com"
-				return signRSAToken(t, srv.rsaKey, srv.rsaKID, c)
+				return signRSAToken(t, srv.RSAKey, srv.RSAKID, c)
 			},
 			wantCode: authn.ErrCodeTokenInvalid,
 		},
@@ -332,7 +247,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 			makeTok: func() string {
 				c := baseClaims()
 				delete(c, "sub")
-				return signRSAToken(t, srv.rsaKey, srv.rsaKID, c)
+				return signRSAToken(t, srv.RSAKey, srv.RSAKID, c)
 			},
 			wantCode: authn.ErrCodeTokenInvalid,
 		},
@@ -341,7 +256,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 			makeTok: func() string {
 				c := baseClaims()
 				c["sub"] = ""
-				return signRSAToken(t, srv.rsaKey, srv.rsaKID, c)
+				return signRSAToken(t, srv.RSAKey, srv.RSAKID, c)
 			},
 			wantCode: authn.ErrCodeTokenInvalid,
 		},
@@ -350,7 +265,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 			makeTok: func() string {
 				c := baseClaims()
 				c["sub"] = "u1\x00extra"
-				return signRSAToken(t, srv.rsaKey, srv.rsaKID, c)
+				return signRSAToken(t, srv.RSAKey, srv.RSAKID, c)
 			},
 			wantCode: authn.ErrCodeTokenInvalid,
 		},
@@ -359,7 +274,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 			makeTok: func() string {
 				c := baseClaims()
 				c["exp"] = now.Add(-10 * time.Minute).Unix()
-				return signRSAToken(t, srv.rsaKey, srv.rsaKID, c)
+				return signRSAToken(t, srv.RSAKey, srv.RSAKID, c)
 			},
 			wantCode: authn.ErrCodeTokenExpired,
 		},
@@ -368,7 +283,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 			makeTok: func() string {
 				c := baseClaims()
 				delete(c, "exp")
-				return signRSAToken(t, srv.rsaKey, srv.rsaKID, c)
+				return signRSAToken(t, srv.RSAKey, srv.RSAKID, c)
 			},
 			wantCode: authn.ErrCodeTokenExpired,
 		},
@@ -390,7 +305,7 @@ func TestVerifierRefusalCases(t *testing.T) {
 }
 
 func TestVerifierOrganizationsAndPlatform(t *testing.T) {
-	srv := newTestOidcServer(t)
+	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
 
 	fakeStore := map[string]*identityv1.TenantRecord{
@@ -399,9 +314,12 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 				Ref: identityv1.TenantGlobalRef_builder{
 					Tenant: identityv1.TenantLocalRef_builder{Id: proto.String("tenant-A")}.Build(),
 				}.Build(),
-				Issuer:                 proto.String(srv.server.URL),
+				Issuer:                 proto.String(srv.Server.URL),
 				OrganizationClaimName:  proto.String("organization"),
 				OrganizationClaimValue: proto.String("acme"),
+			}.Build(),
+			State: identityv1.TenantState_builder{
+				Lifecycle: identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
 			}.Build(),
 		}.Build(),
 		"globex": identityv1.TenantRecord_builder{
@@ -409,9 +327,12 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 				Ref: identityv1.TenantGlobalRef_builder{
 					Tenant: identityv1.TenantLocalRef_builder{Id: proto.String("tenant-B")}.Build(),
 				}.Build(),
-				Issuer:                 proto.String(srv.server.URL),
+				Issuer:                 proto.String(srv.Server.URL),
 				OrganizationClaimName:  proto.String("organization"),
 				OrganizationClaimValue: proto.String("globex"),
+			}.Build(),
+			State: identityv1.TenantState_builder{
+				Lifecycle: identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
 			}.Build(),
 		}.Build(),
 		"other-claim": identityv1.TenantRecord_builder{
@@ -419,9 +340,12 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 				Ref: identityv1.TenantGlobalRef_builder{
 					Tenant: identityv1.TenantLocalRef_builder{Id: proto.String("tenant-C")}.Build(),
 				}.Build(),
-				Issuer:                 proto.String(srv.server.URL),
+				Issuer:                 proto.String(srv.Server.URL),
 				OrganizationClaimName:  proto.String("groups"),
 				OrganizationClaimValue: proto.String("other-claim"),
+			}.Build(),
+			State: identityv1.TenantState_builder{
+				Lifecycle: identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
 			}.Build(),
 		}.Build(),
 	}
@@ -431,7 +355,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 		if failStore.Load() {
 			return nil, errors.New("simulated store failure")
 		}
-		if issuer != srv.server.URL {
+		if issuer != srv.Server.URL {
 			return nil, nil
 		}
 		return fakeStore[org], nil
@@ -440,17 +364,18 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	verifier, err := authn.NewVerifier(authn.Options{
 		Issuers: []authn.IssuerConfig{
 			{
-				Issuer:                srv.server.URL,
+				Issuer:                srv.Server.URL,
 				Audience:              "flowseer-device",
 				OrganizationClaimName: "organization",
 			},
 		},
 		Platform: authn.PlatformConfig{
-			Issuer:       srv.server.URL,
+			Issuer:       srv.Server.URL,
+			ClaimName:    "organization",
 			Organization: "platform-ops",
 		},
 		Resolver: resolver,
-		Client:   srv.server.Client(),
+		Client:   srv.Server.Client(),
 		Clock:    func() time.Time { return now },
 	})
 	if err != nil {
@@ -459,7 +384,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 
 	baseClaims := func(orgClaim any) map[string]any {
 		m := map[string]any{
-			"iss": srv.server.URL,
+			"iss": srv.Server.URL,
 			"aud": "flowseer-device",
 			"sub": "u1",
 			"exp": now.Add(time.Hour).Unix(),
@@ -472,7 +397,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	}
 
 	// String claim: "acme" -> [tenant-A]
-	tok := signRSAToken(t, srv.rsaKey, srv.rsaKID, baseClaims("acme"))
+	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims("acme"))
 	p, err := verifier.Verify(context.Background(), tok)
 	if err != nil {
 		t.Fatalf("verify string org: %v", err)
@@ -485,7 +410,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	}
 
 	// Array claim: ["acme", "globex"] -> [tenant-A, tenant-B]
-	tok = signRSAToken(t, srv.rsaKey, srv.rsaKID, baseClaims([]string{"acme", "globex"}))
+	tok = signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims([]string{"acme", "globex"}))
 	p, err = verifier.Verify(context.Background(), tok)
 	if err != nil {
 		t.Fatalf("verify array org: %v", err)
@@ -495,7 +420,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	}
 
 	// Object claim: {"acme": {}, "globex": {"roles": []}} -> [tenant-A, tenant-B]
-	tok = signRSAToken(t, srv.rsaKey, srv.rsaKID, baseClaims(map[string]any{"acme": true, "globex": 123}))
+	tok = signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims(map[string]any{"acme": true, "globex": 123}))
 	p, err = verifier.Verify(context.Background(), tok)
 	if err != nil {
 		t.Fatalf("verify object org: %v", err)
@@ -505,7 +430,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	}
 
 	// Binding under different claim name ("groups") yields none
-	tok = signRSAToken(t, srv.rsaKey, srv.rsaKID, baseClaims("other-claim"))
+	tok = signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims("other-claim"))
 	p, err = verifier.Verify(context.Background(), tok)
 	if err != nil {
 		t.Fatalf("verify mismatched claim name: %v", err)
@@ -516,7 +441,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 
 	// Store error yields Unavailable with authn/unavailable
 	failStore.Store(true)
-	tok = signRSAToken(t, srv.rsaKey, srv.rsaKID, baseClaims("acme"))
+	tok = signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims("acme"))
 	_, err = verifier.Verify(context.Background(), tok)
 	if err == nil {
 		t.Fatal("expected error on store failure, got nil")
@@ -528,7 +453,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	failStore.Store(false)
 
 	// Number as claim yields authn/token-invalid
-	tok = signRSAToken(t, srv.rsaKey, srv.rsaKID, baseClaims(42))
+	tok = signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims(42))
 	_, err = verifier.Verify(context.Background(), tok)
 	if err == nil {
 		t.Fatal("expected error for numeric org claim")
@@ -539,8 +464,8 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	}
 
 	// Null organization claim yields authn/token-invalid
-	tokNull := signRSAToken(t, srv.rsaKey, srv.rsaKID, map[string]any{
-		"iss":          srv.server.URL,
+	tokNull := signRSAToken(t, srv.RSAKey, srv.RSAKID, map[string]any{
+		"iss":          srv.Server.URL,
 		"aud":          "flowseer-device",
 		"sub":          "u1",
 		"exp":          now.Add(time.Hour).Unix(),
@@ -557,7 +482,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	}
 
 	// Array claim holding non-string item yields authn/token-invalid
-	tokNonStr := signRSAToken(t, srv.rsaKey, srv.rsaKID, baseClaims([]any{"acme", 123}))
+	tokNonStr := signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims([]any{"acme", 123}))
 	_, err = verifier.Verify(context.Background(), tokNonStr)
 	if err == nil {
 		t.Fatal("expected error for non-string item in org array")
@@ -572,7 +497,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		hundredOrgs = append(hundredOrgs, fmt.Sprintf("org-%d", i))
 	}
-	tok = signRSAToken(t, srv.rsaKey, srv.rsaKID, baseClaims(hundredOrgs))
+	tok = signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims(hundredOrgs))
 	_, err = verifier.Verify(context.Background(), tok)
 	if err == nil {
 		t.Fatal("expected error for 100 org claim values")
@@ -583,7 +508,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	}
 
 	// Platform flag set and unset by one field
-	tokPlatform := signRSAToken(t, srv.rsaKey, srv.rsaKID, baseClaims("platform-ops"))
+	tokPlatform := signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims("platform-ops"))
 	pPlat, err := verifier.Verify(context.Background(), tokPlatform)
 	if err != nil {
 		t.Fatalf("verify platform token: %v", err)
@@ -592,7 +517,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 		t.Fatal("expected Platform true for platform-ops claim")
 	}
 
-	tokNonPlatform := signRSAToken(t, srv.rsaKey, srv.rsaKID, baseClaims("acme"))
+	tokNonPlatform := signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims("acme"))
 	pNonPlat, err := verifier.Verify(context.Background(), tokNonPlatform)
 	if err != nil {
 		t.Fatalf("verify non-platform token: %v", err)
@@ -605,25 +530,25 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	platDiffVerifier, err := authn.NewVerifier(authn.Options{
 		Issuers: []authn.IssuerConfig{
 			{
-				Issuer:                srv.server.URL,
+				Issuer:                srv.Server.URL,
 				Audience:              "flowseer-device",
 				OrganizationClaimName: "org",
 			},
 		},
 		Platform: authn.PlatformConfig{
-			Issuer:       srv.server.URL,
+			Issuer:       srv.Server.URL,
 			ClaimName:    "groups",
 			Organization: "platform-ops",
 		},
 		Resolver: resolver,
-		Client:   srv.server.Client(),
+		Client:   srv.Server.Client(),
 		Clock:    func() time.Time { return now },
 	})
 	if err != nil {
 		t.Fatalf("NewVerifier platform differing: %v", err)
 	}
 	diffClaims := map[string]any{
-		"iss":    srv.server.URL,
+		"iss":    srv.Server.URL,
 		"aud":    "flowseer-device",
 		"sub":    "u1",
 		"exp":    now.Add(time.Hour).Unix(),
@@ -631,7 +556,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 		"org":    "acme",
 		"groups": []string{"platform-ops"},
 	}
-	tokDiff := signRSAToken(t, srv.rsaKey, srv.rsaKID, diffClaims)
+	tokDiff := signRSAToken(t, srv.RSAKey, srv.RSAKID, diffClaims)
 	pDiff, err := platDiffVerifier.Verify(context.Background(), tokDiff)
 	if err != nil {
 		t.Fatalf("verify platform claim differing: %v", err)
@@ -654,7 +579,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	for _, tc := range platformClaimRefusals {
 		claims := cloneMap(diffClaims)
 		claims["groups"] = tc.claim
-		_, err := platDiffVerifier.Verify(context.Background(), signRSAToken(t, srv.rsaKey, srv.rsaKID, claims))
+		_, err := platDiffVerifier.Verify(context.Background(), signRSAToken(t, srv.RSAKey, srv.RSAKID, claims))
 		if err == nil {
 			t.Fatalf("platform claim %s: expected error, got nil", tc.name)
 		}
@@ -670,7 +595,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 	otherIssuerVerifier, err := authn.NewVerifier(authn.Options{
 		Issuers: []authn.IssuerConfig{
 			{
-				Issuer:                srv.server.URL,
+				Issuer:                srv.Server.URL,
 				Audience:              "flowseer-device",
 				OrganizationClaimName: "organization",
 			},
@@ -680,13 +605,13 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 			ClaimName:    "organization",
 			Organization: "platform-ops",
 		},
-		Client: srv.server.Client(),
+		Client: srv.Server.Client(),
 		Clock:  func() time.Time { return now },
 	})
 	if err != nil {
 		t.Fatalf("NewVerifier other platform issuer: %v", err)
 	}
-	tokOtherIssuer := signRSAToken(t, srv.rsaKey, srv.rsaKID, baseClaims("platform-ops"))
+	tokOtherIssuer := signRSAToken(t, srv.RSAKey, srv.RSAKID, baseClaims("platform-ops"))
 	pOtherIssuer, err := otherIssuerVerifier.Verify(context.Background(), tokOtherIssuer)
 	if err != nil {
 		t.Fatalf("verify other platform issuer: %v", err)
@@ -697,7 +622,7 @@ func TestVerifierOrganizationsAndPlatform(t *testing.T) {
 }
 
 func TestVerifierReplayTransportAndKeyOutage(t *testing.T) {
-	srv := newTestOidcServer(t)
+	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
 	clock := newSettableClock(now)
 
@@ -709,11 +634,11 @@ func TestVerifierReplayTransportAndKeyOutage(t *testing.T) {
 	verifier, err := authn.NewVerifier(authn.Options{
 		Issuers: []authn.IssuerConfig{
 			{
-				Issuer:   srv.server.URL,
+				Issuer:   srv.Server.URL,
 				Audience: "flowseer-device",
 			},
 		},
-		Client: srv.server.Client(),
+		Client: srv.Server.Client(),
 		Clock:  clock.Now,
 	})
 	if err != nil {
@@ -721,7 +646,7 @@ func TestVerifierReplayTransportAndKeyOutage(t *testing.T) {
 	}
 
 	claims := map[string]any{
-		"iss": srv.server.URL,
+		"iss": srv.Server.URL,
 		"aud": "flowseer-device",
 		"sub": "u1",
 		"exp": now.Add(time.Hour).Unix(),
@@ -729,19 +654,19 @@ func TestVerifierReplayTransportAndKeyOutage(t *testing.T) {
 	}
 
 	// Repeated unknown kid tokens within 10 s replay window trigger one key fetch.
-	startFetchCount := srv.keyFetchCount.Load()
+	startFetchCount := srv.KeyFetchCount.Load()
 	for i := 0; i < 20; i++ {
 		tokUnknown := signRSAToken(t, otherKey, fmt.Sprintf("unknown-kid-%d", i), claims)
 		_, _ = verifier.Verify(context.Background(), tokUnknown)
 	}
-	fetchesAfter20 := srv.keyFetchCount.Load() - startFetchCount
+	fetchesAfter20 := srv.KeyFetchCount.Load() - startFetchCount
 	if fetchesAfter20 != 1 {
 		t.Fatalf("expected 1 key fetch for 20 unknown kid tokens within 10s, got %d", fetchesAfter20)
 	}
 
 	// Key endpoint answering 500 yields Unavailable for unknown kid.
 	clock.Advance(15 * time.Second)
-	srv.keysErr.Store(true)
+	srv.KeysErr.Store(true)
 	tokUnknown500 := signRSAToken(t, otherKey, "unknown-kid-fail", claims)
 	_, err = verifier.Verify(context.Background(), tokUnknown500)
 	if err == nil {
@@ -754,13 +679,13 @@ func TestVerifierReplayTransportAndKeyOutage(t *testing.T) {
 
 	// Known-kid token with wrong audience yields authn/token-invalid despite key outage.
 	wrongAudClaims := map[string]any{
-		"iss": srv.server.URL,
+		"iss": srv.Server.URL,
 		"aud": "wrong-audience",
 		"sub": "u1",
 		"exp": now.Add(time.Hour).Unix(),
 		"iat": now.Unix(),
 	}
-	tokWrongAud := signRSAToken(t, srv.rsaKey, srv.rsaKID, wrongAudClaims)
+	tokWrongAud := signRSAToken(t, srv.RSAKey, srv.RSAKID, wrongAudClaims)
 	_, err = verifier.Verify(context.Background(), tokWrongAud)
 	if err == nil {
 		t.Fatal("expected error for wrong audience token")
@@ -771,7 +696,7 @@ func TestVerifierReplayTransportAndKeyOutage(t *testing.T) {
 	}
 
 	// Healthy keys endpoint yields Unauthenticated with authn/token-invalid.
-	srv.keysErr.Store(false)
+	srv.KeysErr.Store(false)
 	clock.Advance(15 * time.Second)
 	tokUnknownHealthy := signRSAToken(t, otherKey, "unknown-kid-healthy", claims)
 	_, err = verifier.Verify(context.Background(), tokUnknownHealthy)
@@ -843,18 +768,18 @@ func TestVerifierKeyOutageOnSeparateHost(t *testing.T) {
 }
 
 func TestVerifierDiscoveryFailureRecoveryAndTimeout(t *testing.T) {
-	srv := newTestOidcServer(t)
+	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
 	clock := newSettableClock(now)
 
 	verifier, err := authn.NewVerifier(authn.Options{
 		Issuers: []authn.IssuerConfig{
 			{
-				Issuer:   srv.server.URL,
+				Issuer:   srv.Server.URL,
 				Audience: "flowseer-device",
 			},
 		},
-		Client: srv.server.Client(),
+		Client: srv.Server.Client(),
 		Clock:  clock.Now,
 	})
 	if err != nil {
@@ -862,16 +787,16 @@ func TestVerifierDiscoveryFailureRecoveryAndTimeout(t *testing.T) {
 	}
 
 	claims := map[string]any{
-		"iss": srv.server.URL,
+		"iss": srv.Server.URL,
 		"aud": "flowseer-device",
 		"sub": "u1",
 		"exp": now.Add(time.Hour).Unix(),
 		"iat": now.Unix(),
 	}
-	tok := signRSAToken(t, srv.rsaKey, srv.rsaKID, claims)
+	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, claims)
 
 	// Discovery that fails returns Unavailable.
-	srv.discoveryErr.Store(true)
+	srv.DiscoveryErr.Store(true)
 	_, err = verifier.Verify(context.Background(), tok)
 	if err == nil {
 		t.Fatal("expected discovery error")
@@ -882,7 +807,7 @@ func TestVerifierDiscoveryFailureRecoveryAndTimeout(t *testing.T) {
 	}
 
 	// Server recovers, but within replay window cached error remains.
-	srv.discoveryErr.Store(false)
+	srv.DiscoveryErr.Store(false)
 	_, err = verifier.Verify(context.Background(), tok)
 	if err == nil {
 		t.Fatal("expected still cached discovery error within replay window")
@@ -921,7 +846,7 @@ func TestVerifierDiscoveryFailureRecoveryAndTimeout(t *testing.T) {
 		t.Fatalf("NewVerifier hanging: %v", err)
 	}
 
-	hangingTok := signRSAToken(t, srv.rsaKey, srv.rsaKID, map[string]any{
+	hangingTok := signRSAToken(t, srv.RSAKey, srv.RSAKID, map[string]any{
 		"iss": hangingServer.URL,
 		"aud": "aud",
 		"sub": "u1",
@@ -972,18 +897,18 @@ func (p *panicOnceTransport) RoundTrip(req *http.Request) (*http.Response, error
 }
 
 func TestVerifierDiscoveryPanicReleasesWaiters(t *testing.T) {
-	srv := newTestOidcServer(t)
+	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
-	tok := signRSAToken(t, srv.rsaKey, srv.rsaKID, map[string]any{
-		"iss": srv.server.URL,
+	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, map[string]any{
+		"iss": srv.Server.URL,
 		"aud": "flowseer-device",
 		"sub": "u1",
 		"exp": now.Add(time.Hour).Unix(),
 	})
 
 	verifier, err := authn.NewVerifier(authn.Options{
-		Issuers: []authn.IssuerConfig{{Issuer: srv.server.URL, Audience: "flowseer-device"}},
-		Client:  &http.Client{Transport: &panicOnceTransport{base: srv.server.Client().Transport}},
+		Issuers: []authn.IssuerConfig{{Issuer: srv.Server.URL, Audience: "flowseer-device"}},
+		Client:  &http.Client{Transport: &panicOnceTransport{base: srv.Server.Client().Transport}},
 		Clock:   func() time.Time { return now },
 	})
 	if err != nil {
@@ -1023,11 +948,11 @@ func TestVerifierDiscoveryPanicReleasesWaiters(t *testing.T) {
 // clock at the replay transport's cache check, where the transport must not
 // hold its lock while it runs caller code.
 func TestVerifierDiscoveryClockPanicLeavesNoLockHeld(t *testing.T) {
-	srv := newTestOidcServer(t)
+	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
 	clock := newSettableClock(now)
-	tok := signRSAToken(t, srv.rsaKey, srv.rsaKID, map[string]any{
-		"iss": srv.server.URL,
+	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, map[string]any{
+		"iss": srv.Server.URL,
 		"aud": "flowseer-device",
 		"sub": "u1",
 		"exp": now.Add(time.Hour).Unix(),
@@ -1035,8 +960,8 @@ func TestVerifierDiscoveryClockPanicLeavesNoLockHeld(t *testing.T) {
 
 	var panicNext atomic.Bool
 	verifier, err := authn.NewVerifier(authn.Options{
-		Issuers: []authn.IssuerConfig{{Issuer: srv.server.URL, Audience: "flowseer-device"}},
-		Client:  srv.server.Client(),
+		Issuers: []authn.IssuerConfig{{Issuer: srv.Server.URL, Audience: "flowseer-device"}},
+		Client:  srv.Server.Client(),
 		Clock: func() time.Time {
 			if panicNext.CompareAndSwap(true, false) {
 				panic("clock panicked during the replay transport's cache check")
@@ -1053,7 +978,7 @@ func TestVerifierDiscoveryClockPanicLeavesNoLockHeld(t *testing.T) {
 
 	// The failed discovery lands in the replay cache, so the next attempt's
 	// cache check finds an entry and reads the clock to age it.
-	srv.discoveryErr.Store(true)
+	srv.DiscoveryErr.Store(true)
 	if _, err := verifier.Verify(ctx, tok); err == nil {
 		t.Fatal("expected the failed discovery to be refused")
 	}
@@ -1069,7 +994,7 @@ func TestVerifierDiscoveryClockPanicLeavesNoLockHeld(t *testing.T) {
 
 	// The endpoint recovers and the failure leaves the window. A transport that
 	// kept its lock held would block this discovery until the deadline.
-	srv.discoveryErr.Store(false)
+	srv.DiscoveryErr.Store(false)
 	clock.Advance(15 * time.Second)
 	if _, err := verifier.Verify(ctx, tok); err != nil {
 		t.Fatalf("verify after the clock panic: %v", err)
@@ -1093,18 +1018,18 @@ func (c *contextValueTransport) RoundTrip(req *http.Request) (*http.Response, er
 }
 
 func TestVerifierDiscoveryDoesNotInheritRequestScope(t *testing.T) {
-	srv := newTestOidcServer(t)
+	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
-	tok := signRSAToken(t, srv.rsaKey, srv.rsaKID, map[string]any{
-		"iss": srv.server.URL,
+	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, map[string]any{
+		"iss": srv.Server.URL,
 		"aud": "flowseer-device",
 		"sub": "u1",
 		"exp": now.Add(time.Hour).Unix(),
 	})
 
-	transport := &contextValueTransport{base: srv.server.Client().Transport}
+	transport := &contextValueTransport{base: srv.Server.Client().Transport}
 	verifier, err := authn.NewVerifier(authn.Options{
-		Issuers: []authn.IssuerConfig{{Issuer: srv.server.URL, Audience: "flowseer-device"}},
+		Issuers: []authn.IssuerConfig{{Issuer: srv.Server.URL, Audience: "flowseer-device"}},
 		Client:  &http.Client{Transport: transport},
 		Clock:   func() time.Time { return now },
 	})
@@ -1124,29 +1049,29 @@ func TestVerifierDiscoveryDoesNotInheritRequestScope(t *testing.T) {
 }
 
 func TestVerifierEndedContextReturnsBare(t *testing.T) {
-	srv := newTestOidcServer(t)
+	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
 
 	verifier, err := authn.NewVerifier(authn.Options{
 		Issuers: []authn.IssuerConfig{
 			{
-				Issuer:   srv.server.URL,
+				Issuer:   srv.Server.URL,
 				Audience: "flowseer-device",
 			},
 		},
-		Client: srv.server.Client(),
+		Client: srv.Server.Client(),
 	})
 	if err != nil {
 		t.Fatalf("NewVerifier: %v", err)
 	}
 
 	claims := map[string]any{
-		"iss": srv.server.URL,
+		"iss": srv.Server.URL,
 		"aud": "flowseer-device",
 		"sub": "u1",
 		"exp": now.Add(time.Hour).Unix(),
 	}
-	tok := signRSAToken(t, srv.rsaKey, srv.rsaKID, claims)
+	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, claims)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -1245,17 +1170,17 @@ func TestVerifierCallerCancellationNotCached(t *testing.T) {
 }
 
 func TestVerifierConcurrentDiscoverySingleFlight(t *testing.T) {
-	srv := newTestOidcServer(t)
+	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
 
 	verifier, err := authn.NewVerifier(authn.Options{
 		Issuers: []authn.IssuerConfig{
 			{
-				Issuer:   srv.server.URL,
+				Issuer:   srv.Server.URL,
 				Audience: "flowseer-device",
 			},
 		},
-		Client: srv.server.Client(),
+		Client: srv.Server.Client(),
 		Clock:  func() time.Time { return now },
 	})
 	if err != nil {
@@ -1263,12 +1188,12 @@ func TestVerifierConcurrentDiscoverySingleFlight(t *testing.T) {
 	}
 
 	claims := map[string]any{
-		"iss": srv.server.URL,
+		"iss": srv.Server.URL,
 		"aud": "flowseer-device",
 		"sub": "u1",
 		"exp": now.Add(time.Hour).Unix(),
 	}
-	tok := signRSAToken(t, srv.rsaKey, srv.rsaKID, claims)
+	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, claims)
 
 	const concurrency = 10
 	errCh := make(chan error, concurrency)
@@ -1285,23 +1210,23 @@ func TestVerifierConcurrentDiscoverySingleFlight(t *testing.T) {
 		}
 	}
 
-	if discCount := srv.discoveryFetchCount.Load(); discCount != 1 {
+	if discCount := srv.DiscoveryFetchCount.Load(); discCount != 1 {
 		t.Fatalf("expected exactly 1 discovery request, got %d", discCount)
 	}
 }
 
 func TestVerifierInjectedClockDecidesExpiry(t *testing.T) {
-	srv := newTestOidcServer(t)
+	srv := authntest.New(t)
 	realNow := time.Now().Truncate(time.Second)
 
 	tokenExp := realNow.Add(30 * time.Minute)
 	claims := map[string]any{
-		"iss": srv.server.URL,
+		"iss": srv.Server.URL,
 		"aud": "flowseer-device",
 		"sub": "u1",
 		"exp": tokenExp.Unix(),
 	}
-	tok := signRSAToken(t, srv.rsaKey, srv.rsaKID, claims)
+	tok := signRSAToken(t, srv.RSAKey, srv.RSAKID, claims)
 
 	injectedClock := func() time.Time {
 		return realNow.Add(time.Hour)
@@ -1310,11 +1235,11 @@ func TestVerifierInjectedClockDecidesExpiry(t *testing.T) {
 	verifier, err := authn.NewVerifier(authn.Options{
 		Issuers: []authn.IssuerConfig{
 			{
-				Issuer:   srv.server.URL,
+				Issuer:   srv.Server.URL,
 				Audience: "flowseer-device",
 			},
 		},
-		Client: srv.server.Client(),
+		Client: srv.Server.Client(),
 		Clock:  injectedClock,
 	})
 	if err != nil {
@@ -2123,4 +2048,313 @@ func TestVerifierOutageClassificationProperty(t *testing.T) {
 	if cancelsFired != wantCancelsFired {
 		t.Errorf("fired the caller's cancel from an endpoint handler in %d rows, want %d", cancelsFired, wantCancelsFired)
 	}
+}
+
+func TestRequirement11(t *testing.T) {
+	srv := authntest.New(t)
+	now := time.Now().Truncate(time.Second)
+
+	t.Run("subject length 256 accepted and 257 refused", func(t *testing.T) {
+		verifier, err := authn.NewVerifier(authn.Options{
+			Issuers: []authn.IssuerConfig{
+				{
+					Issuer:   srv.URL(),
+					Audience: "flowseer-device",
+				},
+			},
+			Client: srv.Client(),
+			Clock:  func() time.Time { return now },
+		})
+		if err != nil {
+			t.Fatalf("NewVerifier: %v", err)
+		}
+
+		sub256 := strings.Repeat("a", 256)
+		tok256 := srv.Sign(map[string]any{
+			"iss": srv.URL(),
+			"aud": "flowseer-device",
+			"sub": sub256,
+			"exp": now.Add(time.Hour).Unix(),
+			"iat": now.Unix(),
+		})
+		p, err := verifier.Verify(context.Background(), tok256)
+		if err != nil {
+			t.Fatalf("verify 256-char subject token: %v", err)
+		}
+		if p.Subject != sub256 {
+			t.Fatalf("got subject len %d, want 256", len(p.Subject))
+		}
+
+		sub257 := strings.Repeat("a", 257)
+		tok257 := srv.Sign(map[string]any{
+			"iss": srv.URL(),
+			"aud": "flowseer-device",
+			"sub": sub257,
+			"exp": now.Add(time.Hour).Unix(),
+			"iat": now.Unix(),
+		})
+		_, err = verifier.Verify(context.Background(), tok257)
+		if err == nil {
+			t.Fatal("expected error for 257-char subject, got nil")
+		}
+		code, ok := errs.CodeOf(err)
+		if !ok || code != authn.ErrCodeTokenInvalid {
+			t.Fatalf("got code %v, want %v", code, authn.ErrCodeTokenInvalid)
+		}
+	})
+
+	t.Run("suspended tenant yields no tenant beside active", func(t *testing.T) {
+		activeRec := identityv1.TenantRecord_builder{
+			Config: identityv1.TenantConfig_builder{
+				Ref: identityv1.TenantGlobalRef_builder{
+					Tenant: identityv1.TenantLocalRef_builder{Id: proto.String("tenant-active")}.Build(),
+				}.Build(),
+				Issuer:                 proto.String(srv.URL()),
+				OrganizationClaimName:  proto.String("org"),
+				OrganizationClaimValue: proto.String("active-org"),
+			}.Build(),
+			State: identityv1.TenantState_builder{
+				Lifecycle: identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
+			}.Build(),
+		}.Build()
+
+		suspendedRec := identityv1.TenantRecord_builder{
+			Config: identityv1.TenantConfig_builder{
+				Ref: identityv1.TenantGlobalRef_builder{
+					Tenant: identityv1.TenantLocalRef_builder{Id: proto.String("tenant-suspended")}.Build(),
+				}.Build(),
+				Issuer:                 proto.String(srv.URL()),
+				OrganizationClaimName:  proto.String("org"),
+				OrganizationClaimValue: proto.String("suspended-org"),
+			}.Build(),
+			State: identityv1.TenantState_builder{
+				Lifecycle: identityv1.TenantLifecycle_TENANT_LIFECYCLE_SUSPENDED.Enum(),
+			}.Build(),
+		}.Build()
+
+		resolver := func(_ context.Context, _, org string) (*identityv1.TenantRecord, error) {
+			switch org {
+			case "active-org":
+				return activeRec, nil
+			case "suspended-org":
+				return suspendedRec, nil
+			default:
+				return nil, nil
+			}
+		}
+
+		verifier, err := authn.NewVerifier(authn.Options{
+			Issuers: []authn.IssuerConfig{
+				{
+					Issuer:                srv.URL(),
+					Audience:              "flowseer-device",
+					OrganizationClaimName: "org",
+				},
+			},
+			Resolver: resolver,
+			Client:   srv.Client(),
+			Clock:    func() time.Time { return now },
+		})
+		if err != nil {
+			t.Fatalf("NewVerifier: %v", err)
+		}
+
+		tokActive := srv.Sign(map[string]any{
+			"iss": srv.URL(),
+			"aud": "flowseer-device",
+			"sub": "u1",
+			"org": "active-org",
+			"exp": now.Add(time.Hour).Unix(),
+			"iat": now.Unix(),
+		})
+		pActive, err := verifier.Verify(context.Background(), tokActive)
+		if err != nil {
+			t.Fatalf("verify active tenant token: %v", err)
+		}
+		if len(pActive.Tenants) != 1 || pActive.Tenants[0] != "tenant-active" {
+			t.Fatalf("got tenants %v, want ['tenant-active']", pActive.Tenants)
+		}
+
+		tokSuspended := srv.Sign(map[string]any{
+			"iss": srv.URL(),
+			"aud": "flowseer-device",
+			"sub": "u1",
+			"org": "suspended-org",
+			"exp": now.Add(time.Hour).Unix(),
+			"iat": now.Unix(),
+		})
+		pSuspended, err := verifier.Verify(context.Background(), tokSuspended)
+		if err != nil {
+			t.Fatalf("verify suspended tenant token: %v", err)
+		}
+		if len(pSuspended.Tenants) != 0 {
+			t.Fatalf("got tenants %v, want empty for suspended tenant", pSuspended.Tenants)
+		}
+	})
+
+	t.Run("key endpoint answering 200 not json yields unavailable beside empty key set token invalid", func(t *testing.T) {
+		// Key endpoint returns 200 and "not json" -> authn/unavailable
+		keyIssNotJSON := authntest.New(t)
+		tokNotJSON := keyIssNotJSON.Sign(map[string]any{
+			"iss": keyIssNotJSON.URL(),
+			"aud": "flowseer-device",
+			"sub": "u1",
+			"exp": now.Add(time.Hour).Unix(),
+			"iat": now.Unix(),
+		})
+
+		vNotJSON, err := authn.NewVerifier(authn.Options{
+			Issuers: []authn.IssuerConfig{
+				{
+					Issuer:   keyIssNotJSON.URL(),
+					Audience: "flowseer-device",
+				},
+			},
+			Client: keyIssNotJSON.Client(),
+			Clock:  func() time.Time { return now },
+		})
+		if err != nil {
+			t.Fatalf("NewVerifier: %v", err)
+		}
+
+		keyIssNotJSON.SetKeyResponse(http.StatusOK, "text/plain", []byte("not json"))
+		_, err = vNotJSON.Verify(context.Background(), tokNotJSON)
+		if err == nil {
+			t.Fatal("expected error for not json key endpoint, got nil")
+		}
+		code, ok := errs.CodeOf(err)
+		if !ok || code != authn.ErrCodeUnavailable {
+			t.Fatalf("got code %v, want %v (err: %v)", code, authn.ErrCodeUnavailable, err)
+		}
+
+		// Key endpoint returns 200 with empty key set -> authn/token-invalid
+		keyIssEmpty := authntest.New(t)
+		tokEmpty := keyIssEmpty.Sign(map[string]any{
+			"iss": keyIssEmpty.URL(),
+			"aud": "flowseer-device",
+			"sub": "u1",
+			"exp": now.Add(time.Hour).Unix(),
+			"iat": now.Unix(),
+		})
+
+		vEmpty, err := authn.NewVerifier(authn.Options{
+			Issuers: []authn.IssuerConfig{
+				{
+					Issuer:   keyIssEmpty.URL(),
+					Audience: "flowseer-device",
+				},
+			},
+			Client: keyIssEmpty.Client(),
+			Clock:  func() time.Time { return now },
+		})
+		if err != nil {
+			t.Fatalf("NewVerifier: %v", err)
+		}
+
+		keyIssEmpty.SetKeyResponse(http.StatusOK, "application/json", []byte(`{"keys":[]}`))
+		_, err = vEmpty.Verify(context.Background(), tokEmpty)
+		if err == nil {
+			t.Fatal("expected error for empty key set, got nil")
+		}
+		code, ok = errs.CodeOf(err)
+		if !ok || code != authn.ErrCodeTokenInvalid {
+			t.Fatalf("got code %v, want %v (err: %v)", code, authn.ErrCodeTokenInvalid, err)
+		}
+	})
+
+	t.Run("platform claim name empty beside set", func(t *testing.T) {
+		tok := srv.Sign(map[string]any{
+			"iss":   srv.URL(),
+			"aud":   "flowseer-device",
+			"sub":   "u1",
+			"roles": "platform-ops",
+			"exp":   now.Add(time.Hour).Unix(),
+			"iat":   now.Unix(),
+		})
+
+		// ClaimName set: Platform is true
+		vSet, err := authn.NewVerifier(authn.Options{
+			Issuers: []authn.IssuerConfig{
+				{
+					Issuer:   srv.URL(),
+					Audience: "flowseer-device",
+				},
+			},
+			Platform: authn.PlatformConfig{
+				Issuer:       srv.URL(),
+				ClaimName:    "roles",
+				Organization: "platform-ops",
+			},
+			Client: srv.Client(),
+			Clock:  func() time.Time { return now },
+		})
+		if err != nil {
+			t.Fatalf("NewVerifier: %v", err)
+		}
+		pSet, err := vSet.Verify(context.Background(), tok)
+		if err != nil {
+			t.Fatalf("Verify with claim name set: %v", err)
+		}
+		if !pSet.Platform {
+			t.Fatal("expected Platform true when ClaimName is set to 'roles'")
+		}
+
+		// ClaimName empty: Platform is false even though Organization matches
+		vEmpty, err := authn.NewVerifier(authn.Options{
+			Issuers: []authn.IssuerConfig{
+				{
+					Issuer:   srv.URL(),
+					Audience: "flowseer-device",
+				},
+			},
+			Platform: authn.PlatformConfig{
+				Issuer:       srv.URL(),
+				ClaimName:    "",
+				Organization: "platform-ops",
+			},
+			Client: srv.Client(),
+			Clock:  func() time.Time { return now },
+		})
+		if err != nil {
+			t.Fatalf("NewVerifier: %v", err)
+		}
+		pEmpty, err := vEmpty.Verify(context.Background(), tok)
+		if err != nil {
+			t.Fatalf("Verify with claim name empty: %v", err)
+		}
+		if pEmpty.Platform {
+			t.Fatal("expected Platform false when ClaimName is empty")
+		}
+	})
+
+	t.Run("BadSigner fails with authn/token-invalid", func(t *testing.T) {
+		verifier, err := authn.NewVerifier(authn.Options{
+			Issuers: []authn.IssuerConfig{
+				{
+					Issuer:   srv.URL(),
+					Audience: "flowseer-device",
+				},
+			},
+			Client: srv.Client(),
+			Clock:  func() time.Time { return now },
+		})
+		if err != nil {
+			t.Fatalf("NewVerifier: %v", err)
+		}
+		badTok := srv.SignBad(map[string]any{
+			"iss": srv.URL(),
+			"aud": "flowseer-device",
+			"sub": "u1",
+			"exp": now.Add(time.Hour).Unix(),
+			"iat": now.Unix(),
+		})
+		_, err = verifier.Verify(context.Background(), badTok)
+		if err == nil {
+			t.Fatal("expected error with BadSigner, got nil")
+		}
+		code, ok := errs.CodeOf(err)
+		if !ok || code != authn.ErrCodeTokenInvalid {
+			t.Fatalf("got code %v, want %v", code, authn.ErrCodeTokenInvalid)
+		}
+	})
 }

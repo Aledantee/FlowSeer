@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn/authntest"
 )
 
 type dummyStreamingConn struct {
@@ -25,17 +26,17 @@ func (c *dummyStreamingConn) Spec() connect.Spec           { return connect.Spec
 func (c *dummyStreamingConn) Peer() connect.Peer           { return connect.Peer{} }
 
 func TestInterceptorUnaryCases(t *testing.T) {
-	srv := newTestOidcServer(t)
+	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
 
 	verifier, err := authn.NewVerifier(authn.Options{
 		Issuers: []authn.IssuerConfig{
 			{
-				Issuer:   srv.server.URL,
+				Issuer:   srv.URL(),
 				Audience: "flowseer-device",
 			},
 		},
-		Client: srv.server.Client(),
+		Client: srv.Client(),
 		Clock:  func() time.Time { return now },
 	})
 	if err != nil {
@@ -45,13 +46,13 @@ func TestInterceptorUnaryCases(t *testing.T) {
 	interceptor := authn.NewInterceptor(verifier)
 
 	claims := map[string]any{
-		"iss": srv.server.URL,
+		"iss": srv.URL(),
 		"aud": "flowseer-device",
 		"sub": "u1",
 		"exp": now.Add(time.Hour).Unix(),
 		"iat": now.Unix(),
 	}
-	validToken := signRSAToken(t, srv.rsaKey, srv.rsaKID, claims)
+	validToken := srv.Sign(claims)
 
 	// Missing authorization header yields Unauthenticated.
 	unaryHandler := interceptor.WrapUnary(func(_ context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
@@ -106,17 +107,17 @@ func TestInterceptorUnaryCases(t *testing.T) {
 }
 
 func TestInterceptorStreamingHandler(t *testing.T) {
-	srv := newTestOidcServer(t)
+	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
 
 	verifier, err := authn.NewVerifier(authn.Options{
 		Issuers: []authn.IssuerConfig{
 			{
-				Issuer:   srv.server.URL,
+				Issuer:   srv.URL(),
 				Audience: "flowseer-device",
 			},
 		},
-		Client: srv.server.Client(),
+		Client: srv.Client(),
 		Clock:  func() time.Time { return now },
 	})
 	if err != nil {
@@ -126,13 +127,13 @@ func TestInterceptorStreamingHandler(t *testing.T) {
 	interceptor := authn.NewInterceptor(verifier)
 
 	claims := map[string]any{
-		"iss": srv.server.URL,
+		"iss": srv.URL(),
 		"aud": "flowseer-device",
 		"sub": "u1",
 		"exp": now.Add(time.Hour).Unix(),
 		"iat": now.Unix(),
 	}
-	validToken := signRSAToken(t, srv.rsaKey, srv.rsaKID, claims)
+	validToken := srv.Sign(claims)
 
 	// Streaming call without header yields Unauthenticated.
 	streamHandler := interceptor.WrapStreamingHandler(func(_ context.Context, _ connect.StreamingHandlerConn) error {
@@ -176,17 +177,17 @@ func TestInterceptorStreamingHandler(t *testing.T) {
 }
 
 func TestInterceptorUnavailableYieldsConnectUnavailable(t *testing.T) {
-	srv := newTestOidcServer(t)
+	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
 
 	verifier, err := authn.NewVerifier(authn.Options{
 		Issuers: []authn.IssuerConfig{
 			{
-				Issuer:   srv.server.URL,
+				Issuer:   srv.URL(),
 				Audience: "flowseer-device",
 			},
 		},
-		Client: srv.server.Client(),
+		Client: srv.Client(),
 		Clock:  func() time.Time { return now },
 	})
 	if err != nil {
@@ -195,15 +196,15 @@ func TestInterceptorUnavailableYieldsConnectUnavailable(t *testing.T) {
 
 	interceptor := authn.NewInterceptor(verifier)
 
-	srv.discoveryErr.Store(true)
+	srv.SetDiscoveryError(true)
 
 	claims := map[string]any{
-		"iss": srv.server.URL,
+		"iss": srv.URL(),
 		"aud": "flowseer-device",
 		"sub": "u1",
 		"exp": now.Add(time.Hour).Unix(),
 	}
-	token := signRSAToken(t, srv.rsaKey, srv.rsaKID, claims)
+	token := srv.Sign(claims)
 
 	unaryHandler := interceptor.WrapUnary(func(_ context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&emptypb.Empty{}), nil
