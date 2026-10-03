@@ -43,6 +43,6 @@ export function createWebI18n(locale: WebLocale = 'en') {
       en: structuredClone(en),
       de: structuredClone(de),
     },
-    numberFormats,
+    numberFormats: structuredClone(numberFormats),
   })
 }
