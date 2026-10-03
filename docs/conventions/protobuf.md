@@ -158,7 +158,7 @@ Three boundaries keep it from eroding the typed refs:
   the enum, because nothing else points at one and the store that would
   answer an existence check lands with that service. `OperatorRef` in
   `model/identity/v1` is the third: a person named by the identity
-  provider's stable subject, with no ref pair, no triad, and no place in the
+  provider's issuer and stable subject, with no ref pair, no triad, and no place in the
   enum, because the identity provider owns the person and nothing FlowSeer
   stores answers for one. Its leaf is not a shared refs package: it holds no
   entity's ref and imports nothing.

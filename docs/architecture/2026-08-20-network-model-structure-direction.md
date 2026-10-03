@@ -58,7 +58,7 @@ spec/proto/flowseer/
   model/
     policy/v1/          AccessPolicyHandle, an opaque key and version; imports nothing
     credential/v1/      CredentialMaterial, the typed secret an edge carries; imports nothing
-    identity/v1/        OperatorRef, the stable subject; imports nothing
+    identity/v1/        OperatorRef, issuer and stable subject; imports nothing
     edge/v1/            the Edge entity: ref pair, lifecycle, setup key, registered key, assertion, key proof, and provisioning file
     inventory/v1/       Device, Component, Integration, Binding, Placement, IntegrationScope, Location, PatchPanel, Cable, Link, Tag, provenance
     capture/v1/         the CaptureSession entity, its ref pair and lifecycle, and the chunk frames its two services share
@@ -76,6 +76,7 @@ spec/proto/flowseer/
   errs/v1/              the error wire payload
   event/
     access/v1/          DeviceOperationEvent, the durable audit record of lane operations
+    operator/v1/        OperatorActionEvent, the durable audit record of operator actions
   integration/          holds only a README; fabric contract reserved
   runtime/v1/           process-local runtime messages and durable mailbox contracts
   store/
@@ -122,6 +123,7 @@ model/inventory ← event/access
 errs ← {edge/dispatch, store/device}
 authz ← {api/capture, api/device, api/edge, api/identity}
 event/access ← edge/audit
+event/operator ← {model/identity, model/edge, model/capture}
 {model/edge, model/inventory, model/policy, model/access, errs, net/addr} ← store/device
 ```
 
@@ -1019,3 +1021,14 @@ The `authz/v1` leaf package holds the `Rule` message, the `RuleMode` enum, and
 the `MethodOptions` extension 50000. It imports nothing FlowSeer-owned and sits
 as a leaf beside `errs/`. Operator-facing RPC services import it to declare
 authorization rules.
+
+### 2026-10-03: operator identity names issuer and subject
+
+`OperatorRef` gains a required `issuer` URI beside `subject`, naming a person
+by issuer and subject.
+
+### 2026-10-03: operator action event package
+
+`OperatorActionEvent` lives in `event/operator/v1`, an event-only family that
+records what an operator attempted and completed. It imports `model/identity/v1`,
+`model/edge/v1`, and `model/capture/v1`.

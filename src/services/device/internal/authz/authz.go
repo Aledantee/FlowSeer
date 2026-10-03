@@ -52,6 +52,19 @@ type Checker interface {
 	BatchCheck(ctx context.Context, queries []Query) ([]bool, error)
 }
 
+// Relations manages tuples in the relationship graph.
+type Relations interface {
+	Write(ctx context.Context, writes, deletes []Tuple) error
+	Read(ctx context.Context, object string) ([]Tuple, error)
+	Scan(ctx context.Context, fn func(Tuple) error) error
+}
+
+// Engine evaluates authorization queries and manages relationships.
+type Engine interface {
+	Checker
+	Relations
+}
+
 func invalidTenant(err error) error {
 	return connecterr.WrapAs(connect.CodeInvalidArgument, "no tenant named", err)
 }

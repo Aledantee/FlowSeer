@@ -124,8 +124,10 @@ message MutationIntent {
     (buf.validate.field).required = true,
     (buf.validate.field).string.uuid = true
   ];
-  // Who asked. Must be present.
-  Actor actor = 3 [(buf.validate.field).required = true];
+  // Who asked. Set centrally from the authenticated caller, or from central's
+  // own reason for an intent it admits itself; replaces a value a request
+  // carries.
+  Actor actor = 3;
   // The policy version the intent is admitted under; a later policy edit
   // does not change an intent in flight. Must be present.
   flowseer.model.policy.v1.AccessPolicyHandle access_policy = 4 [(buf.validate.field).required = true];

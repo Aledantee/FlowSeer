@@ -152,27 +152,13 @@ func (rt *replayTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	return resp, nil
 }
 
-func (rt *replayTransport) HasOutage(keyURL string) bool {
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
-	cached, ok := rt.cache[keyURL]
-	if !ok {
-		return false
-	}
-	if rt.now().Sub(cached.timestamp) >= rt.window {
-		return false
-	}
-	return cached.err != nil || cached.statusCode != http.StatusOK
-}
-
 // Verifier verifies operator OIDC tokens against trusted issuers.
 type Verifier struct {
-	issuers   map[string]IssuerConfig
-	platform  PlatformConfig
-	resolver  OrgResolver
-	client    *http.Client
-	transport *replayTransport
-	clock     func() time.Time
+	issuers  map[string]IssuerConfig
+	platform PlatformConfig
+	resolver OrgResolver
+	client   *http.Client
+	clock    func() time.Time
 
 	providersMu sync.Mutex
 	providers   map[string]*providerState
@@ -225,7 +211,6 @@ func NewVerifier(opts Options) (*Verifier, error) {
 		platform:  opts.Platform,
 		resolver:  opts.Resolver,
 		client:    httpClient,
-		transport: replay,
 		clock:     clock,
 		providers: make(map[string]*providerState),
 		inflight:  make(map[string]*discoveryCall),
@@ -428,7 +413,7 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 			return Principal{}, errs.New().Code(ErrCodeTokenExpired).Cause(err).Msg("token expired")
 		}
 
-		if isKeyFetchError(err) && v.transport.HasOutage(state.jwksURI) {
+		if isKeyFetchError(err) {
 			return Principal{}, errs.New().Code(ErrCodeUnavailable).Retryable().Cause(err).Msg("key fetch unavailable")
 		}
 
@@ -436,8 +421,8 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 	}
 
 	sub := idToken.Subject
-	if sub == "" || strings.Contains(sub, "\x00") {
-		return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Msg("token subject is empty or contains null byte")
+	if sub == "" || len(sub) > 256 || strings.Contains(sub, "\x00") {
+		return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Msg("token subject is empty, exceeds 256 characters, or contains null byte")
 	}
 
 	var rawClaims map[string]json.RawMessage
@@ -475,10 +460,12 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 				return Principal{}, errs.New().Code(ErrCodeUnavailable).Retryable().Cause(err).Msg("lookup tenant organization")
 			}
 			if rec != nil && rec.GetConfig() != nil {
-				if rec.GetConfig().GetOrganizationClaimName() == issuerCfg.OrganizationClaimName {
-					if ref := rec.GetConfig().GetRef(); ref != nil && ref.GetTenant() != nil {
-						if tenantID := ref.GetTenant().GetId(); tenantID != "" {
-							tenants = append(tenants, tenantID)
+				if rec.GetState() != nil && rec.GetState().GetLifecycle() == identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE {
+					if rec.GetConfig().GetOrganizationClaimName() == issuerCfg.OrganizationClaimName {
+						if ref := rec.GetConfig().GetRef(); ref != nil && ref.GetTenant() != nil {
+							if tenantID := ref.GetTenant().GetId(); tenantID != "" {
+								tenants = append(tenants, tenantID)
+							}
 						}
 					}
 				}
@@ -489,25 +476,19 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 	}
 
 	isPlatform := false
-	if v.platform.Issuer != "" && issuerCfg.Issuer == v.platform.Issuer {
-		platClaimName := v.platform.ClaimName
-		if platClaimName == "" {
-			platClaimName = issuerCfg.OrganizationClaimName
+	if v.platform.Issuer != "" && issuerCfg.Issuer == v.platform.Issuer && v.platform.ClaimName != "" {
+		var platValues []string
+		if v.platform.ClaimName == issuerCfg.OrganizationClaimName {
+			platValues = orgValues
+		} else if rawPlatClaim, ok := rawClaims[v.platform.ClaimName]; ok {
+			var err error
+			platValues, err = parseClaimValues(rawPlatClaim, "platform claim")
+			if err != nil {
+				return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Cause(err).Msg("parse platform claim")
+			}
 		}
-		if platClaimName != "" {
-			var platValues []string
-			if platClaimName == issuerCfg.OrganizationClaimName {
-				platValues = orgValues
-			} else if rawPlatClaim, ok := rawClaims[platClaimName]; ok {
-				var err error
-				platValues, err = parseClaimValues(rawPlatClaim, "platform claim")
-				if err != nil {
-					return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Cause(err).Msg("parse platform claim")
-				}
-			}
-			if slices.Contains(platValues, v.platform.Organization) {
-				isPlatform = true
-			}
+		if slices.Contains(platValues, v.platform.Organization) {
+			isPlatform = true
 		}
 	}
 

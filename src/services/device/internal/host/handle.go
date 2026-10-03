@@ -12,6 +12,8 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/dispatchapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
+	"go.aledante.io/FlowSeer/src/services/device/internal/projector"
+	"go.aledante.io/FlowSeer/src/services/device/internal/tenantstore"
 )
 
 // ErrCodeHubGone is a module that needed the hub and stopped before one was
@@ -30,6 +32,8 @@ type busResources struct {
 	dispatch    *dispatchapi.Service
 	captures    *captureapi.Store
 	broadcaster *captureapi.Broadcaster
+	tenants     *tenantstore.Store
+	projector   *projector.Projector
 }
 
 // hubHandle carries the hub's resources from the module that owns them to the

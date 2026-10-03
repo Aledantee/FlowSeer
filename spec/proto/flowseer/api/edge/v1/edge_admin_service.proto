@@ -172,8 +172,8 @@ message ListEdgesRequest {
 }
 
 message ListEdgesResponse {
-  // The page of edges in the service's stable order. Empty means the
-  // listing is exhausted.
+  // The page of edges in the service's stable order. A page can be short or
+  // empty while next_page_token is set.
   repeated flowseer.model.edge.v1.EdgeRecord edges = 1;
   // Token for the next page. Unset means this was the last page.
   string next_page_token = 2 [

@@ -17,7 +17,7 @@ like `TagEvent` fails admission and belongs beside its triad in `model/inventory
 
 ## Boundaries
 
-Imports: model/access, model/inventory, net/addr, net/log
+Imports: model/access, model/capture, model/edge, model/identity, model/inventory, net/addr, net/log
 
 Imported by: edge/audit
 
@@ -30,3 +30,4 @@ makes one.
 
 - `access/v1/`: Durable audit events for device mutations, lane blocks, route selections, and recovery.
 - `log/v1/`: Durable syslog records parsed into RFC 5424 fields.
+- `operator/v1/`: Durable audit events for operator actions and their outcomes.

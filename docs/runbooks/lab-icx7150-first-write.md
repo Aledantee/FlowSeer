@@ -465,7 +465,6 @@ buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
   --data "{\"validateOnly\":true,\"intent\":{
     \"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},
     \"idempotencyKey\":\"$IDEMPOTENCY_KEY\",
-    \"actor\":{\"operator\":{\"subject\":\"$OPERATOR\"}},
     \"accessPolicy\":{\"key\":\"$POLICY_KEY\",\"version\":\"$POLICY_VERSION\"},
     \"expectedFirmwareFingerprint\":\"$FINGERPRINT\",
     \"interfaceDescription\":{\"interfaceName\":\"$INTERFACE\",\"description\":\"$DESCRIPTION\"}
@@ -505,7 +504,6 @@ buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
   --data "{\"intent\":{
     \"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},
     \"idempotencyKey\":\"$IDEMPOTENCY_KEY\",
-    \"actor\":{\"operator\":{\"subject\":\"$OPERATOR\"}},
     \"accessPolicy\":{\"key\":\"$POLICY_KEY\",\"version\":\"$POLICY_VERSION\"},
     \"expectedFirmwareFingerprint\":\"$FINGERPRINT\",
     \"interfaceDescription\":{\"interfaceName\":\"$INTERFACE\",\"description\":\"$DESCRIPTION\"}
@@ -576,8 +574,7 @@ first, and it needs the sequence from the apply's answer:
 
 ```sh
 buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
-  --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},\"sequence\":\"$SEQUENCE\",
-    \"actor\":{\"operator\":{\"subject\":\"$OPERATOR\"}}}" \
+  --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},\"sequence\":\"$SEQUENCE\"}" \
   "$CENTRAL/flowseer.api.device.v1.DeviceService/AbandonMutation"
 ```
 
@@ -599,11 +596,9 @@ what you want and will refuse you:
 ```sh
 buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
   --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},\"sequence\":\"$SEQUENCE\",
-    \"actor\":{\"operator\":{\"subject\":\"$OPERATOR\"}},
     \"replace\":{
       \"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},
       \"idempotencyKey\":\"$(uuidgen | tr 'A-Z' 'a-z')\",
-      \"actor\":{\"operator\":{\"subject\":\"$OPERATOR\"}},
       \"accessPolicy\":{\"key\":\"$POLICY_KEY\",\"version\":\"$POLICY_VERSION\"},
       \"expectedFirmwareFingerprint\":\"$FINGERPRINT\",
       \"interfaceDescription\":{\"interfaceName\":\"$INTERFACE\",\"description\":\"\"}

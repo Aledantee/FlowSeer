@@ -6,7 +6,10 @@ import (
 	connect "connectrpc.com/connect"
 
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 )
 
 // ApplyInterfaceDescription records the operator's intent and admits it to the
@@ -20,7 +23,19 @@ import (
 // check is the one that can go stale between the answer and a later apply,
 // which is what makes validate_only advice rather than a reservation.
 func (s *Service) ApplyInterfaceDescription(ctx context.Context, req *connect.Request[devicev1.ApplyInterfaceDescriptionRequest]) (*connect.Response[devicev1.ApplyInterfaceDescriptionResponse], error) {
+	principal, ok := authn.FromContext(ctx)
+	if !ok {
+		return nil, connectErr(errs.New().Code(ErrCodeUnauthenticated).Msg("no authenticated principal in context"))
+	}
 	intent := req.Msg.GetIntent()
+	if intent != nil {
+		actor := &accessv1.Actor{}
+		op := &identityv1.OperatorRef{}
+		op.SetIssuer(principal.Issuer)
+		op.SetSubject(principal.Subject)
+		actor.SetOperator(op)
+		intent.SetActor(actor)
+	}
 	deviceID, laneTenant, entry, err := s.device(ctx, intent.GetDevice())
 	if err != nil {
 		return nil, connectErr(err)

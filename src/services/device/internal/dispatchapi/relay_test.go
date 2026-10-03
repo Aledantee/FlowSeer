@@ -96,6 +96,7 @@ func mutationIntent(key string) *accessv1.MutationIntent {
 	device.SetDevice(local)
 	actor := &accessv1.Actor{}
 	op := &identityv1.OperatorRef{}
+	op.SetIssuer("https://auth.example.com")
 	op.SetSubject("zitadel|1")
 	actor.SetOperator(op)
 	policy := &policyv1.AccessPolicyHandle{}

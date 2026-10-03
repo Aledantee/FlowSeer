@@ -744,3 +744,39 @@ func (s *Store) SweepExpired(ctx context.Context) (int, error) {
 	}
 	return removed, nil
 }
+
+// EachSession walks every session record in the store across all tenants, invoking fn for each.
+// If fn returns an error, EachSession terminates and returns that error.
+func (s *Store) EachSession(ctx context.Context, fn func(tenantID string, rec *modelcapturev1.CaptureSessionRecord) error) error {
+	keys, err := s.kv.Keys(ctx)
+	if errors.Is(err, jetstream.ErrNoKeysFound) {
+		return nil
+	}
+	if err != nil {
+		return errs.From(err).Code(ErrCodeStore).Msg("list capture sessions")
+	}
+	for _, key := range keys {
+		parts := strings.Split(key, ".")
+		if len(parts) != 2 {
+			continue
+		}
+		tenantID, sessionID := parts[0], parts[1]
+		if err := tenant.Validate(tenantID); err != nil {
+			continue
+		}
+		if _, err := uuid.Parse(sessionID); err != nil {
+			continue
+		}
+		rec, _, err := s.Session(ctx, tenantID, sessionID)
+		if err != nil {
+			return err
+		}
+		if rec == nil {
+			continue
+		}
+		if err := fn(tenantID, rec); err != nil {
+			return err
+		}
+	}
+	return nil
+}

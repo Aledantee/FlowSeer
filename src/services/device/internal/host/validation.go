@@ -80,6 +80,33 @@ func (v validatingInterceptor) WrapStreamingClient(next connect.StreamingClientF
 	return next
 }
 
+// OperatorValidatingInterceptor validates unary requests and every message
+// received on a streaming handler against its schema rules.
+func OperatorValidatingInterceptor() connect.Interceptor {
+	return operatorValidatingInterceptor{validatingInterceptor: validatingInterceptor{}}
+}
+
+type operatorValidatingInterceptor struct {
+	validatingInterceptor
+}
+
+func (v operatorValidatingInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+		return next(ctx, &validatingStreamingConn{StreamingHandlerConn: conn})
+	}
+}
+
+type validatingStreamingConn struct {
+	connect.StreamingHandlerConn
+}
+
+func (c *validatingStreamingConn) Receive(msg any) error {
+	if err := c.StreamingHandlerConn.Receive(msg); err != nil {
+		return err
+	}
+	return validateMessage(msg)
+}
+
 func validateMessage(payload any) error {
 	msg, ok := payload.(proto.Message)
 	if !ok {

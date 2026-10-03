@@ -66,6 +66,12 @@ type HubConfig struct {
 	// AuditMaxBytes bounds the audit stream within the central budget. Zero
 	// means 256 MiB.
 	AuditMaxBytes int64
+	// OperatorActionMaxBytes bounds the operator action stream within the central budget. Zero
+	// means 64 MiB.
+	OperatorActionMaxBytes int64
+	// OperatorActionMaxPerSubject bounds the operator action stream to at most this many
+	// records per subject. Zero means 10,000.
+	OperatorActionMaxPerSubject int64
 	// AuditDuplicateWindow is how long the audit stream remembers an event
 	// id; a re-delivered record inside it is stored once. Zero means ten
 	// minutes, longer than any edge re-send.
@@ -126,14 +132,16 @@ type edgeAccount struct {
 }
 
 const (
-	defaultEdgeStreamBytes   = 64 << 20
-	defaultEdgeStreamMaxAge  = 24 * time.Hour
-	defaultAuditStreamBytes  = 256 << 20
-	defaultAuditDedupeWindow = 10 * time.Minute
+	defaultEdgeStreamBytes           = 64 << 20
+	defaultEdgeStreamMaxAge          = 24 * time.Hour
+	defaultAuditStreamBytes          = 256 << 20
+	defaultAuditDedupeWindow         = 10 * time.Minute
+	defaultOperatorActionStreamBytes = 64 << 20
+	defaultOperatorActionMaxPerSubj  = 10000
 	// defaultCentralBudget reserves the central account's disk for the
-	// journal and the audit stream; defaultEdgeBudget bounds one edge's
-	// source stream plus margin. They are independent, so telemetry cannot
-	// starve the journal.
+	// journal, the audit stream, and the operator action stream; defaultEdgeBudget
+	// bounds one edge's source stream plus margin. They are independent, so telemetry
+	// cannot starve the journal.
 	defaultCentralBudget = 512 << 20
 	defaultEdgeBudget    = 128 << 20
 )
@@ -377,6 +385,27 @@ func (h *Hub) createStores(ctx context.Context) error {
 		Duplicates: window,
 	}); err != nil {
 		return errs.From(err).Code(ErrCodeHub).Msg("create audit stream")
+	}
+
+	opActionBytes := h.cfg.OperatorActionMaxBytes
+	if opActionBytes <= 0 {
+		opActionBytes = defaultOperatorActionStreamBytes
+	}
+	opActionMaxPerSubj := h.cfg.OperatorActionMaxPerSubject
+	if opActionMaxPerSubj <= 0 {
+		opActionMaxPerSubj = defaultOperatorActionMaxPerSubj
+	}
+	if _, err := h.centralJS.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
+		Name:              OperatorActionStream,
+		Subjects:          []string{"flowseer.*.operator.action.*"},
+		Storage:           jetstream.FileStorage,
+		Retention:         jetstream.LimitsPolicy,
+		Discard:           jetstream.DiscardOld,
+		MaxBytes:          opActionBytes,
+		MaxMsgsPerSubject: opActionMaxPerSubj,
+		Duplicates:        window,
+	}); err != nil {
+		return errs.From(err).Code(ErrCodeHub).Msg("create operator action stream")
 	}
 	return nil
 }

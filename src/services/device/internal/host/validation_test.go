@@ -2,16 +2,21 @@ package host_test
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	connect "connectrpc.com/connect"
 
+	operatorcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
+	"go.aledante.io/FlowSeer/src/services/device/internal/host"
 )
 
 func validApply() *devicev1.ApplyInterfaceDescriptionRequest {
@@ -21,6 +26,7 @@ func validApply() *devicev1.ApplyInterfaceDescriptionRequest {
 	device.SetDevice(local)
 
 	operator := &identityv1.OperatorRef{}
+	operator.SetIssuer("https://auth.example.com")
 	operator.SetSubject("zitadel|1")
 	actor := &accessv1.Actor{}
 	actor.SetOperator(operator)
@@ -169,6 +175,69 @@ func TestTheInterfaceNameIsHeldToTheShellSafeRule(t *testing.T) {
 		}
 		if handler.entered {
 			t.Fatal("the handler ran on an interface name carrying a shell metacharacter")
+		}
+	})
+}
+
+type dummyCaptureHandler struct {
+	capturev1connect.UnimplementedCaptureServiceHandler
+	entered bool
+}
+
+func (d *dummyCaptureHandler) DownloadCaptureSession(
+	_ context.Context,
+	_ *connect.Request[operatorcapturev1.DownloadCaptureSessionRequest],
+	_ *connect.ServerStream[operatorcapturev1.DownloadCaptureSessionResponse],
+) error {
+	d.entered = true
+	return nil
+}
+
+func TestStreamingMessageValidation(t *testing.T) {
+	// A stream message that fails protovalidate rules (session required on DownloadCaptureSessionRequest)
+	// is refused under OperatorValidatingInterceptor and passed under ValidatingInterceptor.
+	invalidReq := &operatorcapturev1.DownloadCaptureSessionRequest{}
+
+	t.Run("operator variant refuses invalid stream message", func(t *testing.T) {
+		handler := &dummyCaptureHandler{}
+		path, h := capturev1connect.NewCaptureServiceHandler(handler, connect.WithInterceptors(host.OperatorValidatingInterceptor()))
+		mux := http.NewServeMux()
+		mux.Handle(path, h)
+		server := httptest.NewServer(mux)
+		t.Cleanup(server.Close)
+
+		client := capturev1connect.NewCaptureServiceClient(server.Client(), server.URL)
+		stream, err := client.DownloadCaptureSession(context.Background(), connect.NewRequest(invalidReq))
+		if err != nil {
+			t.Fatalf("DownloadCaptureSession: %v", err)
+		}
+		if stream.Receive() {
+			t.Fatal("stream received message, want error")
+		}
+		if got := connect.CodeOf(stream.Err()); got != connect.CodeInvalidArgument {
+			t.Fatalf("stream err code = %v, want CodeInvalidArgument (%v)", got, stream.Err())
+		}
+		if handler.entered {
+			t.Fatal("handler was entered under OperatorValidatingInterceptor with invalid message")
+		}
+	})
+
+	t.Run("edge variant passes invalid stream message to handler", func(t *testing.T) {
+		handler := &dummyCaptureHandler{}
+		path, h := capturev1connect.NewCaptureServiceHandler(handler, connect.WithInterceptors(host.ValidatingInterceptor()))
+		mux := http.NewServeMux()
+		mux.Handle(path, h)
+		server := httptest.NewServer(mux)
+		t.Cleanup(server.Close)
+
+		client := capturev1connect.NewCaptureServiceClient(server.Client(), server.URL)
+		stream, err := client.DownloadCaptureSession(context.Background(), connect.NewRequest(invalidReq))
+		if err != nil {
+			t.Fatalf("DownloadCaptureSession: %v", err)
+		}
+		_ = stream.Receive()
+		if !handler.entered {
+			t.Fatal("handler was not entered under ValidatingInterceptor")
 		}
 	})
 }

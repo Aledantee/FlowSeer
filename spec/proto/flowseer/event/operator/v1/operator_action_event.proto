@@ -1,0 +1,103 @@
+edition = "2024";
+
+// The durable audit record of what an operator did: OperatorActionEvent and its
+// detail kinds. Deliberately partial: there is no OperatorActionConfig or
+// OperatorActionState, because this package is a pure event stream with no
+// queryable current-state entity of its own.
+package flowseer.event.operator.v1;
+
+import "flowseer/model/capture/v1/capture_session.proto";
+import "flowseer/model/edge/v1/edge.proto";
+import "flowseer/model/identity/v1/operator.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+// The operator action recorded.
+enum OperatorAction {
+  OPERATOR_ACTION_UNSPECIFIED = 0;
+  OPERATOR_ACTION_EDGE_CREATE = 1;
+  OPERATOR_ACTION_SETUP_KEY_ISSUE = 2;
+  OPERATOR_ACTION_SETUP_KEY_REVOKE = 3;
+  OPERATOR_ACTION_EDGE_RETIRE = 4;
+  OPERATOR_ACTION_EDGE_GET = 5;
+  OPERATOR_ACTION_EDGE_LIST = 6;
+  OPERATOR_ACTION_CAPTURE_FULL_PAYLOAD_CREATE = 7;
+  OPERATOR_ACTION_CAPTURE_TAIL = 8;
+  OPERATOR_ACTION_CAPTURE_DOWNLOAD = 9;
+}
+
+// The outcome of an attempted operator action.
+enum OperatorActionOutcome {
+  OPERATOR_ACTION_OUTCOME_UNSPECIFIED = 0;
+  OPERATOR_ACTION_OUTCOME_SUCCEEDED = 1;
+  OPERATOR_ACTION_OUTCOME_DENIED = 2;
+  OPERATOR_ACTION_OUTCOME_FAILED = 3;
+}
+
+// The operator started an action.
+message OperatorActionAttempted {}
+
+// The operator action completed.
+message OperatorActionCompleted {
+  option (buf.validate.message).cel = {
+    id: "operator_action_completed.error_type_matches_outcome"
+    message: "error_type is set if and only if outcome is not succeeded"
+    expression: "has(this.error_type) == (this.outcome != 1)"
+  };
+
+  // The outcome of the action. Must be present; the zero value is rejected.
+  OperatorActionOutcome outcome = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // The error type classification when the action did not succeed. Set if and
+  // only if outcome is not succeeded.
+  string error_type = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+}
+
+// One durable audit record for an operator action. Delivered before the state
+// it records is released.
+message OperatorActionEvent {
+  // FlowSeer-assigned event identifier, unique for deduplication. Must be present.
+  string event_id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  // Identifier joining the attempt and completion of one call. Must be present.
+  string call_id = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  // When the event occurred. Must be present.
+  google.protobuf.Timestamp occurred_at = 3 [(buf.validate.field).required = true];
+  // The operator who performed the action. Must be present.
+  flowseer.model.identity.v1.OperatorRef operator = 4 [(buf.validate.field).required = true];
+  // The action being performed. Must be present; the zero value is rejected.
+  OperatorAction action = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+
+  // Optional target object of the action.
+  oneof object {
+    flowseer.model.edge.v1.EdgeGlobalRef edge = 10;
+    flowseer.model.capture.v1.CaptureSessionGlobalRef capture_session = 11;
+  }
+
+  // Exactly one detail kind.
+  oneof detail {
+    option (buf.validate.oneof).required = true;
+
+    OperatorActionAttempted attempted = 20;
+    OperatorActionCompleted completed = 21;
+  }
+}

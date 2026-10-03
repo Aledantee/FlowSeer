@@ -29,8 +29,6 @@ Deliberately absent:
 - A tenant field on stored lane and edge records. Lane records are partitioned
   by the `<tenant_id>.` prefix of their key. Edge lookup resolves the tenant
   through the `edge_<edgeID>` index, then reads the tenant-prefixed record key.
-  `DeviceServiceConfig.dev_tenant` is deployment configuration, not
-  stored-record scope.
 
 ## The lane record
 
@@ -45,7 +43,7 @@ mutation {
   intent {
     device { device { id: "0192e6a0-0000-7000-8000-0000000000d1" } }
     idempotency_key: "0192e6a0-0000-7000-8000-00000000a001"
-    actor { operator { subject: "zitadel|2837" } }
+    actor { operator { issuer: "https://auth.example.com" subject: "zitadel|2837" } }
     access_policy { key: "icx7150-lab" version: 3 }
     expected_firmware_fingerprint: "ICX7150-24P SPS10010g"
     interface_description { interface_name: "ethernet 1/1/1" description: "uplink to core" }
@@ -102,6 +100,17 @@ edges {
   assertion_audience: "flowseer-device-central"
   cluster_urls: "wss://central.example.test:8444"
 }
+authentication {
+  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-api"
+  }
+}
+authorization {
+  endpoint: "http://openfga.example.test:8080"
+  store_id: "01H00000000000000000000000"
+  model_id: "01H00000000000000000000001"
+}
 telemetry { endpoint: "https://collector.example.test" }
 ```
 
@@ -123,5 +132,4 @@ provided when issuers use private certificates.
 
 `authorization` names the external authorization engine endpoint, store and
 model identifiers, a preshared key file path, and an optional CA bundle. Both
-sections are optional: leaving them unset preserves unauthenticated and
-unauthorized operation.
+`authentication` and `authorization` are required on every deployment.

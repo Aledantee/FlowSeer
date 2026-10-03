@@ -52,7 +52,8 @@ func LoadConfig(path string) (*Config, error) {
 
 func parseConfig(data []byte, path string) (*Config, error) {
 	msg := &storev1.DeviceServiceConfig{}
-	if err := prototext.Unmarshal(data, msg); err != nil {
+	opts := prototext.UnmarshalOptions{DiscardUnknown: true}
+	if err := opts.Unmarshal(data, msg); err != nil {
 		return nil, errs.From(err).Code(ErrCodeConfigLoad).Attr("path", path).
 			Msg("parse service configuration prototext")
 	}
@@ -147,28 +148,30 @@ func (c *Config) TelemetryHeaders() map[string]string { return c.msg.GetTelemetr
 // and the schema comment an operator reads describes that one rather than a
 // copy this package would have to keep in step.
 type Intervals struct {
-	Drift             time.Duration
-	DriftReadDeadline time.Duration
-	DispatchResend    time.Duration
-	ReadSweep         time.Duration
-	SubmissionPulse   time.Duration
-	EdgeStaleAfter    time.Duration
-	EdgeDormantAfter  time.Duration
-	CaptureSweep      time.Duration
+	Drift                 time.Duration
+	DriftReadDeadline     time.Duration
+	DispatchResend        time.Duration
+	ReadSweep             time.Duration
+	SubmissionPulse       time.Duration
+	EdgeStaleAfter        time.Duration
+	EdgeDormantAfter      time.Duration
+	CaptureSweep          time.Duration
+	RelationshipReconcile time.Duration
 }
 
 // Intervals reads the configured cadences.
 func (c *Config) Intervals() Intervals {
 	i := c.msg.GetIntervals()
 	return Intervals{
-		Drift:             i.GetDrift().AsDuration(),
-		DriftReadDeadline: i.GetDriftReadDeadline().AsDuration(),
-		DispatchResend:    i.GetDispatchResend().AsDuration(),
-		ReadSweep:         i.GetReadSweep().AsDuration(),
-		SubmissionPulse:   i.GetSubmissionPulse().AsDuration(),
-		EdgeStaleAfter:    i.GetEdgeStaleAfter().AsDuration(),
-		EdgeDormantAfter:  i.GetEdgeDormantAfter().AsDuration(),
-		CaptureSweep:      i.GetCaptureSweep().AsDuration(),
+		Drift:                 i.GetDrift().AsDuration(),
+		DriftReadDeadline:     i.GetDriftReadDeadline().AsDuration(),
+		DispatchResend:        i.GetDispatchResend().AsDuration(),
+		ReadSweep:             i.GetReadSweep().AsDuration(),
+		SubmissionPulse:       i.GetSubmissionPulse().AsDuration(),
+		EdgeStaleAfter:        i.GetEdgeStaleAfter().AsDuration(),
+		EdgeDormantAfter:      i.GetEdgeDormantAfter().AsDuration(),
+		CaptureSweep:          i.GetCaptureSweep().AsDuration(),
+		RelationshipReconcile: i.GetRelationshipReconcile().AsDuration(),
 	}
 }
 
@@ -176,12 +179,6 @@ func (c *Config) Intervals() Intervals {
 // if none is set.
 func (c *Config) PlatformAdmin() *storev1.PlatformAdmin {
 	return c.msg.GetPlatformAdmin()
-}
-
-// DevTenant returns the optional development or test tenant ID, or empty string
-// if none was configured.
-func (c *Config) DevTenant() string {
-	return c.msg.GetDevTenant()
 }
 
 // Authentication returns the configured operator authentication options, or

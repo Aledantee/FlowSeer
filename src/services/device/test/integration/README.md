@@ -5,7 +5,8 @@ dependencies. They need a reachable Docker daemon and the environment below.
 
 ## Running the tier
 
-Run the whole package with the `authz_integration` build tag:
+Run the whole package with the `authz_integration` build tag, which exercises
+`authz_enforcement_test.go` and the OpenFGA container fixtures:
 
 ```bash
 DOCKER_HOST="unix://$HOME/.colima/default/docker.sock" \

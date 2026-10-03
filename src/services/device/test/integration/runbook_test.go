@@ -158,6 +158,8 @@ func TestTheRunbooksCommandsRun(t *testing.T) {
 	script.WriteString("export IDEMPOTENCY_KEY=0192e6a0-0000-7000-8000-0000000ab001\n")
 	script.WriteString("export POLICY_KEY=" + shellQuote(fixturePolicyKey) + "\n")
 	script.WriteString("export POLICY_VERSION=1\n")
+	script.WriteString("export TOKEN=" + shellQuote(d.central.token) + "\n")
+	script.WriteString("buf() { if [ \"$1\" = \"curl\" ]; then shift; command buf curl -H \"Authorization: Bearer $TOKEN\" -H \"X-FlowSeer-Tenant: default\" \"$@\"; else command buf \"$@\"; fi; }\n")
 
 	// The steps, and only the steps. The section before them starts the
 	// binaries, which is the bootstrap test's subject; the section after them
@@ -261,6 +263,8 @@ func TestTheRunbooksRecoveryStepsRun(t *testing.T) {
 	script.WriteString("export POLICY_VERSION=1\n")
 	script.WriteString("export FINGERPRINT=" + shellQuote(fingerprint) + "\n")
 	script.WriteString("export SEQUENCE=" + shellQuote(uintToString(mutation.GetSequence())) + "\n")
+	script.WriteString("export TOKEN=" + shellQuote(d.central.token) + "\n")
+	script.WriteString("buf() { if [ \"$1\" = \"curl\" ]; then shift; command buf curl -H \"Authorization: Bearer $TOKEN\" -H \"X-FlowSeer-Tenant: default\" \"$@\"; else command buf \"$@\"; fi; }\n")
 	// The document says to retry the resolution until it stops being refused,
 	// because nothing reports when the edge has acknowledged the abandonment.
 	// Running it once would be running something no operator would.

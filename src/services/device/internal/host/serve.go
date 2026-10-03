@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	connect "connectrpc.com/connect"
 
@@ -23,12 +24,16 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/actiontrail"
 	"go.aledante.io/FlowSeer/src/services/device/internal/auditapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/deviceapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edge"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
+	"go.aledante.io/FlowSeer/src/services/device/internal/projector"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
@@ -45,17 +50,17 @@ func panicRecovery() connect.HandlerOption {
 }
 
 // mux builds the served surface: the edge-facing services behind the
-// assertion middleware, and the operator-facing ones in front of it.
+// assertion middleware, and the operator-facing ones enforcing authentication,
+// validation, relationship authorization, and action trail recording.
 //
 // Which side a service sits on is decided by who calls it. An edge signs every
 // call with the key central registered at enrollment, so EdgeService,
 // DispatchService, AuditService and CaptureEdgeService are verified before
 // Connect decodes anything. An operator holds no edge key, so EdgeAdminService,
 // DeviceService and CaptureService cannot be behind that check — putting them
-// there would refuse every operator. None carries an authorization check of
-// its own. The deployment puts the operator surface behind its own boundary.
-// CaptureService is the one that makes that boundary matter most: behind it is
-// other people's traffic, not only an inventory.
+// there would refuse every operator. Instead, the operator surface enforces
+// operator authentication, schema validation, relationship-based authorization,
+// and action trail recording.
 //
 // Two edge procedures are mounted in front of the middleware, each for the
 // same reason and each paying for it explicitly. Enroll happens before central
@@ -65,15 +70,68 @@ func panicRecovery() connect.HandlerOption {
 // middleware's limit would have been.
 func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetry.View) (http.Handler, error) {
 	recoverPanic := panicRecovery()
-	devTenant := h.cfg.DevTenant()
-	if devTenant == "" {
-		devTenant = edgebus.DefaultTenant
-	}
-	interceptors := connect.WithInterceptors(
+
+	edgeInterceptors := connect.WithInterceptors(
 		TelemetryInterceptor(log, view),
 		ValidatingInterceptor(),
-		TenantInterceptor(devTenant),
 	)
+
+	authnCfg := h.cfg.Authentication()
+	var issuers []authn.IssuerConfig
+	if authnCfg != nil {
+		for _, iss := range authnCfg.GetIssuers() {
+			issuers = append(issuers, authn.IssuerConfig{
+				Issuer:                iss.GetIssuer(),
+				Audience:              iss.GetAudience(),
+				OrganizationClaimName: iss.GetOrganizationClaimName(),
+			})
+		}
+	}
+	var platform authn.PlatformConfig
+	if p := h.cfg.PlatformAdmin(); p != nil {
+		platform = authn.PlatformConfig{
+			Issuer:       p.GetIssuer(),
+			ClaimName:    p.GetOrganizationClaimName(),
+			Organization: p.GetOrganization(),
+		}
+	}
+	tokenVerifier, err := authn.NewVerifier(authn.Options{
+		Issuers:  issuers,
+		Platform: platform,
+		Resolver: resources.tenants.LookupByOrg,
+		Client:   h.authnClient,
+		Clock:    time.Now,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	operatorInterceptors := connect.WithInterceptors(
+		TelemetryInterceptor(log, view),
+		authn.NewInterceptor(tokenVerifier),
+		OperatorValidatingInterceptor(),
+		authz.NewInterceptor(h.engine),
+		actiontrail.NewInterceptor(auditPublisher(resources.hub), time.Now, log),
+	)
+
+	projectHook := func(ctx context.Context, objectType, id string) {
+		t, err := tenant.FromContext(ctx)
+		if err != nil {
+			log.ErrorContext(ctx, "projector hook missing tenant", slog.String("error.type", telemetry.ErrorType(err)))
+			return
+		}
+		if err := resources.projector.Sync(ctx, projector.Object{
+			Type:   objectType,
+			ID:     id,
+			Tenant: t,
+		}); err != nil {
+			log.ErrorContext(ctx, "failed to project object relationship",
+				slog.String("object_type", objectType),
+				slog.String("object_id", id),
+				slog.String("error.type", telemetry.ErrorType(err)),
+			)
+		}
+	}
 
 	verifier := edge.NewVerifier(h.cfg.AssertionAudience(), h.cfg.AssertionClockSkew(), resources.edges.Lookup)
 	middleware := edgeapi.NewMiddleware(verifier, maxEdgeBody, log)
@@ -99,7 +157,9 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 			TrustAnchors: [][]byte{h.certificate.SPKI},
 		},
 		edgeapi.NewContact(intervals.EdgeStaleAfter, intervals.EdgeDormantAfter),
-		nil)
+		nil,
+		projectHook,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -135,10 +195,11 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 		captureapi.OperatorServiceConfig{
 			NotifyChange: captureEdgeService.NotifyStoreChange,
 			EdgeTenant:   resources.edgeTenant,
+			Project:      projectHook,
 		},
 	)
 	mux := http.NewServeMux()
-	edgePath, edgeHandler := attachv1connect.NewEdgeServiceHandler(edgeService, interceptors, recoverPanic)
+	edgePath, edgeHandler := attachv1connect.NewEdgeServiceHandler(edgeService, edgeInterceptors, recoverPanic)
 	mux.Handle(edgePath, middleware.Wrap(edgeHandler))
 	// Enroll is the one edge call made before central holds a key to verify
 	// it with, so it sits in front of the middleware. It carries its own
@@ -150,19 +211,19 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	// caller can reach, and the one the bound exists for.
 	mux.Handle(attachv1connect.EdgeServiceEnrollProcedure, http.MaxBytesHandler(edgeHandler, maxEdgeBody))
 
-	dispatchPath, dispatchHandler := dispatchv1connect.NewDispatchServiceHandler(resources.dispatch, interceptors, recoverPanic)
+	dispatchPath, dispatchHandler := dispatchv1connect.NewDispatchServiceHandler(resources.dispatch, edgeInterceptors, recoverPanic)
 	mux.Handle(dispatchPath, middleware.Wrap(dispatchHandler))
 
-	auditPath, auditHandler := auditv1connect.NewAuditServiceHandler(auditService, interceptors, recoverPanic)
+	auditPath, auditHandler := auditv1connect.NewAuditServiceHandler(auditService, edgeInterceptors, recoverPanic)
 	mux.Handle(auditPath, middleware.Wrap(auditHandler))
 
-	adminPath, adminHandler := edgev1connect.NewEdgeAdminServiceHandler(adminService, interceptors, recoverPanic)
+	adminPath, adminHandler := edgev1connect.NewEdgeAdminServiceHandler(adminService, operatorInterceptors, recoverPanic)
 	mux.Handle(adminPath, adminHandler)
 
-	devicePath, deviceHandler := devicev1connect.NewDeviceServiceHandler(deviceService, interceptors, recoverPanic)
+	devicePath, deviceHandler := devicev1connect.NewDeviceServiceHandler(deviceService, operatorInterceptors, recoverPanic)
 	mux.Handle(devicePath, deviceHandler)
 
-	capturePath, captureHandler := capturev1connect.NewCaptureServiceHandler(captureOperatorService, interceptors, recoverPanic)
+	capturePath, captureHandler := capturev1connect.NewCaptureServiceHandler(captureOperatorService, operatorInterceptors, recoverPanic)
 	mux.Handle(capturePath, captureHandler)
 
 	// Every message on the upload stream is bounded, in place of the body
@@ -170,7 +231,7 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	// middleware cannot do it here: it reads the body whole to hash it, and
 	// an upload stream has no whole.
 	captureEdgePath, captureEdgeHandler := captureedgev1connect.NewCaptureEdgeServiceHandler(
-		captureEdgeService, interceptors, recoverPanic, connect.WithReadMaxBytes(maxCaptureChunk),
+		captureEdgeService, edgeInterceptors, recoverPanic, connect.WithReadMaxBytes(maxCaptureChunk),
 	)
 	mux.Handle(captureEdgePath, middleware.Wrap(captureEdgeHandler))
 	// UploadCapture carries its assertions as messages rather than headers,

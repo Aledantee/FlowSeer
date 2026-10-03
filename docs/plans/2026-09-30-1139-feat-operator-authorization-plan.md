@@ -249,7 +249,7 @@ Landed: `e5ea2690..2e1c5ce1`
 
 Files: `docs/plans/2026-09-30-1139-feat-operator-authorization-phase3-plan.md`
 After: U2
-Landed:
+Landed: `af914ebf..d68db6e6`
 
 ### U4. Tenancy admin surfaces and the operator action trail
 

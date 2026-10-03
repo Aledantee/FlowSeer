@@ -6,7 +6,9 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"regexp"
+	"slices"
 	"testing"
 	"time"
 
@@ -22,8 +24,10 @@ import (
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
-	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz/authztest"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
@@ -37,8 +41,42 @@ var setupKeyPattern = regexp.MustCompile(`^fse1_[a-z2-7]{26}_[a-z2-7]{52}$`)
 
 const defaultTenantID = "01923456-789a-7def-8123-456789abcdef"
 
+var testEngine *authztest.Engine
+
+func init() {
+	testEngine = authztest.New()
+	p := testPrincipal()
+	testEngine.Grant("user:"+p.ID, "member", "tenant")
+	testEngine.Grant("user:"+p.ID, "view", "edge")
+}
+
+func testPrincipal() authn.Principal {
+	return authn.Principal{
+		ID:       authn.ComputePrincipalID("https://auth.example.test", "admin-user"),
+		Issuer:   "https://auth.example.test",
+		Subject:  "admin-user",
+		Tenants:  []string{defaultTenantID},
+		Platform: true,
+	}
+}
+
 func testContext() context.Context {
-	return tenant.WithTenant(context.Background(), defaultTenantID)
+	return testContextForTenant(defaultTenantID, testEngine)
+}
+
+func testContextForTenant(tenantID string, engine authz.Engine) context.Context {
+	if eng, ok := engine.(*authztest.Engine); ok {
+		eng.Grant("tenant:"+tenantID, "tenant", "edge")
+	}
+	principal := testPrincipal()
+	principal.Tenants = []string{tenantID}
+	ctx := authn.NewContext(context.Background(), principal)
+	interceptor := authz.NewInterceptor(engine)
+	admitted, err := interceptor.Admit(ctx, tenantID)
+	if err != nil {
+		panic(err)
+	}
+	return admitted
 }
 
 var testClock = time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
@@ -74,7 +112,7 @@ func newAdminOver(t *testing.T, store *edgestore.Store, clock func() time.Time) 
 	admin, err := edgeapi.NewAdminService(store, nil, edgeapi.Provisioning{
 		CentralURL:   "https://central.example.test",
 		TrustAnchors: [][]byte{anchor},
-	}, edgeapi.NewContact(0, 0), clock)
+	}, edgeapi.NewContact(0, 0), clock, nil)
 	if err != nil {
 		t.Fatalf("NewAdminService: %v", err)
 	}
@@ -429,16 +467,16 @@ func TestNewAdminServiceRefusesProvisioningAnEdgeCannotPin(t *testing.T) {
 	store := edgestore.New(nil)
 	anchor := make([]byte, 32)
 
-	if _, err := edgeapi.NewAdminService(store, nil, edgeapi.Provisioning{TrustAnchors: [][]byte{anchor}}, edgeapi.NewContact(0, 0), nil); err == nil {
+	if _, err := edgeapi.NewAdminService(store, nil, edgeapi.Provisioning{TrustAnchors: [][]byte{anchor}}, edgeapi.NewContact(0, 0), nil, nil); err == nil {
 		t.Error("a provisioning with no central url was accepted")
 	}
-	if _, err := edgeapi.NewAdminService(store, nil, edgeapi.Provisioning{CentralURL: "https://central.example.test"}, edgeapi.NewContact(0, 0), nil); err == nil {
+	if _, err := edgeapi.NewAdminService(store, nil, edgeapi.Provisioning{CentralURL: "https://central.example.test"}, edgeapi.NewContact(0, 0), nil, nil); err == nil {
 		t.Error("a provisioning with no trust anchor was accepted")
 	}
 	if _, err := edgeapi.NewAdminService(store, nil, edgeapi.Provisioning{
 		CentralURL:   "https://central.example.test",
 		TrustAnchors: [][]byte{make([]byte, 31)},
-	}, edgeapi.NewContact(0, 0), nil); err == nil {
+	}, edgeapi.NewContact(0, 0), nil, nil); err == nil {
 		t.Error("a trust anchor that is not a sha-256 digest was accepted")
 	}
 
@@ -449,7 +487,7 @@ func TestNewAdminServiceRefusesProvisioningAnEdgeCannotPin(t *testing.T) {
 	if _, err := edgeapi.NewAdminService(store, nil, edgeapi.Provisioning{
 		CentralURL:   "https://central.example.test",
 		TrustAnchors: tooMany,
-	}, edgeapi.NewContact(0, 0), nil); err == nil {
+	}, edgeapi.NewContact(0, 0), nil, nil); err == nil {
 		t.Error("more trust anchors than the schema allows were accepted")
 	}
 }
@@ -623,7 +661,7 @@ func TestRetireEdgeForgetsWhatItsDevicesOwedIt(t *testing.T) {
 	admin, err := edgeapi.NewAdminService(store, holds, edgeapi.Provisioning{
 		CentralURL:   "https://central.example.test",
 		TrustAnchors: [][]byte{make([]byte, 32)},
-	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock })
+	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock }, nil)
 	if err != nil {
 		t.Fatalf("NewAdminService: %v", err)
 	}
@@ -648,7 +686,7 @@ func TestRetireEdgeEndsNoMutation(t *testing.T) {
 	admin, err := edgeapi.NewAdminService(store, holds, edgeapi.Provisioning{
 		CentralURL:   "https://central.example.test",
 		TrustAnchors: [][]byte{make([]byte, 32)},
-	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock })
+	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock }, nil)
 	if err != nil {
 		t.Fatalf("NewAdminService: %v", err)
 	}
@@ -676,7 +714,7 @@ func TestRetireEdgeReportsAFailedDropAndFinishesOnRetry(t *testing.T) {
 	admin, err := edgeapi.NewAdminService(store, holds, edgeapi.Provisioning{
 		CentralURL:   "https://central.example.test",
 		TrustAnchors: [][]byte{make([]byte, 32)},
-	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock })
+	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock }, nil)
 	if err != nil {
 		t.Fatalf("NewAdminService: %v", err)
 	}
@@ -706,7 +744,7 @@ func TestRetireEdgeSucceedsWhenTheRegistryDescribesAnotherEdge(t *testing.T) {
 	admin, err := edgeapi.NewAdminService(store, holds, edgeapi.Provisioning{
 		CentralURL:   "https://central.example.test",
 		TrustAnchors: [][]byte{make([]byte, 32)},
-	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock })
+	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock }, nil)
 	if err != nil {
 		t.Fatalf("NewAdminService: %v", err)
 	}
@@ -739,7 +777,7 @@ func TestRetireEdgeNamesTheLanesItOrphaned(t *testing.T) {
 	admin, err := edgeapi.NewAdminService(store, holds, edgeapi.Provisioning{
 		CentralURL:   "https://central.example.test",
 		TrustAnchors: [][]byte{make([]byte, 32)},
-	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock })
+	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock }, nil)
 	if err != nil {
 		t.Fatalf("NewAdminService: %v", err)
 	}
@@ -779,7 +817,7 @@ func TestRetireEdgeRefusesRatherThanReportingAShortOrphanList(t *testing.T) {
 	admin, err := edgeapi.NewAdminService(store, holds, edgeapi.Provisioning{
 		CentralURL:   "https://central.example.test",
 		TrustAnchors: [][]byte{make([]byte, 32)},
-	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock })
+	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock }, nil)
 	if err != nil {
 		t.Fatalf("NewAdminService: %v", err)
 	}
@@ -799,8 +837,8 @@ func TestCrossTenantIsolation(t *testing.T) {
 
 	tenantA := "0192e6a0-1111-7000-8000-000000000011"
 	tenantB := "0192e6a0-2222-7000-8000-000000000022"
-	ctxA := tenant.WithTenant(context.Background(), tenantA)
-	ctxB := tenant.WithTenant(context.Background(), tenantB)
+	ctxA := testContextForTenant(tenantA, testEngine)
+	ctxB := testContextForTenant(tenantB, testEngine)
 
 	respA, err := admin.CreateEdge(ctxA, connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
 		Name: proto.String("edge-tenant-a"),
@@ -957,5 +995,181 @@ func TestCreateEdgeIndexesEdgeBeforeEnrollment(t *testing.T) {
 	}
 	if enrolledTenant != defaultTenantID {
 		t.Fatalf("enrolled tenant = %q, want %q", enrolledTenant, defaultTenantID)
+	}
+}
+
+func TestListEdgesFilteringAndPagination(t *testing.T) {
+	admin, _ := newAdmin(t)
+	resp1, err := admin.CreateEdge(testContext(), connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{Name: proto.String("e1")}.Build()))
+	if err != nil {
+		t.Fatalf("CreateEdge 1: %v", err)
+	}
+	resp2, err := admin.CreateEdge(testContext(), connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{Name: proto.String("e2")}.Build()))
+	if err != nil {
+		t.Fatalf("CreateEdge 2: %v", err)
+	}
+	resp3, err := admin.CreateEdge(testContext(), connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{Name: proto.String("e3")}.Build()))
+	if err != nil {
+		t.Fatalf("CreateEdge 3: %v", err)
+	}
+
+	id1 := resp1.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId()
+	id2 := resp2.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId()
+	id3 := resp3.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId()
+
+	sorted := []string{id1, id2, id3}
+	slices.Sort(sorted)
+
+	// Engine grants view only on sorted[0] and sorted[2], omitting sorted[1].
+	engine := authztest.New()
+	p := testPrincipal()
+	engine.Grant("user:"+p.ID, "member", "tenant")
+	if err := engine.Write(context.Background(), []authz.Tuple{
+		{Object: "edge:" + sorted[0], Relation: "view", User: "user:" + p.ID},
+		{Object: "edge:" + sorted[2], Relation: "view", User: "user:" + p.ID},
+	}, nil); err != nil {
+		t.Fatalf("engine.Write: %v", err)
+	}
+
+	ctx := testContextForTenant(defaultTenantID, engine)
+
+	// Page size 1: should return sorted[0], and token for next page.
+	p1, err := admin.ListEdges(ctx, connect.NewRequest(apiedgev1.ListEdgesRequest_builder{
+		PageSize: proto.Uint32(1),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("ListEdges page 1: %v", err)
+	}
+	if len(p1.Msg.GetEdges()) != 1 || p1.Msg.GetEdges()[0].GetConfig().GetRef().GetEdge().GetId() != sorted[0] {
+		t.Fatalf("page 1 edges = %v, want [%s]", p1.Msg.GetEdges(), sorted[0])
+	}
+	if p1.Msg.GetNextPageToken() == "" {
+		t.Fatal("expected non-empty next page token on page 1")
+	}
+
+	// Page 2: should examine sorted[1] (denied) and sorted[2] (allowed), returning sorted[2] and no next token.
+	p2, err := admin.ListEdges(ctx, connect.NewRequest(apiedgev1.ListEdgesRequest_builder{
+		PageSize:  proto.Uint32(1),
+		PageToken: proto.String(p1.Msg.GetNextPageToken()),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("ListEdges page 2: %v", err)
+	}
+	if len(p2.Msg.GetEdges()) != 1 || p2.Msg.GetEdges()[0].GetConfig().GetRef().GetEdge().GetId() != sorted[2] {
+		t.Fatalf("page 2 edges = %v, want [%s]", p2.Msg.GetEdges(), sorted[2])
+	}
+	if p2.Msg.GetNextPageToken() != "" {
+		t.Fatalf("page 2 next page token = %q, want empty", p2.Msg.GetNextPageToken())
+	}
+}
+
+func TestListEdges501CandidatesNoneVisible(t *testing.T) {
+	hub := newHub(t)
+	store := newStoreOver(t, hub)
+	admin := newAdminOver(t, store, func() time.Time { return testClock })
+
+	for i := 0; i < 501; i++ {
+		id := fmt.Sprintf("0192e6a0-0000-7000-8000-%012d", i)
+		ref := edgev1.EdgeGlobalRef_builder{
+			Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(id)}.Build(),
+		}.Build()
+		lifecycle := edgev1.EdgeLifecycle_EDGE_LIFECYCLE_PENDING
+		_, err := store.Mutate(context.Background(), defaultTenantID, id, func(_ *storev1.StoredEdge) (*storev1.StoredEdge, error) {
+			return storev1.StoredEdge_builder{
+				Record: edgev1.EdgeRecord_builder{
+					Config: edgev1.EdgeConfig_builder{
+						Ref: ref,
+					}.Build(),
+					State: edgev1.EdgeState_builder{
+						Ref:       ref,
+						Lifecycle: &lifecycle,
+					}.Build(),
+				}.Build(),
+			}.Build(), nil
+		})
+		if err != nil {
+			t.Fatalf("Mutate: %v", err)
+		}
+	}
+
+	// Engine with member but no view grant on any edge
+	engine := authztest.New()
+	p := testPrincipal()
+	engine.Grant("user:"+p.ID, "member", "tenant")
+	ctx := testContextForTenant(defaultTenantID, engine)
+
+	resp, err := admin.ListEdges(ctx, connect.NewRequest(apiedgev1.ListEdgesRequest_builder{
+		PageSize: proto.Uint32(50),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("ListEdges: %v", err)
+	}
+	if len(resp.Msg.GetEdges()) != 0 {
+		t.Fatalf("expected 0 edges, got %d", len(resp.Msg.GetEdges()))
+	}
+	if resp.Msg.GetNextPageToken() == "" {
+		t.Fatal("expected next page token after examining 500 candidates with 1 candidate remaining")
+	}
+
+	// Page 2: examines the remaining 1 candidate
+	resp2, err := admin.ListEdges(ctx, connect.NewRequest(apiedgev1.ListEdgesRequest_builder{
+		PageSize:  proto.Uint32(50),
+		PageToken: proto.String(resp.Msg.GetNextPageToken()),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("ListEdges page 2: %v", err)
+	}
+	if len(resp2.Msg.GetEdges()) != 0 {
+		t.Fatalf("expected 0 edges on page 2, got %d", len(resp2.Msg.GetEdges()))
+	}
+	if resp2.Msg.GetNextPageToken() != "" {
+		t.Fatalf("expected no next page token on page 2, got %q", resp2.Msg.GetNextPageToken())
+	}
+}
+
+func TestListEdgesFailingStoreAbandons(t *testing.T) {
+	hub := newHub(t)
+	store := newStoreOver(t, hub)
+	admin := newAdminOver(t, store, func() time.Time { return testClock })
+	hub.Close() // close the hub to make JetStream store calls fail
+
+	_, err := admin.ListEdges(testContext(), connect.NewRequest(&apiedgev1.ListEdgesRequest{}))
+	if err == nil {
+		t.Fatal("expected error on closed store")
+	}
+	wantConnectCode(t, err, connect.CodeUnavailable)
+	if code, _ := errs.CodeOf(err); code != edgestore.ErrCodeStore {
+		t.Errorf("error code = %v, want %v", code, edgestore.ErrCodeStore)
+	}
+}
+
+func TestCreateEdgeCallsProjectHook(t *testing.T) {
+	hub := newHub(t)
+	store := newStoreOver(t, hub)
+	var projected []struct{ objType, id string }
+	hook := func(_ context.Context, objType, id string) {
+		projected = append(projected, struct{ objType, id string }{objType, id})
+	}
+	anchor := make([]byte, 32)
+	admin, err := edgeapi.NewAdminService(store, nil, edgeapi.Provisioning{
+		CentralURL:   "https://central.example.test",
+		TrustAnchors: [][]byte{anchor},
+	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock }, hook)
+	if err != nil {
+		t.Fatalf("NewAdminService: %v", err)
+	}
+
+	resp, err := admin.CreateEdge(testContext(), connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
+		Name: proto.String("site-hook"),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CreateEdge: %v", err)
+	}
+	edgeID := resp.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId()
+	if len(projected) != 1 {
+		t.Fatalf("projected count = %d, want 1", len(projected))
+	}
+	if projected[0].objType != "edge" || projected[0].id != edgeID {
+		t.Errorf("projected = %+v, want edge:%s", projected[0], edgeID)
 	}
 }

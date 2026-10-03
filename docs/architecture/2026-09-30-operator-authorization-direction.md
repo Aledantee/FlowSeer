@@ -393,16 +393,20 @@ option. One Connect interceptor enforces it:
 
 | Rule mode | The interceptor |
 | --- | --- |
-| The object is named in a request field | checks the relation on that object before the handler runs, and returns `Internal` and drops the response after a failed `Require` or `Filter` |
-| The object is the admitted tenant (creating an edge) | checks the relation on the tenant before the handler runs, and returns `Internal` and drops the response after a failed `Require` or `Filter` |
-| The object is the platform | checks the relation on `platform:flowseer` before the handler runs, reading no tenant header, and returns `Internal` and drops the response after a failed `Require` or `Filter` |
-| The object is known only after a load | runs the handler with an obligation in the context, and returns `Internal` and drops the response when the handler returned without a check or answered after a failed `Require` or `Filter`, or `ctx.Err()` when the handler returned an error with no check after the context ended |
-| The handler filters a list | same obligation as a load |
+| The object is named in a request field | checks the relation on that object before the handler runs, drops a response returned while a check is in flight, and returns `Internal` and drops the response after a failed `Require`, `Filter`, or `Abandon` |
+| The object is the admitted tenant (creating an edge) | checks the relation on the tenant before the handler runs, drops a response returned while a check is in flight, and returns `Internal` and drops the response after a failed `Require`, `Filter`, or `Abandon` |
+| The object is the platform | checks the relation on `platform:flowseer` before the handler runs, reading no tenant header, drops a response returned while a check is in flight, and returns `Internal` and drops the response after a failed `Require`, `Filter`, or `Abandon` |
+| The object is known only after a load | runs the handler with an obligation in the context, drops a response returned while a check is in flight, and returns `Internal` and drops the response when the handler returned without a check or answered after a failed `Require`, `Filter`, or `Abandon`, or `ctx.Err()` when the handler returned an error with no check after the context ended |
+| The handler filters a list | same obligation as a load, with `Abandon` available for pre-check store failures |
 | No rule | refuses the call |
 
 A conformance gate fails any operator RPC without a rule, so a forgotten
-check is a denied call and a failed build, never an open door. Streaming
-RPCs are refused until their rules are designed.
+check is a denied call and a failed build, never an open door. A streaming
+call is authorized only under a request rule on a server stream. Client and
+bidirectional streams, and streams under other modes, are refused with
+`authz/streaming-unsupported`. The interceptor reads the rule, principal,
+and tenant header and checks tenant membership before invoking the handler,
+then evaluates object and tenant relationships on the first received message.
 
 ### Lists check per parent, never through ListObjects
 
@@ -657,3 +661,47 @@ keys.
 strings (`store_id` and `model_id`) rather than naming engine internals in the
 protobuf schema. The service adapter validates the engine identifier format and
 verifies that the remote model matches the embedded model at startup.
+
+### 2026-10-03: server-streaming authorization, in-flight checks, and abandon
+
+Server-streaming RPCs under a request rule (`TailCaptureSession` and
+`DownloadCaptureSession`) are authorized by checking tenant membership at
+admission and evaluating object permissions on the first received request
+message. Client and bidirectional streams, and streams under other modes, answer
+`CodePermissionDenied` with `authz/streaming-unsupported`. The obligation tracker
+tracks in-flight relationship checks, dropping responses returned while a check
+is in flight with `Internal` and `authz/obligation-violation`. `authz.Abandon`
+allows handlers encountering store errors before relationship checks to
+discharge their obligation while failing closed against subsequent responses.
+
+### 2026-10-03: interceptor chain, projector, identity, and action trail
+
+The operator and edge services enforce authorization through distinct
+interceptor stacks and background reconciliation:
+
+- **Interceptors and start**: Operator handlers run behind telemetry,
+  authentication, validation, authorization, and action trail interceptors in
+  that order. Edge-facing handlers mount telemetry and validation only.
+  `TenantInterceptor` and `DeviceServiceConfig.dev_tenant` are removed, and
+  tenancy derives strictly from `X-FlowSeer-Tenant`. Service configuration
+  requires `authentication` and `authorization` sections. Offline-detectable
+  configuration failures abort startup before binding listeners, whereas
+  runtime engine unreachability serves edge calls while operator calls answer
+  `CodeUnavailable`.
+- **Relationship projector**: A dedicated module (`internal/projector`)
+  synchronizes tuples for `edge:<id>#tenant`, `device:<id>#tenant`,
+  `capture_session:<id>#tenant`, `capture_session:<id>#edge`, and
+  `capture_session:<id>#requester` into OpenFGA. Handlers for edge creation and
+  capture sessions trigger immediate synchronization hooks, and a periodic
+  reconciler scans storage every 10 minutes (`intervals.relationship_reconcile`)
+  to heal drift.
+- **Identity**: `OperatorRef` carries required `issuer` and `subject` fields.
+  Central overrides request-supplied actor identities in mutation intents and
+  capture authorizations with the authenticated principal. Idempotency digests
+  incorporate the principal as `operator:<issuer>\x00<subject>`.
+- **Operator action trail**: Admitted calls on `EdgeAdminService` and
+  `CaptureService` publish attempted and completed records to
+  `FLOWSEER_OPERATOR_ACTIONS` on subject
+  `flowseer.<tenant>.operator.action.<action>`. Attempt publication failures
+  halt execution and return `CodeUnavailable` with `actiontrail/unavailable`.
+  Completion failures are logged while returning the response.

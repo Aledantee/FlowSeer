@@ -162,6 +162,9 @@ message GetDeviceAccessStatusResponse {
 }
 
 message AbandonMutationRequest {
+  reserved 3;
+  reserved actor;
+
   // The device. Must be present.
   flowseer.model.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
   // The sequence of the mutation to abandon. Must be present and at least
@@ -170,8 +173,6 @@ message AbandonMutationRequest {
     (buf.validate.field).required = true,
     (buf.validate.field).uint64.gte = 1
   ];
-  // Who abandons it. Must be present.
-  flowseer.model.access.v1.Actor actor = 3 [(buf.validate.field).required = true];
 }
 
 message AbandonMutationResponse {
@@ -187,6 +188,9 @@ message AcceptObservedDecision {}
 message RestoreExpectedDecision {}
 
 message ResolveDesynchronizationRequest {
+  reserved 3;
+  reserved actor;
+
   // The device. Must be present.
   flowseer.model.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
   // The sequence of the abandoned or desynchronized mutation. Must be
@@ -195,8 +199,6 @@ message ResolveDesynchronizationRequest {
     (buf.validate.field).required = true,
     (buf.validate.field).uint64.gte = 1
   ];
-  // Who decides. Must be present.
-  flowseer.model.access.v1.Actor actor = 3 [(buf.validate.field).required = true];
 
   // The decision. Exactly one arm is set.
   oneof decision {

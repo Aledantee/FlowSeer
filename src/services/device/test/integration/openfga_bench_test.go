@@ -254,11 +254,14 @@ func BenchmarkOpenFGA(b *testing.B) {
 	if err != nil {
 		b.Fatalf("openfga.New: %v", err)
 	}
-	b.Cleanup(func() {
+	defer func() {
 		if err := checker.Close(); err != nil {
 			b.Errorf("close checker: %v", err)
 		}
-	})
+	}()
+	if err := checker.Verify(ctx); err != nil {
+		b.Fatalf("checker.Verify: %v", err)
+	}
 
 	b.Log("Loading benchmark fixture...")
 	var allTuples []*openfgav1.TupleKey

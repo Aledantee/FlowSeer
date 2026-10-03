@@ -10,9 +10,7 @@ credential_root: "/etc/flowseer/credentials"
 
 listeners {
   # Loopback for the lab run, and that is a step in the runbook rather than a
-  # default worth copying: this service serves an operator API with no
-  # authorization check, and that port is the one that yields device
-  # credentials.
+  # default worth copying: that port is the one that yields device credentials.
   api: "127.0.0.1:8443"
   bus: "127.0.0.1:8444"
 }

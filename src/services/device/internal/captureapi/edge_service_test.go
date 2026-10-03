@@ -147,7 +147,10 @@ func newEdgeSessionConfig(t *testing.T, edgeID, sessionID string) *modelcapturev
 			MaxPackets: proto.Uint64(10),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
+				Subject: proto.String("zitadel|usr_123"),
+			}.Build(),
 			Reason:               proto.String("investigation"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),

@@ -77,9 +77,18 @@ type fakeOpenFGAServer struct {
 	recordedMetadata     []metadata.MD
 	checkCallsCount      atomic.Int64
 	batchCheckCallsCount atomic.Int64
+	getStoreCallsCount   atomic.Int64
+	readModelCallsCount  atomic.Int64
+	writeCallsCount      atomic.Int64
+	readCallsCount       atomic.Int64
+	recordedWriteReqs    []*openfgav1.WriteRequest
+	recordedReadReqs     []*openfgav1.ReadRequest
+	writeFunc            func(ctx context.Context, req *openfgav1.WriteRequest) (*openfgav1.WriteResponse, error)
+	readFunc             func(ctx context.Context, req *openfgav1.ReadRequest) (*openfgav1.ReadResponse, error)
 }
 
 func (s *fakeOpenFGAServer) GetStore(ctx context.Context, req *openfgav1.GetStoreRequest) (*openfgav1.GetStoreResponse, error) {
+	s.getStoreCallsCount.Add(1)
 	s.mu.Lock()
 	fn := s.getStoreFunc
 	s.mu.Unlock()
@@ -93,6 +102,7 @@ func (s *fakeOpenFGAServer) GetStore(ctx context.Context, req *openfgav1.GetStor
 }
 
 func (s *fakeOpenFGAServer) ReadAuthorizationModel(ctx context.Context, req *openfgav1.ReadAuthorizationModelRequest) (*openfgav1.ReadAuthorizationModelResponse, error) {
+	s.readModelCallsCount.Add(1)
 	s.mu.Lock()
 	fn := s.readModelFunc
 	s.mu.Unlock()
@@ -108,6 +118,30 @@ func (s *fakeOpenFGAServer) ReadAuthorizationModel(ctx context.Context, req *ope
 	return &openfgav1.ReadAuthorizationModelResponse{
 		AuthorizationModel: m,
 	}, nil
+}
+
+func (s *fakeOpenFGAServer) Write(ctx context.Context, req *openfgav1.WriteRequest) (*openfgav1.WriteResponse, error) {
+	s.writeCallsCount.Add(1)
+	s.mu.Lock()
+	s.recordedWriteReqs = append(s.recordedWriteReqs, req)
+	fn := s.writeFunc
+	s.mu.Unlock()
+	if fn != nil {
+		return fn(ctx, req)
+	}
+	return &openfgav1.WriteResponse{}, nil
+}
+
+func (s *fakeOpenFGAServer) Read(ctx context.Context, req *openfgav1.ReadRequest) (*openfgav1.ReadResponse, error) {
+	s.readCallsCount.Add(1)
+	s.mu.Lock()
+	s.recordedReadReqs = append(s.recordedReadReqs, req)
+	fn := s.readFunc
+	s.mu.Unlock()
+	if fn != nil {
+		return fn(ctx, req)
+	}
+	return &openfgav1.ReadResponse{}, nil
 }
 
 func (s *fakeOpenFGAServer) Check(ctx context.Context, req *openfgav1.CheckRequest) (*openfgav1.CheckResponse, error) {
@@ -357,14 +391,18 @@ func TestNewRefusesStoreMismatch(t *testing.T) {
 	}
 	harness.fake.mu.Unlock()
 
-	_, err := openfga.New(context.Background(), openfga.Options{
+	checker, err := openfga.New(context.Background(), openfga.Options{
 		Endpoint: harness.endpoint,
 		StoreID:  testStoreID,
 		ModelID:  testModelID,
 		KeyFile:  harness.keyFile,
 		CAFile:   harness.caFile,
 	})
-	wantCode(t, err, openfga.ErrCodeStoreMismatch)
+	if err != nil {
+		t.Fatalf("openfga.New: %v", err)
+	}
+	defer func() { _ = checker.Close() }()
+	wantCode(t, checker.Verify(context.Background()), openfga.ErrCodeStoreMismatch)
 
 	// Server returns different store ID
 	harness.fake.mu.Lock()
@@ -373,14 +411,18 @@ func TestNewRefusesStoreMismatch(t *testing.T) {
 	}
 	harness.fake.mu.Unlock()
 
-	_, err = openfga.New(context.Background(), openfga.Options{
+	checker2, err := openfga.New(context.Background(), openfga.Options{
 		Endpoint: harness.endpoint,
 		StoreID:  testStoreID,
 		ModelID:  testModelID,
 		KeyFile:  harness.keyFile,
 		CAFile:   harness.caFile,
 	})
-	wantCode(t, err, openfga.ErrCodeStoreMismatch)
+	if err != nil {
+		t.Fatalf("openfga.New: %v", err)
+	}
+	defer func() { _ = checker2.Close() }()
+	wantCode(t, checker2.Verify(context.Background()), openfga.ErrCodeStoreMismatch)
 }
 
 func TestNewRefusesModelMismatch(t *testing.T) {
@@ -393,14 +435,18 @@ func TestNewRefusesModelMismatch(t *testing.T) {
 	}
 	harness.fake.mu.Unlock()
 
-	_, err := openfga.New(context.Background(), openfga.Options{
+	checker, err := openfga.New(context.Background(), openfga.Options{
 		Endpoint: harness.endpoint,
 		StoreID:  testStoreID,
 		ModelID:  testModelID,
 		KeyFile:  harness.keyFile,
 		CAFile:   harness.caFile,
 	})
-	wantCode(t, err, openfga.ErrCodeModelMismatch)
+	if err != nil {
+		t.Fatalf("openfga.New: %v", err)
+	}
+	defer func() { _ = checker.Close() }()
+	wantCode(t, checker.Verify(context.Background()), openfga.ErrCodeModelMismatch)
 
 	// The engine holds a model one relation short of the embedded one.
 	harness.fake.mu.Lock()
@@ -418,14 +464,18 @@ func TestNewRefusesModelMismatch(t *testing.T) {
 	}
 	harness.fake.mu.Unlock()
 
-	_, err = openfga.New(context.Background(), openfga.Options{
+	checker2, err := openfga.New(context.Background(), openfga.Options{
 		Endpoint: harness.endpoint,
 		StoreID:  testStoreID,
 		ModelID:  testModelID,
 		KeyFile:  harness.keyFile,
 		CAFile:   harness.caFile,
 	})
-	wantCode(t, err, openfga.ErrCodeModelMismatch)
+	if err != nil {
+		t.Fatalf("openfga.New: %v", err)
+	}
+	defer func() { _ = checker2.Close() }()
+	wantCode(t, checker2.Verify(context.Background()), openfga.ErrCodeModelMismatch)
 }
 
 func TestNewRefusesWrongKey(t *testing.T) {
@@ -438,28 +488,36 @@ func TestNewRefusesWrongKey(t *testing.T) {
 	}
 	harness.fake.mu.Unlock()
 
-	_, err := openfga.New(context.Background(), openfga.Options{
+	checker, err := openfga.New(context.Background(), openfga.Options{
 		Endpoint: harness.endpoint,
 		StoreID:  testStoreID,
 		ModelID:  testModelID,
 		KeyFile:  harness.keyFile,
 		CAFile:   harness.caFile,
 	})
-	wantCode(t, err, openfga.ErrCodeRefused)
+	if err != nil {
+		t.Fatalf("openfga.New: %v", err)
+	}
+	defer func() { _ = checker.Close() }()
+	wantCode(t, checker.Verify(context.Background()), openfga.ErrCodeRefused)
 }
 
 func TestNewUntrustedCertificate(t *testing.T) {
 	harness := newTestServerHarness(t)
 
 	// Connect without CAFile -> TLS handshake failure yields Unavailable / engine-unreachable
-	_, err := openfga.New(context.Background(), openfga.Options{
+	checker, err := openfga.New(context.Background(), openfga.Options{
 		Endpoint: harness.endpoint,
 		StoreID:  testStoreID,
 		ModelID:  testModelID,
 		KeyFile:  harness.keyFile,
 		CAFile:   "",
 	})
-	wantCode(t, err, openfga.ErrCodeUnreachable)
+	if err != nil {
+		t.Fatalf("openfga.New: %v", err)
+	}
+	defer func() { _ = checker.Close() }()
+	wantCode(t, checker.Verify(context.Background()), openfga.ErrCodeUnreachable)
 }
 
 func TestNewHangingServerTimesOut(t *testing.T) {
@@ -472,7 +530,7 @@ func TestNewHangingServerTimesOut(t *testing.T) {
 	}
 	harness.fake.mu.Unlock()
 
-	_, err := openfga.New(context.Background(), openfga.Options{
+	checker, err := openfga.New(context.Background(), openfga.Options{
 		Endpoint: harness.endpoint,
 		StoreID:  testStoreID,
 		ModelID:  testModelID,
@@ -480,22 +538,32 @@ func TestNewHangingServerTimesOut(t *testing.T) {
 		CAFile:   harness.caFile,
 		Timeout:  30 * time.Millisecond,
 	})
-	wantCode(t, err, openfga.ErrCodeUnreachable)
+	if err != nil {
+		t.Fatalf("openfga.New: %v", err)
+	}
+	defer func() { _ = checker.Close() }()
+	wantCode(t, checker.Verify(context.Background()), openfga.ErrCodeUnreachable)
 }
 
 func TestNewCallerCanceledContext(t *testing.T) {
 	harness := newTestServerHarness(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	_, err := openfga.New(ctx, openfga.Options{
+	checker, err := openfga.New(context.Background(), openfga.Options{
 		Endpoint: harness.endpoint,
 		StoreID:  testStoreID,
 		ModelID:  testModelID,
 		KeyFile:  harness.keyFile,
 		CAFile:   harness.caFile,
 	})
+	if err != nil {
+		t.Fatalf("openfga.New: %v", err)
+	}
+	defer func() { _ = checker.Close() }()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err = checker.Verify(ctx)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("got %v, want context.Canceled", err)
 	}
@@ -975,14 +1043,18 @@ func TestNewRefusesAnotherModelID(t *testing.T) {
 	}
 	harness.fake.mu.Unlock()
 
-	_, err := openfga.New(context.Background(), openfga.Options{
+	checker, err := openfga.New(context.Background(), openfga.Options{
 		Endpoint: harness.endpoint,
 		StoreID:  testStoreID,
 		ModelID:  testModelID,
 		KeyFile:  harness.keyFile,
 		CAFile:   harness.caFile,
 	})
-	wantCode(t, err, openfga.ErrCodeModelMismatch)
+	if err != nil {
+		t.Fatalf("openfga.New: %v", err)
+	}
+	defer func() { _ = checker.Close() }()
+	wantCode(t, checker.Verify(context.Background()), openfga.ErrCodeModelMismatch)
 }
 
 // engineCalls are the two operations a Checker sends, run with one valid query.

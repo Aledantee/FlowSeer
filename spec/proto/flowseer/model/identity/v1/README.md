@@ -8,13 +8,13 @@ FlowSeer-owned.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/identity, model/access, model/capture
+Imported by: api/identity, event/operator, model/access, model/capture
 
 Deliberately absent:
 
 - An identity provider configuration or token format. An operator is named by
-  the stable subject the provider assigns, and authentication details stay
-  outside the domain model.
+  the issuer and stable subject the provider assigns, and authentication
+  details stay outside the domain model.
 - A ref pair and triad for `OperatorRef`. `OperatorRef` names an external
   identity principal rather than an entity FlowSeer persists and reconciles;
   `Tenant` holds the package's ref pair and triad.

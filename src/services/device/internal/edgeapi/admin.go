@@ -16,6 +16,7 @@ import (
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/tenant"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 )
@@ -72,17 +73,14 @@ type Provisioning struct {
 // AdminService implements the EdgeAdminService handler: the operator's side of
 // an edge's life, from creation through provisioning to retirement.
 //
-// It authenticates nobody. There is no operator authorization in this
-// deployment yet, and this service is mounted without the assertion
-// middleware, so the only thing between a caller and IssueSetupKey — which
-// mints the credential that enrolls an edge — is the network the API
-// listener is bound to. Safe for concurrent use.
+// Safe for concurrent use.
 type AdminService struct {
 	store        *edgestore.Store
 	holds        LaneHolds
 	provisioning Provisioning
 	contact      Contact
 	clock        func() time.Time
+	project      func(ctx context.Context, objectType, id string)
 }
 
 // LaneHolds is the part of the lane journal retirement touches: which devices
@@ -97,10 +95,19 @@ type LaneHolds interface {
 
 // NewAdminService constructs the admin handler over the edge store, the lane
 // journal retirement drops holds through, the provisioning the deployment
-// ships, and the contact derivation its reads report. holds may be nil, which
-// leaves retirement touching no lane record at all. A nil clock uses the wall clock. It returns an error when the
-// provisioning would produce an edge that pins nothing or cannot find central.
-func NewAdminService(store *edgestore.Store, holds LaneHolds, provisioning Provisioning, contact Contact, clock func() time.Time) (*AdminService, error) {
+// ships, the contact derivation its reads report, and an optional relationship
+// projection hook. holds may be nil, which leaves retirement touching no lane
+// record at all. A nil clock uses the wall clock. A nil project hook is a no-op.
+// It returns an error when the provisioning would produce an edge that pins
+// nothing or cannot find central.
+func NewAdminService(
+	store *edgestore.Store,
+	holds LaneHolds,
+	provisioning Provisioning,
+	contact Contact,
+	clock func() time.Time,
+	project func(ctx context.Context, objectType, id string),
+) (*AdminService, error) {
 	if provisioning.CentralURL == "" {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("provisioning names no central url")
 	}
@@ -120,7 +127,17 @@ func NewAdminService(store *edgestore.Store, holds LaneHolds, provisioning Provi
 	if clock == nil {
 		clock = time.Now
 	}
-	return &AdminService{store: store, holds: holds, provisioning: provisioning, contact: contact, clock: clock}, nil
+	if project == nil {
+		project = func(context.Context, string, string) {}
+	}
+	return &AdminService{
+		store:        store,
+		holds:        holds,
+		provisioning: provisioning,
+		contact:      contact,
+		clock:        clock,
+		project:      project,
+	}, nil
 }
 
 // CreateEdge creates a pending edge and issues its first setup key. The key
@@ -174,6 +191,7 @@ func (s *AdminService) CreateEdge(ctx context.Context, req *connect.Request[apie
 	if err := s.store.IndexEdge(ctx, edgeID, tenantID); err != nil {
 		return nil, connectErr(err)
 	}
+	s.project(ctx, "edge", edgeID)
 
 	return connect.NewResponse(apiedgev1.CreateEdgeResponse_builder{
 		Edge:         s.reported(stored),
@@ -407,9 +425,7 @@ func (s *AdminService) GetEdge(ctx context.Context, req *connect.Request[apiedge
 	return connect.NewResponse(apiedgev1.GetEdgeResponse_builder{Edge: s.reported(stored)}.Build()), nil
 }
 
-// ListEdges returns one page of edges in ascending identifier order. The token
-// carries the last identifier of the page before it, so a page is unaffected by
-// edges created or retired while the caller reads.
+// ListEdges returns one page of edges in ascending identifier order.
 func (s *AdminService) ListEdges(ctx context.Context, req *connect.Request[apiedgev1.ListEdgesRequest]) (*connect.Response[apiedgev1.ListEdgesResponse], error) {
 	tenantID, err := tenant.FromContext(ctx)
 	if err != nil {
@@ -429,31 +445,89 @@ func (s *AdminService) ListEdges(ctx context.Context, req *connect.Request[apied
 
 	keys, err := s.store.Keys(ctx, tenantID)
 	if err != nil {
-		return nil, connectErr(err)
-	}
-	for len(keys) > 0 && keys[0] <= after {
-		keys = keys[1:]
-	}
-	more := len(keys) > size
-	if more {
-		keys = keys[:size]
+		return nil, authz.Abandon(ctx, connectErr(err))
 	}
 
-	edges := make([]*edgev1.EdgeRecord, 0, len(keys))
-	for _, key := range keys {
-		stored, _, err := s.store.Get(ctx, tenantID, key)
+	var candidates []string
+	for _, k := range keys {
+		if k > after {
+			candidates = append(candidates, k)
+		}
+	}
+
+	const maxCandidates = 500
+	examined := 0
+	var (
+		edges          []*edgev1.EdgeRecord
+		lastExaminedID string
+		lastReturnedID string
+		pageFilled     bool
+	)
+
+	for len(edges) < size && examined < maxCandidates && len(candidates) > 0 {
+		chunkSize := size
+		remExamined := maxCandidates - examined
+		if remExamined < chunkSize {
+			chunkSize = remExamined
+		}
+		if len(candidates) < chunkSize {
+			chunkSize = len(candidates)
+		}
+
+		chunk := candidates[:chunkSize]
+		candidates = candidates[chunkSize:]
+		examined += len(chunk)
+		lastExaminedID = chunk[len(chunk)-1]
+
+		allowedIDs, err := authz.Filter(ctx, "view", "edge", chunk)
 		if err != nil {
 			return nil, connectErr(err)
 		}
-		if stored == nil {
-			continue // listed and then gone; the page is a snapshot, not a lock
+		allowedSet := make(map[string]bool, len(allowedIDs))
+		for _, id := range allowedIDs {
+			allowedSet[id] = true
 		}
-		edges = append(edges, s.reported(stored))
+
+		for _, id := range chunk {
+			if !allowedSet[id] {
+				continue
+			}
+			stored, _, err := s.store.Get(ctx, tenantID, id)
+			if err != nil {
+				return nil, connectErr(err)
+			}
+			if stored == nil {
+				continue
+			}
+			edges = append(edges, s.reported(stored))
+			lastReturnedID = id
+			if len(edges) == size {
+				pageFilled = true
+				break
+			}
+		}
+	}
+
+	var tokenID string
+	if pageFilled {
+		tokenID = lastReturnedID
+	} else {
+		tokenID = lastExaminedID
+	}
+
+	var hasRemaining bool
+	if tokenID != "" {
+		for _, k := range keys {
+			if k > tokenID {
+				hasRemaining = true
+				break
+			}
+		}
 	}
 
 	resp := apiedgev1.ListEdgesResponse_builder{Edges: edges}
-	if more && len(keys) > 0 {
-		resp.NextPageToken = proto.String(encodePageToken(keys[len(keys)-1]))
+	if hasRemaining && tokenID != "" {
+		resp.NextPageToken = proto.String(encodePageToken(tokenID))
 	}
 	return connect.NewResponse(resp.Build()), nil
 }
