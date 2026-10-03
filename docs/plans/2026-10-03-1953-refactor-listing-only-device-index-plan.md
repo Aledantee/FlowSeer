@@ -4,12 +4,14 @@ type: refactor
 date: 2026-10-03
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md
 ---
 
 # Listing-Only Device Index for the Edge Syslog Source - Plan
+
+> Implemented. 1 unit, 2026-10-03T18:13Z to 2026-10-03T18:13Z.
 
 ## Goal
 
