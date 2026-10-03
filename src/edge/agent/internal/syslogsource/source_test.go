@@ -28,12 +28,12 @@ import (
 	"go.aledante.io/FlowSeer/src/protocol/syslog"
 )
 
-func startHub(t *testing.T, dir string, port int) *edgebus.Hub {
+func startHub(t *testing.T, dir string) *edgebus.Hub {
 	t.Helper()
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    dir,
 		FsyncPolicy: service.BusFsyncPeriodic,
-		ListenPort:  port,
+		ListenPort:  -1,
 	})
 	if err != nil {
 		t.Fatalf("start hub: %v (%v)", err, errs.Attributes(err))
@@ -42,8 +42,9 @@ func startHub(t *testing.T, dir string, port int) *edgebus.Hub {
 	return hub
 }
 
-func startLeaf(t *testing.T, dir string, hub *edgebus.Hub, id string) *edgebus.Leaf {
+func startLeaf(t *testing.T, dir string, hub *edgebus.Hub) *edgebus.Leaf {
 	t.Helper()
+	id := testEdgeID
 	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, id); err != nil {
 		t.Fatalf("attach edge: %v", err)
 	}
@@ -106,8 +107,8 @@ func readMetricSum(reader *sdkmetric.ManualReader, name string) (int64, bool) {
 func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 	t.Parallel()
 
-	hub := startHub(t, t.TempDir(), -1)
-	leaf := startLeaf(t, t.TempDir(), hub, testEdgeID)
+	hub := startHub(t, t.TempDir())
+	leaf := startLeaf(t, t.TempDir(), hub)
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
 
 	reader := sdkmetric.NewManualReader()
@@ -215,8 +216,8 @@ func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 func TestSource_DualStackListenerResolvesAnIPv4Device(t *testing.T) {
 	t.Parallel()
 
-	hub := startHub(t, t.TempDir(), -1)
-	leaf := startLeaf(t, t.TempDir(), hub, testEdgeID)
+	hub := startHub(t, t.TempDir())
+	leaf := startLeaf(t, t.TempDir(), hub)
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
 
 	index := lanehost.NewDeviceIndex()
@@ -266,8 +267,8 @@ func TestSource_DualStackListenerResolvesAnIPv4Device(t *testing.T) {
 func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 	t.Parallel()
 
-	hub := startHub(t, t.TempDir(), -1)
-	leaf := startLeaf(t, t.TempDir(), hub, testEdgeID)
+	hub := startHub(t, t.TempDir())
+	leaf := startLeaf(t, t.TempDir(), hub)
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
 
 	index := lanehost.NewDeviceIndex()
@@ -400,8 +401,8 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 func TestSource_OctetCounted65535ByteFrameIsCutAndKeepsRaw(t *testing.T) {
 	t.Parallel()
 
-	hub := startHub(t, t.TempDir(), -1)
-	leaf := startLeaf(t, t.TempDir(), hub, testEdgeID)
+	hub := startHub(t, t.TempDir())
+	leaf := startLeaf(t, t.TempDir(), hub)
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
 
 	index := lanehost.NewDeviceIndex()
@@ -490,11 +491,11 @@ type retryPublisherStub struct {
 	done     chan struct{}
 }
 
-func (s *retryPublisherStub) Subject(name string) string {
+func (s *retryPublisherStub) Subject(string) string {
 	return "flowseer.test.ingest.syslog"
 }
 
-func (s *retryPublisherStub) Publish(ctx context.Context, subject string, data []byte, msgID string) error {
+func (s *retryPublisherStub) Publish(_ context.Context, _ string, _ []byte, msgID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.attempts++

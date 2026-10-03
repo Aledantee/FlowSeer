@@ -175,10 +175,10 @@ func MapRecord(
 	return syslogRecord, provBuilder.Build(), isParseFailure
 }
 
-// validText reports whether s fits a string field bounded to 1..max
+// validText reports whether s fits a string field bounded to 1..limit
 // characters. Byte length is at least the character count, so a value that
 // passes here passes the schema bound. A string field holds UTF-8 only, and
 // the parser keeps header and parameter bytes as the device sent them.
-func validText(s string, max int) bool {
-	return len(s) >= 1 && len(s) <= max && utf8.ValidString(s)
+func validText(s string, limit int) bool {
+	return len(s) >= 1 && len(s) <= limit && utf8.ValidString(s)
 }

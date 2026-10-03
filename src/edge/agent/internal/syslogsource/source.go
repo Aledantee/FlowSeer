@@ -1,3 +1,5 @@
+// Package syslogsource receives syslog from the devices the agent hosts, maps
+// each message into an ingest record, and publishes it to the edge buffer.
 package syslogsource
 
 import (
@@ -215,7 +217,7 @@ func (s *Source) Run(ctx context.Context) error {
 				envBuilder.Raw = ingestv1.RawEvidence_builder{
 					Data:                rawData,
 					Reason:              ingestv1.RawReason_RAW_REASON_PARSE_FAILURE.Enum(),
-					SuppressedSinceLast: proto.Uint64(uint64(suppressed)),
+					SuppressedSinceLast: proto.Uint64(suppressed),
 				}.Build()
 			} else {
 				s.rawSuppressed.Add(ctx, 1)
