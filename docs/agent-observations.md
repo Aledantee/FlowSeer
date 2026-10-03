@@ -40,3 +40,24 @@ rejection in the hook suite and conformance cases. The change is staged in
 `tools/hooks/pre-tool-policy.sh`, `tools/hooks/tests/run.sh`, and
 `test/conformance/proto/layout_test.go` for guardrail review. It remains pending
 until that review accepts it.
+
+## 2026-10-03 drive: parking a reviewed phase cannot stop its lane
+Skill or agent: `.claude/skills/drive/references/parking.md`, Park, and
+`.claude/skills/delegate/scripts/orca-worker.sh`, `stop`.
+What happened: the parking reference keeps a parked lane's commits on
+`parked/<slug>` and then runs `stop`. `stop` refuses any lane whose branch is
+not an ancestor of `HEAD`, so it refused `sim-p2-review` with its commits
+already safe on `parked/sim-p2-review`. The coordinator repeated the rest of
+`stop` by hand: terminal close, `runlog.py end`, `orca worktree rm`, and the
+state file.
+Suggested change: let `stop` accept a lane whose branch tip is an ancestor of
+some `parked/*` branch, or give it a `--parked <branch>` flag that checks that.
+
+## 2026-10-03 delegate: keys types without Enter
+Skill or agent: `.claude/skills/delegate/SKILL.md`, Orca worker, `keys`.
+What happened: the skill lists `keys` for a dialog answer. A resume message
+sent with `keys` to an `agy` worker stopped on a network error sat unsent in
+its input box until an `orca terminal send --text '' --enter` followed. The
+script header says "no Enter", and the skill does not.
+Suggested change: state in the skill that `keys` presses no Enter, and name
+`tell` for a message the worker must act on.
