@@ -1,6 +1,7 @@
 ---
 name: web-component
 description: Build, change, or review a FlowSeer web UI component under frontend/web/src/ui/ or frontend/web/src/components/ (a Ui* primitive, a composite, an overlay, an animated or AI surface) so it meets the web component contract and passes the story, accessibility, i18n, token, and verifier gates. Use before writing, restyling, or reviewing a Vue component in frontend/web. Not for view logic, domain code, or backend work.
+argument-hint: "[component path or name]"
 ---
 
 # Build a FlowSeer web component

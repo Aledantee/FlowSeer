@@ -1,6 +1,6 @@
 ---
 name: land
-description: Lands finished FlowSeer work by merging main into the current worktree's branch, retiring its plan into the direction records, verifying the result there, and leaving main one fast-forward away, the worktree and Orca card ready for deletion. Lands a multi-phase plan phase by phase. Use when asked to close, land, finish, or wrap up work after implement, review, and compound have run. Not while any of the three lacks its checkpoint or the review verdict is not accept (offers to run the missing one); never removes its own worktree or the Orca session.
+description: Lands finished FlowSeer work by merging main into the current worktree's branch, retiring its plan into the direction records, verifying the result, and leaving main one fast-forward away. Use when asked to close, land, finish, or wrap up work after implement, review, and compound have run; a multi-phase plan lands phase by phase. Not while a checkpoint is missing or the review verdict is not an accept (offers to run the missing skill); never removes its own worktree.
 argument-hint: "[plan path]"
 ---
 
@@ -77,10 +77,12 @@ run the missing skill now, all missing signals in one question:
 | implementation, or a unit `pending` or `in_progress` | run `implement` on the remaining units; stop |
 | a unit `blocked` | take it back to `plan`; stop. Never `implement` again: the unit already failed three verifier rounds |
 | review verdict | run `review` on the branch now; stop |
-| review verdict is `rework` or `fixes needed` | fix the findings and review again (`review`, step 6); stop |
+| review verdict is `rework` or `fixes needed` | fix the findings and review again (`review` from step 1, with step 6); stop |
 | compound outcome | run `compound` now; record `compound: no lesson` when the user says there is none; stop |
 
-On yes, load `references/missing-checkpoint.md`. A partial implementation is
+On yes, load `references/missing-checkpoint.md`; without Orca, also read
+`.claude/skills/delegate/references/no-orca.md` whole, which it points to.
+A partial implementation is
 never merged because its landed units pass.
 
 A failed signal with a mechanical remedy (a stale receipt, a dirty marker, a
@@ -115,8 +117,9 @@ Do not inspect its working tree; the fast-forward in step 5 refuses on its own
 when a local change there overlaps the merge.
 
 Every worker, child worktree, and `orca-worker.sh` lane this task started must
-be settled, released, or removed; load `references/orca-cleanup.md`
-whenever `orca status --json` (unsandboxed) reports the runtime reachable,
+be settled, released, or removed; load `references/orca-cleanup.md`, and
+`.claude/skills/delegate/references/orca.md` whole for the removal it
+points to, whenever `orca status --json` (unsandboxed) reports the runtime reachable,
 since lanes this context did not start are invisible otherwise. A running
 worker stops the skill.
 
@@ -169,7 +172,9 @@ Then load `references/retire-plan.md` for each plan step 1 gated whose
 merged parent shows every phase landed), and for each plan the branch
 marked `superseded` or `abandoned`. It promotes or amends the direction
 records the plan's decisions call for, rewrites the links to the plan, and
-deletes it in a commit of its own.
+deletes it in a commit of its own. When it drafts a record, read
+`.claude/skills/plan/references/direction-record.md` whole, which it
+points to.
 
 A merge can carry in a finished plan that no `land` gated, such as a phase a
 `drive` merged into another branch. Retire those too: each plan the merged tree holds whose `status` is

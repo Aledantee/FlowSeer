@@ -1,6 +1,6 @@
 ---
 name: steer
-description: Works the queue in docs/agent-observations.md: verifies each entry against the current skill, agent, or hook, decides whether the fix is prose, a skill step, or enforcement, applies it to skills and agents, and stages hook or AGENTS.md changes for a person's review. Also audits whether every enforced rule has a registered hook or verifier check, and retires landed plans that `land` left on disk. Use when asked to steer, tune skills, work the observations, or audit the hooks. Not for logging an observation; compound's Observe mode does that.
+description: Works the queue in docs/agent-observations.md. Verifies each entry against the current skill, agent, or hook, applies the fix to skills and agents, and stages hook or AGENTS.md changes for a person's review. Also audits hook enforcement and retires landed plans `land` left on disk. Use when asked to steer, tune skills, work the observations, or audit the hooks. Not for logging an observation; compound's Observe mode does that.
 argument-hint: "[audit | entry title | the skill to tune]"
 ---
 
@@ -78,8 +78,8 @@ episodic material to a `references/` file whose pointer states when to load
 it. Before saving, run every command embedded in the edited text once,
 verbatim, from a fresh shell in the scratchpad directory.
 
-`tools/hooks/`, `.claude/settings.json`, `.codex/hooks.json`, and `AGENTS.md`
-are policy surfaces: write the change, including the matching assertion in
+The policy surfaces are the paths `AGENTS.md`, Hard boundaries, names. For
+one of them, write the change, including the matching assertion in
 `tools/hooks/tests/run.sh` and the registration in both runtime configs, run
 the verifier, then stop with the diff for the user's guardrail review. Do
 not commit it and do not mark the entry applied. A hook change without the

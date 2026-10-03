@@ -21,7 +21,9 @@ the request in a few words, and asks for the checkpoint:
   directory, so the worker reports the line (`review: accept`) and this
   session writes it with
   `.claude/skills/verify-change/scripts/ledger.py checkpoint <key> "<value>"`
-  after checking the worker's tree as `delegate` describes.
+  after checking the worker's tree as `delegate` describes. A review worker
+  also reports its `gaps:` line, and this session writes it the same way
+  with key `gaps`, since the next review reads its open items from there.
 - A question the skill would put to the user comes back as the worker's
   blocker, and this session asks it.
 

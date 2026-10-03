@@ -668,6 +668,41 @@ else:
         self.assertIn("worktree rm --worktree id:wt-1", calls)
         self.assertLess(calls.index("terminal close"), calls.index("worktree rm"))
 
+    def unmerged_graded_lane(self):
+        state_file, child_path, _ = self.graded_lane()
+        subprocess.run(["git", "checkout", "branch-l1"], cwd=self.repo, check=True, capture_output=True)
+        (self.repo / "later.txt").write_text("work after the merge")
+        subprocess.run(["git", "add", "."], cwd=self.repo, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "unmerged work"], cwd=self.repo, check=True, capture_output=True)
+        subprocess.run(["git", "checkout", "main"], cwd=self.repo, check=True, capture_output=True)
+        return state_file, child_path
+
+    def test_stop_refuses_an_unmerged_lane_and_removes_nothing(self):
+        state_file, child_path = self.unmerged_graded_lane()
+        result = self.command("stop", "l1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("parked/l1", result.stderr)
+        self.assertTrue(state_file.exists())
+        self.assertTrue(child_path.exists())
+        self.assertNotIn("terminal close", self.orca_calls())
+        self.assertNotIn("worktree rm", self.orca_calls())
+
+    def test_stop_removes_an_unmerged_lane_whose_commits_are_parked(self):
+        state_file, _ = self.unmerged_graded_lane()
+        subprocess.run(["git", "branch", "parked/l1", "branch-l1"], cwd=self.repo, check=True, capture_output=True)
+        result = self.command("stop", "l1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(state_file.exists())
+        self.assertIn("worktree rm --worktree id:wt-1", self.orca_calls())
+
+    def test_stop_refuses_a_lane_whose_parked_branch_lacks_its_tip(self):
+        state_file, _ = self.unmerged_graded_lane()
+        subprocess.run(["git", "branch", "parked/l1", "main"], cwd=self.repo, check=True, capture_output=True)
+        result = self.command("stop", "l1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(state_file.exists())
+        self.assertNotIn("worktree rm", self.orca_calls())
+
     def test_stop_close_failure_logs_no_end_and_keeps_lane(self):
         state_file, child_path, _ = self.graded_lane()
         self.env["ORCA_STUB_FAIL"] = "terminal-close"
@@ -724,6 +759,24 @@ else:
         self.env["ORCA_STUB_SCREEN"] = "> done"
         result = self.command("wait", "l1", "--stall", "5", "--max", "10")
         self.assert_wait(result, ["idle", "> done"], 5)
+
+    def test_wait_reports_limited_for_a_settled_screen_that_names_a_usage_limit(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "You've hit your usage limit. Try again at 3pm."
+        result = self.command("wait", "l1", "--stall", "5", "--max", "10")
+        self.assert_wait(result, ["limited", "You've hit your usage limit. Try again at 3pm."], 5)
+
+    def test_wait_reports_limited_when_blank_rows_follow_the_limit_line(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "usage limit reached, resets at 3pm" + "\n" * 40 + ">"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "10")
+        self.assert_wait(result, ["limited", "usage limit reached, resets at 3pm", ">"], 5)
+
+    def test_wait_until_reports_done_on_a_screen_that_names_a_usage_limit(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "usage limit reached earlier; report written"
+        result = self.command("wait", "l1", "--until", "true", "--stall", "5", "--max", "10")
+        self.assert_wait(result, ["done", "usage limit reached earlier; report written"], 5)
 
     def test_keys_refuses_text_the_terminal_would_truncate(self):
         self.live_lane()

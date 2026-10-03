@@ -3,6 +3,13 @@
 The coordinating session runs the rounds. No skill runs them on its own, and
 `implement` covers a plan's units, not a review's findings.
 
+Contents:
+
+- Which findings get a round: the four kinds, and the gap pass
+- One round: dispatch, merge, the briefed reviewer, the unbriefed reviewer
+- When to stop: a clean round, a Requirement question, a repeated
+  mechanism, the three-round cap and the one round past it
+
 ## Which findings get a round
 
 Sort the settled findings (`SKILL.md` step 4) before dispatching anything:
@@ -185,6 +192,22 @@ gate refuses, so the remedy is `review` again.
   `docs/solutions/` entry, cited as `AGENTS.md`, Investigation discipline,
   defines a source. The next brief names that source, or the work goes to
   `plan` because none was found.
+- When a second round lands on one mechanism, the report states two things
+  before another round is briefed, since rounds that patch a mechanism never
+  ask whether the work needs it:
+  - Requirement served: the plan Requirement the mechanism exists for,
+    quoted.
+  - Simplest design: the least code that meets that Requirement, whatever
+    the plan's Decision chose.
+
+  When the simplest design differs from the one being patched (it drops a
+  gate, a coupling, or the mechanism), the difference is a plan question. It
+  goes under the plan's Open questions as a Requirement question does, and
+  no round runs until it is answered. For example, a device index resolves a
+  syslog sender only for devices the management lane onboarded. The
+  Requirement is to resolve a sender to a listed device, and the listing
+  already carries every address. The simplest design drops the gate, so the
+  question is whether anything needs it.
 - A review runs at most three rounds in total, whatever each round fixed,
   and a gap pass that became a round counts as one. A third round that is
   not clean ends the loop:
@@ -192,15 +215,25 @@ gate refuses, so the remedy is `review` again.
     rounds established.
   - Rounds on different mechanisms: ask the user (`AGENTS.md`, Agent
     behavior) whether to take the work to `plan` (recommended, since each
-    round has surfaced a new defect) or to run one more round. A fourth
-    round runs only on that answer. A delegated worker does not ask: it
-    sets the verdict to `rework` and states the round count as its blocker.
-    Under `drive`, that report names the limit, and `drive` step 4 parks it
-    with another round as an option.
+    round has surfaced a new defect), to drop or replace the mechanism the
+    last round fixed, naming its simplest design as above, or to run one
+    more round. A delegated worker does not ask: it sets the verdict to
+    `rework` and states the round count as its blocker. Under `drive`, that
+    report names the limit, and `drive` step 4 parks it with the same
+    options.
+
+  One more round is a fourth round of this review, run like the others, and
+  the only round past the cap. When it is not clean, the verdict is `rework`
+  and the work goes to `plan` with what the four rounds established. The
+  question then offers `plan` or stopping and no further round, since an
+  extension without a bound ran six rounds on one mechanism. Under `drive`,
+  the answer starts a new review stage whose brief carries that limit: one
+  round, then `rework`.
 
   Example: rounds one and two rework an emission mechanism, and round three
   fixes its staging permissions and finds a rollback defect. That is three
-  rounds, and the fourth is the user's call.
+  rounds, and the fourth is the user's call. A fourth that finds another
+  defect ends at `rework`.
 - Every verdict the loop writes is recorded as `SKILL.md` step 5 records a
   verdict, which also updates the Orca card. The commit that records the
   verdict names the number of fix rounds.

@@ -190,7 +190,11 @@ Three reads, in this order; fix the plan after each.
 
 1. As the implementer: can each unit start without a question? Every claim
    about external behavior carries its source as step 2 requires, or reads
-   "unverified" and appears under Open questions.
+   "unverified" and appears under Open questions. For each Decision whose
+   reason is where data already lives (a host that holds the address, a
+   store that has the row), ask whether the Requirement needs that coupling
+   or only the data. A coupling the Requirement does not need is removed or
+   becomes an Open question.
 2. Each unit's Tests line against the risks the plan itself names for that
    unit, in its Decisions, Open questions, and Change. A risk the plan calls
    unverifiable, or one a symmetric test cannot see, gets a test that pins

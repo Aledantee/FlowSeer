@@ -1,6 +1,6 @@
 ---
 name: drive
-description: Takes a FlowSeer plan to ready-to-land without the user starting each step. Runs plan (when re-planning is needed), implement, review with its fix loop, and compound in worker sessions, merging and verifying between them; drives a parent plan's phases in dependency order and lands each finished phase through `land`. Parks a plan that needs the user, continues with independent ones, resumes from the plan files. Use to drive a plan, when `next` offers it, or to continue a drive. Not for picking work (`next`), planless work, or landing a plan without phases (`land`).
+description: Takes a FlowSeer plan to ready-to-land without the user starting each step. Runs plan, implement, review with its fix loop, and compound in worker sessions, drives a parent plan's phases in dependency order, and lands each finished phase. Use to drive a plan, when `next` offers it, or to continue a drive. Not for picking work (`next`), planless work, or landing a plan without phases (`land`).
 argument-hint: "[plan or parent plan path]"
 ---
 
@@ -51,7 +51,9 @@ Before the first dispatch:
 Run the stages in order from the first whose "done when" the files do not
 already show. Each stage is one worker in a child worktree branched from
 this branch's `HEAD`, started with `orca-worker.sh start` with the table's
-`--role`, `--plan <path>`, and the stage name as `--unit`.
+`--role`, `--plan <path>`, and the stage name as `--unit`. A phase resumed
+from a parked branch starts with `--base parked/<slug>` instead
+(`references/parking.md`, Answer).
 
 | Stage | Applies when | Worker runs | Role | Done when |
 | --- | --- | --- | --- | --- |
@@ -152,7 +154,10 @@ its order, and runs step 2 on each from the stage the command printed.
 
 Load `references/concurrent-phases.md` when that last line names more than
 one phase that can run (not a `next: land` line): it says which run at once, how they split the cap, and how to
-set the parent's `status` when the last phases land together.
+set the parent's `status` when the last phases land together. For a merge
+conflict outside the parent's `Landed:` lines it points to
+`.claude/skills/implement/references/workers.md`; read that file whole
+when one occurs.
 
 A landed phase fills its `Landed:` line, which records implementation only:
 a phase named in another's `After:` releases that dependent once its review
@@ -206,8 +211,12 @@ Park a plan when its worker stops on a decision that is the user's (a ruling
 that changes other units, the wire, or an accepted record; a design question
 in a re-plan; a direction record awaiting acceptance), on a `blocked` unit,
 on a review that ends in `rework` or `fixes needed` after its loop, or on a change to a policy
-surface. A `rework` that names the round limit parks with another round as
-an option. Load `references/parking.md` to park it, and again when the user
+surface. A `rework` that names the round limit parks with the options
+`review/references/fix-loop.md`, When to stop, lists: `plan`, dropping or
+replacing the mechanism, or one more round. When every round was on one
+mechanism, it parks with `plan` or stopping. When the stage's brief carried
+the one-round limit, it parks with `plan` or stopping and offers no further
+round. Load `references/parking.md` to park it, and again when the user
 answers a parked question. A resumed drive reads the `Parked by drive:`
 lines first and asks them before anything else.
 

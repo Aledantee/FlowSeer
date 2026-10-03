@@ -1,6 +1,6 @@
 ---
 name: next
-description: Decides what FlowSeer work comes next. Orders the open plans under docs/plans/ (finished work owed a land, then work in progress, then unaccepted reviews, then phases to re-plan, then ready plans, oldest first) against the ledger and unmerged branches, and recommends one with alternatives; with no plan open, compares GOALS.md with the tree and proposes what to plan. Use when asked what to do next, what is open, where things stand, or to pick up work. Not for the state of one plan being implemented; `implement` resumes that from its ledger.
+description: Decides what FlowSeer work comes next. Orders the open plans under docs/plans/ against the ledger and unmerged branches and recommends one with alternatives; with no plan open, compares GOALS.md with the tree and proposes what to plan. Use when asked what to do next, what is open, where things stand, or to pick up work. Not for the state of one plan being implemented; `implement` resumes that from its ledger.
 argument-hint: "[area or plan path to narrow to]"
 ---
 
@@ -25,7 +25,7 @@ them:
 | --- | --- | --- |
 | `land` | `implemented` on this branch with an accepted `review` and a `compound` field, still on disk (a phase also has its `Landed:` range) | `land`, or `drive` on the parent for a phase |
 | `in-progress` | `partially-implemented`, named by the ledger here, an unblocked phase of a parent with landed phases, or a finished phase whose `Landed:` line is empty | `implement` |
-| `unchecked` | `implemented`, with a review verdict that is not an accept, or implemented on this branch with no `review` or `compound` field | `review` (step 6 for `rework` or `fixes needed`), or `compound` |
+| `unchecked` | `implemented`, with a review verdict that is not an accept, or implemented on this branch with no `review` or `compound` field | `review` (from step 1, with step 6 for `rework` or `fixes needed`), or `compound` |
 | `replan` | `artifact_readiness: needs-decisions`, prerequisites landed | `plan`, then `implement` |
 | `ready` | `planned`, implementation-ready, nothing to wait for | `implement` |
 | `waiting` | a prerequisite phase has not landed; the line names it | none yet |

@@ -6,14 +6,14 @@
 # orca-worker.sh start --lane SLUG --cli claude|codex|agy --model ID [--effort LEVEL] --role ROLE [--plan FILE] [--unit NAME] --brief FILE [--base REF]
 # orca-worker.sh start --lane SLUG --cli omp --model provider/model [--effort LEVEL] --role ROLE [--plan FILE] [--unit NAME] --brief FILE [--base REF]
 # orca-worker.sh line   --cli CLI --model ID [--effort LEVEL]
-# orca-worker.sh wait   SLUG [--until CMD] [--max S] [--stall S]  # prints idle|idle-children|done|exited|stalled|timeout, then the screen
+# orca-worker.sh wait   SLUG [--until CMD] [--max S] [--stall S]  # prints idle|limited|idle-children|done|exited|stalled|timeout, then the screen
 # orca-worker.sh read   SLUG [--lines N]
 # orca-worker.sh keys   SLUG TEXT                # raw text into the terminal, no Enter; 200 characters at most
-# orca-worker.sh tell   SLUG FILE                # a message longer than keys takes, delivered like the brief
+# orca-worker.sh tell   SLUG FILE                # any message the worker must act on, delivered and submitted like the brief
 # orca-worker.sh check  SLUG                    # verify the Claude lane's recorded model
 # orca-worker.sh status
 # orca-worker.sh grade  SLUG --outcome accepted|amended|rejected|blocked --verify pass|fail|none [--note TEXT]
-# orca-worker.sh stop   SLUG [--stalled]         # --stalled: after wait printed stalled
+# orca-worker.sh stop   SLUG [--stalled]         # --stalled: after wait printed stalled; an unmerged lane needs its commits on parked/SLUG
 #
 # `start` prints one JSON line {"name","terminal","worktree","path","branch","run"}
 # and exits 0 only when the worker was pointed at its brief and lane state was
@@ -59,6 +59,11 @@ note_name=.orca-note.md
 # Every agent TUI here shows an "esc ... interrupt" hint only while a turn
 # runs; agy words it "esc to cancel".
 working() { grep -q -i -E 'esc( to)? (interrupt|cancel)' <<<"$1"; }
+# A worker waiting out a pool's window shows no hint and a still screen,
+# which is otherwise the settled state. Each CLI words that wait its own
+# way and none was captured, so the match is broad and the outcome only
+# tells the coordinator to read the screen before treating the lane as done.
+limited() { grep -v -E '^\s*$' <<<"$1" | tail -30 | grep -q -i -E 'rate.?limit|usage limit|limit reached|quota|try again (in|at)|resets? (in|at)'; }
 launch_line() {
   local cli=$1 model=$2 effort=${3:-} line
   case "$cli" in
@@ -405,6 +410,7 @@ case "$cmd" in
         fi
         if ((${#child_names[@]} == 0)); then
           outcome=idle
+          limited "$s2" && outcome=limited
           break
         fi
         if (( stall > 0 && now - since >= stall )); then
@@ -517,10 +523,12 @@ case "$cmd" in
     dirty=$(git -C "$path" status --porcelain 2>/dev/null)
     [[ -z $dirty ]] || die "$path is dirty; nothing removed: $dirty"
     # `orca worktree rm` deletes the branch with the checkout, so commits
-    # that were not merged here would go with it.
+    # that were not merged here would go with it. A parked lane's commits
+    # stay on parked/<slug>, which the removal leaves alone.
     branch=$(field "$name" branch)
     git merge-base --is-ancestor "$branch" HEAD 2>/dev/null \
-      || die "$branch has commits that are not merged into $(git branch --show-current); merge it first, or remove the lane by hand in Orca"
+      || git merge-base --is-ancestor "$branch" "refs/heads/parked/$name" 2>/dev/null \
+      || die "$branch has commits that are not merged into $(git branch --show-current) or kept on parked/$name; merge it first, park it with 'git branch parked/$name $branch', or remove the lane by hand in Orca"
     head_sha=$(git rev-parse "$branch" 2>&1) || die "cannot resolve branch $branch: $head_sha"
     # `end` waits for the terminal to close, so the log never ends a run
     # whose worker still runs, and precedes the removal, so a failed removal

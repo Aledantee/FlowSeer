@@ -158,10 +158,10 @@ s=.claude/skills/delegate/scripts/orca-worker.sh
 $s line --cli <cli> --model <id> [--effort <level>]
 $s start --lane <slug> --cli <claude|codex|agy> --model <id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file>
 $s start --lane <slug> --cli omp --model <pool_id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file>
-$s wait <slug> [--until <command>] [--max <seconds>]  # blocks; prints idle, done, stalled, timeout, exited, or idle-children, then the screen
+$s wait <slug> [--until <command>] [--max <seconds>]  # blocks; prints idle, limited, done, stalled, timeout, exited, or idle-children, then the screen
 $s read <slug>            # the worker's report, from its screen
-$s keys <slug> <text>     # a dialog answer, at most 200 characters
-$s tell <slug> <file>     # a message over the 200 characters `keys` takes
+$s keys <slug> <text>     # a dialog answer, at most 200 characters; presses no Enter
+$s tell <slug> <file>     # any message the worker must act on; submits it
 $s status                 # one line per live lane
 $s grade <slug> --outcome <accepted|amended|rejected|blocked> --verify <pass|fail|none> [--note <text>]
 $s stop <slug>            # after grade and merge: closes the terminal, removes checkout and branch
@@ -261,24 +261,33 @@ order:
    word budget; see Register. Name the checks the coordinator already ran
    with their result, and say to report once the named scope is checked; an
    editing worker still runs the focused checks its own edits invalidate.
-   A lane that returns a report and commits nothing gets a file path
+   A review lane's brief always carries that line, written `Checks already
+   run: none` when empty, since a reviewer that finds no check named runs
+   one itself.
+   A lane whose product is a report (`critique`, `research`, a review lane,
+   a review stage that also commits its verdict) gets a file path
    under the session scratchpad directory: it writes the whole report
-   there and prints only the path and the finding count. Read that file,
+   there and prints only the path and the finding count, a review stage
+   also its verdict. Read that file,
    since `orca-worker.sh read` returns the terminal's last screens and a
    long report scrolls out of them.
 5. For a unit of a plan with a ledger (`verify-change`'s `SKILL.md`
    documents it), the `note` line of every landed unit, verbatim, and
    nothing else from the ledger.
 6. The boundaries: no edits outside the named files; no changes to
-   `AGENTS.md`, `buf.yaml`, `tools/hooks/`, `.claude/settings.json`,
-   `generated/`, or `buf.lock`; no edit to a plan Decision marked
+   the policy surfaces `AGENTS.md`, Hard boundaries, names, to
+   `generated/`, or to `buf.lock`; no edit to a plan Decision marked
    `decided by the user` (a finding or unit that needs one changed is a
    blocker); no plan labels in code; no running a script
    under `tools/hooks/` (it blocks on stdin). A unit worker's checks are
    the focused tests and `go tool -modfile=tools/buf/go.mod buf lint`, and
    the coordinator runs the verifier after the merge. A stage worker (a
    `drive` stage) runs the verifier its skill names, since `ledger.py`
-   passes a unit only on a receipt in the worker's own git directory. No lint or race
+   passes a unit only on a receipt in the worker's own git directory. A
+   review stage is a stage worker and runs the verifier `review` names.
+   Every other lane that returns a report runs no verifier and starts no
+   background task: `wait` reads a lane that waits on one as idle, with no
+   report written. No lint or race
    run over all of `generated/go/yang` (it exhausts host memory; lint two
    or three sample packages); no git write outside the worker's own
    checkout (the coordinator merges). Scratch files and set-aside work go
