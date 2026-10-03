@@ -55,7 +55,7 @@ var conservationAddrsV6 = []netip.Addr{
 }
 
 // badIPv6Src is IPv4-mapped (RFC 4291 section 2.5.5.2): ip.Decode accepts it as a Src address,
-// but ip.Header.Encode refuses it, which is exactly the header finding 1 pins.
+// but ip.Header.Encode refuses it.
 var badIPv6Src = netip.MustParseAddr("::ffff:10.0.0.1")
 
 var (
@@ -324,11 +324,10 @@ func firstDuplicate(s []byte) byte {
 	return 0
 }
 
-// TestResolveNeighborStoredZeroStateIsAMiss is finding 7: [NeighborState]'s zero value,
-// [NeighborUnobserved], is meaningful only as a lookup answer, but [neighborEntry]{} is a legal
-// Go zero value too. No exported path stores one — this reaches into the package to reproduce it
-// directly and pins that [vrfState.resolveNeighbor] treats a stored zero state as a miss rather
-// than silently starting to hold frames for a neighbor nothing ever looked up.
+// TestResolveNeighborStoredZeroStateIsAMiss tests that [vrfState.resolveNeighbor] treats a stored
+// zero state as a miss rather than silently starting to hold frames for a neighbor nothing ever looked up.
+// [NeighborState]'s zero value, [NeighborUnobserved], is meaningful only as a lookup answer, but [neighborEntry]{}
+// is a legal Go zero value too. No exported path stores one; this reaches into the package to reproduce it directly.
 func TestResolveNeighborStoredZeroStateIsAMiss(t *testing.T) {
 	t.Parallel()
 

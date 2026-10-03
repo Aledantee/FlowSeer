@@ -10,9 +10,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
-// TestTreeForAnswersForEveryVLAN pins the mapping this phase lands: one tree
-// carries every VLAN, including the ones vlan.ID.Valid rejects, so no caller has
-// to check a VID before asking the gate about it.
+// TestTreeForAnswersForEveryVLAN asserts that one tree carries every VLAN,
+// including the ones vlan.ID.Valid rejects, so no caller has to check a VID
+// before asking about it.
 func TestTreeForAnswersForEveryVLAN(t *testing.T) {
 	t.Parallel()
 

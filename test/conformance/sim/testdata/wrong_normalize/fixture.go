@@ -9,7 +9,7 @@ const LayerName trace.Layer = "fixture"
 
 type Config struct{}
 
-func (c Config) Normalize() Config {
+func (c Config) Normalize(_ layer.Env, _ bool) Config {
 	return c
 }
 

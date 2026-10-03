@@ -2205,9 +2205,7 @@ func TestStaticEntriesSurviveAgingAndTheBound(t *testing.T) {
 
 // TestAgeActsOnLifetimeNotOrigin verifies that Origin and Lifetime are independent axes,
 // so Advance removes exactly the Aging entries regardless of who installed
-// them, and a Configured, Aging entry ages while an Observed, Static one does not — a
-// combination the old Static boolean could not express, since it answered both questions at
-// once.
+// them, and a Configured, Aging entry ages while an Observed, Static one does not.
 func TestAgeActsOnLifetimeNotOrigin(t *testing.T) {
 	ports := buildTestPorts(t, 4)
 	br := mustNewBridge(t, bridge.Config{}, ports)

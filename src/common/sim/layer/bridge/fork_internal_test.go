@@ -80,7 +80,7 @@ func TestBridgeFieldsAreClassifiedAndChecked(t *testing.T) {
 
 	for name := range bridgeFieldClasses {
 		if !seen[name] {
-			t.Errorf("bridgeFieldClasses names %q, which Bridge no longer has", name)
+			t.Errorf("bridgeFieldClasses names %q, which Layer does not have", name)
 		}
 	}
 
@@ -96,7 +96,7 @@ func TestBridgeFieldsAreClassifiedAndChecked(t *testing.T) {
 
 		switch class {
 		case classImmutableShared:
-			assertPointerOrValueIdentical(t, "Bridge."+f.Name, vSrc, vDst)
+			assertPointerOrValueIdentical(t, "Layer."+f.Name, vSrc, vDst)
 		case classResetOnFork:
 			if !vDst.IsZero() {
 				t.Errorf("field %q is classified resetOnFork but has non-zero value %+v on clone", f.Name, vDst.Interface())

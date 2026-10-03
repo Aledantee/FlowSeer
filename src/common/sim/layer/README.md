@@ -38,7 +38,7 @@ Every package under `src/common/sim/layer/` implements a uniform contract.
 ### Universal members
 
 Every layer package exports:
-- `const LayerName trace.Layer`: the layer identifier for trace records, with `Rule*` (`trace.RuleID`) and `Reason*` (`trace.Reason`) constants declared by the package that produces them.
+- `const LayerName trace.Layer`: the layer identifier for trace records, with `Rule*` (`trace.RuleID`, or untyped string prefixes) and `Reason*` (`trace.Reason`) constants declared by the package that produces them.
 - `type Config`: the package configuration struct.
 - `Config.Normalize(layer.Env) Config`: returns a deep copy with standard defaults and sorting applied.
 - `Config.Validate(layer.Env) error`: checks configuration consistency and references against the environment.
@@ -52,7 +52,7 @@ Packages maintaining runtime state (`bridge`, `filter`, `lag`, `loopprotect`, `m
 - `(*Layer).Clone() *Layer`: deep copies runtime state for branching or non-mutating preview.
 - `RetentionKey(cfg Config, env layer.Env) string`: produces an exact key determining when active state may be retained across switch reconfiguration.
 
-Layers with timers advance simulated time through `(*Layer).Advance(now time.Time) layer.Effects` and report their earliest pending deadline through `(*Layer).NextWake() (time.Time, bool)` (`lag`, `loopprotect`, `routing`, `stp`). `routing` parks hold-queue exits during `Advance` and returns them through `(*Layer).DrainExits() []HeldFrame`. Layers without timers (`filter`, `traffic`) declare no `Advance` method. Method names `Wake` and `Age` belong to the host virtual switch and are forbidden on layer types.
+Layers advance simulated time through `(*Layer).Advance(now time.Time) layer.Effects`. Layers that report an earliest pending deadline declare `(*Layer).NextWake() (time.Time, bool)` (`lag`, `loopprotect`, `routing`, `stp`); `bridge` and `mcast` declare `Advance` without `NextWake`. `routing` parks hold-queue exits during `Advance` and returns them through `(*Layer).DrainExits() []HeldFrame`. Layers without timers (`filter`, `traffic`) declare neither method. Method names `Wake` and `Age` belong to the host virtual switch and are forbidden on layer types.
 
 ### Isolation boundaries
 

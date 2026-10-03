@@ -407,7 +407,7 @@ func (b *Layer) Forget(fid vlan.ID, mac netaddr.MAC) bool {
 	return true
 }
 
-// Advance removes dynamic forwarding database entries older than the configured aging time relative to now.
+// Advance removes dynamic forwarding database entries older than the configured aging time relative to now. The returned layer.Effects is always empty.
 func (b *Layer) Advance(now time.Time) layer.Effects {
 	for key, e := range b.fdb {
 		if e.Lifetime != Static && now.Sub(e.LearnedAt) > b.agingTime {

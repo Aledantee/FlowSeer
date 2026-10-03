@@ -43,7 +43,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		layer, err := stp.New(stp.Config{
+		l, err := stp.New(stp.Config{
 			Priority: priority,
 			Address:  address,
 			Ports:    map[string]stp.Port{"1/1/1": {}},
@@ -52,7 +52,7 @@ func main() {
 			panic(err)
 		}
 
-		return layer
+		return l
 	}
 
 	root := newBridge(4096, "00:11:22:33:44:01")
@@ -222,7 +222,7 @@ bridge's ingress admission answer for the arrival VLAN on this port. The layer
 holds no VLAN table of its own, so `Admitted` is taken as given rather than
 derived a second time beside the bridge's own rule.
 
-`ReceiveSSTP` returns an `SSTPOutcome` alongside its `Effects`, naming the
+`ReceiveSSTP` returns an `SSTPOutcome` alongside its `layer.Effects`, naming the
 first thing that stopped the frame short of being applied to a tree:
 `SSTPGuarded` when BPDU guard fires or already holds the port disabled,
 `SSTPBoundary` when this bridge does not run PVST, `SSTPNotAdmitted` when
@@ -263,9 +263,9 @@ classified its BPDUs per VLAN, which it does not.
 ### Emission
 
 Every tree sends its BPDU to `bpdu.GroupAddressSSTP()` naming its own VLAN through
-`Emission.VID`; VLAN 1's tree sends a second, IEEE-addressed and naming no
+`layer.Emission.VID`; VLAN 1's tree sends a second, IEEE-addressed and naming no
 VLAN. The two are one transmission and spend one budget slot between them. The
-layer never builds a VLAN tag: a non-zero `Emission.VID` tells the switch to
+layer never builds a VLAN tag: a non-zero `layer.Emission.VID` tells the switch to
 put the frame through the port's ordinary egress rules, which is where the
 native-versus-tagged decision already lives.
 

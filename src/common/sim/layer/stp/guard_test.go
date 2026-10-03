@@ -351,9 +351,8 @@ func TestWithoutLoopGuardTheQuietPortBecomesDesignated(t *testing.T) {
 // TestBPDUGuardHoldsAnMSTIOutOfForwarding pins that BPDU guard, like the
 // internal/external classification it rides beside, is a bridge-global
 // property of the port: tripping it must hold every MST instance's own role
-// and state out of the active topology, not just the CIST's. Before the fix,
-// recompute read the guard flag from the per-tree port instead of the CIST's,
-// so an MSTI never saw the guard trip and kept forwarding.
+// and state out of the active topology, not just the CIST's. Recompute reads
+// the guard flag from the CIST's port state so every MSTI sees the guard trip.
 func TestBPDUGuardHoldsAnMSTIOutOfForwarding(t *testing.T) {
 	t.Parallel()
 

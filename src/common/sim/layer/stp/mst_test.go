@@ -366,7 +366,7 @@ func TestMSTValidateRejectsTheDigestCollisionVLAN(t *testing.T) {
 }
 
 // TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries guards the seam
-// between the region configuration and the wire: Encode refuses to build an
+// between the region configuration and the wire: bpdu.Encode refuses to build an
 // MST BPDU whose version 3 length would not fit 16 bits, so a region that
 // validates must not be able to reach that count.
 func TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries(t *testing.T) {
