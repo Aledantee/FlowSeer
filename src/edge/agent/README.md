@@ -217,10 +217,10 @@ pruning unlisted devices, recording address claims, and re-asserting held
 devices. When two or more listed devices share an address, datagrams from that
 address resolve to no device and are dropped with reason `ambiguous_source`.
 An address with one claimant resolves to that device only when the device was
-onboarded at this address by a lane attempt of this process and is still listed
-there. That state outlives the lane attempt: a lane restart keeps that state,
-while a process restart starts with an empty index. Otherwise the datagram is
-dropped with reason `unknown_source`.
+onboarded by a lane attempt of this process and listed at this address. Otherwise
+the datagram is dropped with reason `unknown_source`. That state outlives the
+lane attempt: a lane restart keeps that state, while a process restart starts
+with an empty index.
 
 When a record fails parsing or exceeds field length bounds, `RawPolicy`
 evaluates whether to attach the raw payload. The first 20 failures per device

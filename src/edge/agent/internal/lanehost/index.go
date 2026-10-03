@@ -21,11 +21,11 @@ type DeviceEntry struct {
 type LookupResult uint8
 
 const (
-	// LookupUnknown indicates the address is not claimed or its sole claimant has not
-	// been onboarded at this address in this process.
+	// LookupUnknown indicates the address is not claimed or its sole claimant was not
+	// onboarded by a lane attempt of this process and listed at this address.
 	LookupUnknown LookupResult = iota
 	// LookupFound indicates exactly one listed device claims the address and was onboarded
-	// at this address by a lane attempt of this process and is still listed there.
+	// by a lane attempt of this process and listed at this address.
 	LookupFound
 	// LookupAmbiguous indicates two or more listed devices share the address.
 	LookupAmbiguous
@@ -45,11 +45,11 @@ type deviceRecord struct {
 // Invariant: the index holds a record for every listed device, unserved and
 // address-less ones included. Each device ID is associated with at most one address.
 // An address resolves to a device entry (LookupFound) if and only if exactly one
-// listed device claims that address and that device was onboarded at this address by
-// a lane attempt of this process and is still listed there. An address claimed by
-// two or more listed devices resolves to no device (LookupAmbiguous). An address with
-// no claimant or whose sole claimant has not been onboarded at this address in this
-// process resolves to no device (LookupUnknown).
+// listed device claims that address and that device was onboarded by a lane attempt
+// of this process and listed at this address. An address claimed by two or more listed
+// devices resolves to no device (LookupAmbiguous). An address with no claimant or whose
+// sole claimant was not onboarded by a lane attempt of this process and listed at
+// this address resolves to no device (LookupUnknown).
 //
 // The index follows the listing: for a held device, the index reflects the listed
 // address and binding, while the lane session stays on the onboarded address until
@@ -77,6 +77,13 @@ func Key(addr netip.Addr) string {
 	return addr.Unmap().WithZone("").String()
 }
 
+func normalizeAddress(address string) string {
+	if parsed, err := netip.ParseAddr(address); err == nil {
+		return Key(parsed)
+	}
+	return address
+}
+
 func (idx *DeviceIndex) dropClaim(address, deviceID string) {
 	if address == "" {
 		return
@@ -101,6 +108,30 @@ func (idx *DeviceIndex) addClaim(address, deviceID string) {
 	claimants[deviceID] = struct{}{}
 }
 
+func (idx *DeviceIndex) setDeviceLocked(deviceID, address string, binding *inventoryv1.BindingGlobalRef, served bool) {
+	if old, ok := idx.devices[deviceID]; ok && old.address != "" && old.address != address {
+		idx.dropClaim(old.address, deviceID)
+	}
+	if address == "" {
+		idx.devices[deviceID] = deviceRecord{
+			deviceID: deviceID,
+			address:  "",
+			binding:  nil,
+			device:   nil,
+			served:   false,
+		}
+		return
+	}
+	idx.addClaim(address, deviceID)
+	idx.devices[deviceID] = deviceRecord{
+		deviceID: deviceID,
+		address:  address,
+		binding:  binding,
+		device:   deviceRefFor(deviceID),
+		served:   served,
+	}
+}
+
 func deviceRefFor(deviceID string) *inventoryv1.DeviceGlobalRef {
 	return inventoryv1.DeviceGlobalRef_builder{
 		Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(deviceID)}.Build(),
@@ -108,9 +139,6 @@ func deviceRefFor(deviceID string) *inventoryv1.DeviceGlobalRef {
 }
 
 func bindingRefOf(bindingID string) *inventoryv1.BindingGlobalRef {
-	if bindingID == "" {
-		return nil
-	}
 	return inventoryv1.BindingGlobalRef_builder{
 		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(bindingID)}.Build(),
 	}.Build()
@@ -123,34 +151,12 @@ func (idx *DeviceIndex) Add(address, deviceID string, binding *inventoryv1.Bindi
 	if idx == nil || address == "" || deviceID == "" {
 		return
 	}
-	if parsed, err := netip.ParseAddr(address); err == nil {
-		address = Key(parsed)
-	}
-	devRef := deviceRefFor(deviceID)
+	address = normalizeAddress(address)
 
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 
-	if idx.devices == nil {
-		idx.devices = make(map[string]deviceRecord)
-	}
-	if idx.claims == nil {
-		idx.claims = make(map[string]map[string]struct{})
-	}
-
-	if old, ok := idx.devices[deviceID]; ok && old.address != "" && old.address != address {
-		idx.dropClaim(old.address, deviceID)
-	}
-
-	idx.addClaim(address, deviceID)
-
-	idx.devices[deviceID] = deviceRecord{
-		deviceID: deviceID,
-		address:  address,
-		binding:  binding,
-		device:   devRef,
-		served:   true,
-	}
+	idx.setDeviceLocked(deviceID, address, binding, true)
 }
 
 // ApplyListing applies a whole device listing to the index under a single write lock.
@@ -167,13 +173,6 @@ func (idx *DeviceIndex) ApplyListing(devices []*attachv1.ListedDevice, heldIDs m
 
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
-
-	if idx.devices == nil {
-		idx.devices = make(map[string]deviceRecord)
-	}
-	if idx.claims == nil {
-		idx.claims = make(map[string]map[string]struct{})
-	}
 
 	keep := make(map[string]struct{}, len(devices))
 	for _, listed := range devices {
@@ -198,60 +197,34 @@ func (idx *DeviceIndex) ApplyListing(devices []*attachv1.ListedDevice, heldIDs m
 			continue
 		}
 
-		addr, err := addressOf(listed.GetIp())
-		if err == nil && addr != "" {
-			if parsed, parseErr := netip.ParseAddr(addr); parseErr == nil {
-				addr = Key(parsed)
-			}
-		} else {
-			addr = ""
+		var addr string
+		if rawAddr, err := addressOf(listed.GetIp()); err == nil {
+			addr = normalizeAddress(rawAddr)
 		}
 
 		old, hadOld := idx.devices[devID]
-		if hadOld && old.address != "" && old.address != addr {
-			idx.dropClaim(old.address, devID)
-		}
-
-		if addr == "" {
-			idx.devices[devID] = deviceRecord{
-				deviceID: devID,
-				address:  "",
-				binding:  nil,
-				device:   nil,
-				served:   false,
-			}
-			continue
-		}
-
-		idx.addClaim(addr, devID)
-
 		_, isHeld := heldIDs[devID]
 		served := isHeld || (hadOld && old.address == addr && old.served)
 
-		idx.devices[devID] = deviceRecord{
-			deviceID: devID,
-			address:  addr,
-			binding:  bindingRefOf(listed.GetBindingId()),
-			device:   deviceRefFor(devID),
-			served:   served,
+		var binding *inventoryv1.BindingGlobalRef
+		if addr != "" {
+			binding = bindingRefOf(listed.GetBindingId())
 		}
+		idx.setDeviceLocked(devID, addr, binding, served)
 	}
 }
 
 // Lookup returns the device entry mapped to address and the outcome of the resolution.
 // It returns [LookupFound] and the entry when exactly one device claims the address
-// and that device was onboarded at this address by a lane attempt of this process and
-// is still listed there.
+// and that device was onboarded by a lane attempt of this process and listed at this address.
 // If two or more listed devices share the address, it returns [LookupAmbiguous] and an empty entry.
-// If the address is not held in the index, or its sole claimant has not been onboarded at this
-// address in this process, it returns [LookupUnknown] and an empty entry.
+// If the address is not held in the index, or its sole claimant was not onboarded by a lane
+// attempt of this process and listed at this address, it returns [LookupUnknown] and an empty entry.
 func (idx *DeviceIndex) Lookup(address string) (DeviceEntry, LookupResult) {
 	if idx == nil {
 		return DeviceEntry{}, LookupUnknown
 	}
-	if parsed, err := netip.ParseAddr(address); err == nil {
-		address = Key(parsed)
-	}
+	address = normalizeAddress(address)
 
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
