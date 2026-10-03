@@ -1158,4 +1158,7 @@ func TestHubStartFailsWhenCentralBudgetBelowStreamSum(t *testing.T) {
 	if err == nil {
 		t.Fatal("StartHub with central budget below stream sum succeeded, want error")
 	}
+	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodeHub {
+		t.Fatalf("StartHub err=%v, code=%q, want code %q", err, code, edgebus.ErrCodeHub)
+	}
 }

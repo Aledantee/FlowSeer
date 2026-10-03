@@ -2,7 +2,9 @@ package projector_test
 
 import (
 	"context"
+	"errors"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -19,7 +21,6 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz/authztest"
-	"go.aledante.io/FlowSeer/src/services/device/internal/authz/openfga"
 	"go.aledante.io/FlowSeer/src/services/device/internal/projector"
 )
 
@@ -154,7 +155,7 @@ func readAllTuples(t *testing.T, engine authz.Relations) []authz.Tuple {
 	return all
 }
 
-func TestDecisionsTable(t *testing.T) {
+func TestProjectorOwnedRelations(t *testing.T) {
 	ctx := context.Background()
 	engine := authztest.New()
 
@@ -257,7 +258,7 @@ func TestDecisionsTable(t *testing.T) {
 	}
 }
 
-func TestRequirement9DriftCases(t *testing.T) {
+func TestReconcileDriftRestoration(t *testing.T) {
 	ctx := context.Background()
 
 	const (
@@ -331,17 +332,18 @@ func TestRequirement9DriftCases(t *testing.T) {
 		engine := authztest.New()
 		trueTuple := authz.Tuple{Object: "edge:" + edgeE, Relation: "tenant", User: "tenant:" + tenantT}
 		staleTuple := authz.Tuple{Object: "edge:" + edgeE, Relation: "tenant", User: "tenant:" + tenant2}
-		if err := engine.Write(ctx, []authz.Tuple{trueTuple, staleTuple}, nil); err != nil {
+		grantTuple := authz.Tuple{Object: "edge:" + edgeE, Relation: "capture", User: "user:u"}
+		if err := engine.Write(ctx, []authz.Tuple{trueTuple, staleTuple, grantTuple}, nil); err != nil {
 			t.Fatalf("Write: %v", err)
 		}
 
 		edges := &fakeEdgeSource{allEdges: map[string]string{edgeE: tenantT}}
 		p := projector.New(engine, edges, nil, &fakeCaptureSource{}, 0, nil, nil)
 
-		// Assert before: holds both
+		// Assert before: holds all 3
 		before := readAllTuples(t, engine)
-		if len(before) != 2 {
-			t.Fatalf("engine before pass = %v, want 2 tuples", before)
+		if len(before) != 3 {
+			t.Fatalf("engine before pass = %v, want 3 tuples", before)
 		}
 
 		counts, err := p.Reconcile(ctx)
@@ -352,9 +354,9 @@ func TestRequirement9DriftCases(t *testing.T) {
 			t.Fatalf("counts.Edges = %d, want 1", counts.Edges)
 		}
 
-		// Assert after: staleTuple deleted, trueTuple preserved
+		// Assert after: staleTuple deleted, trueTuple and grantTuple preserved
 		after := readAllTuples(t, engine)
-		want := []authz.Tuple{trueTuple}
+		want := []authz.Tuple{grantTuple, trueTuple}
 		if !slices.Equal(after, want) {
 			t.Fatalf("engine after pass = %v, want %v", after, want)
 		}
@@ -451,7 +453,7 @@ func TestReconcileRaceCondition(t *testing.T) {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
-	// Edge was added by snapshot reconcile
+	// Session created during scan was not modified by reconcile
 	if counts.CaptureSessions != 0 {
 		t.Fatalf("CaptureSessions repaired = %d, want 0", counts.CaptureSessions)
 	}
@@ -511,7 +513,16 @@ type retryEngine struct {
 	*authztest.Engine
 	mu         sync.Mutex
 	writeCount int
+	readCount  int
 	failCode   errs.Code
+	alwaysFail bool
+}
+
+func (r *retryEngine) Read(ctx context.Context, object string) ([]authz.Tuple, error) {
+	r.mu.Lock()
+	r.readCount++
+	r.mu.Unlock()
+	return r.Engine.Read(ctx, object)
 }
 
 func (r *retryEngine) Write(ctx context.Context, writes, deletes []authz.Tuple) error {
@@ -519,9 +530,10 @@ func (r *retryEngine) Write(ctx context.Context, writes, deletes []authz.Tuple) 
 	r.writeCount++
 	count := r.writeCount
 	code := r.failCode
+	always := r.alwaysFail
 	r.mu.Unlock()
 
-	if count == 1 && code != "" {
+	if (always || count == 1) && code != "" {
 		return errs.New().Code(code).Msg("simulated write failure")
 	}
 	return r.Engine.Write(ctx, writes, deletes)
@@ -532,7 +544,7 @@ func TestWriteConflictRetried(t *testing.T) {
 	baseEngine := authztest.New()
 	retEngine := &retryEngine{
 		Engine:   baseEngine,
-		failCode: openfga.ErrCodeConflict,
+		failCode: authz.ErrCodeConflict,
 	}
 
 	const edgeID = "0192e6a0-0000-7000-8000-00000000000e"
@@ -546,6 +558,9 @@ func TestWriteConflictRetried(t *testing.T) {
 	if retEngine.writeCount != 2 {
 		t.Fatalf("writeCount = %d, want 2 (1 retry)", retEngine.writeCount)
 	}
+	if retEngine.readCount != 2 {
+		t.Fatalf("readCount = %d, want 2 (re-read before retry)", retEngine.readCount)
+	}
 
 	tuples, err := baseEngine.Read(ctx, "edge:"+edgeID)
 	if err != nil {
@@ -556,12 +571,13 @@ func TestWriteConflictRetried(t *testing.T) {
 	}
 }
 
-func TestWriteUnreachableReturnsError(t *testing.T) {
+func TestWriteConflictThreeTimesInAll(t *testing.T) {
 	ctx := context.Background()
 	baseEngine := authztest.New()
 	retEngine := &retryEngine{
-		Engine:   baseEngine,
-		failCode: openfga.ErrCodeUnreachable,
+		Engine:     baseEngine,
+		failCode:   authz.ErrCodeConflict,
+		alwaysFail: true,
 	}
 
 	const edgeID = "0192e6a0-0000-7000-8000-00000000000e"
@@ -570,22 +586,49 @@ func TestWriteUnreachableReturnsError(t *testing.T) {
 
 	err := p.Sync(ctx, projector.Object{Type: "edge", ID: edgeID})
 	if err == nil {
-		t.Fatal("Sync succeeded, want ErrCodeUnreachable")
+		t.Fatal("Sync succeeded, want ErrCodeConflict")
 	}
 	code, ok := errs.CodeOf(err)
-	if !ok || code != openfga.ErrCodeUnreachable {
-		t.Fatalf("err code = %v, want %v", code, openfga.ErrCodeUnreachable)
+	if !ok || code != authz.ErrCodeConflict {
+		t.Fatalf("err code = %v, want %v", code, authz.ErrCodeConflict)
+	}
+	if retEngine.writeCount != 3 {
+		t.Fatalf("writeCount = %d, want 3 (initial attempt plus 2 retries)", retEngine.writeCount)
+	}
+	if retEngine.readCount != 3 {
+		t.Fatalf("readCount = %d, want 3", retEngine.readCount)
+	}
+}
+
+func TestWriteUnavailableReturnsError(t *testing.T) {
+	ctx := context.Background()
+	baseEngine := authztest.New()
+	retEngine := &retryEngine{
+		Engine:   baseEngine,
+		failCode: authz.ErrCodeUnavailable,
+	}
+
+	const edgeID = "0192e6a0-0000-7000-8000-00000000000e"
+	edges := &fakeEdgeSource{allEdges: map[string]string{edgeID: "tenant-1"}}
+	p := projector.New(retEngine, edges, nil, &fakeCaptureSource{}, 0, nil, nil)
+
+	err := p.Sync(ctx, projector.Object{Type: "edge", ID: edgeID})
+	if err == nil {
+		t.Fatal("Sync succeeded, want ErrCodeUnavailable")
+	}
+	code, ok := errs.CodeOf(err)
+	if !ok || code != authz.ErrCodeUnavailable {
+		t.Fatalf("err code = %v, want %v", code, authz.ErrCodeUnavailable)
 	}
 }
 
 func TestRunLifecycle(t *testing.T) {
 	engine := authztest.New()
-	// Initially fail with unreachable
-	engine.Fail(errs.New().Code(openfga.ErrCodeUnreachable).Msg("engine unavailable"))
+	engine.Fail(errs.New().Code(authz.ErrCodeUnavailable).Msg("engine unavailable"))
 
 	edges := &fakeEdgeSource{allEdges: map[string]string{}}
 	reconciledCh := make(chan struct{}, 5)
-	p := projector.New(engine, edges, nil, &fakeCaptureSource{}, 20*time.Millisecond, nil, func() {
+	p := projector.New(engine, edges, nil, &fakeCaptureSource{}, 15*time.Second, nil, func() {
 		select {
 		case reconciledCh <- struct{}{}:
 		default:
@@ -595,30 +638,35 @@ func TestRunLifecycle(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	var waitMu sync.Mutex
+	var waits []time.Duration
+
+	p.SetWaitHook(func(waitCtx context.Context, d time.Duration) error {
+		waitMu.Lock()
+		waits = append(waits, d)
+		count := len(waits)
+		waitMu.Unlock()
+
+		if count == 3 {
+			engine.Fail(nil)
+		}
+		if count > 3 {
+			cancel()
+			return waitCtx.Err()
+		}
+		return nil
+	})
+
 	runErrCh := make(chan error, 1)
 	spawn.Go(ctx, "test projector Run", func() {
 		runErrCh <- p.Run(ctx)
 	})
 
-	// Wait briefly while failing - reconciled should not be called
-	time.Sleep(50 * time.Millisecond)
 	select {
 	case <-reconciledCh:
-		t.Fatal("reconciled called while engine failing")
-	default:
-	}
-
-	// Now clear failure; projector should keep going, succeed, and call reconciled
-	engine.Fail(nil)
-
-	select {
-	case <-reconciledCh:
-		// Succeeded!
 	case <-time.After(2 * time.Second):
 		t.Fatal("reconciled was not called after engine recovered")
 	}
-
-	cancel()
 
 	select {
 	case err := <-runErrCh:
@@ -627,5 +675,78 @@ func TestRunLifecycle(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Run did not exit on context cancellation")
+	}
+
+	waitMu.Lock()
+	gotWaits := slices.Clone(waits)
+	waitMu.Unlock()
+
+	wantWaits := []time.Duration{5 * time.Second, 10 * time.Second, 15 * time.Second, 15 * time.Second}
+	if !slices.Equal(gotWaits, wantWaits) {
+		t.Fatalf("waits = %v, want %v", gotWaits, wantWaits)
+	}
+}
+
+type objectFailingEngine struct {
+	*authztest.Engine
+	failPrefix string
+}
+
+func (o *objectFailingEngine) Write(ctx context.Context, writes, deletes []authz.Tuple) error {
+	for _, w := range writes {
+		if strings.HasPrefix(w.Object, o.failPrefix) {
+			return errors.New("simulated object write failure")
+		}
+	}
+	return o.Engine.Write(ctx, writes, deletes)
+}
+
+func TestReconcileContinuesPastFailingObjectAndCollectsErrors(t *testing.T) {
+	ctx := context.Background()
+
+	const (
+		edgeE    = "0192e6a0-0000-7000-8000-00000000000e"
+		sessionS = "0192e6a0-0000-7000-8000-00000000000s"
+		tenantT  = "0192e6a0-0000-7000-8000-00000000000t"
+	)
+
+	baseEngine := authztest.New()
+	failEngine := &objectFailingEngine{
+		Engine:     baseEngine,
+		failPrefix: "capture_session:",
+	}
+
+	edges := &fakeEdgeSource{allEdges: map[string]string{edgeE: tenantT}}
+	captures := &fakeCaptureSource{
+		sessions: map[sessionKey]*modelcapturev1.CaptureSessionRecord{
+			{tenantID: tenantT, sessionID: sessionS}: buildSessionRecord(sessionS, edgeE, "", ""),
+		},
+	}
+
+	var reconciledCalled bool
+	p := projector.New(failEngine, edges, nil, captures, 0, nil, func() {
+		reconciledCalled = true
+	})
+
+	counts, err := p.Reconcile(ctx)
+	if err == nil {
+		t.Fatal("Reconcile returned nil error, want joined error from failing session")
+	}
+
+	// Session fails, but Edge must still be repaired despite sorting after capture_session
+	if counts.Edges != 1 {
+		t.Fatalf("counts.Edges = %d, want 1", counts.Edges)
+	}
+
+	edgeTuples, err := baseEngine.Read(ctx, "edge:"+edgeE)
+	if err != nil {
+		t.Fatalf("Read edge tuples: %v", err)
+	}
+	if len(edgeTuples) != 1 {
+		t.Fatalf("got %d edge tuples, want 1", len(edgeTuples))
+	}
+
+	if reconciledCalled {
+		t.Fatal("reconciled must not be called when Reconcile returns errors")
 	}
 }

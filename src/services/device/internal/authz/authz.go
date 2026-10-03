@@ -21,6 +21,7 @@ var (
 	ErrCodeNoObjectID          = errs.NewCode("authz/no-object-id")
 	ErrCodeUnavailable         = errs.NewCode("authz/unavailable")
 	ErrCodeObligationViolation = errs.NewCode("authz/obligation-violation")
+	ErrCodeConflict            = errs.NewCode("authz/engine-conflict")
 )
 
 // Tuple represents a single relationship between an object and a user.
@@ -54,6 +55,8 @@ type Checker interface {
 
 // Relations manages tuples in the relationship graph.
 type Relations interface {
+	// Write writes and deletes relationships in the graph. A concurrent-write
+	// conflict carries [ErrCodeConflict] and is retryable.
 	Write(ctx context.Context, writes, deletes []Tuple) error
 	Read(ctx context.Context, object string) ([]Tuple, error)
 	Scan(ctx context.Context, fn func(Tuple) error) error

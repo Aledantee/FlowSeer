@@ -548,6 +548,20 @@ func TestNewHangingServerTimesOut(t *testing.T) {
 func TestNewCallerCanceledContext(t *testing.T) {
 	harness := newTestServerHarness(t)
 
+	cancelCalled := make(chan struct{})
+	var cancel context.CancelFunc
+	harness.fake.mu.Lock()
+	harness.fake.getStoreFunc = func(ctx context.Context, _ *openfgav1.GetStoreRequest) (*openfgav1.GetStoreResponse, error) {
+		if cancel != nil {
+			cancel()
+			close(cancelCalled)
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+		return &openfgav1.GetStoreResponse{Id: testStoreID, Name: "test-store"}, nil
+	}
+	harness.fake.mu.Unlock()
+
 	checker, err := openfga.New(context.Background(), openfga.Options{
 		Endpoint: harness.endpoint,
 		StoreID:  testStoreID,
@@ -560,12 +574,136 @@ func TestNewCallerCanceledContext(t *testing.T) {
 	}
 	defer func() { _ = checker.Close() }()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
+	var ctx context.Context
+	ctx, cancel = context.WithCancel(context.Background())
 
 	err = checker.Verify(ctx)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("got %v, want context.Canceled", err)
+	}
+	<-cancelCalled
+
+	// Canceled caller must not cache a failure for subsequent callers.
+	cancel = nil
+	if err := checker.Verify(context.Background()); err != nil {
+		t.Fatalf("follow-up Verify: %v, want nil", err)
+	}
+}
+
+func TestVerifyFailedCheckRateLimited(t *testing.T) {
+	harness := newTestServerHarness(t)
+
+	var curTime time.Time
+	curTime = time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	var timeMu sync.Mutex
+	clock := func() time.Time {
+		timeMu.Lock()
+		defer timeMu.Unlock()
+		return curTime
+	}
+
+	harness.fake.mu.Lock()
+	harness.fake.getStoreFunc = func(ctx context.Context, _ *openfgav1.GetStoreRequest) (*openfgav1.GetStoreResponse, error) {
+		timeMu.Lock()
+		curTime = curTime.Add(5 * time.Second)
+		timeMu.Unlock()
+		return nil, status.Error(codes.Unavailable, "engine unavailable")
+	}
+	harness.fake.mu.Unlock()
+
+	checker, err := openfga.New(context.Background(), openfga.Options{
+		Endpoint: harness.endpoint,
+		StoreID:  testStoreID,
+		ModelID:  testModelID,
+		KeyFile:  harness.keyFile,
+		CAFile:   harness.caFile,
+		Clock:    clock,
+	})
+	if err != nil {
+		t.Fatalf("openfga.New: %v", err)
+	}
+	defer func() { _ = checker.Close() }()
+
+	err1 := checker.Verify(context.Background())
+	wantCode(t, err1, openfga.ErrCodeUnreachable)
+
+	if harness.fake.getStoreCallsCount.Load() != 1 {
+		t.Fatalf("getStore calls = %d, want 1", harness.fake.getStoreCallsCount.Load())
+	}
+
+	// Injected clock advanced 5s inside GetStore. The next call must be served from cache.
+	err2 := checker.Verify(context.Background())
+	wantCode(t, err2, openfga.ErrCodeUnreachable)
+
+	if harness.fake.getStoreCallsCount.Load() != 1 {
+		t.Fatalf("got %d GetStore calls, want 1 (second call must be served from cache)", harness.fake.getStoreCallsCount.Load())
+	}
+}
+
+func TestVerifyWaiterContextCanceledWhileInFlight(t *testing.T) {
+	harness := newTestServerHarness(t)
+
+	started := make(chan struct{})
+	unblock := make(chan struct{})
+
+	harness.fake.mu.Lock()
+	harness.fake.getStoreFunc = func(ctx context.Context, _ *openfgav1.GetStoreRequest) (*openfgav1.GetStoreResponse, error) {
+		close(started)
+		select {
+		case <-unblock:
+			return &openfgav1.GetStoreResponse{Id: testStoreID, Name: "test-store"}, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	harness.fake.mu.Unlock()
+
+	checker, err := openfga.New(context.Background(), openfga.Options{
+		Endpoint: harness.endpoint,
+		StoreID:  testStoreID,
+		ModelID:  testModelID,
+		KeyFile:  harness.keyFile,
+		CAFile:   harness.caFile,
+	})
+	if err != nil {
+		t.Fatalf("openfga.New: %v", err)
+	}
+	defer func() { _ = checker.Close() }()
+
+	leaderDone := make(chan error, 1)
+	go func() {
+		leaderDone <- checker.Verify(context.Background())
+	}()
+
+	<-started
+
+	waiterCtx, cancelWaiter := context.WithCancel(context.Background())
+	waiterDone := make(chan error, 1)
+	go func() {
+		waiterDone <- checker.Verify(waiterCtx)
+	}()
+
+	time.Sleep(20 * time.Millisecond)
+	cancelWaiter()
+
+	select {
+	case err := <-waiterDone:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("waiter returned %v, want context.Canceled", err)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("waiter did not return while check is in flight")
+	}
+
+	select {
+	case <-leaderDone:
+		t.Fatal("leader finished prematurely")
+	default:
+	}
+
+	close(unblock)
+	if err := <-leaderDone; err != nil {
+		t.Fatalf("leader failed: %v", err)
 	}
 }
 
