@@ -8,13 +8,14 @@ import (
 // RawPolicy governs whether verbatim datagram payload evidence is retained
 // for parse-failing syslog records. It limits retained raw evidence to a
 // configured per-minute burst per device and samples thereafter, tracking the
-// count of suppressed failures between kept samples.
+// count of suppressed failures between kept samples. RawPolicy is safe for
+// concurrent use.
 type RawPolicy struct {
 	failuresPerMinute uint32
 	sampleEvery       uint32
 	clock             func() time.Time
 
-	mu      sync.Mutex
+	mu      sync.Mutex // guards devices
 	devices map[string]*deviceWindow
 }
 

@@ -5,6 +5,7 @@ date: 2026-10-02
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
 execution: mixed
 amends: docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md, docs/architecture/2026-08-20-network-model-structure-direction.md
 parent: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-plan.md
@@ -122,6 +123,47 @@ The parent plan's Decisions apply. These are local to the phase.
   (`src/edge/agent/internal/lanehost/onboard.go:96-98`) ends with that
   attempt, so a sibling module cannot hold a reference to it. The index keeps
   its entries across a lane restart, since the devices stay hosted.
+- The index follows the listing. `Add` drops any other address that carries
+  the same device id, and `Sync` prunes the index to the listed device ids
+  after a successful `ListDevices`. A failed listing prunes nothing. Why: the
+  index outlives the onboarder's `held` map, so without removal a datagram
+  from an address a device no longer has is published as that device's
+  record, which requirement 6 forbids. (decided by the user, 2026-10-03)
+- An address two listed devices share resolves to no device. The datagram is
+  counted and dropped on `flowseer.edge.syslog.dropped` with
+  `flowseer.edge.syslog.reason` of `ambiguous_source`, never attributed to the
+  device listed last. Why: `ListedDevice` carries one `ip` and per-device
+  ports (`spec/proto/flowseer/edge/attach/v1/device.proto:45-47`), so two
+  rows may name one address, and a peer address cannot tell them apart. The
+  value is snake case and bounded, as `docs/conventions/observability.md`
+  (lines 81-90) asks of an attribute. (decided by the user, 2026-10-03)
+- The index carries the listed address and binding of every listed device,
+  a held one included. Each successful `Sync` records one claim per listed
+  device with a usable address, whether or not the device onboards, and
+  drops the device's claim on any other address. An address with two or
+  more claimants resolves to no device. An address with one claimant
+  resolves to it only when the device was onboarded by a lane attempt of
+  this process and is listed at this address, and otherwise the datagram is
+  dropped as `unknown_source`. That state outlives the lane
+  attempt, so a lane restart and a process restart differ: after a lane
+  restart a device the new attempt has not yet onboarded still resolves,
+  and after a process restart the index starts empty
+  (`src/edge/agent/host/host.go:148`) and the device resolves once it
+  onboards. `Sync` applies a whole listing to the index in one step, the
+  prune, the claims, and the held devices it re-asserts, before it onboards.
+  Why: a held device re-listed at a new address keeps its lane session on
+  the old one until the attempt restarts
+  (`src/edge/agent/internal/lanehost/onboard.go:212-220`), and a datagram
+  from the address it left must not be published as its record. The same
+  rule covers a device re-listed from one address to another whose
+  onboarding at the new one fails, or whose new address is unusable: its
+  claim on the old address goes with the listing. The index and the lane
+  may then name different addresses for one device until the attempt
+  restarts. (decided by the user, 2026-10-03)
+- Phase 1 keeps the parser's default options, and a vendor line the parser
+  reports partial is a parse failure like any other. Why: choosing vendor
+  parse options needs real device output, which this phase has none of.
+  (decided by the user, 2026-10-03)
 - The syslog source fills `Provenance` with the binding from the device
   index, the receive time (`Observation.ReceivedAt`,
   `src/protocol/syslog/record.go:71`), the agent's edge ref (`edgeRefOf`,
@@ -295,6 +337,16 @@ The parent plan's Decisions apply. These are local to the phase.
   behavior).
 - Removing the `reserved` lines earlier removals left under
   `spec/proto/flowseer/`. They stay, as the Decisions say.
+- Vendor parse options. The source passes the parser no option beyond
+  `CaptureRaw` (`src/edge/agent/internal/syslogsource/source.go:69-74`), so
+  well-formed vendor output parses partial and draws on the raw budget: a
+  leading Cisco counter (`src/protocol/syslog/legacy.go:16-18`), a zone token
+  after the clock (`src/protocol/syslog/timestamp.go:245`,
+  `src/protocol/syslog/legacy.go:49-54`), a Cisco tag with components
+  (`src/protocol/syslog/vendor.go:129-131`). A legacy timestamp yields no
+  `sent_at` without a year and UTC
+  (`src/protocol/syslog/timestamp.go:131-153`). Follow-up: plan vendor parse
+  options against real device output.
 - Input trust: the source reads datagrams from untrusted network senders. The
   parser's limits (`src/protocol/syslog/options.go`) bound them, and only a
   hosted device's address is accepted.
@@ -437,8 +489,15 @@ auto for TCP (`src/protocol/syslog/framing.go:32-39`).
 `lanehost.DeviceIndex` maps a peer address to a device id and
 binding ref, safe for concurrent use. `OnboardConfig` takes one, and the
 onboarder records a device in it where it writes `held`
-(`src/edge/agent/internal/lanehost/onboard.go:225`). Nothing removes a held
-device today, so the index has no removal path either. `Run` creates the index and passes it to
+(`src/edge/agent/internal/lanehost/onboard.go:225`). The index outlives
+`held`, which ends with the lane attempt, so it has a removal path of its
+own: `Add` drops any other address of the same device, `Sync` prunes the
+index to the listed device ids after a successful `ListDevices`, before it
+onboards, and an address two listed devices share resolves to no device,
+whether or not both onboard. A held device's entry takes the listed address
+and binding on every `Sync`. `Lookup` tells a
+shared address from an unknown one, and the source drops the first under
+`ambiguous_source` and the second under `unknown_source`. `Run` creates the index and passes it to
 both the lane assembly and the syslog module, with the attachment's leaf and
 the edge ref from `edgeRefOf`.
 The source calls `syslog.Listen` with one `ListenConfig` per configured
@@ -491,7 +550,19 @@ zero is refused. `TestModules_DeclaresLaneAndCapture`
 (`capture_test.go:64-79`) expects the third module. `onboard_test.go`
 builds its `OnboardConfig` with an index (line 209) and finds an onboarded
 device in it under its listed address. `index_test.go` covers add, replace, and a lookup that
-survives a second onboarder built against the same index. `mapper_test.go`
+survives a second onboarder built against the same index. It also covers a
+device added at a second address, whose first address then resolves to
+nothing, a prune that keeps the listed ids and drops the rest, and an
+address two devices share, which resolves to no device until one of them
+leaves it. `onboard_test.go` shows a `Sync` whose listing drops a device
+removing its address from the index, a `Sync` whose `ListDevices` fails
+leaving the index as it was, and two listed devices at one address
+resolving to neither. It also shows a device a listing drops and a later
+listing names again resolving once more, a held device re-listed at a new
+address resolving from the new address and no longer from the old, two
+listed devices at one address resolving to neither when one of them fails
+to onboard, and a device re-listed at a new address whose onboarding fails
+no longer resolving from the old one. `mapper_test.go`
 parses payloads it writes itself with the `src/protocol/syslog` parser: the
 parent plan's requirement 1 datagram, a legacy line without PRI, an RFC 5424
 line whose hostname is 256 characters, and an empty datagram. The corpus
@@ -503,7 +574,9 @@ that `firmware_fingerprint` is unset, and that `observed_at` and
 65,535 bytes with no envelope shows the cut `message` and its flag. `rawpolicy_test.go` drives 220 failures in one minute and the
 window roll-over with the injected clock. `source_test.go` starts a hub and a
 leaf as `edgebus_test.go` does, sends UDP datagrams from a hosted and an
-unknown address, and reads the envelope from the hub's edge stream. It checks
+unknown address, and reads the envelope from the hub's edge stream. A
+datagram from an address two indexed devices share yields no envelope and
+one `flowseer.edge.syslog.dropped` with reason `ambiguous_source`. It checks
 that the stored message's `Nats-Msg-Id` header equals the envelope's
 `record_id`. Over TCP it sends one message under each of the five framings
 and reads each envelope, with the two forms auto accepts both sent under

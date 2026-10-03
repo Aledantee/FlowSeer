@@ -36,7 +36,8 @@ func baseIngestRecord() ingestv1.IngestRecord_builder {
 }
 
 func TestIngestRecordRules(t *testing.T) {
-	data70k := bytes.Repeat([]byte("a"), 70000)
+	data65535 := bytes.Repeat([]byte("a"), 65535)
+	data65536 := bytes.Repeat([]byte("a"), 65536)
 	unspecifiedReason := ingestv1.RawReason_RAW_REASON_UNSPECIFIED
 	undefinedReason := ingestv1.RawReason(99)
 
@@ -86,17 +87,40 @@ func TestIngestRecordRules(t *testing.T) {
 			wantText:  "exactly one field is required",
 		},
 		{
-			name: "raw evidence data exceeding 65535 octets fails",
+			name: "raw evidence data of exactly 65535 octets passes",
 			message: func() *ingestv1.IngestRecord {
 				b := baseIngestRecord()
 				b.Raw = ingestv1.RawEvidence_builder{
-					Data:   data70k,
+					Data:   data65535,
+					Reason: ingestv1.RawReason_RAW_REASON_PARSE_FAILURE.Enum(),
+				}.Build()
+				return b.Build()
+			}(),
+		},
+		{
+			name: "raw evidence data of 65536 octets fails",
+			message: func() *ingestv1.IngestRecord {
+				b := baseIngestRecord()
+				b.Raw = ingestv1.RawEvidence_builder{
+					Data:   data65536,
 					Reason: ingestv1.RawReason_RAW_REASON_PARSE_FAILURE.Enum(),
 				}.Build()
 				return b.Build()
 			}(),
 			wantField: "raw.data",
 			wantText:  "65535",
+		},
+		{
+			name: "raw evidence with no reason fails",
+			message: func() *ingestv1.IngestRecord {
+				b := baseIngestRecord()
+				b.Raw = ingestv1.RawEvidence_builder{
+					Data: []byte("test"),
+				}.Build()
+				return b.Build()
+			}(),
+			wantField: "raw.reason",
+			wantText:  "value is required",
 		},
 		{
 			name: "raw evidence with empty datagram zero bytes passes",

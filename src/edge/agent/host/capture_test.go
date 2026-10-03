@@ -61,12 +61,12 @@ func TestCaptureConfigHostCanConstructEveryExportedField(t *testing.T) {
 	}
 }
 
-func TestModules_DeclaresLaneAndCapture(t *testing.T) {
+func TestModules_DeclaresLaneCaptureAndSyslog(t *testing.T) {
 	t.Parallel()
 
 	a := &assembly{}
 	ca := &captureAssembly{}
-	sa := &syslogAssembly{}
+	sa := &syslogAssembly{cfg: &Config{}}
 	mods := modules(a, ca, sa)
 	if len(mods) != 3 {
 		t.Fatalf("len(mods) = %d, want 3", len(mods))

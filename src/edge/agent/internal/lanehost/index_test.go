@@ -2,47 +2,58 @@ package lanehost_test
 
 import (
 	"context"
-	"net/netip"
 	"testing"
 	"time"
 
 	"google.golang.org/protobuf/proto"
 
+	"buf.build/go/protovalidate"
+
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
 )
 
+const (
+	bindingOne = "0192e6a0-0000-7000-8000-0000000000b1"
+	bindingTwo = "0192e6a0-0000-7000-8000-0000000000b2"
+)
+
 func bindingRefFor(id string) *inventoryv1.BindingGlobalRef {
-	return inventoryv1.BindingGlobalRef_builder{
+	b := inventoryv1.BindingGlobalRef_builder{
 		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(id)}.Build(),
 	}.Build()
+	if err := protovalidate.Validate(b); err != nil {
+		panic(err)
+	}
+	return b
 }
 
 func TestDeviceIndex_AddAndLookup(t *testing.T) {
 	t.Parallel()
 
 	idx := lanehost.NewDeviceIndex()
-	binding := bindingRefFor("bind-1")
-	idx.Add("192.0.2.1", "dev-1", binding)
+	binding := bindingRefFor(bindingOne)
+	idx.Add("192.0.2.1", deviceOne, binding)
 
-	entry, ok := idx.Lookup("192.0.2.1")
-	if !ok {
-		t.Fatal("Lookup(\"192.0.2.1\") = false, want true")
+	entry, res := idx.Lookup("192.0.2.1")
+	if res != lanehost.LookupFound {
+		t.Fatalf("Lookup(\"192.0.2.1\") = %v, want LookupFound", res)
 	}
-	if entry.DeviceID != "dev-1" {
-		t.Errorf("DeviceID = %q, want dev-1", entry.DeviceID)
+	if entry.DeviceID != deviceOne {
+		t.Errorf("DeviceID = %q, want %s", entry.DeviceID, deviceOne)
 	}
-	if entry.Device == nil || entry.Device.GetDevice().GetId() != "dev-1" {
-		t.Errorf("Device ref = %v, want ID dev-1", entry.Device)
+	if entry.Device == nil || entry.Device.GetDevice().GetId() != deviceOne {
+		t.Errorf("Device ref = %v, want ID %s", entry.Device, deviceOne)
 	}
-	if entry.Binding == nil || entry.Binding.GetBinding().GetId() != "bind-1" {
-		t.Errorf("Binding ref = %v, want ID bind-1", entry.Binding)
+	if entry.Binding == nil || entry.Binding.GetBinding().GetId() != bindingOne {
+		t.Errorf("Binding ref = %v, want ID %s", entry.Binding, bindingOne)
 	}
 
-	if _, ok := idx.Lookup("192.0.2.99"); ok {
-		t.Error("Lookup(\"192.0.2.99\") = true, want false")
+	if _, res := idx.Lookup("192.0.2.99"); res != lanehost.LookupUnknown {
+		t.Errorf("Lookup(\"192.0.2.99\") = %v, want LookupUnknown", res)
 	}
 }
 
@@ -50,18 +61,95 @@ func TestDeviceIndex_Replace(t *testing.T) {
 	t.Parallel()
 
 	idx := lanehost.NewDeviceIndex()
-	idx.Add("192.0.2.1", "dev-1", bindingRefFor("bind-1"))
-	idx.Add("192.0.2.1", "dev-2", bindingRefFor("bind-2"))
+	idx.Add("192.0.2.1", deviceOne, bindingRefFor(bindingOne))
+	idx.Add("192.0.2.1", deviceOne, bindingRefFor(bindingTwo))
 
-	entry, ok := idx.Lookup("192.0.2.1")
-	if !ok {
-		t.Fatal("Lookup(\"192.0.2.1\") = false, want true")
+	entry, res := idx.Lookup("192.0.2.1")
+	if res != lanehost.LookupFound {
+		t.Fatalf("Lookup(\"192.0.2.1\") = %v, want LookupFound", res)
 	}
-	if entry.DeviceID != "dev-2" {
-		t.Errorf("DeviceID = %q, want dev-2", entry.DeviceID)
+	if entry.DeviceID != deviceOne {
+		t.Errorf("DeviceID = %q, want %s", entry.DeviceID, deviceOne)
 	}
-	if entry.Binding.GetBinding().GetId() != "bind-2" {
-		t.Errorf("Binding ID = %q, want bind-2", entry.Binding.GetBinding().GetId())
+	if entry.Binding.GetBinding().GetId() != bindingTwo {
+		t.Errorf("Binding ID = %q, want %s", entry.Binding.GetBinding().GetId(), bindingTwo)
+	}
+}
+
+func TestDeviceIndex_DeviceAddedAtSecondAddressRemovesFirstAddress(t *testing.T) {
+	t.Parallel()
+
+	idx := lanehost.NewDeviceIndex()
+	idx.Add("192.0.2.1", deviceOne, bindingRefFor(bindingOne))
+
+	if entry, res := idx.Lookup("192.0.2.1"); res != lanehost.LookupFound || entry.DeviceID != deviceOne {
+		t.Fatalf("Lookup(\"192.0.2.1\") = (%v, %v), want (%s, LookupFound)", entry, res, deviceOne)
+	}
+
+	idx.Add("192.0.2.2", deviceOne, bindingRefFor(bindingOne))
+
+	if entry, res := idx.Lookup("192.0.2.1"); res != lanehost.LookupUnknown {
+		t.Errorf("Lookup(\"192.0.2.1\") after move = (%v, %v), want LookupUnknown", entry, res)
+	}
+	if entry, res := idx.Lookup("192.0.2.2"); res != lanehost.LookupFound || entry.DeviceID != deviceOne {
+		t.Errorf("Lookup(\"192.0.2.2\") = (%v, %v), want (%s, LookupFound)", entry, res, deviceOne)
+	}
+}
+
+func TestDeviceIndex_PruneKeepsListedIDsAndDropsTheRest(t *testing.T) {
+	t.Parallel()
+
+	idx := lanehost.NewDeviceIndex()
+	dev1 := listedDeviceWithAddr(deviceOne, []byte{192, 0, 2, 1})
+	dev2 := listedDeviceWithAddr(deviceTwo, []byte{192, 0, 2, 2})
+	idx.ApplyListing([]*attachv1.ListedDevice{dev1, dev2}, map[string]struct{}{deviceOne: {}, deviceTwo: {}})
+
+	idx.ApplyListing([]*attachv1.ListedDevice{dev1}, map[string]struct{}{deviceOne: {}})
+
+	if entry, res := idx.Lookup("192.0.2.1"); res != lanehost.LookupFound || entry.DeviceID != deviceOne {
+		t.Errorf("Lookup(\"192.0.2.1\") = (%v, %v), want (%s, LookupFound)", entry, res, deviceOne)
+	}
+	if entry, res := idx.Lookup("192.0.2.2"); res != lanehost.LookupUnknown {
+		t.Errorf("Lookup(\"192.0.2.2\") = (%v, %v), want LookupUnknown", entry, res)
+	}
+}
+
+func TestDeviceIndex_SharedAddressResolvesToNoDeviceUntilOneLeaves(t *testing.T) {
+	t.Parallel()
+
+	idx := lanehost.NewDeviceIndex()
+	dev1 := listedDeviceWithAddr(deviceOne, []byte{192, 0, 2, 1})
+	dev2 := listedDeviceWithAddr(deviceTwo, []byte{192, 0, 2, 1})
+	idx.ApplyListing([]*attachv1.ListedDevice{dev1, dev2}, map[string]struct{}{deviceOne: {}, deviceTwo: {}})
+
+	entry, res := idx.Lookup("192.0.2.1")
+	if res != lanehost.LookupAmbiguous {
+		t.Fatalf("Lookup(\"192.0.2.1\") = (%v, %v), want LookupAmbiguous", entry, res)
+	}
+	if entry.DeviceID != "" {
+		t.Errorf("entry.DeviceID = %q, want empty for ambiguous address", entry.DeviceID)
+	}
+
+	idx.Add("192.0.2.2", deviceTwo, bindingRefFor(bindingTwo))
+
+	entry, res = idx.Lookup("192.0.2.1")
+	if res != lanehost.LookupFound || entry.DeviceID != deviceOne {
+		t.Errorf("Lookup(\"192.0.2.1\") after deviceTwo moved = (%v, %v), want (%s, LookupFound)", entry, res, deviceOne)
+	}
+	if entry, res := idx.Lookup("192.0.2.2"); res != lanehost.LookupFound || entry.DeviceID != deviceTwo {
+		t.Errorf("Lookup(\"192.0.2.2\") = (%v, %v), want (%s, LookupFound)", entry, res, deviceTwo)
+	}
+
+	idx.Add("192.0.2.1", deviceTwo, bindingRefFor(bindingTwo))
+	if _, res := idx.Lookup("192.0.2.1"); res != lanehost.LookupAmbiguous {
+		t.Fatalf("Lookup(\"192.0.2.1\") after re-sharing = %v, want LookupAmbiguous", res)
+	}
+
+	idx.ApplyListing([]*attachv1.ListedDevice{dev1}, map[string]struct{}{deviceOne: {}})
+
+	entry, res = idx.Lookup("192.0.2.1")
+	if res != lanehost.LookupFound || entry.DeviceID != deviceOne {
+		t.Errorf("Lookup(\"192.0.2.1\") after pruning deviceTwo = (%v, %v), want (%s, LookupFound)", entry, res, deviceOne)
 	}
 }
 
@@ -70,6 +158,9 @@ func listedDeviceWithAddr(deviceID string, octets []byte) *attachv1.ListedDevice
 	listed.SetIp(addrv1.IpAddress_builder{
 		V4: addrv1.Ipv4Address_builder{Octets: octets}.Build(),
 	}.Build())
+	if err := protovalidate.Validate(listed); err != nil {
+		panic(err)
+	}
 	return listed
 }
 
@@ -97,16 +188,16 @@ func TestDeviceIndex_LookupSurvivesSecondOnboarder(t *testing.T) {
 		t.Fatalf("Sync 1: %v", err)
 	}
 
-	// Verify deviceOne is present
-	if _, ok := idx.Lookup("192.0.2.1"); !ok {
-		t.Fatal("Lookup(\"192.0.2.1\") after first onboarder = false, want true")
+	if _, res := idx.Lookup("192.0.2.1"); res != lanehost.LookupFound {
+		t.Fatalf("Lookup(\"192.0.2.1\") after first onboarder = %v, want LookupFound", res)
 	}
 
-	// Build second onboarder against same index
 	lister2 := &listerFake{listings: [][]*attachv1.ListedDevice{{
+		listedDeviceWithAddr(deviceOne, []byte{192, 0, 2, 1}),
 		listedDeviceWithAddr(deviceTwo, []byte{192, 0, 2, 2}),
 	}}}
 	reg2 := newRegistrar()
+	reg2.failing[deviceOne] = true
 	cfg2 := lanehost.OnboardConfig{
 		Client:           lister2,
 		Lane:             reg2,
@@ -122,26 +213,192 @@ func TestDeviceIndex_LookupSurvivesSecondOnboarder(t *testing.T) {
 		t.Fatalf("Sync 2: %v", err)
 	}
 
-	// Both devices survive in index
-	if entry, ok := idx.Lookup("192.0.2.1"); !ok || entry.DeviceID != deviceOne {
-		t.Errorf("deviceOne in index = %v (%v), want true / %s", ok, entry.DeviceID, deviceOne)
+	if entry, res := idx.Lookup("192.0.2.1"); res != lanehost.LookupFound || entry.DeviceID != deviceOne {
+		t.Errorf("deviceOne in index = (%v, %v), want (%s, LookupFound)", entry, res, deviceOne)
 	}
-	if entry, ok := idx.Lookup("192.0.2.2"); !ok || entry.DeviceID != deviceTwo {
-		t.Errorf("deviceTwo in index = %v (%v), want true / %s", ok, entry.DeviceID, deviceTwo)
+	if entry, res := idx.Lookup("192.0.2.2"); res != lanehost.LookupFound || entry.DeviceID != deviceTwo {
+		t.Errorf("deviceTwo in index = (%v, %v), want (%s, LookupFound)", entry, res, deviceTwo)
 	}
+}
+
+func TestDeviceIndex_SharedAddressAcrossTwoOnboarders(t *testing.T) {
+	t.Parallel()
+
+	idx := lanehost.NewDeviceIndex()
+
+	lister1 := &listerFake{listings: [][]*attachv1.ListedDevice{{
+		listedDeviceWithAddr(deviceOne, []byte{192, 0, 2, 1}),
+	}}}
+	reg1 := newRegistrar()
+	cfg1 := lanehost.OnboardConfig{
+		Client:           lister1,
+		Lane:             reg1,
+		Edge:             edgeRef(),
+		Index:            idx,
+		PerDeviceTimeout: 50 * time.Millisecond,
+	}
+	onboarder1, err := lanehost.NewOnboarder(cfg1)
+	if err != nil {
+		t.Fatalf("NewOnboarder 1: %v", err)
+	}
+	if err := onboarder1.Sync(context.Background()); err != nil {
+		t.Fatalf("Sync 1: %v", err)
+	}
+
+	if _, res := idx.Lookup("192.0.2.1"); res != lanehost.LookupFound {
+		t.Fatalf("Lookup(\"192.0.2.1\") after first onboarder = %v, want LookupFound", res)
+	}
+
+	lister2 := &listerFake{listings: [][]*attachv1.ListedDevice{{
+		listedDeviceWithAddr(deviceOne, []byte{192, 0, 2, 1}),
+		listedDeviceWithAddr(deviceTwo, []byte{192, 0, 2, 1}),
+	}}}
+	reg2 := newRegistrar()
+	reg2.failing[deviceTwo] = true
+	cfg2 := lanehost.OnboardConfig{
+		Client:           lister2,
+		Lane:             reg2,
+		Edge:             edgeRef(),
+		Index:            idx,
+		PerDeviceTimeout: 50 * time.Millisecond,
+	}
+	onboarder2, err := lanehost.NewOnboarder(cfg2)
+	if err != nil {
+		t.Fatalf("NewOnboarder 2: %v", err)
+	}
+	if err := onboarder2.Sync(context.Background()); err != nil {
+		t.Fatalf("Sync 2: %v", err)
+	}
+
+	if _, res := idx.Lookup("192.0.2.1"); res != lanehost.LookupAmbiguous {
+		t.Errorf("Lookup(\"192.0.2.1\") with shared address across two onboarders = %v, want LookupAmbiguous", res)
+	}
+}
+
+func TestDeviceIndex_ApplyListing_SharerReplacedRemainsAmbiguous(t *testing.T) {
+	t.Parallel()
+
+	idx := lanehost.NewDeviceIndex()
+	dev1 := listedDeviceWithAddr(deviceOne, []byte{192, 0, 2, 1})
+	dev2 := listedDeviceWithAddr(deviceTwo, []byte{192, 0, 2, 1})
+	dev3 := listedDeviceWithAddr("0192e6a0-0000-7000-8000-000000000003", []byte{192, 0, 2, 1})
+
+	idx.ApplyListing([]*attachv1.ListedDevice{dev1, dev2}, map[string]struct{}{
+		deviceOne: {},
+		deviceTwo: {},
+	})
+
+	if _, res := idx.Lookup("192.0.2.1"); res != lanehost.LookupAmbiguous {
+		t.Fatalf("Lookup before replacement = %v, want LookupAmbiguous", res)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	done := make(chan struct{}, 2)
+
+	spawn.Go(ctx, "sharer-writer", func() {
+		toggle := false
+		for ctx.Err() == nil {
+			if toggle {
+				idx.ApplyListing([]*attachv1.ListedDevice{dev1, dev2}, map[string]struct{}{
+					deviceOne: {},
+					deviceTwo: {},
+				})
+			} else {
+				idx.ApplyListing([]*attachv1.ListedDevice{dev2, dev3}, map[string]struct{}{
+					deviceTwo:                              {},
+					"0192e6a0-0000-7000-8000-000000000003": {},
+				})
+			}
+			toggle = !toggle
+		}
+		done <- struct{}{}
+	}, spawn.ReportTo(func(err error) {
+		t.Error(err)
+		done <- struct{}{}
+	}))
+
+	spawn.Go(ctx, "sharer-reader", func() {
+		for ctx.Err() == nil {
+			entry, res := idx.Lookup("192.0.2.1")
+			if res == lanehost.LookupFound {
+				t.Errorf("Lookup resolved to %s during sharer replacement, want LookupAmbiguous throughout", entry.DeviceID)
+				break
+			}
+		}
+		done <- struct{}{}
+	}, spawn.ReportTo(func(err error) {
+		t.Error(err)
+		done <- struct{}{}
+	}))
+
+	<-done
+	<-done
+
+	if _, res := idx.Lookup("192.0.2.1"); res != lanehost.LookupAmbiguous {
+		t.Errorf("Lookup after test = %v, want LookupAmbiguous", res)
+	}
+}
+
+func TestDeviceIndex_PruneBesideLookupConcurrent(t *testing.T) {
+	t.Parallel()
+
+	idx := lanehost.NewDeviceIndex()
+	dev1 := listedDeviceWithAddr(deviceOne, []byte{192, 0, 2, 1})
+	idx.ApplyListing([]*attachv1.ListedDevice{dev1}, map[string]struct{}{deviceOne: {}})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	done := make(chan struct{}, 2)
+
+	spawn.Go(ctx, "prune-worker", func() {
+		for ctx.Err() == nil {
+			idx.ApplyListing(nil, nil)
+			idx.ApplyListing([]*attachv1.ListedDevice{dev1}, map[string]struct{}{deviceOne: {}})
+		}
+		done <- struct{}{}
+	}, spawn.ReportTo(func(err error) {
+		t.Error(err)
+		done <- struct{}{}
+	}))
+
+	spawn.Go(ctx, "lookup-worker", func() {
+		for ctx.Err() == nil {
+			_, _ = idx.Lookup("192.0.2.1")
+		}
+		done <- struct{}{}
+	}, spawn.ReportTo(func(err error) {
+		t.Error(err)
+		done <- struct{}{}
+	}))
+
+	<-done
+	<-done
 }
 
 func TestDeviceIndex_MappedIPv4MatchesPlainIPv4(t *testing.T) {
 	t.Parallel()
 
 	idx := lanehost.NewDeviceIndex()
-	idx.Add("::ffff:192.0.2.1", "dev-1", bindingRefFor("bind-1"))
+	idx.Add("::ffff:192.0.2.1", deviceOne, bindingRefFor(bindingOne))
 
-	// A dual-stack listener reports an IPv4 peer in its mapped form.
-	if _, ok := idx.Lookup(lanehost.Key(netip.MustParseAddr("192.0.2.1"))); !ok {
-		t.Error("Lookup of the plain form = false, want true for a device added in the mapped form")
+	if _, res := idx.Lookup("192.0.2.1"); res != lanehost.LookupFound {
+		t.Errorf("Lookup of the plain form = %v, want LookupFound for a device added in the mapped form", res)
 	}
-	if _, ok := idx.Lookup(lanehost.Key(netip.MustParseAddr("::ffff:192.0.2.1"))); !ok {
-		t.Error("Lookup of the mapped form = false, want true")
+	if _, res := idx.Lookup("::ffff:192.0.2.1"); res != lanehost.LookupFound {
+		t.Errorf("Lookup of the mapped form = %v, want LookupFound", res)
+	}
+}
+
+func TestDeviceIndex_LinkLocalIPv6WithZone(t *testing.T) {
+	t.Parallel()
+
+	idx := lanehost.NewDeviceIndex()
+	idx.Add("fe80::1", deviceOne, bindingRefFor(bindingOne))
+
+	if entry, res := idx.Lookup("fe80::1%en0"); res != lanehost.LookupFound || entry.DeviceID != deviceOne {
+		t.Errorf("Lookup(\"fe80::1%%en0\") = (%v, %v), want (%s, LookupFound)", entry, res, deviceOne)
 	}
 }

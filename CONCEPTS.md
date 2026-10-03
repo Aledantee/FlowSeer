@@ -64,11 +64,11 @@ A logical 802.11 network defined by its SSID, security settings, and broadcast s
 
 ### Ingest Record
 
-The envelope carrying observation data from an edge adapter to central. An ingest record holds a UUID record id used as the bus message id for deduplication, the observation's provenance, a typed payload arm, and optional raw evidence.
+The envelope carrying observation data from an edge or centrally hosted adapter to central. An ingest record holds a UUID record id used as the bus message id for deduplication, the observation's provenance, a typed payload arm, and optional raw evidence.
 
 ### Raw Evidence
 
-The raw bytes of an unparsed datagram or an operator-opened capture window, attached to an ingest record with the reason and a count of failures suppressed since the last kept failure.
+The raw bytes of an unparsed datagram, or of any record in an open raw window, attached to an ingest record with the reason and a count of failures suppressed since the last kept failure.
 
 ### Syslog Record
 

@@ -948,7 +948,8 @@ func (x *AgentSyslogListener) ClearFraming() {
 type AgentSyslogListener_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The local host:port address to bind. Must be present.
+	// The local host:port address to bind. Must be present, and must name a port:
+	// a bare host or a bare port is refused here rather than at bind time.
 	Address *string
 	// Transport protocol. Unset means UDP.
 	Transport *AgentSyslogTransport
@@ -1004,10 +1005,9 @@ const file_flowseer_store_agent_v1_agent_config_proto_rawDesc = "" +
 	"\tlisteners\x18\x01 \x03(\v2,.flowseer.store.agent.v1.AgentSyslogListenerB\n" +
 	"\xbaH\a\x92\x01\x04\b\x01\x10\bR\tlisteners\x12>\n" +
 	"\x17raw_failures_per_minute\x18\x02 \x01(\rB\a\xbaH\x04*\x02(\x01R\x14rawFailuresPerMinute\x121\n" +
-	"\x10raw_sample_every\x18\x03 \x01(\rB\a\xbaH\x04*\x02(\x01R\x0erawSampleEvery\"\xf8\x02\n" +
-	"\x13AgentSyslogListener\x12'\n" +
-	"\aaddress\x18\x01 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\xff\x01R\aaddress\x12U\n" +
+	"\x10raw_sample_every\x18\x03 \x01(\rB\a\xbaH\x04*\x02(\x01R\x0erawSampleEvery\"\xf9\x02\n" +
+	"\x13AgentSyslogListener\x12(\n" +
+	"\aaddress\x18\x01 \x01(\tB\x0e\xbaH\v\xc8\x01\x01r\x06\x18\xff\x01\x80\x02\x01R\aaddress\x12U\n" +
 	"\ttransport\x18\x02 \x01(\x0e2-.flowseer.store.agent.v1.AgentSyslogTransportB\b\xbaH\x05\x82\x01\x02\x10\x01R\ttransport\x12O\n" +
 	"\aframing\x18\x03 \x01(\x0e2+.flowseer.store.agent.v1.AgentSyslogFramingB\b\xbaH\x05\x82\x01\x02\x10\x01R\aframing:\x8f\x01\xbaH\x8b\x01\x1a\x88\x01\n" +
 	"&agent_syslog_listener.tcp_framing_only\x12*framing is permitted only on TCP listeners\x1a2int(this.framing) == 0 || int(this.transport) == 2*\x9a\x01\n" +
