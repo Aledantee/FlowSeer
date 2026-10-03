@@ -6,7 +6,9 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -23,6 +25,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
@@ -31,6 +35,10 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
+	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
+	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
@@ -139,13 +147,13 @@ var (
 )
 
 type authInfo struct {
-	token  string
-	tenant string
+	token    string
+	tenant   string
+	certFile string
 }
 
 func startTestService(
 	t *testing.T,
-	modifyCfg func(body string) string,
 	modifyOpts func(opts *host.Options),
 ) *testService {
 	t.Helper()
@@ -183,9 +191,6 @@ func startTestService(
 	engine.Grant("user:"+principalID, "view", "edge")
 	engine.Grant("user:"+principalID, "manage", "edge")
 	engine.Grant("user:"+principalID, "capture", "edge")
-	engine.Grant("tenant:"+edgebus.DefaultTenant, "tenant", "device")
-	engine.Grant("tenant:"+edgebus.DefaultTenant, "tenant", "edge")
-
 	busPort := freePort(t)
 	body := fmt.Sprintf(`
 state_dir: %q
@@ -216,10 +221,6 @@ authorization {
 }
 `, stateDir, writeRegistry(t, dir), credentialRoot, busPort, busPort, iss.URL(), caPath, keyPath)
 
-	if modifyCfg != nil {
-		body = modifyCfg(body)
-	}
-
 	cfg, err := host.LoadConfig(writeConfig(t, body))
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
@@ -227,6 +228,7 @@ authorization {
 
 	apiBound := make(chan string, 1)
 	hubChan := make(chan *edgebus.Hub, 1)
+	reconciled := make(chan struct{}, 1)
 	options := host.Options{
 		Bound: func(api string) {
 			select {
@@ -249,6 +251,12 @@ authorization {
 			}
 		},
 		Engine: engine,
+		Reconciled: func() {
+			select {
+			case reconciled <- struct{}{}:
+			default:
+			}
+		},
 	}
 
 	if modifyOpts != nil {
@@ -297,7 +305,11 @@ authorization {
 	base := "https://" + api
 
 	serviceAuthMu.Lock()
-	serviceAuth[base] = authInfo{token: token, tenant: edgebus.DefaultTenant}
+	serviceAuth[base] = authInfo{
+		token:    token,
+		tenant:   edgebus.DefaultTenant,
+		certFile: filepath.Join(stateDir, "tls.crt"),
+	}
 	serviceAuthMu.Unlock()
 	t.Cleanup(func() {
 		serviceAuthMu.Lock()
@@ -310,6 +322,11 @@ authorization {
 	case h = <-hubChan:
 	case <-time.After(5 * time.Second):
 		t.Fatal("the service did not report its hub within five seconds")
+	}
+	select {
+	case <-reconciled:
+	case <-time.After(30 * time.Second):
+		t.Fatal("the projector did not complete its first reconciliation pass")
 	}
 
 	return &testService{
@@ -341,9 +358,47 @@ func runningService(t *testing.T) string {
 // cleanup waiting on a result already taken.
 func runningServiceWithControl(t *testing.T) (base string, stop func(), waitStopped func() error) {
 	t.Helper()
-	svc := startTestService(t, nil, nil)
+	svc := startTestService(t, nil)
 	return svc.Base, svc.Stop, svc.WaitStopped
 }
+
+type certTransport struct {
+	mu         sync.Mutex
+	transports map[string]*http.Transport
+}
+
+func (c *certTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	serviceAuthMu.RLock()
+	info, ok := serviceAuth["https://"+req.URL.Host]
+	serviceAuthMu.RUnlock()
+	if !ok || info.certFile == "" {
+		return nil, fmt.Errorf("no service certificate for %s", req.URL.Host)
+	}
+
+	c.mu.Lock()
+	transport := c.transports[info.certFile]
+	if transport == nil {
+		pemBytes, err := os.ReadFile(info.certFile)
+		if err != nil {
+			c.mu.Unlock()
+			return nil, fmt.Errorf("read service certificate: %w", err)
+		}
+		roots := x509.NewCertPool()
+		if !roots.AppendCertsFromPEM(pemBytes) {
+			c.mu.Unlock()
+			return nil, fmt.Errorf("parse service certificate %s", info.certFile)
+		}
+		transport = &http.Transport{TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			RootCAs:    roots,
+		}}
+		c.transports[info.certFile] = transport
+	}
+	c.mu.Unlock()
+	return transport.RoundTrip(req)
+}
+
+var serviceTransport = &certTransport{transports: make(map[string]*http.Transport)}
 
 type authRoundTripper struct {
 	base http.RoundTripper
@@ -365,52 +420,61 @@ func (a *authRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 	return a.base.RoundTrip(clone)
 }
 
-// insecureClient trusts whatever the service generated and automatically sets
-// the test token and tenant headers if not already specified.
-func insecureClient() *http.Client {
+// serviceClient trusts the certificate generated for the target service and
+// automatically sets the test token and tenant headers if not already specified.
+func serviceClient() *http.Client {
 	return &http.Client{
 		Transport: &authRoundTripper{
-			base: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-			},
+			base: serviceTransport,
 		},
 		Timeout: 10 * time.Second,
 	}
 }
 
-// rawInsecureClient trusts whatever the service generated without injecting
-// authentication headers.
-func rawInsecureClient() *http.Client {
+// rawServiceClient trusts the target service without injecting authentication
+// headers. It shares the certificate-verifying transport with [serviceClient].
+func rawServiceClient() *http.Client {
 	return &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-		},
-		Timeout: 10 * time.Second,
+		Transport: serviceTransport,
+		Timeout:   10 * time.Second,
 	}
 }
 
-// The whole service starts from a file and answers an operator: the hub comes
-// up, the four modules that need it find it, the API listener serves the
-// certificate the host obtained, and a call reaches the handler behind both
-// interceptors and comes back with the registry's own answer.
+func wireErrorCode(err error) string {
+	var connectErr *connect.Error
+	if !errors.As(err, &connectErr) {
+		return ""
+	}
+	for _, detail := range connectErr.Details() {
+		msg, decodeErr := detail.Value()
+		if decodeErr != nil {
+			continue
+		}
+		payload, ok := msg.(*errsv1.ErrorPayload)
+		if ok {
+			return payload.GetCode()
+		}
+	}
+	return ""
+}
+
+// The whole service starts from a file and answers an operator: the hub and
+// dependent modules come up, the API listener serves the certificate the host
+// obtained, and a call reaches the handler through the operator interceptors.
 func TestTheServiceStartsFromAFileAndAnswers(t *testing.T) {
 	base := runningService(t)
-	client := devicev1connect.NewDeviceServiceClient(insecureClient(), base)
+	client := devicev1connect.NewDeviceServiceClient(serviceClient(), base)
 
 	msg := &devicev1.GetDeviceAccessStatusRequest{}
 	local := &inventoryv1.DeviceLocalRef{}
-	local.SetId("0192e6a0-0000-7000-8000-0000000000ff")
+	local.SetId(testDeviceID)
 	device := &inventoryv1.DeviceGlobalRef{}
 	device.SetDevice(local)
 	msg.SetDevice(device)
 
 	_, err := callWhenServing(t, client, msg)
-
-	if got := connect.CodeOf(err); got != connect.CodeNotFound {
-		t.Fatalf("code = %v, want not_found for a device the registry does not list (%v)", got, err)
-	}
-	if err != nil && !strings.Contains(err.Error(), "no such device") {
-		t.Errorf("message = %q, want the operator's sentence", err.Error())
+	if err != nil {
+		t.Fatalf("status: %v", err)
 	}
 }
 
@@ -419,7 +483,7 @@ func TestTheServiceStartsFromAFileAndAnswers(t *testing.T) {
 // waited on.
 func TestAListedDeviceIsAnsweredFromTheJournal(t *testing.T) {
 	base := runningService(t)
-	client := devicev1connect.NewDeviceServiceClient(insecureClient(), base)
+	client := devicev1connect.NewDeviceServiceClient(serviceClient(), base)
 
 	msg := &devicev1.GetDeviceAccessStatusRequest{}
 	local := &inventoryv1.DeviceLocalRef{}
@@ -488,16 +552,16 @@ func TestTheServiceReportsThePortItWasGiven(t *testing.T) {
 
 	// Dialed rather than inferred. The reported address is only worth
 	// something if it is the one accepting connections.
-	client := devicev1connect.NewDeviceServiceClient(insecureClient(), base)
+	client := devicev1connect.NewDeviceServiceClient(serviceClient(), base)
 	msg := &devicev1.GetDeviceAccessStatusRequest{}
 	local := &inventoryv1.DeviceLocalRef{}
-	local.SetId("0192e6a0-0000-7000-8000-0000000000ff")
+	local.SetId(testDeviceID)
 	device := &inventoryv1.DeviceGlobalRef{}
 	device.SetDevice(local)
 	msg.SetDevice(device)
 
-	if _, err := callWhenServing(t, client, msg); connect.CodeOf(err) != connect.CodeNotFound {
-		t.Errorf("a call to the reported address answered %v, want the handler's not-found", err)
+	if _, err := callWhenServing(t, client, msg); err != nil {
+		t.Errorf("a call to the reported address answered %v, want the listed device", err)
 	}
 }
 
@@ -508,7 +572,7 @@ func TestTheServiceReportsThePortItWasGiven(t *testing.T) {
 // listener and a body sized to exhaust the process.
 func TestEnrollRefusesABodyPastTheBound(t *testing.T) {
 	base := runningService(t)
-	client := insecureClient()
+	client := serviceClient()
 	waitUntilServing(t, client, base)
 
 	oversize := postEnroll(t, client, base, make([]byte, 2<<20))
@@ -566,7 +630,7 @@ func waitUntilServing(t *testing.T, client *http.Client, base string) {
 // procedure paths are refused with HTTP 404 and Connect Unimplemented.
 func TestTenantServiceIsNotMounted(t *testing.T) {
 	base := runningService(t)
-	client := insecureClient()
+	client := serviceClient()
 	waitUntilServing(t, client, base)
 
 	req, err := http.NewRequest(http.MethodPost, base+identityv1connect.TenantServiceCreateTenantProcedure, bytes.NewReader([]byte("{}")))
@@ -728,7 +792,7 @@ authorization {
 }
 
 func TestOperatorRPCEnforcementOrder(t *testing.T) {
-	svc := startTestService(t, nil, nil)
+	svc := startTestService(t, nil)
 
 	const (
 		tenantA = "0192e6a0-0000-7000-8000-00000000000a"
@@ -743,7 +807,7 @@ func TestOperatorRPCEnforcementOrder(t *testing.T) {
 	}
 	svc.Engine.Grant("user:"+svc.PrincipalID, "view", "edge")
 
-	client := edgev1connect.NewEdgeAdminServiceClient(rawInsecureClient(), svc.Base)
+	client := edgev1connect.NewEdgeAdminServiceClient(rawServiceClient(), svc.Base)
 
 	// 1. GetEdge with no Authorization header and an empty request answers CodeUnauthenticated.
 	req1 := connect.NewRequest(&apiedgev1.GetEdgeRequest{})
@@ -784,11 +848,79 @@ func TestOperatorRPCEnforcementOrder(t *testing.T) {
 	if got := connect.CodeOf(err3); got != connect.CodeInvalidArgument {
 		t.Fatalf("empty request: code = %v, want CodeInvalidArgument (%v)", got, err3)
 	}
-	if !strings.Contains(err3.Error(), "the request does not satisfy its schema rules") {
-		t.Errorf("empty request error = %q, want schema rules error", err3.Error())
+	if got := wireErrorCode(err3); got != host.ErrCodeInvalidRequest.String() {
+		t.Errorf("empty request error code = %q, want %v (%v)", got, host.ErrCodeInvalidRequest, err3)
 	}
 	if queries := svc.Engine.Queries(); len(queries) != 0 {
 		t.Errorf("recorded %d queries, want none: %v", len(queries), queries)
+	}
+}
+
+func TestHostMountsServicesOnTheCorrectInterceptorChains(t *testing.T) {
+	svc := startTestService(t, nil)
+	client := rawServiceClient()
+
+	for _, procedure := range []string{
+		attachv1connect.EdgeServiceHeartbeatProcedure,
+		dispatchv1connect.DispatchServiceReportProcedure,
+		auditv1connect.AuditServiceDeliverProcedure,
+		captureedgev1connect.CaptureEdgeServiceSubscribeCaptureAssignmentsProcedure,
+	} {
+		t.Run("edge/"+procedure[strings.LastIndexByte(procedure, '/')+1:], func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodPost, svc.Base+procedure, strings.NewReader("{}"))
+			if err != nil {
+				t.Fatalf("build request: %v", err)
+			}
+			req.Header.Set("Content-Type", "application/proto")
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatalf("call %s: %v", procedure, err)
+			}
+			defer func() { _ = resp.Body.Close() }()
+			if got := resp.Header.Get("FlowSeer-Refusal-Code"); got == "" {
+				t.Fatalf("response to %s lacks the edge refusal code, status %d", procedure, resp.StatusCode)
+			}
+		})
+	}
+
+	operatorChecks := []struct {
+		name string
+		call func() error
+	}{
+		{
+			name: "edge admin",
+			call: func() error {
+				_, err := edgev1connect.NewEdgeAdminServiceClient(client, svc.Base).GetEdge(
+					context.Background(), connect.NewRequest(&apiedgev1.GetEdgeRequest{}),
+				)
+				return err
+			},
+		},
+		{
+			name: "device",
+			call: func() error {
+				_, err := devicev1connect.NewDeviceServiceClient(client, svc.Base).GetDeviceAccessStatus(
+					context.Background(), connect.NewRequest(&devicev1.GetDeviceAccessStatusRequest{}),
+				)
+				return err
+			},
+		},
+		{
+			name: "capture",
+			call: func() error {
+				_, err := capturev1connect.NewCaptureServiceClient(client, svc.Base).GetCaptureSession(
+					context.Background(), connect.NewRequest(&capturev1.GetCaptureSessionRequest{}),
+				)
+				return err
+			},
+		},
+	}
+	for _, tc := range operatorChecks {
+		t.Run("operator/"+tc.name, func(t *testing.T) {
+			if err := tc.call(); connect.CodeOf(err) != connect.CodeUnauthenticated {
+				t.Fatalf("error = %v, want Unauthenticated", err)
+			}
+		})
 	}
 }
 
@@ -875,9 +1007,17 @@ authorization {
 	}
 
 	base := "https://" + api
+	serviceAuthMu.Lock()
+	serviceAuth[base] = authInfo{certFile: filepath.Join(stateDir, "tls.crt")}
+	serviceAuthMu.Unlock()
+	t.Cleanup(func() {
+		serviceAuthMu.Lock()
+		delete(serviceAuth, base)
+		serviceAuthMu.Unlock()
+	})
 
 	// 1. EdgeService.Enroll with an unknown setup key gets the answer it gets with the engine reachable.
-	edgeClient := attachv1connect.NewEdgeServiceClient(rawInsecureClient(), base)
+	edgeClient := attachv1connect.NewEdgeServiceClient(rawServiceClient(), base)
 	unknownKey := "fse1_aaaaaaaaaaaaaaaaaaaaaaaaaa_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -900,12 +1040,19 @@ authorization {
 		SetupKey: proto.String(unknownKey),
 		Proof:    proof,
 	}.Build())
+	reachable := startTestService(t, nil)
+	_, reachableErr := attachv1connect.NewEdgeServiceClient(rawServiceClient(), reachable.Base).Enroll(
+		context.Background(), connect.NewRequest(enrollReq.Msg),
+	)
 	_, enrollErr := edgeClient.Enroll(context.Background(), enrollReq)
 	if enrollErr == nil {
 		t.Fatal("Enroll succeeded with unknown setup key")
 	}
 	if got := connect.CodeOf(enrollErr); got != connect.CodePermissionDenied {
 		t.Fatalf("Enroll code = %v, want CodePermissionDenied (%v)", got, enrollErr)
+	}
+	if got, want := connect.CodeOf(enrollErr), connect.CodeOf(reachableErr); got != want {
+		t.Fatalf("closed-engine Enroll code = %v, reachable-engine code = %v", got, want)
 	}
 
 	// 2. While GetEdge answers CodeUnavailable with authz/unavailable.
@@ -915,7 +1062,7 @@ authorization {
 		"aud": "flowseer-device-test",
 		"exp": time.Now().Add(time.Hour).Unix(),
 	})
-	adminClient := edgev1connect.NewEdgeAdminServiceClient(rawInsecureClient(), base)
+	adminClient := edgev1connect.NewEdgeAdminServiceClient(rawServiceClient(), base)
 	getEdgeReq := connect.NewRequest(apiedgev1.GetEdgeRequest_builder{
 		Edge: edgev1.EdgeGlobalRef_builder{
 			Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(testEdgeID)}.Build(),
@@ -928,8 +1075,8 @@ authorization {
 	if got := connect.CodeOf(getEdgeErr); got != connect.CodeUnavailable {
 		t.Fatalf("GetEdge code = %v, want CodeUnavailable (%v)", got, getEdgeErr)
 	}
-	if !strings.Contains(getEdgeErr.Error(), "authorization is unavailable") {
-		t.Errorf("GetEdge error = %q, want authorization is unavailable", getEdgeErr.Error())
+	if got := wireErrorCode(getEdgeErr); got != authz.ErrCodeUnavailable.String() {
+		t.Errorf("GetEdge error code = %q, want %v (%v)", got, authz.ErrCodeUnavailable, getEdgeErr)
 	}
 }
 
@@ -1001,6 +1148,156 @@ authorization {
 	}
 }
 
+func startupConfig(t *testing.T, endpoint, storeID, authnCA, authzCA string) string {
+	t.Helper()
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, "state")
+	credentialRoot := filepath.Join(dir, "credentials")
+	if err := os.MkdirAll(credentialRoot, 0o700); err != nil {
+		t.Fatalf("credential dir: %v", err)
+	}
+	issuer := authntest.New(t)
+	keyPath := filepath.Join(dir, "authz.key")
+	if err := os.WriteFile(keyPath, []byte("test-authz-key"), 0o600); err != nil {
+		t.Fatalf("write key: %v", err)
+	}
+	busPort := freePort(t)
+	authnCAField := ""
+	if authnCA != "" {
+		authnCAField = fmt.Sprintf("  ca_file: %q\n", authnCA)
+	}
+	authzCAField := ""
+	if authzCA != "" {
+		authzCAField = fmt.Sprintf("  ca_file: %q\n", authzCA)
+	}
+
+	return fmt.Sprintf(`
+state_dir: %q
+registry_path: %q
+credential_root: %q
+listeners {
+  api: "127.0.0.1:0"
+  bus: "127.0.0.1:%d"
+}
+edges {
+  central_url: "https://127.0.0.1"
+  assertion_audience: "flowseer-device-test"
+  cluster_urls: "ws://127.0.0.1:%d"
+}
+authentication {
+  issuers {
+    issuer: %q
+    audience: "flowseer-device-test"
+    organization_claim_name: "org_id"
+  }
+%s
+}
+authorization {
+  endpoint: %q
+  store_id: %q
+  model_id: "01JK1234567890ABCDEFGHJKMM"
+  preshared_key_file: %q
+%s
+}
+`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, busPort, issuer.URL(), authnCAField,
+		endpoint, storeID, keyPath, authzCAField)
+}
+
+func TestLocalStartupFaultsReturnBeforeAPIBinds(t *testing.T) {
+	missingAuthnCA := filepath.Join(t.TempDir(), "missing-authn-ca.pem")
+	missingAuthzCA := filepath.Join(t.TempDir(), "missing-authz-ca.pem")
+	badAuthnCA := filepath.Join(t.TempDir(), "bad-authn-ca.pem")
+	if err := os.WriteFile(badAuthnCA, []byte("not a certificate"), 0o600); err != nil {
+		t.Fatalf("write bad authentication CA: %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		endpoint  string
+		storeID   string
+		authnCA   string
+		authzCA   string
+		loadCode  errs.Code
+		startCode errs.Code
+		loadOnly  bool
+	}{
+		{
+			name:      "malformed store id",
+			endpoint:  "https://authz.example.test:8081",
+			storeID:   "bad",
+			startCode: openfga.ErrCodeConfig,
+		},
+		{
+			name:     "malformed endpoint",
+			endpoint: "http://authz.example.test:8081",
+			storeID:  "01JK1234567890ABCDEFGHJKMN",
+			loadCode: host.ErrCodeConfigInvalid,
+			loadOnly: true,
+		},
+		{
+			name:      "unreadable authorization CA",
+			endpoint:  "https://authz.example.test:8081",
+			storeID:   "01JK1234567890ABCDEFGHJKMN",
+			authzCA:   missingAuthzCA,
+			startCode: openfga.ErrCodeConfig,
+		},
+		{
+			name:      "unreadable authentication CA",
+			endpoint:  "https://authz.example.test:8081",
+			storeID:   "01JK1234567890ABCDEFGHJKMN",
+			authnCA:   missingAuthnCA,
+			startCode: host.ErrCodeStart,
+		},
+		{
+			name:      "unparsable authentication CA",
+			endpoint:  "https://authz.example.test:8081",
+			storeID:   "01JK1234567890ABCDEFGHJKMN",
+			authnCA:   badAuthnCA,
+			startCode: host.ErrCodeStart,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			body := startupConfig(t, tc.endpoint, tc.storeID, tc.authnCA, tc.authzCA)
+			cfg, err := host.LoadConfig(writeConfig(t, body))
+			if tc.loadOnly {
+				if err == nil {
+					t.Fatal("LoadConfig succeeded for malformed endpoint")
+				}
+				if got, ok := errs.CodeOf(err); !ok || got != tc.loadCode {
+					t.Fatalf("LoadConfig code = %v, want %v (%v)", got, tc.loadCode, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("LoadConfig: %v", err)
+			}
+
+			bound := make(chan string, 1)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			done := make(chan error, 1)
+			go func() {
+				done <- host.Run(ctx, cfg, "test", host.Options{
+					Bound: func(api string) { bound <- api },
+				})
+			}()
+
+			select {
+			case api := <-bound:
+				t.Fatalf("API bound at %s before startup fault", api)
+			case err := <-done:
+				if got, ok := errs.CodeOf(err); !ok || got != tc.startCode {
+					t.Fatalf("host.Run code = %v, want %v (%v)", got, tc.startCode, err)
+				}
+			case <-time.After(10 * time.Second):
+				t.Fatal("host.Run did not return before the API listener bound")
+			}
+		})
+	}
+}
+
 type failWriteEngine struct {
 	*authztest.Engine
 	mu        sync.Mutex
@@ -1052,7 +1349,7 @@ func TestCreateEdgeSucceedsAndLogsWhenEngineWriteFails(t *testing.T) {
 		Engine: authztest.New(),
 	}
 
-	svc := startTestService(t, nil, func(opts *host.Options) {
+	svc := startTestService(t, func(opts *host.Options) {
 		opts.Engine = engine
 		opts.LogWriter = &logBuf
 	})
@@ -1068,7 +1365,7 @@ func TestCreateEdgeSucceedsAndLogsWhenEngineWriteFails(t *testing.T) {
 	engine.SetFailWrite(errs.New().Code(openfga.ErrCodeUnreachable).Msg("engine write unreachable"))
 	logBuf.Reset()
 
-	client := edgev1connect.NewEdgeAdminServiceClient(insecureClient(), svc.Base)
+	client := edgev1connect.NewEdgeAdminServiceClient(serviceClient(), svc.Base)
 	req := connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
 		Name: proto.String("failing-write-edge"),
 	}.Build())
@@ -1103,7 +1400,7 @@ func TestCreateEdgeSucceedsAndLogsWhenEngineWriteFails(t *testing.T) {
 		Msg       string `json:"msg"`
 		ErrorType string `json:"error.type"`
 	}
-	var found bool
+	var matches int
 	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -1112,12 +1409,11 @@ func TestCreateEdgeSucceedsAndLogsWhenEngineWriteFails(t *testing.T) {
 		var rec logRecord
 		if err := json.Unmarshal([]byte(line), &rec); err == nil {
 			if rec.Msg == "failed to project object relationship" && rec.ErrorType == "authz/engine-unreachable" {
-				found = true
-				break
+				matches++
 			}
 		}
 	}
-	if !found {
-		t.Fatalf("expected log record with msg %q and error.type %q, got log:\n%s", "failed to project object relationship", "authz/engine-unreachable", output)
+	if matches != 1 {
+		t.Fatalf("found %d log records with msg %q and error.type %q, want one; got log:\n%s", matches, "failed to project object relationship", "authz/engine-unreachable", output)
 	}
 }

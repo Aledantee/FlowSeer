@@ -130,14 +130,16 @@ bearer token verified against configured OIDC issuers (`internal/authn`) and a
 tenant identifier in the `X-FlowSeer-Tenant` header. Calls are checked against
 OpenFGA (`internal/authz`, `internal/authz/openfga`) per the service options.
 
-Connect decodes the request before any interceptor runs, so an unauthenticated
-caller can still send a large body. `CaptureEdgeService.UploadCapture` is mounted
-in front of the assertion middleware too, and carries its own per-message bound.
+The operator request body is unbounded: Connect decodes it before any
+interceptor runs, so an unauthenticated caller can send a large body.
+`CaptureEdgeService.UploadCapture` is mounted in front of the assertion
+middleware and carries its own per-message bound.
 
-Every call admitted by authorization on `EdgeAdminService` and `CaptureService`
-records its attempt and completion into the operator action trail
+The six `EdgeAdminService` procedures, `TailCaptureSession`,
+`DownloadCaptureSession`, and full-payload `CreateCaptureSession` calls admitted
+by authorization record an attempt and completion in the operator action trail
 (`FLOWSEER_OPERATOR_ACTIONS` stream, published on
-`flowseer.<tenant>.operator.action.<action>` by `internal/actiontrail`). An
+`flowseer.<tenant>.operator.action.<action>` by `internal/auditapi.JetStreamPublisher`). An
 unauthenticated or unauthorized call leaves no action trail entry, avoiding
 trail pollution by unverified callers.
 
@@ -231,7 +233,7 @@ the record is what an audit needs, the payload is what an audit is about.
 | `internal/authz/authztest` | test in-memory authorization engine and relationship recorder |
 | `internal/telemetry` | this service's instrumentation scope |
 | `internal/host` | configuration, certificate, interceptors, and the module assembly |
-| `internal/actiontrail` | the operator action trail interceptor and JetStream publisher |
+| `internal/actiontrail` | the operator action trail interceptor |
 | `internal/projector` | relationship projection from store records to the authorization engine |
 | `internal/tenantstore` | active tenant organization lookup |
 | `test/integration` | end-to-end integration and runbook tests |

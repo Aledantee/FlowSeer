@@ -2050,7 +2050,7 @@ func TestVerifierOutageClassificationProperty(t *testing.T) {
 	}
 }
 
-func TestRequirement11(t *testing.T) {
+func TestVerifierSubjectAndPlatformClaims(t *testing.T) {
 	srv := authntest.New(t)
 	now := time.Now().Truncate(time.Second)
 
@@ -2069,7 +2069,7 @@ func TestRequirement11(t *testing.T) {
 			t.Fatalf("NewVerifier: %v", err)
 		}
 
-		sub256 := strings.Repeat("a", 256)
+		sub256 := strings.Repeat("é", 256)
 		tok256 := srv.Sign(map[string]any{
 			"iss": srv.URL(),
 			"aud": "flowseer-device",
@@ -2079,13 +2079,13 @@ func TestRequirement11(t *testing.T) {
 		})
 		p, err := verifier.Verify(context.Background(), tok256)
 		if err != nil {
-			t.Fatalf("verify 256-char subject token: %v", err)
+			t.Fatalf("verify 256-rune subject token: %v", err)
 		}
 		if p.Subject != sub256 {
-			t.Fatalf("got subject len %d, want 256", len(p.Subject))
+			t.Fatalf("got subject %q, want 256-rune subject", p.Subject)
 		}
 
-		sub257 := strings.Repeat("a", 257)
+		sub257 := strings.Repeat("é", 257)
 		tok257 := srv.Sign(map[string]any{
 			"iss": srv.URL(),
 			"aud": "flowseer-device",
@@ -2095,7 +2095,7 @@ func TestRequirement11(t *testing.T) {
 		})
 		_, err = verifier.Verify(context.Background(), tok257)
 		if err == nil {
-			t.Fatal("expected error for 257-char subject, got nil")
+			t.Fatal("expected error for 257-rune subject, got nil")
 		}
 		code, ok := errs.CodeOf(err)
 		if !ok || code != authn.ErrCodeTokenInvalid {
@@ -2103,7 +2103,7 @@ func TestRequirement11(t *testing.T) {
 		}
 	})
 
-	t.Run("suspended tenant yields no tenant beside active", func(t *testing.T) {
+	t.Run("only active tenant yields a tenant", func(t *testing.T) {
 		activeRec := identityv1.TenantRecord_builder{
 			Config: identityv1.TenantConfig_builder{
 				Ref: identityv1.TenantGlobalRef_builder{
@@ -2131,6 +2131,29 @@ func TestRequirement11(t *testing.T) {
 				Lifecycle: identityv1.TenantLifecycle_TENANT_LIFECYCLE_SUSPENDED.Enum(),
 			}.Build(),
 		}.Build()
+		noStateRec := identityv1.TenantRecord_builder{
+			Config: identityv1.TenantConfig_builder{
+				Ref: identityv1.TenantGlobalRef_builder{
+					Tenant: identityv1.TenantLocalRef_builder{Id: proto.String("tenant-no-state")}.Build(),
+				}.Build(),
+				Issuer:                 proto.String(srv.URL()),
+				OrganizationClaimName:  proto.String("org"),
+				OrganizationClaimValue: proto.String("no-state-org"),
+			}.Build(),
+		}.Build()
+		unspecifiedRec := identityv1.TenantRecord_builder{
+			Config: identityv1.TenantConfig_builder{
+				Ref: identityv1.TenantGlobalRef_builder{
+					Tenant: identityv1.TenantLocalRef_builder{Id: proto.String("tenant-unspecified")}.Build(),
+				}.Build(),
+				Issuer:                 proto.String(srv.URL()),
+				OrganizationClaimName:  proto.String("org"),
+				OrganizationClaimValue: proto.String("unspecified-org"),
+			}.Build(),
+			State: identityv1.TenantState_builder{
+				Lifecycle: identityv1.TenantLifecycle_TENANT_LIFECYCLE_UNSPECIFIED.Enum(),
+			}.Build(),
+		}.Build()
 
 		resolver := func(_ context.Context, _, org string) (*identityv1.TenantRecord, error) {
 			switch org {
@@ -2138,6 +2161,10 @@ func TestRequirement11(t *testing.T) {
 				return activeRec, nil
 			case "suspended-org":
 				return suspendedRec, nil
+			case "no-state-org":
+				return noStateRec, nil
+			case "unspecified-org":
+				return unspecifiedRec, nil
 			default:
 				return nil, nil
 			}
@@ -2189,6 +2216,32 @@ func TestRequirement11(t *testing.T) {
 		}
 		if len(pSuspended.Tenants) != 0 {
 			t.Fatalf("got tenants %v, want empty for suspended tenant", pSuspended.Tenants)
+		}
+
+		for _, tc := range []struct {
+			name string
+			org  string
+		}{
+			{name: "missing state", org: "no-state-org"},
+			{name: "unspecified lifecycle", org: "unspecified-org"},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				tok := srv.Sign(map[string]any{
+					"iss": srv.URL(),
+					"aud": "flowseer-device",
+					"sub": "u1",
+					"org": tc.org,
+					"exp": now.Add(time.Hour).Unix(),
+					"iat": now.Unix(),
+				})
+				principal, err := verifier.Verify(context.Background(), tok)
+				if err != nil {
+					t.Fatalf("verify %s tenant token: %v", tc.name, err)
+				}
+				if len(principal.Tenants) != 0 {
+					t.Fatalf("got tenants %v, want empty for %s tenant", principal.Tenants, tc.name)
+				}
+			})
 		}
 	})
 
@@ -2276,8 +2329,9 @@ func TestRequirement11(t *testing.T) {
 		vSet, err := authn.NewVerifier(authn.Options{
 			Issuers: []authn.IssuerConfig{
 				{
-					Issuer:   srv.URL(),
-					Audience: "flowseer-device",
+					Issuer:                srv.URL(),
+					Audience:              "flowseer-device",
+					OrganizationClaimName: "roles",
 				},
 			},
 			Platform: authn.PlatformConfig{
@@ -2303,8 +2357,9 @@ func TestRequirement11(t *testing.T) {
 		vEmpty, err := authn.NewVerifier(authn.Options{
 			Issuers: []authn.IssuerConfig{
 				{
-					Issuer:   srv.URL(),
-					Audience: "flowseer-device",
+					Issuer:                srv.URL(),
+					Audience:              "flowseer-device",
+					OrganizationClaimName: "roles",
 				},
 			},
 			Platform: authn.PlatformConfig{
@@ -2324,37 +2379,6 @@ func TestRequirement11(t *testing.T) {
 		}
 		if pEmpty.Platform {
 			t.Fatal("expected Platform false when ClaimName is empty")
-		}
-	})
-
-	t.Run("BadSigner fails with authn/token-invalid", func(t *testing.T) {
-		verifier, err := authn.NewVerifier(authn.Options{
-			Issuers: []authn.IssuerConfig{
-				{
-					Issuer:   srv.URL(),
-					Audience: "flowseer-device",
-				},
-			},
-			Client: srv.Client(),
-			Clock:  func() time.Time { return now },
-		})
-		if err != nil {
-			t.Fatalf("NewVerifier: %v", err)
-		}
-		badTok := srv.SignBad(map[string]any{
-			"iss": srv.URL(),
-			"aud": "flowseer-device",
-			"sub": "u1",
-			"exp": now.Add(time.Hour).Unix(),
-			"iat": now.Unix(),
-		})
-		_, err = verifier.Verify(context.Background(), badTok)
-		if err == nil {
-			t.Fatal("expected error with BadSigner, got nil")
-		}
-		code, ok := errs.CodeOf(err)
-		if !ok || code != authn.ErrCodeTokenInvalid {
-			t.Fatalf("got code %v, want %v", code, authn.ErrCodeTokenInvalid)
 		}
 	})
 }

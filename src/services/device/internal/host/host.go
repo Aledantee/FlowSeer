@@ -81,7 +81,7 @@ const (
 // Run assembles the device service and runs it until ctx ends or the runtime
 // stops it.
 //
-// The six modules are declared in dependency order and supervised
+// The seven modules are declared in dependency order and supervised
 // RestForOne, which is what makes the hub handle safe: see [hubHandle]. The
 // service declares no local message bus — its durability is the hub's
 // JetStream, and a second embedded broker would be a second store to keep.
