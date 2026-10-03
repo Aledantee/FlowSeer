@@ -158,22 +158,22 @@ describe('i18n message catalogs and runtime', () => {
     expect(second.global.t('ui.dialog.fallbackTitle')).toBe('Dialog')
     expect(en.ui.dialog.fallbackTitle).toBe('Dialog')
 
-    const clonedDe = structuredClone(de)
-    clonedDe.ui.dialog.fallbackTitle = 'probe-de-set'
-    first.global.setLocaleMessage('de', clonedDe)
+    first.global.mergeLocaleMessage('de', {
+      ui: { dialog: { fallbackTitle: 'probe-de-merge' } },
+    })
     expect(first.global.t('ui.dialog.fallbackTitle', 1, { locale: 'de' })).toBe(
-      'probe-de-set',
+      'probe-de-merge',
     )
     expect(
       second.global.t('ui.dialog.fallbackTitle', 1, { locale: 'de' }),
     ).toBe('Dialog')
     expect(de.ui.dialog.fallbackTitle).toBe('Dialog')
 
-    first.global.mergeLocaleMessage('de', {
-      ui: { dialog: { fallbackTitle: 'probe-de-merge' } },
-    })
+    const clonedDe = structuredClone(de)
+    clonedDe.ui.dialog.fallbackTitle = 'probe-de-set'
+    first.global.setLocaleMessage('de', clonedDe)
     expect(first.global.t('ui.dialog.fallbackTitle', 1, { locale: 'de' })).toBe(
-      'probe-de-merge',
+      'probe-de-set',
     )
     expect(
       second.global.t('ui.dialog.fallbackTitle', 1, { locale: 'de' }),
@@ -188,6 +188,16 @@ describe('i18n message catalogs and runtime', () => {
     first.global.mergeNumberFormat('en', {
       percent: { style: 'percent', maximumFractionDigits: 1 },
     })
+    first.global.mergeNumberFormat('de', {
+      integer: { style: 'decimal', maximumFractionDigits: 1 },
+    })
+    expect(first.global.n(1.25, 'integer', 'de')).toBe('1,3')
+    expect(second.global.n(1.25, 'integer', 'de')).toBe('1')
+    expect(numberFormats.de.integer).toEqual({
+      style: 'decimal',
+      maximumFractionDigits: 0,
+    })
+
     first.global.setNumberFormat<Record<string, Intl.NumberFormatOptions>>(
       'de',
       {

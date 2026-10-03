@@ -332,7 +332,6 @@ describe('AI decorator document scope', () => {
     if (!otherTargetId) {
       throw new Error('Missing target id')
     }
-    expect(otherTargetId).toBeDefined()
     await select(otherTargetId)
 
     const hostTarget = hostMount.container.querySelector<HTMLElement>(
