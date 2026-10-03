@@ -138,7 +138,7 @@ enum AgentLogLevel {
 message AgentSyslog {
   // Listeners the syslog source binds. At least one and at most eight.
   repeated AgentSyslogListener listeners = 1 [(buf.validate.field).repeated = {
-    min_items: 1,
+    min_items: 1
     max_items: 8
   }];
   // Number of raw-bearing parse failures kept per device per minute before
