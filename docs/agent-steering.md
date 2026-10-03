@@ -403,7 +403,8 @@ findings judges each fix against them, so `fix-loop.md` adds a required
 "New findings" section to that brief and runs one more reviewer over the
 changed paths without them. A verdict written before the fixes reads as
 passing to `land`, `drive`, and `next`, so a review that wants fixes
-records `fixes needed`, which none of them accepts.
+records `fixes needed`, which none of them accepts, and so does one that
+holds only gaps.
 
 Split large plans into phases and carry progress in a ledger, not in the
 conversation. Long-horizon coding degrades measurably: SWE-Bench Pro
@@ -737,17 +738,63 @@ Fix-and-re-review rounds belong to the coordinator. `review` carries the
 loop as a step the user asks for, because the coordinator is the only
 party that holds the rounds' history and so the only one that can see a
 round undo the previous round's fix: fixes are dispatched through
-`delegate`, the verifier runs on the union before each review round, the
-loop stops at a round with no correctness findings, and after three
-rounds on one mechanism the work goes to `plan`, the cap `implement` puts
-on a red unit. The count covers every round, whatever it fixed: a cap
-counted per mechanism let a loop run a fourth round because each round
-had found a different defect, so three rounds on different mechanisms now
-stop at a question to the user. A second defect in one mechanism also
-sends the coordinator to prior art before the next patch. Five rounds of
-local fixes to a multi-key uniqueness claim ended only when a re-plan
-replaced the protocol with the store's atomic batch
+`delegate`, the verifier runs on the union before each review round, and a
+review runs at most three rounds in total. After three rounds on one
+mechanism the work goes to `plan`, the cap `implement` puts on a red unit.
+The count covers every round, whatever it fixed: a cap counted per
+mechanism let a loop run a fourth round because each round had found a
+different defect, so three rounds on different mechanisms now stop at a
+question to the user. A second defect
+in one mechanism also sends the coordinator to prior art before the next
+patch. Five rounds of local fixes to a multi-key uniqueness claim ended
+only when a re-plan replaced the protocol with the store's atomic batch
 (`docs/solutions/architecture-patterns/a-multi-key-uniqueness-claim-needs-one-conditional-batch.md`).
+
+Review sorts each finding into one of four kinds: behavior, false test,
+gap, or convention (`.claude/skills/review/references/fix-loop.md`). A
+behavior defect and a false test hold the loop open. A false test fails,
+errors, passes only on some runs, or passes with the condition removed
+that its title, comment, or commit body states, and it is fixed in a
+reviewed round because the suite reports a guarantee it does not hold. A
+gap is a surviving mutation in a branch or boundary no test's title,
+comment, or commit body states, and a convention finding is a repository
+rule broken in code or a wrong comment or doc. A gap and a convention
+finding do not hold the loop open, so a round with no behavior defect and
+no false test ends it.
+
+The coordinator closes gaps in one unreviewed pass inside the same review,
+before the accept verdict. It reruns each recorded mutation on the merged
+tree and drops the item only when the suite fails, and a pass whose diff
+changes source outside tests, comments, and docs is a round and counts
+toward the three. After three rounds the pass changes no source outside
+tests, comments, and docs. An item it leaves recorded ends the review at
+`fixes needed` with a question offering one more gap pass or stopping, and
+one more gap pass is a new review: `review` runs again from step 1, reads
+the record, and has a fresh round count and one pass. The verdict is
+`accept after fixes` only once every recorded item is closed, and it stays
+`fixes needed` until then.
+
+Open gap and convention findings are recorded, and only `review` reads
+that record. With a plan it is a `## Review gaps` section at the end of
+the plan, and planless work keeps a `gaps:` line in the checkpoints file.
+No gate reads it because the verdict is the one field every gate reads,
+and while the record holds an item the verdict is not an accept. A gap
+carried across skills had to be known by `land`, `drive`, `next`, and plan
+retirement, and each fix round to that design found another reader it
+missed (`c65f3804`, `e83b1305`). A session that ends
+mid-pass leaves `fixes needed` on disk and the remedy is `review` again.
+
+The loop used to stop at a round with no correctness finding, and a gap
+counted as one. Each fix round then added tests for the next reviewer to
+mutate, so rounds kept finding gaps in the previous round's tests. One
+phase reached the three-round cap on test coverage alone (`fb724477`).
+Google's mutation-testing practice makes the same split:
+surviving mutants are advisory findings in review,
+and tests written for unproductive ones are brittle
+(https://arxiv.org/abs/2102.11378). Gaps close per phase and not in a last
+phase of the parent, because cleanup deferred past the change that exposed
+it tends not to happen
+(https://google.github.io/eng-practices/review/reviewer/pushback.html).
 
 Sequence a parent plan's stages from the files, in a skill that owns only
 the order. A plan, implement, review, compound loop per phase, with each

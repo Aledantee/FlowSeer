@@ -1,21 +1,35 @@
 <script setup lang="ts">
 import { computed, inject, type Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 export interface UiTableHeadProps {
   sortable?: boolean
   sortDirection?: 'ascending' | 'descending' | 'none'
   align?: 'left' | 'center' | 'right' | 'numeric'
+  ascendingMark?: string
+  descendingMark?: string
 }
 
 const props = withDefaults(defineProps<UiTableHeadProps>(), {
   sortable: false,
   sortDirection: undefined,
   align: 'left',
+  ascendingMark: undefined,
+  descendingMark: undefined,
 })
 
 const emit = defineEmits<{
   (e: 'sort'): void
 }>()
+
+const { t } = useI18n({ useScope: 'global' })
+
+const resolvedAscendingMark = computed(
+  () => props.ascendingMark ?? t('ui.tableHead.ascendingMark'),
+)
+const resolvedDescendingMark = computed(
+  () => props.descendingMark ?? t('ui.tableHead.descendingMark'),
+)
 
 const tableContext = inject<{
   dense: Ref<boolean>
@@ -78,10 +92,12 @@ function handleClick() {
       @click.stop="handleClick"
     >
       <slot />
-      <span v-if="sortDirection === 'ascending'" aria-hidden="true">↑</span>
-      <span v-else-if="sortDirection === 'descending'" aria-hidden="true"
-        >↓</span
-      >
+      <span v-if="sortDirection === 'ascending'" aria-hidden="true">{{
+        resolvedAscendingMark
+      }}</span>
+      <span v-else-if="sortDirection === 'descending'" aria-hidden="true">{{
+        resolvedDescendingMark
+      }}</span>
     </button>
     <slot v-else />
   </th>

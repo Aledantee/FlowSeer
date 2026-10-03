@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Component } from 'vue'
-import { createApp, h } from 'vue'
+import { createApp, h, nextTick } from 'vue'
 import UiBadge from './UiBadge.vue'
 import UiStatusBadge from './UiStatusBadge.vue'
+import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
@@ -16,6 +17,8 @@ function mount(
   component: Component,
   props: Record<string, unknown> = {},
   slots: Record<string, () => unknown> = {},
+  locale: WebLocale = 'en',
+  messages?: Record<string, unknown>,
 ) {
   const host = document.createElement('div')
   document.body.append(host)
@@ -24,13 +27,16 @@ function mount(
       return h(component, props, slots)
     },
   })
+  const i18n = createWebI18n(locale)
+  if (messages) i18n.global.mergeLocaleMessage('en', messages)
+  app.use(i18n)
   app.mount(host)
   dispose = () => {
     app.unmount()
     dispose = () => {}
   }
   const el = host.firstElementChild as HTMLElement
-  return { host, el }
+  return { host, el, i18n }
 }
 
 describe('UiBadge', () => {
@@ -83,5 +89,127 @@ describe('UiBadge', () => {
       expect(el.classList).toContain('!text-sm')
       dispose()
     }
+  })
+
+  it('renders Healthy as Gesund in de without changing status-dependent classes', () => {
+    const statuses = [
+      {
+        status: 'Healthy' as const,
+        expectedClass: 'bg-success-surface',
+        text: 'Gesund',
+      },
+      {
+        status: 'Degraded' as const,
+        expectedClass: 'bg-warning-surface',
+        text: 'Beeinträchtigt',
+      },
+      {
+        status: 'Offline' as const,
+        expectedClass: 'bg-danger-surface',
+        text: 'Offline',
+      },
+    ]
+    for (const { status, expectedClass, text } of statuses) {
+      const { el } = mount(UiStatusBadge, { status }, {}, 'de')
+      expect(el.textContent?.trim()).toBe(text)
+      expect(el.className).toContain(expectedClass)
+      expect(el.classList).toContain('!text-sm')
+      dispose()
+    }
+  })
+
+  it('takes the Offline label from the catalog', () => {
+    const { el } = mount(UiStatusBadge, { status: 'Offline' }, {}, 'en', {
+      ui: { statusBadge: { offline: 'Down' } },
+    })
+    expect(el.textContent?.trim()).toBe('Down')
+  })
+
+  it('prioritizes explicit label prop over catalog translation in en and de', () => {
+    const { el: elEn } = mount(
+      UiStatusBadge,
+      { status: 'Healthy', label: 'Operational' },
+      {},
+      'en',
+    )
+    expect(elEn.textContent?.trim()).toBe('Operational')
+    dispose()
+
+    const { el: elDe } = mount(
+      UiStatusBadge,
+      { status: 'Healthy', label: 'Benutzerdefiniert' },
+      {},
+      'de',
+    )
+    expect(elDe.textContent?.trim()).toBe('Benutzerdefiniert')
+    dispose()
+  })
+
+  it('prioritizes default slot over label prop and translation', () => {
+    const { el } = mount(
+      UiStatusBadge,
+      { status: 'Healthy', label: 'Prop Label' },
+      { default: () => 'Slot Content' },
+      'de',
+    )
+    expect(el.textContent?.trim()).toBe('Slot Content')
+  })
+
+  it('follows a live locale switch for status labels and keeps an explicit label', async () => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    const i18n = createWebI18n('en')
+    const app = createApp({
+      render() {
+        return h('div', [
+          h(UiStatusBadge, { status: 'Healthy' }),
+          h(UiStatusBadge, { status: 'Degraded' }),
+          h(UiStatusBadge, { status: 'Offline' }),
+          h(UiStatusBadge, { status: 'Healthy', label: 'Operational' }),
+        ])
+      },
+    })
+    app.use(i18n)
+    app.mount(host)
+    dispose = () => {
+      app.unmount()
+      dispose = () => {}
+    }
+
+    const group = host.firstElementChild
+    if (!group) throw new Error('Missing badge group')
+    const labels = () =>
+      Array.from(group.children).map((el) => el.textContent?.trim())
+    expect(labels()).toEqual(['Healthy', 'Degraded', 'Offline', 'Operational'])
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(labels()).toEqual([
+      'Gesund',
+      'Beeinträchtigt',
+      'Offline',
+      'Operational',
+    ])
+  })
+
+  it('sets title attribute and truncate class to expose full text without overflow', () => {
+    const { el } = mount(UiStatusBadge, {
+      status: 'Healthy',
+      label: 'Very long status description',
+    })
+    expect(el.getAttribute('title')).toBe('Very long status description')
+    expect(el.className).toContain('max-w-full')
+    expect(el.querySelector('.truncate')).not.toBeNull()
+  })
+
+  it('leaves the title off when slotted content replaces the label', () => {
+    const { el } = mount(
+      UiStatusBadge,
+      { status: 'Healthy', label: 'Prop Label' },
+      { default: () => 'Slot Content' },
+    )
+    expect(el.textContent).toContain('Slot Content')
+    expect(el.hasAttribute('title')).toBe(false)
   })
 })

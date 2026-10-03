@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
 import { defineComponent } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { injectToastProviderContext, ToastProvider } from 'reka-ui'
 import UiToast from './UiToast.vue'
 import UiToastProvider from './UiToastProvider.vue'
@@ -60,8 +61,10 @@ export const Interactive: Story = {
 
 const ToastViewportSurface = defineComponent({
   setup() {
+    const { t } = useI18n({ useScope: 'global' })
     const providerContext = injectToastProviderContext()
     return {
+      t,
       setViewport: (el: unknown) => {
         if (el instanceof HTMLElement) {
           providerContext.onViewportChange(el)
@@ -72,7 +75,7 @@ const ToastViewportSurface = defineComponent({
   template: `
     <div
       role="region"
-      aria-label="Notifications"
+      :aria-label="t('ui.toastProvider.viewportLabel', { hotkey: 'F8' })"
       class="fixed bottom-0 right-0 z-(--z-toast) p-4 pointer-events-none"
     >
       <ol
@@ -88,13 +91,38 @@ const ToastViewportSurface = defineComponent({
 export const VisibleToast: Story = {
   render: () => ({
     components: { ToastProvider, ToastViewportSurface, UiToast },
+    setup() {
+      const { t } = useI18n({ useScope: 'global' })
+      return { t }
+    },
     template: `
-      <ToastProvider>
+      <ToastProvider :label="t('ui.toastProvider.announcementLabel')">
         <ToastViewportSurface />
         <UiToast
           title="Route Saved"
           description="Gateway telemetry cache flushed successfully."
           variant="success"
+        />
+      </ToastProvider>
+    `,
+  }),
+}
+
+export const LongText: Story = {
+  render: () => ({
+    components: { ToastProvider, ToastViewportSurface, UiToast },
+    setup() {
+      const { t } = useI18n({ useScope: 'global' })
+      return { t }
+    },
+    template: `
+      <ToastProvider :label="t('ui.toastProvider.announcementLabel')">
+        <ToastViewportSurface />
+        <UiToast
+          title="Autonomous System Border Router Peering Reconfiguration Policy Notice"
+          description="High-frequency telemetry stream ingestion buffers for edge interface ge-0/0/1 have accumulated 84,200 dropped frames during the active regional convergence cycle."
+          variant="warning"
+          action-text="Review Diagnostic Stream Buffer Logs"
         />
       </ToastProvider>
     `,

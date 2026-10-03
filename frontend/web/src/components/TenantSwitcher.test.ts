@@ -3,6 +3,7 @@ import { createApp, createSSRApp, h, nextTick } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { afterEach, describe, expect, it } from 'vitest'
 import TenantSwitcher from './TenantSwitcher.vue'
+import { createWebI18n } from '../i18n'
 
 let dispose = () => {}
 afterEach(() => {
@@ -16,6 +17,7 @@ function mountApp(renderFn: () => unknown) {
   const app = createApp({
     render: renderFn,
   })
+  app.use(createWebI18n())
   app.mount(host)
   dispose = () => app.unmount()
   return host
@@ -23,39 +25,39 @@ function mountApp(renderFn: () => unknown) {
 
 describe('tenant switcher', () => {
   it('shows the only available tenant without a dropdown', async () => {
-    const html = await renderToString(
-      createSSRApp(TenantSwitcher, {
-        tenants: [{ id: 'aurora', name: 'Aurora Hospitality' }],
-        selected: '',
-      }),
-    )
+    const app = createSSRApp(TenantSwitcher, {
+      tenants: [{ id: 'aurora', name: 'Aurora Hospitality' }],
+      selected: '',
+    })
+    app.use(createWebI18n())
+    const html = await renderToString(app)
     expect(html).toContain('Aurora Hospitality')
     expect(html).not.toContain('<select')
   })
   it('offers switching when multiple tenants are available', async () => {
-    const html = await renderToString(
-      createSSRApp(TenantSwitcher, {
-        tenants: [
-          { id: 'aurora', name: 'Aurora Hospitality' },
-          { id: 'meridian', name: 'Meridian Workspaces' },
-        ],
-        selected: 'meridian',
-      }),
-    )
+    const app = createSSRApp(TenantSwitcher, {
+      tenants: [
+        { id: 'aurora', name: 'Aurora Hospitality' },
+        { id: 'meridian', name: 'Meridian Workspaces' },
+      ],
+      selected: 'meridian',
+    })
+    app.use(createWebI18n())
+    const html = await renderToString(app)
     expect(html).toContain('aria-haspopup="listbox"')
     expect(html).toContain('Meridian Workspaces')
     expect(html).toContain('aria-label="Tenant scope: Meridian Workspaces"')
   })
   it('labels an unavailable tenant without implying all tenants are selected', async () => {
-    const html = await renderToString(
-      createSSRApp(TenantSwitcher, {
-        tenants: [
-          { id: 'aurora', name: 'Aurora Hospitality' },
-          { id: 'meridian', name: 'Meridian Workspaces' },
-        ],
-        selected: 'removed-tenant',
-      }),
-    )
+    const app = createSSRApp(TenantSwitcher, {
+      tenants: [
+        { id: 'aurora', name: 'Aurora Hospitality' },
+        { id: 'meridian', name: 'Meridian Workspaces' },
+      ],
+      selected: 'removed-tenant',
+    })
+    app.use(createWebI18n())
+    const html = await renderToString(app)
     expect(html).toContain('aria-label="Tenant scope: Unavailable selection"')
     expect(html).not.toContain('undefined')
   })

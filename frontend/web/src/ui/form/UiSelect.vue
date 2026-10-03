@@ -20,6 +20,7 @@ import {
   SelectValue,
   SelectViewport,
 } from 'reka-ui'
+import { useI18n } from 'vue-i18n'
 import { useFormReset } from './useFormReset'
 
 export interface SelectOption {
@@ -44,7 +45,7 @@ export interface UiSelectProps {
 const props = withDefaults(defineProps<UiSelectProps>(), {
   modelValue: undefined,
   options: () => [],
-  placeholder: 'Select an option...',
+  placeholder: undefined,
   disabled: false,
   name: undefined,
   required: false,
@@ -53,6 +54,11 @@ const props = withDefaults(defineProps<UiSelectProps>(), {
   ariaLabel: undefined,
   defaultOpen: false,
 })
+
+const { t } = useI18n({ useScope: 'global' })
+const resolvedPlaceholder = computed(
+  () => props.placeholder ?? t('ui.select.placeholder'),
+)
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
@@ -152,8 +158,8 @@ function handleUpdate(val: string | null | undefined) {
       :aria-describedby="ariaDescribedBy"
       :class="selectTriggerVariants({ invalid: isInvalid })"
     >
-      <SelectValue :placeholder="placeholder">
-        {{ selectedLabel || placeholder }}
+      <SelectValue :placeholder="resolvedPlaceholder">
+        {{ selectedLabel || resolvedPlaceholder }}
       </SelectValue>
       <svg
         class="h-4 w-4 opacity-50 shrink-0"

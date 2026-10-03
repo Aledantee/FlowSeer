@@ -9,9 +9,8 @@ import {
   watch,
   watchEffect,
 } from 'vue'
-import type { Ref } from 'vue'
+import type { ComponentPublicInstance, Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useMotionFeedback } from './motion/useMotionFeedback'
 import AppIcon from './components/AppIcon.vue'
 import AccountMenu from './components/AccountMenu.vue'
 import ReportBugButton from './components/ReportBugButton.vue'
@@ -31,7 +30,9 @@ import {
   UiBreadcrumbSeparator,
   UiAiActionLayer,
   UiDropdownMenuItem,
+  UiMotion,
   UiTooltip,
+  useMotionFeedback,
 } from './ui'
 import {
   SHORTCUTS,
@@ -74,21 +75,21 @@ import {
 } from './navigation/dock'
 import type { DockTab, Panes } from './navigation/dock'
 
-const { play, cancel } = useMotionFeedback()
-const sidebar = ref<HTMLElement>()
-const navigation = ref<HTMLElement>()
-const mainShell = ref<HTMLElement>()
+const { play, reduced } = useMotionFeedback()
+const sidebar = ref<ComponentPublicInstance | null>(null)
+const navigation = ref<ComponentPublicInstance | null>(null)
+const mainShell = ref<ComponentPublicInstance | null>(null)
 const topbar = ref<HTMLElement>()
 const topbarHeight = ref(54)
+const layoutDependency = ref(0)
 let topbarObserver: ResizeObserver | undefined
 onMounted(() => {
   topbarObserver = new ResizeObserver(() => {
     if (!topbar.value) return
     topbarHeight.value = topbar.value.offsetHeight
-    mainShell.value?.style.setProperty(
-      '--topbar-height',
-      `${topbarHeight.value}px`,
-    )
+    const shell = mainShell.value?.$el
+    if (shell instanceof HTMLElement)
+      shell.style.setProperty('--topbar-height', `${topbarHeight.value}px`)
   })
   if (topbar.value) topbarObserver.observe(topbar.value)
 })
@@ -351,57 +352,27 @@ const scope = computed(() =>
 const scopedSites = computed(() =>
   sites.filter((site) => tenantIds(query('tenant')).includes(site.tenantId)),
 )
-watch(section, async (page) => {
-  const previous = navigation.value
-    ?.querySelector('.active')
-    ?.getBoundingClientRect()
-  await nextTick()
-  if (section.value !== page || !previous) return
-  const highlight =
-    navigation.value?.querySelector<HTMLElement>('.nav-highlight')
-  if (!highlight || !highlight.getClientRects().length) return
-  const current = highlight.getBoundingClientRect()
-  play(
-    highlight,
-    {
-      transform: [
-        `translate(${previous.left - current.left}px, ${previous.top - current.top}px)`,
-        'none',
-      ],
-      width: [`${previous.width}px`, `${current.width}px`],
-    },
-    0.14,
-  )
-})
 watch(
   () => [mainPage.query('tenant'), mainPage.query('site')],
-  () =>
-    play(
-      document.querySelector<HTMLElement>('.main-pane .pane-scroll') ??
-        undefined,
-      { opacity: [0.85, 1] },
-      0.12,
-    ),
+  () => {
+    const shell = mainShell.value?.$el
+    const pane =
+      shell instanceof HTMLElement
+        ? shell.querySelector<HTMLElement>('.main-pane .pane-scroll')
+        : undefined
+    play(pane ?? undefined, { opacity: [0.85, 1] }, 0.12)
+  },
   { flush: 'post' },
 )
-async function toggleSidebar() {
-  if (!sidebar.value || !mainShell.value) return
-  cancel(sidebar.value)
-  cancel(mainShell.value)
-  const width = getComputedStyle(sidebar.value).width
-  const margin = getComputedStyle(mainShell.value).marginLeft
+function toggleSidebar() {
+  if (!(sidebar.value?.$el instanceof HTMLElement)) return
   sidebarCollapsed.value = !sidebarCollapsed.value
-  await nextTick()
   if (window.matchMedia('(min-width: 801px)').matches) {
-    play(sidebar.value, {
-      width: [width, getComputedStyle(sidebar.value).width],
-    })
-    play(mainShell.value, {
-      marginLeft: [margin, getComputedStyle(mainShell.value).marginLeft],
-    })
+    if (!reduced.value) layoutDependency.value++
   } else if (!sidebarCollapsed.value) {
+    const nav = navigation.value?.$el
     play(
-      sidebar.value.querySelector('nav') ?? undefined,
+      nav instanceof HTMLElement ? nav : undefined,
       { opacity: [0.6, 1] },
       0.1,
     )
@@ -835,12 +806,18 @@ onUnmounted(() => clearInterval(timer))
     :class="{ 'sidebar-collapsed': sidebarCollapsed }"
   >
     <a class="skip-link" href="#main">Skip to main content</a>
-    <aside
+    <UiMotion
       id="workspace-sidebar"
       ref="sidebar"
+      as="aside"
+      layout
+      :layout-dependency="layoutDependency"
       class="sidebar brand-glow max-[800px]:p-[16px_20px_8px] max-[560px]:p-[14px_14px_6px]"
     >
-      <div
+      <UiMotion
+        as="div"
+        layout="position"
+        :layout-dependency="layoutDependency"
         class="product-brand"
         role="img"
         aria-label="FlowSeer"
@@ -880,14 +857,20 @@ onUnmounted(() => clearInterval(timer))
           </g>
         </svg>
         <span>FlowSeer</span>
-      </div>
-      <div
+      </UiMotion>
+      <UiMotion
+        as="div"
+        layout="position"
+        :layout-dependency="layoutDependency"
         class="nav-label mt-7 text-2xs tracking-[1.5px] text-chrome-muted-foreground px-3 pb-3 max-[800px]:hidden"
       >
         WORKSPACE
-      </div>
-      <nav
+      </UiMotion>
+      <UiMotion
         ref="navigation"
+        as="nav"
+        layout="position"
+        :layout-dependency="layoutDependency"
         aria-label="Main navigation"
         class="max-[800px]:flex max-[800px]:flex-row max-[800px]:gap-2 max-[800px]:mt-6 max-[560px]:gap-1"
         :class="{ 'max-[800px]:!hidden': sidebarCollapsed }"
@@ -914,11 +897,14 @@ onUnmounted(() => clearInterval(timer))
           }"
           :aria-current="mainView === item ? 'page' : undefined"
         >
-          <span
+          <UiMotion
             v-if="section === item"
+            as="span"
+            layout-id="nav-highlight"
+            :layout-dependency="section"
             class="nav-highlight absolute inset-0 -z-10 rounded-[inherit] bg-chrome-surface/48 backdrop-blur-md pointer-events-none after:content-[''] after:absolute after:top-1.5 after:bottom-1.5 after:right-0 after:w-0.5 after:rounded-l after:bg-chrome-ring max-[800px]:after:top-auto max-[800px]:after:bottom-0 max-[800px]:after:left-2.5 max-[800px]:after:right-2.5 max-[800px]:after:w-auto max-[800px]:after:h-0.5 max-[800px]:after:rounded-xs"
             aria-hidden="true"
-          ></span>
+          />
           <AppIcon :name="item" />
           <span class="nav-text">{{
             item.charAt(0).toUpperCase() + item.slice(1)
@@ -930,12 +916,15 @@ onUnmounted(() => clearInterval(timer))
             {{ scope.length }}
           </span>
         </AppLink>
-      </nav>
+      </UiMotion>
       <UiTooltip
         :label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
         side="right"
       >
-        <button
+        <UiMotion
+          as="button"
+          layout="position"
+          :layout-dependency="layoutDependency"
           class="sidebar-toggle max-[560px]:min-h-[44px] max-[560px]:min-w-[44px]"
           type="button"
           aria-controls="workspace-sidebar"
@@ -952,10 +941,16 @@ onUnmounted(() => clearInterval(timer))
           >
             <path d="m10 4-4 4 4 4" />
           </svg>
-        </button>
+        </UiMotion>
       </UiTooltip>
-    </aside>
-    <div ref="mainShell" class="main-shell">
+    </UiMotion>
+    <UiMotion
+      ref="mainShell"
+      as="div"
+      layout="position"
+      :layout-dependency="layoutDependency"
+      class="main-shell"
+    >
       <span class="main-notch brand-glow" aria-hidden="true"></span>
       <header
         ref="topbar"
@@ -1262,7 +1257,7 @@ onUnmounted(() => clearInterval(timer))
         @split="openDockTabBeside"
         @close="closeTab"
       />
-    </div>
+    </UiMotion>
   </div>
 </template>
 

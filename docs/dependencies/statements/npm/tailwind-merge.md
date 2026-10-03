@@ -10,7 +10,7 @@ approved: 2026-10-01
 
 ## Why it is required
 
-No tracked frontend source file, configuration file, or stylesheet imports `tailwind-merge`. `frontend/web/package.json:32` declares the pinned direct requirement at `3.7.0`, but it is the only direct declaration and has no active importer.
+No tracked frontend source file, configuration file, or stylesheet imports `tailwind-merge`. `frontend/web/package.json:33` declares the pinned direct requirement at `3.7.0`, but it is the only direct declaration and has no active importer.
 
 ## Why it is safe
 
@@ -18,4 +18,4 @@ The [npm registry metadata](https://registry.npmjs.org/tailwind-merge/3.7.0) lis
 
 ## Why not owned code
 
-No application source imports `tailwind-merge` directly. Although `frontend/web/pnpm-lock.yaml:8145` records `tailwind-merge` as an optional dependency of `tailwind-variants`, the [Tailwind Variants FAQ](https://www.tailwind-variants.org/docs/faq) documents that the default build includes class merging and a separate `tailwind-merge` install is needed only when application code imports it directly. Keeping it would retain an unused direct package. The dependency tree contains 1 version, with 0 versions only reachable through this direct dependency. If a future importer needs class conflict resolution, that request should add the importer and justify either this package or a focused local implementation.
+No application source imports `tailwind-merge` directly. Although `frontend/web/pnpm-lock.yaml:8219-8221` records `tailwind-merge` as an optional dependency of `tailwind-variants`, the [Tailwind Variants FAQ](https://www.tailwind-variants.org/docs/faq) documents that the default build includes class merging and a separate `tailwind-merge` install is needed only when application code imports it directly. Keeping it would retain an unused direct package. The dependency tree contains 1 version, with 0 versions only reachable through this direct dependency. If a future importer needs class conflict resolution, that request should add the importer and justify either this package or a focused local implementation.

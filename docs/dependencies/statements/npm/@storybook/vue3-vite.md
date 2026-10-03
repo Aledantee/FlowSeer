@@ -15,7 +15,7 @@ and `frontend/web/.storybook/preview.ts:1` imports its `Preview` type. The
 same adapter is used by the accessibility test at
 `frontend/web/src/ui/a11y.test.ts:5` and by the stories at
 `frontend/web/src/components/TrafficChart.stories.ts:1`. The direct
-requirement is pinned at `10.6.0` in `frontend/web/package.json:43`.
+requirement is pinned at `10.6.0` in `frontend/web/package.json:45`.
 
 ## Why it is safe
 

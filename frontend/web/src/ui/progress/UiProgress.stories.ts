@@ -64,3 +64,38 @@ export const Variants: Story = {
     `,
   }),
 }
+
+export const CustomValueText: Story = {
+  args: {
+    modelValue: 35,
+    max: 50,
+    ariaLabel: 'Cluster Node Sync Progress',
+    valueText: (val: number | null | undefined, max: number) =>
+      `${val} of ${max} nodes converged`,
+  },
+  render: (args) => ({
+    components: { UiProgress },
+    setup() {
+      return { args }
+    },
+    template: '<div class="max-w-md"><UiProgress v-bind="args" /></div>',
+  }),
+}
+
+export const LongText: Story = {
+  args: {
+    modelValue: 72,
+    max: 100,
+    ariaLabel:
+      'Global Telemetry Route Convergence and Buffer Synchronization Level for Metropolitan Core Transit Exchange Tier-IV Node Alpha',
+    valueText: (val: number | null | undefined, max: number) =>
+      `Telemetry buffer capacity at ${val}% of total allocated threshold (${max}% maximum capacity)`,
+  },
+  render: (args) => ({
+    components: { UiProgress },
+    setup() {
+      return { args }
+    },
+    template: '<div class="max-w-md"><UiProgress v-bind="args" /></div>',
+  }),
+}

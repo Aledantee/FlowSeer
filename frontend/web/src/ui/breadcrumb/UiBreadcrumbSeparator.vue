@@ -1,11 +1,21 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
 export interface UiBreadcrumbSeparatorProps {
   as?: string
+  separator?: string
 }
 
-withDefaults(defineProps<UiBreadcrumbSeparatorProps>(), {
+const props = withDefaults(defineProps<UiBreadcrumbSeparatorProps>(), {
   as: 'li',
+  separator: undefined,
 })
+
+const { t } = useI18n({ useScope: 'global' })
+const resolvedSeparator = computed(
+  () => props.separator ?? t('ui.breadcrumbSeparator.separator'),
+)
 </script>
 
 <template>
@@ -15,6 +25,6 @@ withDefaults(defineProps<UiBreadcrumbSeparatorProps>(), {
     aria-hidden="true"
     class="text-muted-foreground select-none"
   >
-    <slot>/</slot>
+    <slot>{{ resolvedSeparator }}</slot>
   </component>
 </template>

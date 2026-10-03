@@ -137,3 +137,58 @@ export const Open: Story = {
     `,
   }),
 }
+
+export const DefaultFallbacksOpen: Story = {
+  name: 'Default Fallbacks (Open)',
+  args: {
+    defaultOpen: true,
+    size: 'md',
+  },
+  render: (args) => ({
+    components: { UiDialog, UiButton },
+    setup() {
+      return { args }
+    },
+    template: `
+      <UiDialog v-bind="args">
+        <p class="text-sm text-foreground">This dialog has no explicit title or description prop to exercise hidden fallback labels.</p>
+        <template #footer>
+          <UiButton variant="secondary">Dismiss</UiButton>
+        </template>
+      </UiDialog>
+    `,
+  }),
+}
+
+export const LongText: Story = {
+  args: {
+    title:
+      'Global Telemetry Interconnect and Cross-Facility Routing Configuration Parameters for Autonomous Transit Exchange',
+    description:
+      'Modify advanced BGP routing parameters, autonomous system boundaries, transit path cost metrics, packet sampling multipliers, and persistent error-budget alerting thresholds across European and North American facilities.',
+    size: 'lg',
+    defaultOpen: true,
+  },
+  render: (args) => ({
+    components: { UiDialog, UiButton },
+    setup() {
+      return { args }
+    },
+    template: `
+      <UiDialog v-bind="args">
+        <div class="space-y-3 text-sm text-muted-foreground">
+          <p>
+            Detailed routing configuration profiles will be committed synchronously to all participating border gateway controllers upon confirmation.
+          </p>
+          <p>
+            Ensure that adjacent downstream peer transit fabrics have acknowledged maintenance windows before proceeding with live route convergence.
+          </p>
+        </div>
+        <template #footer>
+          <UiButton variant="secondary">Cancel Reconfiguration</UiButton>
+          <UiButton variant="primary">Commit Autonomous Policy Changes</UiButton>
+        </template>
+      </UiDialog>
+    `,
+  }),
+}

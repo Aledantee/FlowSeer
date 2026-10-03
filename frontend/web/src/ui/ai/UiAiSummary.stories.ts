@@ -107,3 +107,64 @@ export const DarkMode: Story = {
     `,
   }),
 }
+
+export const LongText: Story = {
+  parameters: {
+    ai: {
+      handler: async () =>
+        'Frankfurt am Main Rechenzentrum Campus Nord Halle B zeigt eine erhöhte Fehlerrate auf den Uplink-Schnittstellen. Drei Access Points im östlichen Flügel antworten seit mehr als 45 Minuten nicht auf SNMP-Polls. Die redundante Stromversorgung meldet stabile Spannungswerte ohne Unterbrechungen.',
+    },
+  },
+  render: () => ({
+    components: { UiAiSummary },
+    setup() {
+      const target: AiTarget = {
+        id: 'standalone:story:ai-summary-longtext:datacenter-core-aggregation-switch-fra-01',
+        kind: 'device',
+        label:
+          'Datacenter Core Aggregation Switch Cluster FRA-DC-01 with redundant supervisor engines',
+        context: {
+          device: 'fra-dc-core-01',
+          site: 'Frankfurt Datacenter Campus North Building 3 Hall B Rack 42',
+        },
+      }
+      return { target }
+    },
+    template: `
+      <div
+        v-ai-target="target"
+        class="max-w-sm p-4 bg-card border border-border rounded-panel text-foreground"
+      >
+        <p class="mb-2 text-xs text-muted-foreground">LongText summary placement</p>
+        <UiAiSummary :target="target" />
+      </div>
+    `,
+  }),
+}
+
+export const Overrides: Story = {
+  render: () => ({
+    components: { UiAiSummary },
+    setup() {
+      const target = summaryTarget('overrides')
+      const labels = {
+        summaryLabel: 'Custom summary for target',
+        generate: 'Generate brief',
+        generating: 'Generating brief…',
+        unavailable: 'Service unavailable',
+        retry: 'Try again',
+        error: 'Failed to generate brief',
+      }
+      return { target, labels }
+    },
+    template: `
+      <div
+        v-ai-target="target"
+        class="max-w-sm p-4 bg-card border border-border rounded-panel text-foreground"
+      >
+        <p class="mb-2 text-xs text-muted-foreground">Custom labels placement</p>
+        <UiAiSummary :target="target" :labels="labels" />
+      </div>
+    `,
+  }),
+}

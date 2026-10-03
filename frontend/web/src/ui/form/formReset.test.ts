@@ -7,6 +7,7 @@ import UiCheckbox from './UiCheckbox.vue'
 import UiSwitch from './UiSwitch.vue'
 import UiRadioGroup from './UiRadioGroup.vue'
 import UiSelect from './UiSelect.vue'
+import { createWebI18n } from '../../i18n'
 
 let cleanups: (() => void)[] = []
 afterEach(() => {
@@ -276,6 +277,7 @@ describe('form reset and uncontrolled contract', () => {
         })
       },
     })
+    app.use(createWebI18n())
     app.mount(form)
     cleanups.push(() => app.unmount())
 
@@ -402,6 +404,7 @@ describe('form reset and uncontrolled contract', () => {
         })
       },
     })
+    app.use(createWebI18n())
     app.mount(host)
     cleanups.push(() => app.unmount())
 

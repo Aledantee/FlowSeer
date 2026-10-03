@@ -53,3 +53,51 @@ export const WithEdges: Story = {
     `,
   }),
 }
+
+export const FormattedValues: Story = {
+  render: () => ({
+    components: { UiPagination },
+    setup() {
+      const page = ref(1500)
+      return { page }
+    },
+    template: `
+      <div>
+        <UiPagination
+          :total="50000"
+          :items-per-page="10"
+          :page="page"
+          show-edges
+          @update:page="page = $event"
+        />
+        <p class="text-xs text-muted-foreground mt-2">Current page: {{ page }}</p>
+      </div>
+    `,
+  }),
+}
+
+export const LongText: Story = {
+  render: () => ({
+    components: { UiPagination },
+    setup() {
+      const page = ref(12)
+      return { page }
+    },
+    template: `
+      <div>
+        <UiPagination
+          :total="1000000"
+          :items-per-page="10"
+          :page="page"
+          show-edges
+          first-label="Navigate to the first page of telemetry records"
+          last-label="Navigate to the last page of telemetry records"
+          previous-text="Previous page"
+          next-text="Next page"
+          @update:page="page = $event"
+        />
+        <p class="text-xs text-muted-foreground mt-2">Current page: {{ page }}</p>
+      </div>
+    `,
+  }),
+}

@@ -6,16 +6,8 @@ primary source. The contract that states the rules is
 `docs/architecture/2026-09-28-web-component-contract-direction.md`.
 
 The `--z-*` tokens and overlay `--animate-*` keyframes are defined in
-`src/theme/tokens.css` and `src/theme/tailwind.css`. motion-v lands in phase 2
-of the contract migration. Check whether it exists:
-
-```bash
-grep -c '"motion-v"' frontend/web/package.json
-```
-
-Until motion-v lands:
-- JavaScript motion stays on `useMotionFeedback` over `motion/mini`.
-- Say in the report that motion-v is waiting on phase 2.
+`src/theme/tokens.css` and `src/theme/tailwind.css`. JavaScript motion uses
+the motion-v surface under `frontend/web/src/ui/motion/`.
 
 ## Failures this repository already had
 
@@ -90,9 +82,10 @@ Until motion-v lands:
 ## Motion rules
 
 1. **One mechanism per property.**
-   - JavaScript motion uses motion-v, which the contract's amendment
-     approved: the `motion` component, `layout` animations, or `animate`
-     through `useMotionFeedback`.
+   - JavaScript motion uses motion-v through `UiMotion`, its `layout`
+     animations, or `useMotionFeedback` from `frontend/web/src/ui/motion/`.
+     Views import these surfaces from the `src/ui` barrel, never from
+     motion-v directly.
    - Reduced motion comes from the one app-root
      `MotionConfig reducedMotion="user"`. Never set `reducedMotion` per
      component, and never leave it at motion-v's default of `"never"`.
@@ -139,7 +132,9 @@ Until motion-v lands:
    - anything on mount of every render
 6. **Reduced motion** replaces movement with an opacity change of the
    same duration. It does not remove all feedback, and it is never a
-   global `0.01ms` kill switch.
+   global `0.01ms` kill switch. Layout animations are the exception: they
+   end immediately with no fade (amendment of 2026-10-01 in
+   `docs/architecture/2026-09-28-web-component-contract-direction.md`).
    - Popper surfaces and dialog exits switch to `animate-fade-in` and
      `animate-fade-out` under `motion-reduce:`. Dialog entry switches to
      `animate-dialog-fade-in`, because `animate-fade-in` runs at
@@ -147,6 +142,54 @@ Until motion-v lands:
 7. **Interruptions.** Hover and open/close toggles use transitions or
    motion-v, which retarget midway. Keyframes restart instead,
    so keep keyframes to enter and exit.
+
+## Native feedback tests
+
+`useMotionFeedback` accepts typed opacity and movement pairs. It compiles the
+supplied movement keys into one ordered native transform effect and keeps
+opacity in its own native effect. Its happy-dom tests inspect native
+`KeyframeEffect` endpoints, computed offsets, timing duration and easing, and
+the running state before an effect is finished or cancelled. They also cover
+owned-style cleanup, cancellation, replacement, stale completions, reduced
+motion, independent elements, and unrelated native animations. The named
+cases live in `frontend/web/src/ui/motion/useMotionFeedback.test.ts`:
+
+- `compiles typed pairs into ordered native effects with deterministic timing`
+- `compiles only supplied transform keys and keeps opacity in a separate effect`
+- the terminal-path property of `useMotionFeedback.test.ts`, whose rows run `keeps a later write to an owned property through the next frame batch and a zero-delay timer`, `restores the owned inline values in the same turn`, and `lets the play started in the same turn snapshot the baseline`. A non-synchronous row's restore and snapshot titles name the watcher or completion that settles the path instead of "the same turn".
+- `cancels and restores synchronously before replacing a play, through the next frame and completion`
+- `cancels into a play and keeps the original transform through the next frame and completion`
+- `resizes into a play and keeps the original transform through the next frame and completion`
+- `ignores a stale completion queued before replacement`
+- `ends a replacement play through cancel, resize, preference, config, and unmount`
+- `filters reduced movement, keeps reduced fades native, and restores their baseline`
+- `preserves a transform changed during an opacity-only play and unrelated native animations`
+- `removes movement under an always preference without the query and cancels a movement-only play`
+- `keeps two elements independent and leaves unrelated native animations alive`
+
+Component coverage is in `frontend/web/src/components/ThemeSwitcher.test.ts`
+and `frontend/web/src/FleetView.motion.test.ts`. ThemeSwitcher covers:
+
+- `starts native opacity and ordered transform effects in both icon directions`
+- `keeps reduced motion as one running opacity effect per icon`
+- `replaces running effects on rapid toggles and restores empty inline styles on finish`
+- `restores empty inline styles on window resize during rapid toggle`
+- `restores empty inline styles on unmount during rapid toggle`
+
+FleetView covers:
+
+- `leaves the nav opacity untouched when expanding at desktop width`
+- `starts no nav fade when expanding at desktop width`
+- `fades the pane scope when the tenant or site changes`
+- `fades nav on expand below desktop width and restores inline opacity`
+- `replaces mobile expand fades within one turn`
+- `restores and replays a mobile fade after resize`
+
+Use a real browser for interpolation, computed styles, the first
+`requestAnimationFrame` samples after an action, active native effects,
+screenshots, and restoration after resize or cancel and replay. The browser
+loop in `references/review.md` is the measurement boundary. Keep the first
+sample and compare it with the latest effect's endpoints.
 
 ## Checks happy-dom cannot make
 
@@ -166,3 +209,57 @@ Reka 2.10.5 opens `DropdownMenuTrigger` on `click`, but `SelectTrigger`
 opens on a plain left `pointerdown`. In a happy-dom test, dispatch the
 event the trigger listens for; the a11y harness's `openOverlay` only
 clicks. agent-browser clicks with real pointer events.
+
+## Mount-test limits
+
+happy-dom runs no layout and loads no app CSS. Stub
+`HTMLElement.prototype.getBoundingClientRect` when a test needs geometry for
+layout or positional motion. Do not mock motion-v.
+
+A mounted `UiMotion` element reads the reduced-motion query through motion-dom
+once per test file. The first element whose config needs the dynamic value
+calls `initPrefersReducedMotion`, and the `change` listener binds to the
+`MediaQueryList` that call returned
+(`motion-dom/dist/es/render/VisualElement.mjs:205-216` and
+`motion-dom/dist/es/render/utils/reduced-motion/index.mjs:4-13`, under
+`frontend/web/node_modules/.pnpm/motion-dom@13.4.5/node_modules/`). The
+element fixes its choice at mount, so a stub installed after the first mount
+cannot select the path and a `change` after it reaches only elements mounted
+afterwards. A file that mounts `UiMotion` therefore installs its
+reduced-motion `matchMedia` stub before the first mount. `UiMotionConfig` reads
+no query, so it mounts without a stub.
+
+`frontend/web/src/FleetView.motion.test.ts` holds both modes by changing the
+composable's query instead. Its stub returns one `MediaQueryList` per query
+string (`:20-33`). motion-dom asked for `(prefers-reduced-motion)`
+(`motion-dom/dist/es/render/utils/reduced-motion/index.mjs:9`) and the
+composable asked for `(prefers-reduced-motion: reduce)`
+(`frontend/web/node_modules/motion-v/dist/es/animation/hooks/use-reduced-motion.mjs:4`),
+so these are two objects. The cases `stops layout transforms after the user
+enables reduced motion` and `leaves the nav opacity untouched when expanding at
+desktop width` dispatch `change` on the `reduce` object, which the composable
+listens to, while `starts no nav fade when expanding at desktop width`
+dispatches nothing. `FleetView.vue` gates its layout dependency on the
+composable's `reduced` (`toggleSidebar`). The reduced-motion case asserts that
+gate, not `UiMotion`'s reduced layout path. A file that only mounts the
+composable can hold both modes for the same reason, because the composable reads
+the query on each mount.
+
+Layout animation needs a controlled clock. motion's frame loop stamps each
+frame from `performance.now()`
+(`motion-dom/dist/es/frameloop/batcher.mjs:22-24`), so
+`FleetView.motion.test.ts`, `UiMotion.test.ts`, and `UiMotion.reduced.test.ts`
+install a mocked `performance.now` before the mount and advance it
+(`installMotionClock`, `advanceMotion`). Each file ends the spy in `afterEach`
+(`FleetView.motion.test.ts:87`, `UiMotion.test.ts:22`,
+`UiMotion.reduced.test.ts:34`), because a mocked clock left installed freezes
+`performance.now()` for every later case. A fixed wall-clock wait is not
+reliable: on a loaded host the 140 ms layout animation can finish before the
+test samples.
+
+Reduced motion keeps feedback fades in `useMotionFeedback` and removes
+movement. `UiMotion` layout and positional animations end immediately with no
+fade. `frontend/web/src/ui/motion/UiMotion.reduced.test.ts` covers both reduced
+layout paths with "ends positional animation at once when the user prefers
+reduced motion" and "ends layout animation at once when the user prefers
+reduced motion".

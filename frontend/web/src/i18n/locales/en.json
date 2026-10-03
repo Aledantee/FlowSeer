@@ -1,0 +1,129 @@
+{
+  "ui": {
+    "alertDialog": {
+      "cancelText": "Cancel",
+      "confirmText": "Confirm"
+    },
+    "aiActionLayer": {
+      "ai": "AI",
+      "ask": "Ask",
+      "askAbout": "Ask about {label}",
+      "asking": "Asking…",
+      "cancel": "Cancel",
+      "error": "Something went wrong.",
+      "heading": "Ask about {label}",
+      "questionLabel": "Your question",
+      "questionPlaceholder": "Why is this device offline?",
+      "unavailable": "AI is unavailable"
+    },
+    "aiSummary": {
+      "error": "Something went wrong.",
+      "generate": "Generate summary",
+      "generating": "Generating summary…",
+      "retry": "Retry",
+      "summaryLabel": "AI summary for {label}",
+      "unavailable": "AI is unavailable"
+    },
+    "breadcrumb": {
+      "ariaLabel": "Breadcrumb"
+    },
+    "breadcrumbEllipsis": {
+      "toggleLabel": "Toggle collapsed breadcrumbs"
+    },
+    "breadcrumbSeparator": {
+      "separator": "/"
+    },
+    "combobox": {
+      "emptyText": "No results found.",
+      "placeholder": "Search..."
+    },
+    "commandDialog": {
+      "description": "Search and command palette",
+      "title": "Command Palette"
+    },
+    "commandEmpty": {
+      "text": "No results found."
+    },
+    "commandInput": {
+      "label": "Search commands",
+      "placeholder": "Type a command or search..."
+    },
+    "commandList": {
+      "label": "Commands"
+    },
+    "dialog": {
+      "closeLabel": "Close",
+      "fallbackDescription": "Dialog description",
+      "fallbackTitle": "Dialog"
+    },
+    "field": {
+      "requiredMark": "*"
+    },
+    "meter": {
+      "detailSeparator": " · ",
+      "unit": "%",
+      "valueWithUnit": "{value}\u00a0{unit}"
+    },
+    "metricCard": {
+      "valueWithUnit": "{value}\u00a0{unit}"
+    },
+    "pagination": {
+      "ellipsis": "…",
+      "firstLabel": "First page",
+      "firstMark": "«",
+      "lastLabel": "Last page",
+      "lastMark": "»",
+      "nextLabel": "Next page",
+      "nextMark": "›",
+      "nextText": "Next",
+      "pageLabel": "Page {page}",
+      "previousLabel": "Previous page",
+      "previousMark": "‹",
+      "previousText": "Previous"
+    },
+    "progress": {
+      "ariaLabel": "Progress"
+    },
+    "segmentedMeter": {
+      "degraded": "Degraded",
+      "healthy": "Healthy",
+      "offline": "Offline",
+      "segmentText": "{count} {label}"
+    },
+    "select": {
+      "placeholder": "Select an option..."
+    },
+    "statusBadge": {
+      "degraded": "Degraded",
+      "healthy": "Healthy",
+      "offline": "Offline"
+    },
+    "tableHead": {
+      "ascendingMark": "↑",
+      "descendingMark": "↓"
+    },
+    "toast": {
+      "actionAltText": "Action",
+      "closeLabel": "Close"
+    },
+    "toastProvider": {
+      "announcementLabel": "Notification",
+      "viewportLabel": "Notifications ({hotkey})"
+    },
+    "tooltip": {
+      "alt": "Alt",
+      "backslashMark": "\\",
+      "commandMark": "⌘",
+      "control": "Ctrl",
+      "downMark": "↓",
+      "enterMark": "↵",
+      "escape": "Esc",
+      "leftMark": "←",
+      "optionMark": "⌥",
+      "rightMark": "→",
+      "shift": "Shift",
+      "shiftMark": "⇧",
+      "upMark": "↑"
+    }
+  }
+}
