@@ -3354,10 +3354,12 @@ func TestDeferredObligationDischarge(t *testing.T) {
 		checkRequireAllowed
 		checkRequireDenied
 		checkRequireCheckerError
+		checkRequireRefused
 		checkFilterWithIDs
 		checkFilterNilIDs
 		checkFilterEmptyIDs
 		checkFilterCheckerError
+		checkFilterRefused
 		checkShortBatchCheckAnswer
 		checkRequireDeniedThenRequireAllowed
 		checkRequireDeniedThenFilterAllowed
@@ -3369,16 +3371,20 @@ func TestDeferredObligationDischarge(t *testing.T) {
 		name         string
 		kind         checkKind
 		needsSuccess bool
+		platformOnly bool
+		skipPlatform bool
 	}{
 		{name: "none", kind: checkNone},
 		{name: "Require allowed", kind: checkRequireAllowed, needsSuccess: true},
-		{name: "Require denied", kind: checkRequireDenied},
-		{name: "Require checker error", kind: checkRequireCheckerError},
+		{name: "Require denied", kind: checkRequireDenied, skipPlatform: true},
+		{name: "Require checker error", kind: checkRequireCheckerError, skipPlatform: true},
+		{name: "Require refused", kind: checkRequireRefused, platformOnly: true},
 		{name: "Filter with ids", kind: checkFilterWithIDs, needsSuccess: true},
 		{name: "Filter with nil ids", kind: checkFilterNilIDs, needsSuccess: true},
 		{name: "Filter with empty non-nil ids", kind: checkFilterEmptyIDs, needsSuccess: true},
-		{name: "Filter checker error", kind: checkFilterCheckerError},
-		{name: "short BatchCheck answer", kind: checkShortBatchCheckAnswer},
+		{name: "Filter checker error", kind: checkFilterCheckerError, skipPlatform: true},
+		{name: "Filter refused", kind: checkFilterRefused, platformOnly: true},
+		{name: "short BatchCheck answer", kind: checkShortBatchCheckAnswer, skipPlatform: true},
 		{name: "Require denied then Require allowed", kind: checkRequireDeniedThenRequireAllowed, needsSuccess: true},
 		{name: "Require denied then Filter allowed", kind: checkRequireDeniedThenFilterAllowed, needsSuccess: true},
 		{name: "Filter checker error then Require allowed", kind: checkFilterCheckerErrorThenRequireAllowed, needsSuccess: true},
@@ -3426,12 +3432,28 @@ func TestDeferredObligationDischarge(t *testing.T) {
 		},
 	}
 
+	wantPlatformQuery := authz.Query{
+		Object:   "platform:flowseer",
+		Relation: "admin",
+		User:     "user:" + testPrincipalID,
+		ContextualTuples: []authz.Tuple{
+			{
+				Object:   "tenant:" + validTenantID,
+				Relation: "claimed",
+				User:     "user:" + testPrincipalID,
+			},
+		},
+	}
+
 	handlerErr := connect.NewError(connect.CodeNotFound, errors.New("sentinel handler error"))
 
 	for _, mode := range modes {
 		t.Run(mode.name, func(t *testing.T) {
 			for _, tcCheck := range checkKinds {
-				if mode.name == "platform" && tcCheck.needsSuccess {
+				if mode.name == "platform" && (tcCheck.needsSuccess || tcCheck.skipPlatform) {
+					continue
+				}
+				if mode.name != "platform" && tcCheck.platformOnly {
 					continue
 				}
 				t.Run(tcCheck.name, func(t *testing.T) {
@@ -3499,9 +3521,9 @@ func TestDeferredObligationDischarge(t *testing.T) {
 										switch tcCheck.kind {
 										case checkNone:
 											// No check performed.
-										case checkRequireAllowed, checkRequireDenied, checkRequireCheckerError:
+										case checkRequireAllowed, checkRequireDenied, checkRequireCheckerError, checkRequireRefused:
 											rErr = authz.Require(ctx, mode.relation, mode.objectType, validEdgeID)
-										case checkFilterWithIDs, checkFilterCheckerError:
+										case checkFilterWithIDs, checkFilterCheckerError, checkFilterRefused:
 											fIDs, fErr = authz.Filter(ctx, mode.relation, mode.objectType, []string{validEdgeID})
 										case checkFilterNilIDs:
 											fIDs, fErr = authz.Filter(ctx, mode.relation, mode.objectType, nil)
@@ -3554,6 +3576,12 @@ func TestDeferredObligationDischarge(t *testing.T) {
 										return handlerErr
 									})
 
+									if tcContext.kind == contextEnded {
+										if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+											t.Fatalf("call context err = %v, want context.Canceled", got)
+										}
+									}
+
 									mu.Lock()
 									ran := handlerRan
 									rErr := requireErr
@@ -3565,12 +3593,6 @@ func TestDeferredObligationDischarge(t *testing.T) {
 										t.Fatal("handler did not run")
 									}
 
-									if tcContext.kind == contextEnded {
-										if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
-											t.Fatalf("call context err = %v, want context.Canceled", got)
-										}
-									}
-
 									if tcCheck.kind == checkRequireAllowed && rErr != nil {
 										t.Fatalf("Require failed unexpectedly: %v", rErr)
 									}
@@ -3579,6 +3601,36 @@ func TestDeferredObligationDischarge(t *testing.T) {
 									}
 									if tcCheck.kind == checkFilterCheckerError && fErr == nil {
 										t.Fatal("expected Filter to fail, got nil")
+									}
+									if tcCheck.kind == checkRequireRefused {
+										if rErr == nil {
+											t.Fatal("expected Require to fail, got nil")
+										}
+										if got := errCodeOf(t, rErr); got != authz.ErrCodeObligationViolation.String() {
+											t.Errorf("Require error code = %q, want %q", got, authz.ErrCodeObligationViolation)
+										}
+										recorded := env.checker.Recorded()
+										if len(recorded) != 1 {
+											t.Fatalf("recorded %d queries, want 1", len(recorded))
+										}
+										if !queryEquals(recorded[0], wantPlatformQuery) {
+											t.Errorf("recorded query = %+v, want %+v", recorded[0], wantPlatformQuery)
+										}
+									}
+									if tcCheck.kind == checkFilterRefused {
+										if fErr == nil {
+											t.Fatal("expected Filter to fail, got nil")
+										}
+										if got := errCodeOf(t, fErr); got != authz.ErrCodeObligationViolation.String() {
+											t.Errorf("Filter error code = %q, want %q", got, authz.ErrCodeObligationViolation)
+										}
+										recorded := env.checker.Recorded()
+										if len(recorded) != 1 {
+											t.Fatalf("recorded %d queries, want 1", len(recorded))
+										}
+										if !queryEquals(recorded[0], wantPlatformQuery) {
+											t.Errorf("recorded query = %+v, want %+v", recorded[0], wantPlatformQuery)
+										}
 									}
 									if (tcCheck.kind == checkRequireDeniedThenRequireAllowed || tcCheck.kind == checkRequireDeniedThenFilterAllowed) && rErr == nil {
 										t.Fatal("expected first Require to fail, got nil")
@@ -3620,7 +3672,9 @@ func TestDeferredObligationDischarge(t *testing.T) {
 										tcCheck.kind == checkRequireDeniedThenRequireAllowed ||
 										tcCheck.kind == checkRequireDeniedThenFilterAllowed ||
 										tcCheck.kind == checkFilterCheckerErrorThenRequireAllowed ||
-										tcCheck.kind == checkFilterCheckerErrorThenFilterAllowed
+										tcCheck.kind == checkFilterCheckerErrorThenFilterAllowed ||
+										tcCheck.kind == checkRequireRefused ||
+										tcCheck.kind == checkFilterRefused
 									isEnded := tcContext.kind == contextEnded
 
 									var (
@@ -3757,15 +3811,6 @@ func (ci *cancellableOuterInterceptor) AfterCtxErr() error {
 	return ci.afterCtxErr
 }
 
-func (ci *cancellableOuterInterceptor) Reset() {
-	ci.mu.Lock()
-	defer ci.mu.Unlock()
-	ci.cancel = nil
-	ci.outerErr = nil
-	ci.afterCtxErr = nil
-	ci.deriveCtx = nil
-}
-
 func (ci *cancellableOuterInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		ci.mu.Lock()
@@ -3853,6 +3898,9 @@ func TestContextCancellation(t *testing.T) {
 
 		_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
 		recorded := env.checker.Recorded()
 		if len(recorded) != 1 {
 			t.Fatalf("recorded %d queries, want 1", len(recorded))
@@ -3862,9 +3910,6 @@ func TestContextCancellation(t *testing.T) {
 		}
 		if env.handlers.DidRun("ListCaptureSessions") {
 			t.Error("handler ran, want not run")
-		}
-		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
-			t.Fatalf("call context err = %v, want context.Canceled", got)
 		}
 		outerErr := env.outerInterceptor.OuterErr()
 		if outerErr != context.Canceled {
@@ -3900,6 +3945,9 @@ func TestContextCancellation(t *testing.T) {
 
 		_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.DeadlineExceeded {
+			t.Fatalf("call context err = %v, want context.DeadlineExceeded", got)
+		}
 		recorded := env.checker.Recorded()
 		if len(recorded) != 1 {
 			t.Fatalf("recorded %d queries, want 1", len(recorded))
@@ -3909,9 +3957,6 @@ func TestContextCancellation(t *testing.T) {
 		}
 		if env.handlers.DidRun("ListCaptureSessions") {
 			t.Error("handler ran, want not run")
-		}
-		if got := env.outerInterceptor.AfterCtxErr(); got != context.DeadlineExceeded {
-			t.Fatalf("call context err = %v, want context.DeadlineExceeded", got)
 		}
 		outerErr := env.outerInterceptor.OuterErr()
 		if outerErr != context.DeadlineExceeded {
@@ -3956,6 +4001,9 @@ func TestContextCancellation(t *testing.T) {
 
 		_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.DeadlineExceeded {
+			t.Fatalf("call context err = %v, want context.DeadlineExceeded", got)
+		}
 		recorded := env.checker.Recorded()
 		if len(recorded) != 1 {
 			t.Fatalf("recorded %d queries, want 1", len(recorded))
@@ -3965,9 +4013,6 @@ func TestContextCancellation(t *testing.T) {
 		}
 		if env.handlers.DidRun("ListCaptureSessions") {
 			t.Error("handler ran, want not run")
-		}
-		if got := env.outerInterceptor.AfterCtxErr(); got != context.DeadlineExceeded {
-			t.Fatalf("call context err = %v, want context.DeadlineExceeded", got)
 		}
 		outerErr := env.outerInterceptor.OuterErr()
 		if outerErr != context.DeadlineExceeded {
@@ -4014,6 +4059,9 @@ func TestContextCancellation(t *testing.T) {
 
 		_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
 		recorded := env.checker.Recorded()
 		if len(recorded) != 1 {
 			t.Fatalf("recorded %d queries, want 1", len(recorded))
@@ -4023,9 +4071,6 @@ func TestContextCancellation(t *testing.T) {
 		}
 		if env.handlers.DidRun("ListCaptureSessions") {
 			t.Error("handler ran, want not run")
-		}
-		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
-			t.Fatalf("call context err = %v, want context.Canceled", got)
 		}
 		outerErr := env.outerInterceptor.OuterErr()
 		if outerErr != context.Canceled {
@@ -4074,11 +4119,11 @@ func TestContextCancellation(t *testing.T) {
 
 		_, err := env.edgeCli.CreateEdge(context.Background(), req)
 
-		if env.handlers.DidRun("CreateEdge") {
-			t.Error("handler ran, want not run")
-		}
 		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
 			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
+		if env.handlers.DidRun("CreateEdge") {
+			t.Error("handler ran, want not run")
 		}
 		outerErr := env.outerInterceptor.OuterErr()
 		if outerErr != context.Canceled {
@@ -4347,11 +4392,11 @@ func TestContextCancellation(t *testing.T) {
 		req := validRequest(t, identityv1.ListTenantsRequest_builder{}.Build())
 		_, err := env.tenantCli.ListTenants(context.Background(), req)
 
-		if env.handlers.DidRun("ListTenants") {
-			t.Error("handler ran, want not run")
-		}
 		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
 			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
+		if env.handlers.DidRun("ListTenants") {
+			t.Error("handler ran, want not run")
 		}
 		outerErr := env.outerInterceptor.OuterErr()
 		if outerErr != context.Canceled {
@@ -4379,11 +4424,11 @@ func TestContextCancellation(t *testing.T) {
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 		_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 
-		if env.handlers.DidRun("ListCaptureSessions") {
-			t.Error("handler ran, want not run")
-		}
 		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
 			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
+		if env.handlers.DidRun("ListCaptureSessions") {
+			t.Error("handler ran, want not run")
 		}
 		if connect.CodeOf(err) != connect.CodePermissionDenied {
 			t.Errorf("got code %v, want %v", connect.CodeOf(err), connect.CodePermissionDenied)
@@ -4454,11 +4499,11 @@ func TestContextCancellation(t *testing.T) {
 		req := validRequest(t, identityv1.ListTenantsRequest_builder{}.Build())
 		_, err := env.tenantCli.ListTenants(context.Background(), req)
 
-		if env.handlers.DidRun("ListTenants") {
-			t.Error("handler ran, want not run")
-		}
 		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
 			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
+		if env.handlers.DidRun("ListTenants") {
+			t.Error("handler ran, want not run")
 		}
 		if connect.CodeOf(err) != connect.CodePermissionDenied {
 			t.Errorf("got code %v, want %v", connect.CodeOf(err), connect.CodePermissionDenied)
@@ -4480,14 +4525,14 @@ func TestContextCancellation(t *testing.T) {
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 		resp, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
 		if resp != nil {
 			t.Errorf("got response %v, want nil", resp)
 		}
 		if err == nil {
 			t.Fatal("expected error, got nil")
-		}
-		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
-			t.Fatalf("call context err = %v, want context.Canceled", got)
 		}
 		if connect.CodeOf(err) != connect.CodeInternal {
 			t.Errorf("got code %v, want %v", connect.CodeOf(err), connect.CodeInternal)
