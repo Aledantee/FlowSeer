@@ -49,12 +49,13 @@ Omitted match fields match any packet.
 
 `Diff` computes differences between two configurations. It reports additions,
 removals, and modifications of rules, sets, and bindings as typed `trace.Change`
-records. `Layer.RetentionKey` returns the layer retention identity for carry
-across switch updates. `Layer.Clone` returns an independent deep copy of the
-layer with cloned rule sets and bindings.
+records. `RetentionKey(cfg Config, env layer.Env) string` encodes the normalized
+inputs the layer depends on. `Layer.Clone` returns an independent deep copy of
+the layer with cloned rule sets and bindings.
 
 ## Boundaries
 
 - Imports: `src/common/errs`, `src/common/net/*`, `src/common/sim/analysis`,
   `src/common/sim/trace`, `src/common/sim/layer`.
-- Imported by: `src/common/sim/device/vswitch`, `src/common/sim/netmodel`.
+- Imported by: `src/common/sim/device/vswitch`, `src/common/sim/internal/simtest`,
+  `src/common/sim/netmodel`.

@@ -433,8 +433,8 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 			return nil, err
 		}
 		sw.traffic = traf
+		sw.trafficSwitchports = buildTrafficSwitchports(norm)
 	}
-	sw.trafficSwitchports = buildTrafficSwitchports(norm)
 
 	if len(seeds) > 0 && sw.bridge != nil {
 		if err := sw.bridge.Learn(seeds); err != nil {
@@ -488,9 +488,9 @@ func (s *Switch) Config() Config {
 // Fork returns an independent executable copy of the switch. Construction
 // configuration, ports, phy resolution, node identity, and trust metadata are
 // shared; capability layers, policer buckets, seeds, and forwarding issues are
-// deep-copied. Bridge selector, resolver, and gate bindings are rebound to the
-// fork's own cloned layers. Transient hit sets for forward calls in progress are
-// reset to their zero values.
+// deep-copied. Fork leaves the packet filter unset on the fork. Bridge selector,
+// resolver, and gate bindings are rebound to the fork's own cloned layers.
+// Transient hit sets for forward calls in progress are reset to their zero values.
 func (s *Switch) Fork() *Switch {
 	cp := &Switch{
 		cfg:                s.cfg,
@@ -2108,14 +2108,10 @@ func (s *Switch) assembleRouteResult(
 	txReason := s.ports.Transmit(egressIface.Port, len(routeRes.Frame.Payload))
 	if txReason != "" {
 		egressPort, _ := s.ports.Port(egressIface.Port)
-		ruleID := routing.RuleStatusDown
-		if txReason == port.ReasonMTUExceeded {
-			ruleID = routing.RuleStatusMTUExceeded
-		}
 		steps = append(steps, trace.Step{
 			Layer:   routing.LayerName,
 			Op:      trace.OpDrop,
-			RuleID:  ruleID,
+			RuleID:  trace.RuleID(routing.RuleStatusPrefix + string(txReason)),
 			Subject: trace.Subject{Kind: "port", Key: egressIface.Port},
 			Inputs:  []trace.Fact{port.ForwardingFact(egressIface.Port, egressPort, false, txReason)},
 			Outputs: []trace.Fact{routing.EgressFact(routeRes.Interface, egressIface.Port, "", txReason)},
@@ -3227,11 +3223,7 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 
 	txReason := s.ports.Transmit(egressIface.Port, len(hf.Frame.Payload))
 	if txReason != "" {
-		ruleID := routing.RuleStatusDown
-		if txReason == port.ReasonMTUExceeded {
-			ruleID = routing.RuleStatusMTUExceeded
-		}
-		s.recordHeldEgressDrop(hf, egressIface.Port, "", ruleID, txReason)
+		s.recordHeldEgressDrop(hf, egressIface.Port, "", trace.RuleID(routing.RuleStatusPrefix+string(txReason)), txReason)
 
 		return
 	}
