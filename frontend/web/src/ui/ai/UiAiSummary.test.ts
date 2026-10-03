@@ -223,14 +223,12 @@ describe('UiAiSummary', () => {
   })
 
   it('covers idle, loading, result, error, unavailable, and retry in German (de)', async () => {
-    // Idle
     const handler = vi.fn(async () => 'Ergebnis-Zusammenfassung.')
     mount(handler, 'de')
     await settle()
     expect(document.body.textContent).toContain('Zusammenfassung erstellen')
     expect(button('Zusammenfassung erstellen')).toBeDefined()
 
-    // Loading and Result
     button('Zusammenfassung erstellen')?.click()
     await nextTick()
     const status = document.querySelector('[role="status"]')
@@ -238,7 +236,6 @@ describe('UiAiSummary', () => {
     await settle()
     expect(document.body.textContent).toContain('Ergebnis-Zusammenfassung.')
 
-    // Unavailable
     for (const d of disposers) d()
     disposers = []
     document.body.replaceChildren()
@@ -250,7 +247,6 @@ describe('UiAiSummary', () => {
     expect(document.body.textContent).toContain('KI ist nicht verfügbar')
     expect(button('Wiederholen')).toBeDefined()
 
-    // Error (Error instance)
     for (const d of disposers) d()
     disposers = []
     document.body.replaceChildren()
@@ -272,7 +268,6 @@ describe('UiAiSummary', () => {
     await settle()
     await vi.waitFor(() => expect(errRequests).toHaveLength(2))
 
-    // Generic error (non-Error)
     for (const d of disposers) d()
     disposers = []
     document.body.replaceChildren()
@@ -330,7 +325,6 @@ describe('UiAiSummary', () => {
     await settle()
     expect(document.body.textContent).toContain('Custom answer')
 
-    // Test unavailable with custom labels
     for (const d of disposers) d()
     disposers = []
     document.body.replaceChildren()
@@ -353,7 +347,6 @@ describe('UiAiSummary', () => {
     expect(document.body.textContent).toContain('Service unavailable')
     expect(button('Try again')).toBeDefined()
 
-    // Test generic error with custom labels
     for (const d of disposers) d()
     disposers = []
     document.body.replaceChildren()
@@ -419,7 +412,6 @@ describe('UiAiSummary', () => {
     await nextTick()
     expect(alert?.textContent).toContain('Etwas ist schiefgelaufen.')
 
-    // Error instance retains message across locale switch (supplied data)
     const errorMount = mount(async () => {
       throw new Error('Explicit server error')
     }, 'en')
@@ -549,9 +541,12 @@ describe('UiAiSummary', () => {
 
     const sections = host.querySelectorAll('section')
     expect(sections).toHaveLength(2)
-    const [secDefault, secOverride] = [sections[0]!, sections[1]!]
+    const secDefault = sections[0]
+    const secOverride = sections[1]
+    if (!secDefault || !secOverride) {
+      throw new Error('Expected two summary sections')
+    }
 
-    // 1. Idle state in English
     expect(secDefault.getAttribute('aria-label')).toBe(
       'AI summary for Target Default',
     )
@@ -565,11 +560,9 @@ describe('UiAiSummary', () => {
       'Custom generate',
     )
 
-    // Switch locale to German
     i18n.global.locale.value = 'de'
     await nextTick()
 
-    // Defaults changed, overrides stayed
     expect(secDefault.getAttribute('aria-label')).toBe(
       'KI-Zusammenfassung für Target Default',
     )
@@ -583,7 +576,6 @@ describe('UiAiSummary', () => {
       'Custom generate',
     )
 
-    // 2. Loading state
     secDefault.querySelector('button')?.click()
     secOverride.querySelector('button')?.click()
     await nextTick()
@@ -595,7 +587,6 @@ describe('UiAiSummary', () => {
       'Custom generating…',
     )
 
-    // 3. Unavailable state
     mode = 'unavailable'
     for (const rej of pendingRejections) rej(new AiUnavailableError())
     pendingRejections.length = 0
@@ -614,7 +605,6 @@ describe('UiAiSummary', () => {
       'Custom retry',
     )
 
-    // 4. Generic error state
     mode = 'error'
     secDefault.querySelector('button')?.click()
     secOverride.querySelector('button')?.click()

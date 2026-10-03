@@ -33,6 +33,7 @@ const storyModule = {
         labels: {
           ai: 'Bot',
           askAbout: 'Custom inquire',
+          heading: 'Custom heading',
         },
       },
     },
@@ -76,9 +77,12 @@ function mountStory(component: Component) {
   app.use(createWebI18n())
   app.mount(container)
   const root = container.querySelector<HTMLElement>('[data-ai-story-root]')
-  if (root) setBox(root)
+  if (root) {
+    root.tabIndex = 0
+    setBox(root)
+  }
   mounted.push({ app, container })
-  return { app, container }
+  return { app, container, root }
 }
 
 async function settle() {
@@ -227,5 +231,103 @@ describe('AI decorator document scope', () => {
     expect(askButton()?.getAttribute('aria-label')).toBe(
       'Ask about Lifecycle/DocumentScope',
     )
+  })
+
+  it('holds the canvas-label invariant across all host, selection, focus, and panel states', async () => {
+    const hosts = ['default', 'overrides'] as const
+    const selections = ['none', 'default', 'overrides'] as const
+    const focuses = ['none', 'default', 'overrides'] as const
+    const panels = ['closed', 'open'] as const
+
+    for (const host of hosts) {
+      for (const selection of selections) {
+        for (const focus of focuses) {
+          for (const panel of panels) {
+            const stateName = `host=${host}, selection=${selection}, focus=${focus}, panel=${panel}`
+            const owner = focus !== 'none' ? focus : selection
+            if (owner === 'none') continue
+
+            const firstStory =
+              host === 'default' ? stories.Alpha : stories.WithOverrides
+            const secondStory =
+              host === 'default' ? stories.WithOverrides : stories.Alpha
+
+            const firstMount = mountStory(firstStory)
+            const secondMount = mountStory(secondStory)
+            const outside = document.createElement('button')
+            document.body.append(outside)
+            await settle()
+
+            const defaultRoot =
+              host === 'default' ? firstMount.root : secondMount.root
+            const overridesRoot =
+              host === 'default' ? secondMount.root : firstMount.root
+            if (!defaultRoot || !overridesRoot) {
+              throw new Error('Missing story root')
+            }
+
+            const defaultTargetId = aiRegistry.idForElement(defaultRoot)
+            const overridesTargetId = aiRegistry.idForElement(overridesRoot)
+            if (!defaultTargetId || !overridesTargetId) {
+              throw new Error('Missing target id')
+            }
+
+            if (selection === 'default') {
+              await select(defaultTargetId)
+            } else if (selection === 'overrides') {
+              await select(overridesTargetId)
+            } else {
+              window.flowseerAi?.clearHighlight()
+              await settle()
+            }
+
+            if (focus === 'default') {
+              defaultRoot.focus()
+              await settle()
+            } else if (focus === 'overrides') {
+              overridesRoot.focus()
+              await settle()
+            } else {
+              outside.focus()
+              await settle()
+            }
+
+            const expectedTrigger = owner === 'overrides' ? 'Bot' : 'AI'
+            const expectedHeading =
+              owner === 'overrides' ? 'Custom heading' : 'Ask about'
+
+            if (panel === 'closed') {
+              expect(
+                askButton()?.textContent?.trim(),
+                `${stateName}: trigger`,
+              ).toBe(expectedTrigger)
+            } else {
+              askButton()?.click()
+              await settle()
+
+              const otherTargetId =
+                owner === 'default' ? overridesTargetId : defaultTargetId
+              await select(otherTargetId)
+
+              expect(
+                askButton()?.textContent?.trim(),
+                `${stateName}: trigger`,
+              ).toBe(expectedTrigger)
+              expect(
+                document.querySelector('form p')?.textContent,
+                `${stateName}: heading`,
+              ).toContain(expectedHeading)
+            }
+
+            firstMount.app.unmount()
+            secondMount.app.unmount()
+            mounted = []
+            outside.remove()
+            document.body.replaceChildren()
+            await settle()
+          }
+        }
+      }
+    }
   })
 })

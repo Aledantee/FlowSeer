@@ -1,7 +1,7 @@
 ---
 title: A Storybook Decorator That Installs Document-Scoped State Must Own It at Module Scope and Release It on the Last Unmount
 date: 2026-09-27
-last_verified: 2026-09-27
+last_verified: 2026-10-03
 category: architecture-patterns
 module: frontend/web/.storybook
 problem_type: architecture_pattern
@@ -43,7 +43,7 @@ and counted across them.
   decorator. Install on the first mount and remove on the last unmount, so a
   canvas leaving cannot strip state from the canvases that remain.
 - Elect one mounted canvas as the layer host, and let only that canvas render
-  `UiAiActionLayer`. When the host unmounts, elect another; only an empty set
+  `UiAiActionLayer`. When the host unmounts, elect another. Only an empty set
   closes the scope.
 - Route each request to the canvas that registered its target. With one registry
   handler for several canvases, the handler has to look up the request's target
@@ -53,16 +53,24 @@ and counted across them.
 - Keep the registry's first registration of a duplicate id. A second canvas that
   reuses a story id must not take over the target's handler or release it on
   unmount, or the original target loses the handler it was configured with.
+- Canvas labels configured through `parameters.ai.labels` are document-scoped
+  state for the single layer. The labels the single layer shows are those of
+  the canvas that contains the element of the target the layer displays. With no
+  displayed target, the labels do not matter. The layer reports its displayed
+  target, and the decorator maps that target's element to its canvas to pick
+  that canvas's labels.
 
 ## Working example
 
-`frontend/web/.storybook/aiDecorator.ts:43` builds the scope once at module
-level, outside the decorator factory, and `:123` holds that single instance:
+`createStoryScope` in `frontend/web/.storybook/aiDecorator.ts` builds the scope
+once at module level, outside the decorator factory, and `storyScope` holds that
+single instance:
 
 ```ts
 function createStoryScope() {
   const canvases = new Set<MountedCanvas>()
   const handlers = new Map<string, AiHandler>()
+  const activeLabels = shallowRef<UiAiActionLayerLabels | undefined>()
   let host: MountedCanvas | undefined
   let removeWindow: (() => void) | undefined
   let removeDispatcher: (() => void) | undefined
@@ -72,7 +80,7 @@ const storyScope = createStoryScope()
 ```
 
 The dispatcher resolves the owner per request instead of relying on the single
-handler (`aiDecorator.ts:57`):
+handler (`onRequest` in `createStoryScope`):
 
 ```ts
 removeDispatcher = aiRegistry.onRequest((request) => {
@@ -86,20 +94,51 @@ removeDispatcher = aiRegistry.onRequest((request) => {
 })
 ```
 
+The host layer reports the target it displays through `targetChange`. The
+decorator listens and resolves active labels from that target's canvas:
+
+```ts
+function onTargetChange(id: string | undefined) {
+  if (!id) {
+    activeLabels.value = undefined
+    return
+  }
+  const targetElement = aiRegistry.view(id)?.element
+  const canvas = [...canvases].find(
+    (c) => targetElement && c.element.contains(targetElement),
+  )
+  activeLabels.value = canvas?.labels
+}
+```
+
 The decorator's mount returns a release that removes the canvas, re-elects a host
 when the leaving canvas owned one, and closes the document only when the set is
-empty (`aiDecorator.ts:108-117`). The decorator renders the layer only for the
-host: `<UiAiActionLayer v-if="showLayer" />`.
+empty (`mount` in `aiDecorator.ts`). The decorator renders the layer only for the
+host:
+
+```html
+<UiAiActionLayer
+  v-if="showLayer"
+  :labels="activeLabels"
+  @target-change="onTargetChange"
+/>
+```
 
 ## Evidence
 
-- `frontend/web/.storybook/aiDecorator.ts:43-123` holds the module-level scope,
-  host election, and per-target dispatch.
-- `frontend/web/.storybook/aiDecorator.test.ts:140-179` mounts two canvases,
-  asserts one `.ai-ask`, keeps both targets listable after the first unmounts,
-  and expects `window.flowseerAi` to be deleted only after the second unmounts.
-- `frontend/web/.storybook/aiDecorator.test.ts:181-191` mounts the same story
-  twice and asserts one target and one action layer.
+- `createStoryScope` in `frontend/web/.storybook/aiDecorator.ts` holds the
+  module-level scope, host election, per-target dispatch, and target-driven
+  label resolution.
+- `keeps both canvases inspectable and releases them after the last unmount` in
+  `frontend/web/.storybook/aiDecorator.test.ts` mounts two canvases, asserts
+  one `.ai-ask`, keeps both targets listable after the first unmounts, and
+  expects `window.flowseerAi` to be deleted only after the second unmounts.
+- `keeps a duplicate story id invalid without stacking an action layer` in
+  `frontend/web/.storybook/aiDecorator.test.ts` mounts the same story twice and
+  asserts one target and one action layer.
+- `holds the canvas-label invariant across all host, selection, focus, and panel states`
+  in `frontend/web/.storybook/aiDecorator.test.ts` verifies the canvas-label
+  invariant across all host, selection, focus, and panel combinations.
 - `frontend/web/src/ai/registry.ts:226-235` shows the registry keeps a single
   handler, which forces the decorator to dispatch by target.
 - `frontend/web/src/ai/window.ts:31-33` deletes the window API only if the value
