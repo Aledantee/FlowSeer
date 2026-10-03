@@ -421,18 +421,14 @@ third prints nothing.
 
 ## Open questions
 
-- Requirement 10 names `d7995d3d` for the cap reached on coverage alone.
-  Its message lists "One defect no test catches" and "Two cases weaker than
-  their titles" open at round three, so the citation at
-  `docs/agent-steering.md:784` claims more than the commit says. Cite
-  `fb724477` alone, or name another commit?
-- Requirement 7 and the Decision capping a review at three rounds do not
-  say what happens when a gap pass changes source after three rounds have
-  already run, the third one clean, or what "one more gap pass" starts: a
-  new review with a fresh count, or a second pass in this one
-  (`.agents/skills/review/references/fix-loop.md:72`, `:79`).
+- Requirement 8 and the Decision on an item still recorded once the pass
+  has run do not say they apply only after the loop has ended. When the
+  pass became round one and its reviewers return a behavior defect beside
+  a surviving item, `.agents/skills/review/references/fix-loop.md:96` ends
+  the review, `:100` names a limit not yet reached, and `:159` keeps the
+  loop open with two rounds unused. Scope both to the end of the loop?
 
 ## Review gaps
 
-- `docs/agent-steering.md:778`: "and the Orca card" is in neither `c65f3804` nor `e83b1305`; fails: a reader checking the two cited commits for that reader of the gap list
-- `.agents/skills/review/SKILL.md:277`: "with no further review round" contradicts `references/fix-loop.md:72`, where a pass that changes source is a round; fails: a pass that edits a helper is written up as an accept without steps 3 and 4
+- `.agents/skills/review/references/fix-loop.md:33`: "It closes when the corrected lines stand at its `path:line`" repeats `:66`; fails: `docs/doc-style.md`, say a thing once
+- `.agents/skills/review/SKILL.md:25`: "Step 3 carries its items" reads as the run's items after the inserted sentence; fails: a reader looking for whose items the briefs carry
