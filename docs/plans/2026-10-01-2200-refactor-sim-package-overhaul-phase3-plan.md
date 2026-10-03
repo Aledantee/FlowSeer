@@ -3,7 +3,7 @@ title: Spanning Tree to Standard - Plan
 type: fix
 date: 2026-10-01
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
+artifact_readiness: implementation-ready
 status: planned
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
@@ -54,7 +54,6 @@ under Inventory, Sources.
   Port, Master Port, or Designated Port", its Figure 13-19 enters DETECTED on
   `forward && !operEdge` alone, and `D2009` 13.19 says a notification "is
   sent when a Bridge Port joins the active topology, and not before".
-  Unconfirmed: it contradicts the trigger in R3's example (Open questions).
 - The units form a chain and the plan stays whole. Why: one cluster. Every
   unit edits `S/README.md` in the change that invalidates it, and U2
   through U6 all edit the receive and transmit paths. U1 moves code and
@@ -69,6 +68,9 @@ under Inventory, Sources.
   priority the four most significant bits of the Port Identifier.
 - These shapes break: `bpdu.MaxMSTIRecords` is 64, `bpdu.Decode` accepts
   frames it refused, `PortInfo.MSTID` goes, and the BPDU decision fact grows.
+- R3's example is a port that starts forwarding, not one that goes down,
+  since the sources above raise no topology change when a port leaves
+  Forwarding. (decided by the user, 2026-10-03)
 
 ## Requirements
 
@@ -81,8 +83,8 @@ region on a point-to-point link bring an MSTI Designated port to Forwarding
 in the same exchange that brings the CIST there.
 
 R3. A topology change reaches the root. Example: a settled non-root bridge
-whose forwarding downstream port goes down transmits a BPDU with the
-topology-change flag on its Root port within one hello time.
+whose non-edge downstream Designated port starts forwarding transmits a
+BPDU with the topology-change flag on its Root port within one hello time.
 
 R4. Legacy STP interoperation acknowledges a TCN and uses the legacy
 topology-change timer. Example: a TCN BPDU received on a Designated port is
@@ -565,14 +567,6 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 
 ## Open questions
 
-- R3's example cannot be met as written. Its trigger is a forwarding port
-  going down, which the sources in Decisions say raises no topology change.
-  U5 and Correctness 15 follow the sources and prove R3's statement with a
-  port that starts forwarding. Keeping the example needs a stated departure
-  from the standard: a change raised on leaving Forwarding, kept at the
-  four sites of Correctness 15, with that entry's test inverted. Replacing
-  the example changes a fixed requirement. This plan makes neither ruling,
-  and `artifact_readiness` stays `needs-decisions` until one is made.
 - The edition is decided above. Carried: the published IEEE Std 802.1Q-2011
   and IEEE Std 802.1D-2004 are unverified, and with them the forward-delay
   step on an RSTP port (Limits). U6's README marks each `D2009` clause draft.
@@ -585,16 +579,3 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
   (`fabric/fabric.go:860-862`), and injects emissions only after every port
   is reported (`:873-875`). The default of true serves a switch run alone
   (`device/vswitch/switch.go:2929-2945`), which U9 owns.
-- Parked by drive: the re-plan (`848d934e` on `parked/sim-p3-replan`, which
-  holds the re-planned units and their fetched clauses) found that R3's
-  example cannot be met as written. Its trigger is a forwarding port going
-  down, and the sources the re-plan read (IEEE Std 802.1Q-2003 clauses 13
-  and 14, P802.1aq/D1.5) raise no topology change for that. Options:
-  replace R3's example with a port that starts forwarding, as U5 and
-  Correctness 15 already prove (follows the parent's decision that
-  protocols follow their standards, and changes a fixed requirement's
-  example) | keep the example as a stated departure from the standard, a
-  change raised on leaving Forwarding at the four sites of Correctness 15
-  with that entry's test inverted (keeps R3 as written, and the layer then
-  departs from the standard there). Recommended: replace the example,
-  because the parent decided that protocols follow their standards.
