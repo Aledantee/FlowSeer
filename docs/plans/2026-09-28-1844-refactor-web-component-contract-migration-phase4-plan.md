@@ -376,3 +376,16 @@ Neither blocks a unit.
 2. Unverified: whether a browser's ICU abbreviates relative times as
    Node 22.14.0 does. Tests do not pin those strings, and the browser
    check is where a difference would show.
+
+- Parked by drive: the review ended in `rework` at the three-round limit,
+  all three rounds on `translate="no"` for identifiers (Requirement 6).
+  Its fixes and a 32-item gap list are on `parked/wcc-p4-review`
+  (`141f39c9`), unmerged. Open: a false test in
+  `frontend/web/src/components/GlobalSearch.test.ts` (a selector reka-ui
+  never renders), the brand written as a literal in two templates, and
+  whether the dock tooltip's names count under Requirement 6 (marking
+  them needs a `UiTooltip` change). Options: one more fix round on the
+  open items and the gap list (each names its fix) | take the identifier
+  marking to `plan` (slower) | accept with the gaps recorded (overrides
+  the review gate). Recommended: one more fix round, because the open
+  items are small and the gap list names a failing check for each.
