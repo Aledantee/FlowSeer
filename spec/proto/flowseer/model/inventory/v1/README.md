@@ -11,7 +11,7 @@ FlowSeer-assigned UUID.
 
 Imports: model/edge, model/policy, net/addr, net/key, net/measure, net/phy, net/system, net/wlan
 
-Imported by: api/device, event/access, event/log, model/access, model/alarm, model/wireless, store/device
+Imported by: api/device, event/access, event/log, integration/ingest, model/access, model/alarm, model/wireless, store/device
 
 Deliberately absent:
 
@@ -202,12 +202,13 @@ toward a device going `MISSING`.
 response and event envelopes, per the conventions doc. It says which
 binding answered, when it observed the payload, which protocol produced it,
 which edge performed the observation, and the device's firmware fingerprint
-at that moment. The protocol is on the provenance rather than fixed by the
-binding because the answering integration chooses a route per operation:
-an SNMP read that turns out incomplete falls through to SSH inside one
-call, and the caller sees which one produced the result. The fingerprint
-lets a consumer tell two observations from different firmware epochs apart
-without a second lookup.
+at that moment. The protocol is a required `protocol` oneof with a
+`management` arm (`ManagementProtocol`) and a `log` arm (`LogProtocol`),
+rather than fixed by the binding or limited to management routes: an answering
+integration chooses a route per operation (such as SNMP falling through to
+SSH), while log sources (such as syslog) name their protocol in the log arm.
+The fingerprint lets a consumer tell two observations from different
+firmware epochs apart without a second lookup.
 
 ## Scopes and placements
 

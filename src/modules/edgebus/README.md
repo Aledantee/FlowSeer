@@ -63,7 +63,7 @@ decision.
 
 ```
 flowseer.<tenant>.edge.<edge-id>.otel.{logs,metrics,traces}   the agent's OTLP bodies
-flowseer.<tenant>.edge.<edge-id>.ingest.<source>.>            a future ingestion source
+flowseer.<tenant>.edge.<edge-id>.ingest.syslog                syslog records
 flowseer.<tenant>.edge.<edge-id>.source.>                     the hub's sourcing deliveries
 flowseer.<tenant>.audit.device.<device-id>                    central's audit records (CENTRAL)
 ```

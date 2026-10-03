@@ -28,6 +28,7 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	agentv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/protocol/syslog"
 )
 
 // Error codes the host returns while reading its configuration.
@@ -43,9 +44,11 @@ var (
 // reader of the configuration finds them in one place, and so the schema
 // comments have something true to point at.
 const (
-	defaultHeartbeat       = 30 * time.Second
-	defaultDispatchFloor   = time.Second
-	defaultDispatchCeiling = 30 * time.Second
+	defaultHeartbeat            = 30 * time.Second
+	defaultDispatchFloor        = time.Second
+	defaultDispatchCeiling      = 30 * time.Second
+	defaultRawFailuresPerMinute = 20
+	defaultRawSampleEvery       = 100
 )
 
 // Config is one agent deployment: its own file, and the provisioning that file
@@ -163,6 +166,63 @@ func (c *Config) LogLevel() slog.Level {
 		// answer info: a log level nobody chose must not silence a record.
 		return slog.LevelInfo
 	}
+}
+
+// SyslogListeners returns the configured syslog listeners, or nil when the
+// agent runs no syslog source.
+func (c *Config) SyslogListeners() []syslog.ListenConfig {
+	syslogCfg := c.msg.GetSyslog()
+	if syslogCfg == nil || len(syslogCfg.GetListeners()) == 0 {
+		return nil
+	}
+	listeners := make([]syslog.ListenConfig, len(syslogCfg.GetListeners()))
+	for i, l := range syslogCfg.GetListeners() {
+		transport := syslog.UDP
+		if l.GetTransport() == agentv1.AgentSyslogTransport_AGENT_SYSLOG_TRANSPORT_TCP {
+			transport = syslog.TCP
+		}
+		var framing syslog.Framing
+		switch l.GetFraming() {
+		case agentv1.AgentSyslogFraming_AGENT_SYSLOG_FRAMING_AUTO:
+			framing = syslog.Auto
+		case agentv1.AgentSyslogFraming_AGENT_SYSLOG_FRAMING_OCTET_COUNTING:
+			framing = syslog.OctetCounting
+		case agentv1.AgentSyslogFraming_AGENT_SYSLOG_FRAMING_LF:
+			framing = syslog.LF
+		case agentv1.AgentSyslogFraming_AGENT_SYSLOG_FRAMING_CRLF:
+			framing = syslog.CRLF
+		case agentv1.AgentSyslogFraming_AGENT_SYSLOG_FRAMING_NUL:
+			framing = syslog.NUL
+		default:
+			// Unset or unspecified framing remains empty, which the library
+			// reads as auto for TCP.
+			framing = ""
+		}
+		listeners[i] = syslog.ListenConfig{
+			Transport: transport,
+			Address:   l.GetAddress(),
+			Framing:   framing,
+		}
+	}
+	return listeners
+}
+
+// SyslogRawPolicy returns the per-device per-minute raw failure bound and the
+// sample rate applied thereafter.
+func (c *Config) SyslogRawPolicy() (failuresPerMinute, sampleEvery int) {
+	syslogCfg := c.msg.GetSyslog()
+	if syslogCfg == nil {
+		return defaultRawFailuresPerMinute, defaultRawSampleEvery
+	}
+	failures := int(syslogCfg.GetRawFailuresPerMinute())
+	if failures <= 0 {
+		failures = defaultRawFailuresPerMinute
+	}
+	sample := int(syslogCfg.GetRawSampleEvery())
+	if sample <= 0 {
+		sample = defaultRawSampleEvery
+	}
+	return failures, sample
 }
 
 // duration takes the configured value or the default when it is unset. A nil

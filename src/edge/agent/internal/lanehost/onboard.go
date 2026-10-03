@@ -75,17 +75,20 @@ type OnboardConfig struct {
 	// listing not having failed: from central the edge looks enrolled,
 	// healthy, and permanently unsubscribed.
 	PerDeviceTimeout time.Duration
-	Logger           *slog.Logger
+	// Index maps peer addresses to device identities for cross-module lookup.
+	// Sync applies each successful listing to it, whether or not the lane
+	// onboards the devices. Nil records to no index.
+	Index  *DeviceIndex
+	Logger *slog.Logger
 }
 
 // Onboarder holds the devices this edge has been told to serve, and adds the
 // ones it does not hold yet.
 //
-// Safe for concurrent use; one Sync runs at a time. Serializing them is not
-// caution about the map — it is that two Syncs racing could both find a
-// device absent and both add it, and a second AddDevice for a registered
-// device replaces its whole lane state, orphaning its queue and any drainer
-// working through it.
+// Safe for concurrent use: one Sync runs at a time. Serializing them is not
+// caution about the map. Two Syncs racing could both find a device absent and
+// both add it, which costs a second probe, Reporter.Onboarded call and audit
+// record before the loser is refused by the lane.
 type Onboarder struct {
 	cfg OnboardConfig
 	log *slog.Logger
@@ -123,18 +126,23 @@ func NewOnboarder(cfg OnboardConfig) (*Onboarder, error) {
 // it does not already hold. It is what the agent calls after attaching and
 // before each attempt to open the dispatch stream.
 //
-// A device this edge already holds is left alone rather than re-added, for
-// the reason on [Onboarder]. That means a device whose listing has changed —
-// a horizon measured since, an address corrected — keeps the values it was
-// first onboarded with. The divergence is recorded so the discrepancy is
-// findable: without it, an operator who measures a horizon centrally sees
-// mutations go on being refused with nothing anywhere connecting the two
-// facts.
+// A device this edge already holds is left alone rather than re-added to the
+// lane, for the reason on [Onboarder]. While the lane session keeps the values
+// it was first onboarded with until the lane attempt restarts, the device index
+// follows the listing immediately, so datagrams from an address a device left
+// are not attributed to it. The divergence between the listing and the lane
+// session is recorded so the discrepancy is findable: without it, an operator who measures
+// a horizon centrally sees mutations go on being refused with nothing anywhere
+// connecting the two facts.
 //
 // One device failing to onboard does not stop the others, and it is not
 // recorded as held, so the next Sync tries it again. That is the case of a
 // device that is simply unreachable at this moment, which is not a reason to
 // leave the rest of the edge's fleet unserved.
+//
+// After a successful listing, Sync applies the listing to the configured
+// device index before onboarding, so a slow or failing AddDevice does not delay
+// resolution. A failed listing leaves the index as it was.
 func (o *Onboarder) Sync(ctx context.Context) error {
 	o.syncing.Lock()
 	defer o.syncing.Unlock()
@@ -144,7 +152,12 @@ func (o *Onboarder) Sync(ctx context.Context) error {
 		return errs.From(err).Code(ErrCodeOnboard).Msg("list the devices this edge serves")
 	}
 
-	for _, listed := range resp.Msg.GetDevices() {
+	devices := resp.Msg.GetDevices()
+	if o.cfg.Index != nil {
+		o.cfg.Index.ApplyListing(devices)
+	}
+
+	for _, listed := range devices {
 		o.onboard(ctx, listed)
 	}
 	return nil
@@ -181,8 +194,9 @@ func errorType(err error) string {
 	}
 }
 
-// onboard adds one listed device, or reports how a re-listing of a device
-// already held differs from what it was onboarded with.
+// onboard onboards one unheld listed device into the lane, or reports how a
+// re-listing of a device already held differs from what it was onboarded with.
+// The index follows the listing and is already updated during Sync.
 //
 // Its own deadline, so one device cannot hold the rest. A device that runs
 // out of time is not held and is onboarded on a later Sync, which is what
@@ -203,21 +217,19 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 		return
 	}
 
-	session, err := o.deviceSession(listed)
-	if err == nil {
-		attempt, cancel := context.WithTimeout(ctx, o.perDeviceTimeout())
-		err = o.cfg.Lane.AddDevice(attempt, deviceID, session)
-		cancel()
-	}
+	addr, err := addressOf(listed.GetIp())
 	if err != nil {
-		// A warning, not an error: this device is not held and the next Sync
-		// tries it again, which is a retry rather than an abandoned
-		// operation. An edge with one device switched off would otherwise
-		// report an error per reconnection for as long as it stays off.
-		o.log.WarnContext(ctx, "listed device was not onboarded; it will be tried again",
-			slog.String("otel.event.name", "flowseer.edge.device.onboarding_failed"),
-			slog.String("flowseer.device.id", deviceID),
-			slog.String("error.type", errorType(err)))
+		o.warnNotOnboarded(ctx, deviceID, err)
+		return
+	}
+	binding := bindingRefOf(listed.GetBindingId())
+
+	session := o.deviceSession(listed, addr, binding)
+	attempt, cancel := context.WithTimeout(ctx, o.perDeviceTimeout())
+	err = o.cfg.Lane.AddDevice(attempt, deviceID, session)
+	cancel()
+	if err != nil {
+		o.warnNotOnboarded(ctx, deviceID, err)
 		return
 	}
 
@@ -240,16 +252,21 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 	}
 }
 
-// deviceSession builds what the lane needs to reach one listed device.
-func (o *Onboarder) deviceSession(listed *attachv1.ListedDevice) (access.DeviceSession, error) {
-	endpoint, err := endpointFor(listed)
-	if err != nil {
-		return access.DeviceSession{}, err
-	}
-	binding := inventoryv1.BindingGlobalRef_builder{
-		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(listed.GetBindingId())}.Build(),
-	}.Build()
+// warnNotOnboarded reports a device that was not onboarded. It is a warning,
+// not an error: the device is not held and the next Sync tries it again, which
+// is a retry rather than an abandoned operation. An edge with one device
+// switched off would otherwise report an error per reconnection for as long
+// as it stays off.
+func (o *Onboarder) warnNotOnboarded(ctx context.Context, deviceID string, err error) {
+	o.log.WarnContext(ctx, "listed device was not onboarded; it will be tried again",
+		slog.String("otel.event.name", "flowseer.edge.device.onboarding_failed"),
+		slog.String("flowseer.device.id", deviceID),
+		slog.String("error.type", errorType(err)))
+}
 
+// deviceSession builds what the lane needs to reach one listed device.
+func (o *Onboarder) deviceSession(listed *attachv1.ListedDevice, address string, binding *inventoryv1.BindingGlobalRef) access.DeviceSession {
+	endpoint := endpointFor(listed, address)
 	return access.DeviceSession{
 		OpenSNMP:      o.cfg.OpenSNMP(endpoint),
 		OpenShell:     o.cfg.OpenShell(endpoint),
@@ -257,22 +274,18 @@ func (o *Onboarder) deviceSession(listed *attachv1.ListedDevice) (access.DeviceS
 		BindingID:     listed.GetBindingId(),
 		Prov:          access.InterfaceProvenanceInputs{Binding: binding, Edge: o.cfg.Edge},
 		DelayedEffect: access.InterfaceDelayedEffect{Horizon: listed.GetDelayedApplyHorizon().AsDuration()},
-	}, nil
+	}
 }
 
 // endpointFor is where a listed device answers. An unset port stays zero
 // here, so the default is applied by [Endpoint] at the moment a session is
 // opened rather than being baked in twice.
-func endpointFor(listed *attachv1.ListedDevice) (Endpoint, error) {
-	address, err := addressOf(listed.GetIp())
-	if err != nil {
-		return Endpoint{}, err
-	}
+func endpointFor(listed *attachv1.ListedDevice, address string) Endpoint {
 	return Endpoint{
 		Address:  address,
 		SNMPPort: int(listed.GetSnmpPort()),
 		SSHPort:  int(listed.GetSshPort()),
-	}, nil
+	}
 }
 
 // addressOf renders the listed management address. The octets are the wire's

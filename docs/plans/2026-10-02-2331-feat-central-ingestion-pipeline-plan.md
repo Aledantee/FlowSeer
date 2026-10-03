@@ -102,13 +102,36 @@ below restate the choices made for it or are local to the work.
   drops it. Turning it into a discovery sighting is discovery-plane work.
 - ClickHouse and Postgres deployment, backup, and high availability.
 
+## Follow-ups
+
+Work the edge syslog source phase left for a later plan. Each needs a plan
+of its own, and none blocks a phase below.
+
+- Validation of `ListDevicesResponse`, with a uniqueness rule on device ids
+  in `spec/proto/flowseer/edge/attach/v1/device.proto` and a check in the
+  agent's client path. Nothing validates a listing before its ids and
+  bindings enter the index, and an invalid id or binding from central makes
+  each datagram from that address fail envelope validation and end `Run`
+  (`src/edge/agent/internal/syslogsource/source.go`). Central sends one row
+  per id today: `ListDevices` builds a row for each id the registry returns
+  (`src/services/device/internal/edgeapi/service.go`), and the registry
+  keys devices by id (`src/services/device/internal/registry/registry.go`,
+  `spec/proto/flowseer/store/device/v1/registry.proto`).
+- Vendor parse options against real device output. The source passes the
+  parser no option beyond `CaptureRaw`
+  (`src/edge/agent/internal/syslogsource/source.go`), so well-formed vendor
+  output parses partial and draws on the raw budget: a leading Cisco counter
+  (`src/protocol/syslog/legacy.go`), a zone token after the clock
+  (`src/protocol/syslog/timestamp.go`), and a Cisco tag with components
+  (`src/protocol/syslog/vendor.go`).
+
 ## Units
 
 ### U1. Ingest envelope and edge syslog source
 
 Files: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase1-plan.md
 After: none
-Landed:
+Landed: `341f4cd3..646d080c`
 
 ### U2. Central intake
 
