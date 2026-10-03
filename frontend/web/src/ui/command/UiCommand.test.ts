@@ -12,6 +12,7 @@ import UiCommandItem, {
 import UiCommandList from './UiCommandList.vue'
 import UiCommandSeparator from './UiCommandSeparator.vue'
 import UiCommandShortcut from './UiCommandShortcut.vue'
+import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
@@ -19,12 +20,20 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
-function mountApp(renderFn: () => unknown) {
+function mountApp(
+  renderFn: () => unknown,
+  localeOrI18n: WebLocale | ReturnType<typeof createWebI18n> = 'en',
+) {
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp({
     render: renderFn,
   })
+  if (typeof localeOrI18n === 'string') {
+    app.use(createWebI18n(localeOrI18n))
+  } else {
+    app.use(localeOrI18n)
+  }
   app.mount(host)
   dispose = () => app.unmount()
   return host
@@ -474,5 +483,178 @@ describe('UiCommand', () => {
     await new Promise((r) => setTimeout(r, 20))
 
     expect(ordinarySelects).toEqual(['item-2'])
+  })
+
+  it('renders default command strings in en and de', async () => {
+    mountApp(
+      () =>
+        h(UiCommandDialog, { open: true }, () => [
+          h(UiCommandInput),
+          h(UiCommandList, null, () => [h(UiCommandEmpty)]),
+        ]),
+      'en',
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialogTitleEn = document.body.querySelector('h2')
+    expect(dialogTitleEn?.textContent).toBe('Command Palette')
+    const dialogDescEn = document.body.querySelector('p')
+    expect(dialogDescEn?.textContent).toBe('Search and command palette')
+    const inputEn = document.body.querySelector('input')
+    expect(inputEn?.placeholder).toBe('Type a command or search...')
+    expect(inputEn?.getAttribute('aria-label')).toBe('Search commands')
+    const listboxEn = document.body.querySelector('[role="listbox"]')
+    expect(listboxEn?.getAttribute('aria-label')).toBe('Commands')
+    expect(document.body.textContent).toContain('No results found.')
+
+    dispose()
+    document.body.replaceChildren()
+
+    mountApp(
+      () =>
+        h(UiCommandDialog, { open: true }, () => [
+          h(UiCommandInput),
+          h(UiCommandList, null, () => [h(UiCommandEmpty)]),
+        ]),
+      'de',
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialogTitleDe = document.body.querySelector('h2')
+    expect(dialogTitleDe?.textContent).toBe('Befehlspalette')
+    const dialogDescDe = document.body.querySelector('p')
+    expect(dialogDescDe?.textContent).toBe('Such- und Befehlspalette')
+    const inputDe = document.body.querySelector('input')
+    expect(inputDe?.placeholder).toBe('Befehl eingeben oder suchen...')
+    expect(inputDe?.getAttribute('aria-label')).toBe('Befehle durchsuchen')
+    const listboxDe = document.body.querySelector('[role="listbox"]')
+    expect(listboxDe?.getAttribute('aria-label')).toBe('Befehle')
+    expect(document.body.textContent).toContain('Keine Ergebnisse gefunden.')
+  })
+
+  it('preserves explicit overrides across command surfaces, including empty strings', async () => {
+    mountApp(
+      () =>
+        h(
+          UiCommandDialog,
+          {
+            open: true,
+            title: 'Custom Palette',
+            description: 'Custom Desc',
+          },
+          () => [
+            h(UiCommandInput, { placeholder: '', label: 'Custom Search' }),
+            h(UiCommandList, { label: 'Custom Commands' }, () => [
+              h(UiCommandEmpty, { text: 'Custom Empty' }),
+            ]),
+          ],
+        ),
+      'de',
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialogTitle = document.body.querySelector('h2')
+    expect(dialogTitle?.textContent).toBe('Custom Palette')
+    const dialogDesc = document.body.querySelector('p')
+    expect(dialogDesc?.textContent).toBe('Custom Desc')
+    const input = document.body.querySelector('input')
+    expect(input?.placeholder).toBe('')
+    expect(input?.getAttribute('aria-label')).toBe('Custom Search')
+    const listbox = document.body.querySelector('[role="listbox"]')
+    expect(listbox?.getAttribute('aria-label')).toBe('Custom Commands')
+    expect(document.body.textContent).toContain('Custom Empty')
+  })
+
+  it('updates command surfaces on live locale change and preserves explicit overrides', async () => {
+    const i18n = createWebI18n('en')
+    mountApp(
+      () =>
+        h(UiCommandDialog, { open: true }, () => [
+          h(UiCommandInput),
+          h(UiCommandList, null, () => [h(UiCommandEmpty)]),
+        ]),
+      i18n,
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const titleEn = document.body.querySelector('h2')
+    expect(titleEn?.textContent).toBe('Command Palette')
+    const descEn = document.body.querySelector('p')
+    expect(descEn?.textContent).toBe('Search and command palette')
+    const inputEn = document.body.querySelector('input')
+    expect(inputEn?.placeholder).toBe('Type a command or search...')
+    expect(inputEn?.getAttribute('aria-label')).toBe('Search commands')
+    const listboxEn = document.body.querySelector('[role="listbox"]')
+    expect(listboxEn?.getAttribute('aria-label')).toBe('Commands')
+    expect(document.body.textContent).toContain('No results found.')
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    const titleDe = document.body.querySelector('h2')
+    expect(titleDe?.textContent).toBe('Befehlspalette')
+    const descDe = document.body.querySelector('p')
+    expect(descDe?.textContent).toBe('Such- und Befehlspalette')
+    const inputDe = document.body.querySelector('input')
+    expect(inputDe?.placeholder).toBe('Befehl eingeben oder suchen...')
+    expect(inputDe?.getAttribute('aria-label')).toBe('Befehle durchsuchen')
+    const listboxDe = document.body.querySelector('[role="listbox"]')
+    expect(listboxDe?.getAttribute('aria-label')).toBe('Befehle')
+    expect(document.body.textContent).toContain('Keine Ergebnisse gefunden.')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const i18nOverride = createWebI18n('de')
+    mountApp(
+      () =>
+        h(
+          UiCommandDialog,
+          {
+            open: true,
+            title: 'Custom Title',
+            description: 'Custom Description',
+          },
+          () => [
+            h(UiCommandInput, {
+              placeholder: 'Custom Filter',
+              label: 'Custom Label',
+            }),
+            h(UiCommandList, { label: 'Custom List' }, () => [
+              h(UiCommandEmpty, { text: 'Custom None' }),
+            ]),
+          ],
+        ),
+      i18nOverride,
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(document.body.querySelector('h2')?.textContent).toBe('Custom Title')
+    expect(document.body.querySelector('p')?.textContent).toBe(
+      'Custom Description',
+    )
+    const customInput = document.body.querySelector('input')
+    expect(customInput?.placeholder).toBe('Custom Filter')
+    expect(customInput?.getAttribute('aria-label')).toBe('Custom Label')
+    const customList = document.body.querySelector('[role="listbox"]')
+    expect(customList?.getAttribute('aria-label')).toBe('Custom List')
+    expect(document.body.textContent).toContain('Custom None')
+
+    i18nOverride.global.locale.value = 'en'
+    await nextTick()
+
+    expect(document.body.querySelector('h2')?.textContent).toBe('Custom Title')
+    expect(document.body.querySelector('p')?.textContent).toBe(
+      'Custom Description',
+    )
+    expect(customInput?.placeholder).toBe('Custom Filter')
+    expect(customInput?.getAttribute('aria-label')).toBe('Custom Label')
+    expect(customList?.getAttribute('aria-label')).toBe('Custom List')
+    expect(document.body.textContent).toContain('Custom None')
   })
 })

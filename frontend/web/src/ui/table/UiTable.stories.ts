@@ -7,6 +7,7 @@ import UiTableRow from './UiTableRow.vue'
 import UiTableHead from './UiTableHead.vue'
 import UiTableCell from './UiTableCell.vue'
 import UiTableEmpty from './UiTableEmpty.vue'
+import UiScrollArea from '../scroll-area/UiScrollArea.vue'
 
 const meta: Meta<typeof UiTable> = {
   title: 'Ui/Table',
@@ -15,6 +16,19 @@ const meta: Meta<typeof UiTable> = {
     dense: { control: 'boolean' },
     stickyHeader: { control: 'boolean' },
   },
+  // A story too wide for a narrow viewport opts into its own horizontal
+  // scroll region, as the app's call sites do, so the page never scrolls.
+  // UiTable adds no scroller itself: a sticky header needs the caller's
+  // vertical scroller as its nearest scroll container.
+  decorators: [
+    (story, context) => ({
+      components: { story, UiScrollArea },
+      template:
+        context.parameters.tableScroller === true
+          ? '<UiScrollArea axis="x" label="Devices"><story /></UiScrollArea>'
+          : '<story />',
+    }),
+  ],
 }
 
 export default meta
@@ -98,6 +112,7 @@ export const Default: Story = {
 }
 
 export const Dense: Story = {
+  parameters: { tableScroller: true },
   args: {
     dense: true,
   },
@@ -137,6 +152,7 @@ export const Dense: Story = {
 }
 
 export const Sortable: Story = {
+  parameters: { tableScroller: true },
   render: () => ({
     components: {
       UiTable,
@@ -240,6 +256,7 @@ export const StickyHeader: Story = {
 }
 
 export const RowSelection: Story = {
+  parameters: { tableScroller: true },
   render: () => ({
     components: {
       UiTable,
@@ -322,6 +339,85 @@ export const Empty: Story = {
           <UiTableEmpty :col-span="4">
             No devices found matching filter criteria.
           </UiTableEmpty>
+        </UiTableBody>
+      </UiTable>
+    `,
+  }),
+}
+
+export const LongText: Story = {
+  parameters: { tableScroller: true },
+  render: () => ({
+    components: {
+      UiTable,
+      UiTableHeader,
+      UiTableBody,
+      UiTableRow,
+      UiTableHead,
+      UiTableCell,
+    },
+    setup() {
+      const items = [
+        {
+          id: 'dev-1',
+          name: 'edge-router-distributed-datacenter-zone-north-01',
+          ip: '10.250.128.1',
+          status: 'Healthy and responding to bidirectional telemetry probes',
+          throughput: '1240.5 megabits per second sustained',
+        },
+      ]
+      return { items }
+    },
+    template: `
+      <UiTable>
+        <UiTableHeader>
+          <UiTableRow>
+            <UiTableHead>Fully Qualified Device Name</UiTableHead>
+            <UiTableHead>Network Protocol Address</UiTableHead>
+            <UiTableHead>Operational Telemetry Status</UiTableHead>
+            <UiTableHead align="numeric">Cumulative Throughput Rate</UiTableHead>
+          </UiTableRow>
+        </UiTableHeader>
+        <UiTableBody>
+          <UiTableRow v-for="item in items" :key="item.id">
+            <UiTableCell>{{ item.name }}</UiTableCell>
+            <UiTableCell mono>{{ item.ip }}</UiTableCell>
+            <UiTableCell>{{ item.status }}</UiTableCell>
+            <UiTableCell align="numeric">{{ item.throughput }}</UiTableCell>
+          </UiTableRow>
+        </UiTableBody>
+      </UiTable>
+    `,
+  }),
+}
+
+export const CustomSortMarks: Story = {
+  render: () => ({
+    components: {
+      UiTable,
+      UiTableHeader,
+      UiTableBody,
+      UiTableRow,
+      UiTableHead,
+      UiTableCell,
+    },
+    template: `
+      <UiTable>
+        <UiTableHeader>
+          <UiTableRow>
+            <UiTableHead sortable sort-direction="ascending" ascending-mark=" [ASC]">
+              Device Name
+            </UiTableHead>
+            <UiTableHead sortable sort-direction="descending" descending-mark=" [DESC]">
+              Status
+            </UiTableHead>
+          </UiTableRow>
+        </UiTableHeader>
+        <UiTableBody>
+          <UiTableRow>
+            <UiTableCell>edge-router-01</UiTableCell>
+            <UiTableCell>Healthy</UiTableCell>
+          </UiTableRow>
         </UiTableBody>
       </UiTable>
     `,

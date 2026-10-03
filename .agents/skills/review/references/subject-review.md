@@ -65,7 +65,10 @@ disqualifies a finding here.
 ## Step 5: report and verdict
 
 Report the units and seams first, so the reader can see what was covered,
-then the interplay findings, then the unit findings under their unit. The
+then the interplay findings, then the unit findings under their unit. Name
+every unit, path, or seam the subject reaches that no reader opened as not
+covered, since a report that is silent about a package reads as having
+cleared it. The
 verdict judges the subject: sound, sound with fixes, or unsound.
 
 Record the verdict nowhere: not in the plan, not through `ledger.py`, and

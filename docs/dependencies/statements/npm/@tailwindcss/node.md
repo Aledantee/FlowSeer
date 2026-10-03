@@ -13,7 +13,7 @@ approved: 2026-10-01
 `frontend/web/src/theme/tailwind.test.ts:2` imports `compile` from
 `@tailwindcss/node` to compile the repository's Tailwind stylesheet and test
 the generated utilities. The direct requirement is pinned at `4.3.3` in
-`frontend/web/package.json:44`.
+`frontend/web/package.json:46`.
 
 ## Why it is safe
 

@@ -12,7 +12,7 @@ approved: 2026-10-01
 
 `frontend/web/package.json:15` runs `eslint .` in the web lint script, which
 loads `frontend/web/eslint.config.js`. The direct requirement is pinned at
-`10.11.0` in `frontend/web/package.json:48`.
+`10.11.0` in `frontend/web/package.json:50`.
 
 ## Why it is safe
 

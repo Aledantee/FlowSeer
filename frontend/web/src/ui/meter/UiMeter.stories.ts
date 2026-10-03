@@ -77,3 +77,50 @@ export const SegmentedDistribution: StoryObj<typeof UiSegmentedMeter> = {
     `,
   }),
 }
+
+export const FormattedValues: Story = {
+  args: {
+    label: 'Heap Memory Allocation',
+    value: 1234.5,
+    unit: 'MB',
+  },
+  render: (args) => ({
+    components: { UiMeter },
+    setup() {
+      return { args }
+    },
+    template: '<div class="max-w-xs"><UiMeter v-bind="args" /></div>',
+  }),
+}
+
+export const LongText: Story = {
+  args: {
+    label:
+      'Long-term aggregate processor utilization across all computing clusters and tenant environments',
+    value: 78.4,
+    detail: '32 active physical cores and 64 virtual threads assigned',
+  },
+  render: (args) => ({
+    components: { UiMeter },
+    setup() {
+      return { args }
+    },
+    template: '<div class="max-w-md"><UiMeter v-bind="args" /></div>',
+  }),
+}
+
+export const SegmentedOverrides: StoryObj<typeof UiSegmentedMeter> = {
+  render: () => ({
+    components: { UiSegmentedMeter },
+    setup() {
+      const counts = { Healthy: 120, Degraded: 14, Offline: 2 }
+      const labels = { Healthy: 'Operational', Degraded: 'Warning' }
+      return { counts, labels }
+    },
+    template: `
+      <div class="max-w-md space-y-4">
+        <UiSegmentedMeter :counts="counts" :labels="labels" legend />
+      </div>
+    `,
+  }),
+}

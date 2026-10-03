@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implements a FlowSeer plan from docs/plans/ or a concrete, already-decided build request end to end, unit by unit, with the repository verifier run on every changed path. Use when asked to implement, build, execute, or work a plan. Not for open-ended bugs or for requests that still need design choices.
+description: Implements a FlowSeer plan from docs/plans/ or a concrete, already-decided build request end to end, unit by unit, with the repository verifier run on every changed path. Use when asked to implement, build, execute, or work a plan. Not for open-ended bugs (`diagnose`) or for requests that still need design choices.
 argument-hint: "[plan path]"
 ---
 

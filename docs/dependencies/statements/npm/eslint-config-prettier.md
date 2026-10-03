@@ -12,7 +12,7 @@ approved: 2026-10-01
 
 `frontend/web/eslint.config.js:4` imports `eslint-config-prettier`, and line 11
 applies it after the JavaScript, TypeScript, and Vue rules. The direct
-requirement is pinned at `10.1.8` in `frontend/web/package.json:49`.
+requirement is pinned at `10.1.8` in `frontend/web/package.json:51`.
 
 ## Why it is safe
 

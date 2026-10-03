@@ -18,6 +18,7 @@ import {
   UiTableHeader,
   UiTableRow,
   UiTooltip,
+  useMotionFeedback,
 } from './ui'
 import AppIcon from './components/AppIcon.vue'
 import DeviceIcon from './components/DeviceIcon.vue'
@@ -26,7 +27,6 @@ import { aiTarget, useAiSlot } from './ai'
 import type { AiTarget, AiTargetSegment } from './ai'
 import { scopeOf, usePage } from './navigation/page'
 import { useWorkspace } from './navigation/workspace'
-import { useMotionFeedback } from './motion/useMotionFeedback'
 import { filterDevices, sites, tenantIds, tenants } from './domain/fleet'
 import type { Device } from './domain/fleet'
 import {
@@ -259,7 +259,7 @@ watch(
     if (value && page.primary)
       play(notice.value, {
         opacity: [0.6, 1],
-        transform: ['translateY(-4px)', 'none'],
+        y: [-4, 0],
       })
   },
   { flush: 'post' },

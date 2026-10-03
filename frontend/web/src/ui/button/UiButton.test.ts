@@ -48,11 +48,13 @@ describe('UiButton', () => {
 
   it('protects vertical padding and hover backgrounds against legacy cascade with important modifiers', () => {
     const { button: smButton } = mountButton({ size: 'sm' })
-    expect(smButton.className).toContain('!py-0')
+    expect(smButton.className).toContain('!py-1')
+    expect(smButton.className).toContain('min-h-7')
     dispose()
 
     const { button: mdButton } = mountButton({ size: 'md' })
-    expect(mdButton.className).toContain('!py-0')
+    expect(mdButton.className).toContain('!py-1.5')
+    expect(mdButton.className).toContain('min-h-8')
     dispose()
 
     const { button: secondaryButton } = mountButton({ variant: 'secondary' })

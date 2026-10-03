@@ -42,7 +42,17 @@ For an entry that holds, place the fix where `docs/agent-steering.md`,
 "Steering surfaces" puts it:
 
 - The step was skipped or misread: reword or reorder the step in the skill
-  or agent. Add one example when the wording could be read two ways.
+  or agent. Add one example when the wording could be read two ways. Fit
+  the wording to what went wrong:
+
+  | What went wrong | Form of the fix |
+  | --- | --- |
+  | The output had the wrong shape: a buried verdict, a restated brief | State what the output is, its parts in order |
+  | A required element was left out of something the step already produces | A named slot in the template or report list |
+  | The behavior should depend on a condition | A conditional on something the reader has already observed |
+  | The rule was known and skipped | A plain prohibition with its reason |
+
+  An exception is its own conditional, never a clause appended to the rule.
 - The step was followed as written and still failed, or the same rule was
   violated more than once: the fix is enforcement, a hook under
   `tools/hooks/` or a check in the verifier, and the prose only names it.
@@ -51,7 +61,9 @@ For an entry that holds, place the fix where `docs/agent-steering.md`,
   and has several conditional steps; otherwise add a step to an existing
   skill. Its `description` says when it applies and when to skip it, and it
   ends by running the verifier and by pointing corrections to `compound`,
-  Observe, like the others.
+  Observe, like the others. A script it ships is made executable with
+  `chmod +x <path>`, sandbox disabled, since the sandbox denies writes
+  under the skills directory and the file otherwise lands as mode 100644.
 - A rule every task needs: `AGENTS.md`, staged, not applied.
 
 Before editing, grep `AGENTS.md`, `docs/agent-steering.md`,

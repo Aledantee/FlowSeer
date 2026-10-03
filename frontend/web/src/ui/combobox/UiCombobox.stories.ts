@@ -59,3 +59,35 @@ export const WithCustomTrigger: Story = {
     `,
   }),
 }
+
+export const DefaultEmpty: Story = {
+  name: 'Default Empty State',
+  args: {
+    options: [],
+  },
+}
+
+export const LongText: Story = {
+  args: {
+    options: [
+      {
+        value: 'gw-cluster-redundant-alpha-01',
+        label:
+          'High-Throughput Autonomous Redundant Border Gateway Router Cluster Alpha Node 01 (Western Facility)',
+        group:
+          'Primary Telemetry Ingestion Gateways and Autonomous Edge Routers',
+      },
+      {
+        value: 'sw-backbone-spine-aggregate-02',
+        label:
+          'Multi-Chassis High-Density Backbone Aggregation Spine Switch Node 02 (Eastern Facility)',
+        group:
+          'Core Layer 3 Fabric Spine Switches and Dynamic Fabric Interconnects',
+      },
+    ],
+    placeholder:
+      'Search across all managed global fabric telemetry devices, gateways, and edge collectors...',
+    emptyText:
+      'No managed networking devices or fabric endpoints matched your query criteria.',
+  },
+}

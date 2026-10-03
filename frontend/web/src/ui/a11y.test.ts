@@ -4,9 +4,47 @@ import { createApp, h, nextTick, type Component } from 'vue'
 import axe from 'axe-core'
 import { composeStories, setProjectAnnotations } from '@storybook/vue3-vite'
 import preview from '../../.storybook/preview'
+import { useI18n } from 'vue-i18n'
 import UiInput from './form/UiInput.vue'
+import { createWebI18n, type WebLocale } from '../i18n'
 
 setProjectAnnotations(preview)
+
+const AUDIT_LOCALES: readonly WebLocale[] = ['en', 'de']
+const GERMAN_PAGINATION_STORY = './pagination/UiPagination.stories.ts:Default'
+
+function extractI18nWarnings(calls: unknown[][]): string[] {
+  const issues: string[] = []
+  for (const args of calls) {
+    const text = args
+      .map((a) =>
+        typeof a === 'string' ? a : a instanceof Error ? a.message : String(a),
+      )
+      .join(' ')
+    if (
+      (text.includes('[intlify]') &&
+        (text.includes('Not found') || text.includes('Fall back to'))) ||
+      text.includes('Not found parent scope')
+    ) {
+      issues.push(text)
+    }
+  }
+  return issues
+}
+
+function assertNoI18nWarnings(
+  calls: unknown[][],
+  path: string,
+  storyName: string,
+  locale: WebLocale,
+  phase: string,
+) {
+  const warnings = extractI18nWarnings(calls)
+  expect(
+    warnings,
+    `Expected no i18n warnings after ${phase} in ${path} -> ${storyName} (${locale}), but found:\n${warnings.join('\n')}`,
+  ).toEqual([])
+}
 
 // The audit covers the component families under this directory and the
 // component stories alongside it; a story outside the glob is unaudited.
@@ -252,6 +290,10 @@ describe('accessibility (axe-core)', () => {
     for (const key of Object.keys(COMPONENT_TARGETS)) {
       expect(storyKeys, `${key} is missing from the story audit`).toContain(key)
     }
+    expect(
+      storyKeys,
+      `${GERMAN_PAGINATION_STORY} is missing from the story audit`,
+    ).toContain(GERMAN_PAGINATION_STORY)
 
     const componentPaths = Object.keys(componentModules)
     expect(componentPaths.length).toBeGreaterThan(0)
@@ -281,6 +323,7 @@ describe('accessibility (axe-core)', () => {
         return h(UiInput)
       },
     })
+    app.use(createWebI18n())
     app.mount(container)
     cleanups.push(() => {
       app.unmount()
@@ -296,84 +339,184 @@ describe('accessibility (axe-core)', () => {
     expect(labelViolation).toBeDefined()
   })
 
-  for (const [path, storyModule] of Object.entries(storyModules)) {
-    if (path.includes('/foundations/')) {
-      continue
-    }
+  it('detects missing-key, fallback, and parent-scope i18n warnings', () => {
+    const warnSpy = vi.spyOn(console, 'warn')
+    cleanups.push(() => warnSpy.mockRestore())
 
-    const stories = composeStories(
-      storyModule as Parameters<typeof composeStories>[0],
+    const container = document.createElement('div')
+    document.body.append(container)
+    const app = createApp({
+      setup() {
+        const { t } = useI18n({ useScope: 'parent' })
+        t('nonexistent.missing.key')
+        return () => h('div')
+      },
+    })
+    app.use(createWebI18n('de'))
+    app.mount(container)
+    cleanups.push(() => {
+      app.unmount()
+      container.remove()
+    })
+
+    const warnings = extractI18nWarnings(warnSpy.mock.calls)
+    expect(
+      warnings.some(
+        (w) =>
+          w.includes('Not found') &&
+          w.includes("'nonexistent.missing.key'") &&
+          w.includes("'de'"),
+      ),
+    ).toBe(true)
+    expect(
+      warnings.some(
+        (w) =>
+          w.includes('Fall back to translate') &&
+          w.includes("'nonexistent.missing.key'") &&
+          w.includes("'en'"),
+      ),
+    ).toBe(true)
+    expect(warnings.some((w) => w.includes('Not found parent scope'))).toBe(
+      true,
     )
+  })
+
+  for (const [path, storyModule] of Object.entries(storyModules)) {
+    const isFoundation = path.includes('/foundations/')
     describe(`Stories in ${path}`, () => {
-      for (const [storyName, StoryComponent] of Object.entries(stories)) {
-        it(`${storyName} passes axe accessibility checks`, async () => {
-          const container = document.createElement('div')
-          document.body.append(container)
+      for (const locale of AUDIT_LOCALES) {
+        const stories = composeStories(
+          storyModule as Parameters<typeof composeStories>[0],
+          { initialGlobals: { locale } },
+        )
+        for (const [storyName, StoryComponent] of Object.entries(stories)) {
+          if (isFoundation) {
+            it(`${storyName} (${locale}) renders with no i18n warnings`, async () => {
+              const warnSpy = vi.spyOn(console, 'warn')
+              cleanups.push(() => warnSpy.mockRestore())
 
-          const app = createApp(StoryComponent as Component)
-          app.mount(container)
-          cleanups.push(() => {
-            app.unmount()
-            container.remove()
-          })
+              const container = document.createElement('div')
+              document.body.append(container)
 
-          const label = `${path} -> ${storyName}`
-          const { selected, element, componentTarget } =
-            await selectTarget(label)
+              const app = createApp(StoryComponent as Component)
+              app.use(createWebI18n(locale))
+              app.mount(container)
+              cleanups.push(() => {
+                app.unmount()
+                container.remove()
+              })
 
-          const ask = document.querySelector<HTMLElement>('.ai-ask')
-          expect(
-            ask,
-            `Expected ${label} to mount the Ask action for its selected target`,
-          ).not.toBeNull()
-          ask?.click()
-          await settle()
-          expect(
-            document.querySelector('form textarea'),
-            `Expected ${label} to open the Ask panel for its selected target`,
-          ).not.toBeNull()
-
-          const root = container.querySelector<HTMLElement>(
-            '[data-ai-story-root]',
-          )
-          expect(
-            root,
-            `Expected ${label} to render the decorator story root`,
-          ).not.toBeNull()
-          if (componentTarget) {
-            expect(
-              element === root,
-              `Expected ${label} to register its target on a component element, not the decorator wrapper`,
-            ).toBe(false)
-            expect(
-              selected?.kind,
-              `Expected ${label} to select a component-level target`,
-            ).not.toBe('story')
+              await settle()
+              assertNoI18nWarnings(
+                warnSpy.mock.calls,
+                path,
+                storyName,
+                locale,
+                'mount',
+              )
+            })
+            continue
           }
 
-          const overlayAudit = OVERLAY_AUDITS[`${path}:${storyName}`]
-          // Audit the overlay's portalled root; the trigger and Reka's focus
-          // guards sit outside it.
-          const auditElement = overlayAudit
-            ? await openOverlay({ container, ...overlayAudit })
-            : document.body
+          it(`${storyName} (${locale}) passes accessibility and i18n checks`, async () => {
+            const warnSpy = vi.spyOn(console, 'warn')
+            cleanups.push(() => warnSpy.mockRestore())
 
-          const results = await runAudit(auditElement)
+            const container = document.createElement('div')
+            document.body.append(container)
 
-          expect(
-            results.violations,
-            `Expected no axe violations in ${path} -> ${storyName}, found: ${JSON.stringify(
-              results.violations.map((v) => ({
-                id: v.id,
-                impact: v.impact,
-                description: v.description,
-                nodes: v.nodes.map((n) => n.html),
-              })),
-              null,
-              2,
-            )}`,
-          ).toHaveLength(0)
-        })
+            const app = createApp(StoryComponent as Component)
+            app.use(createWebI18n(locale))
+            app.mount(container)
+            cleanups.push(() => {
+              app.unmount()
+              container.remove()
+            })
+
+            await settle()
+            assertNoI18nWarnings(
+              warnSpy.mock.calls,
+              path,
+              storyName,
+              locale,
+              'mount',
+            )
+
+            const label = `${path} -> ${storyName}`
+            const { selected, element, componentTarget } =
+              await selectTarget(label)
+
+            const asks = document.querySelectorAll<HTMLElement>('.ai-ask')
+            expect(
+              asks,
+              `Expected ${label} to mount exactly one Ask action for its selected target`,
+            ).toHaveLength(1)
+            const ask = asks[0]
+            ask?.click()
+            await settle()
+            expect(
+              document.querySelector('form textarea'),
+              `Expected ${label} to open the Ask panel for its selected target`,
+            ).not.toBeNull()
+
+            const root = container.querySelector<HTMLElement>(
+              '[data-ai-story-root]',
+            )
+            expect(
+              root,
+              `Expected ${label} to render the decorator story root`,
+            ).not.toBeNull()
+            if (componentTarget) {
+              expect(
+                element === root,
+                `Expected ${label} to register its target on a component element, not the decorator wrapper`,
+              ).toBe(false)
+              expect(
+                selected?.kind,
+                `Expected ${label} to select a component-level target`,
+              ).not.toBe('story')
+            }
+
+            const overlayAudit = OVERLAY_AUDITS[`${path}:${storyName}`]
+            // Audit the overlay's portalled root; the trigger and Reka's focus
+            // guards sit outside it.
+            const auditElement = overlayAudit
+              ? await openOverlay({ container, ...overlayAudit })
+              : document.body
+
+            assertNoI18nWarnings(
+              warnSpy.mock.calls,
+              path,
+              storyName,
+              locale,
+              'interactive open',
+            )
+
+            if (
+              locale === 'de' &&
+              `${path}:${storyName}` === GERMAN_PAGINATION_STORY
+            ) {
+              expect(container.textContent).toContain('Zurück')
+              expect(container.textContent).toContain('Weiter')
+            }
+
+            const results = await runAudit(auditElement)
+
+            expect(
+              results.violations,
+              `Expected no axe violations in ${path} -> ${storyName} (${locale}), found: ${JSON.stringify(
+                results.violations.map((v) => ({
+                  id: v.id,
+                  impact: v.impact,
+                  description: v.description,
+                  nodes: v.nodes.map((n) => n.html),
+                })),
+                null,
+                2,
+              )}`,
+            ).toHaveLength(0)
+          })
+        }
       }
     })
   }

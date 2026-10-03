@@ -10,8 +10,8 @@ approved: 2026-10-01
 
 ## Why it is required
 
-`frontend/web/src/main.ts:11` imports Inter's standard variable stylesheet, and
-`frontend/web/.storybook/preview.ts:4` loads Inter for stories. The direct
+`frontend/web/src/main.ts:12` imports Inter's standard variable stylesheet, and
+`frontend/web/.storybook/preview.ts:7` loads Inter for stories. The direct
 requirement is pinned at `5.3.0` in `frontend/web/package.json:23`.
 
 ## Why it is safe

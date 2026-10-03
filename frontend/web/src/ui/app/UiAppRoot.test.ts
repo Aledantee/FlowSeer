@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest'
-import { createApp, h, nextTick } from 'vue'
+import { createApp, defineComponent, h, nextTick } from 'vue'
+import { injectConfigProviderContext } from 'reka-ui'
 import UiAppRoot from './UiAppRoot.vue'
 import UiTooltip from '../tooltip/UiTooltip.vue'
+import { createWebI18n } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
@@ -11,9 +13,43 @@ afterEach(() => {
 })
 
 describe('UiAppRoot', () => {
+  it('observes Rekas injected locale changing en to de after a Composer update', async () => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    const i18n = createWebI18n('en')
+
+    const Consumer = defineComponent({
+      setup() {
+        const rekaContext = injectConfigProviderContext()
+        return () =>
+          h('div', { class: 'reka-locale' }, rekaContext.locale?.value)
+      },
+    })
+
+    const app = createApp({
+      render() {
+        return h(UiAppRoot, {}, () => h(Consumer))
+      },
+    })
+    app.use(i18n)
+    app.mount(host)
+    dispose = () => {
+      app.unmount()
+      dispose = () => {}
+    }
+
+    const element = host.querySelector('.reka-locale')
+    expect(element?.textContent).toBe('en')
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+    expect(element?.textContent).toBe('de')
+  })
+
   it('provides tooltip configuration so a child tooltip opens after the provider delay', async () => {
     const host = document.createElement('div')
     document.body.append(host)
+    const i18n = createWebI18n()
 
     const app = createApp({
       render() {
@@ -29,6 +65,7 @@ describe('UiAppRoot', () => {
         )
       },
     })
+    app.use(i18n)
     app.mount(host)
     dispose = () => {
       app.unmount()

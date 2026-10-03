@@ -12,7 +12,7 @@ approved: 2026-10-01
 
 `frontend/web/.storybook/main.ts:8` enables `@storybook/addon-docs` for the
 component workbench. The direct requirement is pinned at `10.6.0` in
-`frontend/web/package.json:41`.
+`frontend/web/package.json:43`.
 
 ## Why it is safe
 

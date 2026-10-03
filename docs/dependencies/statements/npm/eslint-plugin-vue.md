@@ -12,7 +12,7 @@ approved: 2026-10-01
 
 `frontend/web/eslint.config.js:3` imports `eslint-plugin-vue`, and line 10
 enables its flat Vue rule set for the web source. The direct requirement is
-pinned at `10.11.1` in `frontend/web/package.json:50`.
+pinned at `10.11.1` in `frontend/web/package.json:52`.
 
 ## Why it is safe
 

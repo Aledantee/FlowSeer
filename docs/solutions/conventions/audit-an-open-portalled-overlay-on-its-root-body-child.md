@@ -75,7 +75,7 @@ container, missing color contrast, typography, and child markup issues.
 Leave all axe rules enabled and strip no attributes. Audit the overlay's portalled root: the
 direct child of `document.body` containing the target role element.
 
-In `frontend/web/src/ui/a11y.test.ts:120-153`, locate the portalled root by finding the role
+In `frontend/web/src/ui/a11y.test.ts:137-190`, locate the portalled root by finding the role
 element, walking up to `document.body`, and excluding unrelated sibling portals:
 
 ```ts
@@ -102,7 +102,7 @@ expect(candidates).toHaveLength(1)
 return candidates[0]
 ```
 
-Pass the resolved root to `axe.run()` (`frontend/web/src/ui/a11y.test.ts:355-362`):
+Pass the resolved root to `axe.run()` (`frontend/web/src/ui/a11y.test.ts:483-503`):
 
 ```ts
 const auditElement = overlayAudit

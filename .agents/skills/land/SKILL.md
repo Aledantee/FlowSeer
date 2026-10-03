@@ -142,10 +142,13 @@ remedy. Resolve a conflict only when the resolution is mechanical; otherwise
 After the merge commit exists, including a resolved conflict, run:
 
 ```bash
-python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD
+python3 .claude/skills/land/scripts/merge-check.py main..HEAD
 ```
 
-A non-zero result stops land. Carry every `missing` block in the report.
+The range holds this branch's own merges and leaves out the merge commits
+`main` brought in, which `ORIG_HEAD..HEAD` would check again on every
+landing. A non-zero result stops land. Carry every `missing` block in the
+report.
 
 ## 4. Retire the plan
 

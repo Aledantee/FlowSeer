@@ -359,3 +359,13 @@ above conflicts with this section, this section wins.
   do not animate on entry. The command dialog gets an exit fade so it
   does not vanish mid-frame. Tooltips do not animate at all, which is
   simpler than animating only the first tooltip of a group.
+
+### 2026-10-01: motion-v ownership and reduced-motion behavior
+
+This amendment narrows the motion-v ownership described above.
+
+- `useMotionFeedback` lives under `frontend/web/src/ui/motion`.
+- Views import motion surfaces from the `src/ui` barrel.
+- `UiMotion` is a re-export of motion-v's component and has no story of its own.
+- Reduced motion keeps only fades in the composable. Layout animations end
+  immediately with no fade.
