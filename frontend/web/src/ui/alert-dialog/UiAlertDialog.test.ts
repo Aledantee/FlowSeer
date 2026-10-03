@@ -13,7 +13,7 @@ afterEach(() => {
 function mountAlertDialog(
   props: Partial<UiAlertDialogProps> & Record<string, unknown> = {},
   slots: Record<string, () => unknown> = {},
-  locale: WebLocale = 'en',
+  localeOrI18n: WebLocale | ReturnType<typeof createWebI18n> = 'en',
 ) {
   const host = document.createElement('div')
   document.body.append(host)
@@ -22,7 +22,11 @@ function mountAlertDialog(
       return h(UiAlertDialog, props as UiAlertDialogProps, slots)
     },
   })
-  app.use(createWebI18n(locale))
+  if (typeof localeOrI18n === 'string') {
+    app.use(createWebI18n(localeOrI18n))
+  } else {
+    app.use(localeOrI18n)
+  }
   app.mount(host)
   dispose = () => app.unmount()
   return host
@@ -230,5 +234,65 @@ describe('UiAlertDialog', () => {
     expect(buttons.some((b) => b.textContent?.trim() === 'Abbrechen')).toBe(
       false,
     )
+  })
+
+  it('updates default confirm and cancel button labels on live locale change and preserves explicit overrides', async () => {
+    const i18n = createWebI18n('en')
+    mountAlertDialog(
+      {
+        title: 'Title',
+        description: 'Description',
+        defaultOpen: true,
+      },
+      {},
+      i18n,
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const buttonsEn = Array.from(document.body.querySelectorAll('button'))
+    const cancelEn = buttonsEn.find((b) => b.textContent?.trim() === 'Cancel')
+    const confirmEn = buttonsEn.find((b) => b.textContent?.trim() === 'Confirm')
+    expect(cancelEn).toBeDefined()
+    expect(confirmEn).toBeDefined()
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    const buttonsDe = Array.from(document.body.querySelectorAll('button'))
+    const cancelDe = buttonsDe.find(
+      (b) => b.textContent?.trim() === 'Abbrechen',
+    )
+    const confirmDe = buttonsDe.find(
+      (b) => b.textContent?.trim() === 'Bestätigen',
+    )
+    expect(cancelDe).toBeDefined()
+    expect(confirmDe).toBeDefined()
+
+    dispose()
+    document.body.replaceChildren()
+
+    mountAlertDialog(
+      {
+        title: 'Title',
+        description: 'Description',
+        confirmText: 'Keep Confirm',
+        cancelText: 'Keep Cancel',
+        defaultOpen: true,
+      },
+      {},
+      i18n,
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(document.body.textContent).toContain('Keep Confirm')
+    expect(document.body.textContent).toContain('Keep Cancel')
+
+    i18n.global.locale.value = 'en'
+    await nextTick()
+
+    expect(document.body.textContent).toContain('Keep Confirm')
+    expect(document.body.textContent).toContain('Keep Cancel')
   })
 })

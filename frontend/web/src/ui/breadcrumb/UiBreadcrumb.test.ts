@@ -2,6 +2,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import UiBreadcrumb from './UiBreadcrumb.vue'
+import UiBreadcrumbEllipsis from './UiBreadcrumbEllipsis.vue'
+import UiBreadcrumbSeparator from './UiBreadcrumbSeparator.vue'
 import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
@@ -19,7 +21,7 @@ const sampleItems = [
 
 function mountBreadcrumb(
   props: Record<string, unknown> = {},
-  locale: WebLocale = 'en',
+  localeOrI18n: WebLocale | ReturnType<typeof createWebI18n> = 'en',
 ) {
   const host = document.createElement('div')
   document.body.append(host)
@@ -31,7 +33,11 @@ function mountBreadcrumb(
       })
     },
   })
-  app.use(createWebI18n(locale))
+  if (typeof localeOrI18n === 'string') {
+    app.use(createWebI18n(localeOrI18n))
+  } else {
+    app.use(localeOrI18n)
+  }
   app.mount(host)
   dispose = () => app.unmount()
   return host
@@ -142,5 +148,92 @@ describe('UiBreadcrumb', () => {
     )
     const customNav = customHost.querySelector('nav[aria-label="Custom Nav"]')
     expect(customNav).not.toBeNull()
+
+    dispose()
+    document.body.replaceChildren()
+
+    const ellipsisHost = document.createElement('div')
+    document.body.append(ellipsisHost)
+    const ellipsisApp = createApp({
+      render() {
+        return h(UiBreadcrumbEllipsis, { toggleLabel: 'X' })
+      },
+    })
+    ellipsisApp.use(createWebI18n('de'))
+    ellipsisApp.mount(ellipsisHost)
+    dispose = () => ellipsisApp.unmount()
+
+    const toggleBtn = ellipsisHost.querySelector('button[aria-label="X"]')
+    expect(toggleBtn).not.toBeNull()
+
+    dispose()
+    document.body.replaceChildren()
+
+    const sepHost = document.createElement('div')
+    document.body.append(sepHost)
+    const sepApp = createApp({
+      render() {
+        return h(UiBreadcrumbSeparator, { separator: '>' })
+      },
+    })
+    sepApp.use(createWebI18n('de'))
+    sepApp.mount(sepHost)
+    dispose = () => sepApp.unmount()
+
+    expect(sepHost.textContent?.trim()).toBe('>')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const emptySepHost = document.createElement('div')
+    document.body.append(emptySepHost)
+    const emptySepApp = createApp({
+      render() {
+        return h(UiBreadcrumbSeparator, { separator: '' })
+      },
+    })
+    emptySepApp.use(createWebI18n('de'))
+    emptySepApp.mount(emptySepHost)
+    dispose = () => emptySepApp.unmount()
+
+    expect(emptySepHost.textContent).toBe('')
+  })
+
+  it('updates breadcrumb defaults on live locale change and preserves explicit overrides', async () => {
+    const i18n = createWebI18n('en')
+    const host = mountBreadcrumb({ collapsed: true }, i18n)
+
+    const navEn = host.querySelector('nav')
+    expect(navEn?.getAttribute('aria-label')).toBe('Breadcrumb')
+    const triggerEn = host.querySelector('button')
+    expect(triggerEn?.getAttribute('aria-label')).toBe(
+      'Toggle collapsed breadcrumbs',
+    )
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(navEn?.getAttribute('aria-label')).toBe('Brotkrümelnavigation')
+    expect(triggerEn?.getAttribute('aria-label')).toBe(
+      'Eingeklappte Brotkrümel umschalten',
+    )
+
+    dispose()
+    document.body.replaceChildren()
+
+    const customHost = mountBreadcrumb(
+      {
+        collapsed: true,
+        ariaLabel: 'Custom Nav',
+      },
+      i18n,
+    )
+    const customNav = customHost.querySelector('nav')
+    expect(customNav?.getAttribute('aria-label')).toBe('Custom Nav')
+
+    i18n.global.locale.value = 'en'
+    await nextTick()
+
+    expect(customNav?.getAttribute('aria-label')).toBe('Custom Nav')
   })
 })

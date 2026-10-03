@@ -19,14 +19,18 @@ const options = [
 function mountSelect(
   props: Record<string, unknown> = {},
   parentContainer?: HTMLElement,
-  locale: WebLocale = 'en',
+  localeOrI18n: WebLocale | ReturnType<typeof createWebI18n> = 'en',
 ) {
   const host = parentContainer ?? document.createElement('div')
   if (!parentContainer) {
     document.body.append(host)
   }
   const app = createApp(UiSelect, props)
-  app.use(createWebI18n(locale))
+  if (typeof localeOrI18n === 'string') {
+    app.use(createWebI18n(localeOrI18n))
+  } else {
+    app.use(localeOrI18n)
+  }
   app.mount(host)
   dispose = () => {
     app.unmount()
@@ -231,5 +235,39 @@ describe('UiSelect', () => {
     )
     const triggerCustom = hostCustom.querySelector('button')
     expect(triggerCustom?.textContent).toContain('Custom Site Selection')
+  })
+
+  it('updates select placeholder on live locale change and preserves explicit overrides', async () => {
+    const i18n = createWebI18n('en')
+    const host = mountSelect({ options }, undefined, i18n)
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const trigger = host.querySelector('button')
+    expect(trigger?.textContent).toContain('Select an option...')
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(trigger?.textContent).toContain('Option auswählen...')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const hostOverride = mountSelect(
+      { options, placeholder: 'Custom Site Selection' },
+      undefined,
+      i18n,
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const triggerOverride = hostOverride.querySelector('button')
+    expect(triggerOverride?.textContent).toContain('Custom Site Selection')
+
+    i18n.global.locale.value = 'en'
+    await nextTick()
+
+    expect(triggerOverride?.textContent).toContain('Custom Site Selection')
   })
 })
