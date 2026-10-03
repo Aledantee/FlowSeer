@@ -160,6 +160,19 @@ The parent plan's Decisions apply. These are local to the phase.
   claim on the old address goes with the listing. The index and the lane
   may then name different addresses for one device until the attempt
   restarts. (decided by the user, 2026-10-03)
+- A device id listed twice at different addresses resolves at the address
+  the device was last seen active on. What "active" means and the state it
+  needs are not designed in this phase. Phase 1 keeps the behavior
+  `TestSync_DuplicateDeviceInListingPinsCurrentBehavior`
+  (`src/edge/agent/internal/lanehost/onboard_test.go`) pins, and a follow-up
+  plan designs the rule. Why: today `ApplyListing` lets the last row of an id
+  win (`src/edge/agent/internal/lanehost/index.go`) while `onboard` lets the
+  first row win (`src/edge/agent/internal/lanehost/onboard.go:215-252`), so
+  after the second `Sync` the index names the later address and the lane
+  session stays on the earlier one. `ListedDevice.device_id` has no
+  uniqueness rule across a listing
+  (`spec/proto/flowseer/edge/attach/v1/device.proto:21`), and the agent
+  validates no `ListDevicesResponse`. (decided by the user, 2026-10-03)
 - Phase 1 keeps the parser's default options, and a vendor line the parser
   reports partial is a parse failure like any other. Why: choosing vendor
   parse options needs real device output, which this phase has none of.
@@ -337,6 +350,21 @@ The parent plan's Decisions apply. These are local to the phase.
   behavior).
 - Removing the `reserved` lines earlier removals left under
   `spec/proto/flowseer/`. They stay, as the Decisions say.
+- The last-seen-active rule for a device id listed twice at different
+  addresses. The index and the lane disagree today, as the Decision above
+  records: the index follows the last row and the lane the first. Follow-up:
+  plan what "active" means, the state that records it, and the rule that
+  picks the address.
+- Validation of `ListDevicesResponse`, with a uniqueness rule on device ids
+  in `device.proto` and a check in the agent's client path. Nothing
+  validates a listing before its ids and bindings enter the index, and an
+  invalid id or binding from central would make each datagram from that
+  address fail envelope validation and end `Run`
+  (`src/edge/agent/internal/syslogsource/source.go:233-235`). Central's
+  handler builds each row from one registry device
+  (`src/services/device/internal/edgeapi/service.go:255-275`), and whether
+  the registry guarantees unique ids is unverified. Follow-up: add the
+  uniqueness rule and the validation together.
 - Vendor parse options. The source passes the parser no option beyond
   `CaptureRaw` (`src/edge/agent/internal/syslogsource/source.go:69-74`), so
   well-formed vendor output parses partial and draws on the raw budget: a

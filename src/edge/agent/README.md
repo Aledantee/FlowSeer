@@ -42,14 +42,16 @@ it.
 
 A device already onboarded is left alone rather than re-added to the lane. A
 second `AddDevice` for an already-registered device is refused by the lane.
-While the lane session stays on the onboarded address until the attempt
-restarts, the device index follows the listing immediately: for a held device,
-the index reflects the listed address and binding so datagrams from an address
-it left are not attributed to it. That is a real gap for lane operations, and
-it is recorded rather than passed over: a re-listing that differs from what
-a device was onboarded with names each field and both values, because an
-operator who measures a horizon centrally and watches mutations go on being
-refused has otherwise nothing anywhere connecting the two facts.
+The lane session therefore stays on the onboarded address until the attempt
+restarts, while the device index follows the listing immediately: for a held
+device, the index reflects the listed address and binding so datagrams from an
+address it left are not attributed to it. A held device whose listing changed
+is served by a lane session that no longer matches it, which is a real gap for
+lane operations, and it is recorded rather than passed over: a re-listing that
+differs from what a device was onboarded with names each field and both
+values, because an operator who measures a horizon centrally and watches
+mutations go on being refused has otherwise nothing anywhere connecting the
+two facts.
 
 A device listed without a measured horizon is onboarded all the same and
 read as usual, and the lane refuses a mutation on it.
@@ -217,7 +219,7 @@ pruning unlisted devices, recording address claims, and re-asserting held
 devices. When two or more listed devices share an address, datagrams from that
 address resolve to no device and are dropped with reason `ambiguous_source`.
 An address with one claimant resolves to that device only when the device was
-onboarded by a lane attempt of this process and listed at this address. Otherwise
+onboarded by a lane attempt of this process and is listed at this address. Otherwise
 the datagram is dropped with reason `unknown_source`. That state outlives the
 lane attempt: a lane restart keeps that state, while a process restart starts
 with an empty index.
