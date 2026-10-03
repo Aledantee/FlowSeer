@@ -4,14 +4,16 @@ type: fix
 date: 2026-10-03
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: implemented
+status: partially-implemented
 review: fixes needed
 execution: docs
 ---
 
 # Review Finding Kinds and the Gap Pass - Plan
 
-> Implemented. 3 units, 2026-10-03T10:25Z to 2026-10-03T10:25Z.
+> Partially implemented: U1, U2, U3 (3 units, 2026-10-03T10:25Z to
+> 2026-10-03T10:25Z). Their review ended at `fixes needed`, and U4, U5, and
+> U6 carry its findings and the Decisions that settle its two questions.
 
 ## Goal
 
@@ -36,8 +38,10 @@ Kinds:
 - A finding has one of four kinds: behavior, false test, gap, convention.
   Why: the loop used to stop only at a round with no correctness finding,
   and a test gap counted as one. Each fix round added tests for the next
-  reviewer to mutate, so two phases reached the three-round cap on test
-  coverage alone (`d7995d3d`, `fb724477`).
+  reviewer to mutate, so a phase reached the three-round cap on test
+  coverage alone (`fb724477`). `d7995d3d` is not cited for this: its message
+  lists "One defect no test catches" and "Two cases weaker than their
+  titles" open at round three (decided by the user, 2026-10-03).
 - Behavior is shipped code that gives a wrong result for some input or
   contradicts a numbered Requirement. Why: it is the kind a re-review exists
   to catch.
@@ -95,9 +99,53 @@ Where items close:
   follows a clean round needs the count stated.
 - One review runs one gap pass. An item that survives it ends the review at
   `fixes needed` with a question offering one more gap pass or stopping.
-  Why: a gap that needs source already becomes a round, so no third option
-  is needed, and `drive` can carry out both answers by running the review
-  stage again or leaving the plan parked.
+  Why: a gap that needs source becomes a round, or after three rounds waits
+  for the next review, so no third option is needed, and `drive` can carry
+  out both answers by running the review stage again or leaving the plan
+  parked.
+- "One more gap pass" starts a new review: `review` runs again from step 1,
+  reads the record, and has a fresh round count and one pass (decided by the
+  user, 2026-10-03). Why: a second pass inside the same review contradicts
+  the one-pass rule and leaves a pass that changes source with no round
+  left.
+- Once a review has run three rounds, its gap pass changes no source
+  outside tests, comments, and docs. A fix worker that needs such a change
+  reports the item, the item stays recorded, and the review ends at
+  `fixes needed` with the surviving-item question (decided by the user,
+  2026-10-03). Why: the cap stays absolute, and the alternative writes an
+  accept over source no reviewer read.
+- Every run of `review` on a scope that holds a recorded verdict starts at
+  step 1 and is a new review with a fresh round count and one pass,
+  whichever answer or skill starts it. The answer "one more gap pass" is
+  also the answer to fix and review again, so step 6 runs in that review.
+  Why: `land` and `next` send a `fixes needed` plan to `review` step 6
+  (`.agents/skills/land/SKILL.md:80`, `.agents/skills/next/SKILL.md:28`),
+  and a count carried over from the verdict commit would leave an item the
+  cap held back with no review that may close it.
+- An item still recorded once this review's pass has run ends the review at
+  `fixes needed` with the question, whether it survived the pass or a later
+  round found it. When a behavior or false-test finding is also open, the
+  cap's outcome is the review's and the items stay recorded. When a
+  Requirement question is also open, the question offers both remedies and
+  stopping. Why: an ending defined by where an item came from leaves a gap
+  from a round after the pass with no question, and two endings with no
+  order between them.
+- A pass branch that changed source outside tests, comments, and docs after
+  three rounds is not merged. Why: the worker's duty alone does not say what
+  the coordinator does when the worker ignores it.
+- A gap or convention finding a fix round returns is written to the record,
+  with `fixes needed`, when that round settles and before the pass starts.
+  For planless work the new `gaps:` line carries every open item, earlier
+  ones included. Why: the pass closes items only from the record, so an
+  item kept in the report alone is never rerun, a session that ends
+  mid-pass loses it, and the last `gaps:` line wins.
+- On "apply the fixes here" and "apply chosen findings only", a behavior or
+  false-test finding left unfixed keeps `fixes needed`. Why:
+  `.agents/skills/review/SKILL.md:262` names only a recorded item and a
+  Requirement question as what blocks the accept on those paths.
+- This plan stays whole at six units. Why: all six edit the review loop's
+  four files, which is one cluster, and the length over 300 lines comes from
+  the units a review added to a plan whose first three had landed.
 
 The record:
 
@@ -179,21 +227,38 @@ Requirement questions:
    steps 3 and 4 as a round that counts toward the three. Example: round
    one is not clean, round two is clean, the pass changes a helper and is
    round three, and a behavior finding there ends the loop at the cap.
-8. An item that survives the gap pass ends the review with a question
-   offering one more gap pass or stopping. A delegated reviewer states each
-   surviving item's `path:line` and mutation as its blocker. Example: a
-   plan without phases under `drive` parks at `fixes needed`, and the next
-   review stage reads the item from the section.
+   After three rounds the pass changes no such source. Example: rounds one
+   and two are not clean, round three is clean, and the one recorded gap
+   needs a helper changed. The worker reports it, the item stays, and the
+   verdict is `fixes needed` with the surviving-item question.
+8. An item still recorded once the review's gap pass has run ends the
+   review with a question offering one more gap pass or stopping. One more
+   gap pass is a new review from step 1 with a fresh round count, and step
+   6 runs in it. A
+   delegated reviewer states each such item's `path:line` and its mutation
+   or wrong text as its blocker. Example: a plan without phases under
+   `drive` parks at `fixes needed`, and the next review stage reads the
+   item from the section.
 9. A finding that needs a Requirement changed leaves the verdict
    `fixes needed` and an item under the plan's Open questions. Example: a
    reviewer marks Requirement 9 `undecidable` and nothing else is open. The
    verdict is `fixes needed`. After a Decision ending
    `decided by the user` says how to read it, the next review judges by
-   that Decision and removes the item.
+   that Decision and removes the item. A clean round with an empty record
+   and that question still open also writes `fixes needed`.
 10. `docs/agent-steering.md` states the kinds, where gaps close, and why,
-    citing `d7995d3d` and `fb724477` for the cap reached on coverage alone.
+    citing `fb724477` alone for the cap reached on coverage alone.
     Example: `git show -s fb724477` reads "Two low findings stay open, both
     test coverage".
+11. A gap or convention finding a fix round returns is in the record before
+    the gap pass starts. Example: the initial review finds one behavior
+    defect and no gap. Round one is clean and returns two gaps. The plan
+    then holds `## Review gaps` with two items and `review: fixes needed`,
+    and the pass reruns both mutations.
+12. On "apply the fixes here" and "apply chosen findings only", the verdict
+    stays `fixes needed` while a behavior or false-test finding is unfixed.
+    Example: the report holds two behavior findings, the user chooses one,
+    and the recorded verdict stays `fixes needed`.
 
 ## Out of scope
 
@@ -265,21 +330,80 @@ Change: `mutation-check.md` ends with the false-test and gap sentences and
 points to `fix-loop.md` for the boundary. The loop paragraphs of
 `docs/agent-steering.md` name the four kinds, say gaps close in one pass
 inside the review before the accept verdict, say the record is read only by
-`review` and why no gate reads it, and cite `d7995d3d` and `fb724477` for
-the cap reached on coverage alone. The citation of `fdd1823c` is gone,
+`review` and why no gate reads it, and cite `fb724477` for the cap reached
+on coverage alone. The citation of `fdd1823c` is gone,
 since that commit records two open correctness items.
-Tests: `git show -s d7995d3d fb724477 c65f3804 e83b1305` prints four
+Tests: `git show -s fb724477 c65f3804 e83b1305` prints three
 commits whose messages say what the sentences citing them claim.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills/review/references/mutation-check.md docs/agent-steering.md`
 
-Waves: U1 U2 U3
+### U4. Round-found items, the pass at the cap, and the next pass in the fix loop
+
+Files: `.agents/skills/review/references/fix-loop.md`
+After: U1
+Change: "Which findings get a round" says a gap or convention finding a
+round returns is written to the record with `fixes needed`, as `SKILL.md`
+step 5 records a verdict, when the round settles, and that a planless
+`gaps:` line carries every open item. "The gap pass" replaces its two
+statements of what keeps `fixes needed` on the apply answers with a pointer
+to `SKILL.md` step 5. It says that
+after three rounds the pass changes no source outside tests, comments, and
+docs, that a worker needing such a change reports the item, which stays
+recorded, and that a pass branch holding such a change is not merged. The
+paragraph starting "One review runs one gap pass" covers every item still
+recorded once the pass has run, gives the order against the cap and against
+a Requirement question, says one more gap pass is a new review from step 1
+with a fresh round count in which step 6 runs, and has the delegated
+reviewer state each item's `path:line` and its mutation or wrong text. Its
+sentence on a gap that needs source reads "a gap that needs source becomes
+a round, or after three rounds waits for the next review". "When to stop" writes
+`accept after fixes` directly only with an empty record and no Requirement
+question open, and runs the gap pass after a clean round only when this
+review has not run one.
+Tests: nothing in this unit is executable. `review` traces Requirements 7,
+8, 9, 11, and 12 through the text.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills/review/references/fix-loop.md`
+
+### U5. Unfixed findings on the apply paths and the pass wording in the review skill
+
+Files: `.agents/skills/review/SKILL.md`
+After: U2
+Change: The "apply the fixes" paragraph keeps `fixes needed` while a
+behavior or false-test finding is unfixed, beside the recorded item and the
+Requirement question it already names. The question table's row for an item
+that survived the gap pass covers every item still recorded once the pass
+has run, and says one more gap pass runs `review` again from step 1 with
+step 6. Step 1 says a run on a scope with a recorded verdict is a new
+review with a fresh round count. The delegated-reviewer sentence asks
+for each item's mutation or wrong text. Step 6 no longer says the pass has
+no further review round. It says a pass that changes source outside tests,
+comments, and docs is a round, as `references/fix-loop.md` describes.
+Tests: nothing in this unit is executable. `review` traces Requirements 8
+and 12 through the text.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills/review/SKILL.md`
+
+### U6. The cap citation and the reader list in the steering record
+
+Files: `docs/agent-steering.md`
+After: U3
+Change: The loop paragraphs cite `fb724477` alone for the cap reached on
+test coverage alone, as one phase. The list of readers a carried gap had to
+reach names `land`, `drive`, `next`, and plan retirement, without the Orca
+card. The paragraph on the pass says that after three rounds it changes no
+source outside tests, comments, and docs, and that one more gap pass is a
+new review.
+Tests: `git show -s fb724477 c65f3804 e83b1305` prints three commits whose
+messages say what the sentences citing them claim.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/agent-steering.md`
+
+Waves: U1 U2 U3 | U4 U5 U6
 
 ## Verification
 
 ```bash
 .claude/skills/verify-change/scripts/verify-change.sh --base main
 git diff --name-only main...HEAD
-grep -n -E "behaviour|of any class|neither class|before any verdict|not written to a plan section|gaps open|review-gaps" \
+grep -n -E "behaviour|of any class|neither class|before any verdict|not written to a plan section|gaps open|review-gaps|d7995d3d|and the Orca card|with no further review round" \
   .agents/skills/review/SKILL.md .agents/skills/review/references/fix-loop.md \
   .agents/skills/review/references/mutation-check.md docs/agent-steering.md
 ```
