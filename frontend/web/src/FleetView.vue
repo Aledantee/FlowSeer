@@ -17,6 +17,7 @@ import AccountMenu from './components/AccountMenu.vue'
 import ReportBugButton from './components/ReportBugButton.vue'
 import HelpButton from './components/HelpButton.vue'
 import ThemeSwitcher from './components/ThemeSwitcher.vue'
+import LocaleSwitcher from './components/LocaleSwitcher.vue'
 import GlobalSearch from './components/GlobalSearch.vue'
 import TenantSwitcher from './components/TenantSwitcher.vue'
 import ScopeSwitcher from './components/ScopeSwitcher.vue'
@@ -1097,6 +1098,7 @@ onUnmounted(() => clearInterval(timer))
             @dock="dockResult"
           />
           <ThemeSwitcher />
+          <LocaleSwitcher />
           <HelpButton />
           <ReportBugButton />
           <AccountMenu />

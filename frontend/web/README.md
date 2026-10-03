@@ -92,7 +92,10 @@ The icon-only theme switch at the top right crossfades and rotates between
 sun and moon over 160 ms. It has an accessible state label and a tooltip. Under
 reduced motion the icons crossfade without rotating. The theme follows the system preference until
 a choice is saved in local browser storage. The navigation frame stays connected in both themes: neutral gray in light mode
-and charcoal in dark mode. Help opens a keyboard-accessible dialog explaining
+and charcoal in dark mode. The language switch beside it is one button of the same size. It shows the
+active language code, and its tooltip and accessible name offer the other language by its own name,
+such as `Switch language to Deutsch`. Pressing it changes every view without a reload and announces
+the change in a status region. Help opens a keyboard-accessible dialog explaining
 scope, device lookup, and site assignment. The adjacent bug button
 opens a report form and copies its summary, description, and page path for sharing.
 It does not submit to a service or include tenant/site query parameters.
@@ -245,7 +248,7 @@ Favor concise status summaries and touch-friendly controls. Dense table tooling,
 full topology exploration, bulk configuration, and configurable OLAP dashboards
 can remain desktop workflows. The skeleton shows device count and health first on phones, hides topology
 navigation and secondary traffic summaries, and offers one-tap device details.
-The theme, help, and account controls join the brand row, the bug report
+The theme, language, help, and account controls join the brand row, the bug report
 button is left to desktop, and the Dashboard keeps its site list with a health
 bar per site.
 Further quick actions need their own service contracts.
@@ -291,7 +294,9 @@ control. Motion lifecycle tests cover these cleanup paths and rapid replacement.
 FlowSeer uses vue-i18n in Composition mode with English and German catalogs:
 
 - `src/i18n/index.ts` exports `createWebI18n(locale = 'en')` with `fallbackLocale: 'en'`, `en.json` and `de.json` catalogs, and decimal, integer, and percent number formats. Each call returns a fresh plugin instance because vue-i18n binds its lifecycle to the app: `install` wraps `app.unmount` to call `i18n.dispose()`, so sharing an instance disposes it when the first app unmounts.
-- `src/main.ts` installs one plugin instance on the Vue application before mount. Storybook's `setup` callback registers a fresh instance per app, and tests mount components with their own instance.
+- `src/main.ts` installs one plugin instance on the Vue application before mount, created with the locale `initialLocale()` resolves. Storybook's `setup` callback registers a fresh instance per app, and tests mount components with their own instance.
+- `src/i18n/locale.ts` picks the starting locale. A saved choice wins, then the first entry of `navigator.languages` whose primary subtag is `en` or `de` without regard to case, then `en`. A tag such as `den` does not match, since only its first letters equal `de`. The choice lives in `localStorage` under `flowseer.locale`, and blocked storage reads as nothing saved. `bindDocumentLang` keeps `<html lang>` equal to the Composer locale, including after a switch.
+- `src/components/LocaleSwitcher.vue` sets the Composer locale and saves it. When the browser refuses to save, the locale still changes and the status region says the choice was not saved. Storybook keeps its own locale toolbar and does not read `flowseer.locale`.
 - Locale state lives in the global Composer. `UiAppRoot` reads the active Composer locale and passes it to Reka's `ConfigProvider`. That keeps translated template text and headless primitives synchronized.
 - In Storybook, the `withLocale` decorator watches `reactive(context.globals).locale` and updates the active Composer. The Storybook toolbar provides English and German options without per-story provider wrappers.
 - Component defaults belong to `ui.<owner>.<suffix>` in `src/i18n/locales/en.json` and `de.json`. Identifiers, keys, and slot content remain caller data, while the owning component renders localized display text.

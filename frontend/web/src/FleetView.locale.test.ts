@@ -546,6 +546,34 @@ describe('inventory in German', () => {
   })
 })
 
+describe('language switch in the top bar', () => {
+  it('turns the navigation and heading German with no remount', async () => {
+    const { host } = await mountLocale('/devices', 'en')
+    const inventory = host.querySelector('#inventory-title')
+    const button = host.querySelector<HTMLButtonElement>(
+      '.topbar-tools button.locale-switcher',
+    )
+    if (!button) throw new Error('Missing language switch')
+    expect(inventory?.textContent).toContain('Device inventory')
+
+    button.click()
+    await settle()
+
+    expect(host.querySelector('#inventory-title')).toBe(inventory)
+    expect(inventory?.textContent).toContain('Geräteinventar')
+    expect(text(host.querySelectorAll('.nav-text'))).toEqual([
+      'Dashboard',
+      'Geräte',
+      'Topologie',
+      'Clients',
+      'Standorte',
+    ])
+    expect(button.textContent).toContain('Sprache auf English umstellen')
+    expect(localStorage.getItem('flowseer.locale')).toBe('de')
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+})
+
 describe('sites in German', () => {
   it('names the heading, the count, and the columns', async () => {
     const { host } = await mountLocale('/sites', 'de')

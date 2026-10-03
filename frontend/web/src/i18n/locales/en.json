@@ -425,6 +425,11 @@
       "title": "Workspace help",
       "trigger": "Help"
     },
+    "localeSwitcher": {
+      "changed": "Language set to {language}.",
+      "label": "Switch language to {language}",
+      "unsaved": "Language changed for this page. Your browser could not save the preference."
+    },
     "reportBug": {
       "copied": "Report copied. Share it with your support team.",
       "copy": "Copy report",

@@ -425,6 +425,11 @@
       "title": "Hilfe zum Arbeitsbereich",
       "trigger": "Hilfe"
     },
+    "localeSwitcher": {
+      "changed": "Sprache auf {language} umgestellt.",
+      "label": "Sprache auf {language} umstellen",
+      "unsaved": "Sprache für diese Seite geändert. Der Browser konnte die Einstellung nicht speichern."
+    },
     "reportBug": {
       "copied": "Bericht kopiert. An das Support-Team weitergeben.",
       "copy": "Bericht kopieren",
