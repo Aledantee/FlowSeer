@@ -316,4 +316,16 @@ It does not mark the component migration implemented.
 
 ## Open questions
 
-None.
+- Parked by drive: the review ended in `rework` at the three-round limit.
+  Its fixes are on `parked/wcc-p3-review` (`b51c97f9`), unmerged, and the
+  verifier passes there. One correctness gap remains: the catalog isolation
+  test in `frontend/web/src/i18n/i18n.test.ts` still passes when
+  `createWebI18n` copies the catalogs only one level deep. Also open: the
+  shared `numberFormats` object, casts and non-null assertions in two new
+  tests, and a decorator solution that disagrees with the code. Options:
+  one more fix round from `parked/wcc-p3-review` on these findings (each
+  has a known fix, but every round so far surfaced a new gap) | take the
+  remainder to `plan` (slower, and holds phase 2's land as well) | accept
+  with the gaps recorded (lands both phases now, and overrides the review
+  gate). Recommended: one more fix round, because each open finding names
+  its fix and the source defects of rounds 1 to 3 are closed.
