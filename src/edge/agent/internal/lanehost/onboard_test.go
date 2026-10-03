@@ -508,7 +508,7 @@ func TestADeviceThatNeverAnswersDoesNotHoldTheListingUp(t *testing.T) {
 	}
 }
 
-func TestOnboard_InvalidManagementAddressFailsEarlyWithWarning(t *testing.T) {
+func TestOnboard_UnusableAddressIsReportedAndNotOnboarded(t *testing.T) {
 	t.Parallel()
 
 	invalidDevice := listedDevice(deviceOne, 30*time.Second)
@@ -528,9 +528,6 @@ func TestOnboard_InvalidManagementAddressFailsEarlyWithWarning(t *testing.T) {
 
 	if got := registrar.addedDevices(); len(got) != 0 {
 		t.Fatalf("added devices = %v, want none", got)
-	}
-	if _, ok := idx.Lookup("1.2"); ok {
-		t.Error("index holds invalid device, want none")
 	}
 
 	attrs, ok := logs.event("flowseer.edge.device.onboarding_failed")

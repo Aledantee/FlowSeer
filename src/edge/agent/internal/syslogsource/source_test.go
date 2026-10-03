@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	netlogv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/log/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -419,11 +421,7 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 		t.Fatal("NUL message not found")
 	}
 
-	initialFramingErrors := src.Receiver().Stats().FramingErrors
-	infoBefore, err := stream.Info(context.Background())
-	if err != nil {
-		t.Fatalf("stream info before: %v", err)
-	}
+	before := src.Receiver().Stats()
 
 	conn, err := net.Dial("tcp", autoAddr)
 	if err != nil {
@@ -440,18 +438,12 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 	_ = conn.Close()
 
 	waitFor(t, "framing_errors increment", 2*time.Second, func() bool {
-		return src.Receiver().Stats().FramingErrors == initialFramingErrors+1
+		return src.Receiver().Stats().FramingErrors == before.FramingErrors+1
 	})
-	if got := src.Receiver().Stats().FramingErrors; got != initialFramingErrors+1 {
-		t.Errorf("framing_errors = %d, want %d", got, initialFramingErrors+1)
-	}
-
-	infoAfter, err := stream.Info(context.Background())
-	if err != nil {
-		t.Fatalf("stream info after: %v", err)
-	}
-	if infoAfter.State.Msgs != infoBefore.State.Msgs {
-		t.Errorf("stream messages = %d, want %d", infoAfter.State.Msgs, infoBefore.State.Msgs)
+	// The receiver counts a frame as received before it queues it, so an
+	// unchanged count shows the LF line never became a record.
+	if got := src.Receiver().Stats().Received; got != before.Received {
+		t.Errorf("received = %d, want %d: the LF line under auto framing was accepted", got, before.Received)
 	}
 }
 
@@ -674,22 +666,31 @@ func waitForMessage(t *testing.T, stream jetstream.Stream, subject, substring st
 	return nil
 }
 
-func TestSource_ListenRefusesNilEdgeRef(t *testing.T) {
+func TestSource_ListenRefusesAnEdgeRefWithoutAnID(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, err := syslogsource.Listen(ctx, syslogsource.Config{
-		Listeners: []syslog.ListenConfig{
-			{Transport: syslog.UDP, Address: "127.0.0.1:0"},
-		},
-		Index:     lanehost.NewDeviceIndex(),
-		Publisher: &retryPublisherStub{},
-		EdgeRef:   nil,
-	})
-	if err == nil {
-		t.Fatal("Listen with nil EdgeRef succeeded, want error")
+	noID := edgev1.EdgeGlobalRef_builder{Edge: edgev1.EdgeLocalRef_builder{}.Build()}.Build()
+	for name, ref := range map[string]*edgev1.EdgeGlobalRef{"nil": nil, "no id": noID} {
+		t.Run(name, func(t *testing.T) {
+			_, err := syslogsource.Listen(ctx, syslogsource.Config{
+				Listeners: []syslog.ListenConfig{
+					{Transport: syslog.UDP, Address: "127.0.0.1:0"},
+				},
+				Index:     lanehost.NewDeviceIndex(),
+				Publisher: &retryPublisherStub{},
+				EdgeRef:   ref,
+			})
+			if err == nil {
+				t.Fatal("Listen succeeded, want a refusal")
+			}
+			const want = "syslog source requires an edge reference with an id"
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("Listen error = %q, want it to contain %q", err, want)
+			}
+		})
 	}
 }
 
@@ -770,6 +771,87 @@ func TestSource_RunReturnsNilOnCancellationDuringRetry(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for Run to return")
+	}
+}
+
+// blockingPublisherStub holds Publish until its context ends, as a buffer that
+// is mid-write when the agent shuts down does, and returns the context error.
+type blockingPublisherStub struct {
+	called chan struct{}
+	once   sync.Once
+}
+
+func (p *blockingPublisherStub) Subject(string) string {
+	return "flowseer.test.ingest.syslog"
+}
+
+func (p *blockingPublisherStub) Publish(ctx context.Context, _ string, _ []byte, _ string) error {
+	p.once.Do(func() { close(p.called) })
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+func TestSource_RunReturnsNilWhenCanceledInsidePublish(t *testing.T) {
+	t.Parallel()
+
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	index := lanehost.NewDeviceIndex()
+	bindRef := inventoryv1.BindingGlobalRef_builder{
+		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build(),
+	}.Build()
+	index.Add("127.0.0.1", testDeviceID, bindRef)
+
+	stub := &blockingPublisherStub{called: make(chan struct{})}
+	src, err := syslogsource.Listen(ctx, syslogsource.Config{
+		Listeners: []syslog.ListenConfig{
+			{Transport: syslog.UDP, Address: "127.0.0.1:0"},
+		},
+		Index:     index,
+		Publisher: stub,
+		EdgeRef:   testEdgeRef(),
+		Meter:     mp.Meter("test"),
+	})
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	defer func() { _ = src.Close() }()
+
+	errCh := make(chan error, 1)
+	spawn.Go(ctx, "syslog-source-runner", func() {
+		errCh <- src.Run(ctx)
+	})
+
+	conn, err := net.Dial("udp", src.Receiver().Addresses()[0].Address)
+	if err != nil {
+		t.Fatalf("Dial UDP: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+	if _, err := conn.Write([]byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - publish blocks")); err != nil {
+		t.Fatalf("write UDP: %v", err)
+	}
+
+	select {
+	case <-stub.called:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for Publish to be called")
+	}
+	cancel()
+
+	select {
+	case runErr := <-errCh:
+		if runErr != nil {
+			t.Errorf("Run returned error %v, want nil on context cancellation", runErr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for Run to return")
+	}
+	if retries, ok := readMetricSum(reader, "flowseer.edge.syslog.publish.retries"); ok && retries != 0 {
+		t.Errorf("publish.retries = %d, want 0: a canceled publish is not a refusal", retries)
 	}
 }
 

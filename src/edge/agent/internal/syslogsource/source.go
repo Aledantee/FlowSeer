@@ -45,7 +45,9 @@ type Config struct {
 
 // Source receives syslog frames from one or more listeners, maps them to IngestRecords,
 // applies the raw suppression policy, and publishes them to the edge buffer.
-// Source is safe for concurrent use.
+// Run is called once: a second concurrent Run gets syslog.ErrBusy from the
+// receiver and its return closes the receiver under the first. Close and
+// Receiver may be called from other goroutines.
 type Source struct {
 	receiver       *syslog.Receiver
 	index          *lanehost.DeviceIndex
@@ -62,10 +64,19 @@ type Source struct {
 	retries       metric.Int64Counter
 }
 
+// ReceiverOptions returns the parse options and limits the source's receiver
+// runs with. MapRecord's contract holds for every payload they accept.
+func ReceiverOptions() syslog.ReceiverOptions {
+	return syslog.ReceiverOptions{
+		Parse:  syslog.ParseOptions{CaptureRaw: true},
+		Limits: syslog.Limits{MaxPayload: 65535},
+	}
+}
+
 // Listen binds the configured listeners and returns a ready Source.
 func Listen(ctx context.Context, cfg Config) (*Source, error) {
-	if cfg.EdgeRef == nil {
-		return nil, errs.Msg("syslog source requires an edge reference")
+	if cfg.EdgeRef.GetEdge().GetId() == "" {
+		return nil, errs.Msg("syslog source requires an edge reference with an id")
 	}
 	if cfg.Index == nil {
 		return nil, errs.Msg("syslog source requires a device index")
@@ -77,14 +88,7 @@ func Listen(ctx context.Context, cfg Config) (*Source, error) {
 		return nil, errs.Msg("syslog source requires at least one listener")
 	}
 
-	receiver, err := syslog.Listen(ctx, cfg.Listeners, syslog.ReceiverOptions{
-		Parse: syslog.ParseOptions{
-			CaptureRaw: true,
-		},
-		Limits: syslog.Limits{
-			MaxPayload: 65535,
-		},
-	})
+	receiver, err := syslog.Listen(ctx, cfg.Listeners, ReceiverOptions())
 	if err != nil {
 		return nil, err
 	}
@@ -159,9 +163,11 @@ func (s *Source) Close() error {
 	return s.receiver.Close()
 }
 
-// Run loops on Receiver.Next until ctx is canceled or the receiver closes.
-// It returns nil when ctx is canceled or the receiver is closed. It returns a
-// non-nil error if record ID generation, record validation, or marshaling fails.
+// Run loops on Receiver.Next until ctx is canceled or the receiver closes, and
+// closes the receiver on return. It returns nil when ctx is canceled or the
+// receiver is closed. It returns the receiver's terminal listener error when a
+// listener fails, and a non-nil error if record ID generation, record
+// validation, or marshaling fails.
 func (s *Source) Run(ctx context.Context) error {
 	defer func() { _ = s.receiver.Close() }()
 
@@ -181,7 +187,7 @@ func (s *Source) Run(ctx context.Context) error {
 			))
 			continue
 		}
-		devEntry, ok := s.index.Lookup(lanehost.Key(peerAddr))
+		devEntry, ok := s.index.Lookup(peerAddr.String())
 		if !ok {
 			s.dropped.Add(ctx, 1, metric.WithAttributes(
 				attribute.String("flowseer.edge.syslog.reason", "unknown_source"),

@@ -2,7 +2,6 @@ package lanehost_test
 
 import (
 	"context"
-	"net/netip"
 	"testing"
 	"time"
 
@@ -108,12 +107,10 @@ func TestDeviceIndex_LookupSurvivesSecondOnboarder(t *testing.T) {
 		t.Fatalf("Sync 1: %v", err)
 	}
 
-	// Verify deviceOne is present
 	if _, ok := idx.Lookup("192.0.2.1"); !ok {
 		t.Fatal("Lookup(\"192.0.2.1\") after first onboarder = false, want true")
 	}
 
-	// Build second onboarder against same index
 	lister2 := &listerFake{listings: [][]*attachv1.ListedDevice{{
 		listedDeviceWithAddr(deviceTwo, []byte{192, 0, 2, 2}),
 	}}}
@@ -133,7 +130,6 @@ func TestDeviceIndex_LookupSurvivesSecondOnboarder(t *testing.T) {
 		t.Fatalf("Sync 2: %v", err)
 	}
 
-	// Both devices survive in index
 	if entry, ok := idx.Lookup("192.0.2.1"); !ok || entry.DeviceID != deviceOne {
 		t.Errorf("deviceOne in index = %v (%v), want true / %s", ok, entry.DeviceID, deviceOne)
 	}
@@ -148,10 +144,10 @@ func TestDeviceIndex_MappedIPv4MatchesPlainIPv4(t *testing.T) {
 	idx := lanehost.NewDeviceIndex()
 	idx.Add("::ffff:192.0.2.1", deviceOne, bindingRefFor(bindingOne))
 
-	if _, ok := idx.Lookup(lanehost.Key(netip.MustParseAddr("192.0.2.1"))); !ok {
+	if _, ok := idx.Lookup("192.0.2.1"); !ok {
 		t.Error("Lookup of the plain form = false, want true for a device added in the mapped form")
 	}
-	if _, ok := idx.Lookup(lanehost.Key(netip.MustParseAddr("::ffff:192.0.2.1"))); !ok {
+	if _, ok := idx.Lookup("::ffff:192.0.2.1"); !ok {
 		t.Error("Lookup of the mapped form = false, want true")
 	}
 }
@@ -162,10 +158,6 @@ func TestDeviceIndex_LinkLocalIPv6WithZone(t *testing.T) {
 	idx := lanehost.NewDeviceIndex()
 	idx.Add("fe80::1", deviceOne, bindingRefFor(bindingOne))
 
-	addrWithZone := netip.MustParseAddr("fe80::1%en0")
-	if entry, ok := idx.Lookup(lanehost.Key(addrWithZone)); !ok || entry.DeviceID != deviceOne {
-		t.Errorf("Lookup(Key(fe80::1%%en0)) = %v (%q), want true / %s", ok, entry.DeviceID, deviceOne)
-	}
 	if entry, ok := idx.Lookup("fe80::1%en0"); !ok || entry.DeviceID != deviceOne {
 		t.Errorf("Lookup(\"fe80::1%%en0\") = %v (%q), want true / %s", ok, entry.DeviceID, deviceOne)
 	}

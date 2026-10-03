@@ -19,7 +19,7 @@ type DeviceEntry struct {
 // DeviceIndex maps peer addresses to device identities and bindings, safe for
 // concurrent use.
 type DeviceIndex struct {
-	mu      sync.RWMutex
+	mu      sync.RWMutex // guards entries
 	entries map[string]DeviceEntry
 }
 
