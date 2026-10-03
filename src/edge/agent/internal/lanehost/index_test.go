@@ -345,8 +345,8 @@ func TestDeviceIndex_ApplyListingWithEmptyBindingIDKeepsARef(t *testing.T) {
 	}
 }
 
-func listedDeviceWithBinding(deviceID string, octets []byte, bindingID string) *attachv1.ListedDevice {
-	listed := listedDeviceWithAddr(deviceID, octets)
+func listedDeviceOneWithBinding(octets []byte, bindingID string) *attachv1.ListedDevice {
+	listed := listedDeviceWithAddr(deviceOne, octets)
 	listed.SetBindingId(bindingID)
 	if err := protovalidate.Validate(listed); err != nil {
 		panic(err)
@@ -359,8 +359,8 @@ func TestDeviceIndex_DeviceListedAtTwoAddressesResolvesFromBothWithEachBinding(t
 
 	idx := lanehost.NewDeviceIndex()
 	idx.ApplyListing([]*attachv1.ListedDevice{
-		listedDeviceWithBinding(deviceOne, []byte{192, 0, 2, 1}, bindingOne),
-		listedDeviceWithBinding(deviceOne, []byte{192, 0, 2, 2}, bindingTwo),
+		listedDeviceOneWithBinding([]byte{192, 0, 2, 1}, bindingOne),
+		listedDeviceOneWithBinding([]byte{192, 0, 2, 2}, bindingTwo),
 	})
 
 	for address, binding := range map[string]string{"192.0.2.1": bindingOne, "192.0.2.2": bindingTwo} {
@@ -405,8 +405,8 @@ func TestDeviceIndex_SameDeviceTwiceAtOneAddressIsOneClaimWithTheLaterBinding(t 
 
 	idx := lanehost.NewDeviceIndex()
 	idx.ApplyListing([]*attachv1.ListedDevice{
-		listedDeviceWithBinding(deviceOne, []byte{192, 0, 2, 1}, bindingOne),
-		listedDeviceWithBinding(deviceOne, []byte{192, 0, 2, 1}, bindingTwo),
+		listedDeviceOneWithBinding([]byte{192, 0, 2, 1}, bindingOne),
+		listedDeviceOneWithBinding([]byte{192, 0, 2, 1}, bindingTwo),
 	})
 
 	entry, res := idx.Lookup("192.0.2.1")
@@ -426,7 +426,7 @@ func TestDeviceIndex_ZeroValueResolvesAfterOneApplyListing(t *testing.T) {
 		t.Fatalf("Lookup on the zero value = %v, want LookupUnknown", res)
 	}
 
-	idx.ApplyListing([]*attachv1.ListedDevice{listedDeviceWithBinding(deviceOne, []byte{192, 0, 2, 1}, bindingOne)})
+	idx.ApplyListing([]*attachv1.ListedDevice{listedDeviceOneWithBinding([]byte{192, 0, 2, 1}, bindingOne)})
 
 	entry, res := idx.Lookup("192.0.2.1")
 	if res != lanehost.LookupFound || entry.DeviceID != deviceOne {
