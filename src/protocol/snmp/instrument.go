@@ -205,7 +205,6 @@ func (in *instruments) finishOp(ctx context.Context, span trace.Span, op string,
 	}
 	if err != nil {
 		kind := classifyError(err)
-		span.RecordError(err)
 		span.SetAttributes(semconv.ErrorTypeKey.String(kind))
 		span.SetStatus(codes.Error, kind)
 		in.recordError(ctx, op, err)

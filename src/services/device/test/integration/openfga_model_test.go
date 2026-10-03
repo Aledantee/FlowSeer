@@ -9,7 +9,7 @@ import (
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
 )
 
-// TestOpenFGAMemberRequiresClaimedAndEnrolled verifies requirement 2:
+// TestOpenFGAMemberRequiresClaimedAndEnrolled:
 // With tenant:T#enrolled@user:u stored, tenant:T#member is true only with
 // the contextual tenant:T#claimed@user:u.
 func TestOpenFGAMemberRequiresClaimedAndEnrolled(t *testing.T) {
@@ -63,7 +63,7 @@ func TestOpenFGAMemberRequiresClaimedAndEnrolled(t *testing.T) {
 	}
 }
 
-// TestOpenFGAPartnerAdminAndCrossTenantCapture verifies requirement 2:
+// TestOpenFGAPartnerAdminAndCrossTenantCapture:
 // A partner admin is a member of the customer only with the home claim, and holds
 // capture on its edge only while tenant:C#capturer@tenant:M#active_admin is stored.
 func TestOpenFGAPartnerAdminAndCrossTenantCapture(t *testing.T) {
@@ -153,7 +153,7 @@ func TestOpenFGAPartnerAdminAndCrossTenantCapture(t *testing.T) {
 	}
 }
 
-// TestOpenFGAPlatformAdmin verifies requirement 2:
+// TestOpenFGAPlatformAdmin:
 // A platform admin with its claim is admin of every tenant and lacks full_payload.
 func TestOpenFGAPlatformAdmin(t *testing.T) {
 	env := startOpenFGAEnv(t, nil)
@@ -206,7 +206,7 @@ func TestOpenFGAPlatformAdmin(t *testing.T) {
 	}
 }
 
-// TestOpenFGAEdgeGrantsDirectAndTenantIsolation verifies requirement 2:
+// TestOpenFGAEdgeGrantsDirectAndTenantIsolation:
 // edge:E1#capture@user:u grants nothing on E2, and edge#tenant is false for another tenant.
 func TestOpenFGAEdgeGrantsDirectAndTenantIsolation(t *testing.T) {
 	env := startOpenFGAEnv(t, nil)
@@ -517,7 +517,7 @@ func TestOpenFGARuleRelationsBranchEvaluation(t *testing.T) {
 	}
 }
 
-// TestOpenFGASiteWriteRefused verifies requirement 2:
+// TestOpenFGASiteWriteRefused:
 // A write of site:s#viewer@user:u is refused with error.
 func TestOpenFGASiteWriteRefused(t *testing.T) {
 	env := startOpenFGAEnv(t, nil)

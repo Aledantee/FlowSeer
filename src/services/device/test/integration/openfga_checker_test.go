@@ -42,13 +42,13 @@ func writeTempKeyFile(t *testing.T, content string) string {
 	return p
 }
 
-func TestOpenFGACheckerRequirementsAgainstServer(t *testing.T) {
+func TestOpenFGACheckerAgainstServer(t *testing.T) {
 	env := startOpenFGAEnv(t, nil)
 
 	keyFile := writeTempKeyFile(t, testPresharedKey)
 	wrongKeyFile := writeTempKeyFile(t, "wrong-preshared-key")
 
-	// 1. openfga.New accepts the embedded model as the server returns it.
+	// The embedded model is the one the server returns.
 	checker, err := openfga.New(context.Background(), openfga.Options{
 		Endpoint: "https://" + env.endpoint,
 		StoreID:  env.storeID,
@@ -61,7 +61,7 @@ func TestOpenFGACheckerRequirementsAgainstServer(t *testing.T) {
 	}
 	defer func() { _ = checker.Close() }()
 
-	// 2. Refuses an absent store with authz/engine-store-mismatch.
+	// An absent store is a store mismatch.
 	const absentStoreID = "01JK9999999999999999999999"
 	_, err = openfga.New(context.Background(), openfga.Options{
 		Endpoint: "https://" + env.endpoint,
@@ -72,7 +72,7 @@ func TestOpenFGACheckerRequirementsAgainstServer(t *testing.T) {
 	})
 	wantIntegrationCode(t, err, openfga.ErrCodeStoreMismatch)
 
-	// 3. Refuses an absent model with authz/engine-model-mismatch.
+	// An absent model is a model mismatch.
 	const absentModelID = "01JK9999999999999999999998"
 	_, err = openfga.New(context.Background(), openfga.Options{
 		Endpoint: "https://" + env.endpoint,
@@ -83,13 +83,12 @@ func TestOpenFGACheckerRequirementsAgainstServer(t *testing.T) {
 	})
 	wantIntegrationCode(t, err, openfga.ErrCodeModelMismatch)
 
-	// 4. Refuses a model one relation short with authz/engine-model-mismatch.
+	// A stored model one relation short of the embedded one is a model mismatch.
 	embModel, err := openfga.Model()
 	if err != nil {
 		t.Fatalf("openfga.Model: %v", err)
 	}
 	shortModel := proto.Clone(embModel).(*openfgav1.AuthorizationModel)
-	// Remove full_payload relation from tenant
 	for _, td := range shortModel.GetTypeDefinitions() {
 		if td.GetType() == "tenant" {
 			delete(td.Relations, "full_payload")
@@ -114,7 +113,7 @@ func TestOpenFGACheckerRequirementsAgainstServer(t *testing.T) {
 	})
 	wantIntegrationCode(t, err, openfga.ErrCodeModelMismatch)
 
-	// 5. Refuses a wrong key with authz/engine-refused.
+	// A wrong key is refused.
 	_, err = openfga.New(context.Background(), openfga.Options{
 		Endpoint: "https://" + env.endpoint,
 		StoreID:  env.storeID,
@@ -124,7 +123,7 @@ func TestOpenFGACheckerRequirementsAgainstServer(t *testing.T) {
 	})
 	wantIntegrationCode(t, err, openfga.ErrCodeRefused)
 
-	// 6. A batch holding one query twice answers both.
+	// A batch holding one query twice answers both.
 	if err := env.WriteTuple(context.Background(), "user:alice", "claimed", "platform:global"); err != nil {
 		t.Fatalf("WriteTuple: %v", err)
 	}
@@ -144,8 +143,7 @@ func TestOpenFGACheckerRequirementsAgainstServer(t *testing.T) {
 		t.Fatalf("got %v, want [true, true]", batchAnswers)
 	}
 
-	// 7. Requirement 5 gRPC half:
-	// ListStores over gRPC with no authorization metadata fails with status code 1010
+	// The engine answers a ListStores call with no key with status 1010.
 	_, err = env.client.ListStores(context.Background(), &openfgav1.ListStoresRequest{})
 	if err == nil {
 		t.Fatal("expected error calling ListStores without auth metadata")
@@ -154,7 +152,7 @@ func TestOpenFGACheckerRequirementsAgainstServer(t *testing.T) {
 		t.Fatalf("ListStores without metadata: got code %d (%v), want 1010", code, err)
 	}
 
-	// ListStores over gRPC with a wrong key fails with status code 1500
+	// The engine answers a ListStores call with a wrong key with status 1500.
 	wrongCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer wrong-key")
 	_, err = env.client.ListStores(wrongCtx, &openfgav1.ListStoresRequest{})
 	if err == nil {
