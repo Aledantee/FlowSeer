@@ -36,10 +36,15 @@ fi
 
 PSK=$(tr -d '\r\n' < "${KEY_FILE}")
 
+# The key reaches curl on stdin as a config file, so it never appears in the
+# process list.
+openfga_curl() {
+  printf 'header = "Authorization: Bearer %s"\n' "${PSK}" |
+    curl -sS --cacert "${CA_FILE}" -K - -H "Content-Type: application/json" "$@"
+}
+
 # 1. Create Store
-CREATE_RESP=$(curl -sS --cacert "${CA_FILE}" \
-  -H "Authorization: Bearer ${PSK}" \
-  -H "Content-Type: application/json" \
+CREATE_RESP=$(openfga_curl \
   -X POST "${OPENFGA_HTTP_ENDPOINT}/stores" \
   -d '{"name":"flowseer-lab"}')
 
@@ -50,9 +55,7 @@ if [ -z "${STORE_ID}" ]; then
 fi
 
 # 2. Write Authorization Model
-MODEL_RESP=$(curl -sS --cacert "${CA_FILE}" \
-  -H "Authorization: Bearer ${PSK}" \
-  -H "Content-Type: application/json" \
+MODEL_RESP=$(openfga_curl \
   -X POST "${OPENFGA_HTTP_ENDPOINT}/stores/${STORE_ID}/authorization-models" \
   --data-binary @"${MODEL_FILE}")
 
@@ -69,5 +72,6 @@ authorization {
   store_id: "${STORE_ID}"
   model_id: "${MODEL_ID}"
   preshared_key_file: "${KEY_FILE}"
+  ca_file: "${CA_FILE}"
 }
 EOF

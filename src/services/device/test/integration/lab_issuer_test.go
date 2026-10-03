@@ -37,10 +37,8 @@ func TestLabDexIssuer(t *testing.T) {
 	ctx := context.Background()
 	tempDir := t.TempDir()
 
-	// 1. Generate TLS certificate for localhost / 127.0.0.1
 	certPath, keyPath, certPEM := generateTestTLSCert(t, tempDir)
 
-	// 2. Prepare Dex config file and passwords
 	const (
 		clientSecret = "test-lab-secret"
 		alicePass    = "alice-secret-password"
@@ -62,7 +60,6 @@ func TestLabDexIssuer(t *testing.T) {
 		t.Fatalf("write dex config: %v", err)
 	}
 
-	// 3. Start Dex container
 	dexCtr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			Image: dexImage,
@@ -96,7 +93,8 @@ func TestLabDexIssuer(t *testing.T) {
 		t.Fatalf("dex port: %v", err)
 	}
 
-	// 4. http.Client with mapped dialer for 127.0.0.1:8445
+	// The issuer URL names 127.0.0.1:8445, so the client dials the container's
+	// mapped port whenever it is asked for that address.
 	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM(certPEM)
 	targetAddr := net.JoinHostPort(host, port.Port())
@@ -118,7 +116,6 @@ func TestLabDexIssuer(t *testing.T) {
 		Timeout:   10 * time.Second,
 	}
 
-	// 5. Wait for Dex to be healthy on discovery
 	discoURL := "https://127.0.0.1:8445/dex/.well-known/openid-configuration"
 	ready := false
 	deadline := time.Now().Add(30 * time.Second)
@@ -138,7 +135,6 @@ func TestLabDexIssuer(t *testing.T) {
 		t.Fatal("timed out waiting for Dex discovery endpoint to become ready")
 	}
 
-	// 6. Token fetch helper
 	fetchToken := func(username, password, scope string) (string, error) {
 		form := url.Values{
 			"grant_type":    {"password"},
@@ -172,7 +168,7 @@ func TestLabDexIssuer(t *testing.T) {
 		return tokenResp.IDToken, nil
 	}
 
-	// 7. Configure U2's verifier using central.textproto
+	// The verifier is configured from the same issuer entry the service reads.
 	centralCfg := &storev1.DeviceServiceConfig{}
 	if err := prototext.Unmarshal(labFixture(t, "central.textproto"), centralCfg); err != nil {
 		t.Fatalf("unmarshal central.textproto: %v", err)
@@ -230,7 +226,7 @@ func TestLabDexIssuer(t *testing.T) {
 
 	fullScope := "openid groups audience:server:client_id:flowseer-device"
 
-	// 8. User 1 (alice in acme, globex) -> yields two tenants
+	// alice is in acme and globex, so she yields two tenants.
 	aliceToken, err := fetchToken("alice@flowseer.local", alicePass, fullScope)
 	if err != nil {
 		t.Fatalf("fetch alice token: %v", err)
@@ -246,7 +242,7 @@ func TestLabDexIssuer(t *testing.T) {
 		t.Errorf("alice platform: got true, want false")
 	}
 
-	// 9. User 2 (admin in flowseer-platform) -> yields Platform
+	// admin is in flowseer-platform, so it yields Platform.
 	adminToken, err := fetchToken("admin@flowseer.local", adminPass, fullScope)
 	if err != nil {
 		t.Fatalf("fetch admin token: %v", err)
@@ -259,7 +255,8 @@ func TestLabDexIssuer(t *testing.T) {
 		t.Errorf("admin platform: got false, want true")
 	}
 
-	// 10. Request token without audience scope -> verifier refuses with authn/token-invalid
+	// A token asked for without the audience scope carries no audience the
+	// verifier accepts.
 	noAudScope := "openid groups"
 	noAudToken, err := fetchToken("alice@flowseer.local", alicePass, noAudScope)
 	if err != nil {
