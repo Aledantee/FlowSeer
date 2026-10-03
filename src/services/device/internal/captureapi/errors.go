@@ -10,11 +10,10 @@ import (
 // return.
 //
 // Both routers this package serves need it, for opposite reasons. The operator
-// surface carries no authorization check, so a caller that never enrolled can
-// reach every handler here; the edge surface answers a party that is
-// authenticated but not trusted with central's insides. Neither may be told
-// that a path under the state directory could not be opened, or which
-// JetStream operation refused.
+// surface answers an authenticated and authorized caller, while the edge
+// surface answers a party that is authenticated but not trusted with central's
+// insides. Neither may be told that a path under the state directory could not
+// be opened, or which JetStream operation refused.
 //
 // It is exported so the cross-service consistency check can read it: one code
 // must not answer two different things depending which handler a caller

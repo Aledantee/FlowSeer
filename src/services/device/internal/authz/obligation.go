@@ -173,12 +173,14 @@ func Filter(ctx context.Context, relation, objectType string, ids []string) (_ [
 // after it is dropped, and returns err.
 func Abandon(ctx context.Context, err error) error {
 	tracker := trackerFromContext(ctx)
+	if tracker != nil {
+		tracker.discharge()
+		tracker.recordCheckFailed()
+	}
 	if tracker == nil || tracker.admittedTenant == "" || err == nil {
 		return internalError(errs.New().Code(ErrCodeObligationViolation).
 			Msg("abandon called on invalid context, without admitted tenant, or with nil error"))
 	}
-	tracker.discharge()
-	tracker.recordCheckFailed()
 	return err
 }
 
