@@ -12,6 +12,7 @@ import (
 
 	"buf.build/go/protovalidate"
 	"github.com/nats-io/nats.go/jetstream"
+	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"google.golang.org/protobuf/proto"
@@ -104,6 +105,29 @@ func readMetricSum(reader *sdkmetric.ManualReader, name string) (int64, bool) {
 	return 0, false
 }
 
+// readMetricAttr returns the value of one attribute on the first data point of
+// a counter, and whether the counter has such a point.
+func readMetricAttr(reader *sdkmetric.ManualReader, name, key string) (string, bool) {
+	var rm metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &rm); err != nil {
+		return "", false
+	}
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			if m.Name != name || !ok {
+				continue
+			}
+			for _, dp := range sum.DataPoints {
+				if v, found := dp.Attributes.Value(attribute.Key(key)); found {
+					return v.AsString(), true
+				}
+			}
+		}
+	}
+	return "", false
+}
+
 func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 	t.Parallel()
 
@@ -160,6 +184,10 @@ func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 		val, ok := readMetricSum(reader, "flowseer.edge.syslog.dropped")
 		return ok && val >= 1
 	})
+
+	if reason, ok := readMetricAttr(reader, "flowseer.edge.syslog.dropped", "flowseer.edge.syslog.reason"); !ok || reason != "unknown_source" {
+		t.Errorf("dropped reason = %q (found=%t), want unknown_source", reason, ok)
+	}
 
 	// 2. Map 127.0.0.1 as a hosted address and send again.
 	index.Add("127.0.0.1", testDeviceID, bindRef)
