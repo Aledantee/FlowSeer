@@ -20,6 +20,7 @@ require (
 	github.com/nats-io/nkeys v0.4.16
 	github.com/openconfig/gnmi v0.14.1
 	github.com/openconfig/goyang v1.6.3
+	github.com/openfga/api/proto v0.0.0-20260723150800-6981fff8d33b
 	github.com/stretchr/testify v1.12.1
 	github.com/synadia-io/orbit.go/jetstreamext v0.3.2
 	github.com/testcontainers/testcontainers-go v0.44.0
@@ -67,6 +68,7 @@ require (
 	github.com/docker/go-connections v0.8.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/ebitengine/purego v0.11.0 // indirect
+	github.com/envoyproxy/protoc-gen-validate v1.3.3 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

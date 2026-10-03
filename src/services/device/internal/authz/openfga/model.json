@@ -1,0 +1,634 @@
+{
+  "schema_version": "1.1",
+  "type_definitions": [
+    {
+      "type": "user"
+    },
+    {
+      "type": "platform",
+      "relations": {
+        "admin": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "claimed"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "enrolled"
+                }
+              }
+            ]
+          }
+        },
+        "claimed": {
+          "this": {}
+        },
+        "enrolled": {
+          "this": {}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "admin": {},
+          "claimed": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "enrolled": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "role",
+      "relations": {
+        "assignee": {
+          "this": {}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "assignee": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "tenant",
+      "relations": {
+        "active_admin": {
+          "intersection": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "admin"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              }
+            ]
+          }
+        },
+        "admin": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "relation": "platform"
+                  },
+                  "computedUserset": {
+                    "relation": "admin"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "capturer": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "admin"
+                }
+              }
+            ]
+          }
+        },
+        "claimed": {
+          "this": {}
+        },
+        "enrolled": {
+          "this": {}
+        },
+        "full_payload": {
+          "this": {}
+        },
+        "member": {
+          "union": {
+            "child": [
+              {
+                "intersection": {
+                  "child": [
+                    {
+                      "computedUserset": {
+                        "relation": "claimed"
+                      }
+                    },
+                    {
+                      "computedUserset": {
+                        "relation": "enrolled"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "relation": "partner"
+                  },
+                  "computedUserset": {
+                    "relation": "active_admin"
+                  }
+                }
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "relation": "platform"
+                  },
+                  "computedUserset": {
+                    "relation": "admin"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "operator": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "admin"
+                }
+              }
+            ]
+          }
+        },
+        "partner": {
+          "this": {}
+        },
+        "platform": {
+          "this": {}
+        },
+        "viewer": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "operator"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "capturer"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "active_admin": {},
+          "admin": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "capturer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              },
+              {
+                "type": "tenant",
+                "relation": "active_admin"
+              }
+            ]
+          },
+          "claimed": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "enrolled": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "full_payload": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "member": {},
+          "operator": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              },
+              {
+                "type": "tenant",
+                "relation": "active_admin"
+              }
+            ]
+          },
+          "partner": {
+            "directly_related_user_types": [
+              {
+                "type": "tenant"
+              }
+            ]
+          },
+          "platform": {
+            "directly_related_user_types": [
+              {
+                "type": "platform"
+              }
+            ]
+          },
+          "viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              },
+              {
+                "type": "tenant",
+                "relation": "active_admin"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "site"
+    },
+    {
+      "type": "tag"
+    },
+    {
+      "type": "edge",
+      "relations": {
+        "administer": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "relation": "tenant"
+                  },
+                  "computedUserset": {
+                    "relation": "admin"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "capture": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "relation": "tenant"
+                  },
+                  "computedUserset": {
+                    "relation": "capturer"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "operate": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "relation": "tenant"
+                  },
+                  "computedUserset": {
+                    "relation": "operator"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "tenant": {
+          "this": {}
+        },
+        "view": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "administer"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "operate"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "capture"
+                }
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "relation": "tenant"
+                  },
+                  "computedUserset": {
+                    "relation": "viewer"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "administer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "capture": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "operate": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "tenant": {
+            "directly_related_user_types": [
+              {
+                "type": "tenant"
+              }
+            ]
+          },
+          "view": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "device",
+      "relations": {
+        "operate": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "relation": "tenant"
+                  },
+                  "computedUserset": {
+                    "relation": "operator"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "tenant": {
+          "this": {}
+        },
+        "view": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "operate"
+                }
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "relation": "tenant"
+                  },
+                  "computedUserset": {
+                    "relation": "viewer"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "operate": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          },
+          "tenant": {
+            "directly_related_user_types": [
+              {
+                "type": "tenant"
+              }
+            ]
+          },
+          "view": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "assignee"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "capture_session",
+      "relations": {
+        "download": {
+          "union": {
+            "child": [
+              {
+                "computedUserset": {
+                  "relation": "requester"
+                }
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "relation": "edge"
+                  },
+                  "computedUserset": {
+                    "relation": "capture"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "edge": {
+          "this": {}
+        },
+        "manage": {
+          "tupleToUserset": {
+            "tupleset": {
+              "relation": "edge"
+            },
+            "computedUserset": {
+              "relation": "capture"
+            }
+          }
+        },
+        "requester": {
+          "this": {}
+        },
+        "tenant": {
+          "this": {}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "download": {},
+          "edge": {
+            "directly_related_user_types": [
+              {
+                "type": "edge"
+              }
+            ]
+          },
+          "manage": {},
+          "requester": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "tenant": {
+            "directly_related_user_types": [
+              {
+                "type": "tenant"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
