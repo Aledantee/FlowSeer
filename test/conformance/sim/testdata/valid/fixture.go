@@ -1,7 +1,10 @@
 package fixture
 
 import (
+	"time"
+
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
+	_ "go.aledante.io/FlowSeer/src/common/sim/layer/valid/sub"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -9,7 +12,7 @@ const LayerName trace.Layer = "fixture"
 
 type Config struct{}
 
-func (c Config) Normalize(_ layer.Env) Config {
+func (c Config) Normalize(layer.Env) Config {
 	return c
 }
 
@@ -38,3 +41,13 @@ func (l *Layer) Clone() *Layer {
 func RetentionKey(cfg Config, env layer.Env) string {
 	return "key"
 }
+
+func (l *Layer) Advance(now time.Time) layer.Effects {
+	return layer.Effects{}
+}
+
+type fixtureFact string
+
+type host struct{}
+
+func (host) Age() {}

@@ -31,8 +31,10 @@ func New(cfg Config, env layer.Env) (*Layer, error) {
 	return &Layer{}, nil
 }
 
-func (l *Layer) Clone() *Layer {
-	return &Layer{}
+type Copy struct{}
+
+func (c *Copy) Clone() *Copy {
+	return &Copy{}
 }
 
 func RetentionKey(cfg Config, env layer.Env) string {

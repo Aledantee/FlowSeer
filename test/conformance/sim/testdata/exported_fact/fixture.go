@@ -7,8 +7,6 @@ import (
 
 const LayerName trace.Layer = "fixture"
 
-type FooFact string
-
 type Config struct{}
 
 func (c Config) Normalize(_ layer.Env) Config {
@@ -40,3 +38,5 @@ func (l *Layer) Clone() *Layer {
 func RetentionKey(cfg Config, env layer.Env) string {
 	return "key"
 }
+
+type FooFact string

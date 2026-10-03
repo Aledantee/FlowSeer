@@ -4,7 +4,7 @@ type: refactor
 date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: partially-implemented
+status: implemented
 review: rework
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
@@ -12,11 +12,7 @@ parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 
 # Capability Contract and Surface Trim - Plan
 
-> Partially implemented: U1 to U9, commits `414ffd79..69906c50`. U10 remains.
-> Its gate landed in `48814812`, and the review ended `rework` on it after
-> three fix rounds (`1ad57013`): the checker holds guards that no fixture
-> refuses, and a fork gate reset row panics where it should fail (Inventory,
-> Gate guards). U10 below replaces that gate.
+> Implemented. 10 units, 2026-10-02T17:40:30Z to 2026-10-03T14:34:24Z.
 
 ## Goal
 

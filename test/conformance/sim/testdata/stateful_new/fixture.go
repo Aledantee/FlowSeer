@@ -25,16 +25,6 @@ func Diff(prev, next Config) []trace.Change {
 	return nil
 }
 
-type Layer struct{}
-
-func New(cfg Config, env layer.Env) (*Layer, error) {
-	return &Layer{}, nil
-}
-
-func (l *Layer) Clone() *Layer {
-	return &Layer{}
-}
-
-func RetentionKey(cfg Config, env layer.Env) string {
-	return "key"
+func New(cfg Config) Config {
+	return cfg
 }

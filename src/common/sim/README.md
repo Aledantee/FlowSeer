@@ -102,10 +102,12 @@ diff-coverage tests of every `layer/` package, `port`, `device/vswitch`, and
 
 Every pipeline layer under `layer/` adheres to a uniform package contract described in [`layer/README.md`](layer/README.md).
 
-The conformance gate under `test/conformance/sim` mechanically verifies these invariants across all layer packages:
+The conformance gate under `test/conformance/sim` verifies these invariants across all layer packages:
 - Every layer package exports `LayerName`, `Config`, `Config.Normalize(layer.Env) Config`, `Config.Validate(layer.Env) error`, `Config.Clone() Config`, and `Diff(prev, next Config) []trace.Change`.
 - Stateful layers export `New(cfg Config, env layer.Env) (*Layer, error)`, `(*Layer).Clone() *Layer`, and `RetentionKey(cfg Config, env layer.Env) string`.
 - When a `Layer` declares `Advance`, it requires signature `Advance(now time.Time) layer.Effects`.
 - Method names `Wake` and `Age` are forbidden on layer types.
 - No layer package imports a sibling layer package under `layer/`, `sim/device`, or `sim/fabric`.
 - Step fact types remain unexported within their declaring layer package.
+
+The table `layerGuards` in `test/conformance/sim/layer_contract_test.go` is the list of what the gate enforces, and a guard arrives with its fixture under `test/conformance/sim/testdata/`. Its test drops each row in turn and requires that row's fixture to pass, so a guard no fixture refuses fails the gate.
