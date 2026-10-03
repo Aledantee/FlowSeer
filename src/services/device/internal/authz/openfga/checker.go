@@ -64,7 +64,7 @@ const (
 
 // errCallTimeout is the cause of a call context that ran out of the Checker's
 // own timeout, which tells it apart from a caller's cancel or deadline.
-var errCallTimeout = errors.New("authorization engine call timed out")
+var errCallTimeout = errs.New().Code(ErrCodeUnreachable).Retryable().Msg("engine call timed out")
 
 // Options configures an OpenFGA authorization Checker.
 type Options struct {
