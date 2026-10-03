@@ -32,7 +32,7 @@ func wantIntegrationCode(t *testing.T, err error, want errs.Code) {
 	}
 }
 
-func writeTempKeyFile(t *testing.T, content string) string {
+func writeTempKeyFile(t testing.TB, content string) string {
 	t.Helper()
 	dir := t.TempDir()
 	p := filepath.Join(dir, "psk.key")

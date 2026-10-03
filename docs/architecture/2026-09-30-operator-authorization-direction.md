@@ -599,7 +599,8 @@ type capture_session
     define download: requester or capture from edge
 ```
 
-The relations beyond the core tenant shape serve explicit cross-boundary roles:
+The relations beyond the core tenant shape grant resource permissions and
+cross-tenant roles:
 
 - `platform#admin` is `claimed and enrolled`, so a contextual token claim and a
   stored platform assignment must both hold. A platform administrator loses
@@ -624,7 +625,9 @@ term of `tenant#member` only through `tenant`.
 
 #### Principal identification
 
-`PrincipalID` is the lowercase hex SHA-256 digest of `issuer + "\x00" + subject`.
+`ComputePrincipalID` returns the lowercase hex SHA-256 digest of
+`issuer + "\x00" + subject`, and a `Principal` carries it in its `ID` field
+(`src/services/device/internal/authn/principal.go`).
 The zero-byte separator prevents collisions between distinct issuer and subject
 pairs that share concatenations. The hex form sidesteps what OpenFGA rejects in
 a user id. It refuses an id holding `:`

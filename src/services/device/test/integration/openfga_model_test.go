@@ -173,7 +173,7 @@ func TestOpenFGAPartnerAdminAndCrossTenantCapture(t *testing.T) {
 }
 
 // TestOpenFGAPlatformAdmin checks that a platform admin with its claim is
-// admin of every tenant and lacks full_payload.
+// admin and member of every tenant and lacks full_payload.
 func TestOpenFGAPlatformAdmin(t *testing.T) {
 	env := startOpenFGAEnv(t, nil)
 	ctx := context.Background()
@@ -209,6 +209,22 @@ func TestOpenFGAPlatformAdmin(t *testing.T) {
 	}
 	if !allowed {
 		t.Fatal("expected admin to be true for platform admin with claim")
+	}
+
+	allowed, err = env.Check(ctx, platUser, "member", tenant)
+	if err != nil {
+		t.Fatalf("check member without platform claim: %v", err)
+	}
+	if allowed {
+		t.Fatal("expected member to be false without platform claim")
+	}
+
+	allowed, err = env.Check(ctx, platUser, "member", tenant, platClaim)
+	if err != nil {
+		t.Fatalf("check member with platform claim: %v", err)
+	}
+	if !allowed {
+		t.Fatal("expected member to be true for platform admin with claim")
 	}
 
 	allowed, err = env.Check(ctx, platUser, "full_payload", tenant, platClaim)
@@ -273,6 +289,58 @@ func TestOpenFGAEdgeGrantsDirectAndTenantIsolation(t *testing.T) {
 	}
 	if !allowed {
 		t.Fatal("expected edge#tenant to be true for tenant1")
+	}
+}
+
+// TestOpenFGAResourceTenancyAndFullPayload checks the interceptor's tenant
+// check on a device and a capture session, which reads the stored tenant
+// relationship, and an allowed tenant full_payload holder. Each grant is one
+// stored relationship away from its denial.
+func TestOpenFGAResourceTenancyAndFullPayload(t *testing.T) {
+	env := startOpenFGAEnv(t, nil)
+	ctx := context.Background()
+
+	cases := []struct {
+		name     string
+		user     string
+		relation string
+		object   string
+	}{
+		{name: "device tenant", user: "tenant:t1", relation: "tenant", object: "device:d1"},
+		{name: "capture session tenant", user: "tenant:t1", relation: "tenant", object: "capture_session:s1"},
+		{name: "tenant full payload", user: "user:u1", relation: "full_payload", object: "tenant:t1"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := env.WriteTuple(ctx, tc.user, tc.relation, tc.object); err != nil {
+				t.Fatalf("write %s %s %s: %v", tc.user, tc.relation, tc.object, err)
+			}
+
+			allowed, err := env.Check(ctx, tc.user, tc.relation, tc.object)
+			if err != nil {
+				t.Fatalf("check %s on %s before removal: %v", tc.relation, tc.object, err)
+			}
+			if !allowed {
+				t.Fatalf("expected %s on %s for %s to be allowed", tc.relation, tc.object, tc.user)
+			}
+
+			if err := env.Write(ctx, nil, []*openfgav1.TupleKeyWithoutCondition{{
+				User:     tc.user,
+				Relation: tc.relation,
+				Object:   tc.object,
+			}}); err != nil {
+				t.Fatalf("remove %s %s %s: %v", tc.user, tc.relation, tc.object, err)
+			}
+
+			allowed, err = env.Check(ctx, tc.user, tc.relation, tc.object)
+			if err != nil {
+				t.Fatalf("check %s on %s after removing one relationship: %v", tc.relation, tc.object, err)
+			}
+			if allowed {
+				t.Fatalf("expected %s on %s for %s to be denied after removing the relationship", tc.relation, tc.object, tc.user)
+			}
+		})
 	}
 }
 
