@@ -1,11 +1,17 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import { TooltipProvider } from 'reka-ui'
+import type { Device } from '../domain/fleet'
+import { devices } from '../domain/fleet'
+import { portsOf } from '../domain/telemetry'
 import type { SearchResult } from '../domain/search'
 import { SHORTCUTS, isMac, keysOf } from '../navigation/shortcuts'
 import GlobalSearch, { type SearchPage } from './GlobalSearch.vue'
 import { createWebI18n } from '../i18n'
+import type { WebLocale } from '../i18n'
+import { i18nWarnings } from '../i18n/testing'
+import { rememberRecent } from './recentSearches'
 
 const pages: SearchPage[] = [
   {
@@ -23,11 +29,17 @@ const pages: SearchPage[] = [
 ]
 
 let dispose = () => {}
+let warn: ReturnType<typeof vi.spyOn>
+
+beforeEach(() => {
+  warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+})
 
 afterEach(() => {
   dispose()
   localStorage.clear()
   document.body.replaceChildren()
+  vi.restoreAllMocks()
 })
 
 async function settle() {
@@ -40,26 +52,39 @@ interface SearchHandlers {
   onDock?: (result: SearchResult) => void
 }
 
-async function mountSearchClosed(handlers: SearchHandlers = {}) {
+interface SearchOptions extends SearchHandlers {
+  locale?: WebLocale
+  fleet?: Device[]
+}
+
+async function mountSearchClosed(options: SearchOptions = {}) {
+  const { locale, fleet = [], ...handlers } = options
   const host = document.createElement('div')
   document.body.append(host)
+  const i18n = createWebI18n(locale)
   const app = createApp({
     render: () =>
       h(TooltipProvider, null, () =>
         h(GlobalSearch, {
-          fleet: [],
+          fleet,
           pages,
           canSplit: true,
           ...handlers,
         }),
       ),
   })
-  app.use(createWebI18n())
+  app.use(i18n)
   app.mount(host)
   dispose = () => app.unmount()
 
   await settle()
-  return { host }
+  return {
+    host,
+    async setLocale(next: WebLocale) {
+      i18n.global.locale.value = next
+      await settle()
+    },
+  }
 }
 
 async function mountSearch(handlers: SearchHandlers) {
@@ -319,5 +344,119 @@ describe('global search shortcuts', () => {
     expect(
       document.body.querySelector<HTMLInputElement>('[role="combobox"]'),
     ).toBeNull()
+  })
+})
+
+async function openSearch(host: HTMLElement) {
+  host.querySelector<HTMLButtonElement>('.search-trigger')?.click()
+  await settle()
+}
+
+async function typeQuery(text: string) {
+  const input =
+    document.body.querySelector<HTMLInputElement>('[role="combobox"]')
+  if (!input) throw new Error('Global search input did not open.')
+  input.value = text
+  input.dispatchEvent(new InputEvent('input', { bubbles: true }))
+  await settle()
+}
+
+const textOf = (selector: string) =>
+  [...document.body.querySelectorAll(selector)].map((element) =>
+    element.textContent?.trim(),
+  )
+const headings = () =>
+  textOf('[role="group"] > [id^="reka-combobox-group-label"]')
+const recentHeading = () => textOf('[role="group"] > div > span')
+const details = () => textOf('.search-result small')
+
+// The first managed port that is up and has a managed device on the far end.
+function linkedPort() {
+  for (const device of devices) {
+    const port = portsOf(devices, device).find(
+      (item) => item.status === 'Up' && item.neighborId,
+    )
+    if (port) return { device, port }
+  }
+  throw new Error('The fixture has no linked port')
+}
+
+describe('global search in German', () => {
+  it('names the groups, the empty and hint texts, and the site counts', async () => {
+    const { host } = await mountSearchClosed({ locale: 'de', fleet: devices })
+    expect(host.querySelector('.search-trigger')?.textContent).toContain(
+      'Suchen',
+    )
+
+    await openSearch(host)
+    expect(textOf('.search-empty')).toEqual([
+      'Name, IP-Adresse, MAC-Adresse oder Port eingeben.',
+    ])
+    expect(
+      document.body
+        .querySelector('[role="combobox"]')
+        ?.getAttribute('placeholder'),
+    ).toBe('Mandanten, Standorte, Geräte, Clients, Schnittstellen suchen…')
+    const hints = document.body.querySelector('.search-hints')?.textContent
+    for (const word of ['navigieren', 'öffnen', 'nebeneinander', 'in das Dock'])
+      expect(hints).toContain(word)
+
+    await typeQuery('zzzz')
+    expect(textOf('.search-empty')).toEqual(['Keine Treffer für „zzzz“.'])
+
+    await typeQuery('aurora')
+    expect(headings()).toContain('Mandanten')
+    expect(details()).toContain('2 Standorte')
+
+    await typeQuery('meridian')
+    expect(details()).toContain('1 Standort')
+
+    await typeQuery('berlin')
+    expect(headings()).toEqual(['Standorte', 'Geräte', 'Schnittstellen'])
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('translates a stored recent entry when the locale switches', async () => {
+    const { device, port } = linkedPort()
+    const neighbor = devices.find((item) => item.id === port.neighborId)
+    rememberRecent({ kind: 'tenant', id: 'aurora' })
+    rememberRecent({ kind: 'interface', id: device.id, port: port.name })
+    const { host, setLocale } = await mountSearchClosed({
+      locale: 'en',
+      fleet: devices,
+    })
+
+    await openSearch(host)
+    expect(recentHeading()).toContain('Recent')
+    expect(details()).toEqual([`Up · to ${neighbor?.name}`, '2 sites'])
+
+    await setLocale('de')
+    expect(recentHeading()).toContain('Zuletzt')
+    expect(details()).toEqual([
+      `Verbunden · zu ${neighbor?.name}`,
+      '2 Standorte',
+    ])
+
+    await typeQuery('berlin')
+    expect(headings()).toEqual(['Standorte', 'Geräte', 'Schnittstellen'])
+    await setLocale('en')
+    expect(headings()).toEqual(['Sites', 'Devices', 'Interfaces'])
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('drops a recent entry whose object no longer exists', async () => {
+    rememberRecent({
+      kind: 'interface',
+      id: 'missing-device',
+      port: 'ge-0/0/1',
+    })
+    rememberRecent({ kind: 'tenant', id: 'removed-tenant' })
+    const { host } = await mountSearchClosed({ locale: 'de', fleet: devices })
+
+    await openSearch(host)
+    expect(details()).toEqual([])
+    expect(textOf('.search-empty')).toEqual([
+      'Name, IP-Adresse, MAC-Adresse oder Port eingeben.',
+    ])
   })
 })

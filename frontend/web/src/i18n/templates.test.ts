@@ -9,6 +9,13 @@ const checked = import.meta.glob<string>(
     '../FleetView.vue',
     '../navigation/PageDock.vue',
     '../navigation/PageHost.vue',
+    '../components/AccountMenu.vue',
+    '../components/HelpButton.vue',
+    '../components/ReportBugButton.vue',
+    '../components/ScopeSwitcher.vue',
+    '../components/TenantSwitcher.vue',
+    '../components/ThemeSwitcher.vue',
+    '../components/GlobalSearch.vue',
   ],
   {
     eager: true,

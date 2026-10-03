@@ -127,6 +127,13 @@
     }
   },
   "view": {
+    "accountMenu": {
+      "initials": "OP",
+      "label": "Operatorkonto",
+      "logout": "Abmelden",
+      "logoutUnavailable": "Abmelden ist erst möglich, wenn die Anmeldung angebunden ist",
+      "operator": "Operator"
+    },
     "common": {
       "allSites": "Alle Standorte",
       "allTenants": "Alle Mandanten",
@@ -165,6 +172,7 @@
         "routed": "Geroutet",
         "trunk": "Trunk"
       },
+      "needsAttention": "Handlungsbedarf",
       "noReading": "—",
       "pages": {
         "clients": "Clients",
@@ -199,6 +207,7 @@
         "gigabit": "{value}G",
         "megabit": "{value}M"
       },
+      "tenant": "Mandant",
       "units": {
         "celsius": "°C",
         "dbm": "dBm",
@@ -263,6 +272,88 @@
       "swapSides": "Seiten tauschen",
       "updateFailed": "Die Ansicht konnte nicht aktualisiert werden. Erneut versuchen.",
       "workspace": "ARBEITSBEREICH"
+    },
+    "help": {
+      "findBody": "Geräte mit Handlungsbedarf stehen zuerst in der Liste. Die Suche nach Name, Typ oder IP-Adresse und der Statusfilter grenzen sie ein. Ein ausgewähltes Gerät zeigt, warum es Handlungsbedarf hat und wie FlowSeer es erreicht.",
+      "findHeading": "Gerät finden",
+      "moveBody": "In den Gerätedetails „Zu einem anderen Standort verschieben“ aufklappen und einen Standort innerhalb des Mandanten des Geräts wählen. Die Verschiebung ersetzt die bisherige Zuordnung, sobald sie beobachtet wird, und die Meldung bietet „Rückgängig“ an.",
+      "moveHeading": "Gerät verschieben",
+      "scopeBody": "Mit den Auswahlfeldern für Mandant und Standort in der Brotkrumennavigation oben auf der Seite lässt sich die Ansicht auf einen Kunden oder Standort eingrenzen.",
+      "scopeHeading": "Bereich wählen",
+      "title": "Hilfe zum Arbeitsbereich",
+      "trigger": "Hilfe"
+    },
+    "reportBug": {
+      "copied": "Bericht kopiert. An das Support-Team weitergeben.",
+      "copy": "Bericht kopieren",
+      "copyUnavailable": "Kopieren war nicht möglich. Den Bericht unten auswählen und kopieren.",
+      "description": "Was ist passiert?",
+      "descriptionPlaceholder": "Schritte zur Reproduktion und das erwartete Verhalten",
+      "intro": "Das Problem beschreiben, dann den Bericht kopieren und an das Support-Team weitergeben.",
+      "pageLine": "Seite: {page}",
+      "report": "{summary}\n\nSeite: {page}\n\n{description}",
+      "reportText": "Berichtstext",
+      "summary": "Zusammenfassung",
+      "title": "Fehler melden",
+      "trigger": "Fehler melden",
+      "triggerLabel": "Fehler melden"
+    },
+    "scopeSwitcher": {
+      "searchPlaceholder": "Suchen…",
+      "triggerLabel": "{label}: {name}",
+      "unavailable": "Auswahl nicht verfügbar"
+    },
+    "search": {
+      "clear": "Leeren",
+      "clientDetail": "{address} · {mac} · über {device}",
+      "emptyHint": "Name, IP-Adresse, MAC-Adresse oder Port eingeben.",
+      "groups": {
+        "client": "Clients",
+        "device": "Geräte",
+        "interface": "Schnittstellen",
+        "page": "Seiten",
+        "site": "Standorte",
+        "tenant": "Mandanten"
+      },
+      "hints": {
+        "close": "schließen",
+        "move": "navigieren",
+        "open": "öffnen",
+        "sideBySide": "nebeneinander",
+        "toDock": "in das Dock"
+      },
+      "interfaceFarEnd": "zu {device}",
+      "keys": {
+        "alt": "⌥",
+        "down": "↓",
+        "enter": "↵",
+        "escape": "Esc",
+        "shift": "⇧",
+        "up": "↑"
+      },
+      "label": "Mandanten, Standorte, Geräte, Clients und Schnittstellen suchen",
+      "noMatch": "Keine Treffer für „{query}“.",
+      "openBeside": "Nebeneinander öffnen",
+      "openBesideLabel": "{title} nebeneinander öffnen",
+      "placeholder": "Mandanten, Standorte, Geräte, Clients, Schnittstellen suchen…",
+      "recent": "Zuletzt",
+      "resultsLabel": "Suchergebnisse",
+      "sendToDock": "In das Dock legen",
+      "sendToDockLabel": "{title} in das Dock legen",
+      "trigger": "Suchen"
+    },
+    "tenantSwitcher": {
+      "none": "Keine Mandanten verfügbar",
+      "scopeLabel": "Mandantenbereich",
+      "searchPlaceholder": "Mandanten suchen…"
+    },
+    "themeSwitcher": {
+      "enabledDark": "Dunkler Modus aktiviert.",
+      "enabledLight": "Heller Modus aktiviert.",
+      "label": "Dunkler Modus",
+      "switchToDark": "Zum dunklen Modus wechseln",
+      "switchToLight": "Zum hellen Modus wechseln",
+      "unsaved": "Darstellung für diese Seite geändert. Der Browser konnte die Einstellung nicht speichern."
     }
   }
 }

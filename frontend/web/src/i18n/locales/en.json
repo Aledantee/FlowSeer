@@ -127,6 +127,13 @@
     }
   },
   "view": {
+    "accountMenu": {
+      "initials": "OP",
+      "label": "Operator account",
+      "logout": "Log out",
+      "logoutUnavailable": "Logout is unavailable until sign-in is connected",
+      "operator": "Operator"
+    },
     "common": {
       "allSites": "All sites",
       "allTenants": "All tenants",
@@ -165,6 +172,7 @@
         "routed": "Routed",
         "trunk": "Trunk"
       },
+      "needsAttention": "Needs attention",
       "noReading": "—",
       "pages": {
         "clients": "Clients",
@@ -199,6 +207,7 @@
         "gigabit": "{value}G",
         "megabit": "{value}M"
       },
+      "tenant": "Tenant",
       "units": {
         "celsius": "°C",
         "dbm": "dBm",
@@ -263,6 +272,88 @@
       "swapSides": "Swap sides",
       "updateFailed": "Could not update this view. Try again.",
       "workspace": "WORKSPACE"
+    },
+    "help": {
+      "findBody": "Devices that need attention are listed first. Search by name, type, or IP address, or filter by status, then select a device to see why it needs attention and how FlowSeer reaches it.",
+      "findHeading": "Find a device",
+      "moveBody": "Open device details, expand Move to another site, and choose a site within its tenant. The move replaces the previous assignment once it is observed, and the notice offers Undo.",
+      "moveHeading": "Move a device",
+      "scopeBody": "Use the tenant and site selectors in the breadcrumb at the top of the page to focus on a customer or location.",
+      "scopeHeading": "Choose your scope",
+      "title": "Workspace help",
+      "trigger": "Help"
+    },
+    "reportBug": {
+      "copied": "Report copied. Share it with your support team.",
+      "copy": "Copy report",
+      "copyUnavailable": "Copying was unavailable. Select and copy the report below.",
+      "description": "What happened?",
+      "descriptionPlaceholder": "Steps to reproduce and what you expected to happen",
+      "intro": "Describe the issue, then copy the report to share with your support team.",
+      "pageLine": "Page: {page}",
+      "report": "{summary}\n\nPage: {page}\n\n{description}",
+      "reportText": "Report text",
+      "summary": "Summary",
+      "title": "Report a bug",
+      "trigger": "Report a bug",
+      "triggerLabel": "Report bug"
+    },
+    "scopeSwitcher": {
+      "searchPlaceholder": "Search…",
+      "triggerLabel": "{label}: {name}",
+      "unavailable": "Unavailable selection"
+    },
+    "search": {
+      "clear": "Clear",
+      "clientDetail": "{address} · {mac} · via {device}",
+      "emptyHint": "Type a name, IP address, MAC address, or port.",
+      "groups": {
+        "client": "Clients",
+        "device": "Devices",
+        "interface": "Interfaces",
+        "page": "Pages",
+        "site": "Sites",
+        "tenant": "Tenants"
+      },
+      "hints": {
+        "close": "close",
+        "move": "move",
+        "open": "open",
+        "sideBySide": "side by side",
+        "toDock": "to dock"
+      },
+      "interfaceFarEnd": "to {device}",
+      "keys": {
+        "alt": "⌥",
+        "down": "↓",
+        "enter": "↵",
+        "escape": "esc",
+        "shift": "⇧",
+        "up": "↑"
+      },
+      "label": "Search tenants, sites, devices, clients, and interfaces",
+      "noMatch": "Nothing matches “{query}”.",
+      "openBeside": "Open side by side",
+      "openBesideLabel": "Open {title} side by side",
+      "placeholder": "Search tenants, sites, devices, clients, interfaces…",
+      "recent": "Recent",
+      "resultsLabel": "Search results",
+      "sendToDock": "Send to dock",
+      "sendToDockLabel": "Send {title} to the dock",
+      "trigger": "Search"
+    },
+    "tenantSwitcher": {
+      "none": "No tenants available",
+      "scopeLabel": "Tenant scope",
+      "searchPlaceholder": "Search tenants…"
+    },
+    "themeSwitcher": {
+      "enabledDark": "Dark mode enabled.",
+      "enabledLight": "Light mode enabled.",
+      "label": "Dark mode",
+      "switchToDark": "Switch to dark mode",
+      "switchToLight": "Switch to light mode",
+      "unsaved": "Theme changed for this page. Your browser could not save the preference."
     }
   }
 }

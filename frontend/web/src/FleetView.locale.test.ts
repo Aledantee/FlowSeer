@@ -261,3 +261,115 @@ describe('FleetView shell in German', () => {
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 })
+
+function topBarButton(host: HTMLElement, label: string) {
+  const button = [
+    ...host.querySelectorAll<HTMLButtonElement>('.topbar-tools button'),
+  ].find((item) => item.getAttribute('aria-label') === label)
+  if (!button) throw new Error(`Missing top bar button ${label}`)
+  return button
+}
+
+const dialog = () => document.body.querySelector('[role="dialog"]')
+
+describe('top bar dialogs in German', () => {
+  it('opens the help dialog', async () => {
+    const { host } = await mountLocale('/dashboard', 'de')
+
+    topBarButton(host, 'Hilfe').click()
+    await settle()
+
+    expect(dialog()?.textContent).toContain('Hilfe zum Arbeitsbereich')
+    expect(text(dialog()?.querySelectorAll('h3') ?? [])).toEqual([
+      'Bereich wählen',
+      'Gerät finden',
+      'Gerät verschieben',
+    ])
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('copies the bug report with a German page line and status', async () => {
+    const written: string[] = []
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: (value: string) => {
+          written.push(value)
+          return Promise.resolve()
+        },
+      },
+    })
+    try {
+      const { host, setLocale } = await mountLocale('/dashboard', 'de')
+
+      topBarButton(host, 'Fehler melden').click()
+      await settle()
+      expect(dialog()?.textContent).toContain('Fehler melden')
+      expect(dialog()?.textContent).toContain('Zusammenfassung')
+      expect(dialog()?.textContent).toContain('Was ist passiert?')
+      const summary =
+        document.body.querySelector<HTMLInputElement>('#bug-summary')
+      const description =
+        document.body.querySelector<HTMLTextAreaElement>('#bug-description')
+      if (!summary || !description) throw new Error('Missing bug report fields')
+      summary.value = 'Tabelle bleibt leer'
+      summary.dispatchEvent(new Event('input', { bubbles: true }))
+      description.value = 'Die Geräteliste zeigt keine Zeilen.'
+      description.dispatchEvent(new Event('input', { bubbles: true }))
+      await settle()
+      expect(dialog()?.textContent).toContain(
+        `Seite: ${window.location.pathname}`,
+      )
+
+      document.body
+        .querySelector('form')
+        ?.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true }),
+        )
+      await settle()
+
+      expect(written).toEqual([
+        `Tabelle bleibt leer\n\nSeite: ${window.location.pathname}\n\nDie Geräteliste zeigt keine Zeilen.`,
+      ])
+      const status = () =>
+        dialog()?.querySelector('[role="status"]')?.textContent
+      expect(status()).toBe('Bericht kopiert. An das Support-Team weitergeben.')
+
+      await setLocale('en')
+      expect(status()).toBe('Report copied. Share it with your support team.')
+      expect(i18nWarnings(warn.mock.calls)).toEqual([])
+    } finally {
+      Reflect.deleteProperty(navigator, 'clipboard')
+    }
+  })
+
+  it('shows the report text when copying fails', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: () => Promise.reject(new Error('denied')) },
+    })
+    try {
+      const { host } = await mountLocale('/dashboard', 'de')
+
+      topBarButton(host, 'Fehler melden').click()
+      await settle()
+      document.body
+        .querySelector('form')
+        ?.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true }),
+        )
+      await settle()
+
+      expect(dialog()?.querySelector('[role="status"]')?.textContent).toBe(
+        'Kopieren war nicht möglich. Den Bericht unten auswählen und kopieren.',
+      )
+      expect(dialog()?.textContent).toContain('Berichtstext')
+      expect(
+        document.body.querySelector<HTMLTextAreaElement>('#bug-report-copy')
+          ?.value,
+      ).toContain('Seite:')
+    } finally {
+      Reflect.deleteProperty(navigator, 'clipboard')
+    }
+  })
+})
