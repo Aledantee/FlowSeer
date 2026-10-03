@@ -9,11 +9,14 @@ import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
-  dispose()
-  dispose = () => {}
-  const { toasts } = useToast()
-  toasts.value = []
-  document.body.replaceChildren()
+  try {
+    dispose()
+  } finally {
+    dispose = () => {}
+    const { toasts } = useToast()
+    toasts.value = []
+    document.body.replaceChildren()
+  }
 })
 
 function mountApp(
@@ -501,96 +504,92 @@ describe('UiToast', () => {
     const i18n = createWebI18n('en')
     mountApp(
       () =>
-        h(UiToastProvider, null, () => [
-          h(UiToast, {
-            open: true,
-            title: 'Live Toast',
-            actionText: 'Retry',
-          }),
+        h('div', [
+          h(UiToastProvider, null, () => [
+            h(UiToast, {
+              open: true,
+              title: 'Live Toast',
+              actionText: 'Retry',
+            }),
+          ]),
+          h(
+            UiToastProvider,
+            {
+              viewportLabel: (hotkey: string) => `Fn Viewport (${hotkey})`,
+              announcementLabel: 'Custom Notice',
+            },
+            () => [
+              h(UiToast, {
+                open: true,
+                title: 'Custom Toast',
+                actionText: 'Action',
+                actionAltText: 'Explicit Alt',
+                closeLabel: 'Explicit Close',
+              }),
+            ],
+          ),
         ]),
       i18n,
     )
     await nextTick()
     await new Promise((r) => setTimeout(r, 20))
 
-    const viewport = document.body.querySelector('div[role="region"]')
-    expect(viewport?.getAttribute('aria-label')).toBe('Notifications (F8)')
+    const viewports = document.body.querySelectorAll('div[role="region"]')
+    const defaultViewport = viewports[0]
+    const customViewport = viewports[1]
+    if (!defaultViewport || !customViewport) {
+      throw new Error('Expected both toast viewports')
+    }
+
+    expect(defaultViewport.getAttribute('aria-label')).toBe(
+      'Notifications (F8)',
+    )
     expect(document.body.textContent).toContain('Notification ')
-    const closeBtn = document.body.querySelector('button[aria-label="Close"]')
-    expect(closeBtn).not.toBeNull()
-    const actionEl = document.body.querySelector(
+    expect(
+      document.body.querySelector('button[aria-label="Close"]'),
+    ).not.toBeNull()
+
+    const actionEls = document.body.querySelectorAll(
       '[data-reka-toast-announce-alt]',
     )
-    expect(actionEl?.getAttribute('data-reka-toast-announce-alt')).toBe(
+    const defaultAction = actionEls[0]
+    const customAction = actionEls[1]
+    if (!defaultAction || !customAction) {
+      throw new Error('Expected both toast action elements')
+    }
+
+    expect(defaultAction.getAttribute('data-reka-toast-announce-alt')).toBe(
       'Action',
+    )
+    expect(customViewport.getAttribute('aria-label')).toBe('Fn Viewport (F8)')
+    expect(document.body.textContent).toContain('Custom Notice ')
+    expect(
+      document.body.querySelector('button[aria-label="Explicit Close"]'),
+    ).not.toBeNull()
+    expect(customAction.getAttribute('data-reka-toast-announce-alt')).toBe(
+      'Explicit Alt',
     )
 
     i18n.global.locale.value = 'de'
     await nextTick()
 
-    expect(viewport?.getAttribute('aria-label')).toBe('Benachrichtigungen (F8)')
-    expect(document.body.textContent).toContain('Benachrichtigung ')
-    const closeBtnDe = document.body.querySelector(
-      'button[aria-label="Schließen"]',
+    expect(defaultViewport.getAttribute('aria-label')).toBe(
+      'Benachrichtigungen (F8)',
     )
-    expect(closeBtnDe).not.toBeNull()
-    expect(actionEl?.getAttribute('data-reka-toast-announce-alt')).toBe(
+    expect(document.body.textContent).toContain('Benachrichtigung ')
+    expect(
+      document.body.querySelector('button[aria-label="Schließen"]'),
+    ).not.toBeNull()
+    expect(defaultAction.getAttribute('data-reka-toast-announce-alt')).toBe(
       'Aktion',
     )
 
-    dispose()
-    document.body.replaceChildren()
-
-    mountApp(
-      () =>
-        h(
-          UiToastProvider,
-          {
-            viewportLabel: 'Custom Viewport ({hotkey})',
-            announcementLabel: 'Custom Notice',
-          },
-          () => [
-            h(UiToast, {
-              open: true,
-              title: 'Custom Toast',
-              actionText: 'Action',
-              actionAltText: 'Explicit Alt',
-              closeLabel: 'Explicit Close',
-            }),
-          ],
-        ),
-      i18n,
-    )
-    await nextTick()
-    await new Promise((r) => setTimeout(r, 20))
-
-    const customViewport = document.body.querySelector('div[role="region"]')
-    expect(customViewport?.getAttribute('aria-label')).toBe(
-      'Custom Viewport (F8)',
-    )
-    expect(document.body.textContent).toContain('Custom Notice ')
-    const customClose = document.body.querySelector(
-      'button[aria-label="Explicit Close"]',
-    )
-    expect(customClose).not.toBeNull()
-    const customAction = document.body.querySelector(
-      '[data-reka-toast-announce-alt]',
-    )
-    expect(customAction?.getAttribute('data-reka-toast-announce-alt')).toBe(
-      'Explicit Alt',
-    )
-
-    i18n.global.locale.value = 'en'
-    await nextTick()
-
-    expect(customViewport?.getAttribute('aria-label')).toBe(
-      'Custom Viewport (F8)',
-    )
+    expect(customViewport.getAttribute('aria-label')).toBe('Fn Viewport (F8)')
     expect(document.body.textContent).toContain('Custom Notice ')
     expect(
       document.body.querySelector('button[aria-label="Explicit Close"]'),
     ).not.toBeNull()
-    expect(customAction?.getAttribute('data-reka-toast-announce-alt')).toBe(
+    expect(customAction.getAttribute('data-reka-toast-announce-alt')).toBe(
       'Explicit Alt',
     )
   })
@@ -618,17 +617,33 @@ describe('UiToast', () => {
     dispose = () => app.unmount()
 
     await nextTick()
-    expect(capturedError).toBeInstanceOf(Error)
-    expect((capturedError as Error).message).toMatch(/altText/i)
+    if (!(capturedError instanceof Error)) {
+      throw new Error('Expected capturedError to be an Error')
+    }
+    expect(capturedError.message).toMatch(/altText/i)
   })
 
-  it('asserts Reka rejects a whitespace-only announcementLabel', () => {
-    expect(() =>
-      mountApp(() =>
+  it('asserts Reka rejects a whitespace-only announcementLabel', async () => {
+    let capturedError: unknown = null
+    const host = document.createElement('div')
+    document.body.append(host)
+    const app = createApp({
+      render: () =>
         h(UiToastProvider, {
           announcementLabel: '   ',
         }),
-      ),
-    ).toThrow(/non-empty `string`/i)
+    })
+    app.config.errorHandler = (err) => {
+      capturedError = err
+    }
+    app.use(createWebI18n())
+    app.mount(host)
+    dispose = () => app.unmount()
+
+    await nextTick()
+    if (!(capturedError instanceof Error)) {
+      throw new Error('Expected capturedError to be an Error')
+    }
+    expect(capturedError.message).toMatch(/non-empty `string`/i)
   })
 })

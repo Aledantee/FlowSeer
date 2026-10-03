@@ -272,6 +272,7 @@ describe('UiAlertDialog', () => {
     dispose()
     document.body.replaceChildren()
 
+    const i18nOverride = createWebI18n('de')
     mountAlertDialog(
       {
         title: 'Title',
@@ -281,7 +282,7 @@ describe('UiAlertDialog', () => {
         defaultOpen: true,
       },
       {},
-      i18n,
+      i18nOverride,
     )
     await nextTick()
     await new Promise((r) => setTimeout(r, 20))
@@ -289,7 +290,7 @@ describe('UiAlertDialog', () => {
     expect(document.body.textContent).toContain('Keep Confirm')
     expect(document.body.textContent).toContain('Keep Cancel')
 
-    i18n.global.locale.value = 'en'
+    i18nOverride.global.locale.value = 'en'
     await nextTick()
 
     expect(document.body.textContent).toContain('Keep Confirm')

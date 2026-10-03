@@ -223,7 +223,25 @@ describe('UiDialog', () => {
     expect(closeBtn).not.toBeNull()
   })
 
-  it('updates dialog closeLabel and fallbackDescription on live locale change and preserves explicit overrides', async () => {
+  it('resolves fallbackTitle from catalog default', async () => {
+    const i18n = createWebI18n('en')
+    i18n.global.mergeLocaleMessage('en', {
+      ui: { dialog: { fallbackTitle: 'Probe title' } },
+    })
+    mountDialog({ defaultOpen: true }, {}, i18n)
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    try {
+      expect(document.body.querySelector('h2')?.textContent).toBe('Probe title')
+    } finally {
+      i18n.global.mergeLocaleMessage('en', {
+        ui: { dialog: { fallbackTitle: 'Dialog' } },
+      })
+    }
+  })
+
+  it('updates dialog defaults on live locale change and preserves explicit overrides', async () => {
     const i18n = createWebI18n('en')
     mountDialog({ defaultOpen: true }, {}, i18n)
     await nextTick()
@@ -247,18 +265,21 @@ describe('UiDialog', () => {
     dispose()
     document.body.replaceChildren()
 
+    const i18nOverride = createWebI18n('de')
     mountDialog(
       {
         defaultOpen: true,
+        fallbackTitle: 'Custom Title',
         fallbackDescription: 'Custom Description',
         closeLabel: 'Custom Close',
       },
       {},
-      i18n,
+      i18nOverride,
     )
     await nextTick()
     await new Promise((r) => setTimeout(r, 20))
 
+    expect(document.body.querySelector('h2')?.textContent).toBe('Custom Title')
     expect(document.body.querySelector('p')?.textContent).toBe(
       'Custom Description',
     )
@@ -266,9 +287,10 @@ describe('UiDialog', () => {
       document.body.querySelector('button[aria-label="Custom Close"]'),
     ).not.toBeNull()
 
-    i18n.global.locale.value = 'en'
+    i18nOverride.global.locale.value = 'en'
     await nextTick()
 
+    expect(document.body.querySelector('h2')?.textContent).toBe('Custom Title')
     expect(document.body.querySelector('p')?.textContent).toBe(
       'Custom Description',
     )

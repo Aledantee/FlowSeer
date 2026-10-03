@@ -611,49 +611,41 @@ describe('UiCombobox', () => {
     const i18n = createWebI18n('en')
     const host = mountApp(
       () =>
-        h(UiCombobox, {
-          options: [],
-          defaultOpen: true,
-        }),
+        h('div', [
+          h(UiCombobox, {
+            options: [],
+            defaultOpen: true,
+          }),
+          h(UiCombobox, {
+            options: [],
+            defaultOpen: true,
+            placeholder: 'Custom Filter',
+            emptyText: 'Custom Empty',
+          }),
+        ]),
       i18n,
     )
     await nextTick()
     await new Promise((r) => setTimeout(r, 20))
 
-    const input = host.querySelector('input')
-    expect(input?.placeholder).toBe('Search...')
+    const inputs = host.querySelectorAll('input')
+    const defaultInput = inputs[0]
+    const customInput = inputs[1]
+    if (!defaultInput || !customInput) {
+      throw new Error('Expected both default and custom inputs to be rendered')
+    }
+
+    expect(defaultInput.placeholder).toBe('Search...')
+    expect(customInput.placeholder).toBe('Custom Filter')
     expect(document.body.textContent).toContain('No results found.')
+    expect(document.body.textContent).toContain('Custom Empty')
 
     i18n.global.locale.value = 'de'
     await nextTick()
 
-    expect(input?.placeholder).toBe('Suchen...')
+    expect(defaultInput.placeholder).toBe('Suchen...')
+    expect(customInput.placeholder).toBe('Custom Filter')
     expect(document.body.textContent).toContain('Keine Ergebnisse gefunden.')
-
-    dispose()
-    document.body.replaceChildren()
-
-    const hostOverride = mountApp(
-      () =>
-        h(UiCombobox, {
-          options: [],
-          defaultOpen: true,
-          placeholder: 'Custom Filter',
-          emptyText: 'Custom Empty',
-        }),
-      i18n,
-    )
-    await nextTick()
-    await new Promise((r) => setTimeout(r, 20))
-
-    const inputOverride = hostOverride.querySelector('input')
-    expect(inputOverride?.placeholder).toBe('Custom Filter')
-    expect(document.body.textContent).toContain('Custom Empty')
-
-    i18n.global.locale.value = 'en'
-    await nextTick()
-
-    expect(inputOverride?.placeholder).toBe('Custom Filter')
     expect(document.body.textContent).toContain('Custom Empty')
   })
 })
