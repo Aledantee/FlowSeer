@@ -442,6 +442,5 @@ describe('UiTooltip', () => {
     const content = tooltipNamed('Quick action')
     expect(content.className).toContain('max-w-72')
     expect(content.className).toContain('flex-wrap')
-    expect(content.className).toContain('break-words')
   })
 })

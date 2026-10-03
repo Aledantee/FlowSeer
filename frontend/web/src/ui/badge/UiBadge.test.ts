@@ -202,4 +202,14 @@ describe('UiBadge', () => {
     expect(el.className).toContain('max-w-full')
     expect(el.querySelector('.truncate')).not.toBeNull()
   })
+
+  it('leaves the title off when slotted content replaces the label', () => {
+    const { el } = mount(
+      UiStatusBadge,
+      { status: 'Healthy', label: 'Prop Label' },
+      { default: () => 'Slot Content' },
+    )
+    expect(el.textContent).toContain('Slot Content')
+    expect(el.hasAttribute('title')).toBe(false)
+  })
 })

@@ -250,12 +250,4 @@ describe('UiTable context and layout', () => {
     expect(td?.getAttribute('colspan')).toBe('4')
     expect(td?.textContent).toBe('No data found')
   })
-
-  it('wraps the table in an overflow-x-auto container', () => {
-    const host = mountView(() => h(UiTable, () => [h(UiTableBody)]))
-    const wrapper = host.querySelector('div.relative.w-full.overflow-x-auto')
-    expect(wrapper).not.toBeNull()
-    const table = wrapper?.querySelector('table[data-ui-table]')
-    expect(table).not.toBeNull()
-  })
 })

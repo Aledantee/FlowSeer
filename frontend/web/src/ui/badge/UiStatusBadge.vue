@@ -53,7 +53,7 @@ const dotVariants = tv({
     class="!text-sm max-w-full"
     :variant="variantMap[props.status]"
     :size="props.size"
-    :title="displayLabel"
+    :title="$slots.default ? undefined : displayLabel"
   >
     <i aria-hidden="true" :class="dotVariants({ status })" />
     <span class="truncate">

@@ -7,6 +7,7 @@ import UiTableRow from './UiTableRow.vue'
 import UiTableHead from './UiTableHead.vue'
 import UiTableCell from './UiTableCell.vue'
 import UiTableEmpty from './UiTableEmpty.vue'
+import UiScrollArea from '../scroll-area/UiScrollArea.vue'
 
 const meta: Meta<typeof UiTable> = {
   title: 'Ui/Table',
@@ -15,6 +16,19 @@ const meta: Meta<typeof UiTable> = {
     dense: { control: 'boolean' },
     stickyHeader: { control: 'boolean' },
   },
+  // A story too wide for a narrow viewport opts into its own horizontal
+  // scroll region, as the app's call sites do, so the page never scrolls.
+  // UiTable adds no scroller itself: a sticky header needs the caller's
+  // vertical scroller as its nearest scroll container.
+  decorators: [
+    (story, context) => ({
+      components: { story, UiScrollArea },
+      template:
+        context.parameters.tableScroller === true
+          ? '<UiScrollArea axis="x" label="Devices"><story /></UiScrollArea>'
+          : '<story />',
+    }),
+  ],
 }
 
 export default meta
@@ -98,6 +112,7 @@ export const Default: Story = {
 }
 
 export const Dense: Story = {
+  parameters: { tableScroller: true },
   args: {
     dense: true,
   },
@@ -137,6 +152,7 @@ export const Dense: Story = {
 }
 
 export const Sortable: Story = {
+  parameters: { tableScroller: true },
   render: () => ({
     components: {
       UiTable,
@@ -240,6 +256,7 @@ export const StickyHeader: Story = {
 }
 
 export const RowSelection: Story = {
+  parameters: { tableScroller: true },
   render: () => ({
     components: {
       UiTable,
@@ -329,6 +346,7 @@ export const Empty: Story = {
 }
 
 export const LongText: Story = {
+  parameters: { tableScroller: true },
   render: () => ({
     components: {
       UiTable,
