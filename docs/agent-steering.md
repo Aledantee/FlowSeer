@@ -766,24 +766,29 @@ The coordinator closes gaps in one unreviewed pass inside the same review,
 before the accept verdict. It reruns each recorded mutation on the merged
 tree and drops the item only when the suite fails, and a pass whose diff
 changes source outside tests, comments, and docs is a round and counts
-toward the three. The verdict is `accept after fixes` only once every
-recorded item is closed, and it stays `fixes needed` until then.
+toward the three. After three rounds the pass changes no source outside
+tests, comments, and docs. An item it leaves recorded ends the review at
+`fixes needed` with a question offering one more gap pass or stopping, and
+one more gap pass is a new review: `review` runs again from step 1, reads
+the record, and has a fresh round count and one pass. The verdict is
+`accept after fixes` only once every recorded item is closed, and it stays
+`fixes needed` until then.
 
 Open gap and convention findings are recorded, and only `review` reads
 that record. With a plan it is a `## Review gaps` section at the end of
 the plan, and planless work keeps a `gaps:` line in the checkpoints file.
 No gate reads it because the verdict is the one field every gate reads,
 and while the record holds an item the verdict is not an accept. A gap
-carried across skills had to be known by `land`, `drive`, `next`, plan
-retirement, and the Orca card, and each fix round to that design found
-another reader it missed (`c65f3804`, `e83b1305`). A session that ends
+carried across skills had to be known by `land`, `drive`, `next`, and plan
+retirement, and each fix round to that design found another reader it
+missed (`c65f3804`, `e83b1305`). A session that ends
 mid-pass leaves `fixes needed` on disk and the remedy is `review` again.
 
 The loop used to stop at a round with no correctness finding, and a gap
 counted as one. Each fix round then added tests for the next reviewer to
-mutate, so rounds kept finding gaps in the previous round's tests. Two
-phases reached the three-round cap on test coverage alone (`d7995d3d`,
-`fb724477`). Google's mutation-testing practice makes the same split:
+mutate, so rounds kept finding gaps in the previous round's tests. One
+phase reached the three-round cap on test coverage alone (`fb724477`).
+Google's mutation-testing practice makes the same split:
 surviving mutants are advisory findings in review,
 and tests written for unproductive ones are brittle
 (https://arxiv.org/abs/2102.11378). Gaps close per phase and not in a last
