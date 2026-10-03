@@ -211,3 +211,26 @@ Suggested change: check for pool wait and rate-limit indicators on the terminal 
 Skill or agent: `.claude/skills/review/SKILL.md`, step 5, and `.claude/skills/drive/references/review-stage.md`.
 What happened: a review worker emitted its detailed verdict report directly to terminal stdout instead of writing to a scratchpad file. The text exceeded the terminal buffer capacity and scrolled off the screen, requiring the report to be re-requested to a file.
 Suggested change: specify in `review-stage.md` and `review/SKILL.md` step 5 that review stage workers must write their full report to a designated scratchpad file and output only the verdict summary and file path to the terminal.
+
+## 2026-10-03 review, drive: six fix rounds patched a mechanism whose premise no step questioned
+Skill or agent: `.claude/skills/review/references/fix-loop.md`, When to stop,
+`.claude/skills/drive/SKILL.md`, step 4, and `.claude/skills/plan/SKILL.md`,
+step 4.
+What happened: the edge agent's device index resolved a syslog sender only
+when the management lane had onboarded the device. The plan gave as its
+reason that the lane host already held each device's address and binding, and
+the device listing carries the same three fields. Six review rounds then
+fixed the coupling between the index and the lane, and each parked question
+offered options inside that coupling. The reviewer wrote in the fourth round
+that a failed management probe is weak evidence about a syslog address, and
+no step turned that into a question about the gate. The user asked after the
+phase landed why the agent does not accept syslog from every listed address,
+and the answer was that nothing required the gate. The steps were followed as
+written and still produced the wrong result.
+Suggested change: when a second fix round lands on the same mechanism, the
+review states the requirement that mechanism serves and the simplest design
+that meets it, and reports the difference as a plan question before another
+round runs. A question `drive` parks after a round limit carries "drop or
+replace the mechanism" as an option. `plan` step 4's implementer read asks of
+each Decision whose reason is where data happens to live whether the
+requirement needs the coupling.
