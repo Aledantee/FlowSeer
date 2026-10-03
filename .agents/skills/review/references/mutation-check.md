@@ -11,6 +11,8 @@ inverted. A new test whose commit body carries no mutation and quoted
 3. Run the focused test and quote the result.
 4. Restore from the copy, never with `git checkout` or `git restore`.
 
-A test that passes against the defect it names is a false test. A mutation
-that survives in behaviour no test names is a gap (`fix-loop.md`, which
-decides the boundary between the two).
+A test that passes with the condition removed that its title, comment, or
+commit body states is a false test. A mutation that survives in a branch or
+boundary no test's title, comment, or commit body states is a gap. A
+surviving mutation that can be read either way is a false test
+(`fix-loop.md` decides the boundary).
