@@ -221,3 +221,23 @@ widens its protocol field to a required `oneof protocol` with
 `ManagementProtocol management = 10` and `LogProtocol log = 11`, so that
 observation sources beyond management protocols (such as syslog) can name
 their protocol without fabricating a management protocol value.
+
+### 2026-10-03: the edge resolves a syslog sender from its device listing alone
+
+Landed 2026-10-03: `lanehost.DeviceIndex` in `src/edge/agent/internal/lanehost`,
+read by `src/edge/agent/internal/syslogsource`.
+
+The edge publishes a datagram as the record of a device when exactly one
+device in the listing central sends this edge claims the datagram's source
+address. Whether the lane onboarded the device does not matter, since a UDP
+source address is spoofable whether or not the lane logged in to the device,
+and a gate on onboarding would drop syslog from a listed device whose
+management session is down. An address two listed devices claim resolves to
+neither and is counted under `ambiguous_source`. A device id listed at two
+addresses resolves from both, each with its own row's binding. A device the
+next listing omits or moves stops resolving at the old address, and a failed
+listing leaves the index as it was.
+
+A consumer of `IngestRecord` may therefore not assume the lane serves the
+device a record names. A rule that needs a served device checks it against
+the lane, not against the record.

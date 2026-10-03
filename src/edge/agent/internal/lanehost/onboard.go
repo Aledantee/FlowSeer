@@ -76,7 +76,8 @@ type OnboardConfig struct {
 	// healthy, and permanently unsubscribed.
 	PerDeviceTimeout time.Duration
 	// Index maps peer addresses to device identities for cross-module lookup.
-	// Nil records to no index.
+	// Sync applies each successful listing to it, whether or not the lane
+	// onboards the devices. Nil records to no index.
 	Index  *DeviceIndex
 	Logger *slog.Logger
 }
@@ -128,10 +129,9 @@ func NewOnboarder(cfg OnboardConfig) (*Onboarder, error) {
 // A device this edge already holds is left alone rather than re-added to the
 // lane, for the reason on [Onboarder]. While the lane session keeps the values
 // it was first onboarded with until the lane attempt restarts, the device index
-// follows the listing immediately: for a held device, the index reflects the
-// listed address and binding so datagrams from an address it left are not
-// attributed to it. The divergence between the listing and the lane session is
-// recorded so the discrepancy is findable: without it, an operator who measures
+// follows the listing immediately, so datagrams from an address a device left
+// are not attributed to it. The divergence between the listing and the lane
+// session is recorded so the discrepancy is findable: without it, an operator who measures
 // a horizon centrally sees mutations go on being refused with nothing anywhere
 // connecting the two facts.
 //
@@ -141,9 +141,8 @@ func NewOnboarder(cfg OnboardConfig) (*Onboarder, error) {
 // leave the rest of the edge's fleet unserved.
 //
 // After a successful listing, Sync applies the listing to the configured
-// device index in one step under a single write lock before onboarding. The
-// index prunes unlisted devices, records address claims, and re-asserts held
-// devices at their listed addresses and bindings.
+// device index before onboarding, so a slow or failing AddDevice does not delay
+// resolution. A failed listing leaves the index as it was.
 func (o *Onboarder) Sync(ctx context.Context) error {
 	o.syncing.Lock()
 	defer o.syncing.Unlock()
@@ -155,17 +154,7 @@ func (o *Onboarder) Sync(ctx context.Context) error {
 
 	devices := resp.Msg.GetDevices()
 	if o.cfg.Index != nil {
-		var heldIDs map[string]struct{}
-		o.mu.Lock()
-		if len(o.held) > 0 {
-			heldIDs = make(map[string]struct{}, len(o.held))
-			for id := range o.held {
-				heldIDs[id] = struct{}{}
-			}
-		}
-		o.mu.Unlock()
-
-		o.cfg.Index.ApplyListing(devices, heldIDs)
+		o.cfg.Index.ApplyListing(devices)
 	}
 
 	for _, listed := range devices {
@@ -207,7 +196,7 @@ func errorType(err error) string {
 
 // onboard onboards one unheld listed device into the lane, or reports how a
 // re-listing of a device already held differs from what it was onboarded with.
-// For a held device, the index has already been updated to the listing during Sync.
+// The index follows the listing and is already updated during Sync.
 //
 // Its own deadline, so one device cannot hold the rest. A device that runs
 // out of time is not held and is onboarded on a later Sync, which is what
@@ -247,9 +236,6 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 	o.mu.Lock()
 	o.held[deviceID], _ = proto.Clone(listed).(*attachv1.ListedDevice)
 	o.mu.Unlock()
-	if o.cfg.Index != nil {
-		o.cfg.Index.Add(addr, deviceID, binding)
-	}
 
 	o.log.InfoContext(ctx, "device onboarded",
 		slog.String("otel.event.name", "flowseer.edge.device.onboarded"),

@@ -4,17 +4,21 @@ import (
 	"context"
 	"log/slog"
 	"net"
+	"net/netip"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"buf.build/go/protovalidate"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"google.golang.org/protobuf/proto"
 
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
+	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	agentv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
@@ -28,6 +32,33 @@ const (
 	syslogTestDeviceID  = "0192e6a0-0000-7000-8000-0000000000d1"
 	syslogTestBindingID = "0192e6a0-0000-7000-8000-0000000000b1"
 )
+
+// listedAt is a listed device answering at an IPv4 management address, built
+// the way central lists it.
+func listedAt(t *testing.T, address, deviceID string) *attachv1.ListedDevice {
+	t.Helper()
+	octets := netip.MustParseAddr(address).As4()
+	return attachv1.ListedDevice_builder{
+		DeviceId:  proto.String(deviceID),
+		BindingId: proto.String(syslogTestBindingID),
+		Ip:        addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: octets[:]}.Build()}.Build(),
+		AccessPolicy: policyv1.AccessPolicyHandle_builder{
+			Key: proto.String("icx7150-lab"), Version: proto.Uint64(3),
+		}.Build(),
+	}.Build()
+}
+
+// seedListing applies every row of one listing to the index in one call, as
+// the onboarder does after central answers, with no lane involved.
+func seedListing(t *testing.T, index *lanehost.DeviceIndex, rows ...*attachv1.ListedDevice) {
+	t.Helper()
+	for _, row := range rows {
+		if err := protovalidate.Validate(row); err != nil {
+			t.Fatalf("listed device %s: %v", row.GetDeviceId(), err)
+		}
+	}
+	index.ApplyListing(rows)
+}
 
 // syslogHostConfig is an agent configuration naming the given listeners and
 // raw policy, built directly because the file loader is not what these tests
@@ -235,9 +266,7 @@ func TestSyslogAssembly_SetupPublishesAnIngestRecordNamingThisEdge(t *testing.T)
 	}, address)
 
 	index := lanehost.NewDeviceIndex()
-	index.Add("127.0.0.1", syslogTestDeviceID, inventoryv1.BindingGlobalRef_builder{
-		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(syslogTestBindingID)}.Build(),
-	}.Build())
+	seedListing(t, index, listedAt(t, "127.0.0.1", syslogTestDeviceID))
 	publisher := newRecordingPublisher()
 	fixed := time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC)
 	lane := &assembly{cfg: cfg, opts: Options{Clock: func() time.Time { return fixed }}, edgeID: syslogTestEdgeID, index: index}

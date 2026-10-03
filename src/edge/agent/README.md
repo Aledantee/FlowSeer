@@ -43,9 +43,8 @@ it.
 A device already onboarded is left alone rather than re-added to the lane. A
 second `AddDevice` for an already-registered device is refused by the lane.
 The lane session therefore stays on the onboarded address until the attempt
-restarts, while the device index follows the listing immediately: for a held
-device, the index reflects the listed address and binding so datagrams from an
-address it left are not attributed to it. A held device whose listing changed
+restarts, while the device index follows the listing immediately, so datagrams
+from an address a device left are not attributed to it. A held device whose listing changed
 is served by a lane session that no longer matches it, which is a real gap for
 lane operations, and it is recorded rather than passed over: a re-listing that
 differs from what a device was onboarded with names each field and both
@@ -210,19 +209,20 @@ datagrams and frames up to 65,535 bytes, maps them to `SyslogRecord` payloads,
 and publishes them to the local edge buffer on `flowseer.<tenant>.edge.<edge-id>.ingest.syslog`.
 
 Incoming datagrams are accepted only from management addresses resolved by
-`lanehost.DeviceIndex`. Senders from unknown addresses are dropped and counted
-on `flowseer.edge.syslog.dropped` with reason `unknown_source`. The index holds
-a record for every listed device, unserved and address-less ones included,
-carrying the listed address and binding of each device. Each successful sync
-applies the listing to the index under a single write lock before onboarding,
-pruning unlisted devices, recording address claims, and re-asserting held
-devices. When two or more listed devices share an address, datagrams from that
-address resolve to no device and are dropped with reason `ambiguous_source`.
-An address with one claimant resolves to that device only when the device was
-onboarded by a lane attempt of this process and is listed at this address. Otherwise
-the datagram is dropped with reason `unknown_source`. That state outlives the
-lane attempt: a lane restart keeps that state, while a process restart starts
-with an empty index.
+`lanehost.DeviceIndex`, which follows the device listing and nothing else. An
+address resolves to a device when exactly one listed device claims it, whether
+or not the lane onboarded that device: a UDP source address is spoofable
+either way, and a gate on onboarding would drop syslog from a listed device
+whose management session is down. A device id listed at two addresses resolves
+from both, each with its own row's binding. Each successful sync replaces the
+index's claims with the listing before onboarding starts, so a device the
+listing omits or moves stops resolving at the old address, and a failed
+listing leaves the index as it was. When two or more listed devices claim an
+address, datagrams from it resolve to no device and are dropped with reason
+`ambiguous_source`. Senders from addresses no listed device claims are dropped
+and counted on `flowseer.edge.syslog.dropped` with reason `unknown_source`. A
+lane restart keeps the last listing, while a process restart starts with an
+empty index until the first listing.
 
 When a record fails parsing or exceeds field length bounds, `RawPolicy`
 evaluates whether to attach the raw payload. The first 20 failures per device
