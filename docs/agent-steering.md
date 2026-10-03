@@ -739,10 +739,12 @@ loop as a step the user asks for, because the coordinator is the only
 party that holds the rounds' history and so the only one that can see a
 round undo the previous round's fix: fixes are dispatched through
 `delegate`, the verifier runs on the union before each review round, and a
-review runs at most three rounds in total. The count covers every round,
-whatever it fixed: a cap counted per mechanism let a loop run a fourth
-round because each round had found a different defect, so three rounds
-that leave a finding now stop at a question to the user. A second defect
+review runs at most three rounds in total. After three rounds on one
+mechanism the work goes to `plan`, the cap `implement` puts on a red unit.
+The count covers every round, whatever it fixed: a cap counted per
+mechanism let a loop run a fourth round because each round had found a
+different defect, so three rounds on different mechanisms now stop at a
+question to the user. A second defect
 in one mechanism also sends the coordinator to prior art before the next
 patch. Five rounds of local fixes to a multi-key uniqueness claim ended
 only when a re-plan replaced the protocol with the store's atomic batch
