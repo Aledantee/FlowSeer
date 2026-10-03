@@ -281,6 +281,6 @@ service.
 - How one tenant with several issuers maps to organization claims. The
   phase 2 plan's Decisions answer it: a tenant binds one issuer, and a
   second issuer's users reach it through `partner` or `platform`.
-- Which OIDC issuer the lab deployment runs (Zitadel, Keycloak, or Dex).
-  The phase 2 plan recommends Keycloak and holds the question open for the
-  user. Any of them passes the vendor rule.
+- Which OIDC issuer the lab deployment runs. The phase 2 plan surveys
+  eleven, recommends Dex, and holds the question open for the user. All of
+  them pass the vendor rule.
