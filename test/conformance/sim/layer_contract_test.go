@@ -605,8 +605,8 @@ func returnsLayerAndError(results *ast.FieldList) bool {
 	if !ok || id.Name != "Layer" {
 		return false
 	}
-	errId, ok := types[1].(*ast.Ident)
-	return ok && errId.Name == "error"
+	errID, ok := types[1].(*ast.Ident)
+	return ok && errID.Name == "error"
 }
 
 func returnsString(results *ast.FieldList) bool {
