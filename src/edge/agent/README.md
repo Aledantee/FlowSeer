@@ -205,11 +205,15 @@ gated on listener presence. It binds UDP and TCP listeners, admits syslog
 datagrams and frames up to 65,535 bytes, maps them to `SyslogRecord` payloads,
 and publishes them to the local edge buffer on `flowseer.<tenant>.edge.<edge-id>.ingest.syslog`.
 
-Incoming datagrams are accepted only from management addresses known to
+Incoming datagrams are accepted only from management addresses resolved by
 `lanehost.DeviceIndex`. Senders from unknown addresses are dropped and counted
-on `flowseer.edge.syslog.dropped` with reason `unknown_source`. When two or more
-listed devices share an address, datagrams from that address resolve to no
-device and are dropped with reason `ambiguous_source`.
+on `flowseer.edge.syslog.dropped` with reason `unknown_source`. The index carries
+the listed address and binding of every listed device, a held one included.
+Each successful sync records address claims and prunes unlisted devices before
+onboarding. When two or more listed devices share an address, datagrams from that
+address resolve to no device and are dropped with reason `ambiguous_source`.
+An address with one claimant resolves to that device only when the lane serves it;
+otherwise the datagram is dropped with reason `unknown_source`.
 
 When a record fails parsing or exceeds field length bounds, `RawPolicy`
 evaluates whether to attach the raw payload. The first 20 failures per device

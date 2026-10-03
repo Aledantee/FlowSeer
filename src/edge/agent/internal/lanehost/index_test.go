@@ -12,6 +12,7 @@ import (
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
 )
 
@@ -191,6 +192,7 @@ func TestDeviceIndex_LookupSurvivesSecondOnboarder(t *testing.T) {
 		listedDeviceWithAddr(deviceTwo, []byte{192, 0, 2, 2}),
 	}}}
 	reg2 := newRegistrar()
+	reg2.failing[deviceOne] = true
 	cfg2 := lanehost.OnboardConfig{
 		Client:           lister2,
 		Lane:             reg2,
@@ -212,6 +214,37 @@ func TestDeviceIndex_LookupSurvivesSecondOnboarder(t *testing.T) {
 	if entry, res := idx.Lookup("192.0.2.2"); res != lanehost.LookupFound || entry.DeviceID != deviceTwo {
 		t.Errorf("deviceTwo in index = (%v, %v), want (%s, LookupFound)", entry, res, deviceTwo)
 	}
+}
+
+func TestDeviceIndex_PruneBesideLookupConcurrent(t *testing.T) {
+	t.Parallel()
+
+	idx := lanehost.NewDeviceIndex()
+	binding := bindingRefFor(bindingOne)
+	idx.Add("192.0.2.1", deviceOne, binding)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	done := make(chan struct{}, 2)
+
+	spawn.Go(ctx, "prune-worker", func() {
+		defer func() { done <- struct{}{} }()
+		for ctx.Err() == nil {
+			idx.Prune([]string{deviceOne})
+			idx.Add("192.0.2.1", deviceOne, binding)
+		}
+	})
+
+	spawn.Go(ctx, "lookup-worker", func() {
+		defer func() { done <- struct{}{} }()
+		for ctx.Err() == nil {
+			_, _ = idx.Lookup("192.0.2.1")
+		}
+	})
+
+	<-done
+	<-done
 }
 
 func TestDeviceIndex_MappedIPv4MatchesPlainIPv4(t *testing.T) {

@@ -140,7 +140,8 @@ func NewOnboarder(cfg OnboardConfig) (*Onboarder, error) {
 // leave the rest of the edge's fleet unserved.
 //
 // After a successful listing, the configured device index is pruned to the
-// listed device IDs.
+// listed device IDs and updated with each listed device's address claim before
+// onboarding.
 func (o *Onboarder) Sync(ctx context.Context) error {
 	o.syncing.Lock()
 	defer o.syncing.Unlock()
@@ -151,9 +152,6 @@ func (o *Onboarder) Sync(ctx context.Context) error {
 	}
 
 	devices := resp.Msg.GetDevices()
-	for _, listed := range devices {
-		o.onboard(ctx, listed)
-	}
 	if o.cfg.Index != nil {
 		listedIDs := make([]string, 0, len(devices))
 		for _, listed := range devices {
@@ -162,6 +160,26 @@ func (o *Onboarder) Sync(ctx context.Context) error {
 			}
 		}
 		o.cfg.Index.Prune(listedIDs)
+
+		for _, listed := range devices {
+			deviceID := listed.GetDeviceId()
+			if deviceID == "" {
+				continue
+			}
+			addr, err := addressOf(listed.GetIp())
+			if err != nil {
+				o.cfg.Index.RecordClaim("", deviceID, nil)
+				continue
+			}
+			binding := inventoryv1.BindingGlobalRef_builder{
+				Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(listed.GetBindingId())}.Build(),
+			}.Build()
+			o.cfg.Index.RecordClaim(addr, deviceID, binding)
+		}
+	}
+
+	for _, listed := range devices {
+		o.onboard(ctx, listed)
 	}
 	return nil
 }
@@ -215,6 +233,14 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 				slog.String("otel.event.name", "flowseer.edge.device.listing_diverged"),
 				slog.String("flowseer.device.id", deviceID),
 				slog.Any("flowseer.edge.device.diverged", changed))
+		}
+		if o.cfg.Index != nil {
+			if addr, err := addressOf(listed.GetIp()); err == nil {
+				binding := inventoryv1.BindingGlobalRef_builder{
+					Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(listed.GetBindingId())}.Build(),
+				}.Build()
+				o.cfg.Index.Add(addr, deviceID, binding)
+			}
 		}
 		return
 	}
