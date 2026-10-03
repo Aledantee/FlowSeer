@@ -239,13 +239,7 @@ describe('UiBreadcrumb', () => {
     if (!separator) {
       throw new Error('Expected separator element')
     }
-    try {
-      expect(separator.textContent?.trim()).toBe('•')
-    } finally {
-      i18n.global.mergeLocaleMessage('en', {
-        ui: { breadcrumbSeparator: { separator: '/' } },
-      })
-    }
+    expect(separator.textContent?.trim()).toBe('•')
   })
 
   it('updates breadcrumb defaults on live locale change and preserves explicit overrides', async () => {

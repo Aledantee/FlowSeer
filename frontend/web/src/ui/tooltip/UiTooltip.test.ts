@@ -4,23 +4,12 @@ import { createApp, h, nextTick } from 'vue'
 import { TooltipProvider } from 'reka-ui'
 import UiTooltip from './UiTooltip.vue'
 import { createWebI18n, type WebLocale } from '../../i18n'
-import en from '../../i18n/locales/en.json'
 
 let dispose = () => {}
 afterEach(() => {
   dispose()
   document.body.replaceChildren()
 })
-
-function overrideEnglish(
-  i18n: ReturnType<typeof createWebI18n>,
-  messages: Record<string, unknown>,
-) {
-  // mergeLocaleMessage writes into the catalog object every createWebI18n
-  // shares, so the merge targets a private copy.
-  i18n.global.setLocaleMessage('en', structuredClone(en))
-  i18n.global.mergeLocaleMessage('en', messages)
-}
 
 function mountTooltips(
   list: Record<string, unknown>[],
@@ -51,7 +40,7 @@ function mountTooltips(
     },
   })
   const i18n = createWebI18n(locale)
-  if (messages) overrideEnglish(i18n, messages)
+  if (messages) i18n.global.mergeLocaleMessage('en', messages)
   app.use(i18n)
   app.mount(host)
   dispose = () => {
