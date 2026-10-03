@@ -50,7 +50,6 @@ To resolve the extension:
 - `generated/go/proto/flowseer/api/capture/v1/capturev1connect/capture_service.connect.go:206` sets `connect.WithSchema` with the method descriptor.
 - `src/services/device/internal/authz/interceptor.go:12,68,73` links `authzv1` by naming `authzv1.E_Rule` to read `Rule` from `req.Spec().Schema`.
 - `test/conformance/proto/api_authorization_test.go:20,78-85` imports `authzv1` and validates rules on method descriptors across `flowseer.api.`.
-- `docs/plans/2026-09-30-1139-feat-operator-authorization-phase1-plan.md:37-49` documents that the extension resolves without a separate startup registry because `authzv1.E_Rule` is linked.
 
 ## What this does not cover
 
