@@ -3,7 +3,7 @@ title: Ingest Envelope and Edge Syslog Source - Plan
 type: feat
 date: 2026-10-02
 artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
+artifact_readiness: needs-decisions
 status: planned
 execution: code
 parent: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-plan.md
@@ -33,18 +33,25 @@ The parent plan's Decisions apply. These are local to the phase.
   distributed integration and central exchange over NATS, and a typed arm
   keeps rule 9 of the device service record ("kinds are typed or not
   shipped").
-- `Provenance.protocol` gets `MANAGEMENT_PROTOCOL_SYSLOG = 7`. Why:
-  `Provenance` requires a non-zero protocol
-  (`spec/proto/flowseer/model/inventory/v1/provenance.proto`) and the enum
-  ends at `HTTP = 6` (`spec/proto/flowseer/model/inventory/v1/binding.proto:68-74`).
+- `Provenance.protocol` widens its type so that it can name syslog.
+  `ManagementProtocol` gains no `SYSLOG` value. Why: syslog is not a
+  management protocol, and `Provenance` requires a non-zero protocol
+  (`spec/proto/flowseer/model/inventory/v1/provenance.proto`). The new type
+  and its effect on the existing producers of `Provenance` are not designed
+  yet, and the units below still describe the enum value. (decided by the
+  user, 2026-10-03)
 - `SyslogRecord.severity` and `facility` stop being required. Unset means the
   message carried no PRI. Why: a legacy message may omit PRI
   (`src/protocol/syslog/README.md`, "Optional PRI/origin"), and rule 5 of the
   device service record reads unset as "the device does not provide it". A
   default would be a fabricated field.
-- `IngestRecord.record_id` equals `SyslogRecord.record_id`, a UUIDv7 from
-  `uuid.NewV7` (`github.com/google/uuid` v1.6.0, `go doc` confirms the
-  function), and is passed as the message id to `Leaf.Publish`
+- `IngestRecord.record_id` is the record's only id, and `SyslogRecord`
+  drops its `record_id`. Why: two fields that must always agree need a rule
+  to hold them equal. The units below still describe both fields. (decided
+  by the user, 2026-10-03)
+- `IngestRecord.record_id` is a UUIDv7 from `uuid.NewV7`
+  (`github.com/google/uuid` v1.6.0, `go doc` confirms the function), and is
+  passed as the message id to `Leaf.Publish`
   (`src/modules/edgebus/leaf.go:218`).
 - The agent resolves the device from the datagram's peer address against the
   devices its lane host has onboarded. A message from any other address is
@@ -217,8 +224,7 @@ go test -race ./test/conformance/proto/... ./src/modules/edgebus/... ./src/edge/
 
 ## Open questions
 
-- Whether `MANAGEMENT_PROTOCOL_SYSLOG` belongs in an enum named for
-  management protocols, or `Provenance.protocol` should widen its type. The
-  plan takes the enum value as the smaller change.
-- Whether `SyslogRecord.record_id` stays once the envelope carries the same
-  id. The plan keeps both equal.
+- Which type `Provenance.protocol` widens to, and what each existing
+  producer of `Provenance` writes into it.
+- Which consumers read `SyslogRecord.record_id` today and what they read
+  once it is gone.
