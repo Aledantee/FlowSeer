@@ -294,8 +294,8 @@ func TestDiffReportsFieldsAndIgnoresSetOrder(t *testing.T) {
 	if len(changes) != 2 {
 		t.Fatalf("Diff returned %d changes, want 2: %+v", len(changes), changes)
 	}
-	assertChange(t, changes, trace.Subject{Kind: "mirror", Key: "m1"}, "snap_len", "64", "128")
-	assertChange(t, changes, trace.Subject{Kind: "port", Key: "1/1/1"}, "rate", "1000000", "2000000")
+	assertChange(t, changes, trace.Subject{Kind: "mirror", Key: "m1"}, "snap_len", "traffic.snap_len", "64", "128")
+	assertChange(t, changes, trace.Subject{Kind: "port", Key: "1/1/1"}, "rate", "traffic.rate_bps", "1000000", "2000000")
 }
 
 func TestDiffReportsQueueBuffer(t *testing.T) {
@@ -312,7 +312,7 @@ func TestDiffReportsQueueBuffer(t *testing.T) {
 	if len(changes) != 1 {
 		t.Fatalf("Diff returned %d changes, want 1: %+v", len(changes), changes)
 	}
-	assertChange(t, changes, trace.Subject{Kind: "port", Key: trace.CompositeKey("1/1/1", "0")}, "buffer_octets", "2000", "4000")
+	assertChange(t, changes, trace.Subject{Kind: "port", Key: `"1/1/1"/"0"`}, "buffer_octets", "traffic.queue_buffer_octets", "2000", "4000")
 }
 
 func TestMirrorSnapshotFactIsLosslessAndImmutable(t *testing.T) {
@@ -337,14 +337,14 @@ func TestMirrorSnapshotFactIsLosslessAndImmutable(t *testing.T) {
 	}
 }
 
-func assertChange(t *testing.T, changes []trace.Change, subject trace.Subject, field string, fromCanonical, toCanonical string) {
+func assertChange(t *testing.T, changes []trace.Change, subject trace.Subject, field, typeID, fromCanonical, toCanonical string) {
 	t.Helper()
 	for _, change := range changes {
 		if change.Layer == traffic.LayerName && change.Subject == subject && change.Field == field &&
-			change.From != nil && change.From.Canonical() == fromCanonical &&
-			change.To != nil && change.To.Canonical() == toCanonical {
+			change.From != nil && change.From.TypeID() == typeID && change.From.Canonical() == fromCanonical &&
+			change.To != nil && change.To.TypeID() == typeID && change.To.Canonical() == toCanonical {
 			return
 		}
 	}
-	t.Errorf("change %v %q from %q to %q not found in %+v", subject, field, fromCanonical, toCanonical, changes)
+	t.Errorf("change %v %q (type %q) from %q to %q not found in %+v", subject, field, typeID, fromCanonical, toCanonical, changes)
 }

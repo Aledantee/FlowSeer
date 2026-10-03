@@ -8,12 +8,14 @@ import (
 )
 
 // Egress summarizes one potential output port and whether the frame was dropped.
+// Egress is not safe for concurrent use.
 type Egress struct {
 	Port    string
 	Dropped bool
 }
 
 // Switchport summarizes VLAN membership for mirror copy egress filtering.
+// Switchport is not safe for concurrent use.
 type Switchport struct {
 	Tagged   []vlan.ID
 	Untagged []vlan.ID
@@ -21,6 +23,7 @@ type Switchport struct {
 }
 
 // Tunnel carries the service VLAN identifier of an 802.1Q tunnel port.
+// Tunnel is not safe for concurrent use.
 type Tunnel struct {
 	VID vlan.ID
 }
@@ -37,10 +40,10 @@ type Copy struct {
 	Frame  ethernet.Frame
 }
 
-// Copies returns the mirror copies selected from one relay result. VLAN output
+// copies returns the mirror copies selected from one relay result. VLAN output
 // needs switchports to resolve tagged, untagged, and tunnel switchports; an empty
 // or nil switchports map therefore produces no VLAN copies.
-func Copies(cfg Config, switchports map[string]Switchport, ingress string, vid vlan.ID, received ethernet.Frame, egress []Egress) []Copy {
+func copies(cfg Config, switchports map[string]Switchport, ingress string, vid vlan.ID, received ethernet.Frame, egress []Egress) []Copy {
 	var copies []Copy
 	for _, mirror := range cfg.Mirrors {
 		if !selects(mirror, ingress, vid, egress) {

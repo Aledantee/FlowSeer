@@ -36,28 +36,26 @@ const (
 	ReasonFilterReject trace.Reason = "filter-reject"
 )
 
-type ruleDecisionFact string
+type ruleDecisionFactValue string
 
-func (f ruleDecisionFact) TypeID() string    { return "filter.rule_decision" }
-func (f ruleDecisionFact) Canonical() string { return string(f) }
+func (f ruleDecisionFactValue) TypeID() string    { return "filter.rule_decision" }
+func (f ruleDecisionFactValue) Canonical() string { return string(f) }
 
-// RuleDecisionFact returns an immutable snapshot of a filter rule decision.
-func RuleDecisionFact(set, rule string, action Action, dir Direction, iface string) trace.Fact {
-	return ruleDecisionFact("set=" + strconv.Quote(set) +
+func ruleDecisionFact(set, rule string, action Action, dir Direction, iface string) trace.Fact {
+	return ruleDecisionFactValue("set=" + strconv.Quote(set) +
 		";rule=" + strconv.Quote(rule) +
 		";action=" + strconv.Quote(string(action)) +
 		";direction=" + strconv.Quote(string(dir)) +
 		";interface=" + strconv.Quote(iface))
 }
 
-type matchFact string
+type matchFactValue string
 
-func (f matchFact) TypeID() string    { return "filter.match" }
-func (f matchFact) Canonical() string { return string(f) }
+func (f matchFactValue) TypeID() string    { return "filter.match" }
+func (f matchFactValue) Canonical() string { return string(f) }
 
-// MatchFact returns an immutable snapshot of the 5-tuple consulted by a filter.
-func MatchFact(proto uint8, src, dst netip.Addr, srcPort, dstPort uint16) trace.Fact {
-	return matchFact("proto=" + strconv.FormatUint(uint64(proto), 10) +
+func matchFact(proto uint8, src, dst netip.Addr, srcPort, dstPort uint16) trace.Fact {
+	return matchFactValue("proto=" + strconv.FormatUint(uint64(proto), 10) +
 		";src=" + strconv.Quote(src.String()) +
 		";dst=" + strconv.Quote(dst.String()) +
 		";src_port=" + strconv.FormatUint(uint64(srcPort), 10) +
@@ -228,7 +226,7 @@ func (l *Layer) EvaluateIngress(iface string, f ethernet.Frame) Result {
 	}
 
 	hdr, tuple, icmpHdr, tcpHdr, decoded := extractPacket(f)
-	matchF := MatchFact(tuple.Proto, tuple.Src, tuple.Dst, tuple.SrcPort, tuple.DstPort)
+	matchF := matchFact(tuple.Proto, tuple.Src, tuple.Dst, tuple.SrcPort, tuple.DstPort)
 
 	for idx, rule := range set.Rules {
 		if ruleMatches(rule.Match, decoded, hdr, tuple, icmpHdr, tcpHdr) {
@@ -236,7 +234,7 @@ func (l *Layer) EvaluateIngress(iface string, f ethernet.Frame) Result {
 			if ruleKey == "" {
 				ruleKey = strconv.Itoa(idx)
 			}
-			decFact := RuleDecisionFact(setName, ruleKey, rule.Action, In, iface)
+			decFact := ruleDecisionFact(setName, ruleKey, rule.Action, In, iface)
 			ruleID := ruleIDForAction(rule.Action)
 			op := opForAction(rule.Action)
 			step := trace.Step{
@@ -274,7 +272,7 @@ func (l *Layer) EvaluateIngress(iface string, f ethernet.Frame) Result {
 
 	ruleID := RuleDefault
 	op := opForAction(set.Default)
-	decFact := RuleDecisionFact(setName, "default", set.Default, In, iface)
+	decFact := ruleDecisionFact(setName, "default", set.Default, In, iface)
 	step := trace.Step{
 		Layer:   LayerName,
 		Op:      op,
@@ -313,7 +311,7 @@ func (l *Layer) ResolveDeferred(ingressRes Result, egressIface string) Result {
 	egressScope := Scope(l.nodeID, egressIface, In)
 	res.consult(egressScope)
 
-	matchF := MatchFact(tuple.Proto, tuple.Src, tuple.Dst, tuple.SrcPort, tuple.DstPort)
+	matchF := matchFact(tuple.Proto, tuple.Src, tuple.Dst, tuple.SrcPort, tuple.DstPort)
 
 	if egressSetName, ok := l.Binding(egressIface, In); ok {
 		egressSet, ok := l.sets[egressSetName]
@@ -333,8 +331,8 @@ func (l *Layer) ResolveDeferred(ingressRes Result, egressIface string) Result {
 				if fwdRuleKey == "" {
 					fwdRuleKey = strconv.Itoa(idx)
 				}
-				fwdDecFact := RuleDecisionFact(egressSetName, fwdRuleKey, Accept, In, egressIface)
-				stateDecFact := RuleDecisionFact(ingressSetName, "state", Accept, In, ingressIface)
+				fwdDecFact := ruleDecisionFact(egressSetName, fwdRuleKey, Accept, In, egressIface)
+				stateDecFact := ruleDecisionFact(ingressSetName, "state", Accept, In, ingressIface)
 				step := trace.Step{
 					Layer:   LayerName,
 					Op:      trace.OpFilter,
@@ -354,7 +352,7 @@ func (l *Layer) ResolveDeferred(ingressRes Result, egressIface string) Result {
 
 	ruleID := RuleDefault
 	op := opForAction(ingressSet.Default)
-	decFact := RuleDecisionFact(ingressSetName, "default", ingressSet.Default, In, ingressIface)
+	decFact := ruleDecisionFact(ingressSetName, "default", ingressSet.Default, In, ingressIface)
 	step := trace.Step{
 		Layer:   LayerName,
 		Op:      op,
@@ -396,7 +394,7 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 	}
 
 	hdr, tuple, icmpHdr, tcpHdr, decoded := extractPacket(f)
-	matchF := MatchFact(tuple.Proto, tuple.Src, tuple.Dst, tuple.SrcPort, tuple.DstPort)
+	matchF := matchFact(tuple.Proto, tuple.Src, tuple.Dst, tuple.SrcPort, tuple.DstPort)
 
 	for idx, rule := range set.Rules {
 		if ruleMatches(rule.Match, decoded, hdr, tuple, icmpHdr, tcpHdr) {
@@ -404,7 +402,7 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 			if ruleKey == "" {
 				ruleKey = strconv.Itoa(idx)
 			}
-			decFact := RuleDecisionFact(setName, ruleKey, rule.Action, Out, egressIface)
+			decFact := ruleDecisionFact(setName, ruleKey, rule.Action, Out, egressIface)
 			ruleID := ruleIDForAction(rule.Action)
 			op := opForAction(rule.Action)
 			step := trace.Step{
@@ -453,8 +451,8 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 					if fwdRuleKey == "" {
 						fwdRuleKey = strconv.Itoa(idx)
 					}
-					fwdDecFact := RuleDecisionFact(ingressSetName, fwdRuleKey, Accept, Out, ingressIface)
-					stateDecFact := RuleDecisionFact(setName, "state", Accept, Out, egressIface)
+					fwdDecFact := ruleDecisionFact(ingressSetName, fwdRuleKey, Accept, Out, ingressIface)
+					stateDecFact := ruleDecisionFact(setName, "state", Accept, Out, egressIface)
 					step := trace.Step{
 						Layer:   LayerName,
 						Op:      trace.OpFilter,
@@ -475,7 +473,7 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 
 	ruleID := RuleDefault
 	op := opForAction(set.Default)
-	decFact := RuleDecisionFact(setName, "default", set.Default, Out, egressIface)
+	decFact := ruleDecisionFact(setName, "default", set.Default, Out, egressIface)
 	step := trace.Step{
 		Layer:   LayerName,
 		Op:      op,

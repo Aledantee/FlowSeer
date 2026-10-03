@@ -55,6 +55,7 @@ var switchFieldClasses = map[string]forkClass{
 	"routing":                  classDeepCopied,
 	"filter":                   classImmutableShared,
 	"traffic":                  classDeepCopied,
+	"trafficSwitchports":       classImmutableShared,
 	"copies":                   classDeepCopied,
 	"emissions":                classDeepCopied,
 	"portP2P":                  classDeepCopied,

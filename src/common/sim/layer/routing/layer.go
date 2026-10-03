@@ -24,15 +24,18 @@ const LayerName trace.Layer = "routing"
 
 // Rule constants produced by routing.
 const (
-	RuleClassify         trace.RuleID = "classify"
-	RuleNoRoute          trace.RuleID = "no-route"
-	RuleUnknownInterface trace.RuleID = "unknown-interface"
-	RuleLocalDelivery    trace.RuleID = "local-delivery"
-	RuleDecrementTTL     trace.RuleID = "decrement-ttl"
-	RuleTagMiss          trace.RuleID = "routing.tag_miss"
-	RuleTagProtocolMiss  trace.RuleID = "routing.tag_protocol_miss"
-	RuleNotBridged       trace.RuleID = "routing.not_bridged"
-	RuleTransmit         trace.RuleID = "routing.transmit"
+	RuleClassify          trace.RuleID = "classify"
+	RuleNoRoute           trace.RuleID = "no-route"
+	RuleUnknownInterface  trace.RuleID = "unknown-interface"
+	RuleLocalDelivery     trace.RuleID = "local-delivery"
+	RuleDecrementTTL      trace.RuleID = "decrement-ttl"
+	RuleTagMiss           trace.RuleID = "routing.tag_miss"
+	RuleTagProtocolMiss   trace.RuleID = "routing.tag_protocol_miss"
+	RuleNotBridged        trace.RuleID = "routing.not_bridged"
+	RuleTransmit          trace.RuleID = "routing.transmit"
+	RuleStatusDown        trace.RuleID = "port.status.down"
+	RuleStatusMTUExceeded trace.RuleID = "port.status.mtu-exceeded"
+	RuleEgressNoMember    trace.RuleID = "lag.egress.no_member"
 )
 
 // VRFScope returns the construction metadata scope for one routing table.

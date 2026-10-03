@@ -24,6 +24,7 @@ const (
 	RuleSSTPVLANNotAdmitted trace.RuleID = "stp.sstp.vlan-not-admitted"
 	RuleSSTPVLANUntracked   trace.RuleID = "stp.sstp.vlan-untracked"
 	RuleSSTPAdmit           trace.RuleID = "stp.sstp.admit"
+	RuleStatusDown          trace.RuleID = "port.status.down"
 	RuleBPDUPrefix                       = "stp.bpdu."
 	RuleSSTPPrefix                       = "stp.sstp."
 )
