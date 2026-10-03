@@ -88,7 +88,6 @@ a solution override an accepted architecture record or binding convention.
 | [A vue-i18n Plugin Instance Mutates Message Catalogs and Number Formats in Place](conventions/vue-i18n-instances-mutate-catalogs-and-formats-in-place.md) | Configuring vue-i18n in Composition mode with imported JSON message catalogs or shared number format definitions, investigating message overrides or format changes in one Vue app or test instance leaking into subsequent instances, or writing or reviewing cross-instance isolation tests for vue-i18n message catalogs and number formats. |
 
 
-
 Add a solution only after the behavior and lesson have been verified. Keep its
 frontmatter specific enough that an agent can reject unrelated documents
 without reading their full bodies.

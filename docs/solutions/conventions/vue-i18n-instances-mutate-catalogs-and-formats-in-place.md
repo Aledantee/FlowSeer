@@ -82,12 +82,12 @@ expect(de.ui.dialog.fallbackTitle).toBe('Dialog')
 - `node_modules/vue-i18n/dist/vue-i18n.node.mjs:151-158` and `:644` show in-place message catalog reference retention and mutation.
 - `node_modules/vue-i18n/dist/vue-i18n.node.mjs:296-299` and `:674-678` show in-place format reference retention and mutation.
 - `node_modules/@intlify/shared/dist/shared.mjs:325-355` demonstrates `deepCopy` in-place object mutation.
-- Commit `2887d581` shows that passing imported catalogs directly fails cross-instance message isolation (`AssertionError: expected 'probe-en' to be 'Dialog'`).
-- Commit `2b79303a` shows that passing exported `numberFormats` directly fails cross-instance format isolation (`AssertionError: expected '50.5%' to be '51%'`).
-- Commit `1dd17f9a` shows that calling `setLocaleMessage` before `mergeLocaleMessage` masks shared German catalogs by replacing the slot first.
+- Commit `2887d581` clones the imported catalogs per instance and adds the catalog isolation test.
+- Commit `2b79303a` clones `numberFormats` per instance and adds the number format isolation test.
+- Commit `1dd17f9a` moves the German merge ahead of `setLocaleMessage`. Before it, the test passed with the German catalog left uncloned.
 
 ## What this does not cover
 
 - Fallback locale chains across root and local scopes.
-- Single-instance production deployments (`frontend/web/src/main.ts:28`) where only one Vue app mounts in the process.
+- Single-instance production deployments (`frontend/web/src/main.ts:32`) where only one Vue app mounts in the process.
 - Dynamic locale switching via `locale.value` after mount.
