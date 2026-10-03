@@ -73,6 +73,14 @@ function formatAttention(attention: number | undefined): string {
               ])
             "
             :shortcut="index < 9 ? dockTabShortcut(index + 1) : undefined"
+            :identifier="
+              Boolean(
+                title(tab).labelName ||
+                title(tab).detailName ||
+                title(tab).pair?.first.name ||
+                title(tab).pair?.second.name,
+              )
+            "
             side="top"
           >
             <template #label>

@@ -291,6 +291,8 @@ describe('FleetView shell in German', () => {
     )
     if (!openTextNode) throw new Error('Missing öffnen text node')
     expect(openSpan.closest('[translate]')).toBeNull()
+    expect(tooltip.getAttribute('translate')).toBe('no')
+    expect(unmarkedIdentifiers(document.body, identifiers)).toEqual([])
 
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })

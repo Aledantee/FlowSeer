@@ -103,6 +103,24 @@ describe('LocaleSwitcher', () => {
     )
   })
 
+  it('marks the other language name in its open tooltip', async () => {
+    const { button } = mountSwitcher()
+    button.focus()
+    button.dispatchEvent(new FocusEvent('focus'))
+    await nextTick()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    await nextTick()
+
+    const hidden = document.body.querySelector('[role="tooltip"]')
+    if (!hidden) throw new Error('Missing open tooltip')
+    expect(hidden.textContent).toContain('Deutsch')
+    expect(hidden.getAttribute('translate')).toBe('no')
+    const name = hidden.parentElement?.querySelector('.font-medium [lang="de"]')
+    expect(name?.getAttribute('translate')).toBe('no')
+    expect(name?.textContent).toBe('Deutsch')
+    expect(name?.parentElement?.closest('[translate]')).toBeNull()
+  })
+
   it('follows an outside locale change in the name and the status', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { i18n, button, status } = mountSwitcher()

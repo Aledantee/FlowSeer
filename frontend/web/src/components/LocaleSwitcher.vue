@@ -28,7 +28,15 @@ function toggleLocale() {
 <template>
   <UiTooltip
     :label="t('view.localeSwitcher.label', { language: nameOf(other) })"
+    identifier
   >
+    <template #label>
+      <I18nT keypath="view.localeSwitcher.label" scope="global">
+        <template #language>
+          <span :lang="other" translate="no">{{ nameOf(other) }}</span>
+        </template>
+      </I18nT>
+    </template>
     <button
       class="locale-switcher grid place-items-center w-11 h-11 p-0 bg-transparent text-chrome-foreground border-0 rounded hover:bg-chrome-hover cursor-pointer text-xs font-semibold"
       type="button"

@@ -408,9 +408,6 @@ Neither of the first two blocks a unit.
 
 ## Review gaps
 
-- frontend/web/src/ui/tooltip/UiTooltip.vue:76: `tooltipAriaLabel` is built from the string props and reka-ui 2.10.5 prints it as one text node in its hidden `role="tooltip"` element (`Tooltip/TooltipContentImpl.js:87`, `:134-140`), so the open dock tooltip holds `cologne-ap-02 öffnen Cologne Central · Offline …` outside `translate="no"`; fails: `unmarkedIdentifiers(document.body, identifiers)` is empty with the dock tooltip open
-- frontend/web/src/ClientsView.vue:54: `count` and `matching` in the AI target context read `String(...)` where the screen reads `n(..., 'integer')` (`:145`); fails: with 1,000 clients the context holds `1,000` in `en`, and `frontend/web/src/FleetView.test.ts:702` compares raw counts instead of `Number()` of context text
-- frontend/web/src/ui/tooltip/UiTooltip.test.ts:447: `UiTooltip.vue:102` becomes `{{ label }}<slot name="label" />`, or `:104` becomes `v-if="hint"`; fails: the label span's text is exactly the slot text, and a hint slot without a `hint` prop renders
 - frontend/web/src/FleetView.locale.test.ts:283: the `#label` and `#hint` templates in `frontend/web/src/navigation/PageDock.vue:78-139`, or their `:translate` bindings, are deleted; fails: the open tooltip's name and site sit in `translate="no"`, the health word does not, for a device tab and a pair
 - frontend/web/src/ui/tooltip/UiTooltip.vue:104: a hint slot without the `hint` prop shows a hint the accessible text lacks, the slots have no `defineSlots` or contract comment, and the `Slots` story shows text its props do not announce and no marked name; fails: the contract is stated, the story marks a name with matching props
 - frontend/web/src/components/LocaleSwitcher.test.ts:69: `LocaleSwitcher.vue:37` becomes `{{ 'EN' }}`; fails: the code reads `DE` after a press

@@ -51,8 +51,8 @@ const viewTarget = computed(() =>
     entityId: accessPoint.value ? accessPoint.value.id : 'all',
     label: t('view.common.connectedClients'),
     context: {
-      count: String(all.value.length),
-      matching: String(filtered.value.length),
+      count: n(all.value.length, 'integer'),
+      matching: n(filtered.value.length, 'integer'),
       accessPoint: accessPoint.value?.name ?? t('view.clients.allAccessPoints'),
       search: search.value || t('view.common.noSearch'),
       band: band.value || 'all',

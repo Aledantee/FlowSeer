@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import {
   TooltipContent,
   TooltipPortal,
@@ -21,6 +21,12 @@ export interface UiTooltipProps {
   delayDuration?: number
   defaultOpen?: boolean
   open?: boolean
+  // The label or hint names an identifier (a device, site, or language
+  // name). The visible text marks names through the label and hint slots.
+  // Reka prints the accessible text as one hidden node built from the
+  // props, which no slot reaches, so that whole node is kept from browser
+  // translation; its message words are already localized.
+  identifier?: boolean
 }
 
 const props = withDefaults(defineProps<UiTooltipProps>(), {
@@ -32,6 +38,7 @@ const props = withDefaults(defineProps<UiTooltipProps>(), {
   delayDuration: undefined,
   defaultOpen: undefined,
   open: undefined,
+  identifier: false,
 })
 
 const { t } = useI18n({ useScope: 'global' })
@@ -78,6 +85,22 @@ const tooltipAriaLabel = computed(() =>
     .filter(Boolean)
     .join(' '),
 )
+
+// Reka renders the hidden node beside the label span, inside the content.
+const labelSpan = ref<HTMLElement | null>(null)
+
+function markHiddenText() {
+  const hidden = labelSpan.value?.parentElement?.querySelector(
+    ':scope > [role="tooltip"]',
+  )
+  if (!hidden) return
+  if (props.identifier) hidden.setAttribute('translate', 'no')
+  else hidden.removeAttribute('translate')
+}
+
+watch([labelSpan, () => props.identifier], () => nextTick(markHiddenText), {
+  flush: 'post',
+})
 </script>
 
 <template>
@@ -98,7 +121,7 @@ const tooltipAriaLabel = computed(() =>
         :collision-padding="8"
         class="bg-popover text-foreground border border-border rounded-control shadow-md px-2.5 py-1.5 text-xs z-(--z-overlay) flex flex-wrap items-center gap-2 select-none max-w-72"
       >
-        <span class="font-medium"
+        <span ref="labelSpan" class="font-medium"
           ><slot name="label">{{ label }}</slot></span
         >
         <span v-if="hint || $slots.hint" class="text-muted-foreground"

@@ -666,7 +666,16 @@ describe('AI target coverage', () => {
       const { host } = await mountAt('/clients')
       const id = 'a:clients:view:all'
       const before = registry.view(id)?.target.context
-      expect(before).toMatchObject({ band: 'all', matching: before?.count })
+      // The context reads as the screen does, so counts carry the locale's
+      // grouping, the same text the heading badge shows.
+      expect(before).toMatchObject({
+        band: 'all',
+        count: '1,000',
+        matching: '1,000',
+      })
+      expect(
+        host.querySelector('#clients-title span')?.textContent?.trim(),
+      ).toBe(before?.count)
 
       const trigger = host.querySelector<HTMLButtonElement>(
         '[aria-label="Filter by band"]',
@@ -699,7 +708,7 @@ describe('AI target coverage', () => {
 
       const after = registry.view(id)?.target.context
       expect(after?.band).toBe('2.4 GHz')
-      expect(Number(after?.matching)).toBeLessThan(Number(after?.count))
+      expect(after).toMatchObject({ count: '1,000', matching: '250' })
       expect(registry.view(id)?.target.id).toBe(id)
     } finally {
       spy.mockRestore()
