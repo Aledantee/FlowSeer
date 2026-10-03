@@ -241,7 +241,7 @@ func (l *Layer) LearnMLD(now time.Time, vid vlan.ID, portName string, source net
 // Advance applies the RFC 3376 §6.5 timer-expiry rules and removes learned router ports whose
 // expiry is not after now. It is the only place aging mutates stored state; Resolve computes
 // the same rules lazily against the now it is given, so a caller need not call Advance first.
-func (l *Layer) Advance(now time.Time) {
+func (l *Layer) Advance(now time.Time) layer.Effects {
 	for _, state := range l.byVLAN {
 		for key, gps := range state.groups {
 			ageGroupPortState(gps, now)
@@ -255,6 +255,7 @@ func (l *Layer) Advance(now time.Time) {
 			}
 		}
 	}
+	return layer.Effects{}
 }
 
 func ageGroupPortState(gps *groupPortState, now time.Time) {

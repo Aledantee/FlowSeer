@@ -223,7 +223,7 @@ func (b *Layer) SetGate(g Gate, scope analysis.Scope) {
 }
 
 // GateCount reports the number of installed gate entries. It exists for
-// tests that must confirm [Bridge.SetGate]'s replacing semantics rather than
+// tests that must confirm [Layer.SetGate]'s replacing semantics rather than
 // an appending one; production code has no use for the count.
 func (b *Layer) GateCount() int {
 	return len(b.gates)
@@ -237,10 +237,11 @@ func (b *Layer) SetSelector(sel Selector, scope analysis.Scope) {
 }
 
 // SetGroupResolver installs resolver as the bridge's group destination lookup.
-// scope contains the membership fields consulted by bridge forwarding. A nil
-// resolver leaves every group frame on the ordinary flood path.
-func (b *Layer) SetGroupResolver(resolver GroupResolver, scope analysis.Scope, layer trace.Layer, rule trace.RuleID) {
-	b.resolverLayer = layer
+// scope contains the membership fields consulted by bridge forwarding. traceLayer
+// and rule identify the layer and rule producing the resolution in trace records.
+// A nil resolver leaves every group frame on the ordinary flood path.
+func (b *Layer) SetGroupResolver(resolver GroupResolver, scope analysis.Scope, traceLayer trace.Layer, rule trace.RuleID) {
+	b.resolverLayer = traceLayer
 	b.resolverRule = rule
 	b.resolver = resolver
 	b.resolverScope = scope
@@ -407,7 +408,7 @@ func (b *Layer) Forget(fid vlan.ID, mac netaddr.MAC) bool {
 }
 
 // Advance removes dynamic forwarding database entries older than the configured aging time relative to now.
-func (b *Layer) Advance(now time.Time) {
+func (b *Layer) Advance(now time.Time) layer.Effects {
 	for key, e := range b.fdb {
 		if e.Lifetime != Static && now.Sub(e.LearnedAt) > b.agingTime {
 			delete(b.fdb, key)
@@ -415,6 +416,7 @@ func (b *Layer) Advance(now time.Time) {
 			b.counters.Expired++
 		}
 	}
+	return layer.Effects{}
 }
 
 func (b *Layer) evictOldestDynamic() (Entry, bool) {
@@ -451,15 +453,6 @@ func (b *Layer) evictOldestDynamic() (Entry, bool) {
 	b.counters.Evicted++
 
 	return oldest, true
-}
-
-func (b *Layer) forward(now time.Time, ingress string, f ethernet.Frame, learn bool) Result {
-	in, res, ok := b.Ingress(now, ingress, f, learn, learn)
-	if !ok {
-		return res
-	}
-
-	return b.Egress(in, f)
 }
 
 // Ingress represents an admitted, classified, and learned frame ready for egress forwarding.
@@ -1610,10 +1603,6 @@ func (b *Layer) isProtected(port string) bool {
 // runtime state depends on: its own configuration as Diff sees it and port link
 // states.
 func RetentionKey(cfg Config, env layer.Env) string {
-	if cfg.AgingTime == 0 && cfg.MaxEntries == 0 && !cfg.ForwardBPDU &&
-		len(cfg.FloodVLANs) == 0 && len(cfg.ProtectedPorts) == 0 && cfg.VLAN == nil {
-		return ""
-	}
 	norm := cfg.Normalize(env)
 	var b strings.Builder
 	b.WriteString("config=")

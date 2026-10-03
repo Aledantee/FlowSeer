@@ -14,7 +14,7 @@ import (
 )
 
 // The conservation property below is the one this package owes its callers: a frame that enters
-// a neighbor's hold queue leaves it exactly once, and Wake says how. It is asserted as a property
+// a neighbor's hold queue leaves it exactly once, and DrainExits says how. It is asserted as a property
 // rather than case by case because the three ways out were each fixed separately and each fix
 // opened the next hole — a released frame, a timed-out frame and an evicted frame are one
 // mechanism, and only a rule over all of them notices a fourth way out being added.
@@ -26,7 +26,7 @@ import (
 //     list counts because appendHeld moves a frame there inside the same call that queues it, so
 //     an evicted frame is never observable in queue and would otherwise look like an exit for a
 //     frame that never entered.
-//   - DiscardHeld removes a frame from the entered multiset rather than producing an exit. A
+//   - discardHeld removes a frame from the entered multiset rather than producing an exit. A
 //     derive boundary discards held frames unconditionally, and the fork that discarded them is a
 //     different run from the one that queued them; TestDiscardHeldThenWakePastDeadlineFailsTheEntry
 //     pins that decision.
@@ -188,7 +188,7 @@ func TestHoldQueueConservesEveryFrame(t *testing.T) {
 }
 
 // conservationRun is what one sequence produced: the payload markers observed in a hold queue,
-// the markers Wake reported leaving one, the markers DiscardHeld took out of the accounting, and
+// the markers DrainExits reported leaving one, the markers discardHeld took out of the accounting, and
 // a count per cause.
 type conservationRun struct {
 	entered   []byte
@@ -244,7 +244,7 @@ func runConservation(t *testing.T, depth int, ops []conservationOp) conservation
 		case "queue-oversize":
 			// 65516 octets under a 20-octet IPv4 header is one past the total-length field, so
 			// Originate must refuse it outright. Queued instead, it would be re-encoded at
-			// release, fail there, and leave the queue by a path Wake reports nothing for.
+			// release, fail there, and leave the queue by a path DrainExits reports nothing for.
 			marker++
 			payload := make([]byte, 65516)
 			payload[len(payload)-1] = marker
@@ -270,8 +270,8 @@ func runConservation(t *testing.T, depth int, ops []conservationOp) conservation
 			}, true)
 		case "queue-route-badheader":
 			// ip.Decode accepts an IPv6 header whose Src is IPv4-mapped, but
-			// ip.Header.Encode refuses it (finding 1): queued anyway, it would be
-			// re-encoded at release, fail there, and leave the queue by a path Wake
+			// ip.Header.Encode refuses it: queued anyway, it would be
+			// re-encoded at release, fail there, and leave the queue by a path DrainExits
 			// reports nothing for.
 			marker++
 			b := encodeUnencodableIPv6Packet(conservationAddrsV6[op.neighbor], []byte{marker})

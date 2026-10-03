@@ -63,7 +63,7 @@ deletes the port's router state outright instead of going through `TO_IN`.
 
 ### Timer expiry (§6.5)
 
-`Age(now)` applies the expiry rules lazily relative to `now`:
+`Advance(now)` applies the expiry rules lazily relative to `now`:
 
 - A group timer expiring while the port is in `EXCLUDE` moves it to `INCLUDE`.
   Sources with a running timer are kept with their timer; sources at a zero
@@ -75,7 +75,7 @@ deletes the port's router state outright instead of going through `TO_IN`.
   from `X` to `Y`; the record stays, now at a zero timer.
 
 `Resolve` computes the same rules against the `now` it is given without
-requiring a prior `Age` call, so a caller's aging cadence does not change the
+requiring a prior `Advance` call, so a caller's aging cadence does not change the
 forwarding answer.
 
 ### Forwarding (§6.3)
@@ -120,7 +120,7 @@ was met:
 An IGMP query learns its ingress as a router port when its IPv4 source is not
 `0.0.0.0`. An MLD query requires an IPv6 link-local source. A router port's
 `Origin` (`Configured` or `Observed`) names which of the two installed it,
-and its `Lifetime` (`Static` or `Aging`) names whether `Age` removes it. The
+and its `Lifetime` (`Static` or `Aging`) names whether `Advance` removes it. The
 two axes replace a single `Static` boolean that used to answer both
 questions at once: a record from configuration is always `Configured` and
 `Static`, and one a learned query installs is always `Observed` and
@@ -139,7 +139,7 @@ that never varies would document a distinction nothing ever makes.
 
 Learned router-port entries expire after their configured interval (default
 260 seconds, same as `MembershipInterval`), or, when installed through
-`InstallObserved`, after the expiry the caller gave. `Age(now)` removes
+`InstallObserved`, after the expiry the caller gave. `Advance(now)` removes
 every `Aging` router port whose expiry has passed, and the group timer and
 source timer expiry above, in one pass; it does not touch `Static` router
 ports. `Groups` and `RouterPorts` return sorted snapshots, and `Clone`

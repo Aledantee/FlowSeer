@@ -1605,6 +1605,34 @@ func flowSpread() [][2]netip.Addr {
 	return out
 }
 
+func candidateCount(t *testing.T, res routing.Result) int {
+	t.Helper()
+	for _, step := range res.Steps {
+		for _, fact := range step.Outputs {
+			if fact.TypeID() == "routing.lookup_decision" {
+				c := fact.Canonical()
+				const prefix = ";candidates=["
+				idx := strings.Index(c, prefix)
+				if idx < 0 {
+					continue
+				}
+				inner := c[idx+len(prefix):]
+				end := strings.IndexByte(inner, ']')
+				if end < 0 {
+					continue
+				}
+				candStr := inner[:end]
+				if candStr == "" {
+					return 0
+				}
+				return strings.Count(candStr, ",") + 1
+			}
+		}
+	}
+	t.Fatalf("no routing.lookup_decision fact found in result")
+	return 0
+}
+
 func TestFlowHashIgnoresTransportPorts(t *testing.T) {
 	t.Parallel()
 	l := mustNewRouting(t, ecmpConfig(gatewayA, gatewayB, gatewayC))
@@ -1613,6 +1641,9 @@ func TestFlowHashIgnoresTransportPorts(t *testing.T) {
 	dst := netip.MustParseAddr("10.200.0.1")
 	low := routeFlow(t, l, src, dst, []byte{0x04, 0x01, 0x00, 0x35, 'd'})
 	high := routeFlow(t, l, src, dst, []byte{0xc3, 0x50, 0x00, 0x35, 'd'})
+	if n := candidateCount(t, low); n != 3 {
+		t.Fatalf("candidates = %d, want 3; a single candidate proves nothing here", n)
+	}
 	if low.Interface != high.Interface {
 		t.Errorf("source port 1025 left by %s and 50000 by %s; ports do not enter the hash", low.Interface, high.Interface)
 	}
@@ -1641,6 +1672,9 @@ func TestFragmentsOfOneDatagramShareANextHop(t *testing.T) {
 	dst := netip.MustParseAddr("10.200.0.1")
 	first := routeFragment(t, l, src, dst, &ip.V4{ID: 7, Flags: 0x1})
 	later := routeFragment(t, l, src, dst, &ip.V4{ID: 7, FragmentOffset: 185})
+	if n := candidateCount(t, first); n != 3 {
+		t.Fatalf("candidates = %d, want 3; a single candidate proves nothing here", n)
+	}
 	if first.Interface != later.Interface {
 		t.Errorf("first fragment left by %s and a later one by %s", first.Interface, later.Interface)
 	}
@@ -1653,6 +1687,9 @@ func TestFlowSelectionRepeatsItself(t *testing.T) {
 	src := netip.MustParseAddr("10.0.10.7")
 	dst := netip.MustParseAddr("10.200.0.1")
 	first := routeFlow(t, l, src, dst, []byte("data"))
+	if n := candidateCount(t, first); n != 3 {
+		t.Fatalf("candidates = %d, want 3; a single candidate proves nothing here", n)
+	}
 	for i := range 10 {
 		again := routeFlow(t, l, src, dst, []byte("data"))
 		if again.Interface != first.Interface || again.Frame.Dst != first.Frame.Dst {
@@ -1765,6 +1802,9 @@ func TestIPv6ExtensionHeaderKeepsTheNextHop(t *testing.T) {
 	dst := netip.MustParseAddr("2001:db8:200::1")
 	plain := routeFlow6(t, l, src, dst, 0, 6)     // TCP directly after the fixed header.
 	extended := routeFlow6(t, l, src, dst, 0, 43) // TCP behind a routing header.
+	if n := candidateCount(t, plain); n != 3 {
+		t.Fatalf("candidates = %d, want 3; a single candidate proves nothing here", n)
+	}
 	if plain.Interface != extended.Interface {
 		t.Errorf("bare TCP left by %s and TCP behind a routing header by %s", plain.Interface, extended.Interface)
 	}
