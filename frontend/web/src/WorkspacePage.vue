@@ -219,7 +219,7 @@ const inventoryTarget = computed(() =>
     label: t('view.devices.inventory'),
     context: {
       scope: scopeSummary.value,
-      search: query('search') || t('view.devices.noSearch'),
+      search: query('search') || t('view.common.noSearch'),
       status: query('health') || 'all',
       total: n(scope.value.length, 'integer'),
       matching: n(filtered.value.length, 'integer'),
@@ -696,7 +696,7 @@ async function handleUndo() {
                       class="sort-button font-medium inline-flex items-center gap-1 cursor-pointer"
                       @click="sortBy('status')"
                     >
-                      {{ t('view.devices.status') }}
+                      {{ t('view.common.status') }}
                     </button>
                   </UiTableHead>
                   <UiTableHead

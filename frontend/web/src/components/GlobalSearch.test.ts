@@ -2,28 +2,39 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import { TooltipProvider } from 'reka-ui'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import FleetView from '../FleetView.vue'
+import { UiAppRoot } from '../ui'
+import { createAiRegistry, createAiTargetDirective } from '../ai'
+import { aiRegistryKey } from '../ui/ai/context'
+import { DOCK_KEY } from '../navigation/dock'
 import type { Device } from '../domain/fleet'
 import { devices } from '../domain/fleet'
+import { clientsOf } from '../domain/clients'
 import { portsOf } from '../domain/telemetry'
 import type { SearchResult } from '../domain/search'
 import { SHORTCUTS, isMac, keysOf } from '../navigation/shortcuts'
 import GlobalSearch, { type SearchPage } from './GlobalSearch.vue'
 import { createWebI18n } from '../i18n'
 import type { WebLocale } from '../i18n'
-import { i18nWarnings } from '../i18n/testing'
+import {
+  fixtureIdentifiers,
+  i18nWarnings,
+  unmarkedIdentifiers,
+} from '../i18n/testing'
 import { rememberRecent } from './recentSearches'
 
 const pages: SearchPage[] = [
   {
     id: 'overview',
     title: 'Page One',
-    detail: 'First page',
+    parts: [{ text: 'First page' }],
     icon: 'dashboard',
   },
   {
     id: 'inventory',
     title: 'Page Two',
-    detail: 'Second page',
+    parts: [{ text: 'Second page' }],
     icon: 'devices',
   },
 ]
@@ -33,13 +44,25 @@ let warn: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: query.includes('reduce') || query.includes('min-width'),
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  }))
 })
 
 afterEach(() => {
   dispose()
+  dispose = () => {}
   localStorage.clear()
   document.body.replaceChildren()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 async function settle() {
@@ -360,7 +383,9 @@ async function openSearch(host: HTMLElement) {
 
 async function typeQuery(text: string) {
   const input =
-    document.body.querySelector<HTMLInputElement>('[role="combobox"]')
+    document.body.querySelector<HTMLInputElement>(
+      '[role="dialog"] [role="combobox"], [role="dialog"] input',
+    ) ?? document.body.querySelector<HTMLInputElement>('[role="combobox"]')
   if (!input) throw new Error('Global search input did not open.')
   input.value = text
   input.dispatchEvent(new InputEvent('input', { bubbles: true }))
@@ -385,6 +410,17 @@ function linkedPort() {
     if (port) return { device, port }
   }
   throw new Error('The fixture has no linked port')
+}
+
+// A port that is down and has neither neighbor nor configured endpoint.
+function idlePort() {
+  for (const device of devices) {
+    const port = portsOf(devices, device).find(
+      (item) => item.status === 'Down' && !item.neighborId && !item.endpoint,
+    )
+    if (port) return { device, port }
+  }
+  throw new Error('The fixture has no idle port')
 }
 
 describe('global search in German', () => {
@@ -470,16 +506,12 @@ describe('global search in German', () => {
     const dockedDevicePage: SearchPage = {
       id: 'tab:dev-1',
       title: 'berlin-gw-01',
-      detail: 'Docked · Berlin Mitte',
       icon: 'device',
       identifier: true,
-      detailFacts: [
-        { text: 'Docked' },
-        { text: 'Berlin Mitte', identifier: true },
-      ],
+      parts: [{ text: 'Im Dock' }, { text: 'Berlin Mitte', identifier: true }],
     }
     const { host } = await mountSearchClosed({
-      locale: 'en',
+      locale: 'de',
       fleet: devices,
       pages: [...pages, dockedDevicePage],
     })
@@ -488,12 +520,12 @@ describe('global search in German', () => {
     await typeQuery('berlin-gw-01')
 
     const pageItem = [...document.body.querySelectorAll('.search-result')].find(
-      (item) => item.textContent?.includes('Docked · Berlin Mitte'),
+      (item) => item.textContent?.includes('Im Dock · Berlin Mitte'),
     )
     expect(pageItem).toBeDefined()
-    expect(pageItem?.querySelector('strong')?.getAttribute('translate')).toBe(
-      'no',
-    )
+    expect(
+      pageItem?.querySelector('strong span')?.getAttribute('translate'),
+    ).toBe('no')
     const pageDetailFacts = [
       ...(pageItem?.querySelectorAll('small span[translate="no"]') ?? []),
     ]
@@ -515,4 +547,185 @@ describe('global search in German', () => {
       'Berlin Mitte',
     )
   })
+
+  it('renders an idle port with no dangling separator', async () => {
+    const { device, port } = idlePort()
+    rememberRecent({ kind: 'interface', id: device.id, port: port.name })
+    const { host } = await mountSearchClosed({
+      locale: 'en',
+      fleet: devices,
+    })
+
+    await openSearch(host)
+    const result = [...document.body.querySelectorAll('.search-result')].find(
+      (item) => item.textContent?.includes(port.name),
+    )
+    expect(result).toBeDefined()
+    const detail = result?.querySelector('small')?.textContent?.trim()
+    expect(detail).toBe('Down')
+    expect(detail).not.toContain('·')
+  })
+
+  it('filters pages on words in parts', async () => {
+    const bespokePage: SearchPage = {
+      id: 'bespoke',
+      title: 'Bespoke Title',
+      icon: 'dashboard',
+      parts: [{ text: 'BespokeKeyword' }],
+    }
+    const { host } = await mountSearchClosed({
+      locale: 'en',
+      fleet: devices,
+      pages: [...pages, bespokePage],
+    })
+
+    await openSearch(host)
+    await typeQuery('bespokekeyword')
+    expect(
+      [...document.body.querySelectorAll('.search-result strong')].map((el) =>
+        el.textContent?.trim(),
+      ),
+    ).toContain('Bespoke Title')
+  })
+
+  it('marks device name in docked pair title with translate="no" and leaves page label unmarked', async () => {
+    const pairPage: SearchPage = {
+      id: 'pair:1',
+      title: 'berlin-gw-01 + Devices',
+      icon: 'split',
+      pair: {
+        first: { label: 'berlin-gw-01', name: true },
+        second: { label: 'Devices', name: false },
+      },
+      parts: [{ text: 'Docked' }],
+    }
+    const { host } = await mountSearchClosed({
+      locale: 'en',
+      fleet: devices,
+      pages: [...pages, pairPage],
+    })
+
+    await openSearch(host)
+    await typeQuery('berlin-gw-01')
+
+    const pairItem = [...document.body.querySelectorAll('.search-result')].find(
+      (item) => item.textContent?.includes('berlin-gw-01 + Devices'),
+    )
+    expect(pairItem).toBeDefined()
+    const titleElement = pairItem?.querySelector('strong')
+    expect(titleElement?.getAttribute('translate')).toBeNull()
+
+    const markedNames = [
+      ...(titleElement?.querySelectorAll('span[translate="no"]') ?? []),
+    ].map((s) => s.textContent)
+    expect(markedNames).toEqual(['berlin-gw-01'])
+
+    const unmarkedSpans = [
+      ...(titleElement?.querySelectorAll('span:not([translate])') ?? []),
+    ].map((s) => s.textContent)
+    expect(unmarkedSpans).toContain('Devices')
+  })
+
+  it('satisfies the unmarkedIdentifiers property across search results mounted through FleetView', async () => {
+    const offline = devices.find((device) => device.health === 'Offline')
+    if (!offline) throw new Error('The fixture has no offline device')
+    const sampleClient = clientsOf(devices)[0]
+    if (!sampleClient) throw new Error('The fixture has no sample client')
+    const { port: upPort } = linkedPort()
+    const { port: downPort } = idlePort()
+
+    localStorage.setItem(
+      DOCK_KEY,
+      JSON.stringify([
+        { id: 'tab:page', location: { path: '/devices', query: {} } },
+        {
+          id: 'tab:pair',
+          location: { path: `/devices/${offline.id}`, query: {} },
+          beside: { path: '/clients', query: {} },
+        },
+      ]),
+    )
+
+    const host = document.createElement('div')
+    document.body.append(host)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        {
+          path: '/:view(dashboard|devices|clients|sites|topology)',
+          component: FleetView,
+        },
+        { path: '/devices/:deviceId', component: FleetView },
+      ],
+    })
+    const registry = createAiRegistry()
+    const i18n = createWebI18n('de')
+    const app = createApp({
+      render() {
+        return h(UiAppRoot, {}, () => h(FleetView))
+      },
+    })
+    await router.push('/devices')
+    app.use(i18n)
+    app.use(router)
+    app.directive('ai-target', createAiTargetDirective(registry))
+    app.provide(aiRegistryKey, registry)
+    await router.isReady()
+    app.mount(host)
+    dispose = () => app.unmount()
+    await settle()
+
+    const trigger = host.querySelector<HTMLButtonElement>('.search-trigger')
+    if (!trigger) throw new Error('Missing search trigger button')
+    trigger.click()
+    await settle()
+
+    const identifiers = fixtureIdentifiers()
+    const exemptSelectors = [
+      '[data-reka-tooltip-content]',
+      '[data-reka-select-content]',
+    ]
+
+    const probes = [
+      offline.name,
+      sampleClient.hostname,
+      upPort.name,
+      downPort.name,
+      'aurora',
+      'berlin',
+    ]
+
+    for (const query of probes) {
+      await typeQuery(query)
+      expect(
+        unmarkedIdentifiers(document.body, identifiers, { exemptSelectors }),
+      ).toEqual([])
+    }
+
+    // Docked pair holding a device
+    await typeQuery(offline.name)
+    const pairResult = [
+      ...document.body.querySelectorAll('.search-result'),
+    ].find((item) => item.textContent?.includes(offline.name))
+    expect(pairResult).toBeDefined()
+    expect(
+      unmarkedIdentifiers(document.body, identifiers, { exemptSelectors }),
+    ).toEqual([])
+
+    // Reverse assertion: page tab label and Alle Standorte detail have no translate attribute
+    await typeQuery('geräte')
+    const pageTab = [...document.body.querySelectorAll('.search-result')].find(
+      (item) => item.textContent?.includes('Alle Standorte'),
+    )
+    expect(pageTab).toBeDefined()
+    expect(
+      pageTab?.querySelector('strong span')?.getAttribute('translate'),
+    ).toBeNull()
+    const allSitesDetail = [
+      ...(pageTab?.querySelectorAll('small span') ?? []),
+    ].find((s) => s.textContent?.includes('Alle Standorte'))
+    expect(allSitesDetail).toBeDefined()
+    expect(allSitesDetail?.getAttribute('translate')).toBeNull()
+    expect(allSitesDetail?.closest('[translate]')).toBeNull()
+  }, 15000)
 })

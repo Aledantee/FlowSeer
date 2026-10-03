@@ -54,7 +54,7 @@ const viewTarget = computed(() =>
       count: n(all.value.length, 'integer'),
       matching: n(filtered.value.length, 'integer'),
       accessPoint: accessPoint.value?.name ?? t('view.clients.allAccessPoints'),
-      search: search.value || t('view.clients.noSearch'),
+      search: search.value || t('view.common.noSearch'),
       band: band.value || 'all',
     },
   }),

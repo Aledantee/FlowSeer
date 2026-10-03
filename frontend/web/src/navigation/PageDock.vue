@@ -37,6 +37,9 @@ function badge(health: Health | undefined, attention: number | undefined) {
   if (attention) return format.counted('view.common.needAttention', attention)
   return ''
 }
+function formatAttention(attention: number | undefined): string {
+  return attention ? n(attention, 'integer') : ''
+}
 </script>
 
 <template>
@@ -95,11 +98,7 @@ function badge(health: Health | undefined, attention: number | undefined) {
                     { 'min-w-2 h-2 -top-0.5 -right-1': !title(tab).attention },
                   ]"
                   :aria-label="badge(title(tab).health, title(tab).attention)"
-                  >{{
-                    title(tab).attention
-                      ? n(title(tab).attention!, 'integer')
-                      : ''
-                  }}</i
+                  >{{ formatAttention(title(tab).attention) }}</i
                 >
               </span>
               <span class="min-w-0">
@@ -111,7 +110,7 @@ function badge(health: Health | undefined, attention: number | undefined) {
                     v-if="title(tab).pair"
                     scope="global"
                     tag="span"
-                    keypath="view.fleet.pair"
+                    keypath="view.common.pair"
                   >
                     <template #first>
                       <span
@@ -153,7 +152,7 @@ function badge(health: Health | undefined, attention: number | undefined) {
             <button
               class="dock-action grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-chrome-muted-foreground hover:bg-chrome-surface/80 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5"
               :aria-label="
-                t('view.dock.openBesideLabel', { label: title(tab).label })
+                t('view.common.openBesideLabel', { label: title(tab).label })
               "
               @click="emit('split', tab.id)"
             >

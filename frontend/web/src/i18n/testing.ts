@@ -1,4 +1,13 @@
 import { parse } from 'vue/compiler-sfc'
+import {
+  devices,
+  sites,
+  tenants,
+  type Device,
+  type Site,
+  type Tenant,
+} from '../domain/fleet'
+import { clientsOf } from '../domain/clients'
 
 // The `vue-i18n` warnings a missing key, a missing format, or a missing
 // parent scope prints. Tests spy on `console.warn` and pass its calls here.
@@ -101,4 +110,148 @@ export function templateLiterals(source: string): TemplateLiteral[] {
   const root = descriptor.template?.ast as unknown as AstNode | undefined
   if (root) walk(root)
   return found
+}
+
+// Builds the set of fixture identifiers: device names and addresses,
+// site names, tenant names, and client hostnames, MACs, and addresses.
+// location, kind, endpoint, VLAN, and model strings are not in the set.
+export function fixtureIdentifiers(
+  allDevices: Device[] = devices,
+  allSites: Site[] = sites,
+  allTenants: Tenant[] = tenants,
+): Set<string> {
+  const set = new Set<string>()
+  for (const device of allDevices) {
+    if (device.name) set.add(device.name)
+    if (device.address) set.add(device.address)
+  }
+  for (const site of allSites) {
+    if (site.name) set.add(site.name)
+  }
+  for (const tenant of allTenants) {
+    if (tenant.name) set.add(tenant.name)
+  }
+  for (const client of clientsOf(allDevices)) {
+    if (client.hostname) set.add(client.hostname)
+    if (client.mac) set.add(client.mac)
+    if (client.address) set.add(client.address)
+  }
+  return set
+}
+
+export interface UnmarkedIdentifier {
+  identifier: string
+  text: string
+  path: string
+}
+
+export interface UnmarkedOptions {
+  // CSS selectors for container elements whose descendant text nodes are exempt.
+  exemptSelectors?: string[]
+}
+
+function containsWholeIdentifier(text: string, identifier: string): boolean {
+  if (!identifier) return false
+  let pos = 0
+  while (true) {
+    const idx = text.indexOf(identifier, pos)
+    if (idx === -1) return false
+
+    const before = idx > 0 ? text[idx - 1] : ''
+    const after =
+      idx + identifier.length < text.length ? text[idx + identifier.length] : ''
+
+    const isMac = identifier.includes(':')
+    const badBefore =
+      /[a-zA-Z0-9_-]/.test(before) ||
+      (/\d/.test(identifier[0]) && before === '.') ||
+      (isMac && before === ':')
+    const badAfter =
+      /[a-zA-Z0-9_-]/.test(after) ||
+      (/\d/.test(identifier[identifier.length - 1]) && after === '.') ||
+      (isMac && after === ':')
+
+    if (!badBefore && !badAfter) {
+      return true
+    }
+    pos = idx + 1
+  }
+}
+
+function shortPath(element: Element | null): string {
+  if (!element) return ''
+  const parts: string[] = []
+  let curr: Element | null = element
+  while (
+    curr &&
+    curr.nodeType === 1 &&
+    curr.tagName !== 'BODY' &&
+    curr.tagName !== 'HTML'
+  ) {
+    let desc = curr.tagName.toLowerCase()
+    if (curr.id) {
+      desc += `#${curr.id}`
+    } else if (curr.classList && curr.classList.length > 0) {
+      const cls = Array.from(curr.classList)
+        .filter((c) => !c.startsWith('v-'))
+        .slice(0, 2)
+        .join('.')
+      if (cls) desc += `.${cls}`
+    }
+    parts.unshift(desc)
+    curr = curr.parentElement
+  }
+  return parts.join(' > ')
+}
+
+// Walks text nodes under root and reports any that contain a whole identifier
+// without an ancestor element with translate="no". Sinks that render text in
+// inaccessible descendants can be passed in options.exemptSelectors.
+export function unmarkedIdentifiers(
+  root: Node,
+  identifiers: Iterable<string>,
+  options?: UnmarkedOptions,
+): UnmarkedIdentifier[] {
+  const idList = Array.from(identifiers).filter(Boolean)
+  const results: UnmarkedIdentifier[] = []
+
+  function walk(node: Node) {
+    if (node.nodeType === 3 /* Node.TEXT_NODE */) {
+      const text = node.textContent?.trim()
+      if (!text) return
+      const parent = node.parentElement
+      if (!parent) return
+      if (parent.closest('[translate="no"]')) return
+      if (options?.exemptSelectors?.some((sel) => parent.closest(sel))) return
+
+      for (const ident of idList) {
+        if (containsWholeIdentifier(text, ident)) {
+          results.push({
+            identifier: ident,
+            text,
+            path: shortPath(parent),
+          })
+          break
+        }
+      }
+      return
+    }
+
+    if (node.nodeType === 1 /* Node.ELEMENT_NODE */) {
+      const el = node as Element
+      if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return
+      if (el.closest('[translate="no"]')) return
+      if (options?.exemptSelectors?.some((sel) => el.closest(sel))) return
+      for (const child of node.childNodes) {
+        walk(child)
+      }
+    } else {
+      for (const child of node.childNodes) {
+        walk(child)
+      }
+    }
+  }
+
+  walk(root)
+  return results
 }

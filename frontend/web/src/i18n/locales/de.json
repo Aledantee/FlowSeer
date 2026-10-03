@@ -143,7 +143,6 @@
       "emptyDescription": "Eine andere Suche oder ein anderes Band versuchen.",
       "emptyTitle": "Keine Clients passen zu dieser Ansicht",
       "filterBand": "Nach Band filtern",
-      "noSearch": "keine",
       "search": "Clients suchen",
       "searchPlaceholder": "Nach Hostname, IP- oder MAC-Adresse suchen…",
       "signal": "Signal",
@@ -200,7 +199,9 @@
       "needAttention": "{count} mit Handlungsbedarf",
       "needsAttention": "Handlungsbedarf",
       "noReading": "—",
+      "noSearch": "keine",
       "openBeside": "Nebeneinander öffnen",
+      "openBesideLabel": "{label} nebeneinander öffnen",
       "pages": {
         "clients": "Clients",
         "dashboard": "Dashboard",
@@ -209,6 +210,7 @@
         "sites": "Standorte",
         "topology": "Topologie"
       },
+      "pair": "{first} + {second}",
       "portStatus": {
         "disabled": "Deaktiviert",
         "down": "Getrennt",
@@ -235,6 +237,7 @@
         "gigabit": "{value}G",
         "megabit": "{value}M"
       },
+      "status": "Status",
       "units": {
         "celsius": "°C",
         "dbm": "dBm",
@@ -354,7 +357,6 @@
       "inventory": "Geräteinventar",
       "lastAnswered": "Zuletzt geantwortet",
       "needsAttentionOption": "{label} ({count})",
-      "noSearch": "keine",
       "peekAt": "{name} neben dieser Liste ansehen",
       "peekBeside": "Daneben ansehen",
       "peekHint": "Dasselbe gelingt mit Umschalt-Klick auf einen Namen. ↑ ↓ wechseln in der Liste, Esc schließt.",
@@ -362,14 +364,12 @@
       "searchPlaceholder": "Nach Name, Typ oder IP-Adresse suchen…",
       "showing": "{shown} von {total} Gerät angezeigt | {shown} von {total} Geräten angezeigt",
       "siteTenant": "Standort / Mandant",
-      "status": "Status",
       "viewStatus": "Status ansehen"
     },
     "dock": {
       "close": "{label} schließen",
       "minimizedPages": "Minimierte Seiten",
       "open": "{label} öffnen",
-      "openBesideLabel": "{label} nebeneinander öffnen",
       "remove": "Aus dem Dock entfernen",
       "shiftHint": "Umschalt-Klick öffnet nebeneinander"
     },
@@ -398,7 +398,6 @@
       "minimizeToDock": "In das Dock minimieren",
       "openFailed": "Die Seite konnte nicht geöffnet werden. Erneut versuchen.",
       "page": "Seite",
-      "pair": "{first} + {second}",
       "resizeHint": "Doppelklick stellt die Aufteilung auf je die Hälfte zurück.",
       "resizeSplit": "Größe der geteilten Ansicht anpassen",
       "searchDevices": "Geräte suchen…",
@@ -477,7 +476,6 @@
       },
       "label": "Mandanten, Standorte, Geräte, Clients und Schnittstellen suchen",
       "noMatch": "Keine Treffer für „{query}“.",
-      "openBesideLabel": "{title} nebeneinander öffnen",
       "placeholder": "Mandanten, Standorte, Geräte, Clients, Schnittstellen suchen…",
       "recent": "Zuletzt",
       "resultsLabel": "Suchergebnisse",
@@ -539,8 +537,6 @@
         "received": "Empfangen",
         "sent": "Gesendet",
         "speed": "Geschwindigkeit",
-        "status": "Status",
-        "traffic": "Datenverkehr",
         "upstream": "Upstream",
         "uptime": "Betriebszeit",
         "vlans": "VLANs"

@@ -15,9 +15,21 @@ import { createAiRegistry, createAiTargetDirective } from './ai'
 import { aiRegistryKey } from './ui/ai/context'
 import { createWebI18n } from './i18n'
 import type { WebLocale } from './i18n'
-import { i18nWarnings } from './i18n/testing'
+import {
+  fixtureIdentifiers,
+  i18nWarnings,
+  unmarkedIdentifiers,
+} from './i18n/testing'
 import enCatalog from './i18n/locales/en.json'
 import deCatalog from './i18n/locales/de.json'
+
+const identifiers = fixtureIdentifiers()
+// UiTooltip label/hint renders string in an inaccessible span (PageDock.vue:63-71, UiTooltip.vue:101-102);
+// UiSelect option labels render string in an inaccessible SelectItemText (DeviceView.vue:149-151, UiSelect.vue:180-216).
+const exemptSelectors = [
+  '[data-reka-tooltip-content]',
+  '[data-reka-select-content]',
+]
 
 let dispose = () => {}
 let warn: ReturnType<typeof vi.spyOn>
@@ -200,8 +212,8 @@ describe('FleetView shell in German', () => {
         { id: 'one', location: { path: '/devices', query: {} } },
         {
           id: 'two',
-          location: { path: '/clients', query: {} },
-          beside: { path: '/sites', query: {} },
+          location: { path: `/devices/${offline.id}`, query: {} },
+          beside: { path: '/clients', query: {} },
         },
         {
           id: 'three',
@@ -215,25 +227,99 @@ describe('FleetView shell in German', () => {
     expect(dock?.getAttribute('aria-label')).toBe('Minimierte Seiten')
     const tabs = [...(dock?.querySelectorAll('.dock-tab') ?? [])]
     expect(tabs.map((tab) => tab.querySelector('strong')?.textContent)).toEqual(
-      ['Geräte', 'Clients + Standorte', offline.name],
+      ['Geräte', `${offline.name} + Clients`, offline.name],
     )
     expect(
       tabs.map((tab) => labelsOf(tab.querySelectorAll('.dock-action'))),
     ).toEqual([
       ['Geräte nebeneinander öffnen', 'Geräte schließen'],
-      ['Clients + Standorte schließen'],
+      [`${offline.name} + Clients schließen`],
       [`${offline.name} nebeneinander öffnen`, `${offline.name} schließen`],
     ])
     expect(
       tabs.map((tab) =>
         tab.querySelector('.dock-badge')?.getAttribute('aria-label'),
       ),
-    ).toEqual([
-      `${attention} mit Handlungsbedarf`,
-      `${attention * 2} mit Handlungsbedarf`,
-      'Offline',
-    ])
+    ).toEqual([`${attention} mit Handlungsbedarf`, 'Offline', 'Offline'])
     expect(tabs[0]?.querySelector('small')?.textContent).toBe('Alle Standorte')
+
+    expect(
+      unmarkedIdentifiers(dock!, identifiers, { exemptSelectors }),
+    ).toEqual([])
+
+    // Reverse assertion: the page tab label and Alle Standorte detail have no translate attribute
+    expect(
+      tabs[0]?.querySelector('strong')?.getAttribute('translate'),
+    ).toBeNull()
+    expect(
+      tabs[0]?.querySelector('strong span')?.getAttribute('translate'),
+    ).toBeNull()
+    expect(
+      tabs[0]?.querySelector('small')?.getAttribute('translate'),
+    ).toBeNull()
+    expect(tabs[0]?.querySelector('small')?.closest('[translate]')).toBeNull()
+
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('marks identifiers in the split view with a device in the side pane', async () => {
+    const offline = devices.find((device) => device.health === 'Offline')
+    if (!offline) throw new Error('The fixture has no offline device')
+    sessionStorage.setItem(
+      'flowseer.side',
+      JSON.stringify({ path: `/devices/${offline.id}`, query: {} }),
+    )
+    const { host } = await mountLocale('/devices', 'de')
+
+    expect(document.querySelector('.panes.split')).not.toBeNull()
+    expect(unmarkedIdentifiers(host, identifiers, { exemptSelectors })).toEqual(
+      [],
+    )
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('marks identifiers in an open site switcher and open device switcher', async () => {
+    const offline = devices.find((device) => device.health === 'Offline')
+    if (!offline) throw new Error('The fixture has no offline device')
+
+    const { host, router } = await mountLocale('/devices', 'de')
+    const siteTrigger = host.querySelector<HTMLButtonElement>(
+      '.breadcrumb-scope button[aria-haspopup="listbox"]',
+    )
+    if (!siteTrigger) throw new Error('Missing site switcher trigger')
+    siteTrigger.click()
+    await settle()
+
+    expect(
+      unmarkedIdentifiers(document.body, identifiers, { exemptSelectors }),
+    ).toEqual([])
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    )
+    await settle()
+
+    await router.push(`/devices/${offline.id}`)
+    await settle()
+
+    const deviceTriggers = [
+      ...host.querySelectorAll<HTMLButtonElement>(
+        '.breadcrumb-scope button[aria-haspopup="listbox"]',
+      ),
+    ]
+    const deviceTrigger = deviceTriggers[deviceTriggers.length - 1]
+    if (!deviceTrigger) throw new Error('Missing device switcher trigger')
+    deviceTrigger.click()
+    await settle()
+
+    expect(
+      unmarkedIdentifiers(document.body, identifiers, { exemptSelectors }),
+    ).toEqual([])
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    )
+    await settle()
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -1009,6 +1095,9 @@ describe.each(sweepRoutes)('locale sweep of $name', (route) => {
     expect(headingText(host, route.heading)).toContain(route.words.de)
     const english = englishOnlyTexts()
     expect(visibleTexts(host).filter((item) => english.has(item))).toEqual([])
+    expect(unmarkedIdentifiers(host, identifiers, { exemptSelectors })).toEqual(
+      [],
+    )
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -1018,6 +1107,9 @@ describe.each(sweepRoutes)('locale sweep of $name', (route) => {
     expect(headingText(host, route.heading)).toContain(route.words.en)
     expect(host.querySelector('.nav-label')?.textContent?.trim()).toBe(
       'WORKSPACE',
+    )
+    expect(unmarkedIdentifiers(host, identifiers, { exemptSelectors })).toEqual(
+      [],
     )
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
