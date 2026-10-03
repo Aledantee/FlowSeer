@@ -833,23 +833,13 @@ describe('AiActionLayer selection and Ask', () => {
   })
 
   it('updates all ten catalog defaults on locale switch across all interactive states', async () => {
-    let isUnavailable = false
-    let shouldFail = false
-    let resolvePending: ((val: string) => void) | undefined
-    const { registry, i18n } = setup(
+    const formSetup = setup(
       box,
       () => ({ wide: true, narrow: false }),
       {},
       'en',
     )
-    registry.onRequest(async () => {
-      if (isUnavailable) throw new AiUnavailableError()
-      if (shouldFail) throw 'non-error failure'
-      return new Promise<string>((res) => {
-        resolvePending = res
-      })
-    })
-    registry.highlight('a:devices:device:d1')
+    formSetup.registry.highlight('a:devices:device:d1')
     await settle()
 
     const button = askButton()
@@ -873,7 +863,7 @@ describe('AiActionLayer selection and Ask', () => {
     const submit = submitButton()
     expect(submit.textContent?.trim()).toBe('Ask')
 
-    i18n.global.locale.value = 'de'
+    formSetup.i18n.global.locale.value = 'de'
     await nextTick()
 
     expect(button?.textContent?.trim()).toBe('KI')
@@ -886,31 +876,98 @@ describe('AiActionLayer selection and Ask', () => {
     expect(cancel.textContent?.trim()).toBe('Abbrechen')
     expect(submit.textContent?.trim()).toBe('Fragen')
 
-    type('Frage')
+    dispose()
+    document.body.replaceChildren()
+
+    let resolvePending: ((val: string) => void) | undefined
+    const pendingSetup = setup(
+      box,
+      () => ({ wide: true, narrow: false }),
+      {},
+      'en',
+    )
+    pendingSetup.registry.onRequest(
+      () =>
+        new Promise<string>((res) => {
+          resolvePending = res
+        }),
+    )
+    pendingSetup.registry.highlight('a:devices:device:d1')
     await settle()
-    submit.click()
+
+    askButton()?.click()
+    await settle()
+    type('Question')
+    await settle()
+    submitButton().click()
     await nextTick()
+
     const pendingStatus = document.querySelector('[role="status"]')
+    expect(pendingStatus?.textContent).toContain('Asking…')
+
+    pendingSetup.i18n.global.locale.value = 'de'
+    await nextTick()
     expect(pendingStatus?.textContent).toContain('Frage wird gesendet…')
 
     resolvePending?.('Fertig')
     await settle()
 
-    isUnavailable = true
-    type('Zweite Frage')
+    dispose()
+    document.body.replaceChildren()
+
+    const unavailableSetup = setup(
+      box,
+      () => ({ wide: true, narrow: false }),
+      {},
+      'en',
+    )
+    unavailableSetup.registry.onRequest(async () => {
+      throw new AiUnavailableError()
+    })
+    unavailableSetup.registry.highlight('a:devices:device:d1')
     await settle()
-    submit.click()
+
+    askButton()?.click()
     await settle()
+    type('Question')
+    await settle()
+    submitButton().click()
+    await settle()
+
     const unavailableStatus = document.querySelector('[role="status"]')
+    expect(unavailableStatus?.textContent).toContain('AI is unavailable')
+
+    unavailableSetup.i18n.global.locale.value = 'de'
+    await nextTick()
     expect(unavailableStatus?.textContent).toContain('KI ist nicht verfügbar')
 
-    isUnavailable = false
-    shouldFail = true
-    type('Dritte Frage')
+    dispose()
+    document.body.replaceChildren()
+
+    const errorSetup = setup(
+      box,
+      () => ({ wide: true, narrow: false }),
+      {},
+      'en',
+    )
+    errorSetup.registry.onRequest(async () => {
+      throw 'non-error failure'
+    })
+    errorSetup.registry.highlight('a:devices:device:d1')
     await settle()
-    submit.click()
+
+    askButton()?.click()
     await settle()
+    type('Question')
+    await settle()
+    submitButton().click()
+    await settle()
+
     const alert = document.querySelector('[role="alert"]')
+    expect(alert?.textContent).toContain('Something went wrong.')
+
+    errorSetup.i18n.global.locale.value = 'de'
+    await nextTick()
     expect(alert?.textContent).toContain('Etwas ist schiefgelaufen.')
   })
 
@@ -926,8 +983,13 @@ describe('AiActionLayer selection and Ask', () => {
       {
         labels: {
           askAbout: 'Custom inquire',
+          heading: 'Custom heading',
           ai: 'Bot',
+          questionLabel: 'Custom question label',
+          questionPlaceholder: 'Custom question placeholder',
           cancel: 'Dismiss',
+          ask: 'Submit prompt',
+          asking: 'Thinking deeply…',
           unavailable: 'Custom offline',
           error: 'Custom error',
         },
@@ -951,36 +1013,36 @@ describe('AiActionLayer selection and Ask', () => {
     await settle()
 
     const heading = document.querySelector('form p')
-    expect(heading?.textContent).toContain('Ask about d1')
+    expect(heading?.textContent).toContain('Custom heading')
 
     const textarea = document.querySelector('textarea')
-    expect(textarea?.getAttribute('aria-label')).toBe('Your question')
+    expect(textarea?.getAttribute('aria-label')).toBe('Custom question label')
     expect(textarea?.getAttribute('placeholder')).toBe(
-      'Why is this device offline?',
+      'Custom question placeholder',
     )
 
     expect(cancelButton('Dismiss').textContent?.trim()).toBe('Dismiss')
-    expect(submitButton().textContent?.trim()).toBe('Ask')
+    expect(submitButton().textContent?.trim()).toBe('Submit prompt')
 
     i18n.global.locale.value = 'de'
     await nextTick()
 
     expect(button?.getAttribute('aria-label')).toBe('Custom inquire')
     expect(button?.textContent?.trim()).toBe('Bot')
-    expect(heading?.textContent).toContain('Frage zu d1')
-    expect(textarea?.getAttribute('aria-label')).toBe('Frage')
+    expect(heading?.textContent).toContain('Custom heading')
+    expect(textarea?.getAttribute('aria-label')).toBe('Custom question label')
     expect(textarea?.getAttribute('placeholder')).toBe(
-      'Warum ist dieses Gerät offline?',
+      'Custom question placeholder',
     )
     expect(cancelButton('Dismiss').textContent?.trim()).toBe('Dismiss')
-    expect(submitButton().textContent?.trim()).toBe('Fragen')
+    expect(submitButton().textContent?.trim()).toBe('Submit prompt')
 
     type('Frage')
     await settle()
     submitButton().click()
     await nextTick()
     const pendingStatus = document.querySelector('[role="status"]')
-    expect(pendingStatus?.textContent).toContain('Frage wird gesendet…')
+    expect(pendingStatus?.textContent).toContain('Thinking deeply…')
 
     resolvePending?.('Fertig')
     await settle()
@@ -990,7 +1052,8 @@ describe('AiActionLayer selection and Ask', () => {
     await settle()
     submitButton().click()
     await settle()
-    expect(document.body.textContent).toContain('Custom offline')
+    const unavailableStatus = document.querySelector('[role="status"]')
+    expect(unavailableStatus?.textContent).toContain('Custom offline')
 
     isUnavailable = false
     shouldFail = true
