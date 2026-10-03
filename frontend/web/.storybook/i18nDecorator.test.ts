@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   createApp,
   defineComponent,
+  getCurrentInstance,
   h,
   nextTick,
   reactive,
@@ -14,6 +15,7 @@ import { useI18n } from 'vue-i18n'
 import preview from './preview'
 import { createWebI18n } from '../src/i18n'
 import UiAppRoot from '../src/ui/app/UiAppRoot.vue'
+import UiButton from '../src/ui/button/UiButton.vue'
 import * as appRootStoryModule from '../src/ui/app/UiAppRoot.stories'
 import * as buttonStoryModule from '../src/ui/button/UiButton.stories'
 
@@ -159,8 +161,8 @@ describe('i18nDecorator', () => {
   })
 
   it('exempts UiAppRoot from being wrapped in a second UiAppRoot while wrapping other stories', async () => {
-    let appRootCount = 0
-    let buttonRootCount = 0
+    let appRootAncestorCount = 0
+    let buttonRootAncestorCount = 0
 
     const appRootStories = composeStories(appRootStoryModule)
     const buttonStories = composeStories(buttonStoryModule)
@@ -168,8 +170,15 @@ describe('i18nDecorator', () => {
     mountStory(appRootStories.Default, (app) => {
       app.mixin({
         created() {
-          if (this.$.type === UiAppRoot) {
-            appRootCount += 1
+          const instance = getCurrentInstance()
+          if (instance?.type === UiButton) {
+            let parent = instance.parent
+            while (parent) {
+              if (parent.type === UiAppRoot) {
+                appRootAncestorCount += 1
+              }
+              parent = parent.parent
+            }
           }
         },
       })
@@ -178,15 +187,22 @@ describe('i18nDecorator', () => {
     mountStory(buttonStories.Primary, (app) => {
       app.mixin({
         created() {
-          if (this.$.type === UiAppRoot) {
-            buttonRootCount += 1
+          const instance = getCurrentInstance()
+          if (instance?.type === UiButton) {
+            let parent = instance.parent
+            while (parent) {
+              if (parent.type === UiAppRoot) {
+                buttonRootAncestorCount += 1
+              }
+              parent = parent.parent
+            }
           }
         },
       })
     })
     await nextTick()
 
-    expect(appRootCount).toBe(1)
-    expect(buttonRootCount).toBe(1)
+    expect(appRootAncestorCount).toBe(1)
+    expect(buttonRootAncestorCount).toBe(1)
   })
 })

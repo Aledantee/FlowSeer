@@ -1,6 +1,14 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApp, h, nextTick, type App, type Component } from 'vue'
+import {
+  createApp,
+  h,
+  nextTick,
+  onMounted,
+  ref,
+  type App,
+  type Component,
+} from 'vue'
 import { composeStories, setProjectAnnotations } from '@storybook/vue3-vite'
 import preview from './preview'
 import type { AiRequest } from '../src/ai'
@@ -37,7 +45,73 @@ const storyModule = {
         },
       },
     },
-    render: () => h('div', 'Overrides body'),
+    render: () => ({
+      setup() {
+        const nestedRef = ref<HTMLElement>()
+        const target = {
+          id: 'standalone:story:lifecycle-documentscope--with-overrides:nested',
+          kind: 'row',
+          label: 'WithOverrides nested',
+          context: { story: 'with-overrides' },
+        }
+        onMounted(() => {
+          if (nestedRef.value) setBox(nestedRef.value)
+        })
+        return { nestedRef, target }
+      },
+      template: `
+        <div>
+          <button
+            ref="nestedRef"
+            v-ai-target="target"
+            tabindex="0"
+            data-nested-target
+          >
+            Overrides nested
+          </button>
+        </div>
+      `,
+    }),
+  },
+  AutoHighlightOverrides: {
+    parameters: {
+      ai: {
+        handler: (request: AiRequest) => `auto-overrides:${request.targetId}`,
+        labels: {
+          ai: 'Bot',
+          askAbout: 'Custom inquire',
+          heading: 'Custom heading',
+        },
+      },
+    },
+    render: () => ({
+      setup() {
+        const nestedRef = ref<HTMLElement>()
+        const target = {
+          id: 'standalone:story:lifecycle-documentscope--auto-highlight-overrides:target',
+          kind: 'row',
+          label: 'Auto-highlighted row',
+          context: { story: 'auto-highlight-overrides' },
+        }
+        onMounted(() => {
+          if (nestedRef.value) setBox(nestedRef.value)
+          aiRegistry.highlight(target.id)
+        })
+        return { nestedRef, target }
+      },
+      template: `
+        <div>
+          <button
+            ref="nestedRef"
+            v-ai-target="target"
+            tabindex="0"
+            data-nested-target
+          >
+            Auto-highlighted target
+          </button>
+        </div>
+      `,
+    }),
   },
 }
 
@@ -80,6 +154,11 @@ function mountStory(component: Component) {
   if (root) {
     root.tabIndex = 0
     setBox(root)
+  }
+  for (const element of container.querySelectorAll<HTMLElement>(
+    '[data-nested-target], [tabindex="0"]',
+  )) {
+    setBox(element)
   }
   mounted.push({ app, container })
   return { app, container, root }
@@ -233,6 +312,41 @@ describe('AI decorator document scope', () => {
     )
   })
 
+  it('applies label overrides immediately to a nested element highlighted in onMounted', async () => {
+    mountStory(stories.AutoHighlightOverrides)
+    await settle()
+
+    expect(askButton()?.textContent?.trim()).toBe('Bot')
+    expect(askButton()?.getAttribute('aria-label')).toBe('Custom inquire')
+  })
+
+  it('shows selected target canvas labels after host with labels and focused target unmounts', async () => {
+    const hostMount = mountStory(stories.WithOverrides)
+    const otherMount = mountStory(stories.Alpha)
+    await settle()
+
+    const otherTargetId = aiRegistry.idForElement(otherMount.root!)
+    expect(otherTargetId).toBeDefined()
+    await select(otherTargetId!)
+
+    const hostTarget =
+      hostMount.container.querySelector<HTMLElement>('[data-nested-target]') ??
+      hostMount.root!
+    hostTarget.focus()
+    await settle()
+
+    expect(askButton()?.textContent?.trim()).toBe('Bot')
+    expect(askButton()?.getAttribute('aria-label')).toBe('Custom inquire')
+
+    hostMount.app.unmount()
+    await settle()
+
+    expect(askButton()?.textContent?.trim()).toBe('AI')
+    expect(askButton()?.getAttribute('aria-label')).toBe(
+      'Ask about Lifecycle/DocumentScope',
+    )
+  })
+
   it('holds the canvas-label invariant across all host, selection, focus, and panel states', async () => {
     const hosts = ['default', 'overrides'] as const
     const selections = ['none', 'default', 'overrides'] as const
@@ -243,9 +357,14 @@ describe('AI decorator document scope', () => {
       for (const selection of selections) {
         for (const focus of focuses) {
           for (const panel of panels) {
-            const stateName = `host=${host}, selection=${selection}, focus=${focus}, panel=${panel}`
             const owner = focus !== 'none' ? focus : selection
-            if (owner === 'none') continue
+            const assertionSelection =
+              panel === 'open' && owner !== 'none'
+                ? owner === 'default'
+                  ? 'overrides'
+                  : 'default'
+                : selection
+            const stateName = `host=${host}, selection=${assertionSelection}, focus=${focus}, panel=${panel}`
 
             const firstStory =
               host === 'default' ? stories.Alpha : stories.WithOverrides
@@ -258,6 +377,24 @@ describe('AI decorator document scope', () => {
             document.body.append(outside)
             await settle()
 
+            if (owner === 'none') {
+              outside.focus()
+              window.flowseerAi?.clearHighlight()
+              await settle()
+
+              expect
+                .soft(askButton(), `${stateName}: no trigger`)
+                .toBeUndefined()
+
+              firstMount.app.unmount()
+              secondMount.app.unmount()
+              mounted = []
+              outside.remove()
+              document.body.replaceChildren()
+              await settle()
+              continue
+            }
+
             const defaultRoot =
               host === 'default' ? firstMount.root : secondMount.root
             const overridesRoot =
@@ -266,8 +403,18 @@ describe('AI decorator document scope', () => {
               throw new Error('Missing story root')
             }
 
-            const defaultTargetId = aiRegistry.idForElement(defaultRoot)
-            const overridesTargetId = aiRegistry.idForElement(overridesRoot)
+            const overridesContainer =
+              host === 'default' ? secondMount.container : firstMount.container
+            const overridesNested =
+              overridesContainer.querySelector<HTMLElement>(
+                '[data-nested-target]',
+              )
+
+            const defaultTarget = defaultRoot
+            const overridesTarget = overridesNested ?? overridesRoot
+
+            const defaultTargetId = aiRegistry.idForElement(defaultTarget)
+            const overridesTargetId = aiRegistry.idForElement(overridesTarget)
             if (!defaultTargetId || !overridesTargetId) {
               throw new Error('Missing target id')
             }
@@ -282,10 +429,10 @@ describe('AI decorator document scope', () => {
             }
 
             if (focus === 'default') {
-              defaultRoot.focus()
+              defaultTarget.focus()
               await settle()
             } else if (focus === 'overrides') {
-              overridesRoot.focus()
+              overridesTarget.focus()
               await settle()
             } else {
               outside.focus()
@@ -297,10 +444,9 @@ describe('AI decorator document scope', () => {
               owner === 'overrides' ? 'Custom heading' : 'Ask about'
 
             if (panel === 'closed') {
-              expect(
-                askButton()?.textContent?.trim(),
-                `${stateName}: trigger`,
-              ).toBe(expectedTrigger)
+              expect
+                .soft(askButton()?.textContent?.trim(), `${stateName}: trigger`)
+                .toBe(expectedTrigger)
             } else {
               askButton()?.click()
               await settle()
@@ -309,16 +455,18 @@ describe('AI decorator document scope', () => {
                 owner === 'default' ? overridesTargetId : defaultTargetId
               await select(otherTargetId)
 
-              expect(
-                askButton()?.textContent?.trim(),
-                `${stateName}: trigger`,
-              ).toBe(expectedTrigger)
-              expect(
-                document.querySelector('form p')?.textContent,
-                `${stateName}: heading`,
-              ).toContain(expectedHeading)
+              expect
+                .soft(askButton()?.textContent?.trim(), `${stateName}: trigger`)
+                .toBe(expectedTrigger)
+              expect
+                .soft(
+                  document.querySelector('form p')?.textContent,
+                  `${stateName}: heading`,
+                )
+                .toContain(expectedHeading)
             }
 
+            window.flowseerAi?.clearHighlight()
             firstMount.app.unmount()
             secondMount.app.unmount()
             mounted = []
