@@ -217,7 +217,8 @@ serves for that version.
   one open decision.
 - The `Checker` reaches OpenFGA through `github.com/openfga/api/proto` over
   gRPC, without `github.com/openfga/language`, so the model is not written
-  in DSL. This replaces the owned HTTP client and its JSON model above.
+  in DSL. This replaces the earlier recommendation, an owned HTTP client with a
+  JSON model.
   Why: typed requests, `proto.Equal` for the model, and the transport the
   spike measured. (decided by the user, 2026-10-03)
 - That module is pinned at `v0.0.0-20260723150800-6981fff8d33b`
@@ -880,3 +881,12 @@ unreachable, and whether a suspended tenant's organization still yields
 [pk8]: https://api.github.com/repos/pocket-id/pocket-id/releases?per_page=100
 [pk9]: https://raw.githubusercontent.com/pocket-id/pocket-id/v2.17.0/README.md
 [pk10]: https://raw.githubusercontent.com/pocket-id/pocket-id/v2.17.0/backend/internal/controller/well_known_controller.go
+- Parked by drive: which issuer the lab runs, from the survey above, and
+  the ruling on the two dependency statements, go-oidc v3.21.0 with its
+  two modules and the OpenFGA API module with protoc-gen-validate as
+  indirect. Options for the issuer: Dex v2.45.1 (one file, 48 MB, an
+  organization is a group name) | Keycloak 26.7.4 (organization objects,
+  a 265 MB JVM image) | Rauthy 0.36.2 (light, one maintainer, before
+  1.0). Options for the statements: approve both | approve one | approve
+  neither. Recommended: Dex and approving both, because Dex meets every
+  need from one file and both statements show no open advisory.
