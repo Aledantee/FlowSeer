@@ -3,6 +3,7 @@ package authz
 import (
 	"context"
 	"strings"
+	"sync"
 
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
@@ -28,17 +29,161 @@ func NewInterceptor(checker Checker) *Interceptor {
 	return &Interceptor{checker: checker}
 }
 
+// Admit verifies caller authentication, validates the tenant identifier, confirms
+// that the principal is an active member of the tenant, and returns a child context
+// carrying the admitted tenant and an obligation tracker.
+//
+// It returns Unauthenticated when caller identity is missing, InvalidArgument when
+// the tenant identifier is missing or malformed, PermissionDenied when membership
+// is denied, and Unavailable when the checker fails.
+func (i *Interceptor) Admit(ctx context.Context, tenantID string) (context.Context, error) {
+	principal, ok := authn.FromContext(ctx)
+	if !ok || principal.ID == "" {
+		return nil, connecterr.WrapAs(connect.CodeUnauthenticated, "authentication required", errs.New().Code(ErrCodeUnauthenticated).
+			Msg("authentication required"))
+	}
+
+	if tenantID == "" {
+		return nil, invalidTenant(errs.New().Code(ErrCodeNoTenant).Msg("no tenant named"))
+	}
+	if err := tenant.Validate(tenantID); err != nil {
+		return nil, invalidTenant(errs.New().Code(ErrCodeNoTenant).Cause(err).Msg("no tenant named"))
+	}
+
+	tuples := contextualTuples(principal)
+	membershipQuery := Query{
+		Object:           "tenant:" + tenantID,
+		Relation:         "member",
+		User:             "user:" + principal.ID,
+		ContextualTuples: tuples,
+	}
+	member, err := i.checker.Check(ctx, membershipQuery)
+	if err != nil {
+		return nil, checkerError(ctx, err, "authorization is unavailable")
+	}
+	if !member {
+		return nil, permissionDenied(errs.New().Code(ErrCodeDenied).Msg("permission denied"))
+	}
+
+	ctx = tenant.WithTenant(ctx, tenantID)
+	tracker := newObligationTracker(i.checker, principal, tenantID)
+	ctx = withTracker(ctx, tracker)
+	return ctx, nil
+}
+
 // WrapStreamingClient passes streaming client calls through unmodified.
 func (i *Interceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
 	return next
 }
 
-// WrapStreamingHandler refuses every streaming handler call with PermissionDenied.
-func (i *Interceptor) WrapStreamingHandler(_ connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return func(_ context.Context, _ connect.StreamingHandlerConn) error {
-		return permissionDenied(errs.New().Code(ErrCodeStreaming).
-			Msg("streaming calls are refused until streaming rules are defined"))
+// WrapStreamingHandler authorizes server-streaming RPCs under a request rule,
+// checking caller membership at admission and evaluating object permissions on
+// the first received request message.
+func (i *Interceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+		md, ok := conn.Spec().Schema.(protoreflect.MethodDescriptor)
+		if !ok || md == nil {
+			return permissionDenied(errs.New().Code(ErrCodeUnsupportedRule).
+				Msg("request schema is not a method descriptor"))
+		}
+
+		opts, ok := md.Options().(*descriptorpb.MethodOptions)
+		if !ok || opts == nil || !proto.HasExtension(opts, authzv1.E_Rule) {
+			return permissionDenied(errs.New().Code(ErrCodeUnsupportedRule).
+				Msg("method carries no authorization rule"))
+		}
+
+		rule, ok := proto.GetExtension(opts, authzv1.E_Rule).(*authzv1.Rule)
+		if !ok || rule == nil {
+			return permissionDenied(errs.New().Code(ErrCodeUnsupportedRule).
+				Msg("method carries no authorization rule"))
+		}
+
+		if conn.Spec().StreamType != connect.StreamTypeServer || rule.GetMode() != authzv1.RuleMode_RULE_MODE_REQUEST {
+			return permissionDenied(errs.New().Code(ErrCodeStreaming).
+				Msg("streaming calls are supported only under a request rule on a server stream"))
+		}
+
+		tenantHeader := conn.RequestHeader().Get("X-FlowSeer-Tenant")
+		admittedCtx, err := i.Admit(ctx, tenantHeader)
+		if err != nil {
+			return err
+		}
+
+		principal, _ := authn.FromContext(admittedCtx)
+		tracker := trackerFromContext(admittedCtx)
+
+		wrapped := &authzStreamingConn{
+			StreamingHandlerConn: conn,
+			ctx:                  admittedCtx,
+			interceptor:          i,
+			rule:                 rule,
+			principal:            principal,
+			admittedTenant:       tenantHeader,
+		}
+
+		err = next(admittedCtx, wrapped)
+		if tracker != nil {
+			_, checkFailed, inFlight := tracker.flags()
+			if inFlight > 0 {
+				return internalError(errs.New().Code(ErrCodeObligationViolation).
+					Msg("handler returned while an authorization check was in flight"))
+			}
+			if err == nil && checkFailed {
+				return internalError(errs.New().Code(ErrCodeObligationViolation).
+					Msg("handler returned response after authorization check failed"))
+			}
+		}
+		return err
 	}
+}
+
+type authzStreamingConn struct {
+	connect.StreamingHandlerConn
+	ctx            context.Context
+	interceptor    *Interceptor
+	rule           *authzv1.Rule
+	principal      authn.Principal
+	admittedTenant string
+
+	mu      sync.Mutex
+	checked bool
+}
+
+func (c *authzStreamingConn) Receive(msg any) error {
+	if err := c.StreamingHandlerConn.Receive(msg); err != nil {
+		return err
+	}
+
+	c.mu.Lock()
+	if c.checked {
+		c.mu.Unlock()
+		return nil
+	}
+	c.checked = true
+	c.mu.Unlock()
+
+	protoMsg, ok := msg.(proto.Message)
+	if !ok || protoMsg == nil {
+		return permissionDenied(errs.New().Code(ErrCodeNoObjectID).
+			Msg("request is not a proto message"))
+	}
+
+	objectID, err := extractObjectID(protoMsg, c.rule.GetObjectIdPath())
+	if err != nil || objectID == "" {
+		return permissionDenied(errs.New().Code(ErrCodeNoObjectID).Cause(err).
+			Msg("request rule yielded no id"))
+	}
+
+	allowed, err := checkObjects(c.ctx, c.interceptor.checker, c.principal, c.admittedTenant, c.rule.GetObjectType(), c.rule.GetRelation(), []string{objectID})
+	if err != nil {
+		return err
+	}
+	if len(allowed) == 0 {
+		return permissionDenied(errs.New().Code(ErrCodeDenied).
+			Msg("permission denied"))
+	}
+	return nil
 }
 
 // WrapUnary enforces authorization rules, caller identity, and relationship
@@ -98,10 +243,7 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 
 		var tracker *obligationTracker
 		if mode == authzv1.RuleMode_RULE_MODE_PLATFORM {
-			tracker = &obligationTracker{
-				checker:   i.checker,
-				principal: principal,
-			}
+			tracker = newObligationTracker(i.checker, principal, "")
 			ctx = withTracker(ctx, tracker)
 
 			q := Query{
@@ -120,35 +262,12 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 			}
 		} else {
 			tenantHeader := req.Header().Get("X-FlowSeer-Tenant")
-			if tenantHeader == "" {
-				return nil, invalidTenant(errs.New().Code(ErrCodeNoTenant).Msg("no tenant named"))
-			}
-			if err := tenant.Validate(tenantHeader); err != nil {
-				return nil, invalidTenant(errs.New().Code(ErrCodeNoTenant).Cause(err).Msg("no tenant named"))
-			}
-
-			membershipQuery := Query{
-				Object:           "tenant:" + tenantHeader,
-				Relation:         "member",
-				User:             "user:" + principal.ID,
-				ContextualTuples: tuples,
-			}
-			member, err := i.checker.Check(ctx, membershipQuery)
+			var err error
+			ctx, err = i.Admit(ctx, tenantHeader)
 			if err != nil {
-				return nil, checkerError(ctx, err, "authorization is unavailable")
+				return nil, err
 			}
-			if !member {
-				return nil, permissionDenied(errs.New().Code(ErrCodeDenied).Msg("permission denied"))
-			}
-
-			ctx = tenant.WithTenant(ctx, tenantHeader)
-
-			tracker = &obligationTracker{
-				checker:        i.checker,
-				principal:      principal,
-				admittedTenant: tenantHeader,
-			}
-			ctx = withTracker(ctx, tracker)
+			tracker = trackerFromContext(ctx)
 
 			switch mode {
 			case authzv1.RuleMode_RULE_MODE_REQUEST:
@@ -188,13 +307,17 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		}
 
 		resp, err := next(ctx, req)
-		discharged, checkFailed := tracker.flags()
+		discharged, checkFailed, inFlight := tracker.flags()
 		if (mode == authzv1.RuleMode_RULE_MODE_LOADED || mode == authzv1.RuleMode_RULE_MODE_FILTERED) && !discharged {
 			if err != nil && ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
 			return nil, internalError(errs.New().Code(ErrCodeObligationViolation).
 				Msg("handler returned without fulfilling authorization obligation"))
+		}
+		if inFlight > 0 {
+			return nil, internalError(errs.New().Code(ErrCodeObligationViolation).
+				Msg("handler returned while an authorization check was in flight"))
 		}
 		if err == nil && checkFailed {
 			return nil, internalError(errs.New().Code(ErrCodeObligationViolation).

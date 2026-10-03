@@ -11,18 +11,42 @@ import (
 const maxChecksPerBatch = 50
 
 type obligationTracker struct {
-	mu             sync.Mutex // guards discharged and checkFailed
+	mu             sync.Mutex // guards discharged, checkFailed, inFlight
 	checker        Checker
 	principal      authn.Principal
 	admittedTenant string
 	discharged     bool
 	checkFailed    bool
+	inFlight       int
 }
 
-func (t *obligationTracker) flags() (discharged, checkFailed bool) {
+func newObligationTracker(checker Checker, principal authn.Principal, admittedTenant string) *obligationTracker {
+	return &obligationTracker{
+		checker:        checker,
+		principal:      principal,
+		admittedTenant: admittedTenant,
+	}
+}
+
+func (t *obligationTracker) flags() (discharged, checkFailed bool, inFlight int) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return t.discharged, t.checkFailed
+	return t.discharged, t.checkFailed, t.inFlight
+}
+
+func (t *obligationTracker) startCheck() {
+	t.mu.Lock()
+	t.inFlight++
+	t.mu.Unlock()
+}
+
+func (t *obligationTracker) finishCheck(failed bool) {
+	t.mu.Lock()
+	t.inFlight--
+	if failed {
+		t.checkFailed = true
+	}
+	t.mu.Unlock()
 }
 
 func (t *obligationTracker) discharge() {
@@ -79,18 +103,16 @@ func contextualTuples(p authn.Principal) []Tuple {
 func Require(ctx context.Context, relation, objectType, id string) (err error) {
 	tracker := trackerFromContext(ctx)
 	if tracker != nil {
+		tracker.startCheck()
+		tracker.discharge()
 		defer func() {
-			if err != nil {
-				tracker.recordCheckFailed()
-			}
+			tracker.finishCheck(err != nil)
 		}()
 	}
 	if tracker == nil || tracker.admittedTenant == "" {
 		return internalError(errs.New().Code(ErrCodeObligationViolation).
 			Msg("require called on invalid context or without admitted tenant"))
 	}
-
-	tracker.discharge()
 
 	allowed, err := checkObjects(ctx, tracker.checker, tracker.principal, tracker.admittedTenant, objectType, relation, []string{id})
 	if err != nil {
@@ -115,18 +137,16 @@ func Require(ctx context.Context, relation, objectType, id string) (err error) {
 func Filter(ctx context.Context, relation, objectType string, ids []string) (_ []string, err error) {
 	tracker := trackerFromContext(ctx)
 	if tracker != nil {
+		tracker.startCheck()
+		tracker.discharge()
 		defer func() {
-			if err != nil {
-				tracker.recordCheckFailed()
-			}
+			tracker.finishCheck(err != nil)
 		}()
 	}
 	if tracker == nil || tracker.admittedTenant == "" {
 		return nil, internalError(errs.New().Code(ErrCodeObligationViolation).
 			Msg("filter called on invalid context or without admitted tenant"))
 	}
-
-	tracker.discharge()
 
 	if len(ids) == 0 {
 		return []string{}, nil
@@ -142,6 +162,24 @@ func Filter(ctx context.Context, relation, objectType string, ids []string) (_ [
 	}
 
 	return checkObjects(ctx, tracker.checker, tracker.principal, tracker.admittedTenant, objectType, relation, unique)
+}
+
+// Abandon discharges an authorization obligation when a handler encounters an
+// error before it can evaluate its relationship checks.
+//
+// If ctx was not prepared by the interceptor or lacks an admitted tenant, or if
+// err is nil, Abandon returns an Internal error. Otherwise, Abandon marks the
+// obligation discharged, records a failed check so that any response returned
+// after it is dropped, and returns err.
+func Abandon(ctx context.Context, err error) error {
+	tracker := trackerFromContext(ctx)
+	if tracker == nil || tracker.admittedTenant == "" || err == nil {
+		return internalError(errs.New().Code(ErrCodeObligationViolation).
+			Msg("abandon called on invalid context, without admitted tenant, or with nil error"))
+	}
+	tracker.discharge()
+	tracker.recordCheckFailed()
+	return err
 }
 
 func checkObjects(ctx context.Context, checker Checker, p authn.Principal, admittedTenant, objectType, relation string, ids []string) ([]string, error) {
