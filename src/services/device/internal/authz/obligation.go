@@ -73,7 +73,7 @@ func contextualTuples(p authn.Principal) []Tuple {
 // If ctx was not prepared by the interceptor or lacks an admitted tenant, Require
 // returns an Internal error. If authorization is denied, Require returns a
 // PermissionDenied error. If the checker fails while ctx.Err() is non-nil, Require
-// returns ctx.Err(); otherwise checker errors return Unavailable. If the handler
+// returns ctx.Err(). Otherwise checker errors return Unavailable. If the handler
 // returns a response after Require returned any error, the interceptor answers
 // Internal with an obligation violation.
 func Require(ctx context.Context, relation, objectType, id string) (err error) {
@@ -109,7 +109,7 @@ func Require(ctx context.Context, relation, objectType, id string) (err error) {
 //
 // If ctx was not prepared by the interceptor or lacks an admitted tenant, Filter
 // returns an Internal error. If the checker fails while ctx.Err() is non-nil, Filter
-// returns ctx.Err(); otherwise checker errors return Unavailable. If the handler
+// returns ctx.Err(). Otherwise checker errors return Unavailable. If the handler
 // returns a response after Filter returned any error, the interceptor answers
 // Internal with an obligation violation.
 func Filter(ctx context.Context, relation, objectType string, ids []string) (_ []string, err error) {

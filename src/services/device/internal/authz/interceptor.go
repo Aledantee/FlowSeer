@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
+	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
 )
 
 // Interceptor enforces operator RPC authorization rules before delegating to
@@ -41,7 +42,11 @@ func (i *Interceptor) WrapStreamingHandler(_ connect.StreamingHandlerFunc) conne
 }
 
 // WrapUnary validates authorization rules, caller identity, and relationship
-// permissions before running the unary handler.
+// permissions before running the unary handler. When a handler returns a
+// response without fulfilling its authorization obligation or after a check
+// failed, WrapUnary drops the response and returns an internal error. Under
+// a loaded or filtered rule with no check discharged, an ended context after
+// a handler returns an error yields the context error directly.
 func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		md, ok := req.Spec().Schema.(protoreflect.MethodDescriptor)
@@ -76,7 +81,7 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 
 		principal, ok := authn.FromContext(ctx)
 		if !ok || principal.ID == "" {
-			return nil, unauthenticated(errs.New().Code(ErrCodeUnauthenticated).
+			return nil, connecterr.WrapAs(connect.CodeUnauthenticated, "authentication required", errs.New().Code(ErrCodeUnauthenticated).
 				Msg("authentication required"))
 		}
 

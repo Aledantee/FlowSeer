@@ -43,17 +43,13 @@ type Query struct {
 
 // Checker evaluates authorization queries against a relationship graph.
 // Implementations must be safe for concurrent use and must not modify a
-// query or its tuples. Implementations should honor context cancellation;
-// callers inspect ctx.Err() on failure.
+// query or its tuples. Implementations should honor context cancellation.
+// Callers inspect ctx.Err() on failure.
 type Checker interface {
 	Check(ctx context.Context, q Query) (bool, error)
 	// BatchCheck evaluates queries in batch, returning one boolean answer per
 	// query in identical query order.
 	BatchCheck(ctx context.Context, queries []Query) ([]bool, error)
-}
-
-func unauthenticated(err error) error {
-	return connecterr.WrapAs(connect.CodeUnauthenticated, "authentication required", err)
 }
 
 func invalidTenant(err error) error {
@@ -64,10 +60,6 @@ func permissionDenied(err error) error {
 	return connecterr.WrapAs(connect.CodePermissionDenied, "permission denied", err)
 }
 
-func unavailable(err error) error {
-	return connecterr.WrapAs(connect.CodeUnavailable, "authorization is unavailable", err)
-}
-
 func checkerError(ctx context.Context, err error, msg string) error {
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return ctxErr
@@ -76,7 +68,7 @@ func checkerError(ctx context.Context, err error, msg string) error {
 	if err != nil {
 		b = b.Cause(err)
 	}
-	return unavailable(b.Msg(msg))
+	return connecterr.WrapAs(connect.CodeUnavailable, "authorization is unavailable", b.Msg(msg))
 }
 
 func internalError(err error) error {
