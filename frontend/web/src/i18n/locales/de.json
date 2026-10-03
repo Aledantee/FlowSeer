@@ -16,6 +16,20 @@
       "questionPlaceholder": "Warum ist dieses Gerät offline?",
       "unavailable": "KI ist nicht verfügbar"
     },
+    "aiAssistant": {
+      "addContext": "Kontext hinzufügen",
+      "close": "Schließen",
+      "emptyThread": "Stellen Sie eine Frage zu dieser Flotte oder fügen Sie Kontext hinzu.",
+      "inputLabel": "Eingabe",
+      "inputPlaceholder": "Frage zu dieser Flotte stellen…",
+      "noTargets": "Keine Ziele gefunden",
+      "searchContext": "Ziele suchen…",
+      "send": "Senden",
+      "stop": "Anhalten",
+      "suggestions": "Vorgeschlagene Fragen",
+      "title": "Assistent",
+      "unavailable": "KI ist nicht verfügbar"
+    },
     "aiContextLayer": {
       "close": "Schließen",
       "continueInAssistant": "Im Assistenten fortfahren"

@@ -16,6 +16,20 @@
       "questionPlaceholder": "Why is this device offline?",
       "unavailable": "AI is unavailable"
     },
+    "aiAssistant": {
+      "addContext": "Add context",
+      "close": "Close",
+      "emptyThread": "Ask a question about this fleet or add context to start.",
+      "inputLabel": "Prompt",
+      "inputPlaceholder": "Ask a question about this fleet…",
+      "noTargets": "No targets found",
+      "searchContext": "Search targets…",
+      "send": "Send",
+      "stop": "Stop",
+      "suggestions": "Suggested prompts",
+      "title": "Assistant",
+      "unavailable": "AI is unavailable"
+    },
     "aiContextLayer": {
       "close": "Close",
       "continueInAssistant": "Continue in assistant"

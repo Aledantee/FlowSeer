@@ -160,6 +160,11 @@ export type {
   UiAiContextLayerLabels,
   UiAiContextLayerProps,
 } from './ai/UiAiContextLayer.vue'
+export { default as UiAiAssistant } from './ai/UiAiAssistant.vue'
+export type {
+  UiAiAssistantLabels,
+  UiAiAssistantProps,
+} from './ai/UiAiAssistant.vue'
 
 export { default as UiBreadcrumb } from './breadcrumb/UiBreadcrumb.vue'
 export type {
