@@ -105,6 +105,11 @@ same instant, the two verbs stay and the record is amended.
   pass, and a directory no row names is a fixture nothing accounts for.
   `03246c8e` rewrote five fixtures in place while it added 24, so U10 runs
   the new gate over the old directories before it deletes them.
+- The review of the re-planned U10 gets a fourth fix round, past the fix
+  loop's limit of three. It adds a stateless fixture for each of the five
+  member rows, so the gate is shown to refuse a stateless package missing a
+  member, and resumes from `parked/sim-p2-u10-review`. (decided by the user,
+  2026-10-03)
 
 ## Requirements
 
@@ -642,15 +647,3 @@ go list -f '{{.ImportPath}}{{range .Imports}} {{.}}{{end}}' ./src/common/sim/lay
 - Whether a default LACP key must stay fixed when a LAG is added is a question
   about IEEE 802.1AX, unverified here and not vendored under `spec/`. Phase 4
   decides it. U5 states the current rule in `L/lag/README.md`.
-- Parked by drive: the review of the re-planned U10 ended `rework` after
-  three fix rounds (`bbe72b02` on `parked/sim-p2-u10-review`, which holds
-  every fix commit). One gap is open: the five member rows have only
-  stateful fixtures, so a gate that applied them to stateful packages alone
-  would stay green, and a stateless package without `Diff` would pass it.
-  Options: a fourth fix round that adds a stateless fixture for each of the
-  five member rows, resumed from `parked/sim-p2-u10-review` (one review and
-  fix pass on one test package) | accept after fixes, with the gap carried
-  as an open question for a later phase (unblocks phases 3 to 8 now, the
-  gate stays unproven for stateless packages) | re-plan U10 again (a plan
-  stage and another implement pass). Recommended: the fourth round, because
-  the gap is five named fixtures and every other guard is now held.
