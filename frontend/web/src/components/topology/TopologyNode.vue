@@ -11,7 +11,7 @@ import { useLabels } from '../../i18n/labels'
 import { useTopologyLive } from './live'
 defineOptions({ inheritAttrs: false })
 const props = defineProps<{ data: { deviceId: string } }>()
-const { t } = useI18n({ useScope: 'global' })
+const { t, n } = useI18n({ useScope: 'global' })
 const format = useFormat()
 const labels = useLabels()
 const live = useTopologyLive()
@@ -32,7 +32,7 @@ const target = computed<AiTarget | undefined>(() => {
       health: current.health,
       address: current.address,
       role: current.role,
-      clients: String(current.clients),
+      clients: n(current.clients, 'integer'),
       throughput: format.rate(current.throughput),
     },
   })

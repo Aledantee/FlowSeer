@@ -470,6 +470,20 @@ describe('fleet view', () => {
     )
   })
 
+  it('renders a single sort indicator in sorted table headers without duplicate arrow spans', async () => {
+    const { host } = await mountAt('/devices')
+    const header = [...host.querySelectorAll('th button')].find((item) =>
+      item.textContent?.includes('Device name'),
+    ) as HTMLButtonElement | undefined
+    expect(header).toBeDefined()
+    header?.click()
+    await nextTick()
+    const th = header?.closest('th')
+    expect(th?.textContent).toContain('↑')
+    const count = (th?.textContent?.match(/↑/g) ?? []).length
+    expect(count).toBe(1)
+  })
+
   it('lets a phone device card announce its health, site, and age', async () => {
     const { host } = await mountAt('/devices?search=cologne-ap-02')
     const card = host.querySelector('.mobile-devices button')

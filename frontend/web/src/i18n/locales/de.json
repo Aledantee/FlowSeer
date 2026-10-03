@@ -143,7 +143,6 @@
       "emptyDescription": "Eine andere Suche oder ein anderes Band versuchen.",
       "emptyTitle": "Keine Clients passen zu dieser Ansicht",
       "filterBand": "Nach Band filtern",
-      "mac": "MAC-Adresse",
       "noSearch": "keine",
       "search": "Clients suchen",
       "searchPlaceholder": "Nach Hostname, IP- oder MAC-Adresse suchen…",
@@ -183,10 +182,12 @@
         "degraded": "{count} beeinträchtigt",
         "offline": "{count} offline"
       },
+      "ipAddress": "IP-Adresse",
       "lifecycle": {
         "active": "Aktiv",
         "retired": "Ausgemustert"
       },
+      "macAddress": "MAC-Adresse",
       "medium": {
         "copper": "Kupfer",
         "fiber": "Glasfaser"
@@ -196,8 +197,10 @@
         "routed": "Geroutet",
         "trunk": "Trunk"
       },
+      "needAttention": "{count} mit Handlungsbedarf",
       "needsAttention": "Handlungsbedarf",
       "noReading": "—",
+      "openBeside": "Nebeneinander öffnen",
       "pages": {
         "clients": "Clients",
         "dashboard": "Dashboard",
@@ -232,17 +235,16 @@
         "gigabit": "{value}G",
         "megabit": "{value}M"
       },
-      "tenant": "Mandant",
       "units": {
         "celsius": "°C",
         "dbm": "dBm",
         "gb": "GB",
         "gbps": "Gbit/s",
-        "ghz": "GHz",
         "mbps": "Mbit/s",
         "ms": "ms",
         "w": "W"
       },
+      "updateFailed": "Diese Ansicht konnte nicht aktualisiert werden. Erneut versuchen.",
       "unknownDevice": "Unbekanntes Gerät",
       "unknownSite": "Unbekannter Standort",
       "unknownTenant": "Unbekannter Mandant",
@@ -350,14 +352,12 @@
       "emptyTitle": "Keine Geräte passen zu dieser Ansicht",
       "filterStatus": "Nach Status filtern",
       "inventory": "Geräteinventar",
-      "ipAddress": "IP-Adresse",
       "lastAnswered": "Zuletzt geantwortet",
-      "needAttention": "{count} mit Handlungsbedarf",
       "needsAttentionOption": "{label} ({count})",
       "noSearch": "keine",
       "peekAt": "{name} neben dieser Liste ansehen",
       "peekBeside": "Daneben ansehen",
-      "peekHint": "Dasselbe gelingt mit Umschalt+Klick auf einen Namen. ↑ ↓ wechseln in der Liste, Esc schließt.",
+      "peekHint": "Dasselbe gelingt mit Umschalt-Klick auf einen Namen. ↑ ↓ wechseln in der Liste, Esc schließt.",
       "search": "Geräte suchen",
       "searchPlaceholder": "Nach Name, Typ oder IP-Adresse suchen…",
       "showing": "{shown} von {total} Gerät angezeigt | {shown} von {total} Geräten angezeigt",
@@ -368,9 +368,7 @@
     "dock": {
       "close": "{label} schließen",
       "minimizedPages": "Minimierte Seiten",
-      "needAttention": "{count} mit Handlungsbedarf",
       "open": "{label} öffnen",
-      "openBeside": "Nebeneinander öffnen",
       "openBesideLabel": "{label} nebeneinander öffnen",
       "remove": "Aus dem Dock entfernen",
       "shiftHint": "Umschalt-Klick öffnet nebeneinander"
@@ -392,7 +390,7 @@
       "linkClicksHint": "An",
       "linkClicksLabel": "Links der Hauptseite in der zweiten Seite öffnen",
       "linkClicksOff": "Links der linken Seite hier öffnen",
-      "linkClicksOn": "Links der linken Seite öffnen hier",
+      "linkClicksOn": "Links der linken Seite werden hier geöffnet",
       "mainNavigation": "Hauptnavigation",
       "minimizeHint": "Die Tastenkombination minimiert die Seite mit Fokus.",
       "minimizeMain": "Diese Seite in das Dock minimieren",
@@ -412,7 +410,6 @@
       "splitView": "Geteilte Ansicht",
       "swapPages": "Beide Seiten tauschen",
       "swapSides": "Seiten tauschen",
-      "updateFailed": "Die Ansicht konnte nicht aktualisiert werden. Erneut versuchen.",
       "workspace": "ARBEITSBEREICH"
     },
     "help": {
@@ -480,7 +477,6 @@
       },
       "label": "Mandanten, Standorte, Geräte, Clients und Schnittstellen suchen",
       "noMatch": "Keine Treffer für „{query}“.",
-      "openBeside": "Nebeneinander öffnen",
       "openBesideLabel": "{title} nebeneinander öffnen",
       "placeholder": "Mandanten, Standorte, Geräte, Clients, Schnittstellen suchen…",
       "recent": "Zuletzt",
@@ -534,10 +530,8 @@
         "downstream": "Downstream",
         "errors": "Fehler",
         "firmware": "Firmware",
-        "ipAddress": "IP-Adresse",
         "lastChange": "Letzte Änderung",
         "latency": "Latenz",
-        "macAddress": "MAC-Adresse",
         "medium": "Medium",
         "model": "Modell",
         "mtu": "MTU",
@@ -594,8 +588,7 @@
       "scopeAcrossAll": "{count} Standort über alle Mandanten | {count} Standorte über alle Mandanten",
       "scopeAcrossTenant": "{count} Standort bei {tenant} | {count} Standorte bei {tenant}",
       "scopeNotFound": "Bereich nicht gefunden: „{site}“. Er wurde möglicherweise entfernt oder gehört zu einem anderen Mandanten.",
-      "undo": "Rückgängig",
-      "updateFailed": "Diese Ansicht konnte nicht aktualisiert werden. Erneut versuchen."
+      "undo": "Rückgängig"
     }
   }
 }

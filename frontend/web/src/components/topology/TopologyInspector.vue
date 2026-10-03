@@ -197,7 +197,7 @@ function deviceLink(id: string) {
             <dd>{{ uptime(telemetry.bootedAt) }}</dd>
           </div>
           <div>
-            <dt>{{ t('view.topologyInspector.fields.ipAddress') }}</dt>
+            <dt>{{ t('view.common.ipAddress') }}</dt>
             <dd class="mono" translate="no">{{ device.address }}</dd>
           </div>
           <div>
@@ -446,7 +446,7 @@ function deviceLink(id: string) {
             <dd>{{ port.details.mtu }}</dd>
           </div>
           <div>
-            <dt>{{ t('view.topologyInspector.fields.macAddress') }}</dt>
+            <dt>{{ t('view.common.macAddress') }}</dt>
             <dd class="mono" translate="no">{{ port.details.mac }}</dd>
           </div>
           <div>

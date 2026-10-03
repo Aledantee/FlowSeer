@@ -189,7 +189,7 @@ function clearAccessPoint() {
         <UiTableHeader>
           <UiTableRow>
             <UiTableHead>{{ t('view.clients.client') }}</UiTableHead>
-            <UiTableHead>{{ t('view.clients.mac') }}</UiTableHead>
+            <UiTableHead>{{ t('view.common.macAddress') }}</UiTableHead>
             <UiTableHead>{{ t('view.clients.accessPoint') }}</UiTableHead>
             <UiTableHead>{{ t('view.clients.band') }}</UiTableHead>
             <UiTableHead>{{ t('view.clients.signal') }}</UiTableHead>

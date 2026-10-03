@@ -268,7 +268,7 @@ const headingFacts = computed(() => {
     dashboard && t('view.workspace.asOf', { time: format.clock(asOf.value) }),
     view.value === 'devices' &&
       attention > 0 &&
-      t('view.devices.needAttention', { count: n(attention, 'integer') }),
+      t('view.common.needAttention', { count: n(attention, 'integer') }),
   ])
 })
 
@@ -318,7 +318,7 @@ async function setQuery(key: string, value: string) {
       { replace: true },
     )
   } catch {
-    message.value = t('view.workspace.updateFailed')
+    message.value = 'view.common.updateFailed'
   }
 }
 
@@ -337,7 +337,7 @@ async function clearFilters() {
       { replace: true },
     )
   } catch {
-    message.value = t('view.workspace.resetFailed')
+    message.value = 'view.workspace.resetFailed'
   }
 }
 
@@ -406,7 +406,7 @@ async function handleUndo() {
       class="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-card border border-border rounded-panel text-xs text-foreground mb-6 shadow-xs"
     >
       <span>
-        <span v-if="message">{{ message }}</span>
+        <span v-if="message">{{ t(message) }}</span>
         <I18nT v-else-if="move" scope="global" tag="span" :keypath="moveKey">
           <template #name>
             <span translate="no">{{ move?.name }}</span>
@@ -524,7 +524,7 @@ async function handleUndo() {
       class="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-card border border-border rounded-panel text-xs text-foreground mb-6 shadow-xs"
     >
       <span>
-        <span v-if="message">{{ message }}</span>
+        <span v-if="message">{{ t(message) }}</span>
         <I18nT v-else-if="move" scope="global" tag="span" :keypath="moveKey">
           <template #name>
             <span translate="no">{{ move?.name }}</span>
@@ -678,10 +678,7 @@ async function handleUndo() {
                       class="sort-button font-medium inline-flex items-center gap-1 cursor-pointer"
                       @click="sortBy('name')"
                     >
-                      {{ t('view.devices.deviceName')
-                      }}<span v-if="sortKey === 'name'" aria-hidden="true">{{
-                        ascending ? ' ↑' : ' ↓'
-                      }}</span>
+                      {{ t('view.devices.deviceName') }}
                     </button>
                   </UiTableHead>
                   <UiTableHead
@@ -699,10 +696,7 @@ async function handleUndo() {
                       class="sort-button font-medium inline-flex items-center gap-1 cursor-pointer"
                       @click="sortBy('status')"
                     >
-                      {{ t('view.devices.status')
-                      }}<span v-if="sortKey === 'status'" aria-hidden="true">{{
-                        ascending ? ' ↑' : ' ↓'
-                      }}</span>
+                      {{ t('view.devices.status') }}
                     </button>
                   </UiTableHead>
                   <UiTableHead
@@ -720,10 +714,7 @@ async function handleUndo() {
                       class="sort-button font-medium inline-flex items-center gap-1 cursor-pointer"
                       @click="sortBy('seen')"
                     >
-                      {{ t('view.devices.lastAnswered')
-                      }}<span v-if="sortKey === 'seen'" aria-hidden="true">{{
-                        ascending ? ' ↑' : ' ↓'
-                      }}</span>
+                      {{ t('view.devices.lastAnswered') }}
                     </button>
                   </UiTableHead>
                   <UiTableHead
@@ -741,13 +732,10 @@ async function handleUndo() {
                       class="sort-button font-medium inline-flex items-center gap-1 cursor-pointer"
                       @click="sortBy('site')"
                     >
-                      {{ t('view.devices.siteTenant')
-                      }}<span v-if="sortKey === 'site'" aria-hidden="true">{{
-                        ascending ? ' ↑' : ' ↓'
-                      }}</span>
+                      {{ t('view.devices.siteTenant') }}
                     </button>
                   </UiTableHead>
-                  <UiTableHead>{{ t('view.devices.ipAddress') }}</UiTableHead>
+                  <UiTableHead>{{ t('view.common.ipAddress') }}</UiTableHead>
                   <UiTableHead align="numeric">{{
                     t('view.common.columns.clients')
                   }}</UiTableHead>
