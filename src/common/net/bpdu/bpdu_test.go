@@ -1016,7 +1016,7 @@ func TestMSTBPDUEncodeRecordCountBoundary(t *testing.T) {
 		return mstis
 	}
 
-	const maxRecords = (65535 - 64) / 16 // mirrors stp's own maxMSTIRecords bound
+	const maxRecords = (65535 - 64) / 16 // mirrors bpdu's own MaxMSTIRecords bound
 
 	t.Run("at the maximum record count", func(t *testing.T) {
 		t.Parallel()
@@ -1044,6 +1044,9 @@ func TestMSTBPDUEncodeRecordCountBoundary(t *testing.T) {
 		_, err := bpdu.Encode(b, mac)
 		if err == nil {
 			t.Fatal("bpdu.Encode: got nil error, want an error for a record count past the maximum")
+		}
+		if errors.Is(err, bpdu.ErrUnsupported) {
+			t.Errorf("bpdu.Encode error unexpectedly wrapped ErrUnsupported: %v", err)
 		}
 	})
 }

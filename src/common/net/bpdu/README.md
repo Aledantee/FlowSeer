@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
-	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 )
 

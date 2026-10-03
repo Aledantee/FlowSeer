@@ -473,18 +473,18 @@ func TestPortLinkedAgreesWithReceiveSSTPsOwnPortDownCheck(t *testing.T) {
 	}
 }
 
-// TestAnMSTIDoesNotElectThroughAGuardDisabledPort is evidence that once bpdu.BPDU
+// TestAnMSTIDoesNotElectThroughAGuardDisabledPort is evidence that once BPDU
 // guard fires on the CIST's copy of a port, an MSTI's own root election
 // excludes it too, even though the MSTI's own rcvInfoValid survives the
 // guard firing untouched (receiveLink clears rcvInfoValid on the CIST alone)
 // and would otherwise look like a live candidate until it ages out on its
 // own. Reaching that state through the public API alone is not possible: a
-// bpdu.BPDU-guarded port's very first reception fires the guard before the frame
-// ever reaches an MSTI's own applyBPDU, so no bpdu.BPDU can establish an MSTI's
+// BPDU-guarded port's very first reception fires the guard before the frame
+// ever reaches an MSTI's own applyBPDU, so no BPDU can establish an MSTI's
 // information on a guarded port in the first place. This test seeds the
 // MSTI's port state directly with the information a peer would have
 // delivered moments earlier, before the guard fired, and then drives the
-// guard-firing bpdu.BPDU through the public Receive.
+// guard-firing BPDU through the public Receive.
 func TestAnMSTIDoesNotElectThroughAGuardDisabledPort(t *testing.T) {
 	t0 := time.Unix(1_000_000, 0)
 
@@ -528,7 +528,7 @@ func TestAnMSTIDoesNotElectThroughAGuardDisabledPort(t *testing.T) {
 	l.Receive(t0.Add(time.Second), "l1", rogue)
 
 	if cistP := l.cist().ports["l1"]; !cistP.bpduGuardDisabled {
-		t.Fatal("test setup: bpdu.BPDU guard did not fire on l1")
+		t.Fatal("test setup: BPDU guard did not fire on l1")
 	}
 
 	mt := l.trees[treeID(1)]

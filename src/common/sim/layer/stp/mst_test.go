@@ -27,7 +27,7 @@ func TestMSTConfigIDDigest(t *testing.T) {
 			wantDigest: "ac36177f50283cd4b83821d8ab26de62",
 		},
 		{
-			name: "VID 10 on bpdu.MSTID 1 and VID 20 on bpdu.MSTID 2",
+			name: "VID 10 on MSTID 1 and VID 20 on MSTID 2",
 			instances: map[bpdu.MSTID]stp.Instance{
 				1: {VLANs: []vlan.ID{10}},
 				2: {VLANs: []vlan.ID{20}},
@@ -48,7 +48,7 @@ func TestMSTConfigIDDigest(t *testing.T) {
 				t.Fatalf("hex.DecodeString(%q): %v", tc.wantDigest, err)
 			}
 			if got := id.Digest[:]; hex.EncodeToString(got) != hex.EncodeToString(want) {
-				t.Errorf("bpdu.ConfigID().Digest = %x, want %x", got, want)
+				t.Errorf("ConfigID().Digest = %x, want %x", got, want)
 			}
 		})
 	}
@@ -104,7 +104,7 @@ func TestMSTValidate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "bpdu.MSTID zero rejected",
+			name: "MSTID zero rejected",
 			mst: stp.MST{
 				Instances: map[bpdu.MSTID]stp.Instance{0: {}},
 			},
@@ -112,7 +112,7 @@ func TestMSTValidate(t *testing.T) {
 			wantField: "mst.instances.0",
 		},
 		{
-			name: "bpdu.MSTID above 4094 rejected",
+			name: "MSTID above 4094 rejected",
 			mst: stp.MST{
 				Instances: map[bpdu.MSTID]stp.Instance{4095: {}},
 			},
@@ -367,7 +367,7 @@ func TestMSTValidateRejectsTheDigestCollisionVLAN(t *testing.T) {
 
 // TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries guards the seam
 // between the region configuration and the wire: Encode refuses to build an
-// MST bpdu.BPDU whose version 3 length would not fit 16 bits, so a region that
+// MST BPDU whose version 3 length would not fit 16 bits, so a region that
 // validates must not be able to reach that count.
 func TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries(t *testing.T) {
 	t.Parallel()
@@ -377,7 +377,7 @@ func TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries(t *testing.T) {
 		t.Fatalf("port.Builder.Build: %v", err)
 	}
 
-	// 4091 records is the most the version 3 length field can name; the bpdu.MSTID
+	// 4091 records is the most the version 3 length field can name; the MSTID
 	// space runs to 4094, so a region can ask for more than the wire allows.
 	instances := make(map[bpdu.MSTID]stp.Instance, 4092)
 	for id := bpdu.MSTID(1); id <= 4092; id++ {
@@ -387,7 +387,7 @@ func TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries(t *testing.T) {
 	m := stp.MST{Name: "region-1", Instances: instances}
 	err = m.Validate(tbl, nil)
 	if err == nil {
-		t.Fatal("Validate() = nil, want rejection of a region no bpdu.BPDU can carry")
+		t.Fatal("Validate() = nil, want rejection of a region no BPDU can carry")
 	}
 
 	if got := errs.Attributes(err)["field"]; got != "mst.instances" {
@@ -445,7 +445,7 @@ func TestMSTNormalizePreservesExplicitZeroInstancePriority(t *testing.T) {
 	}
 }
 
-// TestMSTConfigIDDeterministicAcrossCalls guards bpdu.ConfigID against map
+// TestMSTConfigIDDeterministicAcrossCalls guards ConfigID against map
 // iteration order: two calls on the same configuration, with several
 // instances, must always produce the same digest.
 func TestMSTConfigIDDeterministicAcrossCalls(t *testing.T) {
@@ -463,7 +463,7 @@ func TestMSTConfigIDDeterministicAcrossCalls(t *testing.T) {
 	want := m.ConfigID().Digest
 	for i := 0; i < 20; i++ {
 		if got := m.ConfigID().Digest; got != want {
-			t.Fatalf("bpdu.ConfigID().Digest on call %d = %x, want %x", i, got, want)
+			t.Fatalf("ConfigID().Digest on call %d = %x, want %x", i, got, want)
 		}
 	}
 }

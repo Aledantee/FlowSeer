@@ -20,8 +20,13 @@ func GroupAddressSSTP() netaddr.MAC {
 }
 
 const (
+	// sstpPayloadLength is the fixed SSTP payload length in octets: the
+	// 3-octet LLC header, the 5-octet SNAP header (OUI and PID), the
+	// 36-octet RST BPDU body, and the 6-octet originating-VLAN TLV.
 	sstpPayloadLength = 50
-	sstpSNAPPID       = 0x010B
+
+	// sstpSNAPPID is the SNAP protocol identifier Cisco assigns to SSTP.
+	sstpSNAPPID = 0x010B
 )
 
 // EncodeSSTP serializes b into an SSTP (Cisco Per-VLAN Spanning Tree Plus)
@@ -61,6 +66,14 @@ func EncodeSSTP(b BPDU, vid vlan.ID, src netaddr.MAC) (ethernet.Frame, error) {
 	payload[11] = bpduTypeWireRST
 	payload[12] = b.Flags
 
+	// putBody writes the RST body fields (root id through forward delay)
+	// starting at relative offset 8 of the slice it is given. In the plain
+	// LLC payload [Encode] passes, that offset lands right after the LLC
+	// header, protocol identifier, version, type, and flags octets it wrote
+	// itself. Slicing this payload at 5 (past the LLC header and the
+	// 5-octet SNAP header) puts protocol identifier through flags at the
+	// same relative offset 3-7, so putBody's relative offset 8 lands on
+	// absolute offset 13, exactly where the SSTP layout puts the root id.
 	putBody(payload[5:], b)
 	payload[43] = 0
 
