@@ -5,6 +5,7 @@ date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: fixes needed
 execution: code
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
 ---
@@ -376,3 +377,19 @@ Neither blocks a unit.
 2. Unverified: whether a browser's ICU abbreviates relative times as
    Node 22.14.0 does. Tests do not pin those strings, and the browser
    check is where a difference would show.
+
+## Review gaps
+
+- frontend/web/src/i18n/format.ts:35: `mbps >= MBPS_PER_GBPS` in `speed` becomes `>`; fails: `speed(1000)` reads `1G`
+- frontend/web/src/main.ts:32: `createWebI18n(initialLocale())` becomes `createWebI18n()`; fails: with nothing saved and `navigator.languages` of `['fr-FR', 'de-AT']` the app starts in `de`
+- frontend/web/src/main.ts:33: the `bindDocumentLang(i18n.global)` call is removed; fails: `<html lang>` equals the starting locale and follows the switch
+- frontend/web/src/components/TrafficChart.vue:50: `format.clock(new Date(2000, 0, 1, hour))` becomes `String(hour)`; fails: a chart hour label reads what `Intl.DateTimeFormat` prints for that hour in each locale
+- frontend/web/src/WorkspacePage.vue:268: `time: format.clock(asOf.value)` becomes `time: ''`; fails: the dashboard heading line holds the clock time after `Stand`
+- frontend/web/src/components/LocaleSwitcher.vue:41: `translate="no"` is removed from the language name; fails: the name element in the accessible name carries `translate="no"`
+- frontend/web/src/WorkspacePage.vue:856: `t('view.devices.detailsFor', { name: device.name })` becomes `'Details for ' + device.name`; fails: the German sweep of `/devices` finds no English in a parameterized message
+- frontend/web/src/FleetView.test.ts:665: `Number(after?.matching)` and `Number(after?.count)` read `n()` output, which is `NaN` in `en` from 1,000; fails: the comparison uses raw counts
+- .agents/skills/web-component/references/i18n-and-ai.md:32: says units and lists use the matching `Intl` API, while unit labels and the list separator are messages (`frontend/web/src/i18n/format.ts:15-22`); fails: the rule matches the code
+- .agents/skills/web-component/references/i18n-and-ai.md:82: says a view never calls `toUpperCase`, while `LocaleSwitcher.vue:37` and `DashboardView.vue:86` change case; fails: the rule is scoped to translated text or the calls are gone
+- docs/solutions/conventions/vue-i18n-instances-mutate-catalogs-and-formats-in-place.md:42: cites `index.ts:37-48` as `createWebI18n`, which now sits at `index.ts:52-64` and also clones `datetimeFormats`; fails: the citation and snippet match the file
+- docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase4-plan.md:60: the Decision lists three English exceptions, while the escalation `Last answered` line and the unanswered-poll text also changed (`frontend/web/src/DeviceView.vue:188-191`, `:241`); fails: the Decision names both changes and why
+
