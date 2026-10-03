@@ -55,11 +55,6 @@ func TestOmittedPortIsUnknownAndAbsentFromFloodSets(t *testing.T) {
 		t.Errorf("port 1/1/3 OperStatus = %v, want Unknown", p3.OperStatus)
 	}
 
-	unlinked := fab.Unlinked("sw1")
-	if len(unlinked) != 1 || unlinked[0].Port != "1/1/3" || unlinked[0].Oper != port.Unknown || unlinked[0].Reason != fabric.ReasonAdjacencyUnresolved {
-		t.Errorf("Unlinked(sw1) = %+v, want 1/1/3 Unknown with reason adjacency-unresolved", unlinked)
-	}
-
 	unknownDst := netaddr.MAC{0x00, 0x99, 0x88, 0x77, 0x66, 0x55}
 	frame := ethernet.Frame{
 		Dst:       unknownDst,

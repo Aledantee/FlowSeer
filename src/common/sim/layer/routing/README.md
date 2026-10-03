@@ -29,7 +29,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 )
 
@@ -57,7 +57,7 @@ func main() {
 		},
 	}}
 
-	layer, err := routing.New(cfg, port.Table{}, "sw1")
+	l, err := routing.New(cfg, layer.Env{NodeID: "sw1"})
 	if err != nil {
 		panic(err)
 	}
@@ -75,7 +75,7 @@ func main() {
 	}
 
 	now := time.Now()
-	res := layer.Route(now, "vlan10", ethernet.Frame{
+	res := l.Route(now, "vlan10", ethernet.Frame{
 		Src:       hostMAC,
 		Dst:       routerMAC,
 		EtherType: ethernet.EtherTypeIPv4,
@@ -83,10 +83,14 @@ func main() {
 	}, true)
 
 	fmt.Printf("egress %s towards %s\n", res.Interface, res.Frame.Dst)
-	for _, c := range res.Candidates {
-		fmt.Printf("candidate %s via %s on %s\n", c.Prefix, c.NextHop, c.Interface)
+	for _, step := range res.Steps {
+		for _, fact := range step.Outputs {
+			if fact.TypeID() == "routing.lookup_decision" {
+				fmt.Println(fact.Canonical())
+			}
+		}
 	}
-	for _, w := range layer.WithdrawnRoutes(routing.DefaultVRF) {
+	for _, w := range l.WithdrawnRoutes(routing.DefaultVRF) {
 		fmt.Printf("withdrawn %s via %s: %s\n", w.Prefix, w.NextHop, w.Reason)
 	}
 }
@@ -94,15 +98,14 @@ func main() {
 
 ```
 egress vlan20 towards 00:22:33:44:55:0b
-candidate 192.0.2.0/24 via 10.0.10.254 on vlan10
-candidate 192.0.2.0/24 via 10.0.20.254 on vlan20
+vrf="default";destination="192.0.2.5";matched=true;prefix="192.0.2.0/24";next_hop="10.0.20.254";interface="vlan20";kind="static";hash_src="10.0.10.7";hash_dst="192.0.2.5";hash_flow_label=0;hash=2807316233;chosen=1;candidates=[10.0.10.254|vlan10|10.0.10.254,10.0.20.254|vlan20|10.0.20.254]
 withdrawn 198.51.100.0/24 via 203.0.113.1: unresolved
 ```
 
-Both routes to `192.0.2.0/24` stay in the table and both are reported; which one
-carries this packet is the flow hash below. The route to `198.51.100.0/24` is
-valid configuration, but no chain of routes in the VRF reaches `203.0.113.1`, so
-the table does not hold it.
+Both routes to `192.0.2.0/24` stay in the table and both are reported in
+`candidates=[...]`; which one carries this packet is the flow hash below. The
+route to `198.51.100.0/24` is valid configuration, but no chain of routes in the
+VRF reaches `203.0.113.1`, so the table does not hold it.
 
 ## Sub-interfaces
 
@@ -165,9 +168,9 @@ delivery and a next hop — an outcome no vendor documents.
 
 Every route that contains the destination and ties the winner on prefix length,
 preference, and metric is a candidate, and all of them are reported in
-`Result.Candidates`, so a reader can tell an alternative path from a path that
-was never there. An equal-length prefix that does not contain the destination is
-a different prefix and never joins the set.
+`candidates=[...]` of the `routing.lookup_decision` fact, so a reader can tell
+an alternative path from a path that was never there. An equal-length prefix
+that does not contain the destination is a different prefix and never joins the set.
 
 Candidates are ordered by next hop, then egress interface. The order is part of
 the contract: the reduction below turns a hash into an index into this slice, and
@@ -324,7 +327,7 @@ configured binding, and the `routing.neighbor_decision` trace fact a lookup
 produces names it alongside the state and the bound MAC. There is no second,
 exported `Lifetime` field here: the five-state machine above already answers
 "does this age" with more precision than a boolean would, so the origin axis
-stands alone. Everything else on the table is driven by two calls:
+stands alone. Everything else on the table is driven by three calls:
 
 - **`Layer.Observe(now, Advertisement)`** applies RFC 4861 section 7.2.5 to
   an observed link-layer address binding, over both families through one
@@ -351,22 +354,22 @@ stands alone. Everything else on the table is driven by two calls:
   reply confirms the forward path a solicitation was sent on, and a request
   only refreshes the binding.
 
-- **`Layer.Wake(now)`** turns a state change into an effect. Every frame that
-  leaves a hold queue is reported in `Effects.Exits`, each carrying the
+- **`Layer.Advance(now)`** and **`Layer.DrainExits()`** turn a state change into an effect.
+  `Advance` applies RFC 4861 reachability expiry to move `Reachable` entries whose
+  expiry has passed to `Stale`, then settles hold queues across all VRFs. Every frame that
+  leaves a hold queue is reported by `DrainExits`, each carrying the
   `HeldCause` that says how it left: `HeldReleased`, `HeldTimedOut`, or
   `HeldEvicted`. An `Incomplete` entry whose resolution deadline has passed
   becomes `Failed` and its held frames exit `HeldTimedOut`, still carried
   rather than discarded — nothing here ever generates the retransmissions RFC
   4861 counts against, so `Failed` names a timeout and never an exhausted
   solicitation count. Any entry that already holds frames and is no longer
-  `Incomplete` (because `Observe` resolved it since the previous `Wake`) has
-  them exit `HeldReleased`. Either way the queue is drained, so calling `Wake`
-  again before anything else changes reports nothing further. Exits are
+  `Incomplete` (because `Observe` resolved it since the previous `Advance`) has
+  them exit `HeldReleased`. Calling `DrainExits` drains waiting exits, so calling
+  it again before anything else changes reports nothing further. Exits are
   ordered by VRF name, then interface, then address, so a caller turning them
   into emissions or trace steps does not inherit Go map order.
-  `Layer.NextWake()` reports the earliest `Incomplete` deadline, and
-  `Layer.Age(now)` is the separate timer that moves a `Reachable` entry past
-  its `ReachableTime` to `Stale`.
+  `Layer.NextWake()` reports the earliest `Incomplete` deadline.
 
   One slice with a cause on each element, rather than one slice per cause: a
   reader that switches on the cause cannot silently inherit a meaning from
@@ -395,11 +398,11 @@ defaults to 3 rather than the permitted minimum of 1, because an analysis
 library is asked which of several frames arrived, and a depth of 1 answers
 that for the last one only.
 
-The replaced frame is not discarded: it surfaces in the next `Wake` as a
+The replaced frame is not discarded: it surfaces in `DrainExits` after the next `Advance` as a
 `HeldEvicted` exit, under its own reason `neighbor-hold-overflow`. That reason
 is deliberately not `neighbor-miss`, because the neighbor may well resolve,
 and on a queue that overflowed because frames kept arriving it usually does —
-often on the same `Wake` that reports the eviction.
+often on the same `Advance` that reports the eviction.
 
 `commit` is what makes a preview safe. With it clear, a miss reports
 `neighbor-pending` without creating an entry or queuing anything, so
@@ -422,7 +425,7 @@ address it was not told about: every miss there is `neighbor-miss`, never
 
 ## State retention
 
-`RetentionKey(cfg Config, ports port.Table) string` encodes every normalized
+`RetentionKey(cfg Config, env layer.Env) string` encodes every normalized
 input the routing runtime state depends on: its own configuration as `Diff`
 sees it and the administrative and operational state of interfaces that reference
 a port. When `vswitch.Derive` finds the routing retention key unchanged, it

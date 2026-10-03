@@ -2,56 +2,56 @@ package filter
 
 import (
 	"cmp"
-	"fmt"
 	"slices"
 	"strconv"
 	"strings"
 
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// BoolFact wraps a boolean configuration property as a trace.Fact.
-type BoolFact bool
+// boolFact wraps a boolean configuration property as a trace.Fact.
+type boolFact bool
 
 // TypeID returns the fact type identifier.
-func (f BoolFact) TypeID() string { return "filter.bool" }
+func (f boolFact) TypeID() string { return "filter.bool" }
 
 // Canonical returns "true" or "false".
-func (f BoolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
+func (f boolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
 
-// ActionFact wraps a filter Action as a trace.Fact.
-type ActionFact Action
+// actionFact wraps a filter Action as a trace.Fact.
+type actionFact Action
 
 // TypeID returns the fact type identifier.
-func (f ActionFact) TypeID() string { return "filter.action" }
+func (f actionFact) TypeID() string { return "filter.action" }
 
 // Canonical returns the string value of the action.
-func (f ActionFact) Canonical() string { return string(f) }
+func (f actionFact) Canonical() string { return string(f) }
 
-// SetSnapshotFact wraps a rule set snapshot as a trace.Fact.
-type SetSnapshotFact string
+// setSnapshotFact wraps a rule set snapshot as a trace.Fact.
+type setSnapshotFact string
 
 // TypeID returns the fact type identifier.
-func (f SetSnapshotFact) TypeID() string { return "filter.set" }
+func (f setSnapshotFact) TypeID() string { return "filter.set" }
 
 // Canonical returns the serialized rule set state.
-func (f SetSnapshotFact) Canonical() string { return string(f) }
+func (f setSnapshotFact) Canonical() string { return string(f) }
 
-// SnapshotSet returns an immutable snapshot of s.
-func SnapshotSet(s RuleSet) trace.Fact {
-	return SetSnapshotFact("stateful=" + strconv.FormatBool(s.Stateful) +
+// snapshotSet returns an immutable snapshot of s.
+func snapshotSet(s RuleSet) trace.Fact {
+	return setSnapshotFact("stateful=" + strconv.FormatBool(s.Stateful) +
 		";default=" + strconv.Quote(string(s.Default)) +
 		";rule_count=" + strconv.Itoa(len(s.Rules)))
 }
 
-// RuleSnapshotFact wraps a rule definition as a trace.Fact.
-type RuleSnapshotFact string
+// ruleSnapshotFact wraps a rule definition as a trace.Fact.
+type ruleSnapshotFact string
 
 // TypeID returns the fact type identifier.
-func (f RuleSnapshotFact) TypeID() string { return "filter.rule" }
+func (f ruleSnapshotFact) TypeID() string { return "filter.rule" }
 
 // Canonical returns the serialized rule state.
-func (f RuleSnapshotFact) Canonical() string { return string(f) }
+func (f ruleSnapshotFact) Canonical() string { return string(f) }
 
 // SnapshotRule returns an immutable, injective snapshot of r.
 func SnapshotRule(r Rule) trace.Fact {
@@ -120,27 +120,27 @@ func SnapshotRule(r Rule) trace.Fact {
 	} else {
 		b.WriteString("none")
 	}
-	return RuleSnapshotFact(b.String())
+	return ruleSnapshotFact(b.String())
 }
 
-// BindingSnapshotFact wraps a binding destination set as a trace.Fact.
-type BindingSnapshotFact string
+// bindingSnapshotFact wraps a binding destination set as a trace.Fact.
+type bindingSnapshotFact string
 
 // TypeID returns the fact type identifier.
-func (f BindingSnapshotFact) TypeID() string { return "filter.binding" }
+func (f bindingSnapshotFact) TypeID() string { return "filter.binding" }
 
 // Canonical returns the binding set representation.
-func (f BindingSnapshotFact) Canonical() string { return string(f) }
+func (f bindingSnapshotFact) Canonical() string { return string(f) }
 
-// SnapshotBinding returns an immutable snapshot of a binding target set.
-func SnapshotBinding(set string) trace.Fact {
-	return BindingSnapshotFact("set=" + strconv.Quote(set))
+// snapshotBinding returns an immutable snapshot of a binding target set.
+func snapshotBinding(set string) trace.Fact {
+	return bindingSnapshotFact("set=" + strconv.Quote(set))
 }
 
 // Diff compares two filter configurations and returns field-level changes.
 func Diff(a, b Config) []trace.Change {
-	a = a.Normalize()
-	b = b.Normalize()
+	a = a.Normalize(layer.Env{})
+	b = b.Normalize(layer.Env{})
 
 	var changes []trace.Change
 
@@ -169,7 +169,7 @@ func Diff(a, b Config) []trace.Change {
 				Subject: setSubject,
 				Field:   "",
 				From:    nil,
-				To:      SnapshotSet(setB),
+				To:      snapshotSet(setB),
 			})
 			for idx, r := range setB.Rules {
 				ruleKey := r.Name
@@ -178,7 +178,7 @@ func Diff(a, b Config) []trace.Change {
 				}
 				changes = append(changes, trace.Change{
 					Layer:   LayerName,
-					Subject: trace.Subject{Kind: "rule", Key: setName + "/" + ruleKey},
+					Subject: trace.Subject{Kind: "rule", Key: trace.CompositeKey(setName, ruleKey)},
 					Field:   "",
 					From:    nil,
 					To:      SnapshotRule(r),
@@ -192,7 +192,7 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   LayerName,
 				Subject: setSubject,
 				Field:   "",
-				From:    SnapshotSet(setA),
+				From:    snapshotSet(setA),
 				To:      nil,
 			})
 			for idx, r := range setA.Rules {
@@ -202,7 +202,7 @@ func Diff(a, b Config) []trace.Change {
 				}
 				changes = append(changes, trace.Change{
 					Layer:   LayerName,
-					Subject: trace.Subject{Kind: "rule", Key: setName + "/" + ruleKey},
+					Subject: trace.Subject{Kind: "rule", Key: trace.CompositeKey(setName, ruleKey)},
 					Field:   "",
 					From:    SnapshotRule(r),
 					To:      nil,
@@ -216,8 +216,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   LayerName,
 				Subject: setSubject,
 				Field:   "stateful",
-				From:    BoolFact(setA.Stateful),
-				To:      BoolFact(setB.Stateful),
+				From:    boolFact(setA.Stateful),
+				To:      boolFact(setB.Stateful),
 			})
 		}
 		if setA.Default != setB.Default {
@@ -225,8 +225,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   LayerName,
 				Subject: setSubject,
 				Field:   "default",
-				From:    ActionFact(setA.Default),
-				To:      ActionFact(setB.Default),
+				From:    actionFact(setA.Default),
+				To:      actionFact(setB.Default),
 			})
 		}
 
@@ -268,7 +268,7 @@ func Diff(a, b Config) []trace.Change {
 	for _, k := range bindingKeys {
 		setA, inA := aBindings[k]
 		setB, inB := bBindings[k]
-		bindingKeyStr := fmt.Sprintf("%s/%s", k.iface, k.dir)
+		bindingKeyStr := trace.CompositeKey(k.iface, string(k.dir))
 		bindingSubject := trace.Subject{Kind: "binding", Key: bindingKeyStr}
 
 		if !inA {
@@ -277,7 +277,7 @@ func Diff(a, b Config) []trace.Change {
 				Subject: bindingSubject,
 				Field:   "",
 				From:    nil,
-				To:      SnapshotBinding(setB),
+				To:      snapshotBinding(setB),
 			})
 			continue
 		}
@@ -286,7 +286,7 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   LayerName,
 				Subject: bindingSubject,
 				Field:   "",
-				From:    SnapshotBinding(setA),
+				From:    snapshotBinding(setA),
 				To:      nil,
 			})
 			continue
@@ -296,8 +296,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   LayerName,
 				Subject: bindingSubject,
 				Field:   "set",
-				From:    SnapshotBinding(setA),
-				To:      SnapshotBinding(setB),
+				From:    snapshotBinding(setA),
+				To:      snapshotBinding(setB),
 			})
 		}
 	}
@@ -336,7 +336,7 @@ func diffRules(changes []trace.Change, setName string, rulesA, rulesB []Rule) []
 	for _, k := range keys {
 		rA, inA := rulesMapA[k]
 		rB, inB := rulesMapB[k]
-		subject := trace.Subject{Kind: "rule", Key: setName + "/" + k}
+		subject := trace.Subject{Kind: "rule", Key: trace.CompositeKey(setName, k)}
 
 		if !inA {
 			changes = append(changes, trace.Change{
@@ -358,7 +358,7 @@ func diffRules(changes []trace.Change, setName string, rulesA, rulesB []Rule) []
 			})
 			continue
 		}
-		if !rA.Equal(rB) {
+		if !rA.equal(rB) {
 			changes = append(changes, trace.Change{
 				Layer:   LayerName,
 				Subject: subject,

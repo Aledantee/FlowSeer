@@ -294,10 +294,6 @@ func TestMetadataOrdersAssumptions(t *testing.T) {
 func TestZeroValuesAreExplicitAndUsable(t *testing.T) {
 	t.Parallel()
 
-	var validity analysis.InputValidity
-	if validity != analysis.InputValid || validity.String() != "valid" {
-		t.Errorf("zero InputValidity = %v, want valid", validity)
-	}
 	var status analysis.Status
 	if status != analysis.Complete || status.String() != "complete" {
 		t.Errorf("zero Status = %v, want complete", status)
@@ -366,5 +362,189 @@ func stringCompare(a, b string) int {
 		return 1
 	default:
 		return 0
+	}
+}
+
+func TestMetadataEqualIgnoresIssueMessage(t *testing.T) {
+	t.Parallel()
+
+	scope := analysis.NodeScope("sw1")
+	catalog := analysis.EvidenceCatalog{}
+	catalog, evRef := catalog.Add(analysis.Evidence{Kind: "test"})
+
+	m1 := analysis.NewMetadata(scope, []analysis.Issue{{
+		Code:     "code-a",
+		Status:   analysis.Incomplete,
+		Scope:    scope,
+		Message:  "message on switch 1",
+		Evidence: []trace.EvidenceRef{evRef},
+	}}, catalog, nil)
+
+	m2 := analysis.NewMetadata(scope, []analysis.Issue{{
+		Code:     "code-a",
+		Status:   analysis.Incomplete,
+		Scope:    scope,
+		Message:  "different message for human reader",
+		Evidence: []trace.EvidenceRef{evRef},
+	}}, catalog, nil)
+
+	if !m1.Equal(m2) {
+		t.Error("Metadata.Equal returned false for values differing only in issue Message")
+	}
+
+	m3 := analysis.NewMetadata(scope, []analysis.Issue{{
+		Code:     "code-b",
+		Status:   analysis.Incomplete,
+		Scope:    scope,
+		Message:  "message on switch 1",
+		Evidence: []trace.EvidenceRef{evRef},
+	}}, catalog, nil)
+	if m1.Equal(m3) {
+		t.Error("Metadata.Equal returned true for different issue Code")
+	}
+}
+
+func TestMetadataMergeAddsAbsentAndDropsDuplicate(t *testing.T) {
+	t.Parallel()
+
+	scope := analysis.NodeScope("sw1")
+	catA, evA := (analysis.EvidenceCatalog{}).Add(analysis.Evidence{Kind: "evA"})
+	catB, evB := (analysis.EvidenceCatalog{}).Add(analysis.Evidence{Kind: "evB"})
+
+	issA := analysis.Issue{
+		Code:     "code-a",
+		Status:   analysis.Incomplete,
+		Scope:    scope,
+		Message:  "message a",
+		Evidence: []trace.EvidenceRef{evA},
+	}
+	issB := analysis.Issue{
+		Code:     "code-b",
+		Status:   analysis.Exhausted,
+		Scope:    scope,
+		Message:  "message b",
+		Evidence: []trace.EvidenceRef{evB},
+	}
+
+	assA := analysis.Assumption{
+		Scope:     scope,
+		Statement: "stmt a",
+		Evidence:  []trace.EvidenceRef{evA},
+	}
+	assB := analysis.Assumption{
+		Scope:     scope,
+		Statement: "stmt b",
+		Evidence:  []trace.EvidenceRef{evB},
+	}
+
+	base := analysis.NewMetadata(scope, []analysis.Issue{issA}, catA, []analysis.Assumption{assA})
+	source := analysis.NewMetadata(scope, []analysis.Issue{issA, issB}, catB, []analysis.Assumption{assA, assB})
+
+	merged := base.Merge(source)
+
+	if len(merged.Issues()) != 2 {
+		t.Fatalf("merged issues count = %d, want 2 (duplicate dropped, new added)", len(merged.Issues()))
+	}
+	if len(merged.Assumptions()) != 2 {
+		t.Fatalf("merged assumptions count = %d, want 2", len(merged.Assumptions()))
+	}
+	if _, ok := merged.Evidence().Lookup(evA); !ok {
+		t.Error("merged catalog missing evidence for issue A")
+	}
+	if _, ok := merged.Evidence().Lookup(evB); !ok {
+		t.Error("merged catalog missing evidence for issue B")
+	}
+
+	empty := analysis.Metadata{}
+	if unchanged := base.Merge(empty); !unchanged.Equal(base) {
+		t.Error("Merge with empty source modified base")
+	}
+}
+
+func TestSameIssues(t *testing.T) {
+	t.Parallel()
+
+	scope := analysis.NodeScope("sw1")
+	a := []analysis.Issue{
+		{Code: "code-1", Status: analysis.Incomplete, Scope: scope, Message: "m1"},
+		{Code: "code-2", Status: analysis.Complete, Scope: scope, Message: "m2"},
+	}
+	b := []analysis.Issue{
+		{Code: "code-1", Status: analysis.Incomplete, Scope: scope, Message: "diff-m1"},
+		{Code: "code-2", Status: analysis.Complete, Scope: scope, Message: "diff-m2"},
+	}
+	if !analysis.SameIssues(a, b) {
+		t.Error("SameIssues returned false for issues matching in Code, Status, Scope")
+	}
+
+	diffCode := []analysis.Issue{
+		{Code: "code-other", Status: analysis.Incomplete, Scope: scope},
+		{Code: "code-2", Status: analysis.Complete, Scope: scope},
+	}
+	if analysis.SameIssues(a, diffCode) {
+		t.Error("SameIssues returned true for differing Code")
+	}
+	if analysis.SameIssues(a, a[:1]) {
+		t.Error("SameIssues returned true for differing lengths")
+	}
+}
+
+func TestSameIssue(t *testing.T) {
+	t.Parallel()
+
+	scope := analysis.NodeScope("sw1")
+	base := analysis.Issue{Code: "code-1", Status: analysis.Incomplete, Scope: scope, Message: "m1"}
+	if !analysis.SameIssue(base, base) {
+		t.Error("SameIssue returned false for an issue and itself")
+	}
+
+	otherCode := base
+	otherCode.Code = "code-2"
+	if analysis.SameIssue(base, otherCode) {
+		t.Error("SameIssue returned true for differing Code")
+	}
+
+	staleMessage := base
+	staleMessage.Message = "stale"
+	if analysis.SameIssue(base, staleMessage) {
+		t.Error("SameIssue returned true for differing Message")
+	}
+
+	otherScope := base
+	otherScope.Scope = analysis.NodeScope("sw2")
+	if analysis.SameIssue(base, otherScope) {
+		t.Error("SameIssue returned true for differing Scope")
+	}
+
+	otherStatus := base
+	otherStatus.Status = analysis.Complete
+	if analysis.SameIssue(base, otherStatus) {
+		t.Error("SameIssue returned true for differing Status")
+	}
+
+	_, ref := analysis.EvidenceCatalog{}.Add(analysis.Evidence{Kind: "survey", Origin: "rack-walk", Context: "sw1"})
+	withEvidence := base
+	withEvidence.Evidence = []trace.EvidenceRef{ref}
+	if analysis.SameIssue(base, withEvidence) {
+		t.Error("SameIssue returned true for differing Evidence")
+	}
+}
+
+func TestDifferenceString(t *testing.T) {
+	t.Parallel()
+
+	var zero analysis.Difference
+	if zero.String() != "" {
+		t.Errorf("zero.String() = %q, want empty", zero.String())
+	}
+
+	diff := analysis.Difference{
+		Observable: "outcome",
+		Current:    "forwarded",
+		Expected:   "dropped",
+	}
+	want := "outcome: current=forwarded, expected=dropped"
+	if diff.String() != want {
+		t.Errorf("diff.String() = %q, want %q", diff.String(), want)
 	}
 }

@@ -23,9 +23,9 @@ import (
 // RegisterFilterCases populates registry with the packet filter cases covering
 // first-match drops, stateful counterpart acceptance, and planning rule diffs.
 func RegisterFilterCases(registry *Registry) {
-	registry.MustRegister(CasePlanningFilterRuleChange())
-	registry.MustRegister(CaseTroubleshootingFilterDropsMDNSUnicastProbe())
-	registry.MustRegister(CaseTroubleshootingStatefulReplyAllowed())
+	registry.MustRegister(casePlanningFilterRuleChange())
+	registry.MustRegister(caseTroubleshootingFilterDropsMDNSUnicastProbe())
+	registry.MustRegister(caseTroubleshootingStatefulReplyAllowed())
 }
 
 var (
@@ -133,9 +133,9 @@ func statefulReplyFrame() (ethernet.Frame, error) {
 	}, nil
 }
 
-// CaseTroubleshootingFilterDropsMDNSUnicastProbe tests that an interface-bound filter rule
+// caseTroubleshootingFilterDropsMDNSUnicastProbe tests that an interface-bound filter rule
 // matches packet criteria and drops matching traffic with ReasonFilterDrop and Complete status.
-func CaseTroubleshootingFilterDropsMDNSUnicastProbe() Case {
+func caseTroubleshootingFilterDropsMDNSUnicastProbe() Case {
 	arrivingFrame := expectedFact("bridge.frame",
 		`src="02:00:00:00:00:01";dst="02:00:00:00:00:fe";ether_type=2048;tags=[];payload_len=38`)
 	vlanDec := expectedFact("bridge.vlan_decision",
@@ -242,9 +242,9 @@ func CaseTroubleshootingFilterDropsMDNSUnicastProbe() Case {
 	}
 }
 
-// CaseTroubleshootingStatefulReplyAllowed tests that an interface filter with a default-drop policy
+// caseTroubleshootingStatefulReplyAllowed tests that an interface filter with a default-drop policy
 // allows return traffic whose reversed 5-tuple was accepted by a stateful counterpart set.
-func CaseTroubleshootingStatefulReplyAllowed() Case {
+func caseTroubleshootingStatefulReplyAllowed() Case {
 	arrivingFrame := expectedFact("bridge.frame",
 		`src="02:00:00:00:00:02";dst="02:00:00:00:00:fe";ether_type=2048;tags=[];payload_len=54`)
 	vlanDec := expectedFact("bridge.vlan_decision",
@@ -279,11 +279,11 @@ func CaseTroubleshootingStatefulReplyAllowed() Case {
 			[]FactExpectation{arrivingFrame}, []FactExpectation{vlanDec}),
 		expectedStep("filter", trace.OpFilter, "filter.state", trace.Subject{Kind: "interface", Key: "vlan20"},
 			[]FactExpectation{matchFact, fwdDecFact}, []FactExpectation{stateDecFact}),
-		expectedStep(port.LayerRouting, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "vlan20"},
+		expectedStep(routing.LayerName, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "vlan20"},
 			[]FactExpectation{pktIn}, []FactExpectation{routeIface}),
-		expectedStep(port.LayerRouting, trace.OpLookup, "connected", trace.Subject{Kind: "prefix", Key: "10.0.10.0/24"},
+		expectedStep(routing.LayerName, trace.OpLookup, "connected", trace.Subject{Kind: "prefix", Key: "10.0.10.0/24"},
 			[]FactExpectation{pktIn}, []FactExpectation{lookupFact}),
-		expectedStep(port.LayerRouting, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "vlan10"},
+		expectedStep(routing.LayerName, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "vlan10"},
 			[]FactExpectation{neighborFact, pktIn}, []FactExpectation{pktOut}),
 		expectedStep("relay", trace.OpLookup, "unicast-hit", trace.Subject{Kind: "mac", Key: "02:00:00:00:00:01"},
 			[]FactExpectation{routedFrame}, []FactExpectation{fdbDec}),
@@ -399,9 +399,9 @@ func CaseTroubleshootingStatefulReplyAllowed() Case {
 	}
 }
 
-// CasePlanningFilterRuleChange evaluates a prospective filter rule addition to an ingress
+// casePlanningFilterRuleChange evaluates a prospective filter rule addition to an ingress
 // interface, asserting typed diff changes and a flipped forwarding outcome under Compare.
-func CasePlanningFilterRuleChange() Case {
+func casePlanningFilterRuleChange() Case {
 	arrivingFrame := expectedFact("bridge.frame",
 		`src="02:00:00:00:00:01";dst="02:00:00:00:00:fe";ether_type=2048;tags=[];payload_len=38`)
 	vlanDec := expectedFact("bridge.vlan_decision",
@@ -434,11 +434,11 @@ func CasePlanningFilterRuleChange() Case {
 			[]FactExpectation{arrivingFrame}, []FactExpectation{vlanDec}),
 		expectedStep("filter", trace.OpFilter, "filter.default", trace.Subject{Kind: "interface", Key: "vlan10"},
 			[]FactExpectation{matchFact}, []FactExpectation{defaultDec}),
-		expectedStep(port.LayerRouting, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "vlan10"},
+		expectedStep(routing.LayerName, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "vlan10"},
 			[]FactExpectation{pktIn}, []FactExpectation{routeIface}),
-		expectedStep(port.LayerRouting, trace.OpLookup, "connected", trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"},
+		expectedStep(routing.LayerName, trace.OpLookup, "connected", trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"},
 			[]FactExpectation{pktIn}, []FactExpectation{lookupFact}),
-		expectedStep(port.LayerRouting, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "vlan20"},
+		expectedStep(routing.LayerName, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "vlan20"},
 			[]FactExpectation{neighborFact, pktIn}, []FactExpectation{pktOut}),
 		expectedStep("relay", trace.OpLookup, "unicast-hit", trace.Subject{Kind: "mac", Key: "02:00:00:00:00:02"},
 			[]FactExpectation{routedFrame}, []FactExpectation{expectedFact("bridge.fdb_decision", `fid=20;mac="02:00:00:00:00:02";present=true;port="1/1/2";static=true`)}),
@@ -467,7 +467,7 @@ func CasePlanningFilterRuleChange() Case {
 	}
 	ruleSnap := NewFactExpectation(filter.SnapshotRule(denyRule))
 	expectedChanges := []ChangeExpectation{
-		expectedChange("filter", trace.Subject{Kind: "rule", Key: "lan-in/deny-mdns-unicast"}, "", nil, &ruleSnap),
+		expectedChange("filter", trace.Subject{Kind: "rule", Key: `"lan-in"/"deny-mdns-unicast"`}, "", nil, &ruleSnap),
 	}
 
 	return Case{

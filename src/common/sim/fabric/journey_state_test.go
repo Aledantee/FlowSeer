@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -14,6 +15,34 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
+
+// validate verifies that Of and Mirror fields are consistent with Kind.
+func (o JourneyOrigin) validate() error {
+	switch o.Kind {
+	case OriginInjection:
+		if o.Of != 0 {
+			return errs.New().Attr("kind", o.Kind).Attr("of", o.Of).Msg("injection origin must not specify parent frame ID")
+		}
+		if o.Mirror != "" {
+			return errs.New().Attr("kind", o.Kind).Attr("mirror", o.Mirror).Msg("injection origin must not specify mirror name")
+		}
+	case OriginMirror:
+		if o.Of == 0 {
+			return errs.New().Attr("kind", o.Kind).Msg("mirror origin must specify parent frame ID")
+		}
+	case OriginRelease:
+		if o.Of == 0 {
+			return errs.New().Attr("kind", o.Kind).Msg("release origin must specify holding frame ID")
+		}
+		if o.Mirror != "" {
+			return errs.New().Attr("kind", o.Kind).Attr("mirror", o.Mirror).Msg("release origin must not specify mirror name")
+		}
+	default:
+		return errs.New().Attr("kind", o.Kind).Msg("unknown journey origin kind")
+	}
+
+	return nil
+}
 
 type originClassificationRule struct {
 	requireOf    bool
@@ -56,22 +85,22 @@ func TestJourneyOriginKindClassificationGate(t *testing.T) {
 			if rule.requireOf {
 				validOrigin.Of = 42
 			}
-			if err := validOrigin.Validate(); err != nil {
-				t.Errorf("valid baseline for %s failed Validate: %v", kind, err)
+			if err := validOrigin.validate(); err != nil {
+				t.Errorf("valid baseline for %s failed validate: %v", kind, err)
 			}
 
 			// Check Of violations
 			if rule.requireOf {
 				invalid := validOrigin
 				invalid.Of = 0
-				if err := invalid.Validate(); err == nil {
-					t.Errorf("%s with Of=0 passed Validate, want error (requireOf=true)", kind)
+				if err := invalid.validate(); err == nil {
+					t.Errorf("%s with Of=0 passed validate, want error (requireOf=true)", kind)
 				}
 			} else {
 				invalid := validOrigin
 				invalid.Of = 42
-				if err := invalid.Validate(); err == nil {
-					t.Errorf("%s with Of=42 passed Validate, want error (requireOf=false)", kind)
+				if err := invalid.validate(); err == nil {
+					t.Errorf("%s with Of=42 passed validate, want error (requireOf=false)", kind)
 				}
 			}
 
@@ -79,19 +108,19 @@ func TestJourneyOriginKindClassificationGate(t *testing.T) {
 			if rule.forbidMirror {
 				invalid := validOrigin
 				invalid.Mirror = "unexpected-mirror"
-				if err := invalid.Validate(); err == nil {
-					t.Errorf("%s with Mirror set passed Validate, want error (forbidMirror=true)", kind)
+				if err := invalid.validate(); err == nil {
+					t.Errorf("%s with Mirror set passed validate, want error (forbidMirror=true)", kind)
 				}
 			} else {
 				withMirror := validOrigin
 				withMirror.Mirror = "span-session"
-				if err := withMirror.Validate(); err != nil {
-					t.Errorf("%s with Mirror set failed Validate: %v", kind, err)
+				if err := withMirror.validate(); err != nil {
+					t.Errorf("%s with Mirror set failed validate: %v", kind, err)
 				}
 				withoutMirror := validOrigin
 				withoutMirror.Mirror = ""
-				if err := withoutMirror.Validate(); err != nil {
-					t.Errorf("%s with Mirror unset failed Validate: %v", kind, err)
+				if err := withoutMirror.validate(); err != nil {
+					t.Errorf("%s with Mirror unset failed validate: %v", kind, err)
 				}
 			}
 		})
@@ -99,8 +128,8 @@ func TestJourneyOriginKindClassificationGate(t *testing.T) {
 
 	// 3. Check that an unknown kind returns an error.
 	unknown := JourneyOrigin{Kind: JourneyOriginKind("UnknownKind")}
-	if err := unknown.Validate(); err == nil {
-		t.Errorf("Validate on unknown kind returned nil, want error")
+	if err := unknown.validate(); err == nil {
+		t.Errorf("validate on unknown kind returned nil, want error")
 	}
 }
 
@@ -145,7 +174,7 @@ func TestJourneyStatePrecedenceTable(t *testing.T) {
 		{
 			name: "individual_truncated_reason",
 			entries: []Entry{
-				{Reason: ReasonTruncatedRecord},
+				{Reason: reasonTruncatedRecord},
 			},
 			wantState: JourneyTruncated,
 		},
@@ -214,7 +243,7 @@ func TestJourneyStatePrecedenceTable(t *testing.T) {
 			name: "pair_looped_over_truncated",
 			entries: []Entry{
 				{Kind: EntryLoop},
-				{Reason: ReasonTruncatedRecord},
+				{Reason: reasonTruncatedRecord},
 			},
 			issues: []analysis.Issue{
 				{Code: IssueTruncatedRecord},
@@ -385,7 +414,7 @@ func TestJourneyReportPopulatesOriginAndState(t *testing.T) {
 		if j.State == "" {
 			t.Errorf("journey %d has empty State", j.FrameID)
 		}
-		if err := j.Origin.Validate(); err != nil {
+		if err := j.Origin.validate(); err != nil {
 			t.Errorf("journey %d origin validation failed: %v", j.FrameID, err)
 		}
 

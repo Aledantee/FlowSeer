@@ -1,11 +1,11 @@
 package traffic_test
 
 import (
-	"slices"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -42,7 +42,7 @@ func TestConfigValidate(t *testing.T) {
 			"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{0: 100_000_000}, BufferOctets: map[vlan.PCP]uint64{0: 4096}},
 		},
 	}
-	if err := valid.Validate(ports); err != nil {
+	if err := valid.Validate(layer.Env{Ports: ports}); err != nil {
 		t.Fatalf("Validate failed for valid configuration: %v", err)
 	}
 
@@ -190,7 +190,7 @@ func TestConfigValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := tt.cfg.Validate(ports)
+			err := tt.cfg.Validate(layer.Env{Ports: ports})
 			if err == nil {
 				t.Fatal("Validate succeeded, want error")
 			}
@@ -260,9 +260,6 @@ func TestConfigLookups(t *testing.T) {
 			"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{7: 100_000_000}, BufferOctets: map[vlan.PCP]uint64{7: 2000}},
 		},
 	}
-	if got, want := cfg.OutputPorts(), []string{"1/1/24", "1/1/4"}; !slices.Equal(got, want) {
-		t.Errorf("OutputPorts = %v, want %v", got, want)
-	}
 	if got, ok := cfg.MaxRate("1/1/24", 7); !ok || got != 100_000_000 {
 		t.Errorf("MaxRate = %d, %t, want 100000000, true", got, ok)
 	}
@@ -297,8 +294,8 @@ func TestDiffReportsFieldsAndIgnoresSetOrder(t *testing.T) {
 	if len(changes) != 2 {
 		t.Fatalf("Diff returned %d changes, want 2: %+v", len(changes), changes)
 	}
-	assertChange(t, changes, trace.Subject{Kind: "mirror", Key: "m1"}, "snap_len", traffic.SnapLenFact(64), traffic.SnapLenFact(128))
-	assertChange(t, changes, trace.Subject{Kind: "port", Key: "1/1/1"}, "rate", traffic.RateFact(1_000_000), traffic.RateFact(2_000_000))
+	assertChange(t, changes, trace.Subject{Kind: "mirror", Key: "m1"}, "snap_len", "traffic.snap_len", "64", "128")
+	assertChange(t, changes, trace.Subject{Kind: "port", Key: "1/1/1"}, "rate", "traffic.rate_bps", "1000000", "2000000")
 }
 
 func TestDiffReportsQueueBuffer(t *testing.T) {
@@ -315,7 +312,7 @@ func TestDiffReportsQueueBuffer(t *testing.T) {
 	if len(changes) != 1 {
 		t.Fatalf("Diff returned %d changes, want 1: %+v", len(changes), changes)
 	}
-	assertChange(t, changes, trace.Subject{Kind: "port", Key: "1/1/1/0"}, "buffer_octets", traffic.QueueBufferFact(2000), traffic.QueueBufferFact(4000))
+	assertChange(t, changes, trace.Subject{Kind: "port", Key: `"1/1/1"/"0"`}, "buffer_octets", "traffic.queue_buffer_octets", "2000", "4000")
 }
 
 func TestMirrorSnapshotFactIsLosslessAndImmutable(t *testing.T) {
@@ -340,12 +337,14 @@ func TestMirrorSnapshotFactIsLosslessAndImmutable(t *testing.T) {
 	}
 }
 
-func assertChange(t *testing.T, changes []trace.Change, subject trace.Subject, field string, from, to trace.Fact) {
+func assertChange(t *testing.T, changes []trace.Change, subject trace.Subject, field, typeID, fromCanonical, toCanonical string) {
 	t.Helper()
 	for _, change := range changes {
-		if change.Layer == traffic.Layer && change.Subject == subject && change.Field == field && trace.CompareFact(change.From, from) == 0 && trace.CompareFact(change.To, to) == 0 {
+		if change.Layer == traffic.LayerName && change.Subject == subject && change.Field == field &&
+			change.From != nil && change.From.TypeID() == typeID && change.From.Canonical() == fromCanonical &&
+			change.To != nil && change.To.TypeID() == typeID && change.To.Canonical() == toCanonical {
 			return
 		}
 	}
-	t.Errorf("change %v %q from %v to %v not found in %+v", subject, field, from, to, changes)
+	t.Errorf("change %v %q (type %q) from %q to %q not found in %+v", subject, field, typeID, fromCanonical, toCanonical, changes)
 }

@@ -12,7 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // DefaultVRF is the standard VRF name used by single-table configurations and default loaders.
@@ -141,7 +141,7 @@ func (c Config) Clone() Config {
 // Normalize returns a normalized copy of the configuration, masking route prefixes, raising
 // a static route's reserved preference 0 to 1, sorting routes by prefix, preference, metric,
 // next hop, and interface, neighbors by (interface, addr), and interface prefixes.
-func (c Config) Normalize() Config {
+func (c Config) Normalize(_ layer.Env) Config {
 	cloned := c.Clone()
 	for vrfName, vrf := range cloned.VRFs {
 		for ifName, iface := range vrf.Interfaces {
@@ -230,7 +230,7 @@ func comparePrefix(a, b netip.Prefix) int {
 // A next hop that is not on-link is valid configuration: [New] resolves it against the VRF's
 // own table and withdraws the route from the forwarding table when it cannot, which is where
 // the reason for an unusable next hop is reported. See [Layer.WithdrawnRoutes].
-func (c Config) Validate(ports port.Table) error {
+func (c Config) Validate(env layer.Env) error {
 	vrfNames := make([]string, 0, len(c.VRFs))
 	for name := range c.VRFs {
 		vrfNames = append(vrfNames, name)
@@ -328,7 +328,7 @@ func (c Config) Validate(ports port.Table) error {
 				}
 				claimedPortVLANs[key] = ifaceName
 
-				p, ok := ports.Port(iface.Port)
+				p, ok := env.Ports.Port(iface.Port)
 				if !ok {
 					return errs.New().
 						Attr("vrf", vrfName).

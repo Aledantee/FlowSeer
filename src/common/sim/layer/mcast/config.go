@@ -9,18 +9,18 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // DefaultMembershipInterval is the membership and router-port lifetime used when an interval is unset.
 const DefaultMembershipInterval = 260 * time.Second
 
-// DefaultLastMemberQueryInterval is the last-member query interval used when unset (RFC 3376 §8.8, RFC 3810 §9.8).
-const DefaultLastMemberQueryInterval = time.Second
+// defaultLastMemberQueryInterval is the last-member query interval used when unset (RFC 3376 §8.8, RFC 3810 §9.8).
+const defaultLastMemberQueryInterval = time.Second
 
-// DefaultLastMemberQueryCount is the robustness variable used when LastMemberQueryCount is unset
+// defaultLastMemberQueryCount is the robustness variable used when LastMemberQueryCount is unset
 // (RFC 3376 §8.1, §8.9).
-const DefaultLastMemberQueryCount = 2
+const defaultLastMemberQueryCount = 2
 
 // Config selects the VLANs whose multicast membership is snooped.
 type Config struct {
@@ -30,7 +30,7 @@ type Config struct {
 // Normalize returns an independent copy of the configuration with standard defaults applied.
 // Unspecified FloodUnregistered defaults to true, zero intervals default to [DefaultMembershipInterval],
 // and router ports are sorted and deduplicated.
-func (c Config) Normalize() Config {
+func (c Config) Normalize(_ layer.Env) Config {
 	if c.VLANs == nil {
 		return Config{}
 	}
@@ -51,10 +51,10 @@ func (c Config) Normalize() Config {
 			cfg.RouterPortInterval = DefaultMembershipInterval
 		}
 		if cfg.LastMemberQueryInterval == 0 {
-			cfg.LastMemberQueryInterval = DefaultLastMemberQueryInterval
+			cfg.LastMemberQueryInterval = defaultLastMemberQueryInterval
 		}
 		if cfg.LastMemberQueryCount == 0 {
-			cfg.LastMemberQueryCount = DefaultLastMemberQueryCount
+			cfg.LastMemberQueryCount = defaultLastMemberQueryCount
 		}
 
 		if len(cfg.RouterPorts) > 0 {
@@ -80,13 +80,11 @@ type VLANSnooping struct {
 	MembershipInterval time.Duration
 	RouterPortInterval time.Duration
 
-	// LastMemberQueryInterval is the spacing between last-member queries. Zero uses
-	// [DefaultLastMemberQueryInterval].
+	// LastMemberQueryInterval is the spacing between last-member queries. Zero uses 1 second.
 	LastMemberQueryInterval time.Duration
 
 	// LastMemberQueryCount is the robustness variable: how many last-member queries a
-	// querier sends before concluding a group or source has no more listeners. Zero uses
-	// [DefaultLastMemberQueryCount].
+	// querier sends before concluding a group or source has no more listeners. Zero uses 2.
 	LastMemberQueryCount int
 }
 
@@ -113,7 +111,7 @@ func (v VLANSnooping) Canonical() string {
 
 // Validate rejects invalid VLANs, physical LAG members used as router ports,
 // missing router ports, and negative aging intervals.
-func (c Config) Validate(ports port.Table) error {
+func (c Config) Validate(env layer.Env) error {
 	for _, vid := range sortedVLANIDs(c.VLANs) {
 		cfg := c.VLANs[vid]
 		if !vid.Valid() {
@@ -158,7 +156,7 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("vlan", vid).
 					Msg("router port name cannot be empty")
 			}
-			p, ok := ports.Port(name)
+			p, ok := env.Ports.Port(name)
 			if !ok {
 				return errs.New().
 					Attr("field", fmt.Sprintf("vlans.%d.router_ports", vid)).
@@ -228,7 +226,7 @@ func (v VLANSnooping) routerPortInterval() time.Duration {
 
 func (v VLANSnooping) lastMemberQueryInterval() time.Duration {
 	if v.LastMemberQueryInterval == 0 {
-		return DefaultLastMemberQueryInterval
+		return defaultLastMemberQueryInterval
 	}
 
 	return v.LastMemberQueryInterval
@@ -236,7 +234,7 @@ func (v VLANSnooping) lastMemberQueryInterval() time.Duration {
 
 func (v VLANSnooping) lastMemberQueryCount() int {
 	if v.LastMemberQueryCount == 0 {
-		return DefaultLastMemberQueryCount
+		return defaultLastMemberQueryCount
 	}
 
 	return v.LastMemberQueryCount

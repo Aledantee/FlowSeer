@@ -6,8 +6,8 @@ When valid input cannot be evaluated completely, it returns its domain result
 with metadata that explains which scope is affected.
 
 ```go
-func analyze(validity analysis.InputValidity) (analysis.Metadata, error) {
-	if validity == analysis.InputInvalid {
+func analyze(valid bool) (analysis.Metadata, error) {
+	if !valid {
 		return analysis.Metadata{}, errs.Msg("invalid input")
 	}
 

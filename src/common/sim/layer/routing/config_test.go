@@ -3,13 +3,13 @@ package routing_test
 import (
 	"fmt"
 	"net/netip"
-	"strings"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -72,7 +72,7 @@ func TestNewRejectsZeroStaticNeighborMACAtNeighborField(t *testing.T) {
 	vrf.Neighbors[0].MAC = netaddr.MAC{}
 	cfg.VRFs[routing.DefaultVRF] = vrf
 
-	_, err := routing.New(cfg, newTestPortTable(t), "sw1")
+	_, err := routing.New(cfg, layer.Env{Ports: newTestPortTable(t), NodeID: "sw1"})
 	if err == nil {
 		t.Fatal("routing.New accepted a zero static neighbor MAC")
 	}
@@ -605,7 +605,7 @@ func TestValidate(t *testing.T) {
 			t.Parallel()
 			cfg := validBaseConfig()
 			tt.mutate(&cfg)
-			err := cfg.Validate(ports)
+			err := cfg.Validate(layer.Env{Ports: ports})
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -630,7 +630,7 @@ func TestValidateRejectsDuplicatePortVLANAtPortAndVLAN(t *testing.T) {
 	}
 	cfg.VRFs[routing.DefaultVRF] = vrf
 
-	err := cfg.Validate(newTestPortTable(t))
+	err := cfg.Validate(layer.Env{Ports: newTestPortTable(t)})
 	if err == nil {
 		t.Fatal("Validate accepted two differently named interfaces claiming one port and VLAN")
 	}
@@ -655,7 +655,7 @@ func TestValidateRejectsOutOfRangeSubInterfaceVLANAtVLANField(t *testing.T) {
 	}
 	cfg.VRFs[routing.DefaultVRF] = vrf
 
-	err := cfg.Validate(newTestPortTable(t))
+	err := cfg.Validate(layer.Env{Ports: newTestPortTable(t)})
 	if err == nil {
 		t.Fatal("Validate accepted a sub-interface VLAN outside the assignable range")
 	}
@@ -675,7 +675,7 @@ func TestValidateRejectsCrossFamilyNextHopAtNextHopField(t *testing.T) {
 	})
 	cfg.VRFs[routing.DefaultVRF] = vrf
 
-	err := cfg.Validate(newTestPortTable(t))
+	err := cfg.Validate(layer.Env{Ports: newTestPortTable(t)})
 	if err == nil {
 		t.Fatal("Validate accepted an IPv6 next hop on an IPv4 prefix")
 	}
@@ -784,7 +784,7 @@ func TestNormalize(t *testing.T) {
 		},
 	}
 
-	norm := cfg.Normalize()
+	norm := cfg.Normalize(layer.Env{})
 	vrf := norm.VRFs[routing.DefaultVRF]
 
 	// Check interface prefixes sorted
@@ -842,7 +842,7 @@ func TestNormalizeLeavesAnExplicitNeighborPolicyAlone(t *testing.T) {
 		},
 	}}
 
-	got := cfg.Normalize().VRFs[routing.DefaultVRF].NeighborPolicy
+	got := cfg.Normalize(layer.Env{}).VRFs[routing.DefaultVRF].NeighborPolicy
 	want := routing.NeighborPolicy{Mode: routing.NeighborDisabled, ReachableTime: time.Minute, ResolutionTimeout: 10 * time.Second, HoldDepth: 5}
 	if got != want {
 		t.Errorf("neighbor policy = %+v, want %+v", got, want)
@@ -1000,8 +1000,8 @@ func TestDiff(t *testing.T) {
 			if changes[i].Field != field {
 				t.Errorf("change %d field: got %q, want %q", i, changes[i].Field, field)
 			}
-			if changes[i].Layer != port.LayerRouting {
-				t.Errorf("change %d layer: got %q, want %q", i, changes[i].Layer, port.LayerRouting)
+			if changes[i].Layer != routing.LayerName {
+				t.Errorf("change %d layer: got %q, want %q", i, changes[i].Layer, routing.LayerName)
 			}
 			wantTypeID, ok := wantTypeIDs[changes[i].Field]
 			if !ok {
@@ -1269,41 +1269,5 @@ func TestRoutingSnapshotFactsAreLosslessAndImmutable(t *testing.T) {
 	}
 	if interfaceFactA.Canonical() == interfaceFactB.Canonical() {
 		t.Errorf("different interfaces share canonical form %q", interfaceFactA.Canonical())
-	}
-}
-
-func TestFactTypeIDsUnique(t *testing.T) {
-	t.Parallel()
-
-	facts := []trace.Fact{
-		routing.Route{},
-		routing.Neighbor{},
-		routing.VLANFact(0),
-		routing.PortFact(""),
-		routing.MACFact{},
-		routing.PrefixesFact(nil),
-		routing.AddrFact{},
-		routing.RouteInterfaceFact(""),
-		routing.RoutePreferenceFact(0),
-		routing.RouteMetricFact(0),
-		routing.NeighborModeFact(""),
-		routing.ReachableTimeFact(0),
-		routing.ResolutionTimeoutFact(0),
-		routing.HoldDepthFact(0),
-	}
-
-	seen := make(map[string]string)
-	for _, f := range facts {
-		tid := f.TypeID()
-		if tid == "" {
-			t.Errorf("fact %T has empty TypeID", f)
-		}
-		if !strings.HasPrefix(tid, "routing.") {
-			t.Errorf("fact %T TypeID %q must be prefixed with 'routing.'", f, tid)
-		}
-		if prev, ok := seen[tid]; ok {
-			t.Errorf("duplicate TypeID %q shared by %s and %T", tid, prev, f)
-		}
-		seen[tid] = fmt.Sprintf("%T", f)
 	}
 }

@@ -569,7 +569,7 @@ func completeObservation(iface, description string) *accessv1.InterfaceObservati
 	provenance := &inventoryv1.Provenance{}
 	provenance.SetBinding(bindingRef)
 	provenance.SetObservedAt(timestamppb.New(time.Now()))
-	provenance.SetProtocol(inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SSH)
+	provenance.SetManagement(inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SSH)
 	provenance.SetEdge(edgeRef())
 	provenance.SetFirmwareFingerprint("fastiron-08.0.95")
 

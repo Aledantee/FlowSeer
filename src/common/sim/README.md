@@ -6,6 +6,7 @@ goroutines or wall-clock dependencies.
 
 | Package                | What it does                                              |
 | ---------------------- | ------------------------------------------------------------ |
+| `../net/bpdu`          | IEEE 802.1D Spanning Tree and Cisco SSTP BPDU wire codecs   |
 | `../net/igmp`          | IGMPv1, IGMPv2, and IGMPv3 message codec                    |
 | `../net/mld`           | MLDv1 and MLDv2 message codec                               |
 | `../net/udp`           | UDP header codec with pseudo-header checksums               |
@@ -16,13 +17,14 @@ goroutines or wall-clock dependencies.
 | `stream`               | Finite Ethernet frame sources with deterministic timing      |
 | `port`                 | Port table, administrative state, and MTU                    |
 | `device/vswitch`       | Virtual switch composing pipeline capabilities               |
+| `layer`                | Environment, emission, flush target, and effect types for pipeline layers |
 | `layer/lag`            | Bond modes, the 256-bucket member selection table, member delays, LACP |
 | `layer/phy`            | Physical Ethernet speeds and PoE budget allocation           |
 | `layer/bridge`         | Filtering database, VLAN classification, and tagging         |
 | `layer/mcast`          | Per-port RFC 3376/MLDv2 router state, router ports, and aging |
 | `layer/routing`        | Routed interfaces, per-VRF tables, equal-cost selection, recursive next hops |
 | `layer/filter`         | Interface-bound access-control rules and stateful reverse matches |
-| `layer/stp`            | Rapid Spanning Tree Protocol state machine, BPDUs, and port guards |
+| `layer/stp`            | Rapid Spanning Tree Protocol state machine and port guards   |
 | `layer/loopprotect`    | netsim's own loop-protection probe and per-port block/no-learn action, independent of spanning tree |
 | `layer/traffic`        | Mirrors, ingress policers, and per-PCP queue limits          |
 | `netmodel`             | Translation boundary for FlowSeer network model protos       |
@@ -95,3 +97,17 @@ configuration diffs. It is internal and imported by this tree's own tests only:
 the conformance tests of `device/vswitch`, `netmodel`, and `fabric`, and the
 diff-coverage tests of every `layer/` package, `port`, `device/vswitch`, and
 `fabric`; see `internal/simtest/README.md` for the admitted cases and admission bar.
+
+## Layer architecture contract
+
+Every pipeline layer under `layer/` adheres to a uniform package contract described in [`layer/README.md`](layer/README.md).
+
+The conformance gate under `test/conformance/sim` verifies these invariants across all layer packages:
+- Every layer package exports `LayerName`, `Config.Normalize(layer.Env) Config`, `Config.Validate(layer.Env) error`, `Config.Clone() Config`, and `Diff(prev, next Config) []trace.Change`.
+- Stateful layers export `New(cfg Config, env layer.Env) (*Layer, error)`, `(*Layer).Clone() *Layer`, and `RetentionKey(cfg Config, env layer.Env) string`.
+- When a `Layer` declares `Advance`, it requires signature `(*Layer).Advance(time.Time) layer.Effects`.
+- Method names `Wake` and `Age` are forbidden on `Layer`.
+- No layer package imports a sibling layer package under `layer/`, `sim/device`, or `sim/fabric`.
+- Step fact types remain unexported within their declaring layer package.
+
+The table `layerGuards` in `test/conformance/sim/layer_contract_test.go` is the list of what the gate enforces, and a guard arrives with its fixture under `test/conformance/sim/testdata/`. The five member rows are held by a stateful and a stateless fixture. Its test requires each fixture to produce the findings listed in `refusedFindings`, which fails a guard that refuses nothing. It then drops that row and requires the fixture to pass, which fails a fixture a second row also reports on.

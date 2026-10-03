@@ -7,47 +7,45 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// LayerLoopProtect identifies the loop-protection layer in trace steps and diff subjects.
-const LayerLoopProtect trace.Layer = "loopprotect"
+// durationFact wraps a time.Duration as a trace.Fact.
+type durationFact time.Duration
 
-// DurationFact wraps a time.Duration as a trace.Fact.
-type DurationFact time.Duration
-
-// TypeID returns the fact type identifier for DurationFact.
-func (f DurationFact) TypeID() string { return "loopprotect.duration" }
+// TypeID returns the fact type identifier for durationFact.
+func (f durationFact) TypeID() string { return "loopprotect.duration" }
 
 // Canonical returns the formatted duration string.
-func (f DurationFact) Canonical() string { return time.Duration(f).String() }
+func (f durationFact) Canonical() string { return time.Duration(f).String() }
 
-// ActionFact wraps an Action as a trace.Fact.
-type ActionFact Action
+// actionFact wraps an Action as a trace.Fact.
+type actionFact Action
 
-// TypeID returns the fact type identifier for ActionFact.
-func (f ActionFact) TypeID() string { return "loopprotect.action" }
+// TypeID returns the fact type identifier for actionFact.
+func (f actionFact) TypeID() string { return "loopprotect.action" }
 
 // Canonical returns the action string.
-func (f ActionFact) Canonical() string { return string(f) }
+func (f actionFact) Canonical() string { return string(f) }
 
-// RecoveryModeFact wraps a RecoveryMode as a trace.Fact.
-type RecoveryModeFact RecoveryMode
+// recoveryModeFact wraps a RecoveryMode as a trace.Fact.
+type recoveryModeFact RecoveryMode
 
-// TypeID returns the fact type identifier for RecoveryModeFact.
-func (f RecoveryModeFact) TypeID() string { return "loopprotect.recovery_mode" }
+// TypeID returns the fact type identifier for recoveryModeFact.
+func (f recoveryModeFact) TypeID() string { return "loopprotect.recovery_mode" }
 
 // Canonical returns the recovery mode string.
-func (f RecoveryModeFact) Canonical() string { return string(f) }
+func (f recoveryModeFact) Canonical() string { return string(f) }
 
-// VLANListFact wraps a set of VLAN identifiers as a trace.Fact.
-type VLANListFact []vlan.ID
+// vlanListFact wraps a set of VLAN identifiers as a trace.Fact.
+type vlanListFact []vlan.ID
 
-// TypeID returns the fact type identifier for VLANListFact.
-func (f VLANListFact) TypeID() string { return "loopprotect.vlans" }
+// TypeID returns the fact type identifier for vlanListFact.
+func (f vlanListFact) TypeID() string { return "loopprotect.vlans" }
 
 // Canonical returns the VLAN identifiers sorted and joined with commas.
-func (f VLANListFact) Canonical() string {
+func (f vlanListFact) Canonical() string {
 	sorted := slices.Clone(f)
 	slices.Sort(sorted)
 
@@ -63,8 +61,8 @@ func (f VLANListFact) Canonical() string {
 // reporting changes to the probe interval and, per port, action, recovery
 // mode, recovery duration, and VLAN membership.
 func Diff(a, b Config) []trace.Change {
-	a = a.Normalize()
-	b = b.Normalize()
+	a = a.Normalize(layer.Env{})
+	b = b.Normalize(layer.Env{})
 
 	var changes []trace.Change
 
@@ -72,11 +70,11 @@ func Diff(a, b Config) []trace.Change {
 
 	if a.Interval != b.Interval {
 		changes = append(changes, trace.Change{
-			Layer:   LayerLoopProtect,
+			Layer:   LayerName,
 			Subject: bridge,
 			Field:   "interval",
-			From:    DurationFact(a.Interval),
-			To:      DurationFact(b.Interval),
+			From:    durationFact(a.Interval),
+			To:      durationFact(b.Interval),
 		})
 	}
 
@@ -87,7 +85,7 @@ func Diff(a, b Config) []trace.Change {
 		bp, exists := b.Ports[name]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   LayerLoopProtect,
+				Layer:   LayerName,
 				Subject: subject,
 				Field:   "",
 				From:    ap,
@@ -103,7 +101,7 @@ func Diff(a, b Config) []trace.Change {
 	for _, name := range sortedKeys(b.Ports) {
 		if _, exists := a.Ports[name]; !exists {
 			changes = append(changes, trace.Change{
-				Layer:   LayerLoopProtect,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "",
 				From:    nil,
@@ -121,26 +119,26 @@ func diffPort(ap, bp Port, subject trace.Subject) []trace.Change {
 
 	if ap.Action != bp.Action {
 		changes = append(changes, trace.Change{
-			Layer: LayerLoopProtect, Subject: subject, Field: "action",
-			From: ActionFact(ap.Action), To: ActionFact(bp.Action),
+			Layer: LayerName, Subject: subject, Field: "action",
+			From: actionFact(ap.Action), To: actionFact(bp.Action),
 		})
 	}
 	if ap.Recovery.Mode != bp.Recovery.Mode {
 		changes = append(changes, trace.Change{
-			Layer: LayerLoopProtect, Subject: subject, Field: "recovery.mode",
-			From: RecoveryModeFact(ap.Recovery.Mode), To: RecoveryModeFact(bp.Recovery.Mode),
+			Layer: LayerName, Subject: subject, Field: "recovery.mode",
+			From: recoveryModeFact(ap.Recovery.Mode), To: recoveryModeFact(bp.Recovery.Mode),
 		})
 	}
 	if ap.Recovery.Duration != bp.Recovery.Duration {
 		changes = append(changes, trace.Change{
-			Layer: LayerLoopProtect, Subject: subject, Field: "recovery.duration",
-			From: DurationFact(ap.Recovery.Duration), To: DurationFact(bp.Recovery.Duration),
+			Layer: LayerName, Subject: subject, Field: "recovery.duration",
+			From: durationFact(ap.Recovery.Duration), To: durationFact(bp.Recovery.Duration),
 		})
 	}
 	if !slices.Equal(ap.VLANs, bp.VLANs) {
 		changes = append(changes, trace.Change{
-			Layer: LayerLoopProtect, Subject: subject, Field: "vlans",
-			From: VLANListFact(ap.VLANs), To: VLANListFact(bp.VLANs),
+			Layer: LayerName, Subject: subject, Field: "vlans",
+			From: vlanListFact(ap.VLANs), To: vlanListFact(bp.VLANs),
 		})
 	}
 

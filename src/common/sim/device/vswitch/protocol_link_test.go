@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -82,10 +84,10 @@ func TestUnknownUplinkAmongRedundantSTPPaths(t *testing.T) {
 	swSTP.Start(t0)
 
 	// Elect 1/1/1 as root port and 1/1/2 as alternate port by receiving root BPDUs.
-	rootBPDU := stp.BPDU{
-		RootID:       stp.BridgeID{Priority: 4096, Address: macRoot},
+	rootBPDU := bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
 		RootPathCost: 0,
-		BridgeID:     stp.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
 		PortID:       0x8001,
 		HelloTime:    2 * time.Second,
 		MaxAge:       20 * time.Second,

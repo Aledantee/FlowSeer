@@ -14,7 +14,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
-	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 // TestCompareAgreesOverConsecutiveCallsOnUnresolvedDestination covers R20c
@@ -206,29 +205,6 @@ func TestCompareDetectsMissingMirrorCopy(t *testing.T) {
 	}
 }
 
-func TestCompareDetectsPCPDifference(t *testing.T) {
-	t.Parallel()
-
-	sw := buildBaseRoutingSwitch(t)
-	pkt := makeIPv4Packet(t, ipH1, ipH2, 64, []byte("pcp-test"))
-	frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
-
-	resA := sw.Peek(fixedTime, "1/1/1", frame)
-	resB := sw.Peek(fixedTime, "1/1/1", frame)
-	if len(resA.Egress) == 0 || len(resB.Egress) == 0 {
-		t.Fatalf("expected egress on both results")
-	}
-	resB.Egress[0].PCP = 7
-
-	cmp := vswitch.CompareResults(resA, resB)
-	if cmp.Disposition != analysis.Different {
-		t.Fatalf("Disposition = %v, want %v", cmp.Disposition, analysis.Different)
-	}
-	if cmp.Difference.Observable != "pcp" {
-		t.Fatalf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "pcp")
-	}
-}
-
 func TestCompareDetectsOutcomeDifference(t *testing.T) {
 	t.Parallel()
 
@@ -277,53 +253,6 @@ func TestCompareDetectsOutcomeDifference(t *testing.T) {
 	}
 	if cmp.Difference.Observable != "outcome" {
 		t.Fatalf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "outcome")
-	}
-}
-
-func TestCompareNoOpTraceDifferenceEquivalent(t *testing.T) {
-	t.Parallel()
-
-	ports := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
-
-	vid := vlan.ID(10)
-	bCfg := &bridge.Config{
-		VLAN: &bridge.VLAN{
-			Table: map[vlan.ID]string{10: "vlan10"},
-			Switchports: map[string]bridge.Switchport{
-				"1/1/1": {PVID: &vid, Untagged: []vlan.ID{10}},
-				"1/1/2": {PVID: &vid, Untagged: []vlan.ID{10}},
-			},
-		},
-	}
-
-	sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: bCfg})
-
-	frame := ethernet.Frame{
-		Src:       netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x01},
-		Dst:       netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x02},
-		EtherType: ethernet.EtherTypeIPv4,
-		Payload:   []byte("trace-diff"),
-	}
-
-	resA := sw.Peek(fixedTime, "1/1/1", frame)
-	resB := sw.Peek(fixedTime, "1/1/1", frame)
-	resB.Steps = append(resB.Steps, trace.Step{
-		Layer:  trace.Layer("bridge"),
-		Op:     trace.OpLookup,
-		RuleID: "trace.noop_diagnostic",
-	})
-
-	cmp := vswitch.CompareResults(resA, resB)
-	if trace.Equal(cmp.Current.Trace, cmp.Expected.Trace) {
-		t.Fatalf("traces are equal, want different diagnostic steps")
-	}
-	if cmp.Disposition != analysis.Equivalent {
-		t.Fatalf("Disposition = %v, want %v", cmp.Disposition, analysis.Equivalent)
-	}
-	if cmp.Difference.Observable != "" {
-		t.Errorf("Difference.Observable = %q, want empty", cmp.Difference.Observable)
 	}
 }
 

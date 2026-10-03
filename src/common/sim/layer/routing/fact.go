@@ -86,10 +86,15 @@ func neighborSnapshot(iface string, addr netip.Addr, mac netaddr.MAC, state Neig
 		";origin=" + strconv.Quote(string(origin)))
 }
 
+type egressDecisionFact string
+
+func (f egressDecisionFact) TypeID() string    { return "routing.egress_decision" }
+func (f egressDecisionFact) Canonical() string { return string(f) }
+
 // EgressFact returns an immutable snapshot of the routed interface and selected
 // physical or aggregate member used by switch composition.
 func EgressFact(iface, portName, member string, reason trace.Reason) trace.Fact {
-	return routeDecisionFact("interface=" + strconv.Quote(iface) +
+	return egressDecisionFact("interface=" + strconv.Quote(iface) +
 		";port=" + strconv.Quote(portName) +
 		";member=" + strconv.Quote(member) +
 		";reason=" + strconv.Quote(string(reason)))

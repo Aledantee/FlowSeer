@@ -196,3 +196,62 @@ subheading, so the rationale for one skill cannot be found without
 reading the section.
 Suggested change: say "linked from `CLAUDE.md`", and give each skill a
 subheading in Project skills.
+
+## 2026-10-03 review: fix loop lacks a bound once authorized past the three-round cap
+Skill or agent: `.claude/skills/review/references/fix-loop.md`, "When to stop".
+What happened: the review loop ran six rounds on `DeviceIndex`, three rounds past the three-round cap, because user authorization was requested and granted without a defined limit on subsequent rounds. The step was followed as written, but the skill states only that a fourth round runs on user authorization and provides no rule for subsequent iterations on the same mechanism.
+Suggested change: bound any user-authorized extension to one additional round (round four). If the mechanism remains deficient after round four, require taking the design back to `plan` rather than allowing unbounded patch iterations.
+
+## 2026-10-03 delegate: lane wait returns idle while worker waits for pool quota reset
+Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh`, `wait` command, and `.claude/skills/delegate/references/orca.md`.
+What happened: a coordinator waiting on an Orca worker received an `idle` outcome while the worker was paused waiting for a pool quota reset window. Because the worker screen was unchanged and showed no active interrupt hints during the wait, the two screen reads five seconds apart matched, causing `wait` to report `idle` before work had completed.
+Suggested change: check for pool wait and rate-limit indicators on the terminal screen before classifying an unchanged screen as `idle`, or require an explicit prompt or exit marker before returning `idle`.
+
+## 2026-10-03 review: worker verdict report printed to terminal scrolls off screen
+Skill or agent: `.claude/skills/review/SKILL.md`, step 5, and `.claude/skills/drive/references/review-stage.md`.
+What happened: a review worker emitted its detailed verdict report directly to terminal stdout instead of writing to a scratchpad file. The text exceeded the terminal buffer capacity and scrolled off the screen, requiring the report to be re-requested to a file.
+Suggested change: specify in `review-stage.md` and `review/SKILL.md` step 5 that review stage workers must write their full report to a designated scratchpad file and output only the verdict summary and file path to the terminal.
+
+## 2026-10-03 review, drive: six fix rounds patched a mechanism whose premise no step questioned
+Skill or agent: `.claude/skills/review/references/fix-loop.md`, When to stop,
+`.claude/skills/drive/SKILL.md`, step 4, and `.claude/skills/plan/SKILL.md`,
+step 4.
+What happened: the edge agent's device index resolved a syslog sender only
+when the management lane had onboarded the device. The plan gave as its
+reason that the lane host already held each device's address and binding, and
+the device listing carries the same three fields. Six review rounds then
+fixed the coupling between the index and the lane, and each parked question
+offered options inside that coupling. The reviewer wrote in the fourth round
+that a failed management probe is weak evidence about a syslog address, and
+no step turned that into a question about the gate. The user asked after the
+phase landed why the agent does not accept syslog from every listed address,
+and the answer was that nothing required the gate. The steps were followed as
+written and still produced the wrong result.
+Suggested change: when a second fix round lands on the same mechanism, the
+review states the requirement that mechanism serves and the simplest design
+that meets it, and reports the difference as a plan question before another
+round runs. A question `drive` parks after a round limit carries "drop or
+replace the mechanism" as an option. `plan` step 4's implementer read asks of
+each Decision whose reason is where data happens to live whether the
+requirement needs the coupling.
+
+## 2026-10-03 drive: parking a reviewed phase cannot stop its lane
+Skill or agent: `.claude/skills/drive/references/parking.md`, Park, and
+`.claude/skills/delegate/scripts/orca-worker.sh`, `stop`.
+What happened: the parking reference keeps a parked lane's commits on
+`parked/<slug>` and then runs `stop`. `stop` refuses any lane whose branch is
+not an ancestor of `HEAD`, so it refused `sim-p2-review` with its commits
+already safe on `parked/sim-p2-review`. The coordinator repeated the rest of
+`stop` by hand: terminal close, `runlog.py end`, `orca worktree rm`, and the
+state file.
+Suggested change: let `stop` accept a lane whose branch tip is an ancestor of
+some `parked/*` branch, or give it a `--parked <branch>` flag that checks that.
+
+## 2026-10-03 delegate: keys types without Enter
+Skill or agent: `.claude/skills/delegate/SKILL.md`, Orca worker, `keys`.
+What happened: the skill lists `keys` for a dialog answer. A resume message
+sent with `keys` to an `agy` worker stopped on a network error sat unsent in
+its input box until an `orca terminal send --text '' --enter` followed. The
+script header says "no Enter", and the skill does not.
+Suggested change: state in the skill that `keys` presses no Enter, and name
+`tell` for a message the worker must act on.

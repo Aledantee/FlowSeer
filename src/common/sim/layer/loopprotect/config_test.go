@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -122,7 +123,7 @@ func TestValidate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := tc.cfg.Validate(tbl)
+			err := tc.cfg.Validate(layer.Env{Ports: tbl})
 			if (err != nil) != tc.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tc.wantErr)
 			}
@@ -150,7 +151,7 @@ func TestValidateRefusesPortNameOverProbeLimit(t *testing.T) {
 			longName: {Action: loopprotect.Block},
 		},
 	}
-	if err := cfg.Validate(tbl); err == nil {
+	if err := cfg.Validate(layer.Env{Ports: tbl}); err == nil {
 		t.Errorf("Validate() = nil, want error for a %d-octet port name (probe limit is 255)", len(longName))
 	}
 }
@@ -166,7 +167,7 @@ func TestNormalize(t *testing.T) {
 		},
 	}
 
-	got := cfg.Normalize()
+	got := cfg.Normalize(layer.Env{})
 
 	if got.Interval != loopprotect.DefaultInterval {
 		t.Errorf("Interval = %s, want %s", got.Interval, loopprotect.DefaultInterval)
@@ -201,7 +202,7 @@ func TestNormalizeExplicitValuesSurvive(t *testing.T) {
 		},
 	}
 
-	got := cfg.Normalize()
+	got := cfg.Normalize(layer.Env{})
 
 	if got.Interval != 10*time.Second {
 		t.Errorf("Interval = %s, want 10s", got.Interval)
@@ -263,8 +264,8 @@ func TestDiffActionChangeYieldsOneChange(t *testing.T) {
 	if c.Field != "action" {
 		t.Errorf("Field = %q, want %q", c.Field, "action")
 	}
-	if c.Layer != loopprotect.LayerLoopProtect {
-		t.Errorf("Layer = %q, want %q", c.Layer, loopprotect.LayerLoopProtect)
+	if c.Layer != loopprotect.LayerName {
+		t.Errorf("Layer = %q, want %q", c.Layer, loopprotect.LayerName)
 	}
 	if c.Subject.Kind != "port" || c.Subject.Key != "1/1/1" {
 		t.Errorf("Subject = %+v, want port/1/1/1", c.Subject)

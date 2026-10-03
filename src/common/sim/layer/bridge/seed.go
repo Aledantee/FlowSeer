@@ -8,13 +8,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // NormalizeSeeds validates forwarding database seeds against the relay and
 // port configuration, resolves member ports to their logical LAG, and sorts
 // the result by FID and MAC. Two seeds for the same FID and MAC are invalid.
-func NormalizeSeeds(cfg Config, ports port.Table, seeds []Seed) ([]Seed, error) {
+func NormalizeSeeds(cfg Config, env layer.Env, seeds []Seed) ([]Seed, error) {
 	if len(seeds) == 0 {
 		return nil, nil
 	}
@@ -30,7 +30,7 @@ func NormalizeSeeds(cfg Config, ports port.Table, seeds []Seed) ([]Seed, error) 
 				Msgf("forwarding seed %d has unusable MAC %s", i, seed.MAC)
 		}
 
-		logical, ok := ports.Resolve(seed.Port)
+		logical, ok := env.Ports.Resolve(seed.Port)
 		if !ok {
 			return nil, errs.New().
 				Attr("field", prefix+".port").

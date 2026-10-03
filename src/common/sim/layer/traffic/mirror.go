@@ -5,8 +5,28 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 )
+
+// Egress summarizes one potential output port and whether the frame was dropped.
+// Egress is not safe for concurrent use.
+type Egress struct {
+	Port    string
+	Dropped bool
+}
+
+// Switchport summarizes VLAN membership for mirror copy egress filtering.
+// Switchport is not safe for concurrent use.
+type Switchport struct {
+	Tagged   []vlan.ID
+	Untagged []vlan.ID
+	Tunnel   *Tunnel
+}
+
+// Tunnel carries the service VLAN identifier of an 802.1Q tunnel port.
+// Tunnel is not safe for concurrent use.
+type Tunnel struct {
+	VID vlan.ID
+}
 
 // Copy is one mirrored frame and its output. Mirror identifies the configuration
 // entry that produced it. VLAN is the configured logical output VLAN, or zero
@@ -20,10 +40,10 @@ type Copy struct {
 	Frame  ethernet.Frame
 }
 
-// Copies returns the mirror copies selected from one relay result. VLAN output
-// needs vlans to resolve tagged, untagged, and tunnel switchports; a nil VLAN
-// configuration therefore produces no VLAN copies.
-func Copies(cfg Config, vlans *bridge.VLAN, ingress string, vid vlan.ID, received ethernet.Frame, egress []bridge.Egress) []Copy {
+// copies returns the mirror copies selected from one relay result. VLAN output
+// needs switchports to resolve tagged, untagged, and tunnel switchports; an empty
+// or nil switchports map therefore produces no VLAN copies.
+func copies(cfg Config, switchports map[string]Switchport, ingress string, vid vlan.ID, received ethernet.Frame, egress []Egress) []Copy {
 	var copies []Copy
 	for _, mirror := range cfg.Mirrors {
 		if !selects(mirror, ingress, vid, egress) {
@@ -35,15 +55,15 @@ func Copies(cfg Config, vlans *bridge.VLAN, ingress string, vid vlan.ID, receive
 
 			continue
 		}
-		if mirror.OutputVLAN == nil || vlans == nil || ethernet.IsReserved(received.Dst) {
+		if mirror.OutputVLAN == nil || len(switchports) == 0 || ethernet.IsReserved(received.Dst) {
 			continue
 		}
 
-		for _, name := range sortedKeys(vlans.Switchports) {
+		for _, name := range sortedKeys(switchports) {
 			if name == ingress {
 				continue
 			}
-			frame, ok := vlanCopyFrame(received, vlans.Switchports[name], *mirror.OutputVLAN)
+			frame, ok := vlanCopyFrame(received, switchports[name], *mirror.OutputVLAN)
 			if !ok {
 				continue
 			}
@@ -59,11 +79,11 @@ func Copies(cfg Config, vlans *bridge.VLAN, ingress string, vid vlan.ID, receive
 	return copies
 }
 
-func selects(mirror Mirror, ingress string, vid vlan.ID, egress []bridge.Egress) bool {
+func selects(mirror Mirror, ingress string, vid vlan.ID, egress []Egress) bool {
 	selected := mirror.SelectAll || slices.Contains(mirror.SelectSrcPorts, ingress)
 	if !selected {
 		for _, output := range egress {
-			if output.Dropped == "" && slices.Contains(mirror.SelectDstPorts, output.Port) {
+			if !output.Dropped && slices.Contains(mirror.SelectDstPorts, output.Port) {
 				selected = true
 
 				break
@@ -77,7 +97,7 @@ func selects(mirror Mirror, ingress string, vid vlan.ID, egress []bridge.Egress)
 	return len(mirror.SelectVLANs) == 0 || slices.Contains(mirror.SelectVLANs, vid)
 }
 
-func vlanCopyFrame(received ethernet.Frame, switchport bridge.Switchport, outputVLAN vlan.ID) (ethernet.Frame, bool) {
+func vlanCopyFrame(received ethernet.Frame, switchport Switchport, outputVLAN vlan.ID) (ethernet.Frame, bool) {
 	tagged := slices.Contains(switchport.Tagged, outputVLAN)
 	untagged := slices.Contains(switchport.Untagged, outputVLAN) ||
 		(switchport.Tunnel != nil && switchport.Tunnel.VID == outputVLAN)

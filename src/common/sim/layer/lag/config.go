@@ -9,33 +9,34 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 const (
-	// DefaultSystemPriority is the standard administrative system priority (32768).
-	DefaultSystemPriority uint16 = 32768
+	// defaultSystemPriority is the standard administrative system priority (32768).
+	defaultSystemPriority uint16 = 32768
 
-	// DefaultPortPriority is the standard administrative port priority (32768).
-	DefaultPortPriority uint16 = 32768
+	// defaultPortPriority is the standard administrative port priority (32768).
+	defaultPortPriority uint16 = 32768
 
-	// FastPeriod is the transmission interval for fast LACP (1 second).
-	FastPeriod time.Duration = time.Second
+	// fastPeriod is the transmission interval for fast LACP (1 second).
+	fastPeriod time.Duration = time.Second
 
-	// SlowPeriod is the transmission interval for slow LACP (30 seconds).
-	SlowPeriod time.Duration = 30 * time.Second
+	// slowPeriod is the transmission interval for slow LACP (30 seconds).
+	slowPeriod time.Duration = 30 * time.Second
 
-	// TimeoutMultiplier is the multiplier applied to the transmission period to compute receive timeouts (3).
-	TimeoutMultiplier = 3
+	// timeoutMultiplier is the multiplier applied to the transmission period to compute receive timeouts (3).
+	timeoutMultiplier = 3
 
-	// DefaultRebalanceInterval is the rebalance interval Normalize fills in when
+	// defaultRebalanceInterval is the rebalance interval Normalize fills in when
 	// RebalanceInterval is nil (OVS `vswitchd/bridge.c` `bond-rebalance-interval`
 	// default 10000 ms).
-	DefaultRebalanceInterval time.Duration = 10 * time.Second
+	defaultRebalanceInterval time.Duration = 10 * time.Second
 
-	// MinRebalanceInterval is the smallest nonzero rebalance interval Normalize
+	// minRebalanceInterval is the smallest nonzero rebalance interval Normalize
 	// accepts; a configured nonzero value below it is raised to it.
-	MinRebalanceInterval time.Duration = time.Second
+	minRebalanceInterval time.Duration = time.Second
 )
 
 // Mode defines the frame distribution policy across aggregated links.
@@ -123,8 +124,8 @@ type LAG struct {
 
 	// RebalanceInterval governs the rebalance-unmodeled signal: a balanced
 	// selection is reported once its bucket is at least this old. Nil
-	// normalizes to DefaultRebalanceInterval, zero disables the signal, and a
-	// nonzero value below MinRebalanceInterval is raised to it.
+	// normalizes to 10 seconds, zero disables the signal, and a
+	// nonzero value below 1 second is raised to it.
 	RebalanceInterval *time.Duration
 
 	LACP    LACPConfig
@@ -168,9 +169,9 @@ func (c Config) Clone() Config {
 	return cp
 }
 
-// Normalize returns the effective configuration for the supplied port table and
-// system ID. It adds entries for configured LAG ports and fills omitted defaults.
-func (c Config) Normalize(ports port.Table, systemID netaddr.MAC) Config {
+// Normalize returns the effective configuration for the supplied environment.
+// It adds entries for configured LAG ports and fills omitted defaults.
+func (c Config) Normalize(env layer.Env) Config {
 	cloned := c.Clone()
 	if cloned.LAGs == nil {
 		cloned.LAGs = make(map[string]LAG)
@@ -179,7 +180,7 @@ func (c Config) Normalize(ports port.Table, systemID netaddr.MAC) Config {
 	lagKeys := make(map[string]uint16)
 	lagMembers := make(map[string][]string)
 	var lagNames []string
-	for _, p := range ports.Ports() {
+	for _, p := range env.Ports.Ports() {
 		if p.Kind == port.LAG {
 			lagNames = append(lagNames, p.Name)
 		}
@@ -187,7 +188,7 @@ func (c Config) Normalize(ports port.Table, systemID netaddr.MAC) Config {
 	slices.Sort(lagNames)
 	for i, lagName := range lagNames {
 		lagKeys[lagName] = uint16(i + 1)
-		members := ports.Members(lagName)
+		members := env.Ports.Members(lagName)
 		names := make([]string, 0, len(members))
 		for _, member := range members {
 			names = append(names, member.Name)
@@ -208,10 +209,10 @@ func (c Config) Normalize(ports port.Table, systemID netaddr.MAC) Config {
 			lag.LACP.Mode = Off
 		}
 		if lag.LACP.SystemPriority == 0 {
-			lag.LACP.SystemPriority = DefaultSystemPriority
+			lag.LACP.SystemPriority = defaultSystemPriority
 		}
 		if lag.LACP.SystemID == (netaddr.MAC{}) {
-			lag.LACP.SystemID = systemID
+			lag.LACP.SystemID = env.MAC
 		}
 		if lag.LACP.Key == 0 {
 			lag.LACP.Key = lagKeys[lagName]
@@ -219,9 +220,9 @@ func (c Config) Normalize(ports port.Table, systemID netaddr.MAC) Config {
 
 		switch {
 		case lag.RebalanceInterval == nil:
-			lag.RebalanceInterval = new(DefaultRebalanceInterval)
-		case *lag.RebalanceInterval > 0 && *lag.RebalanceInterval < MinRebalanceInterval:
-			lag.RebalanceInterval = new(MinRebalanceInterval)
+			lag.RebalanceInterval = new(defaultRebalanceInterval)
+		case *lag.RebalanceInterval > 0 && *lag.RebalanceInterval < minRebalanceInterval:
+			lag.RebalanceInterval = new(minRebalanceInterval)
 		}
 
 		members, knownLAG := lagMembers[lagName]
@@ -235,7 +236,7 @@ func (c Config) Normalize(ports port.Table, systemID netaddr.MAC) Config {
 		}
 		for memName, m := range lag.Members {
 			if m.Priority == 0 {
-				m.Priority = DefaultPortPriority
+				m.Priority = defaultPortPriority
 			}
 			if m.Key == 0 && lag.LACP.Key != 0 {
 				m.Key = lag.LACP.Key
@@ -252,10 +253,10 @@ func (c Config) Normalize(ports port.Table, systemID netaddr.MAC) Config {
 // must exist as a LAG port in the port table, every configured member must be a member
 // of that LAG, Primary must be a member of the LAG, mode and LACP mode must be recognized,
 // delays must not be negative, and MinLinks must not exceed the member count.
-func (c Config) Validate(ports port.Table) error {
+func (c Config) Validate(env layer.Env) error {
 	for _, lagName := range sortedKeys(c.LAGs) {
 		lagCfg := c.LAGs[lagName]
-		p, ok := ports.Port(lagName)
+		p, ok := env.Ports.Port(lagName)
 		if !ok {
 			return errs.New().
 				Attr("field", "lags."+lagName).
@@ -319,7 +320,7 @@ func (c Config) Validate(ports port.Table) error {
 				Msg("rebalance interval cannot be negative")
 		}
 
-		members := ports.Members(lagName)
+		members := env.Ports.Members(lagName)
 		memberMap := make(map[string]struct{}, len(members))
 		for _, m := range members {
 			memberMap[m.Name] = struct{}{}
@@ -356,11 +357,6 @@ func (c Config) Validate(ports port.Table) error {
 	}
 
 	return nil
-}
-
-// Defaults returns the normalized effective configuration.
-func (c Config) Defaults(ports port.Table, systemID netaddr.MAC) Config {
-	return c.Normalize(ports, systemID)
 }
 
 func sortedKeys[V any](m map[string]V) []string {

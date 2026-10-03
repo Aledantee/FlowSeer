@@ -73,19 +73,19 @@ func TestConformanceResultCanonicality(t *testing.T) {
 	swA := buildSwitch(orderA)
 	swB := buildSwitch(orderB)
 
+	cmpAB := vswitch.Compare(swA, swB, t0, "1/1/1", frame)
+	if cmpAB.Disposition != analysis.Equivalent {
+		t.Errorf("Compare(swA, swB) = %v, want Equivalent", cmpAB.Disposition)
+	}
+
+	cmpBA := vswitch.Compare(swB, swA, t0, "1/1/1", frame)
+	if cmpBA.Disposition != analysis.Equivalent {
+		t.Errorf("Compare(swB, swA) = %v, want Equivalent", cmpBA.Disposition)
+	}
+
 	// Current-first and candidate-first execution
 	resCur := swA.Forward(t0, "1/1/1", frame)
 	resCand := swB.Forward(t0, "1/1/1", frame)
-
-	cmpAB := vswitch.CompareResults(resCur, resCand)
-	if cmpAB.Disposition != analysis.Equivalent {
-		t.Errorf("CompareResults(resCur, resCand) = %v, want Equivalent", cmpAB.Disposition)
-	}
-
-	cmpBA := vswitch.CompareResults(resCand, resCur)
-	if cmpBA.Disposition != analysis.Equivalent {
-		t.Errorf("CompareResults(resCand, resCur) = %v, want Equivalent", cmpBA.Disposition)
-	}
 
 	if len(resCur.Egress) != len(resCand.Egress) {
 		t.Fatalf("egress counts mismatch: %d vs %d", len(resCur.Egress), len(resCand.Egress))

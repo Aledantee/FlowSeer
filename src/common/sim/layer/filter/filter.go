@@ -11,7 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/tcp"
 	"go.aledante.io/FlowSeer/src/common/net/udp"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -36,28 +36,26 @@ const (
 	ReasonFilterReject trace.Reason = "filter-reject"
 )
 
-type ruleDecisionFact string
+type ruleDecisionFactValue string
 
-func (f ruleDecisionFact) TypeID() string    { return "filter.rule_decision" }
-func (f ruleDecisionFact) Canonical() string { return string(f) }
+func (f ruleDecisionFactValue) TypeID() string    { return "filter.rule_decision" }
+func (f ruleDecisionFactValue) Canonical() string { return string(f) }
 
-// RuleDecisionFact returns an immutable snapshot of a filter rule decision.
-func RuleDecisionFact(set, rule string, action Action, dir Direction, iface string) trace.Fact {
-	return ruleDecisionFact("set=" + strconv.Quote(set) +
+func ruleDecisionFact(set, rule string, action Action, dir Direction, iface string) trace.Fact {
+	return ruleDecisionFactValue("set=" + strconv.Quote(set) +
 		";rule=" + strconv.Quote(rule) +
 		";action=" + strconv.Quote(string(action)) +
 		";direction=" + strconv.Quote(string(dir)) +
 		";interface=" + strconv.Quote(iface))
 }
 
-type matchFact string
+type matchFactValue string
 
-func (f matchFact) TypeID() string    { return "filter.match" }
-func (f matchFact) Canonical() string { return string(f) }
+func (f matchFactValue) TypeID() string    { return "filter.match" }
+func (f matchFactValue) Canonical() string { return string(f) }
 
-// MatchFact returns an immutable snapshot of the 5-tuple consulted by a filter.
-func MatchFact(proto uint8, src, dst netip.Addr, srcPort, dstPort uint16) trace.Fact {
-	return matchFact("proto=" + strconv.FormatUint(uint64(proto), 10) +
+func matchFact(proto uint8, src, dst netip.Addr, srcPort, dstPort uint16) trace.Fact {
+	return matchFactValue("proto=" + strconv.FormatUint(uint64(proto), 10) +
 		";src=" + strconv.Quote(src.String()) +
 		";dst=" + strconv.Quote(dst.String()) +
 		";src_port=" + strconv.FormatUint(uint64(srcPort), 10) +
@@ -73,13 +71,8 @@ func Scope(nodeID, iface string, dir Direction) analysis.Scope {
 	return analysis.FieldScope(rootScope(nodeID), "interfaces", iface, string(dir))
 }
 
-// BindingScope returns the evaluation scope for a filter binding on iface and direction.
-func BindingScope(nodeID, iface string, dir Direction) analysis.Scope {
-	return Scope(nodeID, iface, dir)
-}
-
-// Tuple captures the layer 3 and layer 4 5-tuple used for matching and stateful inspection.
-type Tuple struct {
+// tuple captures the layer 3 and layer 4 5-tuple used for matching and stateful inspection.
+type tuple struct {
 	Proto   uint8
 	Src     netip.Addr
 	Dst     netip.Addr
@@ -87,9 +80,9 @@ type Tuple struct {
 	DstPort uint16
 }
 
-// Reverse returns the inverted 5-tuple with source and destination addresses and ports swapped.
-func (t Tuple) Reverse() Tuple {
-	return Tuple{
+// reverse returns the inverted 5-tuple with source and destination addresses and ports swapped.
+func (t tuple) reverse() tuple {
+	return tuple{
 		Proto:   t.Proto,
 		Src:     t.Dst,
 		Dst:     t.Src,
@@ -119,7 +112,7 @@ type Result struct {
 	Reason          trace.Reason
 	Steps           []trace.Step
 	consultedScopes []analysis.Scope
-	tuple           Tuple
+	tuple           tuple
 	deferredIface   string
 	deferredSet     string
 }
@@ -167,14 +160,14 @@ type Layer struct {
 }
 
 // New constructs a new filter layer from cfg.
-func New(cfg Config, _ port.Table, nodeID string) (*Layer, error) {
-	norm := cfg.Normalize()
-	if err := norm.Validate(); err != nil {
+func New(cfg Config, env layer.Env) (*Layer, error) {
+	norm := cfg.Normalize(env)
+	if err := norm.Validate(env); err != nil {
 		return nil, err
 	}
 
 	l := &Layer{
-		nodeID:   nodeID,
+		nodeID:   env.NodeID,
 		cfg:      norm,
 		sets:     norm.Sets,
 		bindings: make(map[bindingKey]string, len(norm.Bindings)),
@@ -187,16 +180,28 @@ func New(cfg Config, _ port.Table, nodeID string) (*Layer, error) {
 	return l, nil
 }
 
+// Clone returns an independent deep copy of the filter layer.
+func (l *Layer) Clone() *Layer {
+	if l == nil {
+		return nil
+	}
+	clonedCfg := l.cfg.Clone()
+	cp := &Layer{
+		nodeID:   l.nodeID,
+		cfg:      clonedCfg,
+		sets:     clonedCfg.Sets,
+		bindings: make(map[bindingKey]string, len(l.bindings)),
+	}
+	for k, v := range l.bindings {
+		cp.bindings[k] = v
+	}
+	return cp
+}
+
 // Binding returns the rule set bound to iface in direction dir, if any.
 func (l *Layer) Binding(iface string, dir Direction) (string, bool) {
 	set, ok := l.bindings[bindingKey{iface: iface, dir: dir}]
 	return set, ok
-}
-
-// HasBinding reports whether a rule set is bound to iface in direction dir.
-func (l *Layer) HasBinding(iface string, dir Direction) bool {
-	_, ok := l.bindings[bindingKey{iface: iface, dir: dir}]
-	return ok
 }
 
 // Config returns a copy of the layer's configuration.
@@ -221,7 +226,7 @@ func (l *Layer) EvaluateIngress(iface string, f ethernet.Frame) Result {
 	}
 
 	hdr, tuple, icmpHdr, tcpHdr, decoded := extractPacket(f)
-	matchF := MatchFact(tuple.Proto, tuple.Src, tuple.Dst, tuple.SrcPort, tuple.DstPort)
+	matchF := matchFact(tuple.Proto, tuple.Src, tuple.Dst, tuple.SrcPort, tuple.DstPort)
 
 	for idx, rule := range set.Rules {
 		if ruleMatches(rule.Match, decoded, hdr, tuple, icmpHdr, tcpHdr) {
@@ -229,7 +234,7 @@ func (l *Layer) EvaluateIngress(iface string, f ethernet.Frame) Result {
 			if ruleKey == "" {
 				ruleKey = strconv.Itoa(idx)
 			}
-			decFact := RuleDecisionFact(setName, ruleKey, rule.Action, In, iface)
+			decFact := ruleDecisionFact(setName, ruleKey, rule.Action, In, iface)
 			ruleID := ruleIDForAction(rule.Action)
 			op := opForAction(rule.Action)
 			step := trace.Step{
@@ -267,7 +272,7 @@ func (l *Layer) EvaluateIngress(iface string, f ethernet.Frame) Result {
 
 	ruleID := RuleDefault
 	op := opForAction(set.Default)
-	decFact := RuleDecisionFact(setName, "default", set.Default, In, iface)
+	decFact := ruleDecisionFact(setName, "default", set.Default, In, iface)
 	step := trace.Step{
 		Layer:   LayerName,
 		Op:      op,
@@ -306,12 +311,12 @@ func (l *Layer) ResolveDeferred(ingressRes Result, egressIface string) Result {
 	egressScope := Scope(l.nodeID, egressIface, In)
 	res.consult(egressScope)
 
-	matchF := MatchFact(tuple.Proto, tuple.Src, tuple.Dst, tuple.SrcPort, tuple.DstPort)
+	matchF := matchFact(tuple.Proto, tuple.Src, tuple.Dst, tuple.SrcPort, tuple.DstPort)
 
 	if egressSetName, ok := l.Binding(egressIface, In); ok {
 		egressSet, ok := l.sets[egressSetName]
 		if ok && egressSet.Stateful {
-			revTuple := tuple.Reverse()
+			revTuple := tuple.reverse()
 			for idx, rule := range egressSet.Rules {
 				if !tupleMatches(rule.Match, revTuple) {
 					continue
@@ -326,8 +331,8 @@ func (l *Layer) ResolveDeferred(ingressRes Result, egressIface string) Result {
 				if fwdRuleKey == "" {
 					fwdRuleKey = strconv.Itoa(idx)
 				}
-				fwdDecFact := RuleDecisionFact(egressSetName, fwdRuleKey, Accept, In, egressIface)
-				stateDecFact := RuleDecisionFact(ingressSetName, "state", Accept, In, ingressIface)
+				fwdDecFact := ruleDecisionFact(egressSetName, fwdRuleKey, Accept, In, egressIface)
+				stateDecFact := ruleDecisionFact(ingressSetName, "state", Accept, In, ingressIface)
 				step := trace.Step{
 					Layer:   LayerName,
 					Op:      trace.OpFilter,
@@ -347,7 +352,7 @@ func (l *Layer) ResolveDeferred(ingressRes Result, egressIface string) Result {
 
 	ruleID := RuleDefault
 	op := opForAction(ingressSet.Default)
-	decFact := RuleDecisionFact(ingressSetName, "default", ingressSet.Default, In, ingressIface)
+	decFact := ruleDecisionFact(ingressSetName, "default", ingressSet.Default, In, ingressIface)
 	step := trace.Step{
 		Layer:   LayerName,
 		Op:      op,
@@ -389,7 +394,7 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 	}
 
 	hdr, tuple, icmpHdr, tcpHdr, decoded := extractPacket(f)
-	matchF := MatchFact(tuple.Proto, tuple.Src, tuple.Dst, tuple.SrcPort, tuple.DstPort)
+	matchF := matchFact(tuple.Proto, tuple.Src, tuple.Dst, tuple.SrcPort, tuple.DstPort)
 
 	for idx, rule := range set.Rules {
 		if ruleMatches(rule.Match, decoded, hdr, tuple, icmpHdr, tcpHdr) {
@@ -397,7 +402,7 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 			if ruleKey == "" {
 				ruleKey = strconv.Itoa(idx)
 			}
-			decFact := RuleDecisionFact(setName, ruleKey, rule.Action, Out, egressIface)
+			decFact := ruleDecisionFact(setName, ruleKey, rule.Action, Out, egressIface)
 			ruleID := ruleIDForAction(rule.Action)
 			op := opForAction(rule.Action)
 			step := trace.Step{
@@ -431,7 +436,7 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 		if ingressSetName, ok := l.Binding(ingressIface, Out); ok {
 			ingressSet, ok := l.sets[ingressSetName]
 			if ok && ingressSet.Stateful {
-				revTuple := tuple.Reverse()
+				revTuple := tuple.reverse()
 				for idx, rule := range ingressSet.Rules {
 					if !tupleMatches(rule.Match, revTuple) {
 						continue
@@ -446,8 +451,8 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 					if fwdRuleKey == "" {
 						fwdRuleKey = strconv.Itoa(idx)
 					}
-					fwdDecFact := RuleDecisionFact(ingressSetName, fwdRuleKey, Accept, Out, ingressIface)
-					stateDecFact := RuleDecisionFact(setName, "state", Accept, Out, egressIface)
+					fwdDecFact := ruleDecisionFact(ingressSetName, fwdRuleKey, Accept, Out, ingressIface)
+					stateDecFact := ruleDecisionFact(setName, "state", Accept, Out, egressIface)
 					step := trace.Step{
 						Layer:   LayerName,
 						Op:      trace.OpFilter,
@@ -468,7 +473,7 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 
 	ruleID := RuleDefault
 	op := opForAction(set.Default)
-	decFact := RuleDecisionFact(setName, "default", set.Default, Out, egressIface)
+	decFact := ruleDecisionFact(setName, "default", set.Default, Out, egressIface)
 	step := trace.Step{
 		Layer:   LayerName,
 		Op:      op,
@@ -492,13 +497,13 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 	return res
 }
 
-func extractPacket(f ethernet.Frame) (ip.Header, Tuple, *icmp.Header, *tcp.Header, bool) {
+func extractPacket(f ethernet.Frame) (ip.Header, tuple, *icmp.Header, *tcp.Header, bool) {
 	hdr, payload, err := ip.Decode(f.Payload)
 	if err != nil {
-		return ip.Header{}, Tuple{}, nil, nil, false
+		return ip.Header{}, tuple{}, nil, nil, false
 	}
 
-	tuple := Tuple{
+	tuple := tuple{
 		Proto: hdr.Protocol,
 		Src:   hdr.Src,
 		Dst:   hdr.Dst,
@@ -528,7 +533,7 @@ func extractPacket(f ethernet.Frame) (ip.Header, Tuple, *icmp.Header, *tcp.Heade
 	return hdr, tuple, icmpHdr, tcpHdr, true
 }
 
-func ruleMatches(m Match, decoded bool, hdr ip.Header, tuple Tuple, icmpHdr *icmp.Header, tcpHdr *tcp.Header) bool {
+func ruleMatches(m Match, decoded bool, hdr ip.Header, tuple tuple, icmpHdr *icmp.Header, tcpHdr *tcp.Header) bool {
 	if !decoded {
 		return m.Protocol == nil && len(m.Src) == 0 && len(m.Dst) == 0 &&
 			len(m.SrcPorts) == 0 && len(m.DstPorts) == 0 &&
@@ -618,7 +623,7 @@ func ruleMatches(m Match, decoded bool, hdr ip.Header, tuple Tuple, icmpHdr *icm
 	return true
 }
 
-func tupleMatches(m Match, tuple Tuple) bool {
+func tupleMatches(m Match, tuple tuple) bool {
 	if m.Protocol != nil && *m.Protocol != tuple.Proto {
 		return false
 	}

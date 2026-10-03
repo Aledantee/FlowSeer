@@ -60,7 +60,7 @@ var (
 // the reflector's query still crosses it: 224.0.0.251 sits in the
 // 224.0.0.0/24 range RFC 4541 section 2.1.2 exempts from snooping admission,
 // so the switch floods it exactly as it would with snooping off, per
-// [CaseTroubleshootingMDNSIPv4FloodsUnderSnooping]'s sibling proof at the
+// [caseTroubleshootingMDNSIPv4FloodsUnderSnooping]'s sibling proof at the
 // switch layer alone. r1's two attachments carry the only addresses of h2's
 // family, so accepting on one produces exactly one copy.
 func reflectedQueryConfig() (fabric.Config, error) {
@@ -122,14 +122,14 @@ func reflectedQueryConfig() (fabric.Config, error) {
 	}, nil
 }
 
-// CaseTroubleshootingMDNSReflectedAcrossVLANs returns the case whose journey
+// caseTroubleshootingMDNSReflectedAcrossVLANs returns the case whose journey
 // is the reflected copy r1 originates onto VLAN 20: h1 queries mDNS on
 // VLAN 10, sw1 floods it to r1's trunk despite snooping being locked down,
 // r1 accepts and originates one copy addressed from its VLAN 20 attachment,
 // and h2 decodes it and takes delivery. It pins the copy's journey, not the
 // injected query's: [ExecutionResult.Journey] is a single journey, and the
 // query's own journey ends at r1's acceptance with no delivery to assert.
-func CaseTroubleshootingMDNSReflectedAcrossVLANs() Case {
+func caseTroubleshootingMDNSReflectedAcrossVLANs() Case {
 	arrivingFrame := expectedFact("bridge.frame",
 		`src="02:00:00:00:04:aa";dst="01:00:5e:00:00:fb";ether_type=2048;tags=[{tpid=33024;pcp=0;dei=false;vid=20}];payload_len=38`)
 	strippedFrame := expectedFact("bridge.frame",
@@ -286,7 +286,7 @@ func reflectorLoopConfig() fabric.Config {
 // halts on the budget rather than on the loop itself.
 const reflectorLoopBudget = 40
 
-// CaseTroubleshootingMDNSTwoReflectorsLoop returns the case whose journey
+// caseTroubleshootingMDNSTwoReflectorsLoop returns the case whose journey
 // carries an EntryLoop entry: r1 and r2 share VLAN 10 and VLAN 20 over
 // one trunk, and a copy bouncing between them eventually re-enters an
 // endpoint one of its ancestors already entered. That arrival is also where
@@ -296,7 +296,7 @@ const reflectorLoopBudget = 40
 // bounce (and the run) going until the budget stops it. It pins that
 // journey rather than the injected query's, since the query enters each
 // reflector once and never re-enters.
-func CaseTroubleshootingMDNSTwoReflectorsLoop() Case {
+func caseTroubleshootingMDNSTwoReflectorsLoop() Case {
 	vlanTags := expectedFact("fabric.vlan_tags", "[{tpid=0x8100;pcp=0;dei=false;vid=10}]")
 	macFact := expectedFact("fabric.mac", "01:00:5e:00:00:fb")
 	addrFact := expectedFact("routing.addr", "224.0.0.251")
@@ -418,6 +418,6 @@ func journeyLastEntryReason(j fabric.Journey) trace.Reason {
 // mDNS reflector's own use of a query it accepts: the copy it originates
 // onto another VLAN, and the loop two reflectors sharing VLANs produce.
 func RegisterReflectorCases(registry *Registry) {
-	registry.MustRegister(CaseTroubleshootingMDNSReflectedAcrossVLANs())
-	registry.MustRegister(CaseTroubleshootingMDNSTwoReflectorsLoop())
+	registry.MustRegister(caseTroubleshootingMDNSReflectedAcrossVLANs())
+	registry.MustRegister(caseTroubleshootingMDNSTwoReflectorsLoop())
 }

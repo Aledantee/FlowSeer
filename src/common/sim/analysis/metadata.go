@@ -93,6 +93,145 @@ func (m Metadata) Assumptions() []Assumption {
 	return result
 }
 
+// Clone returns an independent deep copy of m. It rebuilds the evidence
+// catalog and returns independent slices for issues and assumptions so
+// modifications to the caller's slices cannot affect m.
+func (m Metadata) Clone() Metadata {
+	catalog := EvidenceCatalog{}
+	for _, entry := range m.evidence.Entries() {
+		catalog, _ = catalog.Add(entry.Evidence)
+	}
+
+	return NewMetadata(
+		m.scope,
+		m.Issues(),
+		catalog,
+		m.Assumptions(),
+	)
+}
+
+// Equal reports whether m and other describe equivalent metadata. It checks
+// that evaluated scopes and derived statuses match, that all evidence entries
+// and assumptions are equal, and that issues match without regard to order or
+// human-readable Message.
+func (m Metadata) Equal(other Metadata) bool {
+	return m.scope.Compare(other.scope) == 0 &&
+		m.status == other.status &&
+		issueListsEqual(m.Issues(), other.Issues()) &&
+		slices.Equal(m.evidence.Entries(), other.evidence.Entries()) &&
+		slices.EqualFunc(m.Assumptions(), other.Assumptions(), assumptionEqual)
+}
+
+// Merge folds source's issues and assumptions into m, citing each added item's
+// evidence in m's catalog and dropping duplicates already held. It compares
+// issues and assumptions using their canonical forms, including issue Message.
+// It returns m unchanged when nothing was added.
+func (m Metadata) Merge(source Metadata) Metadata {
+	issues := m.Issues()
+	assumptions := m.Assumptions()
+	catalog := m.Evidence()
+	changed := false
+
+	for _, issue := range source.Issues() {
+		if slices.ContainsFunc(issues, func(kept Issue) bool { return SameIssue(kept, issue) }) {
+			continue
+		}
+		issues = append(issues, issue)
+		catalog = citeEvidence(catalog, issue.Evidence, source.Evidence())
+		changed = true
+	}
+	for _, assumption := range source.Assumptions() {
+		if slices.ContainsFunc(assumptions, func(kept Assumption) bool { return sameAssumption(kept, assumption) }) {
+			continue
+		}
+		assumptions = append(assumptions, assumption)
+		catalog = citeEvidence(catalog, assumption.Evidence, source.Evidence())
+		changed = true
+	}
+
+	if !changed {
+		return m
+	}
+
+	return NewMetadata(m.scope, issues, catalog, assumptions)
+}
+
+// SameIssues reports whether a and b have identical lengths and corresponding
+// issues with matching Code, Status, and Scope in order. It ignores Message and
+// Evidence.
+func SameIssues(a, b []Issue) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Code != b[i].Code || a[i].Status != b[i].Status || a[i].Scope.Compare(b[i].Scope) != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func issueEqual(a, b Issue) bool {
+	return a.Code == b.Code &&
+		a.Status == b.Status &&
+		a.Scope.Compare(b.Scope) == 0 &&
+		slices.Equal(a.Evidence, b.Evidence)
+}
+
+func issueListsEqual(a, b []Issue) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	matched := make([]bool, len(b))
+	for _, issue := range a {
+		found := -1
+		for i, candidate := range b {
+			if !matched[i] && issueEqual(issue, candidate) {
+				found = i
+				break
+			}
+		}
+		if found < 0 {
+			return false
+		}
+		matched[found] = true
+	}
+
+	return true
+}
+
+func assumptionEqual(a, b Assumption) bool {
+	return a.Scope.Compare(b.Scope) == 0 &&
+		a.Statement == b.Statement &&
+		slices.Equal(a.Evidence, b.Evidence)
+}
+
+// SameIssue reports whether a and b are equal in their canonical forms,
+// comparing Code, Status, Scope, Message, and Evidence.
+func SameIssue(a, b Issue) bool {
+	a, b = a.Canonical(), b.Canonical()
+
+	return a.Code == b.Code && a.Status == b.Status && a.Scope.Compare(b.Scope) == 0 && a.Message == b.Message &&
+		slices.Equal(a.Evidence, b.Evidence)
+}
+
+func sameAssumption(a, b Assumption) bool {
+	a, b = a.Canonical(), b.Canonical()
+
+	return a.Scope.Compare(b.Scope) == 0 && a.Statement == b.Statement && slices.Equal(a.Evidence, b.Evidence)
+}
+
+func citeEvidence(catalog EvidenceCatalog, refs []trace.EvidenceRef, source EvidenceCatalog) EvidenceCatalog {
+	for _, ref := range refs {
+		if evidence, ok := source.Lookup(ref); ok {
+			catalog, _ = catalog.Add(evidence)
+		}
+	}
+
+	return catalog
+}
+
 func canonicalAssumptionList(assumptions []Assumption) []Assumption {
 	if len(assumptions) == 0 {
 		return nil

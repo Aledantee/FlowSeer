@@ -32,7 +32,7 @@ func taggedIngressFrame(vid vlan.ID) ethernet.Frame {
 }
 
 // TestAdmitsVIDOnIngressAgreesWithBridgeIngress drives AdmitsVIDOnIngress and
-// Bridge.Ingress over the same switchport shapes and frames, and asserts they
+// Layer.Ingress over the same switchport shapes and frames, and asserts they
 // agree on whether the frame is admitted. Agreement, not a hand-written
 // expectation, is the property under test: a table of expectations would
 // only pin this test's own reading of Ingress, not Ingress itself.
@@ -146,15 +146,15 @@ func TestAdmitsVIDOnIngressAgreesWithBridgeIngress(t *testing.T) {
 			got := cfg.VLAN.AdmitsVIDOnIngress("1/1/1", tc.vid, tc.tagged)
 
 			if got != ok {
-				t.Errorf("AdmitsVIDOnIngress(%q, %d, %v) = %v, Bridge.Ingress ok = %v, want agreement", "1/1/1", tc.vid, tc.tagged, got, ok)
+				t.Errorf("AdmitsVIDOnIngress(%q, %d, %v) = %v, Layer.Ingress ok = %v, want agreement", "1/1/1", tc.vid, tc.tagged, got, ok)
 			}
 		})
 	}
 }
 
 // TestAdmitsVIDOnIngressRefusesATunnelPortBridgeIngressAdmits is the one
-// documented disagreement between AdmitsVIDOnIngress and Bridge.Ingress: an
-// untagged frame arriving on a tunnel port is classified by Bridge.Ingress
+// documented disagreement between AdmitsVIDOnIngress and Layer.Ingress: an
+// untagged frame arriving on a tunnel port is classified by Layer.Ingress
 // into the tunnel's service VLAN and admitted, because the VLAN it names
 // belongs to the customer's own spanning tree rather than to this bridge.
 // AdmitsVIDOnIngress answers false for every tunnel port regardless.
@@ -170,7 +170,7 @@ func TestAdmitsVIDOnIngressRefusesATunnelPortBridgeIngressAdmits(t *testing.T) {
 
 	_, _, ok := br.Ingress(testTime0, "1/1/1", untaggedIngressFrame(), false, false)
 	if !ok {
-		t.Fatalf("Bridge.Ingress ok = false, want true: this test needs Bridge.Ingress to admit the frame so the disagreement is real")
+		t.Fatalf("Layer.Ingress ok = false, want true: this test needs Layer.Ingress to admit the frame so the disagreement is real")
 	}
 
 	if got := cfg.VLAN.AdmitsVIDOnIngress("1/1/1", 50, false); got {

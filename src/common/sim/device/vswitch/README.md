@@ -154,7 +154,7 @@ The virtual switch uses a ladder of architectural layers:
   gate.
 - **Multicast snooping**: Configured with VLAN-aware `bridge.Config` and
   `mcast.Config`. IGMP and MLD reports register group members, while queries
-  identify router ports. `Switch.Resolve` filters admitted member ports by
+  identify router ports. The multicast resolver filters admitted member ports by
   the frame's decoded IP source, so an `(S,G)` join admits that source and no
   other; router ports always receive registered traffic. Each VLAN chooses
   whether an unregistered group floods or reaches router ports only.
@@ -341,20 +341,23 @@ explicit calls:
   applied to the named port.
 - `Wake(now)` fires due timers across spanning tree, loop protection, link
   aggregation, and neighbor resolution, flushing bridge entries, triggering
-  periodic transmissions, releasing a held frame whose entry resolved since
-  the last wake, and failing one whose resolution deadline passed. A
-  sub-interface's held frames leave tagged on its parent port rather than
-  through the bridge.
+  periodic transmissions, aging reachable neighbor entries to stale, releasing
+  a held frame whose entry resolved since the last wake, and failing one whose
+  resolution deadline passed. A sub-interface's held frames leave tagged on its
+  parent port rather than through the bridge.
+- `Age(now)` removes dynamic forwarding database entries older than the configured
+  aging time relative to now, advances multicast router and group expiry, and
+  advances the routing layer's neighbor table, applying any hold-queue exits.
 - `NextWake()` reports the earliest deadline when the switch needs a wake
   across all four layers.
 - `Drain()` returns and clears pending frame emissions produced by the
   protocol layers and by a released held frame.
-- `DrainNeighborFailures()` returns and clears the `NeighborDrop` records
-  `Wake` made for held frames that reached no wire, the released half's
-  counterpart: a frame that vanished with neither a record nor an emission
-  would be the same silent answer the neighbor lifecycle exists to remove.
-  It is every exit from a hold queue that is not an emission, not timeouts
-  alone — a frame the queue pushed out to make room under
+- `DrainNeighborFailures()` returns and clears the `NeighborDrop` records that
+  `Wake`, `Age`, or an observing `Forward` made for held frames that reached no
+  wire, the released half's counterpart: a frame that vanished with neither a
+  record nor an emission would be the same silent answer the neighbor lifecycle
+  exists to remove. It is every exit from a hold queue that is not an emission,
+  not timeouts alone: a frame the queue pushed out to make room under
   `routing.ReasonNeighborHoldOverflow`, and a released frame the bridge or
   the port table then refused, are both here. Each record carries the reason
   the refusing stage gave and the port it is counted against, empty when no
@@ -365,9 +368,8 @@ explicit calls:
 - `MemberInfo(member)` returns the runtime aggregation status of the member port.
 - `SelectMember(now, lag, frame, vid)` commits an enabled member choice for a
   frame egressing a LAG outside the bridge pipeline, such as a fabric
-  transmission; `PeekMember` computes the same choice without committing it.
-  The bridge's own LAG egress commits exactly when the forwarding call that
-  produced it does (`Forward` commits, `Peek` does not).
+  transmission. The bridge's own LAG egress commits exactly when the forwarding
+  call that produced it does (`Forward` commits, `Peek` does not).
 
 On a switch configured with `stp.Config`, a frame addressed to
 01-80-C2-00-00-00 is intercepted before relay processing; its trace ends with
@@ -497,12 +499,12 @@ Exported constructors validate and normalize configurations:
 - [Switch.Fork] creates an independent executable copy of a running switch that
   diverges freely. Construction inputs (`cfg`, `nodeID`, `metadata`) are
   shared, while mutable runtime state (forwarding tables, dynamic entries,
-  seeds, counters, layer states) is deep-copied. Bridge back-pointers
-  (STP/loop-protect gates, LAG selectors, multicast resolvers) are rebound to
-  the fork's own layers. [bridge.Bridge.Clone] provides the underlying bridge
-  copy, cloning FDB entries, dynamic counts, and counters while resetting
-  bindings for the caller to rebind. Neither `Fork` nor `Clone` blocks or
-  allocates goroutines.
+  seeds, counters, layer states) is deep-copied. Fork leaves the packet filter
+  unset on the fork. Bridge back-pointers (STP/loop-protect gates, LAG
+  selectors, multicast resolvers) are rebound to the fork's own layers.
+  [bridge.Layer.Clone] provides the underlying bridge copy, cloning FDB entries,
+  dynamic counts, and counters while resetting bindings for the caller to
+  rebind. Neither `Fork` nor `Clone` blocks or allocates goroutines.
 - [Switch.Forward] and [Switch.Peek] return [ForwardResult], combining the domain
   [bridge.Result] with [analysis.Metadata] recording scoped issues, operational
   readiness, and evidence. A port with unknown operational status never forwards

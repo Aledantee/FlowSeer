@@ -9,7 +9,7 @@ membership, MST instances, boundary roles, and hop aging on top of it.
 
 The layer runs deterministically in memory without background goroutines or wall
 clocks. Time advances through explicit, time-stamped calls to `LinkChange`,
-`Receive`, `Wake`, and `Mcheck`.
+`Receive`, `Advance`, and `Mcheck`.
 
 ## Example
 
@@ -23,9 +23,11 @@ import (
 	"fmt"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 func main() {
@@ -41,16 +43,16 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		layer, err := stp.New(stp.Config{
+		l, err := stp.New(stp.Config{
 			Priority: priority,
 			Address:  address,
 			Ports:    map[string]stp.Port{"1/1/1": {}},
-		}, ports)
+		}, layer.Env{Ports: ports})
 		if err != nil {
 			panic(err)
 		}
 
-		return layer
+		return l
 	}
 
 	root := newBridge(4096, "00:11:22:33:44:01")
@@ -61,14 +63,14 @@ func main() {
 	leaf.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
 
 	// The root's proposal reaches the leaf, which agrees.
-	proposal, err := stp.Decode(fx.Emissions[0].Frame)
+	proposal, err := bpdu.Decode(fx.Emissions[0].Frame)
 	if err != nil {
 		panic(err)
 	}
 	agreement := leaf.Receive(t0, "1/1/1", proposal)
 	fmt.Printf("leaf: %s/%s\n", leaf.PortInfo("1/1/1").Role, leaf.PortInfo("1/1/1").State)
 
-	reply, err := stp.Decode(agreement.Emissions[0].Frame)
+	reply, err := bpdu.Decode(agreement.Emissions[0].Frame)
 	if err != nil {
 		panic(err)
 	}
@@ -97,7 +99,7 @@ If Message Age is greater than Max Age, the BPDU is discarded"
 13.23.6, 13.27.30, and 13.28).
 
 The second bound is silence. Accepted information lives for `3 × HelloTime` from
-the moment it arrived, after which `Wake` expires it and the roles are recomputed.
+the moment it arrived, after which `Advance` expires it and the roles are recomputed.
 
 Internal information — a BPDU whose configuration identifier matches this
 bridge's own — ages by hop count instead: it is accepted while
@@ -174,7 +176,7 @@ never have admitted is not a spanning-tree question.
 Two things stay bridge-global rather than moving onto the tree. The port
 identifier, derived from the index in the sorted port names, appears on the wire
 and in `PortInfo`. The port key set and its iteration order reach the caller as
-the order of `Effects.Flush`.
+the order of `layer.Effects.Flush`.
 
 ## Rapid spanning tree per VLAN (PVST)
 
@@ -220,7 +222,7 @@ bridge's ingress admission answer for the arrival VLAN on this port. The layer
 holds no VLAN table of its own, so `Admitted` is taken as given rather than
 derived a second time beside the bridge's own rule.
 
-`ReceiveSSTP` returns an `SSTPOutcome` alongside its `Effects`, naming the
+`ReceiveSSTP` returns an `SSTPOutcome` alongside its `layer.Effects`, naming the
 first thing that stopped the frame short of being applied to a tree:
 `SSTPGuarded` when BPDU guard fires or already holds the port disabled,
 `SSTPBoundary` when this bridge does not run PVST, `SSTPNotAdmitted` when
@@ -260,16 +262,16 @@ classified its BPDUs per VLAN, which it does not.
 
 ### Emission
 
-Every tree sends its BPDU to `GroupAddressSSTP` naming its own VLAN through
-`Emission.VID`; VLAN 1's tree sends a second, IEEE-addressed and naming no
+Every tree sends its BPDU to `bpdu.GroupAddressSSTP()` naming its own VLAN through
+`layer.Emission.VID`; VLAN 1's tree sends a second, IEEE-addressed and naming no
 VLAN. The two are one transmission and spend one budget slot between them. The
-layer never builds a VLAN tag: a non-zero `Emission.VID` tells the switch to
+layer never builds a VLAN tag: a non-zero `layer.Emission.VID` tells the switch to
 put the frame through the port's ordinary egress rules, which is where the
 native-versus-tagged decision already lives.
 
 A port migrated to legacy STP sends VLAN 1's untagged IEEE Configuration BPDU
-alone, because SSTP has no legacy form: `EncodeSSTP` forces a version of at
-least 2 and `DecodeSSTP` refuses anything else, so a version-2 wrapper around
+alone, because SSTP has no legacy form: `bpdu.EncodeSSTP` forces a version of at
+least 2 and `bpdu.DecodeSSTP` refuses anything else, so a version-2 wrapper around
 a legacy BPDU would be a frame whose header contradicts its content. A
 non-CIST tree on such a port builds and meters nothing; VLAN 1's tree still
 builds its legacy Configuration BPDU but sends only the IEEE-addressed copy,
@@ -291,17 +293,17 @@ since only that can replace the neighbor.
 A version 3 BPDU carries the CIST fields every RST BPDU does, plus a 51-octet
 MST configuration identifier, the CIST's internal root path cost and remaining
 hops, and one 16-octet record per instance the sender maps a VLAN into.
-`Decode` reads all of it: `BPDU.ConfigID`, `RegionalRootID`,
+`bpdu.Decode` reads all of it: `bpdu.BPDU.ConfigID`, `RegionalRootID`,
 `InternalRootPathCost`, `RemainingHops`, and `MSTIs` come back filled whenever
 the payload holds enough octets for the MST body.
 
 When the payload is too short to hold that body at all — a peer running plain
 RSTP that sent a 39-octet RST BPDU with version 3 in the header, or a capture
-truncated before the MST body starts — `Decode` still reads the RST prefix
+truncated before the MST body starts — `bpdu.Decode` still reads the RST prefix
 and returns it with `ConfigID` nil and no records, rather than refusing the
 frame. A payload long enough for the MST body but truncated inside the MSTI
 records is refused, not fallen back to the RST prefix: at that point the
-sender meant to carry MST fields and `Decode` cannot tell which ones survived
+sender meant to carry MST fields and `bpdu.Decode` cannot tell which ones survived
 the truncation. The UNH-IOL MSTP conformance suite is why the version number
 alone never disqualifies a BPDU: "A compliant device must not validate an MST
 BPDU based on the value encoded in the Protocol Version Identifier field.
@@ -380,7 +382,7 @@ correct simulated answer.
 
 ## What a topology change flushes
 
-`Effects.Flush` is a list of `FlushTarget{Port, FIDs}`, and the bridge's
+`layer.Effects.Flush` is a list of `layer.FlushTarget{Port, FIDs}`, and the bridge's
 `Flush` deletes a learned entry only when its port matches a target and that
 target either names the entry's FID or names none at all. An empty `FIDs` means
 every FID on the port.
@@ -409,11 +411,11 @@ boundary port that is what the standard wants anyway, since a CIST change
 there reaches every tree. On an internal port it discards more than it
 strictly must, costing a round of flooding to relearn entries that were never
 stale. Narrowing it would need a target that can say
-"every FID except these", which `FlushTarget` deliberately cannot.
+"every FID except these", which `layer.FlushTarget` deliberately cannot.
 
 ## State retention
 
-`RetentionKey(cfg Config, ports port.Table, speeds map[string]uint64) string`
+`RetentionKey(cfg Config, env layer.Env) string`
 encodes every normalized input the spanning tree runtime state depends on: its
 own configuration as `Diff` sees it, the administrative and operational state of
 configured ports, and resolved physical link speeds. `vswitch.Derive` retains the
@@ -426,12 +428,12 @@ runtime layer only when both keys match and rebuilds it otherwise.
   port.
 - Cisco's PVST simulation on an MSTP boundary port, which this package reports
   as a boundary rather than models.
-- Tagged BPDU emission from this package. `Encode` and `EncodeSSTP` both emit
-  untagged frames; a per-VLAN BPDU names its VLAN in `Emission.VID` and the
+- Tagged BPDU emission from this package. `bpdu.Encode` and `bpdu.EncodeSSTP` both emit
+  untagged frames; a per-VLAN BPDU names its VLAN in `layer.Emission.VID` and the
   switch tags it.
 - Automatic BPDU-guard recovery timers, and BPDU filter.
 - MSTP L2GP, SPT, SPB, agreement digests, and Cisco pre-standard MSTI
-  encoding, none of which `Decode` gives any special handling: a frame in one
+  encoding, none of which `bpdu.Decode` gives any special handling: a frame in one
   of these shapes either fails to decode or reads as a plain RST or MST BPDU
   with the extension ignored. Version 4 and later BPDUs are not in this list:
   see "Decoding a version 3 BPDU" above for how they actually decode.

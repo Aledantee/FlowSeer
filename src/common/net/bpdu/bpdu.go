@@ -1,4 +1,7 @@
-package stp
+// Package bpdu provides codecs for IEEE 802.1D Spanning Tree Protocol (STP,
+// RSTP, MSTP) and Cisco Per-VLAN Spanning Tree Plus (PVST+ / SSTP) Bridge
+// Protocol Data Units.
+package bpdu
 
 import (
 	"bytes"
@@ -10,24 +13,10 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-const (
-	// ReasonUnsupportedBPDU indicates that a received frame could not be decoded
-	// as a BPDU because of an unexpected LLC header, protocol identifier,
-	// version, or BPDU type.
-	ReasonUnsupportedBPDU trace.Reason = "unsupported-bpdu"
-
-	// ReasonVLANNotAdmitted indicates that an SSTP BPDU decoded but the
-	// bridge does not admit its arrival VLAN on the port it arrived on.
-	ReasonVLANNotAdmitted trace.Reason = "vlan-not-admitted"
-
-	// ReasonVLANUntracked indicates that an SSTP BPDU decoded and was
-	// admitted, but this bridge runs PVST and has no tree for its arrival
-	// VLAN.
-	ReasonVLANUntracked trace.Reason = "vlan-untracked"
-)
+// ErrUnsupported indicates that a frame does not carry a supported BPDU.
+var ErrUnsupported = errs.Msg("unsupported BPDU")
 
 // Role represents the spanning tree role assigned to a port.
 type Role string
@@ -47,20 +36,6 @@ const (
 
 	// RoleDisabled identifies a port that is administratively or operationally inactive.
 	RoleDisabled Role = "Disabled"
-)
-
-// State represents the spanning tree frame forwarding state of a port.
-type State string
-
-const (
-	// StateDiscarding drops received frames and prevents frame transmission and address learning.
-	StateDiscarding State = "Discarding"
-
-	// StateLearning learns source MAC addresses into the filtering database without forwarding frames.
-	StateLearning State = "Learning"
-
-	// StateForwarding learns source MAC addresses and forwards traffic across the bridge.
-	StateForwarding State = "Forwarding"
 )
 
 // BridgeID identifies a spanning tree bridge by its administrative priority
@@ -96,26 +71,26 @@ const (
 	flagTopologyChangeAck uint8 = 1 << 7
 )
 
-// BPDUType identifies the format and purpose of a Spanning Tree Bridge Protocol Data Unit.
+// Type identifies the format and purpose of a Spanning Tree Bridge Protocol Data Unit.
 //
 // IEEE 802.1D-2004 clause 9.3 defines three BPDU types: Configuration BPDUs (clause 9.3.1,
 // 35 octets after the LLC header), Topology Change Notification BPDUs (clause 9.3.2,
 // 4 octets after the LLC header), and Rapid Spanning Tree BPDUs (clause 9.3.3, 36 octets
 // after the LLC header).
-type BPDUType uint8
+type Type uint8
 
 const (
-	// BPDUTypeRapid identifies an IEEE 802.1D-2004 Rapid Spanning Tree BPDU
+	// TypeRapid identifies an IEEE 802.1D-2004 Rapid Spanning Tree BPDU
 	// (clause 9.3.3, wire type 0x02).
-	BPDUTypeRapid BPDUType = iota
+	TypeRapid Type = iota
 
-	// BPDUTypeConfiguration identifies a legacy IEEE 802.1D Configuration BPDU
+	// TypeConfiguration identifies a legacy IEEE 802.1D Configuration BPDU
 	// (clause 9.3.1, wire type 0x00).
-	BPDUTypeConfiguration
+	TypeConfiguration
 
-	// BPDUTypeTopologyChangeNotification identifies a legacy IEEE 802.1D Topology Change
+	// TypeTopologyChangeNotification identifies a legacy IEEE 802.1D Topology Change
 	// Notification BPDU (clause 9.3.2, wire type 0x80).
-	BPDUTypeTopologyChangeNotification
+	TypeTopologyChangeNotification
 )
 
 const (
@@ -124,13 +99,53 @@ const (
 	bpduTypeWireTCN    = 0x80
 )
 
+// ConfigID is the IEEE 802.1Q MST configuration identifier, the 51-octet
+// value bridges exchange and compare to decide whether they belong to the
+// same MST region.
+type ConfigID struct {
+	// Selector is the configuration identifier format selector octet.
+	Selector uint8
+
+	// Name is the configuration name, at most 32 octets when encoded on the
+	// wire (null-padded).
+	Name string
+
+	Revision uint16
+
+	// Digest is the HMAC-MD5 signature of the 4096-entry VID-to-MSTID table.
+	Digest [16]byte
+}
+
+// MSTID identifies a Multiple Spanning Tree Instance on the wire (0 for CIST, 1..4094).
+type MSTID uint16
+
+// MSTIRecord is one IEEE 802.1Q MST Instance record carried within an MST
+// BPDU (protocol version 3).
+type MSTIRecord struct {
+	// MSTID identifies the instance. It has no octets of its own on the
+	// wire: it rides in the low 12 bits of RegionalRootID.Priority (the
+	// system ID extension), and [Encode] and [Decode] handle that encoding.
+	// [Encode] replaces RegionalRootID.Priority's low 12 bits with MSTID on
+	// the wire, and [Decode] re-derives both RegionalRootID.Priority and
+	// MSTID from those same low 12 bits; the pair only round-trips through
+	// RegionalRootID.Priority's top 4 bits, not its low 12.
+	MSTID MSTID
+
+	Flags                uint8
+	RegionalRootID       BridgeID
+	InternalRootPathCost uint32
+	BridgePriority       uint8
+	PortPriority         uint8
+	RemainingHops        uint8
+}
+
 // BPDU represents an IEEE 802.1D Spanning Tree Bridge Protocol Data Unit.
 //
-// The zero value represents an RST BPDU ([BPDUTypeRapid]).
+// The zero value represents an RST BPDU ([TypeRapid]).
 // BPDU values are safe for concurrent reads but not for concurrent mutation.
 type BPDU struct {
 	Version      uint8
-	Type         BPDUType
+	Type         Type
 	Flags        uint8
 	RootID       BridgeID
 	RootPathCost uint32
@@ -160,32 +175,12 @@ type BPDU struct {
 	MSTIs []MSTIRecord
 }
 
-// MSTIRecord is one IEEE 802.1Q MST Instance record carried within an MST
-// BPDU (protocol version 3).
-type MSTIRecord struct {
-	// MSTID identifies the instance. It has no octets of its own on the
-	// wire: it rides in the low 12 bits of RegionalRootID.Priority (the
-	// system ID extension), and [Encode] and [Decode] handle that encoding.
-	// [Encode] replaces RegionalRootID.Priority's low 12 bits with MSTID on
-	// the wire, and [Decode] re-derives both RegionalRootID.Priority and
-	// MSTID from those same low 12 bits; the pair only round-trips through
-	// RegionalRootID.Priority's top 4 bits, not its low 12.
-	MSTID MSTID
-
-	Flags                uint8
-	RegionalRootID       BridgeID
-	InternalRootPathCost uint32
-	BridgePriority       uint8
-	PortPriority         uint8
-	RemainingHops        uint8
-}
-
 // Role returns the port role carried in the BPDU flags.
 //
-// For legacy Configuration BPDUs ([BPDUTypeConfiguration]), the role is always
+// For legacy Configuration BPDUs ([TypeConfiguration]), the role is always
 // [RoleDesignated].
 func (b BPDU) Role() Role {
-	if b.Type == BPDUTypeConfiguration {
+	if b.Type == TypeConfiguration {
 		return RoleDesignated
 	}
 
@@ -217,7 +212,7 @@ func (b *BPDU) SetRole(r Role) {
 
 // Proposal reports whether the proposal flag bit is set.
 func (b BPDU) Proposal() bool {
-	if b.Type == BPDUTypeConfiguration {
+	if b.Type == TypeConfiguration {
 		return false
 	}
 
@@ -235,7 +230,7 @@ func (b *BPDU) SetProposal(v bool) {
 
 // Agreement reports whether the agreement flag bit is set.
 func (b BPDU) Agreement() bool {
-	if b.Type == BPDUTypeConfiguration {
+	if b.Type == TypeConfiguration {
 		return false
 	}
 
@@ -331,13 +326,9 @@ const (
 	// (payload octet 5) that marks an MST BPDU.
 	mstProtocolVersion = 3
 
-	// mstBodyLength is the MST BPDU body length in octets, counted from the
-	// protocol version identifier through the CIST remaining hops (payload
-	// octets 3-104), before any MSTI records: the 30-octet CIST prefix (the
-	// RST body [Encode] and [Decode] already share via putBody/readBody),
-	// the version 1 and version 3 length fields, the 51-octet MST
-	// configuration identifier, the CIST internal root path cost, the CIST
-	// bridge identifier, and the CIST remaining hops.
+	// mstBodyLength is the MST BPDU body length in octets (payload octets
+	// 3-104), counted from the protocol identifier through the CIST
+	// remaining hops, before any MSTI records.
 	mstBodyLength = 102
 
 	// mstiRecordLength is the octet length of one MSTI record.
@@ -348,11 +339,11 @@ const (
 	// (3 + mstBodyLength).
 	minMSTPayloadLength = 105
 
-	// maxMSTIRecords is the most MSTI records [Encode] can fit in an MST
+	// MaxMSTIRecords is the most MSTI records [Encode] can fit in an MST
 	// BPDU: the version 3 length field carries 64 plus 16 octets per
 	// record in a uint16, so the record count is capped at
 	// (math.MaxUint16-64)/mstiRecordLength.
-	maxMSTIRecords = (math.MaxUint16 - 64) / mstiRecordLength
+	MaxMSTIRecords = (math.MaxUint16 - 64) / mstiRecordLength
 )
 
 // Encode serializes b into an untagged IEEE 802.3 LLC frame addressed to the
@@ -361,12 +352,12 @@ const (
 // 60 octets; the MST shape below is not.
 //
 // Encode supports all three IEEE 802.1D-2004 clause 9.3 shapes:
-//   - [BPDUTypeRapid] (or zero value) writes an RST BPDU (clause 9.3.3) with version 2
+//   - [TypeRapid] (or zero value) writes an RST BPDU (clause 9.3.3) with version 2
 //     (or b.Version when at least 2), wire type 0x02, and LLC length 39.
-//   - [BPDUTypeConfiguration] writes a Configuration BPDU (clause 9.3.1) with version 0
+//   - [TypeConfiguration] writes a Configuration BPDU (clause 9.3.1) with version 0
 //     (or b.Version when 0 or 1), wire type 0x00, LLC length 38, and flags masked to
 //     Topology Change (bit 0) and Topology Change Acknowledgment (bit 7).
-//   - [BPDUTypeTopologyChangeNotification] writes a Topology Change Notification BPDU
+//   - [TypeTopologyChangeNotification] writes a Topology Change Notification BPDU
 //     (clause 9.3.2) with version 0, wire type 0x80, LLC length 7, and no body fields.
 //
 // When b.ConfigID is non-nil, Encode instead writes an IEEE 802.1Q MST BPDU (protocol
@@ -375,7 +366,7 @@ const (
 // identifier, CIST remaining hops, and one 16-octet record per entry in b.MSTIs). An
 // MST body is longer than the 802.3 minimum even with no MSTI records, so the payload
 // is sized to the body rather than padded to minDataLength. b.MSTIs beyond
-// maxMSTIRecords cannot fit the version 3 length field; Encode reports an error
+// MaxMSTIRecords cannot fit the version 3 length field; Encode reports an error
 // rather than write a length that would misread on decode.
 func Encode(b BPDU, src netaddr.MAC) (ethernet.Frame, error) {
 	if b.ConfigID != nil {
@@ -389,7 +380,7 @@ func Encode(b BPDU, src netaddr.MAC) (ethernet.Frame, error) {
 	binary.BigEndian.PutUint16(payload[3:5], 0x0000)
 
 	switch b.Type {
-	case BPDUTypeConfiguration:
+	case TypeConfiguration:
 		version := b.Version
 		if version > 1 {
 			version = 0
@@ -406,7 +397,7 @@ func Encode(b BPDU, src netaddr.MAC) (ethernet.Frame, error) {
 			Payload:   payload,
 		}, nil
 
-	case BPDUTypeTopologyChangeNotification:
+	case TypeTopologyChangeNotification:
 		payload[5] = 0
 		payload[6] = bpduTypeWireTCN
 
@@ -449,11 +440,11 @@ func Encode(b BPDU, src netaddr.MAC) (ethernet.Frame, error) {
 // b.RegionalRootID after putBody runs, and putMSTBody writes b.BridgeID at
 // [96:104], so the two fields land where the layout says they do.
 func encodeMST(b BPDU, src netaddr.MAC) (ethernet.Frame, error) {
-	if len(b.MSTIs) > maxMSTIRecords {
+	if len(b.MSTIs) > MaxMSTIRecords {
 		return ethernet.Frame{}, errs.New().
 			Attr("records", len(b.MSTIs)).
-			Attr("max_records", maxMSTIRecords).
-			Msgf("MST BPDU holds %d MSTI records, more than the %d the version 3 length field can carry", len(b.MSTIs), maxMSTIRecords)
+			Attr("max_records", MaxMSTIRecords).
+			Msgf("MST BPDU holds %d MSTI records, more than the %d the version 3 length field can carry", len(b.MSTIs), MaxMSTIRecords)
 	}
 
 	contentLen := 3 + mstBodyLength + mstiRecordLength*len(b.MSTIs)
@@ -487,7 +478,7 @@ func encodeMST(b BPDU, src netaddr.MAC) (ethernet.Frame, error) {
 // root identifier at [20:28] separately), the CIST remaining hops at
 // [104], and one 16-octet record per entry in b.MSTIs starting at [105].
 // payload must already be sized for len(b.MSTIs) records, and the caller
-// has already checked len(b.MSTIs) against maxMSTIRecords.
+// has already checked len(b.MSTIs) against MaxMSTIRecords.
 func putMSTBody(payload []byte, b BPDU) {
 	n := len(b.MSTIs)
 	binary.BigEndian.PutUint16(payload[39:41], uint16(64+mstiRecordLength*n))
@@ -541,12 +532,11 @@ func putMSTBody(payload []byte, b BPDU) {
 // Decode rejects frames with truncated or over-long payloads, unexpected LLC headers,
 // protocol identifiers other than 0, unsupported version and type combinations, zero
 // hello time (on Configuration and RST shapes), or an MST version 3 length that
-// disagrees with the payload or names a partial trailing record, with
-// [ReasonUnsupportedBPDU].
+// disagrees with the payload or names a partial trailing record, wrapping
+// [ErrUnsupported].
 func Decode(f ethernet.Frame) (BPDU, error) {
 	if len(f.Payload) < 7 {
-		return BPDU{}, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, errs.From(ErrUnsupported).
 			Attr("have", len(f.Payload)).
 			Attr("min", 7).
 			Msgf("BPDU payload length %d is too short", len(f.Payload))
@@ -554,32 +544,28 @@ func Decode(f ethernet.Frame) (BPDU, error) {
 
 	dsap := f.Payload[0]
 	if dsap != 0x42 {
-		return BPDU{}, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, errs.From(ErrUnsupported).
 			Attr("dsap", dsap).
 			Msgf("unsupported BPDU LLC DSAP 0x%02x, want 0x42", dsap)
 	}
 
 	ssap := f.Payload[1]
 	if ssap != 0x42 {
-		return BPDU{}, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, errs.From(ErrUnsupported).
 			Attr("ssap", ssap).
 			Msgf("unsupported BPDU LLC SSAP 0x%02x, want 0x42", ssap)
 	}
 
 	control := f.Payload[2]
 	if control != 0x03 {
-		return BPDU{}, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, errs.From(ErrUnsupported).
 			Attr("control", control).
 			Msgf("unsupported BPDU LLC control 0x%02x, want 0x03", control)
 	}
 
 	protoID := binary.BigEndian.Uint16(f.Payload[3:5])
 	if protoID != 0 {
-		return BPDU{}, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, errs.From(ErrUnsupported).
 			Attr("protocol_id", protoID).
 			Msgf("unsupported BPDU protocol identifier 0x%04x, want 0x0000", protoID)
 	}
@@ -590,8 +576,7 @@ func Decode(f ethernet.Frame) (BPDU, error) {
 	switch {
 	case (version == 0 || version == 1) && bpduType == bpduTypeWireConfig:
 		if len(f.Payload) < 38 {
-			return BPDU{}, errs.New().
-				Attr("reason", ReasonUnsupportedBPDU).
+			return BPDU{}, errs.From(ErrUnsupported).
 				Attr("have", len(f.Payload)).
 				Attr("min", 38).
 				Msgf("BPDU payload length %d is too short", len(f.Payload))
@@ -603,7 +588,7 @@ func Decode(f ethernet.Frame) (BPDU, error) {
 		}
 
 		b.Version = version
-		b.Type = BPDUTypeConfiguration
+		b.Type = TypeConfiguration
 		b.Flags = f.Payload[7] & (flagTopologyChange | flagTopologyChangeAck)
 
 		return b, nil
@@ -611,13 +596,12 @@ func Decode(f ethernet.Frame) (BPDU, error) {
 	case (version == 0 || version == 1) && bpduType == bpduTypeWireTCN:
 		return BPDU{
 			Version: version,
-			Type:    BPDUTypeTopologyChangeNotification,
+			Type:    TypeTopologyChangeNotification,
 		}, nil
 
 	case version >= 2 && bpduType == bpduTypeWireRST:
 		if len(f.Payload) < 39 {
-			return BPDU{}, errs.New().
-				Attr("reason", ReasonUnsupportedBPDU).
+			return BPDU{}, errs.From(ErrUnsupported).
 				Attr("have", len(f.Payload)).
 				Attr("min", 39).
 				Msgf("BPDU payload length %d is too short", len(f.Payload))
@@ -629,7 +613,7 @@ func Decode(f ethernet.Frame) (BPDU, error) {
 		}
 
 		b.Version = version
-		b.Type = BPDUTypeRapid
+		b.Type = TypeRapid
 		b.Flags = f.Payload[7]
 
 		if version == mstProtocolVersion && len(f.Payload) >= minMSTPayloadLength {
@@ -642,19 +626,16 @@ func Decode(f ethernet.Frame) (BPDU, error) {
 
 	default:
 		if bpduType == bpduTypeWireRST {
-			return BPDU{}, errs.New().
-				Attr("reason", ReasonUnsupportedBPDU).
+			return BPDU{}, errs.From(ErrUnsupported).
 				Attr("version", version).
 				Msgf("unsupported BPDU version %d, want at least 2", version)
 		}
 		if version >= 2 {
-			return BPDU{}, errs.New().
-				Attr("reason", ReasonUnsupportedBPDU).
+			return BPDU{}, errs.From(ErrUnsupported).
 				Attr("type", bpduType).
 				Msgf("unsupported BPDU type %d, want 2", bpduType)
 		}
-		return BPDU{}, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, errs.From(ErrUnsupported).
 			Attr("version", version).
 			Attr("type", bpduType).
 			Msgf("unsupported BPDU type 0x%02x for version %d", bpduType, version)
@@ -681,8 +662,7 @@ func putBody(payload []byte, b BPDU) {
 // never elect anything; it is refused.
 func readBody(payload []byte) (BPDU, error) {
 	if binary.BigEndian.Uint16(payload[34:36]) == 0 {
-		return BPDU{}, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, errs.From(ErrUnsupported).
 			Msg("BPDU hello time is zero")
 	}
 
@@ -710,8 +690,7 @@ func readBody(payload []byte) (BPDU, error) {
 func readMSTBody(payload []byte, b *BPDU) error {
 	v3Len := binary.BigEndian.Uint16(payload[39:41])
 	if v3Len < 64 || (v3Len-64)%mstiRecordLength != 0 {
-		return errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return errs.From(ErrUnsupported).
 			Attr("version3_length", v3Len).
 			Msgf("MST BPDU version 3 length %d is not 64 plus a multiple of %d", v3Len, mstiRecordLength)
 	}
@@ -719,8 +698,7 @@ func readMSTBody(payload []byte, b *BPDU) error {
 	n := int(v3Len-64) / mstiRecordLength
 	want := minMSTPayloadLength + mstiRecordLength*n
 	if len(payload) != want {
-		return errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return errs.From(ErrUnsupported).
 			Attr("have", len(payload)).
 			Attr("want", want).
 			Msgf("MST BPDU payload length %d disagrees with %d MSTI record(s)", len(payload), n)
@@ -729,8 +707,8 @@ func readMSTBody(payload []byte, b *BPDU) error {
 	var digest [16]byte
 	copy(digest[:], payload[76:92])
 
-	// putBody left the RST prefix's bridge identifier at [20:28]; the MST
-	// shape uses that slot for the CIST regional root identifier instead.
+	// readBody populated b.BridgeID from payload[20:28]; the MST shape
+	// uses that slot for the CIST regional root identifier instead.
 	b.RegionalRootID = b.BridgeID
 
 	var bridgeAddr netaddr.MAC

@@ -348,10 +348,10 @@ func TestEgressTailDropEntryCarriesItsFact(t *testing.T) {
 			if entry.Step == nil {
 				t.Fatal("queue-full drop entry has no step")
 			}
-			if entry.Step.Layer != traffic.Layer || entry.Step.Op != trace.OpDrop || entry.Step.RuleID != traffic.RuleQueueDrop {
+			if entry.Step.Layer != traffic.LayerName || entry.Step.Op != trace.OpDrop || entry.Step.RuleID != traffic.RuleQueueDrop {
 				t.Errorf("drop step = %+v, want traffic layer, drop op, rule %s", entry.Step, traffic.RuleQueueDrop)
 			}
-			if entry.Step.Subject != (trace.Subject{Kind: "port", Key: "1/1/3/0"}) {
+			if entry.Step.Subject != (trace.Subject{Kind: "port", Key: `"1/1/3"/"0"`}) {
 				t.Errorf("drop step subject = %+v, want port 1/1/3/0", entry.Step.Subject)
 			}
 			if len(entry.Step.Inputs) != 1 || trace.CompareFact(entry.Step.Inputs[0], wantFact) != 0 {

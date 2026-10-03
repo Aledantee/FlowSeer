@@ -12,13 +12,15 @@ import (
 
 // Variation transforms one frame at index n. Validate checks settings that do
 // not depend on the frame; [Spec.Validate] checks template-dependent settings.
-// Implementations must leave their inputs unchanged and be safe to share
-// between sources. Draws use the source's seeded generator.
+// The set of variations is closed to this package: Apply takes the package's
+// unexported generator, so no other package can implement Variation. Every
+// variation here leaves its inputs unchanged and is safe to share between
+// sources. Draws use the source's seeded generator.
 type Variation interface {
 	// Validate reports invalid settings before a source starts.
 	Validate() error
 	// Apply returns a frame with the selected field changed.
-	Apply(n int, frame ethernet.Frame, rng *SplitMix64) ethernet.Frame
+	Apply(n int, frame ethernet.Frame, rng *splitMix64) ethernet.Frame
 }
 
 // MACField identifies which Ethernet address a [MACVariation] changes.
@@ -52,7 +54,7 @@ func (v MACVariation) Validate() error {
 }
 
 // Apply steps or draws the selected address, wrapping at 48 bits.
-func (v MACVariation) Apply(n int, frame ethernet.Frame, rng *SplitMix64) ethernet.Frame {
+func (v MACVariation) Apply(n int, frame ethernet.Frame, rng *splitMix64) ethernet.Frame {
 	var mac *netaddr.MAC
 	if v.Field == MACDestination {
 		mac = &frame.Dst
@@ -95,7 +97,7 @@ func (v SizeVariation) Validate() error {
 
 // Apply sizes the payload so [ethernet.Frame.Encode] plus FCS has the selected
 // size. Each result owns its payload buffer.
-func (v SizeVariation) Apply(n int, frame ethernet.Frame, _ *SplitMix64) ethernet.Frame {
+func (v SizeVariation) Apply(n int, frame ethernet.Frame, _ *splitMix64) ethernet.Frame {
 	length := v.Sizes[n%len(v.Sizes)] - 18 - 4*len(frame.Tags)
 	payload := make([]byte, length)
 	copy(payload, frame.Payload)
@@ -125,7 +127,7 @@ func (v UDPPortVariation) Validate() error {
 // Apply decodes and re-encodes UDP and IP so their checksums track the changed
 // port. [Spec.Validate] refuses templates and preceding sizes that cannot be
 // re-encoded before a source starts.
-func (v UDPPortVariation) Apply(n int, frame ethernet.Frame, rng *SplitMix64) ethernet.Frame {
+func (v UDPPortVariation) Apply(n int, frame ethernet.Frame, rng *splitMix64) ethernet.Frame {
 	var delta uint16
 	if v.Draw {
 		delta = uint16(rng.Next() % uint64(v.Count))

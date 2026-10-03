@@ -176,7 +176,7 @@ func (s Spec) Source() (Source, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &specSource{spec: normalized, numerator: numerator, rate: rate, rng: NewSplitMix64(normalized.Seed)}, nil
+	return &specSource{spec: normalized, numerator: numerator, rate: rate, rng: newSplitMix64(normalized.Seed)}, nil
 }
 
 func (s Spec) spacing() (numerator, rate uint64, err error) {

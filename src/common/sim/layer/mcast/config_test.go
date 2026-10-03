@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -83,7 +84,7 @@ func TestConfigValidate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := tt.cfg.Validate(ports)
+			err := tt.cfg.Validate(layer.Env{Ports: ports})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -221,20 +222,20 @@ func TestNormalize(t *testing.T) {
 				RouterPorts:             []string{"1/1/1", "1/1/2"},
 				MembershipInterval:      mcast.DefaultMembershipInterval,
 				RouterPortInterval:      mcast.DefaultMembershipInterval,
-				LastMemberQueryInterval: mcast.DefaultLastMemberQueryInterval,
-				LastMemberQueryCount:    mcast.DefaultLastMemberQueryCount,
+				LastMemberQueryInterval: time.Second,
+				LastMemberQueryCount:    2,
 			},
 		}}
 
-		normRaw := raw.Normalize()
-		normExplicit := explicit.Normalize()
+		normRaw := raw.Normalize(layer.Env{})
+		normExplicit := explicit.Normalize(layer.Env{})
 
 		diffs := mcast.Diff(normRaw, normExplicit)
 		if len(diffs) != 0 {
 			t.Errorf("normalized raw != normalized explicit: %v", diffs)
 		}
 
-		normTwice := normRaw.Normalize()
+		normTwice := normRaw.Normalize(layer.Env{})
 		if len(mcast.Diff(normRaw, normTwice)) != 0 {
 			t.Errorf("Normalize() is not idempotent")
 		}
@@ -245,7 +246,7 @@ func TestNormalize(t *testing.T) {
 		raw := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
 			10: {RouterPorts: ports},
 		}}
-		_ = raw.Normalize()
+		_ = raw.Normalize(layer.Env{})
 		if ports[0] != "1/1/2" || ports[1] != "1/1/1" {
 			t.Errorf("caller slice mutated: %v", ports)
 		}
@@ -257,7 +258,7 @@ func TestLastMemberQueryCountDiffUsesEffectiveValue(t *testing.T) {
 
 	zero := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{10: {}}}
 	explicitDefault := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
-		10: {LastMemberQueryCount: mcast.DefaultLastMemberQueryCount},
+		10: {LastMemberQueryCount: 2},
 	}}
 	changedTo3 := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
 		10: {LastMemberQueryCount: 3},

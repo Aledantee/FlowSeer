@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-// Render formats a [Trace] as deterministic human-readable text.
+// render formats a [Trace] as deterministic human-readable text.
 // The output lists numbered steps followed by the outcome and optional reason.
 // An empty trace renders as "Outcome: unspecified".
-func Render(t Trace) string {
+func render(t Trace) string {
 	var lines []string
 
 	for i, s := range t.Steps {

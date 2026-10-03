@@ -110,11 +110,11 @@ func (p ProvenanceInputs) provenance(route Route, observedAt time.Time) *invento
 
 	switch route {
 	case RouteSNMP:
-		prov.SetProtocol(inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SNMP)
+		prov.SetManagement(inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SNMP)
 	case RouteSSH:
-		prov.SetProtocol(inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SSH)
+		prov.SetManagement(inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SSH)
 	default:
-		prov.SetProtocol(inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_UNSPECIFIED)
+		prov.SetManagement(inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_UNSPECIFIED)
 	}
 
 	return prov

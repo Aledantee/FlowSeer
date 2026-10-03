@@ -1,6 +1,7 @@
 package fabric
 
 import (
+	"slices"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -31,13 +32,17 @@ func TestFabricMetadataCachesUntilSetFault(t *testing.T) {
 	}
 }
 
+// sameMetadata reports whether a and b hold the same issues in order, with
+// their messages, and the same assumptions in order. [analysis.Metadata.Equal]
+// ignores issue Message and order, which would hide a cache that returns a
+// stale rendering.
 func sameMetadata(a, b analysis.Metadata) bool {
 	aIssues, bIssues := a.Issues(), b.Issues()
 	if len(aIssues) != len(bIssues) {
 		return false
 	}
 	for i := range aIssues {
-		if !sameIssue(aIssues[i], bIssues[i]) {
+		if !analysis.SameIssue(aIssues[i], bIssues[i]) {
 			return false
 		}
 	}
@@ -47,7 +52,8 @@ func sameMetadata(a, b analysis.Metadata) bool {
 		return false
 	}
 	for i := range aAssumptions {
-		if !sameAssumption(aAssumptions[i], bAssumptions[i]) {
+		x, y := aAssumptions[i].Canonical(), bAssumptions[i].Canonical()
+		if x.Scope.Compare(y.Scope) != 0 || x.Statement != y.Statement || !slices.Equal(x.Evidence, y.Evidence) {
 			return false
 		}
 	}

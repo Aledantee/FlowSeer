@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // NeighborState names where one neighbor table entry sits in the state machine netsim runs
@@ -87,7 +88,7 @@ const (
 	HeldEvicted HeldCause = "evicted"
 )
 
-// HeldFrame is one frame [Layer.Wake] reports leaving a neighbor entry's hold queue, with Cause
+// HeldFrame is one frame [Layer.DrainExits] reports leaving a neighbor entry's hold queue, with Cause
 // naming how it left: under [HeldReleased] Frame is ready to leave by Interface, and under the
 // other two causes Frame carries no resolved destination and exists to name what was held. Port
 // is the egress port Interface resolves to: empty for a VLAN interface with no parent port,
@@ -110,7 +111,7 @@ type HeldFrame struct {
 // (a resolution deadline for Incomplete, a reachability deadline for Reachable, and zero for
 // every other state), whether it came from static configuration or a live observation, the
 // frames queued while the entry is Incomplete, and any frame [appendHeld] has since evicted from
-// that queue but [Layer.Wake] has not yet reported.
+// that queue but [Layer.DrainExits] has not yet reported.
 type neighborEntry struct {
 	state   NeighborState
 	mac     netaddr.MAC
@@ -144,8 +145,8 @@ type Advertisement struct {
 
 // appendHeld appends h to queue, dropping the oldest entry once the queue exceeds depth
 // (RFC 4861 section 7.2.2) and returning it as evicted rather than discarding it: a frame the
-// hold queue pushes out is still reported, as a [HeldEvicted] exit in [Layer.Wake]'s next
-// Effects, not silently dropped and not reported as a resolution that failed.
+// hold queue pushes out is still reported, as a [HeldEvicted] exit in [Layer.DrainExits] after the next
+// [Layer.Advance], not silently dropped and not reported as a resolution that failed.
 func appendHeld(queue []heldEntry, h heldEntry, depth int) (kept, evicted []heldEntry) {
 	queue = append(queue, h)
 	if len(queue) > depth {
@@ -219,8 +220,8 @@ func (vs *vrfState) resolveNeighbor(now time.Time, key neighborKey, commit bool,
 // apparently not initiated any communication with the target." A configured binding is likewise
 // left alone: [New] installs it Reachable with no expiry so it never ages out, and an
 // advertisement adopting its address or handing it an expiry would falsify that. Observe changes
-// state alone; the frames an entry's transition frees or gives up on are reported by the next
-// [Layer.Wake].
+// state alone; the frames an entry's transition frees or gives up on are reported by [Layer.DrainExits]
+// after the next [Layer.Advance].
 func (l *Layer) Observe(now time.Time, adv Advertisement) {
 	vrfName, ok := l.ifaceVRF[adv.Interface]
 	if !ok {
@@ -248,7 +249,7 @@ func (l *Layer) Observe(now time.Time, adv Advertisement) {
 			entry.expiry = time.Time{}
 		}
 		// The Override flag is ignored in the INCOMPLETE case (RFC 4861 section 7.2.5); the
-		// entry's held frames are released by the next Wake, not here.
+		// entry's held frames are released by [Layer.DrainExits] after the next [Layer.Advance], not here.
 		return
 	}
 
@@ -278,11 +279,14 @@ func (l *Layer) Observe(now time.Time, adv Advertisement) {
 	}
 }
 
-// Age applies RFC 4861 section 7.3.2 reachability expiry: a Reachable entry whose expiry is not
-// after now moves to Stale. It is the only place aging mutates the stored state; Route and
-// Originate read whatever state Age last left, so a Reachable entry that outlives its
-// ReachableTime keeps forwarding as Reachable until a caller ages the layer.
-func (l *Layer) Age(now time.Time) {
+// Advance applies RFC 4861 reachability expiry to move Reachable entries whose
+// expiry has passed to Stale, then settles hold queues across all VRFs: an Incomplete
+// entry whose resolution deadline has passed becomes Failed and its held frames exit
+// HeldTimedOut; an entry that is no longer Incomplete has its held frames exit HeldReleased;
+// and any frame evicted from a hold queue exits HeldEvicted.
+// Settled exits wait in the layer in deterministic order until drained by DrainExits.
+// The returned layer.Effects is always empty.
+func (l *Layer) Advance(now time.Time) layer.Effects {
 	for _, vs := range l.vrfs {
 		for _, entry := range vs.neighbors {
 			if entry.state == NeighborReachable && !entry.expiry.IsZero() && !entry.expiry.After(now) {
@@ -291,14 +295,66 @@ func (l *Layer) Age(now time.Time) {
 			}
 		}
 	}
+
+	var rows []neighborTableEntry
+	for vrfName, vs := range l.vrfs {
+		for key, entry := range vs.neighbors {
+			rows = append(rows, neighborTableEntry{vrfName: vrfName, key: key, entry: entry})
+		}
+	}
+	slices.SortFunc(rows, func(a, b neighborTableEntry) int {
+		if c := cmp.Compare(a.vrfName, b.vrfName); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.key.iface, b.key.iface); c != 0 {
+			return c
+		}
+		return a.key.addr.Compare(b.key.addr)
+	})
+
+	for _, row := range rows {
+		entry := row.entry
+
+		for _, h := range entry.evicted {
+			if hf, ok := l.finishHeld(h, netaddr.MAC{}, HeldEvicted); ok {
+				l.exits = append(l.exits, hf)
+			}
+		}
+		entry.evicted = nil
+
+		if entry.state == NeighborIncomplete {
+			if entry.expiry.IsZero() || entry.expiry.After(now) {
+				continue
+			}
+			for _, h := range entry.queue {
+				if hf, ok := l.finishHeld(h, netaddr.MAC{}, HeldTimedOut); ok {
+					l.exits = append(l.exits, hf)
+				}
+			}
+			entry.state = NeighborFailed
+			entry.expiry = time.Time{}
+			entry.queue = nil
+			continue
+		}
+
+		if len(entry.queue) == 0 {
+			continue
+		}
+		for _, h := range entry.queue {
+			if hf, ok := l.finishHeld(h, entry.mac, HeldReleased); ok {
+				l.exits = append(l.exits, hf)
+			}
+		}
+		entry.queue = nil
+	}
+	return layer.Effects{}
 }
 
-// Effects lists every frame a call to [Layer.Wake] observed leaving a hold queue, in the order
-// Wake produced them, each carrying the [HeldCause] that says how it left. One slice rather than
-// one per cause: the cause is on the element, so a reader that switches on it cannot silently
-// inherit a meaning from whichever slice it happened to drain.
-type Effects struct {
-	Exits []HeldFrame
+// DrainExits returns and clears any hold-queue exits waiting in the layer.
+func (l *Layer) DrainExits() []HeldFrame {
+	exits := l.exits
+	l.exits = nil
+	return exits
 }
 
 // finishHeld re-encodes h's header, already in the egress form the caller queued it in (Route's
@@ -329,80 +385,13 @@ func (l *Layer) finishHeld(h heldEntry, mac netaddr.MAC, cause HeldCause) (HeldF
 	}, true
 }
 
-// neighborTableEntry names one row Wake acts on, keyed for the total order below: a Go map
-// iterates its VRFs and neighbors in random order, and Effects.Exits is an ordered slice the
-// switch consumes in sequence, so Wake sorts before it acts rather than leaving emission order,
-// Drain order, and the fabric's frame numbering to inherit map order. The order is by VRF name,
-// then interface, then address.
+// neighborTableEntry names one row Advance acts on, keyed for the total order below: a Go map
+// iterates its VRFs and neighbors in random order, and hold-queue exits are ordered for sequence
+// consumption. The order is by VRF name, then interface, then address.
 type neighborTableEntry struct {
 	vrfName string
 	key     neighborKey
 	entry   *neighborEntry
-}
-
-// Wake advances every VRF's neighbor table to now and reports every frame that leaves a hold
-// queue as a result, in Effects.Exits: an Incomplete entry whose resolution deadline has passed
-// becomes Failed and its held frames exit [HeldTimedOut]; an entry that already holds frames and
-// is no longer Incomplete (because [Layer.Observe] resolved it since the previous Wake) has them
-// exit [HeldReleased]. Either way the entry's queue is drained, so calling Wake again before
-// anything else changes reports nothing further. A frame [appendHeld] evicted from a queue exits
-// [HeldEvicted] unconditionally, on the first Wake after the eviction, regardless of the entry's
-// current state or whether its queue currently holds anything.
-func (l *Layer) Wake(now time.Time) Effects {
-	var eff Effects
-
-	var rows []neighborTableEntry
-	for vrfName, vs := range l.vrfs {
-		for key, entry := range vs.neighbors {
-			rows = append(rows, neighborTableEntry{vrfName: vrfName, key: key, entry: entry})
-		}
-	}
-	slices.SortFunc(rows, func(a, b neighborTableEntry) int {
-		if c := cmp.Compare(a.vrfName, b.vrfName); c != 0 {
-			return c
-		}
-		if c := cmp.Compare(a.key.iface, b.key.iface); c != 0 {
-			return c
-		}
-		return a.key.addr.Compare(b.key.addr)
-	})
-
-	for _, row := range rows {
-		entry := row.entry
-
-		for _, h := range entry.evicted {
-			if hf, ok := l.finishHeld(h, netaddr.MAC{}, HeldEvicted); ok {
-				eff.Exits = append(eff.Exits, hf)
-			}
-		}
-		entry.evicted = nil
-
-		if entry.state == NeighborIncomplete {
-			if entry.expiry.IsZero() || entry.expiry.After(now) {
-				continue
-			}
-			for _, h := range entry.queue {
-				if hf, ok := l.finishHeld(h, netaddr.MAC{}, HeldTimedOut); ok {
-					eff.Exits = append(eff.Exits, hf)
-				}
-			}
-			entry.state = NeighborFailed
-			entry.expiry = time.Time{}
-			entry.queue = nil
-			continue
-		}
-
-		if len(entry.queue) == 0 {
-			continue
-		}
-		for _, h := range entry.queue {
-			if hf, ok := l.finishHeld(h, entry.mac, HeldReleased); ok {
-				eff.Exits = append(eff.Exits, hf)
-			}
-		}
-		entry.queue = nil
-	}
-	return eff
 }
 
 // NextWake returns the earliest resolution deadline among the layer's Incomplete neighbor
@@ -427,7 +416,7 @@ func (l *Layer) NextWake() (time.Time, bool) {
 }
 
 // Clone returns a deep copy of the layer, including its runtime neighbor table. Held frames
-// travel with it; a fork that never calls Wake before diverging keeps the same pending queues
+// travel with it; a fork that never calls Advance before diverging keeps the same pending queues
 // the original had at the moment of the clone.
 func (l *Layer) Clone() *Layer {
 	cp := &Layer{
@@ -437,6 +426,7 @@ func (l *Layer) Clone() *Layer {
 		ifaceVRF: make(map[string]string, len(l.ifaceVRF)),
 		ifaces:   make(map[string]Interface, len(l.ifaces)),
 		vrfs:     make(map[string]*vrfState, len(l.vrfs)),
+		exits:    slices.Clone(l.exits),
 	}
 	for k, v := range l.byVLAN {
 		cp.byVLAN[k] = v
@@ -460,20 +450,20 @@ func (l *Layer) Clone() *Layer {
 	return cp
 }
 
-// DiscardHeld drops every neighbor entry's held-frame queue and any frame
-// [appendHeld] has evicted from it but [Layer.Wake] has not yet reported,
+// discardHeld drops every neighbor entry's held-frame queue and any frame
+// [appendHeld] has evicted from it but [Layer.Advance] has not yet reported,
 // without changing the entry's state, expiry, or link-layer address. A frame
 // in flight belongs to the run that queued it, not to configuration a later
 // derive retains: a cloned layer that kept someone else's in-flight or
 // evicted frames would make two forks compare unequal for a reason neither
 // configuration shows, or report a frame from a run that never woke it.
 //
-// DiscardHeld leaves an Incomplete entry's state and expiry untouched on
-// purpose, even though emptying its queue looks like settling it: [Layer.Wake]
+// discardHeld leaves an Incomplete entry's state and expiry untouched on
+// purpose, even though emptying its queue looks like settling it: [Layer.Advance]
 // alone decides when a resolution deadline passing moves the entry to Failed,
 // and it does that whether or not the queue it drains is empty. Settling the
 // entry here as well would just duplicate that decision under a second name.
-func (l *Layer) DiscardHeld() {
+func (l *Layer) discardHeld() {
 	for _, vs := range l.vrfs {
 		for _, entry := range vs.neighbors {
 			entry.queue = nil
@@ -526,9 +516,11 @@ func (l *Layer) Neighbors() []NeighborEntry {
 }
 
 // FailHeld drains every held frame across all VRFs with cause HeldTimedOut,
-// transitions any Incomplete entry to Failed, and returns the resulting effects.
-func (l *Layer) FailHeld() Effects {
-	var eff Effects
+// transitions any Incomplete entry to Failed, and returns the resulting exits,
+// with any waiting exit first.
+func (l *Layer) FailHeld() []HeldFrame {
+	exits := l.exits
+	l.exits = nil
 	var rows []neighborTableEntry
 	for vrfName, vs := range l.vrfs {
 		for key, entry := range vs.neighbors {
@@ -549,14 +541,14 @@ func (l *Layer) FailHeld() Effects {
 		entry := row.entry
 		for _, h := range entry.evicted {
 			if hf, ok := l.finishHeld(h, netaddr.MAC{}, HeldEvicted); ok {
-				eff.Exits = append(eff.Exits, hf)
+				exits = append(exits, hf)
 			}
 		}
 		entry.evicted = nil
 
 		for _, h := range entry.queue {
 			if hf, ok := l.finishHeld(h, netaddr.MAC{}, HeldTimedOut); ok {
-				eff.Exits = append(eff.Exits, hf)
+				exits = append(exits, hf)
 			}
 		}
 		if entry.state == NeighborIncomplete {
@@ -565,5 +557,5 @@ func (l *Layer) FailHeld() Effects {
 		}
 		entry.queue = nil
 	}
-	return eff
+	return exits
 }

@@ -3,6 +3,7 @@ package search
 import (
 	"fmt"
 
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 )
 
@@ -38,7 +39,7 @@ type RetainedDifference struct {
 	Tuple      Tuple
 	Candidate  Candidate
 	Replay     [2]fabric.ReplaySpec
-	Difference fabric.Difference
+	Difference analysis.Difference
 }
 
 // Result summarizes the differential search outcome across an explored domain.

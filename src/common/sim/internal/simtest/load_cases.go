@@ -182,13 +182,13 @@ func loadForwardSteps() []StepExpectation {
 	}
 }
 
-// CasePlanningOversubscribedTrunkStatedBuffer proves a 1518-octet egress
+// casePlanningOversubscribedTrunkStatedBuffer proves a 1518-octet egress
 // buffer tail-drops a frame offered faster than the tagged trunk can serve it.
-func CasePlanningOversubscribedTrunkStatedBuffer() Case {
+func casePlanningOversubscribedTrunkStatedBuffer() Case {
 	buffer := uint64(1518)
 	queueFact := NewFactExpectation(traffic.QueueDropFact(1018, buffer, 1018))
-	steps := append(loadForwardSteps(), expectedStep(traffic.Layer, trace.OpDrop, traffic.RuleQueueDrop,
-		trace.Subject{Kind: "port", Key: "1/1/2/0"}, []FactExpectation{queueFact}, nil))
+	steps := append(loadForwardSteps(), expectedStep(traffic.LayerName, trace.OpDrop, traffic.RuleQueueDrop,
+		trace.Subject{Kind: "port", Key: `"1/1/2"/"0"`}, []FactExpectation{queueFact}, nil))
 	return Case{
 		ID: "planning/oversubscribed-trunk-stated-buffer", UseCase: UseCasePlanning,
 		Question:         "Which frame is lost when a 10,000 frame/s stream feeds a 10 Mbit/s tagged trunk with a 1518-octet buffer?",
@@ -197,20 +197,20 @@ func CasePlanningOversubscribedTrunkStatedBuffer() Case {
 		ExpectedMetadata: &MetadataExpectation{Status: analysis.Complete, Scope: analysis.WholeScope()},
 		ExpectedOutcome:  trace.Dropped, ExpectedReason: traffic.ReasonQueueFull,
 		ExpectedRules:    []trace.RuleID{traffic.RuleQueueDrop},
-		ExpectedSubjects: []trace.Subject{{Kind: "port", Key: "1/1/2/0"}},
+		ExpectedSubjects: []trace.Subject{{Kind: "port", Key: `"1/1/2"/"0"`}},
 		ExpectedFacts:    []FactExpectation{queueFact}, ExpectedSteps: steps,
 		Execute: func() (ExecutionResult, error) { return executeLoadCase(&buffer, false, traffic.RuleQueueDrop) },
 	}
 }
 
-// CasePlanningOversubscribedTrunkUnstatedBuffer proves a delivered frame
+// casePlanningOversubscribedTrunkUnstatedBuffer proves a delivered frame
 // carries the first queue crossing and its runtime evidence despite no drop.
-func CasePlanningOversubscribedTrunkUnstatedBuffer() Case {
+func casePlanningOversubscribedTrunkUnstatedBuffer() Case {
 	context := `rule="traffic.queue.buffer-unstated";physical_node="sw1";physical_port="1/1/2";egress_port="1/1/2";pcp=0;frame_id=3;at="1970-01-01T00:00:00.000208304Z";depth_before_octets=1018;frame_octets=1018;threshold_octets=1518`
 	catalog, ref := analysis.EvidenceCatalog{}.Add(analysis.Evidence{Kind: "fabric.runtime", Origin: "egress-queue", Context: context})
 	queueFact := NewFactExpectation(traffic.QueueThresholdFact(1018, 1018, 1518))
-	queueStep := expectedStep(traffic.Layer, trace.OpQueue, traffic.RuleQueueBufferUnstated,
-		trace.Subject{Kind: "port", Key: "1/1/2/0"}, []FactExpectation{queueFact}, nil)
+	queueStep := expectedStep(traffic.LayerName, trace.OpQueue, traffic.RuleQueueBufferUnstated,
+		trace.Subject{Kind: "port", Key: `"1/1/2"/"0"`}, []FactExpectation{queueFact}, nil)
 	queueStep.Evidence = []trace.EvidenceRef{ref}
 	steps := append(loadForwardSteps(), queueStep,
 		expectedStep("host", trace.OpFilter, "host.mac.own", trace.Subject{Kind: "host", Key: "h2"},
@@ -233,15 +233,15 @@ func CasePlanningOversubscribedTrunkUnstatedBuffer() Case {
 		},
 		ExpectedOutcome:  trace.Forwarded,
 		ExpectedRules:    []trace.RuleID{traffic.RuleQueueBufferUnstated, "host.mac.own"},
-		ExpectedSubjects: []trace.Subject{{Kind: "port", Key: "1/1/2/0"}, {Kind: "host", Key: "h2"}},
+		ExpectedSubjects: []trace.Subject{{Kind: "port", Key: `"1/1/2"/"0"`}, {Kind: "host", Key: "h2"}},
 		ExpectedFacts:    []FactExpectation{queueFact}, ExpectedSteps: steps,
 		Execute: func() (ExecutionResult, error) { return executeLoadCase(nil, false, traffic.RuleQueueBufferUnstated) },
 	}
 }
 
-// CasePlanningPolicedStream proves the ingress token bucket refuses the
+// casePlanningPolicedStream proves the ingress token bucket refuses the
 // second frame even though the first frame has enough burst tokens.
-func CasePlanningPolicedStream() Case {
+func casePlanningPolicedStream() Case {
 	policerFact := NewFactExpectation(traffic.PolicerDecisionFact(1_000_000, 1518, 1038, false))
 	return Case{
 		ID: "planning/policed-stream", UseCase: UseCasePlanning,
@@ -253,7 +253,7 @@ func CasePlanningPolicedStream() Case {
 		ExpectedRules:    []trace.RuleID{traffic.RulePolicerRefuse},
 		ExpectedSubjects: []trace.Subject{{Kind: "port", Key: "1/1/1"}},
 		ExpectedFacts:    []FactExpectation{policerFact},
-		ExpectedSteps: []StepExpectation{expectedStep(traffic.Layer, trace.OpDrop, traffic.RulePolicerRefuse,
+		ExpectedSteps: []StepExpectation{expectedStep(traffic.LayerName, trace.OpDrop, traffic.RulePolicerRefuse,
 			trace.Subject{Kind: "port", Key: "1/1/1"}, nil, []FactExpectation{policerFact})},
 		Execute: func() (ExecutionResult, error) { return executeLoadCase(nil, true, traffic.RulePolicerRefuse) },
 	}

@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -306,14 +308,14 @@ func TestOscillatingRootCycle(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	peerBridge := stp.BridgeID{Priority: 8192, Address: peerMAC}
-	rootA := stp.BridgeID{Priority: 4096, Address: netaddr.MAC{0, 0, 0, 0, 0, 1}}
-	rootB := stp.BridgeID{Priority: 8192, Address: netaddr.MAC{0, 0, 0, 0, 0, 2}}
+	peerBridge := bpdu.BridgeID{Priority: 8192, Address: peerMAC}
+	rootA := bpdu.BridgeID{Priority: 4096, Address: netaddr.MAC{0, 0, 0, 0, 0, 1}}
+	rootB := bpdu.BridgeID{Priority: 8192, Address: netaddr.MAC{0, 0, 0, 0, 0, 2}}
 
-	makeBPDU := func(root stp.BridgeID) ethernet.Frame {
-		b := stp.BPDU{
+	makeBPDU := func(root bpdu.BridgeID) ethernet.Frame {
+		b := bpdu.BPDU{
 			Version:      0,
-			Type:         stp.BPDUTypeConfiguration,
+			Type:         bpdu.TypeConfiguration,
 			RootID:       root,
 			BridgeID:     peerBridge,
 			PortID:       0x8001,
@@ -322,8 +324,8 @@ func TestOscillatingRootCycle(t *testing.T) {
 			MaxAge:       20 * time.Second,
 			ForwardDelay: 15 * time.Second,
 		}
-		b.SetRole(stp.RoleDesignated)
-		frame, err := stp.Encode(b, peerMAC)
+		b.SetRole(bpdu.RoleDesignated)
+		frame, err := bpdu.Encode(b, peerMAC)
 		if err != nil {
 			t.Fatalf("stp.Encode: %v", err)
 		}

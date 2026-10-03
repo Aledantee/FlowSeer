@@ -10,11 +10,11 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // The conservation property below is the one this package owes its callers: a frame that enters
-// a neighbor's hold queue leaves it exactly once, and Wake says how. It is asserted as a property
+// a neighbor's hold queue leaves it exactly once, and DrainExits says how. It is asserted as a property
 // rather than case by case because the three ways out were each fixed separately and each fix
 // opened the next hole — a released frame, a timed-out frame and an evicted frame are one
 // mechanism, and only a rule over all of them notices a fourth way out being added.
@@ -26,7 +26,7 @@ import (
 //     list counts because appendHeld moves a frame there inside the same call that queues it, so
 //     an evicted frame is never observable in queue and would otherwise look like an exit for a
 //     frame that never entered.
-//   - DiscardHeld removes a frame from the entered multiset rather than producing an exit. A
+//   - discardHeld removes a frame from the entered multiset rather than producing an exit. A
 //     derive boundary discards held frames unconditionally, and the fork that discarded them is a
 //     different run from the one that queued them; TestDiscardHeldThenWakePastDeadlineFailsTheEntry
 //     pins that decision.
@@ -55,7 +55,7 @@ var conservationAddrsV6 = []netip.Addr{
 }
 
 // badIPv6Src is IPv4-mapped (RFC 4291 section 2.5.5.2): ip.Decode accepts it as a Src address,
-// but ip.Header.Encode refuses it, which is exactly the header finding 1 pins.
+// but ip.Header.Encode refuses it.
 var badIPv6Src = netip.MustParseAddr("::ffff:10.0.0.1")
 
 var (
@@ -97,7 +97,7 @@ func conservationLayer(t *testing.T, depth int) *Layer {
 			},
 			NeighborPolicy: NeighborPolicy{ResolutionTimeout: time.Second, HoldDepth: depth},
 		},
-	}}, port.Table{}, "sw1")
+	}}, layer.Env{NodeID: "sw1"})
 	if err != nil {
 		t.Fatalf("routing.New: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestHoldQueueConservesEveryFrame(t *testing.T) {
 }
 
 // conservationRun is what one sequence produced: the payload markers observed in a hold queue,
-// the markers Wake reported leaving one, the markers DiscardHeld took out of the accounting, and
+// the markers DrainExits reported leaving one, the markers discardHeld took out of the accounting, and
 // a count per cause.
 type conservationRun struct {
 	entered   []byte
@@ -223,7 +223,8 @@ func runConservation(t *testing.T, depth int, ops []conservationOp) conservation
 		}
 	}
 	drain := func(at time.Time) {
-		for _, hf := range l.Wake(at).Exits {
+		l.Advance(at)
+		for _, hf := range l.DrainExits() {
 			run.exited = append(run.exited, hf.Frame.Payload[len(hf.Frame.Payload)-1])
 			run.causes[hf.Cause]++
 			// A released frame carries a resolved destination; the two failure causes carry
@@ -243,7 +244,7 @@ func runConservation(t *testing.T, depth int, ops []conservationOp) conservation
 		case "queue-oversize":
 			// 65516 octets under a 20-octet IPv4 header is one past the total-length field, so
 			// Originate must refuse it outright. Queued instead, it would be re-encoded at
-			// release, fail there, and leave the queue by a path Wake reports nothing for.
+			// release, fail there, and leave the queue by a path DrainExits reports nothing for.
 			marker++
 			payload := make([]byte, 65516)
 			payload[len(payload)-1] = marker
@@ -269,8 +270,8 @@ func runConservation(t *testing.T, depth int, ops []conservationOp) conservation
 			}, true)
 		case "queue-route-badheader":
 			// ip.Decode accepts an IPv6 header whose Src is IPv4-mapped, but
-			// ip.Header.Encode refuses it (finding 1): queued anyway, it would be
-			// re-encoded at release, fail there, and leave the queue by a path Wake
+			// ip.Header.Encode refuses it: queued anyway, it would be
+			// re-encoded at release, fail there, and leave the queue by a path DrainExits
 			// reports nothing for.
 			marker++
 			b := encodeUnencodableIPv6Packet(conservationAddrsV6[op.neighbor], []byte{marker})
@@ -289,7 +290,7 @@ func runConservation(t *testing.T, depth int, ops []conservationOp) conservation
 			})
 		case "discard":
 			run.discarded = append(run.discarded, held()...)
-			l.DiscardHeld()
+			l.discardHeld()
 		case "wake":
 			drain(now)
 		case "timeout":
@@ -323,11 +324,10 @@ func firstDuplicate(s []byte) byte {
 	return 0
 }
 
-// TestResolveNeighborStoredZeroStateIsAMiss is finding 7: [NeighborState]'s zero value,
-// [NeighborUnobserved], is meaningful only as a lookup answer, but [neighborEntry]{} is a legal
-// Go zero value too. No exported path stores one — this reaches into the package to reproduce it
-// directly and pins that [vrfState.resolveNeighbor] treats a stored zero state as a miss rather
-// than silently starting to hold frames for a neighbor nothing ever looked up.
+// TestResolveNeighborStoredZeroStateIsAMiss tests that [vrfState.resolveNeighbor] treats a stored
+// zero state as a miss rather than silently starting to hold frames for a neighbor nothing ever looked up.
+// [NeighborState]'s zero value, [NeighborUnobserved], is meaningful only as a lookup answer, but [neighborEntry]{}
+// is a legal Go zero value too. No exported path stores one. This reaches into the package to reproduce it directly.
 func TestResolveNeighborStoredZeroStateIsAMiss(t *testing.T) {
 	t.Parallel()
 
@@ -355,5 +355,65 @@ func TestResolveNeighborStoredZeroStateIsAMiss(t *testing.T) {
 	}
 	if len(vs.neighbors[key].queue) != 0 {
 		t.Errorf("queue length = %d, want 0", len(vs.neighbors[key].queue))
+	}
+}
+
+// TestDiscardHeldThenWakePastDeadlineFailsTheEntry verifies that expiry still moves an
+// incomplete entry to Failed after discardHeld empties its held-frame queue.
+func TestDiscardHeldThenWakePastDeadlineFailsTheEntry(t *testing.T) {
+	t.Parallel()
+	l := conservationLayer(t, 3)
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	dst := conservationAddrs[0]
+
+	route := func(commit bool) Result {
+		hdr := ip.Header{
+			Src:      netip.MustParseAddr("10.0.10.99"),
+			Dst:      dst,
+			HopLimit: 64,
+			Protocol: 17,
+			V4:       &ip.V4{},
+		}
+		b, err := hdr.Encode([]byte("data"))
+		if err != nil {
+			t.Fatalf("encode: %v", err)
+		}
+		return l.Route(now, "vlan10", ethernet.Frame{
+			Src:       conservationSenderMAC,
+			Dst:       conservationDeviceMAC,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   b,
+		}, commit)
+	}
+
+	res := route(true)
+	if res.Reason != ReasonNeighborPending {
+		t.Fatalf("reason = %q, want pending", res.Reason)
+	}
+	if _, ok := l.NextWake(); !ok {
+		t.Fatal("NextWake reports no timer before discardHeld, want one")
+	}
+
+	l.discardHeld()
+
+	// discardHeld leaves state and expiry alone: the entry is still Incomplete, still pending.
+	after := route(false)
+	if after.Reason != ReasonNeighborPending {
+		t.Fatalf("reason after discardHeld = %q, want still pending", after.Reason)
+	}
+
+	now = now.Add(time.Second)
+	l.Advance(now)
+	eff := l.DrainExits()
+	if len(eff) != 0 {
+		t.Fatalf("exits = %+v, want none: discardHeld left no frames to report", eff)
+	}
+	if _, ok := l.NextWake(); ok {
+		t.Error("NextWake still reports a timer once the entry failed, want none")
+	}
+
+	final := route(true)
+	if final.Reason != ReasonNeighborMiss {
+		t.Fatalf("reason after expiry = %q, want %q (the entry reached Failed on its own)", final.Reason, ReasonNeighborMiss)
 	}
 }

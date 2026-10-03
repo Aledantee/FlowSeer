@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/tcp"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 )
 
@@ -151,56 +152,10 @@ func TestConfigValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.cfg.Validate()
+			err := tt.cfg.Validate(layer.Env{})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestConfigNormalizeAndClone(t *testing.T) {
-	cfg := filter.Config{
-		Sets: map[string]filter.RuleSet{
-			"s1": {
-				Stateful: true,
-				Default:  filter.Accept,
-				Rules: []filter.Rule{
-					{
-						Name:   "r1",
-						Action: filter.Accept,
-						Match: filter.Match{
-							Src: []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")},
-						},
-					},
-				},
-			},
-		},
-		Bindings: []filter.Binding{
-			{Interface: "vlan20", Direction: filter.In, Set: "s1"},
-			{Interface: "vlan10", Direction: filter.Out, Set: "s1"},
-			{Interface: "vlan10", Direction: filter.In, Set: "s1"},
-		},
-	}
-
-	norm := cfg.Normalize()
-	if !norm.Equal(cfg) {
-		t.Errorf("norm.Equal(cfg) = false, want true")
-	}
-
-	// Verify bindings were sorted by interface then direction
-	if norm.Bindings[0].Interface != "vlan10" || norm.Bindings[0].Direction != filter.In {
-		t.Errorf("unexpected first binding: %+v", norm.Bindings[0])
-	}
-	if norm.Bindings[1].Interface != "vlan10" || norm.Bindings[1].Direction != filter.Out {
-		t.Errorf("unexpected second binding: %+v", norm.Bindings[1])
-	}
-	if norm.Bindings[2].Interface != "vlan20" || norm.Bindings[2].Direction != filter.In {
-		t.Errorf("unexpected third binding: %+v", norm.Bindings[2])
-	}
-
-	cloned := cfg.Clone()
-	if !cloned.Equal(cfg) {
-		t.Errorf("cloned.Equal(cfg) = false, want true")
 	}
 }

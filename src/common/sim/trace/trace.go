@@ -4,6 +4,7 @@ package trace
 import (
 	"cmp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -80,6 +81,24 @@ func (s Subject) String() string {
 		return s.Kind
 	}
 	return s.Kind + ":" + s.Key
+}
+
+// CompositeKey returns a deterministic subject key joining parts.
+// A subject key of one part is the identifier. A key of several parts quotes each
+// with strconv.Quote and joins them with "/", ensuring identifiers with slashes do not collide.
+func CompositeKey(parts ...string) string {
+	switch len(parts) {
+	case 0:
+		return ""
+	case 1:
+		return parts[0]
+	default:
+		encoded := make([]string, len(parts))
+		for i, part := range parts {
+			encoded[i] = strconv.Quote(part)
+		}
+		return strings.Join(encoded, "/")
+	}
 }
 
 // EvidenceRef is an opaque identifier referencing supporting evidence in an evidence catalog.
@@ -178,11 +197,11 @@ func (s Step) Equal(other Step) bool {
 
 // EqualStep reports whether two steps are semantically equal.
 func EqualStep(a, b Step) bool {
-	return CompareStep(a, b) == 0
+	return compareStep(a, b) == 0
 }
 
-// CompareStep compares two steps canonically.
-func CompareStep(a, b Step) int {
+// compareStep compares two steps canonically.
+func compareStep(a, b Step) int {
 	ca := a.Canonical()
 	cb := b.Canonical()
 
@@ -299,7 +318,7 @@ func Equal(a, b Trace) bool {
 
 // String returns the deterministic human-readable representation of the trace.
 func (t Trace) String() string {
-	return Render(t)
+	return render(t)
 }
 
 // Change records a transition in one configuration field of a subject between two configurations.
@@ -334,17 +353,17 @@ func (c Change) Canonical() Change {
 
 // Equal reports whether two changes are semantically equal.
 func (c Change) Equal(other Change) bool {
-	return EqualChange(c, other)
+	return equalChange(c, other)
 }
 
-// EqualChange reports whether two changes are semantically equal.
-func EqualChange(a, b Change) bool {
-	return CompareChange(a, b) == 0
+// equalChange reports whether two changes are semantically equal.
+func equalChange(a, b Change) bool {
+	return compareChange(a, b) == 0
 }
 
-// CompareChange compares two changes in canonical order.
+// compareChange compares two changes in canonical order.
 // The order evaluates Layer, Subject (Kind then Key), Field, From fact, To fact, and Evidence.
-func CompareChange(a, b Change) int {
+func compareChange(a, b Change) int {
 	ca := a.Canonical()
 	cb := b.Canonical()
 
@@ -366,22 +385,9 @@ func CompareChange(a, b Change) int {
 	return slices.Compare(ca.Evidence, cb.Evidence)
 }
 
-// SortChanges sorts a slice of changes in-place by their canonical ordering.
-func SortChanges(changes []Change) {
-	slices.SortFunc(changes, CompareChange)
-}
-
-// CanonicalChanges returns a sorted copy of changes with each change canonicalized.
-func CanonicalChanges(changes []Change) []Change {
-	if changes == nil {
-		return nil
-	}
-	out := make([]Change, len(changes))
-	for i, c := range changes {
-		out[i] = c.Canonical()
-	}
-	SortChanges(out)
-	return out
+// sortChanges sorts a slice of changes in-place by their canonical ordering.
+func sortChanges(changes []Change) {
+	slices.SortFunc(changes, compareChange)
 }
 
 // String returns the deterministic human-readable representation of the change.

@@ -1057,8 +1057,8 @@ func TestConfigureActionValidateAndDiff(t *testing.T) {
 			}
 			if c.Subject.Key == wantKey {
 				found = true
-				if c.Layer != port.LayerVLAN || c.Field != "name" {
-					t.Errorf("change %s layer/field = (%v, %q), want (%v, name)", wantKey, c.Layer, c.Field, port.LayerVLAN)
+				if c.Layer != bridge.LayerNameVLAN || c.Field != "name" {
+					t.Errorf("change %s layer/field = (%v, %q), want (%v, name)", wantKey, c.Layer, c.Field, bridge.LayerNameVLAN)
 				}
 			}
 		}

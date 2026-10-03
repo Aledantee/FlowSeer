@@ -1,4 +1,4 @@
-package stp
+package bpdu
 
 import (
 	"encoding/binary"
@@ -10,10 +10,14 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 )
 
-// GroupAddressSSTP is the destination address Cisco PVST+ uses for SSTP BPDUs
-// (01:00:0c:cc:cc:cd), sent once per VLAN alongside (not instead of) the
+var sstpGroupAddress = netaddr.MAC{0x01, 0x00, 0x0c, 0xcc, 0xcc, 0xcd}
+
+// GroupAddressSSTP returns the destination address Cisco PVST+ uses for SSTP
+// BPDUs (01:00:0c:cc:cc:cd), sent once per VLAN alongside (not instead of) the
 // shared IEEE bridge group address [Encode] and [Decode] use.
-var GroupAddressSSTP = netaddr.MAC{0x01, 0x00, 0x0c, 0xcc, 0xcc, 0xcd}
+func GroupAddressSSTP() netaddr.MAC {
+	return sstpGroupAddress
+}
 
 const (
 	// sstpPayloadLength is the fixed SSTP payload length in octets: the
@@ -44,8 +48,7 @@ const (
 // header already reaches 64.
 func EncodeSSTP(b BPDU, vid vlan.ID, src netaddr.MAC) (ethernet.Frame, error) {
 	if b.ConfigID != nil {
-		return ethernet.Frame{}, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return ethernet.Frame{}, errs.From(ErrUnsupported).
 			Msg("SSTP has no MST form: b.ConfigID must be nil")
 	}
 
@@ -64,22 +67,19 @@ func EncodeSSTP(b BPDU, vid vlan.ID, src netaddr.MAC) (ethernet.Frame, error) {
 	payload[12] = b.Flags
 
 	// putBody writes the RST body fields (root id through forward delay)
-	// starting at relative offset 8 of the slice it is given. In the plain
-	// LLC payload [Encode] passes, that offset lands right after the LLC
-	// header, protocol identifier, version, type, and flags octets it wrote
-	// itself. Slicing this payload at 5 (past the LLC header and the
-	// 5-octet SNAP header) puts protocol identifier through flags at the
-	// same relative offset 3-7, so putBody's relative offset 8 lands on
-	// absolute offset 13, exactly where the SSTP layout puts the root id.
+	// starting at relative offset 8 of the slice it is given. Slicing this
+	// payload at 5 places putBody's relative offset 8 at absolute offset 13
+	// (following the 8-octet LLC/SNAP header and the 5-octet protocol identifier,
+	// version, type, and flags prefix), where the SSTP layout puts the root id.
 	putBody(payload[5:], b)
-	payload[43] = 0 // the version 1 length octet putBody leaves unwritten
+	payload[43] = 0
 
 	binary.BigEndian.PutUint16(payload[44:46], 0x0000)
 	binary.BigEndian.PutUint16(payload[46:48], 0x0002)
 	binary.BigEndian.PutUint16(payload[48:50], uint16(vid))
 
 	return ethernet.Frame{
-		Dst:       GroupAddressSSTP,
+		Dst:       sstpGroupAddress,
 		Src:       src,
 		EtherType: ethernet.EtherType(sstpPayloadLength),
 		Payload:   payload,
@@ -87,79 +87,69 @@ func EncodeSSTP(b BPDU, vid vlan.ID, src netaddr.MAC) (ethernet.Frame, error) {
 }
 
 // DecodeSSTP deserializes an SSTP BPDU from the payload of an Ethernet
-// frame, the inverse of [EncodeSSTP]. It rejects, each with
-// [ReasonUnsupportedBPDU]: a payload shorter than 50 octets; an LLC header
-// other than AA AA 03; an SNAP OUI other than 00-00-0C; an SNAP PID other
-// than 0x010B; a protocol identifier other than 0; a version below 2; a
-// wire type other than 0x02; a TLV type other than 0; and a TLV length
-// other than 2.
+// frame, the inverse of [EncodeSSTP]. It rejects, wrapping [ErrUnsupported]:
+// a payload shorter than 50 octets; an LLC header other than AA AA 03; an
+// SNAP OUI other than 00-00-0C; an SNAP PID other than 0x010B; a protocol
+// identifier other than 0; a version below 2; a wire type other than 0x02;
+// a TLV type other than 0; and a TLV length other than 2.
 func DecodeSSTP(f ethernet.Frame) (BPDU, vlan.ID, error) {
 	if len(f.Payload) < sstpPayloadLength {
-		return BPDU{}, 0, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, 0, errs.From(ErrUnsupported).
 			Attr("have", len(f.Payload)).
 			Attr("min", sstpPayloadLength).
 			Msgf("SSTP BPDU payload length %d is too short", len(f.Payload))
 	}
 
 	if f.Payload[0] != 0xAA || f.Payload[1] != 0xAA || f.Payload[2] != 0x03 {
-		return BPDU{}, 0, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, 0, errs.From(ErrUnsupported).
 			Attr("llc_header", fmt.Sprintf("% x", f.Payload[0:3])).
 			Msgf("unsupported SSTP LLC header % x, want AA AA 03", f.Payload[0:3])
 	}
 
 	if f.Payload[3] != 0x00 || f.Payload[4] != 0x00 || f.Payload[5] != 0x0C {
-		return BPDU{}, 0, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, 0, errs.From(ErrUnsupported).
 			Attr("oui", fmt.Sprintf("%02x-%02x-%02x", f.Payload[3], f.Payload[4], f.Payload[5])).
 			Msgf("unsupported SSTP SNAP OUI % x, want 00-00-0C", f.Payload[3:6])
 	}
 
 	pid := binary.BigEndian.Uint16(f.Payload[6:8])
 	if pid != sstpSNAPPID {
-		return BPDU{}, 0, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, 0, errs.From(ErrUnsupported).
 			Attr("pid", pid).
 			Msgf("unsupported SSTP SNAP PID 0x%04x, want 0x%04x", pid, uint16(sstpSNAPPID))
 	}
 
 	protoID := binary.BigEndian.Uint16(f.Payload[8:10])
 	if protoID != 0 {
-		return BPDU{}, 0, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, 0, errs.From(ErrUnsupported).
 			Attr("protocol_id", protoID).
 			Msgf("unsupported SSTP protocol identifier 0x%04x, want 0x0000", protoID)
 	}
 
 	version := f.Payload[10]
 	if version < 2 {
-		return BPDU{}, 0, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, 0, errs.From(ErrUnsupported).
 			Attr("version", version).
 			Msgf("unsupported SSTP BPDU version %d, want at least 2", version)
 	}
 
 	wireType := f.Payload[11]
 	if wireType != bpduTypeWireRST {
-		return BPDU{}, 0, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, 0, errs.From(ErrUnsupported).
 			Attr("type", wireType).
 			Msgf("unsupported SSTP BPDU type %d, want 2", wireType)
 	}
 
 	tlvType := binary.BigEndian.Uint16(f.Payload[44:46])
 	if tlvType != 0 {
-		return BPDU{}, 0, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, 0, errs.From(ErrUnsupported).
 			Attr("tlv_type", tlvType).
 			Msgf("unsupported SSTP TLV type 0x%04x, want 0x0000", tlvType)
 	}
 
 	tlvLength := binary.BigEndian.Uint16(f.Payload[46:48])
 	if tlvLength != 2 {
-		return BPDU{}, 0, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
+		return BPDU{}, 0, errs.From(ErrUnsupported).
 			Attr("tlv_length", tlvLength).
 			Msgf("unsupported SSTP TLV length %d, want 2", tlvLength)
 	}
@@ -169,7 +159,7 @@ func DecodeSSTP(f ethernet.Frame) (BPDU, vlan.ID, error) {
 		return BPDU{}, 0, err
 	}
 	b.Version = version
-	b.Type = BPDUTypeRapid
+	b.Type = TypeRapid
 	b.Flags = f.Payload[12]
 
 	vid := vlan.ID(binary.BigEndian.Uint16(f.Payload[48:50]))

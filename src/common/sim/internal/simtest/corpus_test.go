@@ -20,6 +20,14 @@ func TestSchemaVersion(t *testing.T) {
 	}
 }
 
+func mustCase(id string) simtest.Case {
+	c, ok := simtest.DefaultRegistry().Get(id)
+	if !ok {
+		panic("unknown case: " + id)
+	}
+	return c
+}
+
 func TestIssueExpectationIgnoresMessageButRequiresSemanticIdentity(t *testing.T) {
 	scope := analysis.ProtocolScope("sw1", "routing", "default")
 	issue := analysis.Issue{
@@ -63,7 +71,7 @@ func TestIssueExpectationIgnoresMessageButRequiresSemanticIdentity(t *testing.T)
 }
 
 func TestAssertCaseIgnoresIssueMessageWordingAcrossRuns(t *testing.T) {
-	c := simtest.CaseShadowingPartialUnknownPort()
+	c := mustCase("topology-shadowing/partial-model-unknown-port")
 	origExecute := c.Execute
 	executions := 0
 	c.Execute = func() (simtest.ExecutionResult, error) {
@@ -86,7 +94,7 @@ func TestAssertCaseIgnoresIssueMessageWordingAcrossRuns(t *testing.T) {
 }
 
 func TestAdmissionValidation(t *testing.T) {
-	validCase := simtest.CasePlanningPortVLANChange()
+	validCase := mustCase("planning/port-vlan-change")
 
 	tests := []struct {
 		name    string
@@ -412,7 +420,7 @@ func TestAdmissionRejectsMetadataStatusContradictions(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			c := simtest.CasePlanningPortVLANChange()
+			c := mustCase("planning/port-vlan-change")
 			c.ExpectedForwardMetadata = &tc.expectation
 
 			err := simtest.ValidateCase(c)
@@ -427,7 +435,7 @@ func TestAdmissionRejectsMetadataStatusContradictions(t *testing.T) {
 }
 
 func TestAdmissionRejectsPrimaryMetadataStatusPrecedenceContradiction(t *testing.T) {
-	c := simtest.CasePlanningPortVLANChange()
+	c := mustCase("planning/port-vlan-change")
 	var catalog analysis.EvidenceCatalog
 	catalog, incompleteRef := catalog.Add(analysis.Evidence{Kind: "test.status", Origin: "corpus-test", Context: "incomplete issue"})
 	catalog, unsupportedRef := catalog.Add(analysis.Evidence{Kind: "test.status", Origin: "corpus-test", Context: "unsupported issue"})
@@ -450,7 +458,7 @@ func TestAdmissionRejectsPrimaryMetadataStatusPrecedenceContradiction(t *testing
 
 func TestRegistryDuplicateRejection(t *testing.T) {
 	r := simtest.NewRegistry()
-	c := simtest.CasePlanningPortVLANChange()
+	c := mustCase("planning/port-vlan-change")
 
 	if err := r.Register(c); err != nil {
 		t.Fatalf("first registration failed: %v", err)
@@ -467,7 +475,7 @@ func TestRegistryDuplicateRejection(t *testing.T) {
 
 func TestRegistryCopyIsolation(t *testing.T) {
 	r := simtest.NewRegistry()
-	c := simtest.CasePlanningPortVLANChange()
+	c := mustCase("planning/port-vlan-change")
 	r.MustRegister(c)
 
 	retrieved, ok := r.Get(c.ID)
@@ -512,7 +520,7 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	}
 
 	// Also verify non-Complete shadowing case isolation for issues, scopes, evidence, assumptions.
-	cShadow := simtest.CaseShadowingPartialUnknownPort()
+	cShadow := mustCase("topology-shadowing/partial-model-unknown-port")
 	r.MustRegister(cShadow)
 
 	retrievedShadow, ok := r.Get(cShadow.ID)
@@ -663,7 +671,7 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 }
 
 func TestExecutePlanningCase(t *testing.T) {
-	c := simtest.CasePlanningPortVLANChange()
+	c := mustCase("planning/port-vlan-change")
 	res := simtest.AssertCase(t, c)
 
 	if res.Comparison == nil {
@@ -702,7 +710,7 @@ func TestExecutePlanningCase(t *testing.T) {
 }
 
 func TestExecuteShadowingCase(t *testing.T) {
-	c := simtest.CaseShadowingPartialUnknownPort()
+	c := mustCase("topology-shadowing/partial-model-unknown-port")
 	res := simtest.AssertCase(t, c)
 
 	if res.ModelResult == nil {
@@ -737,7 +745,7 @@ func TestExecuteShadowingCase(t *testing.T) {
 }
 
 func TestExecuteTroubleshootingCase(t *testing.T) {
-	c := simtest.CaseTroubleshootingUnicastForwarding()
+	c := mustCase("troubleshooting/unicast-fdb-forwarding")
 	res := simtest.AssertCase(t, c)
 
 	if res.Forward == nil {
@@ -780,7 +788,7 @@ func TestCorpusAdmitsAndExecutesEveryCaseDeterministically(t *testing.T) {
 }
 
 func TestUnresolvedTransceiverCasesShareOneFabricButDivergeInTrust(t *testing.T) {
-	incomplete := simtest.AssertCase(t, simtest.CaseTopologyShadowingUnresolvedTransceiver())
+	incomplete := simtest.AssertCase(t, mustCase("topology-shadowing/unresolved-transceiver"))
 	if incomplete.Journey == nil {
 		t.Fatal("res.Journey is nil")
 	}
@@ -794,7 +802,7 @@ func TestUnresolvedTransceiverCasesShareOneFabricButDivergeInTrust(t *testing.T)
 		t.Errorf("fabric metadata link issues = %+v, want propagation-unknown", got)
 	}
 
-	complete := simtest.AssertCase(t, simtest.CaseTopologyShadowingUnresolvedTransceiverKnownDelivery())
+	complete := simtest.AssertCase(t, mustCase("topology-shadowing/unresolved-transceiver-known-delivery"))
 	if complete.Journey == nil || len(complete.Journey.Deliveries) != 1 || complete.Journey.Deliveries[0].Host != "h3" {
 		t.Errorf("deliveries = %+v, want one to h3", complete.Journey.Deliveries)
 	}
@@ -804,7 +812,7 @@ func TestUnresolvedTransceiverCasesShareOneFabricButDivergeInTrust(t *testing.T)
 }
 
 func TestUncabledPortDefiniteDropLocalizesAwayFromTheOmittedPort(t *testing.T) {
-	res := simtest.AssertCase(t, simtest.CaseTopologyShadowingUncabledPortDefiniteDrop())
+	res := simtest.AssertCase(t, mustCase("topology-shadowing/uncabled-port-definite-drop"))
 	if res.FabricMetadata == nil {
 		t.Fatal("res.FabricMetadata is nil")
 	}
@@ -818,14 +826,14 @@ func TestUncabledPortDefiniteDropLocalizesAwayFromTheOmittedPort(t *testing.T) {
 }
 
 func TestUnreportedNegotiationDropsWithoutDeliveringToTheUnknownPort(t *testing.T) {
-	res := simtest.AssertCase(t, simtest.CaseTopologyShadowingUnreportedNegotiation())
+	res := simtest.AssertCase(t, mustCase("topology-shadowing/unreported-negotiation"))
 	if res.Journey == nil || len(res.Journey.Deliveries) != 0 {
 		t.Errorf("deliveries = %+v, want none: h2's link never resolved", res.Journey.Deliveries)
 	}
 }
 
 func TestUnknownUplinkSTPCarriesProtocolIssuesOnTheKnownPath(t *testing.T) {
-	res := simtest.AssertCase(t, simtest.CaseTopologyShadowingUnknownUplinkSTP())
+	res := simtest.AssertCase(t, mustCase("topology-shadowing/unknown-uplink-stp"))
 	if res.Journey == nil || len(res.Journey.Deliveries) != 1 || res.Journey.Deliveries[0].Host != "h2" {
 		t.Errorf("deliveries = %+v, want one to h2 over the known uplink", res.Journey.Deliveries)
 	}
@@ -838,7 +846,7 @@ func TestUnknownUplinkSTPCarriesProtocolIssuesOnTheKnownPath(t *testing.T) {
 }
 
 func TestHostRejectsForeignUnicastOverAFullyResolvedPath(t *testing.T) {
-	res := simtest.AssertCase(t, simtest.CaseTroubleshootingHostRejectsForeignUnicast())
+	res := simtest.AssertCase(t, mustCase("troubleshooting/host-rejects-foreign-unicast"))
 	if res.Journey == nil {
 		t.Fatal("res.Journey is nil")
 	}
@@ -856,7 +864,7 @@ func TestHostRejectsForeignUnicastOverAFullyResolvedPath(t *testing.T) {
 // the query h1 injected, so its Parent names the query's frame and it alone
 // carries the delivery to h2.
 func TestReflectedQueryPinsTheCopyNotTheInjectedQuery(t *testing.T) {
-	res := simtest.AssertCase(t, simtest.CaseTroubleshootingMDNSReflectedAcrossVLANs())
+	res := simtest.AssertCase(t, mustCase("troubleshooting/mdns-reflected-across-vlans"))
 	if res.Journey == nil {
 		t.Fatal("res.Journey is nil")
 	}
@@ -873,7 +881,7 @@ func TestReflectedQueryPinsTheCopyNotTheInjectedQuery(t *testing.T) {
 // (FrameID > 1), and it is the one whose arrival re-entered an endpoint
 // its own ancestry already carries.
 func TestTwoReflectorsLoopPinsTheReenteringCopy(t *testing.T) {
-	res := simtest.AssertCase(t, simtest.CaseTroubleshootingMDNSTwoReflectorsLoop())
+	res := simtest.AssertCase(t, mustCase("troubleshooting/mdns-two-reflectors-loop"))
 	if res.Journey == nil {
 		t.Fatal("res.Journey is nil")
 	}
@@ -897,7 +905,7 @@ func TestExecutionResultStatusDerivesFromMetadata(t *testing.T) {
 }
 
 func TestAdmissionRequiresPrimaryMetadataEvidenceContents(t *testing.T) {
-	c := simtest.CaseShadowingPartialUnknownPort()
+	c := mustCase("topology-shadowing/partial-model-unknown-port")
 	c.ExpectedMetadata.Evidence = nil
 	err := simtest.ValidateCase(c)
 	if err == nil {
@@ -917,7 +925,7 @@ func TestAdmissionRequiresIssueEvidenceOnEveryNestedMetadataAxis(t *testing.T) {
 	}{
 		{
 			name:   "comparison current",
-			caseFn: simtest.CasePlanningPortVLANChange,
+			caseFn: func() simtest.Case { return mustCase("planning/port-vlan-change") },
 			mutate: func(c *simtest.Case) {
 				c.ExpectedComparison.Current.Metadata = metadataWithUnprovenIssue()
 			},
@@ -925,7 +933,7 @@ func TestAdmissionRequiresIssueEvidenceOnEveryNestedMetadataAxis(t *testing.T) {
 		},
 		{
 			name:   "comparison expected",
-			caseFn: simtest.CasePlanningPortVLANChange,
+			caseFn: func() simtest.Case { return mustCase("planning/port-vlan-change") },
 			mutate: func(c *simtest.Case) {
 				c.ExpectedComparison.Expected.Metadata = metadataWithUnprovenIssue()
 			},
@@ -933,7 +941,7 @@ func TestAdmissionRequiresIssueEvidenceOnEveryNestedMetadataAxis(t *testing.T) {
 		},
 		{
 			name:   "model",
-			caseFn: simtest.CaseShadowingPartialUnknownPort,
+			caseFn: func() simtest.Case { return mustCase("topology-shadowing/partial-model-unknown-port") },
 			mutate: func(c *simtest.Case) {
 				isolated := c.ExpectedModelMetadata.Canonical()
 				c.ExpectedModelMetadata = &isolated
@@ -943,7 +951,7 @@ func TestAdmissionRequiresIssueEvidenceOnEveryNestedMetadataAxis(t *testing.T) {
 		},
 		{
 			name:   "forward",
-			caseFn: simtest.CaseShadowingPartialUnknownPort,
+			caseFn: func() simtest.Case { return mustCase("topology-shadowing/partial-model-unknown-port") },
 			mutate: func(c *simtest.Case) {
 				for i := range c.ExpectedForwardMetadata.Issues {
 					c.ExpectedForwardMetadata.Issues[i].Evidence = nil
@@ -971,9 +979,9 @@ func TestAdmissionRequiresIssueEvidenceOnEveryNestedMetadataAxis(t *testing.T) {
 
 func TestBaselineMetadataIssuesCarryResolvableEvidence(t *testing.T) {
 	for _, c := range []simtest.Case{
-		simtest.CasePlanningPortVLANChange(),
-		simtest.CaseShadowingPartialUnknownPort(),
-		simtest.CaseTroubleshootingUnicastForwarding(),
+		mustCase("planning/port-vlan-change"),
+		mustCase("topology-shadowing/partial-model-unknown-port"),
+		mustCase("troubleshooting/unicast-fdb-forwarding"),
 	} {
 		axes := map[string]*simtest.MetadataExpectation{
 			"result":  c.ExpectedMetadata,
@@ -1034,7 +1042,7 @@ func (r *recordingTB) Fatalf(format string, args ...any) {
 }
 
 func TestAssertCaseVerifiesExactPrimaryEvidenceAndAssumptions(t *testing.T) {
-	c := simtest.CaseShadowingPartialUnknownPort()
+	c := mustCase("topology-shadowing/partial-model-unknown-port")
 	origExecute := c.Execute
 	c.Execute = func() (simtest.ExecutionResult, error) {
 		res, err := origExecute()
@@ -1057,7 +1065,7 @@ func TestAssertCaseVerifiesExactPrimaryEvidenceAndAssumptions(t *testing.T) {
 }
 
 func TestShadowingCasePopulatesEvidenceAndAssumptions(t *testing.T) {
-	c := simtest.CaseShadowingPartialUnknownPort()
+	c := mustCase("topology-shadowing/partial-model-unknown-port")
 	for axis, metadata := range map[string]*simtest.MetadataExpectation{
 		"result":  c.ExpectedMetadata,
 		"model":   c.ExpectedModelMetadata,
@@ -1102,7 +1110,7 @@ func TestAssertCaseRequiresExactSideMetadata(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			c := simtest.CaseShadowingPartialUnknownPort()
+			c := mustCase("topology-shadowing/partial-model-unknown-port")
 			test.mutate(c.ExpectedModelMetadata)
 
 			rec := &recordingTB{}
@@ -1115,7 +1123,7 @@ func TestAssertCaseRequiresExactSideMetadata(t *testing.T) {
 }
 
 func TestAssertCaseRejectsUndeclaredCatalogEvidence(t *testing.T) {
-	c := simtest.CasePlanningPortVLANChange()
+	c := mustCase("planning/port-vlan-change")
 	cat := analysis.EvidenceCatalog{}
 	cat, _ = cat.Add(analysis.Evidence{
 		Kind:    "test.kind",
@@ -1141,7 +1149,7 @@ func TestAssertCaseRejectsUndeclaredCatalogEvidence(t *testing.T) {
 }
 
 func TestAssertCaseRequiresExactAssumptionMatch(t *testing.T) {
-	c := simtest.CaseShadowingPartialUnknownPort()
+	c := mustCase("topology-shadowing/partial-model-unknown-port")
 	c.ExpectedMetadata.Assumptions[0].Statement = "aging_time: 300s"
 
 	rec := &recordingTB{}
@@ -1153,7 +1161,7 @@ func TestAssertCaseRequiresExactAssumptionMatch(t *testing.T) {
 }
 
 func TestAssertCaseBindsTrustEvidenceToItsIssueAndAssumption(t *testing.T) {
-	c := simtest.CaseShadowingPartialUnknownPort()
+	c := mustCase("topology-shadowing/partial-model-unknown-port")
 	origExecute := c.Execute
 	c.Execute = func() (simtest.ExecutionResult, error) {
 		res, err := origExecute()
@@ -1177,7 +1185,7 @@ func TestAssertCaseBindsTrustEvidenceToItsIssueAndAssumption(t *testing.T) {
 }
 
 func TestAssertCaseRejectsReorderedDecisiveSteps(t *testing.T) {
-	c := simtest.CaseTroubleshootingUnicastForwarding()
+	c := mustCase("troubleshooting/unicast-fdb-forwarding")
 	origExecute := c.Execute
 	c.Execute = func() (simtest.ExecutionResult, error) {
 		res, err := origExecute()
@@ -1196,7 +1204,7 @@ func TestAssertCaseRejectsReorderedDecisiveSteps(t *testing.T) {
 }
 
 func TestAssertCaseRejectsFactOnWrongStep(t *testing.T) {
-	c := simtest.CaseTroubleshootingUnicastForwarding()
+	c := mustCase("troubleshooting/unicast-fdb-forwarding")
 	baseline, err := c.Execute()
 	if err != nil {
 		t.Fatalf("execute baseline: %v", err)
@@ -1228,7 +1236,7 @@ func TestAssertCaseRejectsFactOnWrongStep(t *testing.T) {
 }
 
 func TestAssertCaseRejectsBroaderIssueScope(t *testing.T) {
-	c := simtest.CaseShadowingPartialUnknownPort()
+	c := mustCase("topology-shadowing/partial-model-unknown-port")
 	origExecute := c.Execute
 	c.Execute = func() (simtest.ExecutionResult, error) {
 		res, err := origExecute()
@@ -1254,7 +1262,7 @@ func TestAssertCaseRejectsBroaderIssueScope(t *testing.T) {
 }
 
 func TestAssertCaseRejectsWrongPrimaryMetadataScope(t *testing.T) {
-	c := simtest.CaseTroubleshootingUnicastForwarding()
+	c := mustCase("troubleshooting/unicast-fdb-forwarding")
 	origExecute := c.Execute
 	c.Execute = func() (simtest.ExecutionResult, error) {
 		res, err := origExecute()
@@ -1273,7 +1281,7 @@ func TestAssertCaseRejectsWrongPrimaryMetadataScope(t *testing.T) {
 }
 
 func TestAssertCaseRejectsWrongPrimaryMetadataStatus(t *testing.T) {
-	c := simtest.CaseTroubleshootingUnicastForwarding()
+	c := mustCase("troubleshooting/unicast-fdb-forwarding")
 	origExecute := c.Execute
 	c.Execute = func() (simtest.ExecutionResult, error) {
 		res, err := origExecute()
@@ -1304,7 +1312,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 	}{
 		{
 			name:      "outcome",
-			caseValue: simtest.CaseTroubleshootingUnicastForwarding,
+			caseValue: func() simtest.Case { return mustCase("troubleshooting/unicast-fdb-forwarding") },
 			mutate: func(res *simtest.ExecutionResult) {
 				res.Outcome = trace.Dropped
 			},
@@ -1312,7 +1320,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "reason",
-			caseValue: simtest.CaseTroubleshootingUnicastForwarding,
+			caseValue: func() simtest.Case { return mustCase("troubleshooting/unicast-fdb-forwarding") },
 			mutate: func(res *simtest.ExecutionResult) {
 				res.Reason = "changed-reason"
 			},
@@ -1320,7 +1328,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "steps with equal count",
-			caseValue: simtest.CaseTroubleshootingUnicastForwarding,
+			caseValue: func() simtest.Case { return mustCase("troubleshooting/unicast-fdb-forwarding") },
 			mutate: func(res *simtest.ExecutionResult) {
 				res.Steps[0], res.Steps[1] = res.Steps[1], res.Steps[0]
 			},
@@ -1328,7 +1336,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "changes with equal count",
-			caseValue: simtest.CasePlanningPortVLANChange,
+			caseValue: func() simtest.Case { return mustCase("planning/port-vlan-change") },
 			mutate: func(res *simtest.ExecutionResult) {
 				res.Changes[0].Field = "changed-field"
 			},
@@ -1336,7 +1344,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "metadata status",
-			caseValue: simtest.CaseShadowingPartialUnknownPort,
+			caseValue: func() simtest.Case { return mustCase("topology-shadowing/partial-model-unknown-port") },
 			mutate: func(res *simtest.ExecutionResult) {
 				issues := res.Metadata.Issues()
 				issues[0].Status = analysis.Unsupported
@@ -1346,7 +1354,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "metadata scope",
-			caseValue: simtest.CaseShadowingPartialUnknownPort,
+			caseValue: func() simtest.Case { return mustCase("topology-shadowing/partial-model-unknown-port") },
 			mutate: func(res *simtest.ExecutionResult) {
 				res.Metadata = analysis.NewMetadata(analysis.WholeScope(), res.Metadata.Issues(), res.Metadata.Evidence(), res.Metadata.Assumptions())
 			},
@@ -1354,7 +1362,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "issues with equal count",
-			caseValue: simtest.CaseShadowingPartialUnknownPort,
+			caseValue: func() simtest.Case { return mustCase("topology-shadowing/partial-model-unknown-port") },
 			mutate: func(res *simtest.ExecutionResult) {
 				issues := res.Metadata.Issues()
 				issues[0].Code = "changed.issue.code"
@@ -1364,7 +1372,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "assumptions with equal count",
-			caseValue: simtest.CaseShadowingPartialUnknownPort,
+			caseValue: func() simtest.Case { return mustCase("topology-shadowing/partial-model-unknown-port") },
 			mutate: func(res *simtest.ExecutionResult) {
 				assumptions := res.Metadata.Assumptions()
 				assumptions[0].Statement = "changed assumption"
@@ -1374,7 +1382,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "evidence contents with equal count",
-			caseValue: simtest.CaseShadowingPartialUnknownPort,
+			caseValue: func() simtest.Case { return mustCase("topology-shadowing/partial-model-unknown-port") },
 			mutate: func(res *simtest.ExecutionResult) {
 				var catalog analysis.EvidenceCatalog
 				for i, entry := range res.Metadata.Evidence().Entries() {
@@ -1390,7 +1398,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "comparison current axis",
-			caseValue: simtest.CasePlanningPortVLANChange,
+			caseValue: func() simtest.Case { return mustCase("planning/port-vlan-change") },
 			mutate: func(res *simtest.ExecutionResult) {
 				res.Comparison.Current.Reason = "changed-current-reason"
 			},
@@ -1398,7 +1406,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "comparison expected axis",
-			caseValue: simtest.CasePlanningPortVLANChange,
+			caseValue: func() simtest.Case { return mustCase("planning/port-vlan-change") },
 			mutate: func(res *simtest.ExecutionResult) {
 				res.Comparison.Expected.Reason = "changed-expected-reason"
 			},
@@ -1406,7 +1414,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "model metadata axis",
-			caseValue: simtest.CaseShadowingPartialUnknownPort,
+			caseValue: func() simtest.Case { return mustCase("topology-shadowing/partial-model-unknown-port") },
 			mutate: func(res *simtest.ExecutionResult) {
 				metadata := res.ModelResult.Metadata
 				res.ModelResult.Metadata = analysis.NewMetadata(analysis.WholeScope(), metadata.Issues(), metadata.Evidence(), metadata.Assumptions())
@@ -1415,7 +1423,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 		},
 		{
 			name:      "forward metadata axis",
-			caseValue: simtest.CaseShadowingPartialUnknownPort,
+			caseValue: func() simtest.Case { return mustCase("topology-shadowing/partial-model-unknown-port") },
 			mutate: func(res *simtest.ExecutionResult) {
 				metadata := res.Forward.Metadata
 				res.Forward.Metadata = analysis.NewMetadata(analysis.WholeScope(), metadata.Issues(), metadata.Evidence(), metadata.Assumptions())

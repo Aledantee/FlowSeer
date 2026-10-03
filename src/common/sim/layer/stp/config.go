@@ -12,7 +12,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 const (
@@ -37,11 +37,11 @@ const (
 	// DefaultTxHoldCount is the standard transmit hold count limit of 6 BPDUs per second.
 	DefaultTxHoldCount uint8 = 6
 
-	// MigrateTime is the protocol migration delay of 3 seconds (IEEE 802.1D-2004 Table 17-1).
-	MigrateTime time.Duration = 3 * time.Second
+	// migrateTime is the protocol migration delay of 3 seconds (IEEE 802.1D-2004 Table 17-1).
+	migrateTime time.Duration = 3 * time.Second
 
-	// DefaultMaxHops is the IEEE 802.1Q recommended default MST region maximum hop count (20).
-	DefaultMaxHops uint8 = 20
+	// defaultMaxHops is the IEEE 802.1Q recommended default MST region maximum hop count (20).
+	defaultMaxHops uint8 = 20
 )
 
 // PointToPointMode controls whether a port operates as a point-to-point link.
@@ -197,7 +197,7 @@ func effectivePointToPoint(m PointToPointMode) PointToPointMode {
 
 // Normalize returns a normalized copy of the spanning tree configuration,
 // filling unspecified fields with standard defaults.
-func (c Config) Normalize() Config {
+func (c Config) Normalize(_ layer.Env) Config {
 	cloned := c.Clone()
 	cloned.Priority = effectivePriority(cloned.Priority, cloned.PriorityPresent)
 	cloned.PriorityPresent = true
@@ -222,10 +222,10 @@ func (c Config) Normalize() Config {
 	return cloned
 }
 
-// DefaultPathCost returns the IEEE 802.1D-2004 recommended path cost for the
+// defaultPathCost returns the IEEE 802.1D-2004 recommended path cost for the
 // given link speed in bits per second. A speed between two rows takes the cost
 // of the row at or below it. A zero or unknown speed returns 20,000.
-func DefaultPathCost(speedBPS uint64) uint32 {
+func defaultPathCost(speedBPS uint64) uint32 {
 	switch {
 	case speedBPS >= 100_000_000_000:
 		return 200
@@ -290,7 +290,7 @@ func (c Config) ValidateTimers() error {
 // Validate checks the configuration against the port table: bridge priority must
 // be a multiple of 4096, effective timers must satisfy IEEE bounds, every configured
 // port must exist in the port table, and no configured port may be a LAG member.
-func (c Config) Validate(ports port.Table) error {
+func (c Config) Validate(env layer.Env) error {
 	if c.MST != nil && c.PVST != nil {
 		return errs.New().
 			Attr("field", "pvst").
@@ -326,7 +326,7 @@ func (c Config) Validate(ports port.Table) error {
 	}
 
 	for _, name := range sortedKeys(c.Ports) {
-		p, ok := ports.Port(name)
+		p, ok := env.Ports.Port(name)
 		if !ok {
 			return errs.New().
 				Attr("field", "ports."+name).
@@ -376,12 +376,12 @@ func (c Config) Validate(ports port.Table) error {
 	}
 
 	if c.MST != nil {
-		if err := c.MST.Validate(ports, c.Ports); err != nil {
+		if err := c.MST.Validate(env.Ports, c.Ports); err != nil {
 			return err
 		}
 	}
 	if c.PVST != nil {
-		if err := c.PVST.Validate(ports, c.Ports); err != nil {
+		if err := c.PVST.Validate(env.Ports, c.Ports); err != nil {
 			return err
 		}
 	}

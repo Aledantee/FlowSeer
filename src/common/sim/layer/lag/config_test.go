@@ -8,8 +8,10 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func mustMAC(t *testing.T, s string) netaddr.MAC {
@@ -56,7 +58,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg.Validate(tbl); err != nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err != nil {
 			t.Fatalf("Validate failed for valid config: %v", err)
 		}
 	})
@@ -64,7 +66,7 @@ func TestValidate(t *testing.T) {
 	t.Run("absent LAG port accepted", func(t *testing.T) {
 		t.Parallel()
 		cfg := lag.Config{}
-		if err := cfg.Validate(tbl); err != nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err != nil {
 			t.Fatalf("Validate failed for empty config: %v", err)
 		}
 	})
@@ -76,7 +78,7 @@ func TestValidate(t *testing.T) {
 				"1/1/3": {},
 			},
 		}
-		if err := cfg.Validate(tbl); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded for physical port as LAG, want error")
 		}
 	})
@@ -90,7 +92,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg.Validate(tbl); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded with Primary naming non-member, want error")
 		}
 	})
@@ -106,7 +108,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg.Validate(tbl); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded with member key on non-member, want error")
 		}
 	})
@@ -120,7 +122,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg.Validate(tbl); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded with MinLinks 3 on 2 members, want error")
 		}
 	})
@@ -134,7 +136,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg.Validate(tbl); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded with negative UpDelay, want error")
 		}
 
@@ -145,7 +147,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg2.Validate(tbl); err == nil {
+		if err := cfg2.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded with negative DownDelay, want error")
 		}
 	})
@@ -158,7 +160,7 @@ func TestValidate(t *testing.T) {
 				"lag1": {RebalanceInterval: &interval},
 			},
 		}
-		err := cfg.Validate(tbl)
+		err := cfg.Validate(layer.Env{Ports: tbl})
 		if err == nil {
 			t.Fatal("Validate succeeded with negative RebalanceInterval, want error")
 		}
@@ -176,7 +178,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg.Validate(tbl); err == nil {
+		if err := cfg.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded with unknown mode, want error")
 		}
 
@@ -187,7 +189,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 		}
-		if err := cfg2.Validate(tbl); err == nil {
+		if err := cfg2.Validate(layer.Env{Ports: tbl}); err == nil {
 			t.Fatal("Validate succeeded with unknown LACP mode, want error")
 		}
 	})
@@ -200,7 +202,7 @@ func TestValidate(t *testing.T) {
 				LACP: lag.LACPConfig{Mode: lag.Off, SystemID: netaddr.MAC{0x01, 0, 0, 0, 0, 1}},
 			},
 		}}
-		err := cfg.Validate(tbl)
+		err := cfg.Validate(layer.Env{Ports: tbl})
 		if err == nil {
 			t.Fatal("Validate() = nil, want error")
 		}
@@ -224,7 +226,7 @@ func TestDefaults(t *testing.T) {
 	}
 
 	sysMAC := mustMAC(t, "02:00:00:00:00:aa")
-	cfg := lag.Config{}.Defaults(tbl, sysMAC)
+	cfg := lag.Config{}.Normalize(layer.Env{Ports: tbl, MAC: sysMAC})
 
 	l1, ok := cfg.LAGs["lag1"]
 	if !ok {
@@ -237,18 +239,18 @@ func TestDefaults(t *testing.T) {
 	if l1.Primary != "" {
 		t.Errorf("lag1 primary = %q, want unset", l1.Primary)
 	}
-	if l1.RebalanceInterval == nil || *l1.RebalanceInterval != lag.DefaultRebalanceInterval {
-		t.Errorf("lag1 rebalance interval = %v, want %v", l1.RebalanceInterval, lag.DefaultRebalanceInterval)
+	if l1.RebalanceInterval == nil || *l1.RebalanceInterval != 10*time.Second {
+		t.Errorf("lag1 rebalance interval = %v, want %v", l1.RebalanceInterval, 10*time.Second)
 	}
-	if l1.LACP.SystemPriority != lag.DefaultSystemPriority {
-		t.Errorf("lag1 system priority = %d, want %d", l1.LACP.SystemPriority, lag.DefaultSystemPriority)
+	if l1.LACP.SystemPriority != 32768 {
+		t.Errorf("lag1 system priority = %d, want 32768", l1.LACP.SystemPriority)
 	}
 	if l1.LACP.SystemID != sysMAC {
 		t.Errorf("lag1 system ID = %v, want %v", l1.LACP.SystemID, sysMAC)
 	}
 	m1 := l1.Members["1/1/1"]
-	if m1.Priority != lag.DefaultPortPriority {
-		t.Errorf("member 1/1/1 priority = %d, want %d", m1.Priority, lag.DefaultPortPriority)
+	if m1.Priority != 32768 {
+		t.Errorf("member 1/1/1 priority = %d, want 32768", m1.Priority)
 	}
 	if m1.Key != 1 {
 		t.Errorf("member 1/1/1 key = %d, want 1", m1.Key)
@@ -271,7 +273,7 @@ func TestDiff(t *testing.T) {
 			"lag1": {
 				Mode: lag.ActiveBackup,
 				Members: map[string]lag.Member{
-					"1/1/1": {Priority: lag.DefaultPortPriority},
+					"1/1/1": {Priority: 32768},
 				},
 			},
 		},
@@ -305,8 +307,14 @@ func TestDiff(t *testing.T) {
 	}
 
 	memberKey := strconv.Quote("lag1") + "/" + strconv.Quote("1/1/1")
-	if from, to, ok := findChange("port", memberKey, "priority"); !ok || from != lag.PortPriorityFact(lag.DefaultPortPriority) || to != lag.PortPriorityFact(100) {
-		t.Errorf("priority change: got (%v, %v, %v), want (%d, 100, true)", from, to, ok, lag.DefaultPortPriority)
+	from, to, ok := findChange("port", memberKey, "priority")
+	fromFact, okFrom := from.(trace.Fact)
+	toFact, okTo := to.(trace.Fact)
+	if !ok || !okFrom || !okTo || fromFact.Canonical() != strconv.Itoa(32768) || toFact.Canonical() != "100" {
+		t.Fatalf("priority change: got (%v, %v, %v), want (32768, 100, true)", from, to, ok)
+	}
+	if fromFact.TypeID() != "lag.port_priority" || toFact.TypeID() != "lag.port_priority" {
+		t.Errorf("priority change fact types = (%q, %q), want lag.port_priority", fromFact.TypeID(), toFact.TypeID())
 	}
 }
 
@@ -322,7 +330,7 @@ func TestNormalize(t *testing.T) {
 			},
 		},
 	}
-	norm := cfg.Normalize(lagPortTable(t), mustMAC(t, "02:00:00:00:00:aa"))
+	norm := cfg.Normalize(layer.Env{Ports: lagPortTable(t), MAC: mustMAC(t, "02:00:00:00:00:aa")})
 	l := norm.LAGs["lag1"]
 	if l.Mode != lag.ActiveBackup {
 		t.Errorf("Mode: got %v, want %v", l.Mode, lag.ActiveBackup)
@@ -330,12 +338,12 @@ func TestNormalize(t *testing.T) {
 	if l.LACP.Mode != lag.Off {
 		t.Errorf("LACP.Mode: got %v, want %v", l.LACP.Mode, lag.Off)
 	}
-	if l.LACP.SystemPriority != lag.DefaultSystemPriority {
-		t.Errorf("LACP.SystemPriority: got %d, want %d", l.LACP.SystemPriority, lag.DefaultSystemPriority)
+	if l.LACP.SystemPriority != 32768 {
+		t.Errorf("LACP.SystemPriority: got %d, want 32768", l.LACP.SystemPriority)
 	}
 	m := l.Members["1/1/1"]
-	if m.Priority != lag.DefaultPortPriority {
-		t.Errorf("Member Priority: got %d, want %d", m.Priority, lag.DefaultPortPriority)
+	if m.Priority != 32768 {
+		t.Errorf("Member Priority: got %d, want 32768", m.Priority)
 	}
 }
 
@@ -351,7 +359,7 @@ func TestRebalanceIntervalNormalization(t *testing.T) {
 
 	normalize := func(interval *time.Duration) *time.Duration {
 		cfg := lag.Config{LAGs: map[string]lag.LAG{"lag1": {RebalanceInterval: interval}}}
-		return cfg.Normalize(tbl, mac).LAGs["lag1"].RebalanceInterval
+		return cfg.Normalize(layer.Env{Ports: tbl, MAC: mac}).LAGs["lag1"].RebalanceInterval
 	}
 
 	zero := time.Duration(0)
@@ -363,9 +371,9 @@ func TestRebalanceIntervalNormalization(t *testing.T) {
 		in   *time.Duration
 		want time.Duration
 	}{
-		{name: "nil fills the default", in: nil, want: lag.DefaultRebalanceInterval},
+		{name: "nil fills the default", in: nil, want: 10 * time.Second},
 		{name: "zero disables and stays zero", in: &zero, want: 0},
-		{name: "below the minimum is raised to it", in: &below, want: lag.MinRebalanceInterval},
+		{name: "below the minimum is raised to it", in: &below, want: time.Second},
 		{name: "at or above the minimum is kept", in: &above, want: above},
 	}
 	for _, tc := range cases {
@@ -410,14 +418,14 @@ func TestDiffCoversRebalanceInterval(t *testing.T) {
 // TestVSwitchStoresEffectiveLAGConfiguration proves a package outside lag and
 // mcast can name every exported Config field and construct a value: it builds
 // the effective LAG configuration through vswitch.Config alone and checks it
-// against lag.Config{}.Defaults directly.
+// against lag.Config{}.Normalize directly.
 func TestVSwitchStoresEffectiveLAGConfiguration(t *testing.T) {
 	t.Parallel()
 
 	ports := lagPortTable(t)
 	systemID := mustMAC(t, "02:00:00:00:00:aa")
 	omitted := vswitch.Config{MAC: systemID, Ports: ports}
-	effectiveLAG := lag.Config{}.Defaults(ports, systemID)
+	effectiveLAG := lag.Config{}.Normalize(layer.Env{Ports: ports, MAC: systemID})
 	explicit := vswitch.Config{MAC: systemID, Ports: ports, LAG: &effectiveLAG}
 
 	omittedNorm := omitted.Normalize()
@@ -437,6 +445,27 @@ func TestVSwitchStoresEffectiveLAGConfiguration(t *testing.T) {
 	}
 	if changes := vswitch.Diff(sw.Spec().Config, explicit.Normalize()); len(changes) != 0 {
 		t.Errorf("Diff(Switch.Spec().Config, explicit) = %+v, want no changes", changes)
+	}
+}
+
+func TestDiffNormalizesBothSides(t *testing.T) {
+	t.Parallel()
+
+	omitted := lag.Config{LAGs: map[string]lag.LAG{
+		"lag1": {Members: map[string]lag.Member{"1/1/1": {}}},
+	}}
+	explicit := lag.Config{LAGs: map[string]lag.LAG{
+		"lag1": {
+			RebalanceInterval: new(10 * time.Second),
+			LACP:              lag.LACPConfig{SystemPriority: 32768},
+			Members:           map[string]lag.Member{"1/1/1": {Priority: 32768}},
+		},
+	}}
+	if diffs := lag.Diff(omitted, explicit); len(diffs) != 0 {
+		t.Errorf("Diff(omitted, explicit) = %v, want no changes", diffs)
+	}
+	if diffs := lag.Diff(explicit, omitted); len(diffs) != 0 {
+		t.Errorf("Diff(explicit, omitted) = %v, want no changes", diffs)
 	}
 }
 

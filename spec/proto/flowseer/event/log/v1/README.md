@@ -9,10 +9,12 @@ alarm.
 
 Imports: model/inventory, net/addr, net/log
 
-Imported by: nothing FlowSeer-owned
+Imported by: integration/ingest
 
 Deliberately absent:
 
+- A record id: deduplication and record identity belong to the enclosing
+  `flowseer.integration.ingest.v1.IngestRecord` envelope.
 - `SyslogRecordConfig` and `SyslogRecordState`. This package is a pure event
   stream with no operator intent and no current-state query entity.
 - A tenant. Tenancy is ambient and scoped by the enclosing transport envelope.
@@ -24,11 +26,11 @@ Deliberately absent:
 ## Structure and RFC 5424 bounds
 
 `SyslogRecord` captures the header and payload fields defined in RFC 5424:
-- `record_id`: A FlowSeer-assigned UUID identifying this record for deduplication.
 - `device`: The UUID reference of the device the record belongs to.
 - `received_at`: Timestamp assigned by the collector upon receipt.
 - `sent_at`: Timestamp from the RFC 5424 header, left unset when the sender emits NILVALUE (`-`).
-- `severity` and `facility`: Mandatory PRI fields from `flowseer.net.log.v1`.
+- `severity` and `facility`: PRI fields from `flowseer.net.log.v1`. Unset when
+  the message carried no PRI.
 - Header identifiers: `hostname` (up to 255 chars), `app_name` (up to 48 chars),
   `proc_id` (up to 128 chars), and `msg_id` (up to 32 chars). Senders that emit
   NILVALUE or do not use RFC 5424 headers leave these fields unset.

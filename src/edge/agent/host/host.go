@@ -27,7 +27,9 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/report"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/subscribeloop"
+	"go.aledante.io/FlowSeer/src/edge/agent/internal/syslogsource"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
+	"go.aledante.io/FlowSeer/src/protocol/syslog"
 )
 
 // ErrCodeStart is an agent that cannot be assembled from what it was given.
@@ -143,6 +145,8 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	}
 	defer attachment.Close(context.WithoutCancel(ctx))
 
+	deviceIndex := lanehost.NewDeviceIndex()
+
 	assembly := &assembly{
 		cfg:      cfg,
 		opts:     opts,
@@ -151,6 +155,7 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		edge:     edgeClient,
 		dispatch: dispatchClient,
 		audit:    auditClient,
+		index:    deviceIndex,
 	}
 
 	captureAssembly := &captureAssembly{
@@ -159,6 +164,8 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		signer:        signer,
 		captureClient: captureClient,
 	}
+
+	syslogAssembly := syslogAssemblyFor(assembly, attachment.Leaf)
 
 	return service.Run(ctx, service.Config{
 		Identity: service.Identity{Name: serviceName, Namespace: serviceNamespace, Version: version},
@@ -184,7 +191,7 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 			Insecure:    &loopbackIsInsecure,
 			Headers:     map[string]string{},
 		},
-		Modules: modules(assembly, captureAssembly),
+		Modules: modules(assembly, captureAssembly, syslogAssembly),
 	})
 }
 
@@ -198,6 +205,7 @@ type assembly struct {
 	edge     attachv1connect.EdgeServiceClient
 	dispatch dispatchv1connect.DispatchServiceClient
 	audit    auditv1connect.AuditServiceClient
+	index    *lanehost.DeviceIndex
 }
 
 // setup builds one attempt: the lane, the onboarder, the report queue, and
@@ -232,21 +240,7 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 	confirmations.demux = demux
 	reporter.out = queue
 
-	onboarder, err := lanehost.NewOnboarder(lanehost.OnboardConfig{
-		Client: a.edge,
-		Lane:   lane,
-		Edge:   edgeRefOf(a.edgeID),
-		// Nil for a packaged deployment, which is what NewOnboarder reads
-		// as the real dialers.
-		OpenSNMP:  a.opts.OpenSNMP,
-		OpenShell: a.opts.OpenShell,
-		// PerDeviceTimeout left at the onboarder's default. It bounds one
-		// device's probe, which matters because this runs before every
-		// attempt to open the dispatch stream and a device that is powered
-		// off does not refuse the probe, it says nothing. Not configurable:
-		// no deployment has information about it an operator could act on.
-		Logger: log,
-	})
+	onboarder, err := lanehost.NewOnboarder(a.onboardConfig(lane, log))
 	if err != nil {
 		return service.Attempt{}, err
 	}
@@ -292,6 +286,20 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 	}}, nil
 }
 
+// observe registers a monotonic counter whose value is read from a total the
+// caller already keeps, so the instrument reports the total at each collection
+// rather than being incremented alongside it.
+func observe(meter metric.Meter, name, unit, description string, read func() int64) error {
+	_, err := meter.Int64ObservableCounter(name,
+		metric.WithUnit(unit),
+		metric.WithDescription(description),
+		metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
+			o.Observe(read())
+			return nil
+		}))
+	return err
+}
+
 // registerContactInstruments exports what the dispatch loop and the report
 // queue count, so the numbers an operator is told to read together can be
 // reached from outside the process.
@@ -305,29 +313,40 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 // all. These are the totals that tell those apart.
 func registerContactInstruments(ctx context.Context, contact *subscribeloop.Contact, queue *report.Queue) error {
 	meter := service.Meter(ctx)
-	observe := func(name, unit, description string, read func() int64) error {
-		_, err := meter.Int64ObservableCounter(name,
-			metric.WithUnit(unit),
-			metric.WithDescription(description),
-			metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
-				o.Observe(read())
-				return nil
-			}))
-		return err
-	}
-
 	return errors.Join(
-		observe("flowseer.edge.dispatch.connections", "{stream}",
+		observe(meter, "flowseer.edge.dispatch.connections", "{stream}",
 			"dispatch streams central has served this agent", contact.Connections),
-		observe("flowseer.edge.dispatch.failures", "{attempt}",
+		observe(meter, "flowseer.edge.dispatch.failures", "{attempt}",
 			"dispatch stream attempts that failed, opening or mid-stream", contact.Failures),
-		observe("flowseer.edge.dispatch.messages", "{message}",
+		observe(meter, "flowseer.edge.dispatch.messages", "{message}",
 			"dispatches received on the stream", contact.Messages),
-		observe("flowseer.edge.reports.sent", "{report}",
+		observe(meter, "flowseer.edge.reports.sent", "{report}",
 			"reports central has confirmed", queue.Sent),
-		observe("flowseer.edge.reports.dropped", "{report}",
+		observe(meter, "flowseer.edge.reports.dropped", "{report}",
 			"reports discarded at the queue ceiling", queue.Dropped),
 	)
+}
+
+// onboardConfig declares the onboarder over the lane. Its index is the one the
+// syslog module resolves senders through, so a device is a known sender from
+// the moment it is listed.
+func (a *assembly) onboardConfig(lane *access.Lane, log *slog.Logger) lanehost.OnboardConfig {
+	return lanehost.OnboardConfig{
+		Client: a.edge,
+		Lane:   lane,
+		Index:  a.index,
+		Edge:   edgeRefOf(a.edgeID),
+		// Nil for a packaged deployment, which is what NewOnboarder reads
+		// as the real dialers.
+		OpenSNMP:  a.opts.OpenSNMP,
+		OpenShell: a.opts.OpenShell,
+		// PerDeviceTimeout left at the onboarder's default. It bounds one
+		// device's probe, which matters because this runs before every
+		// attempt to open the dispatch stream and a device that is powered
+		// off does not refuse the probe, it says nothing. Not configurable:
+		// no deployment has information about it an operator could act on.
+		Logger: log,
+	}
 }
 
 func (a *assembly) laneConfig(reporter *laneReporter, telemetry *access.Telemetry) access.Config {
@@ -469,30 +488,105 @@ func registerCaptureContactInstruments(ctx context.Context, contact *subscribelo
 }
 
 func registerCaptureInstruments(meter metric.Meter, contact *subscribeloop.Contact) error {
-	observe := func(name, unit, description string, read func() int64) error {
-		_, err := meter.Int64ObservableCounter(name,
-			metric.WithUnit(unit),
-			metric.WithDescription(description),
-			metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
-				o.Observe(read())
-				return nil
-			}))
-		return err
-	}
-
 	return errors.Join(
-		observe("flowseer.edge.capture.connections", "{stream}",
+		observe(meter, "flowseer.edge.capture.connections", "{stream}",
 			"capture assignment streams central has served this agent", contact.Connections),
-		observe("flowseer.edge.capture.failures", "{attempt}",
+		observe(meter, "flowseer.edge.capture.failures", "{attempt}",
 			"capture assignment stream attempts that failed, opening or mid-stream", contact.Failures),
-		observe("flowseer.edge.capture.messages", "{message}",
+		observe(meter, "flowseer.edge.capture.messages", "{message}",
 			"capture assignments received on the stream", contact.Messages),
 	)
 }
 
-func modules(a *assembly, ca *captureAssembly) []service.Module {
+// syslogAssemblyFor builds the syslog module's assembly from what the lane's
+// already holds, so the two cannot be given different device indexes.
+func syslogAssemblyFor(lane *assembly, leaf syslogsource.Publisher) *syslogAssembly {
+	return &syslogAssembly{
+		cfg:    lane.cfg,
+		opts:   lane.opts,
+		edgeID: lane.edgeID,
+		leaf:   leaf,
+		index:  lane.index,
+	}
+}
+
+type syslogAssembly struct {
+	cfg    *Config
+	opts   Options
+	edgeID string
+	leaf   syslogsource.Publisher
+	index  *lanehost.DeviceIndex
+}
+
+func (sa *syslogAssembly) setup(ctx context.Context) (service.Attempt, error) {
+	listeners := sa.cfg.SyslogListeners()
+
+	clock := sa.opts.Clock
+	if clock == nil {
+		clock = time.Now
+	}
+
+	rawPerMin, rawSampleEvery := sa.cfg.SyslogRawPolicy()
+	policy := syslogsource.NewRawPolicy(uint32(rawPerMin), uint32(rawSampleEvery), clock)
+
+	meter := service.Meter(ctx)
+	src, err := syslogsource.Listen(ctx, syslogsource.Config{
+		Listeners: listeners,
+		Index:     sa.index,
+		Publisher: sa.leaf,
+		EdgeRef:   edgeRefOf(sa.edgeID),
+		Policy:    policy,
+		Meter:     meter,
+	})
+	if err != nil {
+		return service.Attempt{}, err
+	}
+
+	if err := registerSyslogReceiverInstruments(meter, src.Receiver().Stats); err != nil {
+		_ = src.Close()
+		return service.Attempt{}, err
+	}
+
+	return service.Attempt{
+		Runner: src.Run,
+	}, nil
+}
+
+func registerSyslogReceiverInstruments(meter metric.Meter, readStats func() syslog.Stats) error {
+	return errors.Join(
+		observe(meter, "flowseer.edge.syslog.receiver.received", "{frame}",
+			"syslog frames received across all listeners",
+			func() int64 { return int64(readStats().Received) }),
+		observe(meter, "flowseer.edge.syslog.receiver.oversized", "{frame}",
+			"syslog frames dropped because they exceed MaxPayload",
+			func() int64 { return int64(readStats().Oversized) }),
+		observe(meter, "flowseer.edge.syslog.receiver.framing_errors", "{frame}",
+			"syslog frames that violated the configured transport framing",
+			func() int64 { return int64(readStats().FramingErrors) }),
+		observe(meter, "flowseer.edge.syslog.receiver.udp_dropped", "{datagram}",
+			"syslog datagrams dropped due to receiver queue capacity",
+			func() int64 { return int64(readStats().UDPDropped) }),
+		observe(meter, "flowseer.edge.syslog.receiver.pressure_closed", "{connection}",
+			"syslog stream connections closed under receiver pressure",
+			func() int64 { return int64(readStats().PressureClosed) }),
+		observe(meter, "flowseer.edge.syslog.receiver.connections_rejected", "{connection}",
+			"syslog stream connections rejected due to connection limits",
+			func() int64 { return int64(readStats().ConnectionRejected) }),
+	)
+}
+
+func modules(a *assembly, ca *captureAssembly, sa *syslogAssembly) []service.Module {
 	return []service.Module{
 		{Name: "lane", Leaf: &service.Leaf{Setup: a.setup}},
 		{Name: "capture", Leaf: &service.Leaf{Setup: ca.setup}},
+		{
+			Name: "syslog",
+			// Off without a syslog block, so an agent that names no listener binds
+			// no socket. The generated environment override can still turn it on,
+			// and setup then fails with the source's own refusal to run without a
+			// listener.
+			Gate: service.FixedGate(len(sa.cfg.SyslogListeners()) > 0),
+			Leaf: &service.Leaf{Setup: sa.setup},
+		},
 	}
 }

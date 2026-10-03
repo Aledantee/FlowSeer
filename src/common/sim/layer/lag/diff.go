@@ -6,40 +6,40 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// PrimaryFact wraps a primary port name as a trace.Fact.
-type PrimaryFact string
+// primaryFact wraps a primary port name as a trace.Fact.
+type primaryFact string
 
-// TypeID returns the fact type identifier for PrimaryFact.
-func (f PrimaryFact) TypeID() string { return "lag.primary" }
+// TypeID returns the fact type identifier for primaryFact.
+func (f primaryFact) TypeID() string { return "lag.primary" }
 
 // Canonical returns the primary port name.
-func (f PrimaryFact) Canonical() string { return string(f) }
+func (f primaryFact) Canonical() string { return string(f) }
 
-// DurationFact wraps a time.Duration as a trace.Fact.
-type DurationFact time.Duration
+// durationFact wraps a time.Duration as a trace.Fact.
+type durationFact time.Duration
 
-// TypeID returns the fact type identifier for DurationFact.
-func (f DurationFact) TypeID() string { return "lag.duration" }
+// TypeID returns the fact type identifier for durationFact.
+func (f durationFact) TypeID() string { return "lag.duration" }
 
 // Canonical returns the duration string.
-func (f DurationFact) Canonical() string { return time.Duration(f).String() }
+func (f durationFact) Canonical() string { return time.Duration(f).String() }
 
-// RebalanceIntervalFact wraps an optional rebalance interval as a trace.Fact,
+// rebalanceIntervalFact wraps an optional rebalance interval as a trace.Fact,
 // distinguishing an unset (nil) interval from an explicit zero one.
-type RebalanceIntervalFact struct {
+type rebalanceIntervalFact struct {
 	Set   bool
 	Value time.Duration
 }
 
-// TypeID returns the fact type identifier for RebalanceIntervalFact.
-func (f RebalanceIntervalFact) TypeID() string { return "lag.rebalance_interval" }
+// TypeID returns the fact type identifier for rebalanceIntervalFact.
+func (f rebalanceIntervalFact) TypeID() string { return "lag.rebalance_interval" }
 
 // Canonical returns "unset" or the duration string.
-func (f RebalanceIntervalFact) Canonical() string {
+func (f rebalanceIntervalFact) Canonical() string {
 	if !f.Set {
 		return "unset"
 	}
@@ -47,67 +47,67 @@ func (f RebalanceIntervalFact) Canonical() string {
 	return f.Value.String()
 }
 
-func snapshotRebalanceInterval(interval *time.Duration) RebalanceIntervalFact {
+func snapshotRebalanceInterval(interval *time.Duration) rebalanceIntervalFact {
 	if interval == nil {
-		return RebalanceIntervalFact{}
+		return rebalanceIntervalFact{}
 	}
 
-	return RebalanceIntervalFact{Set: true, Value: *interval}
+	return rebalanceIntervalFact{Set: true, Value: *interval}
 }
 
-// HashBasisFact wraps a hash basis as a trace.Fact.
-type HashBasisFact uint32
+// hashBasisFact wraps a hash basis as a trace.Fact.
+type hashBasisFact uint32
 
-// TypeID returns the fact type identifier for HashBasisFact.
-func (f HashBasisFact) TypeID() string { return "lag.hash_basis" }
+// TypeID returns the fact type identifier for hashBasisFact.
+func (f hashBasisFact) TypeID() string { return "lag.hash_basis" }
 
 // Canonical returns the decimal string of the hash basis.
-func (f HashBasisFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f hashBasisFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// MinLinksFact wraps a min links count as a trace.Fact.
-type MinLinksFact int
+// minLinksFact wraps a min links count as a trace.Fact.
+type minLinksFact int
 
-// TypeID returns the fact type identifier for MinLinksFact.
-func (f MinLinksFact) TypeID() string { return "lag.min_links" }
+// TypeID returns the fact type identifier for minLinksFact.
+func (f minLinksFact) TypeID() string { return "lag.min_links" }
 
 // Canonical returns the decimal string of min links.
-func (f MinLinksFact) Canonical() string { return strconv.Itoa(int(f)) }
+func (f minLinksFact) Canonical() string { return strconv.Itoa(int(f)) }
 
-// BoolFact wraps a boolean value as a trace.Fact.
-type BoolFact bool
+// boolFact wraps a boolean value as a trace.Fact.
+type boolFact bool
 
-// TypeID returns the fact type identifier for BoolFact.
-func (f BoolFact) TypeID() string { return "lag.bool" }
+// TypeID returns the fact type identifier for boolFact.
+func (f boolFact) TypeID() string { return "lag.bool" }
 
 // Canonical returns "true" or "false".
-func (f BoolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
+func (f boolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
 
-// Uint16Fact wraps a uint16 as a trace.Fact.
-type Uint16Fact uint16
+// uint16Fact wraps a uint16 as a trace.Fact.
+type uint16Fact uint16
 
-// TypeID returns the fact type identifier for Uint16Fact.
-func (f Uint16Fact) TypeID() string { return "lag.uint16" }
+// TypeID returns the fact type identifier for uint16Fact.
+func (f uint16Fact) TypeID() string { return "lag.uint16" }
 
 // Canonical returns the decimal string of the uint16 value.
-func (f Uint16Fact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f uint16Fact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// MACFact wraps a netaddr.MAC as a trace.Fact.
-type MACFact netaddr.MAC
+// macFact wraps a netaddr.MAC as a trace.Fact.
+type macFact netaddr.MAC
 
-// TypeID returns the fact type identifier for MACFact.
-func (f MACFact) TypeID() string { return "lag.mac" }
+// TypeID returns the fact type identifier for macFact.
+func (f macFact) TypeID() string { return "lag.mac" }
 
 // Canonical returns the formatted MAC string.
-func (f MACFact) Canonical() string { return netaddr.MAC(f).String() }
+func (f macFact) Canonical() string { return netaddr.MAC(f).String() }
 
-// PortPriorityFact wraps a member port priority as a trace.Fact.
-type PortPriorityFact uint16
+// portPriorityFact wraps a member port priority as a trace.Fact.
+type portPriorityFact uint16
 
-// TypeID returns the fact type identifier for PortPriorityFact.
-func (f PortPriorityFact) TypeID() string { return "lag.port_priority" }
+// TypeID returns the fact type identifier for portPriorityFact.
+func (f portPriorityFact) TypeID() string { return "lag.port_priority" }
 
 // Canonical returns the decimal string of the port priority.
-func (f PortPriorityFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f portPriorityFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
 type lagSnapshotFact string
 
@@ -160,20 +160,26 @@ func snapshotLAG(l LAG) lagSnapshotFact {
 	return lagSnapshotFact(b.String())
 }
 
-// Diff computes the difference between two normalized link aggregation
-// configurations, reporting changes to LAG settings and per-member
-// administrative parameters. The caller supplies the port and system-ID
-// context by normalizing each configuration before calling Diff.
+// Diff computes the difference between two link aggregation configurations,
+// reporting changes to LAG settings and per-member administrative parameters.
+// Diff normalizes both sides with the zero [layer.Env], so defaults that derive
+// from the port table or the switch MAC compare as written: a default
+// LACPConfig.Key stays 0, a zero LACPConfig.SystemID stays zero, and no
+// port-table member is added. A caller that needs those defaults compared
+// normalizes both configurations with the real Env before calling Diff.
 func Diff(a, b Config) []trace.Change {
+	a = a.Normalize(layer.Env{})
+	b = b.Normalize(layer.Env{})
+
 	var changes []trace.Change
-	layer := port.LayerLAG
+	lyr := LayerName
 
 	for _, lagName := range sortedKeys(a.LAGs) {
 		aLag := a.LAGs[lagName]
 		bLag, exists := b.LAGs[lagName]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "",
 				From:    snapshotLAG(aLag),
@@ -185,7 +191,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.Mode != bLag.Mode {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "mode",
 				From:    aLag.Mode,
@@ -195,51 +201,51 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.Primary != bLag.Primary {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "primary",
-				From:    PrimaryFact(aLag.Primary),
-				To:      PrimaryFact(bLag.Primary),
+				From:    primaryFact(aLag.Primary),
+				To:      primaryFact(bLag.Primary),
 			})
 		}
 
 		if aLag.UpDelay != bLag.UpDelay {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "up_delay",
-				From:    DurationFact(aLag.UpDelay),
-				To:      DurationFact(bLag.UpDelay),
+				From:    durationFact(aLag.UpDelay),
+				To:      durationFact(bLag.UpDelay),
 			})
 		}
 
 		if aLag.DownDelay != bLag.DownDelay {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "down_delay",
-				From:    DurationFact(aLag.DownDelay),
-				To:      DurationFact(bLag.DownDelay),
+				From:    durationFact(aLag.DownDelay),
+				To:      durationFact(bLag.DownDelay),
 			})
 		}
 
 		if aLag.HashBasis != bLag.HashBasis {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "hash_basis",
-				From:    HashBasisFact(aLag.HashBasis),
-				To:      HashBasisFact(bLag.HashBasis),
+				From:    hashBasisFact(aLag.HashBasis),
+				To:      hashBasisFact(bLag.HashBasis),
 			})
 		}
 
 		if aLag.MinLinks != bLag.MinLinks {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "min_links",
-				From:    MinLinksFact(aLag.MinLinks),
-				To:      MinLinksFact(bLag.MinLinks),
+				From:    minLinksFact(aLag.MinLinks),
+				To:      minLinksFact(bLag.MinLinks),
 			})
 		}
 
@@ -247,7 +253,7 @@ func Diff(a, b Config) []trace.Change {
 		bRebalance := snapshotRebalanceInterval(bLag.RebalanceInterval)
 		if aRebalance != bRebalance {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "rebalance_interval",
 				From:    aRebalance,
@@ -257,7 +263,7 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.LACP.Mode != bLag.LACP.Mode {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "lacp_mode",
 				From:    aLag.LACP.Mode,
@@ -267,51 +273,51 @@ func Diff(a, b Config) []trace.Change {
 
 		if aLag.LACP.Fast != bLag.LACP.Fast {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "lacp_fast",
-				From:    BoolFact(aLag.LACP.Fast),
-				To:      BoolFact(bLag.LACP.Fast),
+				From:    boolFact(aLag.LACP.Fast),
+				To:      boolFact(bLag.LACP.Fast),
 			})
 		}
 
 		if aLag.LACP.SystemPriority != bLag.LACP.SystemPriority {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "lacp_system_priority",
-				From:    Uint16Fact(aLag.LACP.SystemPriority),
-				To:      Uint16Fact(bLag.LACP.SystemPriority),
+				From:    uint16Fact(aLag.LACP.SystemPriority),
+				To:      uint16Fact(bLag.LACP.SystemPriority),
 			})
 		}
 
 		if aLag.LACP.SystemID != bLag.LACP.SystemID {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "lacp_system_id",
-				From:    MACFact(aLag.LACP.SystemID),
-				To:      MACFact(bLag.LACP.SystemID),
+				From:    macFact(aLag.LACP.SystemID),
+				To:      macFact(bLag.LACP.SystemID),
 			})
 		}
 
 		if aLag.LACP.Key != bLag.LACP.Key {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "lacp_key",
-				From:    Uint16Fact(aLag.LACP.Key),
-				To:      Uint16Fact(bLag.LACP.Key),
+				From:    uint16Fact(aLag.LACP.Key),
+				To:      uint16Fact(bLag.LACP.Key),
 			})
 		}
 
 		if aLag.LACP.Fallback != bLag.LACP.Fallback {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "lacp_fallback",
-				From:    BoolFact(aLag.LACP.Fallback),
-				To:      BoolFact(bLag.LACP.Fallback),
+				From:    boolFact(aLag.LACP.Fallback),
+				To:      boolFact(bLag.LACP.Fallback),
 			})
 		}
 
@@ -321,7 +327,7 @@ func Diff(a, b Config) []trace.Change {
 			subject := trace.Subject{Kind: "port", Key: memberSubjectKey(lagName, memName)}
 			if !memExists {
 				changes = append(changes, trace.Change{
-					Layer:   layer,
+					Layer:   lyr,
 					Subject: subject,
 					Field:   "",
 					From:    am,
@@ -333,21 +339,21 @@ func Diff(a, b Config) []trace.Change {
 
 			if am.Priority != bm.Priority {
 				changes = append(changes, trace.Change{
-					Layer:   layer,
+					Layer:   lyr,
 					Subject: subject,
 					Field:   "priority",
-					From:    PortPriorityFact(am.Priority),
-					To:      PortPriorityFact(bm.Priority),
+					From:    portPriorityFact(am.Priority),
+					To:      portPriorityFact(bm.Priority),
 				})
 			}
 
 			if am.Key != bm.Key {
 				changes = append(changes, trace.Change{
-					Layer:   layer,
+					Layer:   lyr,
 					Subject: subject,
 					Field:   "key",
-					From:    Uint16Fact(am.Key),
-					To:      Uint16Fact(bm.Key),
+					From:    uint16Fact(am.Key),
+					To:      uint16Fact(bm.Key),
 				})
 			}
 		}
@@ -355,7 +361,7 @@ func Diff(a, b Config) []trace.Change {
 		for _, memName := range sortedKeys(bLag.Members) {
 			if _, memExists := aLag.Members[memName]; !memExists {
 				changes = append(changes, trace.Change{
-					Layer:   layer,
+					Layer:   lyr,
 					Subject: trace.Subject{Kind: "port", Key: memberSubjectKey(lagName, memName)},
 					Field:   "",
 					From:    nil,
@@ -368,7 +374,7 @@ func Diff(a, b Config) []trace.Change {
 	for _, lagName := range sortedKeys(b.LAGs) {
 		if _, exists := a.LAGs[lagName]; !exists {
 			changes = append(changes, trace.Change{
-				Layer:   layer,
+				Layer:   lyr,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "",
 				From:    nil,
@@ -381,5 +387,5 @@ func Diff(a, b Config) []trace.Change {
 }
 
 func memberSubjectKey(lagName, memberName string) string {
-	return strconv.Quote(lagName) + "/" + strconv.Quote(memberName)
+	return trace.CompositeKey(lagName, memberName)
 }

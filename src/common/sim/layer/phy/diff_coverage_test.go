@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 )
 
@@ -46,5 +47,6 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		},
 	}
 
-	simtest.AssertDiffCoversConfig(t, seed, phy.Config.Normalize, phy.Diff, nil)
+	normalize := func(c phy.Config) phy.Config { return c.Normalize(layer.Env{}) }
+	simtest.AssertDiffCoversConfig(t, seed, normalize, phy.Diff, nil)
 }

@@ -21,7 +21,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -205,11 +207,11 @@ func TestLoad_VlanInterfacesRouting(t *testing.T) {
 	cfg := res.Spec.Config
 	report := res.Report
 
-	if !slices.Contains(report.Capabilities, port.LayerRouting) {
+	if !slices.Contains(report.Capabilities, routing.LayerName) {
 		t.Errorf("expected routing capability in %v", report.Capabilities)
 	}
-	if report.CapabilitySources[port.LayerRouting] != "inferred:ip" {
-		t.Errorf("routing capability source = %q, want inferred:ip", report.CapabilitySources[port.LayerRouting])
+	if report.CapabilitySources[routing.LayerName] != "inferred:ip" {
+		t.Errorf("routing capability source = %q, want inferred:ip", report.CapabilitySources[routing.LayerName])
 	}
 
 	hasVRFDefault := false
@@ -318,14 +320,14 @@ func TestLoad_PhysicalRoutedPort(t *testing.T) {
 	cfg := res.Spec.Config
 	report := res.Report
 
-	if !slices.Contains(report.Capabilities, port.LayerRouting) {
+	if !slices.Contains(report.Capabilities, routing.LayerName) {
 		t.Errorf("expected routing capability in %v", report.Capabilities)
 	}
-	if !slices.Contains(report.Capabilities, port.LayerVLAN) || report.CapabilitySources[port.LayerVLAN] != "implied:routing" {
+	if !slices.Contains(report.Capabilities, bridge.LayerNameVLAN) || report.CapabilitySources[bridge.LayerNameVLAN] != "implied:routing" {
 		t.Errorf("expected vlan implied by routing in %v (%v)", report.Capabilities, report.CapabilitySources)
 	}
-	if report.CapabilitySources[port.LayerRouting] != "inferred:ip" {
-		t.Errorf("routing capability source = %q, want inferred:ip", report.CapabilitySources[port.LayerRouting])
+	if report.CapabilitySources[routing.LayerName] != "inferred:ip" {
+		t.Errorf("routing capability source = %q, want inferred:ip", report.CapabilitySources[routing.LayerName])
 	}
 
 	if cfg.Routing == nil {
@@ -459,10 +461,10 @@ func TestLoad_LoopbackUnsupported(t *testing.T) {
 	if cfg.Routing != nil {
 		t.Errorf("got Routing configuration %+v when all facets were skipped, want nil", cfg.Routing)
 	}
-	if slices.Contains(report.Capabilities, port.LayerRouting) {
+	if slices.Contains(report.Capabilities, routing.LayerName) {
 		t.Errorf("routing capability should be dropped from %v", report.Capabilities)
 	}
-	if _, ok := report.CapabilitySources[port.LayerRouting]; ok {
+	if _, ok := report.CapabilitySources[routing.LayerName]; ok {
 		t.Errorf("routing capability source should be removed from %v", report.CapabilitySources)
 	}
 
@@ -900,7 +902,7 @@ func TestLoad_UnwantedRoutingSkipsIP(t *testing.T) {
 		}.Build(),
 	}
 
-	want := []port.Layer{port.LayerRelay}
+	want := []trace.Layer{bridge.LayerName}
 	validateFixtures(t, ifaces, nil, addrs, neighbors)
 	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil, want)
 	if err != nil {
@@ -912,7 +914,7 @@ func TestLoad_UnwantedRoutingSkipsIP(t *testing.T) {
 	if cfg.Routing != nil {
 		t.Errorf("got Routing configuration %+v when routing is not wanted, want nil", cfg.Routing)
 	}
-	if slices.Contains(report.Capabilities, port.LayerRouting) {
+	if slices.Contains(report.Capabilities, routing.LayerName) {
 		t.Errorf("routing capability should not be in %v", report.Capabilities)
 	}
 
@@ -1324,7 +1326,7 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 						t.Errorf("STP port table must not hold routed port eth1")
 					}
 				}
-				wantScope := analysis.FieldScope(analysis.ProtocolScope("sw1", string(port.LayerSTP), "0"), "ports", "eth1")
+				wantScope := analysis.FieldScope(analysis.ProtocolScope("sw1", string(stp.LayerName), "0"), "ports", "eth1")
 				if !slices.ContainsFunc(loaded.Report.Skipped, func(s netmodel.Skipped) bool {
 					return s.Port == "eth1" && s.What == "stp_port" && s.Scope.Compare(wantScope) == 0
 				}) {
@@ -1634,13 +1636,13 @@ func TestLoad_SubInterfacesRouteOverPhysicalParent(t *testing.T) {
 	}
 
 	report := loaded.Report
-	if !slices.Contains(report.Capabilities, port.LayerRouting) || report.CapabilitySources[port.LayerRouting] != "inferred:ip" {
+	if !slices.Contains(report.Capabilities, routing.LayerName) || report.CapabilitySources[routing.LayerName] != "inferred:ip" {
 		t.Errorf("routing capability = %v (%v), want inferred:ip", report.Capabilities, report.CapabilitySources)
 	}
-	if !slices.Contains(report.Capabilities, port.LayerVLAN) || report.CapabilitySources[port.LayerVLAN] != "implied:routing" {
+	if !slices.Contains(report.Capabilities, bridge.LayerNameVLAN) || report.CapabilitySources[bridge.LayerNameVLAN] != "implied:routing" {
 		t.Errorf("vlan capability = %v (%v), want implied:routing", report.Capabilities, report.CapabilitySources)
 	}
-	if !slices.Contains(report.Capabilities, port.LayerRelay) || report.CapabilitySources[port.LayerRelay] != "always" {
+	if !slices.Contains(report.Capabilities, bridge.LayerName) || report.CapabilitySources[bridge.LayerName] != "always" {
 		t.Errorf("relay capability = %v (%v), want always", report.Capabilities, report.CapabilitySources)
 	}
 
@@ -1723,8 +1725,8 @@ func TestLoad_SubInterfaceUnsupportedEncapsulation(t *testing.T) {
 				}
 			}
 
-			if !slices.Contains(loaded.Report.Capabilities, port.LayerVLAN) ||
-				loaded.Report.CapabilitySources[port.LayerVLAN] != "implied:routing" {
+			if !slices.Contains(loaded.Report.Capabilities, bridge.LayerNameVLAN) ||
+				loaded.Report.CapabilitySources[bridge.LayerNameVLAN] != "implied:routing" {
 				t.Errorf("vlan capability = %v (%v), want implied:routing", loaded.Report.Capabilities, loaded.Report.CapabilitySources)
 			}
 		})
@@ -2059,7 +2061,7 @@ func TestLoad_STPWalkSkipsRoutedPort(t *testing.T) {
 				}
 			}
 
-			wantScope := analysis.FieldScope(analysis.ProtocolScope("sw1", string(port.LayerSTP), "0"), "ports", test.routedPort)
+			wantScope := analysis.FieldScope(analysis.ProtocolScope("sw1", string(stp.LayerName), "0"), "ports", test.routedPort)
 			if !slices.ContainsFunc(loaded.Report.Skipped, func(skip netmodel.Skipped) bool {
 				return skip.Port == test.routedPort && skip.What == "stp_port" && skip.Scope.Compare(wantScope) == 0
 			}) {
@@ -2091,7 +2093,7 @@ func TestLoad_CapabilityWalkIgnoresRoutedSubParentSwitchport(t *testing.T) {
 	input.validate(t)
 	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
 
-	if got := loaded.Report.CapabilitySources[port.LayerVLAN]; got != "implied:routing" {
+	if got := loaded.Report.CapabilitySources[bridge.LayerNameVLAN]; got != "implied:routing" {
 		t.Errorf("vlan capability source = %q, want implied:routing", got)
 	}
 }

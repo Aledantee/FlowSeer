@@ -12,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
@@ -56,7 +57,7 @@ func TestPublicConstructorValidationFieldPaths(t *testing.T) {
 		}
 
 		// Direct capability constructor returns error on invalid config
-		_, err = bridge.New(invalidBridge, ports)
+		_, err = bridge.New(invalidBridge, layer.Env{Ports: ports})
 		if err == nil {
 			t.Fatal("expected bridge.New to return error for invalid admission")
 		}

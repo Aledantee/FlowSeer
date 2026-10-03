@@ -116,9 +116,14 @@ func LACPDecodeFact(f ethernet.Frame, valid bool, reason trace.Reason) trace.Fac
 		";reason=" + strconv.Quote(string(reason)))
 }
 
+type memberTransitionFact string
+
+func (f memberTransitionFact) TypeID() string    { return "lag.member_transition" }
+func (f memberTransitionFact) Canonical() string { return string(f) }
+
 // MemberTransitionFact returns an immutable snapshot of a LAG member state transition.
 func MemberTransitionFact(member, action string, before, after MemberInfo) trace.Fact {
-	return lacpDecisionFact("member=" + strconv.Quote(member) +
+	return memberTransitionFact("member=" + strconv.Quote(member) +
 		";action=" + strconv.Quote(action) +
 		";before=" + memberInfoSnapshot(before) +
 		";after=" + memberInfoSnapshot(after))

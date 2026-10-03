@@ -8,42 +8,18 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// Emission describes a probe frame to transmit out one virtual switch port
-// carrying one VLAN. The VID rides alongside Probe because the switch, not
-// this layer, applies the port's VLAN egress tagging; a caller that resolves
-// VID 0 to a real VLAN (the switch does, for a port with no configured
-// VLANs) must set Probe.VID to that resolved value before calling Encode, so
-// the payload names the VLAN the probe actually rides rather than the VID 0
-// it was built with.
-type Emission struct {
-	Port  string
-	VID   vlan.ID
-	Probe Probe
-}
+// LayerName identifies netsim's loop-protection layer.
+const LayerName trace.Layer = "loopprotect"
 
-// Effects lists the probe frames a Wake call emits and the ports whose
-// learned forwarding table entries must be flushed as a result of a
-// loop-protection action taking effect.
-type Effects struct {
-	Emissions []Emission
-	Flush     []FlushTarget
-}
-
-// FlushTarget names a port whose learned forwarding table entries must be
-// flushed, and which FIDs on it are stale. An empty FIDs means every FID.
-// Receive returns one target, naming the port whose action it just applied,
-// only on the transition into a forwarding-denying action (Block or
-// Disable): the entries the loop taught that port are stale, exactly as
-// spanning tree flushes on a topology change. NoLearn keeps forwarding, so
-// it flushes nothing, and a repeat probe for a port already carrying an
-// applied action flushes nothing either.
-type FlushTarget struct {
-	Port string
-	FIDs []vlan.ID
-}
+// Rule constants produced by loopprotect.
+const (
+	RuleProbeReturn trace.RuleID = "loopprotect.probe.return"
+	RulePortBlock   trace.RuleID = "loopprotect.port.block"
+)
 
 // Return describes a probe's arrival back at the switch that sent it.
 type Return struct {
@@ -103,7 +79,7 @@ func (p *portState) clone() *portState {
 // per-port timer driven by the fabric clock, and the bridge.Gate pair that
 // answers whether a protected port learns and forwards. It runs
 // deterministically in memory without background goroutines or wall clocks;
-// time advances through explicit, time-stamped calls to Receive, Wake, and
+// time advances through explicit, time-stamped calls to Receive, Advance, and
 // LinkChange.
 type Layer struct {
 	mac      netaddr.MAC
@@ -116,15 +92,15 @@ type Layer struct {
 	nextProbeAt time.Time
 }
 
-// New constructs a loop-protection layer from the given configuration, port
-// table, and switch MAC. It returns an error if the configuration is invalid
-// against the ports.
-func New(cfg Config, ports port.Table, mac netaddr.MAC) (*Layer, error) {
-	if err := cfg.Validate(ports); err != nil {
+// New constructs a loop-protection layer from the given configuration and
+// environment. It returns an error if the configuration is invalid against
+// the ports.
+func New(cfg Config, env layer.Env) (*Layer, error) {
+	if err := cfg.Validate(env); err != nil {
 		return nil, err
 	}
 
-	normalized := cfg.Normalize()
+	normalized := cfg.Normalize(env)
 
 	names := make([]string, 0, len(normalized.Ports))
 	for name := range normalized.Ports {
@@ -133,7 +109,7 @@ func New(cfg Config, ports port.Table, mac netaddr.MAC) (*Layer, error) {
 	slices.Sort(names)
 
 	l := &Layer{
-		mac:         mac,
+		mac:         env.MAC,
 		interval:    normalized.Interval,
 		ports:       make(map[string]*portState, len(names)),
 		sortedNames: names,
@@ -219,14 +195,14 @@ func (l *Layer) PortInfo(portName string) PortInfo {
 // trace step, not to this layer.
 //
 // Before evaluating the probe, Receive expires an elapsed Timer or
-// LoopCleared recovery window using the same rule Wake uses, so a probe
+// LoopCleared recovery window using the same rule Advance uses, so a probe
 // delivered at or after the window's expiry sees the action as already
-// lifted rather than reading a stale applied state that Wake alone would
+// lifted rather than reading a stale applied state that Advance alone would
 // have caught later.
-func (l *Layer) Receive(now time.Time, ret Return, p Probe) Effects {
+func (l *Layer) Receive(now time.Time, ret Return, p Probe) layer.Effects {
 	ps, ok := l.ports[p.Port]
 	if !ok {
-		return Effects{}
+		return layer.Effects{}
 	}
 
 	ps.interVLAN = ret.VID != p.VID && !ret.SameUntaggedDomain
@@ -268,13 +244,13 @@ func (l *Layer) Receive(now time.Time, ret Return, p Probe) Effects {
 	}
 
 	if !wasApplied && ps.applied && ps.cfg.Action != NoLearn {
-		return Effects{Flush: []FlushTarget{{Port: p.Port}}}
+		return layer.Effects{Flush: []layer.FlushTarget{{Port: p.Port}}}
 	}
 
-	return Effects{}
+	return layer.Effects{}
 }
 
-// Wake advances every port's Timer and LoopCleared recovery windows past
+// Advance advances every port's Timer and LoopCleared recovery windows past
 // now, lifting an action whose wait has elapsed, and emits one probe per
 // protected port per VLAN, walking ports in sorted order so the emissions
 // are ordered, except for a port currently applying Disable: that port
@@ -287,7 +263,7 @@ func (l *Layer) Receive(now time.Time, ret Return, p Probe) Effects {
 // layers together, so this runs at every spanning tree hello and at every
 // recovery expiry as well; emitting on each of those would probe far faster
 // than the configuration asks for.
-func (l *Layer) Wake(now time.Time) Effects {
+func (l *Layer) Advance(now time.Time) layer.Effects {
 	if !l.armed {
 		l.armed = true
 		l.nextProbeAt = now.Add(l.interval)
@@ -308,10 +284,10 @@ func (l *Layer) Wake(now time.Time) Effects {
 	}
 
 	if now.Before(l.nextProbeAt) {
-		return Effects{}
+		return layer.Effects{}
 	}
 
-	var emissions []Emission
+	var emissions []layer.Emission
 
 	for _, name := range l.sortedNames {
 		ps := l.ports[name]
@@ -334,17 +310,17 @@ func (l *Layer) Wake(now time.Time) Effects {
 				Sequence:  seq,
 				Port:      name,
 			}
-			emissions = append(emissions, Emission{
+			emissions = append(emissions, layer.Emission{
 				Port:  name,
 				VID:   vid,
-				Probe: probe,
+				Frame: Encode(probe, l.mac),
 			})
 		}
 	}
 
 	l.nextProbeAt = now.Add(l.interval)
 
-	return Effects{Emissions: emissions}
+	return layer.Effects{Emissions: emissions}
 }
 
 // NextWake returns the earliest scheduled time at which the layer needs to
@@ -379,7 +355,7 @@ func (l *Layer) NextWake() (time.Time, bool) {
 // action clears on the down transition, which is what makes a link cycle
 // (down, then up) its recovery; an up report with no preceding down leaves
 // the action applied. A port this layer does not track is otherwise ignored.
-func (l *Layer) LinkChange(now time.Time, portName string, up bool) Effects {
+func (l *Layer) LinkChange(now time.Time, portName string, up bool) layer.Effects {
 	if !l.armed {
 		l.armed = true
 		l.nextProbeAt = now.Add(l.interval)
@@ -387,7 +363,7 @@ func (l *Layer) LinkChange(now time.Time, portName string, up bool) Effects {
 
 	ps, ok := l.ports[portName]
 	if !ok {
-		return Effects{}
+		return layer.Effects{}
 	}
 
 	if !up && ps.applied && ps.cfg.Recovery.Mode == Manual {
@@ -395,7 +371,7 @@ func (l *Layer) LinkChange(now time.Time, portName string, up bool) Effects {
 		ps.waitUntil = time.Time{}
 	}
 
-	return Effects{}
+	return layer.Effects{}
 }
 
 // Clear manually lifts the action applied to the named port and resets its
@@ -420,11 +396,11 @@ func (l *Layer) Clear(_ time.Time, portName string) bool {
 // RetentionKey returns a canonical encoding of every normalized input the layer's
 // runtime state depends on: its own configuration as Diff sees it, port link states,
 // and the switch base MAC.
-func RetentionKey(cfg Config, ports port.Table, mac netaddr.MAC) string {
-	if len(cfg.Ports) == 0 && cfg.Interval == 0 && mac == (netaddr.MAC{}) {
+func RetentionKey(cfg Config, env layer.Env) string {
+	if len(cfg.Ports) == 0 && cfg.Interval == 0 && env.MAC == (netaddr.MAC{}) {
 		return ""
 	}
-	norm := cfg.Normalize()
+	norm := cfg.Normalize(env)
 	var b strings.Builder
 	b.WriteString("config=")
 	fmt.Fprintf(&b, "interval=%s;", norm.Interval)
@@ -436,7 +412,7 @@ func RetentionKey(cfg Config, ports port.Table, mac netaddr.MAC) string {
 
 	b.WriteString("\nport-state=")
 	for _, name := range portNames {
-		if pt, ok := ports.Port(name); ok {
+		if pt, ok := env.Ports.Port(name); ok {
 			fmt.Fprintf(&b, "%s:admin=%s,oper=%s;", name, pt.AdminStatus, pt.OperStatus)
 		} else {
 			fmt.Fprintf(&b, "%s:absent;", name)
@@ -444,7 +420,7 @@ func RetentionKey(cfg Config, ports port.Table, mac netaddr.MAC) string {
 	}
 
 	b.WriteString("\nmac=")
-	b.WriteString(mac.String())
+	b.WriteString(env.MAC.String())
 
 	return b.String()
 }

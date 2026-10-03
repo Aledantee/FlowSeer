@@ -5,30 +5,30 @@ import (
 	"strconv"
 	"strings"
 
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// SpeedFact represents a port speed in bits per second.
-type SpeedFact uint64
+// speedFact represents a port speed in bits per second.
+type speedFact uint64
 
-// TypeID returns the stable identifier for SpeedFact.
-func (f SpeedFact) TypeID() string { return "phy.speed_bps" }
+// TypeID returns the stable identifier for speedFact.
+func (f speedFact) TypeID() string { return "phy.speed_bps" }
 
 // Canonical returns the decimal string representation of the speed.
-func (f SpeedFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f speedFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
 // String returns the decimal string representation of the speed.
-func (f SpeedFact) String() string { return strconv.FormatUint(uint64(f), 10) }
+func (f speedFact) String() string { return strconv.FormatUint(uint64(f), 10) }
 
-// BoolFact represents a boolean physical layer setting.
-type BoolFact bool
+// boolFact represents a boolean physical layer setting.
+type boolFact bool
 
-// TypeID returns the stable identifier for BoolFact.
-func (f BoolFact) TypeID() string { return "phy.bool" }
+// TypeID returns the stable identifier for boolFact.
+func (f boolFact) TypeID() string { return "phy.bool" }
 
 // Canonical returns "true" or "false".
-func (f BoolFact) Canonical() string {
+func (f boolFact) Canonical() string {
 	if f {
 		return "true"
 	}
@@ -37,7 +37,7 @@ func (f BoolFact) Canonical() string {
 }
 
 // String returns "true" or "false".
-func (f BoolFact) String() string {
+func (f boolFact) String() string {
 	if f {
 		return "true"
 	}
@@ -45,29 +45,29 @@ func (f BoolFact) String() string {
 	return "false"
 }
 
-// PowerFact represents power in nanowatts.
-type PowerFact uint64
+// powerFact represents power in nanowatts.
+type powerFact uint64
 
-// TypeID returns the stable identifier for PowerFact.
-func (f PowerFact) TypeID() string { return "phy.power_nw" }
+// TypeID returns the stable identifier for powerFact.
+func (f powerFact) TypeID() string { return "phy.power_nw" }
 
 // Canonical returns the decimal string representation of power in nanowatts.
-func (f PowerFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+func (f powerFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
 // String returns the decimal string representation of power in nanowatts.
-func (f PowerFact) String() string { return strconv.FormatUint(uint64(f), 10) }
+func (f powerFact) String() string { return strconv.FormatUint(uint64(f), 10) }
 
-// ClassFact represents an IEEE PD or PSE class.
-type ClassFact uint8
+// classFact represents an IEEE PD or PSE class.
+type classFact uint8
 
-// TypeID returns the stable identifier for ClassFact.
-func (f ClassFact) TypeID() string { return "phy.class" }
+// TypeID returns the stable identifier for classFact.
+func (f classFact) TypeID() string { return "phy.class" }
 
 // Canonical returns the decimal string representation of the class.
-func (f ClassFact) Canonical() string { return strconv.Itoa(int(f)) }
+func (f classFact) Canonical() string { return strconv.Itoa(int(f)) }
 
 // String returns the decimal string representation of the class.
-func (f ClassFact) String() string { return strconv.Itoa(int(f)) }
+func (f classFact) String() string { return strconv.Itoa(int(f)) }
 
 type speedsFact string
 
@@ -104,23 +104,23 @@ func snapshotPSEPort(psePort PsePort) trace.Fact {
 	return psePortSnapshotFact(psePort.Canonical())
 }
 
-// StringFact represents a string setting in the physical layer.
-type StringFact string
+// stringFact represents a string setting in the physical layer.
+type stringFact string
 
-// TypeID returns the stable identifier for StringFact.
-func (f StringFact) TypeID() string { return "phy.string" }
+// TypeID returns the stable identifier for stringFact.
+func (f stringFact) TypeID() string { return "phy.string" }
 
 // Canonical returns the string value.
-func (f StringFact) Canonical() string { return string(f) }
+func (f stringFact) Canonical() string { return string(f) }
 
 // String returns the string value.
-func (f StringFact) String() string { return string(f) }
+func (f stringFact) String() string { return string(f) }
 
 // Diff computes the difference between two physical-layer configurations,
 // covering all behavior-bearing fields for Ethernet and PoE.
 func Diff(a, b Config) []trace.Change {
-	na := a.Normalize()
-	nb := b.Normalize()
+	na := a.Normalize(layer.Env{})
+	nb := b.Normalize(layer.Env{})
 	changes := diffEthernet(na.Ethernet, nb.Ethernet)
 
 	return append(changes, diffPoE(na.PoE, nb.PoE)...)
@@ -134,7 +134,7 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 		be, exists := b[name]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				From:    snapshotEthernet(ae),
 			})
@@ -144,16 +144,16 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 
 		if from, to := settingSpeed(ae), settingSpeed(be); from != to {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "speed_bps",
-				From:    SpeedFact(from),
-				To:      SpeedFact(to),
+				From:    speedFact(from),
+				To:      speedFact(to),
 			})
 		}
 		if from, to := settingDuplex(ae), settingDuplex(be); from != to {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "duplex",
 				From:    from,
@@ -162,16 +162,16 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 		}
 		if from, to := settingAutoNegotiation(ae), settingAutoNegotiation(be); from != to {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "auto_negotiation_enabled",
-				From:    BoolFact(from),
-				To:      BoolFact(to),
+				From:    boolFact(from),
+				To:      boolFact(to),
 			})
 		}
 		if !slices.Equal(ae.SupportedSpeedsBPS, be.SupportedSpeedsBPS) {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "supported_speeds_bps",
 				From:    SpeedsFact(ae.SupportedSpeedsBPS),
@@ -180,7 +180,7 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 		}
 		if ae.AutoNegotiationSupported != be.AutoNegotiationSupported {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "auto_negotiation_supported",
 				From:    ae.AutoNegotiationSupported,
@@ -189,16 +189,16 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 		}
 		if from, to := observedSpeed(ae), observedSpeed(be); from != to {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "observed_speed_bps",
-				From:    SpeedFact(from),
-				To:      SpeedFact(to),
+				From:    speedFact(from),
+				To:      speedFact(to),
 			})
 		}
 		if from, to := observedDuplex(ae), observedDuplex(be); from != to {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "observed_duplex",
 				From:    from,
@@ -207,11 +207,11 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 		}
 		if from, to := ae.Resolve().Source, be.Resolve().Source; from != to {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "resolve_source",
-				From:    StringFact(from),
-				To:      StringFact(to),
+				From:    stringFact(from),
+				To:      stringFact(to),
 			})
 		}
 	}
@@ -219,7 +219,7 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 	for _, name := range sortedKeys(b) {
 		if _, exists := a[name]; !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerEthernet,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				To:      snapshotEthernet(b[name]),
 			})
@@ -246,7 +246,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		bg, exists := bGroups[name]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "pse_group", Key: name},
 				From:    ag,
 			})
@@ -255,18 +255,18 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if ag.PowerNanowatts != bg.PowerNanowatts {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "pse_group", Key: name},
 				Field:   "power_nanowatts",
-				From:    PowerFact(ag.PowerNanowatts),
-				To:      PowerFact(bg.PowerNanowatts),
+				From:    powerFact(ag.PowerNanowatts),
+				To:      powerFact(bg.PowerNanowatts),
 			})
 		}
 	}
 	for _, name := range sortedKeys(bGroups) {
 		if _, exists := aGroups[name]; !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "pse_group", Key: name},
 				To:      bGroups[name],
 			})
@@ -278,7 +278,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		bp, exists := bPorts[name]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				From:    snapshotPSEPort(ap),
 			})
@@ -288,34 +288,34 @@ func diffPoE(a, b *PoE) []trace.Change {
 
 		if ap.Group != bp.Group {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "group",
-				From:    StringFact(ap.Group),
-				To:      StringFact(bp.Group),
+				From:    stringFact(ap.Group),
+				To:      stringFact(bp.Group),
 			})
 		}
 		if ap.MaxClass != bp.MaxClass {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "max_class",
-				From:    ClassFact(ap.MaxClass),
-				To:      ClassFact(bp.MaxClass),
+				From:    classFact(ap.MaxClass),
+				To:      classFact(bp.MaxClass),
 			})
 		}
 		if ap.Enabled != bp.Enabled {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "enabled",
-				From:    BoolFact(ap.Enabled),
-				To:      BoolFact(bp.Enabled),
+				From:    boolFact(ap.Enabled),
+				To:      boolFact(bp.Enabled),
 			})
 		}
 		if !equalUint64Ptr(ap.Limit, bp.Limit) {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "power_limit_nanowatts",
 				From:    limitFact(ap.Limit),
@@ -324,7 +324,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if ap.Priority != bp.Priority {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "priority",
 				From:    ap.Priority,
@@ -333,7 +333,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if ap.PD != bp.PD {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "pd",
 				From:    ap.PD,
@@ -342,7 +342,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 		}
 		if !equalUint8Ptr(ap.PDClass, bp.PDClass) {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "pd_class",
 				From:    pdClassFact(ap.PDClass),
@@ -353,7 +353,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 	for _, name := range sortedKeys(bPorts) {
 		if _, exists := aPorts[name]; !exists {
 			changes = append(changes, trace.Change{
-				Layer:   port.LayerPoE,
+				Layer:   LayerNamePoE,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				To:      snapshotPSEPort(bPorts[name]),
 			})
@@ -404,7 +404,7 @@ func limitFact(limit *uint64) trace.Fact {
 		return nil
 	}
 
-	return PowerFact(*limit)
+	return powerFact(*limit)
 }
 
 func pdClassFact(pdClass *uint8) trace.Fact {
@@ -412,7 +412,7 @@ func pdClassFact(pdClass *uint8) trace.Fact {
 		return nil
 	}
 
-	return ClassFact(*pdClass)
+	return classFact(*pdClass)
 }
 
 func equalUint64Ptr(a, b *uint64) bool {

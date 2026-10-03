@@ -130,3 +130,10 @@ becomes `src/edge/simload`. No entry has a test in the tree.
 - Does `rawsocket.OpenLocalInterface` ignore outgoing frames on Linux? If
   not, `simload` on one interface captures its own transmissions. Read
   `src/modules/capture/rawsocket` before answering.
+- How does the layer contract gate pin its own rules? Phase 2 was accepted
+  with three of them changeable while every test stays green: the
+  `RetentionKey` row's literal
+  (`test/conformance/sim/layer_contract_test.go:79`), the `import_device`
+  root (`:88`), and `exported_fact` narrowed to stateful packages. Its
+  reviewer proposed fixtures derived from each row's kind and a test that
+  every row refuses in both package kinds (`2db760b7`).

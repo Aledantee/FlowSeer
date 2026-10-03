@@ -4,11 +4,14 @@ package filter
 
 import (
 	"cmp"
+	"fmt"
 	"net/netip"
 	"slices"
+	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/tcp"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // Direction indicates whether a filter binding evaluates traffic entering
@@ -123,7 +126,7 @@ type Config struct {
 // Normalize returns a deep copy of c with canonical slice order and non-nil
 // maps. Rule order inside a set is preserved because first-match evaluation
 // is order-dependent.
-func (c Config) Normalize() Config {
+func (c Config) Normalize(_ layer.Env) Config {
 	out := Config{
 		Sets:     make(map[string]RuleSet, len(c.Sets)),
 		Bindings: make([]Binding, len(c.Bindings)),
@@ -185,11 +188,11 @@ func (c Config) Normalize() Config {
 
 // Clone returns an independent deep copy of c.
 func (c Config) Clone() Config {
-	return c.Normalize()
+	return c.Normalize(layer.Env{})
 }
 
 // Validate checks internal consistency of the configuration.
-func (c Config) Validate() error {
+func (c Config) Validate(_ layer.Env) error {
 	for name, set := range c.Sets {
 		if name == "" {
 			return errs.New().Attr("field", "sets").Msg("rule set name cannot be empty")
@@ -294,10 +297,10 @@ func (c Config) Validate() error {
 	return nil
 }
 
-// Equal reports whether c and other are semantically identical.
-func (c Config) Equal(other Config) bool {
-	normA := c.Normalize()
-	normB := other.Normalize()
+// equal reports whether c and other are semantically identical.
+func (c Config) equal(other Config) bool {
+	normA := c.Normalize(layer.Env{})
+	normB := other.Normalize(layer.Env{})
 
 	if len(normA.Sets) != len(normB.Sets) || len(normA.Bindings) != len(normB.Bindings) {
 		return false
@@ -309,7 +312,7 @@ func (c Config) Equal(other Config) bool {
 			return false
 		}
 		for i := range setA.Rules {
-			if !setA.Rules[i].Equal(setB.Rules[i]) {
+			if !setA.Rules[i].equal(setB.Rules[i]) {
 				return false
 			}
 		}
@@ -324,16 +327,16 @@ func (c Config) Equal(other Config) bool {
 	return true
 }
 
-// Equal reports whether r and other are identical.
-func (r Rule) Equal(other Rule) bool {
+// equal reports whether r and other are identical.
+func (r Rule) equal(other Rule) bool {
 	if r.Name != other.Name || r.Action != other.Action {
 		return false
 	}
-	return r.Match.Equal(other.Match)
+	return r.Match.equal(other.Match)
 }
 
-// Equal reports whether m and other match identical packet criteria.
-func (m Match) Equal(other Match) bool {
+// equal reports whether m and other match identical packet criteria.
+func (m Match) equal(other Match) bool {
 	if (m.Protocol == nil) != (other.Protocol == nil) {
 		return false
 	}
@@ -367,4 +370,52 @@ func (m Match) Equal(other Match) bool {
 		return false
 	}
 	return true
+}
+
+// RetentionKey returns a canonical encoding of every normalized input the layer's
+// runtime state depends on: its own configuration and the node identity.
+func RetentionKey(cfg Config, env layer.Env) string {
+	if len(cfg.Sets) == 0 && len(cfg.Bindings) == 0 {
+		return ""
+	}
+	norm := cfg.Normalize(env)
+	var b strings.Builder
+	b.WriteString("config=")
+	b.WriteString("node_id=")
+	b.WriteString(env.NodeID)
+	b.WriteString(";sets=[")
+	setNames := sortedKeys(norm.Sets)
+	for i, name := range setNames {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		s := norm.Sets[name]
+		fmt.Fprintf(&b, "%s:{stateful=%t;default=%s;rules=[", name, s.Stateful, s.Default)
+		for j, r := range s.Rules {
+			if j > 0 {
+				b.WriteByte(',')
+			}
+			b.WriteString(SnapshotRule(r).Canonical())
+		}
+		b.WriteString("]}")
+	}
+	b.WriteString("];bindings=[")
+	for i, bind := range norm.Bindings {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		fmt.Fprintf(&b, "%s:%s->%s", bind.Interface, bind.Direction, bind.Set)
+	}
+	b.WriteString("]")
+
+	return b.String()
+}
+
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
 }

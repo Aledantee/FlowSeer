@@ -1,8 +1,8 @@
 # Switch traffic configuration
 
 `traffic` holds the virtual switch's mirrors, ingress policers, and per-PCP
-queue limits. The package does not forward or schedule frames. It exposes the
-value-level decisions that the switch and fabric apply.
+queue limits. The package exposes `Layer` with `New`, `Admit`, and `Retain`,
+alongside the value-level decisions that the switch and fabric apply.
 
 ## Mirrors
 
@@ -21,7 +21,7 @@ the outer tag. `OutputVLAN` and each `SelectVLANs` entry require a VLAN-aware
 bridge and must name an entry in its VLAN table. Reserved bridge-group
 destinations are never copied to a VLAN.
 
-`Copies` produces candidate copies from these selection and tag rules. Each
+`Layer.Copies` produces candidate copies from these selection and tag rules. Each
 VLAN-output copy keeps that configured logical VLAN separately from the emitted
 tag stack. The switch uses the logical VLAN for LAG member selection even when
 an untagged or tunnel output removed its outer tag. The switch then checks each
@@ -43,7 +43,7 @@ empty payload, so its encoded length exceeds `SnapLen`.
 
 ## Policing and queue rates
 
-`Bucket` starts with `BurstOctets` tokens. Each call to `Admit` lazily adds
+Each policer bucket starts with `BurstOctets` tokens. Each call to `Admit` lazily adds
 `RateBPS * elapsed / 8` octets, capped at the burst, then spends the frame size
 when enough tokens exist. A refused frame spends nothing. Rate zero disables
 policing.
@@ -64,10 +64,10 @@ issue. Later crossings on another PCP of the same member create no second event.
 
 ## State retention
 
-`RetentionKey(cfg Config) string` encodes the normalized traffic configuration
+`RetentionKey(cfg Config, env layer.Env) string` encodes the normalized traffic configuration
 as `Diff` sees it, each queue's rate and stated buffer included.
-`vswitch.Derive` retains active token buckets per matching policer when the
-layer's retention key is unchanged.
+`Layer.Retain` carries over active token buckets from a previous layer for policers
+whose configuration has not changed.
 
 ## Sources
 

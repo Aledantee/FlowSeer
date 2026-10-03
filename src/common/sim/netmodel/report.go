@@ -7,7 +7,6 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -55,8 +54,8 @@ type Conflict struct {
 //
 // Every slice is sorted so two reports compare deterministically.
 type Report struct {
-	Capabilities      []port.Layer
-	CapabilitySources map[port.Layer]string
+	Capabilities      []trace.Layer
+	CapabilitySources map[trace.Layer]string
 	Skipped           []Skipped
 	Defaults          []Default
 	Conflicts         []Conflict

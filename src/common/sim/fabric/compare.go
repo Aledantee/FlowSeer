@@ -16,28 +16,12 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
-// Difference describes the first behavioral observable that differed between two
-// fabric evaluations, naming the observable and the values observed on both sides.
-type Difference struct {
-	Observable string
-	Current    string
-	Expected   string
-}
-
-// String returns a human-readable representation of the difference, or empty if none.
-func (d Difference) String() string {
-	if d.Observable == "" {
-		return ""
-	}
-	return d.Observable + ": current=" + d.Current + ", expected=" + d.Expected
-}
-
 // Comparison reports the simulation outcomes of running a common scenario on two fabrics.
 type Comparison struct {
 	Current     []Journey
 	Expected    []Journey
 	Disposition analysis.Disposition
-	Difference  Difference
+	Difference  analysis.Difference
 	Replay      [2]ReplaySpec
 	Steps       [2]int
 	Err         error
@@ -298,9 +282,9 @@ func diffFabricRuns(
 	journeysA, journeysB []Journey,
 	runResA, runResB RunResult,
 	snapA, snapB Snapshot,
-) (Difference, bool) {
+) (analysis.Difference, bool) {
 	if len(injFIDsA) != len(injFIDsB) {
-		return Difference{
+		return analysis.Difference{
 			Observable: "multiplicity",
 			Current:    strconv.Itoa(len(injFIDsA)),
 			Expected:   strconv.Itoa(len(injFIDsB)),
@@ -311,7 +295,7 @@ func diffFabricRuns(
 		groupB := collectInjectionJourneys(journeysB, injFIDsB[i])
 
 		if len(groupA) != len(groupB) {
-			return Difference{
+			return analysis.Difference{
 				Observable: "multiplicity",
 				Current:    strconv.Itoa(len(groupA)),
 				Expected:   strconv.Itoa(len(groupB)),
@@ -333,7 +317,7 @@ func diffFabricRuns(
 	// spanning-tree roles, neighbors, and forwarding database.
 
 	if runResA.Stop != runResB.Stop {
-		return Difference{
+		return analysis.Difference{
 			Observable: "status",
 			Current:    string(runResA.Stop),
 			Expected:   string(runResB.Stop),
@@ -341,7 +325,7 @@ func diffFabricRuns(
 	}
 
 	if runResA.Status != runResB.Status {
-		return Difference{
+		return analysis.Difference{
 			Observable: "status",
 			Current:    string(runResA.Status),
 			Expected:   string(runResB.Status),
@@ -349,15 +333,15 @@ func diffFabricRuns(
 	}
 
 	if runResA.Pending != runResB.Pending {
-		return Difference{
+		return analysis.Difference{
 			Observable: "status",
 			Current:    fmt.Sprintf("%+v", runResA.Pending),
 			Expected:   fmt.Sprintf("%+v", runResB.Pending),
 		}, true
 	}
 
-	if !sameIssues(runResA.Issues, runResB.Issues) {
-		return Difference{
+	if !analysis.SameIssues(runResA.Issues, runResB.Issues) {
+		return analysis.Difference{
 			Observable: "issues",
 			Current:    formatIssues(runResA.Issues),
 			Expected:   formatIssues(runResB.Issues),
@@ -368,7 +352,7 @@ func diffFabricRuns(
 		return diff, true
 	}
 
-	return Difference{}, false
+	return analysis.Difference{}, false
 }
 
 func collectInjectionJourneys(journeys []Journey, root FrameID) []Journey {
@@ -418,9 +402,9 @@ func collectInjectionJourneys(journeys []Journey, root FrameID) []Journey {
 	return result
 }
 
-func diffJourney(jA, jB Journey) (Difference, bool) {
+func diffJourney(jA, jB Journey) (analysis.Difference, bool) {
 	if jA.State != jB.State {
-		return Difference{
+		return analysis.Difference{
 			Observable: "journey terminal",
 			Current:    string(jA.State),
 			Expected:   string(jB.State),
@@ -428,14 +412,14 @@ func diffJourney(jA, jB Journey) (Difference, bool) {
 	}
 
 	if jA.Origin.Kind != jB.Origin.Kind {
-		return Difference{
+		return analysis.Difference{
 			Observable: "origin",
 			Current:    string(jA.Origin.Kind),
 			Expected:   string(jB.Origin.Kind),
 		}, true
 	}
 	if jA.Origin.Mirror != jB.Origin.Mirror {
-		return Difference{
+		return analysis.Difference{
 			Observable: "origin",
 			Current:    jA.Origin.Mirror,
 			Expected:   jB.Origin.Mirror,
@@ -443,7 +427,7 @@ func diffJourney(jA, jB Journey) (Difference, bool) {
 	}
 
 	if jA.Protocol != jB.Protocol {
-		return Difference{
+		return analysis.Difference{
 			Observable: "protocol",
 			Current:    strconv.FormatBool(jA.Protocol),
 			Expected:   strconv.FormatBool(jB.Protocol),
@@ -459,13 +443,13 @@ func diffJourney(jA, jB Journey) (Difference, bool) {
 
 		if eA.Kind != eB.Kind {
 			if eA.Kind == EntryDrop || eB.Kind == EntryDrop {
-				return Difference{
+				return analysis.Difference{
 					Observable: "journey terminal",
 					Current:    string(eA.Kind),
 					Expected:   string(eB.Kind),
 				}, true
 			}
-			return Difference{
+			return analysis.Difference{
 				Observable: "path",
 				Current:    string(eA.Kind),
 				Expected:   string(eB.Kind),
@@ -474,13 +458,13 @@ func diffJourney(jA, jB Journey) (Difference, bool) {
 
 		if eA.Device != eB.Device || eA.Port != eB.Port {
 			if eA.Kind == EntryDrop || eB.Kind == EntryDrop {
-				return Difference{
+				return analysis.Difference{
 					Observable: "drop location",
 					Current:    formatEndpoint(eA.Device, eA.Port),
 					Expected:   formatEndpoint(eB.Device, eB.Port),
 				}, true
 			}
-			return Difference{
+			return analysis.Difference{
 				Observable: "path",
 				Current:    formatEndpoint(eA.Device, eA.Port),
 				Expected:   formatEndpoint(eB.Device, eB.Port),
@@ -488,7 +472,7 @@ func diffJourney(jA, jB Journey) (Difference, bool) {
 		}
 
 		if !sameCable(eA.Cable, eB.Cable) {
-			return Difference{
+			return analysis.Difference{
 				Observable: "path",
 				Current:    formatCable(eA.Cable),
 				Expected:   formatCable(eB.Cable),
@@ -496,7 +480,7 @@ func diffJourney(jA, jB Journey) (Difference, bool) {
 		}
 
 		if eA.Reason != eB.Reason {
-			return Difference{
+			return analysis.Difference{
 				Observable: "drop reason",
 				Current:    string(eA.Reason),
 				Expected:   string(eB.Reason),
@@ -504,7 +488,7 @@ func diffJourney(jA, jB Journey) (Difference, bool) {
 		}
 
 		if eA.PCP != eB.PCP {
-			return Difference{
+			return analysis.Difference{
 				Observable: "journey rewrite",
 				Current:    strconv.Itoa(int(eA.PCP)),
 				Expected:   strconv.Itoa(int(eB.PCP)),
@@ -512,28 +496,28 @@ func diffJourney(jA, jB Journey) (Difference, bool) {
 		}
 
 		if !eA.At.Equal(eB.At) {
-			return Difference{
+			return analysis.Difference{
 				Observable: "timing",
 				Current:    eA.At.Format(time.RFC3339Nano),
 				Expected:   eB.At.Format(time.RFC3339Nano),
 			}, true
 		}
 		if eA.Latency != eB.Latency {
-			return Difference{
+			return analysis.Difference{
 				Observable: "timing",
 				Current:    eA.Latency.String(),
 				Expected:   eB.Latency.String(),
 			}, true
 		}
 		if eA.Serialization != eB.Serialization {
-			return Difference{
+			return analysis.Difference{
 				Observable: "timing",
 				Current:    eA.Serialization.String(),
 				Expected:   eB.Serialization.String(),
 			}, true
 		}
 		if eA.Wait != eB.Wait {
-			return Difference{
+			return analysis.Difference{
 				Observable: "timing",
 				Current:    eA.Wait.String(),
 				Expected:   eB.Wait.String(),
@@ -548,7 +532,7 @@ func diffJourney(jA, jB Journey) (Difference, bool) {
 	}
 
 	if len(entriesA) != len(entriesB) {
-		return Difference{
+		return analysis.Difference{
 			Observable: "path",
 			Current:    fmt.Sprintf("%d entries", len(entriesA)),
 			Expected:   fmt.Sprintf("%d entries", len(entriesB)),
@@ -556,7 +540,7 @@ func diffJourney(jA, jB Journey) (Difference, bool) {
 	}
 
 	if len(jA.Deliveries) != len(jB.Deliveries) {
-		return Difference{
+		return analysis.Difference{
 			Observable: "multiplicity",
 			Current:    strconv.Itoa(len(jA.Deliveries)),
 			Expected:   strconv.Itoa(len(jB.Deliveries)),
@@ -568,49 +552,49 @@ func diffJourney(jA, jB Journey) (Difference, bool) {
 		dB := jB.Deliveries[k]
 
 		if dA.Host != dB.Host {
-			return Difference{
+			return analysis.Difference{
 				Observable: "path",
 				Current:    dA.Host,
 				Expected:   dB.Host,
 			}, true
 		}
 		if !dA.At.Equal(dB.At) {
-			return Difference{
+			return analysis.Difference{
 				Observable: "timing",
 				Current:    dA.At.Format(time.RFC3339Nano),
 				Expected:   dB.At.Format(time.RFC3339Nano),
 			}, true
 		}
 		if dA.Frame.Dst != dB.Frame.Dst {
-			return Difference{
+			return analysis.Difference{
 				Observable: "journey terminal",
 				Current:    dA.Frame.Dst.String(),
 				Expected:   dB.Frame.Dst.String(),
 			}, true
 		}
 		if dA.Frame.Src != dB.Frame.Src {
-			return Difference{
+			return analysis.Difference{
 				Observable: "journey terminal",
 				Current:    dA.Frame.Src.String(),
 				Expected:   dB.Frame.Src.String(),
 			}, true
 		}
 		if dA.Frame.EtherType != dB.Frame.EtherType {
-			return Difference{
+			return analysis.Difference{
 				Observable: "journey terminal",
 				Current:    dA.Frame.EtherType.String(),
 				Expected:   dB.Frame.EtherType.String(),
 			}, true
 		}
 		if !slices.Equal(dA.Frame.Tags, dB.Frame.Tags) {
-			return Difference{
+			return analysis.Difference{
 				Observable: "journey terminal",
 				Current:    fmt.Sprint(dA.Frame.Tags),
 				Expected:   fmt.Sprint(dB.Frame.Tags),
 			}, true
 		}
 		if !bytes.Equal(dA.Frame.Payload, dB.Frame.Payload) {
-			return Difference{
+			return analysis.Difference{
 				Observable: "journey terminal",
 				Current:    fmt.Sprintf("%x", dA.Frame.Payload),
 				Expected:   fmt.Sprintf("%x", dB.Frame.Payload),
@@ -618,12 +602,12 @@ func diffJourney(jA, jB Journey) (Difference, bool) {
 		}
 	}
 
-	return Difference{}, false
+	return analysis.Difference{}, false
 }
 
-func diffHopResult(rA, rB vswitch.ForwardResult) (Difference, bool) {
+func diffHopResult(rA, rB vswitch.ForwardResult) (analysis.Difference, bool) {
 	if len(rA.Egress) != len(rB.Egress) {
-		return Difference{
+		return analysis.Difference{
 			Observable: "journey rewrite",
 			Current:    fmt.Sprintf("%d egress frames", len(rA.Egress)),
 			Expected:   fmt.Sprintf("%d egress frames", len(rB.Egress)),
@@ -633,42 +617,42 @@ func diffHopResult(rA, rB vswitch.ForwardResult) (Difference, bool) {
 		egA := rA.Egress[i]
 		egB := rB.Egress[i]
 		if egA.Frame.Dst != egB.Frame.Dst {
-			return Difference{
+			return analysis.Difference{
 				Observable: "journey rewrite",
 				Current:    egA.Frame.Dst.String(),
 				Expected:   egB.Frame.Dst.String(),
 			}, true
 		}
 		if egA.Frame.Src != egB.Frame.Src {
-			return Difference{
+			return analysis.Difference{
 				Observable: "journey rewrite",
 				Current:    egA.Frame.Src.String(),
 				Expected:   egB.Frame.Src.String(),
 			}, true
 		}
 		if egA.Frame.EtherType != egB.Frame.EtherType {
-			return Difference{
+			return analysis.Difference{
 				Observable: "journey rewrite",
 				Current:    egA.Frame.EtherType.String(),
 				Expected:   egB.Frame.EtherType.String(),
 			}, true
 		}
 		if !slices.Equal(egA.Frame.Tags, egB.Frame.Tags) {
-			return Difference{
+			return analysis.Difference{
 				Observable: "journey rewrite",
 				Current:    fmt.Sprint(egA.Frame.Tags),
 				Expected:   fmt.Sprint(egB.Frame.Tags),
 			}, true
 		}
 		if !bytes.Equal(egA.Frame.Payload, egB.Frame.Payload) {
-			return Difference{
+			return analysis.Difference{
 				Observable: "journey rewrite",
 				Current:    fmt.Sprintf("%x", egA.Frame.Payload),
 				Expected:   fmt.Sprintf("%x", egB.Frame.Payload),
 			}, true
 		}
 	}
-	return Difference{}, false
+	return analysis.Difference{}, false
 }
 
 func clonePacket(p *Packet) *Packet {
@@ -682,40 +666,40 @@ func clonePacket(p *Packet) *Packet {
 	return &cp
 }
 
-func diffSnapshot(snapA, snapB Snapshot) (Difference, bool) {
+func diffSnapshot(snapA, snapB Snapshot) (analysis.Difference, bool) {
 	for _, name := range slices.Sorted(maps.Keys(snapA.Devices)) {
 		devA := snapA.Devices[name]
 		devB, ok := snapB.Devices[name]
 		if !ok {
-			return Difference{
+			return analysis.Difference{
 				Observable: "final state",
 				Current:    name,
 				Expected:   "<absent>",
 			}, true
 		}
 		if !sameEntries(devA.Entries, devB.Entries) {
-			return Difference{
+			return analysis.Difference{
 				Observable: "final state",
 				Current:    fmt.Sprintf("%s: %d fdb entries", name, len(devA.Entries)),
 				Expected:   fmt.Sprintf("%s: %d fdb entries", name, len(devB.Entries)),
 			}, true
 		}
 		if !samePorts(devA.Ports, devB.Ports) {
-			return Difference{
+			return analysis.Difference{
 				Observable: "final state",
 				Current:    fmt.Sprintf("%s: ports mismatch", name),
 				Expected:   fmt.Sprintf("%s: ports mismatch", name),
 			}, true
 		}
 		if !sameNeighbors(devA.Neighbors, devB.Neighbors) {
-			return Difference{
+			return analysis.Difference{
 				Observable: "final state",
 				Current:    fmt.Sprintf("%s: neighbors mismatch", name),
 				Expected:   fmt.Sprintf("%s: neighbors mismatch", name),
 			}, true
 		}
 		if !maps.Equal(devA.Roles, devB.Roles) {
-			return Difference{
+			return analysis.Difference{
 				Observable: "final state",
 				Current:    fmt.Sprintf("%s: stp roles mismatch", name),
 				Expected:   fmt.Sprintf("%s: stp roles mismatch", name),
@@ -724,7 +708,7 @@ func diffSnapshot(snapA, snapB Snapshot) (Difference, bool) {
 	}
 	for _, name := range slices.Sorted(maps.Keys(snapB.Devices)) {
 		if _, ok := snapA.Devices[name]; !ok {
-			return Difference{
+			return analysis.Difference{
 				Observable: "final state",
 				Current:    "<absent>",
 				Expected:   name,
@@ -732,13 +716,13 @@ func diffSnapshot(snapA, snapB Snapshot) (Difference, bool) {
 		}
 	}
 	if !sameLinks(snapA.Links, snapB.Links) {
-		return Difference{
+		return analysis.Difference{
 			Observable: "final state",
 			Current:    "links mismatch",
 			Expected:   "links mismatch",
 		}, true
 	}
-	return Difference{}, false
+	return analysis.Difference{}, false
 }
 
 func sameEntries(a, b []bridge.Entry) bool {
@@ -817,18 +801,6 @@ func sameCable(a, b *Cable) bool {
 		return false
 	}
 	return a.A == b.A && a.B == b.B && a.LengthMeters == b.LengthMeters && a.Medium == b.Medium && sameFault(a.Fault, b.Fault)
-}
-
-func sameIssues(a, b []analysis.Issue) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i].Code != b[i].Code || a[i].Status != b[i].Status || a[i].Scope.Compare(b[i].Scope) != 0 {
-			return false
-		}
-	}
-	return true
 }
 
 func formatIssues(issues []analysis.Issue) string {

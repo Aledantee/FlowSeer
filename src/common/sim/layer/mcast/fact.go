@@ -27,19 +27,25 @@ type controlMessageFact string
 func (f controlMessageFact) TypeID() string    { return "mcast.control_message" }
 func (f controlMessageFact) Canonical() string { return string(f) }
 
-// MembershipDecisionFact returns an immutable snapshot of a multicast group lookup.
-func MembershipDecisionFact(vid vlan.ID, group netip.Addr, ports []string, registered, decided bool) trace.Fact {
+// MembershipFact returns an immutable snapshot of a multicast group lookup naming
+// the frame's IP source: ports is already that source's admitted egress set.
+func MembershipFact(vid vlan.ID, group, source netip.Addr, ports []string, registered, decided bool) trace.Fact {
+	sorted := slices.Clone(ports)
+	slices.Sort(sorted)
+
 	var b strings.Builder
 	b.WriteString("fid=")
 	b.WriteString(strconv.FormatUint(uint64(vid), 10))
 	b.WriteString(";group=")
 	b.WriteString(strconv.Quote(group.String()))
+	b.WriteString(";source=")
+	b.WriteString(strconv.Quote(source.String()))
 	b.WriteString(";registered=")
 	b.WriteString(strconv.FormatBool(registered))
 	b.WriteString(";decided=")
 	b.WriteString(strconv.FormatBool(decided))
 	b.WriteString(";ports=[")
-	for i, portName := range ports {
+	for i, portName := range sorted {
 		if i > 0 {
 			b.WriteByte(',')
 		}

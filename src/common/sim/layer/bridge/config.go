@@ -7,7 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // DefaultAgingTime is the standard IEEE 802.1D recommended forwarding database aging time (300 seconds).
@@ -24,8 +24,8 @@ func effectiveAgingTime(configured time.Duration) time.Duration {
 	return configured
 }
 
-// DefaultServiceTPID is the standard IEEE 802.1ad Service Tag protocol identifier (0x88A8).
-const DefaultServiceTPID uint16 = 0x88A8
+// defaultServiceTPID is the standard IEEE 802.1ad Service Tag protocol identifier (0x88A8).
+const defaultServiceTPID uint16 = 0x88A8
 
 // Tunnel configures 802.1Q tunnel (QinQ) behavior for a switchport. Tunnel values are safe
 // for concurrent reads but not for concurrent mutation.
@@ -35,10 +35,10 @@ type Tunnel struct {
 	TPID         uint16
 }
 
-// EffectiveTPID returns the configured service TPID or [DefaultServiceTPID] when unset.
+// EffectiveTPID returns the configured service TPID or defaultServiceTPID when unset.
 func (t *Tunnel) EffectiveTPID() uint16 {
 	if t == nil || t.TPID == 0 {
-		return DefaultServiceTPID
+		return defaultServiceTPID
 	}
 
 	return t.TPID
@@ -175,7 +175,7 @@ func (v *VLAN) Clone() *VLAN {
 
 // AdmitsVIDOnIngress reports whether a frame carrying vid, tagged or
 // untagged as tagged says, is admitted when it arrives on port. This is the
-// ingress admission rule [Bridge.Ingress] applies; it differs from
+// ingress admission rule [Layer.Ingress] applies; it differs from
 // [Switchport.CarriesVID], the egress rule, because a bridge can forward a
 // VLAN out a port without also being willing to receive that VLAN on it —
 // Admission and IngressFiltering are ingress-only policies, and an access
@@ -185,7 +185,7 @@ func (v *VLAN) Clone() *VLAN {
 //
 // A tunnel port always answers false: on such a port every frame is
 // reclassified into the tunnel's service VLAN and filtered against the
-// customer VID list, a decision [Bridge.Ingress] makes before any VLAN this
+// customer VID list, a decision [Layer.Ingress] makes before any VLAN this
 // method could be asked about applies, so vid here names a VLAN inside the
 // customer's own spanning tree rather than one this bridge admits.
 func (v VLAN) AdmitsVIDOnIngress(port string, vid vlan.ID, tagged bool) bool {
@@ -226,7 +226,7 @@ func (v VLAN) AdmitsVIDOnIngress(port string, vid vlan.ID, tagged bool) bool {
 	return inTable
 }
 
-// Config defines the configuration for a [Bridge].
+// Config defines the configuration for a [Layer].
 type Config struct {
 	AgingTime      time.Duration
 	MaxEntries     int
@@ -259,7 +259,7 @@ func (c Config) Clone() Config {
 // Normalize returns a normalized copy of the configuration,
 // filling unspecified fields with standard defaults, and sorting
 // and deduplicating slices for deterministic behavior.
-func (c Config) Normalize() Config {
+func (c Config) Normalize(_ layer.Env) Config {
 	cloned := c.Clone()
 	if cloned.AgingTime == 0 {
 		cloned.AgingTime = DefaultAgingTime
@@ -290,7 +290,7 @@ func (c Config) Normalize() Config {
 			}
 			if sw.Tunnel != nil {
 				if sw.Tunnel.TPID == 0 {
-					sw.Tunnel.TPID = DefaultServiceTPID
+					sw.Tunnel.TPID = defaultServiceTPID
 				}
 				if len(sw.Tunnel.CustomerVIDs) > 0 {
 					slices.Sort(sw.Tunnel.CustomerVIDs)
@@ -310,7 +310,7 @@ func (c Config) Normalize() Config {
 // tagged, or untagged VLANs configured, a tunnel or customer VLAN identifier outside 1 through 4094,
 // a VLAN in both tagged and untagged sets, a VLAN identifier outside 1 through 4094, and any
 // switchport when the VLAN table is absent or empty.
-func (c Config) Validate(ports port.Table) error {
+func (c Config) Validate(env layer.Env) error {
 	if c.AgingTime < 0 {
 		return errs.New().
 			Attr("field", "aging_time").
@@ -347,7 +347,7 @@ func (c Config) Validate(ports port.Table) error {
 	}
 
 	for _, name := range c.ProtectedPorts {
-		p, ok := ports.Port(name)
+		p, ok := env.Ports.Port(name)
 		if !ok {
 			return errs.New().
 				Attr("field", "protected_ports."+name).
@@ -399,7 +399,7 @@ func (c Config) Validate(ports port.Table) error {
 	for _, name := range portNames {
 		sw := c.VLAN.Switchports[name]
 
-		p, ok := ports.Port(name)
+		p, ok := env.Ports.Port(name)
 		if !ok {
 			return errs.New().
 				Attr("field", "vlan.switchports."+name).

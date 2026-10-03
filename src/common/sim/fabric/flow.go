@@ -144,7 +144,7 @@ func (f *Fabric) foldJourney(j *Journey) {
 			}
 			stats.Copies[copyMirrorName(j)]++
 		}
-		stats.Metadata = mergeMetadata(stats.Metadata, j.Metadata)
+		stats.Metadata = stats.Metadata.Merge(j.Metadata)
 
 		return
 	}
@@ -177,7 +177,7 @@ func (f *Fabric) foldJourney(j *Journey) {
 		}
 	}
 
-	stats.Metadata = mergeMetadata(stats.Metadata, j.Metadata)
+	stats.Metadata = stats.Metadata.Merge(j.Metadata)
 }
 
 func (f *Fabric) flowAccumulator(id FlowID) *FlowStats {

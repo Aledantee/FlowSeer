@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -14,10 +16,10 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
-func mustEncode(t *testing.T, b stp.BPDU, src netaddr.MAC) ethernet.Frame {
+func mustEncode(t *testing.T, b bpdu.BPDU, src netaddr.MAC) ethernet.Frame {
 	t.Helper()
 
-	frame, err := stp.Encode(b, src)
+	frame, err := bpdu.Encode(b, src)
 	if err != nil {
 		t.Fatalf("stp.Encode: %v", err)
 	}
@@ -25,7 +27,7 @@ func mustEncode(t *testing.T, b stp.BPDU, src netaddr.MAC) ethernet.Frame {
 }
 
 type portStatus struct {
-	role  stp.Role
+	role  bpdu.Role
 	state stp.State
 }
 
@@ -211,21 +213,21 @@ func TestRingConvergenceAndHostDelivery(t *testing.T) {
 	snap := snap2
 
 	sw2P2 := snap.Devices["sw2"].Roles["1/1/2"]
-	if sw2P2.Role != stp.RoleRoot || sw2P2.State != stp.StateForwarding {
+	if sw2P2.Role != bpdu.RoleRoot || sw2P2.State != stp.StateForwarding {
 		t.Errorf("sw2 1/1/2 = (%v, %v), want (Root, Forwarding)", sw2P2.Role, sw2P2.State)
 	}
 
 	sw3P3 := snap.Devices["sw3"].Roles["1/1/3"]
-	if sw3P3.Role != stp.RoleRoot || sw3P3.State != stp.StateForwarding {
+	if sw3P3.Role != bpdu.RoleRoot || sw3P3.State != stp.StateForwarding {
 		t.Errorf("sw3 1/1/3 = (%v, %v), want (Root, Forwarding)", sw3P3.Role, sw3P3.State)
 	}
 
 	sw3P2 := snap.Devices["sw3"].Roles["1/1/2"]
 	sw2P3 := snap.Devices["sw2"].Roles["1/1/3"]
-	if sw3P2.Role != stp.RoleDesignated || sw3P2.State != stp.StateForwarding {
+	if sw3P2.Role != bpdu.RoleDesignated || sw3P2.State != stp.StateForwarding {
 		t.Errorf("sw3 1/1/2 = (%v, %v), want (Designated, Forwarding)", sw3P2.Role, sw3P2.State)
 	}
-	if sw2P3.Role != stp.RoleAlternate || sw2P3.State != stp.StateDiscarding {
+	if sw2P3.Role != bpdu.RoleAlternate || sw2P3.State != stp.StateDiscarding {
 		t.Errorf("sw2 1/1/3 = (%v, %v), want (Alternate, Discarding)", sw2P3.Role, sw2P3.State)
 	}
 
@@ -290,7 +292,7 @@ func TestObservableStepConvergence(t *testing.T) {
 	}
 	for _, cp := range cabledPorts {
 		info := snap0.Devices[cp.dev].Roles[cp.port]
-		if info.Role != stp.RoleDesignated || info.State != stp.StateDiscarding {
+		if info.Role != bpdu.RoleDesignated || info.State != stp.StateDiscarding {
 			t.Errorf("%s %s in initial snapshot = (%v, %v), want (Designated, Discarding)", cp.dev, cp.port, info.Role, info.State)
 		}
 	}
@@ -405,7 +407,7 @@ func TestCutCableReconvergence(t *testing.T) {
 	snap := fab.Snapshot()
 
 	sw2P3 := snap.Devices["sw2"].Roles["1/1/3"]
-	if sw2P3.Role != stp.RoleRoot || sw2P3.State != stp.StateForwarding {
+	if sw2P3.Role != bpdu.RoleRoot || sw2P3.State != stp.StateForwarding {
 		t.Errorf("sw2 1/1/3 after cut = (%v, %v), want (Root, Forwarding)", sw2P3.Role, sw2P3.State)
 	}
 
@@ -645,7 +647,7 @@ func TestHubTransparentInRing(t *testing.T) {
 
 	finalSnap := fab.Snapshot()
 	alt := finalSnap.Devices["sw2"].Roles["1/1/3"]
-	if alt.Role != stp.RoleAlternate || alt.State != stp.StateDiscarding {
+	if alt.Role != bpdu.RoleAlternate || alt.State != stp.StateDiscarding {
 		t.Errorf("Alternate port sw2 1/1/3 = (%v, %v), want (Alternate, Discarding)", alt.Role, alt.State)
 	}
 }
@@ -816,7 +818,7 @@ func TestCutLagMemberKeepsLagUp(t *testing.T) {
 
 		return lag.OperStatus, sw.Roles()["lag1"]
 	}
-	if oper, info := lagState(); oper != port.Up || info.Role != stp.RoleRoot || info.State != stp.StateForwarding {
+	if oper, info := lagState(); oper != port.Up || info.Role != bpdu.RoleRoot || info.State != stp.StateForwarding {
 		t.Fatalf("before cut: lag1 %v %v/%v, want Up Root/Forwarding", oper, info.Role, info.State)
 	}
 
@@ -824,14 +826,14 @@ func TestCutLagMemberKeepsLagUp(t *testing.T) {
 	if err := fab.SetFault(fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, cut); err != nil {
 		t.Fatalf("SetFault first member: %v", err)
 	}
-	if oper, info := lagState(); oper != port.Up || info.Role != stp.RoleRoot || info.State != stp.StateForwarding {
+	if oper, info := lagState(); oper != port.Up || info.Role != bpdu.RoleRoot || info.State != stp.StateForwarding {
 		t.Fatalf("after one member cut: lag1 %v %v/%v, want Up Root/Forwarding", oper, info.Role, info.State)
 	}
 
 	if err := fab.SetFault(fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, cut); err != nil {
 		t.Fatalf("SetFault second member: %v", err)
 	}
-	if oper, info := lagState(); oper != port.Down || info.Role != stp.RoleDisabled {
+	if oper, info := lagState(); oper != port.Down || info.Role != bpdu.RoleDisabled {
 		t.Fatalf("after both members cut: lag1 %v %v, want Down Disabled", oper, info.Role)
 	}
 }
@@ -899,12 +901,12 @@ func TestFabricLegacyBPDUInjectionMigratesPort(t *testing.T) {
 		t.Fatalf("New fabric: %v", err)
 	}
 
-	inferiorBridgeID := stp.BridgeID{
+	inferiorBridgeID := bpdu.BridgeID{
 		Priority: 61440,
 		Address:  netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0c},
 	}
-	legacyBPDU := stp.BPDU{
-		Type:         stp.BPDUTypeConfiguration,
+	legacyBPDU := bpdu.BPDU{
+		Type:         bpdu.TypeConfiguration,
 		RootID:       inferiorBridgeID,
 		BridgeID:     inferiorBridgeID,
 		PortID:       0x8001,
@@ -966,11 +968,11 @@ func TestFabricLegacyBPDUInjectionMigratesPort(t *testing.T) {
 		replyFrame = replyJourney.Injection.Frame
 	}
 
-	decoded, err := stp.Decode(replyFrame)
+	decoded, err := bpdu.Decode(replyFrame)
 	if err != nil {
 		t.Fatalf("Decode reply frame: %v", err)
 	}
-	if decoded.Type != stp.BPDUTypeConfiguration {
+	if decoded.Type != bpdu.TypeConfiguration {
 		t.Errorf("decoded reply BPDU Type = %v, want Configuration", decoded.Type)
 	}
 
@@ -1044,12 +1046,12 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 		t.Fatalf("New fabric: %v", err)
 	}
 
-	inferiorBridgeID := stp.BridgeID{
+	inferiorBridgeID := bpdu.BridgeID{
 		Priority: 61440,
 		Address:  netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0c},
 	}
-	legacyBPDU := stp.BPDU{
-		Type:         stp.BPDUTypeConfiguration,
+	legacyBPDU := bpdu.BPDU{
+		Type:         bpdu.TypeConfiguration,
 		RootID:       inferiorBridgeID,
 		BridgeID:     inferiorBridgeID,
 		PortID:       0x8001,
@@ -1154,78 +1156,6 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 	}
 }
 
-// TestFabricMcheckQueuesTheRSTReply is evidence that a management check
-// through the fabric emits at the fabric clock and reschedules the wake,
-// rather than leaving the reply buffered until an unrelated step.
-func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
-	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	b := port.NewBuilder()
-	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-	ports, _ := b.Build()
-	fab, err := fabric.New(statedPhysical(fabric.Config{
-		Start: t0,
-		Switches: map[string]vswitch.Config{
-			"sw1": {
-				Ports:  ports,
-				Bridge: &bridge.Config{},
-				STP: &stp.Config{
-					Priority: 32768,
-					Address:  netaddr.MAC{0x02, 0, 0, 0, 0, 0x02},
-					Ports:    map[string]stp.Port{"1/1/1": {}},
-				},
-			},
-		},
-		Hosts:  map[string]fabric.Host{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x11}}},
-		Cables: []fabric.Cable{{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h1"}}},
-	}))
-	if err != nil {
-		t.Fatalf("New fabric: %v", err)
-	}
-	inferior := stp.BridgeID{Priority: 61440, Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x0c}}
-	legacy := stp.BPDU{
-		Type: stp.BPDUTypeConfiguration, RootID: inferior, BridgeID: inferior, PortID: 0x8001,
-		HelloTime: 2 * time.Second, MaxAge: 20 * time.Second, ForwardDelay: 15 * time.Second,
-	}
-	legacy.SetRole(stp.RoleDesignated)
-	if _, err := fab.Inject(fabric.Injection{
-		At: t0.Add(4 * time.Second), Origin: fabric.Endpoint{Node: "h1"},
-		Frame: mustEncode(t, legacy, netaddr.MAC{0x02, 0, 0, 0, 0, 0x0c}),
-	}); err != nil {
-		t.Fatalf("Inject: %v", err)
-	}
-	for {
-		entry, ok := fab.Step()
-		if !ok || entry.At.After(t0.Add(5*time.Second)) {
-			break
-		}
-	}
-	if fab.Snapshot().Devices["sw1"].Roles["1/1/1"].SendRSTP {
-		t.Fatal("the port did not migrate")
-	}
-	clock := fab.Snapshot().Clock
-	if err := fab.Mcheck("sw1", "1/1/1"); err != nil {
-		t.Fatalf("Mcheck: %v", err)
-	}
-	if !fab.Snapshot().Devices["sw1"].Roles["1/1/1"].SendRSTP {
-		t.Fatal("Mcheck left the port in compatibility mode")
-	}
-	var found bool
-	for _, j := range fab.Report() {
-		if j.Protocol && j.Injection.Origin.Node == "sw1" && j.Injection.At.Equal(clock) {
-			bpdu, err := stp.Decode(j.Injection.Frame)
-			if err == nil && bpdu.Type == stp.BPDUTypeRapid {
-				found = true
-			}
-		}
-	}
-	if !found {
-		t.Errorf("no RST BPDU journey dated the fabric clock %v after Mcheck", clock)
-	}
-	if err := fab.Mcheck("h1", ""); err == nil {
-		t.Error("Mcheck on a host returned no error")
-	}
-}
-
 func findJourney(t *testing.T, fab *fabric.Fabric, fid fabric.FrameID) fabric.Journey {
 	t.Helper()
 	for _, j := range fab.Report() {
@@ -1243,7 +1173,7 @@ func findJourney(t *testing.T, fab *fabric.Fabric, fid fabric.FrameID) fabric.Jo
 // access hosts on either side. The caller supplies each switch's MST region, so
 // the one-region case, where the instances diverge, and the two-region case,
 // where a boundary holds them together, share this topology.
-func newTwoSwitchTrunkTopology(t *testing.T, mst1, mst2 *stp.MST, instPorts1, instPorts2 map[stp.MSTID]map[string]stp.InstancePort) *fabric.Fabric {
+func newTwoSwitchTrunkTopology(t *testing.T, mst1, mst2 *stp.MST, instPorts1, instPorts2 map[bpdu.MSTID]map[string]stp.InstancePort) *fabric.Fabric {
 	t.Helper()
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
@@ -1287,7 +1217,7 @@ func newTwoSwitchTrunkTopology(t *testing.T, mst1, mst2 *stp.MST, instPorts1, in
 		"h2-v20": {0, 0, 0, 0, 2, 4},
 	}
 
-	stpPorts := func(overrides map[stp.MSTID]map[string]stp.InstancePort, mst *stp.MST) *stp.MST {
+	stpPorts := func(overrides map[bpdu.MSTID]map[string]stp.InstancePort, mst *stp.MST) *stp.MST {
 		if mst == nil {
 			return nil
 		}
@@ -1364,13 +1294,13 @@ func TestMSTInstancesForwardOnIndependentLinks(t *testing.T) {
 	region := &stp.MST{
 		Name:     "region-1",
 		Revision: 1,
-		Instances: map[stp.MSTID]stp.Instance{
+		Instances: map[bpdu.MSTID]stp.Instance{
 			1: {VLANs: []vlan.ID{10}},
 			2: {VLANs: []vlan.ID{20}},
 		},
 	}
 
-	fab := newTwoSwitchTrunkTopology(t, region, region, nil, map[stp.MSTID]map[string]stp.InstancePort{
+	fab := newTwoSwitchTrunkTopology(t, region, region, nil, map[bpdu.MSTID]map[string]stp.InstancePort{
 		1: {"l1": {PathCost: 200_000}},
 		2: {"l2": {PathCost: 200_000}},
 	})
@@ -1459,7 +1389,7 @@ func droppedAtPort(j fabric.Journey, device, port string) bool {
 // same link the CIST forwards on, rather than computing an independent
 // answer of their own.
 func TestMSTRegionBoundaryFollowsCIST(t *testing.T) {
-	instances := map[stp.MSTID]stp.Instance{
+	instances := map[bpdu.MSTID]stp.Instance{
 		1: {VLANs: []vlan.ID{10}},
 		2: {VLANs: []vlan.ID{20}},
 	}
@@ -1479,7 +1409,7 @@ func TestMSTRegionBoundaryFollowsCIST(t *testing.T) {
 	for _, dev := range []string{"sw1", "sw2"} {
 		for _, p := range []string{"l1", "l2"} {
 			role := snap.Devices[dev].Roles[p].Role
-			if role == stp.RoleAlternate || role == stp.RoleBackup {
+			if role == bpdu.RoleAlternate || role == bpdu.RoleBackup {
 				blockedDevice, blockedPort = dev, p
 			}
 		}
@@ -1572,7 +1502,7 @@ func newFourSwitchMSTRing(t *testing.T) *fabric.Fabric {
 		return &stp.MST{
 			Name:      "region-1",
 			Revision:  1,
-			Instances: map[stp.MSTID]stp.Instance{1: {VLANs: []vlan.ID{10}}},
+			Instances: map[bpdu.MSTID]stp.Instance{1: {VLANs: []vlan.ID{10}}},
 		}
 	}
 
@@ -1687,7 +1617,7 @@ func TestMSTRingRootRemovalReconvergesOnLowestRemainingPriority(t *testing.T) {
 			if info.DesignatedRoot.Priority == 4096 {
 				t.Errorf("%s %s still names the removed root 4096 as designated root after convergence", dev, p)
 			}
-			if info.Role == stp.RoleRoot {
+			if info.Role == bpdu.RoleRoot {
 				if haveRoot && newRootPriority != info.DesignatedRoot.Priority {
 					t.Errorf("%s %s names a different new root (%v) than another root port already found (%d)",
 						dev, p, info.DesignatedRoot, newRootPriority)

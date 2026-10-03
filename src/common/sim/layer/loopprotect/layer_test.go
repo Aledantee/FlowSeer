@@ -2,11 +2,13 @@ package loopprotect_test
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -37,6 +39,18 @@ func returnedProbe(sendPort string, vid vlan.ID) loopprotect.Probe {
 	}
 }
 
+// assertProbeFrame fails the test unless e carries the frame the layer emits
+// for its port and VID with the given per-port sequence number: a probe naming
+// this switch as the originator, sent from this switch's MAC.
+func assertProbeFrame(t *testing.T, e layer.Emission, sequence uint32) {
+	t.Helper()
+
+	want := loopprotect.Encode(loopprotect.Probe{OriginMAC: switchMAC, VID: e.VID, Sequence: sequence, Port: e.Port}, switchMAC)
+	if !reflect.DeepEqual(e.Frame, want) {
+		t.Errorf("emission for %s vid %d carries frame %+v, want %+v", e.Port, e.VID, e.Frame, want)
+	}
+}
+
 func TestReceiveAppliesActionToNamedPort(t *testing.T) {
 	t.Parallel()
 
@@ -45,7 +59,7 @@ func TestReceiveAppliesActionToNamedPort(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -75,7 +89,7 @@ func TestRecoveryLoopCleared(t *testing.T) {
 				Recovery: loopprotect.Recovery{Mode: loopprotect.LoopCleared, Duration: 15 * time.Second},
 			},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -89,9 +103,9 @@ func TestRecoveryLoopCleared(t *testing.T) {
 	}
 
 	// A probe keeps returning at t+5s and t+10s, restarting the wait each time.
-	l.Wake(t0.Add(5 * time.Second))
+	l.Advance(t0.Add(5 * time.Second))
 	l.Receive(t0.Add(5*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
-	l.Wake(t0.Add(10 * time.Second))
+	l.Advance(t0.Add(10 * time.Second))
 	l.Receive(t0.Add(10*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 
 	// Cable fault just before t+15s and t+20s: no more returned probes after
@@ -101,12 +115,12 @@ func TestRecoveryLoopCleared(t *testing.T) {
 		t.Fatalf("Action just before the wait elapses = %q, want still Block", got)
 	}
 
-	l.Wake(t0.Add(20 * time.Second))
+	l.Advance(t0.Add(20 * time.Second))
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
 		t.Errorf("Action at t+20s = %q, want still Block (wait elapses at t+25s)", got)
 	}
 
-	l.Wake(t0.Add(25 * time.Second))
+	l.Advance(t0.Add(25 * time.Second))
 	if got := l.PortInfo("1/1/1").Action; got != "" {
 		t.Errorf("Action at t+25s = %q, want empty (recovered)", got)
 	}
@@ -124,7 +138,7 @@ func TestRecoveryTimer(t *testing.T) {
 				Recovery: loopprotect.Recovery{Mode: loopprotect.Timer, Duration: 15 * time.Second},
 			},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -141,7 +155,7 @@ func TestRecoveryTimer(t *testing.T) {
 	l.Receive(t0.Add(5*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 	l.Receive(t0.Add(10*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 
-	l.Wake(t0.Add(15 * time.Second))
+	l.Advance(t0.Add(15 * time.Second))
 	if got := l.PortInfo("1/1/1").Action; got != "" {
 		t.Fatalf("Action at t+15s = %q, want empty (Timer lifted)", got)
 	}
@@ -163,8 +177,8 @@ func TestReceiveExpiresElapsedTimerWindowBeforeApplying(t *testing.T) {
 	t.Parallel()
 
 	// Evidence that Receive expires an elapsed recovery window itself,
-	// using the same rule Wake uses, instead of reading a stale applied
-	// state that only a later Wake call would have caught: a probe
+	// using the same rule Advance uses, instead of reading a stale applied
+	// state that only a later Advance call would have caught: a probe
 	// delivered at exactly the expiry instant must see the window as
 	// already lifted, and the action as freshly reapplied.
 	tbl := newLayerTable(t, "1/1/1")
@@ -176,7 +190,7 @@ func TestReceiveExpiresElapsedTimerWindowBeforeApplying(t *testing.T) {
 				Recovery: loopprotect.Recovery{Mode: loopprotect.Timer, Duration: 15 * time.Second},
 			},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -189,7 +203,7 @@ func TestReceiveExpiresElapsedTimerWindowBeforeApplying(t *testing.T) {
 	}
 
 	// A probe returns at exactly t0+15s, the instant the window elapses,
-	// with no Wake call in between.
+	// with no Advance call in between.
 	l.Receive(t0.Add(15*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
@@ -215,7 +229,7 @@ func TestClearResetsRecurrenceTracking(t *testing.T) {
 				Recovery: loopprotect.Recovery{Mode: loopprotect.Timer, Duration: 15 * time.Second},
 			},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -253,7 +267,7 @@ func TestReceiveFlushesOnTransitionIntoDenyingAction(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"block": {Action: loopprotect.Block, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -284,7 +298,7 @@ func TestReceiveNoLearnNeverFlushes(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"nolearn": {Action: loopprotect.NoLearn},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -322,7 +336,7 @@ func TestRecoveryManual(t *testing.T) {
 				Recovery: loopprotect.Recovery{Mode: loopprotect.Manual},
 			},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -335,7 +349,7 @@ func TestRecoveryManual(t *testing.T) {
 	}
 
 	// Still applied one hour later: Manual never auto-lifts.
-	l.Wake(t0.Add(time.Hour))
+	l.Advance(t0.Add(time.Hour))
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
 		t.Fatalf("Action after 1h = %q, want still Block", got)
 	}
@@ -362,7 +376,7 @@ func TestRecoveryManualClearedByClear(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -400,11 +414,11 @@ func TestRecoveryDefaultPerAction(t *testing.T) {
 			"disable": {Action: loopprotect.Disable},
 		},
 	}
-	if _, err := loopprotect.New(cfg, tbl, switchMAC); err != nil {
+	if _, err := loopprotect.New(cfg, layer.Env{Ports: tbl, MAC: switchMAC}); err != nil {
 		t.Fatalf("New: %v", err)
 	}
 
-	normalized := cfg.Normalize()
+	normalized := cfg.Normalize(layer.Env{})
 	tests := []struct {
 		port string
 		want loopprotect.RecoveryMode
@@ -428,7 +442,7 @@ func TestInterVLAN(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -451,7 +465,7 @@ func TestInterVLANFalseWhenMatching(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -466,10 +480,10 @@ func TestInterVLANFalseWhenMatching(t *testing.T) {
 	}
 }
 
-func TestWakeEmitsProbesForProtectedPortsInSortedOrder(t *testing.T) {
+func TestAdvanceEmitsProbesForProtectedPortsInSortedOrder(t *testing.T) {
 	t.Parallel()
 
-	// Evidence that Wake gates emission on the applied action, not the
+	// Evidence that Advance gates emission on the applied action, not the
 	// configured one: a Disable-configured port that has never had the
 	// action applied still probes, since a returned probe is the only way
 	// Disable can ever be applied.
@@ -481,25 +495,28 @@ func TestWakeEmitsProbesForProtectedPortsInSortedOrder(t *testing.T) {
 			"1/1/1": {Action: loopprotect.NoLearn},
 			"1/1/2": {Action: loopprotect.Disable},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 
 	t0 := time.Unix(1_700_000_000, 0)
-	l.Wake(t0)
-	fx := l.Wake(t0.Add(5 * time.Second))
+	l.Advance(t0)
+	fx := l.Advance(t0.Add(5 * time.Second))
 
 	if len(fx.Emissions) != 3 {
-		t.Fatalf("Wake() emitted %d frames, want 3 (never-applied Disable port still probes): %+v", len(fx.Emissions), fx.Emissions)
+		t.Fatalf("Advance() emitted %d frames, want 3 (never-applied Disable port still probes): %+v", len(fx.Emissions), fx.Emissions)
 	}
 	if fx.Emissions[0].Port != "1/1/1" || fx.Emissions[1].Port != "1/1/2" || fx.Emissions[2].Port != "1/1/3" {
 		t.Errorf("emission order = [%s, %s, %s], want [1/1/1, 1/1/2, 1/1/3] (sorted)",
 			fx.Emissions[0].Port, fx.Emissions[1].Port, fx.Emissions[2].Port)
 	}
+	for _, e := range fx.Emissions {
+		assertProbeFrame(t, e, 0)
+	}
 }
 
-func TestWakeStopsProbingOnceDisableIsApplied(t *testing.T) {
+func TestAdvanceStopsProbingOnceDisableIsApplied(t *testing.T) {
 	t.Parallel()
 
 	// Evidence that emission gates on the applied action: a Disable port
@@ -510,30 +527,31 @@ func TestWakeStopsProbingOnceDisableIsApplied(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Disable, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 
 	t0 := time.Unix(1_700_000_000, 0)
-	l.Wake(t0)
-	fx := l.Wake(t0.Add(5 * time.Second))
+	l.Advance(t0)
+	fx := l.Advance(t0.Add(5 * time.Second))
 	if len(fx.Emissions) != 1 {
-		t.Fatalf("Wake() before the action is applied emitted %d frames, want 1", len(fx.Emissions))
+		t.Fatalf("Advance() before the action is applied emitted %d frames, want 1", len(fx.Emissions))
 	}
+	assertProbeFrame(t, fx.Emissions[0], 0)
 
 	l.Receive(t0.Add(5*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Disable {
 		t.Fatalf("Action after Receive = %q, want Disable", got)
 	}
 
-	fx = l.Wake(t0.Add(10 * time.Second))
+	fx = l.Advance(t0.Add(10 * time.Second))
 	if len(fx.Emissions) != 0 {
-		t.Errorf("Wake() after the action is applied emitted %d frames, want 0: %+v", len(fx.Emissions), fx.Emissions)
+		t.Errorf("Advance() after the action is applied emitted %d frames, want 0: %+v", len(fx.Emissions), fx.Emissions)
 	}
 }
 
-func TestWakeEmitsPerVLAN(t *testing.T) {
+func TestAdvanceEmitsPerVLAN(t *testing.T) {
 	t.Parallel()
 
 	tbl := newLayerTable(t, "1/1/1", "1/1/2")
@@ -543,18 +561,21 @@ func TestWakeEmitsPerVLAN(t *testing.T) {
 			"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{20, 10}},
 			"1/1/2": {Action: loopprotect.Block},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 
 	t0 := time.Unix(1_700_000_000, 0)
-	l.Wake(t0)
-	fx := l.Wake(t0.Add(5 * time.Second))
+	l.Advance(t0)
+	fx := l.Advance(t0.Add(5 * time.Second))
 
 	var vidsFor1 []vlan.ID
 	var vidsFor2 []vlan.ID
+	nextSequence := map[string]uint32{}
 	for _, e := range fx.Emissions {
+		assertProbeFrame(t, e, nextSequence[e.Port])
+		nextSequence[e.Port]++
 		switch e.Port {
 		case "1/1/1":
 			vidsFor1 = append(vidsFor1, e.VID)
@@ -571,7 +592,7 @@ func TestWakeEmitsPerVLAN(t *testing.T) {
 	}
 }
 
-func TestWakeSequenceNumbersIncreasePerPort(t *testing.T) {
+func TestAdvanceSequenceNumbersIncreasePerPort(t *testing.T) {
 	t.Parallel()
 
 	tbl := newLayerTable(t, "1/1/1")
@@ -580,26 +601,29 @@ func TestWakeSequenceNumbersIncreasePerPort(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 
 	t0 := time.Unix(1_700_000_000, 0)
 
-	l.Wake(t0)
-	fx1 := l.Wake(t0.Add(5 * time.Second))
-	fx2 := l.Wake(t0.Add(10 * time.Second))
+	l.Advance(t0)
+	fx1 := l.Advance(t0.Add(5 * time.Second))
+	fx2 := l.Advance(t0.Add(10 * time.Second))
 
 	if len(fx1.Emissions) != 1 || len(fx2.Emissions) != 1 {
 		t.Fatalf("got %d and %d emissions per wake, want 1 each", len(fx1.Emissions), len(fx2.Emissions))
 	}
 
-	p1, err := loopprotect.Decode(loopprotect.Encode(fx1.Emissions[0].Probe, switchMAC))
+	assertProbeFrame(t, fx1.Emissions[0], 0)
+	assertProbeFrame(t, fx2.Emissions[0], 1)
+
+	p1, err := loopprotect.Decode(fx1.Emissions[0].Frame)
 	if err != nil {
 		t.Fatalf("Decode(fx1): %v", err)
 	}
-	p2, err := loopprotect.Decode(loopprotect.Encode(fx2.Emissions[0].Probe, switchMAC))
+	p2, err := loopprotect.Decode(fx2.Emissions[0].Frame)
 	if err != nil {
 		t.Fatalf("Decode(fx2): %v", err)
 	}
@@ -618,8 +642,8 @@ func TestWakeSequenceNumbersIncreasePerPort(t *testing.T) {
 	if p1 != p2 {
 		t.Errorf("frames differ by more than sequence: %+v vs %+v", p1, p2)
 	}
-	f1 := loopprotect.Encode(fx1.Emissions[0].Probe, switchMAC)
-	f2 := loopprotect.Encode(fx2.Emissions[0].Probe, switchMAC)
+	f1 := fx1.Emissions[0].Frame
+	f2 := fx2.Emissions[0].Frame
 	if !bytes.Equal(f1.Dst[:], f2.Dst[:]) {
 		t.Errorf("Dst differs across wakes")
 	}
@@ -635,7 +659,7 @@ func TestGateForEachAction(t *testing.T) {
 			"nolearn": {Action: loopprotect.NoLearn},
 			"disable": {Action: loopprotect.Disable},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -698,7 +722,7 @@ func TestForwardingFactPerDenial(t *testing.T) {
 			"nolearn": {Action: loopprotect.NoLearn},
 			"disable": {Action: loopprotect.Disable},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -737,13 +761,13 @@ func TestBlockedPortKeepsProbingDisabledDoesNot(t *testing.T) {
 			"block":   {Action: loopprotect.Block},
 			"disable": {Action: loopprotect.Disable},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 
 	t0 := time.Unix(1_700_000_000, 0)
-	l.Wake(t0)
+	l.Advance(t0)
 	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("block", 0))
 	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("disable", 0))
 
@@ -754,12 +778,13 @@ func TestBlockedPortKeepsProbingDisabledDoesNot(t *testing.T) {
 		t.Fatalf("disable port Action = %q, want Disable", got)
 	}
 
-	fx := l.Wake(t0.Add(5 * time.Second))
+	fx := l.Advance(t0.Add(5 * time.Second))
 
 	blockSeen := false
 	for _, e := range fx.Emissions {
 		if e.Port == "block" {
 			blockSeen = true
+			assertProbeFrame(t, e, 0)
 		}
 		if e.Port == "disable" {
 			t.Errorf("Disable-acted port emitted a probe")
@@ -778,7 +803,7 @@ func TestCloneIndependence(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -805,7 +830,7 @@ func TestReceiveIgnoresUntrackedPort(t *testing.T) {
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block},
 		},
-	}, tbl, switchMAC)
+	}, layer.Env{Ports: tbl, MAC: switchMAC})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

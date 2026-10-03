@@ -7,6 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 )
 
@@ -53,5 +54,8 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		},
 	}
 
-	simtest.AssertDiffCoversConfig(t, seed, routing.Config.Normalize, routing.Diff, nil)
+	normalize := func(c routing.Config) routing.Config {
+		return c.Normalize(layer.Env{})
+	}
+	simtest.AssertDiffCoversConfig(t, seed, normalize, routing.Diff, nil)
 }

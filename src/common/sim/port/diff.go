@@ -15,7 +15,7 @@ func Diff(a, b Table) []trace.Change {
 		bp, exists := nb.Port(ap.Name)
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  ap.Name,
@@ -30,20 +30,20 @@ func Diff(a, b Table) []trace.Change {
 
 		if ap.IfIndex != bp.IfIndex {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  ap.Name,
 				},
 				Field: "ifindex",
-				From:  IfIndexFact(ap.IfIndex),
-				To:    IfIndexFact(bp.IfIndex),
+				From:  ifIndexFact(ap.IfIndex),
+				To:    ifIndexFact(bp.IfIndex),
 			})
 		}
 
 		if ap.Kind != bp.Kind {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  ap.Name,
@@ -56,7 +56,7 @@ func Diff(a, b Table) []trace.Change {
 
 		if ap.AdminStatus != bp.AdminStatus {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  ap.Name,
@@ -69,7 +69,7 @@ func Diff(a, b Table) []trace.Change {
 
 		if ap.OperStatus != bp.OperStatus {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  ap.Name,
@@ -82,27 +82,27 @@ func Diff(a, b Table) []trace.Change {
 
 		if ap.MTU != bp.MTU {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  ap.Name,
 				},
 				Field: "mtu",
-				From:  MTUFact(ap.MTU),
-				To:    MTUFact(bp.MTU),
+				From:  mtuFact(ap.MTU),
+				To:    mtuFact(bp.MTU),
 			})
 		}
 
 		if ap.LagParent != bp.LagParent {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  ap.Name,
 				},
 				Field: "lag_parent",
-				From:  LagParentFact(ap.LagParent),
-				To:    LagParentFact(bp.LagParent),
+				From:  lagParentFact(ap.LagParent),
+				To:    lagParentFact(bp.LagParent),
 			})
 		}
 	}
@@ -110,7 +110,7 @@ func Diff(a, b Table) []trace.Change {
 	for _, bp := range nb.ports {
 		if _, exists := na.Port(bp.Name); !exists {
 			changes = append(changes, trace.Change{
-				Layer: LayerPort,
+				Layer: LayerName,
 				Subject: trace.Subject{
 					Kind: "port",
 					Key:  bp.Name,

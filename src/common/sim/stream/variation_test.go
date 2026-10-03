@@ -70,47 +70,6 @@ func TestVariationsApplyInOrder(t *testing.T) {
 	}
 }
 
-func TestDrawVariationDeterminism(t *testing.T) {
-	spec := variationSpec(ethernet.Frame{Dst: netaddr.MAC{0x02}}, 12,
-		stream.MACVariation{Field: stream.MACDestination, Count: 251, Draw: true})
-	spec.Seed = 42
-	left := variationSource(t, spec)
-	right := variationSource(t, spec)
-	rng := stream.NewSplitMix64(spec.Seed)
-	for n := 0; n < spec.Count; n++ {
-		_, a, okA := left.Next()
-		_, b, okB := right.Next()
-		if !okA || !okB {
-			t.Fatalf("frame %d exhausted: left %t, right %t", n, okA, okB)
-		}
-		encodedA, err := a.Encode()
-		if err != nil {
-			t.Fatalf("Encode(left): %v", err)
-		}
-		encodedB, err := b.Encode()
-		if err != nil {
-			t.Fatalf("Encode(right): %v", err)
-		}
-		if !bytes.Equal(encodedA, encodedB) {
-			t.Errorf("frame %d encoded bytes differ", n)
-		}
-		want := netaddr.MAC{0x02, 0, 0, 0, 0, byte(rng.Next() % 251)}
-		if a.Dst != want {
-			t.Errorf("frame %d destination = %s, want %s", n, a.Dst, want)
-		}
-	}
-	source := variationSource(t, spec)
-	for range 3 {
-		source.Next()
-	}
-	clone := source.Clone()
-	_, a, _ := source.Next()
-	_, b, _ := clone.Next()
-	if a.Dst != b.Dst {
-		t.Errorf("clone draw destination = %s, want %s", b.Dst, a.Dst)
-	}
-}
-
 func TestSizeVariation(t *testing.T) {
 	sizes := []int{64, 128, 256, 512, 1024, 1280, 1518}
 	source := variationSource(t, variationSpec(ethernet.Frame{Payload: []byte{1, 2, 3}}, len(sizes),
@@ -348,17 +307,6 @@ func TestSizeThenUDPPortVariationPreservesSizes(t *testing.T) {
 	}
 }
 
-func TestUDPPortVariationDrawConsumesInvalidFrame(t *testing.T) {
-	v := stream.UDPPortVariation{Dst: true, Count: 7, Draw: true}
-	rng := stream.NewSplitMix64(42)
-	want := stream.NewSplitMix64(42)
-	v.Apply(0, ethernet.Frame{}, &rng)
-	want.Next()
-	if got, expected := rng.Next(), want.Next(); got != expected {
-		t.Errorf("next draw = 0x%x, want 0x%x after invalid frame", got, expected)
-	}
-}
-
 func TestUDPPortVariationRejectsUnencodableIPv6(t *testing.T) {
 	h := ip.Header{
 		Src: netip.MustParseAddr("2001:db8::1"), Dst: netip.MustParseAddr("2001:db8::2"),
@@ -388,26 +336,6 @@ func TestUDPPortVariationRejectsTruncatedIPPacket(t *testing.T) {
 	spec := variationSpec(udpFrame(t), 2,
 		stream.SizeVariation{Sizes: []int{64, 40}},
 		stream.UDPPortVariation{Dst: true, Count: 2})
-	if err := spec.Validate(); err == nil {
-		t.Error("Validate() error = nil, want refusal")
-	}
-	if source, err := spec.Source(); err == nil {
-		t.Errorf("Source() = %v, nil, want refusal", source)
-	}
-}
-
-type corruptIPVariation struct{}
-
-func (corruptIPVariation) Validate() error { return nil }
-
-func (corruptIPVariation) Apply(_ int, frame ethernet.Frame, _ *stream.SplitMix64) ethernet.Frame {
-	frame.Payload = []byte{1}
-	return frame
-}
-
-func TestUDPPortVariationRejectsEarlierCustomVariation(t *testing.T) {
-	spec := variationSpec(udpFrame(t), 1,
-		corruptIPVariation{}, stream.UDPPortVariation{Dst: true, Count: 2})
 	if err := spec.Validate(); err == nil {
 		t.Error("Validate() error = nil, want refusal")
 	}

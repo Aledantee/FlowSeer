@@ -129,7 +129,7 @@ func TestNeighborFactReportsOrigin(t *testing.T) {
 	wantOrigin(t, routeToV4(t, observed, testNow, lifecycleDstV4, []byte("data"), true), "observed")
 }
 
-// TestRouteMissCreatesIncompleteEntryAndQueuesTheFrame is R20a's first acceptance example: a
+// TestRouteMissCreatesIncompleteEntryAndQueuesTheFrame tests that a
 // destination nothing resolved yet does not vanish as a plain drop.
 func TestRouteMissCreatesIncompleteEntryAndQueuesTheFrame(t *testing.T) {
 	t.Parallel()
@@ -369,7 +369,7 @@ func TestObserveWithNoEntryChangesNothing(t *testing.T) {
 // TestHoldQueueDropsOldestAtDepth is RFC 4861 section 7.2.2: "When a queue overflows, the new
 // arrival SHOULD replace the oldest entry." At HoldDepth 3, four queued frames release as
 // frames two through four in arrival order, and the evicted first frame is reported failed
-// rather than dropped without a trace (finding 3).
+// rather than dropped without a trace.
 func TestHoldQueueDropsOldestAtDepth(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{HoldDepth: 3})
@@ -384,7 +384,7 @@ func TestHoldQueueDropsOldestAtDepth(t *testing.T) {
 	mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x0b}
 	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 
-	eff := l.Wake(testNow)
+	eff := advanceAndDrain(l, testNow)
 	evicted := exitsWithCause(eff, routing.HeldEvicted)
 	if len(evicted) != 1 {
 		t.Fatalf("evicted = %+v, want 1 (frame 1, the one appendHeld pushed out)", evicted)
@@ -392,7 +392,7 @@ func TestHoldQueueDropsOldestAtDepth(t *testing.T) {
 	if got := lastPayloadByte(t, evicted[0].Frame); got != 1 {
 		t.Errorf("evicted[0] payload marker = %d, want 1", got)
 	}
-	// The eviction resolved on the same Wake, so nothing here is a resolution that failed.
+	// The eviction resolved on the same Advance, so nothing here is a resolution that failed.
 	if timedOut := exitsWithCause(eff, routing.HeldTimedOut); len(timedOut) != 0 {
 		t.Errorf("timed out = %+v, want none: the neighbor resolved", timedOut)
 	}
@@ -414,7 +414,7 @@ func TestHoldQueueDropsOldestAtDepth(t *testing.T) {
 	}
 }
 
-// TestWakeFailsAnIncompleteEntryAfterResolutionTimeout is R21b's timeout half: nothing observed
+// TestWakeFailsAnIncompleteEntryAfterResolutionTimeout verifies that nothing observed
 // within ResolutionTimeout moves the entry to Failed and reports its held frames as failed
 // rather than discarding them silently.
 func TestWakeFailsAnIncompleteEntryAfterResolutionTimeout(t *testing.T) {
@@ -427,20 +427,20 @@ func TestWakeFailsAnIncompleteEntryAfterResolutionTimeout(t *testing.T) {
 	}
 
 	// Before the deadline, nothing happens.
-	eff := l.Wake(testNow.Add(2 * time.Second))
-	if len(eff.Exits) != 0 {
-		t.Fatalf("exits before the deadline = %+v, want none", eff.Exits)
+	eff := advanceAndDrain(l, testNow.Add(2*time.Second))
+	if len(eff) != 0 {
+		t.Fatalf("exits before the deadline = %+v, want none", eff)
 	}
 
-	eff = l.Wake(testNow.Add(3 * time.Second))
-	if len(eff.Exits) != 1 {
-		t.Fatalf("exits = %+v, want 1", eff.Exits)
+	eff = advanceAndDrain(l, testNow.Add(3*time.Second))
+	if len(eff) != 1 {
+		t.Fatalf("exits = %+v, want 1", eff)
 	}
-	if eff.Exits[0].Cause != routing.HeldTimedOut {
-		t.Errorf("cause = %q, want %q", eff.Exits[0].Cause, routing.HeldTimedOut)
+	if eff[0].Cause != routing.HeldTimedOut {
+		t.Errorf("cause = %q, want %q", eff[0].Cause, routing.HeldTimedOut)
 	}
-	if eff.Exits[0].Interface != "vlan10" {
-		t.Errorf("timed-out interface = %q, want vlan10", eff.Exits[0].Interface)
+	if eff[0].Interface != "vlan10" {
+		t.Errorf("timed-out interface = %q, want vlan10", eff[0].Interface)
 	}
 
 	after := routeToV4(t, l, testNow.Add(3*time.Second), lifecycleDstV4, []byte("data"), true)
@@ -480,7 +480,7 @@ func TestFailedEntryResolvesAgainOnLaterObservation(t *testing.T) {
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ResolutionTimeout: time.Second})
 
 	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
-	l.Wake(testNow.Add(time.Second))
+	l.Advance(testNow.Add(time.Second))
 	if res := routeToV4(t, l, testNow.Add(time.Second), lifecycleDstV4, []byte("data"), true); res.Reason != routing.ReasonNeighborMiss {
 		t.Fatalf("reason after timeout = %q, want %q", res.Reason, routing.ReasonNeighborMiss)
 	}
@@ -517,7 +517,7 @@ func TestCloneIsolatesNeighborState(t *testing.T) {
 		t.Errorf("original reason = %q after observing the clone, want still pending", res.Reason)
 	}
 
-	eff := l.Wake(testNow.Add(time.Second))
+	eff := advanceAndDrain(l, testNow.Add(time.Second))
 	if timedOut := exitsWithCause(eff, routing.HeldTimedOut); len(timedOut) != 1 {
 		t.Fatalf("original timed out = %d, want 1 (unaffected by the clone's Observe)", len(timedOut))
 	}
@@ -528,7 +528,7 @@ func TestCloneIsolatesNeighborState(t *testing.T) {
 	}
 }
 
-// orderingTrials is how many times an ordering test rebuilds and re-runs its scenario. Wake
+// orderingTrials is how many times an ordering test rebuilds and re-runs its scenario. DrainExits
 // drains, so a layer cannot be reused; a single run of the two-address case passes about half
 // the time with the sort reverted, which is not a gate. Fifty independent Go map iterations
 // agreeing on one order is.
@@ -556,8 +556,8 @@ func twoVRFOrderingConfig() routing.Config {
 	}}
 }
 
-// TestWakeReleasesInDeterministicOrder is finding 1: Wake ranges l.vrfs and a VRF's neighbors,
-// both Go maps, so without a sort the release order varies run to run. Next hops resolved
+// TestWakeReleasesInDeterministicOrder checks that held-frame releases range l.vrfs and a VRF's neighbors,
+// both Go maps, in sorted order so the release order does not vary run to run. Next hops resolved
 // together must release in (VRF, interface, address) order every time.
 func TestWakeReleasesInDeterministicOrder(t *testing.T) {
 	t.Parallel()
@@ -579,7 +579,7 @@ func TestWakeReleasesInDeterministicOrder(t *testing.T) {
 			l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: addr98, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 			l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: addr99, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 
-			wantReleaseOrder(t, trial, l.Wake(testNow), 98, 99)
+			wantReleaseOrder(t, trial, advanceAndDrain(l, testNow), 98, 99)
 		}
 	})
 
@@ -610,15 +610,15 @@ func TestWakeReleasesInDeterministicOrder(t *testing.T) {
 				l.Observe(testNow, routing.Advertisement{Interface: iface, Addr: q.addr, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 			}
 
-			wantReleaseOrder(t, trial, l.Wake(testNow), 4, 3, 2, 1)
+			wantReleaseOrder(t, trial, advanceAndDrain(l, testNow), 4, 3, 2, 1)
 		}
 	})
 }
 
 // wantReleaseOrder asserts that eff's released exits carry want's payload markers in that order.
-func wantReleaseOrder(t *testing.T, trial int, eff routing.Effects, want ...byte) {
+func wantReleaseOrder(t *testing.T, trial int, exits []routing.HeldFrame, want ...byte) {
 	t.Helper()
-	released := exitsWithCause(eff, routing.HeldReleased)
+	released := exitsWithCause(exits, routing.HeldReleased)
 	if len(released) != len(want) {
 		t.Fatalf("trial %d: released = %d frames, want %d", trial, len(released), len(want))
 	}
@@ -631,47 +631,8 @@ func wantReleaseOrder(t *testing.T, trial int, eff routing.Effects, want ...byte
 	}
 }
 
-// TestDiscardHeldThenWakePastDeadlineFailsTheEntry verifies that expiry still moves an
-// incomplete entry to Failed after DiscardHeld empties its held-frame queue.
-func TestDiscardHeldThenWakePastDeadlineFailsTheEntry(t *testing.T) {
-	t.Parallel()
-	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ResolutionTimeout: time.Second})
-
-	res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
-	if res.Reason != routing.ReasonNeighborPending {
-		t.Fatalf("reason = %q, want pending", res.Reason)
-	}
-	if _, ok := l.NextWake(); !ok {
-		t.Fatal("NextWake reports no timer before DiscardHeld, want one")
-	}
-
-	l.DiscardHeld()
-
-	// DiscardHeld leaves state and expiry alone: the entry is still Incomplete, still pending.
-	after := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), false)
-	if after.Reason != routing.ReasonNeighborPending {
-		t.Fatalf("reason after DiscardHeld = %q, want still pending", after.Reason)
-	}
-
-	eff := l.Wake(testNow.Add(time.Second))
-	if len(eff.Exits) != 0 {
-		t.Fatalf("exits = %+v, want none: DiscardHeld left no frames to report", eff.Exits)
-	}
-	if _, ok := l.NextWake(); ok {
-		t.Error("NextWake still reports a timer once the entry failed, want none")
-	}
-
-	final := routeToV4(t, l, testNow.Add(time.Second), lifecycleDstV4, []byte("data"), true)
-	if final.Reason != routing.ReasonNeighborMiss {
-		t.Fatalf("reason = %q, want %q (the entry reached Failed on its own)", final.Reason, routing.ReasonNeighborMiss)
-	}
-	wantState(t, final, "failed")
-}
-
-// TestOriginatePendingResolutionKeepsHopLimit64 is finding 4: finishHeld used to decrement the
-// hop limit of every held frame, but Originate's direct (non-held) path never decrements, so a
-// datagram queued while its neighbor resolved left one hop limit lower than an identical one that
-// resolved immediately. Originate's doc comment promises hop limit 64.
+// TestOriginatePendingResolutionKeepsHopLimit64 asserts that Originate's pending held frames keep
+// hop limit 64 upon release, matching the direct non-held path.
 func TestOriginatePendingResolutionKeepsHopLimit64(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
@@ -684,7 +645,7 @@ func TestOriginatePendingResolutionKeepsHopLimit64(t *testing.T) {
 	mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x21}
 	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 
-	eff := l.Wake(testNow)
+	eff := advanceAndDrain(l, testNow)
 	released := exitsWithCause(eff, routing.HeldReleased)
 	if len(released) != 1 {
 		t.Fatalf("released = %d frames, want 1", len(released))
@@ -703,10 +664,9 @@ func TestOriginatePendingResolutionKeepsHopLimit64(t *testing.T) {
 	}
 }
 
-// TestObserveDoesNotOverwriteConfiguredBinding is finding 6: a configured binding must never
-// adopt an observed MAC or gain an expiry. Without the origin check, a solicited, overriding
-// advertisement moves a configured entry to Reachable with an expiry, and aging past it demotes
-// the binding to Stale even though config.go documents that a static binding never ages out.
+// TestObserveDoesNotOverwriteConfiguredBinding asserts that a configured binding never
+// adopts an observed MAC or gains an expiry. A solicited, overriding advertisement
+// leaves a configured entry unchanged, because static bindings never age out.
 func TestObserveDoesNotOverwriteConfiguredBinding(t *testing.T) {
 	t.Parallel()
 	configuredMAC := netaddr.MAC{0x00, 0x22, 0x33, 0x44, 0x55, 0x66}
@@ -728,17 +688,16 @@ func TestObserveDoesNotOverwriteConfiguredBinding(t *testing.T) {
 
 	// A configured entry was never given an expiry, so aging well past the policy's
 	// ReachableTime must not move it to Stale.
-	l.Age(testNow.Add(time.Hour))
+	l.Advance(testNow.Add(time.Hour))
 	after := routeToV4(t, l, testNow.Add(time.Hour), lifecycleDstV4, []byte("data"), true)
 	wantState(t, after, "reachable")
 	if after.Frame.Dst != configuredMAC {
-		t.Errorf("frame dst after Age = %s, want %s", after.Frame.Dst, configuredMAC)
+		t.Errorf("frame dst after Advance = %s, want %s", after.Frame.Dst, configuredMAC)
 	}
 }
 
-// TestAgeMovesReachableToStaleAfterReachableTime is Layer.Age's first behavioral test in this
-// package, and so also the first test that exercises NeighborPolicy.ReachableTime: deleting the
-// expiry assignment from both Observe branches leaves every existing test passing.
+// TestAgeMovesReachableToStaleAfterReachableTime asserts that Layer.Advance moves Reachable
+// entries whose expiry has passed to Stale according to NeighborPolicy.ReachableTime.
 func TestAgeMovesReachableToStaleAfterReachableTime(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ReachableTime: 30 * time.Second})
@@ -750,7 +709,7 @@ func TestAgeMovesReachableToStaleAfterReachableTime(t *testing.T) {
 	res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
 	wantState(t, res, "reachable")
 
-	l.Age(testNow.Add(30 * time.Second))
+	l.Advance(testNow.Add(30 * time.Second))
 	after := routeToV4(t, l, testNow.Add(30*time.Second), lifecycleDstV4, []byte("data"), true)
 	wantState(t, after, "stale")
 	if after.Frame.Dst != mac {
@@ -758,11 +717,17 @@ func TestAgeMovesReachableToStaleAfterReachableTime(t *testing.T) {
 	}
 }
 
-// exitsWithCause returns the exits in eff carrying cause, keeping the order Wake reported them
+// advanceAndDrain advances l to at and drains its hold-queue exits.
+func advanceAndDrain(l *routing.Layer, at time.Time) []routing.HeldFrame {
+	l.Advance(at)
+	return l.DrainExits()
+}
+
+// exitsWithCause returns the exits in exits carrying cause, keeping the order they were reported
 // in, so a test can name the one exit shape it is about without losing the ordering guarantee.
-func exitsWithCause(eff routing.Effects, cause routing.HeldCause) []routing.HeldFrame {
+func exitsWithCause(exits []routing.HeldFrame, cause routing.HeldCause) []routing.HeldFrame {
 	var out []routing.HeldFrame
-	for _, hf := range eff.Exits {
+	for _, hf := range exits {
 		if hf.Cause == cause {
 			out = append(out, hf)
 		}
@@ -816,22 +781,22 @@ func TestWakeReportsPortForARoutedPortButNotAVLANInterface(t *testing.T) {
 		t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNeighborPending)
 	}
 	l.Observe(testNow, routing.Advertisement{Interface: "routed1", Addr: portDst, MAC: portNeighborMAC, HasMAC: true, Solicited: true, Override: true})
-	portEff := l.Wake(testNow)
-	if len(portEff.Exits) != 1 {
-		t.Fatalf("port exits = %+v, want exactly one", portEff.Exits)
+	portEff := advanceAndDrain(l, testNow)
+	if len(portEff) != 1 {
+		t.Fatalf("port exits = %+v, want exactly one", portEff)
 	}
-	if portEff.Exits[0].Port != "port1" {
-		t.Errorf("Port = %q, want %q for a routed-port interface", portEff.Exits[0].Port, "port1")
+	if portEff[0].Port != "port1" {
+		t.Errorf("Port = %q, want %q for a routed-port interface", portEff[0].Port, "port1")
 	}
 
 	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
 	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x0a}, HasMAC: true, Solicited: true, Override: true})
-	vlanEff := l.Wake(testNow)
-	if len(vlanEff.Exits) != 1 {
-		t.Fatalf("vlan exits = %+v, want exactly one", vlanEff.Exits)
+	vlanEff := advanceAndDrain(l, testNow)
+	if len(vlanEff) != 1 {
+		t.Fatalf("vlan exits = %+v, want exactly one", vlanEff)
 	}
-	if vlanEff.Exits[0].Port != "" {
-		t.Errorf("Port = %q, want empty for a VLAN interface", vlanEff.Exits[0].Port)
+	if vlanEff[0].Port != "" {
+		t.Errorf("Port = %q, want empty for a VLAN interface", vlanEff[0].Port)
 	}
 }
 
@@ -840,4 +805,103 @@ func TestWakeReportsPortForARoutedPortButNotAVLANInterface(t *testing.T) {
 func mustNewLifecycleLayer(t *testing.T, policy routing.NeighborPolicy) *routing.Layer {
 	t.Helper()
 	return mustNewRouting(t, neighborLifecycleConfig(policy))
+}
+
+func TestAdvancePastReachableExpiryAndIncompleteDeadlineLeavesStaleAndFailed(t *testing.T) {
+	t.Parallel()
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{
+		ReachableTime:     30 * time.Second,
+		ResolutionTimeout: 10 * time.Second,
+	})
+
+	reachableDst := netip.MustParseAddr("10.0.10.88")
+	incompleteDst := lifecycleDstV4
+
+	mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x55}
+	routeToV4(t, l, testNow, reachableDst, []byte("reachable-frame"), true)
+	l.Observe(testNow, routing.Advertisement{
+		Interface: "vlan10",
+		Addr:      reachableDst,
+		MAC:       mac,
+		HasMAC:    true,
+		Solicited: true,
+		Override:  true,
+	})
+	l.Advance(testNow)
+	_ = l.DrainExits()
+
+	routeToV4(t, l, testNow, incompleteDst, []byte("incomplete-frame"), true)
+
+	tExpiry := testNow.Add(35 * time.Second)
+	l.Advance(tExpiry)
+
+	reachableRes := routeToV4(t, l, tExpiry, reachableDst, []byte("probe"), false)
+	wantState(t, reachableRes, "stale")
+
+	incompleteRes := routeToV4(t, l, tExpiry, incompleteDst, []byte("probe"), false)
+	wantState(t, incompleteRes, "failed")
+
+	clone := l.Clone()
+
+	exits := l.DrainExits()
+	if len(exits) != 1 {
+		t.Fatalf("DrainExits() = %d exits, want 1", len(exits))
+	}
+	if exits[0].Cause != routing.HeldTimedOut {
+		t.Errorf("exit cause = %q, want %q", exits[0].Cause, routing.HeldTimedOut)
+	}
+	if secondDrain := l.DrainExits(); len(secondDrain) != 0 {
+		t.Errorf("second DrainExits() = %+v, want none", secondDrain)
+	}
+
+	cloneExits := clone.DrainExits()
+	if len(cloneExits) != 1 {
+		t.Fatalf("clone.DrainExits() = %d exits, want 1", len(cloneExits))
+	}
+	if cloneExits[0].Cause != routing.HeldTimedOut {
+		t.Errorf("clone exit cause = %q, want %q", cloneExits[0].Cause, routing.HeldTimedOut)
+	}
+	if secondCloneDrain := clone.DrainExits(); len(secondCloneDrain) != 0 {
+		t.Errorf("second clone.DrainExits() = %+v, want none", secondCloneDrain)
+	}
+}
+
+func TestFailHeldReturnsWaitingExitsFirstAndClearsThem(t *testing.T) {
+	t.Parallel()
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{
+		ResolutionTimeout: 2 * time.Second,
+	})
+
+	dst1 := netip.MustParseAddr("10.0.10.100")
+	dst2 := netip.MustParseAddr("10.0.10.99")
+
+	// Queue frame 1 for dst1.
+	routeToV4(t, l, testNow, dst1, []byte{0xaa}, true)
+
+	// Advance past dst1's resolution deadline without draining exits.
+	// This parks a HeldTimedOut exit in l.exits.
+	l.Advance(testNow.Add(3 * time.Second))
+
+	// Queue frame 2 for dst2, leaving it incomplete in the hold queue.
+	routeToV4(t, l, testNow.Add(3*time.Second), dst2, []byte{0xbb}, true)
+
+	// FailHeld drains held frames across all VRFs and returns waiting exits first.
+	exits := l.FailHeld()
+	if len(exits) != 2 {
+		t.Fatalf("FailHeld() returned %d exits, want 2", len(exits))
+	}
+	if got := lastPayloadByte(t, exits[0].Frame); got != 0xaa {
+		t.Errorf("first exit payload marker = %#x, want 0xaa (waiting exit from Advance)", got)
+	}
+	if got := lastPayloadByte(t, exits[1].Frame); got != 0xbb {
+		t.Errorf("second exit payload marker = %#x, want 0xbb (freshly failed held frame)", got)
+	}
+	if exits[0].Cause != routing.HeldTimedOut || exits[1].Cause != routing.HeldTimedOut {
+		t.Errorf("causes = (%q, %q), want both %q", exits[0].Cause, exits[1].Cause, routing.HeldTimedOut)
+	}
+
+	// Subsequent DrainExits must be empty: FailHeld already consumed the waiting exit.
+	if drained := l.DrainExits(); len(drained) != 0 {
+		t.Errorf("DrainExits() after FailHeld returned %d exits, want 0", len(drained))
+	}
 }

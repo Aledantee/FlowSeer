@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -24,10 +25,6 @@ var mstDigestKey = [16]byte{
 	0x13, 0xAC, 0x06, 0xA6, 0x2E, 0x47, 0xFD, 0x51,
 	0xF9, 0x5D, 0x2B, 0xA2, 0x43, 0xCD, 0x03, 0x46,
 }
-
-// MSTID identifies a Multiple Spanning Tree Instance. MSTID 0 is the Common
-// and Internal Spanning Tree (CIST); 1 through 4094 are instance identifiers.
-type MSTID uint16
 
 // InstancePort holds the per-instance administrative spanning tree settings
 // for one port within an MST instance.
@@ -77,30 +74,13 @@ func (i Instance) Canonical() string {
 		effectiveInstancePriority(i.Priority, i.PriorityPresent), vlans, ports)
 }
 
-// ConfigID is the IEEE 802.1Q MST configuration identifier, the 51-octet
-// value bridges exchange and compare to decide whether they belong to the
-// same MST region.
-type ConfigID struct {
-	// Selector is always 0, "the format specified in IEEE Std 802.1Q".
-	Selector uint8
-
-	// Name is the configuration name, at most 32 octets when encoded on the
-	// wire (null-padded).
-	Name string
-
-	Revision uint16
-
-	// Digest is the HMAC-MD5 signature of the 4096-entry VID-to-MSTID table.
-	Digest [16]byte
-}
-
 // MST holds the Multiple Spanning Tree region configuration of a virtual
 // switch. Its presence on Config selects MSTP over RSTP.
 type MST struct {
 	Name      string
 	Revision  uint16
 	MaxHops   uint8
-	Instances map[MSTID]Instance
+	Instances map[bpdu.MSTID]Instance
 }
 
 // TypeID returns the fact type identifier for MST.
@@ -124,7 +104,7 @@ func (m MST) Canonical() string {
 // VID-to-MSTID table built from every instance's VLAN membership. A VID no
 // instance claims maps to MSTID 0 (the CIST). Instances are visited in
 // sorted order so the digest never depends on map iteration order.
-func (m MST) ConfigID() ConfigID {
+func (m MST) ConfigID() bpdu.ConfigID {
 	var table [4096]uint16
 	for _, id := range sortedMSTIDs(m.Instances) {
 		inst := m.Instances[id]
@@ -147,7 +127,7 @@ func (m MST) ConfigID() ConfigID {
 	var digest [16]byte
 	copy(digest[:], mac.Sum(nil))
 
-	return ConfigID{
+	return bpdu.ConfigID{
 		Selector: 0,
 		Name:     m.Name,
 		Revision: m.Revision,
@@ -159,7 +139,7 @@ func (m MST) ConfigID() ConfigID {
 func (m MST) Clone() MST {
 	cloned := m
 	if m.Instances != nil {
-		cloned.Instances = make(map[MSTID]Instance, len(m.Instances))
+		cloned.Instances = make(map[bpdu.MSTID]Instance, len(m.Instances))
 		for id, inst := range m.Instances {
 			cloned.Instances[id] = inst.clone()
 		}
@@ -183,7 +163,7 @@ func (i Instance) clone() Instance {
 
 func effectiveMaxHops(h uint8) uint8 {
 	if h == 0 {
-		return DefaultMaxHops
+		return defaultMaxHops
 	}
 	return h
 }
@@ -246,17 +226,17 @@ func (m MST) Validate(ports port.Table, stpPorts map[string]Port) error {
 	}
 
 	// One BPDU carries the CIST and every instance, and its version 3 length
-	// field is 16 bits, so a region with more instances than Encode can fit
+	// field is 16 bits, so a region with more instances than bpdu.Encode can fit
 	// has no wire form. Refusing it here keeps a configuration that validates
 	// from producing a BPDU that cannot be sent.
-	if len(m.Instances) > maxMSTIRecords {
+	if len(m.Instances) > bpdu.MaxMSTIRecords {
 		return errs.New().
 			Attr("field", "mst.instances").
 			Attr("instances", len(m.Instances)).
-			Msgf("MST region holds %d instances, more than the %d one BPDU can carry", len(m.Instances), maxMSTIRecords)
+			Msgf("MST region holds %d instances, more than the %d one BPDU can carry", len(m.Instances), bpdu.MaxMSTIRecords)
 	}
 
-	claimed := make(map[vlan.ID]MSTID, 4096)
+	claimed := make(map[vlan.ID]bpdu.MSTID, 4096)
 	for _, id := range sortedMSTIDs(m.Instances) {
 		if id < 1 || id > 4094 {
 			return errs.New().
@@ -324,8 +304,8 @@ func (m MST) Validate(ports port.Table, stpPorts map[string]Port) error {
 	return nil
 }
 
-func sortedMSTIDs(m map[MSTID]Instance) []MSTID {
-	ids := make([]MSTID, 0, len(m))
+func sortedMSTIDs(m map[bpdu.MSTID]Instance) []bpdu.MSTID {
+	ids := make([]bpdu.MSTID, 0, len(m))
 	for id := range m {
 		ids = append(ids, id)
 	}

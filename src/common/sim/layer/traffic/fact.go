@@ -22,7 +22,7 @@ const (
 
 type mirrorDecisionFact string
 
-func (f mirrorDecisionFact) TypeID() string    { return "traffic.mirror_decision" }
+func (f mirrorDecisionFact) TypeID() string    { return FactTypeMirrorDecision }
 func (f mirrorDecisionFact) Canonical() string { return string(f) }
 
 type policerDecisionFact string

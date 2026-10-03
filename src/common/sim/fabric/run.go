@@ -8,6 +8,7 @@ import (
 	"math/bits"
 	"net/netip"
 	"slices"
+	"strconv"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -534,7 +535,7 @@ func (f *Fabric) Step() (Entry, bool) {
 					Outcome: trace.Dropped,
 					Reason:  traffic.ReasonPoliced,
 					Steps: []trace.Step{{
-						Layer:   traffic.Layer,
+						Layer:   traffic.LayerName,
 						Op:      trace.OpDrop,
 						RuleID:  traffic.RulePolicerRefuse,
 						Subject: trace.Subject{Kind: "port", Key: arr.Port},
@@ -980,10 +981,10 @@ func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string,
 					Port:   egressPort,
 					Reason: traffic.ReasonQueueFull,
 					Step: &trace.Step{
-						Layer:   traffic.Layer,
+						Layer:   traffic.LayerName,
 						Op:      trace.OpDrop,
 						RuleID:  traffic.RuleQueueDrop,
-						Subject: trace.Subject{Kind: "port", Key: fmt.Sprintf("%s/%d", egressPort, pcp)},
+						Subject: trace.Subject{Kind: "port", Key: trace.CompositeKey(egressPort, strconv.Itoa(int(pcp)))},
 						Inputs:  []trace.Fact{traffic.QueueDropFact(q.depth[pcp], buffer, int(octets))},
 					},
 				})
@@ -1558,7 +1559,7 @@ func (f *Fabric) applyAction(a Action) error {
 		if a.At.After(f.clock) {
 			f.clock = a.At
 		}
-		return f.Mcheck(a.Mcheck.Node, a.Mcheck.Port)
+		return f.mcheck(a.Mcheck.Node, a.Mcheck.Port)
 	case ActionRecord:
 		rec := a.Record
 		inj := Injection{
@@ -1791,7 +1792,7 @@ func (f *Fabric) buildRunResult(stop StopReason, steps int, fingerprints, cycle 
 	}
 	var uniqueIssues []analysis.Issue
 	for _, iss := range issues {
-		if !slices.ContainsFunc(uniqueIssues, func(kept analysis.Issue) bool { return sameIssue(kept, iss) }) {
+		if !slices.ContainsFunc(uniqueIssues, func(kept analysis.Issue) bool { return analysis.SameIssue(kept, iss) }) {
 			uniqueIssues = append(uniqueIssues, iss)
 		}
 	}

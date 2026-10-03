@@ -21,8 +21,8 @@ type Retention struct {
 	Traffic     LayerRetention
 }
 
-// AllKeptRetention returns a Retention value with every layer marked kept.
-func AllKeptRetention() Retention {
+// allKeptRetention returns a Retention value with every layer marked kept.
+func allKeptRetention() Retention {
 	return Retention{
 		STP:         LayerRetention{Kept: true},
 		LoopProtect: LayerRetention{Kept: true},
