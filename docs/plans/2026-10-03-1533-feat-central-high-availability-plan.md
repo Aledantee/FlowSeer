@@ -60,7 +60,8 @@ proposed and awaiting acceptance. The ones the user settled:
 ## Out of scope
 
 - Kubernetes manifests and the NATS chart, which the deployment plan writes.
-- Two agents per site, which the edge high availability plan decides.
+- Edge groups of one to n nodes, which the edge high availability plan
+  decides.
 - Authorization for the operator services.
 - More than one region or cluster.
 

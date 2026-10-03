@@ -35,6 +35,11 @@ The parent's decisions apply
   (`nats-server` v2.15.0, `server/accounts.go`, `DirAccResolver.Start`),
   and the embedded hub already signs account claims with an operator key
   (`src/modules/edgebus/hub.go`, `StartHub`).
+- Central signs account claims with an operator signing key, never with the
+  operator key itself. Why: a server whose operator sets strict signing key
+  usage refuses a pushed claim the operator key issued
+  (`server/accounts.go`, the `claim.Issuer == op && strict` branch), and the
+  operator key can then stay off every central replica.
 - One account per edge stays the security boundary. Why:
   `src/modules/edgebus/README.md`, "Accounts are the security boundary".
 - Central reads the operator, system, and CENTRAL keys from files its
@@ -75,8 +80,10 @@ The parent's decisions apply
 
 ## Open questions
 
-- Whether a directory resolver syncs pushed claims across a cluster.
-  Unverified, and requirement 4 on three servers depends on it.
+- Whether every server of a cluster holds a pushed claim before an edge
+  dials it. The server source has a claims pack exchange between servers
+  (`server/accounts.go`, `accPackReqSubj`) and a lookup by account. It was
+  read and not run, and requirement 4 on three servers needs a test.
 - Where the per-account disk budgets and the store ceiling go. They are
   account claims and server configuration now, and
   `docs/solutions/architecture-patterns/per-account-jetstream-disk-budgets-reserve-against-the-server-store-ceiling.md`

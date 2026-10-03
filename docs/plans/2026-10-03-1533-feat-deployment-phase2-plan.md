@@ -67,8 +67,10 @@ The parent's decisions apply
    serves the certificate central's edge listener serves. Example: both
    reference one Secret by name, and the rendered base holds no Ingress that
    terminates TLS for either.
-6. Every NATS server fsyncs before it acknowledges. Example: the NATS values
-   file sets `sync_interval: always` under `config.merge`.
+6. Every NATS server fsyncs before it acknowledges. Example: the rendered
+   server configuration holds `sync_interval: always` inside its `jetstream`
+   block, where the server parses it (`nats-server` v2.15.0,
+   `server/opts.go`, `parseJetStream`).
 7. No store password is committed. Example: OpenFGA's values name a Secret
    the repository does not define.
 
@@ -83,9 +85,8 @@ The parent's decisions apply
 ## Open questions
 
 - Whether each chart lets every image be pinned by digest. Unverified.
-- Where `sync_interval` sits in the server configuration the chart renders.
-  The server parses the key (`nats-server` v2.15.0, `server/opts.go`), and
-  the block it belongs to was not read. Unverified.
+- Whether the chart's `config.merge` can add a key inside the `jetstream`
+  block it renders. Unverified.
 - Whether the operators and cert-manager run replicated from their charts.
   Unverified.
 - The ClickHouse operator's maturity and which release to pin. Its README

@@ -60,7 +60,9 @@ account per edge, which stays the security boundary
 the servers over the system account instead of storing them in a resolver it
 owns. The pinned server accepts that push on `$SYS.REQ.CLAIMS.UPDATE` when it
 runs a directory resolver (`nats-server` v2.15.0, `server/events.go` and
-`server/accounts.go`).
+`server/accounts.go`). Central signs the claims with an operator signing key,
+because a server under strict signing key usage refuses a claim the operator
+key itself issued.
 
 Central creates its streams and key-value buckets with a replica count its
 configuration names. Every server sets `sync_interval: always`, the
@@ -137,8 +139,9 @@ the pin.
   how much new code several replicas need.
 - Whether captured artifacts live on local disk. The capture artifact sweeper
   suggests they do, and replicas would then need shared storage.
-- Whether a directory resolver syncs pushed claims across a cluster.
-  Unverified: only the push subject was read in the server source.
+- Whether every server of a cluster holds a pushed claim before an edge
+  dials it. The server source has a claims pack exchange between servers
+  (`server/accounts.go`, `accPackReqSubj`). It was read and not run.
 
 ## Sources
 

@@ -83,7 +83,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flo
 
 ### U2. Host, lab files, and docs
 
-Files: src/services/device/internal/host/config.go, src/services/device/internal/host/serve.go, src/services/device/internal/host/host.go, src/services/device/internal/host/config_test.go, src/services/device/internal/host/host_test.go, src/services/device/internal/host/serve_internal_test.go, src/services/device/internal/host/serveconnect_internal_test.go, src/services/device/test/integration/fixture_test.go, src/services/device/test/integration/bootstrap_env_test.go, src/services/device/test/integration/e2e_test.go, src/services/device/test/integration/lab_fixtures_test.go, deploy/lab/central.textproto, deploy/lab/README.md, docs/runbooks/lab-icx7150-first-write.md, src/services/device/README.md, docs/architecture/2026-08-20-device-service-and-inventory-direction.md
+Files: src/services/device/internal/host/config.go, src/services/device/internal/host/serve.go, src/services/device/internal/host/host.go, src/services/device/internal/host/certificate.go, src/services/device/internal/host/certificate_test.go, src/services/device/internal/host/shutdown_test.go, src/services/device/internal/host/config_test.go, src/services/device/internal/host/host_test.go, src/services/device/internal/host/serve_internal_test.go, src/services/device/internal/host/serveconnect_internal_test.go, src/services/device/test/integration/fixture_test.go, src/services/device/test/integration/bootstrap_env_test.go, src/services/device/test/integration/e2e_test.go, src/services/device/test/integration/capture_test.go, src/services/device/test/integration/runbook_test.go, src/services/device/test/integration/lab_fixtures_test.go, deploy/lab/central.textproto, deploy/lab/README.md, docs/runbooks/lab-icx7150-first-write.md, src/services/device/README.md, docs/architecture/2026-08-20-device-service-and-inventory-direction.md
 After: U1
 Change: `Config` has an `EdgeAddress` accessor. `serve.go` builds two muxes:
 the edge mux holds the `EdgeService`, `DispatchService`, `AuditService`, and
@@ -91,18 +91,28 @@ the edge mux holds the `EdgeService`, `DispatchService`, `AuditService`, and
 and the API mux holds `EdgeAdminService`, `DeviceService`, and
 `CaptureService`. The Connect module binds both addresses before serving
 either, closes the first if the second fails to bind, and shuts both down
-within `shutdownGrace`. It logs the edge address it bound. The lab
-configuration names an edge address on loopback and points `central_url` at
-it. The runbook's operator calls keep the API address. The README's
+within `shutdownGrace`. It logs the edge address it bound. The generated
+certificate names the edge address beside the API and bus addresses
+(`certificate.go`, `addSubjectNames`). The lab configuration names an edge
+address on loopback and points `central_url` at it. The runbook's operator
+calls keep the API address, and its `write-provisioning.sh` step passes the
+edge address, since that value becomes the agent's `central_url`. The README's
 Deployment section describes the two listeners. The device service record's
 sentence on a TLS-terminating ingress becomes TLS passthrough, with the pin
 as the reason.
 Tests: `host_test.go` gains four cases: an operator procedure on the edge
 address returns 404, `Enroll` on the API address returns 404, both addresses
 present the same public key digest, and a run whose edge address is already
-in use returns an error and leaves the API address free to bind again. `config_test.go` gains a case
+in use returns an error and leaves the API address free to bind again.
+`UploadCapture` on the API address returns 404 as `Enroll` does.
+`shutdown_test.go` gains the edge-listener twin of
+`TestShutdownCutsAConnectionThatOutlastsTheGrace`. `certificate_test.go`
+extends `TestTheGeneratedCertificateNamesWhatTheDeploymentBinds` to the edge
+address. `TestAListenerWithoutAPortIsRefused` covers `listeners.edge`. `config_test.go` gains a case
 that a file without `listeners.edge` is refused. The integration fixtures
-dial the edge address for every edge call, and `e2e_test.go` passes
+dial the edge address for every edge call (`capture_test.go` passes
+`baseURL()` to the edge client and to every agent it starts), and
+`e2e_test.go` passes
 unchanged in what it asserts. `lab_fixtures_test.go` loads the edited lab
 file.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device deploy/lab docs/runbooks/lab-icx7150-first-write.md docs/architecture/2026-08-20-device-service-and-inventory-direction.md`

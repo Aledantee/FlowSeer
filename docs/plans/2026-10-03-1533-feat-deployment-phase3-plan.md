@@ -16,7 +16,7 @@ parent: docs/plans/2026-10-03-1533-feat-deployment-plan.md
 ## Goal
 
 A site host runs the edge agent as a systemd service from files in the
-repository, and a site that needs high availability runs it on two hosts.
+repository, and an edge group runs it on one to n hosts.
 The means are a unit file under `deploy/systemd/` and a README that says
 where the binary and the two prototext files go.
 
@@ -50,7 +50,7 @@ The parent's decisions apply
 
 ## Out of scope
 
-- How two agents share a site's devices, which the edge high availability plan
+- How the nodes of a group share its devices, which the edge high availability plan
   decides.
 - A deb or rpm package, and a release pipeline that builds the binary.
 - Running the agent in a container.

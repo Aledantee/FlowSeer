@@ -23,7 +23,7 @@ This record assumes the process shapes two others propose: the
 (an upstream NATS cluster, central as several replicas, a separate edge
 listener) and the
 [edge high availability record](2026-10-03-edge-high-availability-direction.md)
-(two agents per site).
+(edge groups of one to n nodes).
 
 Two more facts constrain it. Edges pin a public key on central's TLS chain
 (`spec/proto/flowseer/model/edge/v1/provisioning.proto`), so a proxy that
@@ -99,12 +99,12 @@ one node.
 | ClickHouse (`ClickHouseCluster`) | Kustomize | 1 shard, 2 replicas | 1 replica |
 | ClickHouse Keeper (`KeeperCluster`) | Kustomize | 3 replicas | 1 replica |
 | OpenFGA | Helm values | 3 replicas | 1 replica |
-| Edge agent | systemd, per site | 2 hosts where the site needs it | 1 host |
+| Edge agent | host service manager, per group | 1 to n hosts | 1 host |
 
 A component that Helm renders gets a second values file for `dev` and not a
 Kustomize patch. The stream replica count is a field of central's own
-configuration, because central creates the streams. The NATS chart passes
-`sync_interval: always` through `config.merge`.
+configuration, because central creates the streams. Every NATS server sets
+`sync_interval: always` in its `jetstream` block.
 
 ### A cluster exposes two listeners, with TLS passed through
 
