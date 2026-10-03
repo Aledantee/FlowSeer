@@ -1,7 +1,10 @@
 package fabric
 
 import (
+	"slices"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 )
 
 // TestFabricMetadataCachesUntilSetFault pins the two halves of the cache:
@@ -14,7 +17,7 @@ func TestFabricMetadataCachesUntilSetFault(t *testing.T) {
 	if fab.metadataCache == nil {
 		t.Fatal("Metadata did not cache its result")
 	}
-	if !first.Equal(fab.Metadata()) {
+	if !sameMetadata(first, fab.Metadata()) {
 		t.Error("two Metadata calls without a SetFault returned different values")
 	}
 
@@ -24,7 +27,36 @@ func TestFabricMetadataCachesUntilSetFault(t *testing.T) {
 		t.Fatalf("SetFault: %v", err)
 	}
 
-	if first.Equal(fab.Metadata()) {
+	if sameMetadata(first, fab.Metadata()) {
 		t.Error("Metadata is unchanged after SetFault rewrote the link")
 	}
+}
+
+// sameMetadata reports whether a and b hold the same issues in order, with
+// their messages, and the same assumptions in order. [analysis.Metadata.Equal]
+// ignores issue Message and order, which would hide a cache that returns a
+// stale rendering.
+func sameMetadata(a, b analysis.Metadata) bool {
+	aIssues, bIssues := a.Issues(), b.Issues()
+	if len(aIssues) != len(bIssues) {
+		return false
+	}
+	for i := range aIssues {
+		if !analysis.SameIssue(aIssues[i], bIssues[i]) {
+			return false
+		}
+	}
+
+	aAssumptions, bAssumptions := a.Assumptions(), b.Assumptions()
+	if len(aAssumptions) != len(bAssumptions) {
+		return false
+	}
+	for i := range aAssumptions {
+		x, y := aAssumptions[i].Canonical(), bAssumptions[i].Canonical()
+		if x.Scope.Compare(y.Scope) != 0 || x.Statement != y.Statement || !slices.Equal(x.Evidence, y.Evidence) {
+			return false
+		}
+	}
+
+	return true
 }

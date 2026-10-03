@@ -17,7 +17,7 @@ goroutines or wall-clock dependencies.
 | `stream`               | Finite Ethernet frame sources with deterministic timing      |
 | `port`                 | Port table, administrative state, and MTU                    |
 | `device/vswitch`       | Virtual switch composing pipeline capabilities               |
-| `layer`                | Shared emission, flush target, and effect types for pipeline layers |
+| `layer`                | Environment, emission, flush target, and effect types for pipeline layers |
 | `layer/lag`            | Bond modes, the 256-bucket member selection table, member delays, LACP |
 | `layer/phy`            | Physical Ethernet speeds and PoE budget allocation           |
 | `layer/bridge`         | Filtering database, VLAN classification, and tagging         |
@@ -100,10 +100,12 @@ diff-coverage tests of every `layer/` package, `port`, `device/vswitch`, and
 
 ## Layer architecture contract
 
-Every pipeline layer under `layer/` adheres to a uniform package contract:
+Every pipeline layer under `layer/` adheres to a uniform package contract described in [`layer/README.md`](layer/README.md).
 
-- **Universal members**: Every layer package exports `LayerName`, `Config`, `Config.Normalize`, `Config.Validate`, `Config.Clone`, and `Diff`.
-- **Stateful layer runtime shape**: Layers maintaining runtime state export `New(cfg, env)`, `(*Layer).Clone`, and `RetentionKey(cfg, env)`. Stateful layers advance time through `Advance` or `Tick`, leaving `Wake` and `Age` to the host virtual switch.
-- **Isolation boundaries**: No layer package imports a sibling layer package, `sim/device`, or `sim/fabric`. Shared interaction types live in `layer`. Trace facts remain unexported within their declaring layer package.
-
-The conformance gate under `test/conformance/sim` mechanically verifies these invariants across all layer packages.
+The conformance gate under `test/conformance/sim` mechanically verifies these invariants across all layer packages:
+- Every layer package exports `LayerName`, `Config`, `Config.Normalize(layer.Env) Config`, `Config.Validate(layer.Env) error`, `Config.Clone() Config`, and `Diff(prev, next Config) []trace.Change`.
+- Stateful layers export `New(cfg Config, env layer.Env) (*Layer, error)`, `(*Layer).Clone() *Layer`, and `RetentionKey(cfg Config, env layer.Env) string`.
+- When a `Layer` declares `Advance`, it requires signature `Advance(now time.Time) layer.Effects`.
+- Method names `Wake` and `Age` are forbidden on layer types.
+- No layer package imports a sibling layer package under `layer/`, `sim/device`, or `sim/fabric`.
+- Step fact types remain unexported within their declaring layer package.

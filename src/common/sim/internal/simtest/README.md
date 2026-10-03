@@ -196,7 +196,7 @@ established across the library:
   reads like a completed analysis.
 - `planning/filter-rule-change`: Adds a filter deny rule to an ingress interface
   and asserts both forwarding sides, their ordered traces, and the typed diff fact
-  ([filter.RuleSnapshotFact]) without string parsing, with [vswitch.Compare]
+  ([filter.SnapshotRule]) without string parsing, with [vswitch.Compare]
   detecting the forwarding divergence from forwarded to dropped.
 - `troubleshooting/filter-drops-mdns-unicast-probe`: An ingress interface bound to
   a filter set with a matching drop rule drops a unicast UDP probe with reason
@@ -251,16 +251,18 @@ was there:
 
 ```go
 seed := bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{10: "ten"}}}
-simtest.AssertDiffCoversConfig(t, seed, bridge.Config.Normalize, bridge.Diff, nil)
+normalize := func(c bridge.Config) bridge.Config { return c.Normalize(layer.Env{}) }
+simtest.AssertDiffCoversConfig(t, seed, normalize, bridge.Diff, nil)
 ```
 
 The value chosen for each leaf matters: normalization can silently absorb a
 perturbation into a default that happens to equal the seed's own value (a
 non-default enum toggled to its zero value, a priority normalized from
 absence), which reads as "no arm" when the real defect is the fixture's
-choice of value, not a gap in `Diff`. `lag.Config.Normalize` additionally
-takes the port table and the switch's base MAC, unlike its niladic siblings;
-its diff_coverage_test.go supplies both through the `normalize` closure.
+choice of value, not a gap in `Diff`. Every layer's `Normalize` takes a
+`layer.Env`, so the `normalize` argument is a closure that supplies one, as in
+the example above. `lag`'s diff_coverage_test.go does the same with
+`layer.Env{}`.
 
 `port.Diff` takes a `Table` whose fields are unexported and built only
 through `NewBuilder`, so [AssertDiffCoversPort] walks the exported

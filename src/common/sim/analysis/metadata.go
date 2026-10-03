@@ -133,7 +133,7 @@ func (m Metadata) Merge(source Metadata) Metadata {
 	changed := false
 
 	for _, issue := range source.Issues() {
-		if slices.ContainsFunc(issues, func(kept Issue) bool { return sameIssue(kept, issue) }) {
+		if slices.ContainsFunc(issues, func(kept Issue) bool { return SameIssue(kept, issue) }) {
 			continue
 		}
 		issues = append(issues, issue)
@@ -207,7 +207,9 @@ func assumptionEqual(a, b Assumption) bool {
 		slices.Equal(a.Evidence, b.Evidence)
 }
 
-func sameIssue(a, b Issue) bool {
+// SameIssue reports whether a and b are equal in their canonical forms,
+// comparing Code, Status, Scope, Message, and Evidence.
+func SameIssue(a, b Issue) bool {
 	a, b = a.Canonical(), b.Canonical()
 
 	return a.Code == b.Code && a.Status == b.Status && a.Scope.Compare(b.Scope) == 0 && a.Message == b.Message &&

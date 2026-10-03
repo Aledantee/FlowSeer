@@ -226,7 +226,7 @@ func (m MST) Validate(ports port.Table, stpPorts map[string]Port) error {
 	}
 
 	// One BPDU carries the CIST and every instance, and its version 3 length
-	// field is 16 bits, so a region with more instances than Encode can fit
+	// field is 16 bits, so a region with more instances than bpdu.Encode can fit
 	// has no wire form. Refusing it here keeps a configuration that validates
 	// from producing a BPDU that cannot be sent.
 	if len(m.Instances) > bpdu.MaxMSTIRecords {

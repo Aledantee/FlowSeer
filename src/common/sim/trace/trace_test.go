@@ -592,6 +592,9 @@ func TestCompositeKey(t *testing.T) {
 	if got := trace.CompositeKey("port1"); got != "port1" {
 		t.Errorf("CompositeKey(port1) = %q, want port1", got)
 	}
+	if got, want := trace.CompositeKey("a/b", "c"), `"a/b"/"c"`; got != want {
+		t.Errorf("CompositeKey(a/b, c) = %q, want %q", got, want)
+	}
 
 	pairs := []struct {
 		lag    string

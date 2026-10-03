@@ -129,7 +129,7 @@ func TestNeighborFactReportsOrigin(t *testing.T) {
 	wantOrigin(t, routeToV4(t, observed, testNow, lifecycleDstV4, []byte("data"), true), "observed")
 }
 
-// TestRouteMissCreatesIncompleteEntryAndQueuesTheFrame is R20a's first acceptance example: a
+// TestRouteMissCreatesIncompleteEntryAndQueuesTheFrame tests that a
 // destination nothing resolved yet does not vanish as a plain drop.
 func TestRouteMissCreatesIncompleteEntryAndQueuesTheFrame(t *testing.T) {
 	t.Parallel()
@@ -369,7 +369,7 @@ func TestObserveWithNoEntryChangesNothing(t *testing.T) {
 // TestHoldQueueDropsOldestAtDepth is RFC 4861 section 7.2.2: "When a queue overflows, the new
 // arrival SHOULD replace the oldest entry." At HoldDepth 3, four queued frames release as
 // frames two through four in arrival order, and the evicted first frame is reported failed
-// rather than dropped without a trace (finding 3).
+// rather than dropped without a trace.
 func TestHoldQueueDropsOldestAtDepth(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{HoldDepth: 3})
@@ -392,7 +392,7 @@ func TestHoldQueueDropsOldestAtDepth(t *testing.T) {
 	if got := lastPayloadByte(t, evicted[0].Frame); got != 1 {
 		t.Errorf("evicted[0] payload marker = %d, want 1", got)
 	}
-	// The eviction resolved on the same Wake, so nothing here is a resolution that failed.
+	// The eviction resolved on the same Advance, so nothing here is a resolution that failed.
 	if timedOut := exitsWithCause(eff, routing.HeldTimedOut); len(timedOut) != 0 {
 		t.Errorf("timed out = %+v, want none: the neighbor resolved", timedOut)
 	}
@@ -414,7 +414,7 @@ func TestHoldQueueDropsOldestAtDepth(t *testing.T) {
 	}
 }
 
-// TestWakeFailsAnIncompleteEntryAfterResolutionTimeout is R21b's timeout half: nothing observed
+// TestWakeFailsAnIncompleteEntryAfterResolutionTimeout verifies that nothing observed
 // within ResolutionTimeout moves the entry to Failed and reports its held frames as failed
 // rather than discarding them silently.
 func TestWakeFailsAnIncompleteEntryAfterResolutionTimeout(t *testing.T) {
@@ -528,7 +528,7 @@ func TestCloneIsolatesNeighborState(t *testing.T) {
 	}
 }
 
-// orderingTrials is how many times an ordering test rebuilds and re-runs its scenario. Wake
+// orderingTrials is how many times an ordering test rebuilds and re-runs its scenario. DrainExits
 // drains, so a layer cannot be reused; a single run of the two-address case passes about half
 // the time with the sort reverted, which is not a gate. Fifty independent Go map iterations
 // agreeing on one order is.
@@ -556,8 +556,8 @@ func twoVRFOrderingConfig() routing.Config {
 	}}
 }
 
-// TestWakeReleasesInDeterministicOrder is finding 1: Wake ranges l.vrfs and a VRF's neighbors,
-// both Go maps, so without a sort the release order varies run to run. Next hops resolved
+// TestWakeReleasesInDeterministicOrder checks that held-frame releases range l.vrfs and a VRF's neighbors,
+// both Go maps, in sorted order so the release order does not vary run to run. Next hops resolved
 // together must release in (VRF, interface, address) order every time.
 func TestWakeReleasesInDeterministicOrder(t *testing.T) {
 	t.Parallel()
@@ -631,10 +631,8 @@ func wantReleaseOrder(t *testing.T, trial int, exits []routing.HeldFrame, want .
 	}
 }
 
-// TestOriginatePendingResolutionKeepsHopLimit64 is finding 4: finishHeld used to decrement the
-// hop limit of every held frame, but Originate's direct (non-held) path never decrements, so a
-// datagram queued while its neighbor resolved left one hop limit lower than an identical one that
-// resolved immediately. Originate's doc comment promises hop limit 64.
+// TestOriginatePendingResolutionKeepsHopLimit64 asserts that Originate's pending held frames keep
+// hop limit 64 upon release, matching the direct non-held path.
 func TestOriginatePendingResolutionKeepsHopLimit64(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
@@ -666,10 +664,9 @@ func TestOriginatePendingResolutionKeepsHopLimit64(t *testing.T) {
 	}
 }
 
-// TestObserveDoesNotOverwriteConfiguredBinding is finding 6: a configured binding must never
-// adopt an observed MAC or gain an expiry. Without the origin check, a solicited, overriding
-// advertisement moves a configured entry to Reachable with an expiry, and aging past it demotes
-// the binding to Stale even though config.go documents that a static binding never ages out.
+// TestObserveDoesNotOverwriteConfiguredBinding asserts that a configured binding never
+// adopts an observed MAC or gains an expiry. A solicited, overriding advertisement
+// leaves a configured entry unchanged, because static bindings never age out.
 func TestObserveDoesNotOverwriteConfiguredBinding(t *testing.T) {
 	t.Parallel()
 	configuredMAC := netaddr.MAC{0x00, 0x22, 0x33, 0x44, 0x55, 0x66}
@@ -695,13 +692,12 @@ func TestObserveDoesNotOverwriteConfiguredBinding(t *testing.T) {
 	after := routeToV4(t, l, testNow.Add(time.Hour), lifecycleDstV4, []byte("data"), true)
 	wantState(t, after, "reachable")
 	if after.Frame.Dst != configuredMAC {
-		t.Errorf("frame dst after Age = %s, want %s", after.Frame.Dst, configuredMAC)
+		t.Errorf("frame dst after Advance = %s, want %s", after.Frame.Dst, configuredMAC)
 	}
 }
 
-// TestAgeMovesReachableToStaleAfterReachableTime is Layer.Age's first behavioral test in this
-// package, and so also the first test that exercises NeighborPolicy.ReachableTime: deleting the
-// expiry assignment from both Observe branches leaves every existing test passing.
+// TestAgeMovesReachableToStaleAfterReachableTime asserts that Layer.Advance moves Reachable
+// entries whose expiry has passed to Stale according to NeighborPolicy.ReachableTime.
 func TestAgeMovesReachableToStaleAfterReachableTime(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ReachableTime: 30 * time.Second})
@@ -721,13 +717,14 @@ func TestAgeMovesReachableToStaleAfterReachableTime(t *testing.T) {
 	}
 }
 
-// exitsWithCause returns the exits in eff carrying cause, keeping the order Wake reported them
-// in, so a test can name the one exit shape it is about without losing the ordering guarantee.
+// advanceAndDrain advances l to at and drains its hold-queue exits.
 func advanceAndDrain(l *routing.Layer, at time.Time) []routing.HeldFrame {
 	l.Advance(at)
 	return l.DrainExits()
 }
 
+// exitsWithCause returns the exits in exits carrying cause, keeping the order they were reported
+// in, so a test can name the one exit shape it is about without losing the ordering guarantee.
 func exitsWithCause(exits []routing.HeldFrame, cause routing.HeldCause) []routing.HeldFrame {
 	var out []routing.HeldFrame
 	for _, hf := range exits {
@@ -866,5 +863,45 @@ func TestAdvancePastReachableExpiryAndIncompleteDeadlineLeavesStaleAndFailed(t *
 	}
 	if secondCloneDrain := clone.DrainExits(); len(secondCloneDrain) != 0 {
 		t.Errorf("second clone.DrainExits() = %+v, want none", secondCloneDrain)
+	}
+}
+
+func TestFailHeldReturnsWaitingExitsFirstAndClearsThem(t *testing.T) {
+	t.Parallel()
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{
+		ResolutionTimeout: 2 * time.Second,
+	})
+
+	dst1 := netip.MustParseAddr("10.0.10.100")
+	dst2 := netip.MustParseAddr("10.0.10.99")
+
+	// Queue frame 1 for dst1.
+	routeToV4(t, l, testNow, dst1, []byte{0xaa}, true)
+
+	// Advance past dst1's resolution deadline without draining exits.
+	// This parks a HeldTimedOut exit in l.exits.
+	l.Advance(testNow.Add(3 * time.Second))
+
+	// Queue frame 2 for dst2, leaving it incomplete in the hold queue.
+	routeToV4(t, l, testNow.Add(3*time.Second), dst2, []byte{0xbb}, true)
+
+	// FailHeld drains held frames across all VRFs and returns waiting exits first.
+	exits := l.FailHeld()
+	if len(exits) != 2 {
+		t.Fatalf("FailHeld() returned %d exits, want 2", len(exits))
+	}
+	if got := lastPayloadByte(t, exits[0].Frame); got != 0xaa {
+		t.Errorf("first exit payload marker = %#x, want 0xaa (waiting exit from Advance)", got)
+	}
+	if got := lastPayloadByte(t, exits[1].Frame); got != 0xbb {
+		t.Errorf("second exit payload marker = %#x, want 0xbb (freshly failed held frame)", got)
+	}
+	if exits[0].Cause != routing.HeldTimedOut || exits[1].Cause != routing.HeldTimedOut {
+		t.Errorf("causes = (%q, %q), want both %q", exits[0].Cause, exits[1].Cause, routing.HeldTimedOut)
+	}
+
+	// Subsequent DrainExits must be empty: FailHeld already consumed the waiting exit.
+	if drained := l.DrainExits(); len(drained) != 0 {
+		t.Errorf("DrainExits() after FailHeld returned %d exits, want 0", len(drained))
 	}
 }

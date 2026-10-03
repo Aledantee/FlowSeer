@@ -385,7 +385,6 @@ func diffMST(a, b MST, lyr trace.Layer) []trace.Change {
 }
 
 // diffMSTInstance computes the differences between two normalized MST
-// diffMSTInstance computes the differences between two normalized MST
 // instances identified by key (the MSTID as a decimal string).
 func diffMSTInstance(a, b Instance, key string, lyr trace.Layer) []trace.Change {
 	var changes []trace.Change

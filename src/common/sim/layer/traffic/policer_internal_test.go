@@ -3,16 +3,30 @@ package traffic
 import (
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
-func mustNewBucket(t *testing.T, cfg Policer) *Bucket {
+func mustNewBucket(t *testing.T, cfg Policer) *bucket {
 	t.Helper()
-	bucket, err := NewBucket(cfg)
+	bucket, err := newBucket(cfg)
 	if err != nil {
-		t.Fatalf("NewBucket: %v", err)
+		t.Fatalf("newBucket: %v", err)
 	}
 
 	return bucket
+}
+
+func TestNewBucketRejectsInvalidPolicer(t *testing.T) {
+	t.Parallel()
+
+	_, err := newBucket(Policer{RateBPS: 1, BurstOctets: 0})
+	if err == nil {
+		t.Fatal("newBucket() error = nil, want error")
+	}
+	if got := errs.Attributes(err)["field"]; got != "burst_octets" {
+		t.Errorf("field = %v, want %q", got, "burst_octets")
+	}
 }
 
 func TestBucketAdmitRefillsByElapsedTime(t *testing.T) {

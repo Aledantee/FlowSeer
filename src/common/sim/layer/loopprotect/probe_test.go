@@ -232,6 +232,9 @@ func TestSetProbeVID(t *testing.T) {
 	f := loopprotect.Encode(p, netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x55})
 
 	patched := loopprotect.SetProbeVID(f, 100)
+	if before, err := loopprotect.Decode(f); err != nil || before.VID != 0 {
+		t.Errorf("input frame after SetProbeVID decodes to VID %d, error %v, want VID 0 unchanged", before.VID, err)
+	}
 	decoded, err := loopprotect.Decode(patched)
 	if err != nil {
 		t.Fatalf("Decode(patched): %v", err)

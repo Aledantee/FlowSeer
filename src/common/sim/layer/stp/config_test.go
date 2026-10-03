@@ -408,7 +408,7 @@ func TestBridgeID(t *testing.T) {
 
 func factCanonical(v any) string {
 	if f, ok := v.(trace.Fact); ok {
-		return f.Canonical()
+		return f.TypeID() + "=" + f.Canonical()
 	}
 	return ""
 }
@@ -454,42 +454,42 @@ func TestDiff(t *testing.T) {
 		return nil, nil, false
 	}
 
-	if from, to, ok := findChange("bridge", "", "priority"); !ok || factCanonical(from) != "32768" || factCanonical(to) != "4096" {
-		t.Errorf("priority change: got (%v, %v, %v), want (32768, 4096, true)", from, to, ok)
+	if from, to, ok := findChange("bridge", "", "priority"); !ok || factCanonical(from) != "stp.priority=32768" || factCanonical(to) != "stp.priority=4096" {
+		t.Errorf("priority change: got (%s, %s, %v), want (stp.priority=32768, stp.priority=4096, true)", factCanonical(from), factCanonical(to), ok)
 	}
-	if from, to, ok := findChange("bridge", "", "hello_time"); !ok || factCanonical(from) != (2*time.Second).String() || factCanonical(to) != (1*time.Second).String() {
+	if from, to, ok := findChange("bridge", "", "hello_time"); !ok || factCanonical(from) != "stp.duration="+(2*time.Second).String() || factCanonical(to) != "stp.duration="+(1*time.Second).String() {
 		t.Errorf("hello_time change: got (%v, %v, %v)", from, to, ok)
 	}
-	if from, to, ok := findChange("bridge", "", "max_age"); !ok || factCanonical(from) != (20*time.Second).String() || factCanonical(to) != (10*time.Second).String() {
+	if from, to, ok := findChange("bridge", "", "max_age"); !ok || factCanonical(from) != "stp.duration="+(20*time.Second).String() || factCanonical(to) != "stp.duration="+(10*time.Second).String() {
 		t.Errorf("max_age change: got (%v, %v, %v)", from, to, ok)
 	}
-	if from, to, ok := findChange("bridge", "", "forward_delay"); !ok || factCanonical(from) != (15*time.Second).String() || factCanonical(to) != (7*time.Second).String() {
+	if from, to, ok := findChange("bridge", "", "forward_delay"); !ok || factCanonical(from) != "stp.duration="+(15*time.Second).String() || factCanonical(to) != "stp.duration="+(7*time.Second).String() {
 		t.Errorf("forward_delay change: got (%v, %v, %v)", from, to, ok)
 	}
-	if from, to, ok := findChange("bridge", "", "tx_hold_count"); !ok || factCanonical(from) != "6" || factCanonical(to) != "4" {
-		t.Errorf("tx_hold_count change: got (%v, %v, %v), want (6, 4, true): the default is what an unset count means", from, to, ok)
+	if from, to, ok := findChange("bridge", "", "tx_hold_count"); !ok || factCanonical(from) != "stp.tx_hold_count=6" || factCanonical(to) != "stp.tx_hold_count=4" {
+		t.Errorf("tx_hold_count change: got (%s, %s, %v), want (stp.tx_hold_count=6, stp.tx_hold_count=4, true): the default is what an unset count means", factCanonical(from), factCanonical(to), ok)
 	}
 
 	otherMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66}
 	moved := b
 	moved.Address = otherMAC
-	if from, to, ok := findAddress(stp.Diff(b, moved)); !ok || factCanonical(from) != mac.String() || factCanonical(to) != otherMAC.String() {
-		t.Errorf("address change: got (%v, %v, %v), want (%v, %v, true)", from, to, ok, mac, otherMAC)
+	if from, to, ok := findAddress(stp.Diff(b, moved)); !ok || factCanonical(from) != "stp.mac="+mac.String() || factCanonical(to) != "stp.mac="+otherMAC.String() {
+		t.Errorf("address change: got (%s, %s, %v), want (%s, %s, true)", factCanonical(from), factCanonical(to), ok, "stp.mac="+mac.String(), "stp.mac="+otherMAC.String())
 	}
 
-	if from, to, ok := findChange("port", "1/1/1", "priority"); !ok || factCanonical(from) != "128" || factCanonical(to) != "64" {
+	if from, to, ok := findChange("port", "1/1/1", "priority"); !ok || factCanonical(from) != "stp.port_priority=128" || factCanonical(to) != "stp.port_priority=64" {
 		t.Errorf("port priority change: got (%v, %v, %v)", from, to, ok)
 	}
-	if from, to, ok := findChange("port", "1/1/1", "admin_path_cost"); !ok || factCanonical(from) != "20000" || factCanonical(to) != "2000" {
+	if from, to, ok := findChange("port", "1/1/1", "admin_path_cost"); !ok || factCanonical(from) != "stp.path_cost=20000" || factCanonical(to) != "stp.path_cost=2000" {
 		t.Errorf("port admin_path_cost change: got (%v, %v, %v)", from, to, ok)
 	}
-	if from, to, ok := findChange("port", "1/1/1", "admin_edge"); !ok || factCanonical(from) != "false" || factCanonical(to) != "true" {
+	if from, to, ok := findChange("port", "1/1/1", "admin_edge"); !ok || factCanonical(from) != "stp.bool=false" || factCanonical(to) != "stp.bool=true" {
 		t.Errorf("port admin_edge change: got (%v, %v, %v)", from, to, ok)
 	}
 	if from, to, ok := findChange("port", "1/1/1", "admin_point_to_point"); !ok || from != stp.PointToPointAuto || to != stp.PointToPointForceTrue {
 		t.Errorf("port admin_point_to_point change: got (%v, %v, %v)", from, to, ok)
 	}
-	if from, to, ok := findChange("port", "1/1/1", "auto_edge"); !ok || factCanonical(from) != "false" || factCanonical(to) != "true" {
+	if from, to, ok := findChange("port", "1/1/1", "auto_edge"); !ok || factCanonical(from) != "stp.bool=false" || factCanonical(to) != "stp.bool=true" {
 		t.Errorf("port auto_edge change: got (%v, %v, %v)", from, to, ok)
 	}
 
@@ -655,8 +655,8 @@ func TestDiffReportsOneChangePerGuardField(t *testing.T) {
 	if c.Subject.Kind != "port" || c.Subject.Key != "1/1/1" || c.Field != "loop_guard" {
 		t.Errorf("change subject/field = %v/%q, want port/1/1/1 loop_guard", c.Subject, c.Field)
 	}
-	if factCanonical(c.From) != "false" || factCanonical(c.To) != "true" {
-		t.Errorf("change = (%v, %v), want (false, true)", c.From, c.To)
+	if factCanonical(c.From) != "stp.bool=false" || factCanonical(c.To) != "stp.bool=true" {
+		t.Errorf("change = (%s, %s), want (stp.bool=false, stp.bool=true)", factCanonical(c.From), factCanonical(c.To))
 	}
 
 	all := stp.Config{
@@ -715,8 +715,8 @@ func TestDiffMSTRegionRevision(t *testing.T) {
 	for _, c := range changes {
 		if c.Field == "mst.revision" {
 			found++
-			if factCanonical(c.From) != "1" || factCanonical(c.To) != "2" {
-				t.Errorf("mst.revision change = (%v, %v), want (1, 2)", c.From, c.To)
+			if factCanonical(c.From) != "stp.mst.revision=1" || factCanonical(c.To) != "stp.mst.revision=2" {
+				t.Errorf("mst.revision change = (%s, %s), want (stp.mst.revision=1, stp.mst.revision=2)", factCanonical(c.From), factCanonical(c.To))
 			}
 		}
 	}
@@ -779,8 +779,8 @@ func TestDiffPVSTTreePriority(t *testing.T) {
 	for _, c := range changes {
 		if c.Subject.Kind == "pvst_tree" && c.Subject.Key == "10" && c.Field == "priority" {
 			found++
-			if factCanonical(c.From) != "4096" || factCanonical(c.To) != "61440" {
-				t.Errorf("pvst tree 10 priority change = (%v, %v), want (4096, 61440)", c.From, c.To)
+			if factCanonical(c.From) != "stp.priority=4096" || factCanonical(c.To) != "stp.priority=61440" {
+				t.Errorf("pvst tree 10 priority change = (%s, %s), want (stp.priority=4096, stp.priority=61440)", factCanonical(c.From), factCanonical(c.To))
 			}
 		}
 	}
@@ -808,8 +808,76 @@ func TestDiffPVSTPathCostMovesPorts(t *testing.T) {
 	}
 
 	changes := stp.Diff(a, b)
-	if len(changes) == 0 {
-		t.Fatal("Diff() reported no changes when a PVST path cost moved from one port to another")
+	if len(changes) != 2 {
+		t.Fatalf("Diff() reported %d changes, want 2: %+v", len(changes), changes)
+	}
+
+	var removed, added *trace.Change
+	for i := range changes {
+		c := &changes[i]
+		if c.Subject.Kind == "pvst_tree_port" {
+			if c.From != nil && c.To == nil {
+				removed = c
+			} else if c.From == nil && c.To != nil {
+				added = c
+			}
+		}
+	}
+	if removed == nil || added == nil {
+		t.Fatalf("Diff() did not report both removed and added port changes: %+v", changes)
+	}
+	if removed.Subject.Key != `"10"/"l1"` {
+		t.Errorf("removed Subject.Key = %q, want %q", removed.Subject.Key, `"10"/"l1"`)
+	}
+	if added.Subject.Key != `"10"/"l2"` {
+		t.Errorf("added Subject.Key = %q, want %q", added.Subject.Key, `"10"/"l2"`)
+	}
+}
+
+func TestDiffMSTPathCostMovesPorts(t *testing.T) {
+	t.Parallel()
+
+	a := stp.Config{
+		Ports: map[string]stp.Port{"l1": {}, "l2": {}},
+		MST: &stp.MST{
+			Instances: map[bpdu.MSTID]stp.Instance{
+				10: {Ports: map[string]stp.InstancePort{"l1": {PathCost: 2_000_000}}},
+			},
+		},
+	}
+	b := stp.Config{
+		Ports: map[string]stp.Port{"l1": {}, "l2": {}},
+		MST: &stp.MST{
+			Instances: map[bpdu.MSTID]stp.Instance{
+				10: {Ports: map[string]stp.InstancePort{"l2": {PathCost: 2_000_000}}},
+			},
+		},
+	}
+
+	changes := stp.Diff(a, b)
+	if len(changes) != 2 {
+		t.Fatalf("Diff() reported %d changes, want 2: %+v", len(changes), changes)
+	}
+
+	var removed, added *trace.Change
+	for i := range changes {
+		c := &changes[i]
+		if c.Subject.Kind == "mst_instance_port" {
+			if c.From != nil && c.To == nil {
+				removed = c
+			} else if c.From == nil && c.To != nil {
+				added = c
+			}
+		}
+	}
+	if removed == nil || added == nil {
+		t.Fatalf("Diff() did not report both removed and added port changes: %+v", changes)
+	}
+	if removed.Subject.Key != `"10"/"l1"` {
+		t.Errorf("removed Subject.Key = %q, want %q", removed.Subject.Key, `"10"/"l1"`)
+	}
+	if added.Subject.Key != `"10"/"l2"` {
+		t.Errorf("added Subject.Key = %q, want %q", added.Subject.Key, `"10"/"l2"`)
 	}
 }
 
@@ -825,8 +893,8 @@ func TestDiffPVSTRemovedEntirely(t *testing.T) {
 	for _, c := range changes {
 		if c.Field == "pvst" {
 			found++
-			if factCanonical(c.From) != "true" || factCanonical(c.To) != "false" {
-				t.Errorf("pvst change = (%v, %v), want (true, false)", c.From, c.To)
+			if factCanonical(c.From) != "stp.bool=true" || factCanonical(c.To) != "stp.bool=false" {
+				t.Errorf("pvst change = (%s, %s), want (stp.bool=true, stp.bool=false)", factCanonical(c.From), factCanonical(c.To))
 			}
 		}
 	}
@@ -1069,8 +1137,11 @@ func TestDiffMSTInstancePortCost(t *testing.T) {
 
 	for _, c := range changes {
 		if c.Subject.Kind == "mst_instance_port" && c.Field == "path_cost" {
-			if factCanonical(c.From) != "100" || factCanonical(c.To) != "200" {
-				t.Errorf("path_cost change = (%v, %v), want (100, 200)", c.From, c.To)
+			if c.Subject.Key != `"1"/"1/1/1"` {
+				t.Errorf("Subject.Key = %q, want %q", c.Subject.Key, `"1"/"1/1/1"`)
+			}
+			if factCanonical(c.From) != "stp.path_cost=100" || factCanonical(c.To) != "stp.path_cost=200" {
+				t.Errorf("path_cost change = (%s, %s), want (stp.path_cost=100, stp.path_cost=200)", factCanonical(c.From), factCanonical(c.To))
 			}
 			if trace.EqualFact(c.From, c.To) {
 				t.Errorf("canonical facts did not change: from %q, to %q", factCanonical(c.From), factCanonical(c.To))
@@ -1079,4 +1150,41 @@ func TestDiffMSTInstancePortCost(t *testing.T) {
 		}
 	}
 	t.Fatalf("Diff() reported no mst_instance_port path_cost change: %+v", changes)
+}
+
+func TestDiffPVSTTreePortCost(t *testing.T) {
+	t.Parallel()
+
+	a := stp.Config{
+		PVST: &stp.PVST{
+			Trees: map[vlan.ID]stp.Tree{
+				10: {Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 100}}},
+			},
+		},
+	}
+	b := stp.Config{
+		PVST: &stp.PVST{
+			Trees: map[vlan.ID]stp.Tree{
+				10: {Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 200}}},
+			},
+		},
+	}
+
+	changes := stp.Diff(a, b)
+
+	for _, c := range changes {
+		if c.Subject.Kind == "pvst_tree_port" && c.Field == "path_cost" {
+			if c.Subject.Key != `"10"/"1/1/1"` {
+				t.Errorf("Subject.Key = %q, want %q", c.Subject.Key, `"10"/"1/1/1"`)
+			}
+			if factCanonical(c.From) != "stp.path_cost=100" || factCanonical(c.To) != "stp.path_cost=200" {
+				t.Errorf("path_cost change = (%s, %s), want (stp.path_cost=100, stp.path_cost=200)", factCanonical(c.From), factCanonical(c.To))
+			}
+			if trace.EqualFact(c.From, c.To) {
+				t.Errorf("canonical facts did not change: from %q, to %q", factCanonical(c.From), factCanonical(c.To))
+			}
+			return
+		}
+	}
+	t.Fatalf("Diff() reported no pvst_tree_port path_cost change: %+v", changes)
 }

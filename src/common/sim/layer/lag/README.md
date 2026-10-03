@@ -6,7 +6,7 @@ the LACP actor and partner state machines matching Open vSwitch behavior.
 
 The layer runs deterministically in memory without background goroutines or wall
 clocks. Time advances through explicit, time-stamped calls to `LinkChange`,
-`Receive`, and `Wake`.
+`Receive`, and `Advance`.
 
 ## Example
 
@@ -22,6 +22,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -50,24 +51,24 @@ func main() {
 		},
 	}
 
-	layer, err := lag.New(cfg, ports, sysMAC)
+	lyr, err := lag.New(cfg, layer.Env{Ports: ports, MAC: sysMAC})
 	if err != nil {
 		panic(err)
 	}
 
 	t0 := time.Unix(1700000000, 0)
-	layer.LinkChange(t0, "1/1/1", true)
-	layer.LinkChange(t0, "1/1/2", true)
+	lyr.LinkChange(t0, "1/1/1", true)
+	lyr.LinkChange(t0, "1/1/2", true)
 
 	frame := ethernet.Frame{}
-	sel := layer.Select(t0, "lag1", frame, 0)
+	sel := lyr.Select(t0, "lag1", frame, 0)
 	fmt.Printf("Selected member: %s (ok=%t)\n", sel.Member, sel.OK)
 
 	t1 := t0.Add(time.Second)
-	fx := layer.LinkChange(t1, "1/1/1", false)
+	fx := lyr.LinkChange(t1, "1/1/1", false)
 	fmt.Printf("Changed LAGs: %v\n", fx.Changed)
 
-	sel2 := layer.Select(t1, "lag1", frame, 0)
+	sel2 := lyr.Select(t1, "lag1", frame, 0)
 	fmt.Printf("Selected member after failover: %s (ok=%t)\n", sel2.Member, sel2.OK)
 }
 ```
@@ -145,10 +146,14 @@ and `Fallback` then selects as active-backup
 
 ## Configuration comparison
 
-`Diff` accepts normalized `Config` values. Normalize each side with the same
-port table and switch system ID before comparing them. Top-level `vswitch.Diff`
-does this automatically, including the case where a port table implies the LAG
-capability but the raw `LAG` field was omitted.
+`Diff` normalizes both sides with the zero `layer.Env` before comparing them.
+Defaults that derive from the port table or the switch system ID therefore
+compare as written: a default `LACPConfig.Key` stays 0, a zero
+`LACPConfig.SystemID` stays zero, and no port-table member is added. A caller
+that needs those defaults compared normalizes both sides with the real
+`layer.Env` first. Top-level `vswitch.Diff` does this automatically, including
+the case where a port table implies the LAG capability but the raw `LAG` field
+was omitted.
 
 ### BalanceSLB hash input
 
@@ -186,7 +191,7 @@ Carrier state changes pass to `LinkChange(now, member, up)`.
   is zero, the transition takes effect immediately.
 - If the configured delay is greater than zero, the transition is deferred.
   `LinkChange` arms a timer at `now + delay`. `NextWake` reports the timer, and
-  the subsequent call to `Wake` applies the transition once the timer expires.
+  the subsequent call to `Advance` applies the transition once the timer expires.
 
 ## LACP protocol machine
 
@@ -215,8 +220,8 @@ Each member maintains an actor `lacp.Info`:
 ### Transmit and receive machine
 
 Transmission rates use two standard periods:
-- Fast: 1 second (`FastPeriod`).
-- Slow: 30 seconds (`SlowPeriod`).
+- Fast: 1 second.
+- Slow: 30 seconds.
 
 Members transmit periodically and immediately when their actor state changes.
 In Passive mode, transmissions occur only after the partner advertises `StateActive`.
@@ -248,14 +253,14 @@ When `Fallback` is enabled and every member port in the LAG has defaulted, the l
 enables active-backup forwarding over whichever members have carrier up. This allows
 traffic to pass to non-LACP endpoints before aggregation negotiation completes.
 
-## Convergence evidence: Pending
+## Convergence evidence: pending members
 
-`Info.Pending` lists member ports that may still change state on their own,
-each with the time that is currently scheduled to happen. A pending member
-does not downgrade `Info`'s other fields or a `Select` result: the answer as
-of now is definite, and a caller that wants to know whether it could still
-change consults `Pending` separately. A member reports at most one cause —
-the first one that applies:
+`Info` records, in an unexported field, the member ports that may still change
+state on their own, each with the time that is currently scheduled to happen.
+Callers outside the package cannot read it. `NextWake` is the exported way to
+learn when the layer next changes state by itself. A pending member does not
+downgrade `Info`'s other fields or a `Select` result: the answer as of now is
+definite. A member reports at most one cause, the first one that applies:
 
 1. `link-delay`: its up or down delay timer is running (`At` is when it fires).
 2. `partner-expired`: its partner information is `Expired` (`At` is when the

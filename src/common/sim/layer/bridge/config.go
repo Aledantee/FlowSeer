@@ -175,7 +175,7 @@ func (v *VLAN) Clone() *VLAN {
 
 // AdmitsVIDOnIngress reports whether a frame carrying vid, tagged or
 // untagged as tagged says, is admitted when it arrives on port. This is the
-// ingress admission rule [Bridge.Ingress] applies; it differs from
+// ingress admission rule [Layer.Ingress] applies; it differs from
 // [Switchport.CarriesVID], the egress rule, because a bridge can forward a
 // VLAN out a port without also being willing to receive that VLAN on it —
 // Admission and IngressFiltering are ingress-only policies, and an access
@@ -185,7 +185,7 @@ func (v *VLAN) Clone() *VLAN {
 //
 // A tunnel port always answers false: on such a port every frame is
 // reclassified into the tunnel's service VLAN and filtered against the
-// customer VID list, a decision [Bridge.Ingress] makes before any VLAN this
+// customer VID list, a decision [Layer.Ingress] makes before any VLAN this
 // method could be asked about applies, so vid here names a VLAN inside the
 // customer's own spanning tree rather than one this bridge admits.
 func (v VLAN) AdmitsVIDOnIngress(port string, vid vlan.ID, tagged bool) bool {
@@ -226,7 +226,7 @@ func (v VLAN) AdmitsVIDOnIngress(port string, vid vlan.ID, tagged bool) bool {
 	return inTable
 }
 
-// Config defines the configuration for a [Bridge].
+// Config defines the configuration for a [Layer].
 type Config struct {
 	AgingTime      time.Duration
 	MaxEntries     int

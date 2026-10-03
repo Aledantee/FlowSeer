@@ -79,7 +79,7 @@ func (p *portState) clone() *portState {
 // per-port timer driven by the fabric clock, and the bridge.Gate pair that
 // answers whether a protected port learns and forwards. It runs
 // deterministically in memory without background goroutines or wall clocks;
-// time advances through explicit, time-stamped calls to Receive, Wake, and
+// time advances through explicit, time-stamped calls to Receive, Advance, and
 // LinkChange.
 type Layer struct {
 	mac      netaddr.MAC
@@ -195,9 +195,9 @@ func (l *Layer) PortInfo(portName string) PortInfo {
 // trace step, not to this layer.
 //
 // Before evaluating the probe, Receive expires an elapsed Timer or
-// LoopCleared recovery window using the same rule Wake uses, so a probe
+// LoopCleared recovery window using the same rule Advance uses, so a probe
 // delivered at or after the window's expiry sees the action as already
-// lifted rather than reading a stale applied state that Wake alone would
+// lifted rather than reading a stale applied state that Advance alone would
 // have caught later.
 func (l *Layer) Receive(now time.Time, ret Return, p Probe) layer.Effects {
 	ps, ok := l.ports[p.Port]

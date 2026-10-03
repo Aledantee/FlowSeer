@@ -11,9 +11,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// LayerLoopProtect identifies the loop-protection layer in trace steps and diff subjects.
-const LayerLoopProtect trace.Layer = "loopprotect"
-
 // durationFact wraps a time.Duration as a trace.Fact.
 type durationFact time.Duration
 
@@ -73,7 +70,7 @@ func Diff(a, b Config) []trace.Change {
 
 	if a.Interval != b.Interval {
 		changes = append(changes, trace.Change{
-			Layer:   LayerLoopProtect,
+			Layer:   LayerName,
 			Subject: bridge,
 			Field:   "interval",
 			From:    durationFact(a.Interval),
@@ -88,7 +85,7 @@ func Diff(a, b Config) []trace.Change {
 		bp, exists := b.Ports[name]
 		if !exists {
 			changes = append(changes, trace.Change{
-				Layer:   LayerLoopProtect,
+				Layer:   LayerName,
 				Subject: subject,
 				Field:   "",
 				From:    ap,
@@ -104,7 +101,7 @@ func Diff(a, b Config) []trace.Change {
 	for _, name := range sortedKeys(b.Ports) {
 		if _, exists := a.Ports[name]; !exists {
 			changes = append(changes, trace.Change{
-				Layer:   LayerLoopProtect,
+				Layer:   LayerName,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "",
 				From:    nil,
@@ -122,25 +119,25 @@ func diffPort(ap, bp Port, subject trace.Subject) []trace.Change {
 
 	if ap.Action != bp.Action {
 		changes = append(changes, trace.Change{
-			Layer: LayerLoopProtect, Subject: subject, Field: "action",
+			Layer: LayerName, Subject: subject, Field: "action",
 			From: actionFact(ap.Action), To: actionFact(bp.Action),
 		})
 	}
 	if ap.Recovery.Mode != bp.Recovery.Mode {
 		changes = append(changes, trace.Change{
-			Layer: LayerLoopProtect, Subject: subject, Field: "recovery.mode",
+			Layer: LayerName, Subject: subject, Field: "recovery.mode",
 			From: recoveryModeFact(ap.Recovery.Mode), To: recoveryModeFact(bp.Recovery.Mode),
 		})
 	}
 	if ap.Recovery.Duration != bp.Recovery.Duration {
 		changes = append(changes, trace.Change{
-			Layer: LayerLoopProtect, Subject: subject, Field: "recovery.duration",
+			Layer: LayerName, Subject: subject, Field: "recovery.duration",
 			From: durationFact(ap.Recovery.Duration), To: durationFact(bp.Recovery.Duration),
 		})
 	}
 	if !slices.Equal(ap.VLANs, bp.VLANs) {
 		changes = append(changes, trace.Change{
-			Layer: LayerLoopProtect, Subject: subject, Field: "vlans",
+			Layer: LayerName, Subject: subject, Field: "vlans",
 			From: vlanListFact(ap.VLANs), To: vlanListFact(bp.VLANs),
 		})
 	}

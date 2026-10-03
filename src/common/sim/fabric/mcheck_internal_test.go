@@ -13,6 +13,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
+// TestFabricMcheckQueuesTheRSTReply is evidence that a management check
+// through the fabric emits at the fabric clock and reschedules the wake,
+// rather than leaving the reply buffered until an unrelated step.
 func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	b := port.NewBuilder()

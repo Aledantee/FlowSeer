@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
 // NeighborState names where one neighbor table entry sits in the state machine netsim runs
@@ -87,7 +88,7 @@ const (
 	HeldEvicted HeldCause = "evicted"
 )
 
-// HeldFrame is one frame [Layer.Wake] reports leaving a neighbor entry's hold queue, with Cause
+// HeldFrame is one frame [Layer.DrainExits] reports leaving a neighbor entry's hold queue, with Cause
 // naming how it left: under [HeldReleased] Frame is ready to leave by Interface, and under the
 // other two causes Frame carries no resolved destination and exists to name what was held. Port
 // is the egress port Interface resolves to: empty for a VLAN interface with no parent port,
@@ -110,7 +111,7 @@ type HeldFrame struct {
 // (a resolution deadline for Incomplete, a reachability deadline for Reachable, and zero for
 // every other state), whether it came from static configuration or a live observation, the
 // frames queued while the entry is Incomplete, and any frame [appendHeld] has since evicted from
-// that queue but [Layer.Wake] has not yet reported.
+// that queue but [Layer.DrainExits] has not yet reported.
 type neighborEntry struct {
 	state   NeighborState
 	mac     netaddr.MAC
@@ -144,8 +145,8 @@ type Advertisement struct {
 
 // appendHeld appends h to queue, dropping the oldest entry once the queue exceeds depth
 // (RFC 4861 section 7.2.2) and returning it as evicted rather than discarding it: a frame the
-// hold queue pushes out is still reported, as a [HeldEvicted] exit in [Layer.Wake]'s next
-// Effects, not silently dropped and not reported as a resolution that failed.
+// hold queue pushes out is still reported, as a [HeldEvicted] exit in [Layer.DrainExits] after the next
+// [Layer.Advance], not silently dropped and not reported as a resolution that failed.
 func appendHeld(queue []heldEntry, h heldEntry, depth int) (kept, evicted []heldEntry) {
 	queue = append(queue, h)
 	if len(queue) > depth {
@@ -219,8 +220,8 @@ func (vs *vrfState) resolveNeighbor(now time.Time, key neighborKey, commit bool,
 // apparently not initiated any communication with the target." A configured binding is likewise
 // left alone: [New] installs it Reachable with no expiry so it never ages out, and an
 // advertisement adopting its address or handing it an expiry would falsify that. Observe changes
-// state alone; the frames an entry's transition frees or gives up on are reported by the next
-// [Layer.Wake].
+// state alone; the frames an entry's transition frees or gives up on are reported by [Layer.DrainExits]
+// after the next [Layer.Advance].
 func (l *Layer) Observe(now time.Time, adv Advertisement) {
 	vrfName, ok := l.ifaceVRF[adv.Interface]
 	if !ok {
@@ -248,7 +249,7 @@ func (l *Layer) Observe(now time.Time, adv Advertisement) {
 			entry.expiry = time.Time{}
 		}
 		// The Override flag is ignored in the INCOMPLETE case (RFC 4861 section 7.2.5); the
-		// entry's held frames are released by the next Wake, not here.
+		// entry's held frames are released by [Layer.DrainExits] after the next [Layer.Advance], not here.
 		return
 	}
 
@@ -281,9 +282,11 @@ func (l *Layer) Observe(now time.Time, adv Advertisement) {
 // Advance applies RFC 4861 reachability expiry to move Reachable entries whose
 // expiry has passed to Stale, then settles hold queues across all VRFs: an Incomplete
 // entry whose resolution deadline has passed becomes Failed and its held frames exit
-// HeldTimedOut; an entry that is no longer Incomplete has its held frames exit HeldReleased.
+// HeldTimedOut; an entry that is no longer Incomplete has its held frames exit HeldReleased;
+// and any frame evicted from a hold queue exits HeldEvicted.
 // Settled exits wait in the layer in deterministic order until drained by DrainExits.
-func (l *Layer) Advance(now time.Time) {
+// The returned layer.Effects is always empty.
+func (l *Layer) Advance(now time.Time) layer.Effects {
 	for _, vs := range l.vrfs {
 		for _, entry := range vs.neighbors {
 			if entry.state == NeighborReachable && !entry.expiry.IsZero() && !entry.expiry.After(now) {
@@ -344,6 +347,7 @@ func (l *Layer) Advance(now time.Time) {
 		}
 		entry.queue = nil
 	}
+	return layer.Effects{}
 }
 
 // DrainExits returns and clears any hold-queue exits waiting in the layer.
@@ -412,7 +416,7 @@ func (l *Layer) NextWake() (time.Time, bool) {
 }
 
 // Clone returns a deep copy of the layer, including its runtime neighbor table. Held frames
-// travel with it; a fork that never calls Wake before diverging keeps the same pending queues
+// travel with it; a fork that never calls Advance before diverging keeps the same pending queues
 // the original had at the moment of the clone.
 func (l *Layer) Clone() *Layer {
 	cp := &Layer{
