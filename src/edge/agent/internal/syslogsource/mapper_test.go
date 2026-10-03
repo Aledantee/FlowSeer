@@ -10,8 +10,8 @@ import (
 	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	netlogv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/log/v1"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
@@ -141,6 +141,22 @@ func TestMapper_PayloadCases(t *testing.T) {
 				}
 				if raw.GetReason() != ingestv1.RawReason_RAW_REASON_PARSE_FAILURE {
 					t.Errorf("raw reason = %v, want RAW_REASON_PARSE_FAILURE", raw.GetReason())
+				}
+			},
+			wantParseFailure: true,
+		},
+		{
+			name:    "structured data value that is not UTF-8",
+			payload: []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - [ex@32473 k=\"\xff\"] link down"),
+			checkSyslog: func(t *testing.T, env *ingestv1.IngestRecord, isFailure bool) {
+				if !isFailure {
+					t.Errorf("isParseFailure = false, want true")
+				}
+				if n := len(env.GetSyslog().GetStructuredData()); n != 0 {
+					t.Errorf("structured data elements = %d, want 0 for a value the schema cannot hold", n)
+				}
+				if env.GetRaw() == nil {
+					t.Error("raw evidence = nil, want present on parse failure")
 				}
 			},
 			wantParseFailure: true,

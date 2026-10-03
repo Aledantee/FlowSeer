@@ -182,7 +182,7 @@ func (s *Source) Run(ctx context.Context) error {
 			))
 			continue
 		}
-		devEntry, ok := s.index.Lookup(peerAddr.String())
+		devEntry, ok := s.index.Lookup(lanehost.Key(peerAddr))
 		if !ok {
 			s.dropped.Add(ctx, 1, metric.WithAttributes(
 				attribute.String("flowseer.edge.syslog.reason", "unknown_source"),

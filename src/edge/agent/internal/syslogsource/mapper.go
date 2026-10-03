@@ -2,6 +2,7 @@ package syslogsource
 
 import (
 	"strconv"
+	"unicode/utf8"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -61,7 +62,7 @@ func MapRecord(
 	// Hostname
 	if record.Hostname.Presence == syslog.Present {
 		val := record.Hostname.Value
-		if len(val) >= 1 && len(val) <= maxHostnameLen {
+		if validText(val, maxHostnameLen) {
 			recordBuilder.Hostname = proto.String(val)
 		} else {
 			isParseFailure = true
@@ -71,7 +72,7 @@ func MapRecord(
 	// Application (app_name)
 	if record.Application.Presence == syslog.Present {
 		val := record.Application.Value
-		if len(val) >= 1 && len(val) <= maxAppNameLen {
+		if validText(val, maxAppNameLen) {
 			recordBuilder.AppName = proto.String(val)
 		} else {
 			isParseFailure = true
@@ -81,7 +82,7 @@ func MapRecord(
 	// ProcessID (proc_id)
 	if record.ProcessID.Presence == syslog.Present {
 		val := record.ProcessID.Value
-		if len(val) >= 1 && len(val) <= maxProcIDLen {
+		if validText(val, maxProcIDLen) {
 			recordBuilder.ProcId = proto.String(val)
 		} else {
 			isParseFailure = true
@@ -91,7 +92,7 @@ func MapRecord(
 	// MessageID (msg_id)
 	if record.MessageID.Presence == syslog.Present {
 		val := record.MessageID.Value
-		if len(val) >= 1 && len(val) <= maxMsgIDLen {
+		if validText(val, maxMsgIDLen) {
 			recordBuilder.MsgId = proto.String(val)
 		} else {
 			isParseFailure = true
@@ -103,7 +104,7 @@ func MapRecord(
 		seenIDs := make(map[string]bool, len(record.StructuredData))
 		var sdElements []*eventlogv1.SyslogStructuredDataElement
 		for _, el := range record.StructuredData {
-			if len(el.ID) < 1 || len(el.ID) > maxSDIDLen || seenIDs[el.ID] {
+			if !validText(el.ID, maxSDIDLen) || seenIDs[el.ID] {
 				isParseFailure = true
 				continue
 			}
@@ -111,7 +112,7 @@ func MapRecord(
 			var params []*eventlogv1.SyslogStructuredDataParam
 			paramsValid := true
 			for _, p := range el.Parameters {
-				if len(p.Name) < 1 || len(p.Name) > maxParamName || len(p.Value) > maxParamValue {
+				if !validText(p.Name, maxParamName) || len(p.Value) > maxParamValue || !utf8.Valid(p.Value) {
 					isParseFailure = true
 					paramsValid = false
 					break
@@ -172,4 +173,12 @@ func MapRecord(
 	}
 
 	return syslogRecord, provBuilder.Build(), isParseFailure
+}
+
+// validText reports whether s fits a string field bounded to 1..max
+// characters. Byte length is at least the character count, so a value that
+// passes here passes the schema bound. A string field holds UTF-8 only, and
+// the parser keeps header and parameter bytes as the device sent them.
+func validText(s string, max int) bool {
+	return len(s) >= 1 && len(s) <= max && utf8.ValidString(s)
 }

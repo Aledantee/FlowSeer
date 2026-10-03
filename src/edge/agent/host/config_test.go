@@ -415,4 +415,3 @@ func TestSyslogConfig_ZeroNumbersRefused(t *testing.T) {
 		t.Fatalf("raw_sample_every 0 code = %v, want ErrCodeConfigInvalid", code)
 	}
 }
-

@@ -212,6 +212,57 @@ func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 	}
 }
 
+func TestSource_DualStackListenerResolvesAnIPv4Device(t *testing.T) {
+	t.Parallel()
+
+	hub := startHub(t, t.TempDir(), -1)
+	leaf := startLeaf(t, t.TempDir(), hub, testEdgeID)
+	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
+
+	index := lanehost.NewDeviceIndex()
+	index.Add("127.0.0.1", testDeviceID, inventoryv1.BindingGlobalRef_builder{
+		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build(),
+	}.Build())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	src, err := syslogsource.Listen(ctx, syslogsource.Config{
+		Listeners: []syslog.ListenConfig{{Transport: syslog.UDP, Address: "[::]:0"}},
+		Index:     index,
+		Publisher: leaf,
+		EdgeRef:   testEdgeRef(),
+	})
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	defer func() { _ = src.Close() }()
+	spawn.Go(ctx, "syslog-source-runner", func() { _ = src.Run(ctx) })
+
+	_, port, err := net.SplitHostPort(src.Receiver().Addresses()[0].Address)
+	if err != nil {
+		t.Fatalf("split listener address: %v", err)
+	}
+	conn, err := net.Dial("udp4", net.JoinHostPort("127.0.0.1", port))
+	if err != nil {
+		t.Fatalf("Dial UDP: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+	if _, err := conn.Write([]byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - link down")); err != nil {
+		t.Fatalf("write UDP: %v", err)
+	}
+
+	stream, err := hub.EdgeStream(context.Background(), testEdgeID)
+	if err != nil {
+		t.Fatalf("hub edge stream: %v", err)
+	}
+	subject := leaf.Subject("ingest.syslog")
+	waitFor(t, "stored message in hub stream", 10*time.Second, func() bool {
+		msg, err := stream.GetLastMsgForSubject(context.Background(), subject)
+		return err == nil && msg != nil
+	})
+}
+
 func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 	t.Parallel()
 
@@ -291,7 +342,7 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 		t.Fatal("octet-msg message not found")
 	}
 
-	// 3. LF framing: Requirement 12 case
+	// 3. LF framing case
 	// "with LF framing the line Oct  3 10:00:00 sw1 app: up and a line feed arrive as one record with severity unset."
 	lfAddr := endpoints[2].Address
 	sendTCP(t, lfAddr, []byte("Oct  3 10:00:00 sw1 app: up\n"))
@@ -323,7 +374,7 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 		t.Fatal("NUL message not found")
 	}
 
-	// 6. Requirement 12: LF line under auto closes connection and yields framing error
+	// 6. LF line under auto closes connection and yields framing error
 	// "Under auto the same bytes close the connection and yield no record."
 	initialFramingErrors := src.Receiver().Stats().FramingErrors
 	conn, err := net.Dial("tcp", autoAddr)
@@ -346,7 +397,7 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 	})
 }
 
-func TestSource_Requirement14_65535ByteFrame(t *testing.T) {
+func TestSource_OctetCounted65535ByteFrameIsCutAndKeepsRaw(t *testing.T) {
 	t.Parallel()
 
 	hub := startHub(t, t.TempDir(), -1)

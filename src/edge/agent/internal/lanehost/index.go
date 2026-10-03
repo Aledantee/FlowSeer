@@ -1,6 +1,7 @@
 package lanehost
 
 import (
+	"net/netip"
 	"sync"
 
 	"google.golang.org/protobuf/proto"
@@ -27,10 +28,20 @@ func NewDeviceIndex() *DeviceIndex {
 	return &DeviceIndex{entries: make(map[string]DeviceEntry)}
 }
 
+// Key returns the index key for an address, which is the address with an
+// IPv4-mapped IPv6 form unmapped: a dual-stack listener reports an IPv4 peer
+// in the mapped form, and a device is listed in the plain one.
+func Key(addr netip.Addr) string {
+	return addr.Unmap().String()
+}
+
 // Add records or updates a device mapping for the given address.
 func (idx *DeviceIndex) Add(address, deviceID string, binding *inventoryv1.BindingGlobalRef) {
 	if idx == nil || address == "" {
 		return
+	}
+	if parsed, err := netip.ParseAddr(address); err == nil {
+		address = Key(parsed)
 	}
 	devRef := inventoryv1.DeviceGlobalRef_builder{
 		Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(deviceID)}.Build(),

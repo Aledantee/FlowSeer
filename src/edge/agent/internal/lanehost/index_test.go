@@ -2,6 +2,7 @@ package lanehost_test
 
 import (
 	"context"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -127,5 +128,20 @@ func TestDeviceIndex_LookupSurvivesSecondOnboarder(t *testing.T) {
 	}
 	if entry, ok := idx.Lookup("192.0.2.2"); !ok || entry.DeviceID != deviceTwo {
 		t.Errorf("deviceTwo in index = %v (%v), want true / %s", ok, entry.DeviceID, deviceTwo)
+	}
+}
+
+func TestDeviceIndex_MappedIPv4MatchesPlainIPv4(t *testing.T) {
+	t.Parallel()
+
+	idx := lanehost.NewDeviceIndex()
+	idx.Add("::ffff:192.0.2.1", "dev-1", bindingRefFor("bind-1"))
+
+	// A dual-stack listener reports an IPv4 peer in its mapped form.
+	if _, ok := idx.Lookup(lanehost.Key(netip.MustParseAddr("192.0.2.1"))); !ok {
+		t.Error("Lookup of the plain form = false, want true for a device added in the mapped form")
+	}
+	if _, ok := idx.Lookup(lanehost.Key(netip.MustParseAddr("::ffff:192.0.2.1"))); !ok {
+		t.Error("Lookup of the mapped form = false, want true")
 	}
 }
