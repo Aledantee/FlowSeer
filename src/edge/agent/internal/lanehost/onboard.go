@@ -206,12 +206,22 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 		return
 	}
 
-	session, err := o.deviceSession(listed)
-	if err == nil {
-		attempt, cancel := context.WithTimeout(ctx, o.perDeviceTimeout())
-		err = o.cfg.Lane.AddDevice(attempt, deviceID, session)
-		cancel()
+	addr, err := addressOf(listed.GetIp())
+	if err != nil {
+		o.log.WarnContext(ctx, "listed device was not onboarded; it will be tried again",
+			slog.String("otel.event.name", "flowseer.edge.device.onboarding_failed"),
+			slog.String("flowseer.device.id", deviceID),
+			slog.String("error.type", errorType(err)))
+		return
 	}
+	binding := inventoryv1.BindingGlobalRef_builder{
+		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(listed.GetBindingId())}.Build(),
+	}.Build()
+
+	session := o.deviceSession(listed, addr, binding)
+	attempt, cancel := context.WithTimeout(ctx, o.perDeviceTimeout())
+	err = o.cfg.Lane.AddDevice(attempt, deviceID, session)
+	cancel()
 	if err != nil {
 		// A warning, not an error: this device is not held and the next Sync
 		// tries it again, which is a retry rather than an abandoned
@@ -228,12 +238,7 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 	o.held[deviceID], _ = proto.Clone(listed).(*attachv1.ListedDevice)
 	o.mu.Unlock()
 	if o.cfg.Index != nil {
-		if addr, err := addressOf(listed.GetIp()); err == nil {
-			binding := inventoryv1.BindingGlobalRef_builder{
-				Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(listed.GetBindingId())}.Build(),
-			}.Build()
-			o.cfg.Index.Add(addr, deviceID, binding)
-		}
+		o.cfg.Index.Add(addr, deviceID, binding)
 	}
 
 	o.log.InfoContext(ctx, "device onboarded",
@@ -252,15 +257,8 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 }
 
 // deviceSession builds what the lane needs to reach one listed device.
-func (o *Onboarder) deviceSession(listed *attachv1.ListedDevice) (access.DeviceSession, error) {
-	endpoint, err := endpointFor(listed)
-	if err != nil {
-		return access.DeviceSession{}, err
-	}
-	binding := inventoryv1.BindingGlobalRef_builder{
-		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(listed.GetBindingId())}.Build(),
-	}.Build()
-
+func (o *Onboarder) deviceSession(listed *attachv1.ListedDevice, address string, binding *inventoryv1.BindingGlobalRef) access.DeviceSession {
+	endpoint := endpointFor(listed, address)
 	return access.DeviceSession{
 		OpenSNMP:      o.cfg.OpenSNMP(endpoint),
 		OpenShell:     o.cfg.OpenShell(endpoint),
@@ -268,22 +266,18 @@ func (o *Onboarder) deviceSession(listed *attachv1.ListedDevice) (access.DeviceS
 		BindingID:     listed.GetBindingId(),
 		Prov:          access.InterfaceProvenanceInputs{Binding: binding, Edge: o.cfg.Edge},
 		DelayedEffect: access.InterfaceDelayedEffect{Horizon: listed.GetDelayedApplyHorizon().AsDuration()},
-	}, nil
+	}
 }
 
 // endpointFor is where a listed device answers. An unset port stays zero
 // here, so the default is applied by [Endpoint] at the moment a session is
 // opened rather than being baked in twice.
-func endpointFor(listed *attachv1.ListedDevice) (Endpoint, error) {
-	address, err := addressOf(listed.GetIp())
-	if err != nil {
-		return Endpoint{}, err
-	}
+func endpointFor(listed *attachv1.ListedDevice, address string) Endpoint {
 	return Endpoint{
 		Address:  address,
 		SNMPPort: int(listed.GetSnmpPort()),
 		SSHPort:  int(listed.GetSshPort()),
-	}, nil
+	}
 }
 
 // addressOf renders the listed management address. The octets are the wire's

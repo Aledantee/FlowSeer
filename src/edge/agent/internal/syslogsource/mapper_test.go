@@ -94,11 +94,34 @@ func TestMapper_PayloadCases(t *testing.T) {
 				if string(s.GetMessage()) != "link down" {
 					t.Errorf("message = %q, want 'link down'", string(s.GetMessage()))
 				}
+				if !s.HasSentAt() {
+					t.Fatal("sent_at is unset, want set for RFC 5424 timestamp")
+				}
+				wantSentAt := time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC)
+				if !s.GetSentAt().AsTime().Equal(wantSentAt) {
+					t.Errorf("sent_at = %v, want %v", s.GetSentAt().AsTime(), wantSentAt)
+				}
 				if env.GetRaw() != nil {
 					t.Errorf("raw evidence = %v, want nil for complete message", env.GetRaw())
 				}
 			},
 			wantParseFailure: false,
+		},
+		{
+			name:    "RFC 5424 timestamp before year 0001",
+			payload: []byte("<34>1 0000-01-01T00:00:00Z sw1 app - - - timestamp out of range"),
+			checkSyslog: func(t *testing.T, env *ingestv1.IngestRecord, isFailure bool) {
+				if !isFailure {
+					t.Errorf("isParseFailure = false, want true")
+				}
+				if env.GetSyslog().HasSentAt() {
+					t.Errorf("sent_at = %v, want unset on out of range timestamp", env.GetSyslog().GetSentAt())
+				}
+				if env.GetRaw() == nil {
+					t.Fatal("raw evidence = nil, want present on parse failure")
+				}
+			},
+			wantParseFailure: true,
 		},
 		{
 			name:    "legacy line without PRI",
@@ -182,28 +205,65 @@ func TestMapper_PayloadCases(t *testing.T) {
 			wantParseFailure: true,
 		},
 		{
-			name:    "65535-byte payload with no envelope",
-			payload: bytes.Repeat([]byte("x"), 65535),
+			name:    "duplicate structured data ID",
+			payload: []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - [exampleSDID@32473 i=\"1\"][exampleSDID@32473 j=\"2\"] duplicate sd"),
 			checkSyslog: func(t *testing.T, env *ingestv1.IngestRecord, isFailure bool) {
 				if !isFailure {
 					t.Errorf("isParseFailure = false, want true")
 				}
-				s := env.GetSyslog()
-				if len(s.GetMessage()) != 65527 {
-					t.Errorf("message len = %d, want 65527 cut bound", len(s.GetMessage()))
+				if n := len(env.GetSyslog().GetStructuredData()); n != 1 {
+					t.Errorf("structured data elements = %d, want 1", n)
 				}
-				if !s.GetMessageTruncated() {
-					t.Errorf("message_truncated = false, want true")
+				if env.GetRaw() == nil {
+					t.Fatal("raw evidence = nil, want present on parse failure")
 				}
-				raw := env.GetRaw()
-				if raw == nil {
-					t.Fatal("raw evidence = nil, want present")
+			},
+			wantParseFailure: true,
+		},
+		{
+			name:    "structured data parameter value over 1024 bytes",
+			payload: []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - [exampleSDID@32473 key=\"" + strings.Repeat("v", 1025) + "\"] long value"),
+			checkSyslog: func(t *testing.T, env *ingestv1.IngestRecord, isFailure bool) {
+				if !isFailure {
+					t.Errorf("isParseFailure = false, want true")
 				}
-				if len(raw.GetData()) != 65535 {
-					t.Errorf("raw data len = %d, want 65535", len(raw.GetData()))
+				if n := len(env.GetSyslog().GetStructuredData()); n != 0 {
+					t.Errorf("structured data elements = %d, want 0", n)
 				}
-				if raw.GetReason() != ingestv1.RawReason_RAW_REASON_PARSE_FAILURE {
-					t.Errorf("raw reason = %v, want RAW_REASON_PARSE_FAILURE", raw.GetReason())
+				if env.GetRaw() == nil {
+					t.Fatal("raw evidence = nil, want present on parse failure")
+				}
+			},
+			wantParseFailure: true,
+		},
+		{
+			name:    "non-UTF-8 application header value",
+			payload: []byte("<34>1 2026-10-03T10:00:00Z sw1 \xff\xfe - - - bad utf8"),
+			checkSyslog: func(t *testing.T, env *ingestv1.IngestRecord, isFailure bool) {
+				if !isFailure {
+					t.Errorf("isParseFailure = false, want true")
+				}
+				if env.GetSyslog().HasAppName() {
+					t.Errorf("app_name = %q, want unset", env.GetSyslog().GetAppName())
+				}
+				if env.GetRaw() == nil {
+					t.Fatal("raw evidence = nil, want present on parse failure")
+				}
+			},
+			wantParseFailure: true,
+		},
+		{
+			name:    "legacy tag application of 50 bytes",
+			payload: []byte("<34>Oct  3 10:00:00 " + strings.Repeat("a", 50) + ": legacy long tag"),
+			checkSyslog: func(t *testing.T, env *ingestv1.IngestRecord, isFailure bool) {
+				if !isFailure {
+					t.Errorf("isParseFailure = false, want true")
+				}
+				if env.GetSyslog().HasAppName() {
+					t.Errorf("app_name = %q, want unset", env.GetSyslog().GetAppName())
+				}
+				if env.GetRaw() == nil {
+					t.Fatal("raw evidence = nil, want present on parse failure")
 				}
 			},
 			wantParseFailure: true,
@@ -225,28 +285,23 @@ func TestMapper_PayloadCases(t *testing.T) {
 				t.Errorf("isParseFailure = %v, want %v", isFailure, tc.wantParseFailure)
 			}
 
-			envBuilder := ingestv1.IngestRecord_builder{
-				RecordId:   proto.String("0192e6a0-0000-7000-8000-000000000042"),
-				Provenance: prov,
-				Syslog:     syslogRec,
+			var rawData []byte
+			if rec.Raw != nil {
+				rawData = *rec.Raw
 			}
-			if isFailure {
-				var rawData []byte
-				if rec.Raw != nil {
-					rawData = *rec.Raw
-				}
-				envBuilder.Raw = ingestv1.RawEvidence_builder{
-					Data:   rawData,
-					Reason: ingestv1.RawReason_RAW_REASON_PARSE_FAILURE.Enum(),
-				}.Build()
-			}
-			envelope := envBuilder.Build()
+			envelope := syslogsource.BuildEnvelope(
+				"0192e6a0-0000-7000-8000-000000000042",
+				prov,
+				syslogRec,
+				rawData,
+				isFailure,
+				0,
+			)
 
 			if err := protovalidate.Validate(envelope); err != nil {
 				t.Fatalf("protovalidate: %v", err)
 			}
 
-			// Invariant checks on Provenance and receive time
 			p := envelope.GetProvenance()
 			if p.GetBinding().GetBinding().GetId() != testBindingID {
 				t.Errorf("provenance binding = %q, want %q", p.GetBinding().GetBinding().GetId(), testBindingID)
@@ -267,8 +322,79 @@ func TestMapper_PayloadCases(t *testing.T) {
 				t.Errorf("syslog received_at = %v, want %v", envelope.GetSyslog().GetReceivedAt().AsTime(), receiveTime)
 			}
 
-			// Case-specific checks
 			tc.checkSyslog(t, envelope, isFailure)
+		})
+	}
+}
+
+func TestMapRecord_PeerAddressNormalisation(t *testing.T) {
+	t.Parallel()
+
+	parser, err := syslog.NewParser(syslog.ParseOptions{})
+	if err != nil {
+		t.Fatalf("NewParser: %v", err)
+	}
+
+	payload := []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - link down")
+	devEntry := testDeviceEntry()
+	edgeRef := testEdgeRef()
+
+	tests := []struct {
+		name       string
+		peer       netip.AddrPort
+		wantV4     bool
+		wantV6     bool
+		wantOctets []byte
+	}{
+		{
+			name:       "IPv4 peer",
+			peer:       netip.MustParseAddrPort("192.0.2.1:514"),
+			wantV4:     true,
+			wantOctets: []byte{192, 0, 2, 1},
+		},
+		{
+			name:       "IPv4-mapped IPv6 peer",
+			peer:       netip.MustParseAddrPort("[::ffff:192.0.2.1]:514"),
+			wantV4:     true,
+			wantOctets: []byte{192, 0, 2, 1},
+		},
+		{
+			name:       "IPv6 peer",
+			peer:       netip.MustParseAddrPort("[2001:db8::1]:514"),
+			wantV6:     true,
+			wantOctets: netip.MustParseAddr("2001:db8::1").AsSlice(),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			obs := syslog.Observation{
+				ReceivedAt: time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC),
+				Peer:       tc.peer,
+				Transport:  syslog.UDP,
+			}
+			rec, err := parser.Parse(payload, obs)
+			if err != nil {
+				t.Fatalf("Parse: %v", err)
+			}
+			syslogRec, _, _ := syslogsource.MapRecord(rec, devEntry, edgeRef)
+			srcAddr := syslogRec.GetSourceAddress()
+			if tc.wantV4 {
+				if !srcAddr.HasV4() {
+					t.Fatalf("SourceAddress = %v, want V4", srcAddr)
+				}
+				if !bytes.Equal(srcAddr.GetV4().GetOctets(), tc.wantOctets) {
+					t.Errorf("V4 octets = %v, want %v", srcAddr.GetV4().GetOctets(), tc.wantOctets)
+				}
+			}
+			if tc.wantV6 {
+				if !srcAddr.HasV6() {
+					t.Fatalf("SourceAddress = %v, want V6", srcAddr)
+				}
+				if !bytes.Equal(srcAddr.GetV6().GetOctets(), tc.wantOctets) {
+					t.Errorf("V6 octets = %v, want %v", srcAddr.GetV6().GetOctets(), tc.wantOctets)
+				}
+			}
 		})
 	}
 }
