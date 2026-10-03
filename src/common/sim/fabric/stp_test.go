@@ -1156,7 +1156,6 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 	}
 }
 
-// TestFabricMcheckQueuesTheRSTReply is evidence that a management check
 func findJourney(t *testing.T, fab *fabric.Fabric, fid fabric.FrameID) fabric.Journey {
 	t.Helper()
 	for _, j := range fab.Report() {

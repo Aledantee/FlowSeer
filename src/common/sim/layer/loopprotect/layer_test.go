@@ -2,6 +2,7 @@ package loopprotect_test
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
 	"time"
 
@@ -35,6 +36,18 @@ func returnedProbe(sendPort string, vid vlan.ID) loopprotect.Probe {
 		VID:       vid,
 		Sequence:  1,
 		Port:      sendPort,
+	}
+}
+
+// assertProbeFrame fails the test unless e carries the frame the layer emits
+// for its port and VID with the given per-port sequence number: a probe naming
+// this switch as the originator, sent from this switch's MAC.
+func assertProbeFrame(t *testing.T, e layer.Emission, sequence uint32) {
+	t.Helper()
+
+	want := loopprotect.Encode(loopprotect.Probe{OriginMAC: switchMAC, VID: e.VID, Sequence: sequence, Port: e.Port}, switchMAC)
+	if !reflect.DeepEqual(e.Frame, want) {
+		t.Errorf("emission for %s vid %d carries frame %+v, want %+v", e.Port, e.VID, e.Frame, want)
 	}
 }
 
@@ -164,8 +177,8 @@ func TestReceiveExpiresElapsedTimerWindowBeforeApplying(t *testing.T) {
 	t.Parallel()
 
 	// Evidence that Receive expires an elapsed recovery window itself,
-	// using the same rule Wake uses, instead of reading a stale applied
-	// state that only a later Wake call would have caught: a probe
+	// using the same rule Advance uses, instead of reading a stale applied
+	// state that only a later Advance call would have caught: a probe
 	// delivered at exactly the expiry instant must see the window as
 	// already lifted, and the action as freshly reapplied.
 	tbl := newLayerTable(t, "1/1/1")
@@ -190,7 +203,7 @@ func TestReceiveExpiresElapsedTimerWindowBeforeApplying(t *testing.T) {
 	}
 
 	// A probe returns at exactly t0+15s, the instant the window elapses,
-	// with no Wake call in between.
+	// with no Advance call in between.
 	l.Receive(t0.Add(15*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
@@ -467,10 +480,10 @@ func TestInterVLANFalseWhenMatching(t *testing.T) {
 	}
 }
 
-func TestWakeEmitsProbesForProtectedPortsInSortedOrder(t *testing.T) {
+func TestAdvanceEmitsProbesForProtectedPortsInSortedOrder(t *testing.T) {
 	t.Parallel()
 
-	// Evidence that Wake gates emission on the applied action, not the
+	// Evidence that Advance gates emission on the applied action, not the
 	// configured one: a Disable-configured port that has never had the
 	// action applied still probes, since a returned probe is the only way
 	// Disable can ever be applied.
@@ -492,15 +505,18 @@ func TestWakeEmitsProbesForProtectedPortsInSortedOrder(t *testing.T) {
 	fx := l.Advance(t0.Add(5 * time.Second))
 
 	if len(fx.Emissions) != 3 {
-		t.Fatalf("Wake() emitted %d frames, want 3 (never-applied Disable port still probes): %+v", len(fx.Emissions), fx.Emissions)
+		t.Fatalf("Advance() emitted %d frames, want 3 (never-applied Disable port still probes): %+v", len(fx.Emissions), fx.Emissions)
 	}
 	if fx.Emissions[0].Port != "1/1/1" || fx.Emissions[1].Port != "1/1/2" || fx.Emissions[2].Port != "1/1/3" {
 		t.Errorf("emission order = [%s, %s, %s], want [1/1/1, 1/1/2, 1/1/3] (sorted)",
 			fx.Emissions[0].Port, fx.Emissions[1].Port, fx.Emissions[2].Port)
 	}
+	for _, e := range fx.Emissions {
+		assertProbeFrame(t, e, 0)
+	}
 }
 
-func TestWakeStopsProbingOnceDisableIsApplied(t *testing.T) {
+func TestAdvanceStopsProbingOnceDisableIsApplied(t *testing.T) {
 	t.Parallel()
 
 	// Evidence that emission gates on the applied action: a Disable port
@@ -520,8 +536,9 @@ func TestWakeStopsProbingOnceDisableIsApplied(t *testing.T) {
 	l.Advance(t0)
 	fx := l.Advance(t0.Add(5 * time.Second))
 	if len(fx.Emissions) != 1 {
-		t.Fatalf("Wake() before the action is applied emitted %d frames, want 1", len(fx.Emissions))
+		t.Fatalf("Advance() before the action is applied emitted %d frames, want 1", len(fx.Emissions))
 	}
+	assertProbeFrame(t, fx.Emissions[0], 0)
 
 	l.Receive(t0.Add(5*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Disable {
@@ -530,11 +547,11 @@ func TestWakeStopsProbingOnceDisableIsApplied(t *testing.T) {
 
 	fx = l.Advance(t0.Add(10 * time.Second))
 	if len(fx.Emissions) != 0 {
-		t.Errorf("Wake() after the action is applied emitted %d frames, want 0: %+v", len(fx.Emissions), fx.Emissions)
+		t.Errorf("Advance() after the action is applied emitted %d frames, want 0: %+v", len(fx.Emissions), fx.Emissions)
 	}
 }
 
-func TestWakeEmitsPerVLAN(t *testing.T) {
+func TestAdvanceEmitsPerVLAN(t *testing.T) {
 	t.Parallel()
 
 	tbl := newLayerTable(t, "1/1/1", "1/1/2")
@@ -555,7 +572,10 @@ func TestWakeEmitsPerVLAN(t *testing.T) {
 
 	var vidsFor1 []vlan.ID
 	var vidsFor2 []vlan.ID
+	nextSequence := map[string]uint32{}
 	for _, e := range fx.Emissions {
+		assertProbeFrame(t, e, nextSequence[e.Port])
+		nextSequence[e.Port]++
 		switch e.Port {
 		case "1/1/1":
 			vidsFor1 = append(vidsFor1, e.VID)
@@ -572,7 +592,7 @@ func TestWakeEmitsPerVLAN(t *testing.T) {
 	}
 }
 
-func TestWakeSequenceNumbersIncreasePerPort(t *testing.T) {
+func TestAdvanceSequenceNumbersIncreasePerPort(t *testing.T) {
 	t.Parallel()
 
 	tbl := newLayerTable(t, "1/1/1")
@@ -595,6 +615,9 @@ func TestWakeSequenceNumbersIncreasePerPort(t *testing.T) {
 	if len(fx1.Emissions) != 1 || len(fx2.Emissions) != 1 {
 		t.Fatalf("got %d and %d emissions per wake, want 1 each", len(fx1.Emissions), len(fx2.Emissions))
 	}
+
+	assertProbeFrame(t, fx1.Emissions[0], 0)
+	assertProbeFrame(t, fx2.Emissions[0], 1)
 
 	p1, err := loopprotect.Decode(fx1.Emissions[0].Frame)
 	if err != nil {
@@ -761,6 +784,7 @@ func TestBlockedPortKeepsProbingDisabledDoesNot(t *testing.T) {
 	for _, e := range fx.Emissions {
 		if e.Port == "block" {
 			blockSeen = true
+			assertProbeFrame(t, e, 0)
 		}
 		if e.Port == "disable" {
 			t.Errorf("Disable-acted port emitted a probe")

@@ -264,8 +264,8 @@ func TestDiffActionChangeYieldsOneChange(t *testing.T) {
 	if c.Field != "action" {
 		t.Errorf("Field = %q, want %q", c.Field, "action")
 	}
-	if c.Layer != loopprotect.LayerLoopProtect {
-		t.Errorf("Layer = %q, want %q", c.Layer, loopprotect.LayerLoopProtect)
+	if c.Layer != loopprotect.LayerName {
+		t.Errorf("Layer = %q, want %q", c.Layer, loopprotect.LayerName)
 	}
 	if c.Subject.Kind != "port" || c.Subject.Key != "1/1/1" {
 		t.Errorf("Subject = %+v, want port/1/1/1", c.Subject)

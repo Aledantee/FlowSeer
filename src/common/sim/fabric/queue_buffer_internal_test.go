@@ -345,7 +345,7 @@ func TestQueueBufferUnstatedHostScope(t *testing.T) {
 	if len(second.Entries) != 1 || second.Entries[0].Step == nil {
 		t.Fatalf("host crossing entries = %+v, want queue step", second.Entries)
 	}
-	wantSubject := trace.Subject{Kind: "host", Key: trace.CompositeKey("h1", "0")}
+	wantSubject := trace.Subject{Kind: "host", Key: `"h1"/"0"`}
 	if got := second.Entries[0].Step.Subject; got != wantSubject {
 		t.Errorf("host queue subject = %+v, want %+v", got, wantSubject)
 	}

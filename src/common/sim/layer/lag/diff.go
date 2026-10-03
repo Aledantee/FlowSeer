@@ -162,6 +162,11 @@ func snapshotLAG(l LAG) lagSnapshotFact {
 
 // Diff computes the difference between two link aggregation configurations,
 // reporting changes to LAG settings and per-member administrative parameters.
+// Diff normalizes both sides with the zero [layer.Env], so defaults that derive
+// from the port table or the switch MAC compare as written: a default
+// LACPConfig.Key stays 0, a zero LACPConfig.SystemID stays zero, and no
+// port-table member is added. A caller that needs those defaults compared
+// normalizes both configurations with the real Env before calling Diff.
 func Diff(a, b Config) []trace.Change {
 	a = a.Normalize(layer.Env{})
 	b = b.Normalize(layer.Env{})

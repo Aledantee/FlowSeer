@@ -827,7 +827,7 @@ func (l *Layer) BadLACPDU(member string) {
 }
 
 // RetentionKey returns a canonical encoding of every normalized input the layer's
-// runtime state depends on: its own configuration as Diff sees it, member link states,
+// runtime state depends on: its own configuration normalized with env, member link states,
 // and the switch system ID.
 func RetentionKey(cfg Config, env layer.Env) string {
 	hasLagPorts := false

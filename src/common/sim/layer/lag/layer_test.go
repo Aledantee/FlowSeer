@@ -379,20 +379,20 @@ func TestDelays(t *testing.T) {
 	l.Advance(t1.Add(1 * time.Second))
 	chosen, ok = selectOK(l, t1.Add(1*time.Second), "lag1", f, 0)
 	if !ok || chosen != "1/1/2" {
-		t.Fatalf("Select after Wake(t1+1s) = (%q, %t), want (1/1/2, true)", chosen, ok)
+		t.Fatalf("Select after Advance(t1+1s) = (%q, %t), want (1/1/2, true)", chosen, ok)
 	}
 
 	t2 := t1.Add(10 * time.Second)
 	l.LinkChange(t2, "1/1/1", true)
 
-	// 1/1/1 is not enabled until Wake(t2 + 2s).
+	// 1/1/1 is not enabled until Advance(t2 + 2s).
 	if l.PortInfo("1/1/1").Enabled {
 		t.Fatal("1/1/1 is enabled before UpDelay expires")
 	}
 
 	l.Advance(t2.Add(2 * time.Second))
 	if !l.PortInfo("1/1/1").Enabled {
-		t.Fatal("1/1/1 is not enabled after Wake(t2+2s)")
+		t.Fatal("1/1/1 is not enabled after Advance(t2+2s)")
 	}
 }
 

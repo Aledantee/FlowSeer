@@ -388,7 +388,7 @@ func stpMSTOverriddenRegion(revision uint16) *stp.MST {
 	return r
 }
 
-// CasePlanningMSTPVLANInstancesDiverge returns the case evaluating that VLAN
+// casePlanningMSTPVLANInstancesDiverge returns the case evaluating that VLAN
 // 10, running on its own MST instance, crosses the link that instance
 // elected rather than whichever link a single shared tree would pick for
 // every VLAN: sw2's per-instance path cost is inflated on l1 for MSTI 1
