@@ -137,6 +137,22 @@ The parent plan's Decisions apply. These are local to the phase.
   rows may name one address, and a peer address cannot tell them apart. The
   value is snake case and bounded, as `docs/conventions/observability.md`
   (lines 81-90) asks of an attribute. (decided by the user, 2026-10-03)
+- The index carries the listed address and binding of every listed device,
+  a held one included. Each successful `Sync` records one claim per listed
+  device with a usable address, whether or not the device onboards, and
+  drops the device's claim on any other address. An address with two or
+  more claimants resolves to no device. An address with one claimant
+  resolves to it only when the lane serves that device, and otherwise the
+  datagram is dropped as `unknown_source`. `Sync` prunes before it onboards.
+  Why: a held device re-listed at a new address keeps its lane session on
+  the old one until the attempt restarts
+  (`src/edge/agent/internal/lanehost/onboard.go:212-220`), and a datagram
+  from the address it left must not be published as its record. The same
+  rule covers a device re-listed from one address to another whose
+  onboarding at the new one fails, or whose new address is unusable: its
+  claim on the old address goes with the listing. The index and the lane
+  may then name different addresses for one device until the attempt
+  restarts. (decided by the user, 2026-10-03)
 - Phase 1 keeps the parser's default options, and a vendor line the parser
   reports partial is a parse failure like any other. Why: choosing vendor
   parse options needs real device output, which this phase has none of.
@@ -469,8 +485,10 @@ onboarder records a device in it where it writes `held`
 (`src/edge/agent/internal/lanehost/onboard.go:225`). The index outlives
 `held`, which ends with the lane attempt, so it has a removal path of its
 own: `Add` drops any other address of the same device, `Sync` prunes the
-index to the listed device ids after a successful `ListDevices`, and an
-address two listed devices share resolves to no device. `Lookup` tells a
+index to the listed device ids after a successful `ListDevices`, before it
+onboards, and an address two listed devices share resolves to no device,
+whether or not both onboard. A held device's entry takes the listed address
+and binding on every `Sync`. `Lookup` tells a
 shared address from an unknown one, and the source drops the first under
 `ambiguous_source` and the second under `unknown_source`. `Run` creates the index and passes it to
 both the lane assembly and the syslog module, with the attachment's leaf and
@@ -532,7 +550,12 @@ address two devices share, which resolves to no device until one of them
 leaves it. `onboard_test.go` shows a `Sync` whose listing drops a device
 removing its address from the index, a `Sync` whose `ListDevices` fails
 leaving the index as it was, and two listed devices at one address
-resolving to neither. `mapper_test.go`
+resolving to neither. It also shows a device a listing drops and a later
+listing names again resolving once more, a held device re-listed at a new
+address resolving from the new address and no longer from the old, two
+listed devices at one address resolving to neither when one of them fails
+to onboard, and a device re-listed at a new address whose onboarding fails
+no longer resolving from the old one. `mapper_test.go`
 parses payloads it writes itself with the `src/protocol/syslog` parser: the
 parent plan's requirement 1 datagram, a legacy line without PRI, an RFC 5424
 line whose hostname is 256 characters, and an empty datagram. The corpus
