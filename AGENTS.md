@@ -44,9 +44,11 @@ Binding on humans and agents equally; each doc states its own scope.
   files. Enforce schema rules through `go tool -modfile=tools/buf/go.mod buf lint`, not executable tests.
 - Never add an exclusion, ignore, suppression, or hook exception to make your own
   artifacts pass; request the policy change explicitly and separately.
-- `AGENTS.md`, `buf.yaml`, `tools/hooks/`, `.claude/settings.json`,
-  `.codex/hooks.json`, and merge-gate configuration are policy surfaces; changes
-  require explicit guardrail review.
+- `AGENTS.md`, `buf.yaml`, `.golangci.yml`, `tools/hooks/`,
+  `test/conformance/a11y/`, `.claude/settings.json`, `.codex/hooks.json`, the
+  verifier's scripts (`.agents/skills/verify-change/scripts/`,
+  `.agents/skills/prose/scripts/`), and merge-gate configuration are policy
+  surfaces; changes require explicit guardrail review.
 
 ## Isolation
 

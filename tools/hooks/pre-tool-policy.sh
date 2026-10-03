@@ -40,22 +40,24 @@ while IFS= read -r candidate_file; do
           ;;
       esac
       case "${relative_file##*/}" in
-        README.md|.*) ;;
+        README.md) ;;
         *)
           case "$relative_file" in
             *.proto) ;;
             *)
-              hook_deny "$relative_file is not a production schema, package README, or dotfile placeholder. spec/proto is source-only; put executable tests under test/conformance/proto."
+              hook_deny "$relative_file is not a production schema or package README. spec/proto is source-only; put executable tests under test/conformance/proto."
               ;;
           esac
           ;;
       esac
       ;;
-    AGENTS.md|CLAUDE.md|buf.yaml|.golangci.yml|.claude/settings.json|.codex/hooks.json|tools/hooks/*|test/conformance/a11y/*)
+    AGENTS.md|CLAUDE.md|buf.yaml|.golangci.yml|.claude/settings.json|.codex/hooks.json|tools/hooks/*|test/conformance/a11y/*|.agents/skills/verify-change/scripts/*|.agents/skills/prose/scripts/*)
       # Policy surfaces stay editable, but the person running the session
       # approves each edit; AGENTS.md calls this guardrail review.
       # test/conformance/a11y holds the axe rules the audit may disable,
-      # the web analogue of .golangci.yml.
+      # the web analogue of .golangci.yml. The verifier's scripts and the
+      # prose check it runs are the gate an agent's own work must pass; a
+      # path through the .claude/skills link resolves to these.
       policy_surfaces="$policy_surfaces${policy_surfaces:+, }$relative_file"
       ;;
   esac
