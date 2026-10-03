@@ -21,7 +21,7 @@ import {
   telemetryOf,
 } from '../../domain/telemetry'
 import { pageContext, pageFor } from '../../navigation/page'
-import { workspaceContext } from '../../navigation/workspace'
+import { workspaceContext, type NoticeKey } from '../../navigation/workspace'
 import { topologyLive } from './live'
 import type { Selection } from './live'
 import { createAiRegistry, createAiTargetDirective } from '../../ai'
@@ -29,10 +29,11 @@ import type { AiRegistry } from '../../ai'
 import TopologyInspector from './TopologyInspector.vue'
 import TopologyLink from './TopologyLink.vue'
 import TopologyNode from './TopologyNode.vue'
+import TopologySiteNode from './TopologySiteNode.vue'
 import en from '../../i18n/locales/en.json'
-import { createWebI18n } from '../../i18n'
-import type { WebLocale } from '../../i18n'
-import { i18nWarnings } from '../../i18n/testing'
+import { createWebI18n, type WebLocale } from '../../i18n'
+import { i18nWarnings, unmarkedIdentifiers } from '../../i18n/testing'
+import { fixtureIdentifiers } from '../../domain/testing'
 
 vi.mock('@vue-flow/core', async () => {
   const vue = await import('vue')
@@ -82,6 +83,7 @@ function siteName(id: string): string {
 interface MountOptions {
   locale?: WebLocale
   selection?: Selection
+  fleet?: Device[]
 }
 
 function mount(
@@ -91,8 +93,9 @@ function mount(
 ) {
   const host = document.createElement('div')
   document.body.append(host)
-  const fleet = computed(() => devices)
-  const links = linksOf(devices)
+  const currentDevices = options.fleet ?? devices
+  const fleet = computed(() => currentDevices)
+  const links = linksOf(currentDevices)
   const selection = ref<Selection | undefined>(options.selection)
   const hovered = ref<string>()
   const location = computed(() => ({ path: '/topology', query: {} }))
@@ -102,8 +105,8 @@ function mount(
     async () => {},
   )
   const workspace = {
-    fleet: ref(devices),
-    message: ref(''),
+    fleet: ref(currentDevices),
+    message: ref<NoticeKey | ''>(''),
     reassign: () => {},
     move: ref(undefined),
     undoMove: () => {},
@@ -256,6 +259,24 @@ describe('topology in German', () => {
     expect(
       host.querySelector('strong')?.closest('[translate="no"]'),
     ).not.toBeNull()
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('marks identifiers in a site node', () => {
+    const site = sites[0]
+    const host = mount(
+      TopologySiteNode,
+      {
+        data: { siteId: site.id },
+        sites,
+        tenantName: () => 'Aurora Hospitality',
+      },
+      { locale: 'de' },
+    )
+
+    expect(host.querySelector('strong')?.textContent).toBe(site.name)
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -270,6 +291,7 @@ describe('topology in German', () => {
     expect(label).toMatch(
       /^Angenommene Verbindung, noch nicht ermittelt\. .+ zu .+, 10G, .+Mbit\/s, Gesund$/,
     )
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -308,6 +330,7 @@ describe('topology in German', () => {
     expect(
       host.querySelector('header strong')?.closest('[translate="no"]'),
     ).not.toBeNull()
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -337,6 +360,7 @@ describe('topology in German', () => {
     expect(host.querySelector('aside')?.getAttribute('aria-label')).toBe(
       'Verbindungsdetails',
     )
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -375,6 +399,7 @@ describe('topology in German', () => {
         (cell) => cell.closest('[translate="no"]') !== null,
       ),
     ).toBe(true)
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -411,16 +436,28 @@ describe('topology AI targets', () => {
     const device = devices.find((item) => item.role === 'access-point')
     if (!device) throw new Error('Missing device fixture')
 
-    mount(TopologyNode, { data: { deviceId: device.id } })
+    const customDevice: Device = {
+      ...device,
+      id: 'dev-custom',
+      name: 'custom-dev',
+      clients: 1250,
+    }
 
-    const node = registry.view(`standalone:topology:device:${device.id}`)
+    mount(
+      TopologyNode,
+      { data: { deviceId: customDevice.id } },
+      { locale: 'de', fleet: [customDevice] },
+    )
+
+    const node = registry.view(`standalone:topology:device:${customDevice.id}`)
     expect(node?.target.kind).toBe('device')
-    expect(node?.target.label).toBe(device.name)
+    expect(node?.target.label).toBe(customDevice.name)
     expect(node?.target.context).toMatchObject({
-      name: device.name,
-      role: device.role,
-      health: device.health,
-      address: device.address,
+      name: customDevice.name,
+      role: customDevice.role,
+      health: customDevice.health,
+      address: customDevice.address,
+      clients: '1.250',
     })
   })
 

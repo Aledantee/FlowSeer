@@ -76,6 +76,7 @@ describe('useFormat', () => {
   it('prints a compact link speed and nothing for no speed', () => {
     const en = mountFormat('en').format
     expect(en.speed(100)).toBe('100M')
+    expect(en.speed(1000)).toBe('1G')
     expect(en.speed(10_000)).toBe('10G')
     expect(en.speed(2500)).toBe('2.5G')
     expect(en.speed(undefined)).toBe('')

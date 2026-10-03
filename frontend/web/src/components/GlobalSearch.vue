@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useI18n } from 'vue-i18n'
+import { I18nT, useI18n } from 'vue-i18n'
 import {
   type UiCommandItemSelectEvent,
   UiCommandDialog,
@@ -32,11 +32,35 @@ import {
   typingIn,
 } from '../navigation/shortcuts'
 
+export interface TextPart {
+  text: string
+  identifier?: boolean
+}
+
+export interface ClientPart {
+  client: {
+    address: string
+    mac: string
+    device: string
+  }
+}
+
+export interface NeighborPart {
+  neighbor: string
+}
+
+export type RowPart = TextPart | ClientPart | NeighborPart
+
 export interface SearchPage {
   id: string
   title: string
-  detail: string
   icon: string
+  identifier?: boolean
+  pair?: {
+    first: { label: string; name?: boolean }
+    second: { label: string; name?: boolean }
+  }
+  parts: TextPart[]
 }
 
 const props = defineProps<{
@@ -54,7 +78,11 @@ const emit = defineEmits<{
 // current data and locale.
 interface Row {
   result: SearchResult
-  detail: string
+  pair?: {
+    first: { label: string; name?: boolean }
+    second: { label: string; name?: boolean }
+  }
+  parts: RowPart[]
 }
 
 const { t } = useI18n({ useScope: 'global' })
@@ -75,6 +103,21 @@ function deviceName(id: string) {
   )
 }
 
+function cleanParts(parts: (RowPart | undefined | null | false)[]): RowPart[] {
+  return parts.filter((part): part is RowPart => {
+    if (!part) return false
+    if ('client' in part) {
+      return Boolean(
+        part.client.address && part.client.mac && part.client.device,
+      )
+    }
+    if ('neighbor' in part) {
+      return Boolean(part.neighbor && part.neighbor.trim())
+    }
+    return Boolean(part.text && part.text.trim())
+  })
+}
+
 // Looks an entry up in the current data. Nothing is resolved for an object
 // that no longer exists.
 function resolve({ kind, id, port }: RecentSearch): Row | undefined {
@@ -83,7 +126,8 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
     return (
       page && {
         result: { kind, id, title: page.title },
-        detail: page.detail,
+        pair: page.pair,
+        parts: cleanParts(page.parts),
       }
     )
   }
@@ -93,10 +137,14 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
     const scope = tenantIds(tenant.id)
     return {
       result: { kind, id, title: tenant.name },
-      detail: format.counted(
-        'view.common.sites',
-        sites.filter((site) => scope.includes(site.tenantId)).length,
-      ),
+      parts: cleanParts([
+        {
+          text: format.counted(
+            'view.common.sites',
+            sites.filter((site) => scope.includes(site.tenantId)).length,
+          ),
+        },
+      ]),
     }
   }
   if (kind === 'site') {
@@ -104,36 +152,52 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
     return (
       site && {
         result: { kind, id, title: site.name },
-        detail: site.location,
+        parts: cleanParts([{ text: site.location }]),
       }
     )
   }
   if (kind === 'client') {
     const client = clients.value.find((item) => item.id === id)
-    return (
-      client && {
-        result: { kind, id, title: client.hostname },
-        detail: t('view.search.clientDetail', {
-          address: client.address,
-          mac: client.mac,
-          device: deviceName(client.deviceId),
-        }),
-      }
-    )
+    if (!client) return undefined
+    const devName = deviceName(client.deviceId)
+    return {
+      result: { kind, id, title: client.hostname },
+      parts: cleanParts([
+        {
+          client: {
+            address: client.address,
+            mac: client.mac,
+            device: devName,
+          },
+        },
+      ]),
+    }
   }
   const device = props.fleet.find((item) => item.id === id)
   if (!device) return undefined
   if (kind === 'device') {
+    const isKnownSite = sites.some((site) => site.id === device.siteId)
     const siteName =
       sites.find((site) => site.id === device.siteId)?.name ??
       t('view.common.unknownSite')
     return {
       result: { kind, id, title: device.name },
-      detail: format.facts([device.kind, device.address, siteName]),
+      parts: cleanParts([
+        { text: device.kind },
+        { text: device.address, identifier: true },
+        { text: siteName, identifier: isKnownSite },
+      ]),
     }
   }
   const found = portsOf(props.fleet, device).find((item) => item.name === port)
   if (!found) return undefined
+  const farEnd: RowPart | undefined = found.neighborId
+    ? {
+        neighbor: deviceName(found.neighborId),
+      }
+    : found.endpoint
+      ? { text: found.endpoint }
+      : undefined
   return {
     result: {
       kind,
@@ -141,15 +205,15 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
       port: found.name,
       title: `${device.name} ${found.name}`,
     },
-    detail: format.facts([
-      labels.portStatus(found.status),
-      found.neighborId
-        ? t('view.search.interfaceFarEnd', {
-            device: deviceName(found.neighborId),
-          })
-        : found.endpoint,
-    ]),
+    parts: cleanParts([{ text: labels.portStatus(found.status) }, farEnd]),
   }
+}
+
+function isTitleIdentifier(result: SearchResult): boolean {
+  return (
+    result.kind !== 'page' ||
+    Boolean(props.pages.find((p) => p.id === result.id)?.identifier)
+  )
 }
 
 const showingRecent = computed(() => !query.value.trim())
@@ -157,9 +221,10 @@ const showingRecent = computed(() => !query.value.trim())
 const pageMatches = computed(() => {
   const needle = query.value.trim().toLowerCase()
   return props.pages
-    .filter((page) =>
-      `${page.title} ${page.detail}`.toLowerCase().includes(needle),
-    )
+    .filter((page) => {
+      const detail = format.facts(page.parts.map((p) => p.text))
+      return `${page.title} ${detail}`.toLowerCase().includes(needle)
+    })
     .slice(0, 6)
     .map((page): RecentSearch => ({ kind: 'page', id: page.id }))
 })
@@ -372,7 +437,7 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
           </div>
 
           <UiCommandItem
-            v-for="{ result, detail } in group.items"
+            v-for="{ result, pair, parts } in group.items"
             :key="resultKey(result)"
             :value="resultKey(result)"
             class="search-result"
@@ -380,15 +445,73 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
           >
             <AppIcon :name="iconFor(result, group.icon)" />
             <span>
-              <strong :translate="result.kind === 'page' ? undefined : 'no'">{{
-                result.title
-              }}</strong>
-              <small>{{ detail }}</small>
+              <strong>
+                <I18nT
+                  v-if="pair"
+                  scope="global"
+                  tag="span"
+                  keypath="view.common.pair"
+                >
+                  <template #first>
+                    <span :translate="pair.first.name ? 'no' : undefined">{{
+                      pair.first.label
+                    }}</span>
+                  </template>
+                  <template #second>
+                    <span :translate="pair.second.name ? 'no' : undefined">{{
+                      pair.second.label
+                    }}</span>
+                  </template>
+                </I18nT>
+                <span
+                  v-else
+                  :translate="isTitleIdentifier(result) ? 'no' : undefined"
+                  >{{ result.title }}</span
+                >
+              </strong>
+              <small>
+                <template v-for="(part, idx) in parts" :key="idx">
+                  <span v-if="idx > 0">{{
+                    t('view.common.factSeparator')
+                  }}</span>
+                  <I18nT
+                    v-if="'client' in part"
+                    scope="global"
+                    tag="span"
+                    keypath="view.search.clientDetail"
+                  >
+                    <template #address>
+                      <span translate="no">{{ part.client.address }}</span>
+                    </template>
+                    <template #mac>
+                      <span translate="no">{{ part.client.mac }}</span>
+                    </template>
+                    <template #device>
+                      <span translate="no">{{ part.client.device }}</span>
+                    </template>
+                  </I18nT>
+                  <I18nT
+                    v-else-if="'neighbor' in part"
+                    scope="global"
+                    tag="span"
+                    keypath="view.search.interfaceFarEnd"
+                  >
+                    <template #device>
+                      <span translate="no">{{ part.neighbor }}</span>
+                    </template>
+                  </I18nT>
+                  <span
+                    v-else
+                    :translate="part.identifier ? 'no' : undefined"
+                    >{{ part.text }}</span
+                  >
+                </template>
+              </small>
             </span>
             <span class="search-result-actions ml-auto flex items-center gap-1">
               <UiTooltip
                 v-if="canSplit"
-                :label="t('view.search.openBeside')"
+                :label="t('view.common.openBeside')"
                 :shortcut="{ code: 'Enter', shift: true }"
                 side="left"
                 inline
@@ -397,7 +520,7 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
                   type="button"
                   tabindex="-1"
                   :aria-label="
-                    t('view.search.openBesideLabel', { title: result.title })
+                    t('view.common.openBesideLabel', { label: result.title })
                   "
                   @click.stop="choose(result, true)"
                 >

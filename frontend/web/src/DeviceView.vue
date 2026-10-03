@@ -19,6 +19,7 @@ import AppIcon from './components/AppIcon.vue'
 import DeviceIcon from './components/DeviceIcon.vue'
 import { useFormat } from './i18n/format'
 import { useLabels } from './i18n/labels'
+import { BRAND } from './brand'
 import { aiTarget, useAiSlot } from './ai'
 import type { AiTarget } from './ai'
 import {
@@ -147,7 +148,11 @@ const uplink = computed(() => uplinkOf(props.fleet, props.device))
 const links = computed(() => downlinks(props.fleet, props.device))
 const clients = computed(() => clientsOf([props.device]).slice(0, 8))
 const siteOptions = computed(() =>
-  props.allowedSites.map((s) => ({ value: s.id, label: s.name })),
+  props.allowedSites.map((s) => ({
+    value: s.id,
+    label: s.name,
+    identifier: true,
+  })),
 )
 
 const selectedIssues = computed(() =>
@@ -443,6 +448,7 @@ function to(path: string, extra: Record<string, string> = {}) {
             </p>
             <pre
               class="mt-2 p-2 bg-card rounded text-2xs font-mono whitespace-pre-wrap"
+              translate="no"
               >{{ escalation }}</pre>
           </template>
         </div>
@@ -453,7 +459,11 @@ function to(path: string, extra: Record<string, string> = {}) {
     <UiCard as="section" aria-labelledby="paths-title">
       <template #header>
         <h2 id="paths-title" class="text-base font-semibold text-foreground">
-          {{ t('view.device.pathsTitle') }}
+          <I18nT scope="global" keypath="view.device.pathsTitle">
+            <template #brand>
+              <span translate="no">{{ BRAND }}</span>
+            </template>
+          </I18nT>
         </h2>
       </template>
       <ul class="m-0 p-0 list-none border-t border-border">
@@ -463,9 +473,11 @@ function to(path: string, extra: Record<string, string> = {}) {
           class="flex items-center justify-between gap-3 py-2.5 px-1 border-b border-border text-xs"
         >
           <span>
-            <strong class="block font-semibold text-foreground">{{
-              integration(binding.integrationId)?.name
-            }}</strong>
+            <strong
+              translate="no"
+              class="block font-semibold text-foreground"
+              >{{ integration(binding.integrationId)?.name }}</strong
+            >
             <small class="text-2xs text-muted-foreground">{{
               integration(binding.integrationId)?.kind
             }}</small>

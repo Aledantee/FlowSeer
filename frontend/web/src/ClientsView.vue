@@ -51,10 +51,10 @@ const viewTarget = computed(() =>
     entityId: accessPoint.value ? accessPoint.value.id : 'all',
     label: t('view.common.connectedClients'),
     context: {
-      count: n(all.value.length, 'integer'),
-      matching: n(filtered.value.length, 'integer'),
+      count: String(all.value.length),
+      matching: String(filtered.value.length),
       accessPoint: accessPoint.value?.name ?? t('view.clients.allAccessPoints'),
-      search: search.value || t('view.clients.noSearch'),
+      search: search.value || t('view.common.noSearch'),
       band: band.value || 'all',
     },
   }),
@@ -189,7 +189,7 @@ function clearAccessPoint() {
         <UiTableHeader>
           <UiTableRow>
             <UiTableHead>{{ t('view.clients.client') }}</UiTableHead>
-            <UiTableHead>{{ t('view.clients.mac') }}</UiTableHead>
+            <UiTableHead>{{ t('view.common.macAddress') }}</UiTableHead>
             <UiTableHead>{{ t('view.clients.accessPoint') }}</UiTableHead>
             <UiTableHead>{{ t('view.clients.band') }}</UiTableHead>
             <UiTableHead>{{ t('view.clients.signal') }}</UiTableHead>

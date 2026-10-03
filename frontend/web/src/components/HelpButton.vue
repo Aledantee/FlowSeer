@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { UiDialog, UiTooltip } from '../ui'
 import AppIcon from './AppIcon.vue'
+import { BRAND } from '../brand'
 
 const { t } = useI18n({ useScope: 'global' })
 const open = ref(false)
@@ -35,9 +36,16 @@ const open = ref(false)
         <h3 class="font-medium text-foreground mb-1">
           {{ t('view.help.findHeading') }}
         </h3>
-        <p class="text-muted-foreground text-xs leading-relaxed">
-          {{ t('view.help.findBody') }}
-        </p>
+        <I18nT
+          scope="global"
+          tag="p"
+          class="text-muted-foreground text-xs leading-relaxed"
+          keypath="view.help.findBody"
+        >
+          <template #brand>
+            <span translate="no">{{ BRAND }}</span>
+          </template>
+        </I18nT>
       </div>
       <div>
         <h3 class="font-medium text-foreground mb-1">

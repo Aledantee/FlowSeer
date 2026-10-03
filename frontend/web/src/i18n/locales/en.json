@@ -143,8 +143,6 @@
       "emptyDescription": "Try a different search or band.",
       "emptyTitle": "No clients match this view",
       "filterBand": "Filter by band",
-      "mac": "MAC address",
-      "noSearch": "none",
       "search": "Search clients",
       "searchPlaceholder": "Search hostname, IP, or MAC address…",
       "signal": "Signal",
@@ -183,10 +181,12 @@
         "degraded": "{count} degraded",
         "offline": "{count} offline"
       },
+      "ipAddress": "IP address",
       "lifecycle": {
         "active": "Active",
         "retired": "Retired"
       },
+      "macAddress": "MAC address",
       "medium": {
         "copper": "Copper",
         "fiber": "Fiber"
@@ -196,8 +196,13 @@
         "routed": "Routed",
         "trunk": "Trunk"
       },
+      "needAttention": "{count} need attention",
       "needsAttention": "Needs attention",
       "noReading": "—",
+      "noSearch": "none",
+      "openBeside": "Open side by side",
+      "openBesideLabel": "Open {label} side by side",
+      "openNamed": "Open {name}",
       "pages": {
         "clients": "Clients",
         "dashboard": "Dashboard",
@@ -206,6 +211,7 @@
         "sites": "Sites",
         "topology": "Topology"
       },
+      "pair": "{first} + {second}",
       "portStatus": {
         "disabled": "Disabled",
         "down": "Down",
@@ -232,17 +238,17 @@
         "gigabit": "{value}G",
         "megabit": "{value}M"
       },
-      "tenant": "Tenant",
+      "status": "Status",
       "units": {
         "celsius": "°C",
         "dbm": "dBm",
         "gb": "GB",
         "gbps": "Gbit/s",
-        "ghz": "GHz",
         "mbps": "Mbit/s",
         "ms": "ms",
         "w": "W"
       },
+      "updateFailed": "Could not update this view. Try again.",
       "unknownDevice": "Unknown device",
       "unknownSite": "Unknown site",
       "unknownTenant": "Unknown tenant",
@@ -320,7 +326,7 @@
         "unreachableOnly": "Its only path is unreachable.",
         "unreachableSome": "{down} of {total} paths are unreachable."
       },
-      "pathsTitle": "How FlowSeer reaches it",
+      "pathsTitle": "How {brand} reaches it",
       "poll": "Poll now",
       "pollAnswered": {
         "degraded": "Answered just now. Still degraded.",
@@ -350,11 +356,8 @@
       "emptyTitle": "No devices match this view",
       "filterStatus": "Filter by status",
       "inventory": "Device inventory",
-      "ipAddress": "IP address",
       "lastAnswered": "Last answered",
-      "needAttention": "{count} need attention",
       "needsAttentionOption": "{label} ({count})",
-      "noSearch": "none",
       "peekAt": "Peek at {name} beside this list",
       "peekBeside": "Peek beside",
       "peekHint": "Shift-click a name does the same; ↑ ↓ step through the list, Esc closes.",
@@ -362,16 +365,11 @@
       "searchPlaceholder": "Search name, type, or IP address…",
       "showing": "Showing {shown} of {total} device | Showing {shown} of {total} devices",
       "siteTenant": "Site / tenant",
-      "status": "Status",
       "viewStatus": "View status"
     },
     "dock": {
       "close": "Close {label}",
       "minimizedPages": "Minimized pages",
-      "needAttention": "{count} need attention",
-      "open": "Open {label}",
-      "openBeside": "Open side by side",
-      "openBesideLabel": "Open {label} side by side",
       "remove": "Remove from dock",
       "shiftHint": "Shift-click opens it side by side"
     },
@@ -400,7 +398,6 @@
       "minimizeToDock": "Minimize to dock",
       "openFailed": "Could not open that page. Try again.",
       "page": "Page",
-      "pair": "{first} + {second}",
       "resizeHint": "Double-click to reset to half and half.",
       "resizeSplit": "Resize split view",
       "searchDevices": "Search devices…",
@@ -412,11 +409,10 @@
       "splitView": "Split view",
       "swapPages": "Swap the two pages",
       "swapSides": "Swap sides",
-      "updateFailed": "Could not update this view. Try again.",
       "workspace": "WORKSPACE"
     },
     "help": {
-      "findBody": "Devices that need attention are listed first. Search by name, type, or IP address, or filter by status, then select a device to see why it needs attention and how FlowSeer reaches it.",
+      "findBody": "Devices that need attention are listed first. Search by name, type, or IP address, or filter by status, then select a device to see why it needs attention and how {brand} reaches it.",
       "findHeading": "Find a device",
       "moveBody": "Open device details, expand Move to another site, and choose a site within its tenant. The move replaces the previous assignment once it is observed, and the notice offers Undo.",
       "moveHeading": "Move a device",
@@ -480,8 +476,6 @@
       },
       "label": "Search tenants, sites, devices, clients, and interfaces",
       "noMatch": "Nothing matches “{query}”.",
-      "openBeside": "Open side by side",
-      "openBesideLabel": "Open {title} side by side",
       "placeholder": "Search tenants, sites, devices, clients, interfaces…",
       "recent": "Recent",
       "resultsLabel": "Search results",
@@ -534,10 +528,8 @@
         "downstream": "Downstream",
         "errors": "Errors",
         "firmware": "Firmware",
-        "ipAddress": "IP address",
         "lastChange": "Last change",
         "latency": "Latency",
-        "macAddress": "MAC address",
         "medium": "Medium",
         "model": "Model",
         "mtu": "MTU",
@@ -545,8 +537,6 @@
         "received": "Received",
         "sent": "Sent",
         "speed": "Speed",
-        "status": "Status",
-        "traffic": "Traffic",
         "upstream": "Upstream",
         "uptime": "Uptime",
         "vlans": "VLANs"
@@ -561,7 +551,6 @@
       "nothing": "Nothing",
       "off": "Off",
       "openDevice": "Open device",
-      "openNamed": "Open {name}",
       "portLabel": "{device} {port} details",
       "portMode": "{mode} port",
       "sections": {
@@ -594,8 +583,7 @@
       "scopeAcrossAll": "{count} site across all tenants | {count} sites across all tenants",
       "scopeAcrossTenant": "{count} site across {tenant} | {count} sites across {tenant}",
       "scopeNotFound": "Scope not found: \"{site}\". It may have been removed or belongs to another tenant.",
-      "undo": "Undo",
-      "updateFailed": "Could not update this view. Try again."
+      "undo": "Undo"
     }
   }
 }

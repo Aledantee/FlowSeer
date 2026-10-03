@@ -8,7 +8,6 @@ import {
   linksOf,
   uplinkOf,
   pollDevice,
-  pathSummary,
   siteNeighbours,
 } from './fleet'
 describe('operator fleet scope', () => {
@@ -89,10 +88,9 @@ describe('operator fleet scope', () => {
       'wlc-aurora-de',
     ])
   })
-  it('describes an offline device against its paths and its site', () => {
+  it('counts site neighbours answering for an offline device', () => {
     const offline = devices.find((device) => device.health === 'Offline')
     if (!offline) throw new Error('Missing fixture')
-    expect(pathSummary(offline)).toBe('Both paths are unreachable.')
     expect(siteNeighbours(devices, offline)).toEqual({ answering: 3, total: 3 })
   })
 })

@@ -5,6 +5,7 @@ date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: rework
 execution: code
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
 ---
@@ -57,12 +58,15 @@ first and rewrote the AI targets of every view inventoried here.
   (decided by the user, 2026-10-03)
 - **English reads `Mbit/s`,** as requirement 2's example does.
   (decided by the user, 2026-10-03)
-- **English otherwise keeps today's literals, with three exceptions.**
+- **English otherwise keeps today's literals, with five exceptions.**
   The scaled unit reads `Gbit/s` to match, relative times come from
-  `Intl.RelativeTimeFormat`, and clock times from `d()`. Why:
+  `Intl.RelativeTimeFormat`, clock times from `d()`, the escalation
+  `Last answered` line is its own line without a full stop, and the
+  unanswered-poll text puts the age in parentheses. Why:
   `Intl.NumberFormat` with `unit: 'megabit-per-second'` prints `Mb/s` in
-  both locales, so unit labels are messages, and the contract sends
-  relative times and dates through `Intl`.
+  both locales, unit labels are messages, the contract sends relative
+  times and dates through `Intl`, and a relative time such as `vor 38
+  Min.` ends in a full stop.
 - **The switch is one button.** It flips between the two locales, shows
   the active locale's code, and names the other language by its own
   name from `Intl.DisplayNames`. Why: the theme switch beside it is one
@@ -223,6 +227,18 @@ translation in the infinitive style of the `ui.*` messages
   `frontend/web/src/components/GlobalSearch.test.ts`, the brand literal,
   the dock tooltip marking above, and the items in Review gaps.
   (decided by the user, 2026-10-03)
+- **A tooltip whose label or hint names an identifier marks its whole
+  hidden accessible text `translate="no"`.** reka-ui prints that text as
+  one node the caller cannot reach, so the message words in it stay as our
+  own catalogs localized them. Tooltips without an identifier keep it
+  unmarked. (decided by the user, 2026-10-03)
+- **The language switcher's tooltip marks the other language's name** with
+  `lang` and `translate="no"`, as its accessible name does.
+  (decided by the user, 2026-10-03)
+- **The coordinator closes the fourth round's open items directly**,
+  without a fifth review round: the hidden tooltip text, the AI context
+  counts in `ClientsView.vue`, the vacuous slot test, and the language
+  switcher. (decided by the user, 2026-10-03)
 
 ## Requirements
 
@@ -379,24 +395,31 @@ names the pages for a person to look at.
 
 ## Open questions
 
-Neither blocks a unit.
+Neither of the first two blocks a unit.
 
 1. Unverified: why the story audit lost the AI action once
    `ui-table--default` was wrapped in `UiScrollArea`. See Out of scope.
 2. Unverified: whether a browser's ICU abbreviates relative times as
    Node 22.14.0 does. Tests do not pin those strings, and the browser
    check is where a difference would show.
+3. Answered: see the Decision on kit text props (2026-10-03).
+4. Answered: see the Decisions of 2026-10-03 on the tooltip's hidden text
+   and the language switcher.
 
-- Parked by drive: the fourth fix round closed the false search test, the
-  brand literal, the visible tooltip text, and 25 of 32 gap items, and its
-  review was not clean, so the verdict stays `rework`. The work is on
-  `parked/wcc-p4-review` (`722f615e`), unmerged. Open: reka-ui prints the
-  tooltip's accessible text as one hidden node built from `UiTooltip`'s
-  string props, so names there are unmarked (only the whole node can be
-  marked); `ClientsView.vue` AI context counts changed from `n()` to
-  `String()`, against the Decision that AI targets follow the screen; a
-  slot test in `UiTooltip.test.ts` that cannot fail. Options: apply the two
-  small fixes here and rule on the hidden description | a fifth fix round
-  | take the tooltip marking to `plan`. Recommended: apply the fixes here
-  with the whole hidden node marked `translate="no"`, because each open
-  item names its fix.
+## Review gaps
+
+- frontend/web/src/ui/tooltip/UiTooltip.vue:76: `tooltipAriaLabel` is built from the string props and reka-ui 2.10.5 prints it as one text node in its hidden `role="tooltip"` element (`Tooltip/TooltipContentImpl.js:87`, `:134-140`), so the open dock tooltip holds `cologne-ap-02 öffnen Cologne Central · Offline …` outside `translate="no"`; fails: `unmarkedIdentifiers(document.body, identifiers)` is empty with the dock tooltip open
+- frontend/web/src/ClientsView.vue:54: `count` and `matching` in the AI target context read `String(...)` where the screen reads `n(..., 'integer')` (`:145`); fails: with 1,000 clients the context holds `1,000` in `en`, and `frontend/web/src/FleetView.test.ts:702` compares raw counts instead of `Number()` of context text
+- frontend/web/src/ui/tooltip/UiTooltip.test.ts:447: `UiTooltip.vue:102` becomes `{{ label }}<slot name="label" />`, or `:104` becomes `v-if="hint"`; fails: the label span's text is exactly the slot text, and a hint slot without a `hint` prop renders
+- frontend/web/src/FleetView.locale.test.ts:283: the `#label` and `#hint` templates in `frontend/web/src/navigation/PageDock.vue:78-139`, or their `:translate` bindings, are deleted; fails: the open tooltip's name and site sit in `translate="no"`, the health word does not, for a device tab and a pair
+- frontend/web/src/ui/tooltip/UiTooltip.vue:104: a hint slot without the `hint` prop shows a hint the accessible text lacks, the slots have no `defineSlots` or contract comment, and the `Slots` story shows text its props do not announce and no marked name; fails: the contract is stated, the story marks a name with matching props
+- frontend/web/src/components/LocaleSwitcher.test.ts:69: `LocaleSwitcher.vue:37` becomes `{{ 'EN' }}`; fails: the code reads `DE` after a press
+- .agents/skills/web-component/references/i18n-and-ai.md:105: says tooltips sit inside the property, likewise `frontend/web/README.md:396`, while no test runs it on an open tooltip and it fails there; fails: the docs match the test
+- .agents/skills/web-component/references/i18n-and-ai.md:31: says the list separator is a message in the component section, while `frontend/web/src/ui/meter/UiSegmentedMeter.vue:100-104` joins with `Intl.ListFormat`, and `:82` lost the verb before `an English plural ternary`; fails: both sentences read true
+- docs/solutions/conventions/vue-i18n-instances-mutate-catalogs-and-formats-in-place.md:36: requires `structuredClone(datetimeFormats)` with no source in Evidence; fails: it cites `vue-i18n.node.mjs:291-294`, `:658-662` and `frontend/web/src/i18n/i18n.test.ts:226-260`
+- frontend/web/src/main.test.ts:26: `createWebI18n('de')` in `main.ts:32` passes, and the test never unmounts the app it starts; fails: a saved `en` starts in `en`, and the app, its watcher, and the AI handler are torn down
+- frontend/web/src/domain/testing.ts:13: `export { BRAND }` has no importer; fails: the line is gone
+- frontend/web/src/FleetView.locale.test.ts:1251: the sweep patterns `^.+? at .+?$` and `^(to|of|as of|checked|answered|Open|Close) .+?$` match any verbatim English fixture string of that shape, and an English message inside an element with a child element still passes; fails: fixture strings are excluded and direct text nodes of non-leaf elements are read
+- frontend/web/src/components/TrafficChart.vue:162: a call site of `hourLabel` becomes `String(hour)`, here or at `:194`; fails: each rendered hour label is asserted
+- frontend/web/src/i18n/testing.ts:124: `(isMac && before === ':')` is dropped; fails: a MAC preceded by `aa:` is not reported
+- frontend/web/src/domain/testing.test.ts:33: the device and port loops of `fixtureIdentifiers` stop after the first element; fails: a later device's serial and port name are in the set

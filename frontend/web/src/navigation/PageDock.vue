@@ -15,10 +15,16 @@ defineProps<{
     icon: string
     health?: Health
     attention?: number
+    labelName?: boolean
+    detailName?: boolean
+    pair?: {
+      first: { label: string; name?: boolean }
+      second: { label: string; name?: boolean }
+    }
   }
   canSplit: boolean
 }>()
-const { t } = useI18n({ useScope: 'global' })
+const { t, n } = useI18n({ useScope: 'global' })
 const format = useFormat()
 const labels = useLabels()
 const emit = defineEmits<{
@@ -28,8 +34,11 @@ const emit = defineEmits<{
 }>()
 function badge(health: Health | undefined, attention: number | undefined) {
   if (health && health !== 'Healthy') return labels.health(health)
-  if (attention) return format.counted('view.dock.needAttention', attention)
+  if (attention) return format.counted('view.common.needAttention', attention)
   return ''
+}
+function formatAttention(attention: number | undefined): string {
+  return attention ? n(attention, 'integer') : ''
 }
 </script>
 
@@ -55,7 +64,7 @@ function badge(health: Health | undefined, attention: number | undefined) {
           :class="{ pair: tab.beside }"
         >
           <UiTooltip
-            :label="t('view.dock.open', { label: title(tab).label })"
+            :label="t('view.common.openNamed', { name: title(tab).label })"
             :hint="
               format.facts([
                 title(tab).detail,
@@ -66,6 +75,68 @@ function badge(health: Health | undefined, attention: number | undefined) {
             :shortcut="index < 9 ? dockTabShortcut(index + 1) : undefined"
             side="top"
           >
+            <template #label>
+              <I18nT
+                v-if="title(tab).pair"
+                scope="global"
+                keypath="view.common.openNamed"
+              >
+                <template #name>
+                  <I18nT scope="global" keypath="view.common.pair">
+                    <template #first>
+                      <span
+                        :translate="
+                          title(tab).pair?.first.name ? 'no' : undefined
+                        "
+                        >{{ title(tab).pair?.first.label }}</span
+                      >
+                    </template>
+                    <template #second>
+                      <span
+                        :translate="
+                          title(tab).pair?.second.name ? 'no' : undefined
+                        "
+                        >{{ title(tab).pair?.second.label }}</span
+                      >
+                    </template>
+                  </I18nT>
+                </template>
+              </I18nT>
+              <I18nT v-else scope="global" keypath="view.common.openNamed">
+                <template #name>
+                  <span :translate="title(tab).labelName ? 'no' : undefined">{{
+                    title(tab).label
+                  }}</span>
+                </template>
+              </I18nT>
+            </template>
+            <template #hint>
+              <span
+                v-if="
+                  title(tab).detail ||
+                  badge(title(tab).health, title(tab).attention) ||
+                  (canSplit && !tab.beside)
+                "
+              >
+                <span
+                  v-if="title(tab).detail"
+                  :translate="title(tab).detailName ? 'no' : undefined"
+                  >{{ title(tab).detail }}</span
+                >
+                <template v-if="badge(title(tab).health, title(tab).attention)">
+                  {{ title(tab).detail ? t('view.common.factSeparator') : ''
+                  }}{{ badge(title(tab).health, title(tab).attention) }}
+                </template>
+                <template v-if="canSplit && !tab.beside">
+                  {{
+                    title(tab).detail ||
+                    badge(title(tab).health, title(tab).attention)
+                      ? t('view.common.factSeparator')
+                      : ''
+                  }}{{ t('view.dock.shiftHint') }}
+                </template>
+              </span>
+            </template>
             <button
               class="dock-open flex items-center gap-2 max-w-[220px] py-1.5 pl-2.5 pr-1.5 border-0 bg-transparent text-inherit text-left cursor-pointer"
               @click="
@@ -89,17 +160,46 @@ function badge(health: Health | undefined, attention: number | undefined) {
                     { 'min-w-2 h-2 -top-0.5 -right-1': !title(tab).attention },
                   ]"
                   :aria-label="badge(title(tab).health, title(tab).attention)"
-                  >{{ title(tab).attention ?? '' }}</i
+                  >{{ formatAttention(title(tab).attention) }}</i
                 >
               </span>
               <span class="min-w-0">
                 <strong
                   class="block truncate text-xs font-semibold"
                   :class="{ 'max-w-[180px]': tab.beside }"
-                  >{{ title(tab).label }}</strong
                 >
+                  <I18nT
+                    v-if="title(tab).pair"
+                    scope="global"
+                    tag="span"
+                    keypath="view.common.pair"
+                  >
+                    <template #first>
+                      <span
+                        :translate="
+                          title(tab).pair?.first.name ? 'no' : undefined
+                        "
+                        >{{ title(tab).pair?.first.label }}</span
+                      >
+                    </template>
+                    <template #second>
+                      <span
+                        :translate="
+                          title(tab).pair?.second.name ? 'no' : undefined
+                        "
+                        >{{ title(tab).pair?.second.label }}</span
+                      >
+                    </template>
+                  </I18nT>
+                  <span
+                    v-else
+                    :translate="title(tab).labelName ? 'no' : undefined"
+                    >{{ title(tab).label }}</span
+                  >
+                </strong>
                 <small
                   class="block truncate text-2xs text-chrome-muted-foreground max-[800px]:hidden"
+                  :translate="title(tab).detailName ? 'no' : undefined"
                   >{{ title(tab).detail }}</small
                 >
               </span>
@@ -107,14 +207,14 @@ function badge(health: Health | undefined, attention: number | undefined) {
           </UiTooltip>
           <UiTooltip
             v-if="canSplit && !tab.beside"
-            :label="t('view.dock.openBeside')"
+            :label="t('view.common.openBeside')"
             :shortcut="index < 9 ? dockTabShortcut(index + 1, true) : undefined"
             side="top"
           >
             <button
               class="dock-action grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-chrome-muted-foreground hover:bg-chrome-surface/80 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5"
               :aria-label="
-                t('view.dock.openBesideLabel', { label: title(tab).label })
+                t('view.common.openBesideLabel', { label: title(tab).label })
               "
               @click="emit('split', tab.id)"
             >

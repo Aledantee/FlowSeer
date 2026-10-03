@@ -189,7 +189,7 @@ function deviceLink(id: string) {
       <template v-if="device && telemetry">
         <dl>
           <div>
-            <dt>{{ t('view.topologyInspector.fields.status') }}</dt>
+            <dt>{{ t('view.common.status') }}</dt>
             <dd><UiStatusBadge :status="device.health" /></dd>
           </div>
           <div>
@@ -197,11 +197,11 @@ function deviceLink(id: string) {
             <dd>{{ uptime(telemetry.bootedAt) }}</dd>
           </div>
           <div>
-            <dt>{{ t('view.topologyInspector.fields.ipAddress') }}</dt>
+            <dt>{{ t('view.common.ipAddress') }}</dt>
             <dd class="mono" translate="no">{{ device.address }}</dd>
           </div>
           <div>
-            <dt>{{ t('view.topologyInspector.fields.traffic') }}</dt>
+            <dt>{{ t('view.common.columns.traffic') }}</dt>
             <dd>{{ format.rate(device.throughput) }}</dd>
           </div>
           <div>
@@ -305,7 +305,7 @@ function deviceLink(id: string) {
         </ul>
         <dl>
           <div>
-            <dt>{{ t('view.topologyInspector.fields.status') }}</dt>
+            <dt>{{ t('view.common.status') }}</dt>
             <dd><UiStatusBadge :status="link.health" /></dd>
           </div>
           <div>
@@ -374,7 +374,7 @@ function deviceLink(id: string) {
       <template v-if="port">
         <dl>
           <div>
-            <dt>{{ t('view.topologyInspector.fields.status') }}</dt>
+            <dt>{{ t('view.common.status') }}</dt>
             <dd>
               <span
                 :class="['port-state', port.details.port.status.toLowerCase()]"
@@ -446,7 +446,7 @@ function deviceLink(id: string) {
             <dd>{{ port.details.mtu }}</dd>
           </div>
           <div>
-            <dt>{{ t('view.topologyInspector.fields.macAddress') }}</dt>
+            <dt>{{ t('view.common.macAddress') }}</dt>
             <dd class="mono" translate="no">{{ port.details.mac }}</dd>
           </div>
           <div>
@@ -479,11 +479,7 @@ function deviceLink(id: string) {
           v-else-if="port"
           class="panel-link"
           :to="deviceLink(port.owner.id)"
-          ><I18nT
-            scope="global"
-            tag="span"
-            keypath="view.topologyInspector.openNamed"
-          >
+          ><I18nT scope="global" tag="span" keypath="view.common.openNamed">
             <template #name>
               <span translate="no">{{ port.owner.name }}</span>
             </template>

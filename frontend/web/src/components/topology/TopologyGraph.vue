@@ -42,7 +42,7 @@ const props = defineProps<{
   // "deviceId~port" of an interface to open selected, e.g. from search.
   focus?: string
 }>()
-const { t } = useI18n({ useScope: 'global' })
+const { t, n } = useI18n({ useScope: 'global' })
 const labels = useLabels()
 const slot = useAiSlot()
 const viewTarget = computed(() =>
@@ -53,8 +53,8 @@ const viewTarget = computed(() =>
     entityId: 'graph',
     label: labels.page('topology'),
     context: {
-      sites: String(props.sites.length),
-      devices: String(members.value.length),
+      sites: n(props.sites.length, 'integer'),
+      devices: n(members.value.length, 'integer'),
       focus: props.focus ?? '',
     },
   }),

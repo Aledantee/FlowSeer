@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, createApp, h, nextTick, ref } from 'vue'
 import DeviceView from './DeviceView.vue'
 import { pageContext, pageFor } from './navigation/page'
-import { workspaceContext } from './navigation/workspace'
+import { workspaceContext, type NoticeKey } from './navigation/workspace'
 import { devices, moveDevice, sites, tenants } from './domain/fleet'
 import type { Device } from './domain/fleet'
 import { createAiRegistry, createAiTargetDirective } from './ai'
@@ -11,7 +11,10 @@ import type { AiRegistry } from './ai'
 import { aiRegistryKey } from './ui/ai/context'
 import { createWebI18n } from './i18n'
 import type { WebLocale } from './i18n'
-import { i18nWarnings } from './i18n/testing'
+import { i18nWarnings, unmarkedIdentifiers } from './i18n/testing'
+import { fixtureIdentifiers } from './domain/testing'
+
+const identifiers = fixtureIdentifiers()
 
 let dispose = () => {}
 let registry: AiRegistry
@@ -45,7 +48,7 @@ async function mountDeviceView(
   )
   const workspace = {
     fleet: ref(fleet),
-    message: ref(''),
+    message: ref<NoticeKey | ''>(''),
     reassign: () => {},
     move: ref(undefined),
     undoMove: () => {},
@@ -283,6 +286,7 @@ describe('DeviceView in German', () => {
     expect(host.querySelector('pre')?.textContent).toContain(
       `${offline.name} (${offline.kind}, ${offline.address}) ist offline.`,
     )
+    expect(unmarkedIdentifiers(host, identifiers)).toEqual([])
   })
 
   it('words the neighbour sentence and the poll result', async () => {
