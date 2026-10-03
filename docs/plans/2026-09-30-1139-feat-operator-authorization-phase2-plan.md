@@ -3,7 +3,7 @@ title: Operator Authorization Phase 2, OIDC, OpenFGA Client, Model, and Deployme
 type: feat
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
+artifact_readiness: implementation-ready
 status: planned
 execution: mixed
 amends: docs/architecture/2026-09-30-operator-authorization-direction.md
@@ -293,13 +293,14 @@ serves for that version.
   (`grpc@/picker_wrapper.go:171-176`,
   `grpc@/internal/transport/http2_client.go:297`), and phase 3 must tell an
   unreachable engine from a wrong one.
-- The lab issuer is not chosen yet. The user asked for a wider survey of
-  issuers with their pros and cons before deciding.
-  (decided by the user, 2026-10-03)
-- U6 is written for Dex v2.45.1, the survey's recommendation.
-  (unconfirmed) Why: Open questions. Its organization claim is `groups`,
+- The lab issuer is Dex v2.45.1, chosen from the survey under Open
+  questions. (decided by the user, 2026-10-03) Why: Open questions. Its organization claim is `groups`,
   which a tenant binds by name like any other
   (`TenantConfig.organization_claim_name`).
+- The statements for `github.com/coreos/go-oidc/v3` v3.21.0 and
+  `github.com/openfga/api/proto` are approved on 2026-10-03, with the facts
+  these Decisions give, so U2 and U3 write `approved: 2026-10-03` and run
+  through `go get`. (decided by the user, 2026-10-03)
 
 ## Requirements
 
@@ -881,12 +882,3 @@ unreachable, and whether a suspended tenant's organization still yields
 [pk8]: https://api.github.com/repos/pocket-id/pocket-id/releases?per_page=100
 [pk9]: https://raw.githubusercontent.com/pocket-id/pocket-id/v2.17.0/README.md
 [pk10]: https://raw.githubusercontent.com/pocket-id/pocket-id/v2.17.0/backend/internal/controller/well_known_controller.go
-- Parked by drive: which issuer the lab runs, from the survey above, and
-  the ruling on the two dependency statements, go-oidc v3.21.0 with its
-  two modules and the OpenFGA API module with protoc-gen-validate as
-  indirect. Options for the issuer: Dex v2.45.1 (one file, 48 MB, an
-  organization is a group name) | Keycloak 26.7.4 (organization objects,
-  a 265 MB JVM image) | Rauthy 0.36.2 (light, one maintainer, before
-  1.0). Options for the statements: approve both | approve one | approve
-  neither. Recommended: Dex and approving both, because Dex meets every
-  need from one file and both statements show no open advisory.
