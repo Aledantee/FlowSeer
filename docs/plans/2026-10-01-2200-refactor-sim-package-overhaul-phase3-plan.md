@@ -132,12 +132,15 @@ that fails before its fix.
   The IEEE GET program needs an account, and no public copy was found. A
   statement that rests on either is marked unverified.
 
-`Q2003` and the later text differ in three places, and the later text
+`Q2003` and the later text differ in four places, and the later text
 wins each. `newTcWhile` is HelloTime plus one second (`D2009` 13.29.11,
 `UNH` RSTP.op.4.5), not twice HelloTime (`Q2003` 13.26.6). Received
 information lives three hello times (`D2009` 13.29.32) without the Max Age
 bound of `Q2003` 13.26.23. Hello Time is fixed at 2 seconds (`D2009` Table
-13-5, `UNH` RSTP.op.4.3), not managed per port (`Q2003` 13.22 e).
+13-5, `UNH` RSTP.op.4.3), not managed per port (`Q2003` 13.22 e). A
+proposal is recorded from a Designated sender and left unchanged otherwise
+(`D2009` 13.29.20), where `Q2003` 13.26.13 tests for a point-to-point link
+and clears the flag otherwise.
 
 ### Limits
 
@@ -233,12 +236,12 @@ bound of `Q2003` 13.26.23. Hello Time is fixed at 2 seconds (`D2009` Table
    sum saturates. U6. Test: that election picks cost 100.
 10. Medium. Forward delay is scheduled from the local timer
     (`S/layer.go:1772,1787,1953,2520`) while `times` (`:737-745`) reports the
-    root's as the one in force. `D2009` 13.28.9: FwdDelay is "the Forward
-    Delay component of the CIST's designatedTimes parameter", which
-    13.29.33 f) sets from the root times. Draft text, published wording
-    unverified. The hello half of this entry is struck: hello is the
-    bridge's own and fixed (`UNH` RSTP.op.4.3, `D2009` Table 13-5), so
-    arming it from the local timer (`:1228,2492`) is right. What departs is
+    root's as the one in force. `D2009` 13.28.9 defines FwdDelay as the
+    Forward Delay component of the CIST `designatedTimes`, which 13.29.33 f)
+    sets from the root times. Draft text, published wording unverified.
+    The hello half of this entry is struck: hello is the bridge's own and
+    fixed (`UNH` RSTP.op.4.3, `D2009` Table 13-5), so arming it from the
+    local timer (`:1228,2492`) is right. What departs is
     the Hello Time field, which carries the root's (`:1406,1426`) where
     RSTP.op.4.3 Parts B through E expect 2 seconds whatever the root sent.
     U6. Test: a bridge whose root advertises Forward Delay 4 and Hello Time
@@ -277,8 +280,12 @@ bound of `Q2003` 13.26.23. Hello Time is fixed at 2 seconds (`D2009` Table
     13-19 acts on `rcvdTc`, `rcvdTcn`, and `tcProp` only in ACTIVE, which a
     port enters by starting to forward as Root, Designated, or Master and
     leaves when it loses the role. In INACTIVE the flags are cleared
-    unprocessed. U5. Test: an Alternate port, and a Designated port still
-    Discarding, receive the flag and flush nothing.
+    unprocessed. An edge port never enters ACTIVE (`D2009` Figure 13-28
+    propagates on `tcProp && !operEdge`), so a propagated change does not
+    flush it, where `raiseTopologyChange` flushes every port but the origin.
+    U5. Test: an Alternate port, and a Designated port still Discarding,
+    receive the flag and flush nothing, and a change on another port leaves
+    an edge port's entries alone.
 17. Medium. `receiveMSTIs` keeps the low nibble of the MSTI port priority
     octet and 8 bits of the CIST port number (`S/layer.go:1370`). `Q2003`
     14.6.1 e): bits 1 through 4 of octet 15 are sent as 0 and ignored on
@@ -373,6 +380,13 @@ bound of `Q2003` 13.26.23. Hello Time is fixed at 2 seconds (`D2009` Table
   `TestThreeBridgeRingConvergence` (`S/layer_test.go:197`, flush at `:414`)
   pin Correctness 15. `TestMSTITopologyChangeBitReachesAndFlushesThePeer`
   (`S/tree_internal_test.go:582`) sets the per-tree timer at `:633`. U5.
+- `TestMSTITopologyChangeFlushesOnlyItsOwnVLAN`
+  (`device/vswitch/switch_test.go:7266`) downs MSTI 1's Root port and
+  expects VLAN 10 flushed on `p3`, and its comment credits the port that
+  went down. After U5 the change comes from the new Root port starting to
+  forward, and it reaches `p3` only if `p3` is active. U5 keeps the
+  assertion, brings `p3` to Forwarding in the setup, and rewrites the
+  comment.
 - `simtest/scenario_cases.go`, `simtest/stp_cases.go`, and
   `simtest/README.md` hold the `mstid=` token. U6.
 
@@ -422,7 +436,7 @@ link record changes without changing its source's.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/stp src/common/sim/device/vswitch src/common/sim/fabric`
 
 ### U3. Wire format and configuration identity
-Files: src/common/net/bpdu/, src/common/sim/layer/stp/, src/common/sim/device/vswitch/, src/common/sim/internal/simtest/
+Files: src/common/net/bpdu/, src/common/sim/layer/stp/
 After: U2
 Change: the codec masks both MSTI priority octets with `0xF0` on encode and
 decode, and the layer hands it `Priority >> 8` and rebuilds the bridge
@@ -457,15 +471,15 @@ sets `agreed` when the link is point-to-point, the port sends RSTP, the
 Agreement flag is set, and the message conveys a Root, Alternate, or Backup
 role with a vector the same as or worse than the port's own, or a
 Designated role the same or better. Any other message it is run for clears
-`agreed` (`Q2003` 13.26.9, 13.26.10). A proposal is recorded only on a
-point-to-point link from a Designated sender (`Q2003` 13.26.13, `D2009`
-13.29.20). Each MSTI record carries its tree's Proposal and Agreement
-flags. An MSTI's flags are recorded only when the CIST message in the same
-BPDU names the CIST root, external cost, and regional root the port holds
-(13.26.10 a). On a boundary port the MSTIs take the CIST's `agreed` and
-`proposed` (13.26.9, 13.26.13). A proposal on a tree's Root or Alternate
-port syncs that tree's other ports, and the answering BPDU carries every
-tree's agreement. `applyBPDU` comes under 150 lines.
+`agreed` (`Q2003` 13.26.9, 13.26.10). A proposal is acted on only when the
+message conveys a Designated role (`D2009` 13.29.20, Sources). The layer
+keeps no `proposed` flag, so there is nothing to clear. Each MSTI record
+carries its tree's Proposal and Agreement flags, recorded only when the
+CIST message in the same BPDU names the CIST root, external cost, and
+regional root the port holds (13.26.10 a). On a boundary port the MSTIs
+take the CIST's `agreed` and `proposed` (13.26.9, 13.26.13). A proposal on
+a tree's Root or Alternate port syncs that tree's other ports, and the
+answer carries every tree's agreement. `applyBPDU` comes under 150 lines.
 Tests: entry 4, the MSTI entry under Completeness, and the rewrite of
 `TestMSTInstancesSelectIndependentRoots`.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim`
