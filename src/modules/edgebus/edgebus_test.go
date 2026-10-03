@@ -1115,20 +1115,25 @@ func TestLeafIngestSyslogDuplicateMessageStoredOnceInHubEdgeStream(t *testing.T)
 			t.Fatalf("publish: %v", err)
 		}
 	}
+	// The sentinel follows the duplicates on the same subject, so once the
+	// stream holds it, a stored second copy would already be there too.
+	sentinel := []byte("syslog-sentinel-payload")
+	if err := leaf.Publish(context.Background(), subject, sentinel, "record-msg-2"); err != nil {
+		t.Fatalf("publish sentinel: %v", err)
+	}
 	stream, err := hub.EdgeStream(context.Background(), edgeID)
 	if err != nil {
 		t.Fatalf("edge stream: %v", err)
 	}
-	waitFor(t, "sourced record", 10*time.Second, func() bool {
-		info, err := stream.Info(context.Background())
-		return err == nil && info.State.Msgs >= 1
+	waitFor(t, "sourced sentinel", 10*time.Second, func() bool {
+		msg, err := stream.GetLastMsgForSubject(context.Background(), subject)
+		return err == nil && bytes.Equal(msg.Data, sentinel)
 	})
 	info, err := stream.Info(context.Background())
 	if err != nil {
 		t.Fatalf("stream info: %v", err)
 	}
-	if info.State.Msgs != 1 {
-		t.Fatalf("edge stream holds %d messages, want 1", info.State.Msgs)
+	if info.State.Msgs != 2 {
+		t.Fatalf("edge stream holds %d messages, want 2 (one record, one sentinel)", info.State.Msgs)
 	}
 }
-
