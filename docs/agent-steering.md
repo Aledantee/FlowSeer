@@ -404,7 +404,8 @@ findings judges each fix against them, so `fix-loop.md` adds a required
 "New findings" section to that brief and runs one more reviewer over the
 changed paths without them. A verdict written before the fixes reads as
 passing to `land`, `drive`, and `next`, so a review that wants fixes
-records `fixes needed`, which none of them accepts.
+records `fixes needed`, and one that holds only gaps records `gaps open`.
+None of them accepts either.
 
 Split large plans into phases and carry progress in a ledger, not in the
 conversation. Long-horizon coding degrades measurably: SWE-Bench Pro
@@ -756,7 +757,21 @@ fails, flakes, or passes with the behaviour it names removed, and it is
 fixed in a reviewed round because the suite reports a guarantee it does not
 hold. A gap is a surviving mutation in behaviour no test names. It is
 recorded in the plan and closed in one unreviewed pass before the phase
-lands, and `land` refuses a plan that still lists one.
+lands.
+
+While a gap is open the `review` verdict is `gaps open`, which no gate
+accepts. A gate taught to look for a listed gap fails at every path that
+reaches the plan without passing through it: `next` can group a plan on
+`main` for retirement, `land` can carry one in by merge, `compound` can offer
+a land, and `drive` can wait on a test that the gap pass never satisfies.
+Gates added one by one kept missing a reader of the verdict, since every
+reader of the gap list is one more place to forget it. So the verdict
+carries the gap, and `review-gaps.py` only checks that verdict and list
+agree. The pass ends by writing `accept after fixes`, and only after its
+coordinator has rerun every quoted mutation on the merged tree and each
+fails the suite. A worker that deleted a line without the rerun would
+otherwise merge a gap as closed. Under `drive` and `land` the stage worker is
+that coordinator, so the rerun does not wait on a session that is gone.
 
 The loop used to stop at a round with no correctness finding, and a gap
 counted as one. Each fix round then added tests for the next reviewer to

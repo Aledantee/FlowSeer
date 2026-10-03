@@ -1,7 +1,7 @@
 # Running a missing skill before the merge
 
 Load this when the user answers yes to step 1's question to run `implement`,
-`review`, or `compound` before the merge, or to close a listed review gap
+`review`, or `compound` before the merge, or to close an open review gap
 (the gap pass, below).
 
 The skill runs in a session of its own, never in this one: this session's
@@ -40,14 +40,26 @@ Several missing signals are worked one worker after another, in order:
 
 ## The gap pass
 
-When step 1 offered the gap pass for a listed review gap, dispatch one worker
-as above, role `execute`. The brief names
-`.claude/skills/review/references/fix-loop.md`, "The gap pass", this branch as
-the scope, and the plan path. The work is done when
-`python3 .claude/skills/land/scripts/review-gaps.py <plan>` exits 0. The
-worker leaves source outside tests, comments, and docs untouched: a gap whose
-fix needs it is a blocker for the worker to state, and that fix is a round of
-`review`'s fix loop, not this pass. For planless work the worker reports the
-gap fixes, and this session records `accept after fixes` with
-`ledger.py checkpoint` after checking the worker's tree. Merge as above, and
-start step 1 again from the top.
+When step 1 offered the gap pass for the verdict `gaps open` (or an accept
+beside a listed gap), dispatch one worker as above, role `execute`. The brief
+names `.claude/skills/review/references/fix-loop.md`, "The gap pass", this
+branch as the scope, and the plan path. The worker is the pass's
+coordinator: it merges its own fix lanes, reruns every quoted mutation on the
+merged tree, deletes a gap's line when the suite fails on that mutation, and
+writes `accept after fixes` once none remains. A mutation that still
+survives keeps its line and the verdict `gaps open`, and the worker reports
+which. The work is done when the plan reads `accept after fixes` and
+`python3 .claude/skills/land/scripts/review-gaps.py <plan>` exits 0, so a
+worker that deleted lines without rerunning the mutations has not finished it.
+
+The worker leaves source outside tests, comments, and docs untouched: a gap
+whose fix needs it is a blocker for the worker to state, and that fix is a
+round of `review`'s fix loop, not this pass. A pass that ends `gaps open`
+returns that blocker, and step 1 asks again with a reviewed fix round
+(`review`, step 6) as the option in place of another pass.
+
+For planless work the worker reports each mutation with its failing
+assertion on the merged tree and the gaps that remain. This session then
+records `ledger.py checkpoint gaps "<what remains, or none>"` and, when none
+remains, `ledger.py checkpoint review "accept after fixes"`, after checking
+the worker's tree. Merge as above, and start step 1 again from the top.

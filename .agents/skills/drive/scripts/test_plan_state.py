@@ -50,6 +50,44 @@ class PlanStateTest(unittest.TestCase):
                     plan_state.stage(first_unit, set()), "on main (status: planned)"
                 )
 
+    def test_gaps_open_verdict_is_not_an_accept(self):
+        with tempfile.TemporaryDirectory() as directory:
+            plan = Path(directory) / "phase-plan.md"
+            plan.write_text(
+                "---\nstatus: implemented\nreview: gaps open\ncompound: no lesson\n---\n"
+                "## Review gaps\n\n- `a.go:1`: off by one survives\n"
+            )
+            unit = {"id": "U1", "plan": plan, "landed": "`abcdef0..abcdef1`"}
+            with patch.object(plan_state, "on_main", return_value=False):
+                self.assertEqual(plan_state.stage(unit, set()), "review (verdict: gaps open)")
+
+    def test_phase_on_main_with_a_listed_gap_prints_the_gap(self):
+        with tempfile.TemporaryDirectory() as directory:
+            plans = Path(directory) / "docs/plans"
+            plans.mkdir(parents=True)
+            (plans / "parent-plan.md").write_text(
+                "### U1. First\nFiles: `docs/plans/phase1-plan.md`\nLanded: `abcdef0..abcdef1`\n"
+            )
+            (plans / "phase1-plan.md").write_text(
+                "---\nstatus: implemented\nparent: docs/plans/parent-plan.md\n"
+                "review: accept\ncompound: no lesson\n---\n"
+                "## Review gaps\n\n- `a.go:1`: off by one survives\n"
+            )
+            cwd = Path.cwd()
+            os.chdir(directory)
+            try:
+                with patch.object(plan_state, "on_main", return_value=True), patch(
+                    "sys.stdout", new_callable=io.StringIO
+                ) as out:
+                    plan_state.report(Path("docs/plans/parent-plan.md"))
+                lines = out.getvalue().splitlines()
+                self.assertIn("on main (gaps: 1)", next(l for l in lines if " U1 " in l))
+                self.assertIn(
+                    "      gap: docs/plans/phase1-plan.md:9: `a.go:1`: off by one survives", lines
+                )
+            finally:
+                os.chdir(cwd)
+
     def test_retired_phase_reads_from_the_landed_range(self):
         with tempfile.TemporaryDirectory() as directory:
             retired = {"id": "U1", "plan": Path(directory) / "gone-plan.md", "landed": "`abcdef0..abcdef1`"}

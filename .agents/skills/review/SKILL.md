@@ -173,25 +173,36 @@ it in the report and carry on.
 
 ## 5. Report
 
-Verdict first (accept, fixes needed, rework), then findings, most severe
-first: title, `path:line`, what goes wrong and when, and the smallest fix or
-the direction with its unchecked claim (step 4). Then the residual testing
-gap. `accept after fixes` is never the verdict of a review's initial
-report. It is written
-only once the fixes exist, since `land`, `drive`, and `next` all read it as
-passing.
+Verdict first (accept, gaps open, fixes needed, rework), then findings, most
+severe first: title, `path:line`, what goes wrong and when, and the smallest
+fix or the direction with its unchecked claim (step 4). Then the residual
+testing gap. The verdict is the one field every gate reads, so it carries
+the gaps:
+
+| Verdict | When |
+| --- | --- |
+| `accept` | no finding of any class is open, gaps included |
+| `gaps open` | no behaviour or false-test finding is open, and at least one gap is |
+| `fixes needed` | a behaviour or false-test finding is open |
+| `rework` | such a finding is too large to fix in place |
+
+`accept after fixes` is never the verdict of a review's initial report, and a
+report that holds only gaps is `gaps open`, never `accept`. `accept after
+fixes` is written only once the fixes exist (a gap pass ends by writing it),
+since `land`, `drive`, and `next` all read it as passing. `gaps open` is not
+an accept to any of them. Gaps are recorded as `references/fix-loop.md`
+describes whatever the verdict, so the list outlives a round.
 
 When the scope is this branch's work (the working tree, the branch, or its
 plan's paths), record the verdict where `land` reads it (`land`, step 1). With a plan, add
 `review: <verdict>` beside `status` in its frontmatter, commit that with a
 message naming the review, then run the verifier on the plan path so the
-receipt post-dates the commit. Planless work has no `## Review gaps`
-section for `land` to read, so a gap open at the report records `fixes
-needed` and the gap pass replaces it with `accept after fixes`
-(`references/fix-loop.md`). Planless work runs
+receipt post-dates the commit. Planless work runs
 `.claude/skills/verify-change/scripts/ledger.py checkpoint review "<verdict>"`,
 which appends the line to `$(git rev-parse --git-dir)/flowseer-checkpoints`
-and needs no commit or run. In Orca, also append the verdict to the worktree
+and needs no commit or run. It has no plan section for the gap list, so it
+also runs `ledger.py checkpoint gaps "<path:line mutation; ...>"`
+(`references/fix-loop.md`). In Orca, also append the verdict to the worktree
 comment, keeping what `implement` wrote:
 
 ```bash
@@ -206,15 +217,16 @@ happens next (`AGENTS.md`, Agent behavior):
 
 | Verdict | Options, recommended first |
 | --- | --- |
-| accept, no gap listed | run `compound` now; stop here |
-| accept, a gap listed (planless work: recorded `fixes needed`) | run the gap pass now (`references/fix-loop.md`); stop here |
+| accept | run `compound` now; stop here |
+| gaps open | run the gap pass now (`references/fix-loop.md`); stop here |
 | fixes needed or rework, findings in one file group | apply the fixes here; fix and review again until clean (step 6); stop |
 | fixes needed or rework, findings across file groups | fix and review again until clean (step 6); apply chosen findings only; stop |
 | rework too large to fix in place | take what the review established to `plan`; stop |
 
 On "apply the fixes", make them, run the verifier on the changed paths,
-report what changed, and only then replace the recorded verdict with
-`review: accept after fixes`, recorded as above.
+report what changed, and only then replace the recorded verdict, recorded as
+above: `review: accept after fixes`, or `review: gaps open` while a recorded
+gap is still listed.
 
 ## 6. Fix and re-review, when asked
 

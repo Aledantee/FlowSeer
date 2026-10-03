@@ -56,6 +56,27 @@ class ReviewGapsTest(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(review_gaps.main(["/nonexistent/plan.md"]), 2)
 
+    def test_missing_path_before_a_plan_with_a_gap_still_prints_the_gap(self):
+        with tempfile.TemporaryDirectory() as directory:
+            plan = Path(directory) / "phase-plan.md"
+            plan.write_text("## Review gaps\n\n- `a.go:1`: off by one survives\n")
+            out, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                code = review_gaps.main(["/nonexistent/plan.md", str(plan)])
+            self.assertNotEqual(code, 0)
+            self.assertEqual(out.getvalue(), f"{plan}:3: `a.go:1`: off by one survives\n")
+            self.assertIn("/nonexistent/plan.md", err.getvalue())
+
+    def test_only_a_column_zero_dash_item_is_a_gap(self):
+        code, out = self.run_on(
+            "## Review gaps\n\n"
+            "a.go:1 off by one survives\n"
+            "1. `b.go:2`: numbered\n"
+            "+ `c.go:3`: plus bullet\n"
+            "  - `d.go:4`: indented\n"
+        )
+        self.assertEqual((code, out), (0, ""))
+
 
 if __name__ == "__main__":
     unittest.main()

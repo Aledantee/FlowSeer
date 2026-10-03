@@ -121,7 +121,11 @@ def stage(unit, completed):
         if not COMMIT_RANGE.search(unit["landed"]):
             return "landed (no commit range)"
         if on_main(unit["landed"]):
-            return "on main" if status == "implemented" else f"on main (status: {status})"
+            label = "on main" if status == "implemented" else f"on main (status: {status})"
+            gaps = review_gaps.open_gaps(unit["plan"])
+            # A phase on main passed land's gate, so a gap listed on it
+            # contradicts that gate. Show it: nothing else reads a plan on main.
+            return f"{label} (gaps: {len(gaps)})" if gaps else label
     waiting = [u for u in unit.get("after", []) if u not in completed]
     if waiting:
         return "waits for " + ", ".join(waiting)
@@ -166,6 +170,9 @@ def report(parent):
         print(f"  {unit['id']:<4} {stages[-1]:<28}  {unit['plan']}")
         if unit.get("landed"):
             print(f"      Landed: {unit['landed']}")
+        if stages[-1].startswith("on main") and unit["plan"].exists():
+            for number, text in review_gaps.open_gaps(unit["plan"]):
+                print(f"      gap: {unit['plan']}:{number}: {text}")
     settled = ("land", "done", "on main", "waits", "landed")
     ready = [u["id"] for u, s in zip(units, stages) if not s.startswith(settled)]
     # A phase owed a land goes before any new stage, since land gates every

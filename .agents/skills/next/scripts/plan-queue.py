@@ -12,20 +12,25 @@ plan with work left, grouped:
                compound field, and no entry under `## Review gaps`, still
                on disk. A phase also has its
                `Landed:` range. land goes first, since it gates every plan
-               this branch carries past main
+               this branch carries past main. The verdict `gaps open` is not
+               an accept, so a plan with a gap to close is never here
   in-progress  partially-implemented, named by this worktree's ledger, an
                unblocked phase of a parent that has landed phases, or a
                finished phase whose `Landed:` line is still empty
-  unchecked    implemented, with a review verdict that is not an accept, or
-               implemented on this branch with no review or compound field
-               or an entry still listed under `## Review gaps`
+  unchecked    implemented, with a review verdict that is not an accept
+               (`gaps open` included), or implemented on this branch with no
+               review or compound field, or with an entry still listed under
+               `## Review gaps` (an accept beside one is a contradiction, on
+               main as on this branch)
   replan       artifact_readiness needs-decisions, prerequisites landed; the
                next step is the plan skill, not implement
   ready        planned, implementation-ready, every prerequisite landed
   waiting      a prerequisite phase has not landed; names it
   stale        a parent still `planned` whose phases have all landed
   retire       implemented, superseded, or abandoned on main and still on
-               disk; land's retire step never ran for it
+               disk; land's retire step never ran for it. An implemented
+               plan retires only with no review verdict or an accept, and no
+               entry listed under `## Review gaps`
 
 Within a group the oldest plan comes first, by the date in its filename. A
 plan another unmerged branch already changes is flagged
@@ -185,6 +190,9 @@ def main() -> int:
         status = fm.get("status", "")
         review = fm.get("review", "")
         readiness = fm.get("artifact_readiness", "")
+        # A plan that lists a gap is not finished, whatever its verdict says:
+        # an accept beside a listed gap is a contradiction.
+        gaps = review_gaps.open_gaps(root / rel) if status == "implemented" else []
         missing: list[str] = []
         started_parent = False
         open_phases = 0
@@ -200,7 +208,7 @@ def main() -> int:
             started_parent = any(u["landed"] for u in parent["units"])
             open_phases = len({p for u in parent["units"] if not u["landed"] for p in u["plans"][:1]})
 
-        if status in FINISHED and rel not in changed_here and not (review and review not in ACCEPTED):
+        if status in FINISHED and rel not in changed_here and not gaps and not (review and review not in ACCEPTED):
             # Finished and on main, yet still on disk: land's retire step
             # never ran for it.
             group = "retire"
@@ -215,9 +223,10 @@ def main() -> int:
             else:
                 continue
         elif status == "implemented":
-            unfinished = (review and review not in ACCEPTED) or (
-                rel in changed_here
-                and (not review or "compound" not in fm or review_gaps.open_gaps(root / rel))
+            unfinished = (
+                (review and review not in ACCEPTED)
+                or gaps
+                or (rel in changed_here and (not review or "compound" not in fm))
             )
             if rel in changed_here and rel in phase_of and not all(u["landed"] for u in phase_of[rel][1]):
                 # plan-state.py reads a phase with an empty `Landed:` line
@@ -253,6 +262,7 @@ def main() -> int:
                 "readiness": readiness,
                 "review": review or None,
                 "compound": fm.get("compound"),
+                "gaps": len(gaps),
                 "units": len(plan["units"]),
                 "parent": fm.get("parent"),
                 "open_phases": open_phases,
@@ -278,6 +288,8 @@ def main() -> int:
             flags.append("large")
         if row["group"] == "unchecked":
             flags.append(f"review: {row['review'] or 'none'}; compound: {row['compound'] or 'none'}")
+            if row["gaps"]:
+                flags.append(f"review gaps listed: {row['gaps']}")
         if row["parent"]:
             flags.append(f"phase of {row['parent']}, {row['open_phases']} open")
         if row["ledger"]:

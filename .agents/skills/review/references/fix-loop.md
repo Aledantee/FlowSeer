@@ -24,25 +24,49 @@ the specific condition its title, comment, or commit body states, and a gap
 when it removes a branch or boundary none of them states. When both readings
 hold, it is a false test, since that side is reviewed.
 
-Record each gap when it is settled, as one line under a `## Review gaps`
-heading at the end of the plan: `path:line`, the surviving mutation, and the
-case that would fail on it. A gap whose only test would restate the
-implementation (a buffer capacity, a log string) is dropped with that reason
-in the report, not recorded. Planless work has no plan section, so it lists
-its gaps in the report and records the verdict `fixes needed` while one is
-open, since `land` reads that verdict and not the report. The gap pass
-replaces it with `accept after fixes`.
+Record each gap when it is settled, as one `- ` list item at column 0 under
+a `## Review gaps` heading at the end of the plan: `path:line`, the
+surviving mutation, and the case that would fail on it. That is the only
+shape `review-gaps.py` counts. A plain line, a numbered item, a `+` bullet,
+or an indented bullet is not a gap to any gate, and an item may continue on
+indented lines. A gap whose only test would restate the implementation (a
+buffer capacity, a log string) is dropped with that reason in the report,
+not recorded.
+
+While one gap is open the verdict is `gaps open`, since every gate reads the
+verdict and a new gate would have to learn the list. `fixes needed` and
+`rework` mean a behaviour or false-test finding only. Planless work has no
+plan section, so it writes its gaps to the checkpoints file as one line,
+beside the verdict:
+
+```bash
+.claude/skills/verify-change/scripts/ledger.py checkpoint gaps "<path:line mutation; path:line mutation>"
+.claude/skills/verify-change/scripts/ledger.py checkpoint review "gaps open"
+```
 
 ### The gap pass
 
-Once the loop has ended, or straight away when the initial review holds
-gaps and nothing that needs a round, close the recorded gaps in one pass:
-steps 1 and 2, no review after. Each fix's commit body quotes the gap's
-mutation and its `--- FAIL` line (`implement`, step 2.3). The coordinator
-reruns each quoted mutation on the merged tree and deletes the gap's line
-only when the suite fails on it. A pass whose diff changes source outside
-tests, comments, and docs is a round after all, and steps 3 and 4 run on
-it. `land` refuses a plan that still lists a gap (`land`, step 1).
+The pass starts from the verdict `gaps open`: straight away when the
+initial review holds gaps and nothing that needs a round, or once the loop
+has ended on a clean round. Close the recorded gaps in one pass: steps 1 and
+2, no review after. Each fix's commit body quotes the gap's mutation and its
+`--- FAIL` line (`implement`, step 2.3). A pass whose diff changes source
+outside tests, comments, and docs is a round after all, and steps 3 and 4
+run on it.
+
+One coordinator ends the pass. After it has merged every fix lane, it reruns
+each quoted mutation on the merged tree and deletes the gap's line (planless
+work: appends a `gaps:` line listing what remains, `none` when nothing does)
+only when the suite fails on that mutation. When every line is gone and
+every mutation failed, it writes `accept after fixes`. A mutation that
+still survives keeps its line, and the verdict stays `gaps open`.
+
+Under `drive` and `land` the stage worker that runs the pass is the
+coordinator: it merges its own fix lanes, reruns, deletes, and writes the
+verdict, so nothing in the pass waits on a session that is not there. That
+worker leaves source outside tests, comments, and docs untouched. A gap
+whose fix needs it stays listed under `gaps open`, and the worker reports it
+as a blocker for a reviewed round.
 
 ## One round
 
@@ -90,11 +114,14 @@ it. `land` refuses a plan that still lists a gap (`land`, step 1).
 ## When to stop
 
 - A round in which neither reviewer returns a behaviour or false-test
-  finding ends the loop. Run the gap pass, list what remains in the final
-  report, replace the recorded `fixes needed` or `rework` with
-  `accept after fixes` as `SKILL.md` step 5 records a verdict, and end with
-  the `accept` row's question. No earlier round writes `accept after fixes`,
-  since the gates read it as passing.
+  finding ends the loop. With a gap recorded, replace the recorded
+  `fixes needed` or `rework` with `gaps open` (as `SKILL.md` step 5 records a
+  verdict) and run the gap pass, which ends by writing `accept after fixes`.
+  With none recorded, write `accept after fixes` directly. List what remains
+  in the final report and end with the `accept` row's question when the
+  verdict reads an accept, or the `gaps open` row's when the pass left a gap
+  open. No earlier round writes `accept after fixes`, since the gates read
+  it as passing.
 - A finding that needs a Requirement changed is neither class. It goes in
   the final report as a decision for the plan's owner and does not hold the
   loop open.

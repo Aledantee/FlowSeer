@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """Fail when a plan still lists a review gap.
 
-`review` records a gap as a list item under the plan's `## Review gaps`
-heading and deletes the item once the gap pass has closed it
-(`review/references/fix-loop.md`). A gap is deferred work, and deferred work
-nothing checks is not done, so `land` runs this before it merges.
+`review` records a gap as a `- ` list item at column 0 under the plan's
+`## Review gaps` heading, and the gap pass deletes the item once its mutation
+fails the suite (`review/references/fix-loop.md`). A gap is deferred work, and
+deferred work nothing checks is not done. The `review` verdict `gaps open`
+keeps such a plan from landing, so this script checks that the verdict and the
+list agree: an accept beside a listed item is a contradiction, and every gate
+that reads this script treats it as not landable.
 
 Usage:
     review-gaps.py <plan>...
 
-Exit 0 when no plan lists a gap, 1 when one does (each printed as
-`<plan>:<line>: <entry>`), 2 on a path that is not a file.
+Reads every argument and prints each listed gap as `<plan>:<line>: <entry>`.
+Exit 0 when no plan lists a gap, 1 when one does, 2 when an argument is not a
+file (a gap in another argument is still printed).
 """
 
 import re
@@ -43,16 +47,19 @@ def main(arguments):
     if not arguments or arguments[0] in ("-h", "--help"):
         print(__doc__.strip())
         return 0 if arguments else 2
-    failed = False
+    listed, missing = False, False
     for argument in arguments:
         path = Path(argument)
         if not path.is_file():
             print(f"{argument}: not a plan file", file=sys.stderr)
-            return 2
+            missing = True
+            continue
         for number, text in open_gaps(path):
             print(f"{argument}:{number}: {text}")
-            failed = True
-    return 1 if failed else 0
+            listed = True
+    if missing:
+        return 2
+    return 1 if listed else 0
 
 
 if __name__ == "__main__":
