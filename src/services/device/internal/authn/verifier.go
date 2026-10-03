@@ -65,13 +65,11 @@ type cachedHTTPResult struct {
 }
 
 type replayTransport struct {
-	base       http.RoundTripper
-	window     time.Duration
-	now        func() time.Time
-	mu         sync.Mutex
-	cache      map[string]*cachedHTTPResult
-	lastStatus map[string]int
-	lastErr    map[string]error
+	base   http.RoundTripper
+	window time.Duration
+	now    func() time.Time
+	mu     sync.Mutex
+	cache  map[string]*cachedHTTPResult
 }
 
 func newReplayTransport(base http.RoundTripper, window time.Duration, clock func() time.Time) *replayTransport {
@@ -79,12 +77,10 @@ func newReplayTransport(base http.RoundTripper, window time.Duration, clock func
 		base = http.DefaultTransport
 	}
 	return &replayTransport{
-		base:       base,
-		window:     window,
-		now:        clock,
-		cache:      make(map[string]*cachedHTTPResult),
-		lastStatus: make(map[string]int),
-		lastErr:    make(map[string]error),
+		base:   base,
+		window: window,
+		now:    clock,
+		cache:  make(map[string]*cachedHTTPResult),
 	}
 }
 
@@ -115,62 +111,64 @@ func (rt *replayTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	rt.mu.Unlock()
 
 	resp, err := rt.base.RoundTrip(req)
-
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
+	if req.Context().Err() != nil || errors.Is(err, context.Canceled) {
+		return resp, err
+	}
 
 	now := rt.now()
 	if err != nil {
-		rt.lastErr[urlStr] = err
-		rt.lastStatus[urlStr] = 0
+		rt.mu.Lock()
 		rt.cache[urlStr] = &cachedHTTPResult{
 			err:       err,
 			timestamp: now,
 		}
+		rt.mu.Unlock()
 		return nil, err
 	}
 
 	bodyBytes, readErr := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
+	if req.Context().Err() != nil || errors.Is(readErr, context.Canceled) {
+		if readErr != nil {
+			return nil, readErr
+		}
+		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		return resp, nil
+	}
 	if readErr != nil {
-		rt.lastErr[urlStr] = readErr
-		rt.lastStatus[urlStr] = 0
+		rt.mu.Lock()
+		rt.cache[urlStr] = &cachedHTTPResult{
+			err:       readErr,
+			timestamp: now,
+		}
+		rt.mu.Unlock()
 		return nil, readErr
 	}
 
-	rt.lastErr[urlStr] = nil
-	rt.lastStatus[urlStr] = resp.StatusCode
+	rt.mu.Lock()
 	rt.cache[urlStr] = &cachedHTTPResult{
 		statusCode: resp.StatusCode,
 		header:     resp.Header.Clone(),
 		body:       bodyBytes,
 		timestamp:  now,
 	}
+	rt.mu.Unlock()
 
 	resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 	return resp, nil
 }
 
-func (rt *replayTransport) LastStatus(urlStr string) int {
+func (rt *replayTransport) HasOutage(keyURL string) bool {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
-	return rt.lastStatus[urlStr]
-}
-
-func (rt *replayTransport) HasOutage(issuerURL string) bool {
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
-	for u, status := range rt.lastStatus {
-		if strings.HasPrefix(u, issuerURL) && status != 0 && status != http.StatusOK {
-			return true
-		}
+	cached, ok := rt.cache[keyURL]
+	if !ok {
+		return false
 	}
-	for u, err := range rt.lastErr {
-		if strings.HasPrefix(u, issuerURL) && err != nil {
-			return true
-		}
+	if rt.now().Sub(cached.timestamp) >= rt.window {
+		return false
 	}
-	return false
+	return cached.err != nil || cached.statusCode != http.StatusOK
 }
 
 // Verifier verifies operator OIDC tokens against trusted issuers.
@@ -184,11 +182,19 @@ type Verifier struct {
 
 	providersMu sync.Mutex
 	providers   map[string]*providerState
+	inflight    map[string]*discoveryCall
 }
 
 type providerState struct {
 	provider *oidc.Provider
 	verifier *oidc.IDTokenVerifier
+	jwksURI  string
+}
+
+type discoveryCall struct {
+	done  chan struct{}
+	state *providerState
+	err   error
 }
 
 // NewVerifier creates a new token verifier without network I/O.
@@ -228,22 +234,63 @@ func NewVerifier(opts Options) (*Verifier, error) {
 		transport: replay,
 		clock:     clock,
 		providers: make(map[string]*providerState),
+		inflight:  make(map[string]*discoveryCall),
 	}, nil
 }
 
 func (v *Verifier) getProvider(ctx context.Context, issuerURL string, audience string) (*providerState, error) {
 	v.providersMu.Lock()
-	state, ok := v.providers[issuerURL]
-	v.providersMu.Unlock()
-	if ok {
+	if state, ok := v.providers[issuerURL]; ok {
+		v.providersMu.Unlock()
 		return state, nil
 	}
+	call, ok := v.inflight[issuerURL]
+	if ok {
+		v.providersMu.Unlock()
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-call.done:
+			if call.err != nil {
+				return nil, call.err
+			}
+			return call.state, nil
+		}
+	}
 
-	// Discover provider
-	clientCtx := oidc.ClientContext(ctx, v.client)
-	provider, err := oidc.NewProvider(clientCtx, issuerURL)
+	call = &discoveryCall{done: make(chan struct{})}
+	v.inflight[issuerURL] = call
+	v.providersMu.Unlock()
+
+	discoveryCtx := oidc.ClientContext(ctx, v.client)
+	provider, err := oidc.NewProvider(discoveryCtx, issuerURL)
 	if err != nil {
-		return nil, errs.New().Code(ErrCodeUnavailable).Retryable().Cause(err).Msg("discover oidc provider")
+		discErr := errs.New().Code(ErrCodeUnavailable).Retryable().Cause(err).Msg("discover oidc provider")
+		v.providersMu.Lock()
+		delete(v.inflight, issuerURL)
+		call.err = discErr
+		close(call.done)
+		v.providersMu.Unlock()
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		return nil, discErr
+	}
+
+	var claims struct {
+		JWKSURI string `json:"jwks_uri"`
+	}
+	if err := provider.Claims(&claims); err != nil || claims.JWKSURI == "" {
+		claimsErr := errs.New().Code(ErrCodeUnavailable).Retryable().Msg("extract jwks_uri from discovery")
+		v.providersMu.Lock()
+		delete(v.inflight, issuerURL)
+		call.err = claimsErr
+		close(call.done)
+		v.providersMu.Unlock()
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		return nil, claimsErr
 	}
 
 	verifier := provider.Verifier(&oidc.Config{
@@ -251,16 +298,57 @@ func (v *Verifier) getProvider(ctx context.Context, issuerURL string, audience s
 		Now:      v.clock,
 	})
 
-	state = &providerState{
+	state := &providerState{
 		provider: provider,
 		verifier: verifier,
+		jwksURI:  claims.JWKSURI,
 	}
 
 	v.providersMu.Lock()
 	v.providers[issuerURL] = state
+	delete(v.inflight, issuerURL)
+	call.state = state
+	close(call.done)
 	v.providersMu.Unlock()
 
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, ctxErr
+	}
 	return state, nil
+}
+
+func isKeyFetchError(err error) bool {
+	return strings.Contains(err.Error(), "fetching keys")
+}
+
+func parseClaimValues(raw json.RawMessage) ([]string, error) {
+	var val any
+	if err := json.Unmarshal(raw, &val); err != nil {
+		return nil, err
+	}
+	switch v := val.(type) {
+	case string:
+		return []string{v}, nil
+	case []any:
+		values := make([]string, 0, len(v))
+		for _, item := range v {
+			s, ok := item.(string)
+			if !ok {
+				return nil, errors.New("organization claim array contains non-string item")
+			}
+			values = append(values, s)
+		}
+		return values, nil
+	case map[string]any:
+		values := make([]string, 0, len(v))
+		for k := range v {
+			values = append(values, k)
+		}
+		slices.Sort(values)
+		return values, nil
+	default:
+		return nil, errors.New("invalid organization claim shape")
+	}
 }
 
 // Verify validates rawToken, resolves organizations, and constructs the Principal.
@@ -269,7 +357,6 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 		return Principal{}, ctxErr
 	}
 
-	// Extract iss from unverified payload
 	parts := strings.Split(rawToken, ".")
 	if len(parts) < 2 {
 		return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Msg("malformed token")
@@ -277,7 +364,6 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 
 	payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		// try padded decoding as fallback
 		payloadBytes, err = base64.URLEncoding.DecodeString(parts[1])
 		if err != nil {
 			return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Cause(err).Msg("decode token payload")
@@ -321,13 +407,8 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 			return Principal{}, errs.New().Code(ErrCodeTokenExpired).Cause(err).Msg("token expired")
 		}
 
-		if v.transport.HasOutage(issuerCfg.Issuer) {
+		if isKeyFetchError(err) && v.transport.HasOutage(state.jwksURI) {
 			return Principal{}, errs.New().Code(ErrCodeUnavailable).Retryable().Cause(err).Msg("key fetch unavailable")
-		}
-
-		// Also check if error was client timeout
-		if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
-			return Principal{}, errs.New().Code(ErrCodeUnavailable).Retryable().Cause(err).Msg("issuer request timed out")
 		}
 
 		return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Cause(err).Msg("token signature or claims invalid")
@@ -338,7 +419,6 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 		return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Msg("token subject is empty or contains null byte")
 	}
 
-	// Resolve organization claim values
 	var rawClaims map[string]json.RawMessage
 	if err := idToken.Claims(&rawClaims); err != nil {
 		return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Cause(err).Msg("unmarshal token claims")
@@ -347,38 +427,17 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 	var orgValues []string
 	if issuerCfg.OrganizationClaimName != "" {
 		if rawClaim, ok := rawClaims[issuerCfg.OrganizationClaimName]; ok {
-			var parsedValues []string
-			var strVal string
-			if err := json.Unmarshal(rawClaim, &strVal); err == nil {
-				parsedValues = append(parsedValues, strVal)
-			} else {
-				var arrVal []any
-				if err := json.Unmarshal(rawClaim, &arrVal); err == nil {
-					for _, item := range arrVal {
-						s, ok := item.(string)
-						if !ok {
-							return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Msg("organization claim array contains non-string item")
-						}
-						parsedValues = append(parsedValues, s)
-					}
-				} else {
-					var objVal map[string]any
-					if err := json.Unmarshal(rawClaim, &objVal); err == nil {
-						for k := range objVal {
-							parsedValues = append(parsedValues, k)
-						}
-					} else {
-						return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Msg("invalid organization claim shape")
-					}
-				}
+			parsedValues, err := parseClaimValues(rawClaim)
+			if err != nil {
+				return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Cause(err).Msg("parse organization claim")
 			}
 			orgValues = parsedValues
 		}
 	}
 
 	distinctOrgs := make(map[string]struct{})
-	for _, v := range orgValues {
-		distinctOrgs[v] = struct{}{}
+	for _, val := range orgValues {
+		distinctOrgs[val] = struct{}{}
 	}
 	if len(distinctOrgs) > 99 {
 		return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Msg("organization claim exceeds 99 distinct values")
@@ -409,13 +468,25 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 	}
 
 	isPlatform := false
-	platClaimName := v.platform.ClaimName
-	if platClaimName == "" {
-		platClaimName = issuerCfg.OrganizationClaimName
-	}
-	if v.platform.Issuer != "" && issuerCfg.Issuer == v.platform.Issuer && platClaimName == issuerCfg.OrganizationClaimName {
-		if _, ok := distinctOrgs[v.platform.Organization]; ok {
-			isPlatform = true
+	if v.platform.Issuer != "" && issuerCfg.Issuer == v.platform.Issuer {
+		platClaimName := v.platform.ClaimName
+		if platClaimName == "" {
+			platClaimName = issuerCfg.OrganizationClaimName
+		}
+		if platClaimName != "" {
+			var platValues []string
+			if platClaimName == issuerCfg.OrganizationClaimName {
+				platValues = orgValues
+			} else if rawPlatClaim, ok := rawClaims[platClaimName]; ok {
+				var err error
+				platValues, err = parseClaimValues(rawPlatClaim)
+				if err != nil {
+					return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Cause(err).Msg("parse platform claim")
+				}
+			}
+			if slices.Contains(platValues, v.platform.Organization) {
+				isPlatform = true
+			}
 		}
 	}
 
