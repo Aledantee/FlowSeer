@@ -94,7 +94,7 @@ requirement and this plan is wrong.
   is deleted with its row in `docs/solutions/README.md`. Why: it quotes the
   `heldIDs` snapshot and the `served` carry-over, which this plan removes,
   and what remains of it (apply a listing in one step) is one function the
-  code states. Unconfirmed, see Open questions.
+  code states. (decided by the user, 2026-10-03)
 
 ## Requirements
 
@@ -264,10 +264,3 @@ Waves: U1
       last-seen-active rule.
 - [ ] This plan's `status` is set with an outcome note under its title.
 - [ ] No plan labels in code.
-
-## Open questions
-
-- Unconfirmed: the fate of the solution captured for the landed index.
-  (a) Delete it with its README row. Recommended, since the code it quotes
-  is removed and the rest is one function. (b) Rewrite it around the
-  whole-map swap, which keeps an entry whose lesson the code now states.
