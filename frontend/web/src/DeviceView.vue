@@ -19,6 +19,7 @@ import AppIcon from './components/AppIcon.vue'
 import DeviceIcon from './components/DeviceIcon.vue'
 import { useFormat } from './i18n/format'
 import { useLabels } from './i18n/labels'
+import { BRAND } from './brand'
 import { aiTarget, useAiSlot } from './ai'
 import type { AiTarget } from './ai'
 import {
@@ -460,7 +461,7 @@ function to(path: string, extra: Record<string, string> = {}) {
         <h2 id="paths-title" class="text-base font-semibold text-foreground">
           <I18nT scope="global" keypath="view.device.pathsTitle">
             <template #brand>
-              <span translate="no">{{ 'FlowSeer' }}</span>
+              <span translate="no">{{ BRAND }}</span>
             </template>
           </I18nT>
         </h2>

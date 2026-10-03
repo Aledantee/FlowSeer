@@ -98,8 +98,12 @@ const tooltipAriaLabel = computed(() =>
         :collision-padding="8"
         class="bg-popover text-foreground border border-border rounded-control shadow-md px-2.5 py-1.5 text-xs z-(--z-overlay) flex flex-wrap items-center gap-2 select-none max-w-72"
       >
-        <span class="font-medium">{{ label }}</span>
-        <span v-if="hint" class="text-muted-foreground">{{ hint }}</span>
+        <span class="font-medium"
+          ><slot name="label">{{ label }}</slot></span
+        >
+        <span v-if="hint || $slots.hint" class="text-muted-foreground"
+          ><slot name="hint">{{ hint }}</slot></span
+        >
         <span v-if="shortcutKeys.length" class="inline-flex items-center gap-1">
           <UiKbd v-for="key in shortcutKeys" :key="key">{{ key }}</UiKbd>
         </span>

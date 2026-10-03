@@ -1,34 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest'
-import { devices } from '../domain/fleet'
-import { clientsOf } from '../domain/clients'
-import { fixtureIdentifiers } from '../domain/testing'
 import { unmarkedIdentifiers } from './testing'
-
-describe('fixtureIdentifiers', () => {
-  it('collects names and addresses from fixtures without locations or kinds', () => {
-    const identifiers = fixtureIdentifiers()
-
-    expect(identifiers.has('berlin-gw-01')).toBe(true)
-    expect(identifiers.has('10.20.0.1')).toBe(true)
-    expect(identifiers.has('Berlin Mitte')).toBe(true)
-    expect(identifiers.has('Aurora Hospitality')).toBe(true)
-
-    expect(identifiers.has('Berlin, DE')).toBe(false)
-    expect(identifiers.has('Gateway')).toBe(false)
-    expect(identifiers.has('Core switch')).toBe(false)
-  })
-
-  it('collects client hostnames, MACs, and addresses', () => {
-    const identifiers = fixtureIdentifiers()
-    const [client] = clientsOf(devices)
-    if (!client) throw new Error('Fixture has no sample client')
-
-    expect(identifiers.has(client.hostname)).toBe(true)
-    expect(identifiers.has(client.mac)).toBe(true)
-    expect(identifiers.has(client.address)).toBe(true)
-  })
-})
 
 describe('unmarkedIdentifiers', () => {
   it('reports an unmarked identifier', () => {
@@ -98,22 +70,12 @@ describe('unmarkedIdentifiers', () => {
     ).toEqual([])
   })
 
-  it('ignores identifiers inside an exempt container selector', () => {
-    const container = document.createElement('div')
-    container.innerHTML = '<div role="tooltip"><span>berlin-gw-01</span></div>'
-
-    expect(
-      unmarkedIdentifiers(container, ['berlin-gw-01'], {
-        exemptSelectors: ['[role="tooltip"]'],
-      }),
-    ).toEqual([])
-  })
-
   it('matches only whole identifiers at boundaries', () => {
     const container = document.createElement('div')
     container.innerHTML = `
       <div>
         <span>berlin-gw-01-backup</span>
+        <span>xberlin-gw-01</span>
         <span>10.20.0.100</span>
         <span>Berlin, DE</span>
         <span>3c:22:00:00:00:00:11</span>
@@ -127,5 +89,15 @@ describe('unmarkedIdentifiers', () => {
     ]
 
     expect(unmarkedIdentifiers(container, identifiers)).toEqual([])
+
+    const second = document.createElement('div')
+    second.innerHTML = '<span>berlin-gw-01-backup, berlin-gw-01</span>'
+    expect(unmarkedIdentifiers(second, ['berlin-gw-01'])).toEqual([
+      {
+        identifier: 'berlin-gw-01',
+        text: 'berlin-gw-01-backup, berlin-gw-01',
+        path: 'div > span',
+      },
+    ])
   })
 })

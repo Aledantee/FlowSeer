@@ -443,4 +443,47 @@ describe('UiTooltip', () => {
     expect(content.className).toContain('max-w-72')
     expect(content.className).toContain('flex-wrap')
   })
+
+  it('overrides prop text with label and hint slots', async () => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    const app = createApp({
+      render() {
+        return h(TooltipProvider, {}, () =>
+          h(
+            UiTooltip,
+            {
+              label: 'Fallback label',
+              hint: 'Fallback hint',
+              defaultOpen: true,
+              delayDuration: 0,
+            },
+            {
+              default: () => h('button', 'Target Button'),
+              label: () =>
+                h('span', { class: 'custom-label-slot' }, 'Slot Label'),
+              hint: () => h('span', { class: 'custom-hint-slot' }, 'Slot Hint'),
+            },
+          ),
+        )
+      },
+    })
+    const i18n = createWebI18n('en')
+    app.use(i18n)
+    app.mount(host)
+    dispose = () => {
+      app.unmount()
+      dispose = () => {}
+    }
+    await settle()
+
+    const content = tooltipNamed('Fallback label')
+    const labelEl = content.querySelector('.custom-label-slot')
+    if (!labelEl) throw new Error('Missing custom label slot')
+    expect(labelEl.textContent).toBe('Slot Label')
+
+    const hintEl = content.querySelector('.custom-hint-slot')
+    if (!hintEl) throw new Error('Missing custom hint slot')
+    expect(hintEl.textContent).toBe('Slot Hint')
+  })
 })

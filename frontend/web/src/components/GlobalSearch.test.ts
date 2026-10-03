@@ -10,6 +10,7 @@ import { aiRegistryKey } from '../ui/ai/context'
 import { DOCK_KEY } from '../navigation/dock'
 import type { Device } from '../domain/fleet'
 import { devices } from '../domain/fleet'
+import * as clientsModule from '../domain/clients'
 import { clientsOf } from '../domain/clients'
 import { portsOf } from '../domain/telemetry'
 import type { SearchResult } from '../domain/search'
@@ -691,14 +692,22 @@ describe('global search in German', () => {
     for (const { query, group } of probes) {
       await typeQuery(query)
       const groupEl = [
-        ...document.body.querySelectorAll('[role="group"]'),
+        ...document.body.querySelectorAll<HTMLElement>('[role="group"]'),
       ].find(
         (el) =>
           el
-            .querySelector('[data-reka-combobox-label]')
+            .querySelector('[id^="reka-combobox-group-label"]')
             ?.textContent?.trim() === group,
       )
-      expect(groupEl?.querySelector('.search-result')).not.toBeNull()
+      if (!groupEl) {
+        throw new Error(`Group "${group}" not found for query "${query}"`)
+      }
+      const result = groupEl.querySelector('.search-result')
+      if (!result) {
+        throw new Error(
+          `No .search-result in group "${group}" for query "${query}"`,
+        )
+      }
       expect(unmarkedIdentifiers(document.body, identifiers)).toEqual([])
     }
 
@@ -729,4 +738,43 @@ describe('global search in German', () => {
     expect(allSitesDetail?.getAttribute('translate')).toBeNull()
     expect(allSitesDetail?.closest('[translate]')).toBeNull()
   }, 15000)
+
+  it('renders no dangling separator for a client row with an empty field', async () => {
+    vi.spyOn(clientsModule, 'clientsOf').mockReturnValue([
+      {
+        id: 'incomplete-client',
+        hostname: 'thinkpad-incomplete',
+        address: '',
+        mac: '00:11:22:33:44:55',
+        deviceId: devices[0].id,
+        band: '5 GHz',
+        signal: -65,
+        throughput: 300,
+      },
+    ])
+    const { host } = await mountSearchClosed({
+      fleet: devices,
+    })
+    const trigger = host.querySelector<HTMLButtonElement>('.search-trigger')
+    if (!trigger) throw new Error('Missing search trigger button')
+    trigger.click()
+    await settle()
+
+    const input =
+      document.body.querySelector<HTMLInputElement>('[role="combobox"]')
+    if (!input) throw new Error('Global search input did not open.')
+
+    input.value = 'thinkpad-incomplete'
+    input.dispatchEvent(new InputEvent('input', { bubbles: true }))
+    await settle()
+
+    const result = document.body.querySelector('.search-result')
+    if (!result)
+      throw new Error('No .search-result found for thinkpad-incomplete')
+
+    const small = result.querySelector('small')
+    if (!small) throw new Error('Missing small element in search result')
+    expect(small.textContent?.trim()).toBe('')
+    expect(result.textContent).not.toContain('·')
+  })
 })

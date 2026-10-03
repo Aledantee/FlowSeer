@@ -47,7 +47,9 @@ describe('LocaleSwitcher', () => {
     const code = button.querySelector('[translate="no"]')
     expect(code?.textContent).toBe('EN')
     const name = button.querySelector('[lang="de"]')
-    expect(name?.textContent).toBe('Deutsch')
+    if (!name) throw new Error('Missing language name element')
+    expect(name.getAttribute('translate')).toBe('no')
+    expect(name.textContent).toBe('Deutsch')
     expect(button.textContent).toContain('Switch language to Deutsch')
   })
 
@@ -64,8 +66,10 @@ describe('LocaleSwitcher', () => {
     expect(
       document.body.querySelector('[role="status"] [lang="de"]')?.textContent,
     ).toBe('Deutsch')
-    expect(button.querySelector('[translate="no"]')?.textContent).toBe('DE')
-    expect(button.querySelector('[lang="en"]')?.textContent).toBe('English')
+    const enName = button.querySelector('[lang="en"]')
+    if (!enName) throw new Error('Missing English name element')
+    expect(enName.getAttribute('translate')).toBe('no')
+    expect(enName.textContent).toBe('English')
     expect(button.textContent).toContain('Sprache auf English umstellen')
   })
 

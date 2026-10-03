@@ -33,13 +33,11 @@ import {
 } from '../navigation/shortcuts'
 
 export interface TextPart {
-  kind?: 'text'
   text: string
   identifier?: boolean
 }
 
 export interface ClientPart {
-  kind: 'client'
   client: {
     address: string
     mac: string
@@ -48,7 +46,6 @@ export interface ClientPart {
 }
 
 export interface NeighborPart {
-  kind: 'neighbor'
   neighbor: string
 }
 
@@ -140,14 +137,14 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
     const scope = tenantIds(tenant.id)
     return {
       result: { kind, id, title: tenant.name },
-      parts: [
+      parts: cleanParts([
         {
           text: format.counted(
             'view.common.sites',
             sites.filter((site) => scope.includes(site.tenantId)).length,
           ),
         },
-      ],
+      ]),
     }
   }
   if (kind === 'site') {
@@ -165,16 +162,15 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
     const devName = deviceName(client.deviceId)
     return {
       result: { kind, id, title: client.hostname },
-      parts: [
+      parts: cleanParts([
         {
-          kind: 'client',
           client: {
             address: client.address,
             mac: client.mac,
             device: devName,
           },
         },
-      ],
+      ]),
     }
   }
   const device = props.fleet.find((item) => item.id === id)
@@ -197,7 +193,6 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
   if (!found) return undefined
   const farEnd: RowPart | undefined = found.neighborId
     ? {
-        kind: 'neighbor',
         neighbor: deviceName(found.neighborId),
       }
     : found.endpoint

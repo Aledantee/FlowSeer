@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { UiDialog, UiTooltip } from '../ui'
 import AppIcon from './AppIcon.vue'
+import { BRAND } from '../brand'
 
 const { t } = useI18n({ useScope: 'global' })
 const open = ref(false)
@@ -42,7 +43,7 @@ const open = ref(false)
           keypath="view.help.findBody"
         >
           <template #brand>
-            <span translate="no">{{ 'FlowSeer' }}</span>
+            <span translate="no">{{ BRAND }}</span>
           </template>
         </I18nT>
       </div>

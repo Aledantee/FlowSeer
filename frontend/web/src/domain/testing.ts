@@ -8,8 +8,9 @@ import {
 } from './fleet'
 import { clientsOf } from './clients'
 import { portDetailsOf, portsOf, telemetryOf } from './telemetry'
+import { BRAND } from '../brand'
 
-export const BRAND = 'FlowSeer'
+export { BRAND }
 
 export function fixtureIdentifiers(
   allDevices: Device[] = devices,

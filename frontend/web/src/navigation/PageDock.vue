@@ -75,6 +75,68 @@ function formatAttention(attention: number | undefined): string {
             :shortcut="index < 9 ? dockTabShortcut(index + 1) : undefined"
             side="top"
           >
+            <template #label>
+              <I18nT
+                v-if="title(tab).pair"
+                scope="global"
+                keypath="view.common.openNamed"
+              >
+                <template #name>
+                  <I18nT scope="global" keypath="view.common.pair">
+                    <template #first>
+                      <span
+                        :translate="
+                          title(tab).pair?.first.name ? 'no' : undefined
+                        "
+                        >{{ title(tab).pair?.first.label }}</span
+                      >
+                    </template>
+                    <template #second>
+                      <span
+                        :translate="
+                          title(tab).pair?.second.name ? 'no' : undefined
+                        "
+                        >{{ title(tab).pair?.second.label }}</span
+                      >
+                    </template>
+                  </I18nT>
+                </template>
+              </I18nT>
+              <I18nT v-else scope="global" keypath="view.common.openNamed">
+                <template #name>
+                  <span :translate="title(tab).labelName ? 'no' : undefined">{{
+                    title(tab).label
+                  }}</span>
+                </template>
+              </I18nT>
+            </template>
+            <template #hint>
+              <span
+                v-if="
+                  title(tab).detail ||
+                  badge(title(tab).health, title(tab).attention) ||
+                  (canSplit && !tab.beside)
+                "
+              >
+                <span
+                  v-if="title(tab).detail"
+                  :translate="title(tab).detailName ? 'no' : undefined"
+                  >{{ title(tab).detail }}</span
+                >
+                <template v-if="badge(title(tab).health, title(tab).attention)">
+                  {{ title(tab).detail ? t('view.common.factSeparator') : ''
+                  }}{{ badge(title(tab).health, title(tab).attention) }}
+                </template>
+                <template v-if="canSplit && !tab.beside">
+                  {{
+                    title(tab).detail ||
+                    badge(title(tab).health, title(tab).attention)
+                      ? t('view.common.factSeparator')
+                      : ''
+                  }}{{ t('view.dock.shiftHint') }}
+                </template>
+              </span>
+            </template>
             <button
               class="dock-open flex items-center gap-2 max-w-[220px] py-1.5 pl-2.5 pr-1.5 border-0 bg-transparent text-inherit text-left cursor-pointer"
               @click="

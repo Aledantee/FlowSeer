@@ -7,7 +7,7 @@ import { UiAppRoot } from './ui'
 import { isMac } from './navigation/shortcuts'
 import { DOCK_KEY } from './navigation/dock'
 import * as fleetDomain from './domain/fleet'
-import { devices, filterDevices } from './domain/fleet'
+import { devices, filterDevices, sites, tenants } from './domain/fleet'
 import { clientsOf, signalQuality } from './domain/clients'
 import type { Port } from './domain/telemetry'
 import DevicePorts from './components/DevicePorts.vue'
@@ -17,6 +17,7 @@ import { createWebI18n } from './i18n'
 import type { WebLocale } from './i18n'
 import { i18nWarnings, unmarkedIdentifiers } from './i18n/testing'
 import { fixtureIdentifiers } from './domain/testing'
+import { BRAND } from './brand'
 import enCatalog from './i18n/locales/en.json'
 import deCatalog from './i18n/locales/de.json'
 
@@ -256,8 +257,9 @@ describe('FleetView shell in German', () => {
     const clientsSpan = [
       ...(tabs[2]?.querySelectorAll('strong span') ?? []),
     ].find((s) => s.textContent?.trim() === 'Clients')
-    expect(clientsSpan).toBeDefined()
-    expect(clientsSpan?.getAttribute('translate')).toBeNull()
+    if (!clientsSpan) throw new Error('Missing Clients span in docked pair')
+    expect(clientsSpan.getAttribute('translate')).toBeNull()
+    expect(clientsSpan.closest('[translate]')).toBeNull()
 
     expect(
       tabs[0]?.querySelector('strong')?.getAttribute('translate'),
@@ -269,6 +271,26 @@ describe('FleetView shell in German', () => {
       tabs[0]?.querySelector('small')?.getAttribute('translate'),
     ).toBeNull()
     expect(tabs[0]?.querySelector('small')?.closest('[translate]')).toBeNull()
+
+    const deviceTab = tabs[3]
+    if (!deviceTab) throw new Error('Missing docked device tab')
+    const button = deviceTab.querySelector<HTMLButtonElement>('.dock-open')
+    if (!button) throw new Error('Missing dock-open button')
+    button.focus()
+    button.dispatchEvent(new FocusEvent('focus'))
+    await settle()
+
+    const tooltip = document.body.querySelector('[role="tooltip"]')
+    if (!tooltip) throw new Error('Missing open tooltip')
+    const content = tooltip.parentElement
+    if (!content) throw new Error('Missing tooltip content')
+    const openSpan = content.querySelector('.font-medium')
+    if (!openSpan) throw new Error('Missing font-medium label in tooltip')
+    const openTextNode = Array.from(openSpan.childNodes).find(
+      (node) => node.nodeType === 3 && node.textContent?.includes('öffnen'),
+    )
+    if (!openTextNode) throw new Error('Missing öffnen text node')
+    expect(openSpan.closest('[translate]')).toBeNull()
 
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
@@ -309,9 +331,11 @@ describe('FleetView shell in German', () => {
     if (!tenantTrigger) throw new Error('Missing tenant switcher trigger')
     tenantTrigger.click()
     await settle()
-    expect(
-      document.body.querySelectorAll('[role="option"]').length,
-    ).toBeGreaterThan(0)
+    const tenantOption = [
+      ...document.body.querySelectorAll('[role="option"]'),
+    ].find((opt) => opt.textContent?.includes(tenants[0].name))
+    if (!tenantOption)
+      throw new Error(`Missing option for tenant ${tenants[0].name}`)
     expect(unmarkedIdentifiers(document.body, identifiers)).toEqual([])
     window.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
@@ -333,6 +357,11 @@ describe('FleetView shell in German', () => {
     siteTrigger.click()
     await settle()
 
+    const siteOption = [
+      ...document.body.querySelectorAll('[role="option"]'),
+    ].find((opt) => opt.textContent?.includes(sites[0].name))
+    if (!siteOption) throw new Error(`Missing option for site ${sites[0].name}`)
+
     expect(unmarkedIdentifiers(document.body, identifiers)).toEqual([])
 
     window.dispatchEvent(
@@ -353,6 +382,12 @@ describe('FleetView shell in German', () => {
     deviceTrigger.click()
     await settle()
 
+    const deviceOption = [
+      ...document.body.querySelectorAll('[role="option"]'),
+    ].find((opt) => opt.textContent?.includes(offline.name))
+    if (!deviceOption)
+      throw new Error(`Missing option for device ${offline.name}`)
+
     expect(unmarkedIdentifiers(document.body, identifiers)).toEqual([])
 
     window.dispatchEvent(
@@ -370,7 +405,7 @@ describe('FleetView shell in German', () => {
     const breadcrumb = host.querySelector('.breadcrumb')
     expect(breadcrumb?.textContent).toContain('Aurora Hospitality')
     expect(breadcrumb?.textContent).toContain('Berlin Mitte')
-    expect(unmarkedIdentifiers(breadcrumb ?? host, identifiers)).toEqual([])
+    expect(unmarkedIdentifiers(host, identifiers)).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -422,12 +457,18 @@ describe('top bar dialogs in German', () => {
     topBarButton(host, 'Hilfe').click()
     await settle()
 
-    expect(dialog()?.textContent).toContain('Hilfe zum Arbeitsbereich')
-    expect(text(dialog()?.querySelectorAll('h3') ?? [])).toEqual([
+    const dlg = dialog()
+    if (!dlg) throw new Error('Help dialog was not rendered')
+    expect(dlg.textContent).toContain('Hilfe zum Arbeitsbereich')
+    expect(text(dlg.querySelectorAll('h3'))).toEqual([
       'Bereich wählen',
       'Gerät finden',
       'Gerät verschieben',
     ])
+    const bodyParagraphs = text(dlg.querySelectorAll('.space-y-4 p'))
+    expect(bodyParagraphs.length).toBe(3)
+    expect(bodyParagraphs[1]).toContain(BRAND)
+    expect(unmarkedIdentifiers(dlg, identifiers)).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -580,7 +621,7 @@ describe('dashboard in German', () => {
     expect(line).toContain(
       `${new Intl.NumberFormat('de').format(total)}${NBSP}Mbit/s`,
     )
-    expect(line).toContain('Stand ')
+    expect(line).toMatch(/Stand \d{1,2}:\d{2}/)
     expect(text(host.querySelectorAll('.dashboard h2')).slice(0, 2)).toEqual([
       'KI-Zusammenfassung',
       'Handlungsbedarf',
@@ -979,6 +1020,38 @@ describe('device route in German', () => {
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
+  it('shows a translated notice when resetting filters on a list route fails and updates it on locale switch', async () => {
+    const { host, router, setLocale } = await mountLocale(
+      '/devices?search=nomatch',
+      'de',
+    )
+    const button = Array.from(host.querySelectorAll('button')).find((btn) =>
+      btn.textContent?.includes('zurücksetzen'),
+    )
+    if (!button) throw new Error('Missing clear filters button')
+
+    vi.spyOn(router, 'replace').mockRejectedValueOnce(
+      new Error('Navigation failed'),
+    )
+    button.click()
+    await settle()
+
+    const notice = host.querySelector('main [role="status"]')
+    if (!notice) throw new Error('Missing notice on list route')
+    expect(notice.textContent).toContain(
+      'Die Filter konnten nicht zurückgesetzt werden. Erneut versuchen.',
+    )
+
+    await setLocale('en')
+    expect(notice.textContent).toContain('Could not reset filters. Try again.')
+
+    await setLocale('de')
+    expect(notice.textContent).toContain(
+      'Die Filter konnten nicht zurückgesetzt werden. Erneut versuchen.',
+    )
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
   it('follows a locale switch in the severity names and the age', async () => {
     const offline = cologneAp()
     const { host, setLocale } = await mountLocale(
@@ -1152,6 +1225,10 @@ const sweepRoutes: SweepRoute[] = [
 const headingText = (host: HTMLElement, selector: string) =>
   host.querySelector(selector)?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
 
+function escapeRegExp(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 // Every `view.*` message whose English text differs from its German text and
 // holds no placeholder or plural bar. Such a string alone in an element or an
 // attribute means the German view kept an English message.
@@ -1169,6 +1246,43 @@ function englishOnlyTexts() {
   }
   walk(enCatalog.view, deCatalog.view)
   return found
+}
+
+function englishMessagePatterns() {
+  const patterns: RegExp[] = []
+  const walk = (en: unknown, de: unknown) => {
+    if (typeof en === 'string' && typeof de === 'string') {
+      if (en === de) return
+      const forms = en.split('|').map((s) => s.trim())
+      for (const form of forms) {
+        if (!form.includes('{')) {
+          patterns.push(new RegExp('^' + escapeRegExp(form) + '$'))
+        } else {
+          const literalOnly = form.replace(/\{[^}]+\}/g, ' ')
+          if (/\b[a-zA-Z]{2,}\b/.test(literalOnly)) {
+            const regex =
+              '^' + escapeRegExp(form).replace(/\\\{[^}]+\\\}/g, '.+?') + '$'
+            patterns.push(new RegExp(regex))
+          }
+        }
+      }
+      return
+    }
+    if (en === null || typeof en !== 'object') return
+    for (const [key, value] of Object.entries(en)) {
+      walk(value, (de as Record<string, unknown> | null)?.[key])
+    }
+  }
+  walk(enCatalog.view, deCatalog.view)
+  return patterns
+}
+
+const englishPatterns = englishMessagePatterns()
+
+function isEnglishMessage(text: string, exact: Set<string>): boolean {
+  return (
+    exact.has(text) || englishPatterns.some((pattern) => pattern.test(text))
+  )
 }
 
 function visibleTexts(host: HTMLElement) {
@@ -1191,7 +1305,9 @@ describe.each(sweepRoutes)('locale sweep of $name', (route) => {
 
     expect(headingText(host, route.heading)).toContain(route.words.de)
     const english = englishOnlyTexts()
-    expect(visibleTexts(host).filter((item) => english.has(item))).toEqual([])
+    expect(
+      visibleTexts(host).filter((item) => isEnglishMessage(item, english)),
+    ).toEqual([])
     expect(unmarkedIdentifiers(host, identifiers)).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
@@ -1237,7 +1353,9 @@ describe.each(sweepRoutes)('locale sweep of $name', (route) => {
     await setLocale('de')
     expect(headingText(host, route.heading)).toContain(route.words.de)
     expect(
-      visibleTexts(host).filter((item) => englishOnlyTexts().has(item)),
+      visibleTexts(host).filter((item) =>
+        isEnglishMessage(item, englishOnlyTexts()),
+      ),
     ).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })

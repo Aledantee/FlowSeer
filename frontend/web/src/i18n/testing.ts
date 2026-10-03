@@ -109,11 +109,6 @@ export interface UnmarkedIdentifier {
   path: string
 }
 
-export interface UnmarkedOptions {
-  // CSS selectors for container elements whose descendant text nodes are exempt.
-  exemptSelectors?: string[]
-}
-
 function containsWholeIdentifier(text: string, identifier: string): boolean {
   if (!identifier) return false
   let pos = 0
@@ -163,12 +158,10 @@ function shortPath(element: Element | null): string {
 }
 
 // Walks text nodes under root and reports any that contain a whole identifier
-// without an ancestor element with translate="no". Sinks that render text in
-// inaccessible descendants can be passed in options.exemptSelectors.
+// without an ancestor element with translate="no".
 export function unmarkedIdentifiers(
   root: Node,
   identifiers: Iterable<string>,
-  options?: UnmarkedOptions,
 ): UnmarkedIdentifier[] {
   const idList = Array.from(identifiers).filter(Boolean)
   const results: UnmarkedIdentifier[] = []
@@ -180,7 +173,6 @@ export function unmarkedIdentifiers(
       const parent = node.parentElement
       if (!parent) return
       if (parent.closest('[translate="no"]')) return
-      if (options?.exemptSelectors?.some((sel) => parent.closest(sel))) return
 
       for (const ident of idList) {
         if (containsWholeIdentifier(text, ident)) {
@@ -199,7 +191,6 @@ export function unmarkedIdentifiers(
       const el = node as Element
       if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return
       if (el.closest('[translate="no"]')) return
-      if (options?.exemptSelectors?.some((sel) => el.closest(sel))) return
       for (const child of node.childNodes) {
         walk(child)
       }

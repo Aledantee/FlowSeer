@@ -14,12 +14,18 @@ export interface Move {
 
 export type PaneId = 'main' | 'side'
 
+export type NoticeKey =
+  | 'view.fleet.assignFailed'
+  | 'view.fleet.openFailed'
+  | 'view.common.updateFailed'
+  | 'view.workspace.resetFailed'
+
 // State every pane shares: one live fleet, one notice line, the actions
 // that change the fleet, and how panes hand work to each other.
 export interface Workspace {
   fleet: Ref<Device[]>
   // The message key for the notice line, or an empty string when clear.
-  message: Ref<string>
+  message: Ref<NoticeKey | ''>
   move: Ref<Move | undefined>
   undoMove: () => void
   dismissNotice: () => void
