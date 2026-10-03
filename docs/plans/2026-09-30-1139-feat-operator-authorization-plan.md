@@ -278,8 +278,9 @@ service.
 
 ## Open questions
 
-- How one tenant with several issuers maps to organization claims.
-  `TenantConfig` binds one issuer, so multiple issuers for one tenant need an
-  answered pattern before phase 2 writes the configuration.
+- How one tenant with several issuers maps to organization claims. The
+  phase 2 plan's Decisions answer it: a tenant binds one issuer, and a
+  second issuer's users reach it through `partner` or `platform`.
 - Which OIDC issuer the lab deployment runs (Zitadel, Keycloak, or Dex).
-  Phase 2 decides. Any of them passes the vendor rule.
+  The phase 2 plan recommends Keycloak and holds the question open for the
+  user. Any of them passes the vendor rule.
