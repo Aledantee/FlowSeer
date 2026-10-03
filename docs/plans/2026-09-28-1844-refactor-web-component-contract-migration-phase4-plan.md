@@ -213,6 +213,16 @@ translation in the infinitive style of the `ui.*` messages
 | Needs attention | Handlungsbedarf |
 | `{count} device`, `{count} devices` | `{count} Gerät`, `{count} Geräte` |
 | `{count} result`, `{count} results` | `{count} Ergebnis`, `{count} Ergebnisse` |
+- **Requirement 6 covers names a kit component renders from its own text
+  props.** The dock tooltip's device and site names, shown through
+  `UiTooltip`'s `label` and `hint`, must carry `translate="no"`, so
+  `UiTooltip` gains a way to mark them, inside this phase.
+  (decided by the user, 2026-10-03)
+- **The review gets one more fix round** past its three-round limit,
+  resumed from `parked/wcc-p4-review` (`141f39c9`), on the false test in
+  `frontend/web/src/components/GlobalSearch.test.ts`, the brand literal,
+  the dock tooltip marking above, and the items in Review gaps.
+  (decided by the user, 2026-10-03)
 
 ## Requirements
 
@@ -376,16 +386,3 @@ Neither blocks a unit.
 2. Unverified: whether a browser's ICU abbreviates relative times as
    Node 22.14.0 does. Tests do not pin those strings, and the browser
    check is where a difference would show.
-
-- Parked by drive: the review ended in `rework` at the three-round limit,
-  all three rounds on `translate="no"` for identifiers (Requirement 6).
-  Its fixes and a 32-item gap list are on `parked/wcc-p4-review`
-  (`141f39c9`), unmerged. Open: a false test in
-  `frontend/web/src/components/GlobalSearch.test.ts` (a selector reka-ui
-  never renders), the brand written as a literal in two templates, and
-  whether the dock tooltip's names count under Requirement 6 (marking
-  them needs a `UiTooltip` change). Options: one more fix round on the
-  open items and the gap list (each names its fix) | take the identifier
-  marking to `plan` (slower) | accept with the gaps recorded (overrides
-  the review gate). Recommended: one more fix round, because the open
-  items are small and the gap list names a failing check for each.
