@@ -106,6 +106,15 @@ The parent plan's Decisions apply. These are local to the phase.
 - The source lives in `src/edge/agent/internal/syslogsource`. Why: one host
   assembles it, and `src/modules/README.md` admits a module at two.
 - The source starts only when its configuration names a listener.
+- The listener and the raw policy numbers are fields of
+  `flowseer.store.agent.v1.AgentConfig`, in a message of their own at field
+  6, as `intervals` and `buffer` are. Why: `host.Config` wraps that message
+  and reads its own settings from nothing else
+  (`src/edge/agent/host/config.go:54,72`). A listener address is a string, as
+  `syslog.ListenConfig.Address` is (`src/protocol/syslog/receiver.go:20-25`),
+  so `store/agent` keeps importing nothing FlowSeer-owned
+  (`test/conformance/proto/layering_test.go:179`). The listener's shape is
+  unconfirmed and repeated under Open questions.
 - U1 amends the ingestion direction record with both wire decisions. Why:
   each changes a wire contract more than one package reads, and this plan is
   deleted once the phase lands.
@@ -165,7 +174,7 @@ The parent plan's Decisions apply. These are local to the phase.
 
 ### U1. Ingest envelope schema and the two reshaped messages
 
-Files: spec/proto/flowseer/integration/ingest/v1/ingest_record.proto, spec/proto/flowseer/integration/ingest/v1/README.md, spec/proto/flowseer/integration/README.md, spec/proto/flowseer/README.md, spec/proto/flowseer/model/inventory/v1/provenance.proto, spec/proto/flowseer/model/inventory/v1/README.md, spec/proto/flowseer/model/README.md, spec/proto/flowseer/event/log/v1/syslog_record.proto, spec/proto/flowseer/event/log/v1/README.md, spec/proto/flowseer/event/README.md, test/conformance/proto/layering_test.go, test/conformance/proto/integration_ingest_rules_test.go, test/conformance/proto/event_log_rules_test.go, test/conformance/proto/model_inventory_rules_test.go, test/conformance/proto/event_access_rules_test.go, src/modules/localnet/access/internal/capability/interfaces/adapter.go, src/modules/localnet/access/internal/capability/interfaces/adapter_test.go, src/modules/localnet/access/lane.go, src/modules/localnet/access/read_route_test.go, src/modules/localnet/access/README.md, src/services/device/internal/journal/resolve_test.go, src/services/device/internal/deviceapi/deviceapi_test.go, src/services/device/internal/drift/drift_test.go, docs/conventions/protobuf.md, docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md, generated/go/proto
+Files: spec/proto/flowseer/integration/ingest/v1/ingest_record.proto, spec/proto/flowseer/integration/ingest/v1/README.md, spec/proto/flowseer/integration/README.md, spec/proto/flowseer/README.md, spec/proto/flowseer/model/inventory/v1/provenance.proto, spec/proto/flowseer/model/inventory/v1/README.md, spec/proto/flowseer/model/README.md, spec/proto/flowseer/event/log/v1/syslog_record.proto, spec/proto/flowseer/event/log/v1/README.md, spec/proto/flowseer/event/README.md, test/conformance/proto/layering_test.go, test/conformance/proto/integration_ingest_rules_test.go, test/conformance/proto/event_log_rules_test.go, test/conformance/proto/model_inventory_rules_test.go, test/conformance/proto/event_access_rules_test.go, src/modules/localnet/access/internal/capability/interfaces/adapter.go, src/modules/localnet/access/internal/capability/interfaces/adapter_test.go, src/modules/localnet/access/lane.go, src/modules/localnet/access/read_route_test.go, src/modules/localnet/access/README.md, src/services/device/internal/journal/resolve_test.go, src/services/device/internal/deviceapi/deviceapi_test.go, src/services/device/internal/drift/drift_test.go, docs/conventions/protobuf.md, docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md, CONCEPTS.md, generated/go/proto
 After: none
 Change: `IngestRecord` has `record_id` (required UUID), `provenance`
 (required `flowseer.model.inventory.v1.Provenance`), a required `oneof
@@ -184,7 +193,8 @@ validation rejects. `Lane.recordEvidence` (`lane.go:2185`) reads the
 management protocol back and hands it to `evidence.Store.Record`
 (`src/modules/localnet/access/internal/evidence/store.go:121`). The three
 service tests build a fixture provenance naming SSH and change only in how
-they spell it.
+they spell it. The `firmware_fingerprint` comment says unset means the
+producer holds no fingerprint (unconfirmed, open question 4).
 `SyslogRecord` drops `record_id` and reserves field 2 and the name.
 `severity` and `facility` lose `required` and keep `defined_only`, and their
 comments say unset means the message carried no PRI. `layering_test.go` admits
@@ -203,7 +213,8 @@ envelope" in `docs/conventions/protobuf.md` say how a protocol outside
 (lines 257-261) spells the field as the schema now does. The direction record
 gains an `## Amendments` section, as the device service record keeps one,
 with one dated entry: a payload message carries no id of its own, and how
-`Provenance` names a protocol no management endpoint speaks.
+`Provenance` names a protocol no management endpoint speaks. `CONCEPTS.md`
+gains Ingest Record and Raw Evidence beside Syslog Record.
 `generated/go/proto` is the
 output of `go tool -modfile=tools/buf/go.mod buf generate`, never a hand edit.
 Tests: `integration_ingest_rules_test.go` covers requirements 1, 2, and 9
@@ -217,10 +228,11 @@ fails, the zero value fails, and an undefined value fails.
 `event_access_rules_test.go` gains the `RouteSelected` case of requirement
 8. `adapter_test.go:98,123` and `read_route_test.go:78,133` still assert
 SNMP for the SNMP route and SSH for the fall-through, read through the new
-type. No test reads the evidence store after a lane read, since `Consult`
-has no caller (`lane.go:2173-2176`), so nothing in this unit proves which
-route `recordEvidence` stores.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flowseer test/conformance/proto src/modules/localnet/access src/services/device docs/conventions/protobuf.md docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md generated/go/proto`
+type. No test reads the evidence store after a lane read, since nothing
+outside the `evidence` package's own tests calls `Consult`
+(`lane.go:2173-2176`), so nothing in this unit proves which route
+`recordEvidence` stores.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flowseer test/conformance/proto src/modules/localnet/access src/services/device docs/conventions/protobuf.md docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md CONCEPTS.md generated/go/proto`
 
 ### U2. Ingest subject in edgebus
 
@@ -247,9 +259,14 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/ed
 
 ### U3. Syslog source in the agent
 
-Files: src/edge/agent/internal/lanehost/index.go, src/edge/agent/internal/lanehost/index_test.go, src/edge/agent/internal/syslogsource/source.go, src/edge/agent/internal/syslogsource/mapper.go, src/edge/agent/internal/syslogsource/rawpolicy.go, src/edge/agent/internal/syslogsource/mapper_test.go, src/edge/agent/internal/syslogsource/rawpolicy_test.go, src/edge/agent/internal/syslogsource/source_test.go, src/edge/agent/internal/lanehost/onboard.go, src/edge/agent/host/host.go, src/edge/agent/host/config.go, src/edge/agent/host/options.go, src/edge/agent/README.md, CONCEPTS.md
+Files: spec/proto/flowseer/store/agent/v1/agent_config.proto, spec/proto/flowseer/store/agent/v1/README.md, generated/go/proto, src/edge/agent/internal/lanehost/index.go, src/edge/agent/internal/lanehost/index_test.go, src/edge/agent/internal/syslogsource/source.go, src/edge/agent/internal/syslogsource/mapper.go, src/edge/agent/internal/syslogsource/rawpolicy.go, src/edge/agent/internal/syslogsource/mapper_test.go, src/edge/agent/internal/syslogsource/rawpolicy_test.go, src/edge/agent/internal/syslogsource/source_test.go, src/edge/agent/internal/lanehost/onboard.go, src/edge/agent/internal/lanehost/onboard_test.go, src/edge/agent/host/host.go, src/edge/agent/host/config.go, src/edge/agent/host/config_test.go, src/edge/agent/host/capture_test.go, src/edge/agent/host/options.go, src/edge/agent/README.md
 After: U1, U2
-Change: `lanehost.DeviceIndex` maps a peer address to a device id and
+Change: `AgentConfig` gains `AgentSyslog syslog = 6`, where unset means the
+agent runs no syslog source. It holds the listeners in the shape open
+question 5 settles, `raw_failures_per_minute` (unset means 20), and
+`raw_sample_every` (unset means 100), and `host.Config` exposes the three.
+`generated/go/proto` is regenerated, never hand-edited.
+`lanehost.DeviceIndex` maps a peer address to a device id and
 binding ref, safe for concurrent use. `OnboardConfig` takes one, and the
 onboarder records a device in it where it writes `held`
 (`src/edge/agent/internal/lanehost/onboard.go:225`). Nothing removes a held
@@ -277,13 +294,21 @@ listener. Every goroutine starts through `src/common/spawn`. Counters follow
 unit `{record}` and a `reason` attribute on the second, and
 `flowseer.edge.syslog.raw.kept` and `flowseer.edge.syslog.raw.suppressed`.
 No device id is an attribute.
-Tests: `index_test.go` covers add, replace, and a lookup that
+Tests: `config_test.go` covers a file with no `syslog` block, which starts
+no source and leaves `TestAWorkingFileIsTwoLinesAndEverythingElseDefaults`
+passing, a block that names only a listener and takes both defaults, and
+configured numbers that win. `TestModules_DeclaresLaneAndCapture`
+(`capture_test.go:64-79`) expects the third module. `onboard_test.go`
+builds its `OnboardConfig` with an index (line 209) and finds an onboarded
+device in it under its listed address. `index_test.go` covers add, replace, and a lookup that
 survives a second onboarder built against the same index. `mapper_test.go`
-maps fixtures from `src/protocol/syslog/testdata/corpus`
-for RFC 5424, legacy without PRI, one over-long hostname, and an empty datagram, and
-validates each envelope. Each case checks that the provenance names the
+parses payloads it writes itself with the `src/protocol/syslog` parser: the
+parent plan's requirement 1 datagram, a legacy line without PRI, an RFC 5424
+line whose hostname is 256 characters, and an empty datagram. The corpus
+manifest (`src/protocol/syslog/testdata/corpus/manifest.json`) holds none of
+the last three. The test validates each envelope. Each case checks that the provenance names the
 indexed binding, the edge, and syslog, and that `observed_at` and
-`received_at` both equal the fixture's receive time. `rawpolicy_test.go` drives 220 failures in one minute and the
+`received_at` both equal the case's receive time. `rawpolicy_test.go` drives 220 failures in one minute and the
 window roll-over with the injected clock. `source_test.go` starts a hub and a
 leaf as `edgebus_test.go` does, sends UDP datagrams from a hosted and an
 unknown address, and reads the envelope from the hub's edge stream. It checks
@@ -291,9 +316,9 @@ that the stored message's `Nats-Msg-Id` header equals the envelope's
 `record_id`. A sourced copy keeps its headers and gains `Nats-Stream-Source`
 (`github.com/nats-io/nats-server/v2` v2.15.0, `server/stream.go:4886-4893`).
 Nothing
-here proves the mapping against a real device's output, since the corpus is a
-grammar fixture set (`src/protocol/syslog/README.md`).
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/agent CONCEPTS.md`
+here proves the mapping against a real device's output, since every payload
+is written from the grammar.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flowseer/store/agent src/edge/agent generated/go/proto`
 
 Waves: U1 U2 | U3
 
@@ -311,6 +336,8 @@ go test -race ./test/conformance/proto/... ./src/modules/localnet/access/... ./s
 - [ ] `spec/proto/flowseer/integration/README.md`, the new package README,
       `src/modules/edgebus/README.md`, and `src/edge/agent/README.md`
       describe the envelope, the subject, and the source.
+- [ ] `spec/proto/flowseer/store/agent/v1/README.md` describes the syslog
+      block of the agent configuration.
 - [ ] `spec/proto/flowseer/event/log/v1/README.md`,
       `spec/proto/flowseer/model/inventory/v1/README.md`,
       `src/modules/localnet/access/README.md`, and
@@ -325,7 +352,7 @@ go test -race ./test/conformance/proto/... ./src/modules/localnet/access/... ./s
 ## Open questions
 
 The first two block U1 and U3. The units already hold the recommended answer
-to the last two.
+to the other three.
 
 1. Which type does `Provenance.protocol` widen to?
    (a) A required `oneof protocol` on `Provenance`, with
@@ -400,3 +427,13 @@ to the last two.
    then names its firmware epoch. Cost: a new exported surface on
    `src/modules/localnet/access` and an index entry that changes after
    onboarding.
+5. Unconfirmed: what shape do the configured listeners take in `AgentSyslog`?
+   (a) `repeated string udp_listen`, one to eight `host:port` strings, eight
+   being the receiver's default listener bound
+   (`src/protocol/syslog/options.go:14-15`). Recommended: it is the smallest
+   shape that covers this phase, whose requirement is a UDP datagram, and a
+   later TCP or TLS listener adds a field with the settings it needs.
+   (b) `repeated AgentSyslogListener`, each with an address and a transport
+   enum of UDP and TCP. Cost: a TCP listener also needs a framing choice
+   (`ListenConfig.Framing`, `src/protocol/syslog/receiver.go:23`), which this
+   phase neither requires nor tests.
