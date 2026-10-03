@@ -84,11 +84,10 @@ type OnboardConfig struct {
 // Onboarder holds the devices this edge has been told to serve, and adds the
 // ones it does not hold yet.
 //
-// Safe for concurrent use; one Sync runs at a time. Serializing them is not
-// caution about the map — it is that two Syncs racing could both find a
-// device absent and both add it, and a second AddDevice for a registered
-// device replaces its whole lane state, orphaning its queue and any drainer
-// working through it.
+// Safe for concurrent use: one Sync runs at a time. Serializing them is not
+// caution about the map. Two Syncs racing could both find a device absent and
+// both add it, and a second AddDevice for an already-registered device is
+// refused by the lane (stranding any work racing to add it).
 type Onboarder struct {
 	cfg OnboardConfig
 	log *slog.Logger
@@ -126,22 +125,25 @@ func NewOnboarder(cfg OnboardConfig) (*Onboarder, error) {
 // it does not already hold. It is what the agent calls after attaching and
 // before each attempt to open the dispatch stream.
 //
-// A device this edge already holds is left alone rather than re-added, for
-// the reason on [Onboarder]. That means a device whose listing has changed —
-// a horizon measured since, an address corrected — keeps the values it was
-// first onboarded with. The divergence is recorded so the discrepancy is
-// findable: without it, an operator who measures a horizon centrally sees
-// mutations go on being refused with nothing anywhere connecting the two
-// facts.
+// A device this edge already holds is left alone rather than re-added to the
+// lane, for the reason on [Onboarder]. While the lane session keeps the values
+// it was first onboarded with until the lane attempt restarts, the device index
+// follows the listing immediately: for a held device, the index reflects the
+// listed address and binding so datagrams from an address it left are not
+// attributed to it. The divergence between the listing and the lane session is
+// recorded so the discrepancy is findable: without it, an operator who measures
+// a horizon centrally sees mutations go on being refused with nothing anywhere
+// connecting the two facts.
 //
 // One device failing to onboard does not stop the others, and it is not
 // recorded as held, so the next Sync tries it again. That is the case of a
 // device that is simply unreachable at this moment, which is not a reason to
 // leave the rest of the edge's fleet unserved.
 //
-// After a successful listing, the configured device index is pruned to the
-// listed device IDs and updated with each listed device's address claim before
-// onboarding.
+// After a successful listing, Sync applies the listing to the configured
+// device index in one step under a single write lock before onboarding. The
+// index prunes unlisted devices, records address claims, and re-asserts held
+// devices at their listed addresses and bindings.
 func (o *Onboarder) Sync(ctx context.Context) error {
 	o.syncing.Lock()
 	defer o.syncing.Unlock()
@@ -153,29 +155,17 @@ func (o *Onboarder) Sync(ctx context.Context) error {
 
 	devices := resp.Msg.GetDevices()
 	if o.cfg.Index != nil {
-		listedIDs := make([]string, 0, len(devices))
-		for _, listed := range devices {
-			if id := listed.GetDeviceId(); id != "" {
-				listedIDs = append(listedIDs, id)
+		var heldIDs map[string]struct{}
+		o.mu.Lock()
+		if len(o.held) > 0 {
+			heldIDs = make(map[string]struct{}, len(o.held))
+			for id := range o.held {
+				heldIDs[id] = struct{}{}
 			}
 		}
-		o.cfg.Index.Prune(listedIDs)
+		o.mu.Unlock()
 
-		for _, listed := range devices {
-			deviceID := listed.GetDeviceId()
-			if deviceID == "" {
-				continue
-			}
-			addr, err := addressOf(listed.GetIp())
-			if err != nil {
-				o.cfg.Index.RecordClaim("", deviceID, nil)
-				continue
-			}
-			binding := inventoryv1.BindingGlobalRef_builder{
-				Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(listed.GetBindingId())}.Build(),
-			}.Build()
-			o.cfg.Index.RecordClaim(addr, deviceID, binding)
-		}
+		o.cfg.Index.ApplyListing(devices, heldIDs)
 	}
 
 	for _, listed := range devices {
@@ -215,8 +205,9 @@ func errorType(err error) string {
 	}
 }
 
-// onboard adds one listed device, or reports how a re-listing of a device
-// already held differs from what it was onboarded with.
+// onboard onboards one unheld listed device into the lane, or reports how a
+// re-listing of a device already held differs from what it was onboarded with.
+// For a held device, the index has already been updated to the listing during Sync.
 //
 // Its own deadline, so one device cannot hold the rest. A device that runs
 // out of time is not held and is onboarded on a later Sync, which is what
@@ -234,14 +225,6 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 				slog.String("flowseer.device.id", deviceID),
 				slog.Any("flowseer.edge.device.diverged", changed))
 		}
-		if o.cfg.Index != nil {
-			if addr, err := addressOf(listed.GetIp()); err == nil {
-				binding := inventoryv1.BindingGlobalRef_builder{
-					Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(listed.GetBindingId())}.Build(),
-				}.Build()
-				o.cfg.Index.Add(addr, deviceID, binding)
-			}
-		}
 		return
 	}
 
@@ -250,9 +233,7 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 		o.warnNotOnboarded(ctx, deviceID, err)
 		return
 	}
-	binding := inventoryv1.BindingGlobalRef_builder{
-		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(listed.GetBindingId())}.Build(),
-	}.Build()
+	binding := bindingRefOf(listed.GetBindingId())
 
 	session := o.deviceSession(listed, addr, binding)
 	attempt, cancel := context.WithTimeout(ctx, o.perDeviceTimeout())
