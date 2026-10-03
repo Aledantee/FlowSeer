@@ -499,12 +499,12 @@ Exported constructors validate and normalize configurations:
 - [Switch.Fork] creates an independent executable copy of a running switch that
   diverges freely. Construction inputs (`cfg`, `nodeID`, `metadata`) are
   shared, while mutable runtime state (forwarding tables, dynamic entries,
-  seeds, counters, layer states) is deep-copied. Bridge back-pointers
-  (STP/loop-protect gates, LAG selectors, multicast resolvers) are rebound to
-  the fork's own layers. [bridge.Layer.Clone] provides the underlying bridge
-  copy, cloning FDB entries, dynamic counts, and counters while resetting
-  bindings for the caller to rebind. Neither `Fork` nor `Clone` blocks or
-  allocates goroutines.
+  seeds, counters, layer states) is deep-copied. Fork leaves the packet filter
+  unset on the fork. Bridge back-pointers (STP/loop-protect gates, LAG
+  selectors, multicast resolvers) are rebound to the fork's own layers.
+  [bridge.Layer.Clone] provides the underlying bridge copy, cloning FDB entries,
+  dynamic counts, and counters while resetting bindings for the caller to
+  rebind. Neither `Fork` nor `Clone` blocks or allocates goroutines.
 - [Switch.Forward] and [Switch.Peek] return [ForwardResult], combining the domain
   [bridge.Result] with [analysis.Metadata] recording scoped issues, operational
   readiness, and evidence. A port with unknown operational status never forwards

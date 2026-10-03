@@ -498,6 +498,12 @@ func TestSameIssue(t *testing.T) {
 		t.Error("SameIssue returned false for an issue and itself")
 	}
 
+	otherCode := base
+	otherCode.Code = "code-2"
+	if analysis.SameIssue(base, otherCode) {
+		t.Error("SameIssue returned true for differing Code")
+	}
+
 	staleMessage := base
 	staleMessage.Message = "stale"
 	if analysis.SameIssue(base, staleMessage) {

@@ -7,6 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestTableBuiltWithCanonicalNameOrder(t *testing.T) {
@@ -761,4 +762,10 @@ func TestTableTransmit(t *testing.T) {
 			t.Errorf("Transmit(\"1/1/1\", 1501) reason = %q, want %q", reason, port.ReasonMTUExceeded)
 		}
 	})
+}
+
+func TestPortRuleConstants(t *testing.T) {
+	if got, want := port.RuleEgressNoMember, trace.RuleID("lag.egress.no_member"); got != want {
+		t.Errorf("RuleEgressNoMember = %q, want %q", got, want)
+	}
 }

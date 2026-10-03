@@ -9845,3 +9845,45 @@ func TestFilterStatefulReplyForwardsEndToEnd(t *testing.T) {
 		t.Errorf("state step Subject.Key = %q, want vlan20", stateStep.Subject.Key)
 	}
 }
+
+func TestRoutedFrameToDownPortEmitsPortStatusDownRule(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down}))
+
+	sw := mustSwitch(t, vswitch.Config{
+		Ports: ports,
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				"default": {
+					Interfaces: map[string]routing.Interface{
+						"rp1": {Port: "1/1/1", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						"rp2": {Port: "1/1/2", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+					},
+					Neighbors: []routing.Neighbor{
+						{Interface: "rp2", Addr: ipH2, MAC: macH2},
+					},
+				},
+			},
+		},
+	})
+
+	pkt := makeIPv4Packet(t, ipH1, ipH2, 64, []byte("routed-data"))
+	frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
+
+	res := sw.Forward(fixedTime, "1/1/1", frame)
+	if res.Outcome != trace.Dropped {
+		t.Fatalf("Outcome = %v, want Dropped", res.Outcome)
+	}
+	if res.Reason != port.ReasonPortDown {
+		t.Fatalf("Reason = %v, want %v", res.Reason, port.ReasonPortDown)
+	}
+
+	step, ok := findStep(res.Steps, trace.RuleID("port.status.port-down"))
+	if !ok {
+		t.Fatalf("no literal port.status.port-down step in trace: %+v", res.Steps)
+	}
+	if step.Layer != routing.LayerName {
+		t.Errorf("step layer = %v, want %v", step.Layer, routing.LayerName)
+	}
+}
