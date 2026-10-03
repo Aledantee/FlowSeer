@@ -10,9 +10,9 @@ approved: 2026-10-01
 
 ## Why it is required
 
-`frontend/web/src/ui/a11y.test.ts:4` imports `axe-core`, and lines 94-96 run
+`frontend/web/src/ui/a11y.test.ts:4` imports `axe-core`, and lines 132-135 run
 its WCAG-tagged audit against mounted component stories. The direct
-requirement is pinned at `4.13.0` in `frontend/web/package.json:47`.
+requirement is pinned at `4.13.0` in `frontend/web/package.json:49`.
 
 ## Why it is safe
 

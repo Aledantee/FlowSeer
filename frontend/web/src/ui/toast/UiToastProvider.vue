@@ -50,7 +50,7 @@ const { toasts, dismiss, remove } = useToast()
       :variant="item.variant"
       :duration="item.duration"
       :action-text="item.action?.label"
-      :action-alt-text="item.action?.altText ?? item.action?.label"
+      :action-alt-text="item.action?.altText || item.action?.label"
       @update:open="
         (val) => {
           if (!val) {

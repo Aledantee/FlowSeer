@@ -13,7 +13,7 @@ afterEach(() => {
 function mountDialog(
   props: Partial<UiDialogProps> & Record<string, unknown> = {},
   slots: Record<string, () => unknown> = {},
-  locale: WebLocale = 'en',
+  localeOrI18n: WebLocale | ReturnType<typeof createWebI18n> = 'en',
 ) {
   const host = document.createElement('div')
   document.body.append(host)
@@ -22,7 +22,11 @@ function mountDialog(
       return h(UiDialog, props as UiDialogProps, slots)
     },
   })
-  app.use(createWebI18n(locale))
+  if (typeof localeOrI18n === 'string') {
+    app.use(createWebI18n(localeOrI18n))
+  } else {
+    app.use(localeOrI18n)
+  }
   app.mount(host)
   dispose = () => app.unmount()
   return host
@@ -217,5 +221,75 @@ describe('UiDialog', () => {
       'button[aria-label="Dismiss Modal"]',
     )
     expect(closeBtn).not.toBeNull()
+  })
+
+  it('resolves fallbackTitle from catalog default', async () => {
+    const i18n = createWebI18n('en')
+    i18n.global.mergeLocaleMessage('en', {
+      ui: { dialog: { fallbackTitle: 'Probe title' } },
+    })
+    mountDialog({ defaultOpen: true }, {}, i18n)
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(document.body.querySelector('h2')?.textContent).toBe('Probe title')
+  })
+
+  it('updates dialog defaults on live locale change and preserves explicit overrides', async () => {
+    const i18n = createWebI18n('en')
+    mountDialog({ defaultOpen: true }, {}, i18n)
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialogDescEn = document.body.querySelector('p')
+    expect(dialogDescEn?.textContent).toBe('Dialog description')
+    const closeBtnEn = document.body.querySelector('button[aria-label="Close"]')
+    expect(closeBtnEn).not.toBeNull()
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    const dialogDescDe = document.body.querySelector('p')
+    expect(dialogDescDe?.textContent).toBe('Dialogbeschreibung')
+    const closeBtnDe = document.body.querySelector(
+      'button[aria-label="Schließen"]',
+    )
+    expect(closeBtnDe).not.toBeNull()
+
+    dispose()
+    document.body.replaceChildren()
+
+    const i18nOverride = createWebI18n('de')
+    mountDialog(
+      {
+        defaultOpen: true,
+        fallbackTitle: 'Custom Title',
+        fallbackDescription: 'Custom Description',
+        closeLabel: 'Custom Close',
+      },
+      {},
+      i18nOverride,
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(document.body.querySelector('h2')?.textContent).toBe('Custom Title')
+    expect(document.body.querySelector('p')?.textContent).toBe(
+      'Custom Description',
+    )
+    expect(
+      document.body.querySelector('button[aria-label="Custom Close"]'),
+    ).not.toBeNull()
+
+    i18nOverride.global.locale.value = 'en'
+    await nextTick()
+
+    expect(document.body.querySelector('h2')?.textContent).toBe('Custom Title')
+    expect(document.body.querySelector('p')?.textContent).toBe(
+      'Custom Description',
+    )
+    expect(
+      document.body.querySelector('button[aria-label="Custom Close"]'),
+    ).not.toBeNull()
   })
 })

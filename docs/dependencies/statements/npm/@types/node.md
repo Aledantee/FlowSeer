@@ -12,7 +12,7 @@ approved: 2026-10-01
 
 `frontend/web/tsconfig.json:17` includes the `node` type library for the Vite,
 test, and build configuration included by that project. The direct requirement
-is pinned at `22.20.4` in `frontend/web/package.json:45`.
+is pinned at `22.20.4` in `frontend/web/package.json:47`.
 
 ## Why it is safe
 

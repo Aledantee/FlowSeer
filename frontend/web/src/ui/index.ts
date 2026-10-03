@@ -106,6 +106,7 @@ export type { UiTabsProps } from './tabs/UiTabs.vue'
 export { default as UiToast } from './toast/UiToast.vue'
 export type { UiToastProps } from './toast/UiToast.vue'
 export { default as UiToastProvider } from './toast/UiToastProvider.vue'
+export type { UiToastProviderProps } from './toast/UiToastProvider.vue'
 export { useToast } from './toast/useToast'
 export type { ToastOptions } from './toast/useToast'
 
@@ -136,9 +137,12 @@ export { default as UiScrollArea } from './scroll-area/UiScrollArea.vue'
 export type { UiScrollAreaProps } from './scroll-area/UiScrollArea.vue'
 
 export { default as UiAiSummary } from './ai/UiAiSummary.vue'
-export type { UiAiSummaryProps } from './ai/UiAiSummary.vue'
+export type { UiAiSummaryLabels, UiAiSummaryProps } from './ai/UiAiSummary.vue'
 export { default as UiAiActionLayer } from './ai/UiAiActionLayer.vue'
-export type { UiAiActionLayerProps } from './ai/UiAiActionLayer.vue'
+export type {
+  UiAiActionLayerLabels,
+  UiAiActionLayerProps,
+} from './ai/UiAiActionLayer.vue'
 
 export { default as UiBreadcrumb } from './breadcrumb/UiBreadcrumb.vue'
 export type {

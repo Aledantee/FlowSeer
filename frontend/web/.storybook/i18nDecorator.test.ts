@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   createApp,
   defineComponent,
+  getCurrentInstance,
   h,
   nextTick,
   reactive,
@@ -13,6 +14,10 @@ import { composeStories, setProjectAnnotations } from '@storybook/vue3-vite'
 import { useI18n } from 'vue-i18n'
 import preview from './preview'
 import { createWebI18n } from '../src/i18n'
+import UiAppRoot from '../src/ui/app/UiAppRoot.vue'
+import UiButton from '../src/ui/button/UiButton.vue'
+import * as appRootStoryModule from '../src/ui/app/UiAppRoot.stories'
+import * as buttonStoryModule from '../src/ui/button/UiButton.stories'
 
 setProjectAnnotations(preview)
 
@@ -36,10 +41,11 @@ const storyModule = {
 
 let mounted: { app: App; container: HTMLElement }[] = []
 
-function mountStory(component: Component) {
+function mountStory(component: Component, configure?: (app: App) => void) {
   const container = document.createElement('div')
   document.body.append(container)
   const app = createApp(component)
+  configure?.(app)
   app.use(createWebI18n())
   app.mount(container)
   mounted.push({ app, container })
@@ -92,7 +98,7 @@ describe('i18nDecorator', () => {
     expect(probe?.textContent).toBe('Gesund')
   })
 
-  it('mounts en and de canvases together and unmounting either leaves the others translations usable', async () => {
+  it('unmounting en canvas leaves de translations usable and reactive to locale change', async () => {
     const enStories = composeStories(storyModule, {
       initialGlobals: { locale: 'en' },
     })
@@ -118,5 +124,85 @@ describe('i18nDecorator', () => {
     await nextTick()
 
     expect(deProbe?.textContent).toBe('Healthy')
+
+    deMount.app.unmount()
+    deMount.container.remove()
+  })
+
+  it('unmounting de canvas leaves en translations usable and reactive to locale change', async () => {
+    const enStories = composeStories(storyModule, {
+      initialGlobals: { locale: 'en' },
+    })
+    const deStories = composeStories(storyModule, {
+      initialGlobals: { locale: 'de' },
+    })
+
+    const enMount = mountStory(enStories.Default)
+    const deMount = mountStory(deStories.Default)
+    await nextTick()
+
+    expect(enMount.container.textContent).toContain('Healthy')
+    expect(deMount.container.textContent).toContain('Gesund')
+
+    deMount.app.unmount()
+    deMount.container.remove()
+    await nextTick()
+
+    const enProbe = enMount.container.querySelector('.probe-text')
+    expect(enProbe?.textContent).toBe('Healthy')
+
+    reactive(enStories.Default.globals).locale = 'de'
+    await nextTick()
+
+    expect(enProbe?.textContent).toBe('Gesund')
+
+    enMount.app.unmount()
+    enMount.container.remove()
+  })
+
+  it('exempts UiAppRoot from being wrapped in a second UiAppRoot while wrapping other stories', async () => {
+    let appRootAncestorCount = 0
+    let buttonRootAncestorCount = 0
+
+    const appRootStories = composeStories(appRootStoryModule)
+    const buttonStories = composeStories(buttonStoryModule)
+
+    mountStory(appRootStories.Default, (app) => {
+      app.mixin({
+        created() {
+          const instance = getCurrentInstance()
+          if (instance?.type === UiButton) {
+            let parent = instance.parent
+            while (parent) {
+              if (parent.type === UiAppRoot) {
+                appRootAncestorCount += 1
+              }
+              parent = parent.parent
+            }
+          }
+        },
+      })
+    })
+
+    mountStory(buttonStories.Primary, (app) => {
+      app.mixin({
+        created() {
+          const instance = getCurrentInstance()
+          if (instance?.type === UiButton) {
+            let parent = instance.parent
+            while (parent) {
+              if (parent.type === UiAppRoot) {
+                buttonRootAncestorCount += 1
+              }
+              parent = parent.parent
+            }
+          }
+        },
+      })
+    })
+    await nextTick()
+
+    expect(appRootAncestorCount).toBe(1)
+    expect(buttonRootAncestorCount).toBe(1)
   })
 })

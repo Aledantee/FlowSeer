@@ -9,6 +9,7 @@ export const numberFormats = {
   en: {
     decimal: {
       style: 'decimal',
+      maximumFractionDigits: 20,
     },
     integer: {
       style: 'decimal',
@@ -21,6 +22,7 @@ export const numberFormats = {
   de: {
     decimal: {
       style: 'decimal',
+      maximumFractionDigits: 20,
     },
     integer: {
       style: 'decimal',
@@ -38,9 +40,9 @@ export function createWebI18n(locale: WebLocale = 'en') {
     locale,
     fallbackLocale: 'en',
     messages: {
-      en,
-      de,
+      en: structuredClone(en),
+      de: structuredClone(de),
     },
-    numberFormats,
+    numberFormats: structuredClone(numberFormats),
   })
 }

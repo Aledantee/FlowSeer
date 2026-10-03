@@ -71,7 +71,7 @@ function stop(element: HTMLElement) {
 }
 ```
 
-In `frontend/web/src/ui/motion/useMotionFeedback.test.ts:550-556`, the test
+In `frontend/web/src/ui/motion/useMotionFeedback.test.ts:552-559`, the test
 suite asserts that subsequent synchronous writes survive through frame and timer
 settlement:
 
@@ -90,10 +90,10 @@ if (invariant.id === 'later-write') {
 
 - `frontend/web/src/ui/motion/useMotionFeedback.ts:73-85` executes synchronous
   restoration without deferred frame tasks.
-- `frontend/web/src/ui/motion/useMotionFeedback.test.ts:200-211` implements
+- `frontend/web/src/ui/motion/useMotionFeedback.test.ts:202-213` implements
   `settleFrames()` to drain `frame.postRender()`, `requestAnimationFrame()`,
   and zero-delay timer queues.
-- `frontend/web/src/ui/motion/useMotionFeedback.test.ts:465-468` and `:550-557`
+- `frontend/web/src/ui/motion/useMotionFeedback.test.ts:466-470` and `:552-559`
   enforce the `later-write` invariant across every terminal path.
 - Commit `63f97bfc` proves that re-introducing deferred `frame.render` and
   `frame.postRender` restores in `stop()` fails 70 generated cases in

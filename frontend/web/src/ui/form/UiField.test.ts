@@ -15,6 +15,7 @@ afterEach(() => {
 function mountField(
   fieldProps: Record<string, unknown> = {},
   locale: WebLocale = 'en',
+  messages?: Record<string, unknown>,
 ) {
   const host = document.createElement('div')
   document.body.append(host)
@@ -26,6 +27,7 @@ function mountField(
     },
   })
   const i18n = createWebI18n(locale)
+  if (messages) i18n.global.mergeLocaleMessage('en', messages)
   app.use(i18n)
   app.mount(host)
   dispose = () => app.unmount()
@@ -91,5 +93,12 @@ describe('UiField', () => {
     })
     const mark = label?.querySelector('span')
     expect(mark?.textContent?.trim()).toBe('(mandatory)')
+  })
+
+  it('takes the required mark from the catalog', () => {
+    const { label } = mountField({ label: 'Site', required: true }, 'en', {
+      ui: { field: { requiredMark: '(required)' } },
+    })
+    expect(label?.querySelector('span')?.textContent?.trim()).toBe('(required)')
   })
 })

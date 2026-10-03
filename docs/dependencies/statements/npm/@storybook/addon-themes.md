@@ -11,8 +11,8 @@ approved: 2026-10-01
 ## Why it is required
 
 `frontend/web/.storybook/main.ts:6` enables the addon, and
-`frontend/web/.storybook/preview.ts:2` imports its theme decorator. The direct
-requirement is pinned at `10.6.0` in `frontend/web/package.json:42`.
+`frontend/web/.storybook/preview.ts:3` imports its theme decorator. The direct
+requirement is pinned at `10.6.0` in `frontend/web/package.json:44`.
 
 ## Why it is safe
 

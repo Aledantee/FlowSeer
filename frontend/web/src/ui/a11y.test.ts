@@ -4,12 +4,14 @@ import { createApp, h, nextTick, type Component } from 'vue'
 import axe from 'axe-core'
 import { composeStories, setProjectAnnotations } from '@storybook/vue3-vite'
 import preview from '../../.storybook/preview'
+import { useI18n } from 'vue-i18n'
 import UiInput from './form/UiInput.vue'
 import { createWebI18n, type WebLocale } from '../i18n'
 
 setProjectAnnotations(preview)
 
 const AUDIT_LOCALES: readonly WebLocale[] = ['en', 'de']
+const GERMAN_PAGINATION_STORY = './pagination/UiPagination.stories.ts:Default'
 
 function extractI18nWarnings(calls: unknown[][]): string[] {
   const issues: string[] = []
@@ -288,6 +290,10 @@ describe('accessibility (axe-core)', () => {
     for (const key of Object.keys(COMPONENT_TARGETS)) {
       expect(storyKeys, `${key} is missing from the story audit`).toContain(key)
     }
+    expect(
+      storyKeys,
+      `${GERMAN_PAGINATION_STORY} is missing from the story audit`,
+    ).toContain(GERMAN_PAGINATION_STORY)
 
     const componentPaths = Object.keys(componentModules)
     expect(componentPaths.length).toBeGreaterThan(0)
@@ -331,6 +337,48 @@ describe('accessibility (axe-core)', () => {
       (v) => v.id === 'label' || v.id === 'label-title-only',
     )
     expect(labelViolation).toBeDefined()
+  })
+
+  it('detects missing-key, fallback, and parent-scope i18n warnings', () => {
+    const warnSpy = vi.spyOn(console, 'warn')
+    cleanups.push(() => warnSpy.mockRestore())
+
+    const container = document.createElement('div')
+    document.body.append(container)
+    const app = createApp({
+      setup() {
+        const { t } = useI18n({ useScope: 'parent' })
+        t('nonexistent.missing.key')
+        return () => h('div')
+      },
+    })
+    app.use(createWebI18n('de'))
+    app.mount(container)
+    cleanups.push(() => {
+      app.unmount()
+      container.remove()
+    })
+
+    const warnings = extractI18nWarnings(warnSpy.mock.calls)
+    expect(
+      warnings.some(
+        (w) =>
+          w.includes('Not found') &&
+          w.includes("'nonexistent.missing.key'") &&
+          w.includes("'de'"),
+      ),
+    ).toBe(true)
+    expect(
+      warnings.some(
+        (w) =>
+          w.includes('Fall back to translate') &&
+          w.includes("'nonexistent.missing.key'") &&
+          w.includes("'en'"),
+      ),
+    ).toBe(true)
+    expect(warnings.some((w) => w.includes('Not found parent scope'))).toBe(
+      true,
+    )
   })
 
   for (const [path, storyModule] of Object.entries(storyModules)) {
@@ -398,11 +446,12 @@ describe('accessibility (axe-core)', () => {
             const { selected, element, componentTarget } =
               await selectTarget(label)
 
-            const ask = document.querySelector<HTMLElement>('.ai-ask')
+            const asks = document.querySelectorAll<HTMLElement>('.ai-ask')
             expect(
-              ask,
-              `Expected ${label} to mount the Ask action for its selected target`,
-            ).not.toBeNull()
+              asks,
+              `Expected ${label} to mount exactly one Ask action for its selected target`,
+            ).toHaveLength(1)
+            const ask = asks[0]
             ask?.click()
             await settle()
             expect(
@@ -445,8 +494,7 @@ describe('accessibility (axe-core)', () => {
 
             if (
               locale === 'de' &&
-              path.includes('UiPagination.stories.ts') &&
-              storyName === 'Default'
+              `${path}:${storyName}` === GERMAN_PAGINATION_STORY
             ) {
               expect(container.textContent).toContain('Zurück')
               expect(container.textContent).toContain('Weiter')

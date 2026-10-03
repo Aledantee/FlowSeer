@@ -10,13 +10,20 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
-function mountApp(renderFn: () => unknown, locale: WebLocale = 'en') {
+function mountApp(
+  renderFn: () => unknown,
+  localeOrI18n: WebLocale | ReturnType<typeof createWebI18n> = 'en',
+) {
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp({
     render: renderFn,
   })
-  app.use(createWebI18n(locale))
+  if (typeof localeOrI18n === 'string') {
+    app.use(createWebI18n(localeOrI18n))
+  } else {
+    app.use(localeOrI18n)
+  }
   app.mount(host)
   dispose = () => app.unmount()
   return host
@@ -598,5 +605,47 @@ describe('UiCombobox', () => {
     expect(input?.placeholder).toBe('')
     expect(document.body.textContent).toContain('Keine Daten vorhanden')
     expect(document.body.textContent).not.toContain('No results found.')
+  })
+
+  it('updates combobox placeholder and emptyText on live locale change and preserves explicit overrides', async () => {
+    const i18n = createWebI18n('en')
+    const host = mountApp(
+      () =>
+        h('div', [
+          h(UiCombobox, {
+            options: [],
+            defaultOpen: true,
+          }),
+          h(UiCombobox, {
+            options: [],
+            defaultOpen: true,
+            placeholder: 'Custom Filter',
+            emptyText: 'Custom Empty',
+          }),
+        ]),
+      i18n,
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const inputs = host.querySelectorAll('input')
+    const defaultInput = inputs[0]
+    const customInput = inputs[1]
+    if (!defaultInput || !customInput) {
+      throw new Error('Expected both default and custom inputs to be rendered')
+    }
+
+    expect(defaultInput.placeholder).toBe('Search...')
+    expect(customInput.placeholder).toBe('Custom Filter')
+    expect(document.body.textContent).toContain('No results found.')
+    expect(document.body.textContent).toContain('Custom Empty')
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(defaultInput.placeholder).toBe('Suchen...')
+    expect(customInput.placeholder).toBe('Custom Filter')
+    expect(document.body.textContent).toContain('Keine Ergebnisse gefunden.')
+    expect(document.body.textContent).toContain('Custom Empty')
   })
 })

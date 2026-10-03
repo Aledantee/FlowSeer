@@ -78,10 +78,15 @@ const toneColorClass = computed(() => {
         <template v-if="valueText">
           {{ valueText(value, resolvedUnit) }}
         </template>
-        <I18nT v-else scope="global" keypath="ui.meter.valueWithUnit">
+        <I18nT
+          v-else-if="resolvedUnit"
+          scope="global"
+          keypath="ui.meter.valueWithUnit"
+        >
           <template #value>{{ n(value, 'decimal') }}</template>
           <template #unit>{{ resolvedUnit }}</template>
         </I18nT>
+        <template v-else>{{ n(value, 'decimal') }}</template>
         <span v-if="detail" class="font-sans text-muted-foreground">
           {{ resolvedDetailSeparator }}{{ detail }}
         </span>

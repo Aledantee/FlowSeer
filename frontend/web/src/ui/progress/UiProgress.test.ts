@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApp, h } from 'vue'
+import { createApp, h, nextTick } from 'vue'
 import UiProgress from './UiProgress.vue'
 import { createWebI18n, type WebLocale } from '../../i18n'
 
@@ -13,7 +13,7 @@ afterEach(() => {
 
 function mountProgress(
   props: Record<string, unknown> = {},
-  locale: WebLocale = 'en',
+  localeOrI18n: WebLocale | ReturnType<typeof createWebI18n> = 'en',
 ) {
   const host = document.createElement('div')
   document.body.append(host)
@@ -22,7 +22,11 @@ function mountProgress(
       return h(UiProgress, props)
     },
   })
-  app.use(createWebI18n(locale))
+  if (typeof localeOrI18n === 'string') {
+    app.use(createWebI18n(localeOrI18n))
+  } else {
+    app.use(localeOrI18n)
+  }
   app.mount(host)
   dispose = () => app.unmount()
   const el = host.firstElementChild as HTMLElement
@@ -60,9 +64,75 @@ describe('UiProgress', () => {
     dispose()
     document.body.replaceChildren()
 
+    const { el: elEnCustomMax } = mountProgress(
+      { modelValue: 35, max: 50 },
+      'en',
+    )
+    expect(elEnCustomMax.getAttribute('aria-valuetext')).toBe('70%')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const { el: elEnZero } = mountProgress({ modelValue: 0 }, 'en')
+    expect(elEnZero.getAttribute('aria-valuetext')).toBe('0%')
+
+    dispose()
+    document.body.replaceChildren()
+
     const { el: elDe } = mountProgress({ modelValue: 45, max: 100 }, 'de')
     expect(elDe.getAttribute('aria-label')).toBe('Fortschritt')
     expect(elDe.getAttribute('aria-valuetext')).toBe('45\u00a0%')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const { el: elDeCustomMax } = mountProgress(
+      { modelValue: 35, max: 50 },
+      'de',
+    )
+    expect(elDeCustomMax.getAttribute('aria-valuetext')).toBe('70\u00a0%')
+  })
+
+  it('updates progress aria-label and valuetext on live locale change and preserves explicit overrides', async () => {
+    const i18n = createWebI18n('en')
+    const host = document.createElement('div')
+    document.body.append(host)
+    const app = createApp({
+      render() {
+        return h('div', [
+          h(UiProgress, { modelValue: 45, max: 100 }),
+          h(UiProgress, {
+            modelValue: 45,
+            max: 100,
+            ariaLabel: 'Custom Progress',
+            valueText: 'Custom Value',
+          }),
+        ])
+      },
+    })
+    app.use(i18n)
+    app.mount(host)
+    dispose = () => app.unmount()
+
+    const progressEls = host.querySelectorAll('[role="progressbar"]')
+    const defaultEl = progressEls[0]
+    const customEl = progressEls[1]
+    if (!defaultEl || !customEl) {
+      throw new Error('Expected both progress elements to be rendered')
+    }
+
+    expect(defaultEl.getAttribute('aria-label')).toBe('Progress')
+    expect(defaultEl.getAttribute('aria-valuetext')).toBe('45%')
+    expect(customEl.getAttribute('aria-label')).toBe('Custom Progress')
+    expect(customEl.getAttribute('aria-valuetext')).toBe('Custom Value')
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(defaultEl.getAttribute('aria-label')).toBe('Fortschritt')
+    expect(defaultEl.getAttribute('aria-valuetext')).toBe('45\u00a0%')
+    expect(customEl.getAttribute('aria-label')).toBe('Custom Progress')
+    expect(customEl.getAttribute('aria-valuetext')).toBe('Custom Value')
   })
 
   it('preserves explicit ariaLabel and valueText overrides across locales, including empty strings', () => {

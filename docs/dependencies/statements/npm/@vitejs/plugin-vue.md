@@ -12,7 +12,7 @@ approved: 2026-10-01
 
 `frontend/web/vite.config.ts:2` imports the Vue Vite plugin, and line 6 adds it
 to the application build. The direct requirement is pinned at `6.0.9` in
-`frontend/web/package.json:46`.
+`frontend/web/package.json:48`.
 
 ## Why it is safe
 

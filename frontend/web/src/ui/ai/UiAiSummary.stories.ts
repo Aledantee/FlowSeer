@@ -148,7 +148,7 @@ export const Overrides: Story = {
     setup() {
       const target = summaryTarget('overrides')
       const labels = {
-        summaryLabel: 'Custom summary for {label}',
+        summaryLabel: 'Custom summary for target',
         generate: 'Generate brief',
         generating: 'Generating brief…',
         unavailable: 'Service unavailable',

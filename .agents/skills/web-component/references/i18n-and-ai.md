@@ -23,7 +23,7 @@ When `src/ai/catalog.ts` or `useAiTarget` does not exist yet:
   key `ui.<owner>.<suffix>`. Views use `view.<view>.<key>`.
 - The component calls `const { t, n, d } = useI18n({ useScope: 'global' })`.
 - Optional text props resolve as `props.text ?? t('ui.<owner>.<suffix>')`
-  in computed state or the template, preserving runtime reactivity.
+  in computed state or the template so translations react to locale changes.
   Never call `t` in a hoisted `withDefaults` default: Vue's
   `checkInvalidScopeReference` rejects it and a one-time translation freezes
   the locale. Structural defaults stay in `withDefaults`.
@@ -34,10 +34,9 @@ When `src/ai/catalog.ts` or `useAiTarget` does not exist yet:
 - Never build a sentence from fragments. Word order differs between
   English and German. Use one message with named interpolation.
 - German runs about 30% longer. LongText stories supply long content and
-  keep story-level `locale` unset in globals, avoiding story-level locale
-  overrides. The automated audit mounts every story in both English and
-  German, and browser checks inspect the layout with the German toolbar
-  selection.
+  leave story-level `locale` unset in globals. The automated audit mounts
+  every story in both English and German, and browser checks inspect the
+  layout with the German toolbar selection.
 - Add every key to both locale files in the same change. A test fails on
   a key that is missing from one of them.
 
@@ -92,9 +91,9 @@ const resolvedText = computed(() => props.text ?? t('ui.commandEmpty.text'))
 
 ## Tests
 
-- **i18n:** the story audit mounts each story in `en` and `de`, failing on
-  any missing-key, fallback, or parent-scope warning. German pagination
-  renders `Zurück` and `Weiter`.
+- **i18n:** the story audit mounts each story in `en` and `de`. The audit
+  asserts zero missing-key, fallback, and parent-scope warnings. German
+  pagination renders `Zurück` and `Weiter`.
 - **AI:** with an `ai` prop, `registry.list()` includes the target, and
   `highlight(id)` sets `data-ai-selected`. Without the prop, nothing
   registers.

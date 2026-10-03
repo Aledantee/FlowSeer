@@ -1,5 +1,11 @@
 import type { Decorator } from '@storybook/vue3-vite'
-import { getCurrentInstance, onBeforeUnmount, onMounted, ref } from 'vue'
+import {
+  getCurrentInstance,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+} from 'vue'
 import type { Ref } from 'vue'
 import {
   aiRegistry,
@@ -8,7 +14,9 @@ import {
   vAiTarget,
 } from '../src/ai'
 import type { AiHandler } from '../src/ai'
-import UiAiActionLayer from '../src/ui/ai/UiAiActionLayer.vue'
+import UiAiActionLayer, {
+  type UiAiActionLayerLabels,
+} from '../src/ui/ai/UiAiActionLayer.vue'
 
 // One decorator gives every story an inspectable target and a local demo
 // handler, independently of `main.ts`. It registers the story's wrapper as a
@@ -29,6 +37,7 @@ interface StoryCanvas {
   handler: AiHandler
   label: string
   story: string
+  labels?: UiAiActionLayerLabels
   showLayer: Ref<boolean>
 }
 
@@ -36,6 +45,7 @@ interface MountedCanvas {
   id: string
   element: HTMLElement
   handler: AiHandler
+  labels?: UiAiActionLayerLabels
   ownsId: boolean
   showLayer: Ref<boolean>
 }
@@ -43,9 +53,22 @@ interface MountedCanvas {
 function createStoryScope() {
   const canvases = new Set<MountedCanvas>()
   const handlers = new Map<string, AiHandler>()
+  const activeLabels = shallowRef<UiAiActionLayerLabels | undefined>()
   let host: MountedCanvas | undefined
   let removeWindow: (() => void) | undefined
   let removeDispatcher: (() => void) | undefined
+
+  function onTargetChange(id: string | undefined) {
+    if (!id) {
+      activeLabels.value = undefined
+      return
+    }
+    const targetElement = aiRegistry.view(id)?.element
+    const canvas = [...canvases].find(
+      (c) => targetElement && c.element.contains(targetElement),
+    )
+    activeLabels.value = canvas?.labels
+  }
 
   function openDocument() {
     if (removeWindow) return
@@ -72,6 +95,7 @@ function createStoryScope() {
     removeDispatcher = undefined
     removeWindow?.()
     removeWindow = undefined
+    activeLabels.value = undefined
   }
 
   function electHost() {
@@ -99,6 +123,7 @@ function createStoryScope() {
       id: canvas.id,
       element: canvas.element,
       handler: canvas.handler,
+      labels: canvas.labels,
       ownsId,
       showLayer: canvas.showLayer,
     }
@@ -109,7 +134,9 @@ function createStoryScope() {
       aiRegistry.unregister(canvas.element)
       canvases.delete(mounted)
       if (ownsId) handlers.delete(canvas.id)
-      if (host !== mounted) return
+      if (host !== mounted) {
+        return
+      }
       mounted.showLayer.value = false
       host = undefined
       if (canvases.size > 0) electHost()
@@ -117,7 +144,7 @@ function createStoryScope() {
     }
   }
 
-  return { mount }
+  return { mount, activeLabels, onTargetChange }
 }
 
 const storyScope = createStoryScope()
@@ -125,6 +152,8 @@ const storyScope = createStoryScope()
 export const withAiTargets: Decorator = (story, context) => {
   const id = `standalone:story:${context.id}`
   const configured = context.parameters?.ai?.handler as AiHandler | undefined
+  const labels = context.parameters?.ai?.labels as
+    UiAiActionLayerLabels | undefined
   const handler: AiHandler =
     configured ??
     (async (request) =>
@@ -146,16 +175,26 @@ export const withAiTargets: Decorator = (story, context) => {
           handler,
           label: context.title ?? context.id,
           story: context.id,
+          labels,
           showLayer,
         })
       })
       onBeforeUnmount(() => release?.())
-      return { root, showLayer }
+      return {
+        root,
+        showLayer,
+        activeLabels: storyScope.activeLabels,
+        onTargetChange: storyScope.onTargetChange,
+      }
     },
     template: `
       <div ref="root" data-ai-story-root>
         <story />
-        <UiAiActionLayer v-if="showLayer" />
+        <UiAiActionLayer
+          v-if="showLayer"
+          :labels="activeLabels"
+          @target-change="onTargetChange"
+        />
       </div>
     `,
   }

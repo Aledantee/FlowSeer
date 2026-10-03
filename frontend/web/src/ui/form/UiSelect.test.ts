@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApp, nextTick, ref } from 'vue'
+import { createApp, h, nextTick, ref } from 'vue'
 import UiSelect from './UiSelect.vue'
 import { createWebI18n, type WebLocale } from '../../i18n'
 
@@ -19,14 +19,18 @@ const options = [
 function mountSelect(
   props: Record<string, unknown> = {},
   parentContainer?: HTMLElement,
-  locale: WebLocale = 'en',
+  localeOrI18n: WebLocale | ReturnType<typeof createWebI18n> = 'en',
 ) {
   const host = parentContainer ?? document.createElement('div')
   if (!parentContainer) {
     document.body.append(host)
   }
   const app = createApp(UiSelect, props)
-  app.use(createWebI18n(locale))
+  if (typeof localeOrI18n === 'string') {
+    app.use(createWebI18n(localeOrI18n))
+  } else {
+    app.use(localeOrI18n)
+  }
   app.mount(host)
   dispose = () => {
     app.unmount()
@@ -231,5 +235,45 @@ describe('UiSelect', () => {
     )
     const triggerCustom = hostCustom.querySelector('button')
     expect(triggerCustom?.textContent).toContain('Custom Site Selection')
+  })
+
+  it('updates select placeholder on live locale change and preserves explicit overrides', async () => {
+    const i18n = createWebI18n('en')
+    const host = document.createElement('div')
+    document.body.append(host)
+    const app = createApp({
+      render() {
+        return h('div', [
+          h(UiSelect, { options }),
+          h(UiSelect, { options, placeholder: 'Custom Site Selection' }),
+        ])
+      },
+    })
+    app.use(i18n)
+    app.mount(host)
+    dispose = () => {
+      app.unmount()
+      dispose = () => {}
+    }
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const triggers = host.querySelectorAll('button')
+    const defaultTrigger = triggers[0]
+    const customTrigger = triggers[1]
+    if (!defaultTrigger || !customTrigger) {
+      throw new Error(
+        'Expected both default and custom triggers to be rendered',
+      )
+    }
+
+    expect(defaultTrigger.textContent).toContain('Select an option...')
+    expect(customTrigger.textContent).toContain('Custom Site Selection')
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(defaultTrigger.textContent).toContain('Option auswählen...')
+    expect(customTrigger.textContent).toContain('Custom Site Selection')
   })
 })

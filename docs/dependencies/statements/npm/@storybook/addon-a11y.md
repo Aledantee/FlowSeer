@@ -12,7 +12,7 @@ approved: 2026-10-01
 
 `frontend/web/.storybook/main.ts:7` enables `@storybook/addon-a11y` for the
 component workbench. The direct requirement is pinned at `10.6.0` in
-`frontend/web/package.json:40`.
+`frontend/web/package.json:42`.
 
 ## Why it is safe
 

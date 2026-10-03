@@ -36,11 +36,19 @@ const defaultStatusKeys = {
   Offline: 'ui.segmentedMeter.offline',
 } as const
 
+// Segment labels can be data-derived, so a key such as "constructor" must not
+// resolve to a member of Object.prototype.
+function overrideLabel(key: string): string | undefined {
+  const labels = props.labels
+  return labels && Object.hasOwn(labels, key) ? labels[key] : undefined
+}
+
 function resolveLabel(key: string): string {
-  if (props.labels?.[key]) {
-    return props.labels[key]
+  const override = overrideLabel(key)
+  if (override !== undefined) {
+    return override
   }
-  if (key in defaultStatusKeys) {
+  if (Object.hasOwn(defaultStatusKeys, key)) {
     return t(defaultStatusKeys[key as keyof typeof defaultStatusKeys])
   }
   return key
@@ -60,7 +68,7 @@ const normalizedSegments = computed<MeterSegment[]>(() => {
   if (props.segments) {
     return props.segments.map((seg) => ({
       ...seg,
-      label: props.labels?.[seg.label] ?? seg.label,
+      label: overrideLabel(seg.label) ?? seg.label,
     }))
   }
   if (props.counts) {
@@ -83,6 +91,8 @@ const total = computed(() =>
 )
 
 const summary = computed(() => {
+  // Truthiness on purpose: the summary is the role="img" track's only name, and
+  // an empty one fails axe's role-img-alt, so an empty label falls back.
   if (props.label) return props.label
   const nonZero = normalizedSegments.value.filter((s) => s.count > 0)
   if (nonZero.length === 0) return n(0, 'decimal')

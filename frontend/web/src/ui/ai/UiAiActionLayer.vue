@@ -28,6 +28,9 @@ export interface UiAiActionLayerProps {
 }
 
 const props = defineProps<UiAiActionLayerProps>()
+const emit = defineEmits<{
+  (e: 'targetChange', targetId: string | undefined): void
+}>()
 const { t } = useI18n({ useScope: 'global' })
 
 // One overlay per app or Storybook canvas. It draws the compact AI button in
@@ -134,6 +137,14 @@ function measure() {
   const element = layerTarget.value?.element
   box.value = element ? visibleRect(element) : undefined
 }
+
+watch(
+  layerTarget,
+  (view) => {
+    emit('targetChange', view?.target.id)
+  },
+  { immediate: true },
+)
 
 let observer: ResizeObserver | undefined
 watch(
@@ -340,7 +351,7 @@ function submit() {
           @submit.prevent="submit"
         >
           <p class="text-xs font-medium text-foreground">
-            <template v-if="props.labels?.heading">
+            <template v-if="props.labels?.heading != null">
               {{ props.labels.heading }}
             </template>
             <I18nT v-else keypath="ui.aiActionLayer.heading" scope="global">
