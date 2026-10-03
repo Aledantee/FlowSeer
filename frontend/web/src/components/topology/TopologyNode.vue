@@ -72,7 +72,7 @@ const selected = computed(
     </span>
     <UiStatusBadge
       v-if="device.health !== 'Healthy'"
-      class="self-start"
+      class="topology-node-status"
       :status="device.health"
       size="sm"
     />
@@ -88,6 +88,7 @@ const selected = computed(
 
 <style scoped>
 .topology-node {
+  position: relative;
   height: 86px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -127,6 +128,13 @@ const selected = computed(
 }
 .topology-node-text {
   min-width: 0;
+}
+/* The badge sits on the top border so a long status word, such as the
+   German one for degraded, leaves the device name its full column. */
+.topology-node-status {
+  position: absolute;
+  top: -9px;
+  right: 10px;
 }
 .topology-node-text strong,
 .topology-node-text small {
