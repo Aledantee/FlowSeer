@@ -789,11 +789,14 @@ func TestSync_DeviceRelistedAtNewAddressFailingOnboardingNoLongerResolvesFromOld
 	if err := onboarder2.Sync(context.Background()); err != nil {
 		t.Fatalf("Sync 2: %v", err)
 	}
+	if added := reg2.addedDevices(); len(added) != 0 {
+		t.Fatalf("onboarded %v, want nothing", added)
+	}
 	if _, res := idx.Lookup("172.16.0.6"); res != lanehost.LookupUnknown {
 		t.Fatalf("Lookup old after Sync 2 = %v, want LookupUnknown", res)
 	}
 	if entry, res := idx.Lookup("172.16.0.99"); res != lanehost.LookupFound || entry.DeviceID != deviceOne {
-		t.Fatalf("Lookup new after Sync 2 = (%v, %v), want (%s, LookupFound) although the lane never onboarded it", entry, res, deviceOne)
+		t.Fatalf("Lookup new after Sync 2 = (%v, %v), want (%s, LookupFound) although the second attempt never onboarded it", entry, res, deviceOne)
 	}
 }
 
