@@ -30,7 +30,7 @@ test, since that side is reviewed.
 
 A convention finding is a repository rule broken in code (for example, a helper
 with one caller), or a wrong comment or doc (for example, a README that names
-a deleted flag). It closes when the corrected lines stand at its `path:line`.
+a deleted flag).
 
 The coordinator collects each gap and convention finding as it is settled, from
 the initial review and from every round, in its report: `path:line`, the
@@ -93,13 +93,15 @@ and two are not clean, round three is clean, and the one recorded gap needs a
 helper changed. The worker reports it, the item stays, and the verdict is
 `fixes needed` with the question below.
 
-One review runs one gap pass. Every item still recorded once the pass has run
-ends the review at `fixes needed` with a question offering one more gap pass
-or stopping, whether the item survived the pass or a later round found it. A
+One review runs one gap pass. Once the loop has ended (When to stop), every
+item still recorded after the pass ends the review at `fixes needed` with a
+question offering one more gap pass or stopping, whether the item survived
+the pass or a later round found it. Until then a pass that became a round
+keeps the loop open like any other round, and its items stay recorded. A
 gap that needs source becomes a round, or after three rounds waits for the
-next review, so no third option exists. When a behavior or false-test finding
-is also open, the outcome of the three-round limit (When to stop) is the
-review's and the items stay recorded. When a Requirement question is also
+next review, so no third option exists. When the loop ended at the
+three-round limit with a behavior or false-test finding open, that limit's
+outcome is the review's and the items stay recorded. When a Requirement question is also
 open, the question offers taking the Requirement to `plan`, one more gap pass,
 or stopping. One more gap pass is a new review: `review` runs again from
 step 1, reads the record, and has a fresh round count and one pass, and step 6

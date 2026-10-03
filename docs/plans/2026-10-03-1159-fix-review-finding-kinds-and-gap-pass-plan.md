@@ -120,10 +120,13 @@ Where items close:
   (`.agents/skills/land/SKILL.md:80`, `.agents/skills/next/SKILL.md:28`),
   and a count carried over from the verdict commit would leave an item the
   cap held back with no review that may close it.
-- An item still recorded once this review's pass has run ends the review at
-  `fixes needed` with the question, whether it survived the pass or a later
-  round found it. When a behavior or false-test finding is also open, the
-  cap's outcome is the review's and the items stay recorded. When a
+- Once the loop has ended, an item still recorded after this review's pass
+  ends the review at `fixes needed` with the question, whether it survived
+  the pass or a later round found it. Until then a pass that became a round
+  keeps the loop open like any other round (decided by the user,
+  2026-10-03). When the loop ended at the cap with a behavior or false-test
+  finding open, the cap's outcome is the review's and the items stay
+  recorded. When a
   Requirement question is also open, the question offers both remedies and
   stopping. Why: an ending defined by where an item came from leaves a gap
   from a round after the pass with no question, and two endings with no
@@ -229,8 +232,8 @@ Requirement questions:
    and two are not clean, round three is clean, and the one recorded gap
    needs a helper changed. The worker reports it, the item stays, and the
    verdict is `fixes needed` with the surviving-item question.
-8. An item still recorded once the review's gap pass has run ends the
-   review with a question offering one more gap pass or stopping. One more
+8. Once the loop has ended, an item still recorded after the review's gap
+   pass ends the review with a question offering one more gap pass or stopping. One more
    gap pass is a new review from step 1 with a fresh round count, and step
    6 runs in it. A
    delegated reviewer states each such item's `path:line` and its mutation
@@ -421,14 +424,4 @@ third prints nothing.
 
 ## Open questions
 
-- Requirement 8 and the Decision on an item still recorded once the pass
-  has run do not say they apply only after the loop has ended. When the
-  pass became round one and its reviewers return a behavior defect beside
-  a surviving item, `.agents/skills/review/references/fix-loop.md:96` ends
-  the review, `:100` names a limit not yet reached, and `:159` keeps the
-  loop open with two rounds unused. Scope both to the end of the loop?
-
-## Review gaps
-
-- `.agents/skills/review/references/fix-loop.md:33`: "It closes when the corrected lines stand at its `path:line`" repeats `:66`; fails: `docs/doc-style.md`, say a thing once
-- `.agents/skills/review/SKILL.md:25`: "Step 3 carries its items" reads as the run's items after the inserted sentence; fails: a reader looking for whose items the briefs carry
+None.

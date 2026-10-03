@@ -23,8 +23,9 @@ Read the record of open items an earlier review left: the plan's
 `## Review gaps` section, or for planless work the last `gaps:` line of
 `$(git rev-parse --git-dir)/flowseer-checkpoints`. A run on a scope with a
 recorded verdict is a new review with a fresh round count. Step 3 carries
-its items into the reviewer briefs as the previous round's findings, so a
-fresh session judges them instead of rediscovering them. Also read each plan
+the record's items into the reviewer briefs as the previous round's
+findings, so a fresh session judges them instead of rediscovering them.
+Also read each plan
 Decision ending `decided by the user` that settles a Requirement question.
 Judge that Requirement by the Decision's text, and remove the matching item
 from the plan's Open questions.
