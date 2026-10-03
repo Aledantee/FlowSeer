@@ -57,6 +57,32 @@ provisioning_path: "/etc/flowseer/provisioning.textproto"
 
 Everything else defaults: thirty-second heartbeats, a dispatch backoff from
 one second to thirty, the bus module's buffer bounds, and INFO logging.
+Leaving `syslog` unset runs no syslog source.
+
+## Syslog listener configuration
+
+An agent runs a syslog source only when `syslog` names one or more listeners.
+Without it, no socket is bound and the syslog module is omitted from the
+supervision tree.
+
+```prototext
+syslog {
+  listeners {
+    address: "0.0.0.0:514"
+    transport: AGENT_SYSLOG_TRANSPORT_UDP
+  }
+  listeners {
+    address: "0.0.0.0:601"
+    transport: AGENT_SYSLOG_TRANSPORT_TCP
+    framing: AGENT_SYSLOG_FRAMING_OCTET_COUNTING
+  }
+}
+```
+
+A listener defaults to UDP when `transport` is omitted. Framing applies only to
+TCP listeners; setting framing on a UDP listener fails validation at load. Unset
+raw failure bounds default to 20 failures per device per minute before sampling,
+and sample one in 100 thereafter.
 
 ## Two files, two protections
 

@@ -10,6 +10,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/agent/host"
+	"go.aledante.io/FlowSeer/src/protocol/syslog"
 )
 
 const (
@@ -75,6 +76,12 @@ func TestAWorkingFileIsTwoLinesAndEverythingElseDefaults(t *testing.T) {
 	// configuration does not own the buffer's bounds and must not invent one.
 	if bytes, age := cfg.Buffer(); bytes != 0 || age != 0 {
 		t.Errorf("Buffer() = %d/%v, want zero for a file that names neither", bytes, age)
+	}
+	if got := cfg.SyslogListeners(); got != nil {
+		t.Errorf("SyslogListeners() = %v, want nil for a file that names no syslog block", got)
+	}
+	if failures, sample := cfg.SyslogRawPolicy(); failures != 20 || sample != 100 {
+		t.Errorf("SyslogRawPolicy() = %d/%d, want 20/100 default", failures, sample)
 	}
 }
 
@@ -225,3 +232,187 @@ provisioning_path: "`+provisioning+`"
 		t.Fatalf("LoadConfig() code = %v (err %v), want %v", code, err, host.ErrCodeConfigInvalid)
 	}
 }
+
+func TestSyslogConfig_DefaultsAndAddressOnly(t *testing.T) {
+	cfg, err := host.LoadConfig(configFile(t, `syslog {
+  listeners { address: "127.0.0.1:514" }
+}
+`))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	listeners := cfg.SyslogListeners()
+	if len(listeners) != 1 {
+		t.Fatalf("len(SyslogListeners()) = %d, want 1", len(listeners))
+	}
+	l := listeners[0]
+	if l.Address != "127.0.0.1:514" {
+		t.Errorf("Address = %q, want 127.0.0.1:514", l.Address)
+	}
+	if l.Transport != syslog.UDP {
+		t.Errorf("Transport = %v, want UDP", l.Transport)
+	}
+	if l.Framing != "" {
+		t.Errorf("Framing = %q, want empty (unset)", l.Framing)
+	}
+	failures, sample := cfg.SyslogRawPolicy()
+	if failures != 20 || sample != 100 {
+		t.Errorf("SyslogRawPolicy() = %d/%d, want 20/100 default", failures, sample)
+	}
+}
+
+func TestSyslogConfig_ConfiguredNumbersWin(t *testing.T) {
+	cfg, err := host.LoadConfig(configFile(t, `syslog {
+  listeners { address: "127.0.0.1:514" }
+  raw_failures_per_minute: 10
+  raw_sample_every: 50
+}
+`))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	failures, sample := cfg.SyslogRawPolicy()
+	if failures != 10 || sample != 50 {
+		t.Errorf("SyslogRawPolicy() = %d/%d, want 10/50", failures, sample)
+	}
+}
+
+func TestSyslogConfig_ListenerCountsEnforced(t *testing.T) {
+	// 0 listeners
+	_, err := host.LoadConfig(configFile(t, `syslog {}
+`))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("0 listeners code = %v, want ErrCodeConfigInvalid", code)
+	}
+
+	// 9 listeners
+	var nineListeners strings.Builder
+	nineListeners.WriteString("syslog {\n")
+	for i := 1; i <= 9; i++ {
+		nineListeners.WriteString(`  listeners { address: "127.0.0.1:51` + string(rune('0'+i)) + `" }` + "\n")
+	}
+	nineListeners.WriteString("}\n")
+	_, err = host.LoadConfig(configFile(t, nineListeners.String()))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("9 listeners code = %v, want ErrCodeConfigInvalid", code)
+	}
+}
+
+func TestSyslogConfig_TransportAndFramingMapping(t *testing.T) {
+	cases := []struct {
+		name          string
+		block         string
+		wantTransport syslog.Transport
+		wantFraming   syslog.Framing
+	}{
+		{
+			name:          "transport unset defaults to UDP",
+			block:         `listeners { address: "127.0.0.1:514" }`,
+			wantTransport: syslog.UDP,
+			wantFraming:   "",
+		},
+		{
+			name:          "explicit UDP",
+			block:         `listeners { address: "127.0.0.1:514" transport: AGENT_SYSLOG_TRANSPORT_UDP }`,
+			wantTransport: syslog.UDP,
+			wantFraming:   "",
+		},
+		{
+			name:          "TCP with unset framing",
+			block:         `listeners { address: "127.0.0.1:601" transport: AGENT_SYSLOG_TRANSPORT_TCP }`,
+			wantTransport: syslog.TCP,
+			wantFraming:   "",
+		},
+		{
+			name:          "TCP with auto framing",
+			block:         `listeners { address: "127.0.0.1:601" transport: AGENT_SYSLOG_TRANSPORT_TCP framing: AGENT_SYSLOG_FRAMING_AUTO }`,
+			wantTransport: syslog.TCP,
+			wantFraming:   syslog.Auto,
+		},
+		{
+			name:          "TCP with octet counting framing",
+			block:         `listeners { address: "127.0.0.1:601" transport: AGENT_SYSLOG_TRANSPORT_TCP framing: AGENT_SYSLOG_FRAMING_OCTET_COUNTING }`,
+			wantTransport: syslog.TCP,
+			wantFraming:   syslog.OctetCounting,
+		},
+		{
+			name:          "TCP with LF framing",
+			block:         `listeners { address: "127.0.0.1:601" transport: AGENT_SYSLOG_TRANSPORT_TCP framing: AGENT_SYSLOG_FRAMING_LF }`,
+			wantTransport: syslog.TCP,
+			wantFraming:   syslog.LF,
+		},
+		{
+			name:          "TCP with CRLF framing",
+			block:         `listeners { address: "127.0.0.1:601" transport: AGENT_SYSLOG_TRANSPORT_TCP framing: AGENT_SYSLOG_FRAMING_CRLF }`,
+			wantTransport: syslog.TCP,
+			wantFraming:   syslog.CRLF,
+		},
+		{
+			name:          "TCP with NUL framing",
+			block:         `listeners { address: "127.0.0.1:601" transport: AGENT_SYSLOG_TRANSPORT_TCP framing: AGENT_SYSLOG_FRAMING_NUL }`,
+			wantTransport: syslog.TCP,
+			wantFraming:   syslog.NUL,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := host.LoadConfig(configFile(t, "syslog {\n"+tc.block+"\n}\n"))
+			if err != nil {
+				t.Fatalf("LoadConfig: %v", err)
+			}
+			listeners := cfg.SyslogListeners()
+			if len(listeners) != 1 {
+				t.Fatalf("len(listeners) = %d, want 1", len(listeners))
+			}
+			if listeners[0].Transport != tc.wantTransport {
+				t.Errorf("Transport = %v, want %v", listeners[0].Transport, tc.wantTransport)
+			}
+			if listeners[0].Framing != tc.wantFraming {
+				t.Errorf("Framing = %v, want %v", listeners[0].Framing, tc.wantFraming)
+			}
+		})
+	}
+}
+
+func TestSyslogConfig_FramingOnNonTCPRefused(t *testing.T) {
+	// Framing on unset transport (which is UDP)
+	_, err := host.LoadConfig(configFile(t, `syslog {
+  listeners { address: "127.0.0.1:514" framing: AGENT_SYSLOG_FRAMING_LF }
+}
+`))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("framing on unset transport code = %v, want ErrCodeConfigInvalid", code)
+	}
+
+	// Framing on explicit UDP
+	_, err = host.LoadConfig(configFile(t, `syslog {
+  listeners { address: "127.0.0.1:514" transport: AGENT_SYSLOG_TRANSPORT_UDP framing: AGENT_SYSLOG_FRAMING_LF }
+}
+`))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("framing on explicit UDP code = %v, want ErrCodeConfigInvalid", code)
+	}
+}
+
+func TestSyslogConfig_ZeroNumbersRefused(t *testing.T) {
+	_, err := host.LoadConfig(configFile(t, `syslog {
+  listeners { address: "127.0.0.1:514" }
+  raw_failures_per_minute: 0
+}
+`))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("raw_failures_per_minute 0 code = %v, want ErrCodeConfigInvalid", code)
+	}
+
+	_, err = host.LoadConfig(configFile(t, `syslog {
+  listeners { address: "127.0.0.1:514" }
+  raw_sample_every: 0
+}
+`))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("raw_sample_every 0 code = %v, want ErrCodeConfigInvalid", code)
+	}
+}
+
