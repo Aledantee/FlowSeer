@@ -108,7 +108,7 @@ below restate the choices made for it or are local to the work.
 
 Files: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase1-plan.md
 After: none
-Landed:
+Landed: `341f4cd3..646d080c`
 
 ### U2. Central intake
 
