@@ -142,9 +142,9 @@ The parent plan's Decisions apply. These are local to the phase.
   device with a usable address, whether or not the device onboards, and
   drops the device's claim on any other address. An address with two or
   more claimants resolves to no device. An address with one claimant
-  resolves to it only when the device was onboarded at this address by a
-  lane attempt of this process and is still listed there, and otherwise the
-  datagram is dropped as `unknown_source`. That state outlives the lane
+  resolves to it only when the device was onboarded by a lane attempt of
+  this process and is listed at this address, and otherwise the datagram is
+  dropped as `unknown_source`. That state outlives the lane
   attempt, so a lane restart and a process restart differ: after a lane
   restart a device the new attempt has not yet onboarded still resolves,
   and after a process restart the index starts empty
