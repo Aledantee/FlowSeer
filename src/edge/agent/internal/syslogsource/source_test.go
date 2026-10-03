@@ -1021,3 +1021,79 @@ func TestSource_RawPolicySuppressionAndMetrics(t *testing.T) {
 		t.Errorf("raw.suppressed metric = %d (ok=%t), want 2", suppressed, ok)
 	}
 }
+
+func TestSource_DatagramFromSharedAddressYieldsNoEnvelopeAndAmbiguousDroppedCount(t *testing.T) {
+	t.Parallel()
+
+	hub := startHub(t, t.TempDir())
+	leaf := startLeaf(t, t.TempDir(), hub)
+	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
+
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	meter := mp.Meter("test")
+
+	index := lanehost.NewDeviceIndex()
+	bindRef := inventoryv1.BindingGlobalRef_builder{
+		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build(),
+	}.Build()
+	index.Add("127.0.0.1", testDeviceID, bindRef)
+	index.Add("127.0.0.1", "0192e6a0-0000-7000-8000-0000000000d2", bindRef)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	src, err := syslogsource.Listen(ctx, syslogsource.Config{
+		Listeners: []syslog.ListenConfig{
+			{Transport: syslog.UDP, Address: "127.0.0.1:0"},
+		},
+		Index:     index,
+		Publisher: leaf,
+		EdgeRef:   testEdgeRef(),
+		Meter:     meter,
+	})
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	defer func() { _ = src.Close() }()
+
+	spawn.Go(ctx, "syslog-source-runner", func() {
+		_ = src.Run(ctx)
+	})
+
+	udpAddr := src.Receiver().Addresses()[0].Address
+	conn, err := net.Dial("udp", udpAddr)
+	if err != nil {
+		t.Fatalf("Dial UDP: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	payload := []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - shared address drop")
+	if _, err := conn.Write(payload); err != nil {
+		t.Fatalf("write UDP: %v", err)
+	}
+
+	waitFor(t, "dropped metric", 5*time.Second, func() bool {
+		val, ok := readMetricSum(reader, "flowseer.edge.syslog.dropped")
+		return ok && val == 1
+	})
+
+	if reason, ok := readMetricAttr(reader, "flowseer.edge.syslog.dropped", "flowseer.edge.syslog.reason"); !ok || reason != "ambiguous_source" {
+		t.Errorf("dropped reason = %q (found=%t), want ambiguous_source", reason, ok)
+	}
+	if _, found := readMetricAttr(reader, "flowseer.edge.syslog.dropped", "flowseer.device.id"); found {
+		t.Error("flowseer.device.id attribute found on dropped metric, want none")
+	}
+
+	stream, err := hub.EdgeStream(context.Background(), testEdgeID)
+	if err != nil {
+		t.Fatalf("hub edge stream: %v", err)
+	}
+	subject := leaf.Subject("ingest.syslog")
+
+	time.Sleep(100 * time.Millisecond)
+	msg, err := stream.GetLastMsgForSubject(context.Background(), subject)
+	if err == nil && msg != nil {
+		t.Fatalf("unexpected message in stream: %v", msg)
+	}
+}

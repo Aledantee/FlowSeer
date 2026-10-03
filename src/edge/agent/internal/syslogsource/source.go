@@ -187,8 +187,15 @@ func (s *Source) Run(ctx context.Context) error {
 			))
 			continue
 		}
-		devEntry, ok := s.index.Lookup(peerAddr.String())
-		if !ok {
+		devEntry, res := s.index.Lookup(peerAddr.String())
+		switch res {
+		case lanehost.LookupFound:
+		case lanehost.LookupAmbiguous:
+			s.dropped.Add(ctx, 1, metric.WithAttributes(
+				attribute.String("flowseer.edge.syslog.reason", "ambiguous_source"),
+			))
+			continue
+		default:
 			s.dropped.Add(ctx, 1, metric.WithAttributes(
 				attribute.String("flowseer.edge.syslog.reason", "unknown_source"),
 			))

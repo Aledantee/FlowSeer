@@ -138,6 +138,9 @@ func NewOnboarder(cfg OnboardConfig) (*Onboarder, error) {
 // recorded as held, so the next Sync tries it again. That is the case of a
 // device that is simply unreachable at this moment, which is not a reason to
 // leave the rest of the edge's fleet unserved.
+//
+// After a successful listing, the configured device index is pruned to the
+// listed device IDs.
 func (o *Onboarder) Sync(ctx context.Context) error {
 	o.syncing.Lock()
 	defer o.syncing.Unlock()
@@ -147,8 +150,18 @@ func (o *Onboarder) Sync(ctx context.Context) error {
 		return errs.From(err).Code(ErrCodeOnboard).Msg("list the devices this edge serves")
 	}
 
-	for _, listed := range resp.Msg.GetDevices() {
+	devices := resp.Msg.GetDevices()
+	for _, listed := range devices {
 		o.onboard(ctx, listed)
+	}
+	if o.cfg.Index != nil {
+		listedIDs := make([]string, 0, len(devices))
+		for _, listed := range devices {
+			if id := listed.GetDeviceId(); id != "" {
+				listedIDs = append(listedIDs, id)
+			}
+		}
+		o.cfg.Index.Prune(listedIDs)
 	}
 	return nil
 }

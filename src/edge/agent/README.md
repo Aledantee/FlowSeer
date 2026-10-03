@@ -207,7 +207,9 @@ and publishes them to the local edge buffer on `flowseer.<tenant>.edge.<edge-id>
 
 Incoming datagrams are accepted only from management addresses known to
 `lanehost.DeviceIndex`. Senders from unknown addresses are dropped and counted
-on `flowseer.edge.syslog.dropped` with reason `unknown_source`.
+on `flowseer.edge.syslog.dropped` with reason `unknown_source`. When two or more
+listed devices share an address, datagrams from that address resolve to no
+device and are dropped with reason `ambiguous_source`.
 
 When a record fails parsing or exceeds field length bounds, `RawPolicy`
 evaluates whether to attach the raw payload. The first 20 failures per device
