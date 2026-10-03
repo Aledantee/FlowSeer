@@ -33,25 +33,25 @@ const (
 type BlockReason string
 
 const (
-	// BlockReasonBPDUGuard marks a port bpdu.BPDU guard disabled because a bpdu.BPDU
+	// BlockReasonBPDUGuard marks a port BPDU guard disabled because a BPDU
 	// arrived on it. Only a link down and up clears it.
 	BlockReasonBPDUGuard BlockReason = "bpdu-guard"
 
 	// BlockReasonPVIDInconsistent marks a port whose peer disagrees about
-	// which VLAN a link carries: an SSTP bpdu.BPDU arrived naming a VLAN other
+	// which VLAN a link carries: an SSTP BPDU arrived naming a VLAN other
 	// than the one the switch classified the frame into. The next consistent
-	// bpdu.BPDU on the arrival VLAN clears it.
+	// BPDU on the arrival VLAN clears it.
 	BlockReasonPVIDInconsistent BlockReason = "pvid-inconsistent"
 
 	// BlockReasonLoopInconsistent marks a port whose received information
 	// expired while it held a non-designated role, which loop guard keeps
-	// discarding rather than letting it open a loop. The next bpdu.BPDU clears it.
+	// discarding rather than letting it open a loop. The next BPDU clears it.
 	BlockReasonLoopInconsistent BlockReason = "loop-inconsistent"
 )
 
 // PortInfo summarizes the runtime spanning tree status of one port.
 type PortInfo struct {
-	// bpdu.MSTID names the tree this snapshot belongs to: 0 for the CIST, the
+	// MSTID names the tree this snapshot belongs to: 0 for the CIST, the
 	// instance identifier for an MSTI. It rides here so a trace fact can name
 	// the blocking instance rather than leaving a reader to infer it.
 	MSTID              bpdu.MSTID
@@ -103,7 +103,7 @@ type Layer struct {
 
 	// treeOrder lists the trees in the deterministic order every walk visits
 	// them: the CIST first, then MSTIDs ascending. A map range would let
-	// layer.Effects order vary between runs of the same input, which the corpus's
+	// Effects order vary between runs of the same input, which the corpus's
 	// deterministic-re-execution test would catch.
 	treeOrder []treeID
 
@@ -126,8 +126,8 @@ type Layer struct {
 	pvst *PVST
 
 	// configID is this bridge's own MST configuration identifier, computed
-	// once from mst at construction. A received MST bpdu.BPDU is internal when its
-	// bpdu.ConfigID equals this one.
+	// once from mst at construction. A received MST BPDU is internal when its
+	// ConfigID equals this one.
 	configID *bpdu.ConfigID
 }
 
@@ -168,7 +168,7 @@ type portState struct {
 	// drive.
 	pathCostFixed bool
 
-	// external marks a boundary port: one whose most recently received bpdu.BPDU
+	// external marks a boundary port: one whose most recently received BPDU
 	// carried no MST configuration identifier, or one from a different
 	// region. It lives on the CIST port state because classification is a
 	// property of the link, not of a tree running over it; every other tree
@@ -176,9 +176,9 @@ type portState struct {
 	external bool
 
 	// rcvRegionalRootID and rcvInternalRootPathCost hold the CIST's
-	// region-internal received information, filled only when a bpdu.BPDU arrived
+	// region-internal received information, filled only when a BPDU arrived
 	// internal (external is false). rcvRemainingHops holds the hop count an
-	// internal bpdu.BPDU (CIST or MSTI) carried, which internal information ages
+	// internal BPDU (CIST or MSTI) carried, which internal information ages
 	// by instead of message age.
 	rcvRegionalRootID       bpdu.BridgeID
 	rcvInternalRootPathCost uint32
@@ -194,15 +194,15 @@ type portState struct {
 	loopInconsistent  bool
 
 	// pvidInconsistent marks a port whose peer named a different VLAN than
-	// the one an SSTP bpdu.BPDU arrived on. Unlike the two guards above it is
+	// the one an SSTP BPDU arrived on. Unlike the two guards above it is
 	// written on the arrival VLAN's own tree rather than only on the CIST's,
 	// because the disagreement is about one VLAN on the link and it is that
 	// VLAN's traffic that must not cross.
 	pvidInconsistent bool
 
 	// pvstBoundary marks a port whose peer speaks a spanning tree this bridge
-	// does not simulate per VLAN: an MST bpdu.BPDU seen by a PVST bridge, or an
-	// SSTP bpdu.BPDU seen by a bridge that is not one. It lives on the CIST port
+	// does not simulate per VLAN: an MST BPDU seen by a PVST bridge, or an
+	// SSTP BPDU seen by a bridge that is not one. It lives on the CIST port
 	// state because it is a statement about the neighbor, not about a tree,
 	// and only a link transition can replace the neighbor.
 	pvstBoundary bool
@@ -246,7 +246,7 @@ type txKey struct {
 	port string
 }
 
-// portTx holds the bpdu.BPDU transmit budget for one key. Outside PVST mode IEEE
+// portTx holds the BPDU transmit budget for one key. Outside PVST mode IEEE
 // 802.1Q meters transmission per port, not per spanning tree instance, which
 // is why this lives on Layer rather than inside a tree's per-port state; in
 // PVST mode it is metered per VLAN's tree as well, which is what txKey's
@@ -268,8 +268,8 @@ func (tx *portTx) clone() *portTx {
 // bpduGuardDisabled and loopInconsistent are link-on-cist: they are written
 // only on the CIST's port state, so every tree reads them through cistP
 // rather than through its own copy, which for the CIST tree is the same
-// object. pvidInconsistent is tree-owned, set on the VLAN whose SSTP bpdu.BPDU
-// disagreed about the link, so it reads from p. bpdu.BPDU guard outranks the
+// object. pvidInconsistent is tree-owned, set on the VLAN whose SSTP BPDU
+// disagreed about the link, so it reads from p. BPDU guard outranks the
 // rest: it disables the port outright, so nothing below it can be the
 // decisive reason. A PVID-inconsistent port is by definition receiving
 // BPDUs, which is what clears loopInconsistent on every receive, so those
@@ -509,7 +509,7 @@ func newLayer(cfg Config) *Layer {
 }
 
 // mstiBridgeID is an MST instance's own bridge identifier: the instance
-// priority in the most significant 4 bits and the bpdu.MSTID in the low 12 bits of
+// priority in the most significant 4 bits and the MSTID in the low 12 bits of
 // the system-ID extension (MSTP clause 13.7).
 func mstiBridgeID(inst Instance, mstid bpdu.MSTID, address netaddr.MAC) bpdu.BridgeID {
 	return bpdu.BridgeID{
@@ -519,7 +519,7 @@ func mstiBridgeID(inst Instance, mstid bpdu.MSTID, address netaddr.MAC) bpdu.Bri
 }
 
 // pvstBridgeID is a per-VLAN tree's own bridge identifier, carrying the VLAN
-// in the system-ID extension the way an MSTI carries its bpdu.MSTID. That is what
+// in the system-ID extension the way an MSTI carries its MSTID. That is what
 // Config.Validate's multiple-of-4096 rule on a tree priority reserves the low
 // 12 bits for, and what a PVST+ capture shows on the wire. A tree that names
 // no priority of its own falls back to the bridge's, which PVST.Normalize has
@@ -539,7 +539,7 @@ func pvstBridgeID(t Tree, vid vlan.ID, bridgePriority uint16, address netaddr.MA
 // txKeyFor addresses the transmit budget tree t spends on the named port.
 // Outside PVST mode every tree resolves to the same key, since MSTP emits
 // only from the CIST and shares one budget per port; a PVST bridge emits one
-// bpdu.BPDU per VLAN per port, so each tree meters its own.
+// BPDU per VLAN per port, so each tree meters its own.
 func (l *Layer) txKeyFor(t *tree, name string) txKey {
 	if l.pvst == nil {
 		return txKey{tree: cistID, port: name}
@@ -579,7 +579,7 @@ func (l *Layer) addTree(id treeID, vid vlan.ID, bridgeID bpdu.BridgeID, treePort
 
 		// The starting cost is the bridge port's own configured cost, the
 		// same fallback newLayer derives the CIST's from, not
-		// DefaultPathCost(0) outright: a port configured with an explicit
+		// defaultPathCost(0) outright: a port configured with an explicit
 		// cost must read it before the first LinkChange ever runs, not just
 		// after.
 		linkCost := pCfg.PathCost
@@ -752,7 +752,7 @@ func (l *Layer) PortInfo(port string) PortInfo {
 // instancePortInfo returns runtime spanning tree information for the named
 // port within the given MST instance. It returns a zero value when the
 // instance or the port is not tracked by the layer, which is also what a
-// plain RSTP bridge (no MST configured) answers for any nonzero bpdu.MSTID.
+// plain RSTP bridge (no MST configured) answers for any nonzero MSTID.
 func (l *Layer) instancePortInfo(mstid bpdu.MSTID, port string) PortInfo {
 	t, ok := l.trees[treeID(mstid)]
 	if !ok {
@@ -767,7 +767,7 @@ func (l *Layer) instancePortInfo(mstid bpdu.MSTID, port string) PortInfo {
 // every VLAN answers alike, which is what makes this usable as the per-VLAN
 // view in every mode; PVST is what makes the VLANs diverge. It returns a zero
 // value when the VLAN has no tree of its own, which is also what
-// InstancePortInfo answers for an unknown bpdu.MSTID.
+// instancePortInfo answers for an unknown MSTID.
 func (l *Layer) VLANPortInfo(vid vlan.ID, port string) PortInfo {
 	t, ok := l.treeFor(vid)
 	if !ok {
@@ -799,7 +799,7 @@ func (l *Layer) PVSTBoundary(port string) bool {
 	return p.pvstBoundary
 }
 
-// PortLinked reports whether the layer would process a bpdu.BPDU arriving on the
+// PortLinked reports whether the layer would process a BPDU arriving on the
 // named port rather than treat it as SSTPPortDown: the port is one this
 // layer tracks and its CIST copy currently holds the link up. ReceiveSSTP
 // makes exactly this check before doing anything else with a frame, and it
@@ -808,7 +808,7 @@ func (l *Layer) PVSTBoundary(port string) bool {
 // went down through the same Disabled and Discarding values a port that
 // never came up shows. A caller can still recover the answer from a
 // snapshot, but only by re-deriving this layer's own role and guard rules —
-// that a down port clears its guards, so a Disabled port reporting bpdu.BPDU
+// that a down port clears its guards, so a Disabled port reporting BPDU
 // guard is up — which is the coupling this accessor exists to spare it.
 func (l *Layer) PortLinked(port string) bool {
 	p, ok := l.cist().ports[port]
@@ -878,7 +878,7 @@ func (l *Layer) portInfo(t *tree, port string) PortInfo {
 }
 
 // BadBPDU records that a frame received on the named port could not be
-// decoded as a bpdu.BPDU. badBPDUs is link-on-cist, so it is bumped on the CIST's
+// decoded as a BPDU. badBPDUs is link-on-cist, so it is bumped on the CIST's
 // port alone; every tree's PortInfo answers from that same copy. An
 // untracked port is ignored.
 func (l *Layer) BadBPDU(port string) {
@@ -1013,7 +1013,7 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 		built, err := l.frames(t, p, bpdu)
 		if err != nil {
 			// MST.Validate rejects a region with more instances than one
-			// bpdu.BPDU can carry, so this is unreachable for a Layer built
+			// BPDU can carry, so this is unreachable for a Layer built
 			// through New; the handling exists so that a future caller
 			// building a Layer another way degrades to sending nothing
 			// rather than to sending an empty frame.
@@ -1047,14 +1047,14 @@ type taggedFrame struct {
 	frame ethernet.Frame
 }
 
-// frames builds the wire form of one bpdu.BPDU for tree t on port p. Outside PVST
+// frames builds the wire form of one BPDU for tree t on port p. Outside PVST
 // mode that is the single IEEE-addressed frame, untagged. Inside it, every
-// tree sends its bpdu.BPDU to the SSTP address on its own VLAN, and VLAN 1's tree
+// tree sends its BPDU to the SSTP address on its own VLAN, and VLAN 1's tree
 // sends a second, IEEE-addressed and untagged, which is the one an RSTP or
 // MSTP neighbor converges with — unless the port has migrated to legacy STP,
-// in which case the SSTP copy is dropped and only the IEEE Configuration bpdu.BPDU
+// in which case the SSTP copy is dropped and only the IEEE Configuration BPDU
 // goes out: SSTP has no legacy shape to carry it in, so sending the SSTP copy
-// would relabel a legacy bpdu.BPDU under a version-2 RST header. emit already
+// would relabel a legacy BPDU under a version-2 RST header. emit already
 // withholds a non-CIST tree's frame entirely on a migrated port, so this
 // branch is only ever reached with p.sendRSTP true there. The two frames are
 // one transmission and spend one budget slot between them.
@@ -1089,8 +1089,8 @@ func (l *Layer) frames(t *tree, p *portState, b bpdu.BPDU) ([]taggedFrame, error
 	return append(built, taggedFrame{frame: ieee}), nil
 }
 
-// edgeDelay is the time without a bpdu.BPDU after which a port may be detected as
-// an edge: MigrateTime on a point-to-point link, the max age in force on a
+// edgeDelay is the time without a BPDU after which a port may be detected as
+// an edge: migrateTime on a point-to-point link, the max age in force on a
 // shared one.
 func (l *Layer) edgeDelay(t *tree, p *portState) time.Duration {
 	if p.pointToPoint {
@@ -1168,7 +1168,7 @@ func mergeFlushTarget(flushes *[]layer.FlushTarget, port string, fids []vlan.ID)
 }
 
 // boundary reports whether the named port is a boundary port: the CIST's most
-// recently received bpdu.BPDU on it carried no MST configuration identifier, or
+// recently received BPDU on it carried no MST configuration identifier, or
 // one from a different region. It answers false for a port the CIST does not
 // track, which for a plain RSTP bridge with no MSTI trees is moot since this
 // is only ever consulted from one.
@@ -1215,8 +1215,8 @@ func (l *Layer) syncInstancePorts(name string, cistP *portState) {
 
 // armHelloTimers starts the periodic hello on every tree that drives its own
 // emission: the CIST alone outside PVST mode, since an MSTI's information
-// rides the CIST's bpdu.BPDU, and every VLAN's tree inside it. A tree whose hello
-// timer stays zero never reaches Wake's hello loop, which is what keeps that
+// rides the CIST's BPDU, and every VLAN's tree inside it. A tree whose hello
+// timer stays zero never reaches Advance's hello loop, which is what keeps that
 // loop's walk over every tree behavior-neutral for RSTP and MSTP.
 func (l *Layer) armHelloTimers(now time.Time) {
 	for _, id := range l.treeOrder {
@@ -1230,8 +1230,8 @@ func (l *Layer) armHelloTimers(now time.Time) {
 }
 
 // clearPending drops every tree's held transmission on the named port. A port
-// whose link just went down, or that bpdu.BPDU guard just disabled, must not
-// release a bpdu.BPDU it was holding when the budget next frees up.
+// whose link just went down, or that BPDU guard just disabled, must not
+// release a BPDU it was holding when the budget next frees up.
 func (l *Layer) clearPending(name string) {
 	for _, id := range l.treeOrder {
 		tx := l.tx(l.trees[id], name)
@@ -1244,8 +1244,8 @@ func (l *Layer) clearPending(name string) {
 // first and then the other trees ascending, and aggregates the emissions.
 // Under MSTP only the CIST emits: an MSTI's recompute is told not to, so the
 // per-port transmit budget is spent once per port rather than once per
-// instance, and the MSTI records ride the CIST's own bpdu.BPDU. Under PVST every
-// tree emits, because each VLAN's bpdu.BPDU is a frame of its own metered against
+// instance, and the MSTI records ride the CIST's own BPDU. Under PVST every
+// tree emits, because each VLAN's BPDU is a frame of its own metered against
 // that tree's own budget.
 func (l *Layer) recomputeAll(now time.Time, flushes *[]layer.FlushTarget) []layer.Emission {
 	var emissions []layer.Emission
@@ -1282,7 +1282,7 @@ func (l *Layer) instanceRemainingHops(t *tree) uint8 {
 // gatherMSTIRecords builds one MSTI record per configured instance for
 // transmission on port p, carrying that instance's current regional root,
 // internal cost, and per-instance bridge and port priority. It is called only
-// while building the CIST's own bpdu.BPDU: an MST bridge always emits its MSTI
+// while building the CIST's own BPDU: an MST bridge always emits its MSTI
 // records alongside the CIST, on every up port, boundary ports included,
 // because a port is classified internal or external only on reception.
 func (l *Layer) gatherMSTIRecords(now time.Time, p *portState) []bpdu.MSTIRecord {
@@ -1305,7 +1305,7 @@ func (l *Layer) gatherMSTIRecords(now time.Time, p *portState) []bpdu.MSTIRecord
 		// topology change timer rather than the CIST's, so the record says
 		// what the sender's per-instance port is doing and lets a peer
 		// reconverge that instance without waiting on its filtering database
-		// to age out. A zero-value bpdu.BPDU used only to borrow its bit-setting
+		// to age out. A zero-value BPDU used only to borrow its bit-setting
 		// methods never gets encoded itself.
 		var flags bpdu.BPDU
 		flags.SetRole(mp.role)
@@ -1329,7 +1329,7 @@ func (l *Layer) gatherMSTIRecords(now time.Time, p *portState) []bpdu.MSTIRecord
 	return recs
 }
 
-// receiveMSTIs stores the MSTI records an internal bpdu.BPDU carries into each
+// receiveMSTIs stores the MSTI records an internal BPDU carries into each
 // named instance's port state, one instance at a time by the same
 // same-source-or-superior rule the CIST uses, and carries each record's own
 // topology change bit into that instance the way Receive carries the CIST's:
@@ -1411,10 +1411,10 @@ func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, proposal bool) bp
 	}
 
 	// The tree's own bridge identifier, not the layer's: under PVST every
-	// tree carries its VLAN in the system-ID extension, and a bpdu.BPDU sent under
+	// tree carries its VLAN in the system-ID extension, and a BPDU sent under
 	// the layer's identifier would never match the receiving tree's Backup
 	// test (rcvBridgeID == t.bridgeID). Outside PVST the CIST's identifier is
-	// the layer's, and only the CIST ever builds a bpdu.BPDU.
+	// the layer's, and only the CIST ever builds a BPDU.
 	b := bpdu.BPDU{
 		RootID:       t.rootID,
 		RootPathCost: t.rootPathCost,
@@ -1448,8 +1448,8 @@ func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, proposal bool) bp
 	// instance's MSTI record. t is always the CIST here. The MST shape is
 	// version 3, so it is withheld on a port that has migrated to legacy STP
 	// (sendRSTP false, which already forced Version 0 and Configuration
-	// above): Encode picks the MST shape whenever bpdu.ConfigID is set regardless
-	// of Version and Type, and a legacy peer needs a Configuration bpdu.BPDU, not
+	// above): Encode picks the MST shape whenever ConfigID is set regardless
+	// of Version and Type, and a legacy peer needs a Configuration BPDU, not
 	// version 3.
 	if l.mst != nil && p.sendRSTP {
 		cid := *l.configID
@@ -1563,7 +1563,7 @@ func designatedVector(t *tree, p *portState) priorityVector {
 // a boundary port, an MSTI tree (t.id != cistID) takes the CIST port's role
 // and state outright rather than computing its own, which is the boundary
 // role rule (netsim reports the CIST's Root where the standard would say
-// Master; no separate bpdu.Role value exists for it). emit gates the proposal
+// Master; no separate Role value exists for it). emit gates the proposal
 // emissions a root change triggers: only the CIST emits, so an MSTI's caller
 // passes false and recompute returns no emissions for it.
 func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, emit bool) []layer.Emission {
@@ -1677,7 +1677,7 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 
 		// bpduGuardDisabled and loopInconsistent are bridge-global properties
 		// of the port, like the internal/external classification: only the
-		// CIST's copy is ever written (Receive's guard branch, and Wake's
+		// CIST's copy is ever written (Receive's guard branch, and Advance's
 		// loop-guard arm), so an MSTI reads them from the CIST's port state
 		// the way it already reaches across for l.boundary. Every tree is
 		// built from l.portNames, so the CIST always has a matching port for
@@ -1746,7 +1746,7 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 			// A port that just flipped internal to boundary may still carry
 			// a live timer from its internal role and state ladder; a
 			// boundary port never drives its own state, so nothing else
-			// clears it. Left set, the next Wake would advance the port on
+			// clears it. Left set, the next Advance would advance the port on
 			// a timer behind a state this branch already mirrored, raising
 			// a topology change with nothing behind it.
 			p.fwdDelayTimer = time.Time{}
@@ -1861,7 +1861,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		l.clearPending(p.name)
 		p.fwdDelayTimer = time.Time{}
 		// Both guard states clear here, which is what makes a link down and up
-		// the recovery for bpdu.BPDU guard. A port that comes back up holds no
+		// the recovery for BPDU guard. A port that comes back up holds no
 		// expired information, so loop guard has nothing to trigger on either.
 		// The PVST boundary mark clears for a different reason: it names the
 		// protocol the neighbor speaks, and only a link transition can put a
@@ -1981,7 +1981,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 }
 
 // receiveLink runs the half of a receive that belongs to the link rather than
-// to any one tree: bpdu.BPDU guard, the loop-guard clear every bpdu.BPDU earns, the
+// to any one tree: BPDU guard, the loop-guard clear every BPDU earns, the
 // protocol migration between RSTP and legacy STP, and the loss of auto-edge
 // status. It runs once per received frame whatever tree the frame belongs to,
 // against the CIST's port state, which is where those link properties live.
@@ -1990,16 +1990,16 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 func (l *Layer) receiveLink(now time.Time, p *portState, b bpdu.BPDU, flushes *[]layer.FlushTarget) (emissions []layer.Emission, done bool) {
 	t := l.cist()
 
-	// Any bpdu.BPDU on the port is evidence the link carries traffic both ways,
+	// Any BPDU on the port is evidence the link carries traffic both ways,
 	// which is the condition loop guard was waiting to see restored. This
-	// runs before the bpdu.BPDU guard checks below: a frame that trips or is held
-	// by bpdu.BPDU guard is still such evidence, and guard and loop guard clear on
+	// runs before the BPDU guard checks below: a frame that trips or is held
+	// by BPDU guard is still such evidence, and guard and loop guard clear on
 	// independent events.
 	p.loopInconsistent = false
 
-	// bpdu.BPDU guard exists to keep an unexpected bridge on an access port out of
+	// BPDU guard exists to keep an unexpected bridge on an access port out of
 	// the topology, so the frame that proves one is there disables the port
-	// before anything reads the bpdu.BPDU. Only a link down and up brings it back.
+	// before anything reads the BPDU. Only a link down and up brings it back.
 	if p.cfg.BPDUGuard && !p.bpduGuardDisabled {
 		p.bpduGuardDisabled = true
 		p.rcvInfoValid = false
@@ -2052,12 +2052,12 @@ func (l *Layer) receiveLink(now time.Time, p *portState, b bpdu.BPDU, flushes *[
 	return nil, false
 }
 
-// Receive processes an incoming bpdu.BPDU received on a port. It applies the bpdu.BPDU
-// to the CIST, which is the tree an IEEE-addressed bpdu.BPDU belongs to in every
+// Receive processes an incoming BPDU received on a port. It applies the BPDU
+// to the CIST, which is the tree an IEEE-addressed BPDU belongs to in every
 // mode: plain RSTP has only that tree, an MSTP bridge distributes its MSTI
-// records from it, and a PVST bridge keeps VLAN 1's tree there. An SSTP bpdu.BPDU
+// records from it, and a PVST bridge keeps VLAN 1's tree there. An SSTP BPDU
 // goes to ReceiveSSTP instead, which is the only entry point that classifies
-// a bpdu.BPDU by VLAN.
+// a BPDU by VLAN.
 func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 	t := l.cist()
 	p, ok := t.ports[port]
@@ -2071,7 +2071,7 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 
 	var flushes []layer.FlushTarget
 
-	// An MST bpdu.BPDU on a PVST bridge is the boundary this layer reports rather
+	// An MST BPDU on a PVST bridge is the boundary this layer reports rather
 	// than models: its RST prefix still drives VLAN 1's tree below, but no
 	// other VLAN's tree hears anything from that neighbor.
 	if l.pvst != nil && b.ConfigID != nil {
@@ -2112,9 +2112,9 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 	}
 }
 
-// SSTPArrival describes how the switch classified one SSTP bpdu.BPDU before
+// SSTPArrival describes how the switch classified one SSTP BPDU before
 // handing it to ReceiveSSTP. ArrivalVID is the VLAN the switch classified the
-// frame into; TLVVID is the VLAN the bpdu.BPDU's own trailing TLV names, which the
+// frame into; TLVVID is the VLAN the BPDU's own trailing TLV names, which the
 // PVID check compares against ArrivalVID. Admitted is the bridge's ingress
 // admission answer for ArrivalVID on this port: the layer holds no VLAN
 // table of its own, so it takes that answer as given rather than deriving a
@@ -2125,19 +2125,19 @@ type SSTPArrival struct {
 	Admitted   bool
 }
 
-// SSTPOutcome names what ReceiveSSTP did with one SSTP bpdu.BPDU, beyond the
-// layer.Effects it returns alongside.
+// SSTPOutcome names what ReceiveSSTP did with one SSTP BPDU, beyond the
+// Effects it returns alongside.
 type SSTPOutcome string
 
 const (
-	// SSTPApplied means the bpdu.BPDU was applied to the tree of
+	// SSTPApplied means the BPDU was applied to the tree of
 	// SSTPArrival.ArrivalVID.
 	SSTPApplied SSTPOutcome = "applied"
-	// SSTPGuarded means bpdu.BPDU guard fired or already held the port disabled;
+	// SSTPGuarded means BPDU guard fired or already held the port disabled;
 	// the frame was not applied to any tree.
 	SSTPGuarded SSTPOutcome = "bpdu-guard"
 	// SSTPBoundary means this bridge does not run PVST, so its CIST does not
-	// run the VLAN the bpdu.BPDU named; the port is marked a PVST boundary and
+	// run the VLAN the BPDU named; the port is marked a PVST boundary and
 	// nothing is applied.
 	SSTPBoundary SSTPOutcome = "pvst-boundary"
 	// SSTPNotAdmitted means the bridge does not admit ArrivalVID on this
@@ -2150,15 +2150,15 @@ const (
 	// arrival VLAN's port is held discarding rather than applied.
 	SSTPPVIDInconsistent SSTPOutcome = "pvid-inconsistent"
 	// SSTPPortDown means the port is not one the layer tracks, or is held
-	// down; the bpdu.BPDU was not processed at all.
+	// down; the BPDU was not processed at all.
 	SSTPPortDown SSTPOutcome = "port-down"
 )
 
-// ReceiveSSTP processes an SSTP bpdu.BPDU received on a port. The link half of a
-// receive — bpdu.BPDU guard, the loop-guard clear, protocol migration, and
+// ReceiveSSTP processes an SSTP BPDU received on a port. The link half of a
+// receive — BPDU guard, the loop-guard clear, protocol migration, and
 // auto-edge loss — always runs before anything below decides what happens to
 // a tree, whatever that decision turns out to be: a caller that could skip
-// the link half by declining to call this function is the hole bpdu.BPDU guard
+// the link half by declining to call this function is the hole BPDU guard
 // exists to close. syncInstancePorts carries whatever the link half changed
 // to every tree before the frame is judged, so the tree of
 // arrival.ArrivalVID sees an up-to-date link even though the change was made
@@ -2174,7 +2174,7 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 
 	var flushes []layer.FlushTarget
 
-	// receiveLink is the link-level half of a receive: bpdu.BPDU guard, the
+	// receiveLink is the link-level half of a receive: BPDU guard, the
 	// loop-guard clear, protocol migration, and auto-edge loss all belong to
 	// the port whatever tree the frame names, so it runs whatever this bridge
 	// goes on to decide about the tree half below.
@@ -2194,7 +2194,7 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 	l.armHelloTimers(now)
 
 	if l.pvst == nil {
-		// This bridge's CIST does not run the bpdu.BPDU's VLAN, so feeding the
+		// This bridge's CIST does not run the BPDU's VLAN, so feeding the
 		// vector into it would elect a root from a tree it is not running.
 		// The neighbor relationship still converges, because a PVST+ bridge
 		// sends VLAN 1's tree to the IEEE address as well.
@@ -2202,7 +2202,7 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 	}
 
 	// receiveLink may have changed link properties every tree tracks its own
-	// copy of, and the tree this bpdu.BPDU belongs to is about to read them.
+	// copy of, and the tree this BPDU belongs to is about to read them.
 	l.syncInstancePorts(port, cistP)
 
 	if !arrival.Admitted {
@@ -2235,19 +2235,19 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 	return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPApplied
 }
 
-// applyBPDU applies one received bpdu.BPDU to one tree: the classification, the
+// applyBPDU applies one received BPDU to one tree: the classification, the
 // information it carries, the agreement and topology-change flags it sets,
 // and the proposal handshake it answers. Receive runs it on the CIST, which
-// is where an IEEE-addressed bpdu.BPDU belongs in every mode; ReceiveSSTP runs it
-// on the tree of the VLAN an SSTP bpdu.BPDU arrived on. The link-level half of a
+// is where an IEEE-addressed BPDU belongs in every mode; ReceiveSSTP runs it
+// on the tree of the VLAN an SSTP BPDU arrived on. The link-level half of a
 // receive, which runs once per frame whatever tree it belongs to, stays with
 // the two callers.
 func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flushes *[]layer.FlushTarget) []layer.Emission {
 	var emissions []layer.Emission
 
-	// A bpdu.BPDU is internal when it names this bridge's own region: an MST bpdu.BPDU
-	// (bpdu.ConfigID set) whose configuration identifier equals this bridge's. An
-	// RST or Configuration bpdu.BPDU, and an MST bpdu.BPDU from a different region, are
+	// A BPDU is internal when it names this bridge's own region: an MST BPDU
+	// (ConfigID set) whose configuration identifier equals this bridge's. An
+	// RST or Configuration BPDU, and an MST BPDU from a different region, are
 	// external. The classification is written only on the CIST's port state
 	// because it is a property of the link, not of a tree running over it;
 	// boundary reads it through l.cist() regardless of which tree's applyBPDU
@@ -2257,7 +2257,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 	if internal {
 		// Internal information ages by hop count, re-originated one hop
 		// short of what was received; a record that has already reached the
-		// bound is discarded rather than stored, so a bpdu.BPDU naming a regional
+		// bound is discarded rather than stored, so a BPDU naming a regional
 		// root that no longer exists stops refreshing on every hop and the
 		// port's own information ages out.
 		if b.RemainingHops <= 1 {
@@ -2270,10 +2270,10 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		}
 	} else {
 		// IEEE 802.1Q treats message age as a hop count bounded by the max age
-		// the bpdu.BPDU itself carries, not by this bridge's configured one: the
+		// the BPDU itself carries, not by this bridge's configured one: the
 		// received value is the root's, and the fabric builds bridges with
 		// differing timers. Information that has reached the bound is
-		// discarded rather than stored, so a bpdu.BPDU naming a root that no
+		// discarded rather than stored, so a BPDU naming a root that no
 		// longer exists stops refreshing the timer on every hop and the
 		// port's own information ages out.
 		if b.MessageAge+time.Second > b.MaxAge {
@@ -2318,8 +2318,8 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 	// The classification updates only now, after the stored vector above was
 	// built against what the port currently holds under its old
 	// classification. Assigning it earlier would compare that stored
-	// information as though it already carried this bpdu.BPDU's classification,
-	// which can invert the superiority verdict for the one bpdu.BPDU that flips
+	// information as though it already carried this BPDU's classification,
+	// which can invert the superiority verdict for the one BPDU that flips
 	// internal to external or back. It is written only for the CIST's own
 	// call: a non-CIST tree's applyBPDU (PVST, an SSTP arrival on a VLAN
 	// other than 1) would otherwise leave a copy on a port boundary never
@@ -2346,7 +2346,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		} else {
 			// A port classified external carries no internal-only state: a
 			// stale regional root, internal cost, or hop count left over from
-			// an earlier internal bpdu.BPDU would otherwise survive the flip and
+			// an earlier internal BPDU would otherwise survive the flip and
 			// this bridge would re-originate a decreasing hop count instead
 			// of MaxHops.
 			p.rcvRegionalRootID = bpdu.BridgeID{}
