@@ -196,9 +196,8 @@ func TestBPDUGuardDisablesPortUntilLinkBounce(t *testing.T) {
 }
 
 // TestBPDUGuardCountsOneTopologyChange pins that disabling a forwarding port
-// raises the change once. The guard block leaves the raise to recompute, which
-// sees the same Forwarding-to-Discarding transition; doing both counted one
-// event twice, and the count is exported through the switch.
+// raises no topology change: a port leaving the active topology is flushed
+// but raises nothing.
 func TestBPDUGuardCountsOneTopologyChange(t *testing.T) {
 	t.Parallel()
 
@@ -220,8 +219,8 @@ func TestBPDUGuardCountsOneTopologyChange(t *testing.T) {
 	l.Receive(t0.Add(33*time.Second), "1/1/1", superiorBPDU(0, 20*time.Second))
 	after, _ := l.TopologyChanges()
 
-	if got := after - before; got != 1 {
-		t.Errorf("topology changes raised = %d, want 1 for one port leaving the topology", got)
+	if got := after - before; got != 0 {
+		t.Errorf("topology changes raised = %d, want 0 when a port leaves the topology", got)
 	}
 	if reason := l.PortInfo("1/1/1").BlockReason; reason != stp.BlockReasonBPDUGuard {
 		t.Errorf("block reason = %q, want %q", reason, stp.BlockReasonBPDUGuard)
@@ -265,6 +264,19 @@ func TestRestrictedTCNDoesNotPropagate(t *testing.T) {
 		"1/1/2": {},
 		"1/1/3": {},
 	})
+	plain, _ := guardLayer(t, map[string]stp.Port{
+		"1/1/1": {},
+		"1/1/2": {},
+		"1/1/3": {},
+	})
+	// Advance through Learning to Forwarding so ports become active.
+	t0 = t0.Add(16 * time.Second)
+	restricted.Advance(t0)
+	plain.Advance(t0)
+	t0 = t0.Add(16 * time.Second)
+	restricted.Advance(t0)
+	plain.Advance(t0)
+
 	fx := restricted.Receive(t0.Add(4*time.Second), "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
 	if len(fx.Flush) != 0 {
 		t.Errorf("Flush = %v, want nothing: a restricted port does not propagate the change", fx.Flush)
@@ -272,11 +284,6 @@ func TestRestrictedTCNDoesNotPropagate(t *testing.T) {
 
 	// Without the guard the same notification flushes the other ports, which is
 	// what makes the assertion above about the guard and not about the fabric.
-	plain, t0 := guardLayer(t, map[string]stp.Port{
-		"1/1/1": {},
-		"1/1/2": {},
-		"1/1/3": {},
-	})
 	fx = plain.Receive(t0.Add(4*time.Second), "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
 	got := flushPorts(fx.Flush)
 	if !slices.Contains(got, "1/1/2") || !slices.Contains(got, "1/1/3") {

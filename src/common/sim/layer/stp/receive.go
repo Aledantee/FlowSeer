@@ -20,7 +20,7 @@ import (
 // address and the CIST port identifier's index half, since MSTI bridge and
 // port identifiers differ from the CIST's only in their priority nibble
 // (clause 13.7).
-func (l *Layer) syncTree(t *tree, rootPort string, now time.Time, flushes *[]layer.FlushTarget) {
+func (l *Layer) syncTree(t *tree, rootPort string, flushes *[]layer.FlushTarget) {
 	for _, otherName := range l.portNames {
 		if otherName == rootPort {
 			continue
@@ -37,7 +37,7 @@ func (l *Layer) syncTree(t *tree, rootPort string, now time.Time, flushes *[]lay
 				wasFwd := otherP.state == StateForwarding
 				otherP.state = StateDiscarding
 				if wasFwd {
-					l.raiseTopologyChange(t, otherP.name, now, flushes)
+					l.deactivatePort(t, otherP, flushes)
 				}
 			}
 		}
@@ -45,19 +45,19 @@ func (l *Layer) syncTree(t *tree, rootPort string, now time.Time, flushes *[]lay
 }
 
 func (l *Layer) handleProposal(t *tree, p *portState, link *linkRecord, now time.Time, flushes *[]layer.FlushTarget) {
-	l.syncTree(t, p.name, now, flushes)
+	l.syncTree(t, p.name, flushes)
 	if p.role == bpdu.RoleRoot && link.pointToPoint && l.isSynced(t, p.name) && link.sendRSTP {
 		if p.state != StateForwarding {
 			p.state = StateForwarding
 			p.forwardTransitions++
 			if !link.edge {
-				l.raiseTopologyChange(t, p.name, now, flushes)
+				l.initiateTopologyChange(t, p, now, flushes, nil)
 			}
 		}
 	}
 }
 
-func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incoming priorityVector, role bpdu.Role, agreement bool, now time.Time, flushes *[]layer.FlushTarget) {
+func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incoming priorityVector, role bpdu.Role, agreement bool, now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) {
 	if !link.pointToPoint || !link.sendRSTP || !agreement {
 		p.agreed = false
 		return
@@ -76,7 +76,7 @@ func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incomin
 			p.state = StateForwarding
 			p.forwardTransitions++
 			if !link.edge {
-				l.raiseTopologyChange(t, p.name, now, flushes)
+				l.initiateTopologyChange(t, p, now, flushes, emissions)
 			}
 		}
 	}
@@ -110,14 +110,8 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVe
 		}
 
 		recFlags := bpdu.BPDU{Flags: rec.Flags}
-		if recFlags.TopologyChange() && !mp.cfg.RestrictedTCN {
-			mt.topologyChangeTimer = now.Add(l.helloTime + time.Second)
-			fids := l.treeVLANs[mt.id]
-			for _, name := range l.portNames {
-				if name != port {
-					mergeFlushTarget(flushes, name, fids)
-				}
-			}
+		if recFlags.TopologyChange() && !mp.cfg.RestrictedTCN && mp.tcActive {
+			l.propagateTopologyChange(mt, port, now, flushes, nil)
 		}
 
 		recBridgeID := bpdu.BridgeID{
@@ -141,7 +135,7 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVe
 		}
 		if !sameSource && !isSuperior {
 			if cistConsistent {
-				l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes)
+				l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes, nil)
 			} else {
 				mp.agreed = false
 			}
@@ -167,7 +161,7 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVe
 		mp.rcvTime = now
 
 		if cistConsistent {
-			l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes)
+			l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes, nil)
 			if recFlags.Proposal() && recFlags.Role() == bpdu.RoleDesignated {
 				proposals = append(proposals, rec.MSTID)
 			}
@@ -212,14 +206,27 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 	}
 
 	if b.Type == bpdu.TypeTopologyChangeNotification {
-		// Restricted TCN stops the change here. Setting the timer would carry
-		// the flag out on this bridge's own BPDUs, which is the propagation the
-		// guard denies, so neither the timer nor the flush runs.
+		if !p.tcActive {
+			return layer.Effects{Emissions: emissions, Flush: flushes}
+		}
+		if p.role == bpdu.RoleDesignated {
+			p.tcAck = true
+			l.emit(t, p, now, emissionDesignated, &emissions)
+		}
 		if !p.cfg.RestrictedTCN {
-			t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
-			for _, name := range l.portNames {
-				if name != port {
-					mergeFlushTarget(&flushes, name, l.treeVLANs[t.id])
+			p.tcWhile = now.Add(l.tcWhileDuration(t, p))
+			t.topologyChangeCount++
+			t.lastTopologyChange = now
+			l.propagateTopologyChange(t, p.name, now, &flushes, &emissions)
+			for _, mt := range l.trees {
+				if mt.id == cistID {
+					continue
+				}
+				if mp := mt.ports[port]; mp != nil && mp.tcActive {
+					mp.tcWhile = now.Add(l.tcWhileDuration(mt, mp))
+					mt.topologyChangeCount++
+					mt.lastTopologyChange = now
+					l.propagateTopologyChange(mt, port, now, &flushes, &emissions)
 				}
 			}
 		}
@@ -472,7 +479,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		mstiProposals = l.receiveMSTIs(now, p.name, b, heldCISTVec, flushes)
 	}
 
-	l.recordAgreement(t, p, link, incoming, b.Role(), b.Agreement(), now, flushes)
+	l.recordAgreement(t, p, link, incoming, b.Role(), b.Agreement(), now, flushes, &emissions)
 	if link.external {
 		for _, mt := range l.trees {
 			if mt.id == cistID {
@@ -486,7 +493,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 						mp.state = StateForwarding
 						mp.forwardTransitions++
 						if !link.edge {
-							l.raiseTopologyChange(mt, mp.name, now, flushes)
+							l.initiateTopologyChange(mt, mp, now, flushes, &emissions)
 						}
 					}
 				}
@@ -494,14 +501,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		}
 	}
 
-	if b.TopologyChange() && !p.cfg.RestrictedTCN {
-		t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
-		for _, name := range l.portNames {
-			if name != p.name {
-				mergeFlushTarget(flushes, name, l.treeVLANs[t.id])
-			}
-		}
-	}
+	l.propagateReceivedTC(t, p, link, b, now, flushes, &emissions)
 
 	emissions = append(emissions, l.recomputeAll(now, flushes)...)
 
@@ -514,6 +514,25 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 	}
 
 	return emissions
+}
+
+func (l *Layer) propagateReceivedTC(t *tree, p *portState, link *linkRecord, b bpdu.BPDU, now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) {
+	if b.TopologyChangeAck() && p.role == bpdu.RoleRoot {
+		p.tcWhile = time.Time{}
+	}
+	if b.TopologyChange() && !p.cfg.RestrictedTCN && p.tcActive {
+		l.propagateTopologyChange(t, p.name, now, flushes, emissions)
+		if link.external {
+			for _, mt := range l.trees {
+				if mt.id == cistID {
+					continue
+				}
+				if mp := mt.ports[p.name]; mp != nil && mp.tcActive {
+					l.propagateTopologyChange(mt, p.name, now, flushes, emissions)
+				}
+			}
+		}
+	}
 }
 
 func (l *Layer) recordReceivedBPDU(p *portState, b bpdu.BPDU, internal bool, now time.Time) {

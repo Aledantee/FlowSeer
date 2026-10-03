@@ -4,22 +4,71 @@ import (
 	"slices"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
-func (l *Layer) raiseTopologyChange(t *tree, originPort string, now time.Time, flushes *[]layer.FlushTarget) {
+// tcWhileDuration returns the topology change timer duration for port p on
+// tree t: HelloTime plus one second on a port that sends RSTP, and Max Age plus
+// Forward Delay of the root's times on one that does not.
+func (l *Layer) tcWhileDuration(t *tree, p *portState) time.Duration {
+	link := l.links[p.name]
+	if link.sendRSTP {
+		return l.helloTime + time.Second
+	}
+	maxAge, _, fwdDelay := l.times(t)
+
+	return maxAge + fwdDelay
+}
+
+// initiateTopologyChange marks p active, increments the tree's topology change
+// count, starts p's own tcWhile timer, emits on p if p is the root port, and
+// propagates to other active ports on tree t.
+func (l *Layer) initiateTopologyChange(t *tree, p *portState, now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) {
+	p.tcActive = true
 	t.topologyChangeCount++
 	t.lastTopologyChange = now
-	t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
+	p.tcWhile = now.Add(l.tcWhileDuration(t, p))
+	l.propagateTopologyChange(t, p.name, now, flushes, emissions)
+}
 
+// propagateTopologyChange starts tcWhile on every active non-edge port on tree t
+// other than originPort, flushes that port's learned entries, and emits on it if
+// it is the root port.
+func (l *Layer) propagateTopologyChange(t *tree, originPort string, now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) {
 	fids := l.treeVLANs[t.id]
-
 	for _, name := range l.portNames {
 		if name == originPort {
 			continue
 		}
-		mergeFlushTarget(flushes, name, fids)
+		p, ok := t.ports[name]
+		if !ok || !p.tcActive {
+			continue
+		}
+		link := l.links[name]
+		if link.edge {
+			continue
+		}
+		p.tcWhile = now.Add(l.tcWhileDuration(t, p))
+		if flushes != nil {
+			mergeFlushTarget(flushes, name, fids)
+		}
+		if p.role == bpdu.RoleRoot && emissions != nil {
+			l.emitRootTC(t, p, now, emissions)
+		}
+	}
+}
+
+// deactivatePort is called when a port loses its role, becomes an edge, or goes
+// down. It flushes the port's learned entries, stops its timer, leaves active,
+// and raises nothing.
+func (l *Layer) deactivatePort(t *tree, p *portState, flushes *[]layer.FlushTarget) {
+	wasActive := p.tcActive
+	p.tcActive = false
+	p.tcWhile = time.Time{}
+	if wasActive && flushes != nil {
+		mergeFlushTarget(flushes, p.name, l.treeVLANs[t.id])
 	}
 }
 

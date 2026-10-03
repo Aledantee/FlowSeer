@@ -629,7 +629,7 @@ func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
 	// Raise a topology change on MSTI 1 alone on A, as recompute would from
 	// an instance-only role or state change on an internal port, without
 	// touching the CIST's own timer.
-	a.trees[treeID(1)].topologyChangeTimer = now.Add(10 * time.Second)
+	a.trees[treeID(1)].ports["p1"].tcWhile = now.Add(10 * time.Second)
 
 	now = now.Add(2 * time.Second)
 	fx := a.Advance(now)

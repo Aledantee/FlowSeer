@@ -25,10 +25,10 @@ func (l *Layer) NextWake() (time.Time, bool) {
 
 	for _, t := range l.trees {
 		update(t.helloTimer)
-		update(t.topologyChangeTimer)
 
 		for _, p := range t.ports {
 			update(p.fwdDelayTimer)
+			update(p.tcWhile)
 			if p.rcvInfoValid {
 				update(p.rcvTime.Add(3 * p.rcvHelloTime))
 			}
@@ -40,7 +40,7 @@ func (l *Layer) NextWake() (time.Time, bool) {
 				update(link.edgeDelayWhile)
 			}
 			tx := l.tx(t, p.name)
-			if (tx.pendingAgreement || tx.pendingDesignated) && !tx.tick.IsZero() {
+			if (tx.pendingAgreement || tx.pendingDesignated || tx.pendingTCN) && !tx.tick.IsZero() {
 				update(tx.tick)
 			}
 		}
@@ -74,6 +74,7 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 					}
 					tp.fwdDelayTimer = time.Time{}
 					tp.proposing = false
+					l.deactivatePort(l.trees[id], tp, &flushes)
 				}
 			}
 			autoEdgeFired = true
@@ -114,6 +115,12 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 					l.emit(mt, p, now, emissionDesignated, &emissions)
 				}
 			}
+			if tx.pendingTCN {
+				tx.pendingTCN = false
+				if p.role == bpdu.RoleRoot && !p.tcWhile.IsZero() && p.tcWhile.After(now) {
+					l.emit(mt, p, now, emissionTCN, &emissions)
+				}
+			}
 		}
 
 		if mt.helloTimer.IsZero() || mt.helloTimer.After(now) {
@@ -123,8 +130,17 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 		for _, name := range l.portNames {
 			p, ok := mt.ports[name]
 			link := l.links[name]
-			if ok && link.up && p.role == bpdu.RoleDesignated {
+			if !ok || !link.up {
+				continue
+			}
+			if p.role == bpdu.RoleDesignated {
 				l.emit(mt, p, now, emissionDesignated, &emissions)
+			} else if p.role == bpdu.RoleRoot && !p.tcWhile.IsZero() && p.tcWhile.After(now) {
+				if link.sendRSTP {
+					l.emit(mt, p, now, emissionAgreement, &emissions)
+				} else {
+					l.emit(mt, p, now, emissionTCN, &emissions)
+				}
 			}
 		}
 	}
@@ -155,7 +171,7 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 					stateChanged = true
 					link := l.links[p.name]
 					if !link.edge {
-						l.raiseTopologyChange(mt, p.name, now, &flushes)
+						l.initiateTopologyChange(mt, p, now, &flushes, &emissions)
 					}
 				case StateForwarding:
 				}
@@ -188,13 +204,14 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 		}
 	}
 
-	// Every tree's topology change timer clears on its own schedule: an
-	// MSTI's forward-delay ladder above can raise one independently of the
-	// CIST's.
 	for _, id := range l.treeOrder {
 		mt := l.trees[id]
-		if !mt.topologyChangeTimer.IsZero() && !mt.topologyChangeTimer.After(now) {
-			mt.topologyChangeTimer = time.Time{}
+		for _, name := range l.portNames {
+			if p, ok := mt.ports[name]; ok {
+				if !p.tcWhile.IsZero() && !p.tcWhile.After(now) {
+					p.tcWhile = time.Time{}
+				}
+			}
 		}
 	}
 

@@ -412,8 +412,8 @@ func TestThreeBridgeRingConvergence(t *testing.T) {
 	if infoP2.Role != bpdu.RoleRoot || infoP2.State != stp.StateForwarding {
 		t.Errorf("sw3 p2 after failover: got role %v, state %v; want Root Forwarding", infoP2.Role, infoP2.State)
 	}
-	if !slices.Contains(flushPorts(fxDown.Flush), "p2") {
-		t.Errorf("sw3 LinkChange flushes: got %v, want flush containing \"p2\"", fxDown.Flush)
+	if !slices.Contains(flushPorts(fxDown.Flush), "p1") {
+		t.Errorf("sw3 LinkChange flushes: got %v, want flush containing \"p1\"", fxDown.Flush)
 	}
 }
 
@@ -1235,9 +1235,13 @@ func TestTopologyChangeFlushKeepsBridgeGlobalPortOrder(t *testing.T) {
 		l.LinkChange(t0, name, true, true, 1_000_000_000)
 	}
 
+	// Two forward delays carry the ports to Forwarding so they are active.
+	l.Advance(t0.Add(16 * time.Second))
+	l.Advance(t0.Add(32 * time.Second))
+
 	// A TCN on the first port flushes every other port, which is the widest
 	// flush list one call produces.
-	fx := l.Receive(t0.Add(4*time.Second), names[0], bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
+	fx := l.Receive(t0.Add(36*time.Second), names[0], bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
 
 	want := names[1:]
 	if !slices.Equal(flushPorts(fx.Flush), want) {
@@ -1259,7 +1263,11 @@ func TestTCNReceiveRaisesTopologyChange(t *testing.T) {
 	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
 	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
 
-	fx := l.Receive(t0.Add(4*time.Second), "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
+	// Two forward delays carry the ports to Forwarding so they are active.
+	l.Advance(t0.Add(16 * time.Second))
+	l.Advance(t0.Add(32 * time.Second))
+
+	fx := l.Receive(t0.Add(36*time.Second), "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
 	got := flushPorts(fx.Flush)
 	if !slices.Contains(got, "1/1/2") || slices.Contains(got, "1/1/1") {
 		t.Errorf("Flush = %v, want the other port and not the receiving one", fx.Flush)
@@ -1442,6 +1450,21 @@ func TestCISTTopologyChangeOnBoundaryPortFlushesEveryInstance(t *testing.T) {
 	}, mustPortTable(t, "1/1/1", "1/1/2"))
 	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
 	l.LinkChange(now, "1/1/2", true, true, 1_000_000_000)
+
+	// Downstream peer on 1/1/2 agrees, moving 1/1/2 to Forwarding.
+	downstreamAgr := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 32768, Address: localMAC},
+		BridgeID:     bpdu.BridgeID{Priority: 32768, Address: localMAC},
+		PortID:       0x8002,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	downstreamAgr.SetRole(bpdu.RoleRoot)
+	downstreamAgr.SetAgreement(true)
+	l.Receive(now, "1/1/2", downstreamAgr)
 
 	// A foreign-region BPDU marks 1/1/1 a boundary port and, being superior,
 	// elects it Root; point-to-point and synced, it forwards in this same
@@ -2786,6 +2809,14 @@ func TestPVSTTopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	peer := pvstLayer(t, "00:11:22:33:44:01", 1, 10, 20)
 	peer.LinkChange(start, "l1", true, true, 1_000_000_000)
 
+	// Advance through Learning to Forwarding so ports become active.
+	start = start.Add(16 * time.Second)
+	local.Advance(start)
+	peer.Advance(start)
+	start = start.Add(16 * time.Second)
+	local.Advance(start)
+	peer.Advance(start)
+
 	// A designated, agreeing BPDU for VLAN 20 with the topology-change flag
 	// set, delivered straight to VLAN 20's tree. The peer's first hello timer
 	// is due at 2s; a wake before that finds nothing to send.
@@ -3832,6 +3863,319 @@ func TestMSTIProposalAndAgreementExchange(t *testing.T) {
 		swA.Receive(now, "1/1/1", badCISTAgreement)
 		if st := swA.VLANPortInfo(10, "1/1/1").State; st != stp.StateDiscarding {
 			t.Errorf("MSTI agreement with mismatched CIST regional root moved port to %v, want Discarding", st)
+		}
+	}
+}
+
+func TestTopologyChangeNotificationOnRootPort(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	now := t0
+	macB := mustMAC(t, "00:11:22:33:44:02")
+	macRoot := mustMAC(t, "00:11:22:33:44:01")
+	tbl := mustPortTable(t, "1/1/1", "1/1/2")
+	b := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  macB,
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+			"1/1/2": {},
+		},
+	}, tbl)
+
+	b.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+	b.LinkChange(now, "1/1/2", true, true, 1_000_000_000)
+
+	// Make 1/1/1 Root port by receiving superior BPDU from macRoot
+	rootBPDU := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	rootBPDU.SetRole(bpdu.RoleDesignated)
+	rootBPDU.SetProposal(true)
+	b.Receive(now, "1/1/1", rootBPDU)
+
+	if info := b.PortInfo("1/1/1"); info.Role != bpdu.RoleRoot || info.State != stp.StateForwarding {
+		t.Fatalf("port 1/1/1 role=%v state=%v, want Root Forwarding", info.Role, info.State)
+	}
+	if info := b.PortInfo("1/1/2"); info.Role != bpdu.RoleDesignated || info.State != stp.StateDiscarding {
+		t.Fatalf("port 1/1/2 role=%v state=%v, want Designated Discarding", info.Role, info.State)
+	}
+
+	// Downstream port 1/1/2 receives an agreement from its peer and moves to Forwarding.
+	// In THAT CALL, b emits a BPDU on its Root port 1/1/1 with the TC flag set.
+	downstreamAgr := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		RootPathCost: 20000,
+		BridgeID:     bpdu.BridgeID{Priority: 32768, Address: macB},
+		PortID:       0x8002,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	downstreamAgr.SetRole(bpdu.RoleRoot)
+	downstreamAgr.SetAgreement(true)
+
+	fxAgr := b.Receive(now, "1/1/2", downstreamAgr)
+	if info := b.PortInfo("1/1/2"); info.State != stp.StateForwarding {
+		t.Fatalf("port 1/1/2 state=%v, want Forwarding", info.State)
+	}
+
+	foundRootTC := false
+	for _, e := range fxAgr.Emissions {
+		if e.Port == "1/1/1" {
+			dec, err := bpdu.Decode(e.Frame)
+			if err != nil {
+				t.Fatalf("decode 1/1/1 frame: %v", err)
+			}
+			if dec.TopologyChange() {
+				foundRootTC = true
+			}
+		}
+	}
+	if !foundRootTC {
+		t.Errorf("receive agreement on 1/1/2 emitted no TC-flagged BPDU on Root port 1/1/1, emissions = %v", fxAgr.Emissions)
+	}
+
+	// While tcWhile runs (helloTime + 1s = 3s), the hello loop emits a BPDU on Root port with TC set.
+	now = now.Add(2 * time.Second)
+	fxHello1 := b.Advance(now)
+	foundRootHello1 := false
+	for _, e := range fxHello1.Emissions {
+		if e.Port == "1/1/1" {
+			dec, err := bpdu.Decode(e.Frame)
+			if err != nil {
+				t.Fatalf("decode 1/1/1 hello: %v", err)
+			}
+			if dec.TopologyChange() {
+				foundRootHello1 = true
+			}
+		}
+	}
+	if !foundRootHello1 {
+		t.Errorf("advance at hello time emitted no TC-flagged BPDU on Root port 1/1/1, emissions = %v", fxHello1.Emissions)
+	}
+
+	// After helloTime + 1s (now is at t0 + 4s > 3s), tcWhile has expired; hello loop sends no BPDU on Root port.
+	now = now.Add(2 * time.Second)
+	fxHello2 := b.Advance(now)
+	for _, e := range fxHello2.Emissions {
+		if e.Port == "1/1/1" {
+			t.Errorf("Root port 1/1/1 emitted BPDU after tcWhile expired: %v", e)
+		}
+	}
+
+	// The port a flagged BPDU arrived on sends none back.
+	flaggedBPDU := rootBPDU
+	flaggedBPDU.SetTopologyChange(true)
+	flaggedBPDU.SetProposal(false)
+	fxFlagged := b.Receive(now, "1/1/1", flaggedBPDU)
+	for _, e := range fxFlagged.Emissions {
+		if e.Port == "1/1/1" {
+			t.Errorf("port 1/1/1 sent BPDU back after receiving flagged BPDU: %v", e)
+		}
+	}
+}
+
+func TestPortLeavingForwardingRaisesNoTopologyChange(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	now := t0
+	tbl := mustPortTable(t, "1/1/1")
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:01"),
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+		},
+	}, tbl)
+	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+
+	// Advance to Forwarding
+	now = now.Add(16 * time.Second)
+	l.Advance(now)
+	now = now.Add(16 * time.Second)
+	l.Advance(now)
+
+	if info := l.PortInfo("1/1/1"); info.State != stp.StateForwarding {
+		t.Fatalf("port state = %v, want Forwarding", info.State)
+	}
+
+	beforeCount, _ := l.TopologyChanges()
+	fx := l.LinkChange(now, "1/1/1", false, false, 0)
+	afterCount, _ := l.TopologyChanges()
+
+	if afterCount != beforeCount {
+		t.Errorf("topology changes moved from %d to %d on port down, want unchanged", beforeCount, afterCount)
+	}
+	for _, e := range fx.Emissions {
+		dec, err := bpdu.Decode(e.Frame)
+		if err == nil && dec.TopologyChange() {
+			t.Errorf("emission carries TC flag on port down: %v", e)
+		}
+	}
+	if !slices.Contains(flushPorts(fx.Flush), "1/1/1") {
+		t.Errorf("port 1/1/1 not flushed on down: %v", fx.Flush)
+	}
+}
+
+func TestInactivePortsIgnoreTopologyChange(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	now := t0
+	mac := mustMAC(t, "00:11:22:33:44:02")
+	rootMAC := mustMAC(t, "00:11:22:33:44:01")
+	tbl := mustPortTable(t, "1/1/1", "1/1/2", "1/1/3", "1/1/4")
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mac,
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+			"1/1/2": {},
+			"1/1/3": {},
+			"1/1/4": {AdminEdge: true},
+		},
+	}, tbl)
+	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+	l.LinkChange(now, "1/1/2", true, true, 1_000_000_000)
+	l.LinkChange(now, "1/1/3", true, true, 1_000_000_000)
+	l.LinkChange(now, "1/1/4", true, true, 1_000_000_000)
+
+	// Make 1/1/1 Root (active), 1/1/2 Alternate (inactive)
+	bpduRoot := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: rootMAC},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: rootMAC},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	bpduRoot.SetRole(bpdu.RoleDesignated)
+	bpduRoot.SetProposal(true)
+	l.Receive(now, "1/1/1", bpduRoot)
+
+	bpduAlt := bpduRoot
+	bpduAlt.PortID = 0x8002
+	l.Receive(now, "1/1/2", bpduAlt)
+
+	if info := l.PortInfo("1/1/2"); info.Role != bpdu.RoleAlternate {
+		t.Fatalf("port 1/1/2 role = %v, want Alternate", info.Role)
+	}
+	if info := l.PortInfo("1/1/3"); info.Role != bpdu.RoleDesignated || info.State != stp.StateDiscarding {
+		t.Fatalf("port 1/1/3 role = %v, state = %v, want Designated Discarding", info.Role, info.State)
+	}
+	if info := l.PortInfo("1/1/4"); !info.Edge || info.State != stp.StateForwarding {
+		t.Fatalf("port 1/1/4 edge = %v, state = %v, want Edge Forwarding", info.Edge, info.State)
+	}
+
+	tcBPDU := bpduRoot
+	tcBPDU.SetTopologyChange(true)
+	tcBPDU.SetProposal(false)
+
+	// Inactive Alternate port 1/1/2 receives TC flag -> flushes nothing
+	fxAlt := l.Receive(now, "1/1/2", tcBPDU)
+	if len(fxAlt.Flush) != 0 {
+		t.Errorf("Alternate port receiving TC flushed %v, want none", fxAlt.Flush)
+	}
+
+	// Inactive Designated Discarding port 1/1/3 receives TC flag -> flushes nothing
+	fxDesig := l.Receive(now, "1/1/3", tcBPDU)
+	if len(fxDesig.Flush) != 0 {
+		t.Errorf("Designated Discarding port receiving TC flushed %v, want none", fxDesig.Flush)
+	}
+
+	// Active Root port 1/1/1 receives TC flag -> flushes active ports, but edge port 1/1/4 is untouched
+	fxActive := l.Receive(now, "1/1/1", tcBPDU)
+	if slices.Contains(flushPorts(fxActive.Flush), "1/1/4") {
+		t.Errorf("Active port receiving TC flushed edge port 1/1/4: %v", fxActive.Flush)
+	}
+}
+
+func TestLegacyTCNHandshakeAndTimer(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	now := t0
+	mac := mustMAC(t, "00:11:22:33:44:01")
+	tbl := mustPortTable(t, "1/1/1")
+	l := mustNewSTP(t, stp.Config{
+		Priority: 4096,
+		Address:  mac,
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+		},
+	}, tbl)
+	// STP legacy mode
+	l.LinkChange(now, "1/1/1", true, false, 1_000_000_000)
+
+	// Advance to Forwarding so 1/1/1 is active Designated port
+	now = now.Add(16 * time.Second)
+	l.Advance(now)
+	now = now.Add(16 * time.Second)
+	l.Advance(now)
+
+	if info := l.PortInfo("1/1/1"); info.Role != bpdu.RoleDesignated || info.State != stp.StateForwarding {
+		t.Fatalf("port 1/1/1 role = %v, state = %v, want Designated Forwarding", info.Role, info.State)
+	}
+
+	// Receive TCN BPDU on Designated port
+	fxTCN := l.Receive(now, "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
+	if len(fxTCN.Emissions) == 0 {
+		t.Fatal("receive TCN produced no emissions")
+	}
+	bAck, err := bpdu.Decode(fxTCN.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("decode ack emission: %v", err)
+	}
+	if !bAck.TopologyChangeAck() {
+		t.Errorf("next Configuration BPDU after TCN has TCAck = false, want true")
+	}
+
+	// The one after has TCAck clear, but TC flag set for 35s
+	now = now.Add(2 * time.Second)
+	fxHello := l.Advance(now)
+	if len(fxHello.Emissions) == 0 {
+		t.Fatal("hello produced no emissions")
+	}
+	bHello, err := bpdu.Decode(fxHello.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("decode hello emission: %v", err)
+	}
+	if bHello.TopologyChangeAck() {
+		t.Errorf("subsequent Configuration BPDU still has TCAck = true, want false")
+	}
+	if !bHello.TopologyChange() {
+		t.Errorf("subsequent Configuration BPDU has TC = false, want true during 35s window")
+	}
+
+	// At now = t0 + 32s + 34s (34s after TCN), TC flag is still set
+	fx34 := l.Advance(t0.Add(32*time.Second + 34*time.Second))
+	if len(fx34.Emissions) > 0 {
+		b34, err := bpdu.Decode(fx34.Emissions[0].Frame)
+		if err == nil && !b34.TopologyChange() {
+			t.Errorf("at 34s after TCN, TC flag is false, want true")
+		}
+	}
+
+	// At 36s after TCN (> 35s), TC flag is clear
+	fx36 := l.Advance(t0.Add(32*time.Second + 36*time.Second))
+	if len(fx36.Emissions) > 0 {
+		b36, err := bpdu.Decode(fx36.Emissions[0].Frame)
+		if err == nil && b36.TopologyChange() {
+			t.Errorf("at 36s after TCN, TC flag is true, want false")
 		}
 	}
 }

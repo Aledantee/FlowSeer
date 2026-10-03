@@ -44,6 +44,10 @@ type portState struct {
 	proposing bool
 	agreed    bool
 
+	tcWhile  time.Time
+	tcActive bool
+	tcAck    bool
+
 	fwdDelayTimer time.Time
 
 	rcvInfoValid    bool
@@ -84,6 +88,7 @@ type portTx struct {
 	tick              time.Time
 	pendingDesignated bool
 	pendingAgreement  bool
+	pendingTCN        bool
 }
 
 func (tx *portTx) clone() *portTx {

@@ -68,7 +68,6 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		if !link.up {
 			return layer.Effects{}
 		}
-		oldState := p.state
 		link.up = false
 		link.bpduGuardDisabled = false
 		link.pvstBoundary = false
@@ -95,8 +94,10 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		// whatever tree they belong to; the topology change below flushes
 		// every other port by its own tree's VLANs.
 		flushes = append(flushes, layer.FlushTarget{Port: port})
-		if oldState == StateForwarding && !link.edge {
-			l.raiseTopologyChange(t, port, now, &flushes)
+		for _, id := range l.treeOrder {
+			if tp, ok := l.trees[id].ports[port]; ok {
+				l.deactivatePort(l.trees[id], tp, &flushes)
+			}
 		}
 
 		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
@@ -263,9 +264,7 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 			if !ok {
 				continue
 			}
-			if tp.state == StateForwarding {
-				l.raiseTopologyChange(tr, port, now, flushes)
-			}
+			l.deactivatePort(tr, tp, flushes)
 			tp.state = StateDiscarding
 			tp.fwdDelayTimer = time.Time{}
 			tp.proposing = link.pointToPoint && link.sendRSTP

@@ -14,7 +14,23 @@ type emissionKind uint8
 const (
 	emissionDesignated emissionKind = iota
 	emissionAgreement
+	emissionTCN
 )
+
+func (l *Layer) emitRootTC(t *tree, p *portState, now time.Time, emissions *[]layer.Emission) {
+	if l.pvst == nil && t.id != cistID {
+		return
+	}
+	link := l.links[p.name]
+	if !link.up {
+		return
+	}
+	if link.sendRSTP {
+		l.emit(t, p, now, emissionAgreement, emissions)
+	} else {
+		l.emit(t, p, now, emissionTCN, emissions)
+	}
+}
 
 func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, emissions *[]layer.Emission) {
 	link := l.links[p.name]
@@ -46,6 +62,8 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 			msg = l.makeBPDU(t, p, now, proposal)
 		case emissionAgreement:
 			msg = l.makeAgreementBPDU(t, p, now)
+		case emissionTCN:
+			msg = bpdu.BPDU{Version: 0, Type: bpdu.TypeTopologyChangeNotification}
 		}
 
 		built, err := l.frames(t, p, msg)
@@ -73,6 +91,8 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 			tx.pendingDesignated = true
 		case emissionAgreement:
 			tx.pendingAgreement = true
+		case emissionTCN:
+			tx.pendingTCN = true
 		}
 	}
 }
@@ -198,7 +218,7 @@ func (l *Layer) gatherMSTIRecords(now time.Time, p *portState) []bpdu.MSTIRecord
 		}
 		flags.SetLearning(mp.state == StateLearning || mp.state == StateForwarding)
 		flags.SetForwarding(mp.state == StateForwarding)
-		if !mt.topologyChangeTimer.IsZero() && mt.topologyChangeTimer.After(now) {
+		if !mp.tcWhile.IsZero() && mp.tcWhile.After(now) {
 			flags.SetTopologyChange(true)
 		}
 
@@ -256,8 +276,12 @@ func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, proposal bool) bp
 	b.SetProposal(proposal)
 	b.SetLearning(p.state == StateLearning || p.state == StateForwarding)
 	b.SetForwarding(p.state == StateForwarding)
-	if !t.topologyChangeTimer.IsZero() && t.topologyChangeTimer.After(now) {
+	if !p.tcWhile.IsZero() && p.tcWhile.After(now) {
 		b.SetTopologyChange(true)
+	}
+	if p.tcAck {
+		b.SetTopologyChangeAck(true)
+		p.tcAck = false
 	}
 
 	// Only the CIST drives emission (see recomputeAll), so this is also the

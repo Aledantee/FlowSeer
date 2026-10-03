@@ -275,6 +275,7 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 		case bpdu.RoleDisabled, bpdu.RoleAlternate, bpdu.RoleBackup:
 			p.state = StateDiscarding
 			p.fwdDelayTimer = time.Time{}
+			l.deactivatePort(t, p, flushes)
 		case bpdu.RoleRoot:
 			if link.pointToPoint && l.isSynced(t, p.name) && link.sendRSTP {
 				p.state = StateForwarding
@@ -289,6 +290,7 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 			case link.edge:
 				p.state = StateForwarding
 				p.fwdDelayTimer = time.Time{}
+				l.deactivatePort(t, p, flushes)
 			case link.pointToPoint && p.agreed:
 				p.state = StateForwarding
 				p.fwdDelayTimer = time.Time{}
@@ -304,13 +306,11 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 
 		if oldState != StateForwarding && p.state == StateForwarding {
 			p.forwardTransitions++
-			if !link.edge {
-				l.raiseTopologyChange(t, p.name, now, flushes)
+			if !link.edge && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleDesignated) {
+				l.initiateTopologyChange(t, p, now, flushes, &emissions)
 			}
 		} else if oldState == StateForwarding && p.state != StateForwarding {
-			if !link.edge {
-				l.raiseTopologyChange(t, p.name, now, flushes)
-			}
+			l.deactivatePort(t, p, flushes)
 		}
 	}
 
