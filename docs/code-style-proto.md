@@ -186,7 +186,7 @@ That covers casing. The rules the compiler does not check still stand:
   no `reserved` line, for the number or for the name, because nothing outside this
   repository reads the schemas and a tombstone would protect no consumer. The
   `reserved` lines already in the tree stay. From the first stable release on, a
-  removal `reserved` the number *and* the name in the same change. One dated
+  removal reserves the number *and* the name in the same change. One dated
   exception to renumbering: on 2026-08-26, inside the pre-release
   window while breaking checks are suspended, a one-time reviewed collapse removed
   every reserved tombstone under `spec/proto/flowseer/` and renumbered the remaining
