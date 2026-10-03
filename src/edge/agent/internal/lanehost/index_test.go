@@ -8,37 +8,48 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"buf.build/go/protovalidate"
+
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
 )
 
+const (
+	bindingOne = "0192e6a0-0000-7000-8000-0000000000b1"
+	bindingTwo = "0192e6a0-0000-7000-8000-0000000000b2"
+)
+
 func bindingRefFor(id string) *inventoryv1.BindingGlobalRef {
-	return inventoryv1.BindingGlobalRef_builder{
+	b := inventoryv1.BindingGlobalRef_builder{
 		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(id)}.Build(),
 	}.Build()
+	if err := protovalidate.Validate(b); err != nil {
+		panic(err)
+	}
+	return b
 }
 
 func TestDeviceIndex_AddAndLookup(t *testing.T) {
 	t.Parallel()
 
 	idx := lanehost.NewDeviceIndex()
-	binding := bindingRefFor("bind-1")
-	idx.Add("192.0.2.1", "dev-1", binding)
+	binding := bindingRefFor(bindingOne)
+	idx.Add("192.0.2.1", deviceOne, binding)
 
 	entry, ok := idx.Lookup("192.0.2.1")
 	if !ok {
 		t.Fatal("Lookup(\"192.0.2.1\") = false, want true")
 	}
-	if entry.DeviceID != "dev-1" {
-		t.Errorf("DeviceID = %q, want dev-1", entry.DeviceID)
+	if entry.DeviceID != deviceOne {
+		t.Errorf("DeviceID = %q, want %s", entry.DeviceID, deviceOne)
 	}
-	if entry.Device == nil || entry.Device.GetDevice().GetId() != "dev-1" {
-		t.Errorf("Device ref = %v, want ID dev-1", entry.Device)
+	if entry.Device == nil || entry.Device.GetDevice().GetId() != deviceOne {
+		t.Errorf("Device ref = %v, want ID %s", entry.Device, deviceOne)
 	}
-	if entry.Binding == nil || entry.Binding.GetBinding().GetId() != "bind-1" {
-		t.Errorf("Binding ref = %v, want ID bind-1", entry.Binding)
+	if entry.Binding == nil || entry.Binding.GetBinding().GetId() != bindingOne {
+		t.Errorf("Binding ref = %v, want ID %s", entry.Binding, bindingOne)
 	}
 
 	if _, ok := idx.Lookup("192.0.2.99"); ok {
@@ -50,18 +61,18 @@ func TestDeviceIndex_Replace(t *testing.T) {
 	t.Parallel()
 
 	idx := lanehost.NewDeviceIndex()
-	idx.Add("192.0.2.1", "dev-1", bindingRefFor("bind-1"))
-	idx.Add("192.0.2.1", "dev-2", bindingRefFor("bind-2"))
+	idx.Add("192.0.2.1", deviceOne, bindingRefFor(bindingOne))
+	idx.Add("192.0.2.1", deviceTwo, bindingRefFor(bindingTwo))
 
 	entry, ok := idx.Lookup("192.0.2.1")
 	if !ok {
 		t.Fatal("Lookup(\"192.0.2.1\") = false, want true")
 	}
-	if entry.DeviceID != "dev-2" {
-		t.Errorf("DeviceID = %q, want dev-2", entry.DeviceID)
+	if entry.DeviceID != deviceTwo {
+		t.Errorf("DeviceID = %q, want %s", entry.DeviceID, deviceTwo)
 	}
-	if entry.Binding.GetBinding().GetId() != "bind-2" {
-		t.Errorf("Binding ID = %q, want bind-2", entry.Binding.GetBinding().GetId())
+	if entry.Binding.GetBinding().GetId() != bindingTwo {
+		t.Errorf("Binding ID = %q, want %s", entry.Binding.GetBinding().GetId(), bindingTwo)
 	}
 }
 
@@ -135,13 +146,27 @@ func TestDeviceIndex_MappedIPv4MatchesPlainIPv4(t *testing.T) {
 	t.Parallel()
 
 	idx := lanehost.NewDeviceIndex()
-	idx.Add("::ffff:192.0.2.1", "dev-1", bindingRefFor("bind-1"))
+	idx.Add("::ffff:192.0.2.1", deviceOne, bindingRefFor(bindingOne))
 
-	// A dual-stack listener reports an IPv4 peer in its mapped form.
 	if _, ok := idx.Lookup(lanehost.Key(netip.MustParseAddr("192.0.2.1"))); !ok {
 		t.Error("Lookup of the plain form = false, want true for a device added in the mapped form")
 	}
 	if _, ok := idx.Lookup(lanehost.Key(netip.MustParseAddr("::ffff:192.0.2.1"))); !ok {
 		t.Error("Lookup of the mapped form = false, want true")
+	}
+}
+
+func TestDeviceIndex_LinkLocalIPv6WithZone(t *testing.T) {
+	t.Parallel()
+
+	idx := lanehost.NewDeviceIndex()
+	idx.Add("fe80::1", deviceOne, bindingRefFor(bindingOne))
+
+	addrWithZone := netip.MustParseAddr("fe80::1%en0")
+	if entry, ok := idx.Lookup(lanehost.Key(addrWithZone)); !ok || entry.DeviceID != deviceOne {
+		t.Errorf("Lookup(Key(fe80::1%%en0)) = %v (%q), want true / %s", ok, entry.DeviceID, deviceOne)
+	}
+	if entry, ok := idx.Lookup("fe80::1%en0"); !ok || entry.DeviceID != deviceOne {
+		t.Errorf("Lookup(\"fe80::1%%en0\") = %v (%q), want true / %s", ok, entry.DeviceID, deviceOne)
 	}
 }

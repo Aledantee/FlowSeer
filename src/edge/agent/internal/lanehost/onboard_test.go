@@ -507,3 +507,40 @@ func TestADeviceThatNeverAnswersDoesNotHoldTheListingUp(t *testing.T) {
 		t.Errorf("added = %v, want only %q: the silent device is not held and is tried again", got, deviceTwo)
 	}
 }
+
+func TestOnboard_InvalidManagementAddressFailsEarlyWithWarning(t *testing.T) {
+	t.Parallel()
+
+	invalidDevice := listedDevice(deviceOne, 30*time.Second)
+	invalidDevice.SetIp(addrv1.IpAddress_builder{
+		V4: addrv1.Ipv4Address_builder{Octets: []byte{1, 2}}.Build(),
+	}.Build())
+
+	lister := &listerFake{listings: [][]*attachv1.ListedDevice{{invalidDevice}}}
+	registrar := newRegistrar()
+	logs := &recordingLogs{}
+	idx := lanehost.NewDeviceIndex()
+
+	onboarder := newOnboarder(t, lister, registrar, logs, idx)
+	if err := onboarder.Sync(context.Background()); err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+
+	if got := registrar.addedDevices(); len(got) != 0 {
+		t.Fatalf("added devices = %v, want none", got)
+	}
+	if _, ok := idx.Lookup("1.2"); ok {
+		t.Error("index holds invalid device, want none")
+	}
+
+	attrs, ok := logs.event("flowseer.edge.device.onboarding_failed")
+	if !ok {
+		t.Fatal("onboarding_failed event not emitted")
+	}
+	if attrs["flowseer.device.id"] != deviceOne {
+		t.Errorf("device id = %q, want %q", attrs["flowseer.device.id"], deviceOne)
+	}
+	if attrs["error.type"] != string(lanehost.ErrCodeOnboard) {
+		t.Errorf("error.type = %q, want %q", attrs["error.type"], lanehost.ErrCodeOnboard)
+	}
+}

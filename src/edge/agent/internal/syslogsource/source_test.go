@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 	"testing"
@@ -19,6 +20,7 @@ import (
 
 	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+	netlogv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/log/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
@@ -140,7 +142,6 @@ func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 	meter := mp.Meter("test")
 
 	index := lanehost.NewDeviceIndex()
-	// Initially only 192.0.2.1 is in index, 127.0.0.1 is not in index.
 	bindRef := inventoryv1.BindingGlobalRef_builder{
 		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build(),
 	}.Build()
@@ -174,7 +175,6 @@ func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 	}
 	defer func() { _ = conn.Close() }()
 
-	// 1. Send from unknown address (127.0.0.1 is not yet mapped).
 	payload := []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - unknown source drop")
 	if _, err := conn.Write(payload); err != nil {
 		t.Fatalf("write unknown UDP: %v", err)
@@ -189,7 +189,6 @@ func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 		t.Errorf("dropped reason = %q (found=%t), want unknown_source", reason, ok)
 	}
 
-	// 2. Map 127.0.0.1 as a hosted address and send again.
 	index.Add("127.0.0.1", testDeviceID, bindRef)
 
 	hostedPayload := []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - hosted link down")
@@ -222,13 +221,11 @@ func TestSource_UDPHostedAndUnknownAddress(t *testing.T) {
 		t.Fatalf("protovalidate: %v", err)
 	}
 
-	// Verify Nats-Msg-Id equals record_id
 	recordID := env.GetRecordId()
 	if msgID := msg.Header.Get("Nats-Msg-Id"); msgID != recordID {
 		t.Errorf("Nats-Msg-Id header = %q, want record_id %q", msgID, recordID)
 	}
 
-	// Verify sourced copy gains Nats-Stream-Source
 	if srcStream := msg.Header.Get("Nats-Stream-Source"); srcStream == "" {
 		t.Error("Nats-Stream-Source header is empty, want stream name")
 	}
@@ -286,10 +283,38 @@ func TestSource_DualStackListenerResolvesAnIPv4Device(t *testing.T) {
 		t.Fatalf("hub edge stream: %v", err)
 	}
 	subject := leaf.Subject("ingest.syslog")
+	var rawMsg *jetstream.RawStreamMsg
 	waitFor(t, "stored message in hub stream", 10*time.Second, func() bool {
 		msg, err := stream.GetLastMsgForSubject(context.Background(), subject)
-		return err == nil && msg != nil
+		if err == nil && msg != nil {
+			rawMsg = msg
+			return true
+		}
+		return false
 	})
+	if rawMsg == nil {
+		t.Fatal("no message stored in hub stream")
+	}
+
+	var env ingestv1.IngestRecord
+	if err := proto.Unmarshal(rawMsg.Data, &env); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	syslogRec := env.GetSyslog()
+	if syslogRec.GetHostname() != "sw1" {
+		t.Errorf("hostname = %q, want sw1", syslogRec.GetHostname())
+	}
+	if string(syslogRec.GetMessage()) != "link down" {
+		t.Errorf("message = %q, want 'link down'", string(syslogRec.GetMessage()))
+	}
+	srcAddr := syslogRec.GetSourceAddress()
+	if !srcAddr.HasV4() {
+		t.Fatalf("SourceAddress = %v, want V4 arm", srcAddr)
+	}
+	wantOctets := []byte{127, 0, 0, 1}
+	if !bytes.Equal(srcAddr.GetV4().GetOctets(), wantOctets) {
+		t.Errorf("SourceAddress.V4 = %v, want %v", srcAddr.GetV4().GetOctets(), wantOctets)
+	}
 }
 
 func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
@@ -308,7 +333,6 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// 5 TCP listeners: Auto, OctetCounting, LF, CRLF, NUL
 	listeners := []syslog.ListenConfig{
 		{Transport: syslog.TCP, Address: "127.0.0.1:0", Framing: syslog.Auto},
 		{Transport: syslog.TCP, Address: "127.0.0.1:0", Framing: syslog.OctetCounting},
@@ -343,8 +367,6 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 		t.Fatalf("len(endpoints) = %d, want 5", len(endpoints))
 	}
 
-	// 1. Auto framing: test both forms (octet counting, and delimited starting with '<')
-	// Form 1: octet counting under auto
 	autoAddr := endpoints[0].Address
 	payload1 := []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - auto-form1")
 	frame1 := append([]byte(fmt.Sprintf("%d ", len(payload1))), payload1...)
@@ -354,14 +376,12 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 		t.Fatal("auto-form1 message not found")
 	}
 
-	// Form 2: delimited with '<' under auto
 	sendTCP(t, autoAddr, []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - auto-form2\n"))
 	msg2 := waitForMessage(t, stream, subject, "auto-form2")
 	if msg2 == nil {
 		t.Fatal("auto-form2 message not found")
 	}
 
-	// 2. Octet counting framing
 	octetAddr := endpoints[1].Address
 	payloadOctet := []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - octet-msg")
 	frameOctet := append([]byte(fmt.Sprintf("%d ", len(payloadOctet))), payloadOctet...)
@@ -371,8 +391,6 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 		t.Fatal("octet-msg message not found")
 	}
 
-	// 3. LF framing case
-	// "with LF framing the line Oct  3 10:00:00 sw1 app: up and a line feed arrive as one record with severity unset."
 	lfAddr := endpoints[2].Address
 	sendTCP(t, lfAddr, []byte("Oct  3 10:00:00 sw1 app: up\n"))
 	msg4 := waitForMessage(t, stream, subject, "up")
@@ -387,7 +405,6 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 		t.Errorf("LF record severity = %v, want unset", envLF.GetSyslog().GetSeverity())
 	}
 
-	// 4. CRLF framing
 	crlfAddr := endpoints[3].Address
 	sendTCP(t, crlfAddr, []byte("Oct  3 10:00:00 sw1 app: crlf-up\r\n"))
 	msg5 := waitForMessage(t, stream, subject, "crlf-up")
@@ -395,7 +412,6 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 		t.Fatal("CRLF message not found")
 	}
 
-	// 5. NUL framing
 	nulAddr := endpoints[4].Address
 	sendTCP(t, nulAddr, []byte("Oct  3 10:00:00 sw1 app: nul-up\x00"))
 	msg6 := waitForMessage(t, stream, subject, "nul-up")
@@ -403,27 +419,40 @@ func TestSource_TCPFiveFramingsAndAutoCases(t *testing.T) {
 		t.Fatal("NUL message not found")
 	}
 
-	// 6. LF line under auto closes connection and yields framing error
-	// "Under auto the same bytes close the connection and yield no record."
 	initialFramingErrors := src.Receiver().Stats().FramingErrors
+	infoBefore, err := stream.Info(context.Background())
+	if err != nil {
+		t.Fatalf("stream info before: %v", err)
+	}
+
 	conn, err := net.Dial("tcp", autoAddr)
 	if err != nil {
 		t.Fatalf("Dial auto: %v", err)
 	}
 	_, _ = conn.Write([]byte("Oct  3 10:00:00 sw1 app: up\n"))
 
-	// Connection should close
 	buf := make([]byte, 16)
 	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	_, err = conn.Read(buf)
-	if err == nil {
-		t.Error("expected connection close, got nil read error")
+	if !errors.Is(err, io.EOF) {
+		t.Errorf("read error = %v, want io.EOF", err)
 	}
 	_ = conn.Close()
 
 	waitFor(t, "framing_errors increment", 2*time.Second, func() bool {
-		return src.Receiver().Stats().FramingErrors > initialFramingErrors
+		return src.Receiver().Stats().FramingErrors == initialFramingErrors+1
 	})
+	if got := src.Receiver().Stats().FramingErrors; got != initialFramingErrors+1 {
+		t.Errorf("framing_errors = %d, want %d", got, initialFramingErrors+1)
+	}
+
+	infoAfter, err := stream.Info(context.Background())
+	if err != nil {
+		t.Fatalf("stream info after: %v", err)
+	}
+	if infoAfter.State.Msgs != infoBefore.State.Msgs {
+		t.Errorf("stream messages = %d, want %d", infoAfter.State.Msgs, infoBefore.State.Msgs)
+	}
 }
 
 func TestSource_OctetCounted65535ByteFrameIsCutAndKeepsRaw(t *testing.T) {
@@ -465,7 +494,6 @@ func TestSource_OctetCounted65535ByteFrameIsCutAndKeepsRaw(t *testing.T) {
 	}
 	subject := leaf.Subject("ingest.syslog")
 
-	// 65535 octets with no recognizable envelope
 	largePayload := bytes.Repeat([]byte("z"), 65535)
 	frameHeader := fmt.Sprintf("%d ", len(largePayload))
 	frame := append([]byte(frameHeader), largePayload...)
@@ -595,6 +623,11 @@ func TestSource_PublisherRetryWithBackoff(t *testing.T) {
 		t.Fatal("timed out waiting for publisher retry")
 	}
 
+	waitFor(t, "published metric", 5*time.Second, func() bool {
+		val, ok := readMetricSum(reader, "flowseer.edge.syslog.published")
+		return ok && val == 1
+	})
+
 	stub.mu.Lock()
 	defer stub.mu.Unlock()
 
@@ -639,4 +672,270 @@ func waitForMessage(t *testing.T, stream jetstream.Stream, subject, substring st
 		time.Sleep(50 * time.Millisecond)
 	}
 	return nil
+}
+
+func TestSource_ListenRefusesNilEdgeRef(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_, err := syslogsource.Listen(ctx, syslogsource.Config{
+		Listeners: []syslog.ListenConfig{
+			{Transport: syslog.UDP, Address: "127.0.0.1:0"},
+		},
+		Index:     lanehost.NewDeviceIndex(),
+		Publisher: &retryPublisherStub{},
+		EdgeRef:   nil,
+	})
+	if err == nil {
+		t.Fatal("Listen with nil EdgeRef succeeded, want error")
+	}
+}
+
+type retryFailingPublisherStub struct {
+	called chan struct{}
+	once   sync.Once
+}
+
+func (p *retryFailingPublisherStub) Subject(string) string {
+	return "flowseer.test.ingest.syslog"
+}
+
+func (p *retryFailingPublisherStub) Publish(context.Context, string, []byte, string) error {
+	p.once.Do(func() {
+		close(p.called)
+	})
+	return errors.New("temporary publish failure")
+}
+
+func TestSource_RunReturnsNilOnCancellationDuringRetry(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	index := lanehost.NewDeviceIndex()
+	bindRef := inventoryv1.BindingGlobalRef_builder{
+		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build(),
+	}.Build()
+	index.Add("127.0.0.1", testDeviceID, bindRef)
+
+	stub := &retryFailingPublisherStub{called: make(chan struct{})}
+
+	src, err := syslogsource.Listen(ctx, syslogsource.Config{
+		Listeners: []syslog.ListenConfig{
+			{Transport: syslog.UDP, Address: "127.0.0.1:0"},
+		},
+		Index:          index,
+		Publisher:      stub,
+		EdgeRef:        testEdgeRef(),
+		InitialBackoff: 10 * time.Millisecond,
+		MaxBackoff:     50 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	defer func() { _ = src.Close() }()
+
+	errCh := make(chan error, 1)
+	spawn.Go(ctx, "syslog-source-runner", func() {
+		errCh <- src.Run(ctx)
+	})
+
+	udpAddr := src.Receiver().Addresses()[0].Address
+	conn, err := net.Dial("udp", udpAddr)
+	if err != nil {
+		t.Fatalf("Dial UDP: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	payload := []byte("<34>1 2026-10-03T10:00:00Z sw1 app - - - retry test")
+	if _, err := conn.Write(payload); err != nil {
+		t.Fatalf("write UDP: %v", err)
+	}
+
+	select {
+	case <-stub.called:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for Publish to be called")
+	}
+
+	cancel()
+
+	select {
+	case runErr := <-errCh:
+		if runErr != nil {
+			t.Errorf("Run returned error %v, want nil on context cancellation", runErr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for Run to return")
+	}
+}
+
+type capturingPublisherStub struct {
+	mu      sync.Mutex
+	records []*ingestv1.IngestRecord
+}
+
+func (s *capturingPublisherStub) Subject(string) string {
+	return "flowseer.test.ingest.syslog"
+}
+
+func (s *capturingPublisherStub) Publish(_ context.Context, _ string, data []byte, _ string) error {
+	var env ingestv1.IngestRecord
+	if err := proto.Unmarshal(data, &env); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.records = append(s.records, &env)
+	return nil
+}
+
+func (s *capturingPublisherStub) count() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.records)
+}
+
+func (s *capturingPublisherStub) recordAt(i int) *ingestv1.IngestRecord {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.records[i]
+}
+
+func TestSource_RawPolicySuppressionAndMetrics(t *testing.T) {
+	t.Parallel()
+
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	meter := mp.Meter("test")
+
+	index := lanehost.NewDeviceIndex()
+	bindRef := inventoryv1.BindingGlobalRef_builder{
+		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(testBindingID)}.Build(),
+	}.Build()
+	index.Add("127.0.0.1", testDeviceID, bindRef)
+
+	stub := &capturingPublisherStub{}
+	policy := syslogsource.NewRawPolicy(1, 3, nil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	src, err := syslogsource.Listen(ctx, syslogsource.Config{
+		Listeners: []syslog.ListenConfig{
+			{Transport: syslog.UDP, Address: "127.0.0.1:0"},
+		},
+		Index:     index,
+		Publisher: stub,
+		EdgeRef:   testEdgeRef(),
+		Meter:     meter,
+		Policy:    policy,
+	})
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	defer func() { _ = src.Close() }()
+
+	spawn.Go(ctx, "syslog-source-runner", func() {
+		_ = src.Run(ctx)
+	})
+
+	udpAddr := src.Receiver().Addresses()[0].Address
+	conn, err := net.Dial("udp", udpAddr)
+	if err != nil {
+		t.Fatalf("Dial UDP: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	completePayload := []byte("<34>1 2026-10-03T10:00:00Z sw1 app 123 ID42 [exampleSDID@32473 iut=\"3\"] complete msg")
+	if _, err := conn.Write(completePayload); err != nil {
+		t.Fatalf("write complete UDP: %v", err)
+	}
+
+	waitFor(t, "record 1 (complete)", 5*time.Second, func() bool {
+		return stub.count() == 1
+	})
+
+	rec0 := stub.recordAt(0)
+	if rec0.GetRaw() != nil {
+		t.Errorf("complete record carries raw evidence %v, want nil", rec0.GetRaw())
+	}
+	s := rec0.GetSyslog()
+	if s == nil {
+		t.Fatal("syslog record is nil")
+	}
+	if s.GetFacility() != netlogv1.SyslogFacility_SYSLOG_FACILITY_AUTH {
+		t.Errorf("facility = %v, want SYSLOG_FACILITY_AUTH (4)", s.GetFacility())
+	}
+	if s.GetSeverity() != netlogv1.SyslogSeverity_SYSLOG_SEVERITY_CRITICAL {
+		t.Errorf("severity = %v, want SYSLOG_SEVERITY_CRITICAL (2)", s.GetSeverity())
+	}
+
+	if _, err := conn.Write([]byte("parse failure 1")); err != nil {
+		t.Fatalf("write failure 1: %v", err)
+	}
+	waitFor(t, "record 2 (failure 1)", 5*time.Second, func() bool {
+		return stub.count() == 2
+	})
+	rec1 := stub.recordAt(1)
+	if rec1.GetRaw() == nil {
+		t.Fatal("failure 1 raw evidence is nil, want kept")
+	}
+	if rec1.GetRaw().GetSuppressedSinceLast() != 0 {
+		t.Errorf("failure 1 suppressed = %d, want 0", rec1.GetRaw().GetSuppressedSinceLast())
+	}
+
+	if _, err := conn.Write([]byte("parse failure 2")); err != nil {
+		t.Fatalf("write failure 2: %v", err)
+	}
+	waitFor(t, "record 3 (failure 2)", 5*time.Second, func() bool {
+		return stub.count() == 3
+	})
+	rec2 := stub.recordAt(2)
+	if rec2.GetRaw() != nil {
+		t.Errorf("failure 2 raw evidence = %v, want nil", rec2.GetRaw())
+	}
+
+	if _, err := conn.Write([]byte("parse failure 3")); err != nil {
+		t.Fatalf("write failure 3: %v", err)
+	}
+	waitFor(t, "record 4 (failure 3)", 5*time.Second, func() bool {
+		return stub.count() == 4
+	})
+	rec3 := stub.recordAt(3)
+	if rec3.GetRaw() != nil {
+		t.Errorf("failure 3 raw evidence = %v, want nil", rec3.GetRaw())
+	}
+
+	if _, err := conn.Write([]byte("parse failure 4")); err != nil {
+		t.Fatalf("write failure 4: %v", err)
+	}
+	waitFor(t, "record 5 (failure 4)", 5*time.Second, func() bool {
+		return stub.count() == 5
+	})
+	rec4 := stub.recordAt(4)
+	if rec4.GetRaw() == nil {
+		t.Fatal("failure 4 raw evidence is nil, want kept")
+	}
+	if rec4.GetRaw().GetSuppressedSinceLast() != 2 {
+		t.Errorf("failure 4 suppressed = %d, want 2", rec4.GetRaw().GetSuppressedSinceLast())
+	}
+
+	waitFor(t, "raw metrics", 5*time.Second, func() bool {
+		kept, ok1 := readMetricSum(reader, "flowseer.edge.syslog.raw.kept")
+		suppressed, ok2 := readMetricSum(reader, "flowseer.edge.syslog.raw.suppressed")
+		return ok1 && ok2 && kept == 2 && suppressed == 2
+	})
+
+	kept, ok := readMetricSum(reader, "flowseer.edge.syslog.raw.kept")
+	if !ok || kept != 2 {
+		t.Errorf("raw.kept metric = %d (ok=%t), want 2", kept, ok)
+	}
+	suppressed, ok := readMetricSum(reader, "flowseer.edge.syslog.raw.suppressed")
+	if !ok || suppressed != 2 {
+		t.Errorf("raw.suppressed metric = %d (ok=%t), want 2", suppressed, ok)
+	}
 }

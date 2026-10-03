@@ -1,6 +1,7 @@
 package syslogsource_test
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -10,16 +11,21 @@ import (
 func TestRawPolicy_Drives220FailuresAndWindowRollOver(t *testing.T) {
 	t.Parallel()
 
-	current := time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC)
-	clock := func() time.Time { return current }
+	var frozenNanos atomic.Int64
+	initial := time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC)
+	frozenNanos.Store(initial.UnixNano())
+	clock := func() time.Time { return time.Unix(0, frozenNanos.Load()).UTC() }
+	setNow := func(t time.Time) { frozenNanos.Store(t.UnixNano()) }
 
 	policy := syslogsource.NewRawPolicy(20, 100, clock)
-	const device = "dev-1"
+	const (
+		device      = "dev-1"
+		otherDevice = "dev-2"
+	)
 
 	var keptCount int
 	var totalSuppressed uint64
 
-	// Drive 220 failures in the first minute
 	for i := 1; i <= 220; i++ {
 		keep, suppressed := policy.Evaluate(device)
 		switch {
@@ -66,15 +72,31 @@ func TestRawPolicy_Drives220FailuresAndWindowRollOver(t *testing.T) {
 		t.Errorf("totalSuppressed = %d, want 198 (99 + 99)", totalSuppressed)
 	}
 
-	// Advance clock past 1 minute to test window roll-over
-	current = current.Add(time.Minute)
+	keepOther, suppOther := policy.Evaluate(otherDevice)
+	if !keepOther {
+		t.Errorf("other device: keep = false, want true")
+	}
+	if suppOther != 0 {
+		t.Errorf("other device: suppressed = %d, want 0", suppOther)
+	}
 
-	// First failure in new window must be kept with 0 suppressed since last
+	for j := 1; j <= 3; j++ {
+		keep, supp := policy.Evaluate(device)
+		if keep {
+			t.Errorf("pre-rollover failure %d: keep = true, want false", j)
+		}
+		if supp != 0 {
+			t.Errorf("pre-rollover failure %d: suppressed = %d, want 0", j, supp)
+		}
+	}
+
+	setNow(initial.Add(time.Minute))
+
 	keep, suppressed := policy.Evaluate(device)
 	if !keep {
 		t.Error("failure 1 in new minute: keep = false, want true")
 	}
-	if suppressed != 0 {
-		t.Errorf("failure 1 in new minute: suppressed = %d, want 0", suppressed)
+	if suppressed != 3 {
+		t.Errorf("failure 1 in new minute: suppressed = %d, want 3", suppressed)
 	}
 }

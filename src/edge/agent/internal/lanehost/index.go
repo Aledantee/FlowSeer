@@ -29,10 +29,11 @@ func NewDeviceIndex() *DeviceIndex {
 }
 
 // Key returns the index key for an address, which is the address with an
-// IPv4-mapped IPv6 form unmapped: a dual-stack listener reports an IPv4 peer
-// in the mapped form, and a device is listed in the plain one.
+// IPv4-mapped IPv6 form unmapped and any IPv6 zone removed: a dual-stack listener
+// reports an IPv4 peer in the mapped form, a link-local peer may arrive with a
+// zone, and a device is listed in the plain form.
 func Key(addr netip.Addr) string {
-	return addr.Unmap().String()
+	return addr.Unmap().WithZone("").String()
 }
 
 // Add records or updates a device mapping for the given address.
@@ -59,6 +60,9 @@ func (idx *DeviceIndex) Add(address, deviceID string, binding *inventoryv1.Bindi
 func (idx *DeviceIndex) Lookup(address string) (DeviceEntry, bool) {
 	if idx == nil {
 		return DeviceEntry{}, false
+	}
+	if parsed, err := netip.ParseAddr(address); err == nil {
+		address = Key(parsed)
 	}
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
