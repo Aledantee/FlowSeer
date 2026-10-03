@@ -486,3 +486,14 @@ go list -f '{{.ImportPath}}{{range .Imports}} {{.}}{{end}}' ./src/common/sim/lay
 - Whether a default LACP key must stay fixed when a LAG is added is a question
   about IEEE 802.1AX, unverified here and not vendored under `spec/`. Phase 4
   decides it. U5 states the current rule in `L/lag/README.md`.
+- Parked by drive: the review ended `rework` after three fix rounds
+  (`1ad57013` on `parked/sim-p2-review`, which holds every fix commit). Every
+  finding against production code is fixed. What remains is in
+  `test/conformance/sim`: sixteen checker guards that no fixture refuses,
+  three of them reachable by honest source, and a fork gate row that fails
+  by panic. Options: a fourth fix round on the gate fixtures only, resumed
+  from `parked/sim-p2-review` (one more review and fix pass, scoped to one
+  test package) | re-plan U10 (the gate unit gets a fixture per guard
+  before any more fixing, at the cost of a plan stage). Recommended: a
+  fourth round, because the open work is test fixtures in one package and
+  the production change has been reviewed clean.
