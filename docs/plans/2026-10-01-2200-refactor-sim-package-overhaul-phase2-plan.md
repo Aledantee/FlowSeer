@@ -647,3 +647,19 @@ go list -f '{{.ImportPath}}{{range .Imports}} {{.}}{{end}}' ./src/common/sim/lay
 - Whether a default LACP key must stay fixed when a LAG is added is a question
   about IEEE 802.1AX, unverified here and not vendored under `spec/`. Phase 4
   decides it. U5 states the current rule in `L/lag/README.md`.
+- Parked by drive: the fourth fix round closed the stateless gap
+  (`1b6ff63b`), and its re-review ended `rework` (`2db760b7` on
+  `parked/sim-p2-round4`, which holds every fix commit since the re-plan).
+  The gate refuses every violation its table names. What stays open is that
+  some rules of the gate can be changed with every test green: the
+  `RetentionKey` row's literal, the `import_device` root, and
+  `exported_fact` narrowed to stateful packages. Each round since the
+  re-plan has found another such rule. Options: re-plan U10 so the property
+  is executable, for example fixtures derived from each row's kind and a
+  test that every row refuses in both package kinds (the reviewer's route
+  and `fix-loop.md`'s, at a plan stage and another implement and review) |
+  accept after fixes, with the gate's mutation coverage carried as an open
+  question for phase 12's close-out (unblocks phases 3 to 8 now, the gate
+  stays correct but not every rule of it is pinned). Recommended: accept
+  after fixes, because no finding is a layer that breaks the contract, and
+  the open work is hardening the gate's own tests.
