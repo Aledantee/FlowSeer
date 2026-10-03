@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import en from './locales/en.json'
 import de from './locales/de.json'
-import { createWebI18n } from './index'
+import { createWebI18n, numberFormats } from './index'
 
 function getLeafPaths(obj: unknown, prefix = ''): string[] {
   if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
@@ -151,23 +151,65 @@ describe('i18n message catalogs and runtime', () => {
     const first = createWebI18n('en')
     const second = createWebI18n('en')
 
-    first.global.mergeLocaleMessage('en', { probe: { custom: 'probe-en' } })
-    expect(first.global.t('probe.custom')).toBe('probe-en')
-    expect(second.global.te('probe.custom', 'en')).toBe(false)
-    expect(
-      (second.global.getLocaleMessage('en') as Record<string, unknown>).probe,
-    ).toBeUndefined()
-    expect((en as Record<string, unknown>).probe).toBeUndefined()
-
-    first.global.setLocaleMessage('de', {
-      ...de,
-      probe: { custom: 'probe-de' },
+    first.global.mergeLocaleMessage('en', {
+      ui: { dialog: { fallbackTitle: 'probe-en' } },
     })
-    expect(first.global.t('probe.custom', 1, { locale: 'de' })).toBe('probe-de')
-    expect(second.global.te('probe.custom', 'de')).toBe(false)
+    expect(first.global.t('ui.dialog.fallbackTitle')).toBe('probe-en')
+    expect(second.global.t('ui.dialog.fallbackTitle')).toBe('Dialog')
+    expect(en.ui.dialog.fallbackTitle).toBe('Dialog')
+
+    const clonedDe = structuredClone(de)
+    clonedDe.ui.dialog.fallbackTitle = 'probe-de-set'
+    first.global.setLocaleMessage('de', clonedDe)
+    expect(first.global.t('ui.dialog.fallbackTitle', 1, { locale: 'de' })).toBe(
+      'probe-de-set',
+    )
     expect(
-      (second.global.getLocaleMessage('de') as Record<string, unknown>).probe,
-    ).toBeUndefined()
-    expect((de as Record<string, unknown>).probe).toBeUndefined()
+      second.global.t('ui.dialog.fallbackTitle', 1, { locale: 'de' }),
+    ).toBe('Dialog')
+    expect(de.ui.dialog.fallbackTitle).toBe('Dialog')
+
+    first.global.mergeLocaleMessage('de', {
+      ui: { dialog: { fallbackTitle: 'probe-de-merge' } },
+    })
+    expect(first.global.t('ui.dialog.fallbackTitle', 1, { locale: 'de' })).toBe(
+      'probe-de-merge',
+    )
+    expect(
+      second.global.t('ui.dialog.fallbackTitle', 1, { locale: 'de' }),
+    ).toBe('Dialog')
+    expect(de.ui.dialog.fallbackTitle).toBe('Dialog')
+  })
+
+  it('isolates number formats set or merged into one instance from other instances and exported formats', () => {
+    const first = createWebI18n('en')
+    const second = createWebI18n('en')
+
+    first.global.mergeNumberFormat('en', {
+      percent: { style: 'percent', maximumFractionDigits: 1 },
+    })
+    first.global.setNumberFormat<Record<string, Intl.NumberFormatOptions>>(
+      'de',
+      {
+        ...numberFormats.de,
+        decimal: { style: 'decimal', maximumFractionDigits: 2 },
+      },
+    )
+
+    expect(first.global.n(0.505, 'percent')).toBe('50.5%')
+    expect(second.global.n(0.505, 'percent')).toBe('51%')
+
+    first.global.locale.value = 'de'
+    expect(first.global.n(1234.567, 'decimal')).toBe('1.234,57')
+    second.global.locale.value = 'de'
+    expect(second.global.n(1234.567, 'decimal')).toBe('1.234,567')
+
+    expect(second.global.getNumberFormat('en')).toEqual(numberFormats.en)
+    expect(second.global.getNumberFormat('de')).toEqual(numberFormats.de)
+    expect(numberFormats.en.percent).toEqual({ style: 'percent' })
+    expect(numberFormats.de.decimal).toEqual({
+      style: 'decimal',
+      maximumFractionDigits: 20,
+    })
   })
 })

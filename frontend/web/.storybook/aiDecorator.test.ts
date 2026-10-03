@@ -325,13 +325,22 @@ describe('AI decorator document scope', () => {
     const otherMount = mountStory(stories.Alpha)
     await settle()
 
-    const otherTargetId = aiRegistry.idForElement(otherMount.root!)
+    if (!otherMount.root) {
+      throw new Error('Missing story root')
+    }
+    const otherTargetId = aiRegistry.idForElement(otherMount.root)
+    if (!otherTargetId) {
+      throw new Error('Missing target id')
+    }
     expect(otherTargetId).toBeDefined()
-    await select(otherTargetId!)
+    await select(otherTargetId)
 
-    const hostTarget =
-      hostMount.container.querySelector<HTMLElement>('[data-nested-target]') ??
-      hostMount.root!
+    const hostTarget = hostMount.container.querySelector<HTMLElement>(
+      '[data-nested-target]',
+    )
+    if (!hostTarget) {
+      throw new Error('Missing nested target')
+    }
     hostTarget.focus()
     await settle()
 
@@ -353,18 +362,31 @@ describe('AI decorator document scope', () => {
     const focuses = ['none', 'default', 'overrides'] as const
     const panels = ['closed', 'open'] as const
 
+    const stateNames = new Set<string>()
+    let iterationsRun = 0
+
     for (const host of hosts) {
       for (const selection of selections) {
         for (const focus of focuses) {
           for (const panel of panels) {
             const owner = focus !== 'none' ? focus : selection
+            if (owner === 'none' && panel === 'open') {
+              continue
+            }
+
+            iterationsRun++
             const assertionSelection =
               panel === 'open' && owner !== 'none'
                 ? owner === 'default'
                   ? 'overrides'
                   : 'default'
                 : selection
-            const stateName = `host=${host}, selection=${assertionSelection}, focus=${focus}, panel=${panel}`
+            const openSuffix =
+              panel === 'open'
+                ? `, openedFor=${owner}, assertionSelection=${assertionSelection}`
+                : ''
+            const stateName = `host=${host}, selection=${selection}, focus=${focus}, panel=${panel}${openSuffix}`
+            stateNames.add(stateName)
 
             const firstStory =
               host === 'default' ? stories.Alpha : stories.WithOverrides
@@ -409,9 +431,12 @@ describe('AI decorator document scope', () => {
               overridesContainer.querySelector<HTMLElement>(
                 '[data-nested-target]',
               )
+            if (!overridesNested) {
+              throw new Error('Missing nested target')
+            }
 
             const defaultTarget = defaultRoot
-            const overridesTarget = overridesNested ?? overridesRoot
+            const overridesTarget = overridesNested
 
             const defaultTargetId = aiRegistry.idForElement(defaultTarget)
             const overridesTargetId = aiRegistry.idForElement(overridesTarget)
@@ -477,5 +502,6 @@ describe('AI decorator document scope', () => {
         }
       }
     }
+    expect(stateNames.size).toBe(iterationsRun)
   })
 })
