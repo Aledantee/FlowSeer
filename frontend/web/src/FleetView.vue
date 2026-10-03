@@ -18,7 +18,10 @@ import ReportBugButton from './components/ReportBugButton.vue'
 import HelpButton from './components/HelpButton.vue'
 import ThemeSwitcher from './components/ThemeSwitcher.vue'
 import LocaleSwitcher from './components/LocaleSwitcher.vue'
-import GlobalSearch from './components/GlobalSearch.vue'
+import GlobalSearch, {
+  type RowPart,
+  type SearchPage,
+} from './components/GlobalSearch.vue'
 import TenantSwitcher from './components/TenantSwitcher.vue'
 import ScopeSwitcher from './components/ScopeSwitcher.vue'
 import PageHost from './navigation/PageHost.vue'
@@ -76,7 +79,6 @@ import {
   saveDock,
 } from './navigation/dock'
 import type { DockTab, Panes } from './navigation/dock'
-import { useFormat } from './i18n/format'
 import { useLabels } from './i18n/labels'
 
 // A name has no translation, so the brand is data, not a message.
@@ -98,7 +100,6 @@ const SEARCH_VIEWS = [
 
 const { t, n } = useI18n({ useScope: 'global' })
 const labels = useLabels()
-const format = useFormat()
 const { play, reduced } = useMotionFeedback()
 const sidebar = ref<ComponentPublicInstance | null>(null)
 const navigation = ref<ComponentPublicInstance | null>(null)
@@ -667,10 +668,10 @@ function describe(location: PageLocation) {
 }
 function tabTitle(tab: DockTab) {
   const first = describe(tab.location)
-  if (!tab.beside) return first
+  if (!tab.beside) return { ...first, pair: undefined }
   const second = describe(tab.beside)
   return {
-    label: t('view.fleet.pair', { first: first.label, second: second.label }),
+    label: t('view.common.pair', { first: first.label, second: second.label }),
     detail: first.detail,
     icon: 'split',
     health:
@@ -691,28 +692,28 @@ const sideTitle = computed(() =>
   side.value ? describe(side.value) : undefined,
 )
 
-const searchPages = computed(() => [
+const searchPages = computed<SearchPage[]>(() => [
   ...SEARCH_VIEWS.map((name) => ({
     id: `view:${name}`,
     title: labels.page(name),
-    detail: t('view.fleet.searchPage'),
     icon: VIEW_ICONS[name] ?? 'dashboard',
+    parts: [{ text: t('view.fleet.searchPage') }],
   })),
   ...tabs.value.map((tab) => {
     const described = tabTitle(tab)
+    const parts: RowPart[] = [
+      { text: t(tab.beside ? 'view.fleet.dockedPair' : 'view.fleet.docked') },
+      ...(described.detail
+        ? [{ text: described.detail, identifier: described.detailName }]
+        : []),
+    ]
     return {
       id: `tab:${tab.id}`,
       title: described.label,
-      detail: format.facts([
-        t(tab.beside ? 'view.fleet.dockedPair' : 'view.fleet.docked'),
-        described.detail,
-      ]),
       icon: described.icon,
       identifier: described.labelName,
-      detailFacts: [
-        { text: t(tab.beside ? 'view.fleet.dockedPair' : 'view.fleet.docked') },
-        { text: described.detail, identifier: described.detailName },
-      ],
+      pair: described.pair,
+      parts,
     }
   }),
 ])
@@ -821,7 +822,7 @@ watchEffect(() => {
   const first = describe(mainPage.location.value).label
   const pages =
     showSplit.value && side.value
-      ? t('view.fleet.pair', {
+      ? t('view.common.pair', {
           first,
           second: describe(side.value).label,
         })

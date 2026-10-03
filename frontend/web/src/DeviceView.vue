@@ -463,9 +463,11 @@ function to(path: string, extra: Record<string, string> = {}) {
           class="flex items-center justify-between gap-3 py-2.5 px-1 border-b border-border text-xs"
         >
           <span>
-            <strong class="block font-semibold text-foreground">{{
-              integration(binding.integrationId)?.name
-            }}</strong>
+            <strong
+              translate="no"
+              class="block font-semibold text-foreground"
+              >{{ integration(binding.integrationId)?.name }}</strong
+            >
             <small class="text-2xs text-muted-foreground">{{
               integration(binding.integrationId)?.kind
             }}</small>

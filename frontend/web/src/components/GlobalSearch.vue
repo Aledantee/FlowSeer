@@ -32,13 +32,27 @@ import {
   typingIn,
 } from '../navigation/shortcuts'
 
+export interface RowPart {
+  text: string
+  identifier?: boolean
+  client?: {
+    address: string
+    mac: string
+    device: string
+  }
+  neighbor?: string
+}
+
 export interface SearchPage {
   id: string
   title: string
-  detail: string
   icon: string
   identifier?: boolean
-  detailFacts?: { text: string; identifier?: boolean }[]
+  pair?: {
+    first: { label: string; name?: boolean }
+    second: { label: string; name?: boolean }
+  }
+  parts: RowPart[]
 }
 
 const props = defineProps<{
@@ -54,25 +68,13 @@ const emit = defineEmits<{
 
 // A result and the text shown under its title, built at render from the
 // current data and locale.
-interface RowFact {
-  text: string
-  identifier?: boolean
-}
-
 interface Row {
   result: SearchResult
-  detail: string
-  facts?: RowFact[]
-  client?: {
-    address: string
-    mac: string
-    device: string
+  pair?: {
+    first: { label: string; name?: boolean }
+    second: { label: string; name?: boolean }
   }
-  interfaceDetail?: {
-    status: string
-    neighbor?: string
-    endpoint?: string
-  }
+  parts: RowPart[]
 }
 
 const { t } = useI18n({ useScope: 'global' })
@@ -93,6 +95,12 @@ function deviceName(id: string) {
   )
 }
 
+function cleanParts(parts: (RowPart | undefined | null | false)[]): RowPart[] {
+  return parts.filter((part): part is RowPart =>
+    Boolean(part && part.text && part.text.trim()),
+  )
+}
+
 // Looks an entry up in the current data. Nothing is resolved for an object
 // that no longer exists.
 function resolve({ kind, id, port }: RecentSearch): Row | undefined {
@@ -101,8 +109,8 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
     return (
       page && {
         result: { kind, id, title: page.title },
-        detail: page.detail,
-        facts: page.detailFacts,
+        pair: page.pair,
+        parts: page.parts,
       }
     )
   }
@@ -112,10 +120,14 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
     const scope = tenantIds(tenant.id)
     return {
       result: { kind, id, title: tenant.name },
-      detail: format.counted(
-        'view.common.sites',
-        sites.filter((site) => scope.includes(site.tenantId)).length,
-      ),
+      parts: [
+        {
+          text: format.counted(
+            'view.common.sites',
+            sites.filter((site) => scope.includes(site.tenantId)).length,
+          ),
+        },
+      ],
     }
   }
   if (kind === 'site') {
@@ -123,27 +135,31 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
     return (
       site && {
         result: { kind, id, title: site.name },
-        detail: site.location,
+        parts: cleanParts([{ text: site.location }]),
       }
     )
   }
   if (kind === 'client') {
     const client = clients.value.find((item) => item.id === id)
-    return (
-      client && {
-        result: { kind, id, title: client.hostname },
-        detail: t('view.search.clientDetail', {
-          address: client.address,
-          mac: client.mac,
-          device: deviceName(client.deviceId),
-        }),
-        client: {
-          address: client.address,
-          mac: client.mac,
-          device: deviceName(client.deviceId),
+    if (!client) return undefined
+    const devName = deviceName(client.deviceId)
+    return {
+      result: { kind, id, title: client.hostname },
+      parts: [
+        {
+          text: t('view.search.clientDetail', {
+            address: client.address,
+            mac: client.mac,
+            device: devName,
+          }),
+          client: {
+            address: client.address,
+            mac: client.mac,
+            device: devName,
+          },
         },
-      }
-    )
+      ],
+    }
   }
   const device = props.fleet.find((item) => item.id === id)
   if (!device) return undefined
@@ -154,16 +170,25 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
       t('view.common.unknownSite')
     return {
       result: { kind, id, title: device.name },
-      detail: format.facts([device.kind, device.address, siteName]),
-      facts: [
+      parts: cleanParts([
         { text: device.kind },
         { text: device.address, identifier: true },
         { text: siteName, identifier: isKnownSite },
-      ],
+      ]),
     }
   }
   const found = portsOf(props.fleet, device).find((item) => item.name === port)
   if (!found) return undefined
+  const farEnd = found.neighborId
+    ? {
+        text: t('view.search.interfaceFarEnd', {
+          device: deviceName(found.neighborId),
+        }),
+        neighbor: deviceName(found.neighborId),
+      }
+    : found.endpoint
+      ? { text: found.endpoint }
+      : undefined
   return {
     result: {
       kind,
@@ -171,19 +196,7 @@ function resolve({ kind, id, port }: RecentSearch): Row | undefined {
       port: found.name,
       title: `${device.name} ${found.name}`,
     },
-    detail: format.facts([
-      labels.portStatus(found.status),
-      found.neighborId
-        ? t('view.search.interfaceFarEnd', {
-            device: deviceName(found.neighborId),
-          })
-        : found.endpoint,
-    ]),
-    interfaceDetail: {
-      status: labels.portStatus(found.status),
-      neighbor: found.neighborId ? deviceName(found.neighborId) : undefined,
-      endpoint: found.endpoint,
-    },
+    parts: cleanParts([{ text: labels.portStatus(found.status) }, farEnd]),
   }
 }
 
@@ -199,9 +212,10 @@ const showingRecent = computed(() => !query.value.trim())
 const pageMatches = computed(() => {
   const needle = query.value.trim().toLowerCase()
   return props.pages
-    .filter((page) =>
-      `${page.title} ${page.detail}`.toLowerCase().includes(needle),
-    )
+    .filter((page) => {
+      const detail = (page.parts ?? []).map((p) => p.text).join(' ')
+      return `${page.title} ${detail}`.toLowerCase().includes(needle)
+    })
     .slice(0, 6)
     .map((page): RecentSearch => ({ kind: 'page', id: page.id }))
 })
@@ -414,13 +428,7 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
           </div>
 
           <UiCommandItem
-            v-for="{
-              result,
-              detail,
-              facts,
-              client,
-              interfaceDetail,
-            } in group.items"
+            v-for="{ result, pair, parts } in group.items"
             :key="resultKey(result)"
             :value="resultKey(result)"
             class="search-result"
@@ -428,53 +436,67 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
           >
             <AppIcon :name="iconFor(result, group.icon)" />
             <span>
-              <strong
-                :translate="isTitleIdentifier(result) ? 'no' : undefined"
-                >{{ result.title }}</strong
-              >
-              <small>
+              <strong>
                 <I18nT
-                  v-if="client"
+                  v-if="pair"
                   scope="global"
                   tag="span"
-                  keypath="view.search.clientDetail"
+                  keypath="view.common.pair"
                 >
-                  <template #address>
-                    <span translate="no">{{ client.address }}</span>
+                  <template #first>
+                    <span :translate="pair.first.name ? 'no' : undefined">{{
+                      pair.first.label
+                    }}</span>
                   </template>
-                  <template #mac>
-                    <span translate="no">{{ client.mac }}</span>
-                  </template>
-                  <template #device>
-                    <span translate="no">{{ client.device }}</span>
+                  <template #second>
+                    <span :translate="pair.second.name ? 'no' : undefined">{{
+                      pair.second.label
+                    }}</span>
                   </template>
                 </I18nT>
-                <template v-else-if="interfaceDetail">
-                  <span>{{ interfaceDetail.status }}</span>
-                  <span>{{ t('view.common.factSeparator') }}</span>
+                <span
+                  v-else
+                  :translate="isTitleIdentifier(result) ? 'no' : undefined"
+                  >{{ result.title }}</span
+                >
+              </strong>
+              <small>
+                <template v-for="(part, idx) in parts" :key="idx">
+                  <span v-if="idx > 0">{{
+                    t('view.common.factSeparator')
+                  }}</span>
                   <I18nT
-                    v-if="interfaceDetail.neighbor"
+                    v-if="part.client"
+                    scope="global"
+                    tag="span"
+                    keypath="view.search.clientDetail"
+                  >
+                    <template #address>
+                      <span translate="no">{{ part.client.address }}</span>
+                    </template>
+                    <template #mac>
+                      <span translate="no">{{ part.client.mac }}</span>
+                    </template>
+                    <template #device>
+                      <span translate="no">{{ part.client.device }}</span>
+                    </template>
+                  </I18nT>
+                  <I18nT
+                    v-else-if="part.neighbor"
                     scope="global"
                     tag="span"
                     keypath="view.search.interfaceFarEnd"
                   >
                     <template #device>
-                      <span translate="no">{{ interfaceDetail.neighbor }}</span>
+                      <span translate="no">{{ part.neighbor }}</span>
                     </template>
                   </I18nT>
-                  <span v-else>{{ interfaceDetail.endpoint }}</span>
+                  <span
+                    v-else
+                    :translate="part.identifier ? 'no' : undefined"
+                    >{{ part.text }}</span
+                  >
                 </template>
-                <template v-else-if="facts">
-                  <template v-for="(fact, idx) in facts" :key="idx">
-                    <span v-if="idx > 0">{{
-                      t('view.common.factSeparator')
-                    }}</span>
-                    <span :translate="fact.identifier ? 'no' : undefined">{{
-                      fact.text
-                    }}</span>
-                  </template>
-                </template>
-                <span v-else>{{ detail }}</span>
               </small>
             </span>
             <span class="search-result-actions ml-auto flex items-center gap-1">
@@ -489,7 +511,7 @@ onUnmounted(() => window.removeEventListener('keydown', shortcutKey))
                   type="button"
                   tabindex="-1"
                   :aria-label="
-                    t('view.search.openBesideLabel', { title: result.title })
+                    t('view.common.openBesideLabel', { label: result.title })
                   "
                   @click.stop="choose(result, true)"
                 >

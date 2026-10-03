@@ -96,6 +96,12 @@ from `src/components/DevicePorts.vue`.
   `<script>` or bound expressions. Read the script of every file you
   migrate for quoted capitalized words, template literals with English
   text, and ternaries that choose between two plural forms.
+- **Executable identifier property.** `unmarkedIdentifiers(root, identifiers)`
+  in `src/i18n/testing.ts` verifies that rendered fixture identifiers (device
+  names, addresses, client hostnames, MACs, sites, tenants) sit inside
+  `translate="no"` elements. `src/FleetView.locale.test.ts` and
+  `src/components/GlobalSearch.test.ts` run it across view routes, switchers,
+  dock states, and search results.
 
 ## AI contract, once `useAiTarget` exists
 
