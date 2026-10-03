@@ -826,6 +826,9 @@ func TestSync_DeviceRelistedWithUnusableAddressNoLongerResolvesFromOld(t *testin
 	if _, res := idx.Lookup("172.16.0.6"); res != lanehost.LookupUnknown {
 		t.Fatalf("Lookup old after Sync 2 = %v, want LookupUnknown", res)
 	}
+	if entry, res := idx.Lookup(""); res != lanehost.LookupUnknown {
+		t.Fatalf("Lookup(\"\") after Sync 2 = (%v, %v), want LookupUnknown", entry, res)
+	}
 }
 
 func TestSync_PruneAndRecordClaimsBeforeOnboarding(t *testing.T) {
@@ -1040,6 +1043,9 @@ func TestSync_HeldDeviceAddressUnusableThenUsableAgain(t *testing.T) {
 	}
 	if _, res := idx.Lookup("172.16.0.6"); res != lanehost.LookupUnknown {
 		t.Fatalf("Lookup after Sync 2 = %v, want LookupUnknown", res)
+	}
+	if entry, res := idx.Lookup(""); res != lanehost.LookupUnknown {
+		t.Fatalf("Lookup(\"\") after Sync 2 = (%v, %v), want LookupUnknown", entry, res)
 	}
 
 	if err := onboarder.Sync(context.Background()); err != nil {
