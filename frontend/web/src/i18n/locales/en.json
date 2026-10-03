@@ -143,6 +143,13 @@
         "ghz6": "6 GHz"
       },
       "clients": "{count} client | {count} clients",
+      "columns": {
+        "clients": "Clients",
+        "devices": "Devices",
+        "health": "Health",
+        "site": "Site",
+        "traffic": "Traffic"
+      },
       "devices": "{count} device | {count} devices",
       "duplex": {
         "full": "Full duplex",
@@ -222,6 +229,58 @@
       "unknownSite": "Unknown site",
       "unknownTenant": "Unknown tenant",
       "valueWithUnit": "{value} {unit}"
+    },
+    "dashboard": {
+      "aiSummary": "AI summary",
+      "allHealthy": "Every device in this scope is healthy.",
+      "attentionCount": "{count} of {total} device | {count} of {total} devices",
+      "attentionItem": "{name} ({health})",
+      "chartLabelAll": "Hourly aggregate traffic for all sites in scope",
+      "chartLabelSite": "Hourly aggregate traffic for {site}",
+      "events": "Recent events",
+      "eventsNone": "No events in the last 24 hours.",
+      "eventsPeriod": "Last 24 hours in this scope",
+      "healthAcross": "Health across the scope",
+      "lastAnswered": "last answered {age}",
+      "listSeparator": ", ",
+      "noDevices": "No devices in this scope.",
+      "noEventExplains": "No event explains this yet",
+      "peakContext": "{rate} at {time}",
+      "peakSummary": "Aggregate device throughput · peak {rate} at {time}",
+      "scopeSite": "{name}, {location}",
+      "selectSite": "Select a site to focus the dashboard on it.",
+      "summaryForAll": "Health, attention, and traffic for all sites",
+      "summaryForSite": "Health, attention, and traffic for {site}",
+      "targetLabel": "Dashboard · {site}",
+      "targetLabelAll": "Dashboard · all sites",
+      "trafficTitle": "Traffic, last 24 hours"
+    },
+    "devices": {
+      "allStatuses": "All statuses",
+      "answered": "answered {age}",
+      "clearFilters": "Clear search and status",
+      "details": "Details",
+      "detailsFor": "Details for {name}",
+      "deviceName": "Device name",
+      "deviceStatus": "Device status",
+      "emptyDescription": "Try a different search, status, or site.",
+      "emptyTitle": "No devices match this view",
+      "filterStatus": "Filter by status",
+      "inventory": "Device inventory",
+      "ipAddress": "IP address",
+      "lastAnswered": "Last answered",
+      "needAttention": "{count} need attention",
+      "needsAttentionOption": "{label} ({count})",
+      "noSearch": "none",
+      "peekAt": "Peek at {name} beside this list",
+      "peekBeside": "Peek beside",
+      "peekHint": "Shift-click a name does the same; ↑ ↓ step through the list, Esc closes.",
+      "search": "Search devices",
+      "searchPlaceholder": "Search name, type, or IP address…",
+      "showing": "Showing {shown} of {total} device | Showing {shown} of {total} devices",
+      "siteTenant": "Site / tenant",
+      "status": "Status",
+      "viewStatus": "View status"
     },
     "dock": {
       "close": "Close {label}",
@@ -342,6 +401,11 @@
       "sendToDockLabel": "Send {title} to the dock",
       "trigger": "Search"
     },
+    "sites": {
+      "devicesAtSite": "Devices at this site",
+      "none": "None",
+      "openIssue": "Open issue"
+    },
     "tenantSwitcher": {
       "none": "No tenants available",
       "scopeLabel": "Tenant scope",
@@ -354,6 +418,29 @@
       "switchToDark": "Switch to dark mode",
       "switchToLight": "Switch to light mode",
       "unsaved": "Theme changed for this page. Your browser could not save the preference."
+    },
+    "trafficChart": {
+      "describe": "{label}. Use the arrow keys to read hourly values.",
+      "hour": "Hour",
+      "now": "Now",
+      "traffic": "Traffic ({unit})"
+    },
+    "workspace": {
+      "asOf": "as of {time}",
+      "backToDevices": "Back to devices",
+      "clearSiteFilter": "Clear site filter",
+      "deviceMissingDescription": "It may have been removed from the fleet.",
+      "deviceMissingTitle": "This device does not exist",
+      "dismissNotification": "Dismiss notification",
+      "moveReverted": "Move reverted. {name} is back at {to}.",
+      "moved": "{name} is now at {to} (was {from}).",
+      "moving": "Moving {name} from {from} to {to}…",
+      "resetFailed": "Could not reset filters. Try again.",
+      "scopeAcrossAll": "{count} site across all tenants | {count} sites across all tenants",
+      "scopeAcrossTenant": "{count} site across {tenant} | {count} sites across {tenant}",
+      "scopeNotFound": "Scope not found: \"{site}\". It may have been removed or belongs to another tenant.",
+      "undo": "Undo",
+      "updateFailed": "Could not update this view. Try again."
     }
   }
 }

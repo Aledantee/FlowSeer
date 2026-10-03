@@ -16,6 +16,9 @@ const checked = import.meta.glob<string>(
     '../components/TenantSwitcher.vue',
     '../components/ThemeSwitcher.vue',
     '../components/GlobalSearch.vue',
+    '../WorkspacePage.vue',
+    '../DashboardView.vue',
+    '../components/TrafficChart.vue',
   ],
   {
     eager: true,

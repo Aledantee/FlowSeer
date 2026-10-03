@@ -143,6 +143,13 @@
         "ghz6": "6 GHz"
       },
       "clients": "{count} Client | {count} Clients",
+      "columns": {
+        "clients": "Clients",
+        "devices": "Geräte",
+        "health": "Zustand",
+        "site": "Standort",
+        "traffic": "Datenverkehr"
+      },
       "devices": "{count} Gerät | {count} Geräte",
       "duplex": {
         "full": "Vollduplex",
@@ -222,6 +229,58 @@
       "unknownSite": "Unbekannter Standort",
       "unknownTenant": "Unbekannter Mandant",
       "valueWithUnit": "{value} {unit}"
+    },
+    "dashboard": {
+      "aiSummary": "KI-Zusammenfassung",
+      "allHealthy": "Alle Geräte in diesem Bereich sind gesund.",
+      "attentionCount": "{count} von {total} Gerät | {count} von {total} Geräten",
+      "attentionItem": "{name} ({health})",
+      "chartLabelAll": "Stündlicher Gesamtdatenverkehr aller Standorte im Bereich",
+      "chartLabelSite": "Stündlicher Gesamtdatenverkehr für {site}",
+      "events": "Letzte Ereignisse",
+      "eventsNone": "Keine Ereignisse in den letzten 24 Stunden.",
+      "eventsPeriod": "Letzte 24 Stunden in diesem Bereich",
+      "healthAcross": "Zustand im gesamten Bereich",
+      "lastAnswered": "zuletzt geantwortet {age}",
+      "listSeparator": ", ",
+      "noDevices": "Keine Geräte in diesem Bereich.",
+      "noEventExplains": "Noch kein Ereignis erklärt dies",
+      "peakContext": "{rate} um {time}",
+      "peakSummary": "Gesamtdurchsatz der Geräte · Spitze {rate} um {time}",
+      "scopeSite": "{name}, {location}",
+      "selectSite": "Einen Standort auswählen, um das Dashboard darauf zu fokussieren.",
+      "summaryForAll": "Zustand, Handlungsbedarf und Datenverkehr für alle Standorte",
+      "summaryForSite": "Zustand, Handlungsbedarf und Datenverkehr für {site}",
+      "targetLabel": "Dashboard · {site}",
+      "targetLabelAll": "Dashboard · alle Standorte",
+      "trafficTitle": "Datenverkehr der letzten 24 Stunden"
+    },
+    "devices": {
+      "allStatuses": "Alle Status",
+      "answered": "geantwortet {age}",
+      "clearFilters": "Suche und Status zurücksetzen",
+      "details": "Details",
+      "detailsFor": "Details zu {name}",
+      "deviceName": "Gerätename",
+      "deviceStatus": "Gerätestatus",
+      "emptyDescription": "Eine andere Suche, einen anderen Status oder Standort versuchen.",
+      "emptyTitle": "Keine Geräte passen zu dieser Ansicht",
+      "filterStatus": "Nach Status filtern",
+      "inventory": "Geräteinventar",
+      "ipAddress": "IP-Adresse",
+      "lastAnswered": "Zuletzt geantwortet",
+      "needAttention": "{count} mit Handlungsbedarf",
+      "needsAttentionOption": "{label} ({count})",
+      "noSearch": "keine",
+      "peekAt": "{name} neben dieser Liste ansehen",
+      "peekBeside": "Daneben ansehen",
+      "peekHint": "Dasselbe gelingt mit Umschalt+Klick auf einen Namen. ↑ ↓ wechseln in der Liste, Esc schließt.",
+      "search": "Geräte suchen",
+      "searchPlaceholder": "Nach Name, Typ oder IP-Adresse suchen…",
+      "showing": "{shown} von {total} Gerät angezeigt | {shown} von {total} Geräten angezeigt",
+      "siteTenant": "Standort / Mandant",
+      "status": "Status",
+      "viewStatus": "Status ansehen"
     },
     "dock": {
       "close": "{label} schließen",
@@ -342,6 +401,11 @@
       "sendToDockLabel": "{title} in das Dock legen",
       "trigger": "Suchen"
     },
+    "sites": {
+      "devicesAtSite": "Geräte an diesem Standort",
+      "none": "Keine",
+      "openIssue": "Offenes Problem"
+    },
     "tenantSwitcher": {
       "none": "Keine Mandanten verfügbar",
       "scopeLabel": "Mandantenbereich",
@@ -354,6 +418,29 @@
       "switchToDark": "Zum dunklen Modus wechseln",
       "switchToLight": "Zum hellen Modus wechseln",
       "unsaved": "Darstellung für diese Seite geändert. Der Browser konnte die Einstellung nicht speichern."
+    },
+    "trafficChart": {
+      "describe": "{label}. Stundenwerte mit den Pfeiltasten lesen.",
+      "hour": "Stunde",
+      "now": "Jetzt",
+      "traffic": "Datenverkehr ({unit})"
+    },
+    "workspace": {
+      "asOf": "Stand {time}",
+      "backToDevices": "Zurück zu Geräten",
+      "clearSiteFilter": "Standortfilter zurücksetzen",
+      "deviceMissingDescription": "Es wurde möglicherweise aus der Flotte entfernt.",
+      "deviceMissingTitle": "Dieses Gerät existiert nicht",
+      "dismissNotification": "Benachrichtigung schließen",
+      "moveReverted": "Verschiebung rückgängig gemacht. {name} ist wieder an {to}.",
+      "moved": "{name} ist jetzt an {to} (vorher {from}).",
+      "moving": "{name} wird von {from} nach {to} verschoben…",
+      "resetFailed": "Die Filter konnten nicht zurückgesetzt werden. Erneut versuchen.",
+      "scopeAcrossAll": "{count} Standort über alle Mandanten | {count} Standorte über alle Mandanten",
+      "scopeAcrossTenant": "{count} Standort bei {tenant} | {count} Standorte bei {tenant}",
+      "scopeNotFound": "Bereich nicht gefunden: „{site}“. Er wurde möglicherweise entfernt oder gehört zu einem anderen Mandanten.",
+      "undo": "Rückgängig",
+      "updateFailed": "Diese Ansicht konnte nicht aktualisiert werden. Erneut versuchen."
     }
   }
 }

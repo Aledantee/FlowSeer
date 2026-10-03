@@ -343,7 +343,7 @@ describe('fleet view', () => {
     const { host } = await mountAt('/devices?search=cologne-ap-02')
     const cell = host.querySelector('tbody .traffic')
     expect(cell?.textContent).toContain('—')
-    expect(cell?.textContent).not.toContain('Mbps')
+    expect(cell?.textContent).not.toContain('Mbit/s')
   })
 
   it('clears search and status but keeps the tenant and site', async () => {
@@ -463,7 +463,10 @@ describe('fleet view', () => {
     const first = host.querySelector('tbody tr')
     expect(first?.querySelector('strong')?.textContent).toBe('cologne-ap-02')
     expect(first?.querySelector('.seen')?.textContent?.trim()).toBe(
-      '38 min ago',
+      new Intl.RelativeTimeFormat('en', {
+        numeric: 'auto',
+        style: 'short',
+      }).format(-38, 'minute'),
     )
   })
 
@@ -473,7 +476,12 @@ describe('fleet view', () => {
     expect(card?.getAttribute('aria-label')).toBeNull()
     expect(card?.textContent).toContain('Offline')
     expect(card?.textContent).toContain('Cologne Central')
-    expect(card?.textContent).toContain('38 min ago')
+    expect(card?.textContent).toContain(
+      new Intl.RelativeTimeFormat('en', {
+        numeric: 'auto',
+        style: 'short',
+      }).format(-38, 'minute'),
+    )
   })
 })
 

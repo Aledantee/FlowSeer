@@ -373,3 +373,191 @@ describe('top bar dialogs in German', () => {
     }
   })
 })
+
+const NBSP = String.fromCodePoint(0xa0)
+const germanAgo = new Intl.RelativeTimeFormat('de', {
+  numeric: 'auto',
+  style: 'short',
+})
+const englishAgo = new Intl.RelativeTimeFormat('en', {
+  numeric: 'auto',
+  style: 'short',
+})
+
+function cologneAp() {
+  const device = devices.find((item) => item.name === 'cologne-ap-02')
+  if (!device) throw new Error('The fixture has no cologne-ap-02')
+  expect(device.lastSeenMinutes).toBe(38)
+  return device
+}
+
+const severityNames = (host: HTMLElement) =>
+  text(host.querySelectorAll('.dashboard ol li small span.text-sm'))
+
+function resultCount(host: HTMLElement) {
+  return host
+    .querySelector('#inventory-title')
+    ?.closest('section')
+    ?.querySelector('.ml-auto')
+    ?.textContent?.trim()
+}
+
+async function statusOptions(host: HTMLElement, label: string) {
+  const trigger = host.querySelector<HTMLButtonElement>(
+    `[aria-label="${label}"]`,
+  )
+  if (!trigger) throw new Error(`Missing status filter ${label}`)
+  trigger.dispatchEvent(
+    new PointerEvent('pointerdown', {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+    }),
+  )
+  trigger.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+  )
+  await settle()
+  const options = text(document.querySelectorAll('[role="option"]'))
+  window.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+  )
+  await settle()
+  return options
+}
+
+describe('dashboard in German', () => {
+  it('names the heading line, the cards, and the attention reasons', async () => {
+    const { host, registry } = await mountLocale('/dashboard', 'de')
+
+    const live = devices.filter((device) => device.health !== 'Offline')
+    const total = live.reduce((sum, device) => sum + device.throughput, 0)
+    const line = host.querySelector('.page-heading p')?.textContent ?? ''
+    expect(line).toContain('16 Geräte')
+    expect(line).toContain(
+      `${new Intl.NumberFormat('de').format(total)}${NBSP}Mbit/s`,
+    )
+    expect(line).toContain('Stand ')
+    expect(text(host.querySelectorAll('.dashboard h2')).slice(0, 2)).toEqual([
+      'KI-Zusammenfassung',
+      'Handlungsbedarf',
+    ])
+    const reason = host.querySelector('.dashboard ul li')
+    expect(reason?.textContent).toContain(cologneAp().name)
+    expect(reason?.textContent).toContain(
+      `zuletzt geantwortet ${germanAgo.format(-38, 'minute')}`,
+    )
+    expect(registry.view('a:dashboard:view:all')?.target.label).toBe(
+      'Dashboard · alle Standorte',
+    )
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('follows a locale switch in the severity names', async () => {
+    const { host, setLocale } = await mountLocale('/dashboard', 'de')
+    expect(severityNames(host).length).toBeGreaterThan(0)
+    expect(
+      severityNames(host).every((name) =>
+        ['Kritisch', 'Warnung', 'Info'].includes(name ?? ''),
+      ),
+    ).toBe(true)
+
+    await setLocale('en')
+    expect(
+      severityNames(host).every((name) =>
+        ['Critical', 'Warning', 'Info'].includes(name ?? ''),
+      ),
+    ).toBe(true)
+
+    await setLocale('de')
+    expect(severityNames(host)).toContain('Warnung')
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+})
+
+describe('inventory in German', () => {
+  it('formats counts, ages, and traffic and marks identifiers', async () => {
+    const { host, router } = await mountLocale('/devices', 'de')
+    const offline = cologneAp()
+
+    expect(host.querySelector('#inventory-title')?.textContent).toContain(
+      'Geräteinventar',
+    )
+    expect(resultCount(host)).toBe('16 Ergebnisse')
+    expect(host.querySelector('tbody tr .seen')?.textContent?.trim()).toBe(
+      germanAgo.format(-38, 'minute'),
+    )
+    const live = devices.find((device) => device.health === 'Healthy')
+    if (!live) throw new Error('The fixture has no healthy device')
+    expect(
+      host.querySelector(`tbody tr[data-device-id="${live.id}"] .traffic`)
+        ?.textContent,
+    ).toContain(
+      `${new Intl.NumberFormat('de').format(live.throughput)}${NBSP}Mbit/s`,
+    )
+    const row = host.querySelector(`tbody tr[data-device-id="${offline.id}"]`)
+    expect(row?.querySelector('strong')?.closest('[translate="no"]')).not.toBe(
+      null,
+    )
+    const address = row?.querySelector('td.font-mono')
+    expect(address?.textContent?.trim()).toBe(offline.address)
+    expect(address?.closest('[translate="no"]')).not.toBe(null)
+    expect(await statusOptions(host, 'Nach Status filtern')).toEqual([
+      'Alle Status',
+      `Handlungsbedarf (${devices.filter((item) => item.health !== 'Healthy').length})`,
+      'Gesund',
+      'Beeinträchtigt',
+      'Offline',
+    ])
+
+    await router.push({ path: '/devices', query: { search: offline.name } })
+    await settle()
+
+    expect(resultCount(host)).toBe('1 Ergebnis')
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('follows a locale switch', async () => {
+    const { host, setLocale } = await mountLocale('/devices', 'de')
+    expect(resultCount(host)).toBe('16 Ergebnisse')
+
+    await setLocale('en')
+
+    expect(host.querySelector('#inventory-title')?.textContent).toContain(
+      'Device inventory',
+    )
+    expect(resultCount(host)).toBe('16 results')
+    expect(host.querySelector('tbody tr .seen')?.textContent?.trim()).toBe(
+      englishAgo.format(-38, 'minute'),
+    )
+    expect(await statusOptions(host, 'Filter by status')).toContain(
+      'All statuses',
+    )
+
+    await setLocale('de')
+
+    expect(resultCount(host)).toBe('16 Ergebnisse')
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+})
+
+describe('sites in German', () => {
+  it('names the heading, the count, and the columns', async () => {
+    const { host } = await mountLocale('/sites', 'de')
+
+    const heading = host.querySelector('#sites-title')
+    expect(heading?.textContent).toContain('Standorte')
+    expect(heading?.querySelector('span')?.textContent?.trim()).toBe('4')
+    const table = heading?.closest('section')
+    expect(text(table?.querySelectorAll('th') ?? [])).toEqual([
+      'Standort',
+      'Zustand',
+      'Offenes Problem',
+      'Geräte',
+      'Geräte an diesem Standort',
+    ])
+    expect(table?.textContent).toContain('1 offline')
+    expect(table?.textContent).toContain(germanAgo.format(-38, 'minute'))
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+})
