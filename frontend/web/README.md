@@ -322,6 +322,74 @@ const resolvedText = computed(() => props.text ?? t('ui.commandEmpty.text'))
 </template>
 ```
 
+#### View messages
+
+Views and the components under `src/components/` keep their strings in `view.<owner>.<key>` messages in both catalogs. The owner is the file's area: `fleet`, `dock`, `search`, `workspace`, `devices`, `sites`, `dashboard`, `device`, `clients`, `devicePorts`, `topology`, `topologyInspector`, and the like. Words that two owners share live under `view.common`, so a page name, a health word, or a unit reads the same everywhere. Fixture data under `src/domain/` stays untranslated because it stands in for service data. A value typed as a union of literals (`Health`, `PortStatus`, `Band`) is an identifier, and its display text is a message.
+
+Two composables keep formatting out of the views:
+
+- `useFormat()` in `src/i18n/format.ts` formats values for the active locale. `quantity` and `rate` print a number and its unit, `speed` prints `10G`, `counted` picks a plural form, `ago` and `clock` print relative and clock times, and `facts` joins parts with the separator message.
+- `useLabels()` in `src/i18n/labels.ts` names identifiers and page ids, and builds a rollup's health line.
+
+Unit labels are messages. `Intl.NumberFormat` prints `Mb/s` for megabits per second in every locale, while the catalogs read `Mbit/s`. Relative times come from `Intl.RelativeTimeFormat` and clock times from `d()`, so both follow the locale without a message.
+
+`src/components/DevicePorts.vue` shows the pieces together. `n()` formats each count, `quantity` joins the PoE power with its unit, and `facts` drops the PoE part when no port has power:
+
+```ts
+const summary = computed(() =>
+  format.facts([
+    t('view.devicePorts.summary', {
+      active: n(active.value.length, 'integer'),
+      total: n(props.ports.length, 'integer'),
+    }),
+    props.ports.some((port) => port.poe) &&
+      t('view.devicePorts.poe', { power: format.quantity(power.value, 'w') }),
+  ]),
+)
+```
+
+The port count is a plural message that `counted` selects by the raw count, formatted by `n()` for display:
+
+```vue
+    <ol
+      class="port-map"
+      :aria-label="format.counted('view.devicePorts.ports', ports.length)"
+    >
+```
+
+The catalogs hold the matching messages in `view.devicePorts`:
+
+```json
+"devicePorts": {
+  "poe": "{power} PoE",
+  "ports": "{count} port | {count} ports",
+  "summary": "{active} of {total} up"
+},
+```
+
+```json
+"devicePorts": {
+  "poe": "{power} PoE",
+  "ports": "{count} Port | {count} Ports",
+  "summary": "{active} von {total} verbunden"
+},
+```
+
+Names of devices, clients, sites, tenants, addresses, serials, port names, and models carry `translate="no"`, so a page translator leaves them alone:
+
+```vue
+        <button
+          translate="no"
+          class="port-name font-mono justify-self-start p-0 border-0 bg-transparent text-foreground text-left hover:text-accent-foreground hover:underline cursor-pointer"
+          @click="emit('port', port.name)"
+        >
+          {{ port.name }}
+```
+
+A message read into a top-level `const` keeps the locale the module was set up in, because `t()` runs once. A table of labels is a `computed`, or it moves into the template, and every view test switches the locale on a mounted app to catch the difference. Do not build a sentence from fragments, since word order differs between English and German. One message carries named values, and `I18nT` with `scope="global"` carries inline markup.
+
+`src/i18n/templates.test.ts` reads every `.vue` file directly under `src/`, every one under `src/components/` and `src/navigation/`, and the `Ui*` files under `src/ui/`. It fails with the file and line for a literal text node and for a static `aria-label`, `title`, `placeholder`, or similar attribute. It cannot see a string built in `<script>` or inside a bound expression, so a reviewer reads those. `src/FleetView.locale.test.ts` mounts the dashboard, devices, a device, clients, and sites in both locales, switches between them on one mount, and fails on any `vue-i18n` warning.
+
 ## AI targets
 
 The console can expose meaningful instances to an agent without an AI

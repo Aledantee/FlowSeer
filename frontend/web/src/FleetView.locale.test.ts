@@ -15,6 +15,8 @@ import { aiRegistryKey } from './ui/ai/context'
 import { createWebI18n } from './i18n'
 import type { WebLocale } from './i18n'
 import { i18nWarnings } from './i18n/testing'
+import enCatalog from './i18n/locales/en.json'
+import deCatalog from './i18n/locales/de.json'
 
 let dispose = () => {}
 let warn: ReturnType<typeof vi.spyOn>
@@ -846,6 +848,141 @@ describe('device ports in German', () => {
     await setLocale('de')
 
     expect(host.querySelector('ol')?.getAttribute('aria-label')).toBe('3 Ports')
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+})
+
+interface SweepRoute {
+  name: string
+  path: () => string
+  heading: string
+  words: Record<WebLocale, string>
+}
+
+const sweepRoutes: SweepRoute[] = [
+  {
+    name: '/dashboard',
+    path: () => '/dashboard',
+    heading: '#summary-title',
+    words: { en: 'AI summary', de: 'KI-Zusammenfassung' },
+  },
+  {
+    name: '/devices',
+    path: () => '/devices',
+    heading: '#inventory-title',
+    words: { en: 'Device inventory', de: 'Geräteinventar' },
+  },
+  {
+    name: 'a device route',
+    path: () => `/devices/${cologneAp().id}`,
+    heading: '#issues-title',
+    words: {
+      en: 'Why it needs attention',
+      de: 'Warum Handlungsbedarf besteht',
+    },
+  },
+  {
+    name: '/clients',
+    path: () => '/clients',
+    heading: '#clients-title',
+    words: { en: 'Connected clients', de: 'Verbundene Clients' },
+  },
+  {
+    name: '/sites',
+    path: () => '/sites',
+    heading: '#sites-title',
+    words: { en: 'Sites', de: 'Standorte' },
+  },
+]
+
+const headingText = (host: HTMLElement, selector: string) =>
+  host.querySelector(selector)?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+
+// Every `view.*` message whose English text differs from its German text and
+// holds no placeholder or plural bar. Such a string alone in an element or an
+// attribute means the German view kept an English message.
+function englishOnlyTexts() {
+  const found = new Set<string>()
+  const walk = (en: unknown, de: unknown) => {
+    if (typeof en === 'string' && typeof de === 'string') {
+      if (en !== de && !/[{|]/.test(en)) found.add(en)
+      return
+    }
+    if (en === null || typeof en !== 'object') return
+    for (const [key, value] of Object.entries(en)) {
+      walk(value, (de as Record<string, unknown> | null)?.[key])
+    }
+  }
+  walk(enCatalog.view, deCatalog.view)
+  return found
+}
+
+function visibleTexts(host: HTMLElement) {
+  const found: string[] = []
+  for (const element of host.querySelectorAll('*')) {
+    if (element.childElementCount === 0 && element.textContent) {
+      found.push(element.textContent.replace(/\s+/g, ' ').trim())
+    }
+    for (const name of ['aria-label', 'title', 'placeholder']) {
+      const value = element.getAttribute(name)
+      if (value) found.push(value.trim())
+    }
+  }
+  return found
+}
+
+describe.each(sweepRoutes)('locale sweep of $name', (route) => {
+  it('reads German with no English message left', async () => {
+    const { host } = await mountLocale(route.path(), 'de')
+
+    expect(headingText(host, route.heading)).toContain(route.words.de)
+    const english = englishOnlyTexts()
+    expect(visibleTexts(host).filter((item) => english.has(item))).toEqual([])
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('reads English', async () => {
+    const { host } = await mountLocale(route.path(), 'en')
+
+    expect(headingText(host, route.heading)).toContain(route.words.en)
+    expect(host.querySelector('.nav-label')?.textContent?.trim()).toBe(
+      'WORKSPACE',
+    )
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('follows a live switch from English to German and back', async () => {
+    const { host, setLocale } = await mountLocale(route.path(), 'en')
+    expect(headingText(host, route.heading)).toContain(route.words.en)
+
+    await setLocale('de')
+    expect(headingText(host, route.heading)).toContain(route.words.de)
+    expect(host.querySelector('.nav-label')?.textContent?.trim()).toBe(
+      'ARBEITSBEREICH',
+    )
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+
+    await setLocale('en')
+    expect(headingText(host, route.heading)).toContain(route.words.en)
+    expect(host.querySelector('.nav-label')?.textContent?.trim()).toBe(
+      'WORKSPACE',
+    )
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('follows a live switch from German to English and back', async () => {
+    const { host, setLocale } = await mountLocale(route.path(), 'de')
+    expect(headingText(host, route.heading)).toContain(route.words.de)
+
+    await setLocale('en')
+    expect(headingText(host, route.heading)).toContain(route.words.en)
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+
+    await setLocale('de')
+    expect(headingText(host, route.heading)).toContain(route.words.de)
+    expect(
+      visibleTexts(host).filter((item) => englishOnlyTexts().has(item)),
+    ).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 })

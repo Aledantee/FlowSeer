@@ -1,32 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { templateLiterals } from './testing'
 
-// Files whose templates must hold no literal text. A literal shows as
-// `file:line text` in the failure.
+// Every app and UI component template must hold no literal text. A literal
+// shows as `file:line text` in the failure.
 const checked = import.meta.glob<string>(
   [
+    '../*.vue',
+    '../components/**/*.vue',
+    '../navigation/**/*.vue',
     '../ui/**/Ui*.vue',
-    '../FleetView.vue',
-    '../navigation/PageDock.vue',
-    '../navigation/PageHost.vue',
-    '../components/AccountMenu.vue',
-    '../components/HelpButton.vue',
-    '../components/ReportBugButton.vue',
-    '../components/ScopeSwitcher.vue',
-    '../components/TenantSwitcher.vue',
-    '../components/ThemeSwitcher.vue',
-    '../components/GlobalSearch.vue',
-    '../WorkspacePage.vue',
-    '../DashboardView.vue',
-    '../components/TrafficChart.vue',
-    '../DeviceView.vue',
-    '../ClientsView.vue',
-    '../components/DevicePorts.vue',
-    '../components/topology/TopologyGraph.vue',
-    '../components/topology/TopologyInspector.vue',
-    '../components/topology/TopologyLink.vue',
-    '../components/topology/TopologyNode.vue',
-    '../components/topology/TopologySiteNode.vue',
   ],
   {
     eager: true,
@@ -115,8 +97,18 @@ describe('templateLiterals', () => {
 })
 
 describe('app templates', () => {
-  it('finds the component files it checks', () => {
-    expect(Object.keys(checked).length).toBeGreaterThan(0)
+  it('finds the app, component, navigation, and UI files it checks', () => {
+    const paths = Object.keys(checked)
+    for (const expected of [
+      '../FleetView.vue',
+      '../DashboardView.vue',
+      '../components/GlobalSearch.vue',
+      '../components/topology/TopologyGraph.vue',
+      '../navigation/PageDock.vue',
+      '../ui/button/UiButton.vue',
+    ]) {
+      expect(paths).toContain(expected)
+    }
   })
 
   it.each(Object.entries(checked))(

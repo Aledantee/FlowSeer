@@ -68,6 +68,35 @@ const resolvedText = computed(() => props.text ?? t('ui.commandEmpty.text'))
 </template>
 ```
 
+### View rules
+
+These apply to files under `src/*.vue`, `src/components/`, and
+`src/navigation/`. The README's "View messages" section has a worked example
+from `src/components/DevicePorts.vue`.
+
+- **Owner naming.** A message is `view.<owner>.<key>`, with one owner per
+  view or component (`workspace`, `devicePorts`, `topologyInspector`). A
+  word that two owners render lives in `view.common`, so it cannot drift.
+  Keys are camelCase.
+- **Composables.** Format through `useFormat()` (`src/i18n/format.ts`) and
+  name identifiers through `useLabels()` (`src/i18n/labels.ts`). A view
+  never calls `toLocaleString`, `toUpperCase`, or an English plural
+  ternary, and never keeps a unit or an identifier word in a script
+  constant.
+- **Fixture data.** A fixture value typed `string` renders verbatim. A value
+  typed as a union of literals is an identifier, and its text is a message.
+  Names, addresses, serials, port names, and models carry `translate="no"`.
+- **The frozen-constant trap.** A `t()` call in a top-level `const` runs
+  once and keeps the locale it saw. Make the table a `computed` or move it
+  into the template. A view test that switches the locale on a mounted app
+  is the only check that catches it.
+- **Check.** `src/i18n/templates.test.ts` fails on a literal text node or a
+  static label attribute in any `.vue` file its globs match, so a new file
+  under those directories is covered without an edit. It does not read
+  `<script>` or bound expressions. Read the script of every file you
+  migrate for quoted capitalized words, template literals with English
+  text, and ternaries that choose between two plural forms.
+
 ## AI contract, once `useAiTarget` exists
 
 - **The `ai` prop.** A component that renders an entity, a value, or an
