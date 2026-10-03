@@ -68,7 +68,47 @@ Read the claims the device service will see. The `sub` of the admin token is the
 echo "${ADMIN_TOKEN}" | jq -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @base64d | fromjson | {iss, sub, aud, groups}'
 ```
 
-5. Verify OpenFGA preshared key enforcement on both listeners.
+5. Write authorization tuples for the lab user in OpenFGA. Until `TenantService` lands in phase 4, a deployment writes `enrolled` and role tuples directly to OpenFGA. Compute the principal identifier from the token issuer and subject:
+
+```bash
+ALICE_SUB=$(echo "${ALICE_TOKEN}" | jq -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @base64d | fromjson | .sub')
+ALICE_ID=$(printf '%s\0%s' "https://127.0.0.1:8445/dex" "${ALICE_SUB}" | shasum -a 256 | awk '{print $1}')
+STORE_ID=$(grep -E '^\s*store_id:' central.textproto | awk '{print $2}' | tr -d '"')
+
+curl -sS --cacert secrets/ca.crt \
+  -H "Authorization: Bearer $(cat secrets/openfga.key)" \
+  -H "Content-Type: application/json" \
+  -X POST "https://127.0.0.1:8080/stores/${STORE_ID}/write" \
+  -d '{
+    "writes": {
+      "tuple_keys": [
+        {"user": "user:'"${ALICE_ID}"'", "relation": "enrolled", "object": "tenant:default"},
+        {"user": "user:'"${ALICE_ID}"'", "relation": "admin", "object": "tenant:default"}
+      ]
+    }
+  }'
+```
+
+6. Call an operator procedure. Requesting `GetEdge` with the bearer token and tenant header:
+
+```bash
+buf curl --cacert secrets/ca.crt \
+  -H "Authorization: Bearer ${ALICE_TOKEN}" \
+  -H "X-FlowSeer-Tenant: default" \
+  -d '{"edge":{"edge":{"id":"0192e6a0-0000-7000-8000-000000000001"}}}' \
+  https://127.0.0.1:8443/flowseer.api.edge.v1.EdgeAdminService/GetEdge
+```
+
+The same call without the header answers `InvalidArgument`:
+
+```bash
+buf curl --cacert secrets/ca.crt \
+  -H "Authorization: Bearer ${ALICE_TOKEN}" \
+  -d '{"edge":{"edge":{"id":"0192e6a0-0000-7000-8000-000000000001"}}}' \
+  https://127.0.0.1:8443/flowseer.api.edge.v1.EdgeAdminService/GetEdge
+```
+
+7. Verify OpenFGA preshared key enforcement on both listeners.
 
 On the HTTP listener, a request with no `Authorization` header returns HTTP 401 with `bearer_token_missing`:
 
@@ -98,7 +138,7 @@ printf '\0\0\0\0\0' | curl -sS -i --http2 --cacert secrets/ca.crt \
   https://127.0.0.1:8081/openfga.v1.OpenFGAService/ListStores | grep -a -i '^grpc-status'
 ```
 
-6. Stop the containers and drop their state:
+8. Stop the containers and drop their state:
 
 ```bash
 docker compose down -v
