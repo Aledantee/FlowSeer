@@ -124,94 +124,49 @@ central detecting itself.
 
 ## Deployment
 
-**The operator surface has no authorization check, and the blast radius is
-the whole deployment.** `DeviceService`, `EdgeAdminService` and
-`CaptureService` are served in front of the edge-assertion middleware, because
-an operator holds no edge key and that check would refuse every call. Nothing
-has replaced it.
+The operator surface (`DeviceService`, `EdgeAdminService`, and `CaptureService`)
+enforces authentication and authorization on every call. Each request carries a
+bearer token verified against configured OIDC issuers (`internal/authn`) and a
+tenant identifier in the `X-FlowSeer-Tenant` header. Calls are checked against
+OpenFGA (`internal/authz`, `internal/authz/openfga`) per the service options.
 
-What a caller that reaches the API port can do is not three RPC effects. It
-can take over any edge and read out every device credential that edge is
-bound to:
+Connect decodes the request before any interceptor runs, so an unauthenticated
+caller can still send a large body. `CaptureEdgeService.UploadCapture` is mounted
+in front of the assertion middleware too, and carries its own per-message bound.
 
-1. `RetireEdge` on an enrolled edge.
-2. `IssueSetupKey` on it — refused for an `ENROLLED` edge, accepted for a
-   `RETIRED` one, which it returns to `PENDING` and hands back the key.
-3. `Enroll` with a keypair of the caller's own.
+Every call admitted by authorization on `EdgeAdminService` and `CaptureService`
+records its attempt and completion into the operator action trail
+(`FLOWSEER_OPERATOR_ACTIONS` stream, published on
+`flowseer.<tenant>.operator.action.<action>` by `internal/actiontrail`). An
+unauthenticated or unauthorized call leaves no action trail entry, avoiding
+trail pollution by unverified callers.
 
-The caller is now that edge as far as the verifier is concerned, and
-`AcquireReadCredential` and `OpenDeviceSubmission` hand it the parsed
-`CredentialMaterial` — the SNMP community, the SSH username and secret — for
-every device the registry binds to it. The edge-assertion middleware does not
-help against this, because the key it checks is the one the attacker just
-registered.
-
-`CaptureService` adds a second kind of reach to that list. A caller on the
-port can start a promiscuous capture on any edge, tail the packets live, and
-download the stored pcapng — other people's traffic, which the capture
-direction record treats as the most restricted data this system holds. Nothing
-scopes a session to the operator who created it: `authorization.requested_by`
-is an `OperatorRef` the caller writes about itself, and nothing verifies it.
-The relations each capture RPC will be checked against are proposed in the
-[capture direction record](../../../docs/architecture/2026-09-09-remote-packet-capture-direction.md#every-capture-is-bounded-and-authorized).
-
-The request body limit is also narrower than it looks: it wraps only the
-middleware-mounted paths, so `DeviceService`, `EdgeAdminService` and
-`CaptureService` accept an unbounded body from the same unauthenticated
-caller. `CaptureEdgeService.UploadCapture` is mounted in front of the
-middleware too, and carries its own per-message bound instead.
-
-This gap is accepted for now rather than overlooked. Authorization for the
-operator and admin surfaces is a named follow-up in the
-[operator authorization record](../../../docs/architecture/2026-09-30-operator-authorization-direction.md#every-rpc-declares-its-rule),
-which describes how the gap closes. Until the enforcement that record describes
-lands, the deployment's network boundary is the only thing in front of
-`DeviceService`, `EdgeAdminService`, and `CaptureService`. Do not expose the API
-port beyond it, and understand that what the boundary is protecting is the
-device credentials, not just the operator API.
-
-There is also no operator action trail: nothing records that someone created
-an edge, minted or revoked a setup key, or retired one. Minting a setup key
-is the most privileged action here, and after an incident there is no way to
-answer who minted which key for which edge. The audit stream is
-device-scoped by design and is not that trail. The operator authorization
-record's [The operator action trail ships with authorization](../../../docs/architecture/2026-09-30-operator-authorization-direction.md#the-operator-action-trail-ships-with-authorization)
-section describes the trail that closes this gap.
-
-Operator calls run as `dev_tenant` (or `default` when unset) through
-`TenantInterceptor` in `internal/host/interceptor.go`.
-An edge belongs to the tenant that created it (the `edge_<id>` index). Restarting
-central with a different `dev_tenant` makes existing edges, capture sessions,
-and lanes `NotFound` to operators, while drift and dispatch continue under each
-edge's tenant. `platform_admin`, `authentication`, and `authorization` sections
-are validated in configuration and not yet enforced.
-
-The edge-facing services — `EdgeService`, `DispatchService`, `AuditService`,
-`CaptureEdgeService` — are verified: every call carries a fresh assertion
-signed by the key central registered at enrollment, checked against the request
-body and the invoked procedure before Connect decodes anything.
+The edge-facing services (`EdgeService`, `DispatchService`, `AuditService`,
+`CaptureEdgeService`) are verified: every call carries a fresh assertion signed
+by the key central registered at enrollment, checked against the request body
+and the invoked procedure before Connect decodes anything.
 
 Two procedures are exceptions. `Enroll` carries its own proof, because it
 happens before central holds a key. `UploadCapture` carries its assertions as
-messages on the stream rather than as a header: there is no whole body to hash
-on a stream an edge holds open for the length of a capture, so its opening
+messages on the stream rather than as a header: there is no whole body to hash on
+a stream an edge holds open for the length of a capture, so its opening
 assertion is checked from the stream's first message and a fresh one has to
 arrive inside every 60-second window, with a read deadline closing the stream
-when none does. Both are bounded explicitly in place of the middleware's
-limit.
+when none does. Both are bounded explicitly in place of the middleware's limit.
 
 The service reads one prototext `DeviceServiceConfig`
-([schema](../../../spec/proto/flowseer/store/device/v1/README.md)) and takes
-its certificate from it or generates a self-signed pair on first start,
-printing the digest an edge pins. That digest is what every edge is
-provisioned with, so the pair is persisted: a service that generated a fresh
-key each start would refuse every edge in the field.
+([schema](../../../spec/proto/flowseer/store/device/v1/README.md)) and takes its
+certificate from it or generates a self-signed pair on first start, printing the
+digest an edge pins. That digest is what every edge is provisioned with, so the
+pair is persisted: a service that generated a fresh key each start would refuse
+every edge in the field.
 
-Six modules run under the service runtime — the bus hub, the telemetry
-forwarder, the journal's read sweeper, the Connect listener, the drift
-poll, and the capture artifact sweeper — supervised `RestForOne` with the hub first. That is not a default: the
-five modules after it hold resources the hub owns, so a hub that is rebuilt
-must take them with it.
+Seven modules run under the service runtime: the bus hub, the telemetry
+forwarder, the journal's read sweeper, the Connect listener, the drift poll, the
+capture artifact sweeper, and the relationship projector (`internal/projector`),
+supervised `RestForOne` with the hub first. That is not a default: the six
+modules after it hold resources the hub owns, so a hub that is rebuilt must take
+them with it.
 
 ## Remote packet capture
 
@@ -270,7 +225,13 @@ the record is what an audit needs, the payload is what an audit is about.
 | `internal/drift` | the poll that compares a managed interface against its expectation |
 | `internal/connecterr` | the errs-to-Connect mapping every handler answers through |
 | `internal/authn` | the token verifier, interceptor, and caller identity carrier |
+| `internal/authn/authntest` | test TLS OIDC issuer and token minting |
 | `internal/authz` | the operator authorization obligations |
 | `internal/authz/openfga` | the OpenFGA authorization engine checker and embedded model |
+| `internal/authz/authztest` | test in-memory authorization engine and relationship recorder |
 | `internal/telemetry` | this service's instrumentation scope |
 | `internal/host` | configuration, certificate, interceptors, and the module assembly |
+| `internal/actiontrail` | the operator action trail interceptor and JetStream publisher |
+| `internal/projector` | relationship projection from store records to the authorization engine |
+| `internal/tenantstore` | active tenant organization lookup |
+| `test/integration` | end-to-end integration and runbook tests |

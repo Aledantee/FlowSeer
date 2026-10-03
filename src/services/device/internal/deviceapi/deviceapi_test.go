@@ -25,6 +25,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/deviceapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
@@ -35,13 +36,15 @@ import (
 )
 
 const (
-	testTenant = "0192e6a0-0000-7000-8000-0000000000aa"
-	deviceID   = "0192e6a0-0000-7000-8000-0000000000d1"
-	edgeID     = "0192e6a0-0000-7000-8000-0000000000e1"
-	iface      = "ethernet 1/1/1"
-	policyKey  = "icx7150-lab"
-	policyVer  = 3
-	fingerling = "fastiron-08.0.95"
+	testTenant  = "0192e6a0-0000-7000-8000-0000000000aa"
+	testIssuer  = "https://auth.example.test"
+	testSubject = "user-123"
+	deviceID    = "0192e6a0-0000-7000-8000-0000000000d1"
+	edgeID      = "0192e6a0-0000-7000-8000-0000000000e1"
+	iface       = "ethernet 1/1/1"
+	policyKey   = "icx7150-lab"
+	policyVer   = 3
+	fingerling  = "fastiron-08.0.95"
 )
 
 // resolver stands in for the registry: one device, whose horizon and pinned
@@ -100,7 +103,13 @@ type harness struct {
 }
 
 func testContext() context.Context {
-	return tenant.WithTenant(context.Background(), testTenant)
+	ctx := tenant.WithTenant(context.Background(), testTenant)
+	return authn.NewContext(ctx, authn.Principal{
+		ID:      authn.ComputePrincipalID(testIssuer, testSubject),
+		Issuer:  testIssuer,
+		Subject: testSubject,
+		Tenants: []string{testTenant},
+	})
 }
 
 func newHarness(t *testing.T) *harness {
@@ -970,7 +979,12 @@ func TestResolveReplaceRefusesAnIntentNamingAnotherDevice(t *testing.T) {
 func TestCrossTenantDeviceIsolation(t *testing.T) {
 	h := newHarness(t)
 	tenantB := "0192e6a0-0000-7000-8000-0000000000bb"
-	ctxB := tenant.WithTenant(context.Background(), tenantB)
+	ctxB := authn.NewContext(tenant.WithTenant(context.Background(), tenantB), authn.Principal{
+		ID:      authn.ComputePrincipalID(testIssuer, "user-b"),
+		Issuer:  testIssuer,
+		Subject: "user-b",
+		Tenants: []string{tenantB},
+	})
 
 	// Apply under tenant B for tenant A's device -> NotFound
 	intentB := intentFor("applied on B")
@@ -1014,7 +1028,7 @@ func TestCrossTenantDeviceIsolation(t *testing.T) {
 
 func TestUnauthenticatedWithoutTenant(t *testing.T) {
 	h := newHarness(t)
-	ctx := context.Background() // no tenant
+	ctx := context.Background() // no tenant, no principal
 
 	_, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor("test"), false))
 	if err == nil {
@@ -1022,6 +1036,98 @@ func TestUnauthenticatedWithoutTenant(t *testing.T) {
 	}
 	if connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Fatalf("got code %v, want Unauthenticated", connect.CodeOf(err))
+	}
+}
+
+func TestUnauthenticatedWithoutPrincipal(t *testing.T) {
+	h := newHarness(t)
+	// Tenant is set, but no authn.Principal.
+	ctxTenantOnly := tenant.WithTenant(context.Background(), testTenant)
+
+	_, err := h.svc.ApplyInterfaceDescription(ctxTenantOnly, applyRequest(intentFor("test"), false))
+	if err == nil {
+		t.Fatal("expected error without principal context")
+	}
+	if connect.CodeOf(err) != connect.CodeUnauthenticated {
+		t.Fatalf("got code %v, want Unauthenticated", connect.CodeOf(err))
+	}
+
+	// ResolveDesynchronization with replace also requires principal
+	replaceReq := &devicev1.ResolveDesynchronizationRequest{}
+	replaceReq.SetDevice(deviceRef())
+	replaceReq.SetSequence(1)
+	replaceReq.SetReplace(intentFor("replacement"))
+	_, err = h.svc.ResolveDesynchronization(ctxTenantOnly, connect.NewRequest(replaceReq))
+	if err == nil {
+		t.Fatal("expected error without principal context on replace")
+	}
+	if connect.CodeOf(err) != connect.CodeUnauthenticated {
+		t.Fatalf("got code %v, want Unauthenticated", connect.CodeOf(err))
+	}
+}
+
+func TestPrincipalStampingOnAdmittedIntent(t *testing.T) {
+	h := newHarness(t)
+	// Request provides an actor with spoofed identity.
+	spoofedActor := &accessv1.Actor{}
+	spoofedOp := &identityv1.OperatorRef{}
+	spoofedOp.SetIssuer("https://spoofed.example.test")
+	spoofedOp.SetSubject("spoofed-user")
+	spoofedActor.SetOperator(spoofedOp)
+
+	intent := intentFor("uplink")
+	intent.SetActor(spoofedActor)
+
+	resp, err := h.svc.ApplyInterfaceDescription(testContext(), applyRequest(intent, false))
+	if err != nil {
+		t.Fatalf("ApplyInterfaceDescription: %v", err)
+	}
+
+	stamped := resp.Msg.GetMutation().GetIntent().GetActor().GetOperator()
+	if stamped == nil {
+		t.Fatal("expected stamped operator actor")
+	}
+	if got := stamped.GetIssuer(); got != testIssuer {
+		t.Errorf("stamped issuer = %q, want %q", got, testIssuer)
+	}
+	if got := stamped.GetSubject(); got != testSubject {
+		t.Errorf("stamped subject = %q, want %q", got, testSubject)
+	}
+
+	// Now verify replace arm also stamps principal.
+	// First mark the sequence holding/abandoned to resolve it.
+	seq := resp.Msg.GetMutation().GetSequence()
+	abandonReq := &devicev1.AbandonMutationRequest{}
+	abandonReq.SetDevice(deviceRef())
+	abandonReq.SetSequence(seq)
+	if _, err := h.svc.AbandonMutation(testContext(), connect.NewRequest(abandonReq)); err != nil {
+		t.Fatalf("AbandonMutation: %v", err)
+	}
+
+	replaceIntent := intentFor("replacement-uplink")
+	replaceIntent.SetActor(spoofedActor)
+	replaceReq := &devicev1.ResolveDesynchronizationRequest{}
+	replaceReq.SetDevice(deviceRef())
+	replaceReq.SetSequence(seq)
+	replaceReq.SetReplace(replaceIntent)
+
+	resolveResp, err := h.svc.ResolveDesynchronization(testContext(), connect.NewRequest(replaceReq))
+	if err != nil {
+		t.Fatalf("ResolveDesynchronization: %v", err)
+	}
+	admitted := resolveResp.Msg.GetMutation()
+	if admitted == nil {
+		t.Fatal("expected admitted mutation in response")
+	}
+	stampedReplace := admitted.GetIntent().GetActor().GetOperator()
+	if stampedReplace == nil {
+		t.Fatal("expected stamped operator on replace intent")
+	}
+	if got := stampedReplace.GetIssuer(); got != testIssuer {
+		t.Errorf("replace stamped issuer = %q, want %q", got, testIssuer)
+	}
+	if got := stampedReplace.GetSubject(); got != testSubject {
+		t.Errorf("replace stamped subject = %q, want %q", got, testSubject)
 	}
 }
 

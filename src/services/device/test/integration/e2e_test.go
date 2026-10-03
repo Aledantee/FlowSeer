@@ -24,6 +24,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
+	operatorv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/operator/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
@@ -32,6 +33,7 @@ import (
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	centralhost "go.aledante.io/FlowSeer/src/services/device/internal/host"
 	"go.aledante.io/FlowSeer/src/services/device/internal/tenantstore"
@@ -865,8 +867,13 @@ func accessGoroutines() string {
 
 func startCentralWithDevTenant(t *testing.T, c *central, devTenant string) {
 	t.Helper()
+	caPath := c.issuer.WriteCACertFile(t)
+	keyPath := filepath.Join(c.dir, "authz.key")
+	if err := os.WriteFile(keyPath, []byte("e2e-authz-key"), 0o600); err != nil {
+		t.Fatalf("write authz key: %v", err)
+	}
+
 	body := fmt.Sprintf(`
-dev_tenant: %q
 state_dir: %q
 registry_path: %q
 credential_root: %q
@@ -883,21 +890,39 @@ intervals {
   dispatch_resend { seconds: 1 }
   drift { seconds: 3600 }%s
 }
-platform_admin {
-  issuer: "https://auth.example.test"
-  organization: "org_admin"
-  organization_claim_name: "org_id"
-  subject: "admin_user"
+authentication {
+  issuers {
+    issuer: %q
+    audience: "flowseer-e2e"
+    organization_claim_name: "org_id"
+  }
+  ca_file: %q
 }
-`, devTenant, filepath.Join(c.dir, "central-state"), c.registry, filepath.Join(c.dir, "credentials"),
-		c.apiPort, c.busPort, c.baseURL(), c.busPort, captureSweepLine(c.captureSweep))
+authorization {
+  endpoint: "https://authz.example.test:8081"
+  store_id: "01JK1234567890ABCDEFGHJKMN"
+  model_id: "01JK1234567890ABCDEFGHJKMM"
+  preshared_key_file: %q
+}
+`, filepath.Join(c.dir, "central-state"), c.registry, filepath.Join(c.dir, "credentials"),
+		c.apiPort, c.busPort, c.baseURL(), c.busPort, captureSweepLine(c.captureSweep),
+		c.issuer.URL(), caPath, keyPath)
 
 	cfg, err := centralhost.LoadConfig(writeFile(t, filepath.Join(c.configDir, "central.textproto"), []byte(body)))
 	if err != nil {
 		t.Fatalf("central LoadConfig: %v", err)
 	}
 
+	c.tenant = devTenant
+	if err := c.engine.Write(context.Background(), []authz.Tuple{
+		{Object: "tenant:" + devTenant, Relation: "member", User: "user:" + c.principalID},
+		{Object: "tenant:" + devTenant, Relation: "admin", User: "user:" + c.principalID},
+	}, nil); err != nil {
+		t.Fatalf("seed tenant tuples: %v", err)
+	}
+
 	bound := make(chan string, 1)
+	reconciled := make(chan struct{}, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
@@ -913,6 +938,13 @@ platform_admin {
 				c.hub = hub
 				c.mu.Unlock()
 			},
+			Engine: c.engine,
+			Reconciled: func() {
+				select {
+				case reconciled <- struct{}{}:
+				default:
+				}
+			},
 		})
 	}()
 
@@ -926,6 +958,15 @@ platform_admin {
 	case <-time.After(60 * time.Second):
 		cancel()
 		t.Fatal("central did not bind its listener within a minute")
+	}
+
+	select {
+	case <-reconciled:
+	case err := <-done:
+		t.Fatalf("central stopped before reconciliation: %v", err)
+	case <-time.After(60 * time.Second):
+		cancel()
+		t.Fatal("central did not complete initial reconciliation within a minute")
 	}
 
 	c.mu.Lock()
@@ -1219,14 +1260,89 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 	_, err = c.admin().GetEdge(ctx, connect.NewRequest(apiedgev1.GetEdgeRequest_builder{
 		Edge: edgeRef,
 	}.Build()))
-	if connect.CodeOf(err) != connect.CodeNotFound {
-		t.Fatalf("GetEdge under tenant B got code %v, want CodeNotFound", connect.CodeOf(err))
+	if code := connect.CodeOf(err); code != connect.CodePermissionDenied && code != connect.CodeNotFound {
+		t.Fatalf("GetEdge under tenant B got code %v, want CodePermissionDenied or CodeNotFound", code)
 	}
 
 	_, err = c.captures().GetCaptureSession(ctx, connect.NewRequest(apicapturev1.GetCaptureSessionRequest_builder{
 		Session: captureRef,
 	}.Build()))
-	if connect.CodeOf(err) != connect.CodeNotFound {
-		t.Fatalf("GetCaptureSession under tenant B got code %v, want CodeNotFound", connect.CodeOf(err))
+	if code := connect.CodeOf(err); code != connect.CodePermissionDenied && code != connect.CodeNotFound {
+		t.Fatalf("GetCaptureSession under tenant B got code %v, want CodePermissionDenied or CodeNotFound", code)
+	}
+}
+
+func TestOperatorActionTrailRecordsIssueSetupKey(t *testing.T) {
+	dir := t.TempDir()
+	writeCredentials(t, filepath.Join(dir, "credentials"))
+	registryPath := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
+
+	c := newCentral(t, dir, registryPath)
+	c.start()
+	defer c.shutdown()
+
+	edgeResp, err := c.admin().CreateEdge(context.Background(), connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
+		Name: proto.String("test-edge"),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CreateEdge: %v", err)
+	}
+	edgeRef := edgeResp.Msg.GetEdge().GetConfig().GetRef()
+	edgeID := edgeRef.GetEdge().GetId()
+
+	recordsBefore := len(c.operatorActionRecords(t))
+
+	resp, err := c.admin().IssueSetupKey(context.Background(), connect.NewRequest(apiedgev1.IssueSetupKeyRequest_builder{
+		Edge: edgeRef,
+	}.Build()))
+	if err != nil {
+		t.Fatalf("IssueSetupKey: %v", err)
+	}
+	if resp.Msg.GetProvisioning().GetSetupKey() == "" {
+		t.Fatal("IssueSetupKey returned empty setup key")
+	}
+
+	records := c.operatorActionRecords(t)
+	newRecords := records[recordsBefore:]
+	if len(newRecords) != 2 {
+		t.Fatalf("got %d new operator action records, want 2", len(newRecords))
+	}
+
+	attempt := newRecords[0]
+	completed := newRecords[1]
+
+	if attempt.GetCallId() == "" || attempt.GetCallId() != completed.GetCallId() {
+		t.Fatalf("call_id mismatch: attempt=%q, completed=%q", attempt.GetCallId(), completed.GetCallId())
+	}
+	if attempt.GetAction() != operatorv1.OperatorAction_OPERATOR_ACTION_SETUP_KEY_ISSUE {
+		t.Errorf("attempt action = %v, want SETUP_KEY_ISSUE", attempt.GetAction())
+	}
+	if completed.GetAction() != operatorv1.OperatorAction_OPERATOR_ACTION_SETUP_KEY_ISSUE {
+		t.Errorf("completed action = %v, want SETUP_KEY_ISSUE", completed.GetAction())
+	}
+
+	wantOp := identityv1.OperatorRef_builder{
+		Issuer:  proto.String(c.issuer.URL()),
+		Subject: proto.String("e2e-operator"),
+	}.Build()
+	if !proto.Equal(attempt.GetOperator(), wantOp) {
+		t.Errorf("attempt operator = %v, want %v", attempt.GetOperator(), wantOp)
+	}
+	if !proto.Equal(completed.GetOperator(), wantOp) {
+		t.Errorf("completed operator = %v, want %v", completed.GetOperator(), wantOp)
+	}
+
+	if attempt.GetEdge().GetEdge().GetId() != edgeID {
+		t.Errorf("attempt edge ID = %q, want %q", attempt.GetEdge().GetEdge().GetId(), edgeID)
+	}
+	if completed.GetEdge().GetEdge().GetId() != edgeID {
+		t.Errorf("completed edge ID = %q, want %q", completed.GetEdge().GetEdge().GetId(), edgeID)
+	}
+
+	if attempt.GetAttempted() == nil {
+		t.Error("first record is not attempted")
+	}
+	if completed.GetCompleted() == nil || completed.GetCompleted().GetOutcome() != operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_SUCCEEDED {
+		t.Errorf("second record outcome = %v, want SUCCEEDED", completed.GetCompleted().GetOutcome())
 	}
 }

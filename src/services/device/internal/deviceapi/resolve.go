@@ -7,8 +7,10 @@ import (
 
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 )
 
@@ -50,7 +52,7 @@ func (s *Service) ResolveDesynchronization(ctx context.Context, req *connect.Req
 		return nil, connectErr(err)
 	}
 
-	resolution, err := s.resolution(req.Msg, record, entry, deviceID)
+	resolution, err := s.resolution(ctx, req.Msg, record, entry, deviceID)
 	if err != nil {
 		return nil, connectErr(err)
 	}
@@ -75,6 +77,7 @@ func (s *Service) ResolveDesynchronization(ctx context.Context, req *connect.Req
 // difference to accept and nothing to restore, and the resolution is the hold
 // alone.
 func (s *Service) resolution(
+	ctx context.Context,
 	msg *devicev1.ResolveDesynchronizationRequest,
 	record *storev1.DeviceLaneRecord,
 	entry *storev1.RegistryDevice,
@@ -144,7 +147,19 @@ func (s *Service) resolution(
 		resolution.Intent = reconciliationIntent(msg.GetDevice(), entry, record, iface, expected)
 		resolution.Edge = edgeRef(s.cfg.Resolver.EdgeID())
 	case msg.HasReplace():
+		principal, ok := authn.FromContext(ctx)
+		if !ok {
+			return resolution, errs.New().Code(ErrCodeUnauthenticated).Msg("no authenticated principal in context")
+		}
 		replace := msg.GetReplace()
+		if replace != nil {
+			actor := &accessv1.Actor{}
+			op := &identityv1.OperatorRef{}
+			op.SetIssuer(principal.Issuer)
+			op.SetSubject(principal.Subject)
+			actor.SetOperator(op)
+			replace.SetActor(actor)
+		}
 		// The request names a device and so does the intent inside it, and
 		// nothing in the schema ties them. Admitted into this device's lane,
 		// an intent naming another one puts that name on the audit record,

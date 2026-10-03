@@ -15,9 +15,8 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/host"
 )
 
-// validConfig is the shortest file that starts a service: the three paths, the
-// two listeners, and what an edge is told. Everything else has a default.
-const validConfig = `
+// baseConfig is the shortest file that has core paths and listeners.
+const baseConfig = `
 state_dir: "/var/lib/flowseer/device"
 registry_path: "/etc/flowseer/registry.textproto"
 credential_root: "/etc/flowseer/credentials"
@@ -29,6 +28,24 @@ edges {
   central_url: "https://central.example.test"
   assertion_audience: "flowseer-device-central"
   cluster_urls: "wss://central.example.test:8444"
+}
+`
+
+// validConfig is the shortest file that starts a service: the three paths, the
+// two listeners, what an edge is told, and the required authentication and
+// authorization sections. Everything else has a default.
+const validConfig = baseConfig + `
+authentication {
+  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-device"
+  }
+}
+authorization {
+  endpoint: "https://authz.example.test:8081"
+  store_id: "0192e6a0000070008000000000000001"
+  model_id: "0192e6a0000070008000000000000002"
+  preshared_key_file: "/etc/flowseer/authz.key"
 }
 `
 
@@ -104,15 +121,24 @@ func TestUnsetIntervalsArePassedThroughAsZero(t *testing.T) {
 // A named capture_sweep reaches the host as the duration it was written as, so
 // the sweeper runs on the operator's cadence rather than the built-in minute.
 func TestCaptureSweepIntervalIsParsed(t *testing.T) {
-	withSweep := strings.Replace(validConfig,
-		`cluster_urls: "wss://central.example.test:8444"`,
-		`cluster_urls: "wss://central.example.test:8444"`+"\n}\nintervals {\n  capture_sweep { seconds: 15 }", 1)
+	withSweep := validConfig + "intervals {\n  capture_sweep { seconds: 15 }\n}\n"
 	cfg, err := host.LoadConfig(writeConfig(t, withSweep))
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
 	if got := cfg.Intervals().CaptureSweep; got != 15*time.Second {
 		t.Fatalf("CaptureSweep = %v, want the configured fifteen seconds", got)
+	}
+}
+
+func TestRelationshipReconcileIntervalIsParsed(t *testing.T) {
+	withReconcile := validConfig + "intervals {\n  relationship_reconcile { seconds: 15 }\n}\n"
+	cfg, err := host.LoadConfig(writeConfig(t, withReconcile))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if got := cfg.Intervals().RelationshipReconcile; got != 15*time.Second {
+		t.Fatalf("RelationshipReconcile = %v, want the configured fifteen seconds", got)
 	}
 }
 
@@ -123,19 +149,22 @@ func TestLoadConfigRefusals(t *testing.T) {
 	}{
 		"not prototext": {body: "{{{", code: host.ErrCodeConfigLoad},
 		"no state dir": {
-			body: `registry_path: "/r" credential_root: "/c" listeners { api: "a:1" bus: "b:2" } edges { central_url: "https://c.test" assertion_audience: "a" cluster_urls: "wss://c.test" }`,
+			body: strings.Replace(validConfig, `state_dir: "/var/lib/flowseer/device"`, "", 1),
 			code: host.ErrCodeConfigInvalid,
 		},
 		"relative state dir": {
-			body: `state_dir: "var/lib" registry_path: "/r" credential_root: "/c" listeners { api: "a:1" bus: "b:2" } edges { central_url: "https://c.test" assertion_audience: "a" cluster_urls: "wss://c.test" }`,
+			body: strings.Replace(validConfig, `state_dir: "/var/lib/flowseer/device"`, `state_dir: "var/lib"`, 1),
 			code: host.ErrCodeConfigInvalid,
 		},
 		"no listeners": {
-			body: `state_dir: "/s" registry_path: "/r" credential_root: "/c" edges { central_url: "https://c.test" assertion_audience: "a" cluster_urls: "wss://c.test" }`,
+			body: strings.Replace(validConfig, `listeners {
+  api: "0.0.0.0:8443"
+  bus: "0.0.0.0:8444"
+}`, "", 1),
 			code: host.ErrCodeConfigInvalid,
 		},
 		"no cluster url": {
-			body: `state_dir: "/s" registry_path: "/r" credential_root: "/c" listeners { api: "a:1" bus: "b:2" } edges { central_url: "https://c.test" assertion_audience: "a" }`,
+			body: strings.Replace(validConfig, `  cluster_urls: "wss://central.example.test:8444"`+"\n", "", 1),
 			code: host.ErrCodeConfigInvalid,
 		},
 		// The pairing is a schema rule, so it refuses here without the host
@@ -143,14 +172,42 @@ func TestLoadConfigRefusals(t *testing.T) {
 		// and finding that out at the listener means finding it out from a
 		// failed start with no edge able to connect.
 		"certificate without its key": {
-			body: `state_dir: "/s" registry_path: "/r" credential_root: "/c" listeners { api: "a:1" bus: "b:2" certificate_file: "/tls.crt" } edges { central_url: "https://c.test" assertion_audience: "a" cluster_urls: "wss://c.test" }`,
+			body: strings.Replace(validConfig, `listeners {
+  api: "0.0.0.0:8443"
+  bus: "0.0.0.0:8444"
+}`, `listeners {
+  api: "0.0.0.0:8443"
+  bus: "0.0.0.0:8444"
+  certificate_file: "/tls.crt"
+}`, 1),
 			code: host.ErrCodeConfigInvalid,
 		},
 		// A capture sweep faster than a second is refused by the schema's
 		// duration bound, so the host never spins the sweeper on a sub-second
 		// tick that walks every session record.
 		"capture sweep below one second": {
-			body: `state_dir: "/s" registry_path: "/r" credential_root: "/c" listeners { api: "a:1" bus: "b:2" } edges { central_url: "https://c.test" assertion_audience: "a" cluster_urls: "wss://c.test" } intervals { capture_sweep { nanos: 500000000 } }`,
+			body: validConfig + "intervals {\n  capture_sweep { nanos: 500000000 }\n}\n",
+			code: host.ErrCodeConfigInvalid,
+		},
+		"relationship reconcile below one second": {
+			body: validConfig + "intervals {\n  relationship_reconcile { nanos: 500000000 }\n}\n",
+			code: host.ErrCodeConfigInvalid,
+		},
+		"no authentication": {
+			body: baseConfig + `authorization {
+  endpoint: "https://authz.example.test:8081"
+  store_id: "0192e6a0000070008000000000000001"
+  model_id: "0192e6a0000070008000000000000002"
+}`,
+			code: host.ErrCodeConfigInvalid,
+		},
+		"no authorization": {
+			body: baseConfig + `authentication {
+  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-device"
+  }
+}`,
 			code: host.ErrCodeConfigInvalid,
 		},
 	}
@@ -266,8 +323,32 @@ dev_tenant: "0192e6a0-0000-7000-8000-000000000001"
 		t.Errorf("organization_claim_name = %q, want org_id", admin.GetOrganizationClaimName())
 	}
 
-	if got := cfg.DevTenant(); got != "0192e6a0-0000-7000-8000-000000000001" {
-		t.Errorf("DevTenant = %q, want 0192e6a0-0000-7000-8000-000000000001", got)
+	// Missing authentication fails validation
+	badNoAuthn := baseConfig + `
+authorization {
+  endpoint: "https://authz.example.test:8081"
+  store_id: "0192e6a0000070008000000000000001"
+  model_id: "0192e6a0000070008000000000000002"
+  preshared_key_file: "/etc/flowseer/authz.key"
+}
+`
+	_, err = host.LoadConfig(writeConfig(t, badNoAuthn))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("expected ErrCodeConfigInvalid for missing authentication, got %v", err)
+	}
+
+	// Missing authorization fails validation
+	badNoAuthz := baseConfig + `
+authentication {
+  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-device"
+  }
+}
+`
+	_, err = host.LoadConfig(writeConfig(t, badNoAuthz))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("expected ErrCodeConfigInvalid for missing authorization, got %v", err)
 	}
 
 	// Missing issuer in platform_admin fails validation
@@ -295,28 +376,10 @@ platform_admin {
 	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
 		t.Fatalf("expected ErrCodeConfigInvalid for platform_admin missing organization_claim_name, got %v", err)
 	}
-
-	// Non-UUID dev_tenant fails validation
-	badDevTenant := validConfig + `
-dev_tenant: "acme.prod"
-`
-	_, err = host.LoadConfig(writeConfig(t, badDevTenant))
-	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
-		t.Fatalf("expected ErrCodeConfigInvalid for non-UUID dev_tenant, got %v", err)
-	}
-
-	// Uppercase UUID dev_tenant fails validation
-	badUpperDevTenant := validConfig + `
-dev_tenant: "0192E6A0-0000-7000-8000-000000000001"
-`
-	_, err = host.LoadConfig(writeConfig(t, badUpperDevTenant))
-	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
-		t.Fatalf("expected ErrCodeConfigInvalid for uppercase UUID dev_tenant, got %v", err)
-	}
 }
 
 func TestOperatorAuthenticationAndAuthorization(t *testing.T) {
-	accepted := validConfig + `
+	accepted := baseConfig + `
 platform_admin {
   issuer: "https://auth.example.test"
   organization: "org_alpha"

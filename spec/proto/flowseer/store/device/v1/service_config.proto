@@ -70,15 +70,14 @@ message DeviceServiceConfig {
   LogLevel log_level = 8;
   // Identity of the platform administrator permitted to manage tenants.
   PlatformAdmin platform_admin = 9;
-  // Tenant injected into unauthenticated requests during development and testing.
-  // When unset, the device service defaults to injecting the default tenant ("default").
-  string dev_tenant = 10 [(buf.validate.field).string.pattern = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"];
-  // Operator authentication. Unset leaves the service without operator
-  // authentication.
-  OperatorAuthentication authentication = 11;
-  // Authorization service configuration. Unset leaves the service without
-  // authorization checks.
-  AuthorizationEngine authorization = 12;
+
+  reserved 10;
+  reserved dev_tenant;
+
+  // Operator authentication. Must be present.
+  OperatorAuthentication authentication = 11 [(buf.validate.field).required = true];
+  // Authorization service configuration. Must be present.
+  AuthorizationEngine authorization = 12 [(buf.validate.field).required = true];
 }
 
 // An OpenID Connect issuer trusted to authenticate operators.
@@ -341,4 +340,7 @@ message ServiceIntervals {
   // and a different workload: session metadata and on-disk files rather than
   // journal keys.
   google.protobuf.Duration capture_sweep = 8 [(buf.validate.field).duration.gte = {seconds: 1}];
+  // How often the relationship projector reconciles engine relationships with
+  // central records. Unset means 10 minutes.
+  google.protobuf.Duration relationship_reconcile = 9 [(buf.validate.field).duration.gte = {seconds: 1}];
 }

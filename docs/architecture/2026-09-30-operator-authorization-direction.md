@@ -673,3 +673,35 @@ tracks in-flight relationship checks, dropping responses returned while a check
 is in flight with `Internal` and `authz/obligation-violation`. `authz.Abandon`
 allows handlers encountering store errors before relationship checks to
 discharge their obligation while failing closed against subsequent responses.
+
+### 2026-10-03: interceptor chain, projector, identity, and action trail
+
+The operator and edge services enforce authorization through distinct
+interceptor stacks and background reconciliation:
+
+- **Interceptors and start**: Operator handlers run behind telemetry,
+  authentication, validation, authorization, and action trail interceptors in
+  that order. Edge-facing handlers mount telemetry and validation only.
+  `TenantInterceptor` and `DeviceServiceConfig.dev_tenant` are removed, and
+  tenancy derives strictly from `X-FlowSeer-Tenant`. Service configuration
+  requires `authentication` and `authorization` sections. Offline-detectable
+  configuration failures abort startup before binding listeners, whereas
+  runtime engine unreachability serves edge calls while operator calls answer
+  `CodeUnavailable`.
+- **Relationship projector**: A dedicated module (`internal/projector`)
+  synchronizes tuples for `edge:<id>#tenant`, `device:<id>#tenant`,
+  `capture_session:<id>#tenant`, `capture_session:<id>#edge`, and
+  `capture_session:<id>#requester` into OpenFGA. Handlers for edge creation and
+  capture sessions trigger immediate synchronization hooks, and a periodic
+  reconciler scans storage every 10 minutes (`intervals.relationship_reconcile`)
+  to heal drift.
+- **Identity**: `OperatorRef` carries required `issuer` and `subject` fields.
+  Central overrides request-supplied actor identities in mutation intents and
+  capture authorizations with the authenticated principal. Idempotency digests
+  incorporate the principal as `operator:<issuer>\x00<subject>`.
+- **Operator action trail**: Admitted calls on `EdgeAdminService` and
+  `CaptureService` publish attempted and completed records to
+  `FLOWSEER_OPERATOR_ACTIONS` on subject
+  `flowseer.<tenant>.operator.action.<action>`. Attempt publication failures
+  halt execution and return `CodeUnavailable` with `actiontrail/unavailable`.
+  Completion failures are logged while returning the response.

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -23,8 +25,12 @@ import (
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
-	"go.aledante.io/FlowSeer/src/common/tenant"
+	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz/authztest"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 )
@@ -33,18 +39,42 @@ const (
 	testTenantB = "0192e6a0-0000-7000-8000-000000000002"
 )
 
+func testPrincipal() authn.Principal {
+	return authn.Principal{
+		ID:       authn.ComputePrincipalID("https://auth.example.test", "admin-user"),
+		Issuer:   "https://auth.example.test",
+		Subject:  "admin-user",
+		Tenants:  []string{testTenantID, testTenantB},
+		Platform: true,
+	}
+}
+
 type testTenantInterceptor struct {
 	defaultTenant string
+	h             *operatorTestHarness
 }
 
 func (i testTenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		t := req.Header().Get("FlowSeer-Tenant-ID")
 		if t == "" {
+			t = req.Header().Get("X-FlowSeer-Tenant")
+		}
+		if t == "" {
 			t = i.defaultTenant
 		}
 		if t != "none" && t != "" {
-			ctx = tenant.WithTenant(ctx, t)
+			p := testPrincipal()
+			p.Tenants = []string{t}
+			ctx = authn.NewContext(ctx, p)
+			if i.h.engine != nil {
+				i.h.engine.Grant("tenant:"+t, "tenant", "edge")
+			}
+			admitted, err := i.h.interceptor.Admit(ctx, t)
+			if err != nil {
+				return nil, err
+			}
+			ctx = admitted
 		}
 		return next(ctx, req)
 	}
@@ -54,10 +84,23 @@ func (i testTenantInterceptor) WrapStreamingHandler(next connect.StreamingHandle
 	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
 		t := conn.RequestHeader().Get("FlowSeer-Tenant-ID")
 		if t == "" {
+			t = conn.RequestHeader().Get("X-FlowSeer-Tenant")
+		}
+		if t == "" {
 			t = i.defaultTenant
 		}
 		if t != "none" && t != "" {
-			ctx = tenant.WithTenant(ctx, t)
+			p := testPrincipal()
+			p.Tenants = []string{t}
+			ctx = authn.NewContext(ctx, p)
+			if i.h.engine != nil {
+				i.h.engine.Grant("tenant:"+t, "tenant", "edge")
+			}
+			admitted, err := i.h.interceptor.Admit(ctx, t)
+			if err != nil {
+				return err
+			}
+			ctx = admitted
 		}
 		return next(ctx, conn)
 	}
@@ -68,12 +111,16 @@ func (i testTenantInterceptor) WrapStreamingClient(next connect.StreamingClientF
 }
 
 type operatorTestHarness struct {
-	store       *captureapi.Store
-	broadcaster *captureapi.Broadcaster
-	notifyCount atomic.Int64
-	client      capturev1connect.CaptureServiceClient
-	server      *httptest.Server
-	frozenNanos atomic.Int64
+	hub          *edgebus.Hub
+	store        *captureapi.Store
+	broadcaster  *captureapi.Broadcaster
+	notifyCount  atomic.Int64
+	projectCount atomic.Int64
+	client       capturev1connect.CaptureServiceClient
+	server       *httptest.Server
+	frozenNanos  atomic.Int64
+	engine       *authztest.Engine
+	interceptor  *authz.Interceptor
 }
 
 // now reads the harness clock. The store and the operator service both read it
@@ -93,11 +140,44 @@ func newOperatorTestHarness(t *testing.T) *operatorTestHarness {
 	broadcaster := captureapi.NewBroadcaster()
 	frozen := time.Date(2026, 9, 18, 14, 0, 0, 0, time.UTC)
 
+	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+		StateDir:    t.TempDir(),
+		FsyncPolicy: service.BusFsyncPeriodic,
+		ListenPort:  0,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+
+	kv, err := hub.JetStream().KeyValue(context.Background(), edgebus.CapturesBucket)
+	if err != nil {
+		t.Fatalf("captures bucket: %v", err)
+	}
+
+	engine := authztest.New()
+	p := testPrincipal()
+	engine.Grant("user:"+p.ID, "member", "tenant")
+	engine.Grant("user:"+p.ID, "view", "edge")
+	engine.Grant("user:"+p.ID, "capture", "edge")
+	engine.Grant("tenant:"+testTenantID, "tenant", "edge")
+	engine.Grant("tenant:"+testTenantB, "tenant", "edge")
+	interceptor := authz.NewInterceptor(engine)
+
 	h := &operatorTestHarness{
+		hub:         hub,
 		broadcaster: broadcaster,
+		engine:      engine,
+		interceptor: interceptor,
 	}
 	h.setNow(frozen)
-	h.store = newTestStoreWithClock(t, h.now)
+
+	capturesDir := filepath.Join(t.TempDir(), "captures")
+	store, err := captureapi.NewStore(kv, capturesDir, h.now)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	h.store = store
 
 	svc := captureapi.NewOperatorService(h.store, broadcaster, captureapi.OperatorServiceConfig{
 		EdgeTenant: func(_ context.Context, edgeID string) (string, error) {
@@ -118,9 +198,15 @@ func newOperatorTestHarness(t *testing.T) *operatorTestHarness {
 		Clock: func() time.Time {
 			return h.now()
 		},
+		Project: func(_ context.Context, _, _ string) {
+			h.projectCount.Add(1)
+		},
 	})
 
-	path, handler := capturev1connect.NewCaptureServiceHandler(svc, connect.WithInterceptors(testTenantInterceptor{defaultTenant: testTenantID}))
+	path, handler := capturev1connect.NewCaptureServiceHandler(svc, connect.WithInterceptors(testTenantInterceptor{
+		defaultTenant: testTenantID,
+		h:             h,
+	}))
 	mux := http.NewServeMux()
 	mux.Handle(path, handler)
 	server := httptest.NewServer(mux)
@@ -195,28 +281,31 @@ func TestCreateCaptureSession_BudgetValidationAndCreation(t *testing.T) {
 		}
 	}
 
-	// A request naming no requester, or one with an empty subject, is refused
-	// and stores nothing.
-	for name, requester := range map[string]*identityv1.OperatorRef{
-		"no requester":  nil,
-		"empty subject": identityv1.OperatorRef_builder{Issuer: proto.String("https://auth.example.com"), Subject: proto.String("")}.Build(),
-	} {
-		before, err := h.store.ListSessions(ctx, testTenantID)
-		if err != nil {
-			t.Fatalf("%s: list sessions: %v", name, err)
-		}
+	// Empty authorization reason is refused.
+	{
 		req := newTestCreateRequest(100)
-		req.GetAuthorization().SetRequestedBy(requester)
-		_, err = h.client.CreateCaptureSession(ctx, connect.NewRequest(req))
+		req.GetAuthorization().SetReason("")
+		_, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(req))
 		if err == nil || connect.CodeOf(err) != connect.CodeInvalidArgument {
-			t.Fatalf("%s: got error %v, want CodeInvalidArgument", name, err)
+			t.Fatalf("got empty-reason error %v, want CodeInvalidArgument", err)
 		}
-		after, err := h.store.ListSessions(ctx, testTenantID)
+	}
+
+	// Requirement 8: requested_by is replaced by the authenticated principal.
+	{
+		req := newTestCreateRequest(100)
+		req.GetAuthorization().SetRequestedBy(identityv1.OperatorRef_builder{
+			Issuer:  proto.String("https://other.example.test"),
+			Subject: proto.String("other-subject"),
+		}.Build())
+		resp, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(req))
 		if err != nil {
-			t.Fatalf("%s: list sessions: %v", name, err)
+			t.Fatalf("CreateCaptureSession with foreign requested_by failed: %v", err)
 		}
-		if len(after) != len(before) {
-			t.Fatalf("%s: store holds %d sessions, want %d", name, len(after), len(before))
+		storedReqBy := resp.Msg.GetSession().GetConfig().GetAuthorization().GetRequestedBy()
+		p := testPrincipal()
+		if storedReqBy.GetIssuer() != p.Issuer || storedReqBy.GetSubject() != p.Subject {
+			t.Fatalf("stored requested_by = %+v, want issuer=%q subject=%q", storedReqBy, p.Issuer, p.Subject)
 		}
 	}
 
@@ -1291,5 +1380,269 @@ func TestCreateCaptureSessionStoreFaultUnavailable(t *testing.T) {
 	}
 	if got := connect.CodeOf(err); got != connect.CodeUnavailable {
 		t.Fatalf("code = %v, want CodeUnavailable", got)
+	}
+}
+
+func TestListCaptureSessionsFilteringAndPagination(t *testing.T) {
+	ctx := context.Background()
+	h := newOperatorTestHarness(t)
+
+	// Create 3 sessions on testEdge1ID (allowed) and 3 on testEdge2ID (denied).
+	// Seed IDs so that they alternate: E1, E2, E1, E2, E1, E2.
+	sessionIDs := []string{
+		"0192e6a0-0000-7000-8000-000000000001",
+		"0192e6a0-0000-7000-8000-000000000002",
+		"0192e6a0-0000-7000-8000-000000000003",
+		"0192e6a0-0000-7000-8000-000000000004",
+		"0192e6a0-0000-7000-8000-000000000005",
+		"0192e6a0-0000-7000-8000-000000000006",
+	}
+
+	for i, id := range sessionIDs {
+		edgeID := testEdge1ID
+		if i%2 == 1 {
+			edgeID = testEdge2ID
+		}
+		cfg := newEdgeSessionConfig(t, edgeID, id)
+		if _, err := h.store.CreateSession(ctx, testTenantID, cfg); err != nil {
+			t.Fatalf("create session %s: %v", id, err)
+		}
+	}
+
+	// Engine: clear type-wide capture grant, grant capture only on testEdge1ID.
+	engine := authztest.New()
+	p := testPrincipal()
+	engine.Grant("user:"+p.ID, "member", "tenant")
+	engine.Grant("tenant:"+testTenantID, "tenant", "edge")
+	if err := engine.Write(ctx, []authz.Tuple{
+		{Object: "edge:" + testEdge1ID, Relation: "capture", User: "user:" + p.ID},
+	}, nil); err != nil {
+		t.Fatalf("engine.Write: %v", err)
+	}
+
+	// Update harness interceptor and engine
+	h.engine = engine
+	h.interceptor = authz.NewInterceptor(engine)
+
+	// Page 1: page_size = 2 -> examines s1 (E1, allowed), s2 (E2, denied), s3 (E1, allowed).
+	// Page 1 is filled with s1 and s3. Token is s3.
+	req1 := operatorcapturev1.ListCaptureSessionsRequest_builder{
+		PageSize: proto.Uint32(2),
+	}.Build()
+	resp1, err := h.client.ListCaptureSessions(ctx, connect.NewRequest(req1))
+	if err != nil {
+		t.Fatalf("ListCaptureSessions page 1: %v", err)
+	}
+	if len(resp1.Msg.GetSessions()) != 2 {
+		t.Fatalf("page 1 got %d sessions, want 2", len(resp1.Msg.GetSessions()))
+	}
+	if resp1.Msg.GetSessions()[0].GetConfig().GetRef().GetCaptureSession().GetId() != sessionIDs[0] {
+		t.Fatalf("page 1 session 0 = %s, want %s", resp1.Msg.GetSessions()[0].GetConfig().GetRef().GetCaptureSession().GetId(), sessionIDs[0])
+	}
+	if resp1.Msg.GetSessions()[1].GetConfig().GetRef().GetCaptureSession().GetId() != sessionIDs[2] {
+		t.Fatalf("page 1 session 1 = %s, want %s", resp1.Msg.GetSessions()[1].GetConfig().GetRef().GetCaptureSession().GetId(), sessionIDs[2])
+	}
+	if resp1.Msg.GetNextPageToken() != sessionIDs[2] {
+		t.Fatalf("page 1 next_page_token = %q, want %s", resp1.Msg.GetNextPageToken(), sessionIDs[2])
+	}
+
+	// Page 2: page_size = 2, page_token = s3 -> examines s4 (E2, denied), s5 (E1, allowed), s6 (E2, denied).
+	// Returns s5 and empty next_page_token.
+	req2 := operatorcapturev1.ListCaptureSessionsRequest_builder{
+		PageSize:  proto.Uint32(2),
+		PageToken: proto.String(resp1.Msg.GetNextPageToken()),
+	}.Build()
+	resp2, err := h.client.ListCaptureSessions(ctx, connect.NewRequest(req2))
+	if err != nil {
+		t.Fatalf("ListCaptureSessions page 2: %v", err)
+	}
+	if len(resp2.Msg.GetSessions()) != 1 {
+		t.Fatalf("page 2 got %d sessions, want 1", len(resp2.Msg.GetSessions()))
+	}
+	if resp2.Msg.GetSessions()[0].GetConfig().GetRef().GetCaptureSession().GetId() != sessionIDs[4] {
+		t.Fatalf("page 2 session 0 = %s, want %s", resp2.Msg.GetSessions()[0].GetConfig().GetRef().GetCaptureSession().GetId(), sessionIDs[4])
+	}
+	if resp2.Msg.GetNextPageToken() != "" {
+		t.Fatalf("page 2 next_page_token = %q, want empty", resp2.Msg.GetNextPageToken())
+	}
+}
+
+func TestListCaptureSessions501CandidatesNoneVisible(t *testing.T) {
+	ctx := context.Background()
+	h := newOperatorTestHarness(t)
+
+	// Create 501 sessions on testEdge2ID
+	for i := 0; i < 501; i++ {
+		id := fmt.Sprintf("0192e6a0-0000-7000-8000-%012d", i)
+		cfg := newEdgeSessionConfig(t, testEdge2ID, id)
+		if _, err := h.store.CreateSession(ctx, testTenantID, cfg); err != nil {
+			t.Fatalf("create session %s: %v", id, err)
+		}
+	}
+
+	// Engine has member and tenant on edge, but no capture grant on testEdge2ID
+	engine := authztest.New()
+	p := testPrincipal()
+	engine.Grant("user:"+p.ID, "member", "tenant")
+	engine.Grant("tenant:"+testTenantID, "tenant", "edge")
+
+	h.engine = engine
+	h.interceptor = authz.NewInterceptor(engine)
+
+	resp, err := h.client.ListCaptureSessions(ctx, connect.NewRequest(operatorcapturev1.ListCaptureSessionsRequest_builder{
+		PageSize: proto.Uint32(50),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("ListCaptureSessions: %v", err)
+	}
+	if len(resp.Msg.GetSessions()) != 0 {
+		t.Fatalf("expected 0 sessions, got %d", len(resp.Msg.GetSessions()))
+	}
+	if resp.Msg.GetNextPageToken() == "" {
+		t.Fatal("expected next page token after examining 500 candidates with 1 candidate remaining")
+	}
+
+	// Page 2: examines the remaining 1 candidate
+	resp2, err := h.client.ListCaptureSessions(ctx, connect.NewRequest(operatorcapturev1.ListCaptureSessionsRequest_builder{
+		PageSize:  proto.Uint32(50),
+		PageToken: proto.String(resp.Msg.GetNextPageToken()),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("ListCaptureSessions page 2: %v", err)
+	}
+	if len(resp2.Msg.GetSessions()) != 0 {
+		t.Fatalf("expected 0 sessions on page 2, got %d", len(resp2.Msg.GetSessions()))
+	}
+	if resp2.Msg.GetNextPageToken() != "" {
+		t.Fatalf("expected no next page token on page 2, got %q", resp2.Msg.GetNextPageToken())
+	}
+}
+
+func TestListCaptureSessionsFailingStoreAbandons(t *testing.T) {
+	h := newOperatorTestHarness(t)
+	ctx := context.Background()
+	h.hub.Close() // close the hub so JetStream store calls fail
+
+	_, err := h.client.ListCaptureSessions(ctx, connect.NewRequest(&operatorcapturev1.ListCaptureSessionsRequest{}))
+	if err == nil {
+		t.Fatal("expected error on closed store")
+	}
+	if connect.CodeOf(err) != connect.CodeUnavailable {
+		t.Fatalf("code = %v, want CodeUnavailable", connect.CodeOf(err))
+	}
+}
+
+func TestCreateCaptureSessionFullPayloadCheck(t *testing.T) {
+	ctx := context.Background()
+	h := newOperatorTestHarness(t)
+	p := testPrincipal()
+
+	// 1. Full payload requested without tenant#full_payload grant -> PermissionDenied
+	reqFull := newTestCreateRequest(100)
+	reqFull.GetAuthorization().SetFullPayloadRequested(true)
+	reqFull.GetAuthorization().SetReason("incident investigation")
+
+	_, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(reqFull))
+	if err == nil {
+		t.Fatal("expected error for full payload without grant")
+	}
+	if connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("code = %v, want CodePermissionDenied", connect.CodeOf(err))
+	}
+
+	// Verify no session was created in store
+	sessions, err := h.store.ListSessions(ctx, testTenantID)
+	if err != nil {
+		t.Fatalf("list sessions: %v", err)
+	}
+	if len(sessions) != 0 {
+		t.Fatalf("store holds %d sessions, want 0", len(sessions))
+	}
+
+	// 2. Grant full_payload on tenant:<testTenantID>
+	queryStart := len(h.engine.Queries())
+	if err := h.engine.Write(ctx, []authz.Tuple{
+		{Object: "tenant:" + testTenantID, Relation: "full_payload", User: "user:" + p.ID},
+	}, nil); err != nil {
+		t.Fatalf("engine.Write: %v", err)
+	}
+
+	resp, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(reqFull))
+	if err != nil {
+		t.Fatalf("CreateCaptureSession with full payload grant failed: %v", err)
+	}
+	if resp.Msg.GetSession() == nil {
+		t.Fatal("session is nil in response")
+	}
+
+	// Verify query recorded by engine
+	queries := h.engine.Queries()[queryStart:]
+	var fullPayloadQueried bool
+	for _, q := range queries {
+		if q.Object == "tenant:"+testTenantID && q.Relation == "full_payload" {
+			fullPayloadQueried = true
+			break
+		}
+	}
+	if !fullPayloadQueried {
+		t.Fatalf("engine recorded queries %v, want tenant:%s#full_payload", queries, testTenantID)
+	}
+
+	// 3. Headers-only request succeeds even without full_payload grant
+	if err := h.engine.Write(ctx, nil, []authz.Tuple{
+		{Object: "tenant:" + testTenantID, Relation: "full_payload", User: "user:" + p.ID},
+	}); err != nil {
+		t.Fatalf("engine.Write delete: %v", err)
+	}
+
+	reqHeadersOnly := newTestCreateRequest(100)
+	reqHeadersOnly.GetAuthorization().SetFullPayloadRequested(false)
+	reqHeadersOnly.GetAuthorization().SetReason("routine monitoring")
+
+	respHeaders, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(reqHeadersOnly))
+	if err != nil {
+		t.Fatalf("CreateCaptureSession headers-only failed: %v", err)
+	}
+	if respHeaders.Msg.GetSession() == nil {
+		t.Fatal("session is nil in response")
+	}
+}
+
+func TestCreateAndDeleteCaptureSessionProjectHook(t *testing.T) {
+	ctx := context.Background()
+	h := newOperatorTestHarness(t)
+
+	before := h.projectCount.Load()
+
+	// 1. CreateCaptureSession calls project hook once
+	req := newTestCreateRequest(100)
+	resp, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(req))
+	if err != nil {
+		t.Fatalf("CreateCaptureSession: %v", err)
+	}
+	if got := h.projectCount.Load(); got != before+1 {
+		t.Fatalf("projectCount after create = %d, want %d", got, before+1)
+	}
+
+	sessionRef := resp.Msg.GetSession().GetConfig().GetRef()
+
+	// 2. DeleteCaptureSession calls project hook once
+	delReq := operatorcapturev1.DeleteCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build()
+	if _, err := h.client.DeleteCaptureSession(ctx, connect.NewRequest(delReq)); err != nil {
+		t.Fatalf("DeleteCaptureSession: %v", err)
+	}
+	if got := h.projectCount.Load(); got != before+2 {
+		t.Fatalf("projectCount after delete = %d, want %d", got, before+2)
+	}
+
+	// 3. Failed store write or invalid call does NOT call project hook
+	delFailed := operatorcapturev1.DeleteCaptureSessionRequest_builder{
+		Session: sessionRef, // already deleted
+	}.Build()
+	_, _ = h.client.DeleteCaptureSession(ctx, connect.NewRequest(delFailed))
+	if got := h.projectCount.Load(); got != before+2 {
+		t.Fatalf("projectCount after failed delete = %d, want %d", got, before+2)
 	}
 }

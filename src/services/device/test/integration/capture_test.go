@@ -6,9 +6,11 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,11 +23,13 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	operatorcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
+	capturev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
+	operatorv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/operator/v1"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
@@ -34,6 +38,8 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/capture"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
 )
 
@@ -1219,6 +1225,11 @@ func TestCapture_PerTenantArtifactDirectoryAndCrossTenantIsolation(t *testing.T)
 	if _, err := store.CreateSession(ctx, tenantA, config); err != nil {
 		t.Fatalf("CreateSession tenantA: %v", err)
 	}
+	if err := c.engine.Write(ctx, []authz.Tuple{
+		{Object: "capture_session:" + sessionID, Relation: "tenant", User: "tenant:" + tenantA},
+	}, nil); err != nil {
+		t.Fatalf("write session tenant tuple: %v", err)
+	}
 
 	linkType := netcapturev1.LinkType_LINK_TYPE_ETHERNET
 	packet := netcapturev1.PacketRecord_builder{
@@ -1248,7 +1259,8 @@ func TestCapture_PerTenantArtifactDirectoryAndCrossTenantIsolation(t *testing.T)
 		t.Fatalf("expected artifact on disk at %s: %v", expectedPathA, err)
 	}
 
-	// Verify tenant A can download artifact over Connect RPC
+	// Verify tenant A can download artifact over Connect RPC and trail is recorded
+	recordsBefore := len(c.operatorActionRecords(t))
 	streamA, err := c.captures().DownloadCaptureSession(ctx, connect.NewRequest(operatorcapturev1.DownloadCaptureSessionRequest_builder{
 		Session: config.GetRef(),
 	}.Build()))
@@ -1257,6 +1269,22 @@ func TestCapture_PerTenantArtifactDirectoryAndCrossTenantIsolation(t *testing.T)
 	}
 	if !streamA.Receive() {
 		t.Fatalf("tenant A download stream had no chunks: %v", streamA.Err())
+	}
+	for streamA.Receive() {
+	}
+	if streamA.Err() != nil {
+		t.Fatalf("download stream error: %v", streamA.Err())
+	}
+
+	downloadRecords := c.operatorActionRecords(t)[recordsBefore:]
+	if len(downloadRecords) != 2 {
+		t.Fatalf("got %d operator action records for download, want 2", len(downloadRecords))
+	}
+	if downloadRecords[0].GetAction() != operatorv1.OperatorAction_OPERATOR_ACTION_CAPTURE_DOWNLOAD {
+		t.Errorf("attempt action = %v, want CAPTURE_DOWNLOAD", downloadRecords[0].GetAction())
+	}
+	if downloadRecords[1].GetCompleted().GetOutcome() != operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_SUCCEEDED {
+		t.Errorf("completion outcome = %v, want SUCCEEDED", downloadRecords[1].GetCompleted().GetOutcome())
 	}
 
 	// Verify tenant B cannot read artifact directly from store
@@ -1280,18 +1308,119 @@ func TestCapture_PerTenantArtifactDirectoryAndCrossTenantIsolation(t *testing.T)
 		if streamB.Receive() {
 			t.Fatal("tenant B received chunk for tenant A capture session")
 		}
-		if connect.CodeOf(streamB.Err()) != connect.CodeNotFound {
-			t.Fatalf("tenant B download stream code = %v, want CodeNotFound", connect.CodeOf(streamB.Err()))
+		if code := connect.CodeOf(streamB.Err()); code != connect.CodePermissionDenied && code != connect.CodeNotFound {
+			t.Fatalf("tenant B download stream code = %v, want CodePermissionDenied or CodeNotFound", code)
 		}
-	} else if connect.CodeOf(err) != connect.CodeNotFound {
-		t.Fatalf("tenant B download got code = %v, want CodeNotFound", connect.CodeOf(err))
+	} else if code := connect.CodeOf(err); code != connect.CodePermissionDenied && code != connect.CodeNotFound {
+		t.Fatalf("tenant B download got code = %v, want CodePermissionDenied or CodeNotFound", code)
 	}
 
-	// Verify GetCaptureSession under tenant B returns CodeNotFound
+	// Verify GetCaptureSession under tenant B returns CodePermissionDenied or CodeNotFound
 	_, err = c.captures().GetCaptureSession(ctx, connect.NewRequest(operatorcapturev1.GetCaptureSessionRequest_builder{
 		Session: config.GetRef(),
 	}.Build()))
-	if connect.CodeOf(err) != connect.CodeNotFound {
-		t.Fatalf("GetCaptureSession under tenant B got code = %v, want CodeNotFound", connect.CodeOf(err))
+	if code := connect.CodeOf(err); code != connect.CodePermissionDenied && code != connect.CodeNotFound {
+		t.Fatalf("GetCaptureSession under tenant B got code = %v, want CodePermissionDenied or CodeNotFound", code)
+	}
+}
+
+func TestDownloadAndTailWithoutDownloadPermissionDenied(t *testing.T) {
+	dir := t.TempDir()
+	writeCredentials(t, filepath.Join(dir, "credentials"))
+
+	registryPath := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
+	c := newCentral(t, dir, registryPath)
+	c.start()
+	defer c.shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	created, err := c.admin().CreateEdge(ctx, connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
+		Name: proto.String("edge-cap"),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CreateEdge: %v", err)
+	}
+	edgeRef := created.Msg.GetEdge().GetConfig().GetRef()
+
+	sessionResp, err := c.captures().CreateCaptureSession(ctx, connect.NewRequest(operatorcapturev1.CreateCaptureSessionRequest_builder{
+		Edge: edgeRef,
+		Name: proto.String("session-test"),
+		Source: modelcapturev1.CaptureSource_builder{
+			LocalInterface: modelcapturev1.LocalInterfaceSource_builder{InterfaceName: proto.String("eth0")}.Build(),
+		}.Build(),
+		Budget: modelcapturev1.CaptureBudget_builder{
+			MaxPackets: proto.Uint64(10),
+		}.Build(),
+		Authorization: modelcapturev1.CaptureAuthorization_builder{
+			Reason:               proto.String("test"),
+			FullPayloadRequested: proto.Bool(false),
+		}.Build(),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CreateCaptureSession: %v", err)
+	}
+	sessionRef := sessionResp.Msg.GetSession().GetConfig().GetRef()
+
+	// Create a token for a user with NO download grant
+	noDownloadToken := c.issuer.Sign(map[string]any{
+		"iss": c.issuer.URL(),
+		"sub": "operator-no-download",
+		"aud": "flowseer-e2e",
+		"exp": time.Now().Add(24 * time.Hour).Unix(),
+	})
+	noDownloadPrincipalID := authn.ComputePrincipalID(c.issuer.URL(), "operator-no-download")
+	if err := c.engine.Write(ctx, []authz.Tuple{
+		{Object: "tenant:" + edgebus.DefaultTenant, Relation: "member", User: "user:" + noDownloadPrincipalID},
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	c.engine.Grant("user:"+noDownloadPrincipalID, "view", "capture_session")
+	c.engine.Grant("user:"+noDownloadPrincipalID, "manage", "capture_session")
+
+	// Custom client sending noDownloadToken
+	noDownloadClient := &http.Client{
+		Transport: &authTransport{
+			base: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+			},
+			central: &central{
+				token:  noDownloadToken,
+				tenant: edgebus.DefaultTenant,
+			},
+		},
+		Timeout: 30 * time.Second,
+	}
+	capturesClient := capturev1connect.NewCaptureServiceClient(noDownloadClient, c.baseURL())
+
+	// Download should be refused with CodePermissionDenied
+	downloadStream, err := capturesClient.DownloadCaptureSession(ctx, connect.NewRequest(operatorcapturev1.DownloadCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build()))
+	if err == nil {
+		if downloadStream.Receive() {
+			t.Fatal("expected download to be refused, but received data")
+		}
+		if connect.CodeOf(downloadStream.Err()) != connect.CodePermissionDenied {
+			t.Fatalf("download stream error code = %v, want CodePermissionDenied", connect.CodeOf(downloadStream.Err()))
+		}
+	} else if connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("download error code = %v, want CodePermissionDenied", connect.CodeOf(err))
+	}
+
+	// Tail should be refused with CodePermissionDenied
+	tailStream, err := capturesClient.TailCaptureSession(ctx, connect.NewRequest(operatorcapturev1.TailCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build()))
+	if err == nil {
+		if tailStream.Receive() {
+			t.Fatal("expected tail to be refused, but received data")
+		}
+		if connect.CodeOf(tailStream.Err()) != connect.CodePermissionDenied {
+			t.Fatalf("tail stream error code = %v, want CodePermissionDenied", connect.CodeOf(tailStream.Err()))
+		}
+	} else if connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("tail error code = %v, want CodePermissionDenied", connect.CodeOf(err))
 	}
 }

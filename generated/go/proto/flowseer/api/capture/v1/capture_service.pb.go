@@ -805,8 +805,8 @@ func (x *ListCaptureSessionsResponse) ClearNextPageToken() {
 type ListCaptureSessionsResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The page of sessions in the service's stable order. Empty means the
-	// listing is exhausted.
+	// The page of sessions in the service's stable order. A page can be short or
+	// empty while next_page_token is set.
 	Sessions []*v11.CaptureSessionRecord
 	// Token for the next page. Unset means this was the last page.
 	NextPageToken *string
