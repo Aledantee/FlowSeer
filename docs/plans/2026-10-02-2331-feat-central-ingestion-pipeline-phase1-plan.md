@@ -6,7 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: needs-decisions
 status: planned
 execution: mixed
-amends: docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md
+amends: docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md, docs/architecture/2026-08-20-network-model-structure-direction.md
 parent: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-plan.md
 ---
 
@@ -37,11 +37,30 @@ The parent plan's Decisions apply. These are local to the phase.
 - `Provenance.protocol` widens its type so that it can name syslog.
   `ManagementProtocol` gains no `SYSLOG` value. Why: syslog is not a
   management protocol, and `Provenance` requires a non-zero protocol
-  (`spec/proto/flowseer/model/inventory/v1/provenance.proto`). The new type
-  and its effect on the existing producers of `Provenance` are not designed
-  yet, and the units below still describe the enum value. (decided by the
-  user, 2026-10-03)
-- The widened field and the Go that names it change in one unit, U1. Why:
+  (`spec/proto/flowseer/model/inventory/v1/provenance.proto`). (decided by
+  the user, 2026-10-03)
+- The widened type is a required `oneof protocol` on `Provenance`, with arms
+  `ManagementProtocol management = 10` and the new enum at 11. Field 3 goes
+  with no `reserved` line for the number or for the name `protocol`. Why: no
+  management value is written twice, and `BindingState.address` is the same
+  shape in the same package
+  (`spec/proto/flowseer/model/inventory/v1/binding.proto:148-159`). (decided
+  by the user, 2026-10-03)
+- The new enum is `LogProtocol` with `LOG_PROTOCOL_SYSLOG = 1`, and its arm
+  is `log`. Why: "log" is the tree's word for the domain
+  (`spec/proto/flowseer/net/log/v1`, `spec/proto/flowseer/event/log/v1`), and
+  a trap or a webhook still names SNMP or HTTP in the management arm.
+  (decided by the user, 2026-10-03)
+- `LogProtocol` is declared in `provenance.proto` with
+  `LOG_PROTOCOL_UNSPECIFIED = 0`, and each arm rejects the zero value and an
+  undefined one. Why: an enum lives beside its owner and numbers its zero as
+  unspecified (`docs/conventions/protobuf.md`, Enums), and `NextHop.target`
+  carries the same rule on an enum arm
+  (`spec/proto/flowseer/net/routing/v1/next_hop.proto:31-37`). `buf build` at
+  the pinned v1.73.0 (`tools/buf/go.mod`) accepts a oneof named `protocol` in
+  a message with no field and no reservation of that name, and U2's `buf
+  lint` repeats the check on the real file.
+- The widened field and the Go that names it change in one unit, U2. Why:
   `docs/code-style-proto.md`, Workflow, lands a schema change with its
   regenerated code, and the regenerated message no longer compiles against
   its one producer
@@ -59,14 +78,27 @@ The parent plan's Decisions apply. These are local to the phase.
   default would be a fabricated field.
 - `IngestRecord.record_id` is the record's only id, and `SyslogRecord`
   drops its `record_id`. Why: two fields that must always agree need a rule
-  to hold them equal. The units below still describe both fields. (decided
-  by the user, 2026-10-03)
-- `SyslogRecord` reserves field 2 and the name `record_id`, and its other
-  fields keep their numbers. Why: `docs/code-style-proto.md`, Evolution, asks
-  for both on a removal and forbids renumbering, inside the pre-release
-  window as well. No reader migrates: the only Go that names the field is its
-  own rules test (`test/conformance/proto/event_log_rules_test.go:18,34,95,162-176`),
-  and intake and the history sink are later phases that read
+  to hold them equal. (decided by the user, 2026-10-03)
+- A removal before the first stable release leaves no `reserved` line, and a
+  number is still never reused. `SyslogRecord.record_id` and
+  `Provenance.protocol` go that way, and U1 amends `docs/code-style-proto.md`,
+  Evolution, with every other document that states the old rule. Why:
+  nothing outside this repository reads the schemas yet (`AGENTS.md`, Agent
+  behavior), so a tombstone protects no consumer. (decided by the user,
+  2026-10-03)
+- Three documents state reserve-on-removal, and nothing enforces it on
+  FlowSeer schemas: `docs/code-style-proto.md:185,198-199`,
+  `docs/conventions/protobuf.md:379-381`, and the network model record
+  (`docs/architecture/2026-08-20-network-model-structure-direction.md:426,522`).
+  Why this is the whole list: `buf.yaml` suspends breaking checks for the
+  FlowSeer module (lines 41-49) and applies `WIRE`, the category that holds
+  the reserved rules, to the vendor module alone (lines 27-29). No configured
+  lint rule, no hook under `tools/hooks/`, and no test under `test/` reads
+  `reserved`, and `AGENTS.md` does not state the rule.
+- `SyslogRecord`'s other fields keep their numbers, and no reader migrates.
+  Why: the only Go that names `record_id` is its own rules test
+  (`test/conformance/proto/event_log_rules_test.go:18,34,95,162-176`), and
+  intake and the history sink are later phases that read
   `IngestRecord.record_id`.
 - `IngestRecord.record_id` is a UUIDv7 from `uuid.NewV7`
   (`github.com/google/uuid` v1.6.0, `go doc` confirms the function), and is
@@ -87,12 +119,22 @@ The parent plan's Decisions apply. These are local to the phase.
 - The syslog source fills `Provenance` with the binding from the device
   index, the receive time (`Observation.ReceivedAt`,
   `src/protocol/syslog/record.go:71`), the agent's edge ref (`edgeRefOf`,
-  `src/edge/agent/host/host.go:368`), and syslog as the protocol. Why: the
-  onboarder builds the same binding and edge refs for the lane
-  (`src/edge/agent/internal/lanehost/onboard.go:249-258`). It writes the
-  receive time to `SyslogRecord.received_at` as well and leaves
-  `firmware_fingerprint` unset. Both are unconfirmed and repeated under Open
-  questions.
+  `src/edge/agent/host/host.go:368`), and `LOG_PROTOCOL_SYSLOG` in the `log`
+  arm. Why: the onboarder builds the same binding and edge refs for the lane
+  (`src/edge/agent/internal/lanehost/onboard.go:249-258`).
+- `SyslogRecord.received_at` stays beside `Provenance.observed_at`, and the
+  source writes the receive time to both. Why: the contracts differ for a
+  cloud-mediated source, where `observed_at` is when the platform saw the
+  payload (`spec/proto/flowseer/model/inventory/v1/provenance.proto:15-18`)
+  and `received_at` is when the collector received the record
+  (`spec/proto/flowseer/event/log/v1/syslog_record.proto:32-33`). (decided by
+  the user, 2026-10-03)
+- A syslog record's `Provenance.firmware_fingerprint` stays unset, and the
+  field's comment says unset means the producer holds no fingerprint. Why:
+  the field is optional (`provenance.proto:32-40`), and the fingerprint lives
+  inside `access.Lane`, which exports no accessor for it
+  (`src/modules/localnet/access/lane.go`, exported methods). (decided by the
+  user, 2026-10-03)
 - The syslog module receives the `*edgebus.Leaf` from the bus attachment
   `Run` already holds (`src/edge/agent/host/host.go:133-144`). Why: the
   attachment is not stored in `assembly` today.
@@ -113,11 +155,21 @@ The parent plan's Decisions apply. These are local to the phase.
   (`src/edge/agent/host/config.go:54,72`). A listener address is a string, as
   `syslog.ListenConfig.Address` is (`src/protocol/syslog/receiver.go:20-25`),
   so `store/agent` keeps importing nothing FlowSeer-owned
-  (`test/conformance/proto/layering_test.go:179`). The listener's shape is
-  unconfirmed and repeated under Open questions.
-- U1 amends the ingestion direction record with both wire decisions. Why:
-  each changes a wire contract more than one package reads, and this plan is
-  deleted once the phase lands.
+  (`test/conformance/proto/layering_test.go:179`).
+- The listeners are a `repeated AgentSyslogListener`, each an address and a
+  transport enum. Why: a listener is a transport and an address in the
+  library as well (`syslog.ListenConfig`), so a later transport adds an enum
+  value and no field. (decided by the user, 2026-10-03)
+- The enum is `AgentSyslogTransport`, and a file names at most eight
+  listeners. Why: the package prefixes its own types and keeps its own enums
+  (`spec/proto/flowseer/store/agent/v1/agent_config.proto:76,104,113-119`),
+  and `syslog.Listen` refuses more than `Limits.MaxListeners`, which defaults
+  to eight (`src/protocol/syslog/receiver.go:89`,
+  `src/protocol/syslog/options.go:14-15`).
+- U2 amends the ingestion direction record with both wire decisions, and U1
+  amends the network model record with the reserved rule. Why: each changes
+  a contract more than one package reads, and this plan is deleted once the
+  phase lands.
 
 ## Requirements
 
@@ -146,12 +198,20 @@ The parent plan's Decisions apply. These are local to the phase.
    message id is the envelope's `record_id`. Example: one envelope published
    twice inside the buffer's duplicate window is stored once.
 8. `Provenance` names syslog, and no field typed for a management protocol
-   accepts it. Example: a provenance naming syslog validates, one naming no
-   protocol fails, and a `RouteSelected` whose protocol is 7 fails
-   validation.
+   accepts it. Example: a provenance whose `log` arm is `LOG_PROTOCOL_SYSLOG`
+   validates, one with neither arm fails on the `protocol` oneof, and a
+   `RouteSelected` whose protocol is 7 fails `defined_only`.
 9. `SyslogRecord` holds no id. Example: a record with only a device and a
    receive time validates, and an envelope wrapping it fails only on its own
    missing `record_id`.
+10. The agent listens only where `AgentConfig.syslog` names a listener.
+    Example: a file with no `syslog` block starts no source, and one UDP
+    listener on a loopback address receives the requirement 3 datagram.
+11. After the phase no schema it touched holds a `reserved` line for a field
+    it removed, and no document asks for one before the first stable release.
+    Example: `syslog_record.proto` has no field 2 and no `reserved` line, and
+    `docs/code-style-proto.md`, Evolution, says a pre-release removal leaves
+    none and a number is never reused.
 
 ## Out of scope
 
@@ -161,21 +221,47 @@ The parent plan's Decisions apply. These are local to the phase.
 - The `RAW_REASON_WINDOW` trigger. The enum value exists and nothing sets it
   until the raw window phase.
 - TLS syslog and vendor field mapping beyond what `SyslogRecord` holds.
-- Lane records stored before U1. One holds `Provenance.protocol` at field 3
+- Lane records stored before U2. One holds `Provenance.protocol` at field 3
   inside `last_observations`
   (`spec/proto/flowseer/store/device/v1/lane_record.proto:109`) and reads
-  back without a protocol under an answer to open question 1 that moves or
-  retypes the field. Nothing migrates it (`AGENTS.md`, Agent behavior).
+  back with neither arm set. Nothing migrates it (`AGENTS.md`, Agent
+  behavior).
+- The 24 `reserved` lines that earlier removals left in 14 files under
+  `spec/proto/flowseer/`. They stay. U1 changes the rule for removals from
+  this phase on.
 - Input trust: the source reads datagrams from untrusted network senders. The
   parser's limits (`src/protocol/syslog/options.go`) bound them, and only a
   hosted device's address is accepted.
 
 ## Units
 
-### U1. Ingest envelope schema and the two reshaped messages
+### U1. Reserved rule for the pre-release window
+
+Files: docs/code-style-proto.md, docs/conventions/protobuf.md, docs/architecture/2026-08-20-network-model-structure-direction.md
+After: none
+Change: Evolution in `docs/code-style-proto.md` says a removal before the
+first stable release leaves no `reserved` line, for the number or for the
+name (line 185). The sentence that kept the old rule inside that window goes
+(lines 198-199). A number is still never reused or renumbered, the
+2026-08-26 collapse stays the one dated exception to renumbering, and the
+rule from the first stable release on is unchanged. Field numbering in
+`docs/conventions/protobuf.md` (lines 379-381) says the same. The network
+model record gains a dated amendment, in the form its `### <date>` entries
+have (lines 746-996): before the first stable release a deleted number
+leaves no `reserved` line and is still never reused, which replaces the
+last clause of convention 10 (line 522) and the cost line 426 names for
+removing a field. The two convention documents' `last_updated` moves to the
+day of the change. Nothing checks that a number is not reused, since breaking checks
+are suspended for the module (`buf.yaml:41-49`). Review holds the rule, as
+`docs/code-style-proto.md:209-213` says of the others.
+Tests: none. The unit changes prose, and the verifier's link and prose
+checks are its gate.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/code-style-proto.md docs/conventions/protobuf.md docs/architecture/2026-08-20-network-model-structure-direction.md`
+
+### U2. Ingest envelope schema and the two reshaped messages
 
 Files: spec/proto/flowseer/integration/ingest/v1/ingest_record.proto, spec/proto/flowseer/integration/ingest/v1/README.md, spec/proto/flowseer/integration/README.md, spec/proto/flowseer/README.md, spec/proto/flowseer/model/inventory/v1/provenance.proto, spec/proto/flowseer/model/inventory/v1/README.md, spec/proto/flowseer/model/README.md, spec/proto/flowseer/event/log/v1/syslog_record.proto, spec/proto/flowseer/event/log/v1/README.md, spec/proto/flowseer/event/README.md, test/conformance/proto/layering_test.go, test/conformance/proto/integration_ingest_rules_test.go, test/conformance/proto/event_log_rules_test.go, test/conformance/proto/model_inventory_rules_test.go, test/conformance/proto/event_access_rules_test.go, src/modules/localnet/access/internal/capability/interfaces/adapter.go, src/modules/localnet/access/internal/capability/interfaces/adapter_test.go, src/modules/localnet/access/lane.go, src/modules/localnet/access/read_route_test.go, src/modules/localnet/access/README.md, src/services/device/internal/journal/resolve_test.go, src/services/device/internal/deviceapi/deviceapi_test.go, src/services/device/internal/drift/drift_test.go, docs/conventions/protobuf.md, docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md, CONCEPTS.md, generated/go/proto
-After: none
+After: U1
 Change: `IngestRecord` has `record_id` (required UUID), `provenance`
 (required `flowseer.model.inventory.v1.Provenance`), a required `oneof
 payload` with `SyslogRecord syslog = 10`, and `RawEvidence raw`.
@@ -185,17 +271,22 @@ device sent an empty datagram), a required `RawReason`
 `RAW_REASON_PARSE_FAILURE = 1`, `RAW_REASON_WINDOW = 2`, as
 `docs/code-style-proto.md` requires of enum values), and
 `suppressed_since_last` (uint64).
-`Provenance.protocol` takes the type open question 1 settles and names
-syslog in it. It stays required, defined, and never the zero value.
-`ProvenanceInputs.provenance` (`adapter.go:104-120`) writes SNMP or SSH for
-the route in that type, and its default case still yields a provenance that
-validation rejects. `Lane.recordEvidence` (`lane.go:2185`) reads the
-management protocol back and hands it to `evidence.Store.Record`
-(`src/modules/localnet/access/internal/evidence/store.go:121`). The three
-service tests build a fixture provenance naming SSH and change only in how
-they spell it. The `firmware_fingerprint` comment says unset means the
-producer holds no fingerprint (unconfirmed, open question 4).
-`SyslogRecord` drops `record_id` and reserves field 2 and the name.
+`Provenance` drops field 3 with no `reserved` line and gains a required
+`oneof protocol` with `ManagementProtocol management = 10` and
+`LogProtocol log = 11`. Each arm is `defined_only` and rejects the zero
+value. `provenance.proto` declares `LogProtocol` with
+`LOG_PROTOCOL_UNSPECIFIED = 0` and `LOG_PROTOCOL_SYSLOG = 1`.
+`ProvenanceInputs.provenance` (`adapter.go:104-120`) sets the `management`
+arm to SNMP or SSH for the route, and its default case sets the arm to the
+zero value, which validation rejects as it does today. `Lane.recordEvidence`
+(`lane.go:2185`) reads the `management` arm and hands it to
+`evidence.Store.Record`
+(`src/modules/localnet/access/internal/evidence/store.go:121`), whose key
+keeps its type. The three service tests set the `management` arm of their
+fixture provenance to SSH. The `firmware_fingerprint` comment says unset
+means the producer holds no fingerprint.
+`SyslogRecord` drops `record_id` with no `reserved` line, and no other field
+changes its number.
 `severity` and `facility` lose `required` and keep `defined_only`, and their
 comments say unset means the message carried no PRI. `layering_test.go` admits
 `integration/ingest` importing `model/inventory` and `event/log`. Every README
@@ -208,12 +299,13 @@ and `event/log/v1`.
 envelope's id under "Deliberately absent", and stops calling the PRI fields
 mandatory (line 31). The `Provenance` paragraph of
 `model/inventory/v1/README.md` (lines 201-210) and "Provenance rides the
-envelope" in `docs/conventions/protobuf.md` say how a protocol outside
-`ManagementProtocol` is named, and `src/modules/localnet/access/README.md`
-(lines 257-261) spells the field as the schema now does. The direction record
+envelope" in `docs/conventions/protobuf.md` describe the oneof and its two
+arms, and `src/modules/localnet/access/README.md` (lines 257-261) names the
+`management` arm where it names the field today. The direction record
 gains an `## Amendments` section, as the device service record keeps one,
-with one dated entry: a payload message carries no id of its own, and how
-`Provenance` names a protocol no management endpoint speaks. `CONCEPTS.md`
+with one dated entry: a payload message carries no id of its own, and
+`Provenance` names a protocol through a oneof of `ManagementProtocol` and
+`LogProtocol`. `CONCEPTS.md`
 gains Ingest Record and Raw Evidence beside Syslog Record.
 `generated/go/proto` is the
 output of `go tool -modfile=tools/buf/go.mod buf generate`, never a hand edit.
@@ -222,19 +314,20 @@ with one valid envelope and one case per rule, each input failing only that
 rule. `event_log_rules_test.go` drops `RecordId` from its three builders and
 its two `record_id` cases, replaces "severity absent fails" and "facility
 absent fails" with cases that pass, and keeps "severity 8 fails
-defined_only". `model_inventory_rules_test.go` covers requirement 8 on
-`Provenance`: syslog passes, a management protocol passes, no protocol
-fails, the zero value fails, and an undefined value fails.
+defined_only". `model_inventory_rules_test.go` builds its fixture with the
+`management` arm and covers requirement 8 on `Provenance`: the `log` arm
+with syslog passes, the `management` arm with SSH passes, neither arm fails
+on the oneof, and the zero value and an undefined value fail on each arm.
 `event_access_rules_test.go` gains the `RouteSelected` case of requirement
 8. `adapter_test.go:98,123` and `read_route_test.go:78,133` still assert
-SNMP for the SNMP route and SSH for the fall-through, read through the new
-type. No test reads the evidence store after a lane read, since nothing
+SNMP for the SNMP route and SSH for the fall-through, read from the
+`management` arm. No test reads the evidence store after a lane read, since nothing
 outside the `evidence` package's own tests calls `Consult`
 (`lane.go:2173-2176`), so nothing in this unit proves which route
 `recordEvidence` stores.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flowseer test/conformance/proto src/modules/localnet/access src/services/device docs/conventions/protobuf.md docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md CONCEPTS.md generated/go/proto`
 
-### U2. Ingest subject in edgebus
+### U3. Ingest subject in edgebus
 
 Files: src/modules/edgebus/subjects.go, src/modules/edgebus/edgebus_test.go, src/modules/edgebus/README.md, src/edge/agent/internal/busattach/busattach_test.go
 After: none
@@ -257,14 +350,19 @@ shorter (`github.com/nats-io/nats-server/v2` v2.15.0,
 must still pass.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/edgebus src/edge/agent/internal/busattach`
 
-### U3. Syslog source in the agent
+### U4. Syslog source in the agent
 
 Files: spec/proto/flowseer/store/agent/v1/agent_config.proto, spec/proto/flowseer/store/agent/v1/README.md, generated/go/proto, src/edge/agent/internal/lanehost/index.go, src/edge/agent/internal/lanehost/index_test.go, src/edge/agent/internal/syslogsource/source.go, src/edge/agent/internal/syslogsource/mapper.go, src/edge/agent/internal/syslogsource/rawpolicy.go, src/edge/agent/internal/syslogsource/mapper_test.go, src/edge/agent/internal/syslogsource/rawpolicy_test.go, src/edge/agent/internal/syslogsource/source_test.go, src/edge/agent/internal/lanehost/onboard.go, src/edge/agent/internal/lanehost/onboard_test.go, src/edge/agent/host/host.go, src/edge/agent/host/config.go, src/edge/agent/host/config_test.go, src/edge/agent/host/capture_test.go, src/edge/agent/host/options.go, src/edge/agent/README.md
-After: U1, U2
+After: U2, U3
 Change: `AgentConfig` gains `AgentSyslog syslog = 6`, where unset means the
-agent runs no syslog source. It holds the listeners in the shape open
-question 5 settles, `raw_failures_per_minute` (unset means 20), and
-`raw_sample_every` (unset means 100), and `host.Config` exposes the three.
+agent runs no syslog source. It holds `repeated AgentSyslogListener
+listeners`, one to eight, `raw_failures_per_minute` (unset means 20), and
+`raw_sample_every` (unset means 100). A listener has `address`, a
+`host:port` string, and `transport`, an `AgentSyslogTransport` that declares
+`AGENT_SYSLOG_TRANSPORT_UNSPECIFIED = 0` and `AGENT_SYSLOG_TRANSPORT_UDP =
+1`. The open questions settle whether the enum also declares TCP, whether a
+listener carries a framing, and whether `transport` may be unset.
+`host.Config` exposes the listeners and the two numbers.
 `generated/go/proto` is regenerated, never hand-edited.
 `lanehost.DeviceIndex` maps a peer address to a device id and
 binding ref, safe for concurrent use. `OnboardConfig` takes one, and the
@@ -273,8 +371,8 @@ onboarder records a device in it where it writes `held`
 device today, so the index has no removal path either. `Run` creates the index and passes it to
 both the lane assembly and the syslog module, with the attachment's leaf and
 the edge ref from `edgeRefOf`.
-The source calls `syslog.Listen` with the configured
-endpoints and `CaptureRaw` on, and loops on `Receiver.Next`
+The source calls `syslog.Listen` with one `ListenConfig` per configured
+listener and `CaptureRaw` on, and loops on `Receiver.Next`
 (`src/protocol/syslog/receiver.go:81,228`). For each record it resolves the
 device from `Observation.Peer` (`src/protocol/syslog/record.go:72`), maps the
 record, copies the raw bytes from `Record.Raw`, a `*[]byte` that is nil when
@@ -296,8 +394,9 @@ unit `{record}` and a `reason` attribute on the second, and
 No device id is an attribute.
 Tests: `config_test.go` covers a file with no `syslog` block, which starts
 no source and leaves `TestAWorkingFileIsTwoLinesAndEverythingElseDefaults`
-passing, a block that names only a listener and takes both defaults, and
-configured numbers that win. `TestModules_DeclaresLaneAndCapture`
+passing, a block that names one UDP listener and takes both defaults,
+configured numbers that win, and a block with no listener or with nine,
+which `LoadConfig` refuses. `TestModules_DeclaresLaneAndCapture`
 (`capture_test.go:64-79`) expects the third module. `onboard_test.go`
 builds its `OnboardConfig` with an index (line 209) and finds an onboarded
 device in it under its listed address. `index_test.go` covers add, replace, and a lookup that
@@ -307,7 +406,8 @@ parent plan's requirement 1 datagram, a legacy line without PRI, an RFC 5424
 line whose hostname is 256 characters, and an empty datagram. The corpus
 manifest (`src/protocol/syslog/testdata/corpus/manifest.json`) holds none of
 the last three. The test validates each envelope. Each case checks that the provenance names the
-indexed binding, the edge, and syslog, and that `observed_at` and
+indexed binding and the edge, that its `log` arm is `LOG_PROTOCOL_SYSLOG`,
+that `firmware_fingerprint` is unset, and that `observed_at` and
 `received_at` both equal the case's receive time. `rawpolicy_test.go` drives 220 failures in one minute and the
 window roll-over with the injected clock. `source_test.go` starts a hub and a
 leaf as `edgebus_test.go` does, sends UDP datagrams from a hosted and an
@@ -320,19 +420,21 @@ here proves the mapping against a real device's output, since every payload
 is written from the grammar.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flowseer/store/agent src/edge/agent generated/go/proto`
 
-Waves: U1 U2 | U3
+Waves: U1 U3 | U2 | U4
 
 ## Verification
 
 ```bash
 go tool -modfile=tools/buf/go.mod buf lint
 go test -race ./test/conformance/proto/... ./src/modules/localnet/access/... ./src/services/device/... ./src/modules/edgebus/... ./src/edge/agent/...
-.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto test/conformance/proto src/modules/localnet/access src/services/device src/modules/edgebus src/edge/agent docs/conventions/protobuf.md docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md CONCEPTS.md generated/go/proto
+.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto test/conformance/proto src/modules/localnet/access src/services/device src/modules/edgebus src/edge/agent docs/code-style-proto.md docs/conventions/protobuf.md docs/architecture/2026-08-20-network-model-structure-direction.md docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md CONCEPTS.md generated/go/proto
 ```
 
 ## Definition of done
 
 - [ ] Verifier green for every changed path.
+- [ ] `docs/code-style-proto.md`, `docs/conventions/protobuf.md`, and the
+      network model record state the reserved rule as decided.
 - [ ] `spec/proto/flowseer/integration/README.md`, the new package README,
       `src/modules/edgebus/README.md`, and `src/edge/agent/README.md`
       describe the envelope, the subject, and the source.
@@ -342,7 +444,7 @@ go test -race ./test/conformance/proto/... ./src/modules/localnet/access/... ./s
       `spec/proto/flowseer/model/inventory/v1/README.md`,
       `src/modules/localnet/access/README.md`, and
       `docs/conventions/protobuf.md` describe `SyslogRecord` without an id
-      and `Provenance.protocol` in its widened type.
+      and `Provenance.protocol` as a oneof.
 - [ ] The ingestion direction record holds the dated amendment.
 - [ ] `CONCEPTS.md` gains Ingest Record and Raw Evidence.
 - [ ] This plan's `status` is set with an outcome note under its title, and
@@ -351,89 +453,41 @@ go test -race ./test/conformance/proto/... ./src/modules/localnet/access/... ./s
 
 ## Open questions
 
-The first two block U1 and U3. The units already hold the recommended answer
-to the other three.
+All three come from the listener shape and block U4. U1, U2, and U3 wait on
+none of them.
 
-1. Which type does `Provenance.protocol` widen to?
-   (a) A required `oneof protocol` on `Provenance`, with
-   `ManagementProtocol management = 10` and a new enum arm at 11. Field 3 and
-   the name `protocol` are reserved. Recommended. `BindingState.address` is
-   the same shape in the same package
-   (`spec/proto/flowseer/model/inventory/v1/binding.proto:148-159`),
-   `NextHop.target` already carries an enum arm with its own rule
-   (`spec/proto/flowseer/net/routing/v1/next_hop.proto:31-37`), and
-   `docs/conventions/protobuf.md` (Typed variants, Field numbering) gives the
-   arm numbers. No management value is written twice, `recordEvidence` reads
-   the management arm, and `evidence.Store` keeps its `ManagementProtocol`
-   key (`src/modules/localnet/access/internal/evidence/store.go:62`). Cost:
-   every site in U1's file list changes its accessor, and a stored lane
-   record loses its protocol (Out of scope). `buf build` at the pinned
-   v1.73.0 (`tools/buf/go.mod`) accepts a oneof named `protocol` beside
-   `reserved protocol;` and rejects a field of that name.
-   (b) A wrapper message at field 3 holding the same oneof, arms numbered
-   from 1. It is the typed-variant shape as `IpAddress` has it and keeps the
-   field's number and name. Cost: a message with one user, since `Provenance`
-   is the only provenance message (`docs/conventions/protobuf.md`,
-   "Provenance rides the envelope"), a nested read at every site, and
-   `required` stated on the field and on the oneof.
-   (c) A new enum for this field that lists the six management values and
-   syslog. The field stays one scalar, and a stored record keeps its meaning
-   when values 1 to 6 keep their numbers. Cost: six values exist in two enums
-   with nothing holding them equal, and `recordEvidence` converts at
-   `lane.go:2185` or `evidence.Store` takes the wider key
-   (`store.go:62,99,121`) and admits syslog as a route.
-   (d) Rename `ManagementProtocol` to a wider name and add the syslog value.
-   One enum and no mapping. Cost: `ManagementEndpoint.protocol` and
-   `RouteSelected.protocol` each need `not_in: [0, 7]`, U1 also edits
-   `binding.proto`, `operation_event.proto`, `evidence/store.go`,
-   `telemetry/events.go`, `audit/event.go`, their tests, and `lane_test.go:743`,
-   and `spec/proto/flowseer/event/access/v1/README.md:63` and
-   `docs/solutions/conventions/document-intentional-schema-deviations-with-comment-and-test.md`
-   cite the old name. It is the enum the decision keeps syslog out of, under
-   another name.
-2. What is the new enum called, and its arm under 1(a) or 1(b)? It is
-   declared in `provenance.proto` beside its one user
-   (`docs/conventions/protobuf.md`, Enums). Under 1(c) the question is the
-   enum's name alone, and under 1(d) the wider name.
-   (a) `LogProtocol` with `LOG_PROTOCOL_SYSLOG = 1`, arm `log`. Recommended:
-   "log" is the tree's word for the domain (`spec/proto/flowseer/net/log/v1`,
-   `spec/proto/flowseer/event/log/v1`), and a trap or a webhook still names
-   SNMP or HTTP in the management arm.
-   (b) `EventProtocol`, arm `event`, after the `event/` schema root. Cost: a
-   trap and a webhook are events too and arrive over SNMP and HTTP
-   (`binding.proto:69,74`), so the arm of a trap is ambiguous.
-   (c) `TelemetryProtocol`, arm `telemetry`, wide enough for a later flow
-   export source. Cost: "telemetry" in this tree means FlowSeer's own
-   OpenTelemetry signals (`src/common/service/telemetry_config.go`, the
-   `otel` branch at `src/modules/edgebus/leaf.go:203`).
-3. Unconfirmed: does `SyslogRecord.received_at` stay beside
-   `Provenance.observed_at`? The reason given for `record_id` fits it, since
-   an edge source writes one instant to both.
-   (a) Keep both. Recommended: the contracts differ for a cloud-mediated
-   source, where `observed_at` is when the platform saw the payload
-   (`provenance.proto:15-18`) and `received_at` is when the collector
-   received the record (`syslog_record.proto:32-33`).
-   (b) Drop `received_at` and reserve field 3. Cost: a `SyslogRecord` then
-   carries only the device's own clock (`sent_at`), and the cloud-mediated
-   receive time has no field.
-4. Unconfirmed: what does a syslog record's `Provenance.firmware_fingerprint`
-   hold?
-   (a) Nothing. Recommended: the field is optional (`provenance.proto:32-40`)
-   and the fingerprint lives inside `access.Lane`, which exports no accessor
-   for it (`src/modules/localnet/access/lane.go`, exported methods). U1 then
-   rewords the comment, which reads unset as "no identity probe has run", to
-   say the producer holds no fingerprint.
-   (b) The lane publishes the fingerprint into the device index. Every record
-   then names its firmware epoch. Cost: a new exported surface on
-   `src/modules/localnet/access` and an index entry that changes after
-   onboarding.
-5. Unconfirmed: what shape do the configured listeners take in `AgentSyslog`?
-   (a) `repeated string udp_listen`, one to eight `host:port` strings, eight
-   being the receiver's default listener bound
-   (`src/protocol/syslog/options.go:14-15`). Recommended: it is the smallest
-   shape that covers this phase, whose requirement is a UDP datagram, and a
-   later TCP or TLS listener adds a field with the settings it needs.
-   (b) `repeated AgentSyslogListener`, each with an address and a transport
-   enum of UDP and TCP. Cost: a TCP listener also needs a framing choice
-   (`ListenConfig.Framing`, `src/protocol/syslog/receiver.go:23`), which this
-   phase neither requires nor tests.
+1. Does this phase serve a TCP listener, and which values does
+   `AgentSyslogTransport` declare?
+   (a) UDP alone. TCP joins the enum with the change that serves it.
+   Recommended: the parent plan's requirement 1 is a UDP datagram, and the
+   configuration file adds a knob only when a deployment needs it
+   (`spec/proto/flowseer/store/agent/v1/agent_config.proto:31-34`). Cost: the
+   enum holds one value until then.
+   (b) UDP and TCP, both served. The library serves both
+   (`src/protocol/syslog/README.md:83`), so the source passes the transport
+   on. Cost: question 2, a TCP case in `source_test.go`, and a payload bound.
+   The receiver's default `MaxPayload` is 64 KiB
+   (`src/protocol/syslog/options.go:12,54`), one byte over the 65,535 that
+   `RawEvidence.data` takes, so the source sets it to 65,535. A message over
+   65,527 bytes is cut and marked `message_truncated`
+   (`spec/proto/flowseer/event/log/v1/README.md:37-41`).
+   (c) UDP and TCP declared, and a TCP listener refused at load until a later
+   phase serves it. Cost: the schema offers a value every agent refuses.
+2. Under 1(b), does a listener carry a framing?
+   (a) No field. The source leaves `ListenConfig.Framing` empty and the
+   library picks `Auto` for TCP (`src/protocol/syslog/receiver.go:17-18`).
+   Recommended under 1(b). Cost: `Auto` takes an LF-delimited payload only
+   when it starts with `<` (`src/protocol/syslog/framing.go:16-17`), so a
+   legacy line without PRI cannot arrive over TCP, and requirement 4 holds
+   for UDP alone.
+   (b) A framing enum on the listener with the library's five values
+   (`src/protocol/syslog/framing.go:15-26`), unset meaning auto. Cost: five
+   values and their cases in this phase.
+3. May a listener leave `transport` unset?
+   (a) Yes, and unset means UDP. Recommended: the file's own enum reads its
+   zero value as a default (`agent_config.proto:119-121`), and its header
+   says an unset field names what the agent does then (lines 15-16).
+   (b) No. `transport` is required and the zero value is rejected, as
+   `ManagementEndpoint.protocol` is
+   (`spec/proto/flowseer/model/inventory/v1/binding.proto:91-97`). Cost: a
+   listener block is two lines where one would do under 1(a).
