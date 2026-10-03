@@ -157,10 +157,11 @@ message AgentSyslogListener {
     expression: "int(this.framing) == 0 || int(this.transport) == 2"
   };
 
-  // The local host:port address to bind. Must be present.
+  // The local host:port address to bind. Must be present, and must name a port:
+  // a bare host or a bare port is refused here rather than at bind time.
   string address = 1 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.host_and_port = true,
     (buf.validate.field).string.max_len = 255
   ];
   // Transport protocol. Unset means UDP.

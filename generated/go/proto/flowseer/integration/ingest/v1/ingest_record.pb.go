@@ -242,8 +242,8 @@ type IngestRecord_builder struct {
 	RecordId *string
 	// The observation's provenance. Must be present.
 	Provenance *v1.Provenance
-	// Optional raw payload evidence attached on parse failure or during a raw
-	// window.
+	// Raw payload evidence attached on parse failure or during a raw window.
+	// Unset means no raw evidence was attached.
 	Raw *RawEvidence
 	// The typed record payload. Exactly one arm is present.
 
@@ -412,7 +412,8 @@ type RawEvidence_builder struct {
 	Data []byte
 	// The reason raw evidence was attached. Must be present; unspecified is invalid.
 	Reason *RawReason
-	// Number of raw-bearing failures suppressed since the last kept failure.
+	// Number of raw-bearing failures from the same device suppressed since the
+	// last kept failure for that device. Unset means none were suppressed.
 	SuppressedSinceLast *uint64
 }
 

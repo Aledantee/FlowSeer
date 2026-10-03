@@ -262,6 +262,49 @@ func TestSyslogConfig_DefaultsAndAddressOnly(t *testing.T) {
 	}
 }
 
+// TestSyslogConfig_ListenerAddressMustNameHostAndPort holds the schema to the
+// address the bind needs. An address that passed here and failed at bind time
+// would fail after the agent enrolled, and the supervisor would restart the
+// agent into the same failure until it gave up.
+func TestSyslogConfig_ListenerAddressMustNameHostAndPort(t *testing.T) {
+	for _, address := range []string{"0.0.0.0:514", "127.0.0.1:601", "[::1]:514", "localhost:514"} {
+		t.Run("accepts "+address, func(t *testing.T) {
+			cfg, err := host.LoadConfig(configFile(t, `syslog {
+  listeners { address: "`+address+`" }
+}
+`))
+			if err != nil {
+				t.Fatalf("LoadConfig(%q): %v", address, err)
+			}
+			if got := cfg.SyslogListeners()[0].Address; got != address {
+				t.Errorf("Address = %q, want %q", got, address)
+			}
+		})
+	}
+
+	for _, address := range []string{"514", "localhost", "127.0.0.1", "127.0.0.1:", "127.0.0.1:99999", "not an address:514"} {
+		t.Run("refuses "+address, func(t *testing.T) {
+			_, err := host.LoadConfig(configFile(t, `syslog {
+  listeners { address: "`+address+`" }
+}
+`))
+			if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+				t.Fatalf("LoadConfig(%q) code = %v (err %v), want %v", address, code, err, host.ErrCodeConfigInvalid)
+			}
+		})
+	}
+}
+
+func TestSyslogConfig_ListenerWithNoAddressRefused(t *testing.T) {
+	_, err := host.LoadConfig(configFile(t, `syslog {
+  listeners { transport: AGENT_SYSLOG_TRANSPORT_UDP }
+}
+`))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("LoadConfig() code = %v (err %v), want %v", code, err, host.ErrCodeConfigInvalid)
+	}
+}
+
 func TestSyslogConfig_ConfiguredNumbersWin(t *testing.T) {
 	cfg, err := host.LoadConfig(configFile(t, `syslog {
   listeners { address: "127.0.0.1:514" }
