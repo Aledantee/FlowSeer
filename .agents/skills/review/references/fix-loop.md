@@ -24,9 +24,9 @@ with a surviving edge-case mutation is a false test when the mutation removes
 the specific condition its title, comment, or commit body states (for example,
 a test titled `TestRejectsEmptyID` that passes with the empty-id check
 removed). It is a gap when it removes a branch or boundary none of them states
-(for example, a surviving off-by-one in a branch no test states). When both
-readings hold, or when an ambiguous surviving mutation can be read as a false
-test or as a gap, it is a false test, since that side is reviewed.
+(for example, a surviving off-by-one in a branch no test states). When a
+surviving mutation can be read as a false test or as a gap, it is a false
+test, since that side is reviewed.
 
 A convention finding is a repository rule broken in code (for example, a helper
 with one caller), or a wrong comment or doc (for example, a README that names
@@ -40,13 +40,14 @@ string) is dropped with that reason in the report and is not recorded.
 
 ### The gap pass
 
-The pass runs in `SKILL.md` step 6 before the accept verdict: after the last
-clean round, on the user's answer to fix and review again, or under a stage
-brief that includes step 6 (as `drive` does), or at once when the initial
-review holds gaps or convention findings and nothing that needs a round. On the
-other two answers ("apply the fixes here" and "apply chosen findings only"),
-the coordinator closes each recorded item by the gap pass's rule before it
-writes `accept after fixes`. An item still recorded leaves `fixes needed`.
+The pass runs in `SKILL.md` step 6, before the accept verdict: after the last
+clean round, or at once when the review holds gaps or convention findings and
+nothing that needs a round. Step 6 runs on the user's answer to fix and review
+again, or under a stage brief that includes it, as `drive`'s does. The initial
+review stays report-only. On the other two answers ("apply the fixes here" and
+"apply chosen findings only"), the coordinator closes each recorded item by
+the gap pass's rule before it writes `accept after fixes`. An item still
+recorded leaves `fixes needed`.
 
 Run steps 1 and 2 of a round with one fix worker per file group and no review
 after. Each fix's commit body quotes the gap's mutation and its `--- FAIL`
@@ -76,8 +77,9 @@ that pass is round three, and a behavior finding there ends the loop at the
 cap.
 
 One review runs one gap pass. An item that survives it ends the review at
-`fixes needed` with a question offering one more gap pass or stopping (two
-options only). A delegated reviewer does not ask: it states each surviving
+`fixes needed` with a question offering one more gap pass or stopping. A
+gap that needs source already becomes a round, so no third option exists. A
+delegated reviewer does not ask: it states each surviving
 item's `path:line` and mutation as its blocker. For example, a plan without
 phases under `drive` parks at `fixes needed`, and the next review stage reads
 the item from the plan's `## Review gaps` section.
@@ -156,8 +158,9 @@ gate refuses, so the remedy is `review` again.
   `docs/solutions/` entry, cited as `AGENTS.md`, Investigation discipline,
   defines a source. The next brief names that source, or the work goes to
   `plan` because none was found.
-- A review runs at most three rounds in total, whatever each round fixed.
-  Three rounds end the loop:
+- A review runs at most three rounds in total, whatever each round fixed,
+  and a gap pass that became a round counts as one. A third round that is
+  not clean ends the loop:
   - All three on one mechanism: take the work to `plan` with what the
     rounds established.
   - Rounds on different mechanisms: ask the user (`AGENTS.md`, Agent
