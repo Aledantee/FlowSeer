@@ -31,18 +31,25 @@ Static review and per-element tests fail to catch omitted translation guards:
 - A reliable verification requires an executable property walker (`unmarkedIdentifiers` in `frontend/web/src/i18n/testing.ts:162-206`). The walker traverses rendered text nodes under a container, checks their content against a fixture identifier set (`fixtureIdentifiers` in `frontend/web/src/domain/testing.ts:15-37`), and flags any identifier lacking an ancestor element with `translate="no"`.
 - The property walker requires positive test cases and strict boundary checks (`frontend/web/src/i18n/testing.test.ts:6-47`, `:73-102`). Boundary rules must distinguish whole identifiers (`berlin-gw-01 + Devices`, `(Gateway, 10.20.0.1)`) from compound names (`berlin-gw-01-backup`), and handle colons in MAC addresses without truncation (`testing.ts:112-132`). Without positive tests, boundary regex bugs cause the checker to pass vacuously.
 - Tests must mount components with portalled overlays open. In headless environments (`happy-dom`), dropdown options, switchers, and tooltips are not rendered into the DOM until opened. Testing `unmarkedIdentifiers` on a closed switcher passes vacuously because options do not exist in the document tree (`frontend/web/src/FleetView.locale.test.ts:333`, `:353`).
-- Headless UI primitives can synthesize hidden accessibility text nodes that bypass template slots. In `reka-ui` 2.10.5 (`TooltipContentImpl.js:87`, `:134-140`), `role="tooltip"` renders inside an internal `VisuallyHidden` component from `aria-label`, unaffected by `#label` or `#hint` template slots. Wrapper components must mark that hidden node with `translate="no"` via an explicit component prop (`UiTooltip.vue:24-30`, `:92-103`).
+- Headless UI primitives can synthesize hidden accessibility text nodes that bypass template slots. In `reka-ui` 2.10.5 (`TooltipContentImpl.js:87`, `:134-140`), `role="tooltip"` renders inside an internal `VisuallyHidden` component from `aria-label`, unaffected by `#label` or `#hint` template slots. Wrapper components must mark that hidden node with `translate="no"` via an explicit component prop (`UiTooltip.vue:24-29`, `:89-103`).
 
 ## Working example
 
-In `frontend/web/src/FleetView.locale.test.ts:330-365`, the test opens switcher triggers before asserting that rendered DOM nodes contain no unmarked identifiers:
+In `frontend/web/src/FleetView.locale.test.ts:353-367`, the test opens the site switcher and confirms an option is rendered before asserting that the document holds no unmarked identifier:
 
 ```ts
-const siteTrigger = host.querySelector<HTMLElement>('#site-switcher-trigger')
-siteTrigger?.click()
-await nextTick()
+const siteTrigger = host.querySelector<HTMLButtonElement>(
+  '.breadcrumb-scope button[aria-haspopup="listbox"]',
+)
+if (!siteTrigger) throw new Error('Missing site switcher trigger')
+siteTrigger.click()
+await settle()
 
-const identifiers = fixtureIdentifiers()
+const siteOption = [
+  ...document.body.querySelectorAll('[role="option"]'),
+].find((opt) => opt.textContent?.includes(sites[0].name))
+if (!siteOption) throw new Error(`Missing option for site ${sites[0].name}`)
+
 expect(unmarkedIdentifiers(document.body, identifiers)).toEqual([])
 ```
 
@@ -67,8 +74,8 @@ expect(found).toEqual([
 - `frontend/web/src/i18n/testing.ts:162-206` implements `unmarkedIdentifiers` text-node traversal and boundary matching.
 - `frontend/web/src/i18n/testing.test.ts:6-47` and `:73-102` test positive violation reporting and boundary punctuation handling.
 - `frontend/web/src/domain/testing.ts:15-37` collects fixture identifiers across hosts, MACs, IPs, serials, and sites.
-- `frontend/web/src/FleetView.locale.test.ts:330-375` asserts `unmarkedIdentifiers` across views and open switcher triggers.
-- `frontend/web/src/ui/tooltip/UiTooltip.vue:92-103` marks Reka's hidden `role="tooltip"` element with `translate="no"`.
+- `frontend/web/src/FleetView.locale.test.ts:295-367` asserts `unmarkedIdentifiers` across views and open switcher triggers.
+- `frontend/web/src/ui/tooltip/UiTooltip.vue:89-103` marks Reka's hidden `role="tooltip"` element with `translate="no"`.
 - `node_modules/reka-ui/dist/Tooltip/TooltipContentImpl.js:87` and `:134-140` show `VisuallyHidden` rendering flat `ariaLabel` text outside the slot tree.
 - Commit `b50e84f9` introduces `unmarkedIdentifiers`.
 - Commit `4f789f9c` fixes boundary punctuation and adds positive test cases.
