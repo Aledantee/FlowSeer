@@ -6,6 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"golang.org/x/sys/unix"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/credential"
@@ -64,6 +67,28 @@ func TestReadKeyFileRefusesGroupOrWorldMode(t *testing.T) {
 	}
 }
 
+// A FIFO has no writer here, so opening it for reading blocks unless the open
+// is non-blocking; the refusal has to come before any wait.
+func TestReadKeyFileRefusesFIFOWithoutBlocking(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "fifo-key")
+	if err := unix.Mkfifo(path, 0o600); err != nil {
+		t.Fatalf("Mkfifo: %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := credential.ReadKeyFile(path)
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		wantErrCode(t, err, credential.ErrCodeNotRegular)
+	case <-time.After(5 * time.Second):
+		t.Fatal("ReadKeyFile blocked opening a FIFO")
+	}
+}
+
 func TestReadKeyFileRefusesEmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	emptyPath := filepath.Join(dir, "empty-key")
@@ -87,7 +112,7 @@ func TestReadKeyFileRefusesEmptyFile(t *testing.T) {
 func TestReadKeyFileTrimsTrailingNewline(t *testing.T) {
 	dir := t.TempDir()
 
-	// 1. Secret with trailing newline
+	// Secret with trailing newline
 	keyWithNewline := filepath.Join(dir, "key-with-nl")
 	if err := os.WriteFile(keyWithNewline, []byte("secret-token\n"), 0o600); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -101,7 +126,7 @@ func TestReadKeyFileTrimsTrailingNewline(t *testing.T) {
 		t.Fatalf("got %q, want %q", got, "secret-token")
 	}
 
-	// 2. Secret without trailing newline
+	// Secret without trailing newline
 	keyNoNewline := filepath.Join(dir, "key-no-nl")
 	if err := os.WriteFile(keyNoNewline, []byte("secret-token"), 0o600); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -115,7 +140,7 @@ func TestReadKeyFileTrimsTrailingNewline(t *testing.T) {
 		t.Fatalf("got %q, want %q", got, "secret-token")
 	}
 
-	// 3. Secret with two trailing newlines trims only one
+	// Secret with two trailing newlines trims only one
 	keyTwoNewlines := filepath.Join(dir, "key-two-nl")
 	if err := os.WriteFile(keyTwoNewlines, []byte("secret-token\n\n"), 0o600); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -127,5 +152,19 @@ func TestReadKeyFileTrimsTrailingNewline(t *testing.T) {
 	}
 	if got := val.RevealString(); got != "secret-token\n" {
 		t.Fatalf("got %q, want %q", got, "secret-token\n")
+	}
+
+	// A CRLF terminator loses only its "\n": the "\r" is part of the material.
+	keyCRLF := filepath.Join(dir, "key-crlf")
+	if err := os.WriteFile(keyCRLF, []byte("secret-token\r\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	val, err = credential.ReadKeyFile(keyCRLF)
+	if err != nil {
+		t.Fatalf("ReadKeyFile key-crlf: %v", err)
+	}
+	if got := val.RevealString(); got != "secret-token\r" {
+		t.Fatalf("got %q, want %q", got, "secret-token\r")
 	}
 }
