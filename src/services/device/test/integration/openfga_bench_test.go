@@ -39,15 +39,13 @@ func TestOpenFGAListObjectsStopsAtTheCap(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	// Write 15 edge captures
-	for i := 0; i < 15; i++ {
+	for i := range 15 {
 		edge := fmt.Sprintf("edge:cap-%d", i)
 		if err := env.WriteTuple(ctx, "user:capuser", "capture", edge); err != nil {
 			t.Fatalf("WriteTuple: %v", err)
 		}
 	}
 
-	// Directly call client.ListObjects to check the response object shape
 	resp, err := env.client.ListObjects(env.AuthContext(ctx), &openfgav1.ListObjectsRequest{
 		StoreId:              env.storeID,
 		AuthorizationModelId: env.modelID,
@@ -59,12 +57,14 @@ func TestOpenFGAListObjectsStopsAtTheCap(t *testing.T) {
 		t.Fatalf("ListObjects: %v", err)
 	}
 
-	// Response holds 10 objects, and ListObjectsResponse has no other field
 	if len(resp.GetObjects()) != 10 {
 		t.Fatalf("got %d objects, want 10", len(resp.GetObjects()))
 	}
+	fields := resp.ProtoReflect().Descriptor().Fields()
+	if fields.Len() != 1 || fields.ByName("objects") == nil {
+		t.Fatalf("ListObjectsResponse has %d fields, want objects only", fields.Len())
+	}
 
-	// Helper call returns 10 objects
 	objects, err := env.ListObjects(ctx, "user:capuser", "capture", "edge")
 	if err != nil {
 		t.Fatalf("env.ListObjects: %v", err)
@@ -89,9 +89,12 @@ func BenchmarkOpenFGA(b *testing.B) {
 	if err != nil {
 		b.Fatalf("create network: %v", err)
 	}
-	b.Cleanup(func() { _ = network.Remove(context.Background()) })
+	b.Cleanup(func() {
+		if err := network.Remove(context.Background()); err != nil {
+			b.Errorf("remove network: %v", err)
+		}
+	})
 
-	// 1. Start Postgres container
 	pgCtr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			Image: postgresImage,
@@ -114,9 +117,8 @@ func BenchmarkOpenFGA(b *testing.B) {
 	if err != nil {
 		b.Fatalf("start postgres container: %v", err)
 	}
-	b.Cleanup(func() { _ = pgCtr.Terminate(context.Background()) })
+	b.Cleanup(func() { terminateBenchContainer(b, pgCtr, "postgres") })
 
-	// 2. Run OpenFGA migrate
 	migrateCtr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			Image: openFGAImage,
@@ -133,11 +135,17 @@ func BenchmarkOpenFGA(b *testing.B) {
 		Started: true,
 	})
 	if err != nil {
-		b.Fatalf("run openfga migrate: %v", err)
+		b.Fatalf("start openfga migrate container: %v", err)
 	}
-	_ = migrateCtr.Terminate(context.Background())
+	b.Cleanup(func() { terminateBenchContainer(b, migrateCtr, "openfga migrate") })
+	migrateState, err := migrateCtr.State(ctx)
+	if err != nil {
+		b.Fatalf("read openfga migrate state: %v", err)
+	}
+	if migrateState.ExitCode != 0 {
+		b.Fatalf("openfga migrate exited with code %d", migrateState.ExitCode)
+	}
 
-	// 3. Start OpenFGA run
 	tempDir := b.TempDir()
 	certPath, keyPath, certPEM := benchGenerateTLSCert(b, tempDir)
 
@@ -159,6 +167,9 @@ func BenchmarkOpenFGA(b *testing.B) {
 				"OPENFGA_GRPC_TLS_KEY":         "/tmp/tls.key",
 				"OPENFGA_HTTP_ENABLED":         "false",
 				"OPENFGA_PLAYGROUND_ENABLED":   "false",
+				// Ten writers of 100 tuples can pass the 3s default on a
+				// shared host; the measured single Checks stay well under it.
+				"OPENFGA_REQUEST_TIMEOUT": "30s",
 			},
 			Files: []testcontainers.ContainerFile{
 				{HostFilePath: certPath, ContainerFilePath: "/tmp/tls.crt", FileMode: 0o644},
@@ -168,9 +179,9 @@ func BenchmarkOpenFGA(b *testing.B) {
 		Started: true,
 	})
 	if err != nil {
-		b.Fatalf("start openfga run: %v", err)
+		b.Fatalf("start openfga run container: %v", err)
 	}
-	b.Cleanup(func() { _ = openfgaCtr.Terminate(context.Background()) })
+	b.Cleanup(func() { terminateBenchContainer(b, openfgaCtr, "openfga") })
 
 	host, err := openfgaCtr.Host(ctx)
 	if err != nil {
@@ -191,12 +202,15 @@ func BenchmarkOpenFGA(b *testing.B) {
 	if err != nil {
 		b.Fatalf("dial openfga: %v", err)
 	}
-	b.Cleanup(func() { _ = conn.Close() })
+	b.Cleanup(func() {
+		if err := conn.Close(); err != nil {
+			b.Errorf("close dial connection: %v", err)
+		}
+	})
 
 	healthClient := grpc_health_v1.NewHealthClient(conn)
 	benchWaitForServing(b, healthClient)
 
-	// 4. Create Store and write Authorization Model
 	client := openfgav1.NewOpenFGAServiceClient(conn)
 	authCtx := metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+testPresharedKey)
 
@@ -221,7 +235,6 @@ func BenchmarkOpenFGA(b *testing.B) {
 	}
 	modelID := modelResp.GetAuthorizationModelId()
 
-	// 5. Connect Checker through openfga.New
 	keyFile := benchWriteKeyFile(b, testPresharedKey)
 	checker, err := openfga.New(ctx, openfga.Options{
 		Endpoint: "https://" + endpoint,
@@ -233,22 +246,26 @@ func BenchmarkOpenFGA(b *testing.B) {
 	if err != nil {
 		b.Fatalf("openfga.New: %v", err)
 	}
-	b.Cleanup(func() { _ = checker.Close() })
+	b.Cleanup(func() {
+		if err := checker.Close(); err != nil {
+			b.Errorf("close checker: %v", err)
+		}
+	})
 
-	// 6. Load fixture: 20 tenants, 2000 edges, 4000 sessions, 200 users
 	b.Log("Loading benchmark fixture...")
 	var allTuples []*openfgav1.TupleKey
 
-	// Global platform setup
 	allTuples = append(allTuples,
 		&openfgav1.TupleKey{Object: "platform:global", Relation: "enrolled", User: "user:platform_admin"},
 		&openfgav1.TupleKey{Object: "tenant:t0", Relation: "partner", User: "tenant:partner0"},
-		&openfgav1.TupleKey{Object: "tenant:partner0", Relation: "active_admin", User: "user:partner_admin"},
+		// tenant#active_admin is admin and member, so the store holds its two
+		// halves and the partner's home claim arrives as a contextual tuple.
+		&openfgav1.TupleKey{Object: "tenant:partner0", Relation: "admin", User: "user:partner_admin"},
+		&openfgav1.TupleKey{Object: "tenant:partner0", Relation: "enrolled", User: "user:partner_admin"},
 		&openfgav1.TupleKey{Object: "tenant:t0", Relation: "enrolled", User: "user:m0"},
-		&openfgav1.TupleKey{Object: "tenant:t0", Relation: "capturer", User: "user:t0_capturer"},
 	)
 
-	for tIdx := 0; tIdx < 20; tIdx++ {
+	for tIdx := range 20 {
 		tenantObj := fmt.Sprintf("tenant:t%d", tIdx)
 		allTuples = append(allTuples, &openfgav1.TupleKey{
 			Object:   tenantObj,
@@ -256,8 +273,7 @@ func BenchmarkOpenFGA(b *testing.B) {
 			User:     "platform:global",
 		})
 
-		// 10 roles
-		for rIdx := 0; rIdx < 10; rIdx++ {
+		for rIdx := range 10 {
 			roleObj := fmt.Sprintf("role:t%d-r%d", tIdx, rIdx)
 			if rIdx == 0 {
 				allTuples = append(allTuples, &openfgav1.TupleKey{
@@ -274,8 +290,7 @@ func BenchmarkOpenFGA(b *testing.B) {
 			}
 		}
 
-		// 200 users assigned to roles
-		for uIdx := 0; uIdx < 200; uIdx++ {
+		for uIdx := range 200 {
 			rIdx := uIdx % 10
 			roleObj := fmt.Sprintf("role:t%d-r%d", tIdx, rIdx)
 			userObj := fmt.Sprintf("user:t%d-u%d", tIdx, uIdx)
@@ -286,8 +301,7 @@ func BenchmarkOpenFGA(b *testing.B) {
 			})
 		}
 
-		// 2,000 edges
-		for eIdx := 0; eIdx < 2000; eIdx++ {
+		for eIdx := range 2000 {
 			edgeObj := fmt.Sprintf("edge:t%d-e%d", tIdx, eIdx)
 			allTuples = append(allTuples, &openfgav1.TupleKey{
 				Object:   edgeObj,
@@ -296,8 +310,7 @@ func BenchmarkOpenFGA(b *testing.B) {
 			})
 		}
 
-		// 4,000 sessions
-		for sIdx := 0; sIdx < 4000; sIdx++ {
+		for sIdx := range 4000 {
 			eIdx := sIdx % 2000
 			uIdx := sIdx % 200
 			sessionObj := fmt.Sprintf("capture_session:t%d-s%d", tIdx, sIdx)
@@ -318,7 +331,6 @@ func BenchmarkOpenFGA(b *testing.B) {
 		}
 	}
 
-	// Write tuples concurrently in batches of 100
 	const batchSize = 100
 	var chunks [][]*openfgav1.TupleKey
 	for i := 0; i < len(allTuples); i += batchSize {
@@ -339,7 +351,7 @@ func BenchmarkOpenFGA(b *testing.B) {
 	const workerCount = 10
 	errChan := make(chan error, workerCount)
 
-	for w := 0; w < workerCount; w++ {
+	for range workerCount {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -367,148 +379,236 @@ func BenchmarkOpenFGA(b *testing.B) {
 	}
 	b.Logf("Fixture loaded successfully (%d tuples)", len(allTuples))
 
-	// 7. Measure and report metrics for the required paths
-	measure := func(name string, fn func()) {
-		const samples = 100
-		durations := make([]time.Duration, samples)
-		for i := 0; i < samples; i++ {
-			start := time.Now()
-			fn()
-			durations[i] = time.Since(start)
-		}
-		slices.Sort(durations)
-		p50 := float64(durations[len(durations)*50/100].Microseconds()) / 1000.0
-		p99 := float64(durations[len(durations)*99/100].Microseconds()) / 1000.0
-		b.ReportMetric(p50, name+"_p50_ms")
-		b.ReportMetric(p99, name+"_p99_ms")
+	platformAdminClaim := []authz.Tuple{
+		{Object: "platform:global", Relation: "claimed", User: "user:platform_admin"},
 	}
 
-	b.ResetTimer()
-
-	// 1. Platform admin, edge#capture
-	measure("platform_admin_edge_capture", func() {
-		_, _ = checker.Check(ctx, authz.Query{
-			Object:   "edge:t0-e0",
-			Relation: "capture",
-			User:     "user:platform_admin",
-			ContextualTuples: []authz.Tuple{
-				{Object: "platform:global", Relation: "claimed", User: "user:platform_admin"},
-			},
+	b.Run("platform_admin_edge_capture", func(b *testing.B) {
+		benchCheck(b, true, func() (bool, error) {
+			return checker.Check(ctx, authz.Query{
+				Object:           "edge:t0-e0",
+				Relation:         "capture",
+				User:             "user:platform_admin",
+				ContextualTuples: platformAdminClaim,
+			})
 		})
 	})
 
-	// 2. Tenant capturer, edge#capture
-	measure("tenant_capturer_edge_capture", func() {
-		_, _ = checker.Check(ctx, authz.Query{
-			Object:   "edge:t0-e0",
-			Relation: "capture",
-			User:     "user:t0_capturer",
+	b.Run("tenant_capturer_edge_capture", func(b *testing.B) {
+		// user:t0-u1 reaches tenant#capturer only through role:t0-r1#assignee.
+		benchCheck(b, true, func() (bool, error) {
+			return checker.Check(ctx, authz.Query{
+				Object:   "edge:t0-e0",
+				Relation: "capture",
+				User:     "user:t0-u1",
+			})
 		})
 	})
 
-	// 3. Caller with no grant
-	measure("no_grant_edge_capture", func() {
-		_, _ = checker.Check(ctx, authz.Query{
-			Object:   "edge:t0-e0",
-			Relation: "capture",
-			User:     "user:stranger",
+	b.Run("no_grant_edge_capture", func(b *testing.B) {
+		benchCheck(b, false, func() (bool, error) {
+			return checker.Check(ctx, authz.Query{
+				Object:   "edge:t0-e0",
+				Relation: "capture",
+				User:     "user:stranger",
+			})
 		})
 	})
 
-	// 4. Platform admin, tenant#full_payload
-	measure("platform_admin_tenant_full_payload", func() {
-		_, _ = checker.Check(ctx, authz.Query{
-			Object:   "tenant:t0",
-			Relation: "full_payload",
-			User:     "user:platform_admin",
-			ContextualTuples: []authz.Tuple{
-				{Object: "platform:global", Relation: "claimed", User: "user:platform_admin"},
-			},
+	b.Run("platform_admin_tenant_full_payload", func(b *testing.B) {
+		benchCheck(b, false, func() (bool, error) {
+			return checker.Check(ctx, authz.Query{
+				Object:           "tenant:t0",
+				Relation:         "full_payload",
+				User:             "user:platform_admin",
+				ContextualTuples: platformAdminClaim,
+			})
 		})
 	})
 
-	// 5. BatchCheck of 50 sessions
 	sessionQueries := make([]authz.Query, 50)
-	for i := 0; i < 50; i++ {
+	for i := range sessionQueries {
 		sessionQueries[i] = authz.Query{
-			Object:   fmt.Sprintf("capture_session:t0-s%d", i),
-			Relation: "download",
-			User:     "user:platform_admin",
-			ContextualTuples: []authz.Tuple{
-				{Object: "platform:global", Relation: "claimed", User: "user:platform_admin"},
-			},
+			Object:           fmt.Sprintf("capture_session:t0-s%d", i),
+			Relation:         "download",
+			User:             "user:platform_admin",
+			ContextualTuples: platformAdminClaim,
 		}
 	}
-	measure("batch_check_50_sessions", func() {
-		_, _ = checker.BatchCheck(ctx, sessionQueries)
-	})
-
-	// 6. Spike's six membership cases on tenant#member:
-	// Case 1: Member, token lists the tenant
-	measure("member_token_lists_tenant", func() {
-		_, _ = checker.Check(ctx, authz.Query{
-			Object:   "tenant:t0",
-			Relation: "member",
-			User:     "user:m0",
-			ContextualTuples: []authz.Tuple{
-				{Object: "tenant:t0", Relation: "claimed", User: "user:m0"},
-			},
+	b.Run("batch_check_50_sessions", func(b *testing.B) {
+		benchBatch(b, 50, func() ([]bool, error) {
+			return checker.BatchCheck(ctx, sessionQueries)
 		})
 	})
 
-	// Case 2: Member, token lists nothing
-	measure("member_token_lists_nothing", func() {
-		_, _ = checker.Check(ctx, authz.Query{
-			Object:   "tenant:t0",
-			Relation: "member",
-			User:     "user:m0",
+	b.Run("member_token_lists_tenant", func(b *testing.B) {
+		benchCheck(b, true, func() (bool, error) {
+			return checker.Check(ctx, authz.Query{
+				Object:   "tenant:t0",
+				Relation: "member",
+				User:     "user:m0",
+				ContextualTuples: []authz.Tuple{
+					{Object: "tenant:t0", Relation: "claimed", User: "user:m0"},
+				},
+			})
 		})
 	})
 
-	// Case 3: Enrollment decayed
-	measure("enrollment_decayed", func() {
-		_, _ = checker.Check(ctx, authz.Query{
-			Object:   "tenant:t0",
-			Relation: "member",
-			User:     "user:m_decayed",
-			ContextualTuples: []authz.Tuple{
-				{Object: "tenant:t0", Relation: "claimed", User: "user:m_decayed"},
-			},
+	b.Run("member_token_lists_nothing", func(b *testing.B) {
+		benchCheck(b, false, func() (bool, error) {
+			return checker.Check(ctx, authz.Query{
+				Object:   "tenant:t0",
+				Relation: "member",
+				User:     "user:m0",
+			})
 		})
 	})
 
-	// Case 4: Partner admin, token lists the partner
-	measure("partner_admin_token_lists_partner", func() {
-		_, _ = checker.Check(ctx, authz.Query{
-			Object:   "tenant:t0",
-			Relation: "member",
-			User:     "user:partner_admin",
-			ContextualTuples: []authz.Tuple{
-				{Object: "tenant:partner0", Relation: "claimed", User: "user:partner_admin"},
-			},
+	b.Run("enrollment_decayed", func(b *testing.B) {
+		benchCheck(b, false, func() (bool, error) {
+			return checker.Check(ctx, authz.Query{
+				Object:   "tenant:t0",
+				Relation: "member",
+				User:     "user:m_decayed",
+				ContextualTuples: []authz.Tuple{
+					{Object: "tenant:t0", Relation: "claimed", User: "user:m_decayed"},
+				},
+			})
 		})
 	})
 
-	// Case 5: Global admin, token lists the platform
-	measure("global_admin_token_lists_platform", func() {
-		_, _ = checker.Check(ctx, authz.Query{
-			Object:   "tenant:t0",
-			Relation: "member",
-			User:     "user:platform_admin",
-			ContextualTuples: []authz.Tuple{
-				{Object: "platform:global", Relation: "claimed", User: "user:platform_admin"},
-			},
+	b.Run("partner_admin_token_lists_partner", func(b *testing.B) {
+		benchCheck(b, true, func() (bool, error) {
+			return checker.Check(ctx, authz.Query{
+				Object:   "tenant:t0",
+				Relation: "member",
+				User:     "user:partner_admin",
+				ContextualTuples: []authz.Tuple{
+					{Object: "tenant:partner0", Relation: "claimed", User: "user:partner_admin"},
+				},
+			})
 		})
 	})
 
-	// Case 6: Stranger
-	measure("stranger_member", func() {
-		_, _ = checker.Check(ctx, authz.Query{
-			Object:   "tenant:t0",
-			Relation: "member",
-			User:     "user:stranger",
+	b.Run("global_admin_token_lists_platform", func(b *testing.B) {
+		benchCheck(b, true, func() (bool, error) {
+			return checker.Check(ctx, authz.Query{
+				Object:           "tenant:t0",
+				Relation:         "member",
+				User:             "user:platform_admin",
+				ContextualTuples: platformAdminClaim,
+			})
 		})
 	})
+
+	b.Run("stranger_member", func(b *testing.B) {
+		benchCheck(b, false, func() (bool, error) {
+			return checker.Check(ctx, authz.Query{
+				Object:   "tenant:t0",
+				Relation: "member",
+				User:     "user:stranger",
+			})
+		})
+	})
+}
+
+// benchCheck runs run b.N times, failing on any error or an answer other than
+// expected, and reports the p50 and p99 latency of the calls.
+func benchCheck(b *testing.B, expected bool, run func() (bool, error)) {
+	b.Helper()
+	durations := make([]time.Duration, b.N)
+	for i := range durations {
+		start := time.Now()
+		got, err := run()
+		durations[i] = time.Since(start)
+		if err != nil {
+			b.Fatalf("check: %v", err)
+		}
+		if got != expected {
+			b.Fatalf("check answered %t, want %t", got, expected)
+		}
+	}
+	b.StopTimer()
+	reportBenchLatency(b, durations)
+}
+
+// benchBatch runs run b.N times, failing on any error, a result count other
+// than want, or a false answer, and reports the p50 and p99 latency.
+func benchBatch(b *testing.B, want int, run func() ([]bool, error)) {
+	b.Helper()
+	durations := make([]time.Duration, b.N)
+	for i := range durations {
+		start := time.Now()
+		got, err := run()
+		durations[i] = time.Since(start)
+		if err != nil {
+			b.Fatalf("batch check: %v", err)
+		}
+		if len(got) != want {
+			b.Fatalf("batch check returned %d results, want %d", len(got), want)
+		}
+		for j, allowed := range got {
+			if !allowed {
+				b.Fatalf("batch check result %d answered false, want true", j)
+			}
+		}
+	}
+	b.StopTimer()
+	reportBenchLatency(b, durations)
+}
+
+func reportBenchLatency(b *testing.B, durations []time.Duration) {
+	b.Helper()
+	slices.Sort(durations)
+	b.ReportMetric(latencyMillis(durations, 50), "p50_ms")
+	b.ReportMetric(latencyMillis(durations, 99), "p99_ms")
+}
+
+func latencyMillis(sorted []time.Duration, percentile int) float64 {
+	return float64(sorted[percentileIndex(percentile, len(sorted))].Microseconds()) / 1000.0
+}
+
+// percentileIndex returns the nearest-rank index of percentile over n samples,
+// ceil(percentile*n/100)-1, clamped to the sample range. The arithmetic index
+// put p99 at n-1 and ignored b.N when the sample count was fixed.
+func percentileIndex(percentile, n int) int {
+	idx := (percentile*n+99)/100 - 1
+	if idx < 0 {
+		return 0
+	}
+	if idx >= n {
+		return n - 1
+	}
+	return idx
+}
+
+func TestBenchPercentileIndexUsesNearestRank(t *testing.T) {
+	cases := []struct {
+		percentile int
+		n          int
+		want       int
+	}{
+		{50, 1, 0},
+		{99, 1, 0},
+		{50, 100, 49},
+		{99, 100, 98},
+		{50, 1000, 499},
+		{99, 1000, 989},
+	}
+	for _, c := range cases {
+		if got := percentileIndex(c.percentile, c.n); got != c.want {
+			t.Fatalf("percentileIndex(%d, %d) = %d, want %d", c.percentile, c.n, got, c.want)
+		}
+	}
+}
+
+func terminateBenchContainer(b *testing.B, ctr testcontainers.Container, what string) {
+	b.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := ctr.Terminate(ctx); err != nil {
+		b.Errorf("terminate %s container: %v", what, err)
+	}
 }
 
 func benchWaitForServing(b *testing.B, healthClient grpc_health_v1.HealthClient) {
