@@ -9,15 +9,40 @@ import type { AiTarget } from './types'
 export function createAiTargetDirective(
   registry: AiRegistry,
 ): Directive<HTMLElement, AiTarget | undefined> {
+  const cleanups = new WeakMap<HTMLElement, () => void>()
+
+  function updateSelected(element: HTMLElement) {
+    const isSelected = registry.selection()?.element === element
+    if (isSelected) {
+      element.setAttribute('data-ai-selected', '')
+    } else {
+      element.removeAttribute('data-ai-selected')
+    }
+  }
+
   return {
     mounted(element, binding) {
-      if (binding.value) registry.register(element, binding.value)
+      if (binding.value) {
+        registry.register(element, binding.value)
+      }
+      const unsubscribe = registry.subscribe(() => {
+        updateSelected(element)
+      })
+      cleanups.set(element, unsubscribe)
+      updateSelected(element)
     },
     updated(element, binding) {
-      if (binding.value) registry.register(element, binding.value)
-      else registry.unregister(element)
+      if (binding.value) {
+        registry.register(element, binding.value)
+      } else {
+        registry.unregister(element)
+      }
+      updateSelected(element)
     },
     unmounted(element) {
+      cleanups.get(element)?.()
+      cleanups.delete(element)
+      element.removeAttribute('data-ai-selected')
       registry.unregister(element)
     },
   }

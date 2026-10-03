@@ -155,11 +155,11 @@ export {
   serializeAiResultToText,
 } from './ai/UiAiResultActions.vue'
 export type { UiAiResultActionsProps } from './ai/UiAiResultActions.vue'
-export { default as UiAiActionLayer } from './ai/UiAiActionLayer.vue'
+export { default as UiAiContextLayer } from './ai/UiAiContextLayer.vue'
 export type {
-  UiAiActionLayerLabels,
-  UiAiActionLayerProps,
-} from './ai/UiAiActionLayer.vue'
+  UiAiContextLayerLabels,
+  UiAiContextLayerProps,
+} from './ai/UiAiContextLayer.vue'
 
 export { default as UiBreadcrumb } from './breadcrumb/UiBreadcrumb.vue'
 export type {

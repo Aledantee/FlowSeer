@@ -16,6 +16,10 @@
       "questionPlaceholder": "Warum ist dieses Gerät offline?",
       "unavailable": "KI ist nicht verfügbar"
     },
+    "aiContextLayer": {
+      "close": "Schließen",
+      "continueInAssistant": "Im Assistenten fortfahren"
+    },
     "aiEntityChip": {
       "remove": "Entfernen"
     },

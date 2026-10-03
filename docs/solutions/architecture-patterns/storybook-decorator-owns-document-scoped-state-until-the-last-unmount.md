@@ -19,17 +19,16 @@ tags: [storybook, vue, decorator, lifecycle, singleton, document-scope, testing]
 
 ## The situation
 
-Storybook 10 Docs mounts several canvases into one document. When a decorator installs state in setup and cleans up in `onBeforeUnmount`, the canvas that installed last strips the shared `window.flowseerAi` contract on unmount while others remain visible. Every canvas teleports an action layer into `document.body`. This produces duplicate Ask buttons. Because `aiRegistry.onRequest` replaces the single handler, the last mounted canvas intercepts every request.
+Storybook 10 Docs mounts several canvases into one document. When a decorator installs state in setup and cleans up in `onBeforeUnmount`, the canvas that unmounts first can strip the shared `window.flowseerAi` contract while others remain visible. Because `aiRegistry.onRequest` replaces the single handler, without dispatch routing the last mounted canvas would intercept every request.
 
 ## What is true and why
 
-The window contract, request dispatcher, and action layer belong to the document. Ownership must be tracked at module scope across canvases:
+The window contract and request dispatcher belong to the document. Ownership must be tracked at module scope across canvases:
 
 - Install document state on the first mount and release it on the last unmount so departing canvases do not strip shared contracts.
-- Elect one canvas as layer host to render `UiAiActionLayer`. Re-elect when the host unmounts, and close only when no canvases remain.
 - Route requests to the canvas containing the target element. This preserves handlers for nested targets.
 - Retain the registry's first registration on duplicate IDs so re-used IDs do not hijack existing handlers.
-- Canvas labels from `parameters.ai.labels` are document-scoped state for the single layer. The layer displays labels for the canvas holding the target the layer displays. When no target is displayed, labels are cleared.
+- Each canvas wraps its content in its own `UiAiContextLayer`. Because the context layer scopes its capture listeners and key listeners to its own layer root, per-canvas layers remain isolated without needing host election.
 
 ## Working example
 
@@ -39,8 +38,6 @@ The window contract, request dispatcher, and action layer belong to the document
 function createStoryScope() {
   const canvases = new Set<MountedCanvas>()
   const handlers = new Map<string, AiHandler>()
-  const activeLabels = shallowRef<UiAiActionLayerLabels | undefined>()
-  let host: MountedCanvas | undefined
   let removeWindow: (() => void) | undefined
   let removeDispatcher: (() => void) | undefined
   // ...
@@ -52,55 +49,39 @@ The dispatcher resolves the owner per request instead of relying on the single h
 
 ```ts
 removeDispatcher = aiRegistry.onRequest((request) => {
-  const targetElement = aiRegistry.view(request.targetId)?.element
+  const targetId = request.targets[0]?.id
+  const targetElement = targetId
+    ? aiRegistry.view(targetId)?.element
+    : undefined
   const handler =
-    handlers.get(request.targetId) ??
+    (targetId ? handlers.get(targetId) : undefined) ??
     [...canvases].find(
       (canvas) => targetElement && canvas.element.contains(targetElement),
     )?.handler
-  // ...
+  if (!handler) return Promise.reject(new AiUnavailableError())
+  return handler(request)
 })
 ```
 
-The host layer reports the target it displays through `targetChange`. The decorator listens and resolves active labels from that target's canvas:
-
-```ts
-function onTargetChange(id: string | undefined) {
-  if (!id) {
-    activeLabels.value = undefined
-    return
-  }
-  const targetElement = aiRegistry.view(id)?.element
-  const canvas = [...canvases].find(
-    (c) => targetElement && c.element.contains(targetElement),
-  )
-  activeLabels.value = canvas?.labels
-}
-```
-
-The decorator's mount returns a release that removes the canvas, re-elects a host when the leaving canvas owned one, and closes the document only when the set is empty (`mount` in `aiDecorator.ts`). The decorator renders the layer only for the host:
+Each canvas mounts its own layer directly:
 
 ```html
-<UiAiActionLayer
-  v-if="showLayer"
-  :labels="activeLabels"
-  @target-change="onTargetChange"
-/>
+<div ref="root" data-ai-story-root>
+  <UiAiContextLayer>
+    <story />
+  </UiAiContextLayer>
+</div>
 ```
 
 ## Evidence
 
-- `createStoryScope` in `frontend/web/.storybook/aiDecorator.ts` holds the module-level scope, host election, per-target dispatch, and target-driven label resolution.
-- `keeps both canvases inspectable and releases them after the last unmount` in `frontend/web/.storybook/aiDecorator.test.ts` mounts two canvases, asserts one `.ai-ask`, keeps targets listable after the first unmounts, and expects the decorator to have deleted `window.flowseerAi` only after the second unmounts.
-- `keeps a duplicate story id invalid without stacking an action layer` in `frontend/web/.storybook/aiDecorator.test.ts` mounts the same story twice and asserts one registered target, one Ask button, and a warning log.
-- `applies label overrides immediately to a nested element highlighted in onMounted` in `frontend/web/.storybook/aiDecorator.test.ts` mounts a story that highlights a nested target on mount and asserts the Ask button renders with the story's overridden trigger text and accessible name immediately.
-- `shows selected target canvas labels after host with labels and focused target unmounts` in `frontend/web/.storybook/aiDecorator.test.ts` unmounts the host canvas that held focus and custom labels and asserts that the remaining canvas's default labels apply to the Ask button.
-- `holds the canvas-label invariant across all host, selection, focus, and panel states` in `frontend/web/.storybook/aiDecorator.test.ts` tests two canvases only, asserts trigger text and open-panel heading match the canvas for the target the layer displays, re-selects the other canvas after opening, and leaves out three or more canvases and prompt submission.
-- `frontend/web/src/ai/registry.ts:226-235` shows the registry keeps a single handler, which forces target-based dispatch.
-- `frontend/web/src/ai/window.ts:31-33` deletes the window API only if the installed instance matches.
-- Review fix commits `8d9167b6` (document scope), `c390cf26` (nested target routing), and `f86f447a` (shared registry).
+- `createStoryScope` in `frontend/web/.storybook/aiDecorator.ts` holds the module-level scope and per-target dispatch.
+- `keeps both canvases inspectable and releases them after the last unmount` in `frontend/web/.storybook/aiDecorator.test.ts` mounts two canvases, keeps targets listable after the first unmounts, and expects the decorator to have deleted `window.flowseerAi` only after the second unmounts.
+- `routes a nested component target to its canvas handler` in `frontend/web/.storybook/aiDecorator.test.ts` tests that action requests route to the specific canvas holding the nested target.
+- `keeps a duplicate story id invalid` in `frontend/web/.storybook/aiDecorator.test.ts` mounts the same story twice and asserts one registered target and a warning log.
+- `frontend/web/src/ai/registry.ts` shows the registry keeps a single handler, which forces target-based dispatch.
+- `frontend/web/src/ai/window.ts` deletes the window API only if the installed instance matches.
 
 ## What this does not cover
 
-- The application console at `frontend/web/src/main.ts:28`, where only one root mounts.
-- Placement geometry and viewport clipping (`visibleRect`) in `frontend/web/src/ui/ai/geometry.ts`.
+- The application console at `frontend/web/src/main.ts`, where only one root mounts.

@@ -16,6 +16,10 @@
       "questionPlaceholder": "Why is this device offline?",
       "unavailable": "AI is unavailable"
     },
+    "aiContextLayer": {
+      "close": "Close",
+      "continueInAssistant": "Continue in assistant"
+    },
     "aiEntityChip": {
       "remove": "Remove"
     },

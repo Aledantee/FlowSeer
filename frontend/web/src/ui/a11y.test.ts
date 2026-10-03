@@ -92,7 +92,7 @@ const COMPONENT_TARGETS: Readonly<
   },
   './card/UiCard.stories.ts:Default': { kind: 'card', count: 1 },
   './table/UiTable.stories.ts:Default': { kind: 'device', count: 4 },
-  './ai/UiAiActionLayer.stories.ts:Selected': { kind: 'row', count: 1 },
+  './ai/UiAiContextLayer.stories.ts:Default': { kind: 'device', count: 1 },
   './ai/UiAiSummary.stories.ts:Idle': { kind: 'device', count: 1 },
   './ai/UiAiSummary.stories.ts:Loading': { kind: 'device', count: 1 },
   './ai/UiAiSummary.stories.ts:Result': { kind: 'device', count: 1 },
@@ -162,7 +162,9 @@ async function openOverlay(
     seen.add(root)
     if (
       root.matches('[data-ai-ask-panel]') ||
-      root.querySelector('[data-ai-ask-panel]') !== null
+      root.querySelector('[data-ai-ask-panel]') !== null ||
+      root.matches('[data-ai-context-popover]') ||
+      root.querySelector('[data-ai-context-popover]') !== null
     ) {
       return
     }
@@ -442,18 +444,28 @@ describe('accessibility (axe-core)', () => {
             const { selected, element, componentTarget } =
               await selectTarget(label)
 
-            const asks = document.querySelectorAll<HTMLElement>('.ai-ask')
-            expect(
-              asks,
-              `Expected ${label} to mount exactly one Ask action for its selected target`,
-            ).toHaveLength(1)
-            const ask = asks[0]
-            ask?.click()
+            element.dispatchEvent(
+              new MouseEvent('contextmenu', {
+                bubbles: true,
+                cancelable: true,
+                clientX: 50,
+                clientY: 50,
+              }),
+            )
             await settle()
+            const contextMenu = document.querySelector('[role="menu"]')
             expect(
-              document.querySelector('form textarea'),
-              `Expected ${label} to open the Ask panel for its selected target`,
+              contextMenu,
+              `Expected ${label} to open a context menu for its selected target`,
             ).not.toBeNull()
+            contextMenu?.dispatchEvent(
+              new KeyboardEvent('keydown', {
+                key: 'Escape',
+                bubbles: true,
+                cancelable: true,
+              }),
+            )
+            await settle()
 
             const root = container.querySelector<HTMLElement>(
               '[data-ai-story-root]',

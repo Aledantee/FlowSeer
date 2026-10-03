@@ -62,4 +62,23 @@ describe('ai-target directive', () => {
     dispose = () => {}
     expect(registry.list()).toHaveLength(0)
   })
+
+  it('sets data-ai-selected on highlight and removes on clearHighlight', async () => {
+    const current = ref<AiTarget | undefined>({
+      id: 'a:devices:device:d1',
+      kind: 'device',
+      label: 'd1',
+      context: {},
+    })
+    const { registry, host } = mount(() => current.value)
+    const row = host.querySelector('#row')
+    expect(row).not.toBeNull()
+    expect(row?.hasAttribute('data-ai-selected')).toBe(false)
+
+    registry.highlight('a:devices:device:d1')
+    expect(row?.hasAttribute('data-ai-selected')).toBe(true)
+
+    registry.clearHighlight()
+    expect(row?.hasAttribute('data-ai-selected')).toBe(false)
+  })
 })
