@@ -5,6 +5,7 @@ date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
 execution: mixed
 amends: docs/architecture/2026-09-30-operator-authorization-direction.md
 parent: docs/plans/2026-09-30-1139-feat-operator-authorization-plan.md
@@ -754,6 +755,26 @@ Unverified, for the implementer to settle:
 For phase 3: whether a start fails when the engine or an issuer is
 unreachable, and whether a suspended tenant's organization still yields
 `claimed` (`TenantLifecycle`, `tenant.proto:26-33`).
+
+From the review, for the plan's owner:
+
+- A key endpoint that answers 200 with a body that is not a key set yields
+  `authn/token-invalid`, not retryable. The verifier classifies an outage by
+  the transport's last result for the key URL, as the Decisions word it, and
+  that result is a 200
+  (`src/services/device/internal/authn/verifier.go`, `HasOutage`). U2's
+  Change calls a key failure `authn/unavailable`. Classifying on go-oidc's
+  fetch error alone (`oidc@/jwks.go:178`, `:327`) would cover the case and
+  departs from the Decision's wording.
+- The Decisions say first-party code needs no goroutine. Discovery now runs
+  on one goroutine per flight through `spawn.Go`, detached from the caller as
+  go-oidc detaches its key fetch (`oidc@/jwks.go:74`), so a caller's
+  cancellation cannot fail another caller. The sentence in the Decisions is
+  stale.
+- With `platform_admin.organization_claim_name` unset in `authn.Options`, the
+  verifier falls back to the issuer's organization claim name. The schema
+  requires the field (`service_config.proto:189-193`), so phase 3's wiring
+  decides whether the fallback is ever reached.
 
 [dx1]: https://raw.githubusercontent.com/dexidp/dex/v2.45.1/config.yaml.dist
 [dx2]: https://raw.githubusercontent.com/dexidp/dex/v2.45.1/server/oauth2.go
