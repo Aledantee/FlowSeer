@@ -7,28 +7,122 @@
 // The registry hides the copy whose layout the viewport does not show.
 export type AiTargetSegment = 'mobile' | 'desktop'
 
+export type AiTone = 'ok' | 'warning' | 'critical' | 'unknown'
+export type AiSeverity = 'info' | 'warning' | 'critical'
+export type AiConfidence = 'low' | 'medium' | 'high'
+export type AiEntityKind = 'device' | 'site' | 'client' | 'link' | 'chart'
+
+export interface AiEntityRef {
+  kind: AiEntityKind
+  id: string
+  label: string
+}
+
+export type AiRef = AiEntityRef
+
+export interface AiFinding {
+  severity: AiSeverity
+  title: string
+  detail?: string
+  refs: AiEntityRef[]
+}
+
+export interface AiCause {
+  text: string
+  confidence: AiConfidence
+  refs: AiEntityRef[]
+}
+
+export interface AiImpact {
+  text: string
+  refs: AiEntityRef[]
+}
+
+export interface AiMetric {
+  label: string
+  value: string
+  tone?: AiTone
+}
+
+export interface AiNextStep {
+  label: string
+  ref?: AiEntityRef
+}
+
+export interface AiSummary {
+  type: 'summary'
+  headline: string
+  tone: AiTone
+  findings: AiFinding[]
+  cause?: AiCause
+  impact?: AiImpact
+  metrics: AiMetric[]
+  next: AiNextStep[]
+  sources: AiEntityRef[]
+}
+
+export interface AiAnswer {
+  type: 'answer'
+  text: string
+  refs: AiEntityRef[]
+  summary?: AiSummary
+}
+
+export type AiResult = AiSummary | AiAnswer
+
 export interface AiTarget {
   id: string
   kind: string
+  view?: string
   label: string
   context: Record<string, string>
+  entity?: AiEntityRef
   segment?: AiTargetSegment
 }
 
-export type AiRequestKind = 'ask' | 'summary'
+export interface AiTargetSnapshot {
+  id: string
+  kind: string
+  view: string
+  label: string
+  entity?: AiEntityRef
+  context: Record<string, string>
+}
+
+export type AiTurn =
+  { role: 'user'; prompt: string } | { role: 'assistant'; result: AiResult }
+
+export interface AiSeed {
+  targets: AiTargetSnapshot[]
+  turns: AiTurn[]
+}
 
 export interface AiRequest {
   requestId: string
-  kind: AiRequestKind
-  targetId: string
-  label: string
-  context: Record<string, string>
+  action: string
+  kind?: AiRequestKind
+  targetId?: string
+  context?: Record<string, string>
+  targets: readonly AiTargetSnapshot[]
   prompt?: string
+  history: readonly AiTurn[]
+  signal: AbortSignal
 }
 
-export type AiHandler = (request: AiRequest) => Promise<string> | string
+export interface AiRun {
+  requestId: string
+  request: Omit<AiRequest, 'signal'>
+  snapshots: AsyncIterable<AiResult>
+  stop(): void
+}
+
+export type AiHandler = (
+  request: AiRequest,
+) => Promise<AiResult | string> | AsyncIterable<AiResult> | AiResult | string
 
 export interface AiTargetView {
   target: AiTarget
   element: HTMLElement
 }
+
+export type AiRequestKind = 'ask' | 'summary'

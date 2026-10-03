@@ -226,4 +226,27 @@ describe('UiPopover', () => {
       window.getComputedStyle = originalGetComputedStyle
     }
   })
+
+  it('anchors to reference element when trigger slot is absent', async () => {
+    const anchorEl = document.createElement('div')
+    anchorEl.id = 'custom-anchor'
+    document.body.append(anchorEl)
+
+    mountPopover(
+      {
+        open: true,
+        reference: anchorEl,
+      },
+      {
+        default: () => h('div', { id: 'popover-anchored' }, 'Anchored Content'),
+      },
+    )
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const content = document.body.querySelector('#popover-anchored')
+    expect(content).not.toBeNull()
+    anchorEl.remove()
+  })
 })

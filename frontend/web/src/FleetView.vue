@@ -33,12 +33,15 @@ import {
   UiBreadcrumbList,
   UiBreadcrumbPage,
   UiBreadcrumbSeparator,
-  UiAiActionLayer,
+  UiAiAssistant,
+  UiAiContextLayer,
+  UiDialog,
   UiDropdownMenuItem,
   UiMotion,
   UiTooltip,
   useMotionFeedback,
 } from './ui'
+import type { AiSeed } from './ai'
 import {
   SHORTCUTS,
   dockTabShortcut,
@@ -123,6 +126,18 @@ const fleet = ref(devices.map((device) => ({ ...device })))
 const sidebarCollapsed = ref(false)
 const tick = ref(0)
 const message = ref<NoticeKey | ''>('')
+
+const assistantOpen = ref(false)
+const assistantSeed = ref<AiSeed | undefined>()
+
+function toggleAssistant() {
+  assistantOpen.value = !assistantOpen.value
+}
+
+function handleContinueInAssistant(seed: AiSeed) {
+  assistantSeed.value = seed
+  assistantOpen.value = true
+}
 
 function siteName(id: string) {
   return (
@@ -778,6 +793,7 @@ function workspaceKey(event: KeyboardEvent) {
     void action()
   }
   if (matches(event, SHORTCUTS.toggleSplit)) return run(toggleSplit)
+  if (matches(event, SHORTCUTS.assistant)) return run(toggleAssistant)
   // Alt shortcuts would swallow characters typed into fields.
   if (typingIn(event.target)) return
   if (matches(event, SHORTCUTS.minimize)) return run(() => minimizePane())
@@ -845,7 +861,6 @@ onUnmounted(() => clearInterval(timer))
 </script>
 
 <template>
-  <UiAiActionLayer />
   <div
     class="shell max-[800px]:flex-col"
     :class="{ 'sidebar-collapsed': sidebarCollapsed }"
@@ -1115,6 +1130,20 @@ onUnmounted(() => clearInterval(timer))
             @select="openResult"
             @dock="dockResult"
           />
+          <UiTooltip
+            :label="t('ui.aiAssistant.title')"
+            :shortcut="SHORTCUTS.assistant"
+          >
+            <button
+              type="button"
+              class="assistant-toggle grid place-items-center shrink-0 h-6.5 px-2 border border-border rounded-control bg-transparent text-xs font-medium text-chrome-muted-foreground hover:bg-chrome-hover/45 hover:text-chrome-foreground cursor-pointer transition-colors max-[560px]:min-h-[44px]"
+              :aria-label="t('ui.aiAssistant.title')"
+              data-ai-assistant-toggle
+              @click="toggleAssistant"
+            >
+              <span>{{ t('ui.aiAssistant.title') }}</span>
+            </button>
+          </UiTooltip>
           <ThemeSwitcher />
           <LocaleSwitcher />
           <HelpButton />
@@ -1122,196 +1151,225 @@ onUnmounted(() => clearInterval(timer))
           <AccountMenu />
         </div>
       </header>
-      <main
-        id="main"
-        tabindex="-1"
-        :class="['panes', { split: showSplit, docked: tabs.length }]"
-        :style="showSplit ? { '--split': `${splitRatio * 100}%` } : undefined"
-      >
-        <UiTooltip
-          v-if="showSplit"
-          :label="t('view.fleet.dragToResize')"
-          :hint="t('view.fleet.resizeHint')"
-          side="right"
+      <UiAiContextLayer @continue="handleContinueInAssistant">
+        <main
+          id="main"
+          tabindex="-1"
+          :class="['panes', { split: showSplit, docked: tabs.length }]"
+          :style="showSplit ? { '--split': `${splitRatio * 100}%` } : undefined"
         >
-          <div
-            class="pane-divider relative z-[3] flex-[0_0_9px] -mx-1 cursor-col-resize touch-none select-none after:content-[''] after:absolute after:inset-x-1 after:bottom-0 after:top-[var(--topbar-height)] after:bg-border after:transition-colors hover:after:bg-accent-foreground focus-visible:after:bg-accent-foreground"
-            role="separator"
-            aria-orientation="vertical"
-            :aria-label="t('view.fleet.resizeSplit')"
-            :aria-valuenow="Math.round(splitRatio * 100)"
-            aria-valuemin="30"
-            aria-valuemax="70"
-            tabindex="0"
-            @pointerdown.self="startResize"
-            @dblclick.self="splitRatio = 0.5"
-            @keydown.left.prevent="nudgeSplit(-0.05)"
-            @keydown.right.prevent="nudgeSplit(0.05)"
-          ></div>
-        </UiTooltip>
-        <!-- Both slots stay mounted while they hold a page, so swapping only
+          <UiTooltip
+            v-if="showSplit"
+            :label="t('view.fleet.dragToResize')"
+            :hint="t('view.fleet.resizeHint')"
+            side="right"
+          >
+            <div
+              class="pane-divider relative z-[3] flex-[0_0_9px] -mx-1 cursor-col-resize touch-none select-none after:content-[''] after:absolute after:inset-x-1 after:bottom-0 after:top-[var(--topbar-height)] after:bg-border after:transition-colors hover:after:bg-accent-foreground focus-visible:after:bg-accent-foreground"
+              role="separator"
+              aria-orientation="vertical"
+              :aria-label="t('view.fleet.resizeSplit')"
+              :aria-valuenow="Math.round(splitRatio * 100)"
+              aria-valuemin="30"
+              aria-valuemax="70"
+              tabindex="0"
+              @pointerdown.self="startResize"
+              @dblclick.self="splitRatio = 0.5"
+              @keydown.left.prevent="nudgeSplit(-0.05)"
+              @keydown.right.prevent="nudgeSplit(0.05)"
+            ></div>
+          </UiTooltip>
+          <!-- Both slots stay mounted while they hold a page, so swapping only
              changes roles and order; each page keeps its state. -->
-        <template v-for="slot in slotIds" :key="slot">
-          <Transition name="split">
-            <PageHost
-              v-if="
-                panes.slots[slot].value &&
-                (slot === panes.mainSlot.value || showSplit)
-              "
-              :context="panes.pages[slot]"
-              :pane-slot="slot"
-              :class="
-                slot === panes.mainSlot.value
-                  ? [
-                      'main-pane',
-                      { 'active-pane': showSplit && activePane === 'main' },
-                    ]
-                  : ['split-pane', { 'active-pane': activePane === 'side' }]
-              "
-              :style="
-                slot === panes.mainSlot.value
-                  ? undefined
-                  : { '--topbar-height': `${topbarHeight + 36}px` }
-              "
-              @pointerdown="
-                activePane = slot === panes.mainSlot.value ? 'main' : 'side'
-              "
-              @focusin="
-                activePane = slot === panes.mainSlot.value ? 'main' : 'side'
-              "
-            >
-              <header
-                v-if="slot !== panes.mainSlot.value && sideTitle"
-                class="pane-header absolute z-[6] top-[calc(var(--topbar-height)-36px)] inset-x-0 flex items-center gap-2 h-9 px-2 pl-4 border-b border-border bg-background/82 backdrop-blur-md text-muted-foreground text-xs transition-colors"
+          <template v-for="slot in slotIds" :key="slot">
+            <Transition name="split">
+              <PageHost
+                v-if="
+                  panes.slots[slot].value &&
+                  (slot === panes.mainSlot.value || showSplit)
+                "
+                :context="panes.pages[slot]"
+                :pane-slot="slot"
+                :class="
+                  slot === panes.mainSlot.value
+                    ? [
+                        'main-pane',
+                        { 'active-pane': showSplit && activePane === 'main' },
+                      ]
+                    : ['split-pane', { 'active-pane': activePane === 'side' }]
+                "
+                :style="
+                  slot === panes.mainSlot.value
+                    ? undefined
+                    : { '--topbar-height': `${topbarHeight + 36}px` }
+                "
+                @pointerdown="
+                  activePane = slot === panes.mainSlot.value ? 'main' : 'side'
+                "
+                @focusin="
+                  activePane = slot === panes.mainSlot.value ? 'main' : 'side'
+                "
               >
-                <AppIcon :name="sideTitle.icon" class="shrink-0 w-3.5" />
-                <span
-                  class="pane-title shrink-0 max-w-[30%] truncate text-foreground font-semibold"
-                  ><strong
-                    :translate="sideTitle.labelName ? 'no' : undefined"
-                    >{{ sideTitle.label }}</strong
-                  ></span
+                <header
+                  v-if="slot !== panes.mainSlot.value && sideTitle"
+                  class="pane-header absolute z-[6] top-[calc(var(--topbar-height)-36px)] inset-x-0 flex items-center gap-2 h-9 px-2 pl-4 border-b border-border bg-background/82 backdrop-blur-md text-muted-foreground text-xs transition-colors"
                 >
-                <div
-                  class="pane-scope flex items-center gap-0.5 min-w-0 mr-auto"
-                >
-                  <UiBreadcrumb>
-                    <UiBreadcrumbList>
-                      <template v-if="tenants.length > 1">
+                  <AppIcon :name="sideTitle.icon" class="shrink-0 w-3.5" />
+                  <span
+                    class="pane-title shrink-0 max-w-[30%] truncate text-foreground font-semibold"
+                    ><strong
+                      :translate="sideTitle.labelName ? 'no' : undefined"
+                      >{{ sideTitle.label }}</strong
+                    ></span
+                  >
+                  <div
+                    class="pane-scope flex items-center gap-0.5 min-w-0 mr-auto"
+                  >
+                    <UiBreadcrumb>
+                      <UiBreadcrumbList>
+                        <template v-if="tenants.length > 1">
+                          <UiBreadcrumbItem>
+                            <TenantSwitcher
+                              :tenants="tenants"
+                              :selected="sidePage.query('tenant')"
+                              @change="setSideScope('tenant', $event)"
+                            />
+                          </UiBreadcrumbItem>
+                          <UiBreadcrumbSeparator />
+                        </template>
                         <UiBreadcrumbItem>
-                          <TenantSwitcher
-                            :tenants="tenants"
-                            :selected="sidePage.query('tenant')"
-                            @change="setSideScope('tenant', $event)"
+                          <ScopeSwitcher
+                            :label="t('view.fleet.sideSiteScope')"
+                            :placeholder="t('view.fleet.searchSites')"
+                            :selected="sidePage.query('site')"
+                            :options="[
+                              {
+                                value: '',
+                                label: t('view.common.allSites'),
+                              },
+                              ...sideScopedSites.map((site) => ({
+                                value: site.id,
+                                label: site.name,
+                                identifier: true,
+                              })),
+                            ]"
+                            @change="setSideScope('site', $event)"
                           />
                         </UiBreadcrumbItem>
-                        <UiBreadcrumbSeparator />
-                      </template>
-                      <UiBreadcrumbItem>
-                        <ScopeSwitcher
-                          :label="t('view.fleet.sideSiteScope')"
-                          :placeholder="t('view.fleet.searchSites')"
-                          :selected="sidePage.query('site')"
-                          :options="[
-                            {
-                              value: '',
-                              label: t('view.common.allSites'),
-                            },
-                            ...sideScopedSites.map((site) => ({
-                              value: site.id,
-                              label: site.name,
-                              identifier: true,
-                            })),
-                          ]"
-                          @change="setSideScope('site', $event)"
-                        />
-                      </UiBreadcrumbItem>
-                    </UiBreadcrumbList>
-                  </UiBreadcrumb>
-                </div>
-                <div
-                  class="pane-tools flex items-center gap-1 max-[560px]:gap-0"
-                  role="toolbar"
-                  :aria-label="t('view.fleet.splitView')"
-                >
-                  <UiTooltip
-                    :label="
-                      linkClicks
-                        ? t('view.fleet.linkClicksOn')
-                        : t('view.fleet.linkClicksOff')
-                    "
-                    :hint="
-                      linkClicks ? t('view.fleet.linkClicksHint') : undefined
-                    "
-                    :shortcut="SHORTCUTS.linkClicks"
+                      </UiBreadcrumbList>
+                    </UiBreadcrumb>
+                  </div>
+                  <div
+                    class="pane-tools flex items-center gap-1 max-[560px]:gap-0"
+                    role="toolbar"
+                    :aria-label="t('view.fleet.splitView')"
                   >
-                    <button
-                      :aria-pressed="linkClicks"
-                      :aria-label="t('view.fleet.linkClicksLabel')"
-                      class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
-                      @click="linkClicks = !linkClicks"
+                    <UiTooltip
+                      :label="
+                        linkClicks
+                          ? t('view.fleet.linkClicksOn')
+                          : t('view.fleet.linkClicksOff')
+                      "
+                      :hint="
+                        linkClicks ? t('view.fleet.linkClicksHint') : undefined
+                      "
+                      :shortcut="SHORTCUTS.linkClicks"
                     >
-                      <AppIcon name="link-clicks" />
-                    </button>
-                  </UiTooltip>
-                  <span
-                    class="pane-tools-gap w-px h-3.5 mx-1 bg-border max-[560px]:hidden"
-                    aria-hidden="true"
-                  ></span>
-                  <UiTooltip
-                    :label="t('view.fleet.swapSides')"
-                    :shortcut="SHORTCUTS.swap"
-                  >
-                    <button
-                      :aria-label="t('view.fleet.swapPages')"
-                      class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
-                      @click="swapPanes"
+                      <button
+                        :aria-pressed="linkClicks"
+                        :aria-label="t('view.fleet.linkClicksLabel')"
+                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
+                        @click="linkClicks = !linkClicks"
+                      >
+                        <AppIcon name="link-clicks" />
+                      </button>
+                    </UiTooltip>
+                    <span
+                      class="pane-tools-gap w-px h-3.5 mx-1 bg-border max-[560px]:hidden"
+                      aria-hidden="true"
+                    ></span>
+                    <UiTooltip
+                      :label="t('view.fleet.swapSides')"
+                      :shortcut="SHORTCUTS.swap"
                     >
-                      <AppIcon name="swap" />
-                    </button>
-                  </UiTooltip>
-                  <UiTooltip
-                    :label="t('view.fleet.dockPair')"
-                    :shortcut="SHORTCUTS.dockPair"
-                  >
-                    <button
-                      :aria-label="t('view.fleet.dockPairLabel')"
-                      class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
-                      @click="dockPair"
+                      <button
+                        :aria-label="t('view.fleet.swapPages')"
+                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
+                        @click="swapPanes"
+                      >
+                        <AppIcon name="swap" />
+                      </button>
+                    </UiTooltip>
+                    <UiTooltip
+                      :label="t('view.fleet.dockPair')"
+                      :shortcut="SHORTCUTS.dockPair"
                     >
-                      <AppIcon name="dock-pair" />
-                    </button>
-                  </UiTooltip>
-                  <UiTooltip
-                    :label="t('view.fleet.minimizeToDock')"
-                    :shortcut="SHORTCUTS.toggleSplit"
-                  >
-                    <button
-                      :aria-label="t('view.fleet.minimizeSide')"
-                      class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
-                      @click="minimizePane('side')"
+                      <button
+                        :aria-label="t('view.fleet.dockPairLabel')"
+                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
+                        @click="dockPair"
+                      >
+                        <AppIcon name="dock-pair" />
+                      </button>
+                    </UiTooltip>
+                    <UiTooltip
+                      :label="t('view.fleet.minimizeToDock')"
+                      :shortcut="SHORTCUTS.toggleSplit"
                     >
-                      <AppIcon name="to-dock" />
-                    </button>
-                  </UiTooltip>
-                  <UiTooltip
-                    :label="t('view.fleet.closeSide')"
-                    :shortcut="SHORTCUTS.closeSide"
-                  >
-                    <button
-                      :aria-label="t('view.fleet.closeSideLabel')"
-                      class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
-                      @click="closeSide"
+                      <button
+                        :aria-label="t('view.fleet.minimizeSide')"
+                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
+                        @click="minimizePane('side')"
+                      >
+                        <AppIcon name="to-dock" />
+                      </button>
+                    </UiTooltip>
+                    <UiTooltip
+                      :label="t('view.fleet.closeSide')"
+                      :shortcut="SHORTCUTS.closeSide"
                     >
-                      <AppIcon name="close" />
-                    </button>
-                  </UiTooltip>
-                </div>
-              </header>
-            </PageHost>
-          </Transition>
-        </template>
-      </main>
+                      <button
+                        :aria-label="t('view.fleet.closeSideLabel')"
+                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
+                        @click="closeSide"
+                      >
+                        <AppIcon name="close" />
+                      </button>
+                    </UiTooltip>
+                  </div>
+                </header>
+              </PageHost>
+            </Transition>
+          </template>
+          <aside
+            v-if="wide && assistantOpen"
+            class="assistant-pane flex-[0_0_20rem] lg:flex-[0_0_24rem] border-l border-border bg-card z-[4] flex flex-col pt-[var(--topbar-height)]"
+            data-ai-assistant-column
+          >
+            <UiAiAssistant
+              :open="wide && assistantOpen"
+              :seed="assistantSeed"
+              @close="assistantOpen = false"
+              @update:open="assistantOpen = $event"
+            />
+          </aside>
+        </main>
+      </UiAiContextLayer>
+      <UiDialog
+        :open="!wide && assistantOpen"
+        side="right"
+        size="sm"
+        content-class="p-0 max-w-sm"
+        :fallback-title="t('ui.aiAssistant.title')"
+        @update:open="assistantOpen = $event"
+      >
+        <UiAiAssistant
+          :open="!wide && assistantOpen"
+          :seed="assistantSeed"
+          @close="assistantOpen = false"
+          @update:open="assistantOpen = $event"
+        />
+      </UiDialog>
       <PageDock
         :tabs="tabs"
         :title="tabTitle"
