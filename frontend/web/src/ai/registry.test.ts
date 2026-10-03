@@ -324,8 +324,9 @@ describe('request snapshots and AiRun', () => {
     const t = target('a:devices:device:d1')
     registry.register(node, t)
 
-    // @ts-expect-error invalid snapshot shape
-    registry.onRequest(async () => ({ type: 'summary', headline: 123 }))
+    registry.onRequest(async () =>
+      JSON.parse('{"type":"summary","headline":123}'),
+    )
     const run = registry.request(t, { action: 'summary' })
 
     await expect(async () => {
