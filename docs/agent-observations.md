@@ -26,20 +26,6 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
-## 2026-10-02 hooks: proto source guard allows every dotfile
-Skill or agent: `tools/hooks/pre-tool-policy.sh`, the `spec/proto/` branch,
-and `test/conformance/proto/layout_test.go`, `protoPathViolation`.
-What happened: both checks explicitly allow every dotfile, including a hidden
-script such as `.audit.sh`. The tests pin that allowance, while `AGENTS.md`,
-Hard boundaries, permits only `.proto` files and package-boundary `README.md`
-files. The enforced source-only rule therefore has an exception its authority
-does not grant.
-Suggested change: remove the dotfile allowance in both checks and pin the
-rejection in the hook suite and conformance cases. The change is staged in
-`tools/hooks/pre-tool-policy.sh`, `tools/hooks/tests/run.sh`, and
-`test/conformance/proto/layout_test.go` for guardrail review. It remains pending
-until that review accepts it.
-
 ## 2026-10-02 delegate: pool rows carry no account plan, so a percent window reads as equal headroom on every plan
 Skill or agent: `.claude/skills/delegate/SKILL.md`, "Pick the role, then
 resolve the lane" step 1, Wave size, and Dispatch by quota, with
@@ -60,21 +46,3 @@ times the unused share of the window, instead of from the percent alone.
 Left for `plan`: the change spans both scripts, the registry schema, `tune`,
 and `delegate`, and the plan field each CLI reports needs a source read
 first. `steer` does not apply it.
-
-## 2026-10-03 hooks: the verifier scripts are not a policy surface
-Skill or agent: `tools/hooks/pre-tool-policy.sh`, the policy-surface case,
-and `AGENTS.md`, Hard boundaries.
-What happened: the hook asks for approval on `AGENTS.md`, `buf.yaml`,
-`.golangci.yml`, `.claude/settings.json`, `.codex/hooks.json`,
-`tools/hooks/*`, and `test/conformance/a11y/*`. It does not match
-`.agents/skills/verify-change/scripts/` or the other gate scripts under
-`.agents/skills/*/scripts/`, so an agent can edit the verifier it must pass
-with no prompt. The hook's list and the `AGENTS.md` list also differ:
-`.golangci.yml` and `test/conformance/a11y/` appear only in the hook.
-Suggested change: add the gate scripts to the hook's case and pin it in
-`tools/hooks/tests/run.sh`, and make the `AGENTS.md` list name the same
-paths. Both are policy surfaces and stop at a staged diff.
-The change is staged in `tools/hooks/pre-tool-policy.sh`,
-`tools/hooks/tests/run.sh`, and `AGENTS.md` for guardrail review, scoped to
-`.agents/skills/verify-change/scripts/` and `.agents/skills/prose/scripts/`.
-It remains pending until that review accepts it.
