@@ -5,7 +5,7 @@ date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: rework
+review: accept after fixes
 execution: code
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 parent: docs/plans/2026-09-30-1139-feat-operator-authorization-plan.md
@@ -495,65 +495,6 @@ go test ./test/conformance/proto/ ./src/services/device/internal/authn/ ./src/se
 - Requirement 11 sends `platform:flowseer#claimed`, and no record states
   the `platform` type's relations yet. Phase 2's model has to define
   `claimed` on it, or OpenFGA rejects every check that carries the tuple.
-- The fix round closed its five items, and its re-review left seven
-  behaviors the suite does not hold. The code answers as requirements 9,
-  10, 14, and 16 say. Each change below, made alone, alters what a caller
-  gets and leaves `go test ./src/services/device/internal/authz/` or the
-  gate green, and `docs/code-style.md:466-473` counts a test as evidence
-  only once it fails against the defect. Paths are under
-  `src/services/device/internal/authz/` unless given in full.
-  1. A recorded failure is sticky. `obligation.go:30` clearing `checkFailed`
-     in `discharge`, or either deferred func assigning `err != nil` to it
-     (`:82-86`, `:118-122`), lets a response pass after a failed check
-     followed by a successful one. No handler in `authz_test.go` makes two
-     checks in one call.
-  2. The context error is bare. `authz.go:72-74` returning
-     `connect.NewError(connect.CodeCanceled, ctxErr)` or a `connecterr`
-     wrap, and `interceptor.go:179-181` returning an `errs` wrap of
-     `ctx.Err()`, pass. `TestContextCancellation` asserts `errors.Is`
-     where requirement 16 says equal, and no case pairs a deadline with a
-     checker error.
-  3. Two of the five checker-error sites look at the call's context.
-     `obligation.go:168` (a `tenant` object) and `:207` (a short answer)
-     given `context.Background()` pass.
-  4. A false answer stays `PermissionDenied`. Returning `ctx.Err()` from the
-     denial in `Require` (`obligation.go:99`) or from the platform check
-     (`interceptor.go:103`) passes. Only the membership check has the case
-     (`authz_test.go:3835`), and neither it nor the response case at `:3863`
-     asserts that the context ended before the outcome.
-  5. A handler's error passes through once a check was discharged. The
-     branch at `interceptor.go:179-181` moved above `:178` swaps that error
-     for `ctx.Err()` in every mode and passes.
-  6. A platform rule reads no tenant header. `tenant.WithTenant` on the
-     header value after `interceptor.go:91` passes, since every platform
-     test sends no header.
-  7. The gate's path walk keeps its mode filter.
-     `test/conformance/proto/api_authorization_test.go:493` with `!=` turned
-     to `==` passes: the count guard still sees six rules, and the synthetic
-     cases call `checkObjectIDPath` without the walk.
-
-  `TestDeferredObligationDischarge` is the suite's enumeration of
-  requirement 9. Items 1 and 5 belong there as a second check and a
-  context state, with the request, tenant, and platform modes as rows.
-- The same re-review left rule findings that change no behavior:
-  - The operator authorization record's new text says more or less than
-    requirements 9 and 16
-    (`docs/architecture/2026-09-30-operator-authorization-direction.md`).
-    The table states the failed-check drop only for loaded and filtered
-    rules and has `Filter` "in place of" `Require` (`:377-378`). The
-    diagram answers `ctx.Err()` for every ended context with no response
-    (`:65-66`) and calls the handler after a denied check (`:54-55`). It
-    breaks rule 8 of `docs/doc-style.md`.
-  - The deadline example waits out a 2 ms timeout with a 10 ms sleep
-    (`authz_test.go:3628`), where a deadline already passed needs no clock.
-  - Three comments added to `authz.go:46` and `obligation.go:76`, `:112`
-    hold a semicolon (`docs/doc-style.md:149`). `WrapUnary`'s comment
-    states neither the dropped response nor the context error. `unavailable`
-    and `unauthenticated` have one caller each (`docs/code-style.md:544`).
-  - `TestEdgeAssertionHeaderVector` marshals an assertion it never
-    validates (`test/conformance/proto/model_edge_rules_test.go:332`,
-    `docs/code-style.md:462-465`). The fixture predates this phase and
-    passes validation.
 - `Require` and `Filter` discharge before the checker answers and record a
   failure when they return (`obligation.go:93`, `:129`). A handler that
   starts one in a goroutine and answers without joining it returns its

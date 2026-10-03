@@ -615,19 +615,20 @@ func buildSyntheticMethod(t *testing.T, name string, rule *authzv1.Rule) protore
 }
 
 type testEnv struct {
-	server         *httptest.Server
-	checker        *fakeChecker
-	handlers       *testHandlers
-	captureCli     capturev1connect.CaptureServiceClient
-	edgeCli        edgev1connect.EdgeAdminServiceClient
-	tenantCli      identityv1connect.TenantServiceClient
-	edgeAttachCli  attachv1connect.EdgeServiceClient
-	interceptor    *authz.Interceptor
-	unspecifiedCli *connect.Client[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse]
-	mode99Cli      *connect.Client[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse]
-	loadedCli      *connect.Client[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse]
-	noRuleCli      *connect.Client[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse]
-	setLoadedFn    func(fn func(ctx context.Context, req *connect.Request[edgev1.GetEdgeRequest]) (*connect.Response[edgev1.GetEdgeResponse], error))
+	server           *httptest.Server
+	checker          *fakeChecker
+	handlers         *testHandlers
+	captureCli       capturev1connect.CaptureServiceClient
+	edgeCli          edgev1connect.EdgeAdminServiceClient
+	tenantCli        identityv1connect.TenantServiceClient
+	edgeAttachCli    attachv1connect.EdgeServiceClient
+	interceptor      *authz.Interceptor
+	outerInterceptor *cancellableOuterInterceptor
+	unspecifiedCli   *connect.Client[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse]
+	mode99Cli        *connect.Client[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse]
+	loadedCli        *connect.Client[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse]
+	noRuleCli        *connect.Client[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse]
+	setLoadedFn      func(fn func(ctx context.Context, req *connect.Request[edgev1.GetEdgeRequest]) (*connect.Response[edgev1.GetEdgeResponse], error))
 }
 
 func setupTestEnv(t *testing.T) *testEnv {
@@ -636,6 +637,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 	checker := &fakeChecker{}
 	handlers := newTestHandlers(t)
 	authzInterceptor := authz.NewInterceptor(checker)
+	outerInterceptor := &cancellableOuterInterceptor{}
 	authnInterceptor := &testAuthnInterceptor{
 		defaultPrincipal: authn.Principal{
 			ID:       testPrincipalID,
@@ -645,7 +647,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 	}
 
 	opts := []connect.HandlerOption{
-		connect.WithInterceptors(authnInterceptor, authzInterceptor),
+		connect.WithInterceptors(authnInterceptor, outerInterceptor, authzInterceptor),
 	}
 
 	mux := http.NewServeMux()
@@ -728,7 +730,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 			}.Build()), nil
 		},
 		connect.WithSchema(loadedMD),
-		connect.WithInterceptors(authnInterceptor, authzInterceptor),
+		connect.WithInterceptors(authnInterceptor, outerInterceptor, authzInterceptor),
 	))
 
 	noRuleMD := buildSyntheticMethod(t, "NoRuleMethod", nil)
@@ -749,18 +751,19 @@ func setupTestEnv(t *testing.T) *testEnv {
 
 	client := server.Client()
 	return &testEnv{
-		server:         server,
-		checker:        checker,
-		handlers:       handlers,
-		captureCli:     capturev1connect.NewCaptureServiceClient(client, server.URL),
-		edgeCli:        edgev1connect.NewEdgeAdminServiceClient(client, server.URL),
-		tenantCli:      identityv1connect.NewTenantServiceClient(client, server.URL),
-		edgeAttachCli:  attachv1connect.NewEdgeServiceClient(client, server.URL),
-		interceptor:    authzInterceptor,
-		unspecifiedCli: connect.NewClient[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse](client, server.URL+unspecifiedProc),
-		mode99Cli:      connect.NewClient[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse](client, server.URL+mode99Proc),
-		loadedCli:      connect.NewClient[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse](client, server.URL+loadedProc),
-		noRuleCli:      connect.NewClient[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse](client, server.URL+noRuleProc),
+		server:           server,
+		checker:          checker,
+		handlers:         handlers,
+		captureCli:       capturev1connect.NewCaptureServiceClient(client, server.URL),
+		edgeCli:          edgev1connect.NewEdgeAdminServiceClient(client, server.URL),
+		tenantCli:        identityv1connect.NewTenantServiceClient(client, server.URL),
+		edgeAttachCli:    attachv1connect.NewEdgeServiceClient(client, server.URL),
+		interceptor:      authzInterceptor,
+		outerInterceptor: outerInterceptor,
+		unspecifiedCli:   connect.NewClient[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse](client, server.URL+unspecifiedProc),
+		mode99Cli:        connect.NewClient[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse](client, server.URL+mode99Proc),
+		loadedCli:        connect.NewClient[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse](client, server.URL+loadedProc),
+		noRuleCli:        connect.NewClient[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse](client, server.URL+noRuleProc),
 		setLoadedFn: func(fn func(ctx context.Context, req *connect.Request[edgev1.GetEdgeRequest]) (*connect.Response[edgev1.GetEdgeResponse], error)) {
 			loadedMu.Lock()
 			currentLoadedFn = fn
@@ -2728,6 +2731,58 @@ func TestPlatformRuleAuthorization(t *testing.T) {
 			t.Errorf("Filter returned %v, want CodeInternal", connect.CodeOf(gotFilterErr))
 		}
 	})
+
+	for _, headerVal := range []string{validTenantID, "Acme"} {
+		t.Run("tenant header "+headerVal+" ignored under platform rule", func(t *testing.T) {
+			env := setupTestEnv(t)
+			var (
+				mu          sync.Mutex
+				foundTenant string
+				tenantErr   error
+			)
+			env.handlers.SetListTenantsFn(func(ctx context.Context, _ *connect.Request[identityv1.ListTenantsRequest]) (*connect.Response[identityv1.ListTenantsResponse], error) {
+				tid, err := tenant.FromContext(ctx)
+				mu.Lock()
+				foundTenant = tid
+				tenantErr = err
+				mu.Unlock()
+				return validResponse(t, identityv1.ListTenantsResponse_builder{}.Build()), nil
+			})
+
+			req := validRequest(t, identityv1.ListTenantsRequest_builder{}.Build())
+			req.Header().Set("X-FlowSeer-Tenant", headerVal)
+
+			resp, err := env.tenantCli.ListTenants(context.Background(), req)
+			if err != nil {
+				t.Fatalf("unexpected call error: %v", err)
+			}
+			if resp == nil {
+				t.Fatal("expected response, got nil")
+			}
+			if !env.handlers.DidRun("ListTenants") {
+				t.Error("handler did not run")
+			}
+			recorded := env.checker.Recorded()
+			if len(recorded) != 1 {
+				t.Fatalf("got %d queries, want 1", len(recorded))
+			}
+			wantQuery := authz.Query{
+				Object:   "platform:flowseer",
+				Relation: "admin",
+				User:     "user:" + testPrincipalID,
+			}
+			if recorded[0].Object != wantQuery.Object || recorded[0].Relation != wantQuery.Relation || recorded[0].User != wantQuery.User {
+				t.Errorf("got query %+v, want %+v", recorded[0], wantQuery)
+			}
+			mu.Lock()
+			tErr := tenantErr
+			tid := foundTenant
+			mu.Unlock()
+			if tErr == nil || tid != "" {
+				t.Errorf("tenant found in context = %q, want none", tid)
+			}
+		})
+	}
 }
 
 func TestRequestRuleNoIDRefused(t *testing.T) {
@@ -3223,6 +3278,74 @@ func TestDeferredObligationDischarge(t *testing.T) {
 				return resp, nil
 			},
 		},
+		{
+			name:       "request",
+			relation:   "view",
+			objectType: "edge",
+			call: func(t *testing.T, env *testEnv, handler func(ctx context.Context) error) (any, error) {
+				env.handlers.SetGetCaptureFn(func(ctx context.Context, _ *connect.Request[capturev1.GetCaptureSessionRequest]) (*connect.Response[capturev1.GetCaptureSessionResponse], error) {
+					if err := handler(ctx); err != nil {
+						return nil, err
+					}
+					return validResponse(t, capturev1.GetCaptureSessionResponse_builder{
+						Session: validCaptureSessionRecord(t),
+					}.Build()), nil
+				})
+				req := validRequest(t, capturev1.GetCaptureSessionRequest_builder{
+					Session: sessionRef(t, validSessionID),
+				}.Build())
+				req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+				resp, err := env.captureCli.GetCaptureSession(context.Background(), req)
+				if err != nil {
+					return nil, err
+				}
+				return resp, nil
+			},
+		},
+		{
+			name:       "tenant",
+			relation:   "view",
+			objectType: "edge",
+			call: func(t *testing.T, env *testEnv, handler func(ctx context.Context) error) (any, error) {
+				env.handlers.SetCreateEdgeFn(func(ctx context.Context, _ *connect.Request[edgev1.CreateEdgeRequest]) (*connect.Response[edgev1.CreateEdgeResponse], error) {
+					if err := handler(ctx); err != nil {
+						return nil, err
+					}
+					return validResponse(t, edgev1.CreateEdgeResponse_builder{
+						Edge:         validEdgeRecord(t),
+						Provisioning: validEdgeProvisioning(t),
+					}.Build()), nil
+				})
+				req := validRequest(t, edgev1.CreateEdgeRequest_builder{
+					Name: proto.String("edge-alpha"),
+				}.Build())
+				req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+				resp, err := env.edgeCli.CreateEdge(context.Background(), req)
+				if err != nil {
+					return nil, err
+				}
+				return resp, nil
+			},
+		},
+		{
+			name:       "platform",
+			relation:   "view",
+			objectType: "edge",
+			call: func(t *testing.T, env *testEnv, handler func(ctx context.Context) error) (any, error) {
+				env.handlers.SetListTenantsFn(func(ctx context.Context, _ *connect.Request[identityv1.ListTenantsRequest]) (*connect.Response[identityv1.ListTenantsResponse], error) {
+					if err := handler(ctx); err != nil {
+						return nil, err
+					}
+					return validResponse(t, identityv1.ListTenantsResponse_builder{}.Build()), nil
+				})
+				req := validRequest(t, identityv1.ListTenantsRequest_builder{}.Build())
+				resp, err := env.tenantCli.ListTenants(context.Background(), req)
+				if err != nil {
+					return nil, err
+				}
+				return resp, nil
+			},
+		},
 	}
 
 	type checkKind int
@@ -3231,26 +3354,55 @@ func TestDeferredObligationDischarge(t *testing.T) {
 		checkRequireAllowed
 		checkRequireDenied
 		checkRequireCheckerError
+		checkRequireRefused
 		checkFilterWithIDs
 		checkFilterNilIDs
 		checkFilterEmptyIDs
 		checkFilterCheckerError
+		checkFilterRefused
 		checkShortBatchCheckAnswer
+		checkRequireDeniedThenRequireAllowed
+		checkRequireDeniedThenFilterAllowed
+		checkFilterCheckerErrorThenRequireAllowed
+		checkFilterCheckerErrorThenFilterAllowed
 	)
 
 	checkKinds := []struct {
-		name string
-		kind checkKind
+		name         string
+		kind         checkKind
+		needsSuccess bool
+		platformOnly bool
+		skipPlatform bool
 	}{
 		{name: "none", kind: checkNone},
-		{name: "Require allowed", kind: checkRequireAllowed},
-		{name: "Require denied", kind: checkRequireDenied},
-		{name: "Require checker error", kind: checkRequireCheckerError},
-		{name: "Filter with ids", kind: checkFilterWithIDs},
-		{name: "Filter with nil ids", kind: checkFilterNilIDs},
-		{name: "Filter with empty non-nil ids", kind: checkFilterEmptyIDs},
-		{name: "Filter checker error", kind: checkFilterCheckerError},
-		{name: "short BatchCheck answer", kind: checkShortBatchCheckAnswer},
+		{name: "Require allowed", kind: checkRequireAllowed, needsSuccess: true},
+		{name: "Require denied", kind: checkRequireDenied, skipPlatform: true},
+		{name: "Require checker error", kind: checkRequireCheckerError, skipPlatform: true},
+		{name: "Require refused", kind: checkRequireRefused, platformOnly: true},
+		{name: "Filter with ids", kind: checkFilterWithIDs, needsSuccess: true},
+		{name: "Filter with nil ids", kind: checkFilterNilIDs, needsSuccess: true},
+		{name: "Filter with empty non-nil ids", kind: checkFilterEmptyIDs, needsSuccess: true},
+		{name: "Filter checker error", kind: checkFilterCheckerError, skipPlatform: true},
+		{name: "Filter refused", kind: checkFilterRefused, platformOnly: true},
+		{name: "short BatchCheck answer", kind: checkShortBatchCheckAnswer, skipPlatform: true},
+		{name: "Require denied then Require allowed", kind: checkRequireDeniedThenRequireAllowed, needsSuccess: true},
+		{name: "Require denied then Filter allowed", kind: checkRequireDeniedThenFilterAllowed, needsSuccess: true},
+		{name: "Filter checker error then Require allowed", kind: checkFilterCheckerErrorThenRequireAllowed, needsSuccess: true},
+		{name: "Filter checker error then Filter allowed", kind: checkFilterCheckerErrorThenFilterAllowed, needsSuccess: true},
+	}
+
+	type contextKind int
+	const (
+		contextLive contextKind = iota
+		contextEnded
+	)
+
+	contextKinds := []struct {
+		name string
+		kind contextKind
+	}{
+		{name: "live context", kind: contextLive},
+		{name: "ended context", kind: contextEnded},
 	}
 
 	type returnKind int
@@ -3280,183 +3432,332 @@ func TestDeferredObligationDischarge(t *testing.T) {
 		},
 	}
 
+	wantPlatformQuery := authz.Query{
+		Object:   "platform:flowseer",
+		Relation: "admin",
+		User:     "user:" + testPrincipalID,
+		ContextualTuples: []authz.Tuple{
+			{
+				Object:   "tenant:" + validTenantID,
+				Relation: "claimed",
+				User:     "user:" + testPrincipalID,
+			},
+		},
+	}
+
 	handlerErr := connect.NewError(connect.CodeNotFound, errors.New("sentinel handler error"))
 
 	for _, mode := range modes {
 		t.Run(mode.name, func(t *testing.T) {
 			for _, tcCheck := range checkKinds {
+				if mode.name == "platform" && (tcCheck.needsSuccess || tcCheck.skipPlatform) {
+					continue
+				}
+				if mode.name != "platform" && tcCheck.platformOnly {
+					continue
+				}
 				t.Run(tcCheck.name, func(t *testing.T) {
-					for _, tcReturn := range returnKinds {
-						t.Run(tcReturn.name, func(t *testing.T) {
-							env := setupTestEnv(t)
-							if tcCheck.kind == checkRequireDenied {
-								env.checker.SetDeny(func(q authz.Query) bool {
-									return strings.HasPrefix(q.Object, mode.objectType+":")
-								})
-							}
-							if tcCheck.kind == checkRequireCheckerError || tcCheck.kind == checkFilterCheckerError {
-								env.checker.SetFail(func(q authz.Query) error {
-									if strings.HasPrefix(q.Object, mode.objectType+":") {
-										return errors.New("simulated checker failure")
+					for _, tcContext := range contextKinds {
+						t.Run(tcContext.name, func(t *testing.T) {
+							for _, tcReturn := range returnKinds {
+								t.Run(tcReturn.name, func(t *testing.T) {
+									env := setupTestEnv(t)
+									if tcContext.kind == contextEnded {
+										env.outerInterceptor.setDeriveCtx(context.WithCancel)
 									}
-									return nil
-								})
-							}
-							if tcCheck.kind == checkShortBatchCheckAnswer {
-								env.checker.SetBatchAnswers(func(_ []authz.Query) []bool {
-									return []bool{}
-								})
-							}
 
-							var (
-								mu         sync.Mutex
-								handlerRan bool
-								filterIDs  []string
-								filterErr  error
-								requireErr error
-							)
-
-							resp, err := mode.call(t, env, func(ctx context.Context) error {
-								var (
-									rErr error
-									fErr error
-									fIDs []string
-								)
-								switch tcCheck.kind {
-								case checkNone:
-									// No check performed.
-								case checkRequireAllowed, checkRequireDenied, checkRequireCheckerError:
-									rErr = authz.Require(ctx, mode.relation, mode.objectType, validEdgeID)
-								case checkFilterWithIDs, checkFilterCheckerError:
-									fIDs, fErr = authz.Filter(ctx, mode.relation, mode.objectType, []string{validEdgeID})
-								case checkFilterNilIDs:
-									fIDs, fErr = authz.Filter(ctx, mode.relation, mode.objectType, nil)
-								case checkFilterEmptyIDs:
-									fIDs, fErr = authz.Filter(ctx, mode.relation, mode.objectType, []string{})
-								case checkShortBatchCheckAnswer:
-									rErr = authz.Require(ctx, mode.relation, mode.objectType, validEdgeID)
-								}
-
-								mu.Lock()
-								handlerRan = true
-								requireErr = rErr
-								filterErr = fErr
-								filterIDs = fIDs
-								mu.Unlock()
-
-								if tcReturn.kind == returnResponse {
-									return nil
-								}
-								if rErr != nil {
-									return rErr
-								}
-								if fErr != nil {
-									return fErr
-								}
-								return handlerErr
-							})
-
-							mu.Lock()
-							ran := handlerRan
-							rErr := requireErr
-							fErr := filterErr
-							fIDs := filterIDs
-							mu.Unlock()
-
-							if !ran {
-								t.Fatal("handler did not run")
-							}
-
-							if tcCheck.kind == checkRequireAllowed && rErr != nil {
-								t.Fatalf("Require failed unexpectedly: %v", rErr)
-							}
-							if (tcCheck.kind == checkRequireDenied || tcCheck.kind == checkRequireCheckerError || tcCheck.kind == checkShortBatchCheckAnswer) && rErr == nil {
-								t.Fatal("expected Require to fail, got nil")
-							}
-							if tcCheck.kind == checkFilterCheckerError && fErr == nil {
-								t.Fatal("expected Filter to fail, got nil")
-							}
-							if tcCheck.kind == checkFilterWithIDs {
-								if fErr != nil {
-									t.Fatalf("Filter failed unexpectedly: %v", fErr)
-								}
-								if !slices.Equal(fIDs, []string{validEdgeID}) {
-									t.Fatalf("Filter returned %v, want [%s]", fIDs, validEdgeID)
-								}
-							}
-							if tcCheck.kind == checkFilterNilIDs || tcCheck.kind == checkFilterEmptyIDs {
-								if fErr != nil {
-									t.Errorf("Filter returned error: %v, want nil", fErr)
-								}
-								if fIDs == nil || len(fIDs) != 0 {
-									t.Errorf("Filter returned IDs %v, want empty non-nil slice", fIDs)
-								}
-								recorded := env.checker.Recorded()
-								if len(recorded) != 1 {
-									t.Errorf("recorded %d queries, want 1", len(recorded))
-								} else if !queryEquals(recorded[0], wantMembershipQuery) {
-									t.Errorf("recorded query = %+v, want %+v", recorded[0], wantMembershipQuery)
-								}
-							}
-
-							isFailedCheck := tcCheck.kind == checkRequireDenied ||
-								tcCheck.kind == checkRequireCheckerError ||
-								tcCheck.kind == checkFilterCheckerError ||
-								tcCheck.kind == checkShortBatchCheckAnswer
-
-							wantViolation := (tcCheck.kind == checkNone) || (isFailedCheck && tcReturn.kind == returnResponse)
-							if wantViolation {
-								if resp != nil {
-									t.Errorf("got response %v, want nil", resp)
-								}
-								if err == nil {
-									t.Fatal("expected error, got nil")
-								}
-								if connect.CodeOf(err) != connect.CodeInternal {
-									t.Errorf("got code %v, want %v", connect.CodeOf(err), connect.CodeInternal)
-								}
-								if got := errCodeOf(t, err); got != authz.ErrCodeObligationViolation.String() {
-									t.Errorf("got error code %q, want %q", got, authz.ErrCodeObligationViolation)
-								}
-								if got := retryDispositionOf(t, err); got == errsv1.RetryDisposition_RETRY_DISPOSITION_RETRYABLE {
-									t.Errorf("got retry disposition %v, want non-retryable", got)
-								}
-							} else {
-								switch tcReturn.kind {
-								case returnResponse:
-									if err != nil {
-										t.Fatalf("unexpected call error: %v", err)
-									}
-									if resp == nil {
-										t.Fatal("expected response, got nil")
-									}
-								case returnError:
-									if resp != nil {
-										t.Errorf("got response %v, want nil", resp)
-									}
-									if err == nil {
-										t.Fatal("expected error, got nil")
-									}
-									wantCode := connect.CodeNotFound
 									switch tcCheck.kind {
 									case checkRequireDenied:
-										wantCode = connect.CodePermissionDenied
-										if got := errCodeOf(t, err); got != authz.ErrCodeDenied.String() {
-											t.Errorf("got error code %q, want %q", got, authz.ErrCodeDenied)
+										env.checker.SetDeny(func(q authz.Query) bool {
+											return strings.HasPrefix(q.Object, mode.objectType+":")
+										})
+									case checkRequireCheckerError, checkFilterCheckerError:
+										env.checker.SetFail(func(q authz.Query) error {
+											if strings.HasPrefix(q.Object, mode.objectType+":") {
+												return errors.New("simulated checker failure")
+											}
+											return nil
+										})
+									case checkShortBatchCheckAnswer:
+										env.checker.SetBatchAnswers(func(queries []authz.Query) []bool {
+											for _, q := range queries {
+												if strings.HasPrefix(q.Object, mode.objectType+":") {
+													return []bool{}
+												}
+											}
+											ans := make([]bool, len(queries))
+											for i := range ans {
+												ans[i] = true
+											}
+											return ans
+										})
+									case checkRequireDeniedThenRequireAllowed, checkRequireDeniedThenFilterAllowed:
+										env.checker.SetDeny(func(q authz.Query) bool {
+											return q.Object == mode.objectType+":"+validEdgeID
+										})
+									case checkFilterCheckerErrorThenRequireAllowed, checkFilterCheckerErrorThenFilterAllowed:
+										env.checker.SetFail(func(q authz.Query) error {
+											if q.Object == mode.objectType+":"+validEdgeID {
+												return errors.New("simulated checker failure")
+											}
+											return nil
+										})
+									}
+
+									var (
+										mu         sync.Mutex
+										handlerRan bool
+										filterIDs  []string
+										filterErr  error
+										requireErr error
+									)
+
+									resp, err := mode.call(t, env, func(ctx context.Context) error {
+										var (
+											rErr error
+											fErr error
+											fIDs []string
+										)
+										switch tcCheck.kind {
+										case checkNone:
+											// No check performed.
+										case checkRequireAllowed, checkRequireDenied, checkRequireCheckerError, checkRequireRefused:
+											rErr = authz.Require(ctx, mode.relation, mode.objectType, validEdgeID)
+										case checkFilterWithIDs, checkFilterCheckerError, checkFilterRefused:
+											fIDs, fErr = authz.Filter(ctx, mode.relation, mode.objectType, []string{validEdgeID})
+										case checkFilterNilIDs:
+											fIDs, fErr = authz.Filter(ctx, mode.relation, mode.objectType, nil)
+										case checkFilterEmptyIDs:
+											fIDs, fErr = authz.Filter(ctx, mode.relation, mode.objectType, []string{})
+										case checkShortBatchCheckAnswer:
+											rErr = authz.Require(ctx, mode.relation, mode.objectType, validEdgeID)
+										case checkRequireDeniedThenRequireAllowed:
+											rErr = authz.Require(ctx, mode.relation, mode.objectType, validEdgeID)
+											if rErr2 := authz.Require(ctx, mode.relation, mode.objectType, validEdgeID2); rErr2 != nil {
+												t.Errorf("second Require failed unexpectedly: %v", rErr2)
+											}
+										case checkRequireDeniedThenFilterAllowed:
+											rErr = authz.Require(ctx, mode.relation, mode.objectType, validEdgeID)
+											fIDs2, fErr2 := authz.Filter(ctx, mode.relation, mode.objectType, []string{validEdgeID2})
+											if fErr2 != nil {
+												t.Errorf("second Filter failed unexpectedly: %v", fErr2)
+											} else if !slices.Equal(fIDs2, []string{validEdgeID2}) {
+												t.Errorf("second Filter IDs = %v, want [%s]", fIDs2, validEdgeID2)
+											}
+										case checkFilterCheckerErrorThenRequireAllowed:
+											_, fErr = authz.Filter(ctx, mode.relation, mode.objectType, []string{validEdgeID})
+											if rErr2 := authz.Require(ctx, mode.relation, mode.objectType, validEdgeID2); rErr2 != nil {
+												t.Errorf("second Require failed unexpectedly: %v", rErr2)
+											}
+										case checkFilterCheckerErrorThenFilterAllowed:
+											_, fErr = authz.Filter(ctx, mode.relation, mode.objectType, []string{validEdgeID})
+											fIDs2, fErr2 := authz.Filter(ctx, mode.relation, mode.objectType, []string{validEdgeID2})
+											if fErr2 != nil {
+												t.Errorf("second Filter failed unexpectedly: %v", fErr2)
+											} else if !slices.Equal(fIDs2, []string{validEdgeID2}) {
+												t.Errorf("second Filter IDs = %v, want [%s]", fIDs2, validEdgeID2)
+											}
 										}
-									case checkRequireCheckerError, checkFilterCheckerError, checkShortBatchCheckAnswer:
-										wantCode = connect.CodeUnavailable
-										if got := errCodeOf(t, err); got != authz.ErrCodeUnavailable.String() {
-											t.Errorf("got error code %q, want %q", got, authz.ErrCodeUnavailable)
+
+										mu.Lock()
+										handlerRan = true
+										requireErr = rErr
+										filterErr = fErr
+										filterIDs = fIDs
+										mu.Unlock()
+
+										if tcContext.kind == contextEnded {
+											env.outerInterceptor.Cancel()
 										}
-										if got := retryDispositionOf(t, err); got != errsv1.RetryDisposition_RETRY_DISPOSITION_RETRYABLE {
-											t.Errorf("got retry disposition %v, want retryable", got)
+
+										if tcReturn.kind == returnResponse {
+											return nil
+										}
+										return handlerErr
+									})
+
+									if tcContext.kind == contextEnded {
+										if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+											t.Fatalf("call context err = %v, want context.Canceled", got)
 										}
 									}
-									if connect.CodeOf(err) != wantCode {
-										t.Errorf("got code %v, want %v", connect.CodeOf(err), wantCode)
+
+									mu.Lock()
+									ran := handlerRan
+									rErr := requireErr
+									fErr := filterErr
+									fIDs := filterIDs
+									mu.Unlock()
+
+									if !ran {
+										t.Fatal("handler did not run")
 									}
-								}
+
+									if tcCheck.kind == checkRequireAllowed && rErr != nil {
+										t.Fatalf("Require failed unexpectedly: %v", rErr)
+									}
+									if (tcCheck.kind == checkRequireDenied || tcCheck.kind == checkRequireCheckerError || tcCheck.kind == checkShortBatchCheckAnswer) && rErr == nil {
+										t.Fatal("expected Require to fail, got nil")
+									}
+									if tcCheck.kind == checkFilterCheckerError && fErr == nil {
+										t.Fatal("expected Filter to fail, got nil")
+									}
+									if tcCheck.kind == checkRequireRefused {
+										if rErr == nil {
+											t.Fatal("expected Require to fail, got nil")
+										}
+										if got := errCodeOf(t, rErr); got != authz.ErrCodeObligationViolation.String() {
+											t.Errorf("Require error code = %q, want %q", got, authz.ErrCodeObligationViolation)
+										}
+										recorded := env.checker.Recorded()
+										if len(recorded) != 1 {
+											t.Fatalf("recorded %d queries, want 1", len(recorded))
+										}
+										if !queryEquals(recorded[0], wantPlatformQuery) {
+											t.Errorf("recorded query = %+v, want %+v", recorded[0], wantPlatformQuery)
+										}
+									}
+									if tcCheck.kind == checkFilterRefused {
+										if fErr == nil {
+											t.Fatal("expected Filter to fail, got nil")
+										}
+										if got := errCodeOf(t, fErr); got != authz.ErrCodeObligationViolation.String() {
+											t.Errorf("Filter error code = %q, want %q", got, authz.ErrCodeObligationViolation)
+										}
+										recorded := env.checker.Recorded()
+										if len(recorded) != 1 {
+											t.Fatalf("recorded %d queries, want 1", len(recorded))
+										}
+										if !queryEquals(recorded[0], wantPlatformQuery) {
+											t.Errorf("recorded query = %+v, want %+v", recorded[0], wantPlatformQuery)
+										}
+									}
+									if (tcCheck.kind == checkRequireDeniedThenRequireAllowed || tcCheck.kind == checkRequireDeniedThenFilterAllowed) && rErr == nil {
+										t.Fatal("expected first Require to fail, got nil")
+									}
+									if (tcCheck.kind == checkFilterCheckerErrorThenRequireAllowed || tcCheck.kind == checkFilterCheckerErrorThenFilterAllowed) && fErr == nil {
+										t.Fatal("expected first Filter to fail, got nil")
+									}
+									if tcCheck.kind == checkFilterWithIDs {
+										if fErr != nil {
+											t.Fatalf("Filter failed unexpectedly: %v", fErr)
+										}
+										if !slices.Equal(fIDs, []string{validEdgeID}) {
+											t.Fatalf("Filter returned %v, want [%s]", fIDs, validEdgeID)
+										}
+									}
+									if tcCheck.kind == checkFilterNilIDs || tcCheck.kind == checkFilterEmptyIDs {
+										if fErr != nil {
+											t.Errorf("Filter returned error: %v, want nil", fErr)
+										}
+										if fIDs == nil || len(fIDs) != 0 {
+											t.Errorf("Filter returned IDs %v, want empty non-nil slice", fIDs)
+										}
+										if mode.name == "loaded" || mode.name == "filtered" {
+											recorded := env.checker.Recorded()
+											if len(recorded) != 1 {
+												t.Errorf("recorded %d queries, want 1", len(recorded))
+											} else if !queryEquals(recorded[0], wantMembershipQuery) {
+												t.Errorf("recorded query = %+v, want %+v", recorded[0], wantMembershipQuery)
+											}
+										}
+									}
+
+									isLoadedOrFiltered := mode.name == "loaded" || mode.name == "filtered"
+									isNone := tcCheck.kind == checkNone
+									hasFailedCheck := tcCheck.kind == checkRequireDenied ||
+										tcCheck.kind == checkRequireCheckerError ||
+										tcCheck.kind == checkFilterCheckerError ||
+										tcCheck.kind == checkShortBatchCheckAnswer ||
+										tcCheck.kind == checkRequireDeniedThenRequireAllowed ||
+										tcCheck.kind == checkRequireDeniedThenFilterAllowed ||
+										tcCheck.kind == checkFilterCheckerErrorThenRequireAllowed ||
+										tcCheck.kind == checkFilterCheckerErrorThenFilterAllowed ||
+										tcCheck.kind == checkRequireRefused ||
+										tcCheck.kind == checkFilterRefused
+									isEnded := tcContext.kind == contextEnded
+
+									var (
+										wantInternalViolation   bool
+										wantCtxErrItself        bool
+										wantHandlerErrUnchanged bool
+										wantResponsePasses      bool
+									)
+
+									if tcReturn.kind == returnResponse {
+										switch {
+										case isLoadedOrFiltered && isNone:
+											wantInternalViolation = true
+										case hasFailedCheck:
+											wantInternalViolation = true
+										default:
+											wantResponsePasses = true
+										}
+									} else {
+										// tcReturn.kind == returnError
+										if isLoadedOrFiltered && isNone {
+											if isEnded {
+												wantCtxErrItself = true
+											} else {
+												wantInternalViolation = true
+											}
+										} else {
+											wantHandlerErrUnchanged = true
+										}
+									}
+
+									switch {
+									case wantInternalViolation:
+										if resp != nil {
+											t.Errorf("got response %v, want nil", resp)
+										}
+										if err == nil {
+											t.Fatal("expected error, got nil")
+										}
+										if connect.CodeOf(err) != connect.CodeInternal {
+											t.Errorf("got code %v, want %v", connect.CodeOf(err), connect.CodeInternal)
+										}
+										if got := errCodeOf(t, err); got != authz.ErrCodeObligationViolation.String() {
+											t.Errorf("got error code %q, want %q", got, authz.ErrCodeObligationViolation)
+										}
+										if got := retryDispositionOf(t, err); got == errsv1.RetryDisposition_RETRY_DISPOSITION_RETRYABLE {
+											t.Errorf("got retry disposition %v, want non-retryable", got)
+										}
+									case wantCtxErrItself:
+										if resp != nil {
+											t.Errorf("got response %v, want nil", resp)
+										}
+										if err == nil {
+											t.Fatal("expected error, got nil")
+										}
+										if outerErr := env.outerInterceptor.OuterErr(); outerErr != context.Canceled {
+											t.Errorf("outer interceptor err = %v, want context.Canceled", outerErr)
+										}
+										if connect.CodeOf(err) != connect.CodeCanceled {
+											t.Errorf("got code %v, want %v", connect.CodeOf(err), connect.CodeCanceled)
+										}
+									case wantHandlerErrUnchanged:
+										if resp != nil {
+											t.Errorf("got response %v, want nil", resp)
+										}
+										if err == nil {
+											t.Fatal("expected error, got nil")
+										}
+										if outerErr := env.outerInterceptor.OuterErr(); outerErr != handlerErr {
+											t.Errorf("outer interceptor err = %v (%p), want handlerErr %v (%p)", outerErr, outerErr, handlerErr, handlerErr)
+										}
+										if connect.CodeOf(err) != connect.CodeNotFound {
+											t.Errorf("got code %v, want %v", connect.CodeOf(err), connect.CodeNotFound)
+										}
+									case wantResponsePasses:
+										if err != nil {
+											t.Fatalf("unexpected call error: %v", err)
+										}
+										if resp == nil {
+											t.Fatal("expected response, got nil")
+										}
+									}
+								})
 							}
 						})
 					}
@@ -3477,10 +3778,11 @@ type cancellableTestEnv struct {
 }
 
 type cancellableOuterInterceptor struct {
-	mu        sync.Mutex
-	cancel    context.CancelFunc
-	outerErr  error
-	deriveCtx func(ctx context.Context) (context.Context, context.CancelFunc)
+	mu          sync.Mutex
+	cancel      context.CancelFunc
+	outerErr    error
+	afterCtxErr error
+	deriveCtx   func(ctx context.Context) (context.Context, context.CancelFunc)
 }
 
 func (ci *cancellableOuterInterceptor) setDeriveCtx(fn func(ctx context.Context) (context.Context, context.CancelFunc)) {
@@ -3503,6 +3805,12 @@ func (ci *cancellableOuterInterceptor) OuterErr() error {
 	return ci.outerErr
 }
 
+func (ci *cancellableOuterInterceptor) AfterCtxErr() error {
+	ci.mu.Lock()
+	defer ci.mu.Unlock()
+	return ci.afterCtxErr
+}
+
 func (ci *cancellableOuterInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		ci.mu.Lock()
@@ -3521,6 +3829,7 @@ func (ci *cancellableOuterInterceptor) WrapUnary(next connect.UnaryFunc) connect
 
 		ci.mu.Lock()
 		ci.outerErr = err
+		ci.afterCtxErr = ctx.Err()
 		ci.mu.Unlock()
 
 		return resp, err
@@ -3589,6 +3898,9 @@ func TestContextCancellation(t *testing.T) {
 
 		_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
 		recorded := env.checker.Recorded()
 		if len(recorded) != 1 {
 			t.Fatalf("recorded %d queries, want 1", len(recorded))
@@ -3600,7 +3912,7 @@ func TestContextCancellation(t *testing.T) {
 			t.Error("handler ran, want not run")
 		}
 		outerErr := env.outerInterceptor.OuterErr()
-		if !errors.Is(outerErr, context.Canceled) {
+		if outerErr != context.Canceled {
 			t.Errorf("outer interceptor err = %v, want context.Canceled", outerErr)
 		}
 		if connect.CodeOf(err) != connect.CodeCanceled {
@@ -3625,13 +3937,7 @@ func TestContextCancellation(t *testing.T) {
 	t.Run("membership check deadline exceeded while answering true", func(t *testing.T) {
 		env := setupCancellableTestEnv(t)
 		env.outerInterceptor.setDeriveCtx(func(ctx context.Context) (context.Context, context.CancelFunc) {
-			return context.WithTimeout(ctx, 2*time.Millisecond)
-		})
-		env.checker.SetFail(func(q authz.Query) error {
-			if q.Relation == "member" {
-				time.Sleep(10 * time.Millisecond)
-			}
-			return nil
+			return context.WithDeadline(ctx, time.Now().Add(-time.Hour))
 		})
 
 		req := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
@@ -3639,6 +3945,9 @@ func TestContextCancellation(t *testing.T) {
 
 		_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.DeadlineExceeded {
+			t.Fatalf("call context err = %v, want context.DeadlineExceeded", got)
+		}
 		recorded := env.checker.Recorded()
 		if len(recorded) != 1 {
 			t.Fatalf("recorded %d queries, want 1", len(recorded))
@@ -3650,7 +3959,7 @@ func TestContextCancellation(t *testing.T) {
 			t.Error("handler ran, want not run")
 		}
 		outerErr := env.outerInterceptor.OuterErr()
-		if !errors.Is(outerErr, context.DeadlineExceeded) {
+		if outerErr != context.DeadlineExceeded {
 			t.Errorf("outer interceptor err = %v, want context.DeadlineExceeded", outerErr)
 		}
 		if connect.CodeOf(err) != connect.CodeDeadlineExceeded {
@@ -3675,6 +3984,65 @@ func TestContextCancellation(t *testing.T) {
 		}
 	})
 
+	t.Run("membership check deadline exceeded and fails yields DeadlineExceeded", func(t *testing.T) {
+		env := setupCancellableTestEnv(t)
+		env.outerInterceptor.setDeriveCtx(func(ctx context.Context) (context.Context, context.CancelFunc) {
+			return context.WithDeadline(ctx, time.Now().Add(-time.Hour))
+		})
+		env.checker.SetFail(func(q authz.Query) error {
+			if q.Relation == "member" {
+				return errors.New("simulated checker failure")
+			}
+			return nil
+		})
+
+		req := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
+		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+
+		_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
+
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.DeadlineExceeded {
+			t.Fatalf("call context err = %v, want context.DeadlineExceeded", got)
+		}
+		recorded := env.checker.Recorded()
+		if len(recorded) != 1 {
+			t.Fatalf("recorded %d queries, want 1", len(recorded))
+		}
+		if recorded[0].Relation != "member" {
+			t.Errorf("recorded query relation = %q, want member", recorded[0].Relation)
+		}
+		if env.handlers.DidRun("ListCaptureSessions") {
+			t.Error("handler ran, want not run")
+		}
+		outerErr := env.outerInterceptor.OuterErr()
+		if outerErr != context.DeadlineExceeded {
+			t.Errorf("outer interceptor err = %v, want context.DeadlineExceeded", outerErr)
+		}
+		if connect.CodeOf(err) != connect.CodeDeadlineExceeded {
+			t.Errorf("client code = %v, want %v", connect.CodeOf(err), connect.CodeDeadlineExceeded)
+		}
+
+		envLive := setupCancellableTestEnv(t)
+		envLive.checker.SetFail(func(q authz.Query) error {
+			if q.Relation == "member" {
+				return errors.New("simulated checker failure")
+			}
+			return nil
+		})
+		reqLive := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
+		reqLive.Header().Set("X-FlowSeer-Tenant", validTenantID)
+		_, errLive := envLive.captureCli.ListCaptureSessions(context.Background(), reqLive)
+		if connect.CodeOf(errLive) != connect.CodeUnavailable {
+			t.Errorf("live call code = %v, want %v", connect.CodeOf(errLive), connect.CodeUnavailable)
+		}
+		if got := errCodeOf(t, errLive); got != authz.ErrCodeUnavailable.String() {
+			t.Errorf("live call error code = %q, want %q", got, authz.ErrCodeUnavailable)
+		}
+		if got := retryDispositionOf(t, errLive); got != errsv1.RetryDisposition_RETRY_DISPOSITION_RETRYABLE {
+			t.Errorf("live call retry disposition = %v, want retryable", got)
+		}
+	})
+
 	t.Run("membership check cancels and fails yields Canceled", func(t *testing.T) {
 		env := setupCancellableTestEnv(t)
 		env.outerInterceptor.setDeriveCtx(context.WithCancel)
@@ -3691,6 +4059,9 @@ func TestContextCancellation(t *testing.T) {
 
 		_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
 		recorded := env.checker.Recorded()
 		if len(recorded) != 1 {
 			t.Fatalf("recorded %d queries, want 1", len(recorded))
@@ -3702,7 +4073,7 @@ func TestContextCancellation(t *testing.T) {
 			t.Error("handler ran, want not run")
 		}
 		outerErr := env.outerInterceptor.OuterErr()
-		if !errors.Is(outerErr, context.Canceled) {
+		if outerErr != context.Canceled {
 			t.Errorf("outer interceptor err = %v, want context.Canceled", outerErr)
 		}
 		if connect.CodeOf(err) != connect.CodeCanceled {
@@ -3715,6 +4086,193 @@ func TestContextCancellation(t *testing.T) {
 				return errors.New("simulated checker failure")
 			}
 			return nil
+		})
+		reqLive := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
+		reqLive.Header().Set("X-FlowSeer-Tenant", validTenantID)
+		_, errLive := envLive.captureCli.ListCaptureSessions(context.Background(), reqLive)
+		if connect.CodeOf(errLive) != connect.CodeUnavailable {
+			t.Errorf("live call code = %v, want %v", connect.CodeOf(errLive), connect.CodeUnavailable)
+		}
+		if got := errCodeOf(t, errLive); got != authz.ErrCodeUnavailable.String() {
+			t.Errorf("live call error code = %q, want %q", got, authz.ErrCodeUnavailable)
+		}
+		if got := retryDispositionOf(t, errLive); got != errsv1.RetryDisposition_RETRY_DISPOSITION_RETRYABLE {
+			t.Errorf("live call retry disposition = %v, want retryable", got)
+		}
+	})
+
+	t.Run("tenant rule on CreateEdge cancels context and fails query yields Canceled", func(t *testing.T) {
+		env := setupCancellableTestEnv(t)
+		env.outerInterceptor.setDeriveCtx(context.WithCancel)
+		env.checker.SetFail(func(q authz.Query) error {
+			if q.Object == "tenant:"+validTenantID && q.Relation == "admin" {
+				env.outerInterceptor.Cancel()
+				return errors.New("simulated checker failure")
+			}
+			return nil
+		})
+
+		req := validRequest(t, edgev1.CreateEdgeRequest_builder{
+			Name: proto.String("edge-alpha"),
+		}.Build())
+		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+
+		_, err := env.edgeCli.CreateEdge(context.Background(), req)
+
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
+		if env.handlers.DidRun("CreateEdge") {
+			t.Error("handler ran, want not run")
+		}
+		outerErr := env.outerInterceptor.OuterErr()
+		if outerErr != context.Canceled {
+			t.Errorf("outer interceptor err = %v, want context.Canceled", outerErr)
+		}
+		if connect.CodeOf(err) != connect.CodeCanceled {
+			t.Errorf("client code = %v, want %v", connect.CodeOf(err), connect.CodeCanceled)
+		}
+
+		envLive := setupCancellableTestEnv(t)
+		envLive.checker.SetFail(func(q authz.Query) error {
+			if q.Object == "tenant:"+validTenantID && q.Relation == "admin" {
+				return errors.New("simulated checker failure")
+			}
+			return nil
+		})
+		reqLive := validRequest(t, edgev1.CreateEdgeRequest_builder{
+			Name: proto.String("edge-alpha"),
+		}.Build())
+		reqLive.Header().Set("X-FlowSeer-Tenant", validTenantID)
+		_, errLive := envLive.edgeCli.CreateEdge(context.Background(), reqLive)
+		if connect.CodeOf(errLive) != connect.CodeUnavailable {
+			t.Errorf("live call code = %v, want %v", connect.CodeOf(errLive), connect.CodeUnavailable)
+		}
+		if got := errCodeOf(t, errLive); got != authz.ErrCodeUnavailable.String() {
+			t.Errorf("live call error code = %q, want %q", got, authz.ErrCodeUnavailable)
+		}
+		if got := retryDispositionOf(t, errLive); got != errsv1.RetryDisposition_RETRY_DISPOSITION_RETRYABLE {
+			t.Errorf("live call retry disposition = %v, want retryable", got)
+		}
+	})
+
+	t.Run("Require on tenant#full_payload cancels context and fails query yields Canceled", func(t *testing.T) {
+		env := setupCancellableTestEnv(t)
+		env.outerInterceptor.setDeriveCtx(context.WithCancel)
+		env.checker.SetFail(func(q authz.Query) error {
+			if q.Object == "tenant:"+validTenantID && q.Relation == "full_payload" {
+				env.outerInterceptor.Cancel()
+				return errors.New("simulated checker failure")
+			}
+			return nil
+		})
+
+		var (
+			mu         sync.Mutex
+			requireErr error
+		)
+		env.handlers.SetCreateCaptureFn(func(ctx context.Context, _ *connect.Request[capturev1.CreateCaptureSessionRequest]) (*connect.Response[capturev1.CreateCaptureSessionResponse], error) {
+			rErr := authz.Require(ctx, "full_payload", "tenant", validTenantID)
+			mu.Lock()
+			requireErr = rErr
+			mu.Unlock()
+			return nil, rErr
+		})
+
+		req := validRequest(t, validCreateCaptureSessionRequest(t))
+		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+		_, err := env.captureCli.CreateCaptureSession(context.Background(), req)
+
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
+		mu.Lock()
+		rErr := requireErr
+		mu.Unlock()
+		if rErr != context.Canceled {
+			t.Errorf("Require returned %v, want context.Canceled", rErr)
+		}
+		outerErr := env.outerInterceptor.OuterErr()
+		if outerErr != context.Canceled {
+			t.Errorf("outer interceptor err = %v, want context.Canceled", outerErr)
+		}
+		if connect.CodeOf(err) != connect.CodeCanceled {
+			t.Errorf("client code = %v, want %v", connect.CodeOf(err), connect.CodeCanceled)
+		}
+
+		envLive := setupCancellableTestEnv(t)
+		envLive.checker.SetFail(func(q authz.Query) error {
+			if q.Object == "tenant:"+validTenantID && q.Relation == "full_payload" {
+				return errors.New("simulated checker failure")
+			}
+			return nil
+		})
+		envLive.handlers.SetCreateCaptureFn(func(ctx context.Context, _ *connect.Request[capturev1.CreateCaptureSessionRequest]) (*connect.Response[capturev1.CreateCaptureSessionResponse], error) {
+			rErr := authz.Require(ctx, "full_payload", "tenant", validTenantID)
+			return nil, rErr
+		})
+		reqLive := validRequest(t, validCreateCaptureSessionRequest(t))
+		reqLive.Header().Set("X-FlowSeer-Tenant", validTenantID)
+		_, errLive := envLive.captureCli.CreateCaptureSession(context.Background(), reqLive)
+		if connect.CodeOf(errLive) != connect.CodeUnavailable {
+			t.Errorf("live call code = %v, want %v", connect.CodeOf(errLive), connect.CodeUnavailable)
+		}
+		if got := errCodeOf(t, errLive); got != authz.ErrCodeUnavailable.String() {
+			t.Errorf("live call error code = %q, want %q", got, authz.ErrCodeUnavailable)
+		}
+		if got := retryDispositionOf(t, errLive); got != errsv1.RetryDisposition_RETRY_DISPOSITION_RETRYABLE {
+			t.Errorf("live call retry disposition = %v, want retryable", got)
+		}
+	})
+
+	t.Run("checker cancels context and returns short BatchCheck answer yields Canceled", func(t *testing.T) {
+		env := setupCancellableTestEnv(t)
+		env.outerInterceptor.setDeriveCtx(context.WithCancel)
+		env.checker.SetBatchAnswers(func(_ []authz.Query) []bool {
+			env.outerInterceptor.Cancel()
+			return []bool{}
+		})
+
+		var (
+			mu         sync.Mutex
+			requireErr error
+		)
+		env.handlers.SetListCaptureFn(func(ctx context.Context, _ *connect.Request[capturev1.ListCaptureSessionsRequest]) (*connect.Response[capturev1.ListCaptureSessionsResponse], error) {
+			rErr := authz.Require(ctx, "capture", "edge", validEdgeID)
+			mu.Lock()
+			requireErr = rErr
+			mu.Unlock()
+			return nil, rErr
+		})
+
+		req := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
+		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+		_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
+
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
+		mu.Lock()
+		rErr := requireErr
+		mu.Unlock()
+		if rErr != context.Canceled {
+			t.Errorf("Require returned %v, want context.Canceled", rErr)
+		}
+		outerErr := env.outerInterceptor.OuterErr()
+		if outerErr != context.Canceled {
+			t.Errorf("outer interceptor err = %v, want context.Canceled", outerErr)
+		}
+		if connect.CodeOf(err) != connect.CodeCanceled {
+			t.Errorf("client code = %v, want %v", connect.CodeOf(err), connect.CodeCanceled)
+		}
+
+		envLive := setupCancellableTestEnv(t)
+		envLive.checker.SetBatchAnswers(func(_ []authz.Query) []bool {
+			return []bool{}
+		})
+		envLive.handlers.SetListCaptureFn(func(ctx context.Context, _ *connect.Request[capturev1.ListCaptureSessionsRequest]) (*connect.Response[capturev1.ListCaptureSessionsResponse], error) {
+			rErr := authz.Require(ctx, "capture", "edge", validEdgeID)
+			return nil, rErr
 		})
 		reqLive := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
 		reqLive.Header().Set("X-FlowSeer-Tenant", validTenantID)
@@ -3757,11 +4315,18 @@ func TestContextCancellation(t *testing.T) {
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 		_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
 		mu.Lock()
 		rErr := requireErr
 		mu.Unlock()
-		if !errors.Is(rErr, context.Canceled) {
+		if rErr != context.Canceled {
 			t.Errorf("Require returned %v, want context.Canceled", rErr)
+		}
+		outerErr := env.outerInterceptor.OuterErr()
+		if outerErr != context.Canceled {
+			t.Errorf("outer interceptor err = %v, want context.Canceled", outerErr)
 		}
 		if connect.CodeOf(err) != connect.CodeCanceled {
 			t.Errorf("client code = %v, want %v", connect.CodeOf(err), connect.CodeCanceled)
@@ -3795,11 +4360,18 @@ func TestContextCancellation(t *testing.T) {
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 		_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
 		mu.Lock()
 		fErr := filterErr
 		mu.Unlock()
-		if !errors.Is(fErr, context.Canceled) {
+		if fErr != context.Canceled {
 			t.Errorf("Filter returned %v, want context.Canceled", fErr)
+		}
+		outerErr := env.outerInterceptor.OuterErr()
+		if outerErr != context.Canceled {
+			t.Errorf("outer interceptor err = %v, want context.Canceled", outerErr)
 		}
 		if connect.CodeOf(err) != connect.CodeCanceled {
 			t.Errorf("client code = %v, want %v", connect.CodeOf(err), connect.CodeCanceled)
@@ -3820,11 +4392,14 @@ func TestContextCancellation(t *testing.T) {
 		req := validRequest(t, identityv1.ListTenantsRequest_builder{}.Build())
 		_, err := env.tenantCli.ListTenants(context.Background(), req)
 
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
 		if env.handlers.DidRun("ListTenants") {
 			t.Error("handler ran, want not run")
 		}
 		outerErr := env.outerInterceptor.OuterErr()
-		if !errors.Is(outerErr, context.Canceled) {
+		if outerErr != context.Canceled {
 			t.Errorf("outer interceptor err = %v, want context.Canceled", outerErr)
 		}
 		if connect.CodeOf(err) != connect.CodeCanceled {
@@ -3849,7 +4424,85 @@ func TestContextCancellation(t *testing.T) {
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 		_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
 		if env.handlers.DidRun("ListCaptureSessions") {
+			t.Error("handler ran, want not run")
+		}
+		if connect.CodeOf(err) != connect.CodePermissionDenied {
+			t.Errorf("got code %v, want %v", connect.CodeOf(err), connect.CodePermissionDenied)
+		}
+		if got := errCodeOf(t, err); got != authz.ErrCodeDenied.String() {
+			t.Errorf("got error code %q, want %q", got, authz.ErrCodeDenied)
+		}
+	})
+
+	t.Run("checker cancels and answers false on Require query yields PermissionDenied", func(t *testing.T) {
+		env := setupCancellableTestEnv(t)
+		env.outerInterceptor.setDeriveCtx(context.WithCancel)
+		env.checker.SetDeny(func(q authz.Query) bool {
+			if strings.HasPrefix(q.Object, "edge:") {
+				env.outerInterceptor.Cancel()
+				return true
+			}
+			return false
+		})
+
+		var (
+			mu         sync.Mutex
+			requireErr error
+		)
+		env.handlers.SetListCaptureFn(func(ctx context.Context, _ *connect.Request[capturev1.ListCaptureSessionsRequest]) (*connect.Response[capturev1.ListCaptureSessionsResponse], error) {
+			rErr := authz.Require(ctx, "capture", "edge", validEdgeID)
+			mu.Lock()
+			requireErr = rErr
+			mu.Unlock()
+			return nil, rErr
+		})
+
+		req := validRequest(t, capturev1.ListCaptureSessionsRequest_builder{}.Build())
+		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+		_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
+
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
+		mu.Lock()
+		rErr := requireErr
+		mu.Unlock()
+		if connect.CodeOf(rErr) != connect.CodePermissionDenied {
+			t.Errorf("Require code = %v, want %v", connect.CodeOf(rErr), connect.CodePermissionDenied)
+		}
+		if got := errCodeOf(t, rErr); got != authz.ErrCodeDenied.String() {
+			t.Errorf("Require error code = %q, want %q", got, authz.ErrCodeDenied)
+		}
+		if connect.CodeOf(err) != connect.CodePermissionDenied {
+			t.Errorf("client code = %v, want %v", connect.CodeOf(err), connect.CodePermissionDenied)
+		}
+		if got := errCodeOf(t, err); got != authz.ErrCodeDenied.String() {
+			t.Errorf("client error code = %q, want %q", got, authz.ErrCodeDenied)
+		}
+	})
+
+	t.Run("checker cancels and answers false on platform query yields PermissionDenied", func(t *testing.T) {
+		env := setupCancellableTestEnv(t)
+		env.outerInterceptor.setDeriveCtx(context.WithCancel)
+		env.checker.SetDeny(func(q authz.Query) bool {
+			if q.Object == "platform:flowseer" {
+				env.outerInterceptor.Cancel()
+				return true
+			}
+			return false
+		})
+
+		req := validRequest(t, identityv1.ListTenantsRequest_builder{}.Build())
+		_, err := env.tenantCli.ListTenants(context.Background(), req)
+
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
+		if env.handlers.DidRun("ListTenants") {
 			t.Error("handler ran, want not run")
 		}
 		if connect.CodeOf(err) != connect.CodePermissionDenied {
@@ -3872,6 +4525,9 @@ func TestContextCancellation(t *testing.T) {
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 		resp, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
 		if resp != nil {
 			t.Errorf("got response %v, want nil", resp)
 		}
@@ -3899,8 +4555,11 @@ func TestContextCancellation(t *testing.T) {
 		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
 		_, err := env.captureCli.ListCaptureSessions(context.Background(), req)
 
+		if got := env.outerInterceptor.AfterCtxErr(); got != context.Canceled {
+			t.Fatalf("call context err = %v, want context.Canceled", got)
+		}
 		outerErr := env.outerInterceptor.OuterErr()
-		if !errors.Is(outerErr, context.Canceled) {
+		if outerErr != context.Canceled {
 			t.Errorf("outer interceptor err = %v, want context.Canceled", outerErr)
 		}
 		if errors.Is(outerErr, sentinelErr) {

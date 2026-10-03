@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
+	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
 )
 
 // Interceptor enforces operator RPC authorization rules before delegating to
@@ -40,8 +41,21 @@ func (i *Interceptor) WrapStreamingHandler(_ connect.StreamingHandlerFunc) conne
 	}
 }
 
-// WrapUnary validates authorization rules, caller identity, and relationship
-// permissions before running the unary handler.
+// WrapUnary enforces authorization rules, caller identity, and relationship
+// permissions around a unary handler.
+//
+// Before invoking the handler, WrapUnary returns Unauthenticated when caller
+// identity is missing, InvalidArgument when the tenant header is missing or
+// invalid, and PermissionDenied when rules are unsupported, object identifiers
+// cannot be extracted, or checks are denied.
+//
+// A checker error yields ctx.Err() when the context has ended, and Unavailable
+// otherwise.
+//
+// WrapUnary returns Internal with no response when a loaded or filtered handler
+// discharged no check, or when the handler returned a response after Require or
+// Filter returned an error. A loaded or filtered handler that discharged no check
+// and returned an error while ctx.Err() is non-nil yields ctx.Err().
 func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		md, ok := req.Spec().Schema.(protoreflect.MethodDescriptor)
@@ -76,7 +90,7 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 
 		principal, ok := authn.FromContext(ctx)
 		if !ok || principal.ID == "" {
-			return nil, unauthenticated(errs.New().Code(ErrCodeUnauthenticated).
+			return nil, connecterr.WrapAs(connect.CodeUnauthenticated, "authentication required", errs.New().Code(ErrCodeUnauthenticated).
 				Msg("authentication required"))
 		}
 

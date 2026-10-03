@@ -42,30 +42,52 @@ sequenceDiagram
     Z->>Z: read the RPC's authorization rule option
     Note over Z: no rule, or a mode not implemented: PermissionDenied
     Z->>Z: read the principal, Unauthenticated when absent
+    Note over Z,F: checker error yields ctx.Err() when context ended, else Unavailable
     alt platform rule
         Z->>F: Check relation on platform:flowseer, no tenant header read
-    else every other mode
+        F-->>Z: allowed or denied
+        alt denied
+            Z-->>C: PermissionDenied
+        else allowed
+            Z->>H: call
+            H-->>Z: response or error
+        end
+    else request or tenant rule
         Z->>Z: validate the tenant header, InvalidArgument when bad
         Z->>F: Check tenant#member with token-derived claim context
-        F-->>Z: member or not, PermissionDenied when not
-    end
-    alt request or tenant rule
-        Z->>F: Check relation on the named object and its tenant, or on the tenant
-        F-->>Z: allowed or PermissionDenied before the handler
-        Z->>H: call
-        H-->>Z: response
+        F-->>Z: member or denied
+        alt not member
+            Z-->>C: PermissionDenied
+        else member
+            Z->>F: Check relation on the named object and its tenant, or on the tenant
+            F-->>Z: allowed or denied
+            alt denied
+                Z-->>C: PermissionDenied
+            else allowed
+                Z->>H: call
+                H-->>Z: response or error
+            end
+        end
     else loaded or filtered rule
-        Z->>H: call with an obligation in the context
-        H->>F: Require or Filter after loading the record
-        H-->>Z: response
-    else platform rule
-        Z->>H: call when allowed
-        H-->>Z: response
+        Z->>Z: validate the tenant header, InvalidArgument when bad
+        Z->>F: Check tenant#member with token-derived claim context
+        F-->>Z: member or denied
+        alt not member
+            Z-->>C: PermissionDenied
+        else member
+            Z->>H: call with an obligation in the context
+            H->>F: Require or Filter after loading the record
+            H-->>Z: response or error
+        end
     end
-    alt context ended, no response at stake
-        Z-->>C: ctx.Err()
-    else no check ran, or a Require or Filter failed and the handler answered
+    alt Require or Filter failed and the handler answered
         Z-->>C: Internal, response dropped
+    else loaded or filtered and no check discharged
+        alt context ended with handler error
+            Z-->>C: ctx.Err()
+        else
+            Z-->>C: Internal, obligation violation
+        end
     else
         Z-->>C: the handler's response or error
     end
@@ -371,11 +393,11 @@ option. One Connect interceptor enforces it:
 
 | Rule mode | The interceptor |
 | --- | --- |
-| The object is named in a request field | checks the relation on that object before the handler runs |
-| The object is the admitted tenant (creating an edge) | checks the relation on the tenant before the handler runs |
-| The object is the platform | checks the relation on `platform:flowseer` before the handler runs, reading no tenant header |
-| The object is known only after a load | runs the handler with an obligation in the context, and returns `Internal` and drops the response when the handler returned without a check or answered after a failed check |
-| The handler filters a list | same obligation as a load, with a failed `Filter` in place of a failed `Require` |
+| The object is named in a request field | checks the relation on that object before the handler runs, and returns `Internal` and drops the response after a failed `Require` or `Filter` |
+| The object is the admitted tenant (creating an edge) | checks the relation on the tenant before the handler runs, and returns `Internal` and drops the response after a failed `Require` or `Filter` |
+| The object is the platform | checks the relation on `platform:flowseer` before the handler runs, reading no tenant header, and returns `Internal` and drops the response after a failed `Require` or `Filter` |
+| The object is known only after a load | runs the handler with an obligation in the context, and returns `Internal` and drops the response when the handler returned without a check or answered after a failed `Require` or `Filter`, or `ctx.Err()` when the handler returned an error with no check after the context ended |
+| The handler filters a list | same obligation as a load |
 | No rule | refuses the call |
 
 A conformance gate fails any operator RPC without a rule, so a forgotten
@@ -466,8 +488,8 @@ rather than the device-scoped audit stream.
 ### 2026-10-02: platform rule mode
 
 The rule-mode table gains a platform row for global admin RPCs on
-`TenantService`. The interceptor checks `platform:flowseer#admin`, reads no
-tenant header, and sets no tenant in the context.
+`TenantService`. The interceptor checks `platform:flowseer` with its
+relation, reads no tenant header, and sets no tenant in the context.
 
 A tenant in a platform request is the object the RPC reads, never the
 tenant the call is admitted to, so the interceptor reads no tenant header,
@@ -493,7 +515,7 @@ outermost disposition any link expressed (`retryOf` in
 `src/common/errs/retry.go`), so a violation that took the retryable
 `authz/unavailable` as its cause would tell the caller to retry. The earlier
 rule dropped a response only when the handler returned without a check, and
-the table's loaded and filtered rows say so now.
+the table's rows say so now.
 
 A call whose context has ended answers with `ctx.Err()` itself, bare and
 outside `connecterr`, in two places. A checker error returned while
