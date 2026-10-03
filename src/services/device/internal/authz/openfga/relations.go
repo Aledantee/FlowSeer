@@ -47,6 +47,9 @@ func (c *Checker) Write(ctx context.Context, writes, deletes []authz.Tuple) erro
 	var cleanDeletes []authz.Tuple
 	seenDeletes := make(map[authz.Tuple]struct{})
 	for _, t := range deletes {
+		if _, ok := seenWrites[t]; ok {
+			return errs.New().Code(ErrCodeInvalidTuple).Msg("tuple in both writes and deletes")
+		}
 		if _, ok := seenDeletes[t]; !ok {
 			seenDeletes[t] = struct{}{}
 			cleanDeletes = append(cleanDeletes, t)
@@ -57,47 +60,33 @@ func (c *Checker) Write(ctx context.Context, writes, deletes []authz.Tuple) erro
 		return nil
 	}
 
-	remWrites := cleanWrites
 	remDeletes := cleanDeletes
+	remWrites := cleanWrites
 
-	for len(remWrites) > 0 || len(remDeletes) > 0 {
+	for len(remDeletes) > 0 || len(remWrites) > 0 {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
 
-		totalRem := len(remWrites) + len(remDeletes)
 		batchSize := maxTuplesPerWrite
-		if totalRem < batchSize {
-			batchSize = totalRem
+		var nd, nw int
+		if len(remDeletes) > 0 {
+			nd = len(remDeletes)
+			if nd > batchSize {
+				nd = batchSize
+			}
 		}
-
-		var nw, nd int
-		switch {
-		case len(remWrites) == 0:
-			nd = batchSize
-		case len(remDeletes) == 0:
-			nw = batchSize
-		default:
-			nw = (batchSize * len(remWrites)) / totalRem
-			if nw == 0 {
-				nw = 1
-			} else if nw == batchSize && batchSize > 1 {
-				nw = batchSize - 1
-			}
-			if nw > len(remWrites) {
-				nw = len(remWrites)
-			}
-			nd = batchSize - nw
-			if nd > len(remDeletes) {
-				nd = len(remDeletes)
-				nw = batchSize - nd
+		if remaining := batchSize - nd; remaining > 0 && len(remWrites) > 0 {
+			nw = len(remWrites)
+			if nw > remaining {
+				nw = remaining
 			}
 		}
 
-		chunkWrites := remWrites[:nw]
 		chunkDeletes := remDeletes[:nd]
-		remWrites = remWrites[nw:]
+		chunkWrites := remWrites[:nw]
 		remDeletes = remDeletes[nd:]
+		remWrites = remWrites[nw:]
 
 		req := &openfgav1.WriteRequest{
 			StoreId:              c.storeID,

@@ -755,6 +755,7 @@ func (s *Store) EachSession(ctx context.Context, fn func(tenantID string, rec *m
 	if err != nil {
 		return errs.From(err).Code(ErrCodeStore).Msg("list capture sessions")
 	}
+	var failures []error
 	for _, key := range keys {
 		parts := strings.Split(key, ".")
 		if len(parts) != 2 {
@@ -769,7 +770,8 @@ func (s *Store) EachSession(ctx context.Context, fn func(tenantID string, rec *m
 		}
 		rec, _, err := s.Session(ctx, tenantID, sessionID)
 		if err != nil {
-			return err
+			failures = append(failures, err)
+			continue
 		}
 		if rec == nil {
 			continue
@@ -778,5 +780,5 @@ func (s *Store) EachSession(ctx context.Context, fn func(tenantID string, rec *m
 			return err
 		}
 	}
-	return nil
+	return errors.Join(failures...)
 }

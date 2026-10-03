@@ -15,6 +15,7 @@ var (
 )
 
 // Publisher places one event on a stream under a message id.
+// Implementations must be safe for concurrent use.
 type Publisher interface {
 	Publish(ctx context.Context, subject string, data []byte, msgID string) error
 }

@@ -3,6 +3,7 @@ package openfga_test
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -235,6 +236,9 @@ func TestWriteRelations(t *testing.T) {
 		}
 
 		wantSizes := []int{100, 100, 50}
+		wantDeletes := []int{100, 25, 0}
+		wantWrites := []int{0, 75, 50}
+		var sentWrites, sentDeletes []authz.Tuple
 		for i, wantSize := range wantSizes {
 			req := reqs[i]
 			if req.GetAuthorizationModelId() != testModelID {
@@ -246,12 +250,90 @@ func TestWriteRelations(t *testing.T) {
 			if total != wantSize {
 				t.Errorf("call %d total items = %d, want %d (w=%d, d=%d)", i, total, wantSize, numWrites, numDeletes)
 			}
-			if req.GetWrites().GetOnDuplicate() != "ignore" {
-				t.Errorf("call %d OnDuplicate = %q, want 'ignore'", i, req.GetWrites().GetOnDuplicate())
+			if numDeletes != wantDeletes[i] || numWrites != wantWrites[i] {
+				t.Errorf("call %d split = (d=%d, w=%d), want (d=%d, w=%d)", i, numDeletes, numWrites, wantDeletes[i], wantWrites[i])
 			}
-			if req.GetDeletes().GetOnMissing() != "ignore" {
-				t.Errorf("call %d OnMissing = %q, want 'ignore'", i, req.GetDeletes().GetOnMissing())
+			if numWrites > 0 {
+				if req.GetWrites().GetOnDuplicate() != "ignore" {
+					t.Errorf("call %d OnDuplicate = %q, want 'ignore'", i, req.GetWrites().GetOnDuplicate())
+				}
+				for _, tk := range req.GetWrites().GetTupleKeys() {
+					sentWrites = append(sentWrites, authz.Tuple{
+						Object:   tk.GetObject(),
+						Relation: tk.GetRelation(),
+						User:     tk.GetUser(),
+					})
+				}
+			} else if req.GetWrites() != nil {
+				t.Errorf("call %d writes must be nil when empty", i)
 			}
+			if numDeletes > 0 {
+				if req.GetDeletes().GetOnMissing() != "ignore" {
+					t.Errorf("call %d OnMissing = %q, want 'ignore'", i, req.GetDeletes().GetOnMissing())
+				}
+				for _, tk := range req.GetDeletes().GetTupleKeys() {
+					sentDeletes = append(sentDeletes, authz.Tuple{
+						Object:   tk.GetObject(),
+						Relation: tk.GetRelation(),
+						User:     tk.GetUser(),
+					})
+				}
+			} else if req.GetDeletes() != nil {
+				t.Errorf("call %d deletes must be nil when empty", i)
+			}
+		}
+
+		if !slices.Equal(sentWrites, writes) {
+			t.Errorf("sent writes do not equal input writes")
+		}
+		if !slices.Equal(sentDeletes, deletes) {
+			t.Errorf("sent deletes do not equal input deletes")
+		}
+	})
+
+	t.Run("one-sided write asserts empty side is nil", func(t *testing.T) {
+		harness := newTestServerHarness(t)
+		checker := newChecker(t, harness, nil)
+
+		tuple := authz.Tuple{Object: "edge:e1", Relation: "view", User: "user:u1"}
+
+		// Writes only
+		if err := checker.Write(context.Background(), []authz.Tuple{tuple}, nil); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		harness.fake.mu.Lock()
+		reqs := harness.fake.recordedWriteReqs
+		harness.fake.mu.Unlock()
+		if len(reqs) != 1 {
+			t.Fatalf("got %d reqs, want 1", len(reqs))
+		}
+		if reqs[0].GetDeletes() != nil {
+			t.Errorf("expected deletes to be nil for writes-only call, got %v", reqs[0].GetDeletes())
+		}
+		if reqs[0].GetWrites() == nil {
+			t.Error("expected writes to be non-nil")
+		}
+
+		// Deletes only
+		harness.fake.mu.Lock()
+		harness.fake.recordedWriteReqs = nil
+		harness.fake.mu.Unlock()
+		harness.fake.writeCallsCount.Store(0)
+
+		if err := checker.Write(context.Background(), nil, []authz.Tuple{tuple}); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		harness.fake.mu.Lock()
+		reqs = harness.fake.recordedWriteReqs
+		harness.fake.mu.Unlock()
+		if len(reqs) != 1 {
+			t.Fatalf("got %d reqs, want 1", len(reqs))
+		}
+		if reqs[0].GetWrites() != nil {
+			t.Errorf("expected writes to be nil for deletes-only call, got %v", reqs[0].GetWrites())
+		}
+		if reqs[0].GetDeletes() == nil {
+			t.Error("expected deletes to be non-nil")
 		}
 	})
 
@@ -301,6 +383,65 @@ func TestWriteRelations(t *testing.T) {
 
 		badTuple := authz.Tuple{Object: "invalid", Relation: "view", User: "user:u1"}
 		err := checker.Write(context.Background(), []authz.Tuple{badTuple}, nil)
+		wantCode(t, err, openfga.ErrCodeInvalidTuple)
+
+		if harness.fake.writeCallsCount.Load() != 0 {
+			t.Errorf("got %d Write calls, want 0", harness.fake.writeCallsCount.Load())
+		}
+	})
+
+	t.Run("invalid tuple on deletes side fails with engine-invalid-tuple and no call", func(t *testing.T) {
+		harness := newTestServerHarness(t)
+		checker := newChecker(t, harness, nil)
+
+		badTuple := authz.Tuple{Object: "invalid", Relation: "view", User: "user:u1"}
+		err := checker.Write(context.Background(), nil, []authz.Tuple{badTuple})
+		wantCode(t, err, openfga.ErrCodeInvalidTuple)
+
+		if harness.fake.writeCallsCount.Load() != 0 {
+			t.Errorf("got %d Write calls, want 0", harness.fake.writeCallsCount.Load())
+		}
+	})
+
+	t.Run("tuple in both writes and deletes fails with engine-invalid-tuple before any call", func(t *testing.T) {
+		harness := newTestServerHarness(t)
+		checker := newChecker(t, harness, nil)
+
+		tuple := authz.Tuple{Object: "edge:e1", Relation: "view", User: "user:u1"}
+		err := checker.Write(context.Background(), []authz.Tuple{tuple}, []authz.Tuple{tuple})
+		wantCode(t, err, openfga.ErrCodeInvalidTuple)
+
+		if harness.fake.writeCallsCount.Load() != 0 {
+			t.Errorf("got %d Write calls, want 0", harness.fake.writeCallsCount.Load())
+		}
+	})
+
+	t.Run("tuple in both writes and deletes past 100 tuples fails with engine-invalid-tuple before any call", func(t *testing.T) {
+		harness := newTestServerHarness(t)
+		checker := newChecker(t, harness, nil)
+
+		overlap := authz.Tuple{Object: "edge:shared", Relation: "view", User: "user:shared"}
+		writes := make([]authz.Tuple, 60)
+		for i := range writes {
+			writes[i] = authz.Tuple{
+				Object:   fmt.Sprintf("edge:w%04d", i),
+				Relation: "view",
+				User:     fmt.Sprintf("user:u%04d", i),
+			}
+		}
+		writes = append(writes, overlap)
+
+		deletes := make([]authz.Tuple, 60)
+		for i := range deletes {
+			deletes[i] = authz.Tuple{
+				Object:   fmt.Sprintf("edge:d%04d", i),
+				Relation: "view",
+				User:     fmt.Sprintf("user:u%04d", i),
+			}
+		}
+		deletes = append(deletes, overlap)
+
+		err := checker.Write(context.Background(), writes, deletes)
 		wantCode(t, err, openfga.ErrCodeInvalidTuple)
 
 		if harness.fake.writeCallsCount.Load() != 0 {

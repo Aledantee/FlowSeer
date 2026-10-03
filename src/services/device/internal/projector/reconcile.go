@@ -2,6 +2,7 @@ package projector
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 
@@ -81,6 +82,7 @@ func sameTuples(a, b []authz.Tuple) bool {
 // Reconcile performs a single reconciliation pass against the engine.
 func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 	var counts RepairedCounts
+	var reconcileErrs []error
 
 	edgeMap, err := p.edges.All(ctx)
 	if err != nil {
@@ -92,7 +94,7 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 		tuples   []authz.Tuple
 	}
 	sessionSnapshot := make(map[string]sessionInfo)
-	err = p.captures.EachSession(ctx, func(tenantID string, rec *modelcapturev1.CaptureSessionRecord) error {
+	if err := p.captures.EachSession(ctx, func(tenantID string, rec *modelcapturev1.CaptureSessionRecord) error {
 		sessionID := rec.GetConfig().GetRef().GetCaptureSession().GetId()
 		objectKey := "capture_session:" + sessionID
 		tuples := []authz.Tuple{
@@ -119,9 +121,8 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 			tuples:   tuples,
 		}
 		return nil
-	})
-	if err != nil {
-		return counts, err
+	}); err != nil {
+		reconcileErrs = append(reconcileErrs, err)
 	}
 
 	deviceSnapshot := make(map[string]string)
@@ -216,7 +217,8 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 		obj := objectsToSync[k]
 		repaired, err := p.syncObject(ctx, obj)
 		if err != nil {
-			return counts, err
+			reconcileErrs = append(reconcileErrs, err)
+			continue
 		}
 		if repaired {
 			switch obj.Type {
@@ -230,5 +232,5 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 		}
 	}
 
-	return counts, nil
+	return counts, errors.Join(reconcileErrs...)
 }

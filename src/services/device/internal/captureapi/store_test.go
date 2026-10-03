@@ -1059,3 +1059,47 @@ func TestStoreEachSessionTwoTenants(t *testing.T) {
 		t.Fatalf("EachSession err = %v, want sentinel %v", err, sentinel)
 	}
 }
+
+func TestStoreEachSessionContinuesPastUndecodableRecord(t *testing.T) {
+	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+		StateDir:    t.TempDir(),
+		FsyncPolicy: service.BusFsyncPeriodic,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+	kv, err := hub.JetStream().KeyValue(context.Background(), edgebus.CapturesBucket)
+	if err != nil {
+		t.Fatalf("captures bucket: %v", err)
+	}
+	capturesDir := filepath.Join(t.TempDir(), "captures")
+	store, err := captureapi.NewStore(kv, capturesDir, time.Now)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	ctx := context.Background()
+
+	corruptKey := testTenantID + ".0192e6a0-0000-7000-8000-000000000001"
+	if _, err := kv.Put(ctx, corruptKey, []byte("garbage")); err != nil {
+		t.Fatalf("put corrupt key: %v", err)
+	}
+
+	validSessionID := "0192e6a0-9999-7000-8000-000000000099"
+	cfg := newSessionConfig(t, validSessionID)
+	if _, err := store.CreateSession(ctx, testTenantID, cfg); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	var seen []string
+	err = store.EachSession(ctx, func(tID string, rec *modelcapturev1.CaptureSessionRecord) error {
+		seen = append(seen, rec.GetConfig().GetRef().GetCaptureSession().GetId())
+		return nil
+	})
+	if err == nil {
+		t.Fatal("EachSession returned nil error, want joined error from corrupt record")
+	}
+	if len(seen) != 1 || seen[0] != validSessionID {
+		t.Fatalf("EachSession saw %v, want [%s]", seen, validSessionID)
+	}
+}

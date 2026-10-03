@@ -49,7 +49,7 @@ var (
 	// ErrCodeProtocol indicates an unexpected engine response or protocol failure.
 	ErrCodeProtocol = errs.NewCode("authz/engine-protocol")
 	// ErrCodeConflict indicates a concurrent write conflict on the engine.
-	ErrCodeConflict = errs.NewCode("authz/engine-conflict")
+	ErrCodeConflict = authz.ErrCodeConflict
 	// ErrCodeInvalidTuple indicates an invalid tuple that fails identifier validation.
 	ErrCodeInvalidTuple = errs.NewCode("authz/engine-invalid-tuple")
 )
@@ -98,6 +98,7 @@ type Checker struct {
 	client     openfgav1.OpenFGAServiceClient
 
 	verifyMu       sync.Mutex
+	verifyFlight   chan struct{}
 	verified       bool
 	lastVerifyErr  error
 	lastVerifyTime time.Time
@@ -143,8 +144,9 @@ func (m metadataCarrier) Keys() []string {
 	return keys
 }
 
-// New constructs a Checker connected to OpenFGA, verifies the configured store
-// and authorization model against the engine, and returns the ready Checker.
+// New constructs a Checker connected to OpenFGA without issuing network calls.
+// The configured store and authorization model are verified lazily on first use
+// or explicitly via [Checker.Verify].
 func New(_ context.Context, opts Options) (*Checker, error) {
 	req := &openfgav1.ReadAuthorizationModelRequest{
 		StoreId: opts.StoreID,
@@ -242,33 +244,57 @@ func (c *Checker) Verify(ctx context.Context) error {
 }
 
 func (c *Checker) verify(ctx context.Context) error {
-	c.verifyMu.Lock()
-	defer c.verifyMu.Unlock()
+	for {
+		c.verifyMu.Lock()
+		if c.verified {
+			c.verifyMu.Unlock()
+			return nil
+		}
 
-	if c.verified {
-		return nil
+		if !c.lastVerifyTime.IsZero() && c.clock().Sub(c.lastVerifyTime) < 5*time.Second {
+			err := c.lastVerifyErr
+			c.verifyMu.Unlock()
+			return err
+		}
+
+		if ch := c.verifyFlight; ch != nil {
+			c.verifyMu.Unlock()
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ch:
+				continue
+			}
+		}
+
+		flight := make(chan struct{})
+		c.verifyFlight = flight
+		c.verifyMu.Unlock()
+
+		err := c.doVerify(ctx)
+
+		c.verifyMu.Lock()
+		c.verifyFlight = nil
+		close(flight)
+
+		if err == nil {
+			c.verified = true
+			c.lastVerifyErr = nil
+			c.lastVerifyTime = time.Time{}
+			c.verifyMu.Unlock()
+			return nil
+		}
+
+		if ctx.Err() != nil {
+			c.verifyMu.Unlock()
+			return ctx.Err()
+		}
+
+		c.lastVerifyErr = err
+		c.lastVerifyTime = c.clock()
+		c.verifyMu.Unlock()
+		return err
 	}
-
-	now := c.clock()
-	if !c.lastVerifyTime.IsZero() && now.Sub(c.lastVerifyTime) < 5*time.Second {
-		return c.lastVerifyErr
-	}
-
-	err := c.doVerify(ctx)
-	if err == nil {
-		c.verified = true
-		c.lastVerifyErr = nil
-		c.lastVerifyTime = time.Time{}
-		return nil
-	}
-
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-
-	c.lastVerifyErr = err
-	c.lastVerifyTime = now
-	return err
 }
 
 func (c *Checker) doVerify(ctx context.Context) error {
