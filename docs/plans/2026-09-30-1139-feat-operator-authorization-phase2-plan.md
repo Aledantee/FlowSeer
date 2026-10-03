@@ -551,3 +551,8 @@ Unverified, for the implementer to settle:
 For phase 3: whether a start fails when the engine or an issuer is
 unreachable, and whether a suspended tenant's organization still yields
 `claimed` (`TenantLifecycle`, `tenant.proto:26-33`).
+- Parked by drive: the three decisions above. Options for each are listed
+  with their costs. Recommended: go-oidc v3.21.0, an owned HTTP client with
+  a JSON model, and Keycloak 26.7.4, because the units are written for
+  them, the client adds no module, and Keycloak's tokens list every
+  organization of a user.
