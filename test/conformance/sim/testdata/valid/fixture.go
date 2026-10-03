@@ -3,6 +3,8 @@ package fixture
 import (
 	"time"
 
+	_ "go.aledante.io/FlowSeer/src/common/sim/devicex"
+	_ "go.aledante.io/FlowSeer/src/common/sim/fabricx"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	_ "go.aledante.io/FlowSeer/src/common/sim/layer/valid/sub"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"

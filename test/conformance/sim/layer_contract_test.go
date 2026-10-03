@@ -6,8 +6,8 @@
 // signature line for a function, and each guard tests one literal against
 // those lines or against the package's imports and type names. A guard
 // arrives with a fixture directory under testdata/ that it refuses, and
-// TestLayerContractGuardsRefuseTheirFixtures fails for a guard whose
-// fixture passes without it.
+// TestLayerContractGuardsRefuseTheirFixtures fails for a guard that does not
+// refuse its fixture, or a fixture another guard also refuses.
 package conformance
 
 import (
@@ -45,11 +45,11 @@ const (
 	// marksStateful makes the package stateful when it holds the literal
 	// line. It reports nothing itself.
 	marksStateful
-	// refuseImport reports each import of a non-test file under the
-	// directory for which refuses returns true.
+	// refuseImport reports each import of a non-test file outside
+	// testdata under the directory for which refuses returns true.
 	refuseImport
-	// refuseTypeName reports each type of a non-test file under the
-	// directory for which refuses returns true.
+	// refuseTypeName reports each type of a non-test file outside
+	// testdata under the directory for which refuses returns true.
 	refuseTypeName
 )
 
@@ -308,14 +308,46 @@ func TestLayerContractStopsOnUnparsableFile(t *testing.T) {
 	}
 }
 
+// TestLayerContractReadsEmptyReceiverList writes a file with an empty receiver
+// list under t.TempDir() and verifies that it is read as a plain function.
+func TestLayerContractReadsEmptyReceiverList(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "stray")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatalf("creating directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "stray.go"), []byte("package stray\n\nfunc () New() {}\n"), 0o600); err != nil {
+		t.Fatalf("writing stray file: %v", err)
+	}
+
+	got, err := checkLayerDir(token.NewFileSet(), root, dir, layerGuards)
+	if err != nil {
+		t.Fatalf("checking directory: %v", err)
+	}
+
+	want := []string{
+		`stray: missing "const LayerName"`,
+		`stray: missing "func (Config) Normalize(layer.Env) (Config)"`,
+		`stray: missing "func (Config) Validate(layer.Env) (error)"`,
+		`stray: missing "func (Config) Clone() (Config)"`,
+		`stray: missing "func Diff(Config, Config) ([]trace.Change)"`,
+		`stray: missing "func New(Config, layer.Env) (*Layer, error)"`,
+		`stray: missing "func (*Layer) Clone() (*Layer)"`,
+		`stray: missing "func RetentionKey(Config, layer.Env) (string)"`,
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("findings:\ngot  %q\nwant %q", got, want)
+	}
+}
+
 // layerFacts is what checkLayerDir reads from one layer package directory.
 type layerFacts struct {
 	dirName string
 	// lines holds a name line and, for a function, a signature line for
 	// each declaration of the non-test files in the directory itself.
 	lines map[string]bool
-	// imports and types come from every non-test file under the directory,
-	// subdirectories included.
+	// imports and types come from every non-test file outside testdata
+	// under the directory, subdirectories included.
 	imports []sourceValue
 	types   []sourceValue
 }
@@ -486,7 +518,7 @@ func genDeclLines(decl *ast.GenDecl) []string {
 func funcLines(fn *ast.FuncDecl) []string {
 	name := "func " + fn.Name.Name
 	signature := "func "
-	if fn.Recv != nil {
+	if fn.Recv.NumFields() > 0 {
 		recv := types.ExprString(fn.Recv.List[0].Type)
 		name = "func " + strings.TrimPrefix(recv, "*") + "." + fn.Name.Name
 		signature += "(" + recv + ") "
