@@ -1,8 +1,8 @@
 # flowseer.store.device.v1.DeviceServiceConfig for the lab run.
 #
-# Placeholders only. Every value below is either a real local path or an
-# obvious stand-in; nothing here is a secret and nothing here is an address
-# that resolves.
+# Nothing here is a secret. The addresses are loopback for the lab run, and
+# the authorization ids are stand-ins for the block write-openfga-store.sh
+# prints once the store exists.
 
 state_dir: "/var/lib/flowseer/device"
 registry_path: "/etc/flowseer/registry.textproto"

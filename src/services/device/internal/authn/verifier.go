@@ -18,6 +18,7 @@ import (
 
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // Authentication error codes returned by the verifier and interceptor.
@@ -65,13 +66,11 @@ type cachedHTTPResult struct {
 }
 
 type replayTransport struct {
-	base       http.RoundTripper
-	window     time.Duration
-	now        func() time.Time
-	mu         sync.Mutex
-	cache      map[string]*cachedHTTPResult
-	lastStatus map[string]int
-	lastErr    map[string]error
+	base   http.RoundTripper
+	window time.Duration
+	now    func() time.Time
+	mu     sync.Mutex
+	cache  map[string]*cachedHTTPResult
 }
 
 func newReplayTransport(base http.RoundTripper, window time.Duration, clock func() time.Time) *replayTransport {
@@ -79,21 +78,23 @@ func newReplayTransport(base http.RoundTripper, window time.Duration, clock func
 		base = http.DefaultTransport
 	}
 	return &replayTransport{
-		base:       base,
-		window:     window,
-		now:        clock,
-		cache:      make(map[string]*cachedHTTPResult),
-		lastStatus: make(map[string]int),
-		lastErr:    make(map[string]error),
+		base:   base,
+		window: window,
+		now:    clock,
+		cache:  make(map[string]*cachedHTTPResult),
 	}
 }
 
 func (rt *replayTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	urlStr := req.URL.String()
 
+	// The clock is caller-supplied code, so it runs outside the lock: a panic
+	// inside it must not leave rt.mu held.
+	start := rt.now()
+
 	rt.mu.Lock()
 	cached, ok := rt.cache[urlStr]
-	if ok && rt.now().Sub(cached.timestamp) < rt.window {
+	if ok && start.Sub(cached.timestamp) < rt.window {
 		status := cached.statusCode
 		header := cached.header.Clone()
 		body := cached.body
@@ -115,62 +116,53 @@ func (rt *replayTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	rt.mu.Unlock()
 
 	resp, err := rt.base.RoundTrip(req)
-
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
-
 	now := rt.now()
 	if err != nil {
-		rt.lastErr[urlStr] = err
-		rt.lastStatus[urlStr] = 0
+		rt.mu.Lock()
 		rt.cache[urlStr] = &cachedHTTPResult{
 			err:       err,
 			timestamp: now,
 		}
+		rt.mu.Unlock()
 		return nil, err
 	}
 
 	bodyBytes, readErr := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	if readErr != nil {
-		rt.lastErr[urlStr] = readErr
-		rt.lastStatus[urlStr] = 0
+		rt.mu.Lock()
+		rt.cache[urlStr] = &cachedHTTPResult{
+			err:       readErr,
+			timestamp: now,
+		}
+		rt.mu.Unlock()
 		return nil, readErr
 	}
 
-	rt.lastErr[urlStr] = nil
-	rt.lastStatus[urlStr] = resp.StatusCode
+	rt.mu.Lock()
 	rt.cache[urlStr] = &cachedHTTPResult{
 		statusCode: resp.StatusCode,
 		header:     resp.Header.Clone(),
 		body:       bodyBytes,
 		timestamp:  now,
 	}
+	rt.mu.Unlock()
 
 	resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 	return resp, nil
 }
 
-func (rt *replayTransport) LastStatus(urlStr string) int {
+func (rt *replayTransport) HasOutage(keyURL string) bool {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
-	return rt.lastStatus[urlStr]
-}
-
-func (rt *replayTransport) HasOutage(issuerURL string) bool {
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
-	for u, status := range rt.lastStatus {
-		if strings.HasPrefix(u, issuerURL) && status != 0 && status != http.StatusOK {
-			return true
-		}
+	cached, ok := rt.cache[keyURL]
+	if !ok {
+		return false
 	}
-	for u, err := range rt.lastErr {
-		if strings.HasPrefix(u, issuerURL) && err != nil {
-			return true
-		}
+	if rt.now().Sub(cached.timestamp) >= rt.window {
+		return false
 	}
-	return false
+	return cached.err != nil || cached.statusCode != http.StatusOK
 }
 
 // Verifier verifies operator OIDC tokens against trusted issuers.
@@ -184,11 +176,19 @@ type Verifier struct {
 
 	providersMu sync.Mutex
 	providers   map[string]*providerState
+	inflight    map[string]*discoveryCall
 }
 
 type providerState struct {
 	provider *oidc.Provider
 	verifier *oidc.IDTokenVerifier
+	jwksURI  string
+}
+
+type discoveryCall struct {
+	done  chan struct{}
+	state *providerState
+	err   error
 }
 
 // NewVerifier creates a new token verifier without network I/O.
@@ -228,39 +228,148 @@ func NewVerifier(opts Options) (*Verifier, error) {
 		transport: replay,
 		clock:     clock,
 		providers: make(map[string]*providerState),
+		inflight:  make(map[string]*discoveryCall),
 	}, nil
 }
 
 func (v *Verifier) getProvider(ctx context.Context, issuerURL string, audience string) (*providerState, error) {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, ctxErr
+	}
+
 	v.providersMu.Lock()
-	state, ok := v.providers[issuerURL]
-	v.providersMu.Unlock()
-	if ok {
+	if state, ok := v.providers[issuerURL]; ok {
+		v.providersMu.Unlock()
 		return state, nil
 	}
+	call, ok := v.inflight[issuerURL]
+	if !ok {
+		call = &discoveryCall{done: make(chan struct{})}
+		v.inflight[issuerURL] = call
 
-	// Discover provider
-	clientCtx := oidc.ClientContext(ctx, v.client)
-	provider, err := oidc.NewProvider(clientCtx, issuerURL)
-	if err != nil {
-		return nil, errs.New().Code(ErrCodeUnavailable).Retryable().Cause(err).Msg("discover oidc provider")
+		spawn.Go(context.Background(), "authn.discovery",
+			func() { v.discover(call, issuerURL, audience) },
+			spawn.ReportTo(func(err error) {
+				v.finishDiscovery(issuerURL, call, nil, discoveryError(err))
+			}),
+		)
 	}
-
-	verifier := provider.Verifier(&oidc.Config{
-		ClientID: audience,
-		Now:      v.clock,
-	})
-
-	state = &providerState{
-		provider: provider,
-		verifier: verifier,
-	}
-
-	v.providersMu.Lock()
-	v.providers[issuerURL] = state
 	v.providersMu.Unlock()
 
-	return state, nil
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-call.done:
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		if call.err != nil {
+			return nil, call.err
+		}
+		return call.state, nil
+	}
+}
+
+// discover runs the discovery every waiter on call shares. It runs on a
+// context of its own, as go-oidc does for its key set, so no caller's span,
+// values, or cancellation reaches it. Every path ends in finishDiscovery, and a
+// panic reaches it through the spawn sink instead.
+func (v *Verifier) discover(call *discoveryCall, issuerURL, audience string) {
+	ctx, cancel := context.WithTimeout(context.Background(), v.client.Timeout)
+	defer cancel()
+
+	provider, err := oidc.NewProvider(oidc.ClientContext(ctx, v.client), issuerURL)
+	if err != nil {
+		v.finishDiscovery(issuerURL, call, nil, discoveryError(err))
+		return
+	}
+
+	var claims struct {
+		JWKSURI string `json:"jwks_uri"`
+	}
+	if err := provider.Claims(&claims); err != nil || claims.JWKSURI == "" {
+		v.finishDiscovery(issuerURL, call, nil,
+			errs.New().Code(ErrCodeUnavailable).Retryable().Msg("extract jwks_uri from discovery"))
+		return
+	}
+
+	v.finishDiscovery(issuerURL, call, &providerState{
+		provider: provider,
+		verifier: provider.Verifier(&oidc.Config{
+			ClientID: audience,
+			Now:      v.clock,
+		}),
+		jwksURI: claims.JWKSURI,
+	}, nil)
+}
+
+// finishDiscovery publishes the outcome of call and releases its waiters. It
+// is idempotent, so the normal path and the panic sink cannot both complete
+// the call.
+func (v *Verifier) finishDiscovery(issuerURL string, call *discoveryCall, state *providerState, err error) {
+	v.providersMu.Lock()
+	defer v.providersMu.Unlock()
+
+	select {
+	case <-call.done:
+		return
+	default:
+	}
+
+	if state != nil {
+		v.providers[issuerURL] = state
+	}
+	if v.inflight[issuerURL] == call {
+		delete(v.inflight, issuerURL)
+	}
+	call.state = state
+	call.err = err
+	close(call.done)
+}
+
+// discoveryError classifies a failed discovery as an outage. The cause keeps
+// the text only: the transport's context error, which the replay cache hands to
+// every caller inside the window, must not satisfy errors.Is for a caller whose
+// own context is live.
+func discoveryError(cause error) error {
+	return errs.New().Code(ErrCodeUnavailable).Retryable().Cause(errs.Msg(cause.Error())).Msg("discover oidc provider")
+}
+
+func isKeyFetchError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.HasPrefix(err.Error(), "failed to verify signature: fetching keys ")
+}
+
+func parseClaimValues(raw json.RawMessage, label string) ([]string, error) {
+	var val any
+	if err := json.Unmarshal(raw, &val); err != nil {
+		return nil, err
+	}
+	switch v := val.(type) {
+	case string:
+		return []string{v}, nil
+	case []any:
+		values := make([]string, 0, len(v))
+		for _, item := range v {
+			s, ok := item.(string)
+			if !ok {
+				return nil, errs.Msgf("%s array contains non-string item", label)
+			}
+			values = append(values, s)
+		}
+		return values, nil
+	case map[string]any:
+		values := make([]string, 0, len(v))
+		for k := range v {
+			values = append(values, k)
+		}
+		slices.Sort(values)
+		return values, nil
+	default:
+		return nil, errs.Msgf("invalid %s shape", label)
+	}
 }
 
 // Verify validates rawToken, resolves organizations, and constructs the Principal.
@@ -269,7 +378,6 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 		return Principal{}, ctxErr
 	}
 
-	// Extract iss from unverified payload
 	parts := strings.Split(rawToken, ".")
 	if len(parts) < 2 {
 		return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Msg("malformed token")
@@ -277,7 +385,6 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 
 	payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		// try padded decoding as fallback
 		payloadBytes, err = base64.URLEncoding.DecodeString(parts[1])
 		if err != nil {
 			return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Cause(err).Msg("decode token payload")
@@ -321,13 +428,8 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 			return Principal{}, errs.New().Code(ErrCodeTokenExpired).Cause(err).Msg("token expired")
 		}
 
-		if v.transport.HasOutage(issuerCfg.Issuer) {
+		if isKeyFetchError(err) && v.transport.HasOutage(state.jwksURI) {
 			return Principal{}, errs.New().Code(ErrCodeUnavailable).Retryable().Cause(err).Msg("key fetch unavailable")
-		}
-
-		// Also check if error was client timeout
-		if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
-			return Principal{}, errs.New().Code(ErrCodeUnavailable).Retryable().Cause(err).Msg("issuer request timed out")
 		}
 
 		return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Cause(err).Msg("token signature or claims invalid")
@@ -338,7 +440,6 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 		return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Msg("token subject is empty or contains null byte")
 	}
 
-	// Resolve organization claim values
 	var rawClaims map[string]json.RawMessage
 	if err := idToken.Claims(&rawClaims); err != nil {
 		return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Cause(err).Msg("unmarshal token claims")
@@ -347,38 +448,17 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 	var orgValues []string
 	if issuerCfg.OrganizationClaimName != "" {
 		if rawClaim, ok := rawClaims[issuerCfg.OrganizationClaimName]; ok {
-			var parsedValues []string
-			var strVal string
-			if err := json.Unmarshal(rawClaim, &strVal); err == nil {
-				parsedValues = append(parsedValues, strVal)
-			} else {
-				var arrVal []any
-				if err := json.Unmarshal(rawClaim, &arrVal); err == nil {
-					for _, item := range arrVal {
-						s, ok := item.(string)
-						if !ok {
-							return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Msg("organization claim array contains non-string item")
-						}
-						parsedValues = append(parsedValues, s)
-					}
-				} else {
-					var objVal map[string]any
-					if err := json.Unmarshal(rawClaim, &objVal); err == nil {
-						for k := range objVal {
-							parsedValues = append(parsedValues, k)
-						}
-					} else {
-						return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Msg("invalid organization claim shape")
-					}
-				}
+			parsedValues, err := parseClaimValues(rawClaim, "organization claim")
+			if err != nil {
+				return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Cause(err).Msg("parse organization claim")
 			}
 			orgValues = parsedValues
 		}
 	}
 
 	distinctOrgs := make(map[string]struct{})
-	for _, v := range orgValues {
-		distinctOrgs[v] = struct{}{}
+	for _, val := range orgValues {
+		distinctOrgs[val] = struct{}{}
 	}
 	if len(distinctOrgs) > 99 {
 		return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Msg("organization claim exceeds 99 distinct values")
@@ -409,13 +489,25 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 	}
 
 	isPlatform := false
-	platClaimName := v.platform.ClaimName
-	if platClaimName == "" {
-		platClaimName = issuerCfg.OrganizationClaimName
-	}
-	if v.platform.Issuer != "" && issuerCfg.Issuer == v.platform.Issuer && platClaimName == issuerCfg.OrganizationClaimName {
-		if _, ok := distinctOrgs[v.platform.Organization]; ok {
-			isPlatform = true
+	if v.platform.Issuer != "" && issuerCfg.Issuer == v.platform.Issuer {
+		platClaimName := v.platform.ClaimName
+		if platClaimName == "" {
+			platClaimName = issuerCfg.OrganizationClaimName
+		}
+		if platClaimName != "" {
+			var platValues []string
+			if platClaimName == issuerCfg.OrganizationClaimName {
+				platValues = orgValues
+			} else if rawPlatClaim, ok := rawClaims[platClaimName]; ok {
+				var err error
+				platValues, err = parseClaimValues(rawPlatClaim, "platform claim")
+				if err != nil {
+					return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Cause(err).Msg("parse platform claim")
+				}
+			}
+			if slices.Contains(platValues, v.platform.Organization) {
+				isPlatform = true
+			}
 		}
 	}
 

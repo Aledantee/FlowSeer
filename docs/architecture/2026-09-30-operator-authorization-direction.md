@@ -545,9 +545,6 @@ passes on this ground, and a query the checker answered false stays
 
 ### 2026-10-03: authorization model, principal identity, and configuration
 
-Phase 2 fixes the authorization model, principal identity hashing, issuer
-discovery, and engine configuration.
-
 #### The authorization model
 
 The OpenFGA model is stored in protojson format at
@@ -557,30 +554,28 @@ DSL:
 ```openfga
 model
   schema 1.1
-
 type user
 type platform
   relations
-    define admin: [user]
+    define claimed: [user]
+    define enrolled: [user]
+    define admin: claimed and enrolled
 type role
   relations
     define assignee: [user]
 type tenant
   relations
+    define platform: [platform]
+    define partner: [tenant]
     define claimed: [user]
     define enrolled: [user]
-    define member: claimed and enrolled
-    define platform_claimed: [user]
-    define platform_admin: platform_claimed and platform#admin
-    define partner_admin: member from partner
-    define active_admin: admin or partner_admin or platform_admin
-    define admin: [user, role#assignee]
-    define operator: [user, role#assignee] or active_admin
-    define capturer: [user, role#assignee, tenant#active_admin] or active_admin
-    define viewer: [user, role#assignee] or capturer or operator
+    define admin: [user, role#assignee] or admin from platform
+    define active_admin: admin and member
+    define member: (claimed and enrolled) or active_admin from partner or admin from platform
+    define operator: [user, role#assignee, tenant#active_admin] or admin
+    define capturer: [user, role#assignee, tenant#active_admin] or admin
+    define viewer: [user, role#assignee, tenant#active_admin] or operator or capturer
     define full_payload: [user, role#assignee]
-    define partner: [tenant]
-    define platform: [platform]
 type site
 type tag
 type edge
@@ -604,40 +599,57 @@ type capture_session
     define download: requester or capture from edge
 ```
 
-The relations beyond the core tenant shape serve explicit cross-boundary roles:
+The relations beyond the core tenant shape grant resource permissions and
+cross-tenant roles:
 
-- `platform#claimed` and `enrolled` separate contextual token assertions from
-  stored platform assignments. A platform administrator loses reach when their
-  token stops asserting the platform claim.
+- `platform#admin` is `claimed and enrolled`, so a contextual token claim and a
+  stored platform assignment must both hold. A platform administrator loses
+  reach when the token stops carrying the claim.
 - Grants on `edge` and `device` are direct assignees or inherited from tenant
   roles. Direct grants support fine-grained permissions on individual devices
   or edges without site or tag infrastructure.
-- `tenant#active_admin` is a grantee on tenant roles so partner administrators
-  can be granted operational roles in customer tenants.
+- `tenant#active_admin` is a grantee on `tenant#operator`, `tenant#capturer`,
+  and `tenant#viewer`, so a partner administrator can hold an operational role
+  in a customer tenant.
 - `capture_session#manage` delegates to edge capture permissions, while
   `download` allows either the original requester or a user holding edge capture
   permissions.
 
 The earlier decision stating that resource permissions avoid intersections
 holds for resource types (`edge`, `device`, `capture_session`). Those types
-evaluate unions of direct assignees and tenant-derived roles. Intersections occur
-only on `platform#admin` and `tenant#member` (`claimed and enrolled`). A
-resource permission reaches those intersections only indirectly through
-`tenant`.
+evaluate unions of direct assignees and tenant-derived roles. Intersections
+occur on `platform#admin` (`claimed and enrolled`), on `tenant#active_admin`
+(`admin and member`), and on the `claimed and enrolled` term of `tenant#member`.
+A resource permission reaches `platform#admin`, `tenant#active_admin`, and the
+term of `tenant#member` only through `tenant`.
 
 #### Principal identification
 
-`PrincipalID` is the hex-encoded SHA-256 digest of `issuer + "\x00" + subject`.
+`ComputePrincipalID` returns the lowercase hex SHA-256 digest of
+`issuer + "\x00" + subject`, and a `Principal` carries it in its `ID` field
+(`src/services/device/internal/authn/principal.go`).
 The zero-byte separator prevents collisions between distinct issuer and subject
-pairs that share concatenations. The fixed 64-character hex representation fits
-database column limits and OpenFGA object identifier constraints.
+pairs that share concatenations. The hex form sidesteps what OpenFGA rejects in
+a user id. It refuses an id holding `:`
+(`github.com/openfga/openfga@v1.21.0`, `pkg/tuple/tuple.go:417-438`), reads
+`user:a#b` as a userset and `user:*` as a wildcard
+(`pkg/tuple/tuple.go:515-517`), and caps the user at 512 characters
+(`github.com/openfga/api/proto@v0.0.0-20260723150800-6981fff8d33b`,
+`openfga/v1/openfga_service.pb.validate.go:2642`), while an issuer URL holds `:`
+and may be 2048 characters long.
 
 #### Issuer configuration
 
-`OperatorAuthentication` configures up to 8 OIDC issuers. Each entry requires
-an HTTPS issuer URL and audience string, with an optional organization claim
-name. Issuers and engine endpoints require HTTPS to prevent cleartext network
-manipulation of token verification keys.
+`OperatorAuthentication` configures up to 8 OIDC issuers, and the verifier
+routes a token by its exact `iss`. Each entry requires an HTTPS issuer URL and
+audience string, with an optional organization claim name. A tenant binds one
+issuer (`TenantConfig` in
+`spec/proto/flowseer/model/identity/v1/tenant.proto:36-57`), and a second
+issuer's users reach it through `partner` or `platform`. An issuer configured
+with no organization claim yields no `claimed` tenant. The record's "a
+configured OIDC issuer" is one entry of this list. Issuers and engine endpoints
+require HTTPS to prevent cleartext network manipulation of token verification
+keys.
 
 #### Engine configuration
 

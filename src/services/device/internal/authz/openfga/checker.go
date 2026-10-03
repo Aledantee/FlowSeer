@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +27,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/credential"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
@@ -46,6 +48,23 @@ var (
 	// ErrCodeProtocol indicates an unexpected engine response or protocol failure.
 	ErrCodeProtocol = errs.NewCode("authz/engine-protocol")
 )
+
+const (
+	defaultTimeout = 5 * time.Second
+
+	// Byte limits of OpenFGA's request validation: a user is 2 to 512 bytes
+	// and an object 2 to 256, a relation 1 to 50.
+	maxObjectBytes   = 256
+	maxUserBytes     = 512
+	maxRelationBytes = 50
+
+	// maxBatchSize is the most checks OpenFGA accepts in one BatchCheck call.
+	maxBatchSize = 50
+)
+
+// errCallTimeout is the cause of a call context that ran out of the Checker's
+// own timeout, which tells it apart from a caller's cancel or deadline.
+var errCallTimeout = errs.New().Code(ErrCodeUnreachable).Retryable().Msg("engine call timed out")
 
 // Options configures an OpenFGA authorization Checker.
 type Options struct {
@@ -74,13 +93,15 @@ type Checker struct {
 
 var _ authz.Checker = (*Checker)(nil)
 
+// presharedKeyCredential sends the key as a bearer token. Key is exported
+// because fmt consults a secret.Value's redaction only for an exported field.
 type presharedKeyCredential struct {
-	token string
+	Key secret.Value
 }
 
 func (c presharedKeyCredential) GetRequestMetadata(_ context.Context, _ ...string) (map[string]string, error) {
 	return map[string]string{
-		"authorization": "Bearer " + c.token,
+		"authorization": "Bearer " + c.Key.RevealString(),
 	}, nil
 }
 
@@ -113,7 +134,6 @@ func (m metadataCarrier) Keys() []string {
 // New constructs a Checker connected to OpenFGA, verifies the configured store
 // and authorization model against the engine, and returns the ready Checker.
 func New(ctx context.Context, opts Options) (*Checker, error) {
-	// 1. Validate store and model ID format via generated validation.
 	req := &openfgav1.ReadAuthorizationModelRequest{
 		StoreId: opts.StoreID,
 		Id:      opts.ModelID,
@@ -122,7 +142,6 @@ func New(ctx context.Context, opts Options) (*Checker, error) {
 		return nil, errs.From(err).Code(ErrCodeConfig).Msg("invalid store or model id")
 	}
 
-	// 2. Validate endpoint: must be https URL of host and port with no path, query, or user.
 	u, err := url.Parse(opts.Endpoint)
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeConfig).Msg("invalid endpoint URL")
@@ -138,13 +157,11 @@ func New(ctx context.Context, opts Options) (*Checker, error) {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("endpoint must not have path, query, or user")
 	}
 
-	// 3. Read preshared key file.
 	keyVal, err := credential.ReadKeyFile(opts.KeyFile)
 	if err != nil {
 		return nil, err
 	}
 
-	// 4. Configure TLS and CA file.
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		ServerName: host,
@@ -163,7 +180,7 @@ func New(ctx context.Context, opts Options) (*Checker, error) {
 
 	timeout := opts.Timeout
 	if timeout <= 0 {
-		timeout = 5 * time.Second
+		timeout = defaultTimeout
 	}
 
 	tracerProvider := opts.TracerProvider
@@ -186,7 +203,7 @@ func New(ctx context.Context, opts Options) (*Checker, error) {
 		grpc.WithNoProxy(),
 		grpc.WithDisableServiceConfig(),
 		grpc.WithDisableRetry(),
-		grpc.WithPerRPCCredentials(presharedKeyCredential{token: keyVal.RevealString()}),
+		grpc.WithPerRPCCredentials(presharedKeyCredential{Key: keyVal}),
 		grpc.WithUnaryInterceptor(checker.unaryClientInterceptor),
 	}
 
@@ -197,8 +214,7 @@ func New(ctx context.Context, opts Options) (*Checker, error) {
 	checker.conn = conn
 	checker.client = openfgav1.NewOpenFGAServiceClient(conn)
 
-	// 5. Verify Store on engine.
-	callCtx, cancel := context.WithTimeout(ctx, timeout)
+	callCtx, cancel := context.WithTimeoutCause(ctx, timeout, errCallTimeout)
 	storeResp, err := checker.client.GetStore(callCtx, &openfgav1.GetStoreRequest{StoreId: opts.StoreID})
 	cancel()
 	if err != nil {
@@ -217,8 +233,7 @@ func New(ctx context.Context, opts Options) (*Checker, error) {
 		return nil, errs.New().Code(ErrCodeStoreMismatch).Msg("store id mismatch")
 	}
 
-	// 6. Verify Model on engine.
-	callCtx, cancel = context.WithTimeout(ctx, timeout)
+	callCtx, cancel = context.WithTimeoutCause(ctx, timeout, errCallTimeout)
 	modelResp, err := checker.client.ReadAuthorizationModel(callCtx, &openfgav1.ReadAuthorizationModelRequest{
 		StoreId: opts.StoreID,
 		Id:      opts.ModelID,
@@ -241,7 +256,6 @@ func New(ctx context.Context, opts Options) (*Checker, error) {
 		return nil, errs.New().Code(ErrCodeModelMismatch).Msg("model id mismatch")
 	}
 
-	// 7. Compare server model with embedded model.
 	embeddedModel, err := Model()
 	if err != nil {
 		_ = checker.Close()
@@ -293,14 +307,25 @@ func (c *Checker) unaryClientInterceptor(
 
 	var errType string
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		errType = telemetry.ErrorType(c.classifyError(err))
+		errType = c.callErrorType(ctx, err)
+		span.SetAttributes(semconv.ErrorTypeKey.String(errType))
+		span.SetStatus(codes.Error, "engine call failed")
 	}
 	if c.view != nil {
 		c.view.RecordEngineCall(ctx, cleanMethod, duration, errType)
 	}
 	return err
+}
+
+// callErrorType is the bounded error.type of a failed engine call. A call
+// that ended because its caller canceled or ran out of its own deadline is the
+// caller's outcome, not the engine's, so it takes the context cause. The
+// Checker's own timeout reaches classifyError as the engine being unreachable.
+func (c *Checker) callErrorType(callCtx context.Context, err error) string {
+	if ctxErr := callCtx.Err(); ctxErr != nil && !errors.Is(context.Cause(callCtx), errCallTimeout) {
+		return telemetry.ErrorType(ctxErr)
+	}
+	return telemetry.ErrorType(c.classifyError(err))
 }
 
 func (c *Checker) classifyError(err error) error {
@@ -311,7 +336,7 @@ func (c *Checker) classifyError(err error) error {
 	if !ok {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return errs.From(err).Code(ErrCodeUnreachable).Msg("engine call timed out")
+			return errs.From(err).Code(ErrCodeUnreachable).Retryable().Msg("engine call timed out")
 		case errors.Is(err, context.Canceled):
 			return err
 		default:
@@ -325,7 +350,7 @@ func (c *Checker) classifyError(err error) error {
 		return errs.From(err).Code(ErrCodeRefused).Msg("engine refused call")
 	}
 	if code == 14 /* codes.Unavailable */ || code == 4 /* codes.DeadlineExceeded */ {
-		return errs.From(err).Code(ErrCodeUnreachable).Msg("engine unreachable")
+		return errs.From(err).Code(ErrCodeUnreachable).Retryable().Msg("engine unreachable")
 	}
 	return errs.From(err).Code(ErrCodeProtocol).Msg("engine protocol error")
 }
@@ -337,77 +362,52 @@ func (c *Checker) handleError(callerCtx context.Context, err error) error {
 	return c.classifyError(err)
 }
 
+// isRefusedRune reports a rune OpenFGA's tuple.IsValidObject refuses in an
+// object or user: a control character, '#', or a space. Other Unicode
+// whitespace passes, as it does there.
+func isRefusedRune(r rune) bool {
+	return unicode.IsControl(r) || r == '#' || r == ' '
+}
+
+// isValidTypedID reports whether s is a type:id of at most maxBytes that the
+// engine accepts as an object or a user. It also refuses the id "*", which
+// the engine reads as a wildcard, and '#', which makes a userset.
+func isValidTypedID(s string, maxBytes int) bool {
+	if len(s) < 2 || len(s) > maxBytes || strings.ContainsFunc(s, isRefusedRune) {
+		return false
+	}
+	t, id, ok := strings.Cut(s, ":")
+	return ok && t != "" && id != "" && id != "*" && !strings.Contains(id, ":")
+}
+
 func isValidObject(s string) bool {
-	if len(s) < 2 || len(s) > 256 {
-		return false
-	}
-	for _, r := range s {
-		if unicode.IsControl(r) || r == ' ' || r == '\t' || r == '\r' || r == '\n' || r == '#' || r == '@' {
-			return false
-		}
-	}
-	t, id, ok := strings.Cut(s, ":")
-	if !ok || t == "" || id == "" || strings.Contains(id, ":") || id == "*" {
-		return false
-	}
-	return true
+	return isValidTypedID(s, maxObjectBytes)
 }
 
+func isValidUser(s string) bool {
+	return isValidTypedID(s, maxUserBytes)
+}
+
+// isValidRelation mirrors tuple.IsValidRelation: a relation also refuses ':'
+// and '@', which an object or user may hold.
 func isValidRelation(s string) bool {
-	if len(s) < 1 || len(s) > 50 {
+	if len(s) < 1 || len(s) > maxRelationBytes {
 		return false
 	}
-	for _, r := range s {
-		if unicode.IsControl(r) || r == ' ' || r == '\t' || r == '\r' || r == '\n' || r == ':' || r == '#' || r == '@' {
-			return false
-		}
-	}
-	return true
+	return !strings.ContainsFunc(s, func(r rune) bool {
+		return isRefusedRune(r) || r == ':' || r == '@'
+	})
 }
 
-func isValidCheckUser(s string) bool {
-	if len(s) < 2 || len(s) > 512 {
-		return false
-	}
-	for _, r := range s {
-		if unicode.IsControl(r) || r == ' ' || r == '\t' || r == '\r' || r == '\n' || r == '#' || r == '@' {
-			return false
-		}
-	}
-	t, id, ok := strings.Cut(s, ":")
-	if !ok || t == "" || id == "" || strings.Contains(id, ":") || id == "*" {
-		return false
-	}
-	return true
-}
-
-func isValidTupleUser(s string) bool {
-	if len(s) < 2 || len(s) > 512 {
-		return false
-	}
-	for _, r := range s {
-		if unicode.IsControl(r) || r == ' ' || r == '\t' || r == '\r' || r == '\n' || r == '@' {
-			return false
-		}
-	}
-	if strings.Contains(s, "#") {
-		obj, rel, ok := strings.Cut(s, "#")
-		return ok && isValidObject(obj) && isValidRelation(rel)
-	}
-	t, id, ok := strings.Cut(s, ":")
-	return ok && t != "" && id != "" && !strings.Contains(id, ":")
+func isValidTuple(t authz.Tuple) bool {
+	return isValidObject(t.Object) && isValidRelation(t.Relation) && isValidUser(t.User)
 }
 
 func isValidQuery(q authz.Query) bool {
-	if !isValidObject(q.Object) || !isValidRelation(q.Relation) || !isValidCheckUser(q.User) {
+	if !isValidTuple(authz.Tuple{Object: q.Object, Relation: q.Relation, User: q.User}) {
 		return false
 	}
-	for _, t := range q.ContextualTuples {
-		if !isValidObject(t.Object) || !isValidRelation(t.Relation) || !isValidTupleUser(t.User) {
-			return false
-		}
-	}
-	return true
+	return !slices.ContainsFunc(q.ContextualTuples, func(t authz.Tuple) bool { return !isValidTuple(t) })
 }
 
 // Check evaluates a single authorization query. An invalid identifier OpenFGA
@@ -443,7 +443,7 @@ func (c *Checker) Check(ctx context.Context, q authz.Query) (bool, error) {
 		}
 	}
 
-	callCtx, cancel := context.WithTimeout(ctx, c.timeout)
+	callCtx, cancel := context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
 	resp, err := c.client.Check(callCtx, req)
 	cancel()
 	if err != nil {
@@ -503,7 +503,6 @@ func (c *Checker) BatchCheck(ctx context.Context, queries []authz.Query) ([]bool
 		return results, nil
 	}
 
-	const maxBatchSize = 50
 	for start := 0; start < len(pending); start += maxBatchSize {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return nil, ctxErr
@@ -525,7 +524,7 @@ func (c *Checker) BatchCheck(ctx context.Context, queries []authz.Query) ([]bool
 			Checks:               checks,
 		}
 
-		callCtx, cancel := context.WithTimeout(ctx, c.timeout)
+		callCtx, cancel := context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
 		resp, err := c.client.BatchCheck(callCtx, req)
 		cancel()
 		if err != nil {

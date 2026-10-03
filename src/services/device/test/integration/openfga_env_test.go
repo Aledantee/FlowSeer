@@ -87,17 +87,19 @@ func startOpenFGAEnv(t *testing.T, extraEnv map[string]string) *openFGAEnv {
 		},
 		Started: true,
 	})
-	if err != nil {
-		t.Fatalf("start OpenFGA container: %v", err)
-	}
-
 	t.Cleanup(func() {
+		if ctr == nil {
+			return
+		}
 		termCtx, termCancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer termCancel()
 		if err := ctr.Terminate(termCtx); err != nil {
 			t.Errorf("terminate OpenFGA container: %v", err)
 		}
 	})
+	if err != nil {
+		t.Fatalf("start OpenFGA container: %v", err)
+	}
 
 	host, err := ctr.Host(context.Background())
 	if err != nil {
@@ -127,7 +129,6 @@ func startOpenFGAEnv(t *testing.T, extraEnv map[string]string) *openFGAEnv {
 		_ = conn.Close()
 	})
 
-	// Wait for grpc.health.v1.Health/Check to answer SERVING.
 	healthClient := grpc_health_v1.NewHealthClient(conn)
 	waitForServing(t, healthClient)
 
@@ -135,14 +136,12 @@ func startOpenFGAEnv(t *testing.T, extraEnv map[string]string) *openFGAEnv {
 
 	authCtx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+testPresharedKey)
 
-	// Create store.
 	storeResp, err := client.CreateStore(authCtx, &openfgav1.CreateStoreRequest{Name: "flowseer-test"})
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
 	storeID := storeResp.GetId()
 
-	// Write authorization model.
 	model, err := openfga.Model()
 	if err != nil {
 		t.Fatalf("load model: %v", err)
@@ -242,7 +241,7 @@ func (e *openFGAEnv) ListObjects(ctx context.Context, user, relation, objectType
 	return resp.GetObjects(), nil
 }
 
-func waitForServing(t *testing.T, healthClient grpc_health_v1.HealthClient) {
+func waitForServing(t testing.TB, healthClient grpc_health_v1.HealthClient) {
 	t.Helper()
 	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
@@ -254,21 +253,34 @@ func waitForServing(t *testing.T, healthClient grpc_health_v1.HealthClient) {
 		if err == nil && resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING {
 			return
 		}
-		// Also try empty service name since default health check often uses ""
-		ctx2, cancel2 := context.WithTimeout(context.Background(), 2*time.Second)
-		resp2, err2 := healthClient.Check(ctx2, &grpc_health_v1.HealthCheckRequest{
-			Service: "",
-		})
-		cancel2()
-		if err2 == nil && resp2.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING {
-			return
-		}
 		time.Sleep(200 * time.Millisecond)
 	}
 	t.Fatal("timed out waiting for OpenFGA health check to report SERVING")
 }
 
-func generateTestTLSCert(t *testing.T, dir string) (certPath, keyPath string, certPEM []byte) {
+// dockerDaemonHost resolves the host the container port is published on, the
+// same value Container.Host returns after start. The certificate must name it
+// because a client that verifies against the endpoint host rather than
+// localhost reaches the server only if the name matches.
+func dockerDaemonHost(t testing.TB) string {
+	t.Helper()
+	provider, err := testcontainers.NewDockerProvider()
+	if err != nil {
+		t.Fatalf("create docker provider: %v", err)
+	}
+	defer func() { _ = provider.Close() }()
+	host, err := provider.DaemonHost(context.Background())
+	if err != nil {
+		t.Fatalf("resolve docker daemon host: %v", err)
+	}
+	return host
+}
+
+// generateTestTLSCert makes a server certificate for the test environment. It
+// names localhost, the loopback addresses, and the Docker daemon host, because
+// a client that verifies against the endpoint host rather than localhost
+// reaches the server only if the name matches.
+func generateTestTLSCert(t testing.TB, dir string) (certPath, keyPath string, certPEM []byte) {
 	t.Helper()
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -283,6 +295,16 @@ func generateTestTLSCert(t *testing.T, dir string) (certPath, keyPath string, ce
 		t.Fatalf("generate serial: %v", err)
 	}
 
+	dnsNames := []string{"localhost", "host.docker.internal"}
+	ipAddresses := []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
+	if dockerHost := dockerDaemonHost(t); dockerHost != "" {
+		if ip := net.ParseIP(dockerHost); ip != nil {
+			ipAddresses = append(ipAddresses, ip)
+		} else {
+			dnsNames = append(dnsNames, dockerHost)
+		}
+	}
+
 	template := x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
@@ -295,8 +317,8 @@ func generateTestTLSCert(t *testing.T, dir string) (certPath, keyPath string, ce
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  true,
-		DNSNames:              []string{"localhost", "host.docker.internal"},
-		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")},
+		DNSNames:              dnsNames,
+		IPAddresses:           ipAddresses,
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)

@@ -1,13 +1,14 @@
-package openfga_test
+package openfga
 
 import (
+	"io/fs"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
@@ -18,11 +19,10 @@ import (
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
 	authzv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/authz/v1"
-	"go.aledante.io/FlowSeer/src/services/device/internal/authz/openfga"
 )
 
 func TestModelParsesAndRefusesMisspelledMember(t *testing.T) {
-	m, err := openfga.Model()
+	m, err := Model()
 	if err != nil {
 		t.Fatalf("Model() failed: %v", err)
 	}
@@ -40,15 +40,13 @@ func TestModelParsesAndRefusesMisspelledMember(t *testing.T) {
 		t.Fatal("failed to mutate schema_version in model.json")
 	}
 
-	var target openfgav1.AuthorizationModel
-	opts := protojson.UnmarshalOptions{DiscardUnknown: false}
-	if err := opts.Unmarshal([]byte(misspelled), &target); err == nil {
-		t.Fatal("Unmarshal on misspelled JSON succeeded, want error")
+	if _, err := parseModel([]byte(misspelled)); err == nil {
+		t.Fatal("parseModel on a copy with a misspelled member succeeded, want error")
 	}
 }
 
 func TestModelTypesAndRelationsTable(t *testing.T) {
-	model, err := openfga.Model()
+	model, err := Model()
 	if err != nil {
 		t.Fatalf("Model(): %v", err)
 	}
@@ -134,6 +132,14 @@ func TestModelTypesAndRelationsTable(t *testing.T) {
 			if metaRels != nil {
 				if rMeta, ok := metaRels[relName]; ok {
 					for _, u := range rMeta.GetDirectlyRelatedUserTypes() {
+						if u.GetWildcard() != nil {
+							t.Errorf("type %q relation %q has a wildcard directly related user type", typeName, relName)
+							continue
+						}
+						if u.GetCondition() != "" {
+							t.Errorf("type %q relation %q has a conditioned directly related user type", typeName, relName)
+							continue
+						}
 						s := u.GetType()
 						if rel := u.GetRelation(); rel != "" {
 							s += "#" + rel
@@ -155,7 +161,7 @@ func TestModelTypesAndRelationsTable(t *testing.T) {
 }
 
 func TestModelCoversAPIRules(t *testing.T) {
-	model, err := openfga.Model()
+	model, err := Model()
 	if err != nil {
 		t.Fatalf("Model() failed: %v", err)
 	}
@@ -170,10 +176,13 @@ func TestModelCoversAPIRules(t *testing.T) {
 	}
 
 	methodCount := 0
+	walkedPackages := make(map[string]bool)
 	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
-		if !strings.HasPrefix(string(fd.Package()), "flowseer.api.") {
+		pkg := string(fd.Package())
+		if !strings.HasPrefix(pkg, "flowseer.api.") {
 			return true
 		}
+		walkedPackages[pkg] = true
 		for i := range fd.Services().Len() {
 			svc := fd.Services().Get(i)
 			for j := range svc.Methods().Len() {
@@ -218,4 +227,50 @@ func TestModelCoversAPIRules(t *testing.T) {
 	if methodCount == 0 {
 		t.Fatal("walked zero API methods in flowseer.api.")
 	}
+
+	walked := make([]string, 0, len(walkedPackages))
+	for pkg := range walkedPackages {
+		walked = append(walked, pkg)
+	}
+	slices.Sort(walked)
+
+	generated := generatedAPIPackages(t)
+	if !slices.Equal(walked, generated) {
+		t.Errorf("walked API packages = %v, want %v. Each package under generated/go/proto/flowseer/api needs a blank import in this file, or this test stops checking it", walked, generated)
+	}
+}
+
+// generatedAPIPackages returns the proto package of every package under
+// generated/go/proto/flowseer/api, derived from the directory holding a
+// .pb.go file. The walk is the reverse of the blank imports above: a new
+// service package that no import brings into the registry must fail the
+// comparison rather than leave the rule check unwatched.
+func generatedAPIPackages(t *testing.T) []string {
+	t.Helper()
+	root, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "..", ".."))
+	if err != nil {
+		t.Fatalf("resolve repository root: %v", err)
+	}
+	apiDir := filepath.Join(root, "generated", "go", "proto", "flowseer", "api")
+
+	var packages []string
+	err = filepath.WalkDir(apiDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(d.Name(), ".pb.go") {
+			return nil
+		}
+		rel, err := filepath.Rel(apiDir, filepath.Dir(path))
+		if err != nil {
+			return err
+		}
+		packages = append(packages, "flowseer.api."+strings.ReplaceAll(filepath.ToSlash(rel), "/", "."))
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk generated API packages: %v", err)
+	}
+	slices.Sort(packages)
+	return slices.Compact(packages)
 }
