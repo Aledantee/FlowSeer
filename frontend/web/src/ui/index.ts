@@ -100,6 +100,12 @@ export { default as UiDropdownMenuItem } from './dropdown-menu/UiDropdownMenuIte
 export type { UiDropdownMenuItemProps } from './dropdown-menu/UiDropdownMenuItem.vue'
 export { default as UiDropdownMenuSeparator } from './dropdown-menu/UiDropdownMenuSeparator.vue'
 
+export { default as UiContextMenu } from './context-menu/UiContextMenu.vue'
+export type { UiContextMenuProps } from './context-menu/UiContextMenu.vue'
+export { default as UiContextMenuItem } from './context-menu/UiContextMenuItem.vue'
+export type { UiContextMenuItemProps } from './context-menu/UiContextMenuItem.vue'
+export { default as UiContextMenuSeparator } from './context-menu/UiContextMenuSeparator.vue'
+
 export { default as UiTabs } from './tabs/UiTabs.vue'
 export type { UiTabsProps } from './tabs/UiTabs.vue'
 

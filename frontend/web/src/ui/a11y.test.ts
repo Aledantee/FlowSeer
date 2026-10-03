@@ -48,7 +48,7 @@ const componentModules = import.meta.glob('./**/Ui*.vue')
 
 interface OverlayAuditExpectation {
   role: string
-  triggerEvent?: 'click' | 'input'
+  triggerEvent?: 'click' | 'input' | 'contextmenu'
   triggerSelector?: string
 }
 
@@ -62,6 +62,11 @@ const OVERLAY_AUDITS: Readonly<Record<string, OverlayAuditExpectation>> = {
     triggerSelector: '[role="combobox"]',
   },
   './command/UiCommand.stories.ts:AccessibilityAudit': { role: 'dialog' },
+  './context-menu/UiContextMenu.stories.ts:AccessibilityAudit': {
+    role: 'menu',
+    triggerEvent: 'contextmenu',
+    triggerSelector: '[data-context-menu-trigger]',
+  },
   './dialog/UiDialog.stories.ts:AccessibilityAudit': { role: 'dialog' },
   './dropdown-menu/UiDropdownMenu.stories.ts:AccessibilityAudit': {
     role: 'menu',
@@ -130,6 +135,15 @@ async function openOverlay(
     ).not.toBeNull()
     if (overlayAudit.triggerEvent === 'input') {
       trigger?.dispatchEvent(new Event('input', { bubbles: true }))
+    } else if (overlayAudit.triggerEvent === 'contextmenu') {
+      trigger?.dispatchEvent(
+        new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: 50,
+          clientY: 50,
+        }),
+      )
     } else {
       trigger?.click()
     }
