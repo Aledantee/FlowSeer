@@ -4,6 +4,7 @@ import type { Component } from 'vue'
 import { createApp, h, nextTick } from 'vue'
 import UiPagination from './UiPagination.vue'
 import { createWebI18n, type WebLocale } from '../../i18n'
+import en from '../../i18n/locales/en.json'
 
 let dispose = () => {}
 afterEach(() => {
@@ -12,9 +13,20 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+function overrideEnglish(
+  i18n: ReturnType<typeof createWebI18n>,
+  messages: Record<string, unknown>,
+) {
+  // mergeLocaleMessage writes into the catalog object every createWebI18n
+  // shares, so the merge targets a private copy.
+  i18n.global.setLocaleMessage('en', structuredClone(en))
+  i18n.global.mergeLocaleMessage('en', messages)
+}
+
 function mountPagination(
   props: Record<string, unknown> = {},
   locale: WebLocale = 'en',
+  messages?: Record<string, unknown>,
 ) {
   const host = document.createElement('div')
   document.body.append(host)
@@ -24,6 +36,7 @@ function mountPagination(
     },
   })
   const i18n = createWebI18n(locale)
+  if (messages) overrideEnglish(i18n, messages)
   app.use(i18n)
   app.mount(host)
   dispose = () => app.unmount()
@@ -143,6 +156,31 @@ describe('UiPagination', () => {
     expect(el.textContent).toContain('---')
   })
 
+  it('takes every default mark and the ellipsis from the catalog', () => {
+    const { el } = mountPagination(
+      { total: 100, itemsPerPage: 10, page: 5, showEdges: true },
+      'en',
+      {
+        ui: {
+          pagination: {
+            firstMark: '[first]',
+            previousMark: '[previous]',
+            nextMark: '[next]',
+            lastMark: '[last]',
+            ellipsis: '[gap]',
+          },
+        },
+      },
+    )
+
+    expect(markOf(buttonByLabel(el, 'First page'))).toBe('[first]')
+    expect(markOf(buttonByLabel(el, 'Previous page'))).toBe('[previous]')
+    expect(markOf(buttonByLabel(el, 'Next page'))).toBe('[next]')
+    expect(markOf(buttonByLabel(el, 'Last page'))).toBe('[last]')
+    expect(el.textContent).toContain('[gap]')
+    expect(el.textContent).not.toContain('…')
+  })
+
   it('takes the first, previous, next, and last labels from the de catalog', () => {
     const { el } = mountPagination(
       { total: 100, itemsPerPage: 10, page: 5, showEdges: true },
@@ -174,21 +212,45 @@ describe('UiPagination', () => {
     }
   })
 
+  it('passes a page above 999 to a custom pageLabel as the plain number in en and de', () => {
+    const cases: { locale: WebLocale; text: string }[] = [
+      { locale: 'en', text: '1,234' },
+      { locale: 'de', text: '1.234' },
+    ]
+    for (const { locale, text } of cases) {
+      const { el } = mountPagination(
+        {
+          total: 20000,
+          itemsPerPage: 10,
+          page: 1234,
+          pageLabel: (page: number) => `Custom ${page}`,
+        },
+        locale,
+      )
+      expect(buttonByLabel(el, 'Custom 1234').textContent?.trim()).toBe(text)
+      dispose()
+    }
+  })
+
   it('includes the visible text of the previous and next buttons in their accessible name', () => {
-    for (const locale of ['en', 'de'] as const) {
+    const cases: { locale: WebLocale; previous: string; next: string }[] = [
+      { locale: 'en', previous: 'Previous page', next: 'Next page' },
+      {
+        locale: 'de',
+        previous: 'Zurück zur vorherigen Seite',
+        next: 'Weiter zur nächsten Seite',
+      },
+    ]
+    for (const { locale, previous, next } of cases) {
       const { el } = mountPagination(
         { total: 100, itemsPerPage: 10, page: 5 },
         locale,
       )
-      const buttons = el.querySelectorAll('button')
-      const previous = buttons[0]!
-      const next = buttons[buttons.length - 1]!
-      for (const button of [previous, next]) {
+      for (const label of [previous, next]) {
+        const button = buttonByLabel(el, label)
         const visible = visibleTextOf(button)
         expect(visible).not.toBe('')
-        expect(button.getAttribute('aria-label')?.toLowerCase()).toContain(
-          visible.toLowerCase(),
-        )
+        expect(label.toLowerCase()).toContain(visible.toLowerCase())
       }
       dispose()
     }
@@ -201,13 +263,13 @@ describe('UiPagination', () => {
     const app = createApp({
       render() {
         return h('div', [
-          h(UiPagination as Component, {
+          h(UiPagination, {
             total: 20000,
             itemsPerPage: 10,
             page: 1234,
             showEdges: true,
           }),
-          h(UiPagination as Component, {
+          h(UiPagination, {
             total: 20000,
             itemsPerPage: 10,
             page: 1234,
@@ -218,6 +280,11 @@ describe('UiPagination', () => {
             lastLabel: 'Jump to end',
             previousText: 'Back',
             nextText: 'Forward',
+            firstMark: '⏮',
+            previousMark: '◀',
+            nextMark: '▶',
+            lastMark: '⏭',
+            ellipsis: '---',
             pageLabel: (page: number) => `Custom ${page}`,
           }),
         ])
@@ -230,11 +297,25 @@ describe('UiPagination', () => {
       dispose = () => {}
     }
 
-    const read = (index: number) => {
-      const pagination = host.firstElementChild!.children[index]!
-      return Array.from(pagination.querySelectorAll('button')).map(
+    const group = host.firstElementChild
+    if (!group) throw new Error('Missing pagination group')
+    const paginationAt = (index: number) => {
+      const pagination = group.children[index]
+      if (!pagination) throw new Error(`Missing pagination ${index}`)
+      return pagination
+    }
+    const read = (index: number) =>
+      Array.from(paginationAt(index).querySelectorAll('button')).map(
         (b) => `${b.getAttribute('aria-label')}|${visibleTextOf(b)}`,
       )
+    const readMarks = (index: number) => {
+      const pagination = paginationAt(index)
+      return {
+        marks: Array.from(pagination.querySelectorAll('button'))
+          .map(markOf)
+          .filter((mark) => mark !== undefined),
+        gap: pagination.textContent?.includes('---'),
+      }
     }
     const defaults = (labels: string[]) => [
       labels[0],
@@ -253,6 +334,11 @@ describe('UiPagination', () => {
     expect(enDefault).toContain('Page 1,234|1,234')
     const overrideLabels = read(1).map((entry) => entry.split('|')[0])
     expect(overrideLabels).toContain('Custom 1234')
+    const overrideMarks = {
+      marks: ['⏮', '◀', '▶', '⏭'],
+      gap: true,
+    }
+    expect(readMarks(1)).toEqual(overrideMarks)
 
     i18n.global.locale.value = 'de'
     await nextTick()
@@ -268,6 +354,7 @@ describe('UiPagination', () => {
     expect(read(1).map((entry) => entry.split('|')[0])).toEqual(overrideLabels)
     expect(read(1)).toContain('Step back|Back')
     expect(read(1)).toContain('Step forward|Forward')
+    expect(readMarks(1)).toEqual(overrideMarks)
   })
 
   it('supports custom pageLabel formatter and keeps update:page unchanged in de', async () => {

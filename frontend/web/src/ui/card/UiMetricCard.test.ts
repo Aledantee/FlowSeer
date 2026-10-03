@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest'
-import { createApp, h, nextTick, type Component } from 'vue'
-import UiMetricCard from './UiMetricCard.vue'
+import { createApp, h, nextTick } from 'vue'
+import UiMetricCard, { type UiMetricCardProps } from './UiMetricCard.vue'
 import { createWebI18n, type WebLocale } from '../../i18n'
+import en from '../../i18n/locales/en.json'
 
 let dispose = () => {}
 afterEach(() => {
@@ -10,19 +11,31 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
+function overrideEnglish(
+  i18n: ReturnType<typeof createWebI18n>,
+  messages: Record<string, unknown>,
+) {
+  // mergeLocaleMessage writes into the catalog object every createWebI18n
+  // shares, so the merge targets a private copy.
+  i18n.global.setLocaleMessage('en', structuredClone(en))
+  i18n.global.mergeLocaleMessage('en', messages)
+}
+
 function mountCard(
-  props: Record<string, unknown> = {},
+  props: UiMetricCardProps,
   slots: Record<string, () => unknown> = {},
   locale: WebLocale = 'en',
+  messages?: Record<string, unknown>,
 ) {
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp({
     render() {
-      return h(UiMetricCard as Component, props, slots)
+      return h(UiMetricCard, props, slots)
     },
   })
   const i18n = createWebI18n(locale)
+  if (messages) overrideEnglish(i18n, messages)
   app.use(i18n)
   app.mount(host)
   dispose = () => {
@@ -77,6 +90,16 @@ describe('UiMetricCard', () => {
     expect(host.textContent).toContain('1.234,5\u00a0Gbps')
   })
 
+  it('takes the value and unit format from the catalog', () => {
+    const { host } = mountCard(
+      { label: 'Throughput', value: 120, unit: 'Gbps' },
+      {},
+      'en',
+      { ui: { metricCard: { valueWithUnit: '{value}/{unit}' } } },
+    )
+    expect(host.querySelector('article')?.textContent).toContain('120/Gbps')
+  })
+
   it('allows valueText formatter to override complete display while preserving metric-value selector', () => {
     const { host } = mountCard({
       label: 'Throughput',
@@ -128,13 +151,13 @@ describe('UiMetricCard', () => {
     const app = createApp({
       render() {
         return h('div', [
-          h(UiMetricCard as Component, { label: 'Bare', value: 1234.5 }),
-          h(UiMetricCard as Component, {
+          h(UiMetricCard, { label: 'Bare', value: 1234.5 }),
+          h(UiMetricCard, {
             label: 'Unit',
             value: 1234.5,
             unit: 'Gbps',
           }),
-          h(UiMetricCard as Component, {
+          h(UiMetricCard, {
             label: 'Custom',
             value: 1234.5,
             valueText: (value: number) => `Custom ${value}`,

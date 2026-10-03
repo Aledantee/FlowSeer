@@ -91,6 +91,8 @@ const total = computed(() =>
 )
 
 const summary = computed(() => {
+  // Truthiness on purpose: the summary is the role="img" track's only name, and
+  // an empty one fails axe's role-img-alt, so an empty label falls back.
   if (props.label) return props.label
   const nonZero = normalizedSegments.value.filter((s) => s.count > 0)
   if (nonZero.length === 0) return n(0, 'decimal')

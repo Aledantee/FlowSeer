@@ -4,6 +4,7 @@ import { createApp, h, nextTick } from 'vue'
 import { TooltipProvider } from 'reka-ui'
 import UiTooltip from './UiTooltip.vue'
 import { createWebI18n, type WebLocale } from '../../i18n'
+import en from '../../i18n/locales/en.json'
 
 let dispose = () => {}
 afterEach(() => {
@@ -11,41 +12,66 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
-function mountTooltip(
-  props: Record<string, unknown> = {},
+function overrideEnglish(
+  i18n: ReturnType<typeof createWebI18n>,
+  messages: Record<string, unknown>,
+) {
+  // mergeLocaleMessage writes into the catalog object every createWebI18n
+  // shares, so the merge targets a private copy.
+  i18n.global.setLocaleMessage('en', structuredClone(en))
+  i18n.global.mergeLocaleMessage('en', messages)
+}
+
+function mountTooltips(
+  list: Record<string, unknown>[],
   locale: WebLocale = 'en',
+  messages?: Record<string, unknown>,
 ) {
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp({
     render() {
       return h(TooltipProvider, {}, () =>
-        h(
-          UiTooltip,
-          {
-            label: 'Quick action',
-            hint: 'Shortcut hint',
-            delayDuration: 0,
-            ...props,
-          },
-          {
-            default: () =>
-              h('button', { class: 'custom-target-button' }, 'Target Button'),
-          },
+        list.map((props) =>
+          h(
+            UiTooltip,
+            {
+              label: 'Quick action',
+              hint: 'Shortcut hint',
+              delayDuration: 0,
+              ...props,
+            },
+            {
+              default: () =>
+                h('button', { class: 'custom-target-button' }, 'Target Button'),
+            },
+          ),
         ),
       )
     },
   })
   const i18n = createWebI18n(locale)
+  if (messages) overrideEnglish(i18n, messages)
   app.use(i18n)
   app.mount(host)
   dispose = () => {
     app.unmount()
     dispose = () => {}
   }
+  return { host, i18n }
+}
+
+function mountTooltip(
+  props: Record<string, unknown> = {},
+  locale: WebLocale = 'en',
+  messages?: Record<string, unknown>,
+) {
+  const { host, i18n } = mountTooltips([props], locale, messages)
   const trigger = host.querySelector('button.custom-target-button')
-  if (!trigger) throw new Error('Missing trigger button')
-  return { host, trigger: trigger as HTMLButtonElement, i18n }
+  if (!(trigger instanceof HTMLButtonElement)) {
+    throw new Error('Missing trigger button')
+  }
+  return { host, trigger, i18n }
 }
 
 async function settle() {
@@ -56,6 +82,21 @@ async function settle() {
 
 function accessibleText(): string | null | undefined {
   return document.body.querySelector('[role="tooltip"]')?.textContent
+}
+
+function tooltipNamed(label: string): Element {
+  const name = Array.from(
+    document.body.querySelectorAll('[role="tooltip"]'),
+  ).find((el) => el.textContent?.startsWith(label))
+  const content = name?.parentElement
+  if (!content) throw new Error(`Missing open tooltip labelled ${label}`)
+  return content
+}
+
+function keyTextsOf(content: Element): (string | null)[] {
+  return Array.from(content.querySelectorAll('kbd')).map(
+    (kbd) => kbd.textContent,
+  )
 }
 
 function keyTexts(): (string | null)[] {
@@ -210,6 +251,131 @@ describe('UiTooltip', () => {
     expect(accessibleText()).toBe('Quick action Shortcut hint Strg K')
   })
 
+  it('keeps a string[] shortcut and a keyLabel override across a live locale switch', async () => {
+    const { i18n } = mountTooltips([
+      {
+        label: 'Default',
+        shortcut: { code: 'KeyK', mod: true },
+        defaultOpen: true,
+      },
+      { label: 'Array', shortcut: ['Ctrl', 'K'], defaultOpen: true },
+      {
+        label: 'Override',
+        shortcut: { code: 'KeyK', mod: true },
+        keyLabel: (key: string) => (key === 'Ctrl' ? 'Steuerung' : key),
+        defaultOpen: true,
+      },
+    ])
+    await settle()
+    const read = () =>
+      ['Default', 'Array', 'Override'].map((label) => {
+        const content = tooltipNamed(label)
+        return {
+          keys: keyTextsOf(content),
+          name: content.querySelector('[role="tooltip"]')?.textContent,
+        }
+      })
+
+    expect(read()).toEqual([
+      { keys: ['Ctrl', 'K'], name: 'Default Shortcut hint Ctrl K' },
+      { keys: ['Ctrl', 'K'], name: 'Array Shortcut hint Ctrl K' },
+      { keys: ['Steuerung', 'K'], name: 'Override Shortcut hint Steuerung K' },
+    ])
+
+    i18n.global.locale.value = 'de'
+    await settle()
+
+    expect(read()).toEqual([
+      { keys: ['Strg', 'K'], name: 'Default Shortcut hint Strg K' },
+      { keys: ['Ctrl', 'K'], name: 'Array Shortcut hint Ctrl K' },
+      { keys: ['Steuerung', 'K'], name: 'Override Shortcut hint Steuerung K' },
+    ])
+  })
+
+  it('names the tooltip with label and keys alone when there is no hint, in en and de', async () => {
+    const cases: { locale: WebLocale; name: string; keys: string[] }[] = [
+      { locale: 'en', name: 'Quick action Ctrl K', keys: ['Ctrl', 'K'] },
+      { locale: 'de', name: 'Quick action Strg K', keys: ['Strg', 'K'] },
+    ]
+    for (const { locale, name, keys } of cases) {
+      mountTooltip(
+        {
+          hint: undefined,
+          shortcut: { code: 'KeyK', mod: true },
+          defaultOpen: true,
+        },
+        locale,
+      )
+      await settle()
+
+      expect(accessibleText()).toBe(name)
+      expect(keyTexts()).toEqual(keys)
+      dispose()
+    }
+  })
+
+  it('takes every default key word and glyph from the catalog', async () => {
+    const messages = {
+      ui: {
+        tooltip: {
+          control: '[ctrl]',
+          alt: '[alt]',
+          shift: '[shift]',
+          escape: '[esc]',
+          optionMark: '[option]',
+          shiftMark: '[shift-mark]',
+          commandMark: '[command]',
+          backslashMark: '[backslash]',
+          leftMark: '[left]',
+          rightMark: '[right]',
+          upMark: '[up]',
+          downMark: '[down]',
+          enterMark: '[enter]',
+        },
+      },
+    }
+    const cases: {
+      mac: boolean
+      shortcut: Record<string, unknown>
+      keys: string[]
+    }[] = [
+      {
+        mac: false,
+        shortcut: { code: 'Escape', mod: true, alt: true, shift: true },
+        keys: ['[ctrl]', '[alt]', '[shift]', '[esc]'],
+      },
+      {
+        mac: true,
+        shortcut: { code: 'Backslash', mod: true, alt: true, shift: true },
+        keys: ['[option]', '[shift-mark]', '[command]', '[backslash]'],
+      },
+      { mac: false, shortcut: { code: 'ArrowLeft' }, keys: ['[left]'] },
+      { mac: false, shortcut: { code: 'ArrowRight' }, keys: ['[right]'] },
+      { mac: false, shortcut: { code: 'ArrowUp' }, keys: ['[up]'] },
+      { mac: false, shortcut: { code: 'ArrowDown' }, keys: ['[down]'] },
+      { mac: false, shortcut: { code: 'Enter' }, keys: ['[enter]'] },
+    ]
+    const originalPlatform = navigator.platform
+    try {
+      for (const { mac, shortcut, keys } of cases) {
+        Object.defineProperty(navigator, 'platform', {
+          value: mac ? 'MacIntel' : originalPlatform,
+          configurable: true,
+        })
+        mountTooltip({ shortcut, defaultOpen: true }, 'en', messages)
+        await settle()
+
+        expect(keyTexts()).toEqual(keys)
+        dispose()
+      }
+    } finally {
+      Object.defineProperty(navigator, 'platform', {
+        value: originalPlatform,
+        configurable: true,
+      })
+    }
+  })
+
   it('names the tooltip with label, hint, and keys separated by single spaces in en and de', async () => {
     const cases: { locale: WebLocale; name: string; keys: string[] }[] = [
       {
@@ -240,7 +406,8 @@ describe('UiTooltip', () => {
   })
 
   it('names the tooltip with label and hint alone without a shortcut or with an empty one', async () => {
-    for (const shortcut of [undefined, [] as string[]]) {
+    const shortcuts: (string[] | undefined)[] = [undefined, []]
+    for (const shortcut of shortcuts) {
       mountTooltip({ shortcut, defaultOpen: true })
       await settle()
 

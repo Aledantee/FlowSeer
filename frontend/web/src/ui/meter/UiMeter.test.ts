@@ -5,6 +5,7 @@ import { createApp, h, nextTick } from 'vue'
 import UiMeter from './UiMeter.vue'
 import UiSegmentedMeter from './UiSegmentedMeter.vue'
 import { createWebI18n, type WebLocale } from '../../i18n'
+import en from '../../i18n/locales/en.json'
 
 let dispose = () => {}
 afterEach(() => {
@@ -13,10 +14,21 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+function overrideEnglish(
+  i18n: ReturnType<typeof createWebI18n>,
+  messages: Record<string, unknown>,
+) {
+  // mergeLocaleMessage writes into the catalog object every createWebI18n
+  // shares, so the merge targets a private copy.
+  i18n.global.setLocaleMessage('en', structuredClone(en))
+  i18n.global.mergeLocaleMessage('en', messages)
+}
+
 function mount(
   component: Component,
   props: Record<string, unknown> = {},
   locale: WebLocale = 'en',
+  messages?: Record<string, unknown>,
 ) {
   const host = document.createElement('div')
   document.body.append(host)
@@ -26,6 +38,7 @@ function mount(
     },
   })
   const i18n = createWebI18n(locale)
+  if (messages) overrideEnglish(i18n, messages)
   app.use(i18n)
   app.mount(host)
   dispose = () => {
@@ -218,6 +231,26 @@ describe('UiMeter', () => {
     )
   })
 
+  it('takes the default unit, detail separator, and value format from the catalog', () => {
+    const { el } = mount(
+      UiMeter,
+      { label: 'CPU', value: 42, detail: '2 of 4' },
+      'en',
+      {
+        ui: {
+          meter: {
+            unit: 'pct',
+            detailSeparator: ' ~ ',
+            valueWithUnit: '{value}/{unit}',
+          },
+        },
+      },
+    )
+    expect(el.querySelector('.font-mono')?.textContent).toContain(
+      '42/pct ~ 2 of 4',
+    )
+  })
+
   it('follows a live locale switch for the number format and keeps explicit overrides', async () => {
     const { host, i18n } = mountLive(() => [
       h(UiMeter, { label: 'Default', value: 1234.5 }),
@@ -278,7 +311,7 @@ describe('UiSegmentedMeter', () => {
     expect(items).toEqual(['constructor', 'toString'])
   })
 
-  it('does not resolve a prototype member as a counts key label', () => {
+  it('overrides one default status label and keeps the others', () => {
     const { el } = mount(UiSegmentedMeter, {
       counts: { Healthy: 1 },
       labels: { Healthy: 'Up' },
@@ -288,6 +321,48 @@ describe('UiSegmentedMeter', () => {
       (li) => li.querySelector('span')?.textContent,
     )
     expect(items).toEqual(['Up', 'Degraded', 'Offline'])
+  })
+
+  it('ignores a labels entry the map only inherits', () => {
+    const { el } = mount(UiSegmentedMeter, {
+      counts: { Healthy: 1 },
+      labels: Object.create({ Healthy: 'Inherited' }),
+      legend: true,
+    })
+    const items = Array.from(el.querySelectorAll('li')).map(
+      (li) => li.querySelector('span')?.textContent,
+    )
+    expect(items).toEqual(['Healthy', 'Degraded', 'Offline'])
+  })
+
+  it('keeps the generated summary for an empty label, which would leave the track unnamed', () => {
+    const { el } = mount(UiSegmentedMeter, {
+      counts: { Healthy: 2, Degraded: 1 },
+      label: '',
+    })
+    expect(el.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe(
+      '2 Healthy, 1 Degraded',
+    )
+  })
+
+  it('takes the Offline label and the segment text from the catalog', () => {
+    const { el } = mount(
+      UiSegmentedMeter,
+      { counts: { Offline: 2 }, legend: true },
+      'en',
+      {
+        ui: {
+          segmentedMeter: { offline: 'Down', segmentText: '{label}={count}' },
+        },
+      },
+    )
+    expect(el.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe(
+      'Down=2',
+    )
+    expect(el.querySelector('.health-segment')?.getAttribute('title')).toBe(
+      'Down=2',
+    )
+    expect(el.querySelectorAll('li span')[2]?.textContent).toBe('Down')
   })
 
   it('applies the labels map to explicit segments', () => {
@@ -355,7 +430,8 @@ describe('UiSegmentedMeter', () => {
       }),
     ])
     const read = (index: number) => {
-      const meter = host.children[0]!.children[index]!
+      const meter = host.children[0]?.children[index]
+      if (!meter) throw new Error(`Missing meter ${index}`)
       return {
         summary: meter
           .querySelector('[role="img"]')
