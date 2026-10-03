@@ -3,7 +3,7 @@ title: Ingest Envelope and Edge Syslog Source - Plan
 type: feat
 date: 2026-10-02
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
+artifact_readiness: implementation-ready
 status: planned
 execution: mixed
 amends: docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md, docs/architecture/2026-08-20-network-model-structure-direction.md
@@ -197,23 +197,20 @@ The parent plan's Decisions apply. These are local to the phase.
   than `Limits.MaxListeners`, which defaults to eight
   (`src/protocol/syslog/receiver.go:89`,
   `src/protocol/syslog/options.go:14-15`).
-- Unconfirmed: a listener that sets `framing` and is not a TCP listener is
-  refused at load, by a rule on the message. Why: a datagram is its own
-  frame (`src/protocol/syslog/README.md:115`), so the library would ignore
-  the value, and the file refuses a backoff ceiling below its floor "rather
-  than corrected" so that no agent runs on a value nobody wrote
-  (`agent_config.proto:92-96`). No convention states that as a rule for
-  every field, so it is repeated under Open questions.
+- A listener that sets `framing` and is not a TCP listener is refused at
+  load, by a schema rule on `AgentSyslogListener`. Why: a datagram is its
+  own frame (`src/protocol/syslog/README.md:115`), so the library would
+  ignore the value, and the file refuses a backoff ceiling below its floor
+  "rather than corrected" so that no agent runs on a value nobody wrote
+  (`agent_config.proto:92-96`). (decided by the user, 2026-10-03)
 - The source counts its publish retries. Why:
   `docs/conventions/observability.md`, Required measurement families, asks a
   component that publishes durable messages for its retried operations.
-- Unconfirmed: the host exports the receiver's own losses, one observable
-  counter per statistic. Why: a wrong framing closes the connection on every
-  message (`src/protocol/syslog/README.md:116`) and leaves no record to
-  count, and the host's `observe` helper reads one value per counter
-  (`src/edge/agent/host/host.go:308-317`). The convention's families name
-  published messages and do not name a listener's frames, so it is repeated
-  under Open questions.
+- The host exports the receiver's own losses, one observable counter per
+  statistic through `observe`. Why: a wrong framing closes the connection on
+  every message (`src/protocol/syslog/README.md:116`) and leaves no record
+  to count, and the host's `observe` helper reads one value per counter
+  (`src/edge/agent/host/host.go:308-317`). (decided by the user, 2026-10-03)
 - A metric attribute of this source is named under its metrics' namespace,
   `flowseer.edge.syslog.reason`. Why: `docs/conventions/observability.md`
   (lines 81-90) admits no bare custom key, and the forwarder names its own
@@ -270,10 +267,9 @@ The parent plan's Decisions apply. These are local to the phase.
     `Oct  3 10:00:00 sw1 app: up` and a line feed arrive as one record with
     severity unset. Under auto the same bytes close the connection and
     yield no record.
-13. Unconfirmed (open question 1): a listener that sets `framing` and is not
-    a TCP listener is refused at load. Example:
-    `framing: AGENT_SYSLOG_FRAMING_LF` with `transport` unset fails
-    `LoadConfig`.
+13. A listener that sets `framing` and is not a TCP listener is refused at
+    load. Example: `framing: AGENT_SYSLOG_FRAMING_LF` with `transport` unset
+    fails `LoadConfig`.
 14. A message longer than 65,527 bytes is cut to that length and marked
     truncated, the record counts as a parse failure, and its raw evidence
     fits. Example: a 65,535-byte
@@ -431,8 +427,7 @@ of one, as every number in the file has
 `host:port` string, `transport` (`AgentSyslogTransport`: UDP = 1, TCP = 2,
 unset or zero means UDP), and `framing` (`AgentSyslogFraming`: auto = 1,
 octet counting = 2, LF = 3, CRLF = 4, NUL = 5, unset or zero means auto). A
-rule on the message refuses a `framing` on a listener that is not TCP
-(unconfirmed, open question 1).
+rule on the message refuses a `framing` on a listener that is not TCP.
 `host.Config` exposes the listeners as `syslog.ListenConfig` values and the
 two numbers. An unset framing stays empty there, which the library reads as
 auto for TCP (`src/protocol/syslog/framing.go:32-39`).
@@ -473,7 +468,7 @@ both with unit `{record}`.
 repeated publish. The host's `observe` helper
 (`src/edge/agent/host/host.go:308-317`) reads `Receiver.Stats()`
 (`src/protocol/syslog/stats.go:7-20,33`) into one observable counter per
-statistic, with no attribute (unconfirmed, open question 2):
+statistic, with no attribute:
 `flowseer.edge.syslog.receiver.received`, `.oversized`, and
 `.framing_errors` with unit `{frame}`, `.udp_dropped` with unit
 `{datagram}`, and `.pressure_closed` and `.connections_rejected` with unit
@@ -550,38 +545,3 @@ go test -race ./test/conformance/proto/... ./src/modules/localnet/access/... ./s
 - [ ] This plan's `status` is set with an outcome note under its title, and
       the parent's `Landed:` line for U1 holds the commit range.
 - [ ] No plan labels in code.
-
-## Open questions
-
-Both come out of serving TCP with a framing, and both touch U4 alone. The
-units hold the recommended answer.
-
-1. Unconfirmed: what happens to a `framing` on a listener that is not TCP?
-   The library accepts the value and never reads it for a datagram
-   (`src/protocol/syslog/receiver.go:143-147`,
-   `src/protocol/syslog/README.md:115`).
-   (a) Refused at load, by a rule on `AgentSyslogListener`. Recommended: the
-   operator wrote a setting the agent would not honor, and the file refuses
-   a backoff ceiling below its floor for that reason
-   (`spec/proto/flowseer/store/agent/v1/agent_config.proto:92-96`). The rule
-   sits in the schema, since `docs/code-style-proto.md`, Validation, puts a
-   constraint a message can express there. Cost: a file that set a framing
-   and later changes the listener to UDP stops loading until the framing
-   goes.
-   (b) Accepted and ignored, as the library does. Cost: a framing on a UDP
-   listener reads as if it did something.
-2. Unconfirmed: does the host export the receiver's loss counters?
-   (a) Yes, one observable counter per statistic through `observe`, as U4
-   lists them. Recommended: a wrong framing closes the connection on every
-   message (`src/protocol/syslog/README.md:116`), so without
-   `receiver.framing_errors` the device goes silent and nothing says why.
-   Cost: six instruments, and the convention's required families name
-   published messages, so it does not ask for them
-   (`docs/conventions/observability.md:372`).
-   (b) Yes, grouped: one counter for discarded frames and one for closed
-   connections, each with a `flowseer.edge.syslog.reason`. Cost: `observe`
-   takes no attribute (`src/edge/agent/host/host.go:308-317`), so the host
-   needs a second helper.
-   (c) No. The source exports only what it counts itself, which was the
-   scope before TCP joined. Cost: the receiver's losses stay readable only
-   from `Receiver.Stats()` inside the process.
