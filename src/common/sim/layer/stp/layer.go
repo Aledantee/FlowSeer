@@ -982,8 +982,8 @@ const (
 )
 
 func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, emissions *[]layer.Emission) {
-	// SSTP has no legacy shape: EncodeSSTP forces a version of at least 2 and
-	// DecodeSSTP refuses anything else, so a non-CIST tree that migrated to
+	// SSTP has no legacy shape: bpdu.EncodeSSTP forces a version of at least 2 and
+	// bpdu.DecodeSSTP refuses anything else, so a non-CIST tree that migrated to
 	// legacy STP has no frame it can send. It builds and meters nothing
 	// rather than sending a per-VLAN frame whose header would contradict its
 	// content.
@@ -1002,16 +1002,16 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 	}
 
 	if tx.count < int(l.txHoldCount) {
-		var bpdu bpdu.BPDU
+		var msg bpdu.BPDU
 		switch kind {
 		case emissionDesignated:
 			proposal := p.pointToPoint && p.state == StateDiscarding && !p.agreed && p.sendRSTP
-			bpdu = l.makeBPDU(t, p, now, proposal)
+			msg = l.makeBPDU(t, p, now, proposal)
 		case emissionAgreement:
-			bpdu = l.makeAgreementBPDU(t, p, now)
+			msg = l.makeAgreementBPDU(t, p, now)
 		}
 
-		built, err := l.frames(t, p, bpdu)
+		built, err := l.frames(t, p, msg)
 		if err != nil {
 			// MST.Validate rejects a region with more instances than one
 			// BPDU can carry, so this is unreachable for a Layer built
@@ -1449,7 +1449,7 @@ func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, proposal bool) bp
 	// instance's MSTI record. t is always the CIST here. The MST shape is
 	// version 3, so it is withheld on a port that has migrated to legacy STP
 	// (sendRSTP false, which already forced Version 0 and Configuration
-	// above): Encode picks the MST shape whenever ConfigID is set regardless
+	// above): bpdu.Encode picks the MST shape whenever ConfigID is set regardless
 	// of Version and Type, and a legacy peer needs a Configuration BPDU, not
 	// version 3.
 	if l.mst != nil && p.sendRSTP {

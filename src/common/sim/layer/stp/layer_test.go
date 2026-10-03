@@ -1659,7 +1659,7 @@ func TestMSTInstancesSelectIndependentRoots(t *testing.T) {
 
 // TestMSTBridgeMigratedPortEmitsPlainConfigurationBPDU is evidence that a
 // port an MST bridge has migrated to legacy STP emits a Configuration BPDU a
-// legacy peer can read, not a version 3 MST BPDU: Encode picks the MST shape
+// legacy peer can read, not a version 3 MST BPDU: bpdu.Encode picks the MST shape
 // whenever ConfigID is set regardless of Version and Type, so attaching the
 // region's configuration identifier on a migrated port would silently
 // mislabel the frame it just downgraded.
@@ -1772,11 +1772,9 @@ func TestMSTIRecordFlagsCarryThePerInstancePortRole(t *testing.T) {
 
 // TestInferiorExternalBPDUKeepsStoredInternalInformation is evidence that a
 // port's classification is assigned only after the BPDU it just received is
-// compared against what the port already stores. Before the fix, the port's
-// external flag flipped first, so the stored (internal) information was
-// read back in the external vector shape for that one comparison, dropping
-// its regional root and letting a clearly inferior external BPDU read as
-// superior.
+// compared against what the port already stores. A port's external flag does
+// not flip before comparison, preserving stored internal vector information
+// against inferior external BPDUs.
 func TestInferiorExternalBPDUKeepsStoredInternalInformation(t *testing.T) {
 	t.Parallel()
 
@@ -1855,9 +1853,9 @@ func TestInferiorExternalBPDUKeepsStoredInternalInformation(t *testing.T) {
 // TestAutoEdgeReachesAnMSTIAtTheSameWake is evidence that auto-edge detection
 // mirrors onto every MST instance's own port at the same wake the CIST's
 // fires, rather than waiting for a later LinkChange to carry it across.
-// Before the fix, an instance stayed dark two forward delays longer than the
-// CIST and then raised a topology change of its own on becoming an edge,
-// which is exactly the flush auto-edge exists to prevent.
+// Without immediate mirroring, an instance stays dark two forward delays longer than the
+// CIST and raises a topology change of its own on becoming an edge,
+// which is the flush auto-edge exists to prevent.
 func TestAutoEdgeReachesAnMSTIAtTheSameWake(t *testing.T) {
 	t.Parallel()
 
@@ -2725,9 +2723,8 @@ func TestPVSTVLAN1PathCostDoesNotLeakToOtherVLANs(t *testing.T) {
 
 // TestPVSTBPDUGuardFiresOnSSTPBPDU is evidence that an SSTP BPDU on a
 // BPDU-guarded access port disables it even on a bridge that does not run
-// PVST: ReceiveSSTP used to return before receiveLink ran, on the theory that
-// nothing should be applied to a tree that does not exist on this bridge, but
-// that also skipped the guard, which belongs to the link and must run first.
+// PVST: ReceiveSSTP runs receiveLink before checking whether a tree exists on
+// this bridge, ensuring BPDU guard runs first.
 func TestPVSTBPDUGuardFiresOnSSTPBPDU(t *testing.T) {
 	t.Parallel()
 
@@ -2766,9 +2763,8 @@ func TestPVSTBPDUGuardFiresOnSSTPBPDU(t *testing.T) {
 // TestPVSTTopologyChangeFlushesOnlyItsOwnVLAN is evidence that a topology
 // change raised while applying a BPDU to a non-VLAN-1 tree flushes that
 // tree's own VLAN, not every VLAN on every other port. applyBPDU's
-// topology-change branch used to pass nil to mergeFlushTarget, which means
-// "every FID", the same shorthand raiseTopologyChange itself uses only for
-// the CIST's empty FID set.
+// topology-change branch passes the tree's VLAN rather than nil (which means
+// "every FID").
 func TestPVSTTopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	t.Parallel()
 

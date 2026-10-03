@@ -90,7 +90,7 @@ func TestRetentionKeyCoversEveryConfigField(t *testing.T) {
 
 func TestRetentionKeyDistinguishesPortOperStatus(t *testing.T) {
 	t.Parallel()
-	cfg := bridge.Config{ProtectedPorts: []string{"1/1/1"}}
+	cfg := bridge.Config{}
 	b1 := port.NewBuilder()
 	b1.Add(port.Port{Name: "1/1/1", OperStatus: port.Up})
 	ports1, err := b1.Build()
@@ -107,6 +107,28 @@ func TestRetentionKeyDistinguishesPortOperStatus(t *testing.T) {
 	k2 := bridge.RetentionKey(cfg, layer.Env{Ports: ports2})
 	if k1 == k2 {
 		t.Errorf("RetentionKey did not distinguish OperUp and OperDown:\nk1: %s\nk2: %s", k1, k2)
+	}
+}
+
+func TestRetentionKeyDistinguishesPortAdminStatus(t *testing.T) {
+	t.Parallel()
+	cfg := bridge.Config{}
+	b1 := port.NewBuilder()
+	b1.Add(port.Port{Name: "1/1/1", AdminStatus: port.Up})
+	ports1, err := b1.Build()
+	if err != nil {
+		t.Fatalf("build ports1: %v", err)
+	}
+	b2 := port.NewBuilder()
+	b2.Add(port.Port{Name: "1/1/1", AdminStatus: port.Down})
+	ports2, err := b2.Build()
+	if err != nil {
+		t.Fatalf("build ports2: %v", err)
+	}
+	k1 := bridge.RetentionKey(cfg, layer.Env{Ports: ports1})
+	k2 := bridge.RetentionKey(cfg, layer.Env{Ports: ports2})
+	if k1 == k2 {
+		t.Errorf("RetentionKey did not distinguish AdminUp and AdminDown:\nk1: %s\nk2: %s", k1, k2)
 	}
 }
 

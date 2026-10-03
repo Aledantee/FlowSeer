@@ -285,6 +285,7 @@ func (l *Layer) Observe(now time.Time, adv Advertisement) {
 // HeldTimedOut; an entry that is no longer Incomplete has its held frames exit HeldReleased;
 // and any frame evicted from a hold queue exits HeldEvicted.
 // Settled exits wait in the layer in deterministic order until drained by DrainExits.
+// The returned layer.Effects is always empty.
 func (l *Layer) Advance(now time.Time) layer.Effects {
 	for _, vs := range l.vrfs {
 		for _, entry := range vs.neighbors {

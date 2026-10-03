@@ -103,7 +103,7 @@ const (
 // value bridges exchange and compare to decide whether they belong to the
 // same MST region.
 type ConfigID struct {
-	// Selector is always 0, "the format specified in IEEE Std 802.1Q".
+	// Selector is the configuration identifier format selector octet.
 	Selector uint8
 
 	// Name is the configuration name, at most 32 octets when encoded on the
@@ -326,13 +326,9 @@ const (
 	// (payload octet 5) that marks an MST BPDU.
 	mstProtocolVersion = 3
 
-	// mstBodyLength is the MST BPDU body length in octets, counted from the
-	// protocol version identifier through the CIST remaining hops (payload
-	// octets 3-104), before any MSTI records: the 30-octet CIST prefix (the
-	// RST body [Encode] and [Decode] already share via putBody/readBody),
-	// the version 1 and version 3 length fields, the 51-octet MST
-	// configuration identifier, the CIST internal root path cost, the CIST
-	// bridge identifier, and the CIST remaining hops.
+	// mstBodyLength is the MST BPDU body length in octets (payload octets
+	// 3-104), counted from the protocol identifier through the CIST
+	// remaining hops, before any MSTI records.
 	mstBodyLength = 102
 
 	// mstiRecordLength is the octet length of one MSTI record.
@@ -711,8 +707,8 @@ func readMSTBody(payload []byte, b *BPDU) error {
 	var digest [16]byte
 	copy(digest[:], payload[76:92])
 
-	// putBody left the RST prefix's bridge identifier at [20:28]; the MST
-	// shape uses that slot for the CIST regional root identifier instead.
+	// readBody populated b.BridgeID from payload[20:28]; the MST shape
+	// uses that slot for the CIST regional root identifier instead.
 	b.RegionalRootID = b.BridgeID
 
 	var bridgeAddr netaddr.MAC

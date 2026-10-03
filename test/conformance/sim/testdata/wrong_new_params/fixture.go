@@ -28,7 +28,7 @@ func Diff(prev, next Config) []trace.Change {
 
 type Layer struct{}
 
-func New(cfg Config, ports port.Table) (*Layer, error) {
+func New(cfg Config, _ port.Table, env layer.Env) (*Layer, error) {
 	return &Layer{}, nil
 }
 

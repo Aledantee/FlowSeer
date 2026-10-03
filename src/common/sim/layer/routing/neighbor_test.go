@@ -129,7 +129,7 @@ func TestNeighborFactReportsOrigin(t *testing.T) {
 	wantOrigin(t, routeToV4(t, observed, testNow, lifecycleDstV4, []byte("data"), true), "observed")
 }
 
-// TestRouteMissCreatesIncompleteEntryAndQueuesTheFrame is R20a's first acceptance example: a
+// TestRouteMissCreatesIncompleteEntryAndQueuesTheFrame tests that a
 // destination nothing resolved yet does not vanish as a plain drop.
 func TestRouteMissCreatesIncompleteEntryAndQueuesTheFrame(t *testing.T) {
 	t.Parallel()
@@ -369,7 +369,7 @@ func TestObserveWithNoEntryChangesNothing(t *testing.T) {
 // TestHoldQueueDropsOldestAtDepth is RFC 4861 section 7.2.2: "When a queue overflows, the new
 // arrival SHOULD replace the oldest entry." At HoldDepth 3, four queued frames release as
 // frames two through four in arrival order, and the evicted first frame is reported failed
-// rather than dropped without a trace (finding 3).
+// rather than dropped without a trace.
 func TestHoldQueueDropsOldestAtDepth(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{HoldDepth: 3})
@@ -631,10 +631,8 @@ func wantReleaseOrder(t *testing.T, trial int, exits []routing.HeldFrame, want .
 	}
 }
 
-// TestOriginatePendingResolutionKeepsHopLimit64 is finding 4: finishHeld used to decrement the
-// hop limit of every held frame, but Originate's direct (non-held) path never decrements, so a
-// datagram queued while its neighbor resolved left one hop limit lower than an identical one that
-// resolved immediately. Originate's doc comment promises hop limit 64.
+// TestOriginatePendingResolutionKeepsHopLimit64 asserts that Originate's pending held frames keep
+// hop limit 64 upon release, matching the direct non-held path.
 func TestOriginatePendingResolutionKeepsHopLimit64(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
@@ -666,10 +664,9 @@ func TestOriginatePendingResolutionKeepsHopLimit64(t *testing.T) {
 	}
 }
 
-// TestObserveDoesNotOverwriteConfiguredBinding is finding 6: a configured binding must never
-// adopt an observed MAC or gain an expiry. Without the origin check, a solicited, overriding
-// advertisement moves a configured entry to Reachable with an expiry, and aging past it demotes
-// the binding to Stale even though config.go documents that a static binding never ages out.
+// TestObserveDoesNotOverwriteConfiguredBinding asserts that a configured binding never
+// adopts an observed MAC or gains an expiry. A solicited, overriding advertisement
+// leaves a configured entry unchanged, because static bindings never age out.
 func TestObserveDoesNotOverwriteConfiguredBinding(t *testing.T) {
 	t.Parallel()
 	configuredMAC := netaddr.MAC{0x00, 0x22, 0x33, 0x44, 0x55, 0x66}
@@ -699,9 +696,8 @@ func TestObserveDoesNotOverwriteConfiguredBinding(t *testing.T) {
 	}
 }
 
-// TestAgeMovesReachableToStaleAfterReachableTime is Layer.Advance's first behavioral test in this
-// package, and so also the first test that exercises NeighborPolicy.ReachableTime: deleting the
-// expiry assignment from both Observe branches leaves every existing test passing.
+// TestAgeMovesReachableToStaleAfterReachableTime asserts that Layer.Advance moves Reachable
+// entries whose expiry has passed to Stale according to NeighborPolicy.ReachableTime.
 func TestAgeMovesReachableToStaleAfterReachableTime(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ReachableTime: 30 * time.Second})
@@ -876,8 +872,8 @@ func TestFailHeldReturnsWaitingExitsFirstAndClearsThem(t *testing.T) {
 		ResolutionTimeout: 2 * time.Second,
 	})
 
-	dst1 := netip.MustParseAddr("10.0.10.99")
-	dst2 := netip.MustParseAddr("10.0.10.100")
+	dst1 := netip.MustParseAddr("10.0.10.100")
+	dst2 := netip.MustParseAddr("10.0.10.99")
 
 	// Queue frame 1 for dst1.
 	routeToV4(t, l, testNow, dst1, []byte{0xaa}, true)

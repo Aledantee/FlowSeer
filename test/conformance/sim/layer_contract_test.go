@@ -181,7 +181,7 @@ func TestLayerContractReportsViolations(t *testing.T) {
 			},
 		},
 		{
-			name:       "wrong Validate parameter list is reported",
+			name:       "wrong Validate results is reported",
 			fixtureDir: "wrong_validate",
 			wantFindings: []string{
 				"test/conformance/sim/testdata/wrong_validate: missing Config.Validate(layer.Env) method",
@@ -209,10 +209,157 @@ func TestLayerContractReportsViolations(t *testing.T) {
 			},
 		},
 		{
-			name:       "wrong Advance signature is reported",
+			name:       "wrong Advance results is reported",
 			fixtureDir: "wrong_advance",
 			wantFindings: []string{
 				"test/conformance/sim/testdata/wrong_advance/fixture.go:44: invalid (*Layer).Advance signature, want Advance(time.Time) layer.Effects",
+			},
+		},
+		{
+			name:       "bare local Env type in Normalize is reported",
+			fixtureDir: "wrong_normalize_bare_env",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_normalize_bare_env: missing Config.Normalize(layer.Env) method",
+			},
+		},
+		{
+			name:       "wrong Advance parameter list is reported",
+			fixtureDir: "wrong_advance_params",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_advance_params/fixture.go:44: invalid (*Layer).Advance signature, want Advance(time.Time) layer.Effects",
+			},
+		},
+		{
+			name:       "wrong Diff results is reported",
+			fixtureDir: "wrong_diff_results",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_diff_results: missing Diff function",
+			},
+		},
+		{
+			name:       "wrong Config.Clone result type is reported",
+			fixtureDir: "wrong_config_clone_result",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_config_clone_result: missing Config.Clone method",
+			},
+		},
+		{
+			name:       "wrong (*Layer).Clone result type is reported",
+			fixtureDir: "wrong_layer_clone_result",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_layer_clone_result: missing (*Layer).Clone method",
+			},
+		},
+		{
+			name:       "wrong RetentionKey results is reported",
+			fixtureDir: "wrong_retention_key_results",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_retention_key_results: missing RetentionKey(cfg, layer.Env) function",
+			},
+		},
+		{
+			name:       "wrong Diff parameter list is reported",
+			fixtureDir: "wrong_diff_params",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_diff_params: missing Diff function",
+			},
+		},
+		{
+			name:       "wrong Advance time parameter type is reported",
+			fixtureDir: "wrong_advance_time_type",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_advance_time_type/fixture.go:42: invalid (*Layer).Advance signature, want Advance(time.Time) layer.Effects",
+			},
+		},
+		{
+			name:       "wrong Advance effects result type is reported",
+			fixtureDir: "wrong_advance_effects_type",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_advance_effects_type/fixture.go:46: invalid (*Layer).Advance signature, want Advance(time.Time) layer.Effects",
+			},
+		},
+		{
+			name:       "wrong Config.Clone parameter count is reported",
+			fixtureDir: "wrong_config_clone_params",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_config_clone_params: missing Config.Clone method",
+			},
+		},
+		{
+			name:       "wrong (*Layer).Clone parameter count is reported",
+			fixtureDir: "wrong_layer_clone_params",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_layer_clone_params: missing (*Layer).Clone method",
+			},
+		},
+		{
+			name:       "exported fact in subdirectory is reported",
+			fixtureDir: "sub_exported_fact",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/sub_exported_fact/sub/x.go:3: exported fact type FooFact",
+			},
+		},
+		{
+			name:       "sibling import in subdirectory is reported",
+			fixtureDir: "sub_sibling_import",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/sub_sibling_import/sub/x.go:4: forbidden sibling import of go.aledante.io/FlowSeer/src/common/sim/layer/bridge",
+			},
+		},
+		{
+			name:       "directory holding no Go files is reported",
+			fixtureDir: "no_go_files",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/no_go_files: holds no Go files",
+			},
+		},
+		{
+			name:       "pointer Config in New parameters is reported",
+			fixtureDir: "wrong_new_ptr_config",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_new_ptr_config: missing New(cfg, layer.Env) constructor",
+			},
+		},
+		{
+			name:       "pointer Config in Diff parameters is reported",
+			fixtureDir: "wrong_diff_ptr_config",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_diff_ptr_config: missing Diff function",
+			},
+		},
+		{
+			name:       "pointer Config in RetentionKey parameters is reported",
+			fixtureDir: "wrong_retention_key_ptr_config",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_retention_key_ptr_config: missing RetentionKey(cfg, layer.Env) function",
+			},
+		},
+		{
+			name:       "pointer receiver on Normalize is reported",
+			fixtureDir: "wrong_normalize_ptr_recv",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_normalize_ptr_recv: missing Config.Normalize(layer.Env) method",
+			},
+		},
+		{
+			name:       "pointer receiver on Validate is reported",
+			fixtureDir: "wrong_validate_ptr_recv",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_validate_ptr_recv: missing Config.Validate(layer.Env) method",
+			},
+		},
+		{
+			name:       "pointer receiver on Config.Clone is reported",
+			fixtureDir: "wrong_config_clone_ptr_recv",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_config_clone_ptr_recv: missing Config.Clone method",
+			},
+		},
+		{
+			name:       "value receiver on Layer.Clone is reported",
+			fixtureDir: "wrong_layer_clone_val_recv",
+			wantFindings: []string{
+				"test/conformance/sim/testdata/wrong_layer_clone_val_recv: missing (*Layer).Clone method",
 			},
 		},
 	}
@@ -372,8 +519,13 @@ func checkLayerDir(fset *token.FileSet, root, dirPath string) ([]string, int) {
 					}
 				} else if len(d.Recv.List) > 0 {
 					// Methods.
-					recvType := receiverTypeName(d.Recv.List[0].Type)
-					if recvType == "Config" {
+					recvExpr := d.Recv.List[0].Type
+					recvType := receiverTypeName(recvExpr)
+					isPtrRecv := false
+					if _, ok := recvExpr.(*ast.StarExpr); ok {
+						isPtrRecv = true
+					}
+					if recvType == "Config" && !isPtrRecv {
 						switch d.Name.Name {
 						case "Normalize":
 							if takesOnlyEnvParam(d.Type.Params) && returnsConfig(d.Type.Results) {
@@ -392,7 +544,7 @@ func checkLayerDir(fset *token.FileSet, root, dirPath string) ([]string, int) {
 					if recvType == "Layer" {
 						switch d.Name.Name {
 						case "Clone":
-							if paramCount(d.Type.Params) == 0 && returnsLayer(d.Type.Results) {
+							if isPtrRecv && paramCount(d.Type.Params) == 0 && returnsLayer(d.Type.Results) {
 								hasLayerClone = true
 							}
 						case "Advance":
@@ -454,13 +606,8 @@ func receiverTypeName(expr ast.Expr) string {
 }
 
 func isConfigType(expr ast.Expr) bool {
-	switch t := expr.(type) {
-	case *ast.Ident:
-		return t.Name == "Config"
-	case *ast.StarExpr:
-		if id, ok := t.X.(*ast.Ident); ok && id.Name == "Config" {
-			return true
-		}
+	if id, ok := expr.(*ast.Ident); ok {
+		return id.Name == "Config"
 	}
 	return false
 }

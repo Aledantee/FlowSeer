@@ -13,8 +13,8 @@ func (c Config) Normalize(_ layer.Env) Config {
 	return c
 }
 
-func (c Config) Validate() error {
-	return nil
+func (c Config) Validate(_ layer.Env) bool {
+	return true
 }
 
 func (c Config) Clone() Config {

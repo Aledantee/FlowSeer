@@ -121,10 +121,9 @@ An IGMP query learns its ingress as a router port when its IPv4 source is not
 `0.0.0.0`. An MLD query requires an IPv6 link-local source. A router port's
 `Origin` (`Configured` or `Observed`) names which of the two installed it,
 and its `Lifetime` (`Static` or `Aging`) names whether `Advance` removes it. The
-two axes replace a single `Static` boolean that used to answer both
-questions at once: a record from configuration is always `Configured` and
-`Static`, and one a learned query installs is always `Observed` and
-`Aging`, but the fields are independent so a caller reconstructing runtime
+two axes separate origin from expiry: a record from configuration is always
+`Configured` and `Static`, and one a learned query installs is always `Observed`
+and `Aging`, but the fields are independent so a caller reconstructing runtime
 state — `InstallObserved` — can install an `Observed`, `Aging` record
 carrying an expiry of its own choosing rather than one the layer computes.
 `InstallObserved` refuses to override a port a static `Config` entry already
